@@ -61,7 +61,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
       | Result.Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
         Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~cluster_token ~cluster_stack ~pending_forget:[]
-          ~pool_auto_join ~token_timeout:token_timeout_ms ~token_timeout_coefficient:token_timeout_coefficient_ms ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
+          ~pool_auto_join ~token_timeout ~token_timeout_coefficient ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
           ~other_config:[];
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true ~pIF
           ~current_operations:[] ~allowed_operations:[] ~other_config:[];

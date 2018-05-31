@@ -564,6 +564,21 @@ let upgrade_domain_type = {
       (Db.VM.get_all_records ~__context)
 }
 
+let upgrade_cluster_timeouts = {
+  description = "Upgrade cluster timeout units from milliseconds to seconds";
+  version = (fun x -> x < (5, 202)); (* the version where we switched to seconds *)
+  fn = fun ~__context ->
+    Db.Cluster.get_all ~__context
+    |> List.iter (fun self ->
+        let update_milliseconds getter setter =
+	  let value = getter ~__context ~self /. 1000. in
+	  setter ~__context ~self ~value
+        in
+        update_milliseconds Db.Cluster.get_token_timeout Db.Cluster.set_token_timeout;
+        update_milliseconds Db.Cluster.get_token_timeout_coefficient Db.Cluster.set_token_timeout_coefficient;
+    )
+}
+
 let rules = [
   upgrade_domain_type;
   upgrade_alert_priority;
@@ -589,6 +604,7 @@ let rules = [
   upgrade_recommendations_for_gpu_passthru;
   upgrade_vswitch_controller;
   default_vm_platform_device_model;
+  upgrade_cluster_timeouts;
 ]
 
 (* Maybe upgrade most recent db *)
