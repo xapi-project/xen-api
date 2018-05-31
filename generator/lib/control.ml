@@ -7,7 +7,7 @@ type exns =
   | SR_does_not_exist of string (** The specified SR could not be found *)
   | Volume_does_not_exist of string (** The specified volume could not be found in the SR *)
   | Unimplemented of string (** The operation has not been implemented *)
-  | Cancelled of string (** The operation has not been implemented *)
+  | Cancelled of string (** The operation has been cancelled *)
   | Activated_on_another_host of string (** The Volume is already active on another host *)
 [@@deriving rpcty]
 
@@ -115,23 +115,31 @@ type volume = {
   (** Amount of space currently used on the backing storage (in bytes) *)
 
   uri : string list;
-  (** A list of URIs which can be opened and used for I/O. A URI could
-      reference a local block device, a remote NFS share, iSCSI LUN or RBD
-      volume. In cases where the data may be accessed over several
-      protocols, he list should be sorted into descending order of
-      desirability. Xapi will open the most desirable URI for which it has
-      an available datapath plugin. *)
+  (** A list of URIs which can be opened and by a datapath plugin for I/O. A
+      URI could reference a local block device, a remote NFS share, iSCSI LUN
+      or RBD volume. In cases where the data may be accessed over several
+      protocols, the list should be sorted into descending order of
+      desirability. Xapi will open the most desirable URI for which it has an
+      available datapath plugin. *)
 
   keys : (string * string) list;
   (** A list of key=value pairs which have been stored in the Volume
       metadata. These should not be interpreted by the Volume plugin. *)
 } [@@deriving rpcty]
 
+type base64 = string [@@deriving rpcty]
+(** Base64-encoded data *)
 
 type changed_blocks = {
   granularity: int;
-  bitmap: string;
-  (** The changed blocks between two volumes as a base64-encoded string *)
+  (** One bit in the changed block bitmap indicates the status of an area of
+      this size, in bytes. *)
+
+  bitmap: base64;
+  (** The changed blocks between two volumes as a base64-encoded string.
+      The bits in the bitmap indicate the status of consecutive blocks of size
+      [granularity] bytes.
+      Each bit is set if the corresponding area has changed. *)
 } [@@deriving rpcty]
 
 
@@ -144,38 +152,38 @@ module Volume(R: RPC) = struct
 
   let key = Param.mk ~name:"key" ~description:["The volume key"] key
 
+  let key2 = {key with Param.name=Some "key2"}
+
   let key_list = Param.mk ~name:"key list" ~description:["List of volume keys"] key_list
-
-  let uri = Param.mk ~name:"uri" ~description:["The Storage Repository URI"]
-      Types.string
-
-  let name = Param.mk ~name:"name" ~description:
-      ["A human-readable name to associate with the new disk. This name is ";
-       "intended to be short, to be a good summary of the disk."]
-      Types.string
-
-  let description = Param.mk ~name:"description" ~description:
-      ["A human-readable description to associate with the new disk. This can ";
-       "be arbitrarily long, up to the general string size limit."]
-      Types.string
-
-  let size = Param.mk ~name:"size" ~description:
-      ["A minimum size (in bytes) for the disk. Depending on the ";
-       "characteristics of the implementation this may be rounded up to ";
-       "(for example) the nearest convenient block size. The created disk ";
-       "will not be smaller than this size."]
-      Types.int64
-
-  let sharable = Param.mk ~name:"sharable" ~description:
-      ["Indicates whether the VDI can be attached by";
-       "multiple hosts at once.";
-       "This is used for example by the HA statefile and XAPI redo log."]
-      Types.bool
 
   let volume = Param.mk ~name:"volume" ~description:
       ["Properties of the volume"] volume
 
-  let create = R.declare "create"
+  let create =
+    let name = Param.mk ~name:"name" ~description:
+        ["A human-readable name to associate with the new disk. This name is ";
+         "intended to be short, to be a good summary of the disk."]
+        Types.string
+    in
+    let description = Param.mk ~name:"description" ~description:
+        ["A human-readable description to associate with the new disk. This can ";
+         "be arbitrarily long, up to the general string size limit."]
+        Types.string
+    in
+    let size = Param.mk ~name:"size" ~description:
+        ["A minimum size (in bytes) for the disk. Depending on the ";
+         "characteristics of the implementation this may be rounded up to ";
+         "(for example) the nearest convenient block size. The created disk ";
+         "will not be smaller than this size."]
+        Types.int64
+    in
+    let sharable = Param.mk ~name:"sharable" ~description:
+        ["Indicates whether the VDI can be attached by";
+         "multiple hosts at once.";
+         "This is used for example by the HA statefile and XAPI redo log."]
+        Types.bool
+    in
+    R.declare "create"
       ["[create sr name description size] creates a new volume in [sr] with ";
        "[name] and [description]. The volume will have size >= [size] i.e. it ";
        "is always permissable for an implementation to round-up the volume to ";
@@ -210,17 +218,20 @@ module Volume(R: RPC) = struct
       ["[set_name sr volume new_name] changes the name of [volume]"]
       (dbg @-> sr @-> key @-> new_name @-> returning unit errors)
 
-  let new_description = Param.mk ~name:"new_description"
-      ~description:["New description"] Types.string
-
-  let set_description = R.declare "set_description"
+  let set_description =
+    let new_description = Param.mk ~name:"new_description"
+        ~description:["New description"] Types.string
+    in
+    R.declare "set_description"
       ["[set_description sr volume new_description] changes the description ";
        "of [volume]"]
       (dbg @-> sr @-> key @-> new_description @-> returning unit errors)
 
   let k = Param.mk ~name:"k" ~description:["Key"] Types.string
   let v = Param.mk ~name:"v" ~description:["Value"] Types.string
-  let set = R.declare "set"
+
+  let set =
+    R.declare "set"
       ["[set sr volume key value] associates [key] with [value] in the ";
        "metadata of [volume] Note these keys and values are not interpreted ";
        "by the plugin; they are intended for the higher-level software only."]
@@ -233,9 +244,11 @@ module Volume(R: RPC) = struct
        "software only."]
       (dbg @-> sr @-> key @-> k @-> returning unit errors)
 
-  let new_size = Param.mk ~name:"new_size" ~description:["New disk size"]
-      Types.int64
-  let resize = R.declare "resize"
+  let resize =
+    let new_size = Param.mk ~name:"new_size" ~description:["New disk size"]
+        Types.int64
+    in
+    R.declare "resize"
       ["[resize sr volume new_size] enlarges [volume] to be at least ";
        "[new_size]."]
       (dbg @-> sr @-> key @-> new_size @-> returning unit errors)
@@ -244,9 +257,9 @@ module Volume(R: RPC) = struct
       ["[stat sr volume] returns metadata associated with [volume]."]
       (dbg @-> sr @-> key @-> returning volume errors)
 
-  let key2 = {key with Param.name=Some "key2"}
-  let blocklist_result = Param.mk blocklist
-  let compare = R.declare "compare"
+  let compare =
+    let blocklist_result = Param.mk blocklist in
+    R.declare "compare"
       ["[compare sr volume1 volume2] compares the two volumes and returns a ";
        "result of type blocklist that describes the differences between the ";
        "two volumes. If the two volumes are unrelated, or the second volume ";
@@ -276,19 +289,20 @@ module Volume(R: RPC) = struct
        "without deleting its changed block tracking metadata"]
       (dbg @-> sr @-> key @-> returning unit errors)
 
-  let changed_blocks = Param.mk ~name:"changed_blocks" ~description:
-      ["The changed blocks between two volumes in the specified extent"]
-      changed_blocks
-
-  let offset = Param.mk ~name:"offset" ~description:
-      ["The offset of the extent for which changed blocks should be computed"]
-      Types.int64
-
-  let length = Param.mk ~name:"length" ~description:
-      ["The length of the extent for which changed blocks should be computed"]
-      Types.int
-
-  let list_changed_blocks = R.declare "list_changed_blocks"
+  let list_changed_blocks =
+    let offset = Param.mk ~name:"offset" ~description:
+        ["The offset of the extent for which changed blocks should be computed"]
+        Types.int64
+    in
+    let length = Param.mk ~name:"length" ~description:
+        ["The length of the extent for which changed blocks should be computed"]
+        Types.int
+    in
+    let changed_blocks = Param.mk ~name:"changed_blocks" ~description:
+        ["The changed blocks between two volumes in the specified extent"]
+        changed_blocks
+    in
+    R.declare "list_changed_blocks"
       ["[list_changed_blocks sr volume1 volume2] returns the blocks that";
        "have changed between [volume1] and [volume2] as a base64-encoded";
        "bitmap string"]
@@ -303,9 +317,9 @@ module Volume(R: RPC) = struct
 end
 
 type configuration = (string * string) list [@@deriving rpcty]
-(** Plugin-specific configuration which describes where and;
-    how to locate the storage repository. This may include; the
-    physical block device name, a remote NFS server and; path
+(** Plugin-specific configuration which describes where and
+    how to locate the storage repository. This may include the
+    physical block device name, a remote NFS server and path
     or an RBD storage pool. *)
 
 
@@ -336,9 +350,6 @@ type probe_results = probe_result list [@@deriving rpcty]
 module Sr(R : RPC) = struct
   open R
 
-  let uri = Param.mk ~name:"uri" ~description:["The Storage Repository URI"]
-      Types.string
-
   let configuration_p =
     Param.mk
       ~name:"configuration"
@@ -348,23 +359,31 @@ module Sr(R : RPC) = struct
                     "path or an RBD storage pool."]
       configuration
 
-  let uuid = Param.mk ~name:"uuid" ~description:["A uuid to associate with the SR."]
-      Types.string
+  let volumes = Param.mk ~name:"volumes"
+      Types.{name="volumes";
+             description=["A list of volumes"];
+             ty=Array (typ_of_volume)}
 
-  let probe_result_p = Param.mk ~name:"probe_result"
-      ~description:["Contents of the storage device"] probe_results
-
-  let probe = R.declare "probe"
+  let probe =
+    let probe_result_p = Param.mk ~name:"probe_result"
+        ~description:["Contents of the storage device"] probe_results
+    in
+    R.declare "probe"
       ["[probe configuration]: can be used iteratively to narrow down configurations";
        "to use with SR.create, or to find existing SRs on the backing storage"]
       (dbg @-> configuration_p @-> returning probe_result_p errors)
 
-
-  let name = Param.mk ~name:"name" ~description:
-      ["Human-readable name for the SR"] Types.string
-  let description = Param.mk ~name:"description" ~description:
-      ["Human-readable description for the SR"] Types.string
-  let create = R.declare "create"
+  let create =
+    let uuid = Param.mk ~name:"uuid" ~description:["A uuid to associate with the SR."]
+        Types.string
+    in
+    let name = Param.mk ~name:"name" ~description:
+        ["Human-readable name for the SR"] Types.string
+    in
+    let description = Param.mk ~name:"description" ~description:
+        ["Human-readable description for the SR"] Types.string
+    in
+    R.declare "create"
       ["[create uuid configuration name description]: creates a fresh SR"]
       (dbg @-> uuid @-> configuration_p @-> name @-> description @-> returning configuration_p errors)
 
@@ -384,30 +403,30 @@ module Sr(R : RPC) = struct
        "Sr_not_attached is thrown."]
       (dbg @-> sr @-> returning unit errors)
 
-  let stat_result = Param.mk ~name:"sr" ~description:["SR metadata"] sr_stat
-  let stat = R.declare "stat"
+  let stat =
+    let stat_result = Param.mk ~name:"sr" ~description:["SR metadata"] sr_stat in
+    R.declare "stat"
       ["[stat sr] returns summary metadata associated with [sr]. Note this ";
        "call does not return details of sub-volumes, see SR.ls."]
       (dbg @-> sr @-> returning stat_result errors)
 
-  let new_name = Param.mk ~name:"new_name"
-      ~description:["The new name of the SR"]
-      Types.string
-  let set_name = R.declare "set_name"
+  let set_name =
+    let new_name = Param.mk ~name:"new_name"
+        ~description:["The new name of the SR"]
+        Types.string
+    in
+    R.declare "set_name"
       ["[set_name sr new_name] changes the name of [sr]"]
       (dbg @-> sr @-> new_name @-> returning unit errors)
 
-  let new_description = Param.mk ~name:"new_description"
-      ~description:["The new description for the SR"]
-      Types.string
-  let set_description = R.declare "set_description"
+  let set_description =
+    let new_description = Param.mk ~name:"new_description"
+        ~description:["The new description for the SR"]
+        Types.string
+    in
+    R.declare "set_description"
       ["[set_description sr new_description] changes the description of [sr]"]
       (dbg @-> sr @-> new_description @-> returning unit errors)
-
-  let volumes = Param.mk ~name:"volumes"
-      Types.{name="volumes";
-             description=["A list of volumes"];
-             ty=Array (typ_of_volume)}
 
   let ls = R.declare "ls"
       ["[ls sr] returns a list of volumes contained within an attached SR."]

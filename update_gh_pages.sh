@@ -31,7 +31,7 @@ rm -rf $DOCDIR
 # Don't expose GH_TOKEN
 git clone --quiet --branch=slate https://${GH_TOKEN}@github.com/xapi-project/xapi-storage $DOCDIR > /dev/null 2>&1
 rm -rf $DOCDIR/source/includes/*
-_build/default/generator/src/main.exe gen_markdown --path=$DOCDIR/source/includes
+jbuilder exec generator/src/main.exe -- gen_markdown --path=$DOCDIR/source/includes
 git -C $DOCDIR config user.email "travis@travis-ci.org"
 git -C $DOCDIR config user.name "Travis"
 (cd $DOCDIR; git add *)

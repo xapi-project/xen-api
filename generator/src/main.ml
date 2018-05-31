@@ -25,7 +25,7 @@ let gen_python path =
     (fun api ->
        with_output_file (Printf.sprintf "%s/%s.py" path api.Codegen.Interfaces.name)
          (fun oc ->
-            let p = Pythongen.of_interfaces api |> Pythongen.string_of_ts in
+            let p = Pythongen.of_interfaces ~helpers:"from xapi import *" api |> Pythongen.string_of_ts in
             output_string oc p
          )
     ) Apis.apis;

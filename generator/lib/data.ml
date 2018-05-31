@@ -15,20 +15,19 @@ type xendisk = {
   params: string; (** Put into the "params" key in xenstore *)
 
   extra: (string * string) list;
-  (** Key-value pairs to be put into the "extra" subdirectory underneath the
+  (** Key-value pairs to be put into the "sm-data" subdirectory underneath the
       xenstore backend *)
 
   backend_type: string;
 } [@@deriving rpcty]
 
 type block_device = {
-  path: string; (** Path to the block device *)
-  dummy: unit;
+  path: string;
+  (** Path to the system local block device. This is equivalent to the SMAPIv1 params. *)
 } [@@deriving rpcty]
 
 type file = {
   path: string; (** Path to the raw file *)
-  dummy: unit;
 } [@@deriving rpcty]
 
 type nbd = {
@@ -36,12 +35,13 @@ type nbd = {
   (** NBD URI of the form nbd:unix:<domain-socket>:exportname=<NAME> (this
       format is used by qemu-system:
       https://manpages.debian.org/stretch/qemu-system-x86/qemu-system-x86_64.1.en.html) *)
-  dummy: unit;
 } [@@deriving rpcty]
 
 type implementation =
   | XenDisk of xendisk
+  (** This value can be used for ring connection. *)
   | BlockDevice of block_device
+  (** This value can be used for Domain0 block device access. *)
   | File of file
   | Nbd of nbd
 [@@deriving rpcty]
@@ -71,18 +71,10 @@ let uri_p = Param.mk
     ~description:["A URI which represents how to access the volume disk data."]
     Common.uri
 
-let persistent = Param.mk (* Inherit the description from the type *)
-    ~name:"persistent"
-    persistent
-
 let domain = Param.mk
     ~name:"domain"
     ~description:["An opaque string which represents the Xen domain."]
     domain
-
-let backend = Param.mk (* Inherit the description from the type *)
-    ~name:"backend"
-    backend
 
 open Idl
 
@@ -90,6 +82,10 @@ module Datapath(R: RPC) = struct
   open R
 
   let open_ =
+    let persistent = Param.mk (* Inherit the description from the type *)
+        ~name:"persistent"
+        persistent
+    in
     declare "open" [
       "[open uri persistent] is called before a disk is attached to a VM.";
       "If persistent is true then care should be taken to persist all writes";
@@ -99,6 +95,10 @@ module Datapath(R: RPC) = struct
       (dbg @-> uri_p @-> persistent @-> returning unit error)
 
   let attach =
+    let backend = Param.mk (* Inherit the description from the type *)
+        ~name:"backend"
+        backend
+    in
     declare "attach" [
       "[attach uri domain] prepares a connection between the storage named by";
       "[uri] and the Xen domain with id [domain]. The return value is the";
@@ -213,17 +213,18 @@ module Data (R : RPC) = struct
       uri
 
   let operation = Param.mk ~name:"operation" operation
+  let operations = Param.mk operations
 
-  let blocklist = Param.mk ~name:"blocklist" blocklist
-
-  let copy = declare "copy"
+  let copy =
+    let blocklist = Param.mk ~name:"blocklist" blocklist in
+    declare "copy"
       ["[copy uri domain remotes blocks] copies [blocks] from the local disk ";
        "to a remote URI. This may be called as part of a Volume Mirroring ";
        "operation, and hence may need to cooperate with whatever process is ";
        "currently mirroring writes to ensure data integrity is maintained.";
-      "The [remote] parameter is a remotely accessible URI, for example,";
-      "`nbd://root:pass@foo.com/path/to/disk` that must contain all necessary";
-      "authentication tokens"]
+       "The [remote] parameter is a remotely accessible URI, for example,";
+       "`nbd://root:pass@foo.com/path/to/disk` that must contain all necessary";
+       "authentication tokens"]
       (dbg @-> uri_p @-> domain @-> remote @-> blocklist @-> returning operation error)
 
   let mirror = declare "mirror"
@@ -232,8 +233,9 @@ module Data (R : RPC) = struct
        "mirroring process"]
       (dbg @-> uri_p @-> domain @-> remote @-> returning operation error)
 
-  let status = Param.mk status
-  let stat = declare "stat"
+  let stat =
+    let status = Param.mk status in
+    declare "stat"
       ["[stat operation] returns the current status of [operation]. For a ";
        "copy operation, this will contain progress information."]
       (dbg @-> operation @-> returning status error)
@@ -249,8 +251,8 @@ module Data (R : RPC) = struct
        "still in progress."]
       (dbg @-> operation @-> returning unit error)
 
-  let operations = Param.mk operations
-  let ls = declare "ls"
+  let ls =
+    declare "ls"
       ["[ls] returns a list of all current operations"]
       (dbg @-> returning operations error)
 

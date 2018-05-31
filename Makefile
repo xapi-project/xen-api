@@ -2,7 +2,7 @@ PYTHON_PREFIX?=/usr
 OPAM_PREFIX?=$(shell opam config var prefix)
 OPAM_LIBDIR?=$(shell opam config var lib)
 
-.PHONY: release build install uninstall clean test examples doc reindent
+.PHONY: release build install uninstall clean test doc reindent
 
 release:
 	jbuilder build @install
@@ -27,9 +27,6 @@ clean:
 
 test:
 	jbuilder runtest
-
-examples:
-	jbuilder build @gen_examples
 
 # requires odoc
 doc:

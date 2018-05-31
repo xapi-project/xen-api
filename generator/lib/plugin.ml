@@ -44,25 +44,26 @@ let dbg = Param.mk ~name:"dbg" ~description:["Debug context from the caller"]
 module Plugin(R : RPC) = struct
   open R
 
-  let query_result = Param.mk query_result
-
-  let query = declare "query"
+  let query =
+    let query_result = Param.mk query_result in
+    declare "query"
       ["Query this implementation and return its properties. This is ";
        "called by xapi to determine whether it is compatible with xapi ";
        "and to discover the supported features."]
       (dbg @-> returning query_result error)
 
-  let srs = Param.mk ~name:"srs" ~description:["The attached SRs"] srs
-
-  let ls = declare "ls"
+  let ls =
+    let srs = Param.mk ~name:"srs" ~description:["The attached SRs"] srs in
+    declare "ls"
       ["[ls dbg]: returns a list of attached SRs"]
       (dbg @-> returning srs error)
 
-  let diagnostics_p = Param.mk ~name:"diagnostics" ~description:
-      ["A string containing loggable human-readable diagnostics information"]
-      Types.string
-
-  let diagnostics = declare "diagnostics"
+  let diagnostics =
+    let diagnostics_p = Param.mk ~name:"diagnostics" ~description:
+        ["A string containing loggable human-readable diagnostics information"]
+        Types.string
+    in
+    declare "diagnostics"
       ["Returns a printable set of backend diagnostic information. ";
        "Implementations are encouraged to include any data which will ";
        "be useful to diagnose problems. Note this data should not ";
@@ -83,10 +84,9 @@ end
 module P = Plugin(Codegen.Gen ())
 
 let interfaces = Codegen.Interfaces.create
-      ~name:"plugin"
-      ~title:"The Datapath plugin interface"
-      ~description:[
-        "The Datapath plugin takes a URI which points to virtual disk data ";
-        "and chooses a Xen datapath implementation: driver domain, blkback ";
-        "implementation and caching strategy."]
-      ~interfaces:[P.implementation ()]
+    ~name:"plugin"
+    ~title:"The Plugin interface"
+    ~description:[
+      "The xapi toolstack expects all plugins to support a basic query";
+      "interface."]
+    ~interfaces:[P.implementation ()]
