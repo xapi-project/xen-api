@@ -332,7 +332,7 @@ let compute_max_host_failures_to_tolerate ~__context ?live_set ?protected_vms ()
 (* Make sure the pool is marked as overcommitted and the appropriate alert is generated. Return
    true if something changed, false otherwise *)
 let mark_pool_as_overcommitted ~__context ~live_set =
-  Xapi_clustering.with_clustering_lock_if_cluster_exists ~__context (fun () ->
+  Xapi_clustering.with_clustering_lock_if_cluster_exists ~__context __LOC__ (fun () ->
     let pool = Helpers.get_pool ~__context in
 
     let overcommitted = Db.Pool.get_ha_overcommitted ~__context ~self:pool in

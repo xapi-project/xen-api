@@ -30,7 +30,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
   (* Currently we only support corosync. If we support more cluster stacks, this
    * should be replaced by a general function that checks the given cluster_stack *)
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__(fun () ->
       let dbg = Context.string_of_task __context in
       validate_params ~token_timeout ~token_timeout_coefficient;
       let cluster_ref = Ref.make () in
