@@ -26,15 +26,15 @@ let set_ha_cluster_stack ~__context =
 (* host-local clustering lock *)
 let clustering_lock_m = Locking_helpers.Named_mutex.create "clustering"
 
-let with_clustering_lock f =
-  debug "Trying to grab host-local clustering lock...";
+let with_clustering_lock where f =
+  debug "Trying to grab host-local clustering lock... (%s)" where;
   Locking_helpers.Named_mutex.execute clustering_lock_m
-    (fun () ->
-       Stdext.Pervasiveext.finally
-         (fun () ->
-            debug "Grabbed host-local clustering lock; executing function...";
-            f ())
-         (fun () -> debug "Function execution finished; returned host-local clustering lock."))
+    (fun () -> Stdext.Pervasiveext.finally
+        (fun () ->
+           debug "Grabbed host-local clustering lock; executing function... (%s)" where;
+           f ())
+        (fun () ->
+           debug "Function execution finished; returned host-local clustering lock. (%s)" where))
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
   Db.PIF.get_records_where, and they're just strings there *)
@@ -107,15 +107,15 @@ let assert_cluster_stack_valid ~cluster_stack =
   if not (List.mem cluster_stack Constants.supported_smapiv3_cluster_stacks)
   then raise Api_errors.(Server_error (invalid_cluster_stack, [ cluster_stack ]))
 
-let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
+let with_clustering_lock_if_needed ~__context ~sr_sm_type where f =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
     | [] -> f ()
-    | _required_cluster_stacks -> with_clustering_lock f
+    | _required_cluster_stacks -> with_clustering_lock where f
 
-let with_clustering_lock_if_cluster_exists ~__context f =
+let with_clustering_lock_if_cluster_exists ~__context where f =
   match Db.Cluster.get_all ~__context with
     | [] -> f ()
-    | _ -> with_clustering_lock f
+    | _ -> with_clustering_lock where f
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
