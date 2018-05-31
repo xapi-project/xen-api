@@ -127,38 +127,34 @@ let create ~__context ~cluster ~host ~pif =
   resync_host ~__context ~host;
   cluster_host
 
+let destroy_op ~__context ~self meth =
+  with_clustering_lock __LOC__ (fun () ->
+      let dbg = Context.string_of_task __context in
+      let host = Db.Cluster_host.get_host ~__context ~self in
+      assert_operation_host_target_is_localhost ~__context ~host;
+      assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
+      let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
+      match result with
+      | Result.Ok () ->
+        Db.Cluster_host.destroy ~__context ~self;
+        debug "Cluster_host.%s was successful" meth;
+        Xapi_clustering.Daemon.disable ~__context
+      | Result.Error error ->
+        warn "Error occurred during Cluster_host.%s" meth;
+        handle_error error)
+
 let force_destroy ~__context ~self =
-  let dbg = Context.string_of_task __context in
-  let host = Db.Cluster_host.get_host ~__context ~self in
-  assert_operation_host_target_is_localhost ~__context ~host;
-  assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
-  let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
-  match result with
-  | Result.Ok () ->
-    Db.Cluster_host.destroy ~__context ~self;
-    debug "Cluster_host.force_destroy was successful";
-    Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error ->
-    warn "Error occurred during Cluster_host.force_destroy";
-    handle_error error
+  destroy_op ~__context ~self "force_destroy"
 
 let destroy ~__context ~self =
-  let dbg = Context.string_of_task __context in
-  let host = Db.Cluster_host.get_host ~__context ~self in
-  assert_operation_host_target_is_localhost ~__context ~host;
-  assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
   assert_cluster_host_enabled ~__context ~self ~expected:true;
-  let result = Cluster_client.LocalClient.leave (rpc ~__context) dbg in
-  match result with
-  (* can't include refs in case those were successfully destroyed *)
-  | Result.Ok () ->
-    Db.Cluster_host.destroy ~__context ~self;
-    debug "Cluster_host.destroy was successful";
-    Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error ->
-    warn "Error occurred during Cluster_host.destroy";
-    handle_error error
-
+  let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+  let () = match Db.Cluster.get_cluster_hosts ~__context ~self:cluster with
+    | [ _ ] ->
+      raise Api_errors.(Server_error (cluster_does_not_have_one_node, ["1"]))
+    | _ -> ()
+  in
+  destroy_op ~__context ~self "destroy"
 
 let ip_of_str str = Cluster_interface.IPv4 str
 

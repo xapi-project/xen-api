@@ -122,7 +122,7 @@ let test_destroy_forbidden_when_sr_attached () =
   Alcotest.check_raises
     ("Should raise cluster_stack_in_use: [ " ^ cluster_stack ^ " ] ")
     Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
-    (fun () -> Xapi_cluster_host.destroy ~__context ~self:cluster_host)
+    (fun () -> Xapi_cluster_host.force_destroy ~__context ~self:cluster_host)
 
 type declare_dead_args = {
   dead_members: Cluster_interface.address list;

@@ -74,7 +74,6 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
     )
 
 let destroy ~__context ~self =
-  let dbg = Context.string_of_task __context in
   let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self in
   let cluster_host = match cluster_hosts with
     | [] -> None
@@ -84,21 +83,13 @@ let destroy ~__context ~self =
       raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
   in
   Xapi_stdext_monadic.Opt.iter (fun ch ->
-    assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch
+    assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch;
+    Xapi_cluster_host.force_destroy ~__context ~self:ch
   ) cluster_host;
-  let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
-  match result with
-  | Result.Ok () ->
-    Xapi_stdext_monadic.Opt.iter (fun ch ->
-      Db.Cluster_host.destroy ~__context ~self:ch
-    ) cluster_host;
-    Db.Cluster.destroy ~__context ~self;
-    D.debug "Cluster destroyed successfully";
-    set_ha_cluster_stack ~__context;
-    Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error ->
-    D.warn "Error occurred during Cluster.destroy";
-    handle_error error
+  Db.Cluster.destroy ~__context ~self;
+  D.debug "Cluster destroyed successfully";
+  set_ha_cluster_stack ~__context;
+  Xapi_clustering.Daemon.disable ~__context
 
 let get_network ~__context ~self =
   get_network_internal ~__context ~self
