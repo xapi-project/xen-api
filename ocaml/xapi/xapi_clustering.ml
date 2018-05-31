@@ -24,11 +24,11 @@ let set_ha_cluster_stack ~__context =
   Db.Pool.set_ha_cluster_stack ~__context ~self ~value
 
 (* host-local clustering lock *)
-let clustering_lock_m = Mutex.create ()
+let clustering_lock_m = Locking_helpers.Named_mutex.create "clustering"
 
 let with_clustering_lock f =
   debug "Trying to grab host-local clustering lock...";
-  Stdext.Threadext.Mutex.execute clustering_lock_m
+  Locking_helpers.Named_mutex.execute clustering_lock_m
     (fun () ->
        Stdext.Pervasiveext.finally
          (fun () ->
