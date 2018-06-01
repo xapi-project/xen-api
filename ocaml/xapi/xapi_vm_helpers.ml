@@ -44,6 +44,13 @@ let derive_domain_type ~hVM_boot_policy =
   else
     `hvm
 
+(* Ensure that the domain-type is specified; upgrade from boot policy if needed *)
+let ensure_domain_type_is_specified ~__context ~self =
+  if Db.VM.get_domain_type ~__context ~self = `unspecified then
+    Db.VM.get_HVM_boot_policy ~__context ~self
+    |> fun hbp -> derive_domain_type ~hVM_boot_policy:hbp
+    |> fun value -> Db.VM.set_domain_type ~__context ~self ~value
+
 let derive_hvm_boot_policy ~domain_type =
   if domain_type = `hvm then
     Constants.hvm_boot_policy_bios_order
