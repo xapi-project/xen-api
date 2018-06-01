@@ -1199,6 +1199,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                (fun vbds ->
                   with_vifs_marked ~__context ~vm ~doc:"VM.start" ~op:`attach
                     (fun vifs ->
+                       Xapi_vm_helpers.ensure_domain_type_is_specified ~__context ~self:vm;
                        (* The start operation makes use of the cached memory overhead *)
                        (* value when reserving memory. It's important to recalculate  *)
                        (* the cached value before performing the start since there's  *)
@@ -1253,6 +1254,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              (fun vbds ->
                 with_vifs_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
                   (fun vifs ->
+                     Xapi_vm_helpers.ensure_domain_type_is_specified ~__context ~self:vm;
                      (* The start operation makes use of the cached memory overhead *)
                      (* value when reserving memory. It's important to recalculate  *)
                      (* the cached value before performing the start since there's  *)
@@ -1579,6 +1581,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           (fun () ->
              with_vbds_marked ~__context ~vm ~doc:"VM.resume" ~op:`attach
                (fun vbds ->
+                  Xapi_vm_helpers.ensure_domain_type_is_specified ~__context ~self:vm;
                   let snapshot = Db.VM.get_record ~__context ~self:vm in
                   let (), host = forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_resume
                       (fun session_id rpc -> Client.VM.resume rpc session_id vm start_paused force) in
@@ -1610,6 +1613,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () ->
            with_vbds_marked ~__context ~vm ~doc:"VM.resume_on" ~op:`attach
              (fun vbds ->
+                Xapi_vm_helpers.ensure_domain_type_is_specified ~__context ~self:vm;
                 let snapshot = Db.VM.get_record ~__context ~self:vm in
                 reserve_memory_for_vm ~__context ~vm ~host ~snapshot ~host_op:`vm_resume
                   (fun () ->
