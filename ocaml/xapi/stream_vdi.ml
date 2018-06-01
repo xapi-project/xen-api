@@ -92,7 +92,7 @@ let write_block ~__context filename buffer ofd len =
     Tar_unix.write_block hdr (fun ofd -> Unix.write ofd buffer 0 len |> ignore) ofd;
     (* Write the checksum as a separate file *)
     let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
-    Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write ofd (Bytes.of_string csum) 0 (String.length csum))) ofd
+    Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write_substring ofd csum 0 (String.length csum))) ofd
   with
     Unix.Unix_error (a,b,c) as e ->
     TaskHelper.exn_if_cancelling ~__context;
