@@ -450,6 +450,14 @@ let extended_do_not_copy = [
   "children";
 ] @ do_not_copy
 
+(* Update the domain_type field if it does not match the HVM_boot_policy *)
+let ensure_domain_type_is_consistent ~__context ~vm =
+  Db.VM.get_HVM_boot_policy ~__context ~self:vm
+  |> fun p -> Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:p
+  |> fun value ->
+    if Db.VM.get_domain_type ~__context ~self:vm <> value then
+      Db.VM.set_domain_type ~__context ~self:vm ~value
+
 (* This function has to be done on the master *)
 let revert_vm_fields ~__context ~snapshot ~vm =
   let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
@@ -464,6 +472,7 @@ let revert_vm_fields ~__context ~snapshot ~vm =
     then do_not_copy
     else extended_do_not_copy in
   copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy ~overrides;
+  ensure_domain_type_is_consistent ~__context ~vm;
   TaskHelper.set_progress ~__context 0.1
 
 let revert ~__context ~snapshot ~vm =
@@ -517,6 +526,7 @@ let	create_vm_from_snapshot ~__context ~snapshot =
          begin try
              Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid;
              copy_vm_fields ~__context ~metadata:snap_metadata ~dst:new_vm ~do_not_copy:do_not_copy ~overrides;
+             ensure_domain_type_is_consistent ~__context ~vm:new_vm;
              List.iter (fun (snap,_) -> Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm) snapshots;
              new_vm
            with e ->
