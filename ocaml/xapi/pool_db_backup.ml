@@ -25,7 +25,7 @@ module D = Debug.Make(struct let name="pool_db_sync" end)
 open D
 
 (* CA-18377: The smallest database that is compatible with the Miami database schema. *)
-let minimally_compliant_miami_database = Bytes.of_string
+let minimally_compliant_miami_database =
   "<database><manifest><pair key=\"schema_major_vsn\" value=\"5\"/><pair key=\"schema_minor_vsn\" value=\"35\"/><pair key=\"generation_count\" value=\"103\"/></manifest><table name=\"SR\" /><table name=\"pool\" /><table name=\"VBD_metrics\"/><table name=\"console\" /><table name=\"host\" /><table name=\"VIF_metrics\"/><table name=\"user\" /><table name=\"PBD\" /><table name=\"pool_patch\" /><table name=\"host_metrics\" /><table name=\"VLAN\" /><table name=\"Bond\" /><table name=\"VTPM\" /><table name=\"event\"/><table name=\"VBD\" /><table name=\"VM_guest_metrics\" /><table name=\"VDI\" /><table name=\"VM_metrics\"/><table name=\"task\"/><table name=\"VM\" /><table name=\"crashdump\"/><table name=\"network\" /><table name=\"PIF\" /><table name=\"host_patch\"/><table name=\"host_crashdump\"/><table name=\"SM\" /><table name=\"host_cpu\" /><table name=\"VIF\" /><table name=\"session\" /><table name=\"PIF_metrics\" /></database>"
 
 (** Write the database dump out to a file/socket *)
@@ -34,8 +34,8 @@ let write_database (s: Unix.file_descr) ~__context =
     (* CA-18377: If we're in the middle of a rolling upgrade from Miami *)
     (* to Orlando, then only send a minimally-compliant Miami database. *)
     (* Orlando hosts will ignore this database and carry on.            *)
-    let len = Bytes.length minimally_compliant_miami_database in
-    ignore (Unix.write s minimally_compliant_miami_database 0 len)
+    let len = String.length minimally_compliant_miami_database in
+    ignore (Unix.write_substring s minimally_compliant_miami_database 0 len)
   else
     Db_xml.To.fd s (Db_ref.get_database (Context.database_of __context))
 
