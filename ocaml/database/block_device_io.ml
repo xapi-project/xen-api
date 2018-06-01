@@ -385,7 +385,7 @@ let send_failure client prefix error =
 let read_separator client =
   let str = Bytes.of_string "\000" in
   Unixext.really_read client str 0 1;
-  if str <> (Bytes.of_string "|") then raise ExpectedSeparator
+  if Bytes.get str 0 <> '|' then raise ExpectedSeparator
 
 (* Read and return data of a specified length from a given file descriptor. *)
 let read_data client length =
@@ -481,7 +481,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
     (* Seek backwards in the block device to where the length is supposed to go and write it *)
     ignore_int (Unixext.seek_to block_dev_fd pos_to_write_length);
     let total_length_str = Printf.sprintf "%016d" total_length in
-    Unixext.time_limited_write block_dev_fd size_size (Bytes.of_string total_length_str) target_response_time;
+    Unixext.time_limited_write_substring block_dev_fd size_size total_length_str target_response_time;
     R.debug "Gone backwards and written the length %d at position %d" total_length pos_to_write_length;
 
     (* Set the internal pointer for this half to the position after the db, generation count and marker *)
