@@ -102,7 +102,6 @@ socket = a:TCP_NODELAY=1
 socket = l:TCP_NODELAY=1
 socket = r:SO_KEEPALIVE=1
 socket = a:SO_KEEPALIVE=1
-compression = zlib
 ${TIMEOUTSTR}
 
 [xapi]
@@ -128,6 +127,12 @@ EOF
             # If we had v5.06 or newer we would need to allow SSLv3 with
             # writec 'options -NO_SSLv3'
             # but all earlier versions choke on that option.
+
+            # Only give option 'LEGACY_CLIENT_ACCEPT' when ssl-legacy == true
+            # and CCM installed
+            if ldd ${STUNNEL} | grep -q 'citrix/libssl'; then
+                writec 'options = LEGACY_CLIENT_ACCEPT'
+            fi
         fi
     fi
     return
