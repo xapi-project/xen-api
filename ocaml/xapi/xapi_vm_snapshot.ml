@@ -241,7 +241,7 @@ let checkpoint ~__context ~vm ~new_name =
 (********************************************************************************)
 
 (* The following code have to run on the master as it manipulates the DB cache directly. *)
-let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
+let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
   if not (Pool_role.is_master ()) then
     raise Api_errors.(Server_error(internal_error, ["copy_vm_fields: Aborting because the host is not master"]));
   debug "copying metadata into %s" (Ref.string_of dst);
@@ -250,8 +250,8 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~default_values =
   List.iter
     (fun (key,value) ->
        let value =
-         if List.mem_assoc key default_values
-         then List.assoc key default_values
+         if List.mem_assoc key overrides
+         then List.assoc key overrides
          else value in
        if not (List.mem key do_not_copy)
        then DB.write_field db Db_names.vm (Ref.string_of dst) key value)
@@ -435,7 +435,7 @@ let do_not_copy = [
   "power_state";
 ]
 
-let default_values = [
+let overrides = [
   Db_names.ha_always_run, "false";
 ]
 
@@ -450,6 +450,14 @@ let extended_do_not_copy = [
   "children";
 ] @ do_not_copy
 
+(* Update the domain_type field if it does not match the HVM_boot_policy *)
+let ensure_domain_type_is_consistent ~__context ~vm =
+  Db.VM.get_HVM_boot_policy ~__context ~self:vm
+  |> fun p -> Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:p
+  |> fun value ->
+    if Db.VM.get_domain_type ~__context ~self:vm <> value then
+      Db.VM.set_domain_type ~__context ~self:vm ~value
+
 (* This function has to be done on the master *)
 let revert_vm_fields ~__context ~snapshot ~vm =
   let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
@@ -463,7 +471,8 @@ let revert_vm_fields ~__context ~snapshot ~vm =
     if post_MNR
     then do_not_copy
     else extended_do_not_copy in
-  copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy ~default_values;
+  copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy ~overrides;
+  ensure_domain_type_is_consistent ~__context ~vm;
   TaskHelper.set_progress ~__context 0.1
 
 let revert ~__context ~snapshot ~vm =
@@ -516,7 +525,8 @@ let	create_vm_from_snapshot ~__context ~snapshot =
              ~__context rpc session_id snap_record in
          begin try
              Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid;
-             copy_vm_fields ~__context ~metadata:snap_metadata ~dst:new_vm ~do_not_copy:do_not_copy ~default_values;
+             copy_vm_fields ~__context ~metadata:snap_metadata ~dst:new_vm ~do_not_copy:do_not_copy ~overrides;
+             ensure_domain_type_is_consistent ~__context ~vm:new_vm;
              List.iter (fun (snap,_) -> Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm) snapshots;
              new_vm
            with e ->
