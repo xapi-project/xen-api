@@ -23,7 +23,7 @@ This client implement the NBD protocol, and supports both the oldstyle and
 newstyle negotiations:
 https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md
 Additionally, it supports the BLOCK_STATUS extension:
-https://github.com/NetworkBlockDevice/nbd/blob/extension-blockstatus/doc/proto.md
+for the extension docs, see the same file in the extension-blockstatus branch.
 """
 
 import socket
@@ -232,7 +232,8 @@ class PythonNbdClient(object):
                  new_style_handshake=True,
                  unix=False,
                  connect=True):
-        LOGGER.info("Creating connection to address '%s' and port '%s'", address, port)
+        LOGGER.info("Creating connection to address '%s' and port '%s'",
+                    address, port)
         self._flushed = True
         self._closed = True
         self._handle = 0
@@ -374,19 +375,22 @@ class PythonNbdClient(object):
                 payload = data[2:]
                 if info_type == NBD_INFO_BLOCK_SIZE:
                     assert_protocol(len(data) == 14)
+                    sizes = struct.unpack('>LLL', payload)
                     (info['minimum_block_size'],
                      info['preferred_block_size'],
-                     info['maximum_block_size']) = struct.unpack('>LLL', payload)
+                     info['maximum_block_size']) = sizes
                     infos += [info]
                 elif info_type == NBD_INFO_EXPORT:
                     assert_protocol(len(data) == 12)
+                    export_info = struct.unpack('>QH', payload)
                     (info['size'],
-                     info['transmission_flags']) = struct.unpack('>QH', payload)
+                     info['transmission_flags']) = export_info
                     infos += [info]
                 else:
                     # The client MUST ignore information replies it does not
                     # understand.
-                    LOGGER.warning('Unsupported info reply type: %d', info_type)
+                    LOGGER.warning('Unsupported info reply type: %d',
+                                   info_type)
             elif reply_type == NBD_REP_ACK:
                 assert_protocol(not data)
                 break
@@ -419,7 +423,8 @@ class PythonNbdClient(object):
             yield reply
 
     def _send_meta_context_option(self, option, export_name, queries):
-        return list(self._process_meta_context_option(option, export_name, queries))
+        return list(self._process_meta_context_option(
+            option, export_name, queries))
 
     def set_meta_contexts(self, export_name, queries):
         """
@@ -470,15 +475,17 @@ class PythonNbdClient(object):
         Valid only during the handshake phase. Requests the given
         export and enters the transmission phase.
         """
-        LOGGER.info("Connecting to export '%s' using newstyle negotiation", exportname)
+        LOGGER.info("Connecting to export '%s' using newstyle negotiation",
+                    exportname)
         # request export
-        self._send_option(NBD_OPT_EXPORT_NAME, str.encode(exportname))
+        self._send_option(NBD_OPT_EXPORT_NAME, exportname.encode('utf-8'))
 
         # non-fixed newstyle negotiation: we get these if the server is willing
         # to allow the export
         buf = self._recvall(10)
         (self._size, self._transmission_flags) = struct.unpack(">QH", buf)
-        LOGGER.debug("NBD got size=%d transmission flags=%d", self._size, self._transmission_flags)
+        LOGGER.debug("NBD got size=%d transmission flags=%d",
+                     self._size, self._transmission_flags)
         # ignore the zeroes
         zeroes = self._recvall(124)
         LOGGER.debug("NBD got zeroes: %s", zeroes)
@@ -492,7 +499,9 @@ class PythonNbdClient(object):
         nbd_magic = self._recvall(len("NBDMAGIC"))
         assert_protocol(nbd_magic == b'NBDMAGIC')
         buf = self._recvall(8 + 8 + 4)
-        (magic, self._size, self._transmission_flags) = struct.unpack(">QQL", buf)
+        (magic,
+         self._size,
+         self._transmission_flags) = struct.unpack(">QQL", buf)
         assert_protocol(magic == 0x00420281861253)
         # ignore trailing zeroes
         self._recvall(124)
@@ -573,13 +582,16 @@ class PythonNbdClient(object):
     def _parse_structured_reply_chunk(self):
         LOGGER.debug("NBD parsing structured reply chunk")
         reply = self._recvall(4 + 2 + 2 + 8 + 4)
-        (magic, flags, reply_type, handle, data_length) = struct.unpack(">LHHQL", reply)
+        header = struct.unpack(">LHHQL", reply)
+        (magic, flags, reply_type, handle, data_length) = header
         LOGGER.debug("NBD structured reply magic='%x' flags='%s' "
                      "reply_type='%d' handle='%d' data_length='%d'",
                      magic, flags, reply_type, handle, data_length)
         assert_protocol(magic == NBD_STRUCTURED_REPLY_MAGIC)
         self._check_handle(handle)
-        fields = {'flags': flags, 'reply_type': reply_type, 'data_length': data_length}
+        fields = {'flags': flags,
+                  'reply_type': reply_type,
+                  'data_length': data_length}
         if reply_type == NBD_REPLY_TYPE_BLOCK_STATUS:
             self._handle_block_status_reply(fields)
         elif reply_type == NBD_REPLY_TYPE_NONE:
@@ -613,7 +625,8 @@ class PythonNbdClient(object):
         self._flushed = False
         self._send_request_header(NBD_CMD_WRITE, offset, len(data))
         self._s.sendall(data)
-        # TODO: the server MAY respond with a structured reply (e.g. to report errors)
+        # TODO: the server MAY respond with a structured reply (e.g. to report
+        # errors)
         self._parse_simple_reply()
         return len(data)
 
@@ -650,7 +663,8 @@ class PythonNbdClient(object):
             return True
         LOGGER.debug("NBD_CMD_FLUSH")
         self._send_request_header(NBD_CMD_FLUSH, 0, 0)
-        # TODO: the server MAY respond with a structured reply (e.g. to report errors)
+        # TODO: the server MAY respond with a structured reply (e.g. to report
+        # errors)
         self._parse_simple_reply()
         self._flushed = True
 
