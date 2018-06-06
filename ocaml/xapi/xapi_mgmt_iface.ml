@@ -157,19 +157,34 @@ let enable_himn ~__context ~addr =
 let rebind ~__context =
   run ~__context ~mgmt_enabled:!listening_all
 
-let management_ip_mutex = Mutex.create ()
-let management_ip_cond = Condition.create ()
+let ip_mutex = Mutex.create ()
+let ip_cond = Condition.create ()
 
 let wait_for_management_ip ~__context =
   let ip = ref (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "") in
   let is_connected = ref (Helpers.get_management_iface_is_connected ~__context) in
-  Mutex.execute management_ip_mutex
-    (fun () -> begin while !ip = "" && !is_connected = false do
-          Condition.wait management_ip_cond management_ip_mutex;
+  Mutex.execute ip_mutex
+    (fun () -> while !ip = "" && !is_connected = false do
+          Condition.wait ip_cond ip_mutex;
           ip := (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "");
           is_connected := (Helpers.get_management_iface_is_connected ~__context)
-        done; end);
+        done);
   !ip
+
+let has_carrier ~__context ~self =
+  let metrics = Db.PIF.get_metrics ~__context ~self in
+  Db.PIF_metrics.get_carrier ~__context ~self:metrics
+
+(* CA-280237: Called in startup sequence after creating cluster_hosts *)
+let wait_for_clustering_ip ~__context ~(self : API.ref_Cluster_host) =
+  let pIF = Db.Cluster_host.get_PIF ~__context ~self in
+  let iP = ref (Db.PIF.get_IP ~__context ~self:pIF) in
+  Mutex.execute ip_mutex (* Don't return until PIF is plugged AND has a valid IP *)
+    (fun () -> while !iP="" || not (has_carrier ~__context ~self:pIF) do
+        Condition.wait ip_cond ip_mutex;
+        iP := Db.PIF.get_IP ~__context ~self:pIF
+      done);
+  !iP
 
 let on_dom0_networking_change ~__context =
   debug "Checking to see if hostname or management IP has changed";
@@ -207,6 +222,6 @@ let on_dom0_networking_change ~__context =
   end;
   Helpers.update_domain_zero_name ~__context localhost new_hostname;
   debug "Signalling anyone waiting for the management IP address to change";
-  Mutex.execute management_ip_mutex
-    (fun () -> Condition.broadcast management_ip_cond)
+  Mutex.execute ip_mutex
+    (fun () -> Condition.broadcast ip_cond)
 

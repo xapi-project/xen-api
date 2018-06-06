@@ -112,18 +112,6 @@ let check_sharing_constraint ~__context ~sr =
                                         [ Ref.string_of sr; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
   end
 
-(** If the SR requires some cluster stacks, we resync every compatible Cluster *)
-let resync_cluster_stack_for_sr_type ~__context ~sr_sm_type ~host =
-  let required_cluster_stacks = Xapi_clustering.get_required_cluster_stacks ~__context ~sr_sm_type in
-  (* This is empty if the SR requires no cluster stack *)
-  match (Xapi_clustering.find_cluster_host ~__context ~host) with
-  | None -> ()
-  | Some cluster_host ->
-  (* check cluster_host associated with both the host and a cluster with a matching cluster_stack *)
-    let self  = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
-    if List.mem (Db.Cluster.get_cluster_stack ~__context ~self) required_cluster_stacks
-    then Xapi_cluster_host.resync_host ~__context ~host
-
 module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end)
 
 let plug ~__context ~self =
@@ -139,7 +127,6 @@ let plug ~__context ~self =
     (* This must NOT be done while holding the lock, because the functions that
        eventually get called also grab the clustering lock. We can call this
        unconditionally because the operations it calls should be idempotent. *)
-    log_and_ignore_exn (fun () -> resync_cluster_stack_for_sr_type ~__context ~sr_sm_type ~host);
     Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type (fun () ->
         Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type;
         check_sharing_constraint ~__context ~sr;
