@@ -910,8 +910,6 @@ let server_init() =
           (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
              	 table happens to be right) *)
           "Best-effort bring up of physical and sriov NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
-          "Create any necessary cluster_host objects", [ Startup.NoExnRaising ], (fun () -> Xapi_cluster_host.create_as_necessary __context (Helpers.get_localhost ~__context));
-          "resync cluster host state", [], (fun () -> Xapi_cluster_host.resync_host ~__context ~host:Helpers.(get_localhost ~__context));
           "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context));
           "initialising storage", [ Startup.NoExnRaising ],
           (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
@@ -943,20 +941,43 @@ let server_init() =
 
         let wait_management_interface () =
           let management_if = Xapi_inventory.lookup Xapi_inventory._management_interface in
-          if management_if <> "" then (
+          if management_if <> "" then begin
             debug "Waiting forever for the management interface to gain an IP address";
             let ip = wait_for_management_ip_address ~__context in
-            debug "Management interface got IP address: %s; attempting to re-plug any unplugged PBDs" ip;
+            debug "Management interface got IP address: %s, attempting to re-plug unplugged PBDs" ip;
+            (* This may fail without the clustering IP, which is why we attempt
+               another replug in maybe_wait_for_clustering_ip *)
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Create_storage.plug_unplugged_pbds __context)
-          )
+          end
+        in
+
+        let maybe_wait_for_clustering_ip () =
+          let host = Helpers.get_localhost ~__context in
+          match Xapi_clustering.find_cluster_host ~__context ~host with
+          | Some self -> begin
+              debug "Waiting forever for cluster_host to gain an IP address";
+              let ip = Xapi_mgmt_iface.(wait_for_clustering_ip ~__context ~self) in
+              debug "Got clustering IP %s, resyncing cluster_host %s" ip (Ref.string_of self);
+              Xapi_cluster_host.resync_host ~__context ~host;
+              debug "Attempting to re-plug remaining unplugged PBDs";
+              Helpers.call_api_functions ~__context (fun rpc session_id ->
+                  Create_storage.plug_unplugged_pbds __context)
+            end
+          | None -> ()
         in
 
         Startup.run ~__context [
           "fetching database backup", [ Startup.OnlySlave; Startup.NoExnRaising ],
           (fun () -> Pool_db_backup.fetch_database_backup ~master_address:(Pool_role.get_master_address())
               ~pool_secret:!Xapi_globs.pool_secret ~force:None);
-          "wait management interface to come up", [ Startup.NoExnRaising ], wait_management_interface;
+          "wait management interface to come up, re-plug unplugged PBDs", [ Startup.NoExnRaising ], wait_management_interface;
+
+          (* CA-290237, CA-290473: Create cluster objects after network objects and management IP initialised *)
+          "Create any necessary cluster_host objects", [ Startup.NoExnRaising ],
+          (fun () -> log_and_ignore_exn (fun () -> Xapi_cluster_host.create_as_necessary __context (Helpers.get_localhost ~__context)));
+          "wait for clustering IP if any, re-plug remaining unplugged PBDs", [ Startup.OnThread ],
+          (fun () -> log_and_ignore_exn (fun () -> maybe_wait_for_clustering_ip () ));
           "considering sending a master transition alert", [ Startup.NoExnRaising; Startup.OnlyMaster ],
           Xapi_pool_transition.consider_sending_alert __context;
           "Cancelling in-progress storage migrations", [], (fun () -> Storage_migrate.killall ~dbg:"xapi init");
@@ -972,7 +993,7 @@ let server_init() =
         ];
 
         debug "startup: startup sequence finished");
-    wait_to_die()
+    wait_to_die ()
   with
   | Sys.Break -> cleanup_handler 0
   | (Unix.Unix_error (e,s1,s2)) as exn ->
