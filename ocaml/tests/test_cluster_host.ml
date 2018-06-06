@@ -64,17 +64,15 @@ let test_fix_prereq () =
   let __context = Test_common.make_test_database () in
   Context.set_test_rpc __context (pif_plug_rpc __context);
   let network = Test_common.make_network ~__context () in
-  let localhost = Helpers.get_localhost ~__context in
-  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  let host = Helpers.get_localhost ~__context in
+  let pifref = Test_common.make_pif ~__context ~network ~host () in
   Alcotest.check_raises
     "Should fail when checking PIF prequisites"
     Api_errors.(Server_error (pif_has_no_network_configuration, [ Ref.string_of pifref ]))
-    (fun () -> Xapi_cluster_host.fix_pif_prerequisites __context pif);
+    (fun () -> Xapi_cluster_host.fix_pif_prerequisites __context pifref);
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
-  Xapi_cluster_host.fix_pif_prerequisites ~__context pif;
-  let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+  Xapi_cluster_host.fix_pif_prerequisites ~__context pifref;
+  let pif = Xapi_clustering.pif_of_host ~__context network host in
   Alcotest.(check unit)
     "PIF prerequisites have now been fixed"
     () (Xapi_clustering.assert_pif_prerequisites pif)
@@ -93,7 +91,7 @@ let test_create_as_necessary () =
   Alcotest.check_raises
     "create_as_necessary should fail if autojoin is set and the pool master has no cluster_host"
     Api_errors.(Server_error (internal_error,
-      [ Printf.sprintf "No cluster_host master found for cluster %s" (Ref.string_of cluster) ]))
+      [ Printf.sprintf "No cluster_host exists on master" ]))
     (fun () -> Xapi_cluster_host.create_as_necessary ~__context ~host:localhost);
   let _ = Test_common.make_cluster_host ~__context ~pIF:(fst _pif) ~host:(Helpers.get_master ~__context) ~cluster () in
   Xapi_cluster_host.create_as_necessary ~__context ~host:localhost;
@@ -101,7 +99,9 @@ let test_create_as_necessary () =
   check_cluster_option "sync_required with an existing cluster_host" None result;
   let host = Test_common.make_host ~__context () in
   let result = sync_required ~__context ~host in
-  check_cluster_option "sync_required with an existing cluster_host on master but not given host" (Some cluster) result
+  check_cluster_option
+    "sync_required with an existing cluster_host on master but not given host"
+    (Some cluster) result
 
 (* CA-275728 *)
 let test_destroy_forbidden_when_sr_attached () =

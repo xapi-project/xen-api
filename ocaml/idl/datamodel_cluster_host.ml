@@ -108,6 +108,10 @@ let t =
           ~ty:(Ref _pif) "PIF" ~default_value:(Some (VRef null_ref))
           "Reference to the PIF object"
 
+      ; field  ~qualifier:StaticRO ~lifecycle
+          ~ty:Bool "joined" ~default_value:(Some (VBool true))
+          "Whether the cluster host has joined the cluster"
+
       (* TODO: add `live` member to represent whether corosync believes that this
                cluster host actually is enabled *)
 

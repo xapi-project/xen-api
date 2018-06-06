@@ -1139,7 +1139,9 @@ let _ =
   error Api_errors.invalid_cluster_stack [ "cluster_stack" ]
     ~doc:"The cluster stack provided is not supported." ();
   error Api_errors.pif_not_attached_to_host [ "pif"; "host" ]
-    ~doc:"Cluster_host creation failed as the PIF provided is not attached to the host." ()
+    ~doc:"Cluster_host creation failed as the PIF provided is not attached to the host." ();
+  error Api_errors.cluster_host_not_joined [ "cluster_host" ]
+    ~doc:"Cluster_host operation failed as the cluster_host has not joined the cluster." ()
 
 
 let _ =

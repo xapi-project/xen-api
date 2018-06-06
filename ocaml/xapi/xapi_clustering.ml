@@ -76,9 +76,9 @@ let assert_pif_prerequisites pif =
   ignore (ip_of_pif pif);
   debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
 
-let assert_pif_attached_to ~__context ~host ~pif =
-  if not (List.mem pif (Db.Host.get_PIFs ~__context ~self:host)) then
-    raise Api_errors.(Server_error (pif_not_attached_to_host, [Ref.string_of pif; Ref.string_of host]))
+let assert_pif_attached_to ~__context ~host ~pIF =
+  if not (List.mem pIF (Db.Host.get_PIFs ~__context ~self:host)) then
+    raise Api_errors.(Server_error (pif_not_attached_to_host, [Ref.string_of pIF; Ref.string_of host]))
 
 let handle_error = function
   | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
@@ -127,15 +127,13 @@ let find_cluster_host ~__context ~host =
     raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of host)]))
   | _ -> None
 
+let get_master_pif ~__context =
+  match find_cluster_host ~__context ~host:Helpers.(get_master ~__context) with
+  | Some self -> Db.Cluster_host.get_PIF ~__context ~self
+  | None -> raise Api_errors.(Server_error (internal_error, [ "No cluster_host exists on master" ]))
+
 let get_network_internal ~__context ~self =
-  let cluster_host = match find_cluster_host ~__context ~host:Helpers.(get_master ~__context) with
-  | Some cluster_host -> cluster_host
-  | None ->
-    raise Api_errors.(Server_error (internal_error,
-    [ Printf.sprintf "No cluster_host master found for cluster %s" (Ref.string_of self) ]))
-  in
-  let master_pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
-  let cluster_network = Db.PIF.get_network ~__context ~self:master_pif in
+  let cluster_network = Db.PIF.get_network ~__context ~self:(get_master_pif ~__context) in
   if List.exists
     (fun cluster_host ->
       let pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
@@ -233,7 +231,7 @@ let rpc ~__context =
   match Context.get_test_clusterd_rpc __context with
   | Some rpc -> rpc
   | None ->
-     Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
+    Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
 
 let is_clustering_disabled_on_host ~__context host =
   match find_cluster_host ~__context ~host with
@@ -243,6 +241,6 @@ let is_clustering_disabled_on_host ~__context host =
 let compute_corosync_max_host_failures ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   let nhosts = List.length (all_hosts) in
-  let disabled_hosts = List.length (List.filter (fun host -> is_clustering_disabled_on_host ~__context host = true ) all_hosts) in
+  let disabled_hosts = List.length (List.filter (fun host -> is_clustering_disabled_on_host ~__context host) all_hosts) in
   let corosync_ha_max_hosts = ((nhosts - disabled_hosts  - 1) / 2) + disabled_hosts in
   corosync_ha_max_hosts

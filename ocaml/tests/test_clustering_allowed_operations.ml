@@ -19,7 +19,7 @@ let assert_true msg x = Alcotest.(check bool) msg true x
 (** cluster_create is not allowed if a cluster already exists *)
 let test_pool_cluster_create_not_allowed_when_cluster_exists () =
   let __context = make_test_database () in
-  let self = Db.Pool.get_all ~__context |> List.hd in
+  let self = Helpers.get_pool ~__context in
   let _, _ = make_cluster_and_cluster_host ~__context () in
   Xapi_pool_helpers.update_allowed_operations ~__context ~self;
   let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
@@ -29,7 +29,7 @@ let test_pool_cluster_create_not_allowed_when_cluster_exists () =
 (** cluster_create is not allowed if any pool operations are in progress *)
 let test_pool_cluster_create_not_allowed_during_pool_ops () =
   let __context = make_test_database () in
-  let self = Db.Pool.get_all ~__context |> List.hd in
+  let self = Helpers.get_pool ~__context in
   Xapi_pool_helpers.with_pool_operation ~__context ~self ~doc:"" ~op:`ha_enable
     (fun () ->
        let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
@@ -40,7 +40,7 @@ let test_pool_cluster_create_not_allowed_during_pool_ops () =
     operations in progress *)
 let test_pool_cluster_create_allowed () =
   let __context = make_test_database () in
-  let self = Db.Pool.get_all ~__context |> List.hd in
+  let self = Helpers.get_pool ~__context in
   Xapi_pool_helpers.update_allowed_operations ~__context ~self;
   let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
   assert_true "Pool.allowed_operations should contain 'cluster_create'"
@@ -101,6 +101,14 @@ let test_cluster_host_ops_not_allowed_during_cluster_host_op () =
        let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
        assert_true "Cluster_host.allowed_operations should be empty" (allowed_ops = []))
 
+let with_cluster_op ~__context self op =
+  Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"" ~op
+    (fun () -> ())
+
+let with_cluster_host_op ~__context self op =
+  Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"" ~op
+    (fun () -> ())
+
 let test_clustering_ops_disallowed_during_rolling_upgrade () =
   let __context = Test_common.make_test_database () in
 
@@ -110,16 +118,8 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
       (fun op ->
          Alcotest.(check unit)
            "Clustering operations should be allowed"
-           () (with_cluster_fn self op)
+           () (with_cluster_fn ~__context self op)
       ) ops
-  in
-  let with_cluster_op self op =
-    Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"" ~op
-      (fun () -> ())
-  in
-  let with_cluster_host_op self op =
-    Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"" ~op
-      (fun () -> ())
   in
   let cluster, cluster_host =
     Test_common.make_cluster_and_cluster_host ~__context ()
@@ -151,7 +151,7 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
        Alcotest.check_raises
          "Other than cluster_host enable/disable, no clustering operations should be allowed during RPU"
          Api_errors.(Server_error (not_supported_during_upgrade, []))
-         (fun () -> with_cluster_op cluster op)
+         (fun () -> with_cluster_op ~__context cluster op)
     ) [ `add ; `remove ; `destroy];
 
   test_clustering_ops_should_pass
@@ -160,6 +160,20 @@ let test_clustering_ops_disallowed_during_rolling_upgrade () =
     [ `enable ; `disable ];
 
   test_cluster_host_operations_valid ()
+
+let test_cluster_host_ops_without_join () =
+  (* Note that joined:true by default so no need to check *)
+  let __context = make_test_database () in
+  let cluster, cluster_host = make_cluster_and_cluster_host ~__context ~host:Helpers.(get_localhost ~__context) () in
+  Db.Cluster_host.set_joined ~__context ~self:cluster_host ~value:false;
+
+  List.iter
+    (fun op ->
+      Alcotest.check_raises
+        "Non-remove cluster operations invalid when not cluster_host.joined"
+        Api_errors.(Server_error (cluster_host_not_joined, [ Ref.string_of cluster_host ]))
+        (fun () -> with_cluster_host_op ~__context cluster_host op)
+    ) Xapi_cluster_host_helpers.all_cluster_host_operations
 
 let test =
   [ "test_pool_cluster_create_not_allowed_when_cluster_exists", `Quick, test_pool_cluster_create_not_allowed_when_cluster_exists
@@ -171,4 +185,5 @@ let test =
   ; "test_cluster_host_enable_allowed", `Quick, test_cluster_host_enable_allowed
   ; "test_cluster_host_ops_not_allowed_during_cluster_host_op", `Quick, test_cluster_host_ops_not_allowed_during_cluster_host_op
   ; "test_clustering_ops_disallowed_during_rolling_upgrade", `Quick, test_clustering_ops_disallowed_during_rolling_upgrade
+  ; "test_cluster_host_ops_without_join", `Quick, test_cluster_host_ops_without_join
   ]

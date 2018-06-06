@@ -30,7 +30,6 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
   (* Currently we only support corosync. If we support more cluster stacks, this
    * should be replaced by a general function that checks the given cluster_stack *)
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
-  (* TODO: take network lock *)
   with_clustering_lock (fun () ->
       let dbg = Context.string_of_task __context in
       validate_params ~token_timeout ~token_timeout_coefficient;
@@ -64,7 +63,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
           ~pool_auto_join ~token_timeout ~token_timeout_coefficient ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
           ~other_config:[];
         Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true ~pIF
-          ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+          ~current_operations:[] ~allowed_operations:[] ~other_config:[] ~joined:true;
         Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         set_ha_cluster_stack ~__context;
@@ -142,6 +141,7 @@ let pool_force_destroy ~__context ~self =
   let slave_cluster_hosts =
     Db.Cluster.get_cluster_hosts ~__context ~self |> filter_on_option master_cluster_host
   in
+  debug "Destroying cluster_hosts in pool";
   (* First try to destroy each cluster_host - if we can do so safely then do *)
   List.iter
     (fun cluster_host ->
@@ -175,14 +175,14 @@ let pool_force_destroy ~__context ~self =
     [] all_remaining_cluster_hosts
     in
 
-    begin
-    match exns with
-    | [] -> D.debug "Cluster.force_destroy was successful"
-    | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
+    begin match exns with
+      | [] -> D.debug "Successfully destroyed all cluster_hosts in pool, now destroying cluster %s" (Ref.string_of self)
+      | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
     end;
 
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster.destroy ~rpc ~session_id ~self)
+      Client.Client.Cluster.destroy ~rpc ~session_id ~self);
+    debug "Cluster_host.force_destroy was successful"
 
 (* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
 let pool_destroy ~__context ~self =
@@ -212,6 +212,7 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
   List.iter
     (fun host -> log_and_ignore_exn
         (fun () ->
+           Xapi_cluster_host.create_as_necessary ~__context ~host;
            Xapi_cluster_host.resync_host ~__context ~host;
            if is_clustering_disabled_on_host ~__context host
            then raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
