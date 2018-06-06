@@ -356,7 +356,7 @@ let _ =
 		t, dest, "raw"
 	| _, _, Some (`Nbd (server, export_name)), _, _, _ ->
 		let dest = rewrite_url dest in
-		let t = Impl.make_stream common (src ^ ":" ^ server ^ ":" ^ export_name) None "nbdhybrid" "raw" in
+		let t = Impl.make_stream common (src ^ ":" ^ server ^ ":" ^ export_name ^ ":" ^ (Int64.to_string size)) None "nbdhybrid" "raw" in
 		t, dest, "raw"
 	| true, _, Some (`Vhd vhd), _, _, _ ->
 		let dest = rewrite_url dest in

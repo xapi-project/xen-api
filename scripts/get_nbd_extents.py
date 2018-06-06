@@ -37,7 +37,7 @@ MAX_REQUEST_LEN = 2 ** 32 - 1
 MAX_REQUEST_LEN = MAX_REQUEST_LEN - (MAX_REQUEST_LEN % 512)
 
 
-def _get_extents(path, exportname):
+def _get_extents(path, exportname, offset, length):
     with PythonNbdClient(address=path,
                          exportname=exportname,
                          unix=True,
@@ -61,8 +61,11 @@ def _get_extents(path, exportname):
             'Connected to NBD export %s served at path %s of size %d bytes',
             exportname, path, size)
 
-        offset = 0
-        while offset < size:
+        if (offset < 0) or (length <= 0) or ((offset + length) > size):
+            raise ValueError("Offset={} and length={} out of bounds: "
+                             "export has size {}".format(offset, length, size))
+        end = offset + length
+        while offset < end:
             request_len = min(MAX_REQUEST_LEN, size - offset)
             replies = client.query_block_status(offset, request_len)
 
@@ -85,9 +88,9 @@ def _get_extents(path, exportname):
             assert_protocol(reply['context_id'] == meta_context_id)
             descriptors = reply['descriptors']
             for descriptor in descriptors:
-                (length, flags) = descriptor
-                yield {'length': length, 'flags': flags}
-                offset += length
+                (extent_length, flags) = descriptor
+                yield {'length': extent_length, 'flags': flags}
+                offset += extent_length
                 assert_protocol(offset <= size)
 
 
@@ -113,12 +116,28 @@ def _main():
             '--exportname',
             required=True,
             help="The export name of the device to connect to")
+        parser.add_argument(
+            '--offset',
+            required=True,
+            type=int,
+            help="The returned list of extents will be computed "
+                 "starting from this offset")
+        parser.add_argument(
+            '--length',
+            required=True,
+            type=int,
+            help="The returned list of extents will be computed "
+                 "for an area of this length starting at the given offset")
 
         args = parser.parse_args()
         LOGGER.debug('Called with args %s', args)
 
         extents = list(
-            _get_extents(path=args.path, exportname=args.exportname))
+            _get_extents(
+                path=args.path,
+                exportname=args.exportname,
+                offset=args.offset,
+                length=args.length))
         print json.dumps(extents)
     except Exception as exc:
         LOGGER.exception(exc)

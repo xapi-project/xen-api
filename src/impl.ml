@@ -624,13 +624,14 @@ let retry common retries f =
 let make_stream common source relative_to source_format destination_format =
   match source_format, destination_format with
   | "nbdhybrid", "raw" ->
-    begin match Re.Str.bounded_split colon source 3 with
-    | [ raw; nbd_server; export_name ] -> begin
+    begin match Re.Str.bounded_split colon source 4 with
+    | [ raw; nbd_server; export_name; size ] -> begin
+      let size = Int64.of_string size in
       Vhd_format_lwt.IO.openfile raw false >>= fun raw ->
-      Nbd_input.raw raw nbd_server export_name
+      Nbd_input.raw raw nbd_server export_name size
       end
     | _ ->
-      fail (Failure (Printf.sprintf "Failed to parse nbdhybrid source: %s (expecting <raw_disk>:<nbd_server>:<export_name>" source))
+      fail (Failure (Printf.sprintf "Failed to parse nbdhybrid source: %s (expecting <raw_disk>:<nbd_server>:<export_name>:<size>" source))
     end
   | "hybrid", "raw" ->
     (* expect source to be block_device:vhd *)
