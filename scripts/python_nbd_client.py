@@ -660,13 +660,14 @@ class PythonNbdClient(object):
         """
         if self._need_flush() is False:
             self._flushed = True
-            return True
+            return False
         LOGGER.debug("NBD_CMD_FLUSH")
         self._send_request_header(NBD_CMD_FLUSH, 0, 0)
         # TODO: the server MAY respond with a structured reply (e.g. to report
         # errors)
         self._parse_simple_reply()
         self._flushed = True
+        return True
 
     def query_block_status(self, offset, length):
         """
