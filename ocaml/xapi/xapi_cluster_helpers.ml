@@ -45,23 +45,29 @@ let get_operation_error ~__context ~self ~op =
   let ref_str = Ref.string_of self in
 
   let current_error = None in
-
   let check c f = match c with | Some e -> Some e | None -> f () in
+
+  let assert_allowed_during_rpu __context = function
+    | `add | `remove | `destroy when Helpers.rolling_upgrade_in_progress ~__context ->
+      Some (Api_errors.not_supported_during_upgrade, [])
+    | _ -> None
+  in
 
   (* if other operations are in progress, check that the new operation is allowed concurrently with them *)
   let current_error = check current_error (fun () ->
       let current_ops = cr.Db_actions.cluster_current_operations in
-      if (current_ops <> []) && not (is_allowed_concurrently ~op ~current_ops)
-      then report_concurrent_operations_error ~current_ops ~ref_str
-      else None)
+      match current_ops with
+      | _::_ when not (is_allowed_concurrently ~op ~current_ops) ->
+        report_concurrent_operations_error ~current_ops ~ref_str
+      | _ ->
+        check
+          (assert_allowed_during_rpu __context op)
+          (fun () -> None)
+    )
   in
   current_error
 
 let assert_operation_valid ~__context ~self ~op =
-  begin match (Helpers.rolling_upgrade_in_progress ~__context), op with
-    | true, (`add | `remove | `destroy) -> raise Api_errors.(Server_error (not_supported_during_upgrade, []))
-    | _, _                              -> ()
-  end;
   match get_operation_error ~__context ~self ~op with
   | None       -> ()
   | Some (a,b) -> raise (Api_errors.Server_error (a,b))
