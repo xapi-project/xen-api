@@ -616,6 +616,11 @@ let retry common retries f =
            aux (n - 1)) in
   aux retries
 
+(** [make_stream common source relative_to source_format destination_format]
+    returns a lazy stream of extents to copy. [source_format] determines the
+    way in which the [source] and [relative_to] strings sould be interpreted
+    and how their data and metadata can be accessed. If [relative_to] is
+    specified, then the changes from it will will be returned. *)
 let make_stream common source relative_to source_format destination_format =
   match source_format, destination_format with
   | "nbdhybrid", "raw" ->
