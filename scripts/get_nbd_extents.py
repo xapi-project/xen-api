@@ -36,9 +36,13 @@ MAX_REQUEST_LEN = 2 ** 32 - 1
 # it looks like this is not required for qemu 2.12.
 MAX_REQUEST_LEN = MAX_REQUEST_LEN - (MAX_REQUEST_LEN % 512)
 
+
 def _get_extents(path, exportname):
-    with PythonNbdClient(
-        address=path, exportname=exportname, unix=True, use_tls=False, connect=False) as client:
+    with PythonNbdClient(address=path,
+                         exportname=exportname,
+                         unix=True,
+                         use_tls=False,
+                         connect=False) as client:
 
         client.negotiate_structured_reply()
 
@@ -70,9 +74,11 @@ def _get_extents(path, exportname):
             reply = replies[0]
 
             # First make sure it's a block status reply
-            if python_nbd_client.is_error_chunk(reply_type=reply['reply_type']):
+            if python_nbd_client.is_error_chunk(
+                    reply_type=reply['reply_type']):
                 raise Exception('Received error: {}'.format(reply))
-            if reply['reply_type'] != python_nbd_client.NBD_REPLY_TYPE_BLOCK_STATUS:
+            if reply['reply_type'] != \
+                    python_nbd_client.NBD_REPLY_TYPE_BLOCK_STATUS:
                 raise Exception('Unexpected reply: {}'.format(reply))
 
             # Then process the returned block status info
@@ -80,7 +86,7 @@ def _get_extents(path, exportname):
             descriptors = reply['descriptors']
             for descriptor in descriptors:
                 (length, flags) = descriptor
-                yield {'length':length, 'flags':flags}
+                yield {'length': length, 'flags': flags}
                 offset += length
                 assert_protocol(offset <= size)
 
@@ -111,7 +117,8 @@ def _main():
         args = parser.parse_args()
         LOGGER.debug('Called with args %s', args)
 
-        extents = list(_get_extents(path=args.path, exportname=args.exportname))
+        extents = list(
+            _get_extents(path=args.path, exportname=args.exportname))
         print json.dumps(extents)
     except Exception as exc:
         LOGGER.exception(exc)
