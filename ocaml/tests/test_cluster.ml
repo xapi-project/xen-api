@@ -58,9 +58,12 @@ let test_create_destroy_status () =
 let test_enable () =
   let __context = Test_common.make_test_database () in
   let cluster = create_cluster ~__context () in
-  (* simulate xapi getting restarted *)
 
-  Create_storage.maybe_reenable_cluster_host __context;
+  (* simulate xapi getting restarted *)
+  begin match Xapi_clustering.find_cluster_host ~__context ~host:Helpers.(get_localhost ~__context) with
+    | Some self -> Xapi_cluster_host.enable ~__context ~self
+    | None -> Alcotest.fail "Couldn't find freshly-created cluster_host"
+  end;
   pool_destroy ~__context ~self:cluster
 
 let test_invalid_cluster_stack () =
