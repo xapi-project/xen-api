@@ -72,11 +72,18 @@ let join_internal ~__context ~self =
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let cluster_token = Db.Cluster.get_cluster_token ~__context ~self:cluster in
       let ip = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) in
-      let ip_list = List.map (fun self ->
-        let p_ref = Db.Cluster_host.get_PIF ~__context ~self in
-        let p_rec = Db.PIF.get_record ~__context ~self:p_ref in
-          ip_of_pif (p_ref,p_rec)
+      let ip_list = Xapi_stdext_std.Listext.List.filter_map (fun self ->
+          let p_ref = Db.Cluster_host.get_PIF ~__context ~self in
+          let p_rec = Db.PIF.get_record ~__context ~self:p_ref in
+          (* parallel join: some hosts may not have an IP yet *)
+          try
+            let other_ip = ip_of_pif (p_ref,p_rec) in
+            if other_ip <> ip then Some other_ip
+            else None
+          with _ -> None
         ) (Db.Cluster.get_cluster_hosts ~__context ~self:cluster) in
+      if ip_list = [] then
+        raise Api_errors.(Server_error (no_cluster_hosts_reachable, [Ref.string_of cluster]));
 
       debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self);
       Xapi_clustering.Daemon.enable ~__context;
