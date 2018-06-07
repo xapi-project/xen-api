@@ -36,6 +36,12 @@ let _sendfile from_fd to_fd len =
   in
   loop max_attempts
 
+let maybe_fdatasync stat to_fd =
+  match stat.Lwt_unix.LargeFile.st_kind with
+  | Unix.S_REG | Unix.S_BLK ->
+    Lwt_unix.fdatasync to_fd
+  | _ -> Lwt.return_unit
+
 (* The OS implementation can return short (e.g. Linux will stop at a 2GiB boundary).
    This function keeps copying until all the bytes are copied. *)
 let rec sendfile from_fd to_fd len =
@@ -77,12 +83,14 @@ let rec sendfile from_fd to_fd len =
     (fun from_fd ->
       with_blocking_fd to_fd
         (fun to_fd ->
+          Lwt_unix.LargeFile.fstat to_fd
+          >>= fun stat ->
           let rec loop remaining =
             if remaining > 0L then begin
               let to_write = min sync_limit remaining in
               write from_fd to_fd to_write
               >>= fun written ->
-              Lwt_unix.fdatasync to_fd
+              maybe_fdatasync stat to_fd
               >>= fun () ->
               loop (Int64.sub remaining written)
             end else return () in
