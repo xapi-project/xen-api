@@ -162,36 +162,31 @@ let ip_cond = Condition.create ()
 
 let wait_for_ip get_ip is_connected =
   let rec loop () =
-    let ip = get_ip () in
+    let ip = match get_ip () with Some x -> x | None -> "" in
     let connected = is_connected () in
     if ip = "" || not connected then begin
       debug "wait_for_ip (IP=%s, connected:%b), waiting" ip connected;
       Condition.wait ip_cond ip_mutex;
       loop ()
-    end
-    else ip
+    end else ip
   in
   Mutex.execute ip_mutex loop
 
 let wait_for_management_ip ~__context =
-  let get_ip () = match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "" in
+  let get_ip () = Helpers.get_management_ip_addr ~__context in
   let is_connected () = Helpers.get_management_iface_is_connected ~__context in
   wait_for_ip get_ip is_connected
-
-let has_carrier ~__context ~self =
-  let metrics = Db.PIF.get_metrics ~__context ~self in
-  Db.PIF_metrics.get_carrier ~__context ~self:metrics
 
 (* CA-280237: Called in startup sequence after creating cluster_hosts *)
 let wait_for_clustering_ip ~__context ~(self : API.ref_Cluster_host) =
   let pIF = Db.Cluster_host.get_PIF ~__context ~self in
-  let iP = ref (Db.PIF.get_IP ~__context ~self:pIF) in
-  Mutex.execute ip_mutex (* Don't return until PIF is plugged AND has a valid IP *)
-    (fun () -> while !iP="" || not (has_carrier ~__context ~self:pIF) do
-        Condition.wait ip_cond ip_mutex;
-        iP := Db.PIF.get_IP ~__context ~self:pIF
-      done);
-  !iP
+  let network = Db.PIF.get_network ~__context ~self:pIF in
+  let bridge = Db.Network.get_bridge ~__context ~self:network in
+  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pIF in
+  debug "Waiting for clustering IP on bridge %s (%s)" bridge (Ref.string_of pIF);
+  let get_ip () = Helpers.get_primary_ip_addr ~__context bridge primary_address_type in
+  let is_connected () = Helpers.get_bridge_is_connected ~__context bridge in
+  wait_for_ip get_ip is_connected
 
 let on_dom0_networking_change ~__context =
   debug "Checking to see if hostname or management IP has changed";
