@@ -151,7 +151,7 @@ let destroy ~__context ~self =
   let cluster = Db.Cluster_host.get_cluster ~__context ~self in
   let () = match Db.Cluster.get_cluster_hosts ~__context ~self:cluster with
     | [ _ ] ->
-      raise Api_errors.(Server_error (cluster_does_not_have_one_node, ["1"]))
+      raise Api_errors.(Server_error (cluster_host_is_last, [Ref.string_of self]))
     | _ -> ()
   in
   destroy_op ~__context ~self "destroy"
