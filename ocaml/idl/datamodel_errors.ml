@@ -1141,7 +1141,10 @@ let _ =
   error Api_errors.pif_not_attached_to_host [ "pif"; "host" ]
     ~doc:"Cluster_host creation failed as the PIF provided is not attached to the host." ();
   error Api_errors.cluster_host_not_joined [ "cluster_host" ]
-    ~doc:"Cluster_host operation failed as the cluster_host has not joined the cluster." ()
+    ~doc:"Cluster_host operation failed as the cluster_host has not joined the cluster." ();
+  error Api_errors.cluster_host_is_last ["cluster_host"]
+    ~doc:"The last cluster host cannot be destroyed. Destroy the cluster instead" ()
+
 
 
 let _ =
