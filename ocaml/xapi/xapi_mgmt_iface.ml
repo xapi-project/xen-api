@@ -160,16 +160,23 @@ let rebind ~__context =
 let ip_mutex = Mutex.create ()
 let ip_cond = Condition.create ()
 
+let wait_for_ip get_ip is_connected =
+  let rec loop () =
+    let ip = get_ip () in
+    let connected = is_connected () in
+    if ip = "" || not connected then begin
+      debug "wait_for_ip (IP=%s, connected:%b), waiting" ip connected;
+      Condition.wait ip_cond ip_mutex;
+      loop ()
+    end
+    else ip
+  in
+  Mutex.execute ip_mutex loop
+
 let wait_for_management_ip ~__context =
-  let ip = ref (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "") in
-  let is_connected = ref (Helpers.get_management_iface_is_connected ~__context) in
-  Mutex.execute ip_mutex
-    (fun () -> while !ip = "" || not !is_connected do
-          Condition.wait ip_cond ip_mutex;
-          ip := (match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "");
-          is_connected := (Helpers.get_management_iface_is_connected ~__context)
-        done);
-  !ip
+  let get_ip () = match Helpers.get_management_ip_addr ~__context with Some x -> x | None -> "" in
+  let is_connected () = Helpers.get_management_iface_is_connected ~__context in
+  wait_for_ip get_ip is_connected
 
 let has_carrier ~__context ~self =
   let metrics = Db.PIF.get_metrics ~__context ~self in
