@@ -1143,7 +1143,9 @@ let _ =
   error Api_errors.cluster_host_not_joined [ "cluster_host" ]
     ~doc:"Cluster_host operation failed as the cluster_host has not joined the cluster." ();
   error Api_errors.cluster_host_is_last ["cluster_host"]
-    ~doc:"The last cluster host cannot be destroyed. Destroy the cluster instead" ()
+    ~doc:"The last cluster host cannot be destroyed. Destroy the cluster instead" ();
+  error Api_errors.no_cluster_hosts_reachable ["cluster"]
+    ~doc:"No other cluster host was reachable when joining" ()
 
 
 
