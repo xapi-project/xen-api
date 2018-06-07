@@ -29,8 +29,8 @@ let () =
     ; "Quicktest_vdi", Quicktest_vdi.tests s
     ; "Quicktest_iso_sr", Quicktest_iso_sr.tests s
     ; "Quicktest_async_calls", Quicktest_async_calls.tests s
-    ; "Quicktest_import_export", Quicktest_import_export.tests s
-    ; "Quicktest_vdi_copy_data_integrity", Quicktest_vdi_copy_data_integrity.tests s
+    ; "Quicktest_vm_import_export", Quicktest_vm_import_export.tests s
+    ; "Quicktest_vdi_ops_data_integrity", Quicktest_vdi_ops_data_integrity.tests s
     ]
     @ (if not !Quicktest_args.using_unix_domain_socket then
          ["http", Quicktest_http.tests]
