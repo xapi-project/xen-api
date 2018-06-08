@@ -20,9 +20,11 @@ open D
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
 let validate_params ~token_timeout ~token_timeout_coefficient =
-  let invalid_value x y = raise (Api_errors.(Server_error (invalid_value, [ x; y ]))) in
-  if token_timeout < 1.0 then invalid_value "token_timeout" (string_of_float token_timeout);
-  if token_timeout_coefficient < 0.65 then invalid_value "token_timeout_coefficient" (string_of_float token_timeout_coefficient)
+  let invalid_value x y = raise (Api_errors.(Server_error (invalid_value, [ x; string_of_float y ]))) in
+  if token_timeout < Constants.minimum_token_timeout_s then
+    invalid_value "token_timeout" token_timeout;
+  if token_timeout_coefficient < Constants.minimum_token_timeout_coefficient_s then
+    invalid_value "token_timeout_coefficient" token_timeout_coefficient
 
 let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
   assert_cluster_stack_valid ~cluster_stack;

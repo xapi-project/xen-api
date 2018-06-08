@@ -142,3 +142,6 @@ let storage_migrate_vgpu_map_key = "maps_to"
 (* Corosync timeout default values *)
 let default_token_timeout_s = 20.0
 let default_token_timeout_coefficient_s = 1.0
+(* Minimum threshold for token timeout parameters *)
+let minimum_token_timeout_s = 1.0
+let minimum_token_timeout_coefficient_s = 0.65
