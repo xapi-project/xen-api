@@ -20,6 +20,9 @@ let max_query_length = Int64.(mul 1024L (mul 1024L 1024L))
 
 let min a b = if Int64.compare a b < 0 then a else b
 
+(** The extents returned by this Python script must be consecutive,
+    non-overlapping, in the correct order starting from the specified offset,
+    and must exactly cover the requested area. *)
 let get_extents_json ~extent_reader ~server ~export_name ~offset ~length =
   Lwt_process.pread
     ("", [|extent_reader; "--path"; server; "--exportname"; export_name; "--offset"; Int64.to_string offset; "--length"; Int64.to_string length|])
