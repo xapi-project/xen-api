@@ -17,30 +17,35 @@
 
 (******************************************************************************)
 (** {2 External API calls} *)
-val create : __context:Context.t -> network:API.ref_network ->
-  cluster_stack:string -> pool_auto_join:bool -> 
-  token_timeout:float -> token_timeout_coefficient:float -> 
+val create : __context:Context.t ->
+  pIF:API.ref_PIF -> cluster_stack:string -> pool_auto_join:bool ->
+  token_timeout:float -> token_timeout_coefficient:float ->
   API.ref_Cluster
-(** [create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout 
- *   ~token_timeout_coefficient] is the implementation of the XenAPI method 
+(** [create ~__context ~cluster_stack ~pool_auto_join ~token_timeout
+ *   ~token_timeout_coefficient] is the implementation of the XenAPI method
  *   'Cluster.create'. It is the constructor of the Cluster object. *)
 
 val destroy : __context:Context.t -> self:API.ref_Cluster -> unit
 (** [destroy ~__context ~self] is the implementation of the XenAPI method
     'Cluster.destroy'. It is the destructor of the Cluster object *)
 
-val pool_create : __context:Context.t -> network:API.ref_network ->
-  cluster_stack:string -> token_timeout:float -> 
+val get_network : __context:Context.t -> self:API.ref_Cluster -> API.ref_network
+(** [get_network ~__context ~self] returns the network of the master cluster host's PIF,
+    as well as logging whether all the cluster hosts in the pool have
+    PIFs on the same network *)
+
+val pool_create : __context:Context.t ->
+  network:API.ref_network -> cluster_stack:string -> token_timeout:float ->
   token_timeout_coefficient:float -> API.ref_Cluster
-(** [pool_create ~__context ~network ~cluster_stack ~token_timeout 
-    ~token_timeout_coefficient] is the implementation of the XenAPI 
+(** [pool_create ~__context ~network ~cluster_stack ~token_timeout
+    ~token_timeout_coefficient] is the implementation of the XenAPI
     method 'Cluster.pool_create'. This is a convenience function
     that creates the Cluster object and then creates Cluster_host objects for
     all hosts in the pool. *)
 
 val pool_force_destroy : __context:Context.t -> self:API.ref_Cluster -> unit
 (** [pool_force_destroy ~__context ~self] is the implementation of the XenAPI
-    method 'Cluster.pool_force_destroy'. This is a convenience function that 
+    method 'Cluster.pool_force_destroy'. This is a convenience function that
     attempts to force destroy the Cluster_host objects for all hosts in the pool
     and then destroys the Cluster object if it was successful. *)
 

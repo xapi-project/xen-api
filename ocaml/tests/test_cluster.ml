@@ -24,7 +24,7 @@ let test_clusterd_rpc ~__context call =
   | ("enable" | "disable" | "destroy" | "leave"), _ ->
     Rpc.{success = true; contents = Rpc.Null }
   | name, params ->
-    failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
+    Alcotest.failf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params))
 
 let test_rpc ~__context call =
   match call.Rpc.name, call.Rpc.params with
@@ -37,18 +37,19 @@ let test_rpc ~__context call =
     Xapi_cluster.destroy ~__context ~self:(ref_Cluster_of_rpc self);
     Rpc.{success = true; contents = Rpc.String "" }
   | name, params ->
-    failwith (Printf.sprintf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params)))
+    Alcotest.failf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params))
 
-let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack) ?(test_clusterd_rpc=test_clusterd_rpc) () =
+let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack)
+  ?(test_clusterd_rpc=test_clusterd_rpc) ?(token_timeout=1.) ?(token_timeout_coefficient=1.) () =
   Context.set_test_rpc __context (test_rpc ~__context);
   Context.set_test_clusterd_rpc __context (test_clusterd_rpc ~__context);
   let network = Test_common.make_network ~__context () in
   let localhost = Helpers.get_localhost ~__context in
-  let pifref = Test_common.make_pif ~__context ~network ~host:localhost () in
-  Db.PIF.set_IP ~__context ~self:pifref ~value:"192.0.2.1";
-  Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
-  Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
-  Xapi_cluster.create ~__context ~network ~cluster_stack ~pool_auto_join:true ~token_timeout:1. ~token_timeout_coefficient:1.
+  let pIF = Test_common.make_pif ~__context ~network ~host:localhost () in
+  Db.PIF.set_IP ~__context ~self:pIF ~value:"192.0.2.1";
+  Db.PIF.set_currently_attached ~__context ~self:pIF ~value:true;
+  Db.PIF.set_disallow_unplug ~__context ~self:pIF ~value:true;
+  Xapi_cluster.create ~__context ~pIF ~cluster_stack ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient
 
 let test_create_destroy_status () =
   let __context = Test_common.make_test_database () in
@@ -58,34 +59,48 @@ let test_create_destroy_status () =
 let test_enable () =
   let __context = Test_common.make_test_database () in
   let cluster = create_cluster ~__context () in
-  (* simulate xapi getting restarted *)
 
-  Create_storage.maybe_reenable_cluster_host __context;
+  (* simulate xapi getting restarted *)
+  begin match Xapi_clustering.find_cluster_host ~__context ~host:Helpers.(get_localhost ~__context) with
+    | Some self -> Xapi_cluster_host.enable ~__context ~self
+    | None -> Alcotest.fail "Couldn't find freshly-created cluster_host"
+  end;
   pool_destroy ~__context ~self:cluster
 
-let test_invalid_cluster_stack () =
+let test_invalid_parameters () =
   let __context = Test_common.make_test_database () in
   let cluster_stack = "invalid_cluster_stack" in
   Alcotest.check_raises
     "Cluster.create should fail upon receiving an invalid cluster stack"
     Api_errors.(Server_error (invalid_cluster_stack, [ cluster_stack ]))
-    (fun () -> create_cluster ~__context ~cluster_stack () |> ignore)
+    (fun () -> create_cluster ~__context ~cluster_stack () |> ignore);
+
+  Alcotest.check_raises
+    "token_timeout < minimum threshold"
+    Api_errors.(Server_error (invalid_value, [ "token_timeout"; "0.5" ]))
+    (fun () -> create_cluster ~__context ~token_timeout:0.5 () |> ignore);
+
+  Alcotest.check_raises
+    "token_timeout_coefficient < minimum threshold"
+    Api_errors.(Server_error (invalid_value, [ "token_timeout_coefficient"; "0.6" ]))
+    (fun () -> create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore)
+
 
 let test_create_cleanup () =
   let __context = Test_common.make_test_database () in
-  let test_failed_clusterd_rpc ~__context call =
+  let test_clusterd_rpc ~__context call =
     match call.Rpc.name, call.Rpc.params with
     | "create", _ ->
        Rpc.{ success = false
            ; contents = Rpcmarshal.marshal
-                          (Cluster_interface.error.Rpc.Types.ty)
-                          (Cluster_interface.InternalError "Cluster.create failed")
+                          Cluster_interface.error.Rpc.Types.ty
+                          Cluster_interface.(InternalError "Cluster.create failed")
            }
     | _, _ ->
      Rpc.{success = true; contents = Rpc.Null }
   in
   try
-    create_cluster ~__context ~test_clusterd_rpc:test_failed_clusterd_rpc () |> ignore;
+    create_cluster ~__context ~test_clusterd_rpc () |> ignore;
     Alcotest.fail "Cluster.create should have failed"
   with
   | e ->
@@ -95,11 +110,11 @@ let test_create_cleanup () =
       [] (Db.Cluster.get_all ~__context);
     Alcotest.(check (slist (Alcotest_comparators.ref ()) compare))
       "Cluster_host refs should be destroyed"
-    [] (Db.Cluster_host.get_all ~__context)
+      [] (Db.Cluster_host.get_all ~__context)
 
 let test =
   [ "test_create_destroy_service_status", `Quick, test_create_destroy_status
   ; "test_enable", `Quick, test_enable
-  ; "test_invalid_cluster_stack", `Quick, test_invalid_cluster_stack
+  ; "test_invalid_parameters", `Quick, test_invalid_parameters
   ; "test_create_cleanup", `Quick, test_create_cleanup
   ]

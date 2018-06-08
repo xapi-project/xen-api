@@ -2080,9 +2080,6 @@ let cluster_record rpc session_id cluster =
           ~get:(fun () -> String.concat "; " (List.map (fun r -> get_uuid_from_ref r) (x ()).API.cluster_cluster_hosts))
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.cluster_cluster_hosts)
           ()
-      ; make_field ~name:"network"
-          ~get:(fun () -> (x ()).API.cluster_network |> get_uuid_from_ref)
-          ()
       ; make_field ~name:"cluster-token"
           ~get:(fun () -> (x ()).API.cluster_cluster_token)
           ()
@@ -2090,10 +2087,14 @@ let cluster_record rpc session_id cluster =
           ~get:(fun () -> (x ()).API.cluster_cluster_stack)
           ()
       ; make_field ~name:"token-timeout"
-          ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout))
+          ~get:(fun () -> string_of_float ((x ()).API.cluster_token_timeout))
           ()
       ; make_field ~name:"token-timeout-coefficient"
-          ~get:(fun () -> Int64.to_string((x ()).API.cluster_token_timeout_coefficient))
+          ~get:(fun () -> string_of_float ((x ()).API.cluster_token_timeout_coefficient))
+          ()
+      ; make_field ~name:"pending-forget" ~hidden:true
+          ~get:(fun () -> String.concat "; " (x ()).API.cluster_pending_forget)
+          ~get_set:(fun () -> (x ()).API.cluster_pending_forget)
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_operation_to_string (x ()).API.cluster_allowed_operations))
@@ -2134,11 +2135,17 @@ let cluster_host_record rpc session_id cluster_host =
       ; make_field ~name:"cluster"
           ~get:(fun () -> (x ()).API.cluster_host_cluster |> get_uuid_from_ref)
           ()
+      ; make_field ~name:"PIF"
+          ~get:(fun () -> (x ()).API.cluster_host_PIF |> get_uuid_from_ref)
+          ()
       ; make_field ~name:"host"
           ~get:(fun () -> (x ()).API.cluster_host_host |> get_uuid_from_ref)
           ()
       ; make_field ~name:"enabled"
           ~get:(fun () -> (x ()).API.cluster_host_enabled |> string_of_bool)
+          ()
+      ; make_field ~name:"joined"
+          ~get:(fun () -> (x ()).API.cluster_host_joined |> string_of_bool)
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () -> String.concat "; " (List.map Record_util.cluster_host_operation_to_string (x ()).API.cluster_host_allowed_operations))

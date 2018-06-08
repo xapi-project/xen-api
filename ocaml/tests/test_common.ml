@@ -211,7 +211,8 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
     ?(redo_log_vdi=Ref.null) ?(vswitch_controller="") ?(igmp_snooping_enabled=false) ?(restrictions=[])
     ?(current_operations=[]) ?(allowed_operations=[])
     ?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv])
-    ?(ha_cluster_stack="xhad") ?(guest_agent_config=[]) ?(cpu_info=[]) ?(policy_no_vendor_device=false) ?(live_patching_disabled=false)() =
+    ?(ha_cluster_stack=(!Xapi_globs.cluster_stack_default)) ?(guest_agent_config=[]) ?(cpu_info=[])
+    ?(policy_no_vendor_device=false) ?(live_patching_disabled=false) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref
     ~uuid:(make_uuid ()) ~name_label ~name_description
@@ -488,19 +489,35 @@ let make_vfs_on_pf ~__context ~pf ~num =
   make_vf num
 
 let make_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
-    ?(cluster=Ref.null) ?(host=Ref.null) ?(enabled=true)
+    ?(cluster=Ref.null) ?(host=Ref.null) ?(pIF=Ref.null) ?(enabled=true) ?(joined=true)
     ?(allowed_operations=[]) ?(current_operations=[]) ?(other_config=[]) () =
-  Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~enabled
-    ~allowed_operations ~current_operations ~other_config;
+  Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF ~enabled
+    ~allowed_operations ~current_operations ~other_config ~joined;
   ref
 
 let make_cluster_and_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
-    ?(network=Ref.null) ?(cluster_token="") ?(cluster_stack=Constants.default_smapiv3_cluster_stack)
+    ?(cluster_token="") ?(pIF=Ref.null) ?(cluster_stack=Constants.default_smapiv3_cluster_stack)
     ?(allowed_operations=[]) ?(current_operations=[]) ?(pool_auto_join=true)
-    ?(token_timeout=5000L) ?(token_timeout_coefficient=1000L) ?(cluster_config=[])
+    ?(token_timeout=Constants.default_token_timeout_s) 
+    ?(token_timeout_coefficient=Constants.default_token_timeout_coefficient_s) ?(cluster_config=[])
     ?(other_config=[]) ?(host=Ref.null) () =
-  Db.Cluster.create ~__context ~ref ~uuid ~network ~cluster_token
+  Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
     ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
     ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config;
-  let cluster_host_ref = make_cluster_host ~__context ~cluster:ref ~host () in
+  let cluster_host_ref = make_cluster_host ~__context ~cluster:ref ~host ~pIF () in
   ref, cluster_host_ref
+
+let make_cluster_and_hosts ~__context extra_hosts =
+  let cluster_stack = "mock_cluster_stack" in
+  let network = make_network ~__context () in
+
+  let host = Helpers.get_localhost ~__context in
+  let pIF = make_pif ~__context ~network ~host ~iP:"192.0.2.1" () in
+  let cluster, cluster_host = make_cluster_and_cluster_host ~__context ~cluster_stack ~pIF ~host () in
+
+  let build_cluster_host i host =
+    let pIF = make_pif ~__context ~network ~host ~iP:(Printf.sprintf "192.0.2.%d" (i+2)) () in
+    make_cluster_host ~__context ~cluster ~host ~pIF ()
+  in
+
+  cluster, cluster_host :: List.mapi build_cluster_host extra_hosts

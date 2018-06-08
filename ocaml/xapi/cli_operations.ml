@@ -774,8 +774,6 @@ let gen_cmds rpc session_id =
     ; Client.VGPU.(mk get_all get_all_records_where get_by_uuid vgpu_record "vgpu" [] ["uuid";"vm-uuid";"device";"gpu-group-uuid"] rpc session_id)
     ; Client.VGPU_type.(mk get_all get_all_records_where get_by_uuid vgpu_type_record "vgpu-type" [] ["uuid";"vendor-name";"model-name";"max-resolution";"max-heads"] rpc session_id)
     ; Client.DR_task.(mk get_all get_all_records_where get_by_uuid dr_task_record "drtask" [] [] rpc session_id)
-    (*; Client.Alert.(mk get_all get_all_records_where get_by_uuid alert_record "alert" [] ["uuid";"message";"level";"timestamp";"system";"task"] rpc session_id)
-      		 *)
     ; Client.PVS_site.(mk get_all get_all_records_where get_by_uuid pvs_site_record "pvs-site" [] ["uuid"; "name-label"; "name-description"; "pvs-uuid"; "pvs-server-uuids"] rpc session_id)
     ; Client.PVS_server.(mk get_all get_all_records_where get_by_uuid pvs_server_record "pvs-server" [] ["uuid"; "addresses"; "pvs-site-uuid"] rpc session_id)
     ; Client.PVS_proxy.(mk get_all get_all_records_where get_by_uuid pvs_proxy_record "pvs-proxy" [] ["uuid"; "vif-uuid"; "pvs-site-uuid"; "currently-attached"; "cache-sr-uuid"] rpc session_id)
@@ -787,20 +785,9 @@ let gen_cmds rpc session_id =
     ; Client.USB_group.(mk get_all get_all_records_where get_by_uuid usb_group_record "usb-group" [] ["uuid";"name-label";"name-description"] rpc session_id)
     ; Client.VUSB.(mk get_all get_all_records_where get_by_uuid vusb_record "vusb" [] ["uuid";"vm-uuid"; "usb-group-uuid"] rpc session_id)
     ; Client.Network_sriov.(mk get_all get_all_records_where get_by_uuid network_sriov_record "network-sriov" [] ["uuid"; "physical-pif"; "logical-pif"; "requires-reboot"; "configuration-mode"] rpc session_id)
-    ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"network";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
-    ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
+    ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
+    ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"pif";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
     ]
-
-(* NB, might want to put these back in at some point
- * let zurich_params_gone =
- *   ["distribution";"distribution_vsn";"os";"boot_params"]
- *
- * let zurich_param_map =
- *   [("name","name-label");
- *    ("description","name-description");
- *    ("vcpus","vcpus-number");
- *    ("memory_set","memory-dynamic-max");]
-*)
 
 let message_create printer rpc session_id params =
   let body = List.assoc "body" params in
@@ -1494,6 +1481,65 @@ let sr_probe printer rpc session_id params =
     | Probe x -> failwith "Not implemented, this return type is for probe_ext"
   with _ ->
     printer (Cli_printer.PList [txt])
+
+let sr_probe_ext printer rpc session_id params =
+  let host = parse_host_uuid rpc session_id params in
+  let _type = List.assoc "type" params in
+  let device_config = parse_device_config params in
+  let sm_config = read_map_params "sm-config" params in
+  let results = Client.SR.probe_ext ~rpc ~session_id ~host ~device_config ~_type ~sm_config in
+  let srs, complete_configs, incomplete_configs =
+    List.fold_left (fun (srs, complete_configs, incomplete_configs) x ->
+        match x.API.probe_result_sr with
+        | Some sr -> ((sr,x)::srs, complete_configs, incomplete_configs)
+        | None ->
+          if x.API.probe_result_complete then
+            (srs, x::complete_configs, incomplete_configs)
+          else
+            (srs, complete_configs, x::incomplete_configs)
+      )
+      ([], [], [])
+      results
+  in
+  let print_sr x =
+    let health_to_string = function `healthy -> "healthy" | `recovering -> "recovering" in
+    (match x.API.sr_stat_uuid with
+     | Some uuid -> [ "uuid", uuid ]
+     | None -> []) @
+    [ "name-label", x.sr_stat_name_label
+    ; "name-description", x.sr_stat_name_description
+    ; "total-space", Int64.to_string x.sr_stat_total_space
+    ; "free-space", Int64.to_string x.sr_stat_free_space
+    ; "clustered", string_of_bool x.sr_stat_clustered
+    ; "health", x.API.sr_stat_health |> health_to_string
+    ] in
+  if srs <> [] then begin
+    printer (Cli_printer.PMsg "The following SRs were found:");
+    List.iteri
+      (fun i (sr, probe_result) ->
+        printer (Cli_printer.PMsg (Printf.sprintf "SR %d:" i));
+        printer (Cli_printer.PTable [print_sr sr]);
+        printer (Cli_printer.PMsg (Printf.sprintf "SR %d configuration:" i));
+        printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
+        printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i));
+        printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
+      )
+      srs;
+  end;
+  let print_config i probe_result =
+    printer (Cli_printer.PMsg (Printf.sprintf "Configuration %d:" i));
+    printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
+    printer (Cli_printer.PMsg (Printf.sprintf "Configuration %d extra information:" i));
+    printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
+  in
+  if complete_configs <> [] then begin
+    printer (Cli_printer.PMsg "Found the following complete configurations that can be used to create SRs:");
+    List.iteri print_config complete_configs;
+  end;
+  if incomplete_configs <> [] then begin
+    printer (Cli_printer.PMsg "Found the following incomplete configurations that may contain SRs:");
+    List.iteri print_config incomplete_configs;
+  end
 
 let sr_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
@@ -4954,18 +5000,18 @@ module Cluster = struct
     Client.Cluster.pool_destroy ~rpc ~session_id ~self:cluster_ref
 
   let pool_resync printer rpc session_id params =
-    let cluster = List.assoc "cluster-uuid" params in
-    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster in
+    let cluster_uuid = List.assoc "cluster-uuid" params in
+    let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
     Client.Cluster.pool_resync rpc session_id cluster_ref
 
   let create printer rpc session_id params =
-    let network_uuid = List.assoc "network-uuid" params in
+    let pif_uuid = List.assoc "pif-uuid" params in
+    let pIF = Client.PIF.get_by_uuid rpc session_id pif_uuid in
     let cluster_stack = get_param params "cluster-stack" ~default:Constants.default_smapiv3_cluster_stack in
     let pool_auto_join = get_bool_param params "pool-auto-join" ~default:true in
     let token_timeout = get_float_param params "token-timeout" ~default:Constants.default_token_timeout_s in
     let token_timeout_coefficient = get_float_param params "token-timeout-coefficient" ~default:Constants.default_token_timeout_coefficient_s in
-    let network = Client.Network.get_by_uuid rpc session_id network_uuid in
-    let cluster = Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
+    let cluster = Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient in
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
     printer (Cli_printer.PList [uuid])
 
@@ -4979,9 +5025,11 @@ module Cluster_host = struct
   let create printer rpc session_id params =
     let cluster_uuid = List.assoc "cluster-uuid" params in
     let host_uuid = List.assoc "host-uuid" params in
+    let pif_uuid = List.assoc "pif-uuid" params in
     let cluster_ref = Client.Cluster.get_by_uuid rpc session_id cluster_uuid in
     let host_ref = Client.Host.get_by_uuid rpc session_id host_uuid in
-    let cluster_host = Client.Cluster_host.create rpc session_id cluster_ref host_ref in
+    let pif_ref = Client.PIF.get_by_uuid rpc session_id pif_uuid in
+    let cluster_host = Client.Cluster_host.create rpc session_id cluster_ref host_ref pif_ref in
     let uuid = Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
     printer (Cli_printer.PList [uuid])
 

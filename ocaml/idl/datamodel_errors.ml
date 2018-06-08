@@ -1134,12 +1134,18 @@ let _ =
     ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ();
   error Api_errors.cluster_force_destroy_failed ["cluster"]
     ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ();
-  error Api_errors.clustering_enabled_on_network ["network"]
-    ~doc:"The network has cluster objects attached." ();
   error Api_errors.cluster_stack_in_use ["cluster_stack"]
     ~doc:"The cluster stack is already in use." ();
   error Api_errors.invalid_cluster_stack [ "cluster_stack" ]
-    ~doc:"The cluster stack provided is not supported." ()
+    ~doc:"The cluster stack provided is not supported." ();
+  error Api_errors.pif_not_attached_to_host [ "pif"; "host" ]
+    ~doc:"Cluster_host creation failed as the PIF provided is not attached to the host." ();
+  error Api_errors.cluster_host_not_joined [ "cluster_host" ]
+    ~doc:"Cluster_host operation failed as the cluster_host has not joined the cluster." ();
+  error Api_errors.cluster_host_is_last ["cluster_host"]
+    ~doc:"The last cluster host cannot be destroyed. Destroy the cluster instead" ()
+
+
 
 let _ =
   message (fst Api_messages.ha_pool_overcommitted) ~doc:"Pool has become overcommitted: it can no longer guarantee to restart protected VMs if the configured number of hosts fail." ();

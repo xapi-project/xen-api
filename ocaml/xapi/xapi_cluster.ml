@@ -20,18 +20,19 @@ open D
 (* TODO: update allowed_operations on boot/toolstack-restart *)
 
 let validate_params ~token_timeout ~token_timeout_coefficient =
-  let invalid_value x y = raise (Api_errors.(Server_error (invalid_value, [ x; y ]))) in
-  if token_timeout < 1.0 then invalid_value "token_timeout" (string_of_float token_timeout);
-  if token_timeout_coefficient < 0.65 then invalid_value "token_timeout_coefficient" (string_of_float token_timeout_coefficient)
+  let invalid_value x y = raise (Api_errors.(Server_error (invalid_value, [ x; string_of_float y ]))) in
+  if token_timeout < Constants.minimum_token_timeout_s then
+    invalid_value "token_timeout" token_timeout;
+  if token_timeout_coefficient < Constants.minimum_token_timeout_coefficient_s then
+    invalid_value "token_timeout_coefficient" token_timeout_coefficient
 
-let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
+let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
   assert_cluster_stack_valid ~cluster_stack;
 
   (* Currently we only support corosync. If we support more cluster stacks, this
    * should be replaced by a general function that checks the given cluster_stack *)
   Pool_features.assert_enabled ~__context ~f:Features.Corosync;
-  (* TODO: take network lock *)
-  with_clustering_lock (fun () ->
+  with_clustering_lock __LOC__(fun () ->
       let dbg = Context.string_of_task __context in
       validate_params ~token_timeout ~token_timeout_coefficient;
       let cluster_ref = Ref.make () in
@@ -40,12 +41,11 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
       let cluster_host_uuid = Uuidm.to_string (Uuidm.create `V4) in
       (* For now we assume we have only one pool
          TODO: get master ref explicitly passed in as parameter*)
-      let pool = Db.Pool.get_all ~__context |> List.hd in
-      let host = Db.Pool.get_master ~__context ~self:pool in
+      let host = Helpers.get_master ~__context in
 
-      let pif = pif_of_host ~__context network host in
-      assert_pif_prerequisites pif;
-      let ip = ip_of_pif pif in
+      let pifrec = Db.PIF.get_record ~__context ~self:pIF in
+      assert_pif_prerequisites (pIF,pifrec);
+      let ip = ip_of_pif (pIF,pifrec) in
 
       let token_timeout_ms = Int64.of_float(token_timeout*.1000.0) in
       let token_timeout_coefficient_ms = Int64.of_float(token_timeout_coefficient*.1000.0) in
@@ -61,11 +61,11 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
       match result with
       | Result.Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
-        Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~network ~cluster_token ~cluster_stack
-          ~pool_auto_join ~token_timeout:token_timeout_ms ~token_timeout_coefficient:token_timeout_coefficient_ms ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
+        Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~cluster_token ~cluster_stack ~pending_forget:[]
+          ~pool_auto_join ~token_timeout ~token_timeout_coefficient ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
           ~other_config:[];
-        Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
-          ~current_operations:[] ~allowed_operations:[] ~other_config:[];
+        Db.Cluster_host.create ~__context ~ref:cluster_host_ref ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true ~pIF
+          ~current_operations:[] ~allowed_operations:[] ~other_config:[] ~joined:true;
         Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self:cluster_host_ref;
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         set_ha_cluster_stack ~__context;
@@ -76,7 +76,6 @@ let create ~__context ~network ~cluster_stack ~pool_auto_join ~token_timeout ~to
     )
 
 let destroy ~__context ~self =
-  let dbg = Context.string_of_task __context in
   let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self in
   let cluster_host = match cluster_hosts with
     | [] -> None
@@ -86,39 +85,35 @@ let destroy ~__context ~self =
       raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
   in
   Xapi_stdext_monadic.Opt.iter (fun ch ->
-    assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch
+    assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch;
+    Xapi_cluster_host.force_destroy ~__context ~self:ch
   ) cluster_host;
-  let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
-  match result with
-  | Result.Ok () ->
-    Xapi_stdext_monadic.Opt.iter (fun ch ->
-      Db.Cluster_host.destroy ~__context ~self:ch
-    ) cluster_host;
-    Db.Cluster.destroy ~__context ~self;
-    D.debug "Cluster destroyed successfully";
-    set_ha_cluster_stack ~__context;
-    Xapi_clustering.Daemon.disable ~__context
-  | Result.Error error ->
-    D.warn "Error occurred during Cluster.destroy";
-    handle_error error
+  Db.Cluster.destroy ~__context ~self;
+  D.debug "Cluster destroyed successfully";
+  set_ha_cluster_stack ~__context;
+  Xapi_clustering.Daemon.disable ~__context
+
+let get_network ~__context ~self =
+  get_network_internal ~__context ~self
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
 let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
   validate_params ~token_timeout ~token_timeout_coefficient;
   let master = Helpers.get_master ~__context in
-  let hosts = Db.Host.get_all ~__context in
-
+  let slave_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
+  let pIF,_ = pif_of_host ~__context network master in
   let cluster = Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Client.Cluster.create ~rpc ~session_id ~network ~cluster_stack:Constants.default_smapiv3_cluster_stack ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient)
+      Client.Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack
+        ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient)
   in
 
   List.iter (fun host ->
-      if master <> host then
-        (* We need to run this code on the slave *)
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host in
-            D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref);
-          )) hosts;
+      (* Cluster.create already created cluster_host on master, so we only need to iterate through slaves *)
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          let pifref,_ = pif_of_host ~__context network host in
+          let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host ~pif:pifref in
+          D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref);
+        )) slave_hosts;
 
   cluster
 
@@ -139,6 +134,7 @@ let pool_force_destroy ~__context ~self =
   let slave_cluster_hosts =
     Db.Cluster.get_cluster_hosts ~__context ~self |> filter_on_option master_cluster_host
   in
+  debug "Destroying cluster_hosts in pool";
   (* First try to destroy each cluster_host - if we can do so safely then do *)
   List.iter
     (fun cluster_host ->
@@ -172,14 +168,14 @@ let pool_force_destroy ~__context ~self =
     [] all_remaining_cluster_hosts
     in
 
-    begin
-    match exns with
-    | [] -> D.debug "Cluster.force_destroy was successful"
-    | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
+    begin match exns with
+      | [] -> D.debug "Successfully destroyed all cluster_hosts in pool, now destroying cluster %s" (Ref.string_of self)
+      | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
     end;
 
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster.destroy ~rpc ~session_id ~self)
+      Client.Client.Cluster.destroy ~rpc ~session_id ~self);
+    debug "Cluster_host.force_destroy was successful"
 
 (* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
 let pool_destroy ~__context ~self =
@@ -209,6 +205,7 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
   List.iter
     (fun host -> log_and_ignore_exn
         (fun () ->
+           Xapi_cluster_host.create_as_necessary ~__context ~host;
            Xapi_cluster_host.resync_host ~__context ~host;
            if is_clustering_disabled_on_host ~__context host
            then raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))

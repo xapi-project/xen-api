@@ -108,7 +108,7 @@ let test_find_cluster_host_finds_multiple_cluster_hosts () =
   let _ = T.make_cluster_host ~__context ~host () in
   Alcotest.check_raises
     "test_find_cluster_host_finds_multiple_cluster_hosts should throw an internal error"
-    (Api_errors.Server_error(Api_errors.internal_error,["Multiple cluster_hosts found for host"; (Ref.string_of host)]))
+    Api_errors.(Server_error (internal_error,["Multiple cluster_hosts found for host"; (Ref.string_of host)]))
     (fun () -> ignore (Xapi_clustering.find_cluster_host ~__context ~host))
 
 let test_find_cluster_host =
@@ -123,32 +123,32 @@ let test_find_cluster_host =
 let test_assert_cluster_host_is_enabled_when_it_is_enabled () =
   let __context = T.make_test_database () in
   let self = T.make_cluster_host ~__context ~enabled:true () in
-  try
-    (Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:true)
-  with _ ->
-    Alcotest.fail "test_assert_cluster_host_is_enabled_when_it_is_enabled should fail"
+  Alcotest.(check unit)
+    "test_assert_cluster_host_is_enabled_when_it_is_enabled"
+    () (Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:true)
 
 let test_assert_cluster_host_is_enabled_when_it_is_disabled () =
   let __context = T.make_test_database () in
   let self = T.make_cluster_host ~__context ~enabled:false () in
   Alcotest.check_raises
-    "test_assert_cluster_host_is_enabled_when_it_is_disabled should raise clustering_disabled"
-    (Api_errors.Server_error(Api_errors.clustering_disabled, [Ref.string_of self]))
+    "test_assert_cluster_host_is_enabled_when_it_is_disabled"
+    Api_errors.(Server_error (clustering_disabled, [Ref.string_of self]))
     (fun () -> Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:true)
 
 let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
   let __context = T.make_test_database () in
   let self = T.make_cluster_host ~__context ~enabled:true () in
   Alcotest.check_raises
-    "test_assert_cluster_host_is_disabled_when_it_is_enabled should raise clustering_enabled"
-    Api_errors.(Server_error(clustering_enabled, [Ref.string_of self]))
+    "test_assert_cluster_host_is_disabled_when_it_is_enabled"
+    Api_errors.(Server_error (clustering_enabled, [Ref.string_of self]))
     (fun () -> Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:false)
 
 let test_assert_cluster_host_is_disabled_when_it_is_disabled () =
   let __context = T.make_test_database () in
   let self = T.make_cluster_host ~__context ~enabled:false () in
-  try Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:false
-  with _ -> Alcotest.fail "asserting cluster_host is disabled fails when cluster_host is disabled"
+  Alcotest.(check unit)
+    "test_assert_cluster_host_is_disabled_when_it_is_disabled"
+    () (Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:false)
 
 let test_assert_cluster_host_enabled =
   [ "test_assert_cluster_host_is_enabled_when_it_is_enabled", `Quick, test_assert_cluster_host_is_enabled_when_it_is_enabled
@@ -178,40 +178,40 @@ let make_scenario ?(cluster_host=(Some true)) () =
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled () =
   let __context, host, cluster, cluster_host = make_scenario () in
   Alcotest.(check unit)
-    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled should pass"
-    (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2") ()
+    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled"
+    () (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2")
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist () =
   let __context, host, cluster, cluster_host = make_scenario () in
   Alcotest.(check unit)
-    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist should pass"
-    (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"sr_type_with_no_matching_sm") ()
+    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist"
+    () (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"sr_type_with_no_matching_sm")
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled () =
   let __context, host, cluster, cluster_host = make_scenario ~cluster_host:(Some false) () in
   Alcotest.check_raises
-    "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled should raise clustering_disabled"
+    "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled"
     Api_errors.(Server_error(clustering_disabled, [Ref.string_of cluster_host]))
     (fun () -> Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2")
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists () =
   let __context, host, cluster, cluster_host = make_scenario ~cluster_host:None () in
   Alcotest.check_raises
-    "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists should raise no_compatible_cluster_host"
+    "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists"
     Api_errors.(Server_error(no_compatible_cluster_host, [Ref.string_of host]))
     (fun () -> Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"gfs2")
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed () =
   let __context, host, cluster, cluster_host = make_scenario ~cluster_host:(Some false) () in
   Alcotest.(check unit)
-    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed should pass"
-    (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"lvm") ()
+    "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed"
+    () (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"lvm")
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed () =
   let __context, host, cluster, cluster_host = make_scenario ~cluster_host:None () in
   Alcotest.(check unit)
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed should pass"
-    (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"lvm") ()
+    () (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:"lvm")
 
 let test_assert_cluster_host_is_enabled_for_matching_sms =
   [ "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled", `Quick, test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled
@@ -230,9 +230,9 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_de
     ~timeout:timeout
     ~otherwise: on_deadlock
     (fun () ->
-       Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1
+       Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1 __LOC__
          (fun () ->
-            Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2
+            Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2 __LOC__
               (fun () -> on_no_deadlock ()
               )
          )
@@ -248,7 +248,7 @@ let test_clustering_lock_only_taken_if_needed_nested_calls () =
     ~timeout:1.0
     ~type1: "type_corosync"
     ~type2: "type_nocluster"
-    ~on_deadlock: (fun () -> failwith "Unexpected deadlock when making nested calls to with_clustering_lock_if_needed")
+    ~on_deadlock: (fun () -> Alcotest.fail "Unexpected deadlock when making nested calls to with_clustering_lock_if_needed")
     ~on_no_deadlock: (fun () -> ())
 
 let test_clustering_lock_taken_when_needed_nested_calls () =
@@ -262,7 +262,7 @@ let test_clustering_lock_taken_when_needed_nested_calls () =
     ~type1: "type_corosync1"
     ~type2: "type_corosync2"
     ~on_deadlock: (fun () -> ())
-    ~on_no_deadlock: (fun () -> failwith "Nesting calls to with_clustering_lock_if_needed should deadlock if both require a cluster stack, lock not taken or not working as expected.")
+    ~on_no_deadlock: (fun () -> Alcotest.fail "Nesting calls to with_clustering_lock_if_needed should deadlock if both require a cluster stack, lock not taken or not working as expected.")
 
 let test_clustering_lock_only_taken_if_needed =
   [ "test_clustering_lock_only_taken_if_needed_nested_calls", `Quick, test_clustering_lock_only_taken_if_needed_nested_calls
@@ -273,53 +273,46 @@ let test_assert_pif_prerequisites () =
   let __context = T.make_test_database () in
   let network = T.make_network ~__context () in
   let localhost = Helpers.get_localhost ~__context in
-  let (_cluster, _cluster_host) = T.make_cluster_and_cluster_host ~__context ~network ~host:localhost () in
-  let exn = "we_havent_decided_on_the_exception_yet" in
   let pifref = T.make_pif ~__context ~network ~host:localhost () in
+  let (_cluster, _cluster_host) = T.make_cluster_and_cluster_host ~__context ~host:localhost ~pIF:pifref () in
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
+
   Alcotest.check_raises
     "test_assert_pif_prerequisites should fail at first"
-    (Failure exn)
-    (fun () ->
-       try
-         Xapi_clustering.assert_pif_prerequisites pif
-       with _ ->
-         failwith exn);
-  (* Put in IPv4 info *)
-  Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
+    Api_errors.(Server_error (pif_allows_unplug, [Ref.string_of pifref]))
+    (fun () -> Xapi_clustering.assert_pif_prerequisites pif);
+
+  (* Fix one prerequisite each time *)
+  Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.check_raises
-    "test_assert_pif_prerequisites should fail after setting IPv4 info"
-    (Failure exn)
-    (fun () ->
-       try
-         Xapi_clustering.assert_pif_prerequisites pif
-       with _ ->
-         failwith exn);
+    "test_assert_pif_prerequisites : disallow_unplug set, IP and currently_attached to go "
+    Api_errors.(Server_error (required_pif_is_unplugged, [Ref.string_of pifref]))
+    (fun () -> Xapi_clustering.assert_pif_prerequisites pif);
+
+  (* Plug in PIF *)
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true;
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.check_raises
-    "test_assert_pif_prerequisites should fail after setting attached:true"
-    (Failure exn)
-    (fun () ->
-       try
-         Xapi_clustering.assert_pif_prerequisites pif
-       with _ ->
-         failwith exn);
-  Db.PIF.set_disallow_unplug ~__context ~self:pifref ~value:true;
+    "test_assert_pif_prerequisites : disallow_unplug and currently_attached set, need IP config now "
+    Api_errors.(Server_error (pif_has_no_network_configuration, [Ref.string_of pifref]))
+    (fun () -> Xapi_clustering.assert_pif_prerequisites pif);
+
+  (* Put in IPv4 info *)
+  Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1";
   let pif = Xapi_clustering.pif_of_host ~__context network localhost in
   Alcotest.(check unit)
-    "assert_pif_prerequisites should pass after setting disallow_unplug:true"
-    (Xapi_clustering.assert_pif_prerequisites pif) ()
+    "assert_pif_prerequisites should pass after fixing all prereqs"
+    () (Xapi_clustering.assert_pif_prerequisites pif)
 
 let test_assert_pif_prerequisites =
   [ "test_assert_pif_prerequisites", `Quick, test_assert_pif_prerequisites ]
 
 
 (** Test PIF.disallow_unplug is RO when clustering is enabled *)
-let check_disallow_unplug expected_value __context pif msg =
+let check_disallow_unplug expected_value __context self msg =
   Alcotest.(check bool) msg
-    (Db.PIF.get_disallow_unplug ~__context ~self:pif)
+    (Db.PIF.get_disallow_unplug ~__context ~self)
     expected_value
 
 (* Need host and network to make PIF *)
@@ -361,19 +354,91 @@ let test_disallow_unplug_with_clustering () =
     "check_disallow_unplug called by test_disallow_unplug_with_clustering after setting disallow_unplug:true";
 
   (* PIF.disallow_unplug should become RO upon introduce cluster_host object, should throw exception when changing value *)
-  let _ = T.make_cluster_and_cluster_host ~__context ~network ~host () in
+  let _, cluster_host = T.make_cluster_and_cluster_host ~__context ~pIF:pif ~host () in
   Alcotest.check_raises
     "check_disallow_unplug called by test_disallow_unplug_with_clustering after attaching cluster and cluster_host to network"
-    (Api_errors.(Server_error(clustering_enabled_on_network, [Ref.string_of network])))
+    (Api_errors.(Server_error(clustering_enabled, [ Ref.string_of cluster_host ])))
     (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:false);
 
   Xapi_pif.set_disallow_unplug ~__context ~self:pif ~value:true;
   check_disallow_unplug true __context pif
     "PIF.set_disallow_unplug should be idempotent even with clustering"
 
-let test_disallow_unplug_ro_with_clustering_enabled =
+let test_assert_no_clustering_on_pif () =
+  let __context = T.make_test_database () in
+  let host, _, self = make_host_network_pif ~__context in
+  let assert_no_clustering_on self msg =
+    Alcotest.(check unit) msg
+      () (Xapi_pif.assert_no_clustering_enabled_on ~__context ~self)
+  in
+  assert_no_clustering_on self
+    "assert_no_clustering_on_pif without clustering";
+
+  (* Add an enabled cluster_host *)
+  let cluster, cluster_host = T.make_cluster_and_cluster_host ~__context ~host ~pIF:self () in
+  Alcotest.check_raises
+    "Live cluster_host on PIF"
+    Api_errors.(Server_error (clustering_enabled, [ Ref.string_of cluster_host ]))
+    (fun () -> Xapi_pif.assert_no_clustering_enabled_on ~__context ~self);
+
+  (* Disable clustering on PIF *)
+  Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:false;
+  assert_no_clustering_on self
+    "assert_no_clustering_on_pif with clustering disabled"
+
+let test_disallow_unplug_during_cluster_host_create () =
+  let __context = T.make_test_database () in
+  let host, network, pIF = make_host_network_pif ~__context in
+  let cluster, cluster_host =
+    T.make_cluster_and_cluster_host ~__context ~pIF ~host ()
+  in
+  let add_op value =
+    let key = Context.get_task_id __context |> Ref.string_of in
+    Db.Cluster.add_to_current_operations ~__context ~self:cluster ~key ~value
+  in
+  let check_disallow_unplug_false_fails self msg =
+    Alcotest.check_raises msg
+      Api_errors.(Server_error (other_operation_in_progress,
+        [ "Cluster" ; Ref.string_of cluster  ]))
+      (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self ~value:false)
+  in
+  let check_successful_disallow_unplug value self msg =
+    Alcotest.(check unit) msg
+      () (Xapi_pif.set_disallow_unplug ~__context ~self ~value)
+  in
+  Db.Cluster_host.set_enabled ~__context ~self:cluster_host ~value:false;
+
+  let test_with_current op =
+    Xapi_pif.set_disallow_unplug ~__context ~self:pIF ~value:true;
+    add_op op;
+
+    check_disallow_unplug_false_fails pIF
+      "disallow_unplug cannot be set to false during cluster_host creation or enable on same PIF";
+
+    let other_pif = T.make_pif ~__context ~network ~host () in
+    check_successful_disallow_unplug true other_pif
+      "Should always be able to set disallow_unplug:true regardless of clustering operations";
+    check_disallow_unplug_false_fails other_pif
+      "disallow_unplug cannot be set to false during cluster_host creation or enable on any PIF";
+
+    let key = Context.get_task_id __context |> Ref.string_of in
+    Db.Cluster.remove_from_current_operations ~__context ~self:cluster ~key
+  in
+  (* Should block setting disallow_unplug false for any PIF during Cluster_host create or enable *)
+  List.iter test_with_current [`add; `enable];
+
+  List.iter
+    (fun self ->
+      check_successful_disallow_unplug false self
+        "No current clustering operations or enabled cluster hosts on PIF"
+    ) (Db.PIF.get_all ~__context)
+
+
+let test_networking_with_clustering =
   [ "test_disallow_unplug_no_clustering", `Quick, test_disallow_unplug_no_clustering
   ; "test_disallow_unplug_with_clustering", `Quick, test_disallow_unplug_with_clustering
+  ; "test_assert_no_clustering_on_pif", `Quick, test_assert_no_clustering_on_pif
+  ; "test_disallow_unplug_during_cluster_host_create", `Quick, test_disallow_unplug_during_cluster_host_create
   ]
 
 let default = !Xapi_globs.cluster_stack_default
@@ -400,7 +465,7 @@ let test_choose_cluster_stack_clusters_no_sms () =
   let __context = T.make_test_database () in
   choose_cluster_stack_should_select default ~__context;
 
-  (* Add two cluster, test choose_cluster_stack's filtering *)
+  (* Add two clusters, test choose_cluster_stack's filtering *)
   for i = 0 to 1 do
     let _ = T.make_cluster_and_cluster_host ~__context () in
     choose_cluster_stack_should_select default_smapiv3 ~__context
@@ -542,7 +607,7 @@ let test_pool_ha_cluster_stacks_with_ha_with_clustering () =
 
   (* Cluster.destroy should set HA cluster stack with HA disabled *)
   Xapi_cluster_host.enable ~__context ~self:cluster_host;
-  Xapi_cluster_host.destroy ~__context ~self:cluster_host;
+  (* can't destroy last cluster_host, must be done through destroying cluster *)
   Xapi_cluster.destroy ~__context ~self:cluster;
   (* Cluster.destroy should reset HA cluster stacks *)
   assert_cluster_stack_is default ~__context;
@@ -569,14 +634,13 @@ let test_pool_ha_cluster_stacks =
   ; "test_pool_ha_cluster_stacks_with_ha_with_clustering", `Quick, test_pool_ha_cluster_stacks_with_ha_with_clustering
   ]
 
-
 let test =
   ( test_get_required_cluster_stacks
     @ test_find_cluster_host
     @ test_assert_cluster_host_enabled
     @ test_assert_cluster_host_is_enabled_for_matching_sms
     @ test_assert_pif_prerequisites
-    @ test_disallow_unplug_ro_with_clustering_enabled
+    @ test_networking_with_clustering
     @ test_choose_cluster_stack
     @ test_pool_ha_cluster_stacks
     (* NOTE: lock test hoards the mutex and should thus always be last,

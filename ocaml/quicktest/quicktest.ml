@@ -21,7 +21,6 @@ let () =
   let suite =
     [ "Quicktest_example", Quicktest_example.tests s
     ; "cbt", Quicktest_cbt.tests s
-    ; "reconfigure-ip-cluster", Quicktest_cluster.tests s
     ; "event", Quicktest_event.tests s
     ; "import_raw_vdi", Quicktest_import_raw_vdi.tests s
     ; "copy", Quicktest_vdi_copy.tests s

@@ -450,21 +450,19 @@ let introduce_internal
   (* return ref of newly created pif record *)
   pif
 
-(* Assertion passes if network has clusters attached but host has disabled clustering *)
-let assert_no_clustering_enabled ~__context ~network ~host =
-  if not (Xapi_clustering.is_clustering_disabled_on_host ~__context host)
-  then
-    (Db.Cluster.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Field "network", Literal (Ref.string_of network))))
-    |> function
-    | []   -> ()
-    | _::_ -> raise Api_errors.(Server_error (clustering_enabled_on_network, [Ref.string_of network]))
+(* Assertion passes if PIF has clusters attached but host has disabled clustering *)
+let assert_no_clustering_enabled_on ~__context ~self =
+  let cluster_host_on_pif = Db_filter_types.(Eq (Field "PIF", Literal (Ref.string_of self))) in
+  match Db.Cluster_host.get_refs_where ~__context ~expr:cluster_host_on_pif with
+  | [] -> ()
+  | [ cluster_host ] ->
+    if Db.Cluster_host.get_enabled ~__context ~self:cluster_host
+    then raise Api_errors.(Server_error (clustering_enabled, [ Ref.string_of cluster_host ]))
+  | lst -> failwith "Should never happen: there can only be one cluster host associated with a PIF"
 
 (* Internal [forget] is passed a pre-built table [t] *)
 let forget_internal ~t ~__context ~self =
-  let network = Db.PIF.get_network ~__context ~self in
-  let host = Db.PIF.get_host ~__context ~self in
-  assert_no_clustering_enabled ~__context ~network ~host;
+  assert_no_clustering_enabled_on ~__context ~self;
   if Db.PIF.get_managed ~__context ~self = true then
     Nm.bring_pif_down ~__context self;
   (* NB we are allowed to forget an interface which still exists *)
@@ -644,9 +642,7 @@ let destroy ~__context ~self =
 let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
-  let network = Db.PIF.get_network ~__context ~self in
-  let host = Db.PIF.get_host ~__context ~self in
-  assert_no_clustering_enabled ~__context ~network ~host;
+  assert_no_clustering_enabled_on ~__context ~self;
 
   if gateway <> "" then
     Helpers.assert_is_valid_ip `ipv6 "gateway" gateway;
@@ -696,9 +692,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self;
   assert_no_protection_enabled ~__context ~self;
-  let network = Db.PIF.get_network ~__context ~self in
-  let host = Db.PIF.get_host ~__context ~self in
-  assert_no_clustering_enabled ~__context ~network ~host;
+  assert_no_clustering_enabled_on ~__context ~self;
 
   if mode = `Static then begin
     (* require these parameters if mode is static *)
@@ -794,12 +788,26 @@ let set_property ~__context ~self ~name ~value =
         Nm.bring_pif_up ~__context pif
     ) (self :: vlan_pifs)
 
+let assert_cluster_host_operation_not_in_progress ~__context =
+  match (Db.Cluster.get_all ~__context) with
+  | [] -> ()
+  | cluster :: _ ->
+    let ops = Db.Cluster.get_current_operations ~__context ~self:cluster |> List.map snd in
+    if (List.mem `enable ops) || (List.mem `add ops)
+    then raise Api_errors.(Server_error (other_operation_in_progress,
+      [ "Cluster"; Ref.string_of cluster ]))
+
+(* Block allowing unplug if
+  - a cluster host is enabled on this PIF
+  - a cluster host is being created in this pool
+  - a Cluster_host.enable is in progress on any PIF *)
 let set_disallow_unplug ~__context ~self ~value =
   if (Db.PIF.get_disallow_unplug ~__context ~self) <> value
   then begin
-    let network = Db.PIF.get_network ~__context ~self in
-    let host = Db.PIF.get_host ~__context ~self in
-    assert_no_clustering_enabled ~__context ~network ~host;
+    if not value then begin
+      assert_no_clustering_enabled_on ~__context ~self;
+      assert_cluster_host_operation_not_in_progress ~__context
+    end;
     Db.PIF.set_disallow_unplug ~__context ~self ~value
   end
 
@@ -892,7 +900,7 @@ let rec plug ~__context ~self =
           debug "PIF is SRIOV physical PIF and bond slave, also bringing up bond master PIF";
           plug ~__context ~self:bond_master_pif
           (* It will be checked later to make sure that bond slave will not be brought up *)
-        end 
+        end
         else raise Api_errors.(Server_error (cannot_plug_bond_slave, [Ref.string_of self]))
       end else ()
     | _ -> ()

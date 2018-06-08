@@ -21,6 +21,9 @@ val himn_addr : string option ref
 (** Block until an IP address appears on the management interface *)
 val wait_for_management_ip : __context:Context.t -> string
 
+(** Block until an IP address appears on the given cluster host PIF *)
+val wait_for_clustering_ip : __context:Context.t -> self:API.ref_Cluster_host -> string
+
 (** Called anywhere we suspect dom0's networking (hostname, IP address) has been changed
     underneath us (eg by dhclient) *)
 val on_dom0_networking_change : __context:Context.t -> unit

@@ -40,18 +40,29 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
 let get_operation_error ~__context ~self ~op =
   let chr = Db.Cluster_host.get_record_internal ~__context ~self in
   let ref_str = Ref.string_of self in
-  (* let cluster = Db.Cluster_host.get_cluster ~__context ~self in *)
 
   let current_error = None in
 
   let check c f = match c with | Some e -> Some e | None -> f () in
 
+  let assert_joined_cluster ~__context ~self = function
+    | (`enable | `disable) when not (Db.Cluster_host.get_joined ~__context ~self) ->
+      (* Cannot enable nor disable without joining cluster *)
+      Some (Api_errors.cluster_host_not_joined, [ ref_str ])
+    | _ -> None
+  in
+
   (* if other operations are in progress, check that the new operation is allowed concurrently with them *)
   let current_error = check current_error (fun () ->
       let current_ops = chr.Db_actions.cluster_host_current_operations in
-      if current_ops <> [] && not (is_allowed_concurrently ~op ~current_ops)
-      then report_concurrent_operations_error ~current_ops ~ref_str
-      else None) in
+      match current_ops with
+      | _::_ when not (is_allowed_concurrently ~op ~current_ops) ->
+        report_concurrent_operations_error ~current_ops ~ref_str
+      | _ ->
+        check
+          (assert_joined_cluster ~__context ~self op)
+          (fun () -> None) (* replace this function if adding new checks *)
+  ) in
 
   current_error
 
@@ -67,13 +78,6 @@ let update_allowed_operations ~__context ~self =
     | _    -> accu
   in
   let allowed = List.fold_left check [] all_cluster_host_operations in
-  (* TODO: check if we need RPU-related checks here for restricting allowed_operations
-     based on if an RPU is in progress...
-  let allowed =
-    if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_cluster_operations
-    else allowed
-  in *)
   Db.Cluster_host.set_allowed_operations ~__context ~self ~value:allowed
 
 (** Add to the cluster host's current_operations, call a function and then remove from the

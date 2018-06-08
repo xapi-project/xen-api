@@ -20,6 +20,7 @@ let create = call
     ~params:
       [ Ref _cluster, "cluster", "Cluster to join"
       ; Ref _host,    "host",    "new cluster member"
+      ; Ref _pif,     "pif",     "Network interface to use for communication"
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
@@ -65,6 +66,17 @@ let disable = call
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+let forget = call
+  ~name:"forget"
+  ~doc:"Permanently remove a dead host from the cluster. This host must never rejoin the cluster."
+  ~params:
+      [ Ref _cluster_host, "self", "the cluster_host to declare permanently dead and forget"
+      ]
+  ~lifecycle:[Prototyped, rel_lima, ""]
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ~hide_from_docs:true
+  ()
+
 let t =
   create_obj
     ~name: _cluster_host
@@ -92,12 +104,20 @@ let t =
           ~ty:Bool "enabled" ~default_value:(Some (VBool false))
           "Whether the cluster host believes that clustering should be enabled on this host"
 
+      ; field  ~qualifier:StaticRO ~lifecycle
+          ~ty:(Ref _pif) "PIF" ~default_value:(Some (VRef null_ref))
+          "Reference to the PIF object"
+
+      ; field  ~qualifier:StaticRO ~lifecycle
+          ~ty:Bool "joined" ~default_value:(Some (VBool true))
+          "Whether the cluster host has joined the cluster"
+
       (* TODO: add `live` member to represent whether corosync believes that this
                cluster host actually is enabled *)
-      
+
       ] @ (allowed_and_current_operations cluster_host_operation) @ [
 
-       field   ~qualifier:StaticRO ~lifecycle
+        field   ~qualifier:StaticRO ~lifecycle
           ~ty:(Map(String, String)) "other_config" ~default_value:(Some (VMap []))
           "Additional configuration"
       ])
@@ -106,6 +126,7 @@ let t =
       ; destroy
       ; enable
       ; force_destroy
+      ; forget
       ; disable
       ]
     ()

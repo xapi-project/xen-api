@@ -45,15 +45,26 @@ let get_operation_error ~__context ~self ~op =
   let ref_str = Ref.string_of self in
 
   let current_error = None in
-
   let check c f = match c with | Some e -> Some e | None -> f () in
+
+  let assert_allowed_during_rpu __context = function
+    | `add | `remove | `destroy when Helpers.rolling_upgrade_in_progress ~__context ->
+      Some (Api_errors.not_supported_during_upgrade, [])
+    | _ -> None
+  in
 
   (* if other operations are in progress, check that the new operation is allowed concurrently with them *)
   let current_error = check current_error (fun () ->
       let current_ops = cr.Db_actions.cluster_current_operations in
-      if (current_ops <> []) && not (is_allowed_concurrently ~op ~current_ops)
-      then report_concurrent_operations_error ~current_ops ~ref_str
-      else None) in
+      match current_ops with
+      | _::_ when not (is_allowed_concurrently ~op ~current_ops) ->
+        report_concurrent_operations_error ~current_ops ~ref_str
+      | _ ->
+        check
+          (assert_allowed_during_rpu __context op)
+          (fun () -> None)
+    )
+  in
   current_error
 
 let assert_operation_valid ~__context ~self ~op =
@@ -68,16 +79,9 @@ let update_allowed_operations ~__context ~self =
     | _    -> accu
   in
   let allowed = List.fold_left check [] all_cluster_operations in
-  (* TODO: check if we need RPU-related checks here for restricting allowed_operations
-     based on if an RPU is in progress...
-  let allowed =
-    if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_cluster_host_operations
-    else allowed
-  in *)
   Db.Cluster.set_allowed_operations ~__context ~self ~value:allowed
 
-(** Add to the cluster host's current_operations, call a function and then remove from the
+(** Add to the cluster's current_operations, call a function and then remove from the
     current operations. Ensure allowed_operations is kept up to date throughout. *)
 let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op ?policy f =
   let task_id = Ref.string_of (Context.get_task_id __context) in

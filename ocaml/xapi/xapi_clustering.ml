@@ -24,17 +24,17 @@ let set_ha_cluster_stack ~__context =
   Db.Pool.set_ha_cluster_stack ~__context ~self ~value
 
 (* host-local clustering lock *)
-let clustering_lock_m = Mutex.create ()
+let clustering_lock_m = Locking_helpers.Named_mutex.create "clustering"
 
-let with_clustering_lock f =
-  debug "Trying to grab host-local clustering lock...";
-  Stdext.Threadext.Mutex.execute clustering_lock_m
-    (fun () ->
-       Stdext.Pervasiveext.finally
-         (fun () ->
-            debug "Grabbed host-local clustering lock; executing function...";
-            f ())
-         (fun () -> debug "Function execution finished; returned host-local clustering lock."))
+let with_clustering_lock where f =
+  debug "Trying to grab host-local clustering lock... (%s)" where;
+  Locking_helpers.Named_mutex.execute clustering_lock_m
+    (fun () -> Stdext.Pervasiveext.finally
+        (fun () ->
+           debug "Grabbed host-local clustering lock; executing function... (%s)" where;
+           f ())
+        (fun () ->
+           debug "Function execution finished; returned host-local clustering lock. (%s)" where))
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
   Db.PIF.get_records_where, and they're just strings there *)
@@ -76,6 +76,10 @@ let assert_pif_prerequisites pif =
   ignore (ip_of_pif pif);
   debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
 
+let assert_pif_attached_to ~__context ~host ~pIF =
+  if not (List.mem pIF (Db.Host.get_PIFs ~__context ~self:host)) then
+    raise Api_errors.(Server_error (pif_not_attached_to_host, [Ref.string_of pIF; Ref.string_of host]))
+
 let handle_error = function
   | InternalError message -> raise Api_errors.(Server_error (internal_error, [ message ]))
   | Unix_error message -> failwith ("Unix Error: " ^ message)
@@ -103,15 +107,15 @@ let assert_cluster_stack_valid ~cluster_stack =
   if not (List.mem cluster_stack Constants.supported_smapiv3_cluster_stacks)
   then raise Api_errors.(Server_error (invalid_cluster_stack, [ cluster_stack ]))
 
-let with_clustering_lock_if_needed ~__context ~sr_sm_type f =
+let with_clustering_lock_if_needed ~__context ~sr_sm_type where f =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
     | [] -> f ()
-    | _required_cluster_stacks -> with_clustering_lock f
+    | _required_cluster_stacks -> with_clustering_lock where f
 
-let with_clustering_lock_if_cluster_exists ~__context f = 
+let with_clustering_lock_if_cluster_exists ~__context where f =
   match Db.Cluster.get_all ~__context with
     | [] -> f ()
-    | _ -> with_clustering_lock f
+    | _ -> with_clustering_lock where f
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
@@ -122,6 +126,25 @@ let find_cluster_host ~__context ~host =
     error "%s %s" msg (Db.Host.get_uuid ~__context ~self:host);
     raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of host)]))
   | _ -> None
+
+let get_master_pif ~__context =
+  match find_cluster_host ~__context ~host:Helpers.(get_master ~__context) with
+  | Some self -> Db.Cluster_host.get_PIF ~__context ~self
+  | None -> raise Api_errors.(Server_error (internal_error, [ "No cluster_host exists on master" ]))
+
+let get_network_internal ~__context ~self =
+  let cluster_network = Db.PIF.get_network ~__context ~self:(get_master_pif ~__context) in
+  if List.exists
+    (fun cluster_host ->
+      let pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
+      let cluster_host_network = Db.PIF.get_network ~__context ~self:pif in
+      cluster_host_network <> cluster_network
+    ) (Db.Cluster_host.get_all ~__context)
+  then
+    debug "Not all cluster hosts of cluster %s on same network %s"
+      (Ref.string_of self) (Ref.string_of cluster_network);
+
+  cluster_network
 
 let assert_cluster_host_enabled ~__context ~self ~expected =
   let actual = Db.Cluster_host.get_enabled ~__context ~self in
@@ -176,6 +199,8 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
   then raise Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
 
 module Daemon = struct
+  let enabled = ref false
+
   let maybe_call_script ~__context script params =
     match Context.get_test_clusterd_rpc __context with
     | Some _ -> debug "in unit test, not calling %s %s" script (String.concat " " params)
@@ -188,11 +213,13 @@ module Daemon = struct
     maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "enable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "start"; service ];
+    enabled := true;
     debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
     let port = (string_of_int !Xapi_globs.xapi_clusterd_port) in
     debug "Disabling and stopping the clustering daemon";
+    enabled := false;
     maybe_call_script ~__context "/usr/bin/systemctl" [ "disable"; service ];
     maybe_call_script ~__context "/usr/bin/systemctl" [ "stop"; service ];
     maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["close"; port];
@@ -205,10 +232,13 @@ end
  * Instead of returning an empty URL which wouldn't work just raise an
  * exception. *)
 let rpc ~__context =
+  if not !Daemon.enabled then
+    raise Api_errors.(Server_error(Api_errors.operation_not_allowed,
+                                   ["clustering daemon has not been started yet"]));
   match Context.get_test_clusterd_rpc __context with
   | Some rpc -> rpc
   | None ->
-     Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
+    Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
 
 let is_clustering_disabled_on_host ~__context host =
   match find_cluster_host ~__context ~host with
@@ -218,6 +248,6 @@ let is_clustering_disabled_on_host ~__context host =
 let compute_corosync_max_host_failures ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   let nhosts = List.length (all_hosts) in
-  let disabled_hosts = List.length (List.filter (fun host -> is_clustering_disabled_on_host ~__context host = true ) all_hosts) in
+  let disabled_hosts = List.length (List.filter (fun host -> is_clustering_disabled_on_host ~__context host) all_hosts) in
   let corosync_ha_max_hosts = ((nhosts - disabled_hosts  - 1) / 2) + disabled_hosts in
   corosync_ha_max_hosts
