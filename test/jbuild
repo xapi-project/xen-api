@@ -3,7 +3,9 @@
   (libraries
    (alcotest
     alcotest-lwt
-    local_lib))
+    local_lib
+    vhd-format
+    vhd-format-lwt))
   ))
 
 (alias

@@ -1,4 +1,4 @@
-.PHONY: build release test install uninstall clean reindent
+.PHONY: build release lint test install uninstall clean reindent
 
 build:
 	jbuilder build @install
@@ -6,7 +6,12 @@ build:
 release:
 	jbuilder build @install
 
-test:
+lint:
+	pycodestyle scripts/*.py
+	pylint --disable too-many-locals scripts/get_nbd_extents.py
+	pylint --disable fixme,too-many-arguments,too-many-instance-attributes scripts/python_nbd_client.py
+
+test: lint
 	jbuilder runtest
 
 stresstest:
