@@ -66,7 +66,7 @@ def _get_extents(path, exportname, offset, length):
                              "export has size {}".format(offset, length, size))
         end = offset + length
         while offset < end:
-            request_len = min(MAX_REQUEST_LEN, size - offset)
+            request_len = min(MAX_REQUEST_LEN, end - offset)
             replies = client.query_block_status(offset, request_len)
 
             # Process the returned structured reply chunks
@@ -91,7 +91,7 @@ def _get_extents(path, exportname, offset, length):
                 (extent_length, flags) = descriptor
                 yield {'length': extent_length, 'flags': flags}
                 offset += extent_length
-                assert_protocol(offset <= size)
+                assert_protocol(offset <= end)
 
 
 def _main():
