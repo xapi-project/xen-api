@@ -93,8 +93,7 @@ let destroy ~__context ~self =
   set_ha_cluster_stack ~__context;
   Xapi_clustering.Daemon.disable ~__context
 
-let get_network ~__context ~self =
-  get_network_internal ~__context ~self
+let get_network = get_network_internal
 
 (* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
 let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
@@ -110,8 +109,8 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout
   List.iter (fun host ->
       (* Cluster.create already created cluster_host on master, so we only need to iterate through slaves *)
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          let pifref,_ = pif_of_host ~__context network host in
-          let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host ~pif:pifref in
+          let pif,_ = pif_of_host ~__context network host in
+          let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host ~pif in
           D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref);
         )) slave_hosts;
 
@@ -144,8 +143,7 @@ let pool_force_destroy ~__context ~self =
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
       )
-    )
-    slave_cluster_hosts;
+    ) slave_cluster_hosts;
   (* We expect destroy to have failed for some, we'll try to force destroy those *)
   (* Note we include the master here, we should attempt to force destroy it *)
   let all_remaining_cluster_hosts =
@@ -164,8 +162,7 @@ let pool_force_destroy ~__context ~self =
           debug "Ignoring exception while trying to force destroy cluster host %s: %s" uuid (ExnHelper.string_of_exn e);
           e :: exns_so_far
       )
-    )
-    [] all_remaining_cluster_hosts
+    ) [] all_remaining_cluster_hosts
     in
 
     begin match exns with

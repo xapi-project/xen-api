@@ -263,7 +263,7 @@ let create_as_necessary ~__context ~host =
   match sync_required ~__context ~host with
   | Some cluster -> (* assume pool autojoin set *)
     let network = get_network_internal ~__context ~self:cluster in
-    let (pIF,pifrec) = Xapi_clustering.pif_of_host ~__context network host in
+    let pIF,_ = Xapi_clustering.pif_of_host ~__context network host in
     create_internal ~__context ~cluster ~host ~pIF |> ignore
   | None -> ()
 
