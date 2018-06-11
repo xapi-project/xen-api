@@ -134,24 +134,33 @@ let create ~__context ~cluster ~host ~pif =
   resync_host ~__context ~host;
   cluster_host
 
-let destroy_op ~__context ~self meth =
+let destroy_op ~__context ~self ~force =
   with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
-      let result = Cluster_client.LocalClient.destroy (rpc ~__context) dbg in
+      let local_fn, fn_str =
+        if force
+        then Cluster_client.LocalClient.destroy, "force_destroy"
+        else Cluster_client.LocalClient.leave,   "destroy"
+      in
+      let result = local_fn (rpc ~__context) dbg in
       match result with
       | Result.Ok () ->
         Db.Cluster_host.destroy ~__context ~self;
-        debug "Cluster_host.%s was successful" meth;
+        debug "Cluster_host.%s was successful" fn_str;
         Xapi_clustering.Daemon.disable ~__context
       | Result.Error error ->
-        warn "Error occurred during Cluster_host.%s" meth;
-        handle_error error)
+        warn "Error occurred during Cluster_host.%s" fn_str;
+        if force then begin
+          let ref_str = Ref.string_of self in
+          Db.Cluster_host.destroy ~__context ~self;
+          debug "Cluster_host %s force destroyed." ref_str
+        end else handle_error error)
 
 let force_destroy ~__context ~self =
-  destroy_op ~__context ~self "force_destroy"
+  destroy_op ~__context ~self ~force:true
 
 let destroy ~__context ~self =
   assert_cluster_host_enabled ~__context ~self ~expected:true;
@@ -161,7 +170,7 @@ let destroy ~__context ~self =
       raise Api_errors.(Server_error (cluster_host_is_last, [Ref.string_of self]))
     | _ -> ()
   in
-  destroy_op ~__context ~self "destroy"
+  destroy_op ~__context ~self ~force:false
 
 let ip_of_str str = Cluster_interface.IPv4 str
 
