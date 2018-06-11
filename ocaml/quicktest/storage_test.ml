@@ -116,6 +116,39 @@ module VDI = struct
       ]
     in
     check_fields expected original_vdi new_vdi
+
+  let with_attached session_id vdi mode f =
+    let rpc = !Quicktest_common.rpc in
+    let get_domain_zero rpc session_id =
+      Xapi_inventory.inventory_filename := "/etc/xensource-inventory";
+      let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+      Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid
+    in
+    let dom0 = get_domain_zero rpc session_id in
+    let vbd =
+      Client.Client.VBD.create ~rpc ~session_id
+        ~vM:dom0
+        ~empty:false
+        ~vDI:vdi
+        ~userdevice:"autodetect"
+        ~bootable:false
+        ~mode
+        ~_type:`Disk
+        ~unpluggable:true
+        ~qos_algorithm_type:""
+        ~qos_algorithm_params:[]
+        ~other_config:[]
+    in
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () ->
+         Client.Client.VBD.plug ~rpc ~session_id ~self:vbd;
+         Xapi_stdext_pervasives.Pervasiveext.finally
+           (fun () -> f ("/dev/" ^ (Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd)))
+           (fun () ->
+              Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd;
+           )
+      )
+      (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 end
 
 module Sr_filter = struct
