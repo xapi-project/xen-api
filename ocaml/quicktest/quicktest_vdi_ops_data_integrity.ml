@@ -110,10 +110,10 @@ let checksum rpc session_id vdi =
       Digest.to_hex (Digest.file path)
     )
 
-let check_vdi_unchanged session_id ~prepare_vdi ~vdi_op sr_info =
+let check_vdi_unchanged session_id ~vdi_size ~prepare_vdi ~vdi_op sr_info =
   let rpc = !Quicktest_common.rpc in
   let sR = sr_info.Storage_test.sr in
-  Storage_test.VDI.with_new session_id sR (fun vdi ->
+  Storage_test.VDI.with_new ~virtual_size:vdi_size session_id sR (fun vdi ->
       prepare_vdi vdi;
       let checksum_original = checksum rpc session_id vdi in
       let new_vdi = vdi_op rpc session_id sR vdi in
@@ -144,16 +144,25 @@ let export_import_vdi rpc session_id ~exportformat sR vdi =
 let export_import_raw = export_import_vdi ~exportformat:"raw"
 let export_import_vhd = export_import_vdi ~exportformat:"vhd"
 
-let data_integrity_tests session_id vdi_op op_name =
+let f =
   let module F = Storage_test.Sr_filter in
-  let filter = F.(allowed_operations [`vdi_create; `vdi_destroy] ||> not_iso) in
-  [ op_name^": empty VDI", `Slow, check_vdi_unchanged ~prepare_vdi:(fun _vdi -> ()) ~vdi_op, filter
-  ; op_name^": random VDI", `Slow, check_vdi_unchanged ~prepare_vdi:(write_random_data session_id) ~vdi_op, filter
-  ; op_name^": full VDI", `Slow, check_vdi_unchanged ~prepare_vdi:(fill session_id) ~vdi_op, filter
+  F.(allowed_operations [`vdi_create; `vdi_destroy] ||> not_iso)
+
+let data_integrity_tests session_id vdi_op op_name =
+  [ op_name^": small empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:(fun _vdi -> ()) ~vdi_op, f
+  ; op_name^": small random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:(write_random_data session_id) ~vdi_op, f
+  ; op_name^": small full VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:(fill session_id) ~vdi_op, f
+  ]
+
+let large_data_integrity_tests session_id vdi_op op_name =
+  let b = Random.int64 16L in
+  [ op_name^": ~2GiB empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:(fun _vdi -> ()) ~vdi_op, f
+  ; op_name^": ~2GiB random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:(write_random_data session_id) ~vdi_op, f
   ]
 
 let tests session_id =
   (data_integrity_tests session_id copy_vdi "VDI.copy") @
+  (large_data_integrity_tests session_id copy_vdi "VDI.copy") @
   (data_integrity_tests session_id export_import_raw "VDI export/import to/from raw file") @
   (data_integrity_tests session_id export_import_vhd "VDI export/import to/from VHD file")
   |> Storage_test.get_test_cases session_id
