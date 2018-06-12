@@ -443,7 +443,11 @@ module Interface = struct
 			debug "Configuring MTU for %s: %d" name mtu;
 			update_config name {(get_config name) with mtu};
 			match !backend_kind with
-			| Openvswitch -> ignore (Ovs.set_mtu name mtu)
+			| Openvswitch ->
+				(try
+					ignore (Ovs.set_mtu name mtu)
+				with _ ->
+					Ip.link_set_mtu name mtu)
 			| Bridge -> Ip.link_set_mtu name mtu
 		) ()
 
