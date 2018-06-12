@@ -71,7 +71,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xenstore.unix
     xenstore_transport
     xenstore_transport.unix
-     core
+    core
+    re
+    re.pcre
   ))
 ))
 |} version flags coverage_rewriter

@@ -225,3 +225,5 @@ val wait_xen_free_mem : xc:Xenctrl.handle -> ?maximum_wait_time_seconds:int -> i
 val allowed_xsdata_prefixes: string list
 
 val set_xsdata : xs:Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
+
+val move_xstree : xs:Xenstore.Xs.xsh -> domid -> string -> string -> unit

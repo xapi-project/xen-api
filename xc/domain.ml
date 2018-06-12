@@ -1475,3 +1475,51 @@ let set_xsdata ~xs domid xsdata =
       List.iter (fun x -> t.Xst.rm (dom_path ^ "/" ^ x)) allowed_xsdata_prefixes;
       t.Xst.writev dom_path (filtered_xsdata xsdata);
     )
+
+type node =
+  { contents: string;
+    subtrees: (string * node) list }
+
+let move_xstree ~xs domid olduuid newuuid =
+  let search_paths = [[""; "local"; "domain"; string_of_int domid];
+                      [""; "xapi"; olduuid];
+                      [""; "vss"; olduuid];
+                      [""; "vm"; olduuid]] in
+
+  let regexp = Re.Pcre.regexp olduuid in
+
+  let rec get_tree t path =
+    let open Xenstore in
+    let subtrees = try t.Xs.directory (String.concat "/" path) with Xs_protocol.Invalid -> [] in
+    let subtrees = subtrees |> List.filter (fun s -> s  <> "") in
+    let contents = t.Xs.read (String.concat "/" path) in
+    { contents;
+      subtrees = List.map (fun f -> (f, get_tree t (path @ [f]))) subtrees } in
+
+  let mv_tree path =
+    let open Xenstore in
+    Xs.transaction xs (fun t ->
+        let tree = get_tree t path in
+        let rec fixup write path (name,node) =
+          let fixed_name = Re.replace_string regexp ~by:newuuid name in
+          let fixed_contents = Re.replace_string regexp ~by:newuuid node.contents in
+          let changed_name = fixed_name <> name in
+          if changed_name then begin
+            debug "Removing xenstore tree at %s" ((String.concat "/" path) ^ "/" ^ name);
+            t.Xst.rm ((String.concat "/" path) ^ "/" ^ name);
+          end;
+          if node.contents <> fixed_contents || write || changed_name then begin
+            debug "About to write to %s (%s)\n%!" ((String.concat "/" path) ^ "/" ^ fixed_name) fixed_contents;
+            t.Xst.write ((String.concat "/" path) ^ "/" ^ fixed_name)
+              fixed_contents;
+          end;
+          List.iter (fixup (write || changed_name) (path @ [fixed_name])) node.subtrees
+        in
+        match List.rev path with
+        | name::path' ->
+          fixup false (List.rev path') (name,tree)
+        | _ ->
+          failwith "Internal error: mv_tree called on empty path"
+      ) in
+
+  List.iter mv_tree search_paths
