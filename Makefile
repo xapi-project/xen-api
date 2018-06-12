@@ -2,7 +2,7 @@ PYTHON_PREFIX?=/usr
 OPAM_PREFIX?=$(shell opam config var prefix)
 OPAM_LIBDIR?=$(shell opam config var lib)
 
-.PHONY: release build install uninstall clean test doc reindent
+.PHONY: release build install uninstall clean test lint doc reindent
 
 release:
 	jbuilder build @install
@@ -27,6 +27,11 @@ clean:
 
 test:
 	jbuilder runtest
+
+lint:
+	jbuilder build @python
+	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/python/xapi/storage/api/v4/*.py
+	pycodestyle --ignore=E501 _build/default/python/xapi/storage/api/v4/*.py
 
 # requires odoc
 doc:
