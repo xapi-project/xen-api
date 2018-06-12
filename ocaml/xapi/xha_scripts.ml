@@ -31,7 +31,8 @@ let ha_set_excluded = "ha_set_excluded"
  *  If the file does not exist, then we assume that there are no constraints
  *  for backwards compatibility. *)
 let get_supported_srs cluster_stack =
-  let fname = Filename.concat !Xapi_globs.cluster_stack_root cluster_stack in
+  let folder_name = Filename.concat !Xapi_globs.cluster_stack_root cluster_stack in
+  let fname = Filename.concat folder_name !Xapi_globs.cluster_stack_compatible_srs in
   try
     let open Stdext.Xstringext.String in
     Some (Stdext.Unixext.string_of_file fname |> strip isspace |> split_f isspace)
