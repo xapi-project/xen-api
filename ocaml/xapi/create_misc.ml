@@ -350,6 +350,8 @@ and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     Db.VM.set_requires_reboot ~__context ~self:domain_zero_ref ~value:false
   end;
   let localhost = Helpers.get_localhost ~__context in
+  Db.VM.set_power_state ~__context ~self:domain_zero_ref ~value:`Running;
+  Db.VM.set_domid ~__context ~self:domain_zero_ref ~value:0L;
   Helpers.update_domain_zero_name ~__context localhost host_info.hostname
 
 and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_constraints.t =
