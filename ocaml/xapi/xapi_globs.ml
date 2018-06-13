@@ -715,7 +715,6 @@ let sm_dir = ref "/opt/xensource/sm"
 let web_dir = ref "/opt/xensource/www"
 
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
-let cluster_stack_compatible_srs = ref "ha_statefile_srs"
 let cluster_stack_default = ref "xhad"
 
 let xen_cmdline_path = ref "/opt/xensource/libexec/xen-cmdline"
