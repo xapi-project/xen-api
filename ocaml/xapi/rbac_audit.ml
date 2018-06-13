@@ -222,7 +222,7 @@ let zip data = (* todo: remove i/o, make this more efficient *)
            (fun fd ->
               Gzip.compress fd (fun fd ->
                   let len = String.length data in
-                  let written = Unix.write fd data 0 len in
+                  let written = Unix.write_substring fd data 0 len in
                   if written <> len then failwith (Printf.sprintf "zip: wrote only %i bytes of %i" written len)
                 )
            );

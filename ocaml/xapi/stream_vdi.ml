@@ -88,11 +88,11 @@ let made_progress __context progress n =
 let write_block ~__context filename buffer ofd len =
   let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
   try
-    let csum = Sha1.to_hex (Sha1.string buffer) in
+    let csum = Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) in
     Tar_unix.write_block hdr (fun ofd -> Unix.write ofd buffer 0 len |> ignore) ofd;
     (* Write the checksum as a separate file *)
     let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
-    Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write ofd csum 0 (String.length csum))) ofd
+    Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write_substring ofd csum 0 (String.length csum))) ofd
   with
     Unix.Unix_error (a,b,c) as e ->
     TaskHelper.exn_if_cancelling ~__context;
@@ -117,7 +117,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
     with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
       (fun ifd ->
 
-         let reusable_buffer = String.make (Int64.to_int chunk_size) '\000' in
+         let reusable_buffer =  Bytes.make (Int64.to_int chunk_size) '\000' in
 
          (* NB. It used to be that chunks could be larger than a native int *)
          (* could handle, but this is no longer the case! Ensure all chunks *)
@@ -141,16 +141,16 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 
                if time_since_transmission > 5. && not first_or_last then begin
                  last_transmission_time := now;
-                 write_block ~__context filename "" ofd 0;
+                 write_block ~__context filename Bytes.empty ofd 0;
                  (* no progress has been made *)
                  stream_from (chunk_no + 1) offset
                end else begin
                  let buffer = if (Int64.of_int this_chunk) = chunk_size
                    then reusable_buffer
-                   else String.make this_chunk '\000'
+                   else Bytes.make this_chunk '\000'
                  in
                  Unixext.really_read ifd buffer 0 this_chunk;
-                 if not (Zerocheck.is_all_zeros buffer this_chunk) || first_or_last then begin
+                 if not (Zerocheck.is_all_zeros (Bytes.unsafe_to_string buffer) this_chunk) || first_or_last then begin
                    last_transmission_time := now;
                    write_block ~__context filename buffer ofd this_chunk;
                  end;
@@ -177,8 +177,9 @@ let verify_inline_checksum ifd checksum_table =
   end;
   try
     let length' = Int64.to_int length in
-    let csum = String.make length' ' ' in
+    let csum = Bytes.make length' ' ' in
     Unixext.really_read ifd csum 0 length';
+    let csum = Bytes.unsafe_to_string csum in
     Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
     (* Look up the relevant file_name in the checksum_table *)
     let original_file_name = String.sub file_name 0 (String.length file_name - (String.length checksum_extension)) in
@@ -200,7 +201,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
   let checksum_table = ref [] in
 
   let firstchunklength = ref (-1) in
-  let zerochunkstring = ref "" in
+  let zerochunkstring = ref Bytes.empty in
 
   let recv_one ifd (__context:Context.t) (prefix, vdi_ref, size) =
     let vdi_skip_zeros = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi_ref) in
@@ -209,7 +210,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
       (fun ofd ->
-         let reusable_buffer = String.make (Int64.to_int chunk_size) '\000' in
+         let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
 
          let rec stream_from (last_suffix: string) (offset: int64) =
            refresh_session ();
@@ -226,7 +227,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
              then
                begin
                  firstchunklength := (Int64.to_int length);
-                 zerochunkstring := String.make !firstchunklength '\000'
+                 zerochunkstring := Bytes.make !firstchunklength '\000'
                end;
 
              if not(String.startswith prefix file_name) then begin
@@ -260,11 +261,11 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
 
              let buffer = if length = chunk_size
                then reusable_buffer
-               else String.make (Int64.to_int length) '\000'
+               else Bytes.make (Int64.to_int length) '\000'
              in
              Unixext.really_read ifd buffer 0 (Int64.to_int length);
              Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
-             let csum = Sha1.to_hex (Sha1.string buffer) in
+             let csum = Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) in
 
              checksum_table := (file_name, csum) :: !checksum_table;
 

@@ -40,10 +40,10 @@ let run_vhd_tool progress_cb args s s' path =
                   close pipe_write;
                   begin
                     try
-                      let buf = String.make 3 '\000' in
+                      let buf = Bytes.make 3 '\000' in
                       while true do
-                        Stdext.Unixext.really_read pipe_read buf 0 (String.length buf);
-                        progress_cb (int_of_string buf)
+                        Stdext.Unixext.really_read pipe_read buf 0 (Bytes.length buf);
+                        progress_cb (int_of_string (Bytes.to_string buf))
                       done
                     with End_of_file -> ()
                        | e ->

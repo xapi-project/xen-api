@@ -91,9 +91,10 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                       let open Sparse_encoding in
                       Chunk.fold
                         (fun () chunk ->
-                           debug "sparse_dd: %s" chunk.Chunk.data;
+                           let data = Bytes.to_string chunk.Chunk.data in
+                           debug "sparse_dd: %s" data;
                            try
-                             Scanf.sscanf chunk.Chunk.data "Progress: %d"
+                             Scanf.sscanf data "Progress: %d"
                                (fun progress ->
                                   progress_cb (Continuing (float_of_int progress /. 100.))
                                )

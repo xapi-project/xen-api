@@ -481,7 +481,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
                  Unix.connect control_fd (Unix.ADDR_UNIX path);
                  let msg = dp in
                  let len = String.length msg in
-                 let written = Unixext.send_fd control_fd msg 0 len [] s in
+                 let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
                  debug "Sent fd";
                  if written <> len then begin
                    error "Failed to transfer fd to %s" path;
@@ -825,7 +825,7 @@ let nbd_handler req s sr vdi dp =
          Unix.connect control_fd (Unix.ADDR_UNIX path);
          let msg = dp in
          let len = String.length msg in
-         let written = Unixext.send_fd control_fd msg 0 len [] s in
+         let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
          if written <> len then begin
            error "Failed to transfer fd to %s" path;
            Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());

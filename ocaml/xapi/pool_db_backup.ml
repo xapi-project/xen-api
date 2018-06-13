@@ -35,7 +35,7 @@ let write_database (s: Unix.file_descr) ~__context =
     (* to Orlando, then only send a minimally-compliant Miami database. *)
     (* Orlando hosts will ignore this database and carry on.            *)
     let len = String.length minimally_compliant_miami_database in
-    ignore (Unix.write s minimally_compliant_miami_database 0 len)
+    ignore (Unix.write_substring s minimally_compliant_miami_database 0 len)
   else
     Db_xml.To.fd s (Db_ref.get_database (Context.database_of __context))
 

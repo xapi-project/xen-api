@@ -80,7 +80,7 @@ let hand_over_connection req s path =
          Unix.connect control_fd (Unix.ADDR_UNIX path);
          let msg = req |> Http.Request.rpc_of_t |> Jsonrpc.to_string in
          let len = String.length msg in
-         let written = Unixext.send_fd control_fd msg 0 len [] s in
+         let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
          if written <> len then begin
            error "Failed to transfer fd to %s" path;
            Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());

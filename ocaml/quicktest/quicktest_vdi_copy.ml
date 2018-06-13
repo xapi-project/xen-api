@@ -79,10 +79,10 @@ let start session_id sr_info =
      half of a 2 MiB block *)
   write_to_vdi ~session_id ~vdi:original
     (fun fd ->
-       let data = String.make (1024 * 1024) 'a' in
+       let data = Bytes.make (1024 * 1024) 'a' in
        let chunk = { Chunk.start = 0L; data } in
        Chunk.marshal fd chunk;
-       let final = { Chunk.start = 0L; data = "" } in
+       let final = { Chunk.start = 0L; data = Bytes.empty } in
        Chunk.marshal fd final;
     );
 
@@ -98,10 +98,10 @@ let start session_id sr_info =
      be represented as a block with an almost-empty bitmap. *)
   write_to_vdi ~session_id ~vdi:original
     (fun fd ->
-       let data = String.make 512 'b' in
+       let data = Bytes.make 512 'b' in
        let chunk = { Chunk.start = 0L; data } in
        Chunk.marshal fd chunk;
-       let final = { Chunk.start = 0L; data = "" } in
+       let final = { Chunk.start = 0L; data = Bytes.empty } in
        Chunk.marshal fd final;
     );
 

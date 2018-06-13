@@ -131,7 +131,7 @@ let ws_proxy __context req protocol address s =
                 | Ws_helpers.Hybi10 -> "hybi10" in
               let message = Printf.sprintf "%s:%s:%d" wsprotocol protocol port in
               let len = String.length message in
-              ignore(Unixext.send_fd sock message 0 len [] s)
+              ignore(Unixext.send_fd_substring sock message 0 len [] s)
             end
           | (sock,None) -> begin
               Http_svr.headers s (Http.http_501_method_not_implemented ())

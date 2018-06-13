@@ -157,7 +157,7 @@ let random_setup () =
   let chan = open_in "/dev/urandom" in
   Pervasiveext.finally (fun () -> really_input chan s 0 n)
     (fun () -> close_in chan);
-  Random.full_init (Array.init n (fun i -> Char.code s.[i]))
+  Random.full_init (Array.init n (fun i -> Char.code (Bytes.get s i)))
 
 let register_callback_fns() =
   let fake_rpc req sock xml : Rpc.response =

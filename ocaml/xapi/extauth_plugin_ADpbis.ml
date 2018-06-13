@@ -181,7 +181,7 @@ struct
                    (* or in the debug log via debug_cmd *)
                    try
                      let stdin_string = stdin_string ^ "\n" in (*HACK:without \n, the pbis scripts don't return!*)
-                     let (_: int) = Unix.write in_writeme stdin_string 0 (String.length stdin_string) in
+                     let (_: int) = Unix.write_substring in_writeme stdin_string 0 (String.length stdin_string) in
                      close_fd in_writeme; (* we need to close stdin, otherwise the unix cmd waits forever *)
                    with e -> begin
                        (* in_string is usually the password or other sensitive param, so never write it to debug or exn *)

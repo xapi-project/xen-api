@@ -32,20 +32,21 @@ let xapi_internal_originator = "xapi"
 
 let serialize_auth = Mutex.create()
 
-let wipe_string_contents str = for i = 0 to String.length str - 1 do str.[i] <- '\000' done
+let wipe_string_contents str =
+  for i = 0 to Bytes.length str - 1 do (Bytes.set str i '\000') done
 let wipe ss = List.iter (fun s -> wipe_string_contents s) ss
 (* wrapper that erases sensitive string parameters from functions *)
 let wipe_params_after_fn params fn =
   try (let r=fn () in wipe params; r) with e -> (wipe params; raise e)
 
 let do_external_auth uname pwd =
-  Mutex.execute serialize_auth (fun () -> (Ext_auth.d()).authenticate_username_password uname pwd)
+  Mutex.execute serialize_auth (fun () -> (Ext_auth.d()).authenticate_username_password uname (Bytes.unsafe_to_string pwd))
 
 let do_local_auth uname pwd =
-  Mutex.execute serialize_auth (fun () -> Pam.authenticate uname pwd)
+  Mutex.execute serialize_auth (fun () -> Pam.authenticate uname (Bytes.unsafe_to_string pwd))
 
 let do_local_change_password uname newpwd =
-  Mutex.execute serialize_auth (fun () -> Pam.change_password uname newpwd)
+  Mutex.execute serialize_auth (fun () -> Pam.change_password uname (Bytes.unsafe_to_string newpwd))
 
 let trackid session_id = (Context.trackid_of_session (Some session_id))
 
@@ -348,7 +349,9 @@ let slave_local_login ~__context ~psecret =
   Xapi_local_session.create ~__context ~pool:true
 
 (* Emergency mode login, uses local storage *)
-let slave_local_login_with_password ~__context ~uname ~pwd = wipe_params_after_fn [pwd] (fun () ->
+let slave_local_login_with_password ~__context ~uname ~pwd =
+  let pwd = Bytes.of_string pwd in
+  wipe_params_after_fn [pwd] (fun () ->
     if not (Context.preauth ~__context)
     then
       (try
@@ -367,7 +370,9 @@ let slave_local_login_with_password ~__context ~uname ~pwd = wipe_params_after_f
       - try and authenticate remotely, passing the supplied username/password to the external auth/directory service. (Note: see below for definition of 'authenticate remotely')
    2. otherwise, Session.login_with_password will only attempt to authenticate against the local superuser credentials
 *)
-let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_params_after_fn [pwd] (fun () ->
+let login_with_password ~__context ~uname ~pwd ~version ~originator =
+  let pwd = Bytes.of_string pwd in
+  wipe_params_after_fn [pwd] (fun () ->
     (* !!! Do something with the version number *)
     if (Context.preauth ~__context) then
       begin
@@ -595,7 +600,10 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator = wipe_param
       )
   )
 
-let change_password  ~__context ~old_pwd ~new_pwd = wipe_params_after_fn [old_pwd;new_pwd] (fun () ->
+let change_password  ~__context ~old_pwd ~new_pwd =
+  let old_pwd = Bytes.of_string old_pwd in
+  let new_pwd = Bytes.of_string new_pwd in
+  wipe_params_after_fn [old_pwd;new_pwd] (fun () ->
     let session_id = Context.get_session_id __context in
     (*let user = Db.Session.get_this_user ~__context ~self:session_id in
       	let uname = Db.User.get_short_name ~__context ~self:user in*)

@@ -38,7 +38,8 @@ let write_config config = put_password superuser config.password
 
 let rewrite_config_files config = parse_config_string config |> write_config
 
-let write_to_fd s msg = Unix.write s msg 0 (String.length msg) |> ignore
+let write_to_fd s msg =
+  Unix.write_substring s msg 0 (String.length msg) |> ignore
 
 let transmit_config_files s =
   read_config_file () |> rpc_of_config |> Jsonrpc.to_string |> write_to_fd s

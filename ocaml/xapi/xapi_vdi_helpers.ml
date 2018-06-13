@@ -220,9 +220,9 @@ module VDI_CStruct = struct
   (* Read the string from the cstruct *)
   let read cstruct =
     let curr_len = Int32.to_int (get_data_length cstruct) in
-    let curr_text = String.make curr_len '\000' in
-    Cstruct.blit_to_string cstruct data_offset curr_text default_offset curr_len;
-    curr_text
+    let curr_text = Bytes.make curr_len '\000' in
+    Cstruct.blit_to_bytes cstruct data_offset curr_text default_offset curr_len;
+    Bytes.unsafe_to_string curr_text
 
   (* Format the cstruct for the first time *)
   let format cstruct =

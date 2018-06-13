@@ -273,7 +273,7 @@ let http_response_code x = match String.split ' ' x with
   | _ -> failwith "Bad response from HTTP server"
 
 let copy_with_heartbeat ?(block=65536) in_ch out_ch heartbeat_fun =
-  let buf = String.make block '\000' in
+  let buf = Bytes.make block '\000' in
   let last_heartbeat = ref (Unix.time()) in
   let finish = ref false in
   while not !finish do
@@ -349,11 +349,11 @@ let main_loop ifd ofd =
           marshal ofd (Response OK);
           let length = (Unix.stat x).Unix.st_size in
           marshal ofd (Blob (Chunk (Int32.of_int length)));
-          let buffer = String.make (1024 * 1024 * 10) '\000' in
+          let buffer = Bytes.make (1024 * 1024 * 10) '\000' in
           let left = ref length in
           while !left > 0 do
-            let n = Unix.read fd buffer 0 (min (String.length buffer) !left) in
-            Xapi_stdext_unix.Unixext.really_write ofd buffer 0 n;
+            let n = Unix.read fd buffer 0 (min (Bytes.length buffer) !left) in
+            Xapi_stdext_unix.Unixext.really_write ofd (Bytes.unsafe_to_string buffer) 0 n;
             left := !left - n
           done;
           marshal ofd (Blob End);
@@ -367,10 +367,10 @@ let main_loop ifd ofd =
          	         when the underlying connection temporarily breaks, hence provides
          	         seemingly continous connection. *)
       let block = 65536 in
-      let buf_local = String.make block '\000' in
+      let buf_local = Bytes.make block '\000' in
       let buf_local_end = ref 0 in
       let buf_local_start = ref 0 in
-      let buf_remote = String.make block '\000' in
+      let buf_remote = Bytes.make block '\000' in
       let buf_remote_end = ref 0 in
       let buf_remote_start = ref 0 in
       let final = ref false in
@@ -443,7 +443,7 @@ let main_loop ifd ofd =
                   let b = Unix.read Unix.stdin buf_remote
                       !buf_remote_end (block - !buf_remote_end) in
                   let i = ref !buf_remote_end in
-                  while !i < !buf_remote_end + b && Char.code buf_remote.[!i] <> 0x1d do incr i; done;
+                  while !i < !buf_remote_end + b && Char.code (Bytes.get buf_remote !i) <> 0x1d do incr i; done;
                   if !i < !buf_remote_end + b then final := true;
                   buf_remote_end := !i
                 end;
@@ -584,7 +584,7 @@ let main_loop ifd ofd =
     | Command Prompt ->
       let data = input_line stdin in
       marshal ofd (Blob (Chunk (Int32.of_int (String.length data))));
-      ignore (Unix.write ofd data 0 (String.length data));
+      Unix.write_substring ofd data 0 (String.length data) |> ignore;
       marshal ofd (Blob End)
     | Command (Error(code, params)) ->
       error "Error code: %s\n" code;

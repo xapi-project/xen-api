@@ -126,4 +126,4 @@ let handler req bio _ =
   let reply_xml = DBCacheRemoteListener.process_xmlrpc body_xml in
   let response = Xml.to_string reply_xml in
   Http_svr.response_fct req fd (Int64.of_int @@ String.length response)
-    (fun fd -> Unix.write fd (Bytes.unsafe_of_string response) 0 (String.length response) |> ignore)
+    (fun fd -> Unix.write_substring fd response 0 (String.length response) |> ignore)
