@@ -192,6 +192,7 @@ let forget ~__context ~self =
         Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:[];
         (* must not disable the daemon here, because we declared another unreachable node dead,
          * not the current one *)
+        Db.Cluster_host.destroy ~__context ~self;
         debug "Cluster_host.forget was successful"
       | Result.Error error ->
         warn "Error encountered when declaring dead cluster_host %s (did you declare all dead hosts yet?)" (Ref.string_of self);
@@ -246,8 +247,8 @@ let disable_clustering ~__context =
   match Xapi_clustering.find_cluster_host ~__context ~host with
   | None -> info "No cluster host found"
   | Some self ->
-     info "Disabling cluster_host %s" (Ref.string_of self);
-     disable ~__context ~self
+   info "Disabling cluster_host %s" (Ref.string_of self);
+   disable ~__context ~self
 
 let sync_required ~__context ~host =
   let clusters = Db.Cluster.get_all_records ~__context in

@@ -4395,6 +4395,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let forget ~__context ~self =
       info "Cluster_host.forget cluster_host:%s" (Ref.string_of self);
+      Db.Cluster_host.set_joined ~__context ~self ~value:false;
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let local_fn = Local.Cluster_host.forget ~self in
       (* We need to ask another host that has a cluster host to mark it as dead.
