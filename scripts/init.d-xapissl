@@ -158,6 +158,8 @@ start() {
         "@LIBEXECDIR@/generate_ssl_cert" ${PEMFILE} ${CN}
     fi
     writeconffile
+    # Increase the fd limit to 2048, so stunnel could accept 1000 client connections
+    ulimit -n 2048
     start_daemon ${STUNNEL} ${SSLCONFFILE}
     RETVAL=$?
 
