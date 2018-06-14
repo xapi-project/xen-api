@@ -30,6 +30,8 @@ module VDI : sig
   (** Calls VDI.update and checks that the VDI fields that must be the same are
       the same before and after the update. *)
   val test_update : API.ref_session -> API.ref_VDI -> unit
+
+  val with_attached : API.ref_session -> API.ref_VDI -> [`RO|`RW] -> (string -> 'a) -> 'a
 end
 
 module SR : sig

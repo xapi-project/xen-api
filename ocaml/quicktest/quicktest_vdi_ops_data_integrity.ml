@@ -3,40 +3,8 @@
     Helper functions
  * ---------------- *)
 
-let get_domain_zero rpc session_id =
-  Xapi_inventory.inventory_filename := "/etc/xensource-inventory";
-  let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
-  Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid
-
-let with_attached_vdi rpc session_id vdi mode f =
-  let dom0 = get_domain_zero rpc session_id in
-  let vbd =
-    Client.Client.VBD.create ~rpc ~session_id
-      ~vM:dom0
-      ~empty:false
-      ~vDI:vdi
-      ~userdevice:"autodetect"
-      ~bootable:false
-      ~mode
-      ~_type:`Disk
-      ~unpluggable:true
-      ~qos_algorithm_type:""
-      ~qos_algorithm_params:[]
-      ~other_config:[]
-  in
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () ->
-       Client.Client.VBD.plug ~rpc ~session_id ~self:vbd;
-       Xapi_stdext_pervasives.Pervasiveext.finally
-         (fun () -> f ("/dev/" ^ (Client.Client.VBD.get_device ~rpc ~session_id ~self:vbd)))
-         (fun () ->
-            Client.Client.VBD.unplug ~rpc ~session_id ~self:vbd;
-         )
-    )
-    (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
-
-let with_open_vdi rpc session_id vdi mode f =
-  with_attached_vdi rpc session_id vdi mode
+let with_open_vdi _rpc session_id vdi mode f =
+  Storage_test.VDI.with_attached session_id vdi mode
     (fun path ->
        let mode' = match mode with
          | `RO -> [ Unix.O_RDONLY ]
@@ -105,8 +73,8 @@ let fill session_id vdi =
        Unix.write fd buf 0 size
     )
 
-let checksum rpc session_id vdi =
-  with_attached_vdi rpc session_id vdi `RO (fun path ->
+let checksum _rpc session_id vdi =
+  Storage_test.VDI.with_attached session_id vdi `RO (fun path ->
       Digest.to_hex (Digest.file path)
     )
 

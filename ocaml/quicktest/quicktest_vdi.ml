@@ -290,6 +290,13 @@ let vdi_general_test session_id sr_info =
         (fun () -> Client.Client.VBD.destroy !rpc session_id vbd)
     )
 
+let multiple_dom0_attach session_id sr_info =
+  let rec loop vdi = function
+    | 0 -> ()
+    | n -> Storage_test.VDI.with_attached session_id vdi `RO (fun _ -> loop vdi (n - 1))
+  in
+  Storage_test.VDI.with_any session_id sr_info (fun vdi -> loop vdi 20)
+
 let tests session_id =
   let module F = Storage_test.Sr_filter in
   [ "vdi_create_destroy", `Slow, vdi_create_destroy, F.(has_capabilities Sr_capabilities.[vdi_create; vdi_delete] ||> not_iso)
@@ -303,5 +310,6 @@ let tests session_id =
   ; "vdi_snapshot_in_pool", `Slow, vdi_snapshot_in_pool, F.has_capabilities [Sr_capabilities.vdi_snapshot]
   ; "vdi_create_destroy_plug_checksize", `Slow, vdi_create_destroy_plug_checksize, F.(has_capabilities Sr_capabilities.[vdi_create; vdi_delete; vdi_attach] ||> can_unplug)
   ; "vdi_general_test", `Slow, vdi_general_test, F.allowed_operations [`vdi_create; `vdi_destroy]
+  ; "multiple_dom0_attach", `Slow, multiple_dom0_attach, F.(with_any_vdi ||> not_type "udev") (* Can't attach empty optical drive *)
   ]
   |> Storage_test.get_test_cases session_id
