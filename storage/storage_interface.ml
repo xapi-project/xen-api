@@ -410,7 +410,7 @@ module VDI = struct
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
 		is true.
-    This function is deprecated, and is only here to keep backward
+    @deprecated This function is deprecated, and is only here to keep backward
     compatibility with old xapis that call Remote.VDI.attach during SXM.
     Use the attach2 function instead. *)
 	external attach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> attach_info = ""
