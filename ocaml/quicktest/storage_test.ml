@@ -118,6 +118,22 @@ module VDI = struct
     check_fields expected original_vdi new_vdi
 end
 
+module SR = struct
+  let check_fields = Quicktest_common.compare_fields "SR"
+
+  let test_update session_id self =
+    let rpc = !Quicktest_common.rpc in
+    let original_sr = Client.Client.SR.get_record ~rpc ~session_id ~self in
+    Client.Client.SR.update ~rpc ~session_id ~sr:self;
+    let new_sr = Client.Client.SR.get_record ~rpc ~session_id ~self in
+    let expected =
+      [ `Same, "name_description", (fun sr -> sr.API.sR_name_description)
+      ; `Same, "name_label", (fun sr -> sr.API.sR_name_label)
+      ]
+    in
+    check_fields expected original_sr new_sr
+end
+
 module Sr_filter = struct
   type t = (Rpc.call -> Rpc.response) -> API.ref_session -> sr_info list -> sr_info list
 

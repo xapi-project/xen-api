@@ -65,10 +65,33 @@ let sr_probe_test session_id sr_info =
       Alcotest.fail (Printf.sprintf "Probe failed to find SR %s even though it is plugged in" srr.API.sR_uuid);
     end
 
+let sr_set_name_test session_id sr_info =
+  let rpc = !Quicktest_args.rpc in
+  let sr = sr_info.Storage_test.sr in
+  let old_name_label = Client.Client.SR.get_name_label ~rpc ~session_id ~self:sr in
+  let old_name_description = Client.Client.SR.get_name_description ~rpc ~session_id ~self:sr in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      Client.Client.SR.set_name_label ~rpc ~session_id ~sr ~value:"test_name_label";
+      Client.Client.SR.set_name_description ~rpc ~session_id ~sr ~value:"test_name_description";
+      Alcotest.(check string) "SR.name_label"
+        "test_name_label"
+        (Client.Client.SR.get_name_label ~rpc ~session_id ~self:sr);
+      Alcotest.(check string) "SR.name_description"
+        "test_name_description"
+        (Client.Client.SR.get_name_description ~rpc ~session_id ~self:sr);
+      Storage_test.SR.test_update session_id sr
+    )
+    (fun () ->
+      Client.Client.SR.set_name_label ~rpc ~session_id ~sr ~value:old_name_label;
+      Client.Client.SR.set_name_description ~rpc ~session_id ~sr ~value:old_name_description
+    )
+
 let tests session =
   let module F= Storage_test.Sr_filter in
   [ "sr_scan_test", `Slow, sr_scan_test, F.all
   ; "sr_update_test", `Slow, sr_update_test, F.has_capabilities [Sr_capabilities.sr_update]
   ; "sr_probe_test", `Slow, sr_probe_test, F.(has_capabilities [Sr_capabilities.sr_probe] ||> can_unplug)
+  ; "sr_set_name_test", `Quick, sr_set_name_test, F.allowed_operations [`update]
   ]
   |> Storage_test.get_test_cases session

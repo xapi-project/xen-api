@@ -32,6 +32,12 @@ module VDI : sig
   val test_update : API.ref_session -> API.ref_VDI -> unit
 end
 
+module SR : sig
+  val test_update : API.ref_session -> API.ref_SR -> unit
+  (** Calls SR.update and checks that the SR fields that must be the same are
+      the same before and after the update. *)
+end
+
 module Sr_filter : sig
   type t
   (** A filter that defines which SRs a storage test can run on. It takes a list
