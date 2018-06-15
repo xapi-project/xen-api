@@ -155,6 +155,23 @@ module DB = struct
       type key = string
       let key vm = [ vm ]
     end)
+
+  (* This function will leave untouched the profile of any VM started with the xenopsd persistent
+     record version 1 (or later), and it will revise the profile of any qemu-trad VM started with
+     a persistent record without a version field (which defaults to version 0) *)
+  let revise_profile_qemu_trad vm persistent =
+      Device.Profile.{persistent with VmExtra.profile =
+        match persistent.VmExtra.profile with
+        | Some Qemu_trad when persistent.VmExtra.version = 0 ->
+          debug "vm %s: revised %s->%s" vm Name.qemu_trad Name.qemu_upstream_compat;
+          Some Qemu_upstream_compat
+        | x -> x
+      }
+
+  let revision_of vm persistent =
+    persistent
+    |> revise_profile_qemu_trad vm
+
 end
 
 (* These updates are local plugin updates, distinct from those that are
@@ -2109,7 +2126,9 @@ module VM = struct
         end
       | _ -> persistent
     in
-    let persistent = { persistent with VmExtra.profile = profile_of ~vm } in
+    let persistent = { persistent with VmExtra.profile = profile_of ~vm }
+      |> DB.revision_of k
+    in
     persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string |> fun state_new ->
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
