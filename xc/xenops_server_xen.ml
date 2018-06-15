@@ -97,6 +97,10 @@ module VmExtra = struct
       the domain is suspended so it can be re-used in the following 'create'
       which is part of 'resume'. *)
   type persistent_t = {
+    (* This field indicates the version of the persistent record with which
+       the VM started, and it stays constant through xenopsd VM migration,
+       resume etc operations until the VM shuts down. *)
+    version: int;
     build_info: Domain.build_info option;
     ty: Vm.builder_info option;
     last_start_time: float;
@@ -113,7 +117,11 @@ module VmExtra = struct
   } [@@deriving rpc]
 
   let default_persistent_t =
-    { build_info = None
+    { 
+      (* The default version 0 indicates that the persistent record was created by a VM-start
+         operation using an old pre-Lima xenopsd version that didn't have a version field. *)
+      version = 0
+    ; build_info = None
     ; ty = None
     ; last_start_time = 0.0
     ; domain_config = None
@@ -993,7 +1001,10 @@ module VM = struct
               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
                let persistent =
                  VmExtra.{ default_persistent_t with
-                           ty = Some vm.ty
+                           (* version 1 and later distinguish VMs started in Lima and later versions of xenopsd
+                              from those VMs started in pre-Lima versions that didn't have this version field *)
+                           version = 1
+                         ; ty = Some vm.ty
                          ; last_start_time = Unix.gettimeofday ()
                          ; domain_config = Some (VmExtra.domain_config_of_vm vm)
                          ; nomigrate = Platform.is_true
