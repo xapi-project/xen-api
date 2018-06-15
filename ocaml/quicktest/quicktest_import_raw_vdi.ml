@@ -14,7 +14,6 @@
 
 
 open Client
-open Quicktest_common
 open Http
 
 
@@ -27,21 +26,24 @@ let import_raw_vdi ~session_id ~task_id f =
         "task_id", Ref.string_of task_id
       ]
       Http.Put "/import_raw_vdi" in
-  http req (fun (_, fd) -> f fd)
+  Qt.http req (fun (_, fd) -> f fd)
 
-let start session_id =
-  let task_id = Client.Task.create ~rpc:!rpc ~session_id
+let start rpc session_id () =
+  let task_id = Client.Task.create ~rpc ~session_id
       ~label:"quicktest import raw vdi"
       ~description:"" in
   try   
     import_raw_vdi ~session_id ~task_id (fun fd ->()) |> ignore;
     Alcotest.fail "No exception was raised by import_raw_vdi"
   with e -> 
-    let a = Client.Task.get_record ~rpc:!rpc ~session_id ~self:task_id in
-    Client.Task.destroy ~rpc:!rpc ~session_id ~self:task_id;
+    let a = Client.Task.get_record ~rpc ~session_id ~self:task_id in
+    Client.Task.destroy ~rpc ~session_id ~self:task_id;
     if a.API.task_status <> `failure then
     Alcotest.fail "The status of the original task is incorrect"
 
-let tests session_id =
-  [ "import_raw_vdi", `Slow, (fun () -> start session_id) ]
+let tests () =
+  let open Qt_filter in
+  [ [ "import_raw_vdi", `Slow, start] |> conn
+  ]
+  |> List.concat
 

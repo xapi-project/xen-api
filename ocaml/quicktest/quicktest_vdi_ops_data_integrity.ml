@@ -3,8 +3,8 @@
     Helper functions
  * ---------------- *)
 
-let with_open_vdi _rpc session_id vdi mode f =
-  Storage_test.VDI.with_attached session_id vdi mode
+let with_open_vdi rpc session_id vdi mode f =
+  Qt.VDI.with_attached rpc session_id vdi mode
     (fun path ->
        let mode' = match mode with
          | `RO -> [ Unix.O_RDONLY ]
@@ -29,8 +29,7 @@ let random_bytes length =
     )
     (fun () -> close_in f)
 
-let write_random_data session_id vdi =
-  let rpc = !Quicktest_common.rpc in
+let write_random_data rpc session_id vdi =
   let size = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
   with_open_vdi rpc session_id vdi `RW
     (fun fd ->
@@ -61,8 +60,7 @@ let write_random_data session_id vdi =
        done
     )
 
-let fill session_id vdi =
-  let rpc = !Quicktest_common.rpc in
+let fill rpc session_id vdi =
   let size =
     Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
     |> Int64.to_int
@@ -73,19 +71,20 @@ let fill session_id vdi =
        Unix.write fd buf 0 size
     )
 
-let checksum _rpc session_id vdi =
-  Storage_test.VDI.with_attached session_id vdi `RO (fun path ->
+let noop _rpc _session_id _vdi = ()
+
+let checksum rpc session_id vdi =
+  Qt.VDI.with_attached rpc session_id vdi `RO (fun path ->
       Digest.to_hex (Digest.file path)
     )
 
-let check_vdi_unchanged session_id ~vdi_size ~prepare_vdi ~vdi_op sr_info =
-  let rpc = !Quicktest_common.rpc in
-  let sR = sr_info.Storage_test.sr in
-  Storage_test.VDI.with_new ~virtual_size:vdi_size session_id sR (fun vdi ->
-      prepare_vdi vdi;
+let check_vdi_unchanged rpc session_id ~vdi_size ~prepare_vdi ~vdi_op sr_info () =
+  let sR = sr_info.Qt.sr in
+  Qt.VDI.with_new ~virtual_size:vdi_size rpc session_id sR (fun vdi ->
+      prepare_vdi rpc session_id vdi;
       let checksum_original = checksum rpc session_id vdi in
       let new_vdi = vdi_op rpc session_id sR vdi in
-      Storage_test.VDI.with_destroyed session_id new_vdi (fun () ->
+      Qt.VDI.with_destroyed rpc session_id new_vdi (fun () ->
           let checksum_copy = checksum rpc session_id new_vdi in
           if (checksum_copy <> checksum_original) then
             failwith (Printf.sprintf "New VDI (checksum: %s) has different data than original (checksum: %s)." checksum_copy checksum_original)
@@ -98,13 +97,13 @@ let copy_vdi rpc session_id sr vdi =
 let export_import_vdi rpc session_id ~exportformat sR vdi =
   let vdi_uuid = Client.Client.VDI.get_uuid ~rpc ~session_id ~self:vdi in
   let file = "/tmp/quicktest_export_"^vdi_uuid in
-  Quicktest_common.cli_cmd ["vdi-export"; "uuid="^vdi_uuid; "filename="^file; "format="^exportformat] |> ignore;
+  Qt.cli_cmd ["vdi-export"; "uuid="^vdi_uuid; "filename="^file; "format="^exportformat] |> ignore;
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        let virtual_size = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
        let new_vdi = Client.Client.VDI.create ~rpc ~session_id ~name_label:"" ~name_description:"" ~sR ~virtual_size ~_type:`user ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config:[] ~tags:[] in
        let new_vdi_uuid = Client.Client.VDI.get_uuid ~rpc ~session_id ~self:new_vdi in
-       Quicktest_common.cli_cmd ["vdi-import"; "uuid="^new_vdi_uuid; "filename="^file; "format="^exportformat] |> ignore;
+       Qt.cli_cmd ["vdi-import"; "uuid="^new_vdi_uuid; "filename="^file; "format="^exportformat] |> ignore;
        new_vdi
     )
     (fun () -> Sys.remove file)
@@ -112,25 +111,26 @@ let export_import_vdi rpc session_id ~exportformat sR vdi =
 let export_import_raw = export_import_vdi ~exportformat:"raw"
 let export_import_vhd = export_import_vdi ~exportformat:"vhd"
 
-let f =
-  let module F = Storage_test.Sr_filter in
-  F.(allowed_operations [`vdi_create; `vdi_destroy] ||> not_iso)
+let f test_case =
+  let open Qt_filter in
+  test_case |> conn |> sr SR.(all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso)
 
-let data_integrity_tests session_id vdi_op op_name =
-  [ op_name^": small empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:(fun _vdi -> ()) ~vdi_op, f
-  ; op_name^": small random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:(write_random_data session_id) ~vdi_op, f
-  ; op_name^": small full VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:(fill session_id) ~vdi_op, f
+let data_integrity_tests vdi_op op_name =
+  [ [op_name^": small empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:noop ~vdi_op] |> f
+  ; [op_name^": small random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:write_random_data ~vdi_op] |> f
+  ; [op_name^": small full VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:fill ~vdi_op] |> f
   ]
+  |> List.concat
 
-let large_data_integrity_tests session_id vdi_op op_name =
+let large_data_integrity_tests vdi_op op_name =
   let b = Random.int64 16L in
-  [ op_name^": ~2GiB empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:(fun _vdi -> ()) ~vdi_op, f
-  ; op_name^": ~2GiB random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:(write_random_data session_id) ~vdi_op, f
+  [ [op_name^": ~2GiB empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:noop ~vdi_op] |> f
+  ; [op_name^": ~2GiB random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:write_random_data ~vdi_op] |> f
   ]
+  |> List.concat
 
-let tests session_id =
-  (data_integrity_tests session_id copy_vdi "VDI.copy") @
-  (large_data_integrity_tests session_id copy_vdi "VDI.copy") @
-  (data_integrity_tests session_id export_import_raw "VDI export/import to/from raw file") @
-  (data_integrity_tests session_id export_import_vhd "VDI export/import to/from VHD file")
-  |> Storage_test.get_test_cases session_id
+let tests () =
+  (data_integrity_tests copy_vdi "VDI.copy") @
+  (large_data_integrity_tests copy_vdi "VDI.copy") @
+  (data_integrity_tests export_import_raw "VDI export/import to/from raw file") @
+  (data_integrity_tests export_import_vhd "VDI export/import to/from VHD file")
