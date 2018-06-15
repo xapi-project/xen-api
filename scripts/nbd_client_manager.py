@@ -68,28 +68,28 @@ def _call(cmd_args, error=True):
     If [error] and exit code != 0, log and throws a CalledProcessError.
     """
     LOGGER.debug("Running cmd %s", cmd_args)
-    p = subprocess.Popen(
+    proc = subprocess.Popen(
         cmd_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         close_fds=True
     )
 
-    stdout, stderr = p.communicate()
+    stdout, stderr = proc.communicate()
 
-    if error and p.returncode != 0:
+    if error and proc.returncode != 0:
         LOGGER.error(
             "%s exitted with code %d: %s",
             ' '.join(cmd_args),
-            p.returncode,
+            proc.returncode,
             stderr)
 
         raise subprocess.CalledProcessError(
-            returncode=p.returncode,
+            returncode=proc.returncode,
             cmd=cmd_args,
             output=stderr)
 
-    return p.returncode
+    return proc.returncode
 
 
 def _is_nbd_device_connected(nbd_device):
@@ -114,8 +114,9 @@ def _find_unused_nbd_device():
     """
     Returns the path of the first /dev/nbdX device that is not
     connected according to nbd-client.
+    Raises NbdDeviceNotFound if no devices are available.
     """
-    for device_no in range(0, 100):
+    for device_no in range(0, 1000):
         nbd_device = "/dev/nbd{}".format(device_no)
         if not _is_nbd_device_connected(nbd_device=nbd_device):
             return nbd_device
@@ -144,8 +145,8 @@ def _persist_connect_info(device, path, exportname):
     if not os.path.exists(PERSISTENT_INFO_DIR):
         os.makedirs(PERSISTENT_INFO_DIR)
     filename = _get_persistent_connect_info_filename(device)
-    with open(filename, 'w') as f:
-        f.write(json.dumps({'path':path, 'exportname':exportname}))
+    with open(filename, 'w') as info_file:
+        info_file.write(json.dumps({'path':path, 'exportname':exportname}))
 
 def _remove_persistent_connect_info(device):
     try:
@@ -155,14 +156,29 @@ def _remove_persistent_connect_info(device):
 
 def connect_nbd(path, exportname):
     """Connects to a free NBD device using nbd-client and returns its path"""
-    _call(['modprobe', 'nbd'])
-    with FILE_LOCK:
-        nbd_device = _find_unused_nbd_device()
-        cmd = ['nbd-client', '-unix', path, nbd_device, '-name', exportname]
-        _call(cmd)
-        _wait_for_nbd_device(nbd_device=nbd_device, connected=True)
-        _persist_connect_info(nbd_device, path, exportname)
-    return nbd_device
+    # We should not ask for too many nbds, as we might not have enough memory
+    _call(['modprobe', 'nbd', 'nbds_max=24'])
+    retries = 0
+    while True:
+        try:
+            with FILE_LOCK:
+                nbd_device = _find_unused_nbd_device()
+                cmd = ['nbd-client', '-unix', path, nbd_device, '-name', exportname]
+                _call(cmd)
+                _wait_for_nbd_device(nbd_device=nbd_device, connected=True)
+                _persist_connect_info(nbd_device, path, exportname)
+            return nbd_device
+        except NbdDeviceNotFound as exn:
+            LOGGER.warn('Failed to find free nbd device: %s', exn)
+            retries = retries + 1
+            if retries == 1:
+                # We sleep for a shorter period first, in case an nbd device
+                # will become available soon (e.g. during PV Linux guest bootstorm):
+                time.sleep(10)
+            elif retries < 30:
+                time.sleep(60)
+            else:
+                raise exn
 
 
 def disconnect_nbd_device(nbd_device):
@@ -229,8 +245,8 @@ def _main():
 
         args = parser.parse_args()
         args.func(args)
-    except Exception as e:
-        LOGGER.exception(e)
+    except Exception as exn:
+        LOGGER.exception(exn)
         raise
 
 
