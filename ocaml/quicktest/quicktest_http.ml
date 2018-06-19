@@ -14,7 +14,6 @@
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext
 open Client
-open Quicktest_common
 
 module Uds = struct (* {{{1 *)
 
@@ -72,15 +71,15 @@ module Secret_Auth_fails = struct (* {{{1 *)
 
   (** Tests that invalid pool secrets are rejected. *)
   let test_auth_fails_invalid_pool_secret () =
-    Quicktest_common.assert_raises_match
+    Qt.Test.assert_raises_match
       (function Http_client.Http_error _ -> true | _ -> false)
-      (fun () -> http invalid_pool_secret (fun _ -> ()))
+      (fun () -> Qt.http invalid_pool_secret (fun _ -> ()))
 
   (** Tests that invalid basic authentication fails. *)
   let test_auth_fails_invalid_basicauth () =
-    Quicktest_common.assert_raises_match
+    Qt.Test.assert_raises_match
       (function Http_client.Http_error _ -> true | Http_client.Http_request_rejected _ -> true | _ -> false)
-      (fun () -> http invalid_basicauth (fun _ -> ()))
+      (fun () -> Qt.http invalid_basicauth (fun _ -> ()))
 
   let tests =
     [ "test_auth_failes_invalid_pool_secret", `Quick, test_auth_fails_invalid_pool_secret

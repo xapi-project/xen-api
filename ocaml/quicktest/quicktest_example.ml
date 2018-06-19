@@ -1,6 +1,5 @@
 (* demonstrative example of how quicktest code should be written *)
 open Client
-open Quicktest_common
 
 (* alias PBD module for convenience *)
 module P = Client.PBD
@@ -14,7 +13,7 @@ module Testable = struct
     Alcotest.testable fmt cmp
 end
 
-let start session_id rpc =
+let start rpc session_id () =
 
   (* helper functions for API/PBD calls *)
   let with_api fn = fn ~rpc ~session_id in
@@ -35,5 +34,8 @@ let start session_id rpc =
     uuid_test pbd
   in run_tests ()
 
-let tests session_id =
-  [ "example test", `Quick, (fun () -> start session_id !rpc )]
+let tests () =
+  let open Qt_filter in
+  [ ["example test", `Quick, start] |> conn
+  ]
+  |> List.concat
