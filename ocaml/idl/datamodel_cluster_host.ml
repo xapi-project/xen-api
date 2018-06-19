@@ -24,6 +24,9 @@ let create = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:Api_errors.([ pif_not_attached_to_host
+                      ; no_cluster_hosts_reachable
+                      ])
     ()
 
 let destroy = call
@@ -34,6 +37,10 @@ let destroy = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:Api_errors.([ cluster_stack_in_use
+                      ; clustering_disabled
+                      ; cluster_host_is_last
+                      ])
     ()
 
 let force_destroy = call
@@ -44,6 +51,8 @@ let force_destroy = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:Api_errors.([ cluster_stack_in_use
+                      ])
     ()
 
 let enable = call
@@ -54,6 +63,9 @@ let enable = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:Api_errors.([ pif_allows_unplug
+                      ; required_pif_is_unplugged
+                      ])
     ()
 
 let disable = call
@@ -64,6 +76,8 @@ let disable = call
       ]
     ~lifecycle
     ~allowed_roles:_R_POOL_ADMIN
+    ~errs:Api_errors.([ cluster_stack_in_use
+                      ])
     ()
 
 let forget = call

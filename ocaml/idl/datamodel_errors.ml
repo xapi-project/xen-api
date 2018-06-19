@@ -191,6 +191,8 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_allows_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF allows unplug." ();
+  error Api_errors.required_pif_is_unplugged [ "PIF" ]
+    ~doc:"The operation you requested cannot be performed because the specified PIF is currently unplugged." ();
   error Api_errors.pif_has_fcoe_sr_in_use ["PIF"; "SR"]
     ~doc:"The operation you requested cannot be performed because the specified PIF has FCoE SR in use." ();
   error Api_errors.pif_unmanaged [ "PIF" ]
