@@ -78,7 +78,9 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
 let destroy ~__context ~self =
   let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self in
   let cluster_host = match cluster_hosts with
-    | [] -> None
+    | [] ->
+      info "No cluster_hosts found. Proceeding with cluster destruction.";
+      None
     | [ cluster_host ] -> Some (cluster_host)
     | _ ->
       let n = List.length cluster_hosts in
@@ -93,10 +95,12 @@ let destroy ~__context ~self =
   set_ha_cluster_stack ~__context;
   Xapi_clustering.Daemon.disable ~__context
 
-let get_network ~__context ~self =
-  get_network_internal ~__context ~self
+(* Get pool master's cluster_host, return network of PIF *)
+let get_network = get_network_internal
 
-(* helper function; concurrency checks are done in implementation of Cluster.create and Cluster_host.create *)
+(** Cluster.pool* functions are convenience wrappers for iterating low-level APIs over a pool.
+    Concurrency checks are done in the implementation of these calls *)
+
 let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout_coefficient =
   validate_params ~token_timeout ~token_timeout_coefficient;
   let master = Helpers.get_master ~__context in
@@ -108,103 +112,82 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout ~token_timeout
   in
 
   List.iter (fun host ->
-      (* Cluster.create already created cluster_host on master, so we only need to iterate through slaves *)
+      (* Cluster.create already created cluster_host on master, so we only iterate through slaves *)
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          let pifref,_ = pif_of_host ~__context network host in
-          let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host ~pif:pifref in
+          let pif,_ = pif_of_host ~__context network host in
+          let cluster_host_ref = Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host ~pif in
           D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref);
         )) slave_hosts;
 
   cluster
 
-(* Helper function; if opn is None return all, else return those not equal to it *)
-let filter_on_option opn xs =
-  match opn with
-  | None -> xs
-  | Some x -> List.filter ((<>) x) xs
+let foreach_cluster_host ~__context ~self ~(fn : rpc:(Rpc.call -> Rpc.response) ->
+      session_id:API.ref_session -> self:API.ref_Cluster_host -> unit) ~log =
+  let wrapper = if log then log_and_ignore_exn else (fun f -> f ()) in
+  List.iter (fun self ->
+    Helpers.call_api_functions ~__context
+      (fun rpc session_id -> wrapper (fun () -> fn rpc session_id self)))
 
-(* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
-let pool_force_destroy ~__context ~self =
-  (* For now we assume we have only one pool, and that the cluster is the same as the pool.
-     This means that the pool master must be a member of this cluster. *)
-  let master = Helpers.get_master ~__context in
-  let master_cluster_host =
-    Xapi_clustering.find_cluster_host ~__context ~host:master
-  in
+let pool_destroy_common ~__context ~self ~force =
+  (* Prevent new hosts from joining if destroy fails *)
+  Db.Cluster.set_pool_auto_join ~__context ~self ~value:false;
   let slave_cluster_hosts =
-    Db.Cluster.get_cluster_hosts ~__context ~self |> filter_on_option master_cluster_host
+    let all_hosts = Db.Cluster.get_cluster_hosts ~__context ~self in
+    let master = Helpers.get_master ~__context in
+    match Xapi_clustering.find_cluster_host ~__context ~host:master with
+    | None -> all_hosts
+    | Some master_ch ->
+      List.filter ((<>) master_ch) all_hosts
   in
-  debug "Destroying cluster_hosts in pool";
-  (* First try to destroy each cluster_host - if we can do so safely then do *)
-  List.iter
-    (fun cluster_host ->
-      (* We need to run this code on the slave *)
-      (* We ignore failures here, we'll try a force_destroy after *)
-      log_and_ignore_exn (fun () ->
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
-      )
-    )
-    slave_cluster_hosts;
-  (* We expect destroy to have failed for some, we'll try to force destroy those *)
+  foreach_cluster_host ~__context ~self ~log:force
+    ~fn:Client.Client.Cluster_host.destroy
+    slave_cluster_hosts
+
+let pool_force_destroy ~__context ~self =
+  (* Set pool_autojoin:false and try to destroy slave cluster_hosts *)
+  pool_destroy_common ~__context ~self ~force:true;
+
   (* Note we include the master here, we should attempt to force destroy it *)
-  let all_remaining_cluster_hosts =
-    Db.Cluster.get_cluster_hosts ~__context ~self
-  in
   (* Now try to force_destroy, keep track of any errors here *)
-  let exns = List.fold_left
-    (fun exns_so_far cluster_host ->
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-        try
-          Client.Client.Cluster_host.force_destroy ~rpc ~session_id ~self:cluster_host;
-          exns_so_far
-        with e ->
-          Backtrace.is_important e;
-          let uuid = Client.Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host in
-          debug "Ignoring exception while trying to force destroy cluster host %s: %s" uuid (ExnHelper.string_of_exn e);
-          e :: exns_so_far
-      )
-    )
-    [] all_remaining_cluster_hosts
-    in
+  debug "Ignoring exceptions while trying to force destroy cluster hosts.";
+  foreach_cluster_host ~__context ~self ~log:true
+    ~fn:Client.Client.Cluster_host.force_destroy
+    (Db.Cluster.get_cluster_hosts ~__context ~self);
 
-    begin match exns with
-      | [] -> D.debug "Successfully destroyed all cluster_hosts in pool, now destroying cluster %s" (Ref.string_of self)
-      | e :: _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
-    end;
+  info "Forgetting any cluster_hosts that couldn't be destroyed.";
+  foreach_cluster_host ~__context ~self ~log:true
+    ~fn:Client.Client.Cluster_host.forget
+    (Db.Cluster_host.get_all ~__context);
 
+  let unforgotten_cluster_hosts = List.filter
+      (fun self -> not (Db.Cluster_host.get_joined ~__context ~self))
+      (Db.Cluster_host.get_all ~__context)
+  in
+  info "If forget failed on any remaining cluster_hosts, we now delete them competely";
+  foreach_cluster_host ~__context ~self ~log:false
+    ~fn:(fun ~rpc ~session_id ~self -> Db.Cluster_host.destroy ~__context ~self)
+    unforgotten_cluster_hosts;
+
+  match Db.Cluster_host.get_all ~__context with
+  | [] ->
+    D.debug "Successfully destroyed all cluster_hosts in pool, now destroying cluster %s"
+      (Ref.string_of self);
     Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Cluster.destroy ~rpc ~session_id ~self);
-    debug "Cluster_host.force_destroy was successful"
+    debug "Cluster.pool_force_destroy was successful";
+  | _ -> raise Api_errors.(Server_error (cluster_force_destroy_failed, [Ref.string_of self]))
 
-(* Helper function; concurrency checks are done in implementation of Cluster.destroy and Cluster_host.destroy *)
 let pool_destroy ~__context ~self =
-  (* For now we assume we have only one pool, and that the cluster is the same as the pool.
-     This means that the pool master must be a member of this cluster. *)
-  let master = Helpers.get_master ~__context in
-  let master_cluster_host =
-    Xapi_clustering.find_cluster_host ~__context ~host:master
-    |> Xapi_stdext_monadic.Opt.unbox
-  in
-  let slave_cluster_hosts =
-    Db.Cluster.get_cluster_hosts ~__context ~self |> List.filter ((<>) master_cluster_host)
-  in
-  (* First destroy the Cluster_host objects of the slaves *)
-  List.iter
-    (fun cluster_host ->
-       (* We need to run this code on the slave *)
-       Helpers.call_api_functions ~__context (fun rpc session_id ->
-           Client.Client.Cluster_host.destroy ~rpc ~session_id ~self:cluster_host)
-    )
-    slave_cluster_hosts;
+  (* Set pool_autojoin:false and try to destroy slave cluster_hosts *)
+  pool_destroy_common ~__context ~self ~force:false;
+
   (* Then destroy the Cluster_host of the pool master and the Cluster itself *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Client.Cluster.destroy ~rpc ~session_id ~self)
 
 let pool_resync ~__context ~(self : API.ref_Cluster) =
   List.iter
-    (fun host -> log_and_ignore_exn
-        (fun () ->
+    (fun host -> log_and_ignore_exn (fun () ->
            Xapi_cluster_host.create_as_necessary ~__context ~host;
            Xapi_cluster_host.resync_host ~__context ~host;
            if is_clustering_disabled_on_host ~__context host

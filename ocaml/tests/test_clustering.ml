@@ -621,9 +621,7 @@ let test_pool_ha_cluster_stacks_with_ha_with_clustering () =
   assert_cluster_stack_is default_smapiv3 ~__context;
 
   Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
-  Xapi_cluster_host.force_destroy ~__context ~self:cluster_host2;
-  assert_cluster_stack_is default_smapiv3 ~__context;
-  Xapi_cluster.destroy ~__context ~self:cluster2;
+  Xapi_cluster.pool_destroy ~__context ~self:cluster2;
   assert_cluster_stack_is default ~__context
 
 
