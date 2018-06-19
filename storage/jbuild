@@ -59,7 +59,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xcp_storage)
   (public_name xcp.storage)
   (flags (:standard -w -39 %s))
-  (modules (:standard \ storage_interface storage_test vdi_automaton vdi_automaton_test))
+  (modules (:standard \ storage_interface storage_test vdi_automaton suite vdi_automaton_test))
   (libraries
    (rpclib
     threads
@@ -81,15 +81,17 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   %s))
 
 (executable
- ((name vdi_automaton_test)
+ ((name suite)
   (flags (:standard -w -39))
-  (modules (vdi_automaton_test))
+  (modules (suite vdi_automaton_test))
   (libraries
-   (xcp.storage.interface.types))))
+   (alcotest
+    xcp.storage.interface
+    xcp.storage.interface.types))))
 
 (alias
  ((name runtest)
-  (deps (vdi_automaton_test.exe))
+  (deps (suite.exe))
   (action (run ${<}))))
 
 |} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

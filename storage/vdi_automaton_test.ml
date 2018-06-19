@@ -18,7 +18,7 @@
 let all_pairs x y =
   List.fold_left (fun acc x -> List.map (fun y -> x, y) y @ acc) [] x
 
-let () =
+let run () =
   List.iter
     (fun (s, op) ->
        try
@@ -35,3 +35,5 @@ let () =
     ) (all_pairs Vdi_automaton.every_state Vdi_automaton.every_op);
     Printf.printf "Passed."
 
+let tests =
+  [ "VDI automaton test", `Quick, run ]
