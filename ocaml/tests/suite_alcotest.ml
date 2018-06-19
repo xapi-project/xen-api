@@ -10,6 +10,7 @@ let () =
     ; "Test_sdn_controller", Test_sdn_controller.test
     ; "Test_pci_helpers", Test_pci_helpers.test
     ; "Test_vdi_allowed_operations", Test_vdi_allowed_operations.test
+    ; "Test_sr_allowed_operations", Test_sr_allowed_operations.test
     ; "Test_vm_migrate", Test_vm_migrate.test
     ; "Test_no_migrate", Test_no_migrate.test
     ; "Test_vm_check_operation_error", Test_vm_check_operation_error.test
