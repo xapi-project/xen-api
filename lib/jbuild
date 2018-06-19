@@ -56,7 +56,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xmlm
     cohttp
     uri
-    rpclib
+    rpclib.core
     forkexec
     fd-send-recv
     xcp
