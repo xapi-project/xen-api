@@ -115,21 +115,3 @@ let implementations_of_backend backend =
     )
     ([], [], [], [])
     backend.implementations
-
-(** Extracts the UNIX domain socket path and the export name from the NBD URI in
-    the NBD information returned from the VDI.attach2 SMAPIv2 call.
-    This has the format nbd:unix:<domain-socket>:exportname=<name> *)
-let parse_nbd_uri nbd =
-  let Storage_interface.{ uri } = nbd in
-  let fail () =
-    raise Api_errors.(Server_error (internal_error, ["Unexpected NBD URI returned from the storage backend: " ^ uri]))
-  in
-  match String.split_on_char ':' uri with
-  | ["nbd"; "unix"; socket; exportname] -> begin
-      let prefix = "exportname=" in
-      match Astring.String.cuts ~empty:false ~sep:prefix exportname with
-      | [exportname] ->
-        (socket, exportname)
-      | _ -> fail ()
-    end
-  | _ -> fail ()
