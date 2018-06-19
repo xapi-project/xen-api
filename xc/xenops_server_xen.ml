@@ -92,6 +92,9 @@ module VmExtra = struct
     | PVinPVH _ -> X86 { emulation_flags = emulation_flags_pvh }
     | HVM _     -> X86 { emulation_flags = emulation_flags_all }
 
+  (* Known versions of the VM persistent metadata created by xenopsd *)
+  let persistent_version_pre_lima = 0
+  let persistent_version_lima     = 1
 
   (** Extra data we store per VM. The persistent data is preserved when
       the domain is suspended so it can be re-used in the following 'create'
@@ -120,7 +123,7 @@ module VmExtra = struct
     { 
       (* The default version 0 indicates that the persistent record was created by a VM-start
          operation using an old pre-Lima xenopsd version that didn't have a version field. *)
-      version = 0
+      version = persistent_version_pre_lima
     ; build_info = None
     ; ty = None
     ; last_start_time = 0.0
@@ -162,7 +165,7 @@ module DB = struct
   let revise_profile_qemu_trad vm persistent =
       Device.Profile.{persistent with VmExtra.profile =
         match persistent.VmExtra.profile with
-        | Some Qemu_trad when persistent.VmExtra.version = 0 ->
+        | Some Qemu_trad when persistent.VmExtra.version = VmExtra.persistent_version_pre_lima ->
           debug "vm %s: revised %s->%s" vm Name.qemu_trad Name.qemu_upstream_compat;
           Some Qemu_upstream_compat
         | x -> x
@@ -1020,7 +1023,7 @@ module VM = struct
                  VmExtra.{ default_persistent_t with
                            (* version 1 and later distinguish VMs started in Lima and later versions of xenopsd
                               from those VMs started in pre-Lima versions that didn't have this version field *)
-                           version = 1
+                           version = VmExtra.persistent_version_lima
                          ; ty = Some vm.ty
                          ; last_start_time = Unix.gettimeofday ()
                          ; domain_config = Some (VmExtra.domain_config_of_vm vm)
