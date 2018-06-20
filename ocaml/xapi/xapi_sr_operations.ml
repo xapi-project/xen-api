@@ -39,6 +39,14 @@ let all_ops : API.storage_operations_set =
   [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot; `vdi_mirror;
     `vdi_enable_cbt; `vdi_disable_cbt; `vdi_data_destroy; `vdi_list_changed_blocks; `vdi_set_on_boot; `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
+(* This list comes from https://github.com/xenserver/xen-api/blob/tampa-bugfix/ocaml/xapi/xapi_sr_operations.ml#L36-L38 *)
+let all_rpu_ops : API.storage_operations_set =
+  [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot;
+    `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
+
+let disallowed_during_rpu : API.storage_operations_set =
+  List.filter (fun x -> not (List.mem x all_rpu_ops)) all_ops
+
 let sm_cap_table : (API.storage_operations * _) list =
   [ `vdi_create, Smint.Vdi_create;
     `vdi_destroy, Smint.Vdi_delete;
@@ -86,6 +94,9 @@ let valid_operations ~__context ?op record _ref' : table =
         if Hashtbl.find table op = None
         then Hashtbl.replace table op (Some(code, params))) ops in
 
+  if Helpers.rolling_upgrade_in_progress ~__context then begin
+    set_errors Api_errors.not_supported_during_upgrade [] disallowed_during_rpu
+  end;
   (* Policy:
      Anyone may attach and detach VDIs in parallel but we serialise
      vdi_create, vdi_destroy, vdi_resize operations.
