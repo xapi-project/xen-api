@@ -937,30 +937,6 @@ let process_smapiv2_requests ~volume_script_dir =
     >>= fun response ->
     let response = vdi_of_volume response in
     Deferred.Result.return (R.success (Args.VDI.Introduce.rpc_of_response response))
-  | { R.name = "VDI.attach"; R.params = [ args ] } ->
-    let open Deferred.Result.Monad_infix in
-    vdi_attach_common args >>= fun response ->
-    let attach_info =
-      List.find_map
-        ~f:(function
-            | XenDisk xendisk ->
-              Some {
-                params = xendisk.Xapi_storage.Data.params;
-                xenstore_data = [ "backend-kind", xendisk.Xapi_storage.Data.backend_type ];
-                o_direct = true;
-                o_direct_reason = "";
-              }
-            | _ -> None
-          )
-        response.Xapi_storage.Data.implementations
-    in
-    begin match attach_info with
-      | Some attach_info ->
-        Deferred.Result.return (R.success (Args.VDI.Attach.rpc_of_response attach_info))
-      | None ->
-        let msg = "No XenDisk implementation in Datapath.attach response: " ^ (Rpcmarshal.marshal Xapi_storage.Data.typ_of_backend response |> R.to_string) in
-        return (Error (backend_error "NO_XENDISK_FROM_ATTACH" [msg]))
-    end
   | { R.name = "VDI.attach2"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     vdi_attach_common args >>= fun response ->
