@@ -115,4 +115,4 @@ let with_rpc ?(version=Jsonrpc.V2) ~path ~call () =
 		timeout_write s (Bytes.length req) req !json_rpc_write_timeout;
 		let res = timeout_read s !json_rpc_read_timeout in
 		debug "Response: %s" res;
-		Jsonrpc.response_of_string res)
+		Jsonrpc.response_of_string ~strict:false res)
