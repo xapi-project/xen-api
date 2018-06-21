@@ -163,7 +163,7 @@ let pool_force_destroy ~__context ~self =
       (fun self -> not (Db.Cluster_host.get_joined ~__context ~self))
       (Db.Cluster_host.get_all ~__context)
   in
-  info "If forget failed on any remaining cluster_hosts, we now delete them competely";
+  info "We now delete completely the cluster_hosts where forget failed";
   foreach_cluster_host ~__context ~self ~log:false
     ~fn:(fun ~rpc ~session_id ~self -> Db.Cluster_host.destroy ~__context ~self)
     unforgotten_cluster_hosts;

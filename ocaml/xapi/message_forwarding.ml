@@ -4303,8 +4303,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let is_local_cluster_host self = Db.Cluster_host.get_host ~__context ~self = localhost in
       let host = match Db.Cluster_host.get_all ~__context with
         | [] -> Helpers.get_master ~__context
-        | lst when List.exists is_local_cluster_host lst -> localhost
-        | self :: _ -> Db.Cluster_host.get_host ~__context ~self
+        | cluster_hosts when List.exists is_local_cluster_host cluster_hosts -> localhost
+        | cluster_host :: _ -> Db.Cluster_host.get_host ~__context ~self:cluster_host
       in
       do_op_on ~local_fn ~__context ~host op
 
