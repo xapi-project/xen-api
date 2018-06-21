@@ -626,9 +626,7 @@ let process_smapiv2_requests ~volume_script_dir =
       version = response.Xapi_storage.Plugin.version;
       required_api_version;
       features;
-      configuration =
-       ("uri", "URI of the storage medium") ::
-       response.Xapi_storage.Plugin.configuration;
+      configuration = response.Xapi_storage.Plugin.configuration;
       required_cluster_stack = response.Xapi_storage.Plugin.required_cluster_stack } in
     (* the first call to a plugin must be a Query.query that sets the version *)
     version := Some required_api_version;
