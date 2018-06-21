@@ -253,29 +253,32 @@ let tapdisk_of_attach_info (backend:Storage_interface.backend) =
 
 
 let with_activated_disk ~dbg ~sr ~vdi ~dp f =
-  let path =
-    Opt.map
-      (fun vdi ->
-         let backend = Local.VDI.attach2 ~dbg ~dp ~sr ~vdi ~read_write:false in
-         let (_, blockdevs, files, _) = Attach_helpers.implementations_of_backend backend in
-         match blockdevs, files with
-         | ({ path })::_, _ | _, ({ path })::_ ->
-           Local.VDI.activate ~dbg ~dp ~sr ~vdi;
-           path
-         | [], [] ->
-           Local.VDI.detach ~dbg ~dp ~sr ~vdi;
-           raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No BlockDevice or File implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
-      )
-      vdi
+  let attached_vdi =
+    Opt.map (fun vdi ->
+        let backend = Local.VDI.attach2 ~dbg ~dp ~sr ~vdi ~read_write:false in
+        vdi, backend
+      ) vdi
   in
   finally
-    (fun () -> f path)
     (fun () ->
-       Opt.iter
-         (fun vdi ->
-            Local.VDI.deactivate ~dbg ~dp ~sr ~vdi;
-            Local.VDI.detach ~dbg ~dp ~sr ~vdi)
-         vdi)
+       let path =
+         Opt.map
+           (fun (vdi, backend) ->
+              let (_, blockdevs, files, _) = Attach_helpers.implementations_of_backend backend in
+              match blockdevs, files with
+              | ({ path })::_, _ | _, ({ path })::_ ->
+                Local.VDI.activate ~dbg ~dp ~sr ~vdi;
+                path
+              | [], [] ->
+                raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No BlockDevice or File implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
+           )
+           attached_vdi
+       in
+       finally
+         (fun () -> f path)
+         (fun () -> Opt.iter (fun vdi -> Local.VDI.deactivate ~dbg ~dp ~sr ~vdi) vdi)
+    )
+    (fun () -> Opt.iter (fun (vdi, _) -> Local.VDI.detach ~dbg ~dp ~sr ~vdi) attached_vdi)
 
 let perform_cleanup_actions =
   List.iter
