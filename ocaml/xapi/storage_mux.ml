@@ -205,6 +205,7 @@ module Mux = struct
     let epoch_begin context ~dbg ~sr ~vdi ~persistent =
       let module C = Client(struct let rpc = of_sr sr end) in
       C.VDI.epoch_begin ~dbg ~sr ~vdi ~persistent
+    (* We need to include this to satisfy the SMAPIv2 signature *)
     let attach context ~dbg ~dp ~sr ~vdi ~read_write =
       failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
     let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
