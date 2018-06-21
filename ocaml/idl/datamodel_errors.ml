@@ -191,6 +191,8 @@ let _ =
     ~doc:"The operation you requested cannot be performed because the specified PIF does not allow unplug." ();
   error Api_errors.pif_allows_unplug [ "PIF" ]
     ~doc:"The operation you requested cannot be performed because the specified PIF allows unplug." ();
+  error Api_errors.required_pif_is_unplugged [ "PIF" ]
+    ~doc:"The operation you requested cannot be performed because the specified PIF is currently unplugged." ();
   error Api_errors.pif_has_fcoe_sr_in_use ["PIF"; "SR"]
     ~doc:"The operation you requested cannot be performed because the specified PIF has FCoE SR in use." ();
   error Api_errors.pif_unmanaged [ "PIF" ]
@@ -1129,7 +1131,7 @@ let _ =
   error Api_errors.clustering_disabled ["cluster_host"]
     ~doc:"An operation was attempted while clustering was disabled on the cluster_host." ();
   error Api_errors.cluster_does_not_have_one_node ["number_of_nodes"]
-    ~doc:"The cluster does not have only one node." ();
+    ~doc:"An operation failed as it expected the cluster to have only one node but found multiple cluster_hosts." ();
   error Api_errors.no_compatible_cluster_host ["host"]
     ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ();
   error Api_errors.cluster_force_destroy_failed ["cluster"]

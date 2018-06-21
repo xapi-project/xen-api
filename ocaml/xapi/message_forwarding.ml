@@ -4297,6 +4297,17 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Cluster = struct
+
+    let forward_cluster_op ~local_fn ~__context op =
+      let localhost = Helpers.get_localhost ~__context in
+      let is_local_cluster_host self = Db.Cluster_host.get_host ~__context ~self = localhost in
+      let host = match Db.Cluster_host.get_all ~__context with
+        | [] -> Helpers.get_master ~__context
+        | cluster_hosts when List.exists is_local_cluster_host cluster_hosts -> localhost
+        | cluster_host :: _ -> Db.Cluster_host.get_host ~__context ~self:cluster_host
+      in
+      do_op_on ~local_fn ~__context ~host op
+
     let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_timeout_coefficient =
       info "Cluster.create";
       let pool = Helpers.get_pool ~__context in (* assumes 1 pool in DB *)
@@ -4311,7 +4322,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Cluster.destroy cluster: %s" (Ref.string_of self);
       Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"Cluster.destroy" ~op:`destroy
         (fun () ->
-           Local.Cluster.destroy ~__context ~self)
+           let local_fn = Local.Cluster.destroy ~self in
+           forward_cluster_op ~__context ~local_fn
+             (fun rpc session_id -> Client.Cluster.destroy session_id rpc self)
+        )
 
     let get_network ~__context ~self =
       info "Cluster.get_network";
@@ -4395,6 +4409,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let forget ~__context ~self =
       info "Cluster_host.forget cluster_host:%s" (Ref.string_of self);
+      Db.Cluster_host.set_joined ~__context ~self ~value:false;
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       let local_fn = Local.Cluster_host.forget ~self in
       (* We need to ask another host that has a cluster host to mark it as dead.
