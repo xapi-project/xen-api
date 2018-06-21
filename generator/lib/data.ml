@@ -176,7 +176,7 @@ Volumes must be attached via the following sequence of calls:
    it is an error for a volume to be activated on more than one host
    simultaneously.
       |}];
-      version=(1,0,0);
+      version=(5,0,0);
     }
 
 end
@@ -299,7 +299,7 @@ To mirror a VDI a sequence of these API calls is required:
    disk will be a perfect mirror of the source.
 
      |}];
-      version = (1,0,0)
+      version = (5,0,0)
     }
 
 end

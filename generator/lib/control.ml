@@ -313,7 +313,7 @@ module Volume(R: RPC) = struct
        namespace=Some "Volume";
        description=["Operations which operate on volumes (also known as ";
                     "Virtual Disk Images)"];
-       version=(1,0,0)}
+       version=(5,0,0)}
 end
 
 type configuration = (string * string) list [@@deriving rpcty]
@@ -436,7 +436,7 @@ module Sr(R : RPC) = struct
       {Idl.Interface.name = "SR";
        namespace = Some "SR";
        description=["Operations which act on Storage Repositories"];
-       version=(1,0,0)}
+       version=(5,0,0)}
 
 end
 
