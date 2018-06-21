@@ -99,6 +99,11 @@ class Rpc_light_failure(Exception):
                 'ErrorDescription': [self.name, marshalled_args]}
 
 
+class Unimplemented(Rpc_light_failure):
+    def __init__(self, name):
+        Rpc_light_failure.__init__(self, "Unimplemented", [name])
+
+
 class InternalError(Rpc_light_failure):
 
     def __init__(self, error):

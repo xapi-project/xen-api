@@ -1,48 +1,58 @@
+open Cmdliner
+
+let gen_markdown path =
+  let open Rpc.Types in
+  let open Xapi_storage in
+  let open Files in
+
+  List.iter
+    (fun api ->
+       with_output_file (Printf.sprintf "%s/%s.html.md" path api.Codegen.Interfaces.name)
+         (fun oc ->
+            let p = Markdowngen.to_string api in
+            output_string oc "---\n";
+            output_string oc (Printf.sprintf "title: %s\n" api.Codegen.Interfaces.name);
+            output_string oc "\nlanguage_tabs:\n - json\n - ocaml\n - python\n\nsearch: true\n---\n";
+            output_string oc p)) Apis.apis;
+  `Ok ()
+
+let gen_python path =
+  let open Rpc.Types in
+  let open Xapi_storage in
+  let open Files in
+
+  List.iter
+    (fun api ->
+       with_output_file (Printf.sprintf "%s/%s.py" path api.Codegen.Interfaces.name)
+         (fun oc ->
+            let p = Pythongen.of_interfaces ~helpers:"from xapi import *" api |> Pythongen.string_of_ts in
+            output_string oc p
+         )
+    ) Apis.apis;
+  `Ok ()
+
+let gen_python_cmd =
+  let doc = "Generate the python library files" in
+  let path =
+    let doc = "Generate the files in the path specified" in
+    Arg.(value & opt string ("./xapi/storage/api/v4") & info ["p";"path"] ~doc ~docv:"PATH")
+  in
+  Term.(ret (const gen_python $ path)),
+  Term.info "gen_python" ~doc ~exits:Term.default_exits
+
+let gen_markdown_cmd =
+  let doc = "Generate documentation files in markdown format" in
+  let path =
+    let doc = "Generate the files in the path specified" in
+    Arg.(value & opt string (".") & info ["p";"path"] ~doc ~docv:"PATH")
+  in
+  Term.(ret (const gen_markdown $ path)),
+  Term.info "gen_markdown" ~doc ~exits:Term.default_exits
+
+let default_cmd =
+  let doc = "SMAPI code/documentation generation tool" in
+  Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())),
+  Term.info "main" ~doc ~exits:Term.default_exits
 
 let _ =
-  let gen_lib = ref false in
-  let gen_examples = ref false in
-  let gen_python = ref false in
-  Arg.parse [
-    "-lib",  Arg.Set gen_lib, "Output ocaml library files";
-    "-examples", Arg.Set gen_examples, "Output ocaml examples";
-    "-python",   Arg.Set gen_python, "Outputpython files";
-  ] (fun x -> Printf.fprintf stderr "Unknown argument: %s\n%!" x; exit 1)
-    "Generate OCaml/Python/HTML documentation";
-
-  let open Types in
-  let open Files in
-  let apis = [
-    Plugin.api;
-    Control.api;
-    Data.api;
-  ] in
-  (* Prepend the debug_info argument *)
-  let apis = List.map Types.prepend_dbg apis in
-
-  if !gen_python then
-    List.iter
-      (fun api ->
-         with_output_file (Printf.sprintf "xapi/storage/api/v4/%s.py" api.Interfaces.name)
-           (fun oc ->
-              let idents, api = resolve_refs_in_api api in
-              output_string oc (Python.of_interfaces idents api |> Python.string_of_ts)
-           )
-      ) apis;
-
-  if !gen_lib then
-    List.iter
-      (fun api ->
-         with_output_file (Printf.sprintf "%s.ml" api.Interfaces.name)
-           (fun oc ->
-              let idents, api = resolve_refs_in_api api in
-              output_string oc (Ocaml.of_interfaces idents api |> Ocaml.string_of_ts)
-           )
-      ) apis;
-
-  if !gen_examples then
-    List.iter
-      (fun api ->
-         let idents, api = resolve_refs_in_api api in
-         Ocaml.write_examples (Printf.sprintf "%s" api.Interfaces.name) idents api
-      ) apis
+  Term.(exit @@ eval_choice default_cmd [gen_python_cmd; gen_markdown_cmd])

@@ -1,9 +1,0 @@
-(jbuild_version 1)
-
-(alias (
-  (name gen_examples)
-  (deps (
-    ../../generator/src/main.exe
-  ))
-  (action (run ${<} -examples))
-))
