@@ -455,14 +455,14 @@ module Compat(V : sig val version : string option ref end) = struct
       | None ->
         return (Error (missing_uri ()))
       | Some uri ->
-        return (Ok (device_config, add_param_to_input ["uri", R.String uri]))
+        return (Ok (add_param_to_input ["uri", R.String uri]))
     else
-        return (Ok (List.Assoc.remove ~equal:String.equal device_config "uri", id))
+        return (Ok id)
 
   (** Compatiblity for the old PVS version of SR.create, which had signature
       [uri -> name -> desc -> config -> unit] *)
   let sr_create device_config =
-    compat_uri device_config >>>= fun (device_config, compat_in) ->
+    compat_uri device_config >>>= fun compat_in ->
     let compat_out rpc =
       (* The PVS version will return nothing *)
       if rpc = R.Null then
@@ -650,7 +650,7 @@ let process_smapiv2_requests ~volume_script_dir =
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
     let device_config = args.Args.SR.Attach.device_config in
-    Compat.compat_uri device_config >>>= fun (device_config, compat_in) ->
+    Compat.compat_uri device_config >>>= fun compat_in ->
     let device_config =
       let uuid = args.Args.SR.Attach.sr in
       ("sr_uuid", uuid) :: device_config
