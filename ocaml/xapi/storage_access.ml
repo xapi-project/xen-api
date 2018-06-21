@@ -962,6 +962,8 @@ exception Message_switch_failure
 
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
+(* We have to be careful in this function, because an exception raised from
+   here will cause the startup sequence to fail *)
 let on_xapi_start ~__context =
   let existing = List.map (fun (rf, rc) -> rc.API.sM_type, (rf, rc)) (Db.SM.get_all_records ~__context) in
   let explicitly_configured_drivers = List.filter_map (function `Sm x -> Some x | `All -> None) !Xapi_globs.sm_plugins in
@@ -969,27 +971,7 @@ let on_xapi_start ~__context =
   let configured_drivers = explicitly_configured_drivers @ smapiv1_drivers in
   let in_use_drivers = List.map (fun (rf, rc) -> rc.API.sR_type) (Db.SR.get_all_records ~__context) in
   let to_keep = configured_drivers @ in_use_drivers in
-  (* Delete all records which aren't configured or in-use *)
-  List.iter
-    (fun ty ->
-       info "Unregistering SM plugin %s since not in the whitelist and not in-use" ty;
-       let self, _ = List.assoc ty existing in
-       try
-         Db.SM.destroy ~__context ~self
-       with _ -> ()
-    ) (List.set_difference (List.map fst existing) to_keep);
-  (* Create all missing SMAPIv1 plugins *)
-  List.iter
-    (fun ty ->
-       let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
-       Xapi_sm.create_from_query_result ~__context query_result
-    ) (List.set_difference smapiv1_drivers (List.map fst existing));
-  (* Update all existing SMAPIv1 plugins *)
-  List.iter
-    (fun ty ->
-       let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
-       Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) query_result
-    ) (List.intersect smapiv1_drivers (List.map fst existing));
+  (* The SMAPIv2 drivers we know about *)
   let smapiv2_drivers = List.set_difference to_keep smapiv1_drivers in
   (* Query the message switch to detect running SMAPIv2 plugins. *)
   let running_smapiv2_drivers =
@@ -1007,12 +989,15 @@ let on_xapi_start ~__context =
         >>| fun t ->
         Client.list ~t ~prefix:!Storage_interface.queue_name ~filter:`Alive ()
         >>| fun running_smapiv2_driver_queues ->
-        List.filter
-          (fun driver ->
-             List.exists
-               (Xstringext.String.endswith driver)
-               running_smapiv2_driver_queues)
-          smapiv2_drivers
+        running_smapiv2_driver_queues
+        (* The results include the prefix itself, but that is the main storage
+           queue, we don't need it *)
+        |> List.filter ((<>) !Storage_interface.queue_name)
+        |> List.map (fun driver ->
+            (* Get the last component of the queue name: org.xen.xapi.storage.sr_type -> sr_type *)
+            (* split_on_char returns a non-empty list *)
+            String.split_on_char '.' driver |> List.rev |> List.hd
+          )
       with
       | Message_switch_failure -> [] (* no more logging *)
       | e ->
@@ -1022,22 +1007,59 @@ let on_xapi_start ~__context =
     end
     else smapiv2_drivers
   in
-  (* Create all missing SMAPIv2 plugins *)
-  let query ty =
-    let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
-    let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
-    let rpc = external_rpc queue_name uri in
-    let module C = Storage_interface.Client(struct let rpc = rpc end) in
-    let dbg = Context.string_of_task __context in
-    C.Query.query ~dbg in
+  (* Add all the running SMAPIv2 drivers *)
+  let to_keep = to_keep @ running_smapiv2_drivers in
+
+  (* Delete all records which aren't configured or in-use *)
   List.iter
     (fun ty ->
-       Xapi_sm.create_from_query_result ~__context (query ty)
+       info "Unregistering SM plugin %s since not in the whitelist and not in-use" ty;
+       let self, _ = List.assoc ty existing in
+       try
+         Db.SM.destroy ~__context ~self
+       with _ -> ()
+    ) (List.set_difference (List.map fst existing) to_keep);
+
+  (* Synchronize SMAPIv1 plugins *)
+
+  (* Create all missing SMAPIv1 plugins *)
+  List.iter
+    (fun ty ->
+       let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+       Xapi_sm.create_from_query_result ~__context query_result
+    ) (List.set_difference smapiv1_drivers (List.map fst existing));
+  (* Update all existing SMAPIv1 plugins *)
+  List.iter
+    (fun ty ->
+       let query_result = Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info in
+       Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) query_result
+    ) (List.intersect smapiv1_drivers (List.map fst existing));
+
+  (* Synchronize SMAPIv2 plugins *)
+
+  (* Create all missing SMAPIv2 plugins *)
+  let with_query_result ty f =
+    let query ty =
+      let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
+      let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
+      let rpc = external_rpc queue_name uri in
+      let module C = Storage_interface.Client(struct let rpc = rpc end) in
+      let dbg = Context.string_of_task __context in
+      C.Query.query ~dbg
+    in
+    log_and_ignore_exn (fun () ->
+        let query_result = query ty in
+        f query_result
+      )
+  in
+  List.iter
+    (fun ty ->
+       with_query_result ty (Xapi_sm.create_from_query_result ~__context)
     ) (List.set_difference running_smapiv2_drivers (List.map fst existing));
   (* Update all existing SMAPIv2 plugins *)
   List.iter
     (fun ty ->
-       Xapi_sm.update_from_query_result ~__context (List.assoc ty existing) (query ty)
+       with_query_result ty (Xapi_sm.update_from_query_result ~__context (List.assoc ty existing))
     ) (List.intersect running_smapiv2_drivers (List.map fst existing))
 
 let bind ~__context ~pbd =
