@@ -447,7 +447,7 @@ module SMAPIv1 = struct
                    XenDisk {
                      params = attach_info_v1.Smint.params;
                      extra = attach_info_v1.Smint.xenstore_data;
-                     backend_type = "Tapdisk3"
+                     backend_type = "vbd3"
                    };
                    (* We always get a BlockDevice from SMAPIv3, never a File, not even for ISOs *)
                    BlockDevice {

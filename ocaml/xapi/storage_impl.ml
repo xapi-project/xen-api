@@ -467,12 +467,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       | file::_, _, _ -> response file.Storage_interface.path
       | _, blockdev::_, _ -> response blockdev.Storage_interface.path
       | _, _, xendisk::_ ->
-        let backend_kind = match xendisk.Storage_interface.backend_type with
-          | "Tapdisk3" -> "vbd3"
-          | "Qdisk" -> "qdisk"
-          | "Blkback" -> "vbd"
-          | x -> x
-        in
+        let backend_kind = xendisk.Storage_interface.backend_type in
         response ~backend_kind ~xenstore_data:xendisk.Storage_interface.extra xendisk.Storage_interface.params
       | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
 
