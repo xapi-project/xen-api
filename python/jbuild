@@ -7,7 +7,7 @@
     (files_recursively_in .)
   ))
   (action (progn
-    (run mkdir -p xapi/storage/api/v4)
-    (run ${<} gen_python -p xapi/storage/api/v4)
+    (run mkdir -p xapi/storage/api/v5)
+    (run ${<} gen_python -p xapi/storage/api/v5)
   ))
 ))
