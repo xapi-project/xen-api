@@ -26,10 +26,10 @@ let base_path = "../../rpc-light/"
 
 let readfile filename =
   let fd = Unix.openfile filename [ Unix.O_RDONLY ] 0o0 in
-  let buffer = String.make (1024 * 1024) '\000' in
-  let length = Unix.read fd buffer 0 (String.length buffer) in
+  let buffer = Bytes.make (1024 * 1024) '\000' in
+  let length = Unix.read fd buffer 0 (Bytes.length buffer) in
   let () = Unix.close fd in
-  String.sub buffer 0 length
+  Bytes.sub_string buffer 0 length
 
 let path direction call = base_path ^ call ^ "/" ^ direction
 

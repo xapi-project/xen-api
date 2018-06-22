@@ -30,8 +30,8 @@ test:
 
 lint:
 	jbuilder build @python
-	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/python/xapi/storage/api/v4/*.py
-	pycodestyle --ignore=E501 _build/default/python/xapi/storage/api/v4/*.py
+	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/python/xapi/storage/api/v5/*.py
+	pycodestyle --ignore=E501 _build/default/python/xapi/storage/api/v5/*.py
 
 # requires odoc
 doc:

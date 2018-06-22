@@ -35,7 +35,7 @@ let gen_python_cmd =
   let doc = "Generate the python library files" in
   let path =
     let doc = "Generate the files in the path specified" in
-    Arg.(value & opt string ("./xapi/storage/api/v4") & info ["p";"path"] ~doc ~docv:"PATH")
+    Arg.(value & opt string ("./xapi/storage/api/v5") & info ["p";"path"] ~doc ~docv:"PATH")
   in
   Term.(ret (const gen_python $ path)),
   Term.info "gen_python" ~doc ~exits:Term.default_exits
