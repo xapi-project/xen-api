@@ -19,6 +19,8 @@ type xendisk = {
       xenstore backend *)
 
   backend_type: string;
+  (** The name of the xenstore directory corresponding to the backend.
+      For example "qdisk". *)
 } [@@deriving rpcty]
 
 type block_device = {
