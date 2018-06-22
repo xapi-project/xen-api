@@ -105,7 +105,7 @@ let warn  fmt = log Core.Unix.Syslog.Level.WARNING fmt
 let error fmt = log Core.Unix.Syslog.Level.ERR     fmt
 
 let pvs_version = "3.0"
-let supported_api_versions = [pvs_version; "4.0"; "5.0"]
+let supported_api_versions = [pvs_version; "5.0"]
 let api_max = List.fold_left ~f:max supported_api_versions ~init:""
 
 module RRD = struct
