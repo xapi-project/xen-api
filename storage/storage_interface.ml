@@ -81,6 +81,25 @@ type backend = {
   implementations: implementation list;
 }
 
+(** Extracts the UNIX domain socket path and the export name from the NBD URI in
+    the NBD information returned from the VDI.attach2 SMAPIv2 call.
+    This has the format nbd:unix:<domain-socket>:exportname=<name> *)
+let parse_nbd_uri nbd =
+  let { uri } = nbd in
+  let fail () =
+    failwith ("Could not parse NBD URI returned from the storage backend: " ^ uri)
+  in
+  match String.split_on_char ':' uri with
+  | ["nbd"; "unix"; socket; exportname] -> begin
+      let prefix = "exportname=" in
+      if not (Astring.String.is_prefix ~affix:prefix exportname) then fail ();
+      match Astring.String.cuts ~empty:false ~sep:prefix exportname with
+      | [exportname] ->
+        (socket, exportname)
+      | _ -> fail ()
+    end
+  | _ -> fail ()
+
 (** Uniquely identifies the contents of a VDI *)
 type content_id = string
 
