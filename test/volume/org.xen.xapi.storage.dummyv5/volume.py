@@ -8,13 +8,13 @@ import uuid
 import urlparse
 import os
 import sys
-import xapi.storage.api.v4.volume
+import xapi.storage.api.v5.volume
 import xapi
 
 import plugin
 
 
-class Implementation(xapi.storage.api.v4.volume.Volume_skeleton):
+class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
 
     def create(self, dbg, sr, name, description, size, sharable):
         urlparse.urlparse(sr)
@@ -60,7 +60,7 @@ class Implementation(xapi.storage.api.v4.volume.Volume_skeleton):
 
 
 if __name__ == "__main__":
-    cmd = xapi.storage.api.v4.volume.Volume_commandline(Implementation())
+    cmd = xapi.storage.api.v5.volume.Volume_commandline(Implementation())
     base = os.path.basename(sys.argv[0])
     if base == "Volume.create":
         cmd.create()
@@ -73,4 +73,4 @@ if __name__ == "__main__":
     elif base == "Volume.unset":
 	cmd.unset()
     else:
-        raise xapi.storage.api.v4.volume.Unimplemented(base)
+        raise xapi.storage.api.v5.volume.Unimplemented(base)
