@@ -108,6 +108,17 @@ let pvs_version = "3.0"
 let supported_api_versions = [pvs_version; "5.0"]
 let api_max = List.fold_left ~f:max supported_api_versions ~init:""
 
+let check_plugin_version_compatible query_result =
+  let Xapi_storage.Plugin.{ name; required_api_version; _ } = query_result in
+  if required_api_version <> api_max then
+    warn "Using deprecated SMAPIv3 API version %s, latest is %s. Update your %s plugin!" required_api_version api_max name;
+  if List.mem ~equal:String.equal supported_api_versions required_api_version then
+    Deferred.Result.return ()
+  else
+    let msg = Printf.sprintf "%s requires unknown SMAPI API version %s, supported: %s"
+      name required_api_version (String.concat ~sep:"," supported_api_versions) in
+    return (Error (Storage_interface.Exception.No_storage_plugin_for_sr msg))
+
 module RRD = struct
   open Message_switch_async.Protocol_async
 
@@ -354,17 +365,24 @@ module Datapath_plugins = struct
   let table = String.Table.create ()
 
   let register ~datapath_root datapath_plugin_name =
-    let script_dir = Filename.concat datapath_root datapath_plugin_name in
-    return_plugin_rpc (fun () -> Plugin_client.query (fork_exec_rpc ~script_dir) "register")
-    >>= fun result ->
-    match result with
-    | Ok response ->
-      info "Registered datapath plugin %s" datapath_plugin_name;
-      Hashtbl.set table ~key:datapath_plugin_name ~data:(script_dir, response);
-      return ()
-    | Error _ ->
-      info "Failed to register datapath plugin %s" datapath_plugin_name;
-      return ()
+    let result =
+      let script_dir = Filename.concat datapath_root datapath_plugin_name in
+      return_plugin_rpc (fun () -> Plugin_client.query (fork_exec_rpc ~script_dir) "register")
+      >>>= fun response ->
+      check_plugin_version_compatible response >>= function
+      | Ok () ->
+        info "Registered datapath plugin %s" datapath_plugin_name;
+        Hashtbl.set table ~key:datapath_plugin_name ~data:(script_dir, response);
+        return (Ok ())
+      | Error e ->
+        let err_msg = Storage_interface.Exception.rpc_of_exnty e |> Jsonrpc.to_string in
+        info "Failed to register datapath plugin %s: %s" datapath_plugin_name err_msg;
+        return (Error e)
+    in
+    (* We just do not register the plugin if we've encountered any error. In
+       the future we might want to change that, so we keep the error result
+       above. *)
+    result >>= fun _ -> return ()
 
   let unregister datapath_plugin_name =
     Hashtbl.remove table datapath_plugin_name;
@@ -574,6 +592,11 @@ let process_smapiv2_requests ~volume_script_dir =
     let dbg = args.Args.Query.Query.dbg in
     return_plugin_rpc (fun () -> Plugin_client.query volume_rpc dbg)
     >>>= fun response ->
+    let required_api_version =
+      response.Xapi_storage.Plugin.required_api_version in
+    (* the first call to a plugin must be a Query.query that sets the version *)
+    version := Some required_api_version;
+    check_plugin_version_compatible response >>>= fun () ->
     (* Convert between the xapi-storage interface and the SMAPI *)
     let features = List.map ~f:(function
       | "VDI_DESTROY" -> "VDI_DELETE"
@@ -615,8 +638,6 @@ let process_smapiv2_requests ~volume_script_dir =
       then "VDI_RESET_ON_BOOT/2" :: features
       else features in
     let name = response.Xapi_storage.Plugin.name in
-    let required_api_version =
-      response.Xapi_storage.Plugin.required_api_version in
     let response = {
       driver = response.Xapi_storage.Plugin.plugin;
       name;
@@ -628,16 +649,7 @@ let process_smapiv2_requests ~volume_script_dir =
       features;
       configuration = response.Xapi_storage.Plugin.configuration;
       required_cluster_stack = response.Xapi_storage.Plugin.required_cluster_stack } in
-    (* the first call to a plugin must be a Query.query that sets the version *)
-    version := Some required_api_version;
-    if required_api_version <> api_max then
-      warn "Using deprecated SMAPIv3 API version %s, latest is %s. Update your %s plugin!" required_api_version api_max name;
-    if List.mem ~equal:String.equal supported_api_versions required_api_version then
-      Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
-    else
-      let msg = Printf.sprintf "%s requires unknown SMAPI API version %s, supported: %s"
-        name required_api_version (String.concat ~sep:"," supported_api_versions) in
-      return (Error (Exception.No_storage_plugin_for_sr msg))
+    Deferred.Result.return (R.success (Args.Query.Query.rpc_of_response response))
   | { R.name = "Query.diagnostics"; R.params = [ args ] } ->
     let open Deferred.Result.Monad_infix in
     let args = Args.Query.Diagnostics.request_of_rpc args in
