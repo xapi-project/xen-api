@@ -1277,7 +1277,7 @@ let self_test_plugin ~root_dir plugin =
 let self_test ~root_dir =
   (self_test_plugin ~root_dir "org.xen.xapi.storage.dummy"
    >>>= fun () ->
-   self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv4")
+   self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv5")
   >>= function
     | Ok () ->
         info "test thread shutdown cleanly";

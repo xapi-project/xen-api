@@ -7,12 +7,12 @@
 import os
 import sys
 import urlparse
-import xapi.storage.api.v4.volume
+import xapi.storage.api.v5.volume
 
 import plugin
 
 
-class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
+class Implementation(xapi.storage.api.v5.volume.SR_skeleton):
 
     def attach(self, dbg, configuration):
         return "file:///tmp/dummy"
@@ -74,7 +74,7 @@ class Implementation(xapi.storage.api.v4.volume.SR_skeleton):
 
 
 if __name__ == "__main__":
-    cmd = xapi.storage.api.v4.volume.SR_commandline(Implementation())
+    cmd = xapi.storage.api.v5.volume.SR_commandline(Implementation())
     base = os.path.basename(sys.argv[0])
     if base == 'SR.attach':
         cmd.attach()
@@ -89,4 +89,4 @@ if __name__ == "__main__":
     elif base == 'SR.probe':
         cmd.probe()
     else:
-        raise xapi.storage.api.v4.volume.Unimplemented(base)
+        raise xapi.storage.api.v5.volume.Unimplemented(base)

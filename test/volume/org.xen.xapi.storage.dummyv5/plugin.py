@@ -18,11 +18,11 @@ class Implementation(xapi.storage.api.plugin.Plugin_skeleton):
         return {
                 "plugin": "dummy",
                 "name": "dummy SR plugin",
-                "description": ("Dummy v4 SR for unit tests."),
+                "description": ("Dummy v5 SR for unit tests."),
                 "vendor": "Citrix Systems Inc",
                 "copyright": "(C) 2018 Citrix Inc",
                 "version": "1.0",
-                "required_api_version": "4.0",
+                "required_api_version": "5.0",
                 "features": [
                     "SR_ATTACH",
                     "SR_DETACH",
