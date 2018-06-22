@@ -212,14 +212,6 @@ let device_kind_of_backend_keys backend_keys =
   with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
 
 let params_of_backend backend =
-  (* TODO Is this vbd3 or Tapdisk3 (in which case we have to map it to vbd3)? *)
-  (* TODO why not an enum? *)
-  let backend_kind_of_xendisk xendisk = match xendisk.Storage_interface.backend_type with
-    | "Tapdisk3" -> "vbd3"
-    | "Qdisk" -> "qdisk"
-    | "Blkback" -> "vbd"
-    | x -> raise (Internal_error ("Unknown backend type " ^ x ^ " in backend: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string)))
-  in
   let blockdevs, files, xendisks, nbds =
     let open Storage_interface in
     List.fold_left
@@ -234,7 +226,7 @@ let params_of_backend backend =
   in
   let xenstore_data = match xendisks with
     | xendisk::_ ->
-      let backend_kind = backend_kind_of_xendisk xendisk in
+      let backend_kind = xendisk.Storage_interface.backend_type in
       let xenstore_data = xendisk.Storage_interface.extra in
       if List.mem_assoc backend_kind xenstore_data then xenstore_data else ("backend-kind", backend_kind) :: xenstore_data
     | [] ->
@@ -2308,9 +2300,9 @@ module VBD = struct
     let attached_vdi = match vdi with
       | None ->
         (* XXX: do something better with CDROMs *)
-        { domid = this_domid ~xs; attach_info = Storage_interface.{ domain_uuid = sm_dom0_uuid; implementations = [XenDisk {params="";extra=[];backend_type="Tapdisk3"}; BlockDevice {path=""}] } }
+        { domid = this_domid ~xs; attach_info = Storage_interface.{ domain_uuid = sm_dom0_uuid; implementations = [XenDisk {params="";extra=[];backend_type="vbd3"}; BlockDevice {path=""}] } }
       | Some (Local path) ->
-        { domid = this_domid ~xs; attach_info = Storage_interface.{ domain_uuid = sm_dom0_uuid; implementations = [XenDisk {params=path;extra=[];backend_type="Tapdisk3"}; BlockDevice {path}] } }
+        { domid = this_domid ~xs; attach_info = Storage_interface.{ domain_uuid = sm_dom0_uuid; implementations = [XenDisk {params=path;extra=[];backend_type="vbd3"}; BlockDevice {path}] } }
       | Some (VDI path) ->
         let sr, vdi = Storage.get_disk_by_name task path in
         let dp = Storage.id_of (string_of_int frontend_domid) vbd.id in
