@@ -229,6 +229,19 @@ def disconnect_nbd_device(nbd_device):
         ['/opt/xensource/libexec/nbd_client_manager.py', 'disconnect',
          '--device', nbd_device])
 
+
+def parse_nbd_uri(uri):
+    parts = uri.split(':')
+    exportname_prefix = 'exportname='
+    if len(parts) != 3 or \
+            parts[0:2] != ['nbd', 'unix'] or \
+            not parts[3].startswith(exportname_prefix):
+        raise Exception('Got invalid NBD URI for SM backend: ' + uri)
+    socket_path = parts[2]
+    exportname = parts[3][len(exportname_prefix):]
+    return (socket_path, exportname)
+
+
 def attach(vdi_uuid):
     found = False
     for existing in list():
@@ -255,14 +268,18 @@ def attach(vdi_uuid):
                     scheme = urlparse.urlparse(vol_uri).scheme
                     sr = sr_attach(volume_plugin, configuration)
                     attach = call_datapath_plugin(scheme, "Datapath.attach", [ vol_uri, "0" ])
-                    path = attach['implementation'][1]
+                    (name, implementation) = \
+                            next((name, impl)
+                                 for (name, impl)
+                                 in attach['implementations']
+                                 if name in ['BlockDevice', 'File', 'Nbd'])
                     call_datapath_plugin(scheme, "Datapath.activate", [ vol_uri, "0" ])
-                    nbd_prefix = 'hack|nbd:unix:'
-                    nbd = path.startswith(nbd_prefix)
-                    if nbd:
-                        path = path[len(nbd_prefix):]
-                        socket_path = path.split('|')[0]
-                        path = connect_nbd(socket_path, 'qemu_node')
+                    if name in ['BlockDevice', 'File']:
+                        path = implementation['path']
+                    elif name == 'Nbd':
+                        uri = implementation['uri']
+                        (path, exportname) = parse_nbd_uri(uri)
+                        path = connect_nbd(path=path, exportname=exportname)
 
                 os.symlink(path, d + "/disk")
                 return d + "/disk"
