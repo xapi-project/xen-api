@@ -452,23 +452,24 @@ module Wrapper = functor(Impl: Server_impl) -> struct
     let attach context ~dbg ~dp ~sr ~vdi ~read_write =
       info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp sr vdi read_write;
       let backend = attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
-			(* VDI.attach2 should be used instead, VDI.attach is only kept for
-				 backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
-				 However, they ignore the return value, so in practice it does not matter what
-				 we return from here. *)
+      (* VDI.attach2 should be used instead, VDI.attach is only kept for
+         backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
+         However, they ignore the return value, so in practice it does not matter what
+         we return from here. *)
       let (xendisks, blockdevs, files, _nbds) = Attach_helpers.implementations_of_backend backend in
-      let response ?(backend_kind="vbd3") ?(xenstore_data=[]) params =
-        let xenstore_data = if List.mem_assoc "backend-kind" xenstore_data then xenstore_data else ["backend-kind", backend_kind] @ xenstore_data in
-        (* XXX We've thrown o_direct info away from the SMAPIv1 info during the conversion to SMAPIv3 attach info *)
-        { params; xenstore_data; o_direct = true; o_direct_reason = "" }
+      let response params =
+        (* We've thrown o_direct info away from the SMAPIv1 info during the conversion to SMAPIv3 attach info *)
+        (* The removal of these fields does not break read caching info propagation for SMAPIv1
+         * (REQ-49), because we put this information into the VDI's sm_config elsewhere,
+         * and XenCenter looks at the relevant sm_config keys. *)
+        { params; xenstore_data = []; o_direct = true; o_direct_reason = "" }
       in
       (* If Nbd is returned, then XenDisk must also be returned from attach2 *)
-      match files, blockdevs, xendisks with
-      | file::_, _, _ -> response file.Storage_interface.path
-      | _, blockdev::_, _ -> response blockdev.Storage_interface.path
-      | _, _, xendisk::_ ->
-        let backend_kind = xendisk.Storage_interface.backend_type in
-        response ~backend_kind ~xenstore_data:xendisk.Storage_interface.extra xendisk.Storage_interface.params
+      match xendisks, files, blockdevs with
+      | xendisk::_, _, _ ->
+        response xendisk.Storage_interface.params
+      | _, file::_, _ -> response file.Storage_interface.path
+      | _, _, blockdev::_ -> response blockdev.Storage_interface.path
       | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
 
     let activate context ~dbg ~dp ~sr ~vdi =
