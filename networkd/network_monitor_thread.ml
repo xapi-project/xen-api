@@ -28,11 +28,9 @@ let monitor_whitelist = ref [
 	"vif"; (* This includes "tap" owing to the use of standardise_name below *)
 ]
 
-let xapi_rpc request =
-	Rpc_client.do_rpc_unix
-		~content_type:(Rpc_client.content_type_of_string "text/xml")
-		~filename:(Filename.concat "/var/lib/xcp" "xapi")
-		~path:"/" request
+let xapi_rpc xml =
+  let open Xmlrpc_client in
+  XMLRPC_protocol.rpc ~srcstr:"xcp-networkd" ~dststr:"xapi" ~transport:(Unix "/var/xapi/xapi") ~http:(xmlrpc ~version:"1.0" "/") xml
 
 let send_bond_change_alert dev interfaces message =
 	let ifaces = String.concat "+" (List.sort String.compare interfaces) in

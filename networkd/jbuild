@@ -22,7 +22,6 @@
               networklibs
               profiling
               rpclib
-              rpclib.unix
               systemd
               threads
               xapi-stdext-monadic
