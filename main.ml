@@ -956,9 +956,8 @@ let process_smapiv2_requests ~volume_script_dir =
       | Xapi_storage.Data.File { path } -> File { path }
       | Xapi_storage.Data.Nbd { uri } -> Nbd { uri }
     in
-    let convert_backend = function Xapi_storage.Data.{ domain_uuid; implementations } ->
-      { domain_uuid
-      ; implementations = List.map ~f:convert_implementation response.Xapi_storage.Data.implementations
+    let convert_backend = function Xapi_storage.Data.{ implementations } ->
+      { implementations = List.map ~f:convert_implementation response.Xapi_storage.Data.implementations
       }
     in
     Deferred.Result.return (R.success (Args.VDI.Attach2.rpc_of_response (convert_backend response)))
