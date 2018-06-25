@@ -142,9 +142,7 @@ let assert_bacon_mode ~__context ~host =
       ));
   debug "Bacon test: VBDs OK"
 
-let signal_networking_change ~__context =
-  Helpers.update_pif_addresses ~__context;
-  Xapi_mgmt_iface.on_dom0_networking_change ~__context
+let signal_networking_change = Xapi_mgmt_iface.on_dom0_networking_change
 
 let signal_cdrom_event ~__context params =
   let find_vdi_name sr name =
