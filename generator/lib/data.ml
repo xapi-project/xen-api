@@ -49,8 +49,6 @@ type implementation =
 [@@deriving rpcty]
 
 type backend = {
-  domain_uuid: string
-      [@doc ["UUID of the domain hosting the backend"]];
   implementations: implementation list
       [@doc ["choice of implementation technologies"]];
 }
