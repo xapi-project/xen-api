@@ -77,7 +77,6 @@ type implementation =
   | Nbd of nbd
 
 type backend = {
-  domain_uuid: string;
   implementations: implementation list;
 }
 
