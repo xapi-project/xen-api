@@ -467,8 +467,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       (* If Nbd is returned, then XenDisk must also be returned from attach2 *)
       match xendisks, files, blockdevs with
       | xendisk::_, _, _ ->
-        let backend_kind = xendisk.Storage_interface.backend_type in
-        response ~backend_kind ~xenstore_data:xendisk.Storage_interface.extra xendisk.Storage_interface.params
+        response xendisk.Storage_interface.params
       | _, file::_, _ -> response file.Storage_interface.path
       | _, _, blockdev::_ -> response blockdev.Storage_interface.path
       | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
