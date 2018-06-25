@@ -2293,16 +2293,12 @@ module VBD = struct
   let vdi_attach_path vbd = Printf.sprintf "/xapi/%s/private/vdis/%s" (fst vbd.id) (snd vbd.id)
 
   let attach_and_activate task xc xs frontend_domid vbd vdi =
-    (* Currently the domain_uuid field is not used, in the future it will be
-       used by SM for refcounting, it will not be the same as the VM UUID,
-       it will be an opaque UUID that SM knows about. *)
-    let sm_dom0_uuid = "0" in
     let attached_vdi = match vdi with
       | None ->
         (* XXX: do something better with CDROMs *)
-        { domid = this_domid ~xs; attach_info = Storage_interface.{ domain_uuid = sm_dom0_uuid; implementations = [XenDisk {params="";extra=[];backend_type="vbd3"}; BlockDevice {path=""}] } }
+        { domid = this_domid ~xs; attach_info = Storage_interface.{ implementations = [XenDisk {params="";extra=[];backend_type="vbd3"}; BlockDevice {path=""}] } }
       | Some (Local path) ->
-        { domid = this_domid ~xs; attach_info = Storage_interface.{ domain_uuid = sm_dom0_uuid; implementations = [XenDisk {params=path;extra=[];backend_type="vbd3"}; BlockDevice {path}] } }
+        { domid = this_domid ~xs; attach_info = Storage_interface.{ implementations = [XenDisk {params=path;extra=[];backend_type="vbd3"}; BlockDevice {path}] } }
       | Some (VDI path) ->
         let sr, vdi = Storage.get_disk_by_name task path in
         let dp = Storage.id_of (string_of_int frontend_domid) vbd.id in
