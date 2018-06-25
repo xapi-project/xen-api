@@ -449,12 +449,11 @@ module SMAPIv1 = struct
                      extra = attach_info_v1.Smint.xenstore_data;
                      backend_type = "vbd3"
                    };
-                   (* We always get a BlockDevice from SMAPIv3, never a File, not even for ISOs *)
+                   (* Currently we always get a BlockDevice from SMAPIv1, never a File, not even for ISOs *)
                    BlockDevice {
                      path = attach_info_v1.Smint.params
                    }
-                 ];
-                 domain_uuid = "0"
+                 ]
                }
             ) in
         Mutex.execute vdi_read_write_m
