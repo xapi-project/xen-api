@@ -66,12 +66,10 @@ let empty_cache = (SRSet.empty, NetworkSet.empty)
 let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
   (* Any kind of vGPU means that the VM is not agile. *)
   if vm_t.API.vM_VGPUs <> [] then
-    raise (Api_errors.Server_error
-             (Api_errors.vm_has_vgpu, [Ref.string_of vm]));
+    raise Api_errors.(Server_error (vm_has_vgpu, [Ref.string_of vm]));
   (* Any kind of VUSB means that the VM is not agile. *)
   if vm_t.API.vM_VUSBs <> [] then
-    raise (Api_errors.Server_error
-             (Api_errors.vm_has_vusbs, [Ref.string_of vm]));
+    raise Api_errors.(Server_error (vm_has_vusbs, [Ref.string_of vm]));
   (* All referenced VDIs should be in shared SRs *)
   let check_vbd ok_srs vbd =
     if Db.VBD.get_empty ~__context ~self:vbd
@@ -83,7 +81,7 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
       then ok_srs
       else
       if not (is_sr_properly_shared ~__context ~self:sr)
-      then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_sr_not_shared, [Ref.string_of sr]))
+      then raise Api_errors.(Server_error (ha_constraint_violation_sr_not_shared, [Ref.string_of sr]))
       else SRSet.add sr ok_srs in
   (* All referenced VIFs should be on shared networks *)
   let check_vif ok_networks vif =
