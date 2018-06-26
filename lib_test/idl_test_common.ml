@@ -47,6 +47,9 @@ end
 (* Slightly annoyingly, both RPC modules have a slightly different signature. Fix it here *)
 module TJsonrpc : MARSHALLER = struct
   include Jsonrpc
+  (* there is a ?strict parameter, and the signature would not match *)
+  let of_string s = of_string s
+  let response_of_string r = response_of_string r
   let string_of_call call = string_of_call call
   let string_of_response response = string_of_response response
 end
