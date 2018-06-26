@@ -622,6 +622,8 @@ let _ =
     ~doc:"This operation could not be performed, because the VM has one or more PCI devices passed through." ();
   error Api_errors.vm_has_vgpu ["vm"]
     ~doc:"This operation could not be performed, because the VM has one or more virtual GPUs." ();
+  error Api_errors.vm_has_sriov_vif ["vm"]
+    ~doc:"This operation could not be performed, because the VM has one or more SR-IOV VIFs." ();
   error Api_errors.host_cannot_attach_network [ "host"; "network" ]
     ~doc:"Host cannot attach network (in the case of NIC bonding, this may be because attaching the network on this host would require other networks [that are currently active] to be taken down)." ();
   error Api_errors.vm_requires_vdi [ "vm"; "vdi" ]

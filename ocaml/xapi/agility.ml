@@ -70,6 +70,7 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
   (* Any kind of VUSB means that the VM is not agile. *)
   if vm_t.API.vM_VUSBs <> [] then
     raise Api_errors.(Server_error (vm_has_vusbs, [Ref.string_of vm]));
+
   (* All referenced VDIs should be in shared SRs *)
   let check_vbd ok_srs vbd =
     if Db.VBD.get_empty ~__context ~self:vbd
@@ -83,15 +84,18 @@ let caching_vm_t_assert_agile ~__context (ok_srs, ok_networks) vm vm_t =
       if not (is_sr_properly_shared ~__context ~self:sr)
       then raise Api_errors.(Server_error (ha_constraint_violation_sr_not_shared, [Ref.string_of sr]))
       else SRSet.add sr ok_srs in
-  (* All referenced VIFs should be on shared networks *)
+  (* All referenced VIFs should be on shared networks and should not in SR-IOV network *)
   let check_vif ok_networks vif =
     let network = Db.VIF.get_network ~__context ~self:vif in
-    if NetworkSet.mem network ok_networks
-    then ok_networks
-    else
-    if not (is_network_properly_shared ~__context ~self:network)
-    then raise (Api_errors.Server_error(Api_errors.ha_constraint_violation_network_not_shared, [Ref.string_of network]))
-    else NetworkSet.add network ok_networks in
+    if NetworkSet.mem network ok_networks then ok_networks
+    else begin
+      if not (is_network_properly_shared ~__context ~self:network) then
+        raise Api_errors.(Server_error (ha_constraint_violation_network_not_shared, [Ref.string_of network]))
+      else if Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network then
+        raise Api_errors.(Server_error (vm_has_sriov_vif, [Ref.string_of vm]))
+      else NetworkSet.add network ok_networks
+    end
+  in
   let ok_srs = List.fold_left check_vbd ok_srs vm_t.API.vM_VBDs in
   let ok_networks = List.fold_left check_vif ok_networks vm_t.API.vM_VIFs in
   (ok_srs, ok_networks)
