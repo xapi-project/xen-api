@@ -57,8 +57,8 @@ module Profile = struct
        sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
        |> fun s -> Internal_error s
        |> raise
-    | x -> debug "unknown device-model profile %s: defaulting to fallback: %s" x (string_of fallback);
-      fallback
+    | x -> debug "unknown device-model profile %s: defaulting to %s" x Name.qemu_upstream_compat;
+      Qemu_upstream_compat
 
   (* XXX remove again *)
   let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
