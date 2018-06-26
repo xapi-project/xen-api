@@ -108,6 +108,101 @@ let pvs_version = "3.0"
 let supported_api_versions = [pvs_version; "5.0"]
 let api_max = List.fold_left ~f:max supported_api_versions ~init:""
 
+let id = fun x -> x
+
+type compat_in = R.t -> R.t
+(** A function that changes the input to make it compatible with an older
+    script *)
+
+type compat_out = R.t -> R.t
+(** A function that changes the output of an older script to make it
+    compatible with the new interface and ensure it is unmarshalled without
+    error. *)
+
+module Compat(V : sig val version : string option ref end) : sig
+  (** Module for making the inputs and outputs compatible with the old PVS
+      version of the storage scripts. *)
+
+  type device_config = (Core.String.t, string) Core.List.Assoc.t
+
+  val compat_out_volume : compat_out
+  (** Add the missing [sharable] field to the Dict in [rpc], to ensure the
+      volume in the output match the new volume record type and is successfully
+      parsed by rpclib. *)
+
+  val compat_out_volumes : compat_out
+  (** Add the missing [sharable] field to the Dicts in [rpc], to ensure the
+      volumes in the output match the new volume record type and are
+      successfully parsed by rpclib. *)
+
+  val compat_uri : device_config -> (compat_in, Storage_interface.Exception.exnty) Deferred.Result.t
+  (** For the old PVS version, adds the uri parameter to the call from
+      device_config, for newer versions, removes the uri key from device_config *)
+
+  val sr_create : device_config -> (device_config * compat_in * compat_out, Storage_interface.Exception.exnty) Deferred.Result.t
+  (** Compatiblity for the old PVS version of SR.create, which had signature
+      [uri -> name -> desc -> config -> unit] *)
+end = struct
+
+  type device_config = (Core.String.t, string) Core.List.Assoc.t
+  type compat_in = R.t -> R.t
+  type compat_out = R.t -> R.t
+
+  let remove field rpc =
+    match !V.version, rpc with
+    | Some v, R.Dict d when v = pvs_version ->
+        R.Dict (List.filter ~f:(fun (k,_) -> k <> field) d)
+    | _ -> rpc
+
+  let with_pvs_version f rpc = if !V.version = Some pvs_version then f rpc else rpc
+
+  let add_param_to_input params =
+    with_pvs_version (function
+        (* Currently all parameters must be named. In this case, rpclib
+           currently puts them into a Dict. *)
+        | R.Dict d -> R.Dict (List.rev_append params d)
+        | rpc -> rpc)
+
+  let add_fields_to_dict fields =
+    function R.Dict d -> R.Dict (List.rev_append fields d) | rpc -> rpc
+
+  let add_fields_to_record_output fields =
+    with_pvs_version (function
+        | R.Dict _ as d -> add_fields_to_dict fields d
+        | rpc -> rpc)
+
+  let add_fields_to_record_list_output fields =
+    with_pvs_version (function
+        | R.Enum l -> R.Enum (List.map ~f:(add_fields_to_dict fields) l)
+        | rpc -> rpc)
+
+  let compat_out_volume =
+    add_fields_to_record_output ["sharable", R.Bool false]
+
+  let compat_out_volumes =
+    add_fields_to_record_list_output ["sharable", R.Bool false]
+
+  let compat_uri device_config =
+    if !V.version = Some pvs_version then
+      match List.Assoc.find ~equal:String.equal device_config "uri" with
+      | None ->
+        return (Error (missing_uri ()))
+      | Some uri ->
+        return (Ok (add_param_to_input ["uri", R.String uri]))
+    else
+        return (Ok id)
+
+  let sr_create device_config =
+    compat_uri device_config >>>= fun compat_in ->
+    let compat_out rpc =
+      (* The PVS version will return nothing *)
+      if rpc = R.Null then
+        Rpcmarshal.marshal Xapi_storage.Control.typ_of_configuration device_config
+      else rpc
+    in
+    return (Ok (device_config, compat_in, compat_out))
+end
+
 let check_plugin_version_compatible query_result =
   let Xapi_storage.Plugin.{ name; required_api_version; _ } = query_result in
   if required_api_version <> api_max then
@@ -197,8 +292,6 @@ module Script = struct
       find ()
 end
 
-let id = fun x -> x
-
 (** Call the script named after the RPC method in the [script_dir]
     directory. The arguments (not the whole JSON-RPC call) are passed as JSON
     to its stdin, and stdout is returned. In case of a non-zero exit code,
@@ -212,101 +305,102 @@ let id = fun x -> x
       output.
     This function either returns a successful RPC response, or raises
     Fork_exec_error with a suitable SMAPIv2 error if the call failed. *)
-let fork_exec_rpc ~script_dir ?missing ?(compat_in=id) ?(compat_out=id) =
-  let invoke_script call script_name =
-    Process.create ~prog:script_name ~args:["--json"] ()
-    >>= function
-    | Error e ->
-      error "%s failed: %s" script_name (Error.to_string_hum e);
-      return (Error(backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]))
-    | Ok p ->
-      (* Send the request as json on stdin *)
-      let w = Process.stdin p in
-      (* We pass just the args, not the complete JSON-RPC call.
-         Currently the Python code generated by rpclib requires all params to
-         be named - they will be converted into a name->value Python dict.
-         Rpclib currently puts all named params into a dict, so we expect
-         params to be a single Dict, if all the params are named. *)
-      (match call.R.params with
-       | [R.Dict _ as d] ->
-         return (Ok d)
-       | _ -> return (Error (backend_error "INCORRECT_PARAMETERS" [ script_name; "All the call parameters should be named and should be in a RPC Dict" ]))
-      ) >>>= fun args ->
-      let args = compat_in args in
-      Writer.write w (Jsonrpc.to_string args);
-      Writer.close w
-      >>= fun () ->
-      Process.collect_output_and_wait p
-      >>= fun output ->
-      begin match output.Process.Output.exit_status with
-        | Error (`Exit_non_zero code) ->
-          (* Expect an exception and backtrace on stdout *)
-          begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
-            | Error _ ->
-              error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
-              error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
-              return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
-            | Ok response ->
-              begin match Or_error.try_with (fun () -> error_of_rpc response) with
-                | Error _ ->
-                  error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
-                  error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
-                  return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
-                | Ok x -> return (Error(backend_backtrace_error x.code x.params x.backtrace))
-              end
-          end
-        | Error (`Signal signal) ->
-          error "%s caught a signal and failed" script_name;
-          return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stdout ]))
-        | Ok () ->
+let fork_exec_rpc : script_dir:string -> ?missing:R.t -> ?compat_in:compat_in -> ?compat_out:compat_out -> R.call -> R.response Deferred.t =
+  fun ~script_dir ?missing ?(compat_in=id) ?(compat_out=id) ->
+    let invoke_script call script_name : (R.response, Storage_interface.Exception.exnty) Deferred.Result.t =
+      Process.create ~prog:script_name ~args:["--json"] ()
+      >>= function
+      | Error e ->
+        error "%s failed: %s" script_name (Error.to_string_hum e);
+        return (Error(backend_error "SCRIPT_FAILED" [ script_name; Error.to_string_hum e ]))
+      | Ok p ->
+        (* Send the request as json on stdin *)
+        let w = Process.stdin p in
+        (* We pass just the args, not the complete JSON-RPC call.
+           Currently the Python code generated by rpclib requires all params to
+           be named - they will be converted into a name->value Python dict.
+           Rpclib currently puts all named params into a dict, so we expect
+           params to be a single Dict, if all the params are named. *)
+        (match call.R.params with
+         | [R.Dict _ as d] ->
+           return (Ok d)
+         | _ -> return (Error (backend_error "INCORRECT_PARAMETERS" [ script_name; "All the call parameters should be named and should be in a RPC Dict" ]))
+        ) >>>= fun args ->
+        let args = compat_in args in
+        Writer.write w (Jsonrpc.to_string args);
+        Writer.close w
+        >>= fun () ->
+        Process.collect_output_and_wait p
+        >>= fun output ->
+        begin match output.Process.Output.exit_status with
+          | Error (`Exit_non_zero code) ->
+            (* Expect an exception and backtrace on stdout *)
+            begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
+              | Error _ ->
+                error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
+                error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
+                return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
+              | Ok response ->
+                begin match Or_error.try_with (fun () -> error_of_rpc response) with
+                  | Error _ ->
+                    error "%s failed and printed bad error json: %s" script_name output.Process.Output.stdout;
+                    error "%s failed, stderr: %s" script_name output.Process.Output.stderr;
+                    return (Error (backend_error "SCRIPT_FAILED" [ script_name; "non-zero exit and bad json on stdout"; string_of_int code; output.Process.Output.stdout; output.Process.Output.stdout ]))
+                  | Ok x -> return (Error(backend_backtrace_error x.code x.params x.backtrace))
+                end
+            end
+          | Error (`Signal signal) ->
+            error "%s caught a signal and failed" script_name;
+            return (Error (backend_error "SCRIPT_FAILED" [ script_name; "signalled"; Signal.to_string signal; output.Process.Output.stdout; output.Process.Output.stdout ]))
+          | Ok () ->
 
-          (* Parse the json on stdout. We get back a JSON-RPC
-             value from the scripts, not a complete JSON-RPC response *)
-          begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
-            | Error _ ->
-              error "%s succeeded but printed bad json: %s" script_name output.Process.Output.stdout;
-              return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
-            | Ok response ->
-              info "%s succeeded: %s" script_name output.Process.Output.stdout;
-              let response = compat_out response in
-              let response = R.success response in
-              return (Ok response)
-          end
-      end
-  in
+            (* Parse the json on stdout. We get back a JSON-RPC
+               value from the scripts, not a complete JSON-RPC response *)
+            begin match Or_error.try_with (fun () -> Jsonrpc.of_string output.Process.Output.stdout) with
+              | Error _ ->
+                error "%s succeeded but printed bad json: %s" script_name output.Process.Output.stdout;
+                return (Error (backend_error "SCRIPT_FAILED" [ script_name; "bad json on stdout"; output.Process.Output.stdout ]))
+              | Ok response ->
+                info "%s succeeded: %s" script_name output.Process.Output.stdout;
+                let response = compat_out response in
+                let response = R.success response in
+                return (Ok response)
+            end
+        end
+    in
 
-  let script_rpc call =
-    info "%s" (Jsonrpc.string_of_call call);
-    Script.path ~script_dir ~script_name:call.R.name >>= function
-    | Error (`missing path) ->
-      error "%s is not a file" path;
-      (match missing with
-       | None ->
-         return (Error(backend_error "SCRIPT_MISSING" [ path; "Check whether the file exists and has correct permissions" ]))
-       | Some m ->
-         warn "Deprecated: script '%s' is missing, treating as no-op. Update your plugin!" path;
-         return (Ok (R.success m)))
-    | Error (`not_executable (path, exn)) ->
-      error "%s is not executable" path;
-      return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ path; Exn.to_string exn ]))
-    | Ok path -> invoke_script call path
-  in
+    let script_rpc call : (R.response, Storage_interface.Exception.exnty) Deferred.Result.t =
+      info "%s" (Jsonrpc.string_of_call call);
+      Script.path ~script_dir ~script_name:call.R.name >>= function
+      | Error (`missing path) ->
+        error "%s is not a file" path;
+        (match missing with
+         | None ->
+           return (Error(backend_error "SCRIPT_MISSING" [ path; "Check whether the file exists and has correct permissions" ]))
+         | Some m ->
+           warn "Deprecated: script '%s' is missing, treating as no-op. Update your plugin!" path;
+           return (Ok (R.success m)))
+      | Error (`not_executable (path, exn)) ->
+        error "%s is not executable" path;
+        return (Error (backend_error "SCRIPT_NOT_EXECUTABLE" [ path; Exn.to_string exn ]))
+      | Ok path -> invoke_script call path
+    in
 
-  (* The Errors we return from this function and the special error format
-     returned by the scripts are not included in the error types of the various
-     SMAPIv3 interfaces, therefore we have to propagate them as exceptions
-     instead of returning an RPC call with an error, because rpclib would fail
-     to unmarshal that error.
-     Therefore we either return a successful RPC response, or raise
-     Fork_exec_error with a suitable SMAPIv2 error if the call failed. *)
-  let rpc call =
-    script_rpc call >>= fun result ->
-    Result.map_error ~f:(fun e -> Fork_exec_error e) result
-    |> Result.ok_exn
-    |> return
-  in
+    (* The Errors we return from this function and the special error format
+       returned by the scripts are not included in the error types of the various
+       SMAPIv3 interfaces, therefore we have to propagate them as exceptions
+       instead of returning an RPC call with an error, because rpclib would fail
+       to unmarshal that error.
+       Therefore we either return a successful RPC response, or raise
+       Fork_exec_error with a suitable SMAPIv2 error if the call failed. *)
+    let rpc : R.call -> R.response Deferred.t = fun call ->
+      script_rpc call >>= fun result ->
+      Result.map_error ~f:(fun e -> Fork_exec_error e) result
+      |> Result.ok_exn
+      |> return
+    in
 
-  rpc
+    rpc
 
 module Attached_SRs = struct
   type state = {
@@ -420,75 +514,6 @@ let vdi_of_volume x =
   sharable = x.Xapi_storage.Control.sharable;
   persistent = true;
 }
-
-module Compat(V : sig val version : string option ref end) = struct
-  (** Module for making the inputs and outputs compatible with the old PVS
-      version of the storage scripts. *)
-
-  let remove field rpc =
-    match !V.version, rpc with
-    | Some v, R.Dict d when v = pvs_version ->
-        R.Dict (List.filter ~f:(fun (k,_) -> k <> field) d)
-    | _ -> rpc
-
-  let with_pvs_version f rpc = if !V.version = Some pvs_version then f rpc else rpc
-
-  let add_param_to_input params =
-    with_pvs_version (function
-        (* Currently all parameters must be named. In this case, rpclib
-           currently puts them into a Dict. *)
-        | R.Dict d -> R.Dict (List.rev_append params d)
-        | rpc -> rpc)
-
-  let add_fields_to_dict fields =
-    function R.Dict d -> R.Dict (List.rev_append fields d) | rpc -> rpc
-
-  let add_fields_to_record_output fields =
-    with_pvs_version (function
-        | R.Dict _ as d -> add_fields_to_dict fields d
-        | rpc -> rpc)
-
-  let add_fields_to_record_list_output fields =
-    with_pvs_version (function
-        | R.Enum l -> R.Enum (List.map ~f:(add_fields_to_dict fields) l)
-        | rpc -> rpc)
-
-  (** Add the missing [sharable] field to the Dict in [rpc], to ensure the
-      volume in the output match the new volume record type and is successfully
-      parsed by rpclib. *)
-  let compat_out_volume =
-    add_fields_to_record_output ["sharable", R.Bool false]
-
-  (** Add the missing [sharable] field to the Dicts in [rpc], to ensure the
-      volumes in the output match the new volume record type and are
-      successfully parsed by rpclib. *)
-  let compat_out_volumes =
-    add_fields_to_record_list_output ["sharable", R.Bool false]
-
-  (** For the old PVS version, adds the uri parameter to the call from
-      device_config, for newer versions, removes the uri key from device_config *)
-  let compat_uri device_config =
-    if !V.version = Some pvs_version then
-      match List.Assoc.find ~equal:String.equal device_config "uri" with
-      | None ->
-        return (Error (missing_uri ()))
-      | Some uri ->
-        return (Ok (add_param_to_input ["uri", R.String uri]))
-    else
-        return (Ok id)
-
-  (** Compatiblity for the old PVS version of SR.create, which had signature
-      [uri -> name -> desc -> config -> unit] *)
-  let sr_create device_config =
-    compat_uri device_config >>>= fun compat_in ->
-    let compat_out rpc =
-      (* The PVS version will return nothing *)
-      if rpc = R.Null then
-        Rpcmarshal.marshal Xapi_storage.Control.typ_of_configuration device_config
-      else rpc
-    in
-    return (Ok (device_config, compat_in, compat_out))
-end
 
 let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
