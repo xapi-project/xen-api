@@ -26,7 +26,7 @@ let transform_exception f x =
   try f x
   with
   | Backend_error_with_backtrace(code, backtrace :: params) as e ->
-    let backtrace = Backtrace.t_of_sexp (Sexplib.Sexp.of_string backtrace) in
+    let backtrace = Backtrace.Interop.of_json "SM" backtrace in
     let exn = Storage_backend_error(code, params) in
     Backtrace.add exn backtrace;
     Backtrace.reraise e exn
