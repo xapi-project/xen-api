@@ -342,6 +342,7 @@ def main(argv):
                             preexec_fn=prepare_exec)
 
     xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % qemu.pid)
+    xenstore_write("/local/domain/%d/image/device-model-pid" % domid, "%d" % qemu.pid)
 
     # Redirect output from QEMU to logger
     os.dup2(qemu.stdout.fileno(), 0)
