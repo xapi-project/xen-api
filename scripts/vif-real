@@ -248,6 +248,7 @@ online)
 
 add)
     if [ "${TYPE}" = "tap" ] ; then
+        handle_mtu
         add_to_bridge
     fi
     ;;
