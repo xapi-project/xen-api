@@ -213,3 +213,11 @@ module SR = struct
 end
 
 let sr = SR.f
+
+let vm_template template_name =
+  for_each
+    (fun (name, speed, test) ->
+       match Qt.VM.Template.find !A.rpc !session_id template_name with
+       | None -> []
+       | Some vm_template -> [(name, speed, test vm_template)]
+    )
