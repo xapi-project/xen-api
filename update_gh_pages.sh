@@ -9,8 +9,8 @@ set +x
 
 set -e
 
-if [ -z "$TRAVIS" -o "$TRAVIS_PULL_REQUEST" != "false" -o "$TRAVIS_BRANCH" != "feature/REQ477/master" ]; then
-  echo "This is not a Travis-ci build on the feature/REQ477/master branch, doing nothing..."
+if [ -z "$TRAVIS" -o "$TRAVIS_PULL_REQUEST" != "false" -o "$TRAVIS_BRANCH" != "master" ]; then
+  echo "This is not a Travis-ci build on the master branch, doing nothing..."
   exit 0
 else
   echo "Updating docs on Github pages..."
