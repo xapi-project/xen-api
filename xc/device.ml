@@ -1751,9 +1751,6 @@ module Dm_Common = struct
     disp_options, wait_for_port
 
   let qemu_args ~xs ~dm info restore ?(domid_for_vnc=false) domid =
-    let disks' = List.map (fun (index, file, media) -> [
-          "-drive"; sprintf "file=%s,if=ide,index=%d,media=%s" file index (string_of_media media)
-        ]) info.disks in
 
     let restorefile = sprintf qemu_restore_path domid in
     let disp_options, wait_for_port = if domid_for_vnc
@@ -1763,7 +1760,6 @@ module Dm_Common = struct
     let argv =
       List.concat
         [ disp_options
-        ; List.concat disks'
         ; ( info.acpi |> function false -> [] | true -> [ "-acpi" ])
         ; ( restore   |> function false -> [] | true -> [ "-loadvm"; restorefile ])
         ; ( info.pci_emulations
@@ -2483,6 +2479,31 @@ module Backend = struct
             ; xen_platform_device
             ] in
 
+        let disks' =
+          let format_of_media (media:Dm_Common.media) file =
+            match media, file with
+            | Dm_Common.Disk, _   -> ["format=raw"]
+            | Dm_Common.Cdrom, "" -> []
+            | Dm_Common.Cdrom, _  -> ["format=raw"]
+          in
+          let lba_of_media (media:Dm_Common.media) =
+            match media with
+            | Dm_Common.Disk  -> "force-lba=on"
+            | Dm_Common.Cdrom -> "force-lba=off"
+          in
+          List.map (fun (index, file, media) -> [
+              "-drive"; String.concat "," ([
+                sprintf "file=%s" file;
+                "if=ide";
+                sprintf "index=%d" index;
+                sprintf "media=%s" (Dm_Common.string_of_media media);
+                lba_of_media media;
+              ] @ (format_of_media media file))
+            ])
+            info.Dm_Common.disks
+          |> List.concat
+        in
+
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort
           (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
@@ -2548,12 +2569,12 @@ module Backend = struct
         |> function
         |  _, []    ->
           Dm_Common.
-            { argv   = common.argv   @ misc @ pv_device pv_device_addr @ none
+            { argv   = common.argv   @ misc @ disks' @ pv_device pv_device_addr @ none
             ; fd_map = common.fd_map
             }
         | fds, argv ->
           Dm_Common.
-            { argv   = common.argv   @ misc @ pv_device pv_device_addr @ argv
+            { argv   = common.argv   @ misc @ disks' @ pv_device pv_device_addr @ argv
             ; fd_map = common.fd_map @ fds
             }
 
