@@ -43,6 +43,7 @@ depends: [
   "xenctrl"
   "xenstore"
   "yojson"
+  "alcotest"
 ]
 depexts: [
   [["debian"] ["hwdata" "libpci-dev" "libpam-dev"]]
