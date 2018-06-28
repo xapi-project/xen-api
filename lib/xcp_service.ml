@@ -300,6 +300,9 @@ let startswith prefix x =
         prefix' <= x' && (String.sub x 0 prefix' = prefix)
 
 let configure_common ~options ~resources arg_parse_fn =
+	(* Register the Logs reporter to ensure we get log messages from libraries using Logs *)
+	Debug.init_logs ();
+
 	let resources = default_resources @ resources in
 	let config_spec = common_options @ options @ (to_opt resources) in
 
