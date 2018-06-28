@@ -21,12 +21,20 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
 (library (
-  (name generator_lib)
-  (wrapped false)
+  (name xapi_storage)
+  (public_name xapi-storage)
   (flags (:standard -warn-error +a-3 %s))
+  (modules (
+    apis
+    common
+    control
+    data
+    files
+    plugin
+    task
+  ))
   (libraries (
-    xmlm
-    unix
+    rpclib
   ))
 ))
 |} flags

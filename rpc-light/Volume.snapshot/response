@@ -1,0 +1,17 @@
+<?xml version="1.0"?><methodResponse><params>
+   <param><value><struct><member><name>Status</name><value>Success</value></member>
+                                 <member><name>Value</name><value>
+                                         <struct><member><name>key</name><value>test_key</value></member>
+                                                         <member><name>uuid</name><value>test_uuid</value></member>
+                                                         <member><name>name</name><value>test_name</value></member>
+                                                         <member><name>description</name><value>test_description</value></member>
+                                                         <member><name>read_write</name><value><boolean>1</boolean></value></member>
+                                                         <member><name>sharable</name><value><boolean>0</boolean></value></member>
+                                                         <member><name>virtual_size</name><value>0</value></member>
+                                                         <member><name>physical_utilisation</name><value>0</value></member>
+                                                         <member><name>uri</name><value><array><data><value>uri1</value></data></array></value></member>
+                                                         <member><name>keys</name><value><struct></struct></value></member>
+                                         </struct>
+                                 </value></member>
+   </struct></value></param>
+</params></methodResponse>
