@@ -229,37 +229,56 @@ let vdi_info x =
 
 module Local = Client(struct let rpc call = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" (local_url ()) call end)
 
-let tapdisk_of_attach_info attach_info =
-  let path = attach_info.params in
-  try
-    match Tapctl.of_device (Tapctl.create ()) path with
-    | tapdev, _, _ -> Some tapdev
-  with Tapctl.Not_blktap ->
-    debug "Device %s is not controlled by blktap" path;
+let tapdisk_of_attach_info (backend:Storage_interface.backend) =
+  let xendisks, _, _, _ = Attach_helpers.implementations_of_backend backend in
+  match xendisks with
+  | xendisk :: _ -> begin
+      let path = xendisk.Storage_interface.params in
+      try
+        match Tapctl.of_device (Tapctl.create ()) path with
+        | tapdev, _, _ -> Some tapdev
+      with Tapctl.Not_blktap ->
+        debug "Device %s is not controlled by blktap" path;
+        None
+         | Tapctl.Not_a_device ->
+           debug "%s is not a device" path;
+           None
+         | _ ->
+           debug "Device %s has an unknown driver" path;
+           None
+    end
+  | [] ->
+    debug "No XenDisk implementation in backend: %s" (Storage_interface.rpc_of_backend backend |> Rpc.to_string);
     None
-     | Tapctl.Not_a_device ->
-       debug "%s is not a device" path;
-       None
-     | _ ->
-       debug "Device %s has an unknown driver" path;
-       None
 
 
 let with_activated_disk ~dbg ~sr ~vdi ~dp f =
-  let path =
+  let attached_vdi =
     Opt.map (fun vdi ->
-        let attach_info = Local.VDI.attach ~dbg ~dp ~sr ~vdi ~read_write:false in
-        let path = attach_info.params in
-        Local.VDI.activate ~dbg ~dp ~sr ~vdi;
-        path) vdi in
+        let backend = Local.VDI.attach2 ~dbg ~dp ~sr ~vdi ~read_write:false in
+        vdi, backend
+      ) vdi
+  in
   finally
-    (fun () -> f path)
     (fun () ->
-       Opt.iter
-         (fun vdi ->
-            Local.VDI.deactivate ~dbg ~dp ~sr ~vdi;
-            Local.VDI.detach ~dbg ~dp ~sr ~vdi)
-         vdi)
+       let path =
+         Opt.map
+           (fun (vdi, backend) ->
+              let (_, blockdevs, files, _) = Attach_helpers.implementations_of_backend backend in
+              match blockdevs, files with
+              | ({ path })::_, _ | _, ({ path })::_ ->
+                Local.VDI.activate ~dbg ~dp ~sr ~vdi;
+                path
+              | [], [] ->
+                raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No BlockDevice or File implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
+           )
+           attached_vdi
+       in
+       finally
+         (fun () -> f path)
+         (fun () -> Opt.iter (fun vdi -> Local.VDI.deactivate ~dbg ~dp ~sr ~vdi) vdi)
+    )
+    (fun () -> Opt.iter (fun (vdi, _) -> Local.VDI.detach ~dbg ~dp ~sr ~vdi) attached_vdi)
 
 let perform_cleanup_actions =
   List.iter
@@ -335,7 +354,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
     Pervasiveext.finally (fun () ->
         debug "activating RW datapath %s on remote=%s/%s" remote_dp dest dest_vdi;
-        ignore(Remote.VDI.attach ~dbg ~sr:dest ~vdi:dest_vdi ~dp:remote_dp ~read_write:true);
+        ignore(Remote.VDI.attach2 ~dbg ~sr:dest ~vdi:dest_vdi ~dp:remote_dp ~read_write:true);
         Remote.VDI.activate ~dbg ~dp:remote_dp ~sr:dest ~vdi:dest_vdi;
 
         with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
@@ -682,7 +701,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
     on_fail := (fun () -> Local.VDI.destroy ~dbg ~sr ~vdi:dummy.vdi) :: !on_fail;
     debug "Created dummy snapshot for mirror receive: %s" (string_of_vdi_info dummy);
 
-    let _ = Local.VDI.attach ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true in
+    let _ = Local.VDI.attach2 ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi ~read_write:true in
     Local.VDI.activate ~dbg ~dp:leaf_dp ~sr ~vdi:leaf.vdi;
 
     let nearest = List.fold_left

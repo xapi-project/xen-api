@@ -127,24 +127,18 @@ let find_cluster_host ~__context ~host =
     raise Api_errors.(Server_error(internal_error, [msg; (Ref.string_of host)]))
   | _ -> None
 
-let get_master_pif ~__context =
-  match find_cluster_host ~__context ~host:Helpers.(get_master ~__context) with
-  | Some self -> Db.Cluster_host.get_PIF ~__context ~self
-  | None -> raise Api_errors.(Server_error (internal_error, [ "No cluster_host exists on master" ]))
-
+(** Best-effort attempt to find a network common to the entire cluster *)
 let get_network_internal ~__context ~self =
-  let cluster_network = Db.PIF.get_network ~__context ~self:(get_master_pif ~__context) in
-  if List.exists
-    (fun cluster_host ->
-      let pif = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
-      let cluster_host_network = Db.PIF.get_network ~__context ~self:pif in
-      cluster_host_network <> cluster_network
-    ) (Db.Cluster_host.get_all ~__context)
-  then
-    debug "Not all cluster hosts of cluster %s on same network %s"
-      (Ref.string_of self) (Ref.string_of cluster_network);
-
-  cluster_network
+  let network_of_cluster_host self =
+    Db.Cluster_host.get_PIF ~__context ~self
+    |> (fun self -> Db.PIF.get_network ~__context ~self)
+  in
+  let common network = List.for_all (fun self -> network = (network_of_cluster_host self)) in
+  match Db.Cluster.get_cluster_hosts ~__context ~self with
+  | [] -> failwith ("No cluster_hosts found for cluster " ^ (Ref.string_of self))
+  | ch :: other_chs when common (network_of_cluster_host ch) other_chs ->
+    network_of_cluster_host ch
+  | _ -> failwith ("No common network found for cluster " ^ (Ref.string_of self))
 
 let assert_cluster_host_enabled ~__context ~self ~expected =
   let actual = Db.Cluster_host.get_enabled ~__context ~self in
@@ -166,12 +160,11 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
         debug "No_cluster_host found%s" condition;
         raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
       in
-      begin match find_cluster_host ~__context ~host with
+      match find_cluster_host ~__context ~host with
         | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
           assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
         | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
         | None -> error_no_cluster_host_found ""
-      end
   end
 
 (* certain cluster_host operations (such as enable, disable) must run on the host on which it is

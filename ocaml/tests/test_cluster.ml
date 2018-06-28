@@ -40,12 +40,12 @@ let test_rpc ~__context call =
     Alcotest.failf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params))
 
 let create_cluster ~__context ?(cluster_stack=Constants.default_smapiv3_cluster_stack)
-  ?(test_clusterd_rpc=test_clusterd_rpc) ?(token_timeout=1.) ?(token_timeout_coefficient=1.) () =
+  ?(test_clusterd_rpc=test_clusterd_rpc) ?(token_timeout=1.) ?(token_timeout_coefficient=1.)
+  ?(network=Test_common.make_network ~__context ()) ?(host=Helpers.get_localhost ~__context) () =
+
   Context.set_test_rpc __context (test_rpc ~__context);
   Context.set_test_clusterd_rpc __context (test_clusterd_rpc ~__context);
-  let network = Test_common.make_network ~__context () in
-  let localhost = Helpers.get_localhost ~__context in
-  let pIF = Test_common.make_pif ~__context ~network ~host:localhost () in
+  let pIF = Test_common.make_pif ~__context ~network ~host () in
   Db.PIF.set_IP ~__context ~self:pIF ~value:"192.0.2.1";
   Db.PIF.set_currently_attached ~__context ~self:pIF ~value:true;
   Db.PIF.set_disallow_unplug ~__context ~self:pIF ~value:true;
@@ -112,9 +112,61 @@ let test_create_cleanup () =
       "Cluster_host refs should be destroyed"
       [] (Db.Cluster_host.get_all ~__context)
 
+let make_cluster_host ~__context ~cluster ?(network=Test_common.make_network ~__context ()) () =
+  let host = Test_common.make_host ~__context () in
+  let pIF = Test_common.make_pif ~__context ~host ~network () in
+  Test_common.make_cluster_host ~__context ~cluster ~host ~pIF ()
+
+let test_get_network_succeeds () =
+  let __context = Test_common.make_test_database () in
+  let network = Test_common.make_network ~__context () in
+
+  let cluster = create_cluster ~__context ~network () in
+  Alcotest.check Alcotest_comparators.(ref ())
+    "One cluster_host"
+    network
+    (Xapi_cluster.get_network ~__context ~self:cluster);
+
+  (* Test get_network with multiple cluster_hosts on same network *)
+  let _ : API.ref_Cluster_host = make_cluster_host ~__context ~network ~cluster () in
+  Alcotest.check Alcotest_comparators.(ref ())
+    "All cluster_hosts on same network"
+    network
+    (Xapi_cluster.get_network ~__context ~self:cluster)
+
+let test_get_network_fails () =
+  let __context = Test_common.make_test_database () in
+  let network = Test_common.make_network ~__context () in
+  let cluster = create_cluster ~__context ~network () in
+  let internal_network_error =
+      Failure ("No common network found for cluster " ^ (Ref.string_of cluster))
+  in
+  let host = Helpers.get_localhost ~__context in
+  begin match Xapi_clustering.find_cluster_host ~__context ~host with
+    | Some self -> Db.Cluster_host.destroy ~__context ~self
+    | None -> Alcotest.failf "No cluster_host found on localhost %s" (Ref.string_of host)
+  end;
+
+  Alcotest.check_raises
+    "No cluster_host exists, only cluster"
+    (Failure ("No cluster_hosts found for cluster " ^ (Ref.string_of cluster)))
+    (fun () -> Xapi_cluster.get_network ~__context ~self:cluster |> ignore);
+
+  (* Add two cluster_hosts on different networks *)
+  for i = 0 to 1 do
+    make_cluster_host ~__context ~cluster () |> ignore
+  done;
+
+  Alcotest.check_raises
+    "Cluster_hosts on different networks"
+    internal_network_error
+    (fun () -> Xapi_cluster.get_network ~__context ~self:cluster |> ignore)
+
 let test =
   [ "test_create_destroy_service_status", `Quick, test_create_destroy_status
   ; "test_enable", `Quick, test_enable
   ; "test_invalid_parameters", `Quick, test_invalid_parameters
   ; "test_create_cleanup", `Quick, test_create_cleanup
+  ; "test_get_network_succeeds", `Quick, test_get_network_succeeds
+  ; "test_get_network_fails", `Quick, test_get_network_fails
   ]

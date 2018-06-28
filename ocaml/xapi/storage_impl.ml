@@ -110,7 +110,7 @@ let string_of_date x = Date.to_string (Date.of_float x)
 module Vdi = struct
   (** Represents the information known about a VDI *)
   type t = {
-    attach_info :  attach_info option;    (** Some path when attached; None otherwise *)
+    attach_info :  backend option;    (** Some path when attached; None otherwise *)
     dps: (Dp.t * Vdi_automaton.state) list; (** state of the VDI from each dp's PoV *)
     leaked: Dp.t list;                        (** "leaked" dps *)
   } [@@deriving rpc]
@@ -156,7 +156,7 @@ module Vdi = struct
     set_dp_state dp state' t
 
   let to_string_list x =
-    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ Jsonrpc.to_string (rpc_of_attach_info x)) x.attach_info)) in
+    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ Jsonrpc.to_string (rpc_of_backend x)) x.attach_info)) in
     let of_dp (dp, state) = Printf.sprintf "DP: %s: %s%s" dp (Vdi_automaton.string_of_state state) (if List.mem dp x.leaked then "  ** LEAKED" else "") in
     title :: (List.map indent (List.map of_dp x.dps))
 end
@@ -306,7 +306,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
             | Vdi_automaton.Nothing -> vdi_t
             | Vdi_automaton.Attach ro_rw ->
               let read_write = (ro_rw = Vdi_automaton.RW) in
-              let x = Impl.VDI.attach context ~dbg ~dp ~sr ~vdi ~read_write in
+              let x = Impl.VDI.attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
               { vdi_t with Vdi.attach_info = Some x }
             | Vdi_automaton.Activate ->
               Impl.VDI.activate context ~dbg ~dp ~sr ~vdi; vdi_t
@@ -438,8 +438,8 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                 Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~persistent
              ))
 
-    let attach context ~dbg ~dp ~sr ~vdi ~read_write =
-      info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp sr vdi read_write;
+    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
+      info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp sr vdi read_write;
       with_vdi sr vdi
         (fun () ->
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
@@ -448,6 +448,29 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                     (Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)) in
                 Opt.unbox state.Vdi.attach_info
              ))
+
+    let attach context ~dbg ~dp ~sr ~vdi ~read_write =
+      info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp sr vdi read_write;
+      let backend = attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
+      (* VDI.attach2 should be used instead, VDI.attach is only kept for
+         backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
+         However, they ignore the return value, so in practice it does not matter what
+         we return from here. *)
+      let (xendisks, blockdevs, files, _nbds) = Attach_helpers.implementations_of_backend backend in
+      let response params =
+        (* We've thrown o_direct info away from the SMAPIv1 info during the conversion to SMAPIv3 attach info *)
+        (* The removal of these fields does not break read caching info propagation for SMAPIv1
+         * (REQ-49), because we put this information into the VDI's sm_config elsewhere,
+         * and XenCenter looks at the relevant sm_config keys. *)
+        { params; xenstore_data = []; o_direct = true; o_direct_reason = "" }
+      in
+      (* If Nbd is returned, then XenDisk must also be returned from attach2 *)
+      match xendisks, files, blockdevs with
+      | xendisk::_, _, _ ->
+        response xendisk.Storage_interface.params
+      | _, file::_, _ -> response file.Storage_interface.path
+      | _, _, blockdev::_ -> response blockdev.Storage_interface.path
+      | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
 
     let activate context ~dbg ~dp ~sr ~vdi =
       info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s" dbg dp sr vdi;

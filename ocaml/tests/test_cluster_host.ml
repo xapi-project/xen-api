@@ -88,15 +88,13 @@ let test_create_as_necessary () =
   let _pif = Xapi_clustering.pif_of_host ~__context network localhost in
   let result = sync_required ~__context ~host:localhost in
   check_cluster_option "sync_required without an existing cluster_host" (Some cluster) result;
-  Alcotest.check_raises
-    "create_as_necessary should fail if autojoin is set and the pool master has no cluster_host"
-    Api_errors.(Server_error (internal_error,
-      [ Printf.sprintf "No cluster_host exists on master" ]))
-    (fun () -> Xapi_cluster_host.create_as_necessary ~__context ~host:localhost);
-  let _ = Test_common.make_cluster_host ~__context ~pIF:(fst _pif) ~host:(Helpers.get_master ~__context) ~cluster () in
+
+  let _ = Test_common.make_cluster_host ~__context ~pIF:(fst _pif) ~host:localhost ~cluster () in
   Xapi_cluster_host.create_as_necessary ~__context ~host:localhost;
-  let result = sync_required ~__context ~host:localhost in
+
+ let result = sync_required ~__context ~host:localhost in
   check_cluster_option "sync_required with an existing cluster_host" None result;
+
   let host = Test_common.make_host ~__context () in
   let result = sync_required ~__context ~host in
   check_cluster_option
