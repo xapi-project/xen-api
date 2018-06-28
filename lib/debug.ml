@@ -185,8 +185,11 @@ let logs_reporter =
   in
   let report src level ~over k msgf =
     let formatter ?header ?tags fmt =
+      let buf = Buffer.create 80 in
+      let buf_fmt = Format.formatter_of_buffer buf in
       let k _ =
-        let msg = Format.flush_str_formatter () in
+        Format.pp_print_flush buf_fmt ();
+        let msg = Buffer.contents buf in
         (* We map the Logs source name to the "brand", so we have to use the
            name of the Logs source when enabling/disabling it *)
         let brand = Logs.Src.name src in
@@ -194,7 +197,7 @@ let logs_reporter =
         over ();
         k ()
       in
-      Format.kfprintf k Format.str_formatter fmt
+      Format.kfprintf k buf_fmt fmt
     in
     msgf formatter
   in
