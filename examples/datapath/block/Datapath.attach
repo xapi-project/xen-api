@@ -11,8 +11,7 @@ class Implementation(d.Datapath_skeleton):
     def attach(self, dbg, uri, domain):
         u = urlparse.urlparse(uri)
         return {
-            'domain_uuid': '0',
-            'implementation': [ 'Blkback', u.path ],
+            'implementations': [ ['XenDisk', {"backend_type":"vbd", "extra":{}, "params":u.path}], ['BlockDevice', {"path":u.path}] ]
         }
 
 if __name__ == "__main__":
