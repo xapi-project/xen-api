@@ -66,6 +66,7 @@ module VDI = struct
   let set_persistent ctx ~dbg ~sr ~vdi ~persistent = u "VDI.set_persistent"
   let epoch_begin ctx ~dbg ~sr ~vdi ~persistent = ()
   let attach ctx ~dbg ~dp ~sr ~vdi ~read_write = u "VDI.attach"
+  let attach2 ctx ~dbg ~dp ~sr ~vdi ~read_write = u "VDI.attach2"
   let activate ctx ~dbg ~dp ~sr ~vdi = u "VDI.activate"
   let deactivate ctx ~dbg ~dp ~sr ~vdi = u "VDI.deactivate"
   let detach ctx ~dbg ~dp ~sr ~vdi = u "VDI.detach"

@@ -36,14 +36,68 @@ type vdi = string
 (** Opaque identifier used by the client to identify a particular operation *)
 type debug_info = string
 
-(** The result of a successful VDI.attach: this information (eg) can be used to
-	connect a VBD backend to a VBD frontend *)
+(** The result of a successful call to the deprecated VDI.attach: this
+   information (eg) can be used to connect a VBD backend to a VBD frontend *)
 type attach_info = {
-	params : string;
-	o_direct: bool;
-	o_direct_reason : string;
-	xenstore_data : (string * string) list;
+       params : string;
+       o_direct: bool;
+       o_direct_reason : string;
+       xenstore_data : (string * string) list;
 }
+
+type xendisk = {
+  params: string; (** Put into the "params" key in xenstore *)
+
+  extra: (string * string) list;
+  (** Key-value pairs to be put into the "extra" subdirectory underneath the
+      xenstore backend *)
+
+  backend_type: string;
+}
+
+type block_device = {
+  path: string; (** Path to the block device *)
+}
+
+type file = {
+  path: string; (** Path to the raw file *)
+}
+
+type nbd = {
+  uri: string;
+  (** NBD URI of the form nbd:unix:<domain-socket>:exportname=<NAME> (this
+      format is used by qemu-system:
+      https://manpages.debian.org/stretch/qemu-system-x86/qemu-system-x86_64.1.en.html) *)
+}
+
+type implementation =
+  | XenDisk of xendisk
+  | BlockDevice of block_device
+  | File of file
+  | Nbd of nbd
+
+type backend = {
+  implementations: implementation list;
+}
+
+(** Extracts the UNIX domain socket path and the export name from the NBD URI in
+    the NBD information returned from the VDI.attach2 SMAPIv2 call.
+    This has the format nbd:unix:<domain-socket>:exportname=<name> *)
+let parse_nbd_uri nbd =
+  let { uri } = nbd in
+  let fail () =
+    failwith ("Could not parse NBD URI returned from the storage backend: " ^ uri)
+  in
+  match String.split_on_char ':' uri with
+  | ["nbd"; "unix"; socket; exportname] -> begin
+      let prefix = "exportname=" in
+      if not (Astring.String.is_prefix ~affix:prefix exportname) then fail ();
+      match Astring.String.cuts ~empty:false ~sep:prefix exportname with
+      | [exportname] ->
+        (socket, exportname)
+      | _ -> fail ()
+    end
+  | _ -> fail ()
 
 (** Uniquely identifies the contents of a VDI *)
 type content_id = string
@@ -257,8 +311,8 @@ module DP = struct
 	external destroy: dbg:debug_info -> dp:dp -> allow_leak:bool -> unit = ""
 
 
-	(** [attach_info task sr vdi dp]: returns the params of the dp (the return value of VDI.attach) *)
-	external attach_info: dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> attach_info = ""
+	(** [attach_info task sr vdi dp]: returns the params of the dp (the return value of VDI.attach2) *)
+	external attach_info: dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> backend = ""
 
 	(** [diagnostics ()]: returns a printable set of diagnostic information,
 		typically including lists of all registered datapaths and their allocated
@@ -373,8 +427,16 @@ module VDI = struct
 
 	(** [attach task dp sr vdi read_write] returns the [params] for a given
 		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
-		is true *)
+		is true.
+    @deprecated This function is deprecated, and is only here to keep backward
+    compatibility with old xapis that call Remote.VDI.attach during SXM.
+    Use the attach2 function instead. *)
 	external attach : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> attach_info = ""
+
+	(** [attach task dp sr vdi read_write] returns the [params] for a given
+		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
+		is true *)
+	external attach2 : dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> read_write:bool -> backend = ""
 
 	(** [activate task dp sr vdi] signals the desire to immediately use [vdi].
 		This client must have called [attach] on the [vdi] first. *)
