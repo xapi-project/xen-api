@@ -51,8 +51,8 @@ let epoch_end task sr vdi =
 
 let attach_and_activate task vm dp sr vdi read_write =
   let result =
-    Xenops_task.with_subtask task (Printf.sprintf "VDI.attach %s" dp)
-      (transform_exception (fun () -> Client.VDI.attach "attach_and_activate" dp sr vdi read_write)) in
+    Xenops_task.with_subtask task (Printf.sprintf "VDI.attach2 %s" dp)
+      (transform_exception (fun () -> Client.VDI.attach2 "attach_and_activate" dp sr vdi read_write)) in
 
   Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
     (transform_exception (fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi));

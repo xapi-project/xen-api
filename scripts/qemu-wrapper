@@ -106,9 +106,6 @@ def get_drive_args_for_backend(dom, backend):
         keys = xenstore_ls("%s/%s" % (vbd3, num))
         if "params" in keys:
             path = xenstore_read("%s/%s/params" % (vbd3, num))
-            nbd_prefix = "nbd:unix:"
-            if path.startswith(nbd_prefix):
-                path = path + ":exportname=qemu_node"
             path_str = 'file=%s,' % path
 
         # XXX This is a heuristic to determine if the disk is a CD. We should be told

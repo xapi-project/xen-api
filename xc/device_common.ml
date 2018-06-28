@@ -61,6 +61,8 @@ let kind_of_string = function
 
 let string_of_endpoint (x: endpoint) =
   sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
+let block_device_of_device device =
+  device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x)
 
 let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) = 
   let p = match backend.kind with
