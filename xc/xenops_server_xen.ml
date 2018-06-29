@@ -1385,7 +1385,7 @@ module VM = struct
       | HVM hvm_info ->
         let disks = List.filter_map (fun vbd ->
             let id = vbd.Vbd.id in
-            if hvm_info.Vm.qemu_disk_cmdline && (List.mem_assoc id qemu_vbds)
+            if (List.mem_assoc id qemu_vbds)
             then
               let index, bd = List.assoc id qemu_vbds in
               let path = qemu_device_of_vbd_frontend bd in
