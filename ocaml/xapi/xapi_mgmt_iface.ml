@@ -182,14 +182,14 @@ let wait_for_clustering_ip ~__context ~(self : API.ref_Cluster_host) =
   let pIF = Db.Cluster_host.get_PIF ~__context ~self in
   let network = Db.PIF.get_network ~__context ~self:pIF in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
-  let primary_address_type = Db.PIF.get_primary_address_type ~__context ~self:pIF in
   debug "Waiting for clustering IP on bridge %s (%s)" bridge (Ref.string_of pIF);
-  let get_ip () = Helpers.get_primary_ip_addr ~__context bridge primary_address_type in
+  let get_ip () = match Db.PIF.get_IP ~__context ~self:pIF with "" -> None | s -> Some s in
   let is_connected () = Helpers.get_bridge_is_connected ~__context bridge in
   wait_for_ip get_ip is_connected
 
 let on_dom0_networking_change ~__context =
   debug "Checking to see if hostname or management IP has changed";
+  Helpers.update_pif_addresses ~__context;
   (* Need to update:
      	   1 Host.hostname
      	   2 Host.address
