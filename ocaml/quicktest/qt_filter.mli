@@ -46,6 +46,12 @@ module SR : sig
   val not_type : string -> srs -> srs
   (** Filters out SRs of the given type *)
 
+  val smapiv1 : srs -> srs
+  (** Selects SMAPIv1 SRs *)
+
+  val smapiv3 : srs -> srs
+  (** Selects SMAPIv3 SRs *)
+
   val list_srs : srs -> Qt.sr_info list
 end
 

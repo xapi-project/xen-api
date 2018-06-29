@@ -8,6 +8,7 @@ type sr_info =
   { sr: API.ref_SR
   ; allowed_operations: API.storage_operations_set
   ; capabilities: string list
+  ; required_sm_api_version : string
   }
 
 val init_session : rpc -> string -> string -> API.ref_session

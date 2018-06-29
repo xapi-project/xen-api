@@ -77,14 +77,16 @@ module SR = struct
         is_tools_sr || is_iso_sr || is_marked
       in
 
-      let caps =
+      let sm =
         let ty = Client.Client.SR.get_type rpc session_id sR in
-        let sm = Client.Client.SM.get_all_records rpc session_id in
-        match List.filter (fun (_, r) -> r.API.sM_type = ty) sm with
+        let sms = Client.Client.SM.get_all_records rpc session_id in
+        match List.filter (fun (_, r) -> r.API.sM_type = ty) sms with
         | [] -> Alcotest.failf "Could not find SM plugin for SR type %s" ty
-        | [ _, plugin ] -> plugin.API.sM_capabilities
+        | [ _, plugin ] -> plugin
         | _ :: _ -> Alcotest.failf "Multiple SM plugins found for SR type %s" ty
       in
+
+      let caps = sm.API.sM_capabilities in
       let avoid_vdi_create = avoid_vdi_create session_id sR in
       let caps =
         if avoid_vdi_create then
@@ -103,14 +105,15 @@ module SR = struct
         else
           ops
       in
-      (ops, caps)
+      (ops, caps, sm.API.sM_required_api_version)
     in
 
-    let allowed_operations, capabilities = get_sr_features session_id sr in
+    let allowed_operations, capabilities, required_sm_api_version = get_sr_features session_id sr in
     let open Qt in
     { sr
     ; allowed_operations
     ; capabilities
+    ; required_sm_api_version
     }
 
   let list_selected_srs rpc session_id =
@@ -175,6 +178,14 @@ module SR = struct
 
   let not_type _type =
     sr_filter (fun i -> Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id ~self:i.Qt.sr <> _type)
+
+  let is_smapiv1 sr_info = sr_info.Qt.required_sm_api_version < "3.0"
+
+  let smapiv1 =
+    sr_filter is_smapiv1
+
+  let smapiv3 =
+    sr_filter (fun i -> not (is_smapiv1 i))
 
   (** Creates a [Alcotest.test_case] from the given [storage_test_case] using the
       specified session ID and SR *)
