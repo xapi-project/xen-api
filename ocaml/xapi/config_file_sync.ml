@@ -15,7 +15,6 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-open OPasswd.Common
 open Stdext.Xstringext
 
 let superuser = "root"
@@ -28,13 +27,19 @@ let config_sync_version = 2
 let config_sync_uri =
   Filename.concat Constants.config_sync_uri (string_of_int config_sync_version)
 
-let read_config_file () = match get_password superuser with
-  | None -> failwith "Couldn't get password"
-  | Some p -> { password = p }
+let read_config_file () =
+  { password = Unixpwd.get superuser }
 
 let parse_config_string config = Jsonrpc.of_string config |> config_of_rpc
 
-let write_config config = put_password superuser config.password
+let write_config config =
+  if Sys.file_exists "/etc/shadow" then begin
+    debug "Updating shadow password entry for %s (%s)" superuser __LOC__;
+    Unixpwd.setspw superuser config.password
+  end else begin
+    debug "Updating password entry for %s (%s)" superuser __LOC__;
+    Unixpwd.setpwd superuser config.password
+  end
 
 let rewrite_config_files config = parse_config_string config |> write_config
 
@@ -48,7 +53,18 @@ let transmit_config_files s =
    the entire /etc/password file. We need to make sure we send the
    "un-shadowed" passwd file, so that slaves don't overwrite root's
    password with an 'x'. *)
-let legacy_transmit_passwd s = unshadow () |> write_to_fd s
+
+(* This was introduced in 8c4d3d93f8c0e069b8b0de9c2e2df02a391aa2ef xapi
+ * version 1.9.41 and can be removed when during rolling pool
+ * upgrade the config_sync_version is always passed from slave to
+ * master. We believe that Dundee is the first version where this code
+ * shipped. Hence, it can be removed once RPU from pre-Dundee is no
+ * longer supported.
+ *)
+
+let legacy_transmit_passwd s =
+  debug "Updating /etc/passwd (%s)" __LOC__;
+  Unixpwd.unshadow () |> write_to_fd s
 
 (** URL used by slaves to fetch dom0 config files (currently just root's password) *)
 let config_file_sync_handler (req: Http.Request.t) s _ =
