@@ -72,6 +72,7 @@ let choose_emu_manager x = choose_alternative _emu_manager !Xc_resources.emu_man
 
 
 type qemu_frontend =
+  | Empty
   | Name of string (* block device path or bridge name *)
   | Nbd of Storage_interface.nbd
   | Device of Device_common.device
@@ -316,7 +317,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
 
 let destroy_vbd_frontend ~xc ~xs task disk =
   match disk with
-  | Name _ | Nbd _ -> ()
+  | Empty | Name _ | Nbd _ -> ()
   | Device device ->
     Xenops_task.with_subtask task "Vbd.clean_shutdown"
       (fun () ->
@@ -415,6 +416,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
          finally
            (fun () ->
               match device with
+              | Empty     -> f ""
               | Name path -> f path
               | Device device -> f (Device_common.block_device_of_device device)
               | Nbd nbd ->
@@ -1316,6 +1318,7 @@ module VM = struct
     ) task vm
 
   let qemu_device_of_vbd_frontend = function
+    | Empty  -> ""
     | Name x -> x
     | Nbd Storage_interface.{ uri } -> uri
     | Device device -> Device_common.block_device_of_device device
@@ -1382,14 +1385,14 @@ module VM = struct
       | HVM hvm_info ->
         let disks = List.filter_map (fun vbd ->
             let id = vbd.Vbd.id in
-            if hvm_info.Vm.qemu_disk_cmdline && (List.mem_assoc id qemu_vbds)
+            if (List.mem_assoc id qemu_vbds)
             then
               let index, bd = List.assoc id qemu_vbds in
               let path = qemu_device_of_vbd_frontend bd in
-              let media =
-                if vbd.Vbd.ty = Vbd.Disk
-                then Device.Dm.Disk else Device.Dm.Cdrom in
-              Some (index, path, media)
+              match vbd.Vbd.ty, vbd.mode with
+              | Vbd.Disk, ReadOnly -> None
+              | Vbd.Disk, _        -> Some (index, path, Device.Dm.Disk)
+              | _                  -> Some (index, path, Device.Dm.Cdrom)
             else None
           ) vbds in
         let usb_enabled =
@@ -2448,12 +2451,10 @@ module VBD = struct
              let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
              let qemu_frontend = match Device_number.spec device_number with
                | Device_number.Ide, n, _ when n < 4 ->
+                 let index = Device_number.to_disk_number device_number in
                  begin match vbd.Vbd.backend with
-                   | None -> None
-                   | Some _ ->
-                     let bd = create_vbd_frontend ~xc ~xs task qemu_domid vdi in
-                     let index = Device_number.to_disk_number device_number in
-                     Some (index, bd)
+                   | None   -> Some (index, Empty)
+                   | Some _ -> Some (index, create_vbd_frontend ~xc ~xs task qemu_domid vdi)
                  end
                | _, _, _ -> None in
              (* Remember what we've just done *)
