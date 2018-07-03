@@ -181,6 +181,18 @@ module VDI = struct
       )
       (fun () -> Client.Client.VBD.destroy ~rpc ~session_id ~self:vbd)
 
+  let with_open rpc session_id vdi mode f =
+    with_attached rpc session_id vdi mode
+      (fun path ->
+         let mode' = match mode with
+           | `RO -> [ Unix.O_RDONLY ]
+           | `RW -> [ Unix.O_RDWR ] in
+         let fd = Unix.openfile path mode' 0 in
+         Xapi_stdext_pervasives.Pervasiveext.finally
+           (fun () -> f fd)
+           (fun () -> Unix.close fd)
+      )
+
   let check_fields = Test.compare_fields "VDI"
 
   let test_update rpc session_id self =

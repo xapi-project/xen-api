@@ -52,6 +52,9 @@ module SR : sig
   val smapiv3 : srs -> srs
   (** Selects SMAPIv3 SRs *)
 
+  val thin_pro : srs -> srs
+  (** Selects thinly-provisioned SRs *)
+
   val list_srs : srs -> Qt.sr_info list
 end
 

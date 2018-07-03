@@ -31,6 +31,7 @@ let () =
          ; "Quicktest_async_calls", Quicktest_async_calls.tests ()
          ; "Quicktest_vm_import_export", Quicktest_vm_import_export.tests ()
          ; "Quicktest_vdi_ops_data_integrity", Quicktest_vdi_ops_data_integrity.tests ()
+         ; "Quicktest_max_vdi_size", Quicktest_max_vdi_size.tests ()
          ; "Quicktest_static_vdis", Quicktest_static_vdis.tests ()
          ]
          @ (if not !Quicktest_args.using_unix_domain_socket then

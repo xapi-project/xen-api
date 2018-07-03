@@ -187,6 +187,11 @@ module SR = struct
   let smapiv3 =
     sr_filter (fun i -> not (is_smapiv1 i))
 
+  let has_type types sr_info =
+    List.mem (Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id ~self:sr_info.Qt.sr) types
+
+  let thin_pro = sr_filter (has_type ["gfs2"; "nfs"; "smb"; "ext"; "file"])
+
   (** Creates a [Alcotest.test_case] from the given [storage_test_case] using the
       specified session ID and SR *)
   let specialise (name, speed, test) sr_info =
