@@ -2083,9 +2083,22 @@ module Backend = struct
     (** Implementation of the Vbd functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Vbd = struct
 
+      let cd_of devid =
+        devid
+        |> Device_number.of_xenstore_key
+        |> Device_number.spec
+        |> function
+           | Ide, 0, _ -> "ide0-cd0"
+           | Ide, 1, _ -> "ide0-cd1"
+           | Ide, 2, _ -> "ide1-cd0"
+           | Ide, 3, _ -> "ide1-cd1"
+           | _ -> raise(Internal_error (
+                          Printf.sprintf "unexpected disk for devid %d" devid
+                       ))
+
       let qemu_media_change ~xs device _type params =
         Vbd_Common.qemu_media_change ~xs device _type params;
-        let cd    = "ide1-cd1" in
+        let cd    = cd_of device.backend.devid in
         let domid = device.frontend.domid in
         if params = "" then
           qmp_send_cmd domid Qmp.(Eject(cd, Some true)) |> ignore
