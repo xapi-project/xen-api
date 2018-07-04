@@ -1,3 +1,18 @@
+4.4.0 (05-Jul-2018): -- xapi-stdext-pervasives only
+* CA-292641: Use Logs to log cleanup exn instead of shadowing the original one with it
+
+4.3.0 (30-May-2018):
+* CP-28365: improve backtraces by using finally
+
+4.2.0 (25-May-2018): -- xapi-stdext-unix only
+* unixext: update interface to mimick the ocaml Unix one
+
+4.1.0 (25-Apr-2018): -- xapi-stdext-unix only
+* really_write:
+	- use single_write_substring and avoid an unsafe coercion
+	- remove deprecation and make robust against EINTR
+* unixext_open_stubs: fix use of uninitialised variable
+
 4.0.0 (15-Mar-2018):
 * Make safe-string safe (xap-stdext-{bigbuffer, encodings, std, threads, unix} 1.1.0)
 * Remove bigbuffer from the default stdext set of packages
