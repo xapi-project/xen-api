@@ -15,6 +15,8 @@
  * Even if fct raises an exception, clean_f is applied
 *)
 
+let src = Logs.Src.create "pervasiveext" ~doc:"logs from Xapi_stdext_pervasives.Pervasiveext"
+
 
 let finally fct clean_f =
   let result =
@@ -22,7 +24,14 @@ let finally fct clean_f =
       fct ();
     with exn ->
       Backtrace.is_important exn;
-      clean_f ();
+      begin
+        (* We catch and log exceptions raised by clean_f to avoid shadowing
+           the original exception raised by fct *)
+        try
+          clean_f ();
+        with cleanup_exn ->
+          Logs.warn ~src (fun m -> m "finally: Error while running cleanup after failure of main function: %s" (Printexc.to_string cleanup_exn));
+      end;
       raise exn in
   clean_f ();
   result
