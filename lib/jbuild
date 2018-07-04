@@ -53,6 +53,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     cmdliner
     cohttp
     fd-send-recv
+    logs
     message-switch-core
     message-switch-unix
     ppx_deriving_rpc

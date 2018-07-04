@@ -159,6 +159,57 @@ let output_log brand level priority s =
     Syslog.log (get_facility ()) level msg
   end
 
+let logs_reporter =
+  (* We convert Logs level to our own type to allow output_log to correctly
+     filter logs coming from libraries using Logs *)
+  let logs_to_syslog_level = function
+    (* In practice we only care about Syslog.Debug,Warning,Info,Err,
+       because these are the ones we use in the log functions in Debug.Make *)
+    | Logs.Debug -> Syslog.Debug
+    | Logs.Info -> Syslog.Info
+    | Logs.Warning -> Syslog.Warning
+    | Logs.Error -> Syslog.Err
+    (* This is used by applications, not libraries - we should not get this in practice *)
+    | Logs.App -> Syslog.Info
+  in
+  (* Ensure that logs from libraries will be displayed with the correct
+     priority *)
+  let logs_level_to_priority = function
+    (* These string match the ones used by the logging functions in Debug.Make *)
+    | Logs.Debug -> "debug"
+    | Logs.Info -> "info"
+    | Logs.Warning -> "warn"
+    | Logs.Error -> "error"
+    (* This is used by applications, not libraries - we should not get this in practice *)
+    | Logs.App -> "app"
+  in
+  let report src level ~over k msgf =
+    let formatter ?header ?tags fmt =
+      let buf = Buffer.create 80 in
+      let buf_fmt = Format.formatter_of_buffer buf in
+      let k _ =
+        Format.pp_print_flush buf_fmt ();
+        let msg = Buffer.contents buf in
+        (* We map the Logs source name to the "brand", so we have to use the
+           name of the Logs source when enabling/disabling it *)
+        let brand = Logs.Src.name src in
+        output_log brand (logs_to_syslog_level level) (logs_level_to_priority level) msg;
+        over ();
+        k ()
+      in
+      Format.kfprintf k buf_fmt fmt
+    in
+    msgf formatter
+  in
+  { Logs.report = report }
+
+let init_logs () =
+  Logs.set_reporter logs_reporter;
+  (* [output_log] will do the actual filtering based on levels,
+     but we only consider messages of level warning and above from libraries,
+     to avoid calling [output_log] too often. *)
+  Logs.set_level (Some Logs.Warning)
+
 let rec split_c c str =
   try
     let i = String.index str c in

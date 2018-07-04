@@ -15,6 +15,7 @@ depends: [
   "cohttp"
   "fd-send-recv" {>= "2.0.0"}
   "jbuilder" {build & >= "1.0+beta11"}
+  "logs"
   "message-switch-core"
   "message-switch-unix"
   "ocamlfind" {build}
