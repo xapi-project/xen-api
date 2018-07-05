@@ -468,7 +468,8 @@ let resynchronise_ha_state () =
          | true, false ->
            info "HA has been disabled on the Pool while we were offline; disarming HA locally";
            Localdb.put Constants.ha_armed "false";
-           Xapi_ha.Monitor.stop ()
+           let localhost = Helpers.get_localhost ~__context in
+           Xapi_ha.ha_release_resources __context localhost
          | false, true ->
            info "HA has been disabled on localhost but not the Pool.";
            if Pool_role.is_master () then begin
