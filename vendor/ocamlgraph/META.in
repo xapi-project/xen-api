@@ -1,0 +1,23 @@
+version = "VERSION"
+description = "Generic Graph Library"
+requires=""
+archive(byte) = "CMA"
+archive(byte,plugin) = "CMA"
+archive(native) = "CMXA"
+archive(native,plugin) = "CMXS"
+
+package "dgraph" (
+  exists_if = "dgraph.cmi"
+  description = "Library to visualize graph in a Lablgtk canvas"
+  requires = "ocamlgraph lablgtk2.gnomecanvas"
+  archive(byte) = "dgraph.cmo"
+  archive(native) = "dgraph.cmx"
+)
+
+package "viewgraph" (
+  exists_if = "viewgraph.cmi"
+  description = "Library to visualize graph in a Lablgtk canvas (deprecated)"
+  requires = "ocamlgraph lablgtk2.gnomecanvas"
+  archive(byte) = "viewgraph.cmo"
+  archive(native) = "viewgraph.cmx"
+)
