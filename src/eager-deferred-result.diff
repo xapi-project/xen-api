@@ -1,0 +1,17 @@
+[0;31m------ [0m[0;1mdeferred_result.ml[0m
+[0;32m++++++ [0m[0;1meager_deferred_result.ml[0m
+[0;100;30m@|[0m[0;1m-1,10 +1,12[0m ============================================================
+[0;100;30m |[0mopen Core_kernel
+[0;41;30m-|[0m[0;31mopen Deferred_std[0m
+[0;100;30m |[0m
+[0;41;30m-|[0m[0;0m[0;2mmodule Deferred = [0m[0;31mDeferred1[0m[0;2m[0m[0m
+[0;42;30m+|[0m[0;0mmodule Deferred = [0;32mEager_deferred0[0m[0m
+[0;42;30m+|[0m[0;0m[0;32mopen Deferred.Let_syntax[0m[0m
+[0;42;30m+|[0m[0;0m[0;32m[0m[0m
+[0;42;30m+|[0m[0;0m[0;32m(* Copied from [deferred_result.ml].  There should be no diffs below this line. *)[0m[0m
+[0;100;30m |[0m
+[0;100;30m |[0mmodule T = struct
+[0;100;30m |[0m  type ('a, 'error) t = ('a, 'error) Result.t Deferred.t
+[0;100;30m |[0mend
+[0;100;30m |[0m
+[0;100;30m |[0minclude T

@@ -1,0 +1,11 @@
+(library
+ ((name async_kernel)
+  (public_name async_kernel)
+  (libraries (core_kernel))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane -annotated-ignores -ite-check -check-doc-comments ppxlib.runner)))
+))
+
+
+
+(jbuild_version 1)
