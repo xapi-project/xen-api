@@ -1,0 +1,40 @@
+sudo: required
+
+language: c
+
+matrix:
+  include:
+    - os: linux
+      env: COMPILER=4.02 LIBEV=no
+    - os: linux
+      env: COMPILER=4.03
+    - os: linux
+      env: COMPILER=4.04
+    - os: linux
+      env: COMPILER=4.05 FLAMBDA=yes
+    - os: linux
+      env: COMPILER=4.06 FLAMBDA=yes
+    - os: linux
+      env: COMPILER=4.06 FLAMBDA=yes LIBEV=no
+    - os: linux
+      env: COMPILER=4.07
+    - os: osx
+      env: COMPILER=system
+    - os: osx
+      env: COMPILER=system LIBEV=no
+
+  fast_finish: true
+
+env:
+  global:
+    - LWT_FORCE_LIBEV_BY_DEFAULT=yes
+    - LWT_STRESS_TEST=true
+
+script: bash -e src/util/travis.sh
+
+notifications:
+  email:
+    recipients:
+      - antonbachin@yahoo.com
+    on_success: always
+    on_failure: always
