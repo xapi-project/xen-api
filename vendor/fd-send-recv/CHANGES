@@ -1,0 +1,13 @@
+1.0.5 (2017-08-32)
+* port to jbuilder
+
+1.0.4 (2017-01-11)
+* add opam file
+* add .travis.yml
+* fix build on Win32
+
+1.0.1 (23-Apr-2013)
+* fix the build on Mac OSX
+
+1.0.0 (27-Mar-2013)
+* initial public release

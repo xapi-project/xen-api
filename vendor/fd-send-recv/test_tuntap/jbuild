@@ -1,0 +1,13 @@
+(executable
+ ((name test_tuntap)
+  (modules test_tuntap)
+  (libraries (fd-send-recv tuntap))
+  ))
+
+(alias
+ ((name   runtest)
+  (package fd-send-recv-tuntap)
+  (deps   (test_tuntap.exe))
+  (action (run sudo "./${<}"))))
+
+
