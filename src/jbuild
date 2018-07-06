@@ -1,0 +1,23 @@
+(jbuild_version 1)
+(library
+  ((name astring)
+   (public_name astring)
+   (modules (
+astring_unsafe
+astring_base
+astring_escape
+astring_char
+astring_sub
+astring_string
+astring
+))
+   (wrapped false)))
+
+(library
+  ((name astring_top)
+   (public_name astring.top)
+   (libraries (compiler-libs.toplevel))
+   (modules (
+astring_top
+))
+   (wrapped false)))
