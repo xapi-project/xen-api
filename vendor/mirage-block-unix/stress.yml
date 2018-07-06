@@ -1,0 +1,25 @@
+kernel:
+  image: linuxkit/kernel:4.9.82
+  cmdline: "console=tty0 console=ttyS0 console=ttyAMA0"
+init:
+  - linuxkit/init:d899eee3560a40aa3b4bdd67b3bb82703714b2b9
+  - linuxkit/runc:7c39a68490a12cde830e1922f171c451fb08e731
+  - linuxkit/containerd:37e397ebfc6bd5d8e18695b121166ffd0cbfd9f0
+onboot:
+  - name: dhcpcd
+    image: linuxkit/dhcpcd:v0.2
+    command: ["/sbin/dhcpcd", "--nobackground", "-f", "/dhcpcd.conf", "-1"]
+services:
+  - name: getty
+    image: linuxkit/getty:v0.2
+    env:
+     - INSECURE=true
+  - name: stress
+    image: stress
+    binds:
+      - /dev/sda:/dev/sda
+    pid: "host"
+    command: ["/bin/sh", "-c", "/stress.exe -stop-after 1024 -path /dev/sda && /sbin/halt"]
+trust:
+  org:
+    - linuxkit

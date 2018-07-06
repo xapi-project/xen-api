@@ -1,0 +1,8 @@
+(library
+ ((name        mirage_block_unix)
+  (public_name mirage-block-unix)
+  (libraries   (cstruct-lwt logs uri rresult mirage-block-lwt))
+  (wrapped     false)
+  (c_names     (odirect_stubs blkgetsize_stubs lseekhole_stubs
+                flush_stubs writev_stubs readv_stubs flock_stubs
+                discard_stubs chsize_stubs))))
