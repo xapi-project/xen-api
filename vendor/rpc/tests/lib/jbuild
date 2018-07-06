@@ -1,0 +1,13 @@
+
+(executable
+ ((name suite)
+  (libraries (rpclib.core rpclib.json rpclib.xml alcotest test_common))
+ ))
+
+(alias
+ ((name runtest)
+  (package rpclib)
+  (deps (suite.exe (files_recursively_in .)))
+  (action (run ${<}))
+ ))
+

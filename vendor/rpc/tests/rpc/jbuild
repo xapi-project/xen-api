@@ -1,0 +1,25 @@
+
+(executable
+ ((name client_async_new)
+  (modules (client_async_new))
+  (libraries (async rpclib rpclib-async rpclib.json threads))
+  (preprocess (pps (ppx_deriving_rpc)))
+))
+
+(executable
+ ((name client_lwt_new)
+  (modules (client_lwt_new))
+  (libraries (lwt.unix rpclib rpclib-lwt rpclib.json threads))
+  (preprocess (pps (ppx_deriving_rpc)))
+))
+
+(alias
+ ((name   runtest)
+  (package rpc)
+  (deps (client_async_new.exe
+         client_lwt_new.exe))
+  (action (progn
+    (run ./client_async_new.exe)
+    (run ./client_lwt_new.exe)
+    ))))
+

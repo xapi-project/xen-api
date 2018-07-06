@@ -1,0 +1,13 @@
+
+(executable
+ ((name suite)
+  (libraries (rpclib rpclib-async alcotest test_common))
+ ))
+
+(alias
+ ((name runtest)
+  (package rpclib-async)
+  (deps (suite.exe))
+  (action (run ${<}))
+ ))
+

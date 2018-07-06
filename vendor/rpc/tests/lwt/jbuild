@@ -1,0 +1,13 @@
+
+(executable
+ ((name suite)
+  (libraries (rpclib rpclib-lwt alcotest alcotest-lwt test_common))
+ ))
+
+(alias
+ ((name runtest)
+  (package rpclib-lwt)
+  (deps (suite.exe))
+  (action (run ${<}))
+ ))
+

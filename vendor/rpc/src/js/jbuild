@@ -1,0 +1,9 @@
+(library
+   ((name rpc_client_js)
+    (public_name rpclib-js)
+    (libraries (js_of_ocaml
+                lwt
+                rpclib.json
+                rpclib.xml))
+    (preprocess (pps (js_of_ocaml-ppx)))
+   ))

@@ -1,0 +1,9 @@
+(library
+ ((name rpclib_async)
+  (public_name rpclib-async)
+  (modules (rpc_async))
+  (libraries (async
+              rpclib.core
+              threads))
+  (wrapped false)
+ ))

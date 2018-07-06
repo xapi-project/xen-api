@@ -1,0 +1,6 @@
+
+(library
+ ((name test_common)
+  (libraries (rpclib.core))
+))
+
