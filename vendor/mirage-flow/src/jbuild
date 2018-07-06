@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name        mirage_flow)
+  (public_name mirage-flow)
+  (libraries   (fmt result))
+  (wrapped     false)))
