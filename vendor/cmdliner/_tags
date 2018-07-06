@@ -1,0 +1,6 @@
+true : bin_annot, safe_string, package(bytes), package(result)
+<src> : include
+<test> : include
+
+# Remove once we require >= 4.03
+<src/cmdliner_base*> : warn(-3)
