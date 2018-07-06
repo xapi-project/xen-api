@@ -1,0 +1,22 @@
+(jbuild_version 1)
+
+(library (
+  (name xapi_netdev)
+  (public_name xapi-netdev)
+  (wrapped false)
+  (install_c_headers (
+    netdev
+    sockios_compat
+  ))
+  (c_names (
+    addr_stubs
+    bridge_stubs
+    link_stubs
+  ))
+  (libraries (
+    xapi-stdext-std
+    xapi-stdext-unix
+    threads
+    forkexec
+  ))
+))
