@@ -1,0 +1,21 @@
+language: c
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh
+env:
+  global:
+  - secure: "BcNzNHmOVQQegY8uI2sOhV5RNpW144M7omUbTIATdxMou690ydk9LJDaWowqyv9JruS6n2ZMu3UO2bf/KySxHG56iZ8mtPtUtp98llWydM37dodGLAK09SX8vD9NqOZ5JK9382Ip83s98DjLrZKdftB4FSt82aOB4erF4hB0ChM="
+  - env: TESTS=false PINS="xapi-backtrace:." PACKAGE=xapi-backtrace DISTRO="debian-unstable"
+  matrix:
+  - OCAML_VERSION=4.02.3
+  - OCAML_VERSION=4.03.0
+  - OCAML_VERSION=4.04.2
+  - OCAML_VERSION=4.05.0
+branches:
+  only: master
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: OCAML_VERSION=4.05.0

@@ -1,0 +1,14 @@
+0.6 (16-May-2018)
+- Add support for ppx_sexp_conv >= v0.11.0
+
+0.5 (04-Aug-2017)
+- port to jbuilder
+
+0.3 (21-Aug-2015)
+- correct ordering
+- add rpc to opam
+- add doc gen to _oasis
+
+0.2
+- store backtraces as lists of records rather than strings
+- change the API for "importing" backtraces from other languages
