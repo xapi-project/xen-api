@@ -1,0 +1,6 @@
+The easiest way to install this package is via opam:
+
+    opam init
+    opam remote add xen-org git://github.com/xen-org/opam-repo-dev
+    opam install xcp-inventory
+
