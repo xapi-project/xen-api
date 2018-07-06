@@ -1,0 +1,5 @@
+(jbuild_version 1)
+(library
+  ((name uuidm)
+   (public_name uuidm)
+   (wrapped false)))
