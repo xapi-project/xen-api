@@ -1,0 +1,3 @@
+S ../lib
+B ../_build/**
+PKG core_bench

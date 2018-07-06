@@ -1,0 +1,5 @@
+(jbuild_version 1)
+
+(executable
+ ((libraries (re threads core_bench))
+  (name benchmark)))

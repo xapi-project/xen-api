@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(library
+ ((name re)
+  (synopsis "Pure OCaml regular expression library")
+  (public_name re)))

@@ -1,0 +1,14 @@
+
+Requirements
+
+  The installation procedure defined in the Makefile requires findlib
+  (http://www.ocaml-programming.de/packages/documentation/findlib/).
+
+Installation
+
+- Compile with "make all".
+
+- If you have ocamlopt, do also "make opt".
+
+- Become super-user if necessary and do "make install"
+  (A "make uninstall" removes the library.)
