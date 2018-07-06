@@ -1,0 +1,9 @@
+
+(library
+ ((name ppx_sexp_conv_test)
+  (libraries (sexplib))
+  (flags (:standard -w -30 -safe-string)) ;; duplicate constructors or labels in recursive types
+  (preprocess (pps (ppxlib ppx_sexp_conv ppx_here ppx_inline_test ppxlib.runner)))))
+
+
+(jbuild_version 1)
