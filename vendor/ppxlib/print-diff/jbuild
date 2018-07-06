@@ -1,0 +1,8 @@
+(library
+ ((name ppxlib_print_diff)
+  (public_name ppxlib.print_diff)
+  (flags (:standard -safe-string))
+  (preprocess no_preprocessing)
+))
+
+(jbuild_version 1)
