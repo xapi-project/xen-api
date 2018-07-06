@@ -1,0 +1,19 @@
+(jbuild_version 1)
+(library
+  ((name rresult)
+   (public_name rresult)
+   (libraries (result))
+   (modules (
+rresult
+))
+   (wrapped false)))
+
+(library
+  ((name rresult_top)
+   (public_name rresult.top)
+   (libraries (compiler-libs.toplevel rresult))
+   (modules (
+rresult_top
+))
+   (wrapped false)))
+
