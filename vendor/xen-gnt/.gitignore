@@ -1,0 +1,16 @@
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+*.swp
+*.native
+*.byte
+_build
+api.docdir
+*.merlin
+*.install

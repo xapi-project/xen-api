@@ -1,0 +1,6 @@
+PKG bigarray unix
+S lib
+S test
+
+B _build/lib
+B _build/test

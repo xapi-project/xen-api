@@ -1,0 +1,23 @@
+language: c
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+services:
+  - docker
+sudo: false
+env:
+ global:
+   - PACKAGE="xen-gnt-unix"
+   - EXTRA_REMOTES="https://github.com/djs55/opam-repository.git#io-page"
+   - PRE_INSTALL_HOOK="cd /home/opam/opam-repository && git pull origin master && opam update -u -y"
+   - POST_INSTALL_HOOK="opam depext -ui mirage-xen"
+   - PINS="xen-evtchn:https://github.com/avsm/ocaml-evtchn.git#mato-add-xc-compat xen-gnt:."
+ matrix:
+   - DISTRO=debian-stable OCAML_VERSION=4.03.0
+   - DISTRO=debian-testing OCAML_VERSION=4.03.0
+   - DISTRO=debian-unstable OCAML_VERSION=4.03.0
+   - DISTRO=ubuntu-12.04 OCAML_VERSION=4.03.0
+   - DISTRO=ubuntu-16.04 OCAML_VERSION=4.03.0
+   - DISTRO=centos-6 OCAML_VERSION=4.03.0
+   - DISTRO=centos-7 OCAML_VERSION=4.03.0
+   - DISTRO=fedora-24 OCAML_VERSION=4.03.0
+   - DISTRO=alpine OCAML_VERSION=4.04.0

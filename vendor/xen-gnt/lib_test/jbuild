@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(executables
+ ((names (main))
+  (libraries (xen-gnt xen-gnt-unix))
+))
+(alias
+ ((name    runtest)
+  (deps    (main.exe))
+  (action  (run ${<}))))
