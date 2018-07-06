@@ -1,0 +1,19 @@
+(* -*- tuareg -*- *)
+
+open Printf
+
+let () =
+  let ver = Scanf.sscanf Sys.argv.(1) "%u.%u" (fun a b -> a, b) in
+  let oc = open_out_bin Sys.argv.(2) in
+  let pr fmt = fprintf oc (fmt ^^ "\n") in
+  pr "module O = Ocaml_common";
+  if ver < (4, 06) then
+    pr "let error_of_exn = O.Location.error_of_exn"
+  else
+    pr "\
+let error_of_exn exn =
+  match O.Location.error_of_exn exn with
+  | None -> None
+  | Some `Already_displayed -> None
+  | Some (`Ok t) -> Some t";
+  close_out oc

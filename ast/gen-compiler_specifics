@@ -1,0 +1,15 @@
+(* -*- tuareg -*- *)
+
+open Printf
+
+let () =
+  let ver = Scanf.sscanf Sys.argv.(1) "%u.%u" (fun a b -> a, b) in
+  let oc = open_out_bin Sys.argv.(2) in
+  let pr fmt = fprintf oc (fmt ^^ "\n") in
+  pr "module O = Ocaml_common";
+  if ver < (4, 06) then
+    output_string oc {|
+let deprecated loc s =
+  Ocaml_common.Location.prerr_warning loc (Ocaml_common.Warnings.Deprecated s)
+|};
+  close_out oc

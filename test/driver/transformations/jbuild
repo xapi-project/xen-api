@@ -1,0 +1,10 @@
+(alias
+ ((name runtest)
+  (deps (test.ml
+         (glob_files ${SCOPE_ROOT}/src/.ppxlib.objs/*.cmi)))
+  (action (chdir ${SCOPE_ROOT}
+           (progn
+            (ignore-outputs (run ${exe:../../expect/expect_test.exe} ${<}))
+            (diff? ${<} ${<}.corrected))))))
+
+(jbuild_version 1)
