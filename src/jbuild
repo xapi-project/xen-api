@@ -1,0 +1,37 @@
+(jbuild_version 1)
+(library
+  ((name fmt)
+   (public_name fmt)
+   (libraries (result))
+   (modules (
+fmt
+))
+   (wrapped false)))
+
+(library
+  ((name fmt_tty)
+   (public_name fmt.tty)
+   (libraries (unix fmt))
+   (modules (
+fmt_tty
+))
+   (wrapped false)))
+
+(library
+  ((name fmt_cli)
+   (public_name fmt.cli)
+   (libraries (fmt cmdliner))
+   (modules (
+fmt_cli
+))
+   (wrapped false)))
+
+(library
+  ((name fmt_top)
+   (public_name fmt.top)
+   (libraries (compiler-libs.toplevel fmt))
+   (modules (
+fmt_top
+))
+   (wrapped false)))
+
