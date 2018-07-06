@@ -1,0 +1,34 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+| [] -> ""
+| pkgs ->
+  let cmd = "ocamlfind ocamlc -verbose" ^ (
+    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+  ) in
+  let ic = Unix.open_process_in
+    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+  in
+  let rec go ic acc =
+    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+  in
+  go ic ""
+
+let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name backtrace)
+  (public_name xapi-backtrace)
+  (libraries (ppx_deriving_rpc
+              ppx_sexp_conv.runtime-lib
+              rpclib
+              rpclib.json
+              threads
+              sexplib))
+  (flags (:standard %s))
+ ))
+|} (flags rewriters)
