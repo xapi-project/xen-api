@@ -1,0 +1,16 @@
+(jbuild_version 1)
+
+(executable
+ ((name shasum)
+  (modules (shasum))
+  (libraries (sha))))
+
+(executable
+ ((name shatest)
+  (modules (shatest))
+  (libraries (sha oUnit))))
+
+(alias
+ ((name runtest)
+  (deps (shatest.exe sample.txt))
+  (action (run ${<}))))
