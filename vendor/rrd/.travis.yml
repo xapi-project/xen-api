@@ -1,0 +1,18 @@
+language: c
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh
+env:
+  global:
+    - OCAML_VERSION=4.04.2
+    - DISTRO=debian-stable
+    - PINS="rrd:. xapi-rrd:."
+  matrix:
+    - PACKAGE=xapi-rrd BASE_REMOTE=git://github.com/xapi-project/xs-opam
+    - PACKAGE=xapi-rrd EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: PACKAGE=xapi-rrd EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
