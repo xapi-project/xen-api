@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(library
+  ((name            libqmp)
+   (public_name     qmp)
+   (wrapped         false)
+   (libraries       (unix yojson))))
+

@@ -1,0 +1,19 @@
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "Dave Scott" ]
+homepage: "https://github.com/xapi-project/ocaml-qmp"
+bug-reports: "https://github.com/xapi-project/ocaml-qmp/issues"
+tags: [
+  "org:mirage"
+  "org:xapi-project"
+]
+build: [["jbuilder" "build" "-p" name "-j" jobs]]
+build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
+depends: [
+  "base-unix"
+  "jbuilder"  {build}
+  "yojson"
+  "cmdliner"
+  "ounit"     {test}
+]
+dev-repo: "git://github.com/xapi-project/ocaml-qmp"

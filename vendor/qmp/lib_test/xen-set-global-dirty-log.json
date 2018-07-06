@@ -1,0 +1,1 @@
+{ "execute": "xen-set-global-dirty-log", "arguments": { "enable": true } }

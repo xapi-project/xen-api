@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(alias
+  ((name      runtest)
+   (deps      (messages.exe (glob_files *.json)))
+   (action    (run ${<}))))
+
+(executable
+  ((name      messages)
+   (libraries (libqmp oUnit))))

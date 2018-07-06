@@ -1,0 +1,1 @@
+{ "execute": "change", "arguments": { "device": "ide1-cd0", "target": "/tmp/cdrom.iso" } }

@@ -1,0 +1,31 @@
+0.10.0 (30-Aug-2017) 
+* Port to jbuilder build tool
+* CP-23007: Add support for add-fd and remove-fd QMP message
+* CA-261854: simplify JSON decoding using JSON combinators
+* CP-23007: Implement CD change using fd over QMP
+* CP-22500: return Error msg in case of Xen_platform_pv_driver_info parse e..
+* CP-22500: add support for new qmp event XEN_PLATFORM_PV_DRIVER_INFO
+* CP-22500: add support for new qmp message query-xen-platform-pv-driver-info
+* Update the tests to use the new tuple format
+* Do not convert between pairs of integers and float multiple times
+* CP-21131: Get VNC port using QMP
+* CP-23043: Add 'xen-set-global-dirty-log' command
+* Port to OUnit2
+* Import opam file from xs-opam and include the test stanza
+* CP-17622: Add 'xen save/load devices state' command
+* Add Travis tests
+* CP-18194: Add force option for Eject command
+* cli: Rename cli binary to qmp-cli
+* oasis: Regenerate build files using '-setup-update dynamic'
+
+0.9.3 (28-Oct-2015):
+* Package is now built using Oasis
+
+0.9.1 (09-Aug-2013):
+* Change representation of message timestamps from a tuple of ints to
+  a float.  This avoids problems on 32-bit architectures and  follows
+  the example of the OCaml standard library.
+
+0.9.0 (29-May-2013):
+* first public release
+

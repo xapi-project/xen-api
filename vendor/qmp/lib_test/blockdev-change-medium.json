@@ -1,0 +1,1 @@
+{ "execute": "blockdev-change-medium", "arguments": { "device": "ide1-cd0", "filename": "/dev/fd/21" } }

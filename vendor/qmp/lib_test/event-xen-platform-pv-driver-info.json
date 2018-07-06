@@ -1,0 +1,3 @@
+{ "event": "XEN_PLATFORM_PV_DRIVER_INFO",
+    "data": { "product-num": 3, "build-num": 1},
+    "timestamp": { "seconds": 1267020223, "microseconds": 435656 } }
