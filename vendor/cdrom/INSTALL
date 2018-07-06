@@ -1,0 +1,7 @@
+To build use:
+
+  make
+
+To install use:
+
+  make install (with optional DESTDIR=...)

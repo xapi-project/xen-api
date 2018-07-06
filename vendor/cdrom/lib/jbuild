@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+  ((name cdrom)
+   (public_name cdrom)
+   (libraries (unix))
+   (c_names  (cdrom_stubs))))

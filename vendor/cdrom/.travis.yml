@@ -1,0 +1,11 @@
+language: c
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+  - wget https://raw.githubusercontent.com/simonjbeaumont/ocaml-travis-coveralls/master/travis-coveralls.sh
+script: bash -ex .travis-opam.sh
+env:
+  matrix:
+    - OCAML_VERSION=4.02 PACKAGE=cdrom
+    - OCAML_VERSION=4.03 PACKAGE=cdrom
+    - OCAML_VERSION=4.04 PACKAGE=cdrom
+    - OCAML_VERSION=4.05 PACKAGE=cdrom
