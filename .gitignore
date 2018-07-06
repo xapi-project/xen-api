@@ -1,0 +1,28 @@
+# working and output directories
+_build/
+_build.*/
+_findlib/
+ocamldoc/
+gh-pages/
+
+# test working and coverage directories
+test/_scratch
+test/_coverage
+test/_report
+test/_preserve
+
+# scratch directory for notes, etc.
+scratch/
+
+*.install
+*.merlin
+
+# emacs temporary files
+*~
+
+# Pollution from the usage tests.
+bisect*.out
+a.out
+*.cmi
+*.cmx
+*.o
