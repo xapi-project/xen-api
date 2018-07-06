@@ -1,0 +1,17 @@
+(jbuild_version 1)
+(library
+  ((name fpath)
+   (public_name fpath)
+   (libraries (astring result))
+   (modules (
+fpath
+))
+   (wrapped false)))
+(library
+  ((name fpath_top)
+   (public_name fpath.top)
+   (libraries (compiler-libs.toplevel astring.top))
+   (modules (
+fpath_top
+))
+   (wrapped false)))

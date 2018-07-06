@@ -1,0 +1,4 @@
+PKG astring result
+S src
+S test
+B _build/**
