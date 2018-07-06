@@ -1,0 +1,16 @@
+(library
+ ((name        ppx_js_style)
+  (public_name ppx_js_style)
+  (kind ppx_rewriter)
+  (flags (:standard -safe-string))
+  (libraries (compiler-libs.common base ppxlib octavius))
+  (preprocess (pps (ppxlib.metaquot ppxlib.runner)))))
+
+(rule
+  ((targets (dated_deprecation.ml))
+   (deps ())
+   (action (write-file ${@} "let enabled = ref false"))
+   (fallback)))
+
+
+(jbuild_version 1)
