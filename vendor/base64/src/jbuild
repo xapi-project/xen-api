@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name base64)
+  (wrapped false)
+  (public_name base64)
+  (libraries (bytes))))
