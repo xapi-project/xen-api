@@ -1,0 +1,72 @@
+(jbuild_version 1)
+
+(rule
+ ((targets (fmt.ml))
+  (deps (../lib/fmt.ml))
+  (action (copy ${<} ${@}))))
+
+(library
+ ((name fort_unit)
+  (wrapped false)
+  (modules (fort_unit fmt))
+  (libraries (re oUnit))))
+
+(executables
+ ((libraries (re fort_unit))
+  (modules (test_re))
+  (names (test_re))))
+
+(executables
+ ((libraries (re fort_unit))
+  (modules (test_perl))
+  (names (test_perl))))
+
+(executables
+ ((libraries (re fort_unit))
+  (modules (test_emacs))
+  (names (test_emacs))))
+
+(executables
+ ((libraries (re fort_unit))
+  (modules (test_glob))
+  (names (test_glob))))
+
+(executables
+ ((libraries (re str fort_unit))
+  (modules (test_str))
+  (names (test_str))))
+
+(executables
+ ((libraries (re fort_unit))
+  (modules (test_pcre))
+  (names (test_pcre))))
+
+(alias
+ ((name   runtest)
+  (deps   (test_re.exe))
+  (action (run ${<}))))
+
+(alias
+ ((name   runtest)
+  (deps   (test_perl.exe))
+  (action (run ${<}))))
+
+(alias
+ ((name   runtest)
+  (deps   (test_emacs.exe))
+  (action (run ${<}))))
+
+(alias
+ ((name   runtest)
+  (deps   (test_glob.exe))
+  (action (run ${<}))))
+
+(alias
+ ((name   runtest)
+  (deps   (test_str.exe))
+  (action (run ${<}))))
+
+(alias
+ ((name   runtest)
+  (deps   (test_pcre.exe))
+  (action (run ${<}))))
