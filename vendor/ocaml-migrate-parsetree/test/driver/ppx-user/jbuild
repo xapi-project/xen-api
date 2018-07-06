@@ -1,0 +1,15 @@
+(executable
+ ((name foo)
+  (preprocess (pps (ppx1 ppx2
+                    (-message "Hello, world!")
+                    (--cookie "plop=\"Chocolate\""))))))
+
+(rule
+ ((targets (foo.output))
+  (deps    (foo.exe))
+  (action  (with-stdout-to ${@} (run ${<})))))
+
+(alias
+ ((name   runtest)
+  (deps   (foo.expected foo.output))
+  (action (run diff -u foo.expected foo.output))))
