@@ -1,0 +1,12 @@
+(jbuild_version 1)
+
+(executables
+ ((names (ppx_cstruct_and_lwt))
+  (preprocess (pps (lwt.ppx ppx_cstruct)))
+  (libraries (cstruct lwt lwt.unix))))
+
+; needs lwt 3.0dev
+; (alias
+; ((name   runtest)
+;  (deps   (ppx_cstruct_and_lwt.exe))
+;  (action (run ${<}))))

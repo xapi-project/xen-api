@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(install
+ ((section lib)
+  (files (cstruct.js))
+  (package cstruct)))
