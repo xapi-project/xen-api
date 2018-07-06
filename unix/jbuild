@@ -1,0 +1,7 @@
+(library
+ ((name        tar_unix)
+  (public_name tar-unix)
+  (libraries   (tar lwt cstruct.lwt))
+  (flags (:standard -safe-string))
+  (wrapped     false)
+))
