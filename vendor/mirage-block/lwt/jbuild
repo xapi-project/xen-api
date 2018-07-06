@@ -1,0 +1,7 @@
+(library
+ ((name        mirage_block_lwt)
+  (public_name mirage-block-lwt)
+  (libraries   (mirage-block lwt cstruct io-page logs result))
+  (flags       (:standard -w "A-4-41-44" -warn-error "+1..49-34" -safe-string))
+  (wrapped     false)
+))
