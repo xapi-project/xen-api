@@ -1,0 +1,11 @@
+(library
+ ((name comparelib_test)
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_type_conv ppx_compare ppx_inline_test ppxlib.runner)))))
+
+(alias ((name DEFAULT)
+        (deps (compare_test.ml.pp))))
+
+
+
+(jbuild_version 1)
