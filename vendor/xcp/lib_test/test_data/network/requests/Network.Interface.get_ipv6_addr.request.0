@@ -1,0 +1,1 @@
+{"method":"Network.Interface.get_ipv6_addr","params":[{"name":"name"},"string"],"id":95}

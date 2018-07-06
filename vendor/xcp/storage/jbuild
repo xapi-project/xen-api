@@ -1,0 +1,95 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+let rewriters_ppx = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xcp_storage_interface_types)
+  (public_name xcp.storage.interface.types)
+  (flags (:standard -w -39 %s))
+  (modules (vdi_automaton))
+  (libraries
+   (rpclib
+    threads
+    xcp))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_storage_interface)
+  (public_name xcp.storage.interface)
+  (flags (:standard -w -39))
+  (modules (storage_interface))
+  (libraries
+   (astring
+    rpclib
+    threads
+    xapi-stdext-date
+    xcp
+    xcp.storage.interface.types))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_storage)
+  (public_name xcp.storage)
+  (flags (:standard -w -39 %s))
+  (modules (:standard \ storage_interface storage_test vdi_automaton suite vdi_automaton_test))
+  (libraries
+   (rpclib
+    threads
+    xapi-stdext-date
+    xcp
+    xcp.storage.interface))
+  (wrapped false)
+  %s))
+
+(executable
+ ((name storage_test)
+  (flags (:standard -w -39 %s))
+  (modules (storage_test))
+  (libraries
+   (cmdliner
+    oUnit
+    xcp
+    xcp.storage))
+  %s))
+
+(executable
+ ((name suite)
+  (flags (:standard -w -39))
+  (modules (suite vdi_automaton_test))
+  (libraries
+   (alcotest
+    xcp.storage.interface
+    xcp.storage.interface.types))))
+
+(alias
+ ((name runtest)
+  (deps (suite.exe))
+  (action (run ${<}))))
+
+|} (flags rewriters_ppx) coverage_rewriter coverage_rewriter (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

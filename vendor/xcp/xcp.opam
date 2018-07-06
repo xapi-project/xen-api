@@ -1,0 +1,36 @@
+opam-version: "1.2"
+authors: "Dave Scott"
+homepage: "https://github.com/xapi-project/xcp-idl"
+bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
+dev-repo: "git://github.com/xapi-project/xcp-idl"
+maintainer: "xen-api@lists.xen.org"
+tags: [ "org:xapi-project" ]
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: ["jbuilder" "runtest" "-p" name]
+depends: [
+  "astring"
+  "base-threads"
+  "base-unix"
+  "cmdliner"
+  "cohttp"
+  "fd-send-recv" {>= "2.0.0"}
+  "jbuilder" {build & >= "1.0+beta11"}
+  "message-switch-core"
+  "message-switch-unix"
+  "ocamlfind" {build}
+  "ounit" {>= "2.0.0"}
+  "ppx_sexp_conv"
+  "re"
+  "rpc" {>= "5.0.0"}
+  "sexplib"
+  "uri"
+  "xapi-backtrace"
+  "xapi-inventory"
+  "xapi-rrd"
+  "xapi-stdext-date"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xmlm"
+  "alcotest" {test}
+]

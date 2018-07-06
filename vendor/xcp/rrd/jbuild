@@ -1,0 +1,85 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let rewriters_ppx = ["ppx_deriving_rpc"]
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xcp_rrd_interface_types)
+  (public_name xcp.rrd.interface.types)
+  (modules (data_source))
+  (flags (:standard -w -39 %s))
+  (libraries
+   (rpclib
+    rrd
+    threads
+    xcp))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_rrd_interface)
+  (public_name xcp.rrd.interface)
+  (modules (rrd_interface))
+  (flags (:standard -w -39 %s))
+  (libraries
+   (rpclib
+    rrd
+    threads
+    xcp
+    xcp.rrd.interface.types))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_rrd)
+  (public_name xcp.rrd)
+  (modules (:standard \ data_source rrd_interface rrd_cli))
+  (flags (:standard -w -39 %s))
+  (libraries
+   (rpclib
+    rrd
+    threads
+    xcp
+    xcp.rrd.interface))
+  (wrapped false)
+  %s))
+
+(executable
+ ((name rrd_cli)
+  (modules (rrd_cli))
+  (libraries
+   (cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xcp.rrd))))
+
+(alias
+ ((name runtest)
+  (deps (rrd_cli.exe))
+  (action (run ${<}))))
+
+|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

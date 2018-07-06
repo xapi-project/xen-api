@@ -1,0 +1,56 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let rewriters = ["ppx_deriving_rpc"]
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xapi_gpumon)
+  (public_name xcp.gpumon)
+  (flags (:standard -w -39-33 %s))
+  (modules (:standard \ gpumon_cli ))
+  (libraries
+   (rpclib
+    threads
+    xcp))
+  (wrapped false)
+  %s))
+
+(executable
+ ((name gpumon_cli)
+  (modules (gpumon_cli))
+  (libraries
+   (cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xcp.gpumon))))
+
+(alias
+ ((name runtest)
+  (deps (gpumon_cli.exe))
+  (action (run ${<}))))
+
+|} (flags rewriters) coverage_rewriter
