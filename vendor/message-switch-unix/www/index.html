@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Xenswitch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Le styles -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+    <style>
+      body {
+        padding-top: 60px; /* 60px to make the container go all the way to the bottom of the topbar */
+      }
+    </style>
+    <link href="css/bootstrap-responsive.css" rel="stylesheet">
+
+    <!-- Le HTML5 shim, for IE6-8 support of HTML5 elements -->
+    <!--[if lt IE 9]>
+      <script src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+
+    <!-- Le fav and touch icons -->
+    <link rel="shortcut icon" href="images/favicon.ico">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="72x72" href="images/apple-touch-icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="114x114" href="images/apple-touch-icon-114x114.png">
+  </head>
+
+  <body>
+
+    <div class="navbar navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </a>
+          <a class="brand" href="#">XenSwitch</a>
+          <div class="nav-collapse">
+            <ul class="nav">
+              <li class="active"><a href="#">Home</a></li>
+              <li><a href="#about">About</a></li>
+              <li><a href="#contact">Contact</a></li>
+            </ul>
+          </div><!--/.nav-collapse -->
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+
+      <table class="table table-condensed table-striped" id="logger">
+      <thead>
+        <tr>
+         <th class="span2">Time</td>
+         <th class="span2">Input</td>
+         <th class="span1"></th>
+         <th class="span2">Queue</td>
+         <th class="span1"></th>
+         <th class="span2">Output</td>
+       </tr>
+      </thead>
+      <tbody id="logger-body">
+      </tbody>
+      </table>
+
+    </div> <!-- /container -->
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="js/jquery.js"></script>
+    <script src="js/moment.min.js"></script>
+<!--
+    <script src="/js/bootstrap-transition.js"></script>
+    <script src="/js/bootstrap-alert.js"></script>
+    <script src="/js/bootstrap-modal.js"></script>
+    <script src="/js/bootstrap-dropdown.js"></script>
+    <script src="/js/bootstrap-scrollspy.js"></script>
+    <script src="/js/bootstrap-tab.js"></script>
+    <script src="/js/bootstrap-tooltip.js"></script>
+    <script src="/js/bootstrap-popover.js"></script>
+    <script src="/js/bootstrap-button.js"></script>
+    <script src="/js/bootstrap-collapse.js"></script>
+    <script src="/js/bootstrap-carousel.js"></script>
+    <script src="/js/bootstrap-typeahead.js"></script>
+-->
+
+    <script>
+$(document).ready(function(){
+   var from = -1;
+   var earliest_id = 100;
+   var next_id = 1;
+   var total = 0;
+(function poll(){
+   setTimeout(function(){
+      $.ajax({ url: "/trace/" + from + "/5.0", success: function(data){
+        $.each(data.events, function(id,v) {
+          if (v[0] >= from) {
+             from = v[0] + 1;
+             console.log("from = " + from);
+          };
+          var event = v[1];
+          //var level = '<span class="label label-info">Message</span>';
+          //if (event.message[0] == "Message") {
+          //  if (event.message[2].reply_to)
+          //    { level = '<span class="label label-important">Request</span>' }
+          //  else
+          //    { level = '<span class="label label-success">Reply</span>' }
+          //};
+          if (event.message[0] == "Ack") { level = '<span class="label label-info">Ack</span>' };
+          var m = new moment(parseInt(event.time) * 1000);
+          var input = "";
+          if (event.input) { input = event.input };
+          var output = "";
+          if (event.output) { output = event.output };
+          var queue = event.queue;
+          var descr = "Unknown";
+          if (event.message[0] == "Message"){
+            descr = event.message[1] + ":" + event.message[2].payload
+          };
+          if (event.message[0] == "Ack") { descr = event.message[1] + ":Ack"};
+          while (total > 50){
+             $('#item-' + earliest_id).remove();
+             $('#item-msg-' + earliest_id).remove();
+             earliest_id = earliest_id + 1;
+             total = total - 1;
+          };
+          var bgcolor = "white";
+          if (next_id % 2 == 0) { bgcolor = "lightgrey" };
+          var input_arrow = "";
+          if (event.input) { input_arrow = "<i class=\"icon-arrow-right\">-&gt;</i>"; };
+          var output_arrow = "";
+          if (event.output) { output_arrow = "<i class=\"icon-arrow-right\">-&gt;</i>"; };
+          $('#logger tr:last').after(
+            "<tr bgcolor=\"" + bgcolor + "\" id=\"item-" + next_id + "\"><td>"+
+             m.format('LLL')+"</td><td>"+
+             input+"</td><td>"+
+             input_arrow+"</td><td>" +
+             queue+"</td><td>"+
+             output_arrow+"</td><td>" +
+             output+"</td></tr>");
+          $('#logger tr:last').after(
+            "<tr bgcolor=\"" + bgcolor + "\" id=\"item-msg-" + next_id + "\"><td/><td colspan=5>" + descr + "</td></tr>"
+          );
+          total = total + 1;
+          if (next_id < earliest_id){
+             earliest_id = next_id;
+          };
+          next_id = next_id + 1;
+        });
+          poll();
+      }, dataType: "json"});
+  }, 1000);
+})();
+});
+    </script>
+  </body>
+</html>

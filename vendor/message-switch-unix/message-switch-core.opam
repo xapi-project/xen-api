@@ -1,0 +1,26 @@
+opam-version: "1.2"
+name: "message-switch-core"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+homepage: "https://github.com/xapi-project/message-switch"
+bug-reports: "https://github.com/xapi-project/message-switch/issues"
+dev-repo: "git://github.com/xapi-project/message-switch"
+tags: [ "org:xapi-project" ]
+build: [
+  ["./configure" "--bindir" "%{bin}%"]
+  [ "jbuilder" "build" "-p" name "-j" jobs ]
+]
+depends: [
+  "jbuilder" {build}
+  "ocamlfind" {build}
+  "base-unix"
+  "cohttp" {>= "0.21.1"}
+  "rpc" {>= "1.9.51"}
+  "sexplib"
+  "ppx_sexp_conv"
+  "re"
+  "mtime" {>= "1.0.0" & < "2.0.0"}
+  "mirage-block-unix" {>= "2.4.0"}
+  "shared-block-ring" {>= "2.3.0"}
+]
+

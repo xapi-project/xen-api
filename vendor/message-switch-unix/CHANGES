@@ -1,0 +1,37 @@
+0.11.0 (23-Apr-2015):
+* Complete API update: result types, packed module
+* Supports message persistence through a redo-log
+
+0.10.4 (26-Sep-2014):
+* Add Async support via protocol.async package
+* Change license to the Mirage license (ISC)
+* Remove use of oclock, allows builds on OS X
+
+0.10.3 (19-Jun-2014)
+* Critical bugfix after cohttp upgrade
+
+0.10.2 (2-Jun-2014)
+* Upgrade to cohttp-0.11.2
+
+0.10.1 (18-Oct-2013):
+* clients will retry forever to connect to a switch. This allows
+  services to start in any order from init.d
+
+0.10.0 (17-Jun-2013):
+* protocol bump to allow the same process to be both a client
+  and a server
+
+0.9.6 (16-Jun-2013):
+* minor protocol changes
+
+0.9.3 (6-Jun-2013):
+* turn off debug logging (considered too spammy)
+
+0.9.2 (02-Jun-2013):
+* update to cohttp 0.9.8
+
+0.9.1 (29-May-2013):
+* commandline arguments: -pidfile <some file> and -daemon
+
+0.9.0 (29-May-2013):
+* first public release
