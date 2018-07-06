@@ -1,0 +1,38 @@
+(executable
+ ((name test)
+  (modules (test))
+  (libraries (fd-send-recv threads))
+  ))
+
+(executable
+ ((name test_fork)
+  (modules (test_fork))
+  (libraries (fd-send-recv))
+  ))
+
+#|(executable
+ ((name test_tuntap)
+  (modules test_tuntap)
+  (libraries (fd-send-recv tuntap))
+  ))
+|#
+
+(alias
+ ((name   runtest)
+  (package fd-send-recv)
+  (deps   (test.exe))
+  (action (run ${<}))))
+
+(alias
+ ((name   runtest)
+  (package fd-send-recv)
+  (deps   (test_fork.exe))
+  (action (run ${<}))))
+
+#|(alias
+ ((name   runtest)
+  (package fd-send-recv-tuntap)
+  (deps   (test_tuntap.exe))
+  (action (run ${<}))))
+|#
+

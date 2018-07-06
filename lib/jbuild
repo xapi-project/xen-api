@@ -1,0 +1,6 @@
+(library
+ ((name fd_send_recv)
+  (public_name fd-send-recv)
+  (c_names (fd_send_recv_stubs))
+  (libraries (unix))
+ ))
