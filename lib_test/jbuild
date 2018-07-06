@@ -1,0 +1,9 @@
+(executables
+ ((names (portable))
+  (libraries   (lwt.unix mirage-clock-unix))
+))
+
+(alias
+ ((name    runtest)
+  (deps    (portable.exe))
+  (action  (run ${<}))))

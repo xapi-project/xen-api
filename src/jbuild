@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_clock)
+  (public_name mirage-clock)
+  (libraries   (mirage-device))
+))
