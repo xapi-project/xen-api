@@ -1,0 +1,23 @@
+(executables
+ ((names (main))
+  (libraries (core_kernel build_info_test))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+  ))
+
+
+;; Make sure that [Js_of_ocaml_extended.Version_util] can read/parse build_info.
+;; Do not rely on inline_tests as build_info is not included when building tests.
+(alias
+ ((name DEFAULT)
+  (deps (main.exe))
+  (action (bash "./main.exe > /dev/null"))))
+
+
+(alias
+ ((name javascript)
+  (deps (main.bc.js))
+  (action (bash "${NODE} main.bc.js > /dev/null"))))
+
+
+(jbuild_version 1)
