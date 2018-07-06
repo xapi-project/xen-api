@@ -1,0 +1,13 @@
+(library
+ ((name sexplib)
+  (libraries (bigarray parsexp sexplib0))
+  (flags (:standard -safe-string))
+  (public_name sexplib)
+  (preprocess no_preprocessing)
+))
+
+(ocamllex (lexer))
+(ocamlyacc (parser parser_with_layout))
+
+
+(jbuild_version 1)

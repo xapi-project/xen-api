@@ -1,0 +1,13 @@
+;; These tests are here rather than in sexplib/src to avoid adding a build dependency of
+;; sexplib on ppx_inline_test.
+(library
+ ((name sexplib_ounit_tests)
+  (libraries (expect_test_helpers_kernel
+              sexplib
+              str
+              unix))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)
