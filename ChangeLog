@@ -1,0 +1,32 @@
+1.0.0 (07-Dec-2017):
+* compile with -safe-string
+
+0.9.6 (12-Jun-2017):
+* add backwards-compat ocamlfind packages
+  - xenstore_transport.unix
+  - xenstore_transport.lwt
+
+0.9.5 (12-Jun-2017):
+* unix: search for the xenbus path
+* add more test cases
+* remove camlp4 dependency
+* build with jbuilder
+* travis: use a modern Docker-based setup
+
+0.9.4 (16-Jun-2014):
+* use the xenbus device if the Unix domain socket isn't available
+* respect the XENSTORED_PATH environment variable
+
+0.9.3 (9-May-2014):
+* fix a file descriptor leak when we cannot connect to xenstore
+
+0.9.2 (27-Aug-2013):
+* adapt to new xenstore signature which makes it easy to write code
+  oblivious to whether it's running in Unix userspace or xen
+
+0.9.1 (6-Aug-2013):
+* update to xenstore 1.2.3
+
+0.9.0 (3-Jun-2013):
+* first public release
+

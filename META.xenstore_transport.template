@@ -1,0 +1,11 @@
+# JBUILDER_GEN
+
+package "unix" (
+  description = "Deprecated. Use xenstore_transport"
+  requires = "xenstore_transport"
+)
+
+package "lwt" (
+  description = "Deprecated. Use xenstore_transport"
+  requires = "xenstore_transport"
+)

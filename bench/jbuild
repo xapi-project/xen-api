@@ -1,0 +1,4 @@
+(executables
+ ((names (xs_bench))
+  (libraries (xenstore_transport xenstore xenstore.unix lwt lwt.unix))
+))

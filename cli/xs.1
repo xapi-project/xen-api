@@ -1,0 +1,99 @@
+.TH xs 1  "November 19, 2011" "version 0.1" "Xen"
+.SH NAME
+xs \- interact with XenStore from the commandline
+.SH SYNOPSIS
+.B xs
+[\-h] [\-v] [-t TIMEOUT] [-path /var/run/xenstored/socket] subcommand [args]
+.SH DESCRIPTION
+Description should go here.
+.PP
+More description here.
+.SH OPTIONS
+.TP
+\-h
+display a short help text
+.TP
+\-v
+display verbose output
+.TP
+\-t TIMEOUT
+timeout with failure after TIMEOUT seconds
+.TP
+\-path /var/run/xenstored/socket
+connect to xenstored via the named unix domain socket
+.SH SUBCOMMANDS
+.TP
+read path
+print the value stored at "path"
+.TP
+directory path
+list the direct children of the node stored at "path"
+.TP
+write path newvalue
+store the value "newvalue" at "path"
+.TP
+wait expr
+block until the expression "expr" evaluates to TRUE
+.SH EXAMPLES
+.TP
+Read the value stored at /foo:
+.B xs
+read /foo
+.PP
+.TP
+Write to the value stored at /foo:
+.B xs
+write /bar value
+.PP
+.TP
+Wait until the key /foo exists:
+.B xs
+wait /foo
+.PP
+.TP
+Wait until the key /foo is deleted:
+.B xs
+wait "not(/foo)"
+.PP
+.TP
+Wait until either the key /foo or the key /bar is created:
+.B xs
+wait /foo or /bar
+.PP
+.TP
+Wait until either the key /foo is deleted or the key /bar is set to value "hello":
+.B xs
+wait "not(/foo) or (/bar = hello)"
+.PP
+.TP
+Add a disk device to Xen domain id 2, backed by /dev/disk from Xen domain id 0. Note this command will return quickly and the disk will be connected asynchronously.
+BACK=/local/domain/0
+
+FRONT=/local/domain/2
+
+.B xs
+write $BACK/frontend-id=2          and \\
+         $BACK/online=1               and \\
+         $BACK/removable=1            and \\
+         $BACK/state=1                and \\
+         $BACK/dev=XXX                and \\
+         $BACK/mode=XXX               and \\
+         $BACK/params=/dev/disk       and \\
+         $FRONT/backend-id=0          and \\
+         $FRONT/state=1               and \\
+         $FRONT/virtual-device=51712  and \\
+         $FRONT/device-type=disk
+.PP
+.TP
+Wait until a disk device has been successfully unplugged, or an error happens, with a timeout of 30 seconds:
+.B xs
+wait -t 30 not($BACK/hotplug-status) or \\
+                  $FRONT/errorXXX
+.PP
+.SH EXIT STATUS
+xs returns a zero exist status if it succeeds. Non zero is returned in
+case of failure.
+.SH AUTHOR
+David Scott (dave (at) recoil.org)
+.SH SEE ALSO
+xe(1)
