@@ -1,0 +1,11 @@
+(executables
+ ((names (test))
+  (flags (:standard -safe-string))
+  (libraries (fieldslib))
+  (preprocess (pps (ppxlib ppx_fields_conv ppxlib.runner)))))
+
+(alias ((name DEFAULT)
+        (deps (test.ml.pp test.mli.pp))))
+
+
+(jbuild_version 1)
