@@ -1,0 +1,8 @@
+(library (
+  (name expect_test_disabling_test_lib)
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+
+(jbuild_version 1)

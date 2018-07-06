@@ -1,0 +1,21 @@
+; Expect-tests are translated into calls into this library. It has
+; minimal dependencies and does just enough work to give the
+; expect_test_evaluator library all the necessary input.
+
+(library (
+  (name expect_test_collector)
+  (public_name ppx_expect.collector)
+  (synopsis "Runtime library for ppx_expect")
+  (flags (:standard -safe-string))
+  (libraries (expect_test_common expect_test_config))
+  (c_names (expect_test_collector_stubs))
+  (js_of_ocaml ((javascript_files (runtime.js))))
+  (preprocess (pps (ppx_inline_test
+                    ppx_fields_conv
+                    ppx_custom_printf
+                     ppxlib.runner)))))
+
+(ocamllex (check_backtraces))
+
+
+(jbuild_version 1)

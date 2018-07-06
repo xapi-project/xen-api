@@ -1,0 +1,29 @@
+; Determine whether expect-tests succeeded or failed.
+
+(library (
+  (name expect_test_matcher)
+  (public_name ppx_expect.matcher)
+  ;; We don't use core in libraries we don't use ppx_jane in
+  ;; preprocess. This would be fine internally but it would create a
+  ;; recursive dependency for the public release.
+  (flags (:standard -safe-string))
+  (libraries (
+    base
+    stdio
+    re
+    re.emacs
+    re.glob
+    expect_test_common
+    expect_test_config
+    ))
+  (preprocess (pps (ppx_assert
+                    ppx_compare
+                    ppx_custom_printf
+                    ppx_inline_test
+                    ppx_sexp_conv
+                    ppx_variants_conv ppxlib.runner)))))
+
+(ocamllex (lexer))
+
+
+(jbuild_version 1)

@@ -1,0 +1,8 @@
+(library
+ ((name expect_test_call_exit_in_test)
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+
+(jbuild_version 1)

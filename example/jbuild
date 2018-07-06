@@ -1,0 +1,15 @@
+
+(library (
+  (name expect_test_examples)
+  (flags (:standard -safe-string))
+  (libraries (core async))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+;; hydra doesn't like .ml files containing tab chars
+(rule ((targets (tabs.ml)) (deps (tabs.ml.in)) (action (bash "cp ${^} ${@}"))))
+
+(alias ((name DEFAULT) (deps (tests.ml.pp))))
+
+
+(jbuild_version 1)
