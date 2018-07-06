@@ -1,0 +1,13 @@
+language: c
+sudo: required
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+env:
+  global:
+  - PINS="functoria.dev:. functoria-runtime.dev:."
+  - REVDEPS=true
+  matrix:
+  - OCAML_VERSION=4.03 PACKAGE="functoria"
+  - OCAML_VERSION=4.04 PACKAGE="functoria"
+  - OCAML_VERSION=4.03 PACKAGE="functoria-runtime"
+  - OCAML_VERSION=4.04 PACKAGE="functoria-runtime"
