@@ -1,0 +1,19 @@
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: "John Else"
+homepage: "https://github.com/xapi-project/rrd-transport"
+dev-repo: "https://github.com/xapi-project/rrd-transport"
+bug-reports: "https://github.com/xapi-project/rrd-transport"
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build-test: ["jbuilder" "runtest" "-p" name]
+depends: [
+  "jbuilder" {build & >= "1.0+beta10"}
+  "cstruct"
+  "crc"
+  "astring"
+  "xapi-idl" {>= "1.0.0"}
+  "xapi-rrd" {>= "1.0.0"}
+  "xen-gnt" {>= "3.0.0"}
+  "xen-gnt-unix" {>= "3.0.0"}
+  "ounit" {test}
+]

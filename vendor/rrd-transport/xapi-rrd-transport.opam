@@ -1,0 +1,9 @@
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: "John Else"
+homepage: "https://github.com/xapi-project/rrd-transport"
+dev-repo: "https://github.com/xapi-project/rrd-transport"
+bug-reports: "https://github.com/xapi-project/rrd-transport"
+depends: [
+  "rrd-transport" {>= "2.0.0"}
+]
