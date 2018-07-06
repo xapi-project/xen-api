@@ -1,0 +1,10 @@
+(library
+ ((name    expect_test_config)
+  (public_name ppx_expect.config)
+  (synopsis "Runtime configuration for ppx_expect")
+  (flags (:standard -safe-string))
+  (libraries ())
+  (preprocess no_preprocessing)))
+
+
+(jbuild_version 1)

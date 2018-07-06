@@ -1,0 +1,19 @@
+;; This module is linked by jenga in the test runners of libraries that use expect
+;; tests. jenga assumes there is a single module in here called evaluator.
+(library
+ ((name        ppx_expect_evaluator)
+  (public_name ppx_expect.evaluator)
+ (flags (:standard -safe-string))
+  (libraries (base
+              stdio
+              expect_test_common
+              expect_test_collector
+              expect_test_matcher
+              ppxlib.print_diff))
+  (preprocess (pps (ppx_custom_printf ppxlib.runner)))
+  (library_flags (-linkall))
+  ))
+
+
+
+(jbuild_version 1)

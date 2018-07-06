@@ -1,0 +1,8 @@
+(library
+ ((name ppx_expect_test)
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_expect ppxlib.runner)))))
+
+
+
+(jbuild_version 1)
