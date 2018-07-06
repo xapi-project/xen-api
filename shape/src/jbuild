@@ -1,0 +1,10 @@
+
+(library
+ ((name bin_shape_expand)
+  (public_name ppx_bin_prot.shape-expander)
+  (flags (:standard -safe-string))
+  (libraries (base ppxlib ppx_here.expander))
+  (preprocess (pps (ppxlib.metaquot ppxlib.runner)))))
+
+
+(jbuild_version 1)
