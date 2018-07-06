@@ -1,0 +1,16 @@
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "Mike McClurg" ]
+license: "ISC"
+homepage: "https://github.com/xapi-project/ocaml-opasswd"
+dev-repo: "https://github.com/xapi-project/ocaml-opasswd.git"
+bug-reports: "https://github.com/xapi-project/ocaml-opasswd/issues"
+build: [["jbuilder" "build" "-p" name "-j" jobs]]
+build-test: [["jbuilder" "runtest" "-p" name "-j" jobs]]
+depends: [
+  "jbuilder" {build}
+  "ctypes" {>= "0.2.2"}
+  "ctypes-foreign"
+]
+tags: [ "org:xapi-project" ]
+available: [ ocaml-version >= "4.01.0" & ocaml-version <= "4.07.0" ]
