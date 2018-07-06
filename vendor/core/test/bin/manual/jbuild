@@ -1,0 +1,11 @@
+(executables (
+  (names (backtrace getpwents))
+(flags (:standard -safe-string))
+  (libraries (
+    core
+  ))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+
+(jbuild_version 1)

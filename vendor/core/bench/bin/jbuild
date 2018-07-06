@@ -1,0 +1,24 @@
+(executables
+ ((names (array_iter
+          bench_hashtbl
+          bench_heap
+          bench_map
+          core_stack
+          core_string_search_pattern
+          dequeue
+          ordering_container
+          piecewise_linear_perf_test
+          string_escaping
+          time_to_string
+          timing_wheel
+          zone_next_clock_shift))
+  (flags (:standard -safe-string))
+  (libraries (core
+              core_bench
+              core_extended
+              pcre
+              re2))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)
