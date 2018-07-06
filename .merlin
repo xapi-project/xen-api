@@ -1,0 +1,4 @@
+PKG js_of_ocaml
+S src
+S test
+B _build/**

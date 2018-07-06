@@ -1,0 +1,10 @@
+(jbuild_version 1)
+(library
+  ((name mtime_os)
+   (public_name mtime.os)
+   (libraries (mtime))
+   (modules (
+mtime_clock
+))
+   (c_names (mtime_clock_stubs))
+   (wrapped false)))
