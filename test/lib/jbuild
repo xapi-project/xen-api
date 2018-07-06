@@ -1,0 +1,8 @@
+(library
+ ((name sexplib_test)
+  (libraries (base))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppxlib ppx_sexp_conv ppx_here ppx_inline_test ppxlib.runner)))))
+
+
+(jbuild_version 1)
