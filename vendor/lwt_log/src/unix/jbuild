@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(library
+ ((name lwt_log)
+  (public_name lwt_log)
+  (synopsis "Logger for Lwt (deprecated; use logs library)")
+  (optional)
+  (wrapped false)
+  (libraries (unix lwt lwt.unix lwt_log.core))
+  (flags (:standard -w +A))))
