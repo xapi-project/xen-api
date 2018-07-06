@@ -1,0 +1,11 @@
+(library
+ ((name async_rpc_kernel)
+  (public_name async_rpc_kernel)
+  (flags (:standard -safe-string))
+  (libraries (core_kernel async_kernel protocol_version_header))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+
+))
+
+
+(jbuild_version 1)
