@@ -1,0 +1,7 @@
+version = "%%VERSION%%"
+description = "Streaming XML codec for OCaml"
+requires = ""
+archive(byte) = "xmlm.cma"
+archive(native) = "xmlm.cmxa"
+plugin(byte) = "xmlm.cma"
+plugin(native) = "xmlm.cmxs"
