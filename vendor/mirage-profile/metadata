@@ -1,0 +1,175 @@
+/* CTF 1.8 */
+typealias integer { size = 8; align = 8; signed = false; base = 10; } := uint8_t;
+typealias integer { size = 16; align = 8; signed = false; base = hex; } := uint16_t;
+typealias integer { size = 32; align = 8; signed = false; base = hex; } := uint32_t;
+typealias integer { size = 64; align = 8; signed = false; base = hex; } := uint64_t;
+typealias integer { size = 64; align = 8; signed = true; base = 10; } := int64_t;
+
+trace {
+	major = 0;
+	minor = 1;
+	uuid = "05883b8d-521a-487b-b397-456ab150680c";
+	byte_order = le;
+	packet.header := struct {
+		uint32_t magic;
+		uint8_t  uuid[16];
+	};
+};
+
+enum thread_type : uint8_t {
+	Wait = 0,
+	Task = 1,
+	Bind = 2,
+	Try = 3,
+	Choose = 4,
+	Pick = 5,
+	Join = 6,
+	Map = 7,
+	Condition = 8,
+	On_success = 9,
+	On_failure = 10,
+	On_termination = 11,
+	On_any = 12,
+	Ignore_result = 13,
+	Async = 14,
+};
+
+struct event_header {
+	uint64_t timestamp;
+	enum : uint8_t {
+		creates = 0,
+		read = 1,
+		fulfills = 2,
+		fails = 3,
+		becomes = 4,
+		label = 5,
+		increase = 6,
+		switch = 7,
+		gc = 8,
+		signal = 9,
+		try_read = 10,
+		counter = 11,
+	} id;
+} align (8);
+
+struct thread_context {
+	uint64_t thread;
+} align (8);
+
+stream {
+	packet.context := struct {
+		uint32_t packet_size;
+		uint16_t stream_packet_count;
+		uint32_t content_size;
+
+	};
+	event.header := struct event_header;
+};
+
+event {
+	name = creates;
+	id = 0;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t child;
+		enum thread_type thread_type;
+	};
+};
+
+event {
+	name = read;
+	id = 1;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t source;
+	};
+};
+
+event {
+	name = fulfills;
+	id = 2;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t resolvee;
+	};
+};
+
+event {
+	name = fails;
+	id = 3;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t resolvee;
+		string exn;
+	};
+};
+
+event {
+	name = becomes;
+	id = 4;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t sleeper;
+	};
+};
+
+event {
+	name = label;
+	id = 5;
+	context := struct thread_context;
+	fields := struct {
+		string label;
+	};
+};
+
+event {
+	name = increase;
+	id = 6;
+	context := struct thread_context;
+	fields := struct {
+		int64_t amount;
+		string counter;
+	};
+};
+
+event {
+	name = switch;
+	id = 7;
+	context := struct thread_context;
+};
+
+event {
+	name = gc;
+	id = 8;
+	fields := struct {
+		uint64_t duration_ns;
+	};
+};
+
+event {
+	name = signal;
+	id = 9;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t source;
+	};
+};
+
+event {
+	name = try_read;
+	id = 10;
+	context := struct thread_context;
+	fields := struct {
+		uint64_t source;
+	};
+};
+
+event {
+	name = counter;
+	id = 11;
+	context := struct thread_context;
+	fields := struct {
+		int64_t value;
+		string counter;
+	};
+};
