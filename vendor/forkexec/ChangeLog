@@ -1,0 +1,12 @@
+1.0.1 (22-Jun-2016):
+* Upgrade to stdext 2.0.0
+
+0.9.2 (30-May-2013):
+* Upgrade to Stdext 0.11.0
+
+0.9.1 (25-Sep-2013):
+* use Syslog from xcp-idl
+
+0.9.0 (31-May-2013):
+* first public release
+
