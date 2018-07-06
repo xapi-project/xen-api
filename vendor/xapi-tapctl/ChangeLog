@@ -1,0 +1,14 @@
+1.0.1 (22-Jun-2016)
+* Use Stdext-2.0.0
+
+0.10.0 (4-Apr-2015)
+* add `Stats.reqs_outstanding`
+* add an opam file for ease of development
+
+0.9.2 (4-Jun-2014):
+* Compatibility with stdext 0.11.0
+* Cope with two blktaps being installed (2.0/2.5)
+
+0.9.0 (29-May-2013):
+* first public release
+
