@@ -1,0 +1,12 @@
+language: c
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+dist: trusty
+env:
+  global:
+  - PINS="mirage-console:. mirage-console-xen:. mirage-console-unix:. mirage-console-xen-cli:. mirage-console-xen-backend:."
+  matrix:
+  - OCAML_VERSION=4.03 PACKAGE="mirage-console-xen-cli"
+  - OCAML_VERSION=4.03 PACKAGE="mirage-console-xen-backend"
+  - OCAML_VERSION=4.04 PACKAGE="mirage-console-unix"
+  - OCAML_VERSION=4.04 PACKAGE="mirage-console-xen"

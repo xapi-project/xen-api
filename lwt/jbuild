@@ -1,0 +1,6 @@
+(library
+ ((name mirage_console_lwt)
+  (public_name mirage-console-lwt)
+  (libraries (mirage-console lwt cstruct))
+  (wrapped false)
+))

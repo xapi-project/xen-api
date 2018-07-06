@@ -1,0 +1,8 @@
+(executables
+ ((names (main))
+  (libraries
+    ( xen-evtchn-unix cmdliner xenstore xenstore_transport
+    cstruct.lwt rresult shared-memory-ring xen-gnt
+    xenstore_transport.lwt xen-gnt.unix mirage-console-xen-backend
+    mirage-console-unix )
+)))

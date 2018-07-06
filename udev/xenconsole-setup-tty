@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Called as
+# ACTION=add DEVPATH=/devices/console-X $0
+#    -- to add console device X
+# ACTION=remove DEVPATH=/devices/console-X $0
+#    -- to remove console device X
+
+NUM=$(echo $DEVPATH | cut -d '-' -f 2)
+mkdir -p /dev/xenconsole
+
+HVC_MAJOR=229 # fixed in the kernel source
+
+NAME_PATH=device/console/$NUM/name # optional console name
+
+case "$ACTION" in
+  add )
+    if $(xenstore-exists $NAME_PATH); then
+      NAME=$(xenstore-read $NAME_PATH)
+      logger "adding device/console/$NUM as /dev/xenconsole/$NAME"
+      mknod /dev/xenconsole/$NAME c $HVC_MAJOR $NUM
+      ln -s /dev/xenconsole/$NAME /dev/xenconsole/console-$NUM
+    else
+      logger "adding device/console/$NUM as /dev/xenconsole/console-$NUM"
+      mknod /dev/xenconsole/console-$NUM c $HVC_MAJOR $NUM
+    fi
+  ;;
+  remove )
+    if $(readlink /dev/xenconsole/console-$NUM >/dev/null); then
+      NAME=$(readlink /dev/xenconsole/console-$NUM)
+      logger "removing device/console/$NUM from $NAME"
+      rm -f $NAME
+      rm -f /dev/xenconsole/console-$NUM
+    else
+      logger "removing device/console/$NUM from /dev/xenconsole/console-$NUM"
+      rm -f /dev/xenconsole/console-$NUM
+    fi
+  ;;
+esac

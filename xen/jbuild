@@ -1,0 +1,8 @@
+(library
+ ((name mirage_console_xen)
+  (public_name mirage-console-xen)
+  (libraries (lwt xenstore xen-gnt xen-evtchn shared-memory-ring
+    mirage-console-xen-proto mirage-console-lwt mirage-flow mirage-xen
+    io-page-xen))
+  (wrapped false)
+))
