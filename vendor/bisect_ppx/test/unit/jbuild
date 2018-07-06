@@ -1,0 +1,9 @@
+(jbuild_version 1)
+
+(executable
+ ((name test_main)
+  (libraries (bisect_ppx.runtime compiler-libs.common oUnit))))
+
+(alias
+ ((name tester)
+  (deps (test_main.exe (files_recursively_in fixtures)))))
