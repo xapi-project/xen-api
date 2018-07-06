@@ -1,0 +1,10 @@
+(library
+ ((name ppx_fail)
+  (public_name ppx_fail)
+  (kind ppx_rewriter)
+  (flags (:standard -safe-string))
+  (libraries (base ppxlib ppx_here.expander))
+  (preprocess (pps (ppxlib.metaquot ppxlib.runner)))))
+
+
+(jbuild_version 1)

@@ -1,0 +1,10 @@
+(executables
+ ((names (test))
+(flags (:standard -safe-string))
+  (preprocess (pps (ppx_here ppx_fail ppxlib.runner)))))
+
+(alias ((name DEFAULT)
+        (deps (test.ml.pp))))
+
+
+(jbuild_version 1)
