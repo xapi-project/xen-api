@@ -1,0 +1,32 @@
+language: c
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+sudo: required
+addons:
+  apt:
+    sources:
+    - avsm
+    packages:
+    - ocaml
+    - ocaml-base
+    - ocaml-native-compilers
+    - ocaml-compiler-libs
+    - ocaml-interp
+    - ocaml-base-nox
+    - ocaml-nox
+    - time
+env:
+  global:
+    - PINS="mirage-clock:. mirage-clock-lwt:. mirage-clock-unix:. mirage-clock-freestanding:."
+    - OCAML_VERSION=4.03
+
+matrix:
+  include:
+  - os: linux
+    env: PACKAGE="mirage-clock-freestanding"
+  - os: linux
+    env: PACKAGE="mirage-clock-unix"
+  - os: osx
+    osx_image: xcode7.3
+    env: PACKAGE="mirage-clock-unix"

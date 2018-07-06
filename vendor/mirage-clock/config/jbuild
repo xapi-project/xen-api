@@ -1,0 +1,10 @@
+(executables
+ ((names (discover))
+  (libraries (base stdio configurator))))
+
+(rule
+ ((targets (cclib.sexp cclib))
+  (deps    (discover.exe))
+  (action  (run ${<} -ocamlc ${OCAMLC}))))
+
+(jbuild_version 1)
