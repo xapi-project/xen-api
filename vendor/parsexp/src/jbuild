@@ -1,0 +1,32 @@
+(library
+ ((name parsexp)
+  (public_name parsexp)
+  (libraries (sexplib0))
+  ;; parsexp is one the libraries for which we are careful about
+  ;; dependencies, you can add ppx rewriters but only when you need
+  ;; them
+  (preprocess no_preprocessing)
+  (lint (pps (ppx_js_style -check-doc-comments
+              ppx_compare
+              ppx_sexp_conv
+                    -type-conv-keep-w32=impl
+                    ;; Specify the list explicitely to be sure we
+                    ;; don't interpret [%sexp_of: ...] and other
+                    ;; similar extensions which don't work with the
+                    ;; expect mode of ppx_driver
+                    ;;
+                    ;; This argument won't be needed once the expect
+                    ;; mode is released as it will disable these
+                    ;; extensions
+                    -apply=js_style,type_conv)))
+  (flags (:standard -safe-string))
+))
+
+(rule
+ ((targets (parser_automaton.ml))
+  (deps (gen/gen_parser_automaton.exe))
+  (action (bash "./${<} > ${@}"))
+  (fallback)))
+
+
+(jbuild_version 1)

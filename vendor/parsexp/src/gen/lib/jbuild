@@ -1,0 +1,15 @@
+(library
+ ((name gen_parsexp_lib)
+  (flags (:standard -safe-string))
+  (libraries (base))
+  (preprocess (pps (
+                    ppx_js_style -check-doc-comments
+                    ppx_sexp_conv
+                    ppx_compare
+                    ppx_enumerate
+                    ppx_hash
+                    ppx_variants_conv ppxlib.runner)))
+))
+
+
+(jbuild_version 1)
