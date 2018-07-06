@@ -1,0 +1,123 @@
+open Variantslib
+
+#verbose true;;
+
+module Normal = struct
+  type t =  Foo of int | Bar [@@deriving variants]
+end
+
+[%%expect{|
+module Normal :
+  sig
+    type t = Foo of int | Bar
+    val foo : int -> t
+    val bar : t
+    module Variants :
+      sig
+        val foo : (int -> t) Variant.t
+        val bar : t Variant.t
+        val fold :
+          init:'a ->
+          foo:('a -> (int -> t) Variant.t -> 'b) ->
+          bar:('b -> t Variant.t -> 'c) -> 'c
+        val iter :
+          foo:((int -> t) Variant.t -> unit) ->
+          bar:(t Variant.t -> unit) -> unit
+        val map :
+          t ->
+          foo:((int -> t) Variant.t -> int -> 'a) ->
+          bar:(t Variant.t -> 'a) -> 'a
+        val to_rank : t -> int
+        val to_name : t -> string
+        val descriptions : (string * int) list
+      end
+  end
+|}];;
+
+module Normal_inline_record = struct
+  type t =  Foo of { a : int; b : string} | Bar [@@deriving variants]
+end
+
+[%%expect{|
+module Normal_inline_record :
+  sig
+    type t = Foo of { a : int; b : string; } | Bar
+    val foo : a:int -> b:string -> t
+    val bar : t
+    module Variants :
+      sig
+        val foo : (a:int -> b:string -> t) Variant.t
+        val bar : t Variant.t
+        val fold :
+          init:'a ->
+          foo:('a -> (a:int -> b:string -> t) Variant.t -> 'b) ->
+          bar:('b -> t Variant.t -> 'c) -> 'c
+        val iter :
+          foo:((a:int -> b:string -> t) Variant.t -> unit) ->
+          bar:(t Variant.t -> unit) -> unit
+        val map :
+          t ->
+          foo:((a:int -> b:string -> t) Variant.t -> a:int -> b:string -> 'a) ->
+          bar:(t Variant.t -> 'a) -> 'a
+        val to_rank : t -> int
+        val to_name : t -> string
+        val descriptions : (string * int) list
+      end
+  end
+|}];;
+
+module Poly = struct
+  type t =  [ `Foo of int | `Bar ] [@@deriving variants]
+end
+
+[%%expect{|
+module Poly :
+  sig
+    type t = [ `Bar | `Foo of int ]
+    val foo : 'a -> [> `Foo of 'a ]
+    val bar : [> `Bar ]
+    module Variants :
+      sig
+        val foo : ('a -> [> `Foo of 'a ]) Variant.t
+        val bar : [> `Bar ] Variant.t
+        val fold :
+          init:'a ->
+          foo:('a -> ('b -> [> `Foo of 'b ]) Variant.t -> 'c) ->
+          bar:('c -> [> `Bar ] Variant.t -> 'd) -> 'd
+        val iter :
+          foo:(('a -> [> `Foo of 'a ]) Variant.t -> unit) ->
+          bar:([> `Bar ] Variant.t -> unit) -> unit
+        val map :
+          [< `Bar | `Foo of 'a ] ->
+          foo:(('b -> [> `Foo of 'b ]) Variant.t -> 'a -> 'c) ->
+          bar:([> `Bar ] Variant.t -> 'c) -> 'c
+        val to_rank : [< `Bar | `Foo of 'a ] -> int
+        val to_name : [< `Bar | `Foo of 'a ] -> string
+        val descriptions : (string * int) list
+      end
+  end
+|}];;
+
+type fail1 = [ Poly.t | `Blah ] [@@deriving variants]
+[%%expect{|
+Line _, characters 0-53:
+Error: ppx_variants_conv: polymorphic variant inclusion is not supported
+|}];;
+
+type fail2 = [> `Foo | `Bar ] [@@deriving variants]
+[%%expect{|
+Line _, characters 13-29:
+Error: ppx_variants_conv: polymorphic variants with a row variable are not supported
+|}];;
+
+type fail3 = [< `Foo | `Bar ] [@@deriving variants]
+[%%expect{|
+Line _, characters 13-29:
+Error: ppx_variants_conv: polymorphic variants with a row variable are not supported
+|}];;
+
+type fail4 = [< `Foo | `Bar > `Foo ] [@@deriving variants]
+[%%expect{|
+Line _, characters 13-36:
+Error: ppx_variants_conv: polymorphic variants with a row variable are not supported
+|}];;

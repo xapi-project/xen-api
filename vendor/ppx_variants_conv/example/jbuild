@@ -1,0 +1,12 @@
+(executables
+ ((names (test))
+  (flags (:standard -safe-string))
+  (libraries (variantslib))
+  (preprocess (pps (ppx_variants_conv ppxlib.runner)))))
+
+(alias
+ ((name DEFAULT)
+  (deps (test.ml.pp test.mli.pp))))
+
+
+(jbuild_version 1)
