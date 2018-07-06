@@ -1,0 +1,27 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let coverage_rewriter ~full =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  match is_coverage, full with
+  | true, true -> "(preprocess (pps (bisect_ppx -conditional)))"
+  | true, _    -> "bisect_ppx -conditional"
+  | _          -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(executables
+ ((names (test_unit test_scale))
+  (libraries (oUnit rrd-transport))
+  %s
+ ))
+
+(alias
+ ((name    runtest)
+  (deps    (test_unit.exe test_scale.exe))
+  (action  (progn
+            (run ${exe:test_unit.exe})
+            (run ${exe:test_scale.exe} -p 1)
+            (run ${exe:test_scale.exe} -p 2)
+            ))
+ ))
+|} (coverage_rewriter ~full:true)
