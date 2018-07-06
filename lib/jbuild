@@ -1,0 +1,9 @@
+(jbuild_version 1)
+
+(library
+ ((name shared_block)
+  (public_name shared-block-ring)
+  (synopsis "Simple persistent queue over a block device")
+  (libraries (cstruct lwt mirage-types-lwt mirage-types io-page sexplib rresult duration))
+  (modules_without_implementation (monad))
+  (preprocess (pps (ppx_sexp_conv)))))

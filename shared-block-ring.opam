@@ -1,0 +1,39 @@
+opam-version: "1.2"
+maintainer: "jonathan.ludlam@citrix.com"
+authors: [ "David Scott" "Jon Ludlam" "Si Beaumont" ]
+homepage: "https://github.com/mirage/shared-block-ring"
+bug-reports: "https://github.com/mirage/shared-block-ring/issues/"
+dev-repo: "https://github.com/mirage/shared-block-ring.git"
+license: "ISC"
+tags: [
+  "org:mirage"
+  "org:xapi-project"
+]
+build: [
+  ["jbuilder" "subst"] {pinned}
+  ["jbuilder" "build" "-p" name "-j" jobs]
+]
+build-test: [
+  ["jbuilder" "runtest" "-p" name]
+]
+depends: [
+  "jbuilder" {build & >="1.0+beta17"}
+  "cstruct" {>= "3.0.0"}
+  "ppx_cstruct"
+  "ppx_deriving"
+  "ppx_sexp_conv" {>="v0.10.0"}
+  "lwt" 
+  "lwt_log"
+  "mirage-types-lwt" {>= "3.0.0"}
+  "mirage-block-unix"
+  "mirage-clock-unix"
+  "sexplib"
+  "io-page"
+  "io-page-unix" {>= "2.0.0"}
+  "cmdliner"
+  "bisect_ppx"
+  "result"
+  "rresult"
+  "duration"
+  "ounit" {test}
+]

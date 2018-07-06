@@ -1,0 +1,8 @@
+(executable (
+ (name test)
+ (libraries (lwt lwt_log lwt.unix mirage-block-unix mirage-clock-unix shared-block-ring cstruct oUnit io-page io-page-unix))))
+
+(alias
+ ((name    runtest)
+  (deps    (test.exe))
+  (action  (run ${<}))))

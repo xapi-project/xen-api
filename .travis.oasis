@@ -1,0 +1,36 @@
+OASISFormat: 0.3
+Name:        shared-block-ring
+Version:     3.0.0
+Synopsis:    Simple persistent queue over a block device
+Authors:     David Scott
+License:     ISC
+Plugins:     META (0.3)
+BuildTools:  ocamlbuild
+
+Library shared_block
+  Pack:               true
+  CompiledObject:     best
+  Path:               lib
+  Findlibname:        shared-block-ring
+  Modules:            Ring, Journal, EraseBlock, S, Monad
+  BuildDepends:       cstruct, lwt, mirage-types, mirage-types-lwt, io-page, sexplib, ppx_sexp_conv, bisect_ppx, result, duration, rresult
+
+Executable "shared-block-ring"
+  CompiledObject:     best
+  Path:               example
+  MainIs:             main.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, mirage-block-unix, shared-block-ring, cstruct, oUnit, io-page, io-page-unix, cmdliner
+
+Executable test
+  CompiledObject:     best
+  Path:               lib_test
+  MainIs:             test.ml
+  Custom:             true
+  Install:            false
+  BuildDepends:       lwt, lwt.unix, mirage-block-unix, mirage-clock-unix, shared-block-ring, cstruct, oUnit, io-page, io-page-unix, bisect_ppx
+
+Test test
+  Command:            ./test.native
+  Run:                true
