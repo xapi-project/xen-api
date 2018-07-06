@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_protocols_lwt)
+  (public_name mirage-protocols-lwt)
+  (libraries   (ipaddr mirage-protocols lwt cstruct))
+))
