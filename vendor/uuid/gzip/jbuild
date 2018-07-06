@@ -1,0 +1,9 @@
+(library
+ ((name gzip)
+  (public_name gzip)
+  (libraries
+   (forkexec
+    threads
+    xapi-stdext-pervasives
+    xapi-stdext-unix))
+ ))

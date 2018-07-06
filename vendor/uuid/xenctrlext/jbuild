@@ -1,0 +1,8 @@
+(library
+  ((name xenctrlext)
+   (public_name xenctrlext)
+   (c_names (xenctrlext_stubs))
+   (c_flags (-Wno-format-truncation))
+   (libraries (threads
+               xenctrl))
+   ))

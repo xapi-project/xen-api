@@ -1,0 +1,14 @@
+(library
+ ((name xmllight2)
+  (public_name xml-light2)
+  (modules (xml))
+  (wrapped false)
+  (libraries (threads
+              xmlm))
+ ))
+
+(executable
+ ((name xmlpp)
+  (modules (xmlpp))
+  (libraries (xml-light2))
+ ))

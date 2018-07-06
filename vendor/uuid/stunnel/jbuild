@@ -1,0 +1,14 @@
+(library
+ ((name stunnel)
+  (public_name stunnel)
+  (wrapped false)
+  (flags (:standard -w -37))
+  (libraries (astring
+              forkexec
+              threads
+              xapi-stdext-monadic
+              xapi-stdext-pervasives
+              xapi-stdext-threads
+              xapi-stdext-unix
+              ))
+ ))
