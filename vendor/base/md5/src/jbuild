@@ -1,0 +1,13 @@
+(library
+ ((name md5_lib)
+  (public_name base.md5)
+  (preprocess no_preprocessing)
+  (libraries ())
+  (flags (:standard -safe-string))
+  (js_of_ocaml (
+    (javascript_files ())
+    ))
+  ))
+
+
+(jbuild_version 1)

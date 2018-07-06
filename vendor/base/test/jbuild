@@ -1,0 +1,17 @@
+(library
+ ((name base_test)
+  (libraries (base
+              core_kernel.base_for_tests
+              caml
+              sexplib
+              num
+              expect_test_helpers_kernel
+              stdio))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+
+
+
+(jbuild_version 1)
