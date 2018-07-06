@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_stack_lwt)
+  (public_name mirage-stack-lwt)
+  (libraries   (mirage-stack ipaddr lwt cstruct))
+))
