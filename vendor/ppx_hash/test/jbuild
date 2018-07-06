@@ -1,0 +1,15 @@
+
+(library
+ ((name ppx_hash_test)
+  (flags (:standard -safe-string))
+  (libraries (core_kernel))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+;  (preprocess (pps (ppx_hash ppx_inline_test ppx_assert ppx_sexp_conv)))))
+
+(alias ((name DEFAULT)
+        (deps (inline_records.ml.pp
+               override_example.ml.pp hash_test.ml.pp record_field_control.ml.pp))))
+
+
+(jbuild_version 1)

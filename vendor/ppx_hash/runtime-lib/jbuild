@@ -1,0 +1,9 @@
+(library
+ ((name ppx_hash_lib)
+  (public_name ppx_hash.runtime-lib)
+  (flags (:standard -safe-string))
+  (libraries (base))
+  (preprocess (pps (ppx_compare ppx_sexp_conv ppxlib.runner)))))
+
+
+(jbuild_version 1)
