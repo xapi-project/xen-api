@@ -1,0 +1,7 @@
+description = "Random-related devices for MirageOS"
+version = "%%VERSION_NUM%%"
+requires = "cstruct"
+archive(byte) = "stdlibrandom.cma"
+archive(native) = "stdlibrandom.cmxa"
+plugin(byte) = "stdlibrandom.cma"
+plugin(native) = "stdlibrandom.cmxs"
