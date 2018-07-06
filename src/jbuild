@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_channel)
+  (public_name mirage-channel)
+  (libraries   (result mirage-flow))
+))
