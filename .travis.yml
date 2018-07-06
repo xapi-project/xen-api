@@ -1,0 +1,20 @@
+language: c
+sudo: false
+services:
+    - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+env:
+    global:
+        - DISTRO=debian-unstable
+        - PINS="rpclib:. rpclib-js:. rpclib-html:. rpclib-lwt:. rpclib-async:. ppx_deriving_rpc:."
+        - PACKAGE=rpc
+    matrix:
+        - OCAML_VERSION=4.06.0
+        # We install the packages required by the unit test for linting the generated Python code in PRE_INSTALL_HOOK:
+        - PACKAGE=rpclib OCAML_VERSION=4.06.0 PRE_INSTALL_HOOK="sudo apt-get update -y; sudo apt-get install -y pylint pycodestyle"
+        - PACKAGE=ppx_deriving_rpc OCAML_VERSION=4.06.0
+        - OCAML_VERSION=4.05.0
+        - OCAML_VERSION=4.04.2
+matrix:
+    fast_finish: true

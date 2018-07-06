@@ -1,0 +1,38 @@
+(executable
+ ((name example)
+  (modules (example))
+  (libraries (rpclib rpclib.markdown rresult))
+  (preprocess (pps (ppx_deriving_rpc)))
+ ))
+
+(executable
+ ((name example2)
+  (modules (example2 example2_client example2_idl example2_server))
+  (libraries (rpclib rpclib.cmdliner rpclib.json threads unix))
+  (preprocess (pps (ppx_deriving_rpc)))
+  ))
+
+(executable
+ ((name example3_client)
+  (modules (example3_idl example3_client))
+  (libraries (rpclib rpclib.cmdliner rpclib.markdown unix))
+  (preprocess (pps (ppx_deriving_rpc)))
+  ))
+
+(alias
+ ((name   runexamples)
+  (deps   (example.exe))
+  (package rpc)
+  (action (run ${<}))))
+
+(alias
+ ((name   runexamples)
+  (deps   (example2.exe))
+  (package rpc)
+  (action (run ${<}))))
+
+(alias
+ ((name   runexamples)
+  (deps   (example3_client.exe))
+  (package rpc)
+  (action (run ${<}))))

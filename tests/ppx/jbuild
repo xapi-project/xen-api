@@ -1,0 +1,20 @@
+(executable
+ ((name suite)
+  (flags (:standard -warn-error +a))
+  (libraries (
+     alcotest
+     ppx_deriving
+     result
+     rpclib
+     rpclib.core
+     rpclib.json
+     rresult
+     ))
+  (preprocess (pps (ppx_deriving_rpc)))
+ ))
+
+(alias
+ ((name   runtest)
+  (deps   (suite.exe))
+  (package ppx_deriving_rpc)
+  (action (run ${<}))))

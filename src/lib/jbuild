@@ -1,0 +1,72 @@
+(library
+ ((name internals)
+  (public_name rpclib.internals)
+  (modules (internals))
+  (wrapped false)
+ ))
+
+(library
+ ((name rpclib_core)
+  (public_name rpclib.core)
+  (modules (rpc idl rpcmarshal pythongen codegen rpc_genfake))
+  (libraries (result
+              rresult))
+  (wrapped false)
+ ))
+
+(library
+ ((name xml)
+  (public_name rpclib.xml)
+  (modules (xmlrpc))
+  (libraries (internals
+              rpclib.core
+              xmlm))
+  (wrapped false)
+ ))
+
+(library
+ ((name json)
+  (public_name rpclib.json)
+  (modules (jsonrpc))
+  (libraries (rpclib.core
+              yojson))
+  (wrapped false)
+ ))
+
+(library
+ ((name cmdlinergen)
+  (public_name rpclib.cmdliner)
+  (modules (cmdlinergen))
+  (libraries (cmdliner
+              rpclib.core
+              rpclib.json))
+  (wrapped false)
+ ))
+
+(library
+ ((name markdowngen)
+  (public_name rpclib.markdown)
+  (modules (markdowngen))
+  (libraries (rpclib.core
+              rpclib.json
+              rpclib.xml))
+  (wrapped false)
+ ))
+
+(library
+ ((name rpclib_unix)
+  (public_name rpclib.unix)
+  (modules (rpc_client))
+  (libraries (rpclib.core
+              rpclib.json
+              rpclib.xml))
+  (wrapped false)
+ ))
+
+(library
+ ((name rpclib)
+  (public_name rpclib)
+  (libraries (rpclib.core
+              rpclib.xml))
+  (modules (rpclib))
+ ))

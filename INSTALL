@@ -1,0 +1,14 @@
+dependencies:
+
+* ocamlfind
+* type-conv
+* xmlm
+
+optional dependencies:
+* js_of_ocaml
+
+instructions:
+
+* make
+* make install
+* (make tests)

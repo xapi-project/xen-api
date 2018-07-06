@@ -1,0 +1,8 @@
+(library
+ ((name rpclib_lwt)
+  (public_name rpclib-lwt)
+  (modules (rpc_lwt))
+  (libraries (lwt
+              rpclib.core))
+  (wrapped false)
+ ))
