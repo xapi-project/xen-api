@@ -1,0 +1,19 @@
+(executables
+ ((names (handlers
+          loop
+          nanos_per_job
+          queens
+          squash
+          tco
+          try_with))
+  (libraries (
+    async
+    core
+    core_bench
+    core_experimental
+  ))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+
+(jbuild_version 1)
