@@ -1,0 +1,7 @@
+description = "Durations for OCaml"
+version = "%%VERSION_NUM%%"
+requires = ""
+archive(byte) = "duration.cma"
+archive(native) = "duration.cmxa"
+plugin(byte) = "duration.cma"
+plugin(native) = "duration.cmxs"
