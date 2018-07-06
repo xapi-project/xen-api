@@ -1,0 +1,36 @@
+* Configurator
+
+Configurator is a small library that helps writing OCaml scripts that
+test features available on the system, in order to generate config.h
+files for instance.
+
+Configurator allows one to:
+- test if a C program compiles
+- query pkg-config
+- import #define from OCaml header files
+- generate config.h file
+
+For instance:
+
+#+begin_src ocaml
+open Base
+module C = Configurator
+
+let clock_gettime_code = {|
+#include <time.h>
+
+int main()
+{
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  return 0;
+}
+|}
+
+let () =
+  C.main ~name:"foo" (fun c ->
+    let has_clock_gettime = C.c_test c clock_gettime_code ~link_flags:["-lrt"] in
+
+    C.C_define.gen_header_file c ~fname:"config.h"
+      [ "HAS_CKOCK_GETTIME", Switch has_ckock_gettime ]);
+#+end_src
