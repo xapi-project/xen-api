@@ -1,0 +1,24 @@
+[0;31m------ [0m[0;1mdeferred_or_error.ml[0m
+[0;32m++++++ [0m[0;1meager_deferred_or_error.ml[0m
+[0;100;30m@|[0m[0;1m-1,16 +1,18[0m ============================================================
+[0;100;30m |[0mopen! Core_kernel
+[0;100;30m |[0mopen! Import
+[0;100;30m |[0m
+[0;41;30m-|[0m[0;0m[0;2mmodule Deferred = [0m[0;31mDeferred1[0m[0;2m[0m[0m
+[0;42;30m+|[0m[0;0mmodule Deferred = [0;32mEager_deferred0[0m[0m
+[0;42;30m+|[0m[0;0m[0;32m[0m[0m
+[0;42;30m+|[0m[0;0m[0;32mmodule Deferred_result = Eager_deferred_result[0m[0m
+[0;100;30m |[0m
+[0;100;30m |[0mmodule Monitor = struct
+[0;41;30m-|[0m[0;0m[0;2m  let try_with = Monitor.try_with [0m[0;31m?run:None[0m[0;2m[0m[0m
+[0;42;30m+|[0m[0;0m  let try_with = Monitor.try_with [0;32m~run:`Now[0m[0m
+[0;100;30m |[0mend
+[0;100;30m |[0m
+[0;41;30m-|[0m[0;0m[0;2m(* Copied [0m[0;31mto[0m[0;2m [[0m[0;31meager_deferred_or_error[0m[0;2m.ml].  There should be no diffs below this line. *)[0m[0m
+[0;42;30m+|[0m[0;0m(* Copied [0;32mfrom[0m [[0;32mdeferred_or_error[0m.ml].  There should be no diffs below this line. *)[0m
+[0;100;30m |[0m
+[0;100;30m |[0minclude (Deferred_result : Monad.S2
+[0;100;30m |[0m         with type ('a, 'b) t := ('a, 'b) Deferred_result.t
+[0;100;30m |[0m         with module Let_syntax := Deferred_result.Let_syntax)
+[0;100;30m |[0m
+[0;100;30m |[0mtype 'a t = 'a Or_error.t Deferred.t
