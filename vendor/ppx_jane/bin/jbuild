@@ -1,0 +1,14 @@
+(executables
+ ((names (main))
+  (flags (:standard -safe-string))
+  (libraries (ppx_jane ppxlib))
+  (link_flags (-linkall))
+  (preprocess no_preprocessing)))
+
+
+(install
+ ((section bin)
+  (files ((main.exe as ppx-jane)))))
+
+
+(jbuild_version 1)
