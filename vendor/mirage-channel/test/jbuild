@@ -1,0 +1,12 @@
+(executables
+ ((names (test test_channel))
+  (libraries (mirage-channel-lwt alcotest lwt.unix logs io-page io-page.unix))
+))
+(alias
+ ((name    runtest)
+  (deps    (test.exe))
+  (action  (run ${<} -e -v))))
+(alias
+ ((name    runtest)
+  (deps    (test_channel.exe))
+  (action  (run ${<} -e -v))))

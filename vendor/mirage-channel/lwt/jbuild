@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_channel_lwt)
+  (public_name mirage-channel-lwt)
+  (libraries   (io-page mirage-channel mirage-flow-lwt cstruct lwt logs result))
+))
