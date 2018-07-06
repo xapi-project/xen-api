@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_protocols)
+  (public_name mirage-protocols)
+  (libraries   (mirage-device mirage-flow duration fmt))
+))
