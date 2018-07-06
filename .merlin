@@ -1,0 +1,8 @@
+# include assemblage package for editor assistance in assemble.ml
+PKG assemblage
+
+
+
+B _build/lib-octavius
+
+S src
