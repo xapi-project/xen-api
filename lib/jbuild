@@ -1,0 +1,8 @@
+(jbuild_version 1)
+
+(library
+  ((name oPasswd)
+   (public_name opasswd)
+   (libraries (ctypes
+               ctypes.foreign
+               unix))))

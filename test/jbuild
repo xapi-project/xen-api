@@ -1,0 +1,12 @@
+(executable
+ ((name opasswd_test)
+  (libraries (oPasswd))
+  ))
+
+(alias
+ ((name   runtest)
+  (deps   (opasswd_test.exe))
+  (action (progn
+    (run ${<})
+    (bash "sudo ./opasswd_test.exe"))
+   )))

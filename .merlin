@@ -1,0 +1,6 @@
+S lib
+S test
+B _build/lib
+PKG unix
+PKG ctypes
+PKG ctypes.foreign

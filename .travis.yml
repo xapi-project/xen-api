@@ -1,0 +1,18 @@
+language: c
+sudo: required
+dist: trusty
+branches:
+  only: master
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+env:
+  global:
+    - PACKAGE=opasswd
+    - TESTS=true
+  matrix:
+    - OCAML_VERSION=4.02
+    - OCAML_VERSION=4.03
+    - OCAML_VERSION=4.04
+    - OCAML_VERSION=4.05
+    - OCAML_VERSION=4.06
