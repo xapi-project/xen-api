@@ -1,0 +1,9 @@
+(library
+  ((name cstruct)
+   (public_name cstruct)
+   (modules (cstruct))
+   (wrapped false)
+   (libraries (sexplib))
+   (c_names (cstruct_stubs))
+))
+(jbuild_version 1)

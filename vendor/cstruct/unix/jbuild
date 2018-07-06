@@ -1,0 +1,8 @@
+(library
+ ((name cstruct_unix)
+  (wrapped false)
+  (public_name cstruct-unix)
+  ; disable the deprecated warning as we can't use Unix.map_file
+  ; yet as it was only introduced in OCaml 4.06
+  (flags (:standard -w -3))
+  (libraries (cstruct unix))))
