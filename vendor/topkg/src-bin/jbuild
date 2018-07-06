@@ -1,0 +1,7 @@
+(jbuild_version 1)
+(executables ( 
+ (names (topkg_bin toy_github_delegate))
+ (public_names (topkg toy-github-topkg-delegate))
+ (libraries (topkg.care fmt.cli logs.cli cmdliner webbrowser webbrowser.cli))
+ (package topkg-care)
+))

@@ -1,0 +1,45 @@
+#!/usr/bin/env ocaml
+#use "topfind"
+#require "bos.setup"
+#require "fmt"
+open Bos_setup
+
+let ok = Ok 0
+let unsupported = Ok 1
+
+let publish = function
+| "distrib" :: uri :: name :: version :: msg :: archive :: _ ->
+    Fmt.pr "publish distrib %S %S %S %S %S@." uri name version msg archive; ok
+| "doc" :: uri :: name :: version :: msg :: docdir :: _ ->
+    Fmt.pr "publish doc %S %S %S %S %S@." uri name version msg docdir; ok
+| "alt" :: k :: uri :: name :: version :: msg :: archive :: _ ->
+    Fmt.pr "publish alt %S %S %S %S %S %S@." k uri name version msg archive; ok
+| args ->
+    unsupported
+
+let issue = function
+| "list" :: uri :: _ -> Fmt.pr "issue list %S@." uri; ok
+| "show" :: uri :: id :: _ -> Fmt.pr "issue show %S %S@." uri id; ok
+| "open" :: uri :: t :: d :: _ -> Fmt.pr "issue open %S %S %S@." uri t d; ok
+| "close" :: uri :: id :: m :: _ -> Fmt.pr "issue close %S %S %S@." uri id m; ok
+| args -> unsupported
+
+let request = function
+| "publish" :: args -> publish args
+| "issue" :: args -> issue args
+| args -> unsupported
+
+let main () =
+  let doc = "the unsupportive delegate" in
+  begin match OS.Arg.(parse ~doc ~pos:string ()) with
+  | "ipc" :: verbosity :: req ->
+      Logs.level_of_string verbosity
+      >>= fun level -> Logs.set_level level; request req
+  | "ipc" :: [] ->
+      R.error_msg "malformed delegate request, verbosity is missing"
+  | args ->
+      R.error_msgf "unknown arguments: %s" (String.concat ~sep:" " args)
+  end
+  |> Logs.on_error_msg ~use:(fun () -> 2)
+
+let () = exit (main ())

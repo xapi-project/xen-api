@@ -1,0 +1,7 @@
+PKG bytes result rresult astring fmt fpath logs bos cmdliner
+PKG webbrowser webbrowser.cli opam-format
+S src
+S src-bin
+S src-care
+S test
+B _build/**
