@@ -1,0 +1,12 @@
+(jbuild_version 1)
+
+(library
+ ((name        result)
+  (public_name result)
+  (modules (result))))
+
+(rule
+ (with-stdout-to selected
+  (run ${OCAML} ${path:which_result.ml} ${ocaml_version})))
+
+(rule (copy# ${read:selected} result.ml))
