@@ -1,0 +1,10 @@
+(executables
+ ((names (xs_client_cli))
+  (libraries (lwt lwt.unix xenstore xenstore_transport))
+  (flags (:standard -safe-string))
+))
+
+(install
+ ((section bin)
+  (package xenstore-tool)
+  (files ((xs_client_cli.exe as xenstore-tool)))))

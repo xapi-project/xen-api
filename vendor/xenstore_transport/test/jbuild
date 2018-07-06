@@ -1,0 +1,4 @@
+(executables
+ ((names (client_test server_test))
+  (libraries (xenstore_transport xenstore xenstore.unix oUnit))
+))
