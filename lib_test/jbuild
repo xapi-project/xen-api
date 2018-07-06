@@ -1,0 +1,21 @@
+(jbuild_version 1)
+
+(executables
+ ((names (test_mustache spec_mustache))
+  (libraries (mustache oUnit ezjsonm))))
+
+(alias
+ ((name runtest)
+  (deps
+   (test_mustache.exe
+    ../specs/comments.json
+    ../specs/interpolation.json
+    ../specs/partials.json
+    ../specs/sections.json
+    ../specs/inverted.json))
+  (action (run ${<}))))
+
+(alias
+ ((name runtest)
+  (deps (spec_mustache.exe))
+  (action (run ${<}))))
