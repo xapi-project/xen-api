@@ -1,0 +1,7 @@
+(executables (
+  (names (test))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_let ppxlib.runner)))))
+
+
+(jbuild_version 1)
