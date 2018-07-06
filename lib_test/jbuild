@@ -1,0 +1,8 @@
+(executables
+ ((names (portable))
+  (libraries (io-page-unix io-page oUnit))
+))
+(alias
+ ((name    runtest)
+  (deps    (portable.exe))
+  (action  (run ${<} ))))

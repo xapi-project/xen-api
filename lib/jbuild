@@ -1,0 +1,31 @@
+(library
+ ((name io_page)
+  (public_name io-page)
+  (modules (Io_page))
+  (libraries (cstruct bytes))
+  (wrapped false)
+))
+
+(library
+ ((name io_page_xen)
+  (public_name io-page-xen)
+  (libraries (io-page))
+  (modules (Io_page_xen_dummy))
+  (c_names (stub_alloc_pages_xen stub_get_addr_xen))
+  (c_flags (:include c_flags_xen.sexp))
+  (wrapped false)
+))
+
+(rule
+ ((targets (c_flags_xen.sexp))
+  (deps (config/discover.exe))
+  (action (run ${<} -ocamlc ${OCAMLC}))))
+
+(library
+ ((name io_page_unix)
+  (public_name io-page-unix)
+  (libraries (io-page bigarray))
+  (modules (Io_page_unix_dummy))
+  (c_names (stub_alloc_pages stub_get_addr))
+  (wrapped false)
+))

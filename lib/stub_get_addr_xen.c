@@ -1,0 +1,1 @@
+stub_get_addr.c

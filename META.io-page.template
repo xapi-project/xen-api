@@ -1,0 +1,12 @@
+# JBUILDER_GEN
+
+package "unix" (
+  description = "Deprecated. Use io-page-unix"
+  requires = "io-page-unix"
+)
+
+package "xen" (
+  description = "Deprecated. Use io-page-xen"
+  requires = "io-page-xen"
+)
+

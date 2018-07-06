@@ -1,0 +1,17 @@
+language: c
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex ./.travis-docker.sh
+env:
+  global:
+  - PINS="io-page:. io-page-unix:. io-page-xen:."
+  matrix:
+  - DISTRO="alpine-3.5"    OCAML_VERSION=4.04.2 PACKAGE="io-page"
+  - DISTRO="alpine-3.5"    OCAML_VERSION=4.04.2 PACKAGE="io-page-unix"
+  - DISTRO="alpine-3.5"    OCAML_VERSION=4.04.2 PACKAGE="io-page-xen"
+  - DISTRO="debian-stable" OCAML_VERSION=4.04.2 PACKAGE="io-page"
+  - DISTRO="debian-stable" OCAML_VERSION=4.04.2 PACKAGE="io-page-unix"
+  - DISTRO="debian-stable" OCAML_VERSION=4.04.2 PACKAGE="io-page-xen"
+  - DISTRO="alpine"        OCAML_VERSION=4.06.0 PACKAGE="io-page"
