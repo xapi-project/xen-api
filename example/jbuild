@@ -1,0 +1,10 @@
+(library
+ ((name ppx_pipebang_sample)
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_pipebang ppxlib.runner)))))
+
+(alias ((name DEFAULT)
+        (deps (test.ml.pp))))
+
+
+(jbuild_version 1)
