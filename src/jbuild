@@ -1,0 +1,11 @@
+(library
+ ((name        ppx_jane)
+  (public_name ppx_jane)
+  (kind ppx_rewriter)
+  (flags (:standard -safe-string))
+  (libraries
+   (ppx_jane_kernel
+    ppx_expect))
+  (preprocess no_preprocessing)))
+
+(jbuild_version 1)
