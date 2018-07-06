@@ -1,0 +1,96 @@
+0.9.2 (2018-02-27)
+* Fix exception handling in lwt really_{read,write}
+* Add missing jbuilder build dependency in the opam file
+
+0.9.1 (2017-12-11)
+* Fix build of vhd-format-lwt package
+
+0.9.0 (2017-12-08)
+* Update to Mirage 3
+* Port to jbuilder
+* Split the original OPAM package into two: vhd-format for the core library and
+  vhd-format-lwt for the Lwt-specific parts, with corresponding ocamlfind libraries
+  vhd-format and vhd-format-lwt, and top-level modules Vhd_format and Vhd_format_lwt,
+  respectively.
+
+0.8.0 (2016-09-26)
+* Ported to ppx instead of camlp4. This bumps up the minimum version
+  of OCaml required to 4.02.3, but removes upper bounds on libraries (@avsm)
+* Improved Travis CI test coverage to use Docker for multi-distro
+  Linux support (@avsm)
+* Add Alpine Linux depexts for linux-kernel-headers (@avsm)
+
+0.7.4 (2016-09-13)
+* Bug fixes for SEEK_DATA and SEEK_HOLE (@lesserevil and @lindig)
+* Bug fixes for when the VHD chain contains different sized VHDs (@zli)
+
+0.7.3 (2015-09-11)
+* add explicit `connect` to interface (@talex5)
+* add tests for streaming code (@jonludlam)
+* support SEEK_DATA and SEEK_HOLE (@djs55)
+* fix bug walking over sector bitmaps (@jonludlam)
+
+0.7.2 (2014-10-02)
+* vhd: add ability to resize (i.e. shrink) a vhd
+* vhd: add ability to marshal (and hence update) a parent locator
+
+0.7.1 (2014-07-03)
+* build fixes for OS X
+* fix block access after a resize
+
+0.7.0 (2014-01-30)
+* vhd: always interpret relative paths in parent locators as being relative to
+  the current directory of the file containing the locator first, and then search
+  the general search path after.
+* deltas: handle cases where parent filenames are different strings but refer
+  to the same file (e.g. "foo", "./foo")
+* vhd: rename Vhd_input.hybrid -> Hybrid_input.raw
+* vhd: add Hybrid_input.vhd to output vhd-formatted data
+* vhd: fix stream size calculation, so progress reports (bars?) will be more accurate
+* vhd: rename 'openfile' to 'openchain' to reflect that it opens an entire chain,
+  or fails trying
+* vhd: add 'openfile' which only opens a single file
+* switch result type to a polymorphic variant
+* switch Element type to a polymorphic variant
+* rename the module Vhd to module F
+* pack Vhd modules
+* vhd: user passes in buffers to read and write, to control allocation
+* vhd: write now uses the bitmap cache
+* vhd: read and write now try to issue I/O in parallel (experimental)
+
+0.6.4 (2013-11-06)
+* vhd: we expect parent locators to have prefix "file://", rather than "file://./"
+
+0.6.3 (2013-11-01)
+* vhd: always open parents read/only; add a read/write boolean to openfile
+
+0.6.2 (2013-10-31)
+* fixes openfile on 32-bit machines for disks > 4GiB
+
+0.6.1 (2013-10-30)
+* raw: use BLKGETSIZE64 to query the size if stat(2) reveals we've been given
+  a block device. Otherwise we use a file size of 0 and don't copy anything.
+
+0.6.0 (2013-10-02)
+* move CLI tools to vhd-tool repo
+* can parse and print XenServer 'batmaps'
+* add a vhd search path, for parent locators with relative paths
+
+0.5.1 (2013-09-27)
+* cope with vhds with over-size BATs
+* respect --prezeroed when streaming into raw format
+
+0.5.0 (2013-09-23)
+* new streaming interface supporting both raw and vhd formats
+* uses O_DIRECT by default
+* added lots of edge-case unit tests
+* sparse_dd implementation
+* vhd-tool CLI prototype
+
+0.0.2 (2013-07-25):
+* rename to vhd-format in ocamlfind
+* start adding some unit tests
+
+0.0.1 (2013-07-25):
+* Initial development snapshot
+

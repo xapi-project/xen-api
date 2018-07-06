@@ -1,0 +1,19 @@
+language: c
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+services:
+  - docker
+sudo: false
+env:
+ global:
+   - PINS="vhd-format:. vhd-format-lwt:."
+ matrix:
+   - PACKAGE=vhd-format DISTRO=debian-stable OCAML_VERSION=4.04.2
+   - PACKAGE=vhd-format-lwt DISTRO=ubuntu-16.04 OCAML_VERSION=4.03.0
+   - PACKAGE=vhd-format-lwt DISTRO=debian-stable OCAML_VERSION=4.04.2
+   - PACKAGE=vhd-format-lwt DISTRO=centos-7 OCAML_VERSION=4.05.0
+   - PACKAGE=vhd-format-lwt DISTRO=alpine OCAML_VERSION=4.06.0
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: PACKAGE=vhd-format-lwt DISTRO=alpine OCAML_VERSION=4.06.0

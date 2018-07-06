@@ -1,0 +1,17 @@
+(executable
+  ((name parse_test)
+   (libraries
+     (cstruct
+      disk
+      io-page.unix
+      lwt
+      lwt.unix
+      oUnit
+      vhd-format
+      vhd_format_lwt))
+   (preprocess (pps (lwt.ppx)))))
+
+(alias
+  ((name   runtest)
+   (deps   (parse_test.exe))
+   (action (run ${<}))))

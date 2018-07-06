@@ -1,0 +1,7 @@
+(library
+ ((name disk)
+  (libraries
+   (cstruct
+    lwt
+    lwt.unix))
+  (preprocess (pps (lwt.ppx)))))
