@@ -1,0 +1,11 @@
+(executables
+ ((names (main main_no_recur))
+(flags (:standard -safe-string))
+  (libraries (async
+                    core
+                    fieldslib
+                    sexplib))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)

@@ -1,0 +1,9 @@
+(executables (
+  (names (gettid getifaddrs))
+(flags (:standard -safe-string))
+  (libraries (async core))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+
+(jbuild_version 1)

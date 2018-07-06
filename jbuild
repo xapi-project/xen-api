@@ -1,0 +1,5 @@
+(install
+ ((section bin)
+  (files   (coretop corebuild))))
+
+(jbuild_version 1)
