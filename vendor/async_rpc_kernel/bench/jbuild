@@ -1,0 +1,9 @@
+(library
+ ((name async_rpc_kernel_bench)
+  (c_names (stubs))
+(flags (:standard -safe-string))
+  (libraries (async))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)
