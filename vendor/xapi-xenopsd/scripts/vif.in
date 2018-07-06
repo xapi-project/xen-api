@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Environment variables that are passed by udev:
+# 
+# for VIFs:
+#
+# XENBUS_PATH
+# XENBUS_TYPE
+# XENBUS_BASE_PATH -- these three come from linux.git/drivers/xen/xenbus/xenbus_probe_backend.c
+#
+# for TAPs:
+# 
+# INTERFACE -- set by linux.git/net/core/net-sysfs.c
+# 
+# 
+# we pass these as arguments to the real vif udev script
+
+REAL_UDEV_SCRIPT=@LIBEXEC@/vif-real
+ACTION=$1
+
+TYPE=`echo $2 | cut -d= -f2`
+
+case ${TYPE} in
+tap)
+    # This must be a tap device. Extract domid/devid accordingly
+    DOMID=`echo ${INTERFACE#tap} | cut -f 1 -d '.'`
+    DEVID=`echo ${INTERFACE#tap} | cut -f 2 -d '.'`
+    ;;
+vif)
+    # Must be a vif then.
+    DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
+    DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
+    ;;
+*)
+    echo "Unknown type: ${TYPE}"
+    exit 1
+esac
+
+$REAL_UDEV_SCRIPT $TYPE $DOMID $DEVID $ACTION
+

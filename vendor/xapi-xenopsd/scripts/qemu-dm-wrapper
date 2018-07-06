@@ -1,0 +1,119 @@
+#!/usr/bin/python
+#
+# Copyright (c) Citrix Systems 2007-2011
+# Author: Gianni Tedesco and Dave Scott
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published
+# by the Free Software Foundation; version 2.1 only. with the special
+# exception on linking described in file LICENSE.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+
+import os
+import subprocess
+import sys
+
+path = "/sbin:/usr/sbin:/bin:/usr/bin"
+
+xenstore_write_cmd = "xenstore-write"
+xenstore_read_cmd = "xenstore-read"
+
+# Set cgroup_slice to the name of the cgroup slice the qemu-dm process
+# should live in.
+#  - None means leave in the same slice as the parent process.
+#  - '' means move it into the default slice.
+#  - 'system.slice' means move it into the system slice, etc.
+# If the nominated slice does not already exist, the process will be
+# left in its parent's slice.
+cgroup_slice = ''
+
+def doexec(args):
+    """Execute a subprocess, then return its return code, stdout and stderr"""
+    proc = subprocess.Popen(["/usr/bin/env", "PATH=%s" % path] + args,
+                            stdin=None, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, close_fds=True)
+    rc = proc.wait()
+    stdout = proc.stdout
+    stderr = proc.stderr
+    return (rc, stdout, stderr)
+
+def xenstore_write(key, value):
+    doexec([xenstore_write_cmd, key, value])
+
+def xenstore_read(key):
+    (rc, stdout, stderr) = doexec([xenstore_read_cmd, key])
+    if rc != 0:
+        return None
+    return stdout.readline().strip()
+
+def enable_core_dumps():
+    from resource import getrlimit, RLIMIT_CORE, setrlimit
+
+    limit = 64 * 1024 * 1024
+    oldlimits = getrlimit(RLIMIT_CORE)
+    hardlimit = oldlimits[1]
+    if limit > hardlimit:
+        hardlimit = limit
+        setrlimit(RLIMIT_CORE, (limit, hardlimit))
+        return limit
+
+def main(argv):
+    qemu_env = os.environ
+    qemu_dm_list = ['/usr/lib/xen/bin/qemu-dm',
+                    '/usr/lib64/xen/bin/qemu-dm',
+                    '/usr/lib/xen-4.1/bin/qemu-dm',
+                    '/usr/lib/xen-4.2/bin/qemu-dm',
+                    '/usr/lib/xen-4.4/bin/qemu-dm']
+    qemu_dm = None
+    for loc in qemu_dm_list:
+        if os.path.exists(loc):
+            qemu_dm = loc
+    if qemu_dm is None:
+        raise Exception("Cannot find qemu-dm in %s" % qemu_dm_list)
+
+    domid = int(argv[1])
+    qemu_args = ['qemu-dm-%d'%domid] + argv[2:]
+
+    # Workaround http://unix.stackexchange.com/questions/39495/domain-ubuntu-hvm-does-not-exists-xen-ubuntu-hvm-guest-os-installation-pro
+    if os.path.exists("/usr/share/qemu-linaro/qemu"):
+        qemu_args = qemu_args + ["-L", "/usr/share/qemu-linaro/qemu"]
+
+    nic = xenstore_read("/local/domain/%d/platform/nic_type" % domid)
+    if nic:
+        qemu_args = map(lambda x: x.replace("model=rtl8139", "model=%s" % nic), qemu_args)
+
+    print "qemu-dm-wrapper in python:"
+    print "Using domid: %d" % domid
+    print "Starting: %s" % qemu_dm
+    print "Arguments: %s" % " ".join(qemu_args)
+    print "everything else is from qemu-dm:"
+
+    core_dump_limit = enable_core_dumps()
+    print "core dump limit: %d" % core_dump_limit
+
+    pid = os.getpid()
+    xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % pid)
+
+    if cgroup_slice is not None:
+        # Move to nominated cgroup slice
+        print "Moving to cgroup slice '%s'" % cgroup_slice
+        try:
+            # Note the default slice uses /sys/fs/cgroup/cpu/tasks but
+            # other.slice uses /sys/fs/cgroup/cpu/other.slice/tasks.
+            f = open("/sys/fs/cgroup/cpu/%s/tasks" % cgroup_slice, 'w')
+            f.write(str(pid))
+            f.close()
+        except IOError, e:
+            print "Warning: writing pid to '%s' tasks file: %s" \
+                % (cgroup_slice, e)
+
+    os.dup2(1, 2)
+    sys.stdout.flush()
+    os.execve(qemu_dm, qemu_args, qemu_env)
+
+if __name__ == '__main__':
+    raise SystemExit(main(sys.argv))

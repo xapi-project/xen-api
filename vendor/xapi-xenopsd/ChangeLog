@@ -1,0 +1,125 @@
+0.12.0 (09-Sep-2015):
+* Use `xl pci-plug` and `xl pci-unplug`
+* Write licensing information to Xenstore
+* Write guest agent xenstore keys in a transaction
+
+0.11.0 (14-Aug-2015):
+* Replace 'xcp' in alternatives path with 'xapi'
+* Use 'xl pci-attach' for PCI passthrough
+* Turn on TCP keepalives on migration sockets
+* libxl: update to serial_list (Xen 4.5)
+* Add support for configuring Windows update
+* Support for blkback with raw format block devices
+* Failing to add a vif to a bridge is a hard error
+* Improved VGPU support
+* Support SMAPIv3
+
+0.10.1 (7-Apr-2015):
+* update libvirt xenopsd to xapi-idl.0.10.0
+
+0.10.0 (4-Apr-2015):
+* update to cohttp.0.15.2
+* update following xcp-rrd renamed to rrd in ocamlfind
+* support read-caching
+* allow block backend-kind to be overridden by SM plugins
+* support IGD passthrough
+* add hooks for post-resume and post-migrate
+* support floppy disk images (useful for packer and cloudinit)
+* allow calling "VM plugins"
+* allow HVM linux VMs to use >4 disks
+
+0.9.46 (20-Nov-2014):
+* add some high-level documentation
+* xl: fix block device handling
+* xl: allow the storage backend to choose between Blkback and Qdisk
+* update to new Backtrace API
+* Fix parsing of VDI locations containing '/'
+* update following xentoollog change
+* fix "make install"
+* "make clean" nolonger deletes configure information
+* add an opam file
+
+0.9.44 (22-Sep-2014):
+* better libxl support
+* improved robustness should the event thread throw an exception
+* Improve logging around cancellation
+
+0.9.40 (22-Aug-2014):
+* add man pages and more regular command-line interface
+* read the kthread-pid from the right path: needed for VBD QoS
+* eliloader, pygrub, vncterm and hvmloader are now optional dependencies
+* improve the convert-legacy-stream logging
+
+0.9.39 (20-Aug-2014):
+* allow vCPU hotplug for HVM if feature-vcpu-hotplug is set
+* by default use the upstream qemu with libxl
+* fix the 'make install' target
+* safeguard against malicious suspend images
+
+0.9.37 (4-Jun-2014):
+* Lots of changes!
+* Update to Cohttp 0.11.2
+* Update to Stdext 0.11.0
+
+0.9.24 (10-Sep-2013):
+* update to xenstore 1.2.3
+
+0.9.22 (10-Sep-2013):
+* fix bug setting up VIFs on systems with python 2.4
+* fix bug where updates from the guest agent were lost
+* fix bug in suspend/resume/migrate on Windows with PV drivers
+* fix migrate when not using the message switch
+
+0.9.21 (15-Aug-2013):
+* will autodetect xenlight, libvirt devel packages and only build those
+backends if they are available
+
+0.9.20 (15-Aug-2013):
+* update to xen-api c/s f45d493e7ed9b5a60fed1db64ce52708c76465a6; see
+https://github.com/djs55/xenopsd/pull/35
+
+0.9.19 (14-Aug-2013):
+* disable by default the libvirt build
+
+0.9.18 (8-Aug-2013):
+* libxl: add support for .qcow2 format disks
+
+0.9.17 (5-Jul-2013):
+* libxl: fix hotplug and unplug
+
+0.9.16 (5-Jul-2013):
+* libxl: fix the network device enumeration for Linux guests
+
+0.9.15 (1-Jul-2013):
+* libxl: use a PV frontend in dom0 for pygrub
+
+0.9.14 (27-Jun-2013):
+* libxl: PV guests install and start normally
+* libxl: fixed deadlock in clean shutdown
+* libxl: suspend and resume work
+
+0.9.12 (26-Jun-2013):
+* libxl: emulated NICs are working
+
+0.9.9 (25-Jun-2013):
+* libxl: VM shutdown is more reliable
+* libxl: VM consoles work
+
+0.9.6 (23-Jun-2013):
+* Migration works again with classic backend
+
+0.9.5 (21-Jun-2013):
+* Experimental libxl backend
+
+0.9.4 (19-Jun-2013):
+* HVM CD eject and VM poweroff now work
+
+0.9.3 (17-Jun-2013):
+* xenopsd-xc will set domain 0's uuid on startup
+
+0.9.1 (3-Jun-2013):
+* -daemon true option works with libxc version
+
+0.9.0 (3-Jun-2013):
+* first public release
+

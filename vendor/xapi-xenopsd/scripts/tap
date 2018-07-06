@@ -1,0 +1,27 @@
+#!/bin/sh
+
+TYPE=`echo ${XENBUS_PATH} | cut -f 2 -d '/'`
+DOMID=`echo ${XENBUS_PATH} | cut -f 3 -d '/'`
+DEVID=`echo ${XENBUS_PATH} | cut -f 4 -d '/'`
+
+XAPI=/xapi/${DOMID}/hotplug/${TYPE}/${DEVID}
+
+syslog ()
+{
+	BLKTAP=daemon
+	logger -p$BLKTAP.info -tscripts-tap "$*"
+}
+
+case "$1" in
+add)
+	syslog "$XAPI: hotplug deferred to backend change"
+	;;
+change)
+	syslog "$XAPI: backend changed"
+	xenstore-write "${XAPI}/hotplug" "online"
+	;;
+remove)
+	syslog "$XAPI: backend removed"
+	xenstore-rm "${XAPI}/hotplug"
+	;;
+esac

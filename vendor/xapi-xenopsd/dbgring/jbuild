@@ -1,0 +1,20 @@
+(jbuild_version 1)
+
+(executable (
+  (name dbgring)
+  (libraries (
+    xapi-xenopsd
+    xenctrl
+    xenstore
+    xenstore.unix
+    xenstore_transport
+    xenstore_transport.unix
+    threads
+    stdext
+    xcp.xen
+    rpclib
+    uutf
+    xcp
+    rpclib.json
+  ))
+))
