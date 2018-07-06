@@ -1,0 +1,1 @@
+{"execute":"qom-list","arguments":{"path":"/machine/peripheral"}}

@@ -1,0 +1,20 @@
+language: c
+sudo: required
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script:
+  - cp qmp.opam opam
+  - bash -ex .travis-docker.sh
+env:
+  global:
+    - PINS="qmp:."
+    - PACKAGE="qmp"
+    - DISTRO="debian-unstable"
+  matrix:
+    - OCAML_VERSION=4.04.2 BASE_REMOTE=git://github.com/xapi-project/xs-opam
+    - OCAML_VERSION=4.04.2 EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+matrix:
+  fast_finish: true
+  allow_failures:
+    - env: OCAML_VERSION=4.04.2 EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+

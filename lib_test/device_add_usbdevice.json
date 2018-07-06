@@ -1,0 +1,1 @@
+{ "execute": "device_add", "arguments":{"driver":"usb-host","id":"usb1","bus":"ehci.0","hostbus":"2","hostport":"2"}}

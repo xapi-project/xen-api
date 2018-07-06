@@ -1,0 +1,1 @@
+{ "execute": "device_add", "arguments":{"driver":"qemu32-i386-cpu","id":"cpu-1-2-0","socket-id":1,"core-id":2,"thread-id":0}}

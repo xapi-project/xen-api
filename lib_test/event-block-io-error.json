@@ -1,0 +1,5 @@
+{ "event": "BLOCK_IO_ERROR",
+     "data": { "device": "ide0-hd1",
+               "operation": "write",
+               "action": "stop" },
+     "timestamp": { "seconds": 1265044230, "microseconds": 450480 } }

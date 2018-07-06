@@ -1,0 +1,1 @@
+{ "execute": "remove-fd", "arguments": { "fdset-id": 4 } }

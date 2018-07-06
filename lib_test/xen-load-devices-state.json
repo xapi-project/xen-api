@@ -1,0 +1,1 @@
+{ "execute": "xen-load-devices-state", "arguments": { "filename": "/tmp/qemu-resume" } }

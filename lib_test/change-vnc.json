@@ -1,0 +1,1 @@
+{ "execute": "change", "arguments": { "device": "vnc", "target": "password", "arg": "foobar1" } }
