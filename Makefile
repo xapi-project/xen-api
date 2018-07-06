@@ -1,0 +1,40 @@
+
+.PHONY: build clean test
+
+build:
+	jbuilder build @install
+
+test:
+	jbuilder runtest
+
+install:
+	jbuilder install
+
+uninstall:
+	jbuilder uninstall
+
+clean:
+	jbuilder clean
+
+.PHONY: vm-test
+vm-test:
+	echo "The VM test requires the linuxkit tool to be installed."
+	docker build -t stress -f Dockerfile.stress  .
+	linuxkit build stress.yml
+	echo "If the VM exits, then the test was successful. Otherwise the logs are in /var/log/stress*"
+	linuxkit run -disk `pwd`/stress.img,size=16M stress
+
+REPO=../../mirage/opam-repository
+PACKAGES=$(REPO)/packages
+# until we have https://github.com/ocaml/opam-publish/issues/38
+pkg-%:
+	topkg opam pkg -n $*
+	mkdir -p $(PACKAGES)/$*
+	cp -r _build/$*.* $(PACKAGES)/$*/
+	cd $(PACKAGES) && git add $*
+
+PKGS=$(basename $(wildcard *.opam))
+opam-pkg:
+	$(MAKE) $(PKGS:%=pkg-%)
+
+
