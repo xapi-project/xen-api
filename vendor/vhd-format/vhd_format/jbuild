@@ -1,0 +1,11 @@
+(library
+ ((name vhd_format)
+  (public_name vhd-format)
+  (libraries
+   (cstruct
+    io-page
+    rresult
+    uuidm))
+  (preprocess (pps (cstruct.ppx)))
+ )
+)

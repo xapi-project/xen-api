@@ -1,0 +1,15 @@
+(library
+ ((name vhd_format_lwt)
+  (public_name vhd-format-lwt)
+  (libraries
+   (cstruct
+    lwt
+    lwt.preemptive
+    lwt.unix
+    mirage-block
+    mirage-types-lwt
+    oUnit
+    vhd-format))
+  (c_names (blkgetsize64_stubs lseek64_stubs odirect_stubs))
+ )
+)

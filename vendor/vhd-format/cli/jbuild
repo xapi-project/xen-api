@@ -1,0 +1,6 @@
+(executable
+  ((name disk_to_ocaml)
+   (package vhd-format-lwt)
+   (libraries
+     (disk
+      lwt))))
