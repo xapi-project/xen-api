@@ -1,0 +1,7 @@
+(library
+  ((name mirage_profile_xen)
+   (public_name mirage-profile-xen)
+   (libraries (cstruct io-page lwt ocplib-endian ocplib-endian.bigstring))
+   (wrapped false)
+))
+
