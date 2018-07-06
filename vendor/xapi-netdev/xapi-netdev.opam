@@ -1,0 +1,16 @@
+opam-version: "1.2"
+name: "xapi-netdev"
+maintainer: "jonathan.ludlam@citrix.com"
+authors: "xen-api@lists.xen.org"
+license: "LGPL-2.1 with OCaml linking exception"
+homepage: "https://xapi-project.github.io/"
+bug-reports: "https://github.com/xapi-project/netdev/issues"
+dev-repo: "git://github.com/xapi-project/netdev.git"
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+available: [ os = "linux" ]
+depends: [
+  "jbuilder" {build}
+  "xapi-stdext-std"
+  "xapi-stdext-unix"
+  "forkexec"
+]
