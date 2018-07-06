@@ -1,0 +1,10 @@
+;; This library is used by tests in both ../base/test and Core_kernel.
+(library
+ ((name base_for_tests)
+  (public_name core_kernel.base_for_tests)
+  (flags (:standard -safe-string))
+  (libraries (base))
+  (preprocess (pps (ppx_base ppx_inline_test ppx_sexp_conv ppx_sexp_message ppxlib.runner)))))
+
+
+(jbuild_version 1)
