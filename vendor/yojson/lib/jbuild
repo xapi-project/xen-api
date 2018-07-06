@@ -1,0 +1,40 @@
+(jbuild_version 1)
+
+(ocamllex (read))
+
+(rule
+ ((targets (yojson.ml))
+  (deps
+   (yojson.cppo.ml
+    read.ml
+    write.ml
+    safe.ml
+    type.ml
+    pretty.ml
+    write2.ml
+    common.ml
+    util.ml
+    type.ml))
+  (action (run cppo -D "VERSION ${version:yojson}" ${<} -o ${@}))))
+
+(rule
+ ((targets (yojson.mli))
+  (deps
+   (yojson.cppo.mli
+    write.mli
+    read.mli
+    safe.mli
+    pretty.mli
+    write2.mli
+    common.mli
+    util.mli))
+  (action (run cppo ${<} -o ${@}))))
+
+(library
+ ((name yojson)
+  (public_name yojson)
+  (modules (yojson yojson_biniou))
+  (wrapped false)
+  (synopsis "JSON parsing and printing (successor of json-wheel)")
+  (flags (-safe-string))
+  (libraries (easy-format biniou))))

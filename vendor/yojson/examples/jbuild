@@ -1,0 +1,10 @@
+(jbuild_version 1)
+
+(executables
+ ((names (filtering))
+  (flags (-safe-string))
+  (libraries (yojson))))
+
+(alias
+ ((name DEFAULT)
+  (deps (filtering.exe))))
