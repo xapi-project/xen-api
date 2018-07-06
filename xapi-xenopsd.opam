@@ -1,0 +1,35 @@
+opam-version: "1.2"
+name: "xapi-xenopsd"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/xenopsd"
+dev-repo: "https://github.com/xapi-project/xenopsd.git"
+bug-reports: "https://github.com/xapi-project/xenopsd/issues"
+build: [
+  ["./configure"]
+  [ "jbuilder" "build" "-p" name "-j" jobs ]
+]
+build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+depends: [
+  "jbuilder" {build}
+  "cohttp"
+  "core"
+  "ezxenstore"
+  "fd-send-recv" {>= "2.0.0"}
+  "ounit" {test}
+  "qmp"
+  "re"
+  "rpc"
+  "sexplib"
+  "uri"
+  "uuidm"
+  "uutf"
+  "xapi-forkexecd"
+  "xapi-idl"
+  "xapi-inventory"
+  "xapi-stdext-unix"
+  "xenctrl"
+  "xenstore"
+  "xenstore_transport"
+  "xmlm"
+]

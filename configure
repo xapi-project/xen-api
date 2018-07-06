@@ -1,0 +1,12 @@
+#!/bin/bash
+
+D=$(mktemp -d /tmp/configure.XXXXX)
+function cleanup {
+  cd /
+  rm -rf $D
+}
+trap cleanup EXIT
+
+cp configure.ml $D
+(cd $D; ocamlfind ocamlopt -package "cmdliner,findlib,unix" -linkpkg configure.ml -o configure)
+$D/configure $*

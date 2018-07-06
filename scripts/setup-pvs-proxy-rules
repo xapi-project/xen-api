@@ -1,0 +1,204 @@
+#!/bin/bash
+
+if [[ $# -ne 5 ]]
+then
+    echo "Usage: $0 <action> <type> <interface> <private_xs_path> <hotplug_xs_path>" >&2
+    echo "where <action> is [add|remove|reset]"
+    echo "where <type> is [vif|tap]"
+    echo "where <interface> is the VIF's device name, e.g. vif2.1"
+    echo "where <private_xs_path> is the private xenstore path for the VIF"
+    echo "where <hotplug_xs_path> is the xenstore path for the VIF used by the udev script"
+    exit 1;
+fi
+
+ACTION=$1
+TYPE=$2
+PVS_VM_INTERFACE=$3
+PRIVATE_PATH=$4
+HOTPLUG_PATH=$5
+
+VSCTL=/usr/bin/ovs-vsctl
+OFCTL=/usr/bin/ovs-ofctl
+XSREAD=/usr/bin/xenstore-read
+XSWRITE=/usr/bin/xenstore-write
+XSRM=/usr/bin/xenstore-rm
+XSLIST=/usr/bin/xenstore-list
+
+LOG_TAG="setup-pvs-proxy-rules"
+
+handle_error()
+{
+    echo "$1" >&2
+    logger -t "$LOG_TAG" "$1"
+    exit 1
+}
+
+handle_xs_error()
+{
+    handle_error "Failed to read $1 from xenstore"
+}
+
+logger -t "$LOG_TAG" "Called as $0 $*"
+
+path="${PRIVATE_PATH}/vif-uuid"
+VIF=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$VIF" ]; then
+    handle_xs_error "$path"
+fi
+
+# Only continue if the proxy state is "started".
+# According to comments in CA-227626:
+#   The VIF UUID is maintained across the migration.
+#   Furthermore, a proxied VIF can be in only one PVS site at once.
+pvs_prefix="/xapi/pvs-proxy"
+started="false"
+for path in $($XSLIST -p "$pvs_prefix"); do
+    PVS_PROXY_STATE=$($XSREAD "$path/$VIF/state")
+    if [ $? -eq 0 ] && [ "$PVS_PROXY_STATE" = "started" ]; then
+        started="true"
+        break
+    fi
+done
+if [ "$started" = "false" ]; then
+    handle_error "PVS proxy daemon not configured for this proxy - not installing OVS rules."
+fi
+
+path="${PRIVATE_PATH}/pvs-interface"
+PVS_PROXY_INTERFACE=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_PROXY_INTERFACE" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/mac"
+PVS_VM_MAC=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_VM_MAC" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/pvs-server-num"
+PVS_SERVER_NUM=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$PVS_SERVER_NUM" ]; then
+    handle_xs_error "$path"
+fi
+
+path="${PRIVATE_PATH}/bridge"
+bridge=$($XSREAD "$path")
+if [ $? -ne 0 ] || [ -z "$bridge" ]; then
+    handle_xs_error "$path"
+fi
+PVS_BRIDGE=$($VSCTL br-to-parent "$bridge")
+
+PVS_RULE_PRIO=1000
+DIR_CLIENT_TO_SERVER=1
+DIR_PROXY_TO_CLIENT=2
+DIR_SERVER_TO_CLIENT=3
+
+PVS_PORT_TABLE=101
+PVS_ACTION_TABLE=102
+
+PVS_DIR_REG=reg0
+PVS_CLIENT_ID_REG_MSB=reg1
+PVS_CLIENT_ID_REG_LSB=reg2
+PVS_NXM_NX_DIR_REG=NXM_NX_REG0
+PVS_NXM_NX_CLIENT_ID_REG_MSB=NXM_NX_REG1
+PVS_NXM_NX_CLIENT_ID_REG_LSB=NXM_NX_REG2
+
+case $ACTION in
+    add)
+        PVS_PROXY_MAC=$($VSCTL get interface "$PVS_PROXY_INTERFACE" mac_in_use | tr -d '"')
+        PVS_PROXY_OFPORT=$($VSCTL get interface "$PVS_PROXY_INTERFACE" ofport)
+        PVS_VM_OFPORT=$($VSCTL get interface "$PVS_VM_INTERFACE" ofport)
+        PVS_IF_ID=$(cat /sys/class/net/"$PVS_VM_INTERFACE"/ifindex)
+        PVS_IF_ID_LSB=$((PVS_IF_ID&0xffff))
+        PVS_IF_ID_MSB=$((PVS_IF_ID>>32))
+
+        if [ $? -ne 0 ] || [ -z "$PVS_VM_OFPORT" ]; then
+            handle_error "The $PVS_VM_INTERFACE interface was not found on a bridge"
+        fi
+
+        logger -t "$LOG_TAG" "Adding rules to $PVS_BRIDGE for $PVS_PROXY_INTERFACE $PVS_PROXY_OFPORT/$PVS_PROXY_MAC and $PVS_VM_INTERFACE/$PVS_IF_ID $PVS_VM_OFPORT/$PVS_VM_MAC"
+
+        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=0,table=$((PVS_PORT_TABLE)),actions=NORMAL
+        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=0,table=$((PVS_ACTION_TABLE)),actions=NORMAL
+
+        for ((j=0; j<PVS_SERVER_NUM; j++)) do
+            path="${PRIVATE_PATH}/pvs-server-$j-addresses"
+            PVS_SERVER_IPS=$($XSREAD "$path")
+            if [ $? -ne 0 ] || [ -z "$PVS_SERVER_IPS" ]; then
+                handle_xs_error "$path"
+            fi
+
+            path="${PRIVATE_PATH}/pvs-server-$j-ports"
+            PVS_PORTS=$($XSREAD "$path")
+            if [ $? -ne 0 ] || [ -z "$PVS_PORTS" ]; then
+                handle_xs_error "$path"
+            fi
+            PVS_STARTPORT=$(echo "$PVS_PORTS" | cut -f1 -d-)
+            PVS_ENDPORT=$(echo "$PVS_PORTS" | cut -f2 -d-)
+
+            logger -t "$LOG_TAG" "PVS server $j: $PVS_SERVER_IPS ($PVS_STARTPORT-$PVS_ENDPORT)"
+
+            IFS=$','
+            for PVS_SERVER_IP in $PVS_SERVER_IPS; do
+                # Packets from proxied clients that have a PVS-server IP must
+                # be dropped. This is done separately for vif and tap interfaces
+                # by matching on the in_port.
+                $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,priority=$((PVS_RULE_PRIO)),in_port="$PVS_VM_OFPORT",ip,nw_src="$PVS_SERVER_IP",actions=drop
+
+                # The following rules are independent of the in_port, so we'll
+                # need just one copy per VIF. We'll only apply them if the
+                # script is called for a vif interface, not for a tap interface,
+                # because tap interfaces are not always present, while vifs are.
+                if [ "${TYPE}" = "vif" ]; then
+                    # Packets from client->server that need to be proxied.
+                    $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,priority=$((PVS_RULE_PRIO-1)),udp,dl_src="$PVS_VM_MAC",nw_dst="$PVS_SERVER_IP",actions=load:"$PVS_IF_ID_LSB"-\>"$PVS_NXM_NX_CLIENT_ID_REG_LSB"[],load:"$PVS_IF_ID_MSB"-\>"$PVS_NXM_NX_CLIENT_ID_REG_MSB"[],load:"$DIR_CLIENT_TO_SERVER"-\>"$PVS_NXM_NX_DIR_REG"[],resubmit\(,"$PVS_PORT_TABLE"\)
+                    # Packets from proxy->client.
+                    $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,priority=$((PVS_RULE_PRIO)),udp,dl_src="$PVS_PROXY_MAC",dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",actions=load:"$PVS_IF_ID_LSB"-\>"$PVS_NXM_NX_CLIENT_ID_REG_LSB"[],load:"$PVS_IF_ID_MSB"-\>"$PVS_NXM_NX_CLIENT_ID_REG_MSB"[],load:"$DIR_PROXY_TO_CLIENT"-\>"$PVS_NXM_NX_DIR_REG"[],resubmit\(,"$PVS_PORT_TABLE"\)
+                    # Packets from server->client that need to be proxied.
+                    $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,priority=$((PVS_RULE_PRIO-1)),udp,dl_dst="$PVS_VM_MAC",nw_src="$PVS_SERVER_IP",actions=load:"$PVS_IF_ID_LSB"-\>"$PVS_NXM_NX_CLIENT_ID_REG_LSB"[],load:"$PVS_IF_ID_MSB"-\>"$PVS_NXM_NX_CLIENT_ID_REG_MSB"[],load:"$DIR_SERVER_TO_CLIENT"-\>"$PVS_NXM_NX_DIR_REG"[],resubmit\(,"$PVS_PORT_TABLE"\)
+                fi
+            done
+            # The following rules are independent of the in_port, so we'll
+            # need just one copy per VIF. We'll only apply them if the
+            # script is called for a vif interface, not for a tap interface,
+            # because tap interfaces are not always present, while vifs are.
+            if [ "${TYPE}" = "vif" ]; then
+                for ((i=PVS_STARTPORT; i<=PVS_ENDPORT; i++)) do
+                    $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,table=$((PVS_PORT_TABLE)),priority=$((PVS_RULE_PRIO)),"$PVS_CLIENT_ID_REG_LSB"="$PVS_IF_ID_LSB","$PVS_CLIENT_ID_REG_MSB"="$PVS_IF_ID_MSB",udp,tp_dst="$i",actions=resubmit\(,"$PVS_ACTION_TABLE"\)
+                done
+                $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,table=$((PVS_ACTION_TABLE)),priority=$((PVS_RULE_PRIO-1)),"$PVS_CLIENT_ID_REG_LSB"="$PVS_IF_ID_LSB","$PVS_CLIENT_ID_REG_MSB"="$PVS_IF_ID_MSB","$PVS_DIR_REG"="$DIR_CLIENT_TO_SERVER",actions="$PVS_PROXY_OFPORT"
+                $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,table=$((PVS_ACTION_TABLE)),priority=$((PVS_RULE_PRIO)),"$PVS_CLIENT_ID_REG_LSB"="$PVS_IF_ID_LSB","$PVS_CLIENT_ID_REG_MSB"="$PVS_IF_ID_MSB","$PVS_DIR_REG"="$DIR_PROXY_TO_CLIENT",actions=NORMAL
+                $OFCTL --strict add-flow "$PVS_BRIDGE" cookie=$PVS_IF_ID,table=$((PVS_ACTION_TABLE)),priority=$((PVS_RULE_PRIO-1)),"$PVS_CLIENT_ID_REG_LSB"="$PVS_IF_ID_LSB","$PVS_CLIENT_ID_REG_MSB"="$PVS_IF_ID_MSB","$PVS_DIR_REG"="$DIR_SERVER_TO_CLIENT",actions="$PVS_PROXY_OFPORT"
+
+            fi
+            unset IFS
+        done
+        # Announce that on the OVS we have set up the rules for this VIF's pvs-proxy
+        $XSWRITE "${HOTPLUG_PATH}/pvs-rules-active" ''
+        ;;
+    remove)
+        path="${HOTPLUG_PATH}/$TYPE-ifindex"
+        PVS_IF_ID=$($XSREAD "$path")
+        if [ $? -ne 0 ] || [ -z "$PVS_IF_ID" ]; then
+            handle_error "The $PVS_VM_INTERFACE's ID[$PVS_IF_ID] not found"
+        fi
+
+        logger -t "$LOG_TAG" "Removing rules from $PVS_BRIDGE for $PVS_PROXY_INTERFACE $PVS_VM_INTERFACE/$PVS_IF_ID"
+
+        $OFCTL del-flows "$PVS_BRIDGE" cookie="$PVS_IF_ID"/-1
+        if [ "${TYPE}" = "vif" ]; then
+            # Again, don't do the following when a tap goes away, because
+            # vif may still be there.
+
+            # Announce that on the OVS we have removed the rules for this VIF's pvs-proxy.
+            $XSRM "${HOTPLUG_PATH}/pvs-rules-active"
+        fi
+        ;;
+    reset)
+        $OFCTL del-flows "$PVS_BRIDGE"
+        $OFCTL --strict add-flow "$PVS_BRIDGE" priority=0,actions=NORMAL
+        ;;
+    *)
+        handle_error "Unknown command '$1'"
+        ;;
+esac
