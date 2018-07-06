@@ -1,0 +1,20 @@
+opam-version: "1.2"
+version: "v0.11.0"
+maintainer: "opensource@janestreet.com"
+authors: ["Jane Street Group, LLC <opensource@janestreet.com>"]
+homepage: "https://github.com/janestreet/jane-street-headers"
+bug-reports: "https://github.com/janestreet/jane-street-headers/issues"
+dev-repo: "git+https://github.com/janestreet/jane-street-headers.git"
+license: "Apache-2.0"
+build: [
+  ["jbuilder" "build" "-p" name "-j" jobs]
+]
+depends: [
+  "jbuilder" {build & >= "1.0+beta18.1"}
+]
+available: [ ocaml-version >= "4.04.1" ]
+descr: "
+Jane Street C header files
+
+C header files shared between the various Jane Street packages
+"
