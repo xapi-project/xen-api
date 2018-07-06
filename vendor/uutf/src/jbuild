@@ -1,0 +1,5 @@
+(jbuild_version 1)
+(library
+  ((name uutf)
+   (public_name uutf)
+   (wrapped false)))
