@@ -1,0 +1,11 @@
+(jbuild_version 1)
+
+(ocamllex (lwt_log_rules))
+
+(library
+ ((name lwt_log_core)
+  (public_name lwt_log.core)
+  (synopsis "Logger for Lwt (deprecated; pure-OCaml core)")
+  (wrapped false)
+  (libraries (lwt))
+  (flags (:standard -w +A))))
