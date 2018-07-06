@@ -1,0 +1,11 @@
+(library
+ ((name ppx_optcomp)
+  (public_name ppx_optcomp)
+  (flags (:standard -safe-string))
+  (libraries (compiler-libs.common base ppxlib stdio))
+  (kind ppx_deriver)
+  (preprocess no_preprocessing)
+  ))
+
+
+(jbuild_version 1)
