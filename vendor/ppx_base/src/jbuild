@@ -1,0 +1,15 @@
+(library
+ ((name        ppx_base)
+  (public_name ppx_base)
+  (kind ppx_rewriter)
+  (flags (:standard -safe-string))
+  (libraries
+   (ppxlib
+    ppx_sexp_conv
+    ppx_compare
+    ppx_enumerate
+    ppx_hash
+    ppx_js_style))
+  (preprocess no_preprocessing)))
+
+(jbuild_version 1)
