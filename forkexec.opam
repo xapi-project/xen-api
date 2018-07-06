@@ -1,0 +1,21 @@
+opam-version: "1.2"
+maintainer: "xen-api@lists.xen.org"
+authors: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/"
+bug-reports: "https://github.com/xapi-project/forkexecd/issues"
+dev-repo: "git://github.com/xapi-project/forkexecd"
+tags: [ "org:xapi-project" ]
+
+build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+
+depends: [
+  "jbuilder" {build}
+  "base-threads"
+  "fd-send-recv"
+  "rpc" {>= "1.9.51"}
+  "uuidm"
+  "xapi-idl"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-unix"
+]
