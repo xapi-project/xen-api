@@ -1,0 +1,33 @@
+4.0.0 (15-Mar-2018):
+* Make safe-string safe (xap-stdext-{bigbuffer, encodings, std, threads, unix} 1.1.0)
+* Remove bigbuffer from the default stdext set of packages
+* Use backward compatible naming for stdext xapi-stdext
+
+3.0.0 (02-Aug-2017):
+* Remove unused packages
+* Refactor in a backward compatible wrapper and 12 new separate libraries (see https://github.com/xapi-project/stdext/pull/21)
+* Port to jbuilder
+
+2.1.0 (20-Oct-2016):
+* New Semaphore module
+
+2.0.0 (22-Jun-2016):
+* Namespace everything under Stdext. This is a backwards incompatible change.
+
+0.13.0 (20-Nov-2014):
+* Depend on Backtrace from xapi-backtrace
+* Add an opam file
+
+0.12.0 (26-Sep-2014):
+* Fix build errors on OS X
+
+0.11.0 (30-May-2013):
+* Change Stringext module to Xstringext to avoid conflict with other packages
+
+0.9.1 (10-Sep-2013):
+* Add Unixext.domain_of_addr
+* Add String.sub_{before,after}
+
+0.9.0 (3-Jun-2013):
+* first public release
+

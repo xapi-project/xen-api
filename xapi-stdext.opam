@@ -1,0 +1,9 @@
+opam-version: "1.2"
+maintainer: "jonathan.ludlam@citrix.com"
+authors: "xen-api@list.xen.org"
+bug-reports: "https://github.com/xapi-project/stdext/issues"
+dev-repo: "git://github.com/xapi-project/stdext.git"
+homepage: "https://xapi-project.github.io/"
+tags: [ "org:xapi-project" ]
+
+depends: [ "stdext" ]

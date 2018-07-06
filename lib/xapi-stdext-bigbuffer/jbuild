@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(library
+  ((name xapi_stdext_bigbuffer)
+   (public_name xapi-stdext-bigbuffer)
+   ))
