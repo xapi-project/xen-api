@@ -1,0 +1,11 @@
+(library (
+  (name typerep_lib)
+  (public_name typerep)
+  (preprocess no_preprocessing)
+  ;; This library shouldn't depend on anything beyond Base
+  (libraries (base))
+  (flags (:standard -safe-string))
+))
+
+
+(jbuild_version 1)
