@@ -1,0 +1,24 @@
+;; This test is designed to check that the ppx_here preprocessing is
+;; working correctly by generating the .pp file and properly setting
+;; [_here_.Lexing.pos_fname] in test.ml to include the quoted string
+;; of the original .ml path.
+
+(alias
+ ((name runtest)
+  (deps (dummy.ml.pp))
+  (action (bash "grep -q '\"ppx/ppx_here/test/dummy.mll\"' dummy.ml.pp"))))
+
+(alias
+ ((name DEFAULT)
+  (deps (dummy.ml.pp))))
+
+(executables
+ ((names (dummy))
+  (flags (:standard -safe-string))
+  (preprocess (pps (ppx_here ppxlib.runner)))))
+
+(ocamllex (dummy))
+
+
+
+(jbuild_version 1)

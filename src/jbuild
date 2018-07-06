@@ -1,0 +1,10 @@
+(library
+ ((name ppx_here)
+  (public_name ppx_here)
+  (kind ppx_rewriter)
+  (flags (:standard -safe-string))
+  (libraries (ppxlib ppx_here_expander))
+  (preprocess no_preprocessing)))
+
+
+(jbuild_version 1)
