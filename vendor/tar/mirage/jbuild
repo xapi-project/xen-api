@@ -1,0 +1,7 @@
+(library
+ ((name        tar_mirage)
+  (public_name tar-mirage)
+  (libraries   (tar io-page lwt mirage-types-lwt mirage-block mirage-block-lwt))
+  (flags (:standard -safe-string))
+  (wrapped     false)
+))

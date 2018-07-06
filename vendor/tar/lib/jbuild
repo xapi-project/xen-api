@@ -1,0 +1,8 @@
+(library
+ ((name        tar)
+  (public_name tar)
+  (wrapped false)
+  (libraries   (result cstruct re.str))
+  (flags (:standard -safe-string))
+  (preprocess (pps (cstruct.ppx)))
+))
