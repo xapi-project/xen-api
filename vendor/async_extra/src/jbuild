@@ -1,0 +1,13 @@
+(library
+ ((name async_extra)
+  (public_name async_extra)
+  (c_names (rpc_transport_low_latency_stubs))
+  (preprocess (pps (ppx_jane -check-doc-comments ppxlib.runner)))
+  (flags (:standard -safe-string))
+  (libraries (async_kernel
+              async_rpc_kernel
+              async_unix
+              core))))
+
+
+(jbuild_version 1)
