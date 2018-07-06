@@ -1,0 +1,8 @@
+(library (
+  (name        splittable_random)
+  (public_name splittable_random)
+  (libraries (base))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+(jbuild_version 1)

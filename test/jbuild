@@ -1,0 +1,6 @@
+(library (
+  (name splittable_random_test)
+  (libraries (base expect_test_helpers_kernel splittable_random))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+(jbuild_version 1)
