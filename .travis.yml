@@ -1,0 +1,12 @@
+language: c
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script:
+  - cp crc.opam opam && bash -ex .travis-opam.sh
+env:
+  global:
+    - PACKAGE=crc
+  matrix:
+    - OCAML_VERSION=4.02
+    - OCAML_VERSION=latest OPAMBUILDTEST=1 \
+      POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"

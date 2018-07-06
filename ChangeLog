@@ -1,0 +1,5 @@
+1.0.0 (14-Apr-2016)
+ * add mirage-xen support
+
+0.9.0 (12-Dec-2013)
+ * initial CRC-32 implementation which agrees with ZIP, python binascii etc.
