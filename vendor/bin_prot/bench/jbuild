@@ -1,0 +1,9 @@
+(library
+ ((name bin_prot_bench)
+(flags (:standard -safe-string))
+  (libraries
+   (core))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)

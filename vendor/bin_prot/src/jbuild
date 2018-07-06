@@ -1,0 +1,15 @@
+(library
+ ((name bin_prot)
+  (libraries (bigarray bin_shape_lib base.md5 base base.caml))
+  (flags (:standard -safe-string))
+  (public_name bin_prot)
+  (c_names (blit_stubs))
+  (preprocessor_deps (int_codes.mlh))
+  (preprocess (per_module
+               ((action (system "${CPP} -x assembler-with-cpp -undef ${<}")) (size write read type_class))
+               ((pps (ppx_sexp_conv -type-conv-keep-w32=both ppxlib.runner)) (common md5))
+               ))
+  (js_of_ocaml ((javascript_files (runtime.js))))))
+
+
+(jbuild_version 1)
