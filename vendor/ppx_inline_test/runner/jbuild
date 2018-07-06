@@ -1,0 +1,14 @@
+;; This module is linked by jenga at the very end of all the inline tests runners.  jenga
+;; assumes the existence of ppx_inline_test_runner.ml, and that it does not depend on
+;; other ml files.
+(library
+ ((name          ppx_inline_test_runner)
+  (public_name   ppx_inline_test.runner)
+ (flags (:standard -safe-string))
+  (libraries     (ppx_inline_test_lib ppx_inline_test_runner_lib))
+  (library_flags (-linkall))
+  (preprocess    no_preprocessing)))
+
+
+
+(jbuild_version 1)

@@ -1,0 +1,9 @@
+(library
+ ((name ppx_inline_test_lib)
+  (public_name ppx_inline_test.runtime-lib)
+  (flags (:standard -safe-string))
+  (libraries (base inline_test_config))
+  (preprocess no_preprocessing)))
+
+
+(jbuild_version 1)

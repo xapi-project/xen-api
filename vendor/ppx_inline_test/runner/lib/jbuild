@@ -1,0 +1,13 @@
+(library
+ ((name        ppx_inline_test_runner_lib)
+  (public_name ppx_inline_test.runner.lib)
+  (js_of_ocaml (
+    (flags (--no-sourcemap))
+    (javascript_files (runtime.js))))
+  (c_names (am_testing))
+  ;; This dependency is to make sure that Base is linked before this library
+  (flags (:standard -safe-string))
+  (libraries (base))
+  (preprocess no_preprocessing)))
+
+(jbuild_version 1)

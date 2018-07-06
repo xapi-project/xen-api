@@ -1,0 +1,9 @@
+(library
+ ((name ppx_inline_test_drop)
+  (public_name ppx_inline_test.drop)
+  (flags (:standard -safe-string))
+  (libraries (ppx_inline_test))
+  (preprocess no_preprocessing)))
+
+
+(jbuild_version 1)
