@@ -1,0 +1,9 @@
+(library
+ ((name field_setting_bench)
+  (flags (:standard -safe-string))
+  (libraries (fieldslib
+              compiler-libs.common))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)

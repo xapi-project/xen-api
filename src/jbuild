@@ -1,0 +1,11 @@
+(library
+ ((name ppx_fields_conv)
+  (public_name ppx_fields_conv)
+  (kind ppx_deriver)
+  (ppx_runtime_libraries (fieldslib))
+  (flags (:standard -safe-string))
+  (libraries (base ppxlib))
+  (preprocess (pps (ppxlib.metaquot ppxlib.runner)))))
+
+
+(jbuild_version 1)

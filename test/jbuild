@@ -1,0 +1,14 @@
+(library
+ ((name fieldslib_test)
+  (flags (:standard -safe-string))
+  (libraries (fieldslib))
+  (preprocess (pps (ppx_fields_conv ppx_inline_test ppxlib.runner)))))
+
+(rule
+ ((targets (example_from_doc.ml))
+  (deps (../README.md gen_test_from_doc.sh))
+  (action (bash "./gen_test_from_doc.sh ../README.md > ${@}"))))
+
+
+
+(jbuild_version 1)
