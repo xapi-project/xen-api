@@ -1,0 +1,19 @@
+(library
+ ((name        ipaddr)
+  (public_name ipaddr)
+  (modules (ipaddr macaddr))
+  (wrapped false)
+  (preprocess (pps (ppx_sexp_conv)))
+  (libraries (sexplib))))
+
+(library
+ ((name        ipaddr_unix)
+  (public_name ipaddr.unix)
+  (modules (ipaddr_unix))
+  (libraries (unix ipaddr))))
+
+(library
+ ((name        ipaddr_top)
+  (public_name ipaddr.top)
+  (modules (ipaddr_top))
+  (libraries (ipaddr compiler-libs.toplevel))))

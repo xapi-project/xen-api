@@ -1,0 +1,13 @@
+(executables
+ ((names (test_ipaddr test_macaddr))
+  (libraries (ipaddr oUnit))))
+
+(alias
+ ((name    runtest)
+  (deps    (test_macaddr.exe))
+  (action  (run ${<}))))
+
+(alias
+ ((name    runtest)
+  (deps    (test_ipaddr.exe))
+  (action  (run ${<}))))
