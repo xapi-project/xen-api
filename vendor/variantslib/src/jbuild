@@ -1,0 +1,10 @@
+(library
+ ((name variantslib)
+  (public_name variantslib)
+  (libraries (base))
+  (flags (:standard -safe-string))
+  (preprocess (pps ( ppxlib.runner)))
+))
+
+
+(jbuild_version 1)
