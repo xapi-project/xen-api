@@ -1,0 +1,6 @@
+B ../_build/default/src
+FLG -w -40
+PKG fmt
+PKG result
+PKG uchar
+S .
