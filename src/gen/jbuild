@@ -1,0 +1,11 @@
+(executables
+ ((names (gen_parser_automaton))
+  (flags (:standard -safe-string))
+  (libraries (base stdio gen_parsexp_lib))
+  (preprocess (pps (
+                      ppx_js_style -check-doc-comments
+                      ppx_sexp_conv
+                      ppx_compare ppxlib.runner)))))
+
+
+(jbuild_version 1)

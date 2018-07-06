@@ -1,0 +1,17 @@
+;; These tests are here rather than in sexplib/src to avoid adding a build dependency of
+;; sexplib on ppx_inline_test.
+(library
+ ((name parsexp_test)
+  (flags (:standard -safe-string))
+  (libraries (base
+              stdio
+              parsexp
+              gen_parsexp_lib
+              expect_test_helpers_kernel))
+  (preprocess (pps (ppx_jane ppxlib.runner)))
+))
+
+(ocamllex (lexer))
+
+
+(jbuild_version 1)
