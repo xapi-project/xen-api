@@ -1,0 +1,8 @@
+To add OASIS Xen "support", you need to:
+
+- Add the clump of code at the end of myocamlbuild.ml to your project's
+  myocamlbuild. This will not be overwritten when you regenerate the
+  myocamlbuild if you put it after the OASIS_STOP marker.
+
+- Run s/native/.m.o,native/g on _tags after you regenerate it to add the
+  Xen output_obj target to it.

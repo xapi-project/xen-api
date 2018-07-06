@@ -1,0 +1,9 @@
+(library
+ ((name xenstore)
+  (public_name xenstore)
+  (wrapped false)
+  (libraries (cstruct))
+  (preprocess (pps (cstruct.ppx)))
+  (flags (:standard -safe-string))
+))
+

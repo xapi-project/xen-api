@@ -1,0 +1,19 @@
+# OASIS_START
+# DO NOT EDIT (digest: 552a6362b00efe3d3b785d823d0efbd6)
+Logging
+Logging_interface
+Connection
+Call
+Trie
+Symbol
+Namespace
+Quota
+Quota_interface
+Perms
+Store
+Transaction
+Xs_server
+Junk
+Introduce
+Heap_debug_interface
+# OASIS_STOP

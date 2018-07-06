@@ -1,0 +1,9 @@
+(executables
+ ((names (xs_test))
+  (libraries (lwt lwt.unix xenstore oUnit))
+  (flags (:standard -safe-string))
+))
+(alias
+ ((name    runtest)
+  (deps    (xs_test.exe))
+  (action  (run ${<} ))))
