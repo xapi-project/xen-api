@@ -1,0 +1,9 @@
+(library
+ ((name        configurator)
+  (public_name configurator)
+  (flags (:standard -safe-string))
+  (libraries (base stdio unix))
+  (preprocess no_preprocessing)))
+
+
+(jbuild_version 1)
