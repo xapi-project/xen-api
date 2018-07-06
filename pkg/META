@@ -1,0 +1,19 @@
+description = "The transitory OCaml software packager"
+version = "%%VERSION_NUM%%"
+requires = "bytes result"
+archive(byte) = "topkg.cma"
+archive(native) = "topkg.cmxa"
+plugin(byte) = "topkg.cma"
+plugin(native) = "topkg.cmxs"
+
+package "care" (
+  directory = "../topkg-care"
+  description = "Topkg package care tools"
+  version = "%%VERSION_NUM%%"
+  requires = "topkg opam-format cmdliner bos.setup"
+  archive(byte) = "topkg_care.cma"
+  archive(native) = "topkg_care.cmxa"
+  plugin(byte) = "topkg_care.cma"
+  plugin(native) = "topkg_care.cmxs"
+  exists_if = "topkg_care.cma"
+)
