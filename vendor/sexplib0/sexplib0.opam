@@ -1,0 +1,23 @@
+opam-version: "1.2"
+version: "v0.11.0"
+maintainer: "opensource@janestreet.com"
+authors: ["Jane Street Group, LLC <opensource@janestreet.com>"]
+homepage: "https://github.com/janestreet/sexplib0"
+bug-reports: "https://github.com/janestreet/sexplib0/issues"
+dev-repo: "git+https://github.com/janestreet/sexplib0.git"
+license: "Apache-2.0"
+build: [
+  ["jbuilder" "build" "-p" name "-j" jobs]
+]
+depends: [
+  "jbuilder" {build & >= "1.0+beta18.1"}
+]
+available: [ ocaml-version >= "4.04.1" ]
+descr: "
+Library containing the definition of S-expressions and some base converters
+
+Part of Jane Street's Core library
+The Core suite of libraries is an industrial strength alternative to
+OCaml's standard library that was developed by Jane Street, the
+largest industrial user of OCaml.
+"
