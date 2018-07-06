@@ -1,0 +1,14 @@
+1.0.2 (03-Febr-2017):
+* fix Makfile to make installation via Opam work
+* add Git meta data files .gitarchive-info and .gitattributes
+
+1.0.1 (22-Jun-2016):
+* Update to Stdext 2.0.0
+
+0.9.1 (3-Jun-2014):
+* second public release
+* Update to cohttp-0.11.2 interface
+
+0.9.0 (5-Jun-2013):
+* first public release
+
