@@ -1,0 +1,6 @@
+(jbuild_version 1)
+(library
+  ((name jsonm)
+   (public_name jsonm)
+   (libraries (uutf))
+   (wrapped false)))
