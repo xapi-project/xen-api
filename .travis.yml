@@ -1,0 +1,11 @@
+language: c
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
+script: bash -ex .travis-opam.sh
+dist: trusty
+env:
+  global:
+  - PINS="mirage-fs.dev:. mirage-fs-lwt.dev:."
+  matrix:
+  - OCAML_VERSION=4.03 PACKAGE="mirage-fs-lwt"
+  - OCAML_VERSION=4.04 PACKAGE="mirage-fs-lwt"
+  - OCAML_VERSION=4.05 PACKAGE="mirage-fs-lwt"
