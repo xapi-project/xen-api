@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+  ((name xapi_stdext_date)
+   (public_name xapi-stdext-date)
+   (libraries (unix))
+   ))

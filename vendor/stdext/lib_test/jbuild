@@ -1,0 +1,11 @@
+(executable
+ ((name suite)
+  (libraries
+   (alcotest
+    xapi_stdext_encodings))
+  ))
+
+(alias
+ ((name   runtest)
+  (deps   (suite.exe))
+  (action (run ${<}))))

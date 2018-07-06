@@ -1,0 +1,20 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let coverage_rewriter ~full =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  match is_coverage, full with
+  | true, true -> "(preprocess (pps (bisect_ppx -conditional)))"
+  | true, _    -> "bisect_ppx -conditional"
+  | _ -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(library
+ ((name xapi_stdext_encodings)
+  (public_name xapi-stdext-encodings)
+  %s
+ )
+)
+|} (coverage_rewriter ~full:true)

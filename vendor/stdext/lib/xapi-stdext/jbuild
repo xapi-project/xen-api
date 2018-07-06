@@ -1,0 +1,20 @@
+(jbuild_version 1)
+
+(library
+  ((public_name stdext)
+   (name stdext)
+   (modules (stdext))
+   (wrapped false)
+   (libraries (xapi-stdext-base64
+               xapi-stdext-date
+               xapi-stdext-deprecated
+               xapi-stdext-encodings
+               xapi-stdext-monadic
+               xapi-stdext-pervasives
+               xapi-stdext-range
+               xapi-stdext-std
+               xapi-stdext-threads
+               xapi-stdext-unix
+               xapi-stdext-zerocheck))
+   ))
+
