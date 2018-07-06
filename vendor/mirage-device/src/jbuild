@@ -1,0 +1,5 @@
+(library
+ ((name        mirage_device)
+  (public_name mirage-device)
+  (libraries   (fmt))
+))
