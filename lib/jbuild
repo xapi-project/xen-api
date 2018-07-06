@@ -1,0 +1,84 @@
+(* -*- tuareg -*- *)
+#require "unix"
+
+let flags = function
+  | [] -> ""
+  | pkgs ->
+    let cmd = "ocamlfind ocamlc -verbose" ^ (
+        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
+      ) in
+    let ic = Unix.open_process_in
+        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
+    in
+    let rec go ic acc =
+      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
+    in
+    go ic ""
+
+let coverage_rewriter =
+  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  if is_coverage then
+    "(preprocess (pps (bisect_ppx -conditional)))"
+  else
+    ""
+
+let runtime_coverage_enabled, coverage_dep =
+  let use_bisect_runtime = match Unix.getenv "BISECT_RUNTIME" with
+    | "YES" -> true
+    | _ -> false
+    | exception Not_found -> false in
+  if use_bisect_runtime then
+    "enabled.ml", "bisect_ppx.runtime"
+  else
+    "disabled.ml", ""
+
+let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
+let flags = flags rewriters
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
+(rule
+  ((targets (xcp_coverage.ml))
+   (action (copy coverage/%s ${@}))))
+
+(library
+ ((name xcp)
+  (public_name xcp)
+  (flags (:standard -w -39 %s -warn-error -3))
+  (modules (:standard \ scheduler task_server updates))
+  (c_names (syslog_stubs))
+  (libraries
+   (%s
+    cmdliner
+    cohttp
+    fd-send-recv
+    message-switch-core
+    message-switch-unix
+    ppx_deriving_rpc
+    ppx_sexp_conv
+    re
+    rpclib
+    rpclib.xml
+    sexplib
+    threads
+    unix
+    uri
+    xapi-backtrace
+    xapi-stdext-monadic
+    xapi-stdext-pervasives
+    xapi-stdext-threads
+    xcp-inventory
+    xmlm))
+  (wrapped false)
+  %s))
+
+(library
+ ((name xcp_updates)
+  (public_name xcp.updates)
+  (flags (:standard -w -39 %s))
+  (modules (updates task_server scheduler))
+  (libraries (xcp))
+  (wrapped false)
+  %s))
+|} runtime_coverage_enabled flags coverage_dep coverage_rewriter flags coverage_rewriter

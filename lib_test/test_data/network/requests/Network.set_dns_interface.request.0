@@ -1,0 +1,1 @@
+{"method":"Network.set_dns_interface","params":[{"name":"name"},"string"],"id":106}

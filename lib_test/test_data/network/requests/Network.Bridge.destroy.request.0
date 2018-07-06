@@ -1,0 +1,1 @@
+{"method":"Network.Bridge.destroy","params":[{"name":"name","force":true},"string"],"id":55}

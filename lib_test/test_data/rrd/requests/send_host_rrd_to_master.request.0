@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>send_host_rrd_to_master</methodName><params><param><value><struct><member><name>master_address</name><value>127.0.0.2</value></member></struct></value></param></params></methodCall>

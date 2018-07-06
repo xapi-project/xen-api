@@ -1,0 +1,1 @@
+{"method":"Network.Interface.get_dns","params":[{"name":"name"},"string"],"id":94}

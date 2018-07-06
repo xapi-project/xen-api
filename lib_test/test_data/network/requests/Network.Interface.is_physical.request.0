@@ -1,0 +1,1 @@
+{"method":"Network.Interface.is_physical","params":[{"name":"name"},"string"],"id":90}
