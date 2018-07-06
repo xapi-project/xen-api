@@ -1,0 +1,5 @@
+(jbuild_version 1)
+(library
+  ((name duration)
+   (public_name duration)
+   (wrapped false)))
