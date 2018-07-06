@@ -1,0 +1,8 @@
+(library
+ ((name sexplib0)
+  (public_name sexplib0)
+  (flags (:standard -safe-string))
+  (preprocess no_preprocessing)
+))
+
+(jbuild_version 1)
