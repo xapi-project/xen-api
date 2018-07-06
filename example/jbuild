@@ -1,0 +1,8 @@
+(library
+ ((name ppx_inline_test_example_lib)
+  (flags (:standard -safe-string))
+  (libraries (core))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+
+(jbuild_version 1)
