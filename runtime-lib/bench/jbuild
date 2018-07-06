@@ -1,0 +1,10 @@
+(library
+ ((name ppx_hash_lib_bench)
+  (flags (:standard -safe-string))
+  (libraries (core_kernel ppx_hash_lib ppx_hash_runtime_test))
+  (preprocess (pps (ppx_jane ppxlib.runner)))))
+
+(alias ((name DEFAULT) (deps (bench.ml.pp))))
+
+
+(jbuild_version 1)
