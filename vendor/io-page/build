@@ -1,0 +1,28 @@
+#!/bin/sh
+
+OS=${OS:-unix}
+
+case $OS in
+unix)
+  DONT_BUILD=xen
+  ;;
+xen)
+  DONT_BUILD=unix
+  ;;
+*)
+  echo unknown os $OS
+  exit 1
+esac
+
+rm -rf _build
+ocaml setup.ml -configure --enable-${OS} --disable-${DONT_BUILD}
+ocaml setup.ml -build 
+
+if [ "$1" = "true" ]; then
+  ocamlfind remove io-page-${OS} || true
+  ocaml setup.ml -install --enable-${OS} --disable-${DONT_BUILD}
+elif [ "$1" = "test" ]; then
+  ocaml setup.ml -configure --enable-unix --enable-tests
+  ocaml setup.ml -build
+  ocaml setup.ml -test
+fi
