@@ -1,0 +1,9 @@
+(executables
+ ((names (gen))
+  (flags (:standard -safe-string))
+  (libraries (str compiler-libs.common compiler-libs.toplevel))
+  (link_executables false)
+  (preprocess no_preprocessing)))
+
+
+(jbuild_version 1)
