@@ -88,6 +88,18 @@ let test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi () =
     Api_errors.(Server_error (vdi_incompatible_type, [Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata]))
     (fun () -> Xapi_vdi.set_metadata_of_pool ~__context ~self ~value:pool)
 
+(** Much of the logic in the CBT toolstack code relies on the invariant that we
+    cannot have a VBD for a cbt_metadata VDI - if we have a VBD, that must
+    connect to a VDI which has actual data *)
+let test_vbd_create () =
+  let __context = Test_common.make_test_database () in
+  let vDI = Test_common.make_vdi ~__context ~_type:`cbt_metadata () in
+  let vM = Test_common.make_vm ~__context () in
+  Alcotest.check_raises
+    "VBD.create should throw VDI_INCOMPATIBLE_TYPE for a cbt_metadata VDI"
+    Api_errors.(Server_error (vdi_incompatible_type, [Ref.string_of vDI; Record_util.vdi_type_to_string `cbt_metadata]))
+    (fun () -> Xapi_vbd.create ~__context ~vM ~vDI ~userdevice:"autodetect" ~bootable:true ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] |> ignore)
+
 let test_get_nbd_info =
   let assert_same_infos =
     Alcotest.check (Alcotest_comparators.vdi_nbd_server_info_set) "same vdi_nbd_server_info set"
@@ -485,6 +497,7 @@ let test_vdi_list_changed_blocks () =
 let test =
   [ "test_cbt_enable_disable", `Quick, test_cbt_enable_disable
   ; "test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi", `Quick, test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi
+  ; "test_vbd_create", `Quick, test_vbd_create
   ; "test_allowed_operations_updated_when_necessary", `Quick, test_allowed_operations_updated_when_necessary
   ; "test_vdi_list_changed_blocks", `Quick, test_vdi_list_changed_blocks ]
   @ test_get_nbd_info
