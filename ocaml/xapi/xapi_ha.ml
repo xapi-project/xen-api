@@ -1577,19 +1577,19 @@ let before_clean_shutdown_or_reboot ~__context ~host =
           info "Still waiting to reboot after %.2f seconds" (Unix.gettimeofday () -. start)
         done
     end;
+  end;
 
-    (* We must do this before attempting to detach the VDI holding the redo log,
-       otherwise we would either get an error later or hang.
+  (* We must do this before attempting to detach the VDI holding the redo log,
+     otherwise we would either get an error later or hang.
 
-       Note that Xha_metadata_vdi is a VDI with reason = ha_metadata_vdi_reason and type=`redo_log:
-       type=`metadata is for DR *)
-    debug "About to close active redo logs";
-    Redo_log.with_active_redo_logs (Redo_log.shutdown);
+     Note that Xha_metadata_vdi is a VDI with reason = ha_metadata_vdi_reason and type=`redo_log:
+     type=`metadata is for DR *)
+  debug "About to close active redo logs";
+  Redo_log.with_active_redo_logs (Redo_log.shutdown);
 
-    (* We cannot call ha_release_resources because we want to keep HA armed on reboot *)
-    debug "About to detach static VDIs";
+  (* We cannot call ha_release_resources because we want to keep HA armed on reboot *)
+  debug "About to detach static VDIs";
 
-    List.iter (Static_vdis.detach_only) (Static_vdis.list ());
+  List.iter (Static_vdis.detach_only) (Static_vdis.list ());
 
-    debug "Detached static VDIs"
-  end
+  debug "Detached static VDIs"
