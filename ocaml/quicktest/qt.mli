@@ -63,9 +63,13 @@ module VDI : sig
       VDI.create is supported, otherwise it will pass an existing one to the
       function. *)
 
+  val with_attached : rpc -> API.ref_session -> API.ref_VDI -> [`RO|`RW] -> (string -> 'a) -> 'a
   (** Attaches the VDI to dom0 and passes the block device path to the given
       function *)
-  val with_attached : rpc -> API.ref_session -> API.ref_VDI -> [`RO|`RW] -> (string -> 'a) -> 'a
+
+  val with_open : rpc -> API.ref_session -> API.ref_VDI -> [`RO|`RW] -> (Unix.file_descr -> 'a) -> 'a
+  (** Attaches the VDI to dom0, opens the block device, and passes the file
+      descriptor to the given function *)
 
   val check_fields : ([`Same | `Different] * string * (API.vDI_t -> string)) list -> API.vDI_t -> API.vDI_t -> unit
   (** Verify that the fields of the two VDIs changed as expected *)

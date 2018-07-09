@@ -1,21 +1,5 @@
 
 (* ---------------- *
-    Helper functions
- * ---------------- *)
-
-let with_open_vdi rpc session_id vdi mode f =
-  Qt.VDI.with_attached rpc session_id vdi mode
-    (fun path ->
-       let mode' = match mode with
-         | `RO -> [ Unix.O_RDONLY ]
-         | `RW -> [ Unix.O_RDWR ] in
-       let fd = Unix.openfile path mode' 0 in
-       Xapi_stdext_pervasives.Pervasiveext.finally
-         (fun () -> f fd)
-         (fun () -> Unix.close fd)
-    )
-
-(* ---------------- *
    Integrity tests
  * ---------------- *)
 
@@ -31,7 +15,7 @@ let random_bytes length =
 
 let write_random_data rpc session_id vdi =
   let size = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
-  with_open_vdi rpc session_id vdi `RW
+  Qt.VDI.with_open rpc session_id vdi `RW
     (fun fd ->
 
        let max_writes = 100 in
@@ -65,7 +49,7 @@ let fill rpc session_id vdi =
     Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi
     |> Int64.to_int
   in
-  with_open_vdi rpc session_id vdi `RW
+  Qt.VDI.with_open rpc session_id vdi `RW
     (fun fd ->
        let buf = random_bytes size in
        Unix.write fd buf 0 size
