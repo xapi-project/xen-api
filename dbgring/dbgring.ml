@@ -36,33 +36,33 @@ let open_ring domid mfn =
 
 let hexify s =
   let hexseq_of_char c = Printf.sprintf "%02x" (Char.code c) in
-  let hs = String.create (String.length s * 2) in
-  for i = 0 to String.length s - 1
+  let hs = Bytes.create (String.length s * 2) in
+  for i = 0 to Bytes.length s - 1
   do
     let seq = hexseq_of_char s.[i] in
-    hs.[i * 2] <- seq.[0];
-    hs.[i * 2 + 1] <- seq.[1];
+    Bytes.set hs (i * 2) seq.[0];
+    Bytes.set hs (i * 2 + 1)  seq.[1];
   done;
-  hs
+  Bytes.to_string hs
 
 let ring_size = 1024
 
 let alpha ~req_cons ~req_prod ~rsp_cons ~rsp_prod s =
-  let s = String.copy s in
-  for i = 0 to String.length s - 1
+  let s = Bytes.of_string s in
+  for i = 0 to Bytes.length s - 1
   do
     if (i < 2*ring_size && i >= req_cons && i <= req_prod) ||
        (i < 4*ring_size && i >= rsp_cons && i <= rsp_prod)
-    then s.[i] <- '$'
-    else if (s.[i] >= 'a' && s.[i] <= 'z') ||
-            (s.[i] >= 'A' && s.[i] <= 'Z') ||
-            (s.[i] >= '0' && s.[i] <= '9') ||
-            s.[i] = '/' || s.[i] = '-' || s.[i] = '@' then
+    then Bytes.set s i '$'
+    else if (Bytes.get s i >= 'a' && Bytes.get s i <= 'z') ||
+            (Bytes.get s i >= 'A' && Bytes.get s i <= 'Z') ||
+            (Bytes.get s i >= '0' && Bytes.get s i <= '9') ||
+            Bytes.get s i = '/' || Bytes.get s i = '-' || Bytes.get s i = '@' then
       ()
     else
-      s.[i] <- '+'
+      Bytes.set s i '+'
   done;
-  s
+  Bytes.to_string s
 
 let int_from_page ss n =
   let b1 = String.sub ss n 2 in
