@@ -1,0 +1,14 @@
+_build/
+.merlin
+*.install
+myocaml
+unixpwd
+passwd
+shadow
+passwd.*
+shadow.*
+*.o
+*.a
+*.cmi
+*.cmo
+*.[ch]~

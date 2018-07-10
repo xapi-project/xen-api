@@ -16,7 +16,6 @@ depends: [
   "message-switch-unix"
   "mtime"
   "nbd"
-  "opasswd"
   "ounit"
   "rpc"
   "sha"
