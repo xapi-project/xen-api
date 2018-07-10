@@ -150,8 +150,13 @@ module VDI = struct
     if List.mem `vdi_create sr_info.allowed_operations then begin
       with_new rpc session_id sr_info.sr f
     end else begin
-      let self = Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr_info.sr |> List.hd in
-      f self
+      let vdis =
+        Client.Client.SR.get_VDIs ~rpc ~session_id ~self:sr_info.sr
+        |> List.filter (fun vdi -> not (Client.Client.VDI.get_missing rpc session_id vdi))
+      in
+      match vdis with
+      | self::_ -> f self
+      | _ -> failwith "No non-missing VDIs to use"
     end
 
   let with_attached rpc session_id vdi mode f =
