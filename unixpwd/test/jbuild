@@ -2,7 +2,5 @@
 
 (executable
  ((name main)
-  (public_name main)
-  (package unixpwd)
   (libraries
    (unixpwd_stubs unixpwd))))
