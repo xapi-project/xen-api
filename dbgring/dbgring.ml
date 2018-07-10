@@ -37,7 +37,7 @@ let open_ring domid mfn =
 let hexify s =
   let hexseq_of_char c = Printf.sprintf "%02x" (Char.code c) in
   let hs = Bytes.create (String.length s * 2) in
-  for i = 0 to Bytes.length s - 1
+  for i = 0 to String.length s - 1
   do
     let seq = hexseq_of_char s.[i] in
     Bytes.set hs (i * 2) seq.[0];
