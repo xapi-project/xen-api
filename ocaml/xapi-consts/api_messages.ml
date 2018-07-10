@@ -134,6 +134,7 @@ let pool_cpu_features_down = addMessage "POOL_CPU_FEATURES_DOWN" 5L
 let pool_cpu_features_up = addMessage "POOL_CPU_FEATURES_UP" 5L
 
 (* Cluster messages *)
-let cluster_host_creation_failed = addMessage "CLUSTER_HOST_CREATION_FAILED" 3L
 let cluster_host_enable_failed = addMessage "CLUSTER_HOST_ENABLE_FAILED" 3L
+
+(* raised by external script in clustering daemon, do not delete this: it is not dead code *)
 let cluster_host_fencing = addMessage "CLUSTER_HOST_FENCING" 2L
