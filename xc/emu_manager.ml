@@ -201,13 +201,15 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
 
 let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
   let t = connect path domid args fds in
+  let send_abort cnx = send cnx "abort\n" in
   let cancelled = ref false in
   let cancel_cb () =
     let _, _, _, _, pid = t in
     let pid = Forkhelpers.getpid pid in
     cancelled := true;
-    info "Cancelling task %s by killing emu-manager subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
-    try Unix.kill pid Sys.sigkill with _ -> () in
+    info "Cancelling task %s; sending 'abort' to emu-manager pid: %d"
+      (Xenops_task.id_of_handle task) pid;
+    send_abort t in
   finally
     (fun () ->
        Xenops_task.with_cancel task cancel_cb
