@@ -3,5 +3,6 @@
 (executable
  ((name main)
   (public_name main)
+  (package unixpwd)
   (libraries
-   (unixpwd.stubs unixpwd))))
+   (unixpwd_stubs unixpwd))))
