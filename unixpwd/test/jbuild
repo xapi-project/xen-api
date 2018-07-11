@@ -2,6 +2,5 @@
 
 (executable
  ((name main)
-  (public_name main)
   (libraries
-   (unixpwd.stubs unixpwd))))
+   (unixpwd_stubs unixpwd))))
