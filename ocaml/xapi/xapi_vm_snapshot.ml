@@ -433,6 +433,8 @@ let do_not_copy = [
   "consoles"; "VBDs"; "VIFs"; "VGPUs"; "VUSBs";
   (* Stateful fields that will be reset anyway *)
   "power_state";
+  (* Attached PCIs should not revert from snapshot *)
+  "attached_PCIs";
 ]
 
 let overrides = [
