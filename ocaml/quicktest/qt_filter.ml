@@ -152,7 +152,9 @@ module SR = struct
   let with_any_vdi =
     sr_filter (fun sr_info ->
         (List.mem `vdi_create sr_info.Qt.allowed_operations && List.mem `vdi_destroy sr_info.Qt.allowed_operations) ||
-        (not (is_empty (Client.Client.SR.get_VDIs ~rpc:!A.rpc ~session_id:!session_id ~self:sr_info.Qt.sr)))
+        (not (is_empty (
+          Client.Client.SR.get_VDIs ~rpc:!A.rpc ~session_id:!session_id ~self:sr_info.Qt.sr |>
+          List.filter (fun vdi -> not (Client.Client.VDI.get_missing ~rpc:!A.rpc ~session_id:!session_id ~self:vdi)))))
       )
 
   let can_unplug =
