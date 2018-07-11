@@ -162,7 +162,18 @@ let restart_nolock () =
   let pid = try Unixext.pidfile_read !Xapi_globs.udhcpd_pidfile with _ -> None in
   Opt.iter Unixext.kill_and_wait pid;
   let (_: string * string) = execute_command_get_output !Xapi_globs.busybox [ "udhcpd"; !Xapi_globs.udhcpd_conf ] in
-  ()
+  let start = Mtime_clock.counter () in
+  let rec wait_for_pid n =
+    let now = Mtime_clock.count start in
+    if Mtime.Span.to_s now > 30.0 then failwith "Failed to start udhcpd";
+    let pid = try Unixext.pidfile_read !Xapi_globs.udhcpd_pidfile with _ -> None in
+    match pid with
+    | Some _ -> ()
+    | None ->
+      if n>0 && n mod 10 = 0 then debug "Continuing to wait for the pidfile from udhcpd";
+      Thread.delay 0.1;
+      wait_for_pid (n+1)
+  in wait_for_pid 0
 
 let find_lease_nolock vif =
   try Some (List.find (fun l -> l.vif = vif) !assigned)
