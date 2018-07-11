@@ -1904,6 +1904,9 @@ module VM = struct
   let get_state vm =
     let uuid = uuid_of_vm vm in
     let vme = vm.Vm.id |> DB.read in (* may not exist *)
+
+    let map_tr f l = List.rev_map f l |> List.rev in
+
     with_xc_and_xs
       (fun xc xs ->
          match di_of_uuid ~xc ~xs uuid with
@@ -1945,15 +1948,16 @@ module VM = struct
            let rtc = try xs.Xs.read (Printf.sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string uuid)) with Xs_protocol.Enoent _ -> "" in
            let rec ls_lR root dir =
              let this = try [ dir, xs.Xs.read (root ^ "/" ^ dir) ] with _ -> [] in
-             let subdirs = try xs.Xs.directory (root ^ "/" ^ dir) |> List.filter (fun x -> x <> "") |> List.map (fun x -> dir ^ "/" ^ x) with _ -> [] in
-             this @ (List.concat (List.map (ls_lR root) subdirs)) in
+             let subdirs = try xs.Xs.directory (root ^ "/" ^ dir) |> List.filter (fun x -> x <> "") |> map_tr (fun x -> dir ^ "/" ^ x) with _ -> [] in
+             this @ (List.concat (map_tr (ls_lR root) subdirs)) in
            let guest_agent =
              [ "drivers"; "attr"; "data"; "control"; "feature"; "xenserver/attr" ]
-             |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
+             |> map_tr (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
              |> List.concat
-             |> List.map (fun (k,v) -> (k,Xenops_utils.utf8_recode v)) in
+             |> map_tr (fun (k,v) -> (k,Xenops_utils.utf8_recode v))
+           in
            let xsdata_state =
-             Domain.allowed_xsdata_prefixes |> List.map (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
+             Domain.allowed_xsdata_prefixes |> map_tr (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)) |> List.concat in
            let shadow_multiplier_target =
              if not di.Xenctrl.hvm_guest
              then 1.
