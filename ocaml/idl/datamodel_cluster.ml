@@ -63,7 +63,7 @@ let create = call
 
        ] @timeout_params)
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ invalid_cluster_stack
                       ; invalid_value
                       ; pif_allows_unplug
@@ -78,7 +78,7 @@ let destroy = call
       [ Ref _cluster, "self", "the Cluster to destroy"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ cluster_does_not_have_one_node
                       ; cluster_stack_in_use
                       ])
@@ -115,7 +115,7 @@ let pool_create = call
 
        ] @ timeout_params)
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ()
 
 let pool_force_destroy = call
@@ -125,7 +125,7 @@ let pool_force_destroy = call
       [ Ref _cluster, "self", "The cluster to force destroy."
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ cluster_force_destroy_failed
                       ])
     ()
@@ -137,7 +137,7 @@ let pool_destroy = call
       [ Ref _cluster, "self", "The cluster to destroy."
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ cluster_stack_in_use
                       ; clustering_disabled
                       ; cluster_host_is_last
@@ -149,7 +149,7 @@ let pool_resync = call
     ~doc:"Resynchronise the cluster_host objects across the pool. Creates them where they need creating and then plugs them"
     ~params:[ Ref _cluster, "self", "The cluster to resync"]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([])
     ()
 
@@ -164,7 +164,7 @@ let t =
     ~lifecycle
     ~persist:PersistEverything
     ~in_oss_since:None
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~messages_default_allowed_roles:_R_POOL_OP
     ~contents:(
       [ uid     _cluster ~lifecycle
 

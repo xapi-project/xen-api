@@ -23,7 +23,7 @@ let create = call
       ; Ref _pif,     "pif",     "Network interface to use for communication"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ pif_not_attached_to_host
                       ; no_cluster_hosts_reachable
                       ])
@@ -36,7 +36,7 @@ let destroy = call
       [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ cluster_stack_in_use
                       ; clustering_disabled
                       ; cluster_host_is_last
@@ -50,7 +50,7 @@ let force_destroy = call
       [ Ref _cluster_host, "self", "the cluster_host to remove from the cluster"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ cluster_stack_in_use
                       ])
     ()
@@ -62,7 +62,7 @@ let enable = call
       [ Ref _cluster_host, "self", "the cluster_host to enable"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ pif_allows_unplug
                       ; required_pif_is_unplugged
                       ])
@@ -75,7 +75,7 @@ let disable = call
       [ Ref _cluster_host, "self", "the cluster_host to disable"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_POOL_OP
     ~errs:Api_errors.([ cluster_stack_in_use
                       ])
     ()
@@ -102,7 +102,7 @@ let t =
     ~lifecycle
     ~persist:PersistEverything
     ~in_oss_since:None
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~messages_default_allowed_roles:_R_POOL_OP
     ~contents:(
       [ uid     _cluster_host ~lifecycle
 
