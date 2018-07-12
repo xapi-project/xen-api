@@ -196,11 +196,15 @@ end = struct
 
   let sr_create device_config =
     compat_uri device_config >>>= fun compat_in ->
-    let compat_out rpc =
-      (* The PVS version will return nothing *)
-      if rpc = R.Null then
-        Rpcmarshal.marshal Xapi_storage.Control.typ_of_configuration device_config
-      else rpc
+    let compat_out =
+      if !V.version = Some pvs_version then begin
+        fun rpc ->
+          (* The PVS version will return nothing *)
+          if rpc = R.Null then
+            Rpcmarshal.marshal Xapi_storage.Control.typ_of_configuration device_config
+          else rpc
+      end
+      else id
     in
     return (Ok (device_config, compat_in, compat_out))
 
