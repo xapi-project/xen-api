@@ -135,13 +135,13 @@ module Compat(V : sig val version : string option ref end) : sig
       volumes in the output match the new volume record type and are
       successfully parsed by rpclib. *)
 
-  val compat_uri : device_config -> (compat_in, Storage_interface.Exception.exnty) Deferred.Result.t
-  (** For the old PVS version, adds the uri parameter to the call from
-      device_config, for newer versions, removes the uri key from device_config *)
-
   val sr_create : device_config -> (device_config * compat_in * compat_out, Storage_interface.Exception.exnty) Deferred.Result.t
   (** Compatiblity for the old PVS version of SR.create, which had signature
       [uri -> name -> desc -> config -> unit] *)
+
+  val sr_attach : device_config -> (compat_in, Storage_interface.Exception.exnty) Deferred.Result.t
+  (** Compatiblity for the old PVS version of SR.attach, which had signature
+      [uri -> sr (=string)] *)
 end = struct
 
   type device_config = (Core.String.t, string) Core.List.Assoc.t
@@ -182,6 +182,8 @@ end = struct
   let compat_out_volumes =
     add_fields_to_record_list_output ["sharable", R.Bool false]
 
+  (** Adds the uri parameter to the call from device_config when talking to the
+      old PVS scripts *)
   let compat_uri device_config =
     if !V.version = Some pvs_version then
       match List.Assoc.find ~equal:String.equal device_config "uri" with
@@ -201,6 +203,8 @@ end = struct
       else rpc
     in
     return (Ok (device_config, compat_in, compat_out))
+
+  let sr_attach = compat_uri
 end
 
 let check_plugin_version_compatible query_result =
@@ -685,11 +689,7 @@ let process_smapiv2_requests ~volume_script_dir =
   | { R.name = "SR.attach"; R.params = [ args ] } ->
     let args = Args.SR.Attach.request_of_rpc args in
     let device_config = args.Args.SR.Attach.device_config in
-    Compat.compat_uri device_config >>>= fun compat_in ->
-    let device_config =
-      let uuid = args.Args.SR.Attach.sr in
-      ("sr_uuid", uuid) :: device_config
-    in
+    Compat.sr_attach device_config >>>= fun compat_in ->
     return_volume_rpc (fun () -> Sr_client.attach (volume_rpc ~compat_in) args.Args.SR.Attach.dbg device_config)
     >>>= fun attach_response ->
     let sr = args.Args.SR.Attach.sr in
