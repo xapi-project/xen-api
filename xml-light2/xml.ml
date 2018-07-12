@@ -30,6 +30,13 @@ exception Error of error
 let error (msg,pos) =
   Printf.sprintf "%s line %d" msg pos.eline
 
+let _ =
+  let printer = function
+    | Error e -> Some (Printf.sprintf "XML Error: %s" (error e))
+    | _ -> None
+  in
+  Printexc.register_printer printer
+
 (* internal parse function *)
 let is_empty xml =
   let is_empty_string s = 
