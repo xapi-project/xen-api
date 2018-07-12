@@ -93,7 +93,7 @@ let get_network = call
       [ Ref _cluster, "self", "the Cluster with the network"
       ]
     ~lifecycle
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_READ_ONLY
     ()
 
 let pool_create = call
