@@ -401,6 +401,12 @@ let timeout_alerts ~__context =
   ) all_alerts
 *)
 
+let gc_updates_requiring_reboot ~__context =
+  List.iter (fun host ->
+    let updates = Db.Host.get_updates_requiring_reboot ~__context ~self:host in
+    List.iter (fun update ->
+      if not (valid_ref __context update) then Db.Host.remove_updates_requiring_reboot ~__context ~self:host ~value:update) updates)
+    (Db.Host.get_all ~__context)
 
 (* do VDIs first because this will cause some VBDs to be affected *)
 let gc_subtask_list = [
@@ -427,4 +433,5 @@ let gc_subtask_list = [
     (* timeout_alerts; *)
     (* CA-29253: wake up all blocked clients *)
     "Heartbeat", Xapi_event.heartbeat;
+    "Updates requiring reboot", gc_updates_requiring_reboot;
   ]

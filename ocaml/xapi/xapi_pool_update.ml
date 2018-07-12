@@ -446,7 +446,8 @@ let destroy ~__context ~self =
   | [] ->
     let patch = Xapi_pool_patch.pool_patch_of_update __context self in
     Db.Pool_update.destroy ~__context ~self;
-    Db.Pool_patch.destroy ~__context ~self:patch
+    Db.Pool_patch.destroy ~__context ~self:patch;
+    Db_gc_util.gc_updates_requiring_reboot ~__context
   | _ -> raise (Api_errors.Server_error(Api_errors.update_is_applied, []))
 
 let detach_attached_updates __context =
