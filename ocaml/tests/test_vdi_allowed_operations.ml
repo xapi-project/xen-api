@@ -404,7 +404,7 @@ let test_operations_restricted_during_rpu =
     Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x";
     let self, _ = setup_test ~__context ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`user) () in
     Xapi_vdi.update_allowed_operations ~__context ~self;
-    Alcotest.(check bool) "update_allowed_operations should exclude `enable_cbt during RPU" false (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self));
+   Alcotest.(check bool) "update_allowed_operations should exclude `enable_cbt during RPU" false (List.mem `enable_cbt (Db.VDI.get_allowed_operations ~__context ~self)); 
     Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
     Xapi_vdi.update_allowed_operations ~__context ~self
     (* CA-260245: at present update_allowed_operations excludes the cbt operations unconditionally.
@@ -438,6 +438,31 @@ let test_null_vm =
   in
   for_vdi_operations Xapi_vdi_helpers.all_ops test_null_vm
 
+let test_update_allowed_operations () =
+  let __context = Test_common.make_test_database () in
+  let vdi_ref, vdi_record = setup_test ~__context 
+    ~vdi_fun:(fun vdi_ref ->
+      let host_ref = Helpers.get_localhost ~__context in
+      let vm_ref = Db.Host.get_control_domain ~__context ~self:host_ref in
+      let vbd_ref = Ref.make () in
+      let (_: API.ref_VBD) = make_vbd ~__context
+        ~ref:vbd_ref
+        ~vDI:vdi_ref
+        ~vM:vm_ref
+        ~currently_attached:true
+        ~mode:`RO () in
+      ()) ()
+  in
+  Xapi_vdi.update_allowed_operations ~__context ~self:vdi_ref;
+  let allowed_operations = Db.VDI.get_allowed_operations ~__context ~self:vdi_ref in
+  let ok_ops : API.vdi_operations_set = [`snapshot; `clone; `copy] in
+  Alcotest.(check Alcotest_comparators.vdi_operations_set) "update_allowed_operations should be correct" ok_ops allowed_operations;
+  let vbd_ref = Db.VDI.get_VBDs ~__context ~self:vdi_ref |> List.hd in
+  Db.VBD.set_currently_attached ~__context ~self:vbd_ref ~value:false; 
+  Xapi_vdi.update_allowed_operations ~__context ~self:vdi_ref;
+  let allowed_operations = Db.VDI.get_allowed_operations ~__context ~self:vdi_ref in
+  let ok_ops : API.vdi_operations_set = [`generate_config; `force_unlock; `update; `forget; `destroy; `snapshot; `resize; `copy; `clone] in
+  Alcotest.(check Alcotest_comparators.vdi_operations_set) "update_allowed_operations should be correct" ok_ops allowed_operations
 
 let test =
   [ "test_ca98944", `Quick, test_ca98944
@@ -446,4 +471,5 @@ let test =
   ; "test_ca126097", `Quick, test_ca126097
   ] @ test_cbt
   @ test_operations_restricted_during_rpu @
-  [ "test_null_vm", `Quick, test_null_vm ]
+  [ "test_null_vm", `Quick, test_null_vm;
+    "test_update_allowed_operations", `Quick, test_update_allowed_operations ]

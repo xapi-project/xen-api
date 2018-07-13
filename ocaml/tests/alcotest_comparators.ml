@@ -48,3 +48,11 @@ let assert_raises_match exception_match fn =
     if not (exception_match failure)
     then raise failure
     else ()
+
+let vdi_operations_set : API.vdi_operations_set Alcotest.testable =
+  let intersect xs ys = List.filter (fun x -> List.mem x ys) xs in 
+  let set_difference a b = List.filter (fun x -> not(List.mem x b)) a in
+  Alcotest.testable (Fmt.of_to_string (fun l -> API.rpc_of_vdi_operations_set l |> Jsonrpc.to_string))
+    (fun o1 o2 ->
+       List.length (intersect o1 o2) = List.length o1 && List.length (set_difference o1 o2) = 0 && List.length (set_difference o2 o1) = 0)
+      
