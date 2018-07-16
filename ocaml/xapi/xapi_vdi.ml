@@ -283,7 +283,7 @@ let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
     None -> ()
   | Some (a,b) -> raise (Api_errors.Server_error (a,b))
 
-let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ~vbd_records =
+let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records ?vbd_records () =
   let pool = Helpers.get_pool ~__context in
   let ha_enabled = Db.Pool.get_ha_enabled ~__context ~self:pool in
 
@@ -307,7 +307,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed =
-    let check x = match check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
+    let check x = match check_operation_error ~__context ~sr_records ~pbd_records ?vbd_records ha_enabled all self x with None ->  [ x ] | _ -> [] in
     List.fold_left (fun accu op -> check op @ accu) [] all_ops
   in
   let allowed =
@@ -318,7 +318,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 
 let update_allowed_operations ~__context ~self : unit =
-  update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ~vbd_records:[]
+  update_allowed_operations_internal ~__context ~self ~sr_records:[] ~pbd_records:[] ()
 
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.VDI.get_current_operations ~__context ~self in
