@@ -94,6 +94,8 @@ let send_done cnx =
 let send_restore cnx emu =
   send cnx (Printf.sprintf "restore:%s\n" (string_of_emu emu))
 
+let send_abort cnx = send cnx "abort\n"
+
 type message =
   | Stdout of string (* captured stdout from emu-manager *)
   | Stderr of string (* captured stderr from emu-manager *)
@@ -201,7 +203,6 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
 
 let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
   let t = connect path domid args fds in
-  let send_abort cnx = send cnx "abort\n" in
   let cancelled = ref false in
   let cancel_cb () =
     let _, _, _, _, pid = t in
