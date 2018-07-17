@@ -545,6 +545,6 @@ let pool_update_download_handler (req: Request.t) s _ =
     debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath Xapi_globs.host_update_dir;
     Http_svr.response_forbidden ~req s
   end else begin
-    Http_svr.response_file s filepath;
+    Fileserver.response_file s filepath;
     req.Request.close <- true
   end
