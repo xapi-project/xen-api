@@ -536,8 +536,8 @@ let path_from_uri uri =
   (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
   String.sub_to_end uri (String.length Constants.get_pool_update_download_uri)
   |> Filename.concat !Xapi_globs.host_update_dir
-  |> Stdext.Unixext.resolve_dot_and_dotdot
   |> Uri.pct_decode
+  |> Stdext.Unixext.resolve_dot_and_dotdot
 
 let pool_update_download_handler (req: Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;
