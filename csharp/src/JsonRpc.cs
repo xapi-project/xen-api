@@ -175,6 +175,11 @@ namespace XenAPI
         public IWebProxy WebProxy { get; set; }
         public int Timeout { get; set; }
         public string ConnectionGroupName { get; set; }
+        public Version ProtocolVersion { get; set; }
+        public bool Expect100Continue { get; set; }
+        public bool AllowAutoRedirect { get; set; }
+        public bool PreAuthenticate { get; set; }
+        public CookieContainer Cookies { get; set; }
 
         public string Url { get; private set; }
 
@@ -202,6 +207,12 @@ namespace XenAPI
             webRequest.KeepAlive = KeepAlive;
             webRequest.UserAgent = UserAgent;
             webRequest.ConnectionGroupName = ConnectionGroupName;
+            webRequest.ProtocolVersion = ProtocolVersion;
+            webRequest.ServicePoint.Expect100Continue = Expect100Continue;
+            webRequest.AllowAutoRedirect = AllowAutoRedirect;
+            webRequest.PreAuthenticate = PreAuthenticate;
+            webRequest.AllowWriteStreamBuffering = true;
+            webRequest.CookieContainer = Cookies;
 
             // for performance reasons it's preferable to deserialize directly
             // from the Stream rather than allocating strings inbetween
