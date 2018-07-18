@@ -197,16 +197,11 @@ namespace XenAPI
             webRequest.Method = "POST";
             webRequest.ContentType = "application/json";
             webRequest.Accept = "application/json";
-            if (Timeout > 0)
-                webRequest.Timeout = Timeout;
-            if (WebProxy != null)
-                webRequest.Proxy = WebProxy;
-            if (KeepAlive)
-                webRequest.KeepAlive = KeepAlive;
-            if (!string.IsNullOrEmpty(UserAgent))
-                webRequest.UserAgent = UserAgent;
-            if (!string.IsNullOrEmpty(ConnectionGroupName))
-                webRequest.ConnectionGroupName = ConnectionGroupName;
+            webRequest.Timeout = Timeout;
+            webRequest.Proxy = WebProxy;
+            webRequest.KeepAlive = KeepAlive;
+            webRequest.UserAgent = UserAgent;
+            webRequest.ConnectionGroupName = ConnectionGroupName;
 
             // for performance reasons it's preferable to deserialize directly
             // from the Stream rather than allocating strings inbetween
