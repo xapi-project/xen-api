@@ -15,7 +15,6 @@ depends: [
   "fd-send-recv"
   "message-switch-unix"
   "mtime"
-  "nbd"
   "ounit"
   "rpc"
   "sha"
