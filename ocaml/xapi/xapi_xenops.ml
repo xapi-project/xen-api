@@ -2349,8 +2349,19 @@ let events_from_xapi () =
                 while true do
                   let api_timeout = 60. in
                   let timeout = 30. +. api_timeout +. !Db_globs.master_connection_reset_timeout in
-                  let otherwise () = info "Event.from timed out in %f seconds, abort the events listening loop and retry" timeout; raise Exit in
-                  let from = Helpers.timebox ~timeout ~otherwise (fun () -> XenAPI.Event.from ~rpc ~session_id ~classes ~token:!token ~timeout:api_timeout |> event_from_of_rpc) in
+                  let timebox_rpc = Helpers.make_timeboxed_rpc ~__context timeout in
+                  let from =
+                    try
+                      XenAPI.Event.from
+                        ~rpc:timebox_rpc
+                        ~session_id ~classes
+                        ~token:!token
+                        ~timeout:api_timeout
+                      |> event_from_of_rpc
+                    with e ->
+                      Debug.log_backtrace e (Backtrace.get e);
+                      raise e
+                  in
                   if List.length from.events > 200 then warn "Warning: received more than 200 events!";
                   List.iter
                     (function

@@ -240,6 +240,11 @@ let update_pif_addresses ~__context =
   Opt.iter (fun (pif, bridge) -> set_DNS ~__context ~pif ~bridge) dns_if;
   List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
+
+(* Note that both this and `make_timeboxed_rpc` are almost always 
+ * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
+ * The body is therefore not evaluated until the RPC call is actually being
+ * made. *)
 let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
@@ -249,6 +254,29 @@ let make_rpc ~__context rpc : Rpc.response =
     then Unix(Xapi_globs.unix_domain_socket)
     else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
+
+let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
+  let subtask_of = Ref.string_of (Context.get_task_id __context) in
+  Server_helpers.exec_with_new_task "timeboxed_rpc" ~subtask_of:(Context.get_task_id __context) (fun __context ->
+    (* Note we need a new task here because the 'resources' (including stunnel pid) are
+     * associated with the task. To avoid conflating the stunnel with any real resources
+     * the task has acquired we make a new one specifically for the stunnel pid *)
+    let open Xmlrpc_client in
+    let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+    let task_id = Context.get_task_id __context in
+    let cancel () =
+      let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task task_id in
+      List.iter Locking_helpers.kill_resource resources
+    in
+    Xapi_periodic_scheduler.add_to_queue (Ref.string_of task_id) Xapi_periodic_scheduler.OneShot timeout cancel;
+    let transport =
+      if Pool_role.is_master ()
+      then Unix(Xapi_globs.unix_domain_socket)
+      else SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) (), Pool_role.get_master_address (), !Xapi_globs.https_port)
+    in
+    let result = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc in
+    Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id);
+    result)
 
 let make_remote_rpc_of_url ~srcstr ~dststr url call =
   let open Xmlrpc_client in
