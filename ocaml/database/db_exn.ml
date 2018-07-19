@@ -23,3 +23,4 @@ exception Remote_db_server_returned_unknown_exception
 exception Remote_db_server_returned_bad_message
 
 exception Empty_key_in_map
+exception Invalid_value (* Non utf8 *)
