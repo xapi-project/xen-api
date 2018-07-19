@@ -73,6 +73,11 @@ let ensure_utf8_xml string =
 let write_field_locked t tblname objref fldname newval =
   let current_val = get_field tblname objref fldname (get_database t) in
   if current_val <> newval then begin
+    begin
+      match newval with
+      | Schema.Value.String s -> if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then raise Invalid_value
+      | _ -> ()
+    end;
     update_database t (set_field tblname objref fldname newval);
     Database.notify (WriteField(tblname, objref, fldname, current_val, newval)) (get_database t)
   end

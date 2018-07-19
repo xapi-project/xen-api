@@ -93,7 +93,12 @@ let test_empty_key_in_map () =
     (Db_exn.Empty_key_in_map)
     (fun () ->
        Db.VM.set_other_config ~__context ~self:vm_ref ~value:["","value"])
-    
+
+let test_utf8 () =
+  let __context = make_test_database () in
+  let (vm_ref: API.ref_VM) = make_vm ~__context () in
+
+  Alcotest.check_raises "non-utf8 Db.set raises exception" (Db_exn.Invalid_value) (fun () -> Db.VM.set_name_label ~__context ~self:vm_ref ~value:"abc\xffdef")
 
 let test =
   [
@@ -101,4 +106,5 @@ let test =
     "test_db_idempotent_map", `Quick, test_idempotent_map;
     "test_slaves_use_nonlegacy_addmap", `Quick, test_slave_uses_nonlegacy_addmap;
     "test_empty_key_in_map", `Quick, test_empty_key_in_map;
+    "test_utf8", `Quick, test_utf8;
   ]
