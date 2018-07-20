@@ -74,28 +74,6 @@ let supports_feature path feat =
     |> fst |> strip isspace |> lowercase_ascii = "true"
   with Spawn_internal_error _ -> false
 
-let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
-  let t = connect path domid args fds in
-  let cancelled = ref false in
-  let cancel_cb () =
-    let _, _, _, _, pid = t in
-    let pid = Forkhelpers.getpid pid in
-    cancelled := true;
-    info "Cancelling task %s by killing emu-manager subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
-    try Unix.kill pid Sys.sigkill with _ -> () in
-  finally
-    (fun () ->
-       Xenops_task.with_cancel task cancel_cb
-         (fun () ->
-            try
-              f t
-            with e ->
-              if !cancelled
-              then Xenops_task.raise_cancelled task
-              else raise e
-         )
-    ) (fun () -> disconnect t)
-
 type emu = Xenguest | Vgpu
 
 let emu_of_string = function
@@ -115,6 +93,8 @@ let send_done cnx =
 
 let send_restore cnx emu =
   send cnx (Printf.sprintf "restore:%s\n" (string_of_emu emu))
+
+let send_abort cnx = send cnx "abort\n"
 
 type message =
   | Stdout of string (* captured stdout from emu-manager *)
@@ -220,3 +200,26 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
   | Prepare _ -> failwith "emu-manager protocol failure; not expecting Prepare"
   | Result x -> x
   | Stdout _ | Stderr _ | Info _ -> assert false
+
+let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
+  let t = connect path domid args fds in
+  let cancelled = ref false in
+  let cancel_cb () =
+    let _, _, _, _, pid = t in
+    let pid = Forkhelpers.getpid pid in
+    cancelled := true;
+    info "Cancelling task %s; sending 'abort' to emu-manager pid: %d"
+      (Xenops_task.id_of_handle task) pid;
+    send_abort t in
+  finally
+    (fun () ->
+       Xenops_task.with_cancel task cancel_cb
+         (fun () ->
+            try
+              f t
+            with e ->
+              if !cancelled
+              then Xenops_task.raise_cancelled task
+              else raise e
+         )
+    ) (fun () -> disconnect t)
