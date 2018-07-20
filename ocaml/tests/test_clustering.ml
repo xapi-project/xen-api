@@ -226,17 +226,14 @@ let test_assert_cluster_host_is_enabled_for_matching_sms =
 (** Test clustering lock is only taken if needed *)
 
 let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2 ~on_deadlock ~on_no_deadlock =
-  Helpers.timebox
-    ~timeout:timeout
-    ~otherwise: on_deadlock
-    (fun () ->
+  let success = ref false in
+  let _ = Thread.create (fun () ->
        Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type1 __LOC__
          (fun () ->
             Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:type2 __LOC__
-              (fun () -> on_no_deadlock ()
-              )
-         )
-    )
+              (fun () -> success := true; on_no_deadlock ()))) () in
+  Thread.delay timeout;
+  if not !success then (on_deadlock ())
 
 let test_clustering_lock_only_taken_if_needed_nested_calls () =
   let __context = T.make_test_database () in

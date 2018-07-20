@@ -1055,39 +1055,6 @@ let force_loopback_vbd ~__context =
    about this. *)
 let compute_hash () = ""
 
-(* [timebox ~timeout:x ~otherwise:ow f] will timebox the execution of [f ()].
-   If the execution finishes within [x] seconds, we'll return the result from
-   [f ()]; if not, we'll call [otherwise ()] to give the final result. Note
-   that [otherwise] is a functional parameter, so there are plenty of things
-   the caller can do with it, e.g
-
-   - simply return a backup value in case of timeout
-   - raise an exception of your choice
-   - do some cleanup routines when timed out
-   - collaboratively stop/cancel the execution of [f ()] --- Note that there is
-   no universal method to cancel a function execution process which has already
-   started. So when [f ()] times out, its underlying execution will be still
-   ongoing, just the result will be discarded. However, it's possible to
-   implement some collaboration mechanism, so that [f ()] would stop itself
-   after receiving some message from [ow ()] if that is called.
-
-   ... or a combination of the above. *)
-let timebox ~timeout ~otherwise f =
-  let fd_in, fd_out = Unix.pipe () in
-  let result = ref otherwise in
-  let _ =  Thread.create
-      (fun () ->
-         (try
-            let r = f () in
-            result := fun () -> r
-          with e ->
-            result := fun () -> raise e);
-         Unix.close fd_out) () in
-  let finished = Thread.wait_timed_read fd_in timeout in
-  Unix.close fd_in;
-  if not finished then ignore_exn (fun () -> Unix.close fd_out);
-  !result ()
-
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
 
