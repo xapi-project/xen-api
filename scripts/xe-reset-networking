@@ -198,8 +198,10 @@ Type 'no' to cancel.
 		os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
 	else:
 		os.system('service xcp-network stop >/dev/null 2>/dev/null')
-		try: os.remove('/var/lib/xcp/networkd.db')
-		except: pass
+		try:
+			os.remove('/var/lib/xcp/networkd.db')
+		except Exception as e:
+			print 'Warning: Failed to delete networkd.db.\n%s' % e
 
 	# Update interfaces in inventory file
 	print 'Updating inventory file...'
