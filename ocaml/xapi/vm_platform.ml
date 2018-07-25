@@ -43,6 +43,7 @@ let vgpu_config = Xapi_globs.vgpu_config_key
 let igd_passthru_key = Xapi_globs.igd_passthru_key
 let featureset = "featureset"
 let nested_virt = "nested-virt"
+let vcpu_unrestricted = "vcpu-unrestricted"
 
 (* The default value of device model should be set as
    'qemu-trad', 'qemu-upstream-compat', 'qemu-upstream' according to QEMU-upstream feature release stages *)
@@ -79,6 +80,7 @@ let filtered_flags = [
   vgpu_config;
   featureset;
   nested_virt;
+  vcpu_unrestricted;
 ]
 
 (* Other keys we might want to write to the platform map. *)
