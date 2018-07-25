@@ -479,6 +479,25 @@ let assert_matches_control_domain_affinity ~__context ~self ~host =
      | _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
              ["Cannot boot a control domain on a host different from its affinity"]))
 
+let assert_enough_pcpus ~__context ~self ~host ?remote () =
+  let vcpus = Db.VM.get_VCPUs_max ~__context ~self in
+  let pcpus =
+    Cpuid_helpers.get_host_cpu_info ~__context ~vm:self ~host ?remote ()
+    |> Map_check.getf Cpuid_helpers.cpu_count
+    |> Int64.of_int
+  in
+  if vcpus > pcpus then
+    let platformdata = Db.VM.get_platform ~__context ~self in
+    if Vm_platform.(is_true ~key:vcpu_unrestricted ~platformdata ~default:false) then
+      warn "Allowing VM %s to run on host %s, even though #vCPUs > #pCPUs (%Ld > %Ld), \
+        because platform:vcpu-unrestricted is set"
+        (Ref.string_of self) (Ref.string_of host) vcpus pcpus
+    else
+      raise Api_errors.(Server_error (
+        host_not_enough_pcpus,
+        List.map Int64.to_string [vcpus; pcpus]
+      ))
+
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
     - The host must support the VM's required Virtual Hardware Platform version.
@@ -528,6 +547,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
   end;
   if do_memory_check then
     assert_enough_memory_available ~__context ~self ~host ~snapshot;
+  assert_enough_pcpus ~__context ~self ~host ();
   debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
