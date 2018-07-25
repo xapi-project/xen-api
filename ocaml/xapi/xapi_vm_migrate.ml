@@ -972,6 +972,10 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options =
       Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
         ~remote:(remote.rpc, remote.session) ();
 
+    (* Check that the destination has enough pCPUs *)
+    Xapi_vm_helpers.assert_enough_pcpus ~__context ~self:vm ~host:remote.dest_host
+        ~remote:(remote.rpc, remote.session) ();
+
     (* Ignore vdi_map for now since we won't be doing any mirroring. *)
     try
       assert (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map:[] ~vif_map ~dry_run:true ~live:true ~copy = [])

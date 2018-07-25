@@ -697,6 +697,8 @@ let _ =
     ~doc:"Not enough host memory is available to perform this operation" ();
   error Api_errors.duplicate_vm [ "vm" ]
     ~doc:"Cannot restore this VM because it would create a duplicate" ();
+  error Api_errors.host_not_enough_pcpus [ "vcpus"; "pcpus" ]
+    ~doc:"The host does not have enough pCPUs to run the VM. It needs at least as many as the VM has vCPUs." ();
   error Api_errors.duplicate_mac_seed [ "seed" ]
     ~doc:"This MAC seed is already in use by a VM in the pool" ();
   error Api_errors.vm_snapshot_with_quiesce_failed [ "vm" ]

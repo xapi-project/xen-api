@@ -1267,6 +1267,8 @@ let print_assert_exception e =
 			"Host down"
 		| Api_errors.Server_error(code, params) when code=Api_errors.host_not_enough_free_memory ->
 			Printf.sprintf "Not enough free memory"
+		| Api_errors.Server_error(code, [vcpus; pcpus]) when code=Api_errors.host_not_enough_pcpus ->
+			Printf.sprintf "Not enough CPUs (VM needs %s, but host has %s)" vcpus pcpus
 		| Api_errors.Server_error(code, params) when code=Api_errors.vm_requires_net ->
 			"VM requires access to network: "^(Cli_util.ref_convert (get_arg 2 params))
 		| Api_errors.Server_error(code, params) when code=Api_errors.host_cannot_attach_network ->
