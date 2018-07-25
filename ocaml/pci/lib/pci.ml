@@ -83,7 +83,11 @@ let with_string ?(size=1024) f =
    * to the lifetime of the input parameter, which can be moved
    * by the GC and cause problems. *)
   let buf = CArray.make char ~initial:'\x00' size in
-  f (CArray.start buf) size
+  let s = CArray.start buf in
+  let r = f s size in
+  (* Keep `s` alive through the C binding invocation in `f` *)
+  ignore (Sys.opaque_identity (List.hd [s]));
+  r
 
 let lookup_class_name pci_access class_id =
   with_string (fun buf size ->
