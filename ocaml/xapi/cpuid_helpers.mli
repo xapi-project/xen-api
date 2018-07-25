@@ -46,3 +46,11 @@ val socket_count : int Map_check.field
 val features : int64 array Map_check.field
 val features_pv : int64 array Map_check.field
 val features_hvm : int64 array Map_check.field
+
+val get_host_cpu_info :
+  __context:Context.t ->
+  vm:[ `VM ] API.Ref.t ->
+  host:[ `host ] API.Ref.t ->
+  ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [<`session] Ref.t ->
+  unit ->
+  (string * string) list
