@@ -360,6 +360,8 @@ let _ =
     ~doc:"Too many VCPUs to start this VM" ();
   error Api_errors.host_not_enough_free_memory [ "needed"; "available" ]
     ~doc:"Not enough host memory is available to perform this operation" ();
+  error Api_errors.host_not_enough_pcpus [ "vcpus"; "pcpus" ]
+    ~doc:"The host does not have enough pCPUs to run the VM. It needs at least as many as the VM has vCPUs." ();
   error Api_errors.duplicate_vm [ "vm" ]
     ~doc:"Cannot restore this VM because it would create a duplicate" ();
   error Api_errors.duplicate_mac_seed [ "seed" ]
