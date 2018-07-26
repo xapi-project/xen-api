@@ -1235,6 +1235,10 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~v
       Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
         ~remote:(remote.rpc, remote.session) ();
 
+    (* Check that the destination has enough pCPUs *)
+    Xapi_vm_helpers.assert_enough_pcpus ~__context ~self:vm ~host:remote.dest_host
+        ~remote:(remote.rpc, remote.session) ();
+
     (* Check that all VIFs are mapped. *)
     let vifs = Db.VM.get_VIFs ~__context ~self:vm in
     let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
