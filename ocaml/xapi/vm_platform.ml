@@ -43,6 +43,7 @@ let vgpu_config = Xapi_globs.vgpu_config_key
 let igd_passthru_key = Xapi_globs.igd_passthru_key
 let featureset = "featureset"
 let nested_virt = "nested-virt"
+let vcpu_unrestricted = "vcpu-unrestricted"
 
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_flags = [
@@ -71,6 +72,7 @@ let filtered_flags = [
   vgpu_config;
   featureset;
   nested_virt;
+  vcpu_unrestricted;
 ]
 
 (* Other keys we might want to write to the platform map. *)

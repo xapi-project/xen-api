@@ -170,13 +170,14 @@ let update_cpu_flags ~__context ~vm ~host =
   with Not_found ->
     debug "Host does not have new levelling feature keys - not upgrading VM's flags"
 
-let get_host_compatibility_info ~__context ~vm ~host ~remote =
-  let cpu_info =
-    match remote with
-    | None -> Db.Host.get_cpu_info ~__context ~self:host
-    | Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
-  in
-  get_flags_for_vm ~__context vm cpu_info
+let get_host_cpu_info ~__context ~vm ~host ?remote () =
+  match remote with
+  | None -> Db.Host.get_cpu_info ~__context ~self:host
+  | Some (rpc, session_id) -> Client.Client.Host.get_cpu_info rpc session_id host
+
+let get_host_compatibility_info ~__context ~vm ~host ?remote () =
+  get_host_cpu_info ~__context ~vm ~host ?remote ()
+  |> get_flags_for_vm ~__context vm
 
 (* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
@@ -186,7 +187,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
     try
-      let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~vm ~host ~remote in
+      let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~vm ~host ?remote () in
       let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
       if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
