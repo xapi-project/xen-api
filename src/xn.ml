@@ -422,6 +422,7 @@ let add' copts x () = match x with
                boot_order = if mem _boot then find _boot |> string else "cd";
                qemu_disk_cmdline = false;
                qemu_stubdom = false;
+               firmware = Xenops_types.Vm.default_firmware;
              } in
          let uuid = if mem _uuid then find _uuid |> string else Uuidm.to_string (Uuidm.create `V4) in
          let name = if mem _name then find _name |> string else uuid in
