@@ -1351,7 +1351,7 @@ module VM = struct
       ty = Some ty;
       VmExtra.qemu_vbds = qemu_vbds;
     } ->
-      let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null")
+      let make ?(boot_order="cd") ?firmware ?(serial="pty") ?(monitor="null")
           ?(nics=[]) ?(disks=[]) ?(vgpus=[])
           ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
           ?(parallel=None)
@@ -1368,6 +1368,7 @@ module VM = struct
         let open Device.Dm in {
           memory = build_info.Domain.memory_max;
           boot = boot_order;
+          firmware = firmware;
           serial = Some serial;
           monitor = Some monitor;
           vcpus = build_info.Domain.vcpus; (* vcpus max *)
@@ -1432,6 +1433,7 @@ module VM = struct
           then Some (List.assoc "parallel" vm.Vm.platformdata)
           else None in
         Some (make ~video_mib:hvm_info.video_mib
+                ~firmware:hvm_info.firmware
                 ~video:hvm_info.video ~acpi:hvm_info.acpi
                 ?serial:hvm_info.serial ?keymap:hvm_info.keymap
                 ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel

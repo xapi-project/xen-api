@@ -1636,6 +1636,7 @@ module Dm_Common = struct
   type info = {
     memory: int64;
     boot: string;
+    firmware: Xenops_types.Vm.firmware_type option;
     serial: string option;
     monitor: string option;
     vcpus: int; (* vcpus max *)
