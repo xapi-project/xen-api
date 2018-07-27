@@ -247,6 +247,7 @@ sig
     memory: int64;
     boot: string;
     firmware: Xenops_types.Vm.firmware_type option;
+    nvram: (string * string) list;
     serial: string option;
     monitor: string option;
     vcpus: int; (* vcpus max *)
