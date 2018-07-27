@@ -164,6 +164,8 @@ let firmware_of_vm vm =
         bad]))
   | exception Not_found -> None
 
+let nvram_of_vm vm = Some vm.API.vM_NVRAM
+
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
   let timeoffset = string vm_t.API.vM_platform "0" Vm_platform.timeoffset in
   (* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
@@ -278,6 +280,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
       qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
       firmware = firmware_of_vm vm;
+      nvram = nvram_of_vm vm;
     }
   in
 
