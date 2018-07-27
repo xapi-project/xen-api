@@ -1925,14 +1925,15 @@ module Dm_Common = struct
           best_effort "removing device model path from xenstore"
             (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
     in
-    let stop_vgpu () = match (Vgpu.pid ~xs domid) with
+    let stop_other pidf name = match pidf ~xs domid with
       | None -> ()
-      | Some vgpu_pid ->
-        debug "vgpu: stopping vgpu with SIGTERM (domid = %d pid = %d)" domid vgpu_pid;
+      | Some pid ->
+        debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" name name domid pid;
         let open Generic in
-        best_effort "killing vgpu"
-          (fun () -> really_kill vgpu_pid)
+        best_effort (sprintf "killing %s" name)
+          (fun () -> really_kill pid)
     in
+    let stop_vgpu () = stop_other Vgpu.pid "vgpu" in
     stop_vgpu ();
     stop_qemu ()
 
