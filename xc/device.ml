@@ -1015,6 +1015,9 @@ end
 
 module Qemu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid end)
 module Vgpu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid end)
+module Varstored = DaemonMgmt(struct
+    let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
+  end)
 
 module PCI = struct
 
@@ -1934,7 +1937,17 @@ module Dm_Common = struct
           (fun () -> really_kill pid)
     in
     let stop_vgpu () = stop_other Vgpu.pid "vgpu" in
+    let stop_varstored () =
+      stop_other Varstored.pid "varstored";
+      List.iter (fun path ->
+          debug "deleting %s" path;
+          Unixext.unlink_safe path)
+        [ efivars_resume_path domid
+        ; efivars_save_path domid
+        ]
+    in
     stop_vgpu ();
+    stop_varstored ();
     stop_qemu ()
 
 end (* End of module Dm_Common *)
@@ -2687,6 +2700,61 @@ module Dm = struct
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
+  let start_varstored ~xs ?(nvram=[]) ?(restore=false) task domid =
+    debug "Preparing to start varstored for UEFI boot (domid=%d)" domid;
+    let path = !Xc_resources.varstored in
+    let name = "varstored" in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+    let reset_on_boot = match List.assoc "EFI-variables-on-boot" nvram with
+      | "persist" -> false
+      | "reset" -> true
+      | bad ->
+        sprintf "unsupported EFI-variables-on-boot %s, use 'persist' or 'reset'" bad
+        |> fun s -> Xenopsd_error (Internal_error s)
+        |> raise
+      | exception Not_found -> false
+    in
+    let default_backend = "xapidb" in
+    let backend = match List.assoc "EFI-variables-backend" nvram with
+      | x when x = default_backend -> x
+      | bad ->
+        sprintf "unsupported EFI-variables-backend %s, use 'xapidb'" bad
+        |> fun s -> Xenopsd_error (Internal_error s)
+        |> raise
+      | exception Not_found -> default_backend
+    in
+    let efivars_init = match List.assoc "EFI-variables" nvram with
+      | efivars when not restore ->
+        let efivars_init_path = efivars_init_path domid in
+        debug "Writing initial EFI variables to %s (domid=%d length=%d)" efivars_init_path
+          domid (String.length efivars);
+        Unixext.write_string_to_file efivars_init_path efivars;
+        Some efivars_init_path
+      | ""  | _ -> None
+      | exception Not_found -> None
+    in
+
+    let open Fe_argv in
+    let (>>=) = bind in
+    let argf fmt = ksprintf (fun s -> [ "--arg"; s]) fmt in
+    let on cond value = if cond then value else return () in
+    let args =
+      Add.many [ "--domain"; string_of_int domid
+               ; "--device"; string_of_int 15
+               ; "--function"; string_of_int 0
+               ; "--backend"; backend ] >>= fun () ->
+      on (not reset_on_boot) @@ Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
+      on restore @@ Add.arg "--resume" >>= fun () ->
+      Add.optional (argf "init:%s") efivars_init >>= fun () ->
+      Add.many @@ argf "save:%s" (efivars_save_path domid)
+    in
+    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    let pid = start_daemon ~path ~args ~name ~domid ~fds:[] () in
+    let ready_path = Varstored.pid_path domid in
+    wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
+      ~cancel:(Cancel_utils.Varstored domid) ();
+    Forkhelpers.dontwaitpid pid
+
   let start_vgpu ~xs task ?(restore=false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
@@ -2761,6 +2829,10 @@ module Dm = struct
       | _ -> ()
     in
 
+    (* start varstored if appropriate *)
+    if info.firmware = Some Uefi then
+      start_varstored ~xs ~nvram:info.nvram task domid;
+
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 
     let argv = (prepend_wrapper_args domid args.argv) in
@@ -2823,6 +2895,10 @@ module Dm = struct
   let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus =
     debug "Called Dm.restore_vgpu";
     start_vgpu ~xs task ~restore:true domid [vgpu] vcpus Profile.Qemu_trad
+
+  let restore_varstored (task: Xenops_task.task_handle) ~xs domid =
+    debug "Called Dm.restore_varstored";
+    start_varstored ~xs ~restore:true task domid
 
 end (* Dm *)
 

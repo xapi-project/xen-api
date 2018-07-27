@@ -26,6 +26,7 @@ type key =
   | Domain of int
   | Qemu of int * int
   | Vgpu of int
+  | Varstored of int
   | TestPath of string
 
 let string_of = function
@@ -33,6 +34,7 @@ let string_of = function
   | Domain domid -> Printf.sprintf "domid %d" domid
   | Qemu (backend, frontend) -> Printf.sprintf "qemu backend = %d; frontend = %d" backend frontend
   | Vgpu domid -> Printf.sprintf "domid %d" domid
+  | Varstored domid -> Printf.sprintf "varstored %d" domid
   | TestPath x -> x
 
 let root = "/xenops/tasks"
@@ -51,6 +53,8 @@ let cancel_path_of ~xs = function
     Printf.sprintf "%s/device-model/cancel" (path_of frontend)
   | Vgpu domid ->
     Printf.sprintf "%s/vgpu/cancel" (path_of domid)
+  | Varstored domid ->
+    Printf.sprintf "%s/varstored/cancel" (path_of domid)
   | TestPath x -> x
 
 let shutdown_path_of ~xs = function
@@ -61,6 +65,7 @@ let shutdown_path_of ~xs = function
        		   break suspend if we cancel when the frontend shuts down. *)
     Printf.sprintf "%s/shutdown" (path_of backend)
   | Vgpu domid -> Printf.sprintf "%s/vgpu/shutdown" (path_of domid)
+  | Varstored domid -> Printf.sprintf "%s/varstored/shutdown" (path_of domid)
   | TestPath x -> x
 
 let cleanup_for_domain ~xs domid =

@@ -83,6 +83,7 @@ type create_info = {
   platformdata: (string * string) list;
   bios_strings: (string * string) list;
   has_vendor_device: bool;
+  is_uefi: bool;
 } [@@deriving rpcty]
 
 type build_hvm_info = {
@@ -323,6 +324,8 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
     xs.Xs.writev (dom_path ^ "/platform") vm_info.platformdata;
 
     xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings;
+    if vm_info.is_uefi then
+      xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf";
 
     (* If a toolstack sees a domain which it should own in this state then the
        		   domain is not completely setup and should be shutdown. *)

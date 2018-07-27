@@ -1016,6 +1016,10 @@ module VM = struct
 
     let platformdata = vm.platformdata |> default "acpi_s3" "0" |> default "acpi_s4" "0" in
 
+    let is_uefi = match ty with
+      | HVM { firmware = Uefi _; _ } -> true
+      | _ -> false in
+
     {
       Domain.ssidref = vm.ssidref;
       hvm = hvm;
@@ -1025,6 +1029,7 @@ module VM = struct
       platformdata = platformdata @ vcpus;
       bios_strings = vm.bios_strings;
       has_vendor_device = vm.has_vendor_device;
+      is_uefi;
     }
 
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
