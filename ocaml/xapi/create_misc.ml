@@ -276,6 +276,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     ~has_vendor_device:false
     ~requires_reboot:false ~reference_label:""
     ~domain_type:Xapi_globs.domain_zero_domain_type
+    ~nVRAM:[]
   ;
   ensure_domain_zero_metrics_record ~__context ~domain_zero_ref host_info;
   Db.Host.set_control_domain ~__context ~self:localhost ~value:domain_zero_ref;

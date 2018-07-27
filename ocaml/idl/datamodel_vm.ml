@@ -22,7 +22,7 @@ open Datamodel_types
         ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_kolkata, "Replaced by VM.domain_type"]
         "boot_policy" "HVM boot policy";
       field ~ty:(Map(String, String)) "boot_params" "HVM boot params";
-      field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.))
+      field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.));
     ]
 
 let guest_memory =
@@ -1331,6 +1331,9 @@ let set_HVM_boot_policy = call ~flags:[`Session]
            namespace ~name:"PV" ~contents:pv ();
            namespace ~name:"HVM" ~contents:hvm ();
            field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
+           field ~lifecycle:[Prototyped, rel_next, ""] ~ty:(Map(String, String)) "NVRAM"
+             ~default_value:(Some (VMap []))
+             "initial value for guest NVRAM (containing UEFI variables, etc)";
 
            field ~lifecycle:[
              Published, rel_rio, "PCI bus path for pass-through devices";

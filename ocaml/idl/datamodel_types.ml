@@ -60,6 +60,7 @@ let rel_inverness = "inverness"
 let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 let rel_lima = "lima"
+let rel_next = "next"
 
 type api_release = {
   code_name: string option;
@@ -210,7 +211,12 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 11;
      branding   = "Unreleased";
-   };
+   }; {
+     code_name     = Some rel_next;
+     version_major = 2;
+     version_minor = 12;
+     branding      = "Unreleased"
+   }
   ]
 (* When you add a new release, use the version number of the latest release,
    and "Unreleased" for the branding, until the actual values are finalised. *)

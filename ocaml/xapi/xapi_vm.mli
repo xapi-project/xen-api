@@ -121,6 +121,7 @@ val create :
   hVM_boot_params:(string * string) list ->
   hVM_shadow_multiplier:float ->
   platform:(string * string) list ->
+  nVRAM:(string * string) list ->
   pCI_bus:string ->
   other_config:(string * string) list ->
   recommendations:string ->
