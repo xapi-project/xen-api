@@ -60,6 +60,7 @@ let rel_inverness = "inverness"
 let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 let rel_lima = "lima"
+let rel_naples = "naples"
 
 type api_release = {
   code_name: string option;
@@ -210,6 +211,11 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 11;
      branding   = "XenServer 7.6";
+   }; {
+     code_name     = Some rel_naples;
+     version_major = 2;
+     version_minor = 12;
+     branding      = "Unreleased"
    };
   ]
 (* When you add a new release, use the version number of the latest release,
