@@ -339,6 +339,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
     ~requires_reboot:false
     ~reference_label:all.Db_actions.vM_reference_label
     ~domain_type:all.Db_actions.vM_domain_type
+    ~nVRAM:all.Db_actions.vM_NVRAM
   ;
 
   (* update the VM's parent field in case of snapshot. Note this must be done after "ref"

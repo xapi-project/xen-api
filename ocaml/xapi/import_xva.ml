@@ -99,6 +99,7 @@ let make __context rpc session_id srid (vms, vdis) =
             ~generation_id:""
             ~hardware_platform_version:0L
             ~has_vendor_device:false ~reference_label:""
+            ~nVRAM:[]
         in
 
         TaskHelper.operate_on_db_task ~__context

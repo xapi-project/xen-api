@@ -142,7 +142,8 @@ val create :
   hardware_platform_version:int64 ->
   has_vendor_device:bool ->
   reference_label:string ->
-  domain_type:API.domain_type
+  domain_type:API.domain_type ->
+  nVRAM:(string * string) list
   -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
