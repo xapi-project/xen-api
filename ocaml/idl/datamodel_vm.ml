@@ -1400,6 +1400,10 @@ let set_HVM_boot_policy = call ~flags:[`Session]
                Published, rel_kolkata, "The field is now valid"
              ]
            ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
+
+           field ~lifecycle:[Prototyped, rel_naples, ""] ~ty:(Map(String, String)) "NVRAM"
+             ~default_value:(Some (VMap []))
+             "initial value for guest NVRAM (containing UEFI variables, etc)";
          ])
       ()
 

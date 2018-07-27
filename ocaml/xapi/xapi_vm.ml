@@ -483,6 +483,7 @@ let create ~__context ~name_label ~name_description
     ~hardware_platform_version
     ~has_vendor_device ~reference_label
     ~domain_type
+    ~nVRAM
   : API.ref_VM =
 
   if has_vendor_device then
@@ -545,6 +546,7 @@ let create ~__context ~name_label ~name_description
     ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
     ~suspend_VDI:Ref.null
     ~platform
+    ~nVRAM
     ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args
     ~pV_legacy_args
     ~pCI_bus ~other_config ~domid:(-1L) ~domarch:""
