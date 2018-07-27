@@ -366,9 +366,18 @@ let assert_enough_pcpus ~__context ~self ~host ?remote () =
 		|> Map_check.getf Cpuid_helpers.cpu_count
 		|> Int64.of_int
 	in
+	let vcpu_unrestricted = "vcpu-unrestricted" in
+	let is_true ~key ~platformdata ~default =
+		try
+			match List.assoc key platformdata with
+			| "true" | "1" -> true
+			| "false" | "0" -> false
+			| _ -> default
+		with Not_found ->
+			default in
 	if vcpus > pcpus then
 		let platformdata = Db.VM.get_platform ~__context ~self in
-		if Xapi_xenops.(is_true ~key:vcpu_unrestricted ~platformdata ~default:false) then
+		if is_true ~key:vcpu_unrestricted ~platformdata ~default:false then
 			warn "Allowing VM %s to run on host %s, even though #vCPUs > #pCPUs (%Ld > %Ld), \
 				because platform:vcpu-unrestricted is set"
 				(Ref.string_of self) (Ref.string_of host) vcpus pcpus
