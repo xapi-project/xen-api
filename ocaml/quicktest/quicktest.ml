@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(** The main entry point of the quicktest executable *)
+
 let () =
   Quicktest_args.parse ();
 
