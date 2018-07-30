@@ -1,7 +1,21 @@
-(** Quicktest filters transform a set of test cases. For example they can
-    select one or more inputs for each test, and then return a new set of tests
-    specialized for those inputs.
-    The arguments have to be processed first before these filters are used. *)
+(** This module provides a small framework for selecting the inputs of each
+    test case using filters.
+
+    These quicktest filters map a set of Alcotest test cases to another.
+    What these filters usually do is select a set of objects that can be passed
+    to the test function as the next input it's expecting, and then return a
+    new set of tests specialized for those inputs.
+
+    For example, the [sr] filter, which itself is a small domain-specific
+    language, allows specifying which SRs a storage test should be run on, and
+    it maps each storage test to a set of tests, one for each SR it supports.
+
+    Filters can be chained together using the [|>] operator, to specify each
+    input of a test case in turn, including the connection details - the
+    session reference and the RPC function.
+
+    The arguments of the quicktest executable have to be processed first before
+    these filters are used. *)
 
 val wrap : (unit -> unit) -> unit
 (** This has to wrap the quicktest run *)
@@ -24,11 +38,10 @@ module SR : sig
 
   type srs
 
-  val only : API.ref_SR -> srs
-
   val all : srs
   (** All connected SRs, or only the default if the corresponding CLI option is
-      enabled *)
+      enabled. The output of this can be piped with [|>] into the below filters
+      to refine the set of SRs. *)
 
   val random : srs -> srs
   val not_iso : srs -> srs
