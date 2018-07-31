@@ -86,8 +86,6 @@ end
 
 module VM = struct
   module Template = struct
-    exception Unable_to_find_suitable_vm_template
-
     let other = "Other install media"
 
     let find rpc session_id startswith =
@@ -96,15 +94,26 @@ module VM = struct
           (Xapi_stdext_std.Xstringext.String.startswith startswith (Client.Client.VM.get_name_label rpc session_id self))
           && (Client.Client.VM.get_is_a_template rpc session_id self)
         ) vms with
-      | [] -> raise Unable_to_find_suitable_vm_template
+      | [] -> None
       | x :: _ ->
         Printf.printf "Choosing template with name: %s\n" (Client.Client.VM.get_name_label rpc session_id x);
-        x
+        Some x
   end
 
-  let install rpc session_id template name =
-    let newvm_uuid = cli_cmd [ "vm-install"; "template-uuid=" ^ template; "new-name-label=" ^ name ] in
+  let install rpc session_id ~template ~name =
+    let template_uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:template in
+    let newvm_uuid = cli_cmd [ "vm-install"; "template-uuid=" ^ template_uuid; "new-name-label=" ^ name ] in
     Client.Client.VM.get_by_uuid rpc session_id newvm_uuid
+
+  let uninstall rpc session_id vm =
+    let uuid = Client.Client.VM.get_uuid ~rpc ~session_id ~self:vm in
+    cli_cmd [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ] |> ignore
+
+  let with_new rpc session_id ~template f =
+    let vm = install rpc session_id template "temp_quicktest_vm" in
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () -> f vm)
+      (fun () -> uninstall rpc session_id vm)
 
   let dom0_of_host rpc session_id host =
     Client.Client.Host.get_control_domain rpc session_id host

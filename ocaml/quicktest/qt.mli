@@ -39,10 +39,12 @@ end
 module VM : sig
   module Template : sig
     val other : string
-    val find : rpc -> API.ref_session -> string -> API.ref_VM
+    val find : rpc -> API.ref_session -> string -> API.ref_VM option
+    (** Returns the first template, if any, whose name starts with the given string *)
   end
 
-  val install : rpc -> API.ref_session -> string -> string -> API.ref_VM
+  val with_new : rpc -> API.ref_session -> template:API.ref_VM -> (API.ref_VM -> 'a) -> 'a
+
   val dom0_of_host : rpc -> API.ref_session -> API.ref_host -> API.ref_VM
   (** Return a host's domain zero *)
 
