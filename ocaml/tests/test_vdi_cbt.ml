@@ -379,11 +379,16 @@ let test_data_destroy =
       let data_destroy ~timeout =
         (* We need a 1-second tolerance here, otherwise the test will fail *)
         let timebox_timeout = timeout +. 1.0 in
-        Helpers.timebox
-          ~timeout:timebox_timeout
-          ~otherwise:(fun () -> Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout))
-          (fun () -> Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout)
-       in
+        let completed = ref false in
+        let raisedexn = ref None in
+        ignore (bg (fun () -> (try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout with e -> raisedexn := Some e); completed := true));
+        Thread.delay timebox_timeout;
+        if not !completed then
+                Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout);
+        match !raisedexn with
+        | None -> ()
+        | Some e -> raise e
+      in
       (vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy)
     in
 

@@ -240,6 +240,11 @@ let update_pif_addresses ~__context =
   Opt.iter (fun (pif, bridge) -> set_DNS ~__context ~pif ~bridge) dns_if;
   List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
+
+(* Note that both this and `make_timeboxed_rpc` are almost always 
+ * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
+ * The body is therefore not evaluated until the RPC call is actually being
+ * made. *)
 let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
@@ -249,6 +254,29 @@ let make_rpc ~__context rpc : Rpc.response =
     then Unix(Xapi_globs.unix_domain_socket)
     else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
+
+let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
+  let subtask_of = Ref.string_of (Context.get_task_id __context) in
+  Server_helpers.exec_with_new_task "timeboxed_rpc" ~subtask_of:(Context.get_task_id __context) (fun __context ->
+    (* Note we need a new task here because the 'resources' (including stunnel pid) are
+     * associated with the task. To avoid conflating the stunnel with any real resources
+     * the task has acquired we make a new one specifically for the stunnel pid *)
+    let open Xmlrpc_client in
+    let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+    let task_id = Context.get_task_id __context in
+    let cancel () =
+      let resources = Locking_helpers.Thread_state.get_acquired_resources_by_task task_id in
+      List.iter Locking_helpers.kill_resource resources
+    in
+    Xapi_periodic_scheduler.add_to_queue (Ref.string_of task_id) Xapi_periodic_scheduler.OneShot timeout cancel;
+    let transport =
+      if Pool_role.is_master ()
+      then Unix(Xapi_globs.unix_domain_socket)
+      else SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) (), Pool_role.get_master_address (), !Xapi_globs.https_port)
+    in
+    let result = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc in
+    Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id);
+    result)
 
 let make_remote_rpc_of_url ~srcstr ~dststr url call =
   let open Xmlrpc_client in
@@ -1026,39 +1054,6 @@ let force_loopback_vbd ~__context =
    can't get rid of it. Put this here so clients don't need to know
    about this. *)
 let compute_hash () = ""
-
-(* [timebox ~timeout:x ~otherwise:ow f] will timebox the execution of [f ()].
-   If the execution finishes within [x] seconds, we'll return the result from
-   [f ()]; if not, we'll call [otherwise ()] to give the final result. Note
-   that [otherwise] is a functional parameter, so there are plenty of things
-   the caller can do with it, e.g
-
-   - simply return a backup value in case of timeout
-   - raise an exception of your choice
-   - do some cleanup routines when timed out
-   - collaboratively stop/cancel the execution of [f ()] --- Note that there is
-   no universal method to cancel a function execution process which has already
-   started. So when [f ()] times out, its underlying execution will be still
-   ongoing, just the result will be discarded. However, it's possible to
-   implement some collaboration mechanism, so that [f ()] would stop itself
-   after receiving some message from [ow ()] if that is called.
-
-   ... or a combination of the above. *)
-let timebox ~timeout ~otherwise f =
-  let fd_in, fd_out = Unix.pipe () in
-  let result = ref otherwise in
-  let _ =  Thread.create
-      (fun () ->
-         (try
-            let r = f () in
-            result := fun () -> r
-          with e ->
-            result := fun () -> raise e);
-         Unix.close fd_out) () in
-  let finished = Thread.wait_timed_read fd_in timeout in
-  Unix.close fd_in;
-  if not finished then ignore_exn (fun () -> Unix.close fd_out);
-  !result ()
 
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
