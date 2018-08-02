@@ -39,6 +39,8 @@ type capability =
   | Vdi_attach_offline
   | Vdi_reset_on_boot
   | Vdi_configure_cbt
+  | Large_vdi (** Supports >2TB VDIs *)
+  | Thin_provisioning
 
 type feature = capability * int64
 
@@ -67,6 +69,8 @@ let string_to_capability_table = [
   "VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
   "VDI_CONFIG_CBT", Vdi_configure_cbt;
   "SR_STATS", Sr_stats;
+  "LARGE_VDI", Large_vdi;
+  "THIN_PROVISIONING", Thin_provisioning;
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 
