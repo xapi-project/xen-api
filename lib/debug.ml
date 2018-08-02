@@ -185,6 +185,8 @@ let logs_reporter =
   in
   let report src level ~over k msgf =
     let formatter ?header ?tags fmt =
+      ignore(header);
+      ignore(tags);
       let buf = Buffer.create 80 in
       let buf_fmt = Format.formatter_of_buffer buf in
       let k _ =

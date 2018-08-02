@@ -15,15 +15,15 @@
 open Xenops_interface
 open Xcp_client
 
-module Client = Xenops_interface.Client(struct
+module Client = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct
 	let rpc call =
 		if !use_switch
 		then json_switch_rpc !queue_name call
 		else xml_http_rpc ~srcstr:"xapi" ~dststr:"xenops" default_uri call
-end)
+end))
 
 let query dbg url =
-	let module Remote = Xenops_interface.Client(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end) in
+	let module Remote = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end)) in
 	Remote.query dbg ()
 
 let event_wait dbg ?from p =
@@ -46,7 +46,10 @@ let success_task dbg id =
 	Client.TASK.destroy dbg id;
 	match t.Task.state with
 	| Task.Completed _ -> t
-	| Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+	| Task.Failed x -> begin
+          match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty x with
+          | Ok x -> raise (Xenops_interface.Xenopsd_error x)
+          | Error _ -> raise (Xenops_interface.Xenopsd_error (Errors.Internal_error (Jsonrpc.to_string x))) end
 	| Task.Pending _ -> failwith "task pending"
 
 let wait_for_task dbg id =

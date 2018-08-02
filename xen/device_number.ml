@@ -3,11 +3,11 @@ type bus_type =
 	| Scsi
 	| Floppy
 	| Ide
-[@@deriving rpc]
+[@@deriving rpcty]
 
-type spec = bus_type * int * int [@@deriving rpc]
+type spec = bus_type * int * int [@@deriving rpcty]
 
-type t = spec [@@deriving rpc]
+type t = spec [@@deriving rpcty]
 
 let to_debug_string = function
 	| (Xen,    disk, partition) -> Printf.sprintf "Xen(%d, %d)"    disk partition
