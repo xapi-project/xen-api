@@ -64,6 +64,7 @@ type header_type =
   | Qemu_trad
   | Qemu_xen
   | Demu
+  | Varstored
   | End_of_image
 
 exception Invalid_header_type
@@ -76,6 +77,7 @@ let header_type_of_int64 = function
   | 0x0f00L -> `Ok Qemu_trad
   | 0x0f01L -> `Ok Qemu_xen
   | 0x0f10L -> `Ok Demu
+  | 0x0f11L -> `Ok Varstored
   | 0xffffL -> `Ok End_of_image
   | _ -> `Error Invalid_header_type
 
@@ -87,6 +89,7 @@ let int64_of_header_type = function
   | Qemu_trad    -> 0x0f00L
   | Qemu_xen     -> 0x0f01L
   | Demu         -> 0x0f10L
+  | Varstored    -> 0x0f11L
   | End_of_image -> 0xffffL
 
 type header = header_type * int64 (* length *)
@@ -101,6 +104,7 @@ let string_of_header h =
   | Qemu_trad, len  -> s "Qemu (traditional) save record (record length=%Ld)" len
   | Qemu_xen, len   -> s "Qemu (Xen) save record (record length=%Ld)" len
   | Demu, len       -> s "vGPU save record (record length=%Ld)" len
+  | Varstored, len  -> s "varstored save record (record length=%Ld)" len
   | End_of_image, _ -> s "Suspend image footer"
 
 let read_int64 fd = wrap (fun () -> Io.read_int64 ~endianness:`little fd)

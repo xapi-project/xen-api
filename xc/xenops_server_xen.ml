@@ -1789,6 +1789,9 @@ module VM = struct
 
          with_data ~xc ~xs task data true
            (fun fd ->
+              let is_uefi = match vm.ty with
+                | HVM { firmware = Uefi _; _ } -> true
+                | _ -> false in
               let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
               let vgpu_fd =
                 match vgpu_data with
@@ -1799,7 +1802,7 @@ module VM = struct
               in
               let manager_path = choose_emu_manager vm.Vm.platformdata in
               Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm) ~progress_callback
-                ~qemu_domid ~manager_path vm_str domid fd vgpu_fd flags'
+                ~qemu_domid ~manager_path ~is_uefi vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;

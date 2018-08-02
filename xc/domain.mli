@@ -172,6 +172,7 @@ type suspend_flag = Live | Debug
 (** suspend a domain into the file descriptor *)
 val suspend: Xenops_task.Xenops_task.task_handle -> xc: Xenctrl.handle -> xs: Xenstore.Xs.xsh
   -> domain_type: [`hvm | `pv | `pvh]
+  -> is_uefi : bool
   -> dm:Device.Profile.t
   -> manager_path:string -> string -> domid
   -> Unix.file_descr

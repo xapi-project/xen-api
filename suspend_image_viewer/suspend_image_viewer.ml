@@ -62,6 +62,9 @@ let parse_layout fd =
         | Qemu_trad, len ->
           Io.read fd (Io.int_of_int64_exn len) |> ignore;
           aux (h::acc)
+        | Varstored, len ->
+          Io.read fd (Io.int_of_int64_exn len) |> ignore;
+          aux (h :: acc)
         | End_of_image, _ -> return (h::acc)
         | Libxl, _ -> failwith "Unsupported: libxl"
         | Libxc_legacy, _ -> failwith "Unsupported: libxc-legacy"

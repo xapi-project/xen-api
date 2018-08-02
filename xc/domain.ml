@@ -1023,6 +1023,12 @@ type suspend_flag = Live | Debug
               restore_and_wait Vgpu >>= fun () ->
               debug "Restored DEMU state";
               process_header fd res
+            | Varstored, len ->
+              debug "Read varstored record header (domid=%d length=%Ld)" domid len;
+              let efivars = Io.read fd (Io.int_of_int64_exn len) in
+              debug "Read varstored record contents (domid=%d)" domid;
+              Device.Dm.restore_varstored task ~xs ~efivars domid;
+              process_header fd res
             | End_of_image, _ ->
               debug "Read suspend image footer";
               res
@@ -1280,6 +1286,7 @@ type suspend_flag = Live | Debug
             if domain_type = `hvm then (
               debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
               Device.Dm.suspend task ~xs ~qemu_domid ~dm domid;
+              Device.Dm.suspend_varstored task ~xs domid |> ignore
             );
             send_done cnx;
             wait_for_message ()
@@ -1329,11 +1336,21 @@ type suspend_flag = Live | Debug
         Unix.close fd2
       )
 
+  let write_varstored_record task ~xs domid main_fd =
+    let open Suspend_image in let open Suspend_image.M in
+    let varstored_record = Device.Dm.suspend_varstored task ~xs domid in
+    let varstored_rec_len = String.length varstored_record in
+    debug "Writing varstored record (domid=%d length=%d)" domid varstored_rec_len;
+    write_header main_fd (Varstored, Int64.of_int varstored_rec_len) >>= fun () ->
+    debug "Writing varstored record contents (domid=%d)" domid;
+    Io.write main_fd varstored_record;
+    return ()
+
   (* suspend register the callback function that will be call by linux_save
    * and is in charge to suspend the domain when called. the whole domain
    * context is saved to fd
   *)
-  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~dm ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
+  let suspend (task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm ~manager_path vm_str domid main_fd vgpu_fd flags ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
     let module DD = Debug.Make(struct let name = "mig64" end) in
     let open DD in
     let hvm = domain_type = `hvm in
@@ -1359,6 +1376,7 @@ type suspend_flag = Live | Debug
       Io.write main_fd xenops_record;
       suspend_emu_manager ~task ~xc ~xs ~domain_type ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
         ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
+      (if is_uefi then write_varstored_record task ~xs domid main_fd else return ()) >>= fun () ->
       (* Qemu record (if this is a hvm domain) *)
       (* Currently Qemu suspended inside above call with the libxc memory
          		* image, we should try putting it below in the relevant section of the

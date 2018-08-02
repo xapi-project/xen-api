@@ -33,6 +33,7 @@ type header_type =
   | Qemu_trad
   | Qemu_xen
   | Demu
+  | Varstored
   | End_of_image
 
 type format = Structured | Legacy
