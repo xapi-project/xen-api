@@ -60,7 +60,7 @@ let rel_inverness = "inverness"
 let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 let rel_lima = "lima"
-let rel_next = "next"
+let rel_naples = "naples"
 
 type api_release = {
   code_name: string option;
@@ -212,7 +212,7 @@ let release_order_full = [{
      version_minor = 11;
      branding   = "Unreleased";
    }; {
-     code_name     = Some rel_next;
+     code_name     = Some rel_naples;
      version_major = 2;
      version_minor = 12;
      branding      = "Unreleased"

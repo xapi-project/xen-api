@@ -1331,7 +1331,7 @@ let set_HVM_boot_policy = call ~flags:[`Session]
            namespace ~name:"PV" ~contents:pv ();
            namespace ~name:"HVM" ~contents:hvm ();
            field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
-           field ~lifecycle:[Prototyped, rel_next, ""] ~ty:(Map(String, String)) "NVRAM"
+           field ~lifecycle:[Prototyped, rel_naples, ""] ~ty:(Map(String, String)) "NVRAM"
              ~default_value:(Some (VMap []))
              "initial value for guest NVRAM (containing UEFI variables, etc)";
 
