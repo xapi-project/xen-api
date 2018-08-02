@@ -1026,7 +1026,7 @@ type suspend_flag = Live | Debug
             | End_of_image, _ ->
               debug "Read suspend image footer";
               res
-            | _ -> `Error Suspend_image_failure
+            | (Libxl | Qemu_xen), _ -> `Error Suspend_image_failure
           in
           let handle_results () =
             (* Wait for results coming in from emu-manager, and match them

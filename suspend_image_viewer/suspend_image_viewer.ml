@@ -63,7 +63,10 @@ let parse_layout fd =
           Io.read fd (Io.int_of_int64_exn len) |> ignore;
           aux (h::acc)
         | End_of_image, _ -> return (h::acc)
-        | _ -> failwith "Unsupported"
+        | Libxl, _ -> failwith "Unsupported: libxl"
+        | Libxc_legacy, _ -> failwith "Unsupported: libxc-legacy"
+        | Demu, _ -> failwith "Unsupported: demu"
+        | Qemu_xen, _ -> failwith "Unsupported: qemu-xen"
       end
     in
     match aux [] with
@@ -96,23 +99,26 @@ let print_layout headers =
   in
   inner headers
 
+module D = Debug.Make(struct let name = "suspend-image-viewer" end)
+
 let print_image path =
   Stdext.Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
       print_layout (parse_layout fd)
     )
 
 (* Command line interface *)
-
-open Cmdliner
-
-let path =
-  let doc = "Path to the suspend image device" in
-  Arg.(required & pos 0 (some file) None & info [] ~docv:"PATH" ~doc)
-
-let cmd =
+let () =
+  let resources = Resources.make_resources ~essentials:Resources.essentials
+      ~nonessentials:Resources.nonessentials in
   let doc = "Print the layout of a suspend image" in
-  let man = [] in
-  Term.(pure print_image $ path),
-  Term.info "suspend_image_viewer" ~version:"0.0.1" ~doc ~man
-
-let () = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
+  let path = ref "" in
+  let options = [
+    "path", Arg.Set_string path, (fun () -> !path), "Path to the suspend image device"
+  ] in
+  match Xcp_service.configure2 ~name:"suspend-image-viewer"
+          ~version:Version.version ~resources ~doc  ~options () with
+  | `Ok () ->
+    print_image !path
+  | `Error m ->
+    error "%s" m;
+    exit 1
