@@ -27,12 +27,12 @@ let transform_exception f x =
   with
   | Backend_error_with_backtrace(code, backtrace :: params) as e ->
     let backtrace = Backtrace.Interop.of_json "SM" backtrace in
-    let exn = Storage_backend_error(code, params) in
+    let exn = Xenopsd_error (Storage_backend_error(code, params)) in
     Backtrace.add exn backtrace;
     Backtrace.reraise e exn
   | Backend_error(code, params) as e ->
     error "Re-raising exception %s: %s" code (String.concat "; " params);
-    Backtrace.reraise e (Storage_backend_error(code, params))
+    Backtrace.reraise e (Xenopsd_error (Storage_backend_error(code, params)))
 
 (* Used to identify this VBD to the storage layer *)
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)

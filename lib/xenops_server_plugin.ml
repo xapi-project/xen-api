@@ -21,7 +21,7 @@ type domain_action_request =
   | Needs_reboot
   | Needs_suspend
   | Needs_crashdump
-[@@deriving rpc]
+[@@deriving rpcty]
 
 type device_action_request =
   | Needs_unplug
@@ -33,21 +33,24 @@ type shutdown_request =
   | PowerOff
   | S3Suspend
   | Suspend
-[@@deriving rpc]
-let string_of_shutdown_request x = x |> rpc_of_shutdown_request |> Jsonrpc.to_string
+[@@deriving rpcty]
+
+let rpc_of : type x. x Rpc.Types.def -> x -> Rpc.t = fun def x -> Rpcmarshal.marshal def.Rpc.Types.ty x
+
+let string_of_shutdown_request x = x |> rpc_of shutdown_request |> Jsonrpc.to_string
 
 let test = Updates.empty
-let string_of_disk d = d |> rpc_of_disk |> Jsonrpc.to_string
+let string_of_disk d = d |> rpc_of disk |> Jsonrpc.to_string
 type data =
   | Disk of disk
   | FD of Unix.file_descr
-[@@deriving rpc]
-let string_of_data x = x |> rpc_of_data |> Jsonrpc.to_string
+[@@deriving rpcty]
+let string_of_data x = x |> rpc_of data |> Jsonrpc.to_string
 
 type flag =
   | Live
-[@@deriving rpc]
-let string_of_flag x = x |> rpc_of_flag |> Jsonrpc.to_string
+[@@deriving rpcty]
+let string_of_flag x = x |> rpc_of flag |> Jsonrpc.to_string
 let string_of_flag = function
   | Live -> "Live"
 

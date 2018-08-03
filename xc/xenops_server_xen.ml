@@ -70,18 +70,53 @@ let choose_xenguest x = choose_alternative _xenguest !Xc_resources.xenguest x
 (* We allow emu-manager to be overriden via a platform flag *)
 let choose_emu_manager x = choose_alternative _emu_manager !Xc_resources.emu_manager x
 
+type xendisk = Storage_interface.xendisk = {
+  params: string; (** Put into the "params" key in xenstore *)
+
+  extra: (string * string) list;
+  (** Key-value pairs to be put into the "extra" subdirectory underneath the
+      xenstore backend *)
+
+  backend_type: string;
+} [@@deriving rpcty]
+
+
+type block_device = Storage_interface.block_device = {
+  path: string; (** Path to the block device *)
+} [@@deriving rpcty]
+
+
+type file = Storage_interface.file = {
+  path: string; (** Path to the raw file *)
+} [@@deriving rpcty]
+
+
+type nbd = Storage_interface.nbd = {
+  uri: string;
+} [@@deriving rpcty]
+
+type implementation = Storage_interface.implementation =
+  | XenDisk of xendisk
+  | BlockDevice of block_device
+  | File of file
+  | Nbd of nbd
+[@@deriving rpcty]
 
 type qemu_frontend =
   | Empty
   | Name of string (* block device path or bridge name *)
-  | Nbd of Storage_interface.nbd
+  | Nbd of nbd
   | Device of Device_common.device
-  [@@deriving rpc]
+  [@@deriving rpcty]
+
+type storage_backend = Storage_interface.backend = {
+  implementations: implementation list;
+} [@@deriving rpcty]
 
 type attached_vdi = {
   domid: int;
-  attach_info: Storage_interface.backend;
-} [@@deriving rpc]
+  attach_info: storage_backend;
+} [@@deriving rpcty]
 
 module VmExtra = struct
 
@@ -104,52 +139,27 @@ module VmExtra = struct
     (* This field indicates the version of the persistent record with which
        the VM started, and it stays constant through xenopsd VM migration,
        resume etc operations until the VM shuts down. *)
-    version: int;
+    version: int [@default persistent_version_pre_lima];
     build_info: Domain.build_info option;
     ty: Vm.builder_info option;
-    last_start_time: float;
+    last_start_time: float [@default 0.0];
     domain_config: Domain.arch_domainconfig option;
-    nomigrate: bool;  (* platform:nomigrate   at boot time *)
-    nested_virt: bool;(* platform:nested_virt at boot time *)
+    nomigrate: bool [@default false];  (* platform:nomigrate   at boot time *)
+    nested_virt: bool [@default false];(* platform:nested_virt at boot time *)
     profile: Device.Profile.t option;
-    suspend_memory_bytes: int64;
-    qemu_vbds: (Vbd.id * (int * qemu_frontend)) list;
-    qemu_vifs: (Vif.id * (int * qemu_frontend)) list;
-    pci_msitranslate: bool;
-    pci_power_mgmt: bool;
-    pv_drivers_detected: bool
-  } [@@deriving rpc]
+    suspend_memory_bytes: int64 [@default 0L];
+    qemu_vbds: (Vbd.id * (int * qemu_frontend)) list [@default []];
+    qemu_vifs: (Vif.id * (int * qemu_frontend)) list [@default []];
+    pci_msitranslate: bool [@default false];
+    pci_power_mgmt: bool [@default false];
+    pv_drivers_detected: bool [@default false];
+  } [@@deriving rpcty]
 
-  let default_persistent_t =
-    { 
-      (* The default version 0 indicates that the persistent record was created by a VM-start
-         operation using an old pre-Lima xenopsd version that didn't have a version field. *)
-      version = persistent_version_pre_lima
-    ; build_info = None
-    ; ty = None
-    ; last_start_time = 0.0
-    ; domain_config = None
-    ; nomigrate = false
-    ; nested_virt = false
-    ; profile = None
-    ; suspend_memory_bytes = 0L
-    ; qemu_vbds = []
-    ; qemu_vifs = []
-    ; pci_msitranslate = false
-    ; pci_power_mgmt = false
-    ; pv_drivers_detected = false
-    }
-
-  (* override rpc code generated for persistent_t. It is important that
-     * this code is before the declaration of type t because otherwise
-     * the rpc code for type t won't use it. *)
-  let persistent_t_of_rpc rpc =
-    Rpc.struct_extend rpc (rpc_of_persistent_t default_persistent_t)
-    |> persistent_t_of_rpc
+  let default_persistent_t = match Rpcmarshal.unmarshal typ_of_persistent_t (Rpc.Dict []) with Ok x -> x | _ -> failwith "Failed to make default_persistent_t"
 
   type t = {
     persistent: persistent_t
-  } [@@deriving rpc]
+  } [@@deriving rpcty]
 end
 
 module DB = struct
@@ -216,7 +226,7 @@ let di_of_uuid ~xc ~xs uuid =
   | xs ->
     let domid_list = String.concat ", " (List.map (fun x -> string_of_int x.domid) xs) in
     error "VM %s: there are %d domains (%s) with the same uuid: one or more have leaked" uuid' (List.length possible) domid_list;
-    raise (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' domid_list))
+    raise (Xenopsd_error (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" uuid' domid_list)))
 
 let domid_of_uuid ~xc ~xs uuid =
   (* We don't fully control the domain lifecycle because libxenguest will actually
@@ -229,7 +239,7 @@ let domid_of_uuid ~xc ~xs uuid =
     | xs ->
       let domid_list = String.concat ", " (List.map string_of_int xs) in
       error "More than 1 domain associated with a VM. This is no longer OK!";
-      raise (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" (Uuidm.to_string uuid) domid_list))
+      raise (Xenopsd_error (Internal_error (Printf.sprintf "More than one domain with uuid (%s): %s" (Uuidm.to_string uuid) domid_list)))
   with e ->
     error "Failed to read %s: has this domain already been cleaned up?" dir;
     None
@@ -259,14 +269,14 @@ let params_of_backend backend =
       let xenstore_data = xendisk.Storage_interface.extra in
       if List.mem_assoc backend_kind xenstore_data then xenstore_data else ("backend-kind", backend_kind) :: xenstore_data
     | [] ->
-      raise (Internal_error ("Could not find XenDisk implementation: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string)))
+      raise (Xenopsd_error (Internal_error ("Could not find XenDisk implementation: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string))))
   in
   let open Storage_interface in
   let params, extra_keys = match blockdevs, files, nbds, xendisks with
   | {path}::_, _, _, _ | _, {path}::_, _, _ -> (path, [])
   | _, _, {uri}::_, xendisk::_ -> (uri, ["qemu-params", xendisk.Storage_interface.params])
   | _ ->
-    raise (Internal_error ("Could not find BlockDevice, File, or Nbd implementation: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string)))
+    raise (Xenopsd_error (Internal_error ("Could not find BlockDevice, File, or Nbd implementation: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string))))
   in
   (params, xenstore_data, extra_keys)
 
@@ -276,7 +286,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
   match domid_of_uuid ~xc ~xs (uuid_of_string backend_vm_id) with
   | None ->
     error "VM = %s; domid = %d; Failed to determine domid of backend VM id: %s" frontend_vm_id frontend_domid backend_vm_id;
-    raise (Does_not_exist("domain", backend_vm_id))
+    raise (Xenopsd_error (Does_not_exist("domain", backend_vm_id)))
   | Some backend_domid when backend_domid = frontend_domid -> begin
       (* There's no need to use a PV disk if we're in the same domain *)
       let open Storage_interface in
@@ -293,7 +303,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
       match paths, nbds with
       | path::_, _ -> Name path
       | _, nbd::_ -> Nbd nbd
-      | [], [] -> raise (Internal_error ("Could not find File, BlockDevice, or Nbd implementation: " ^ (Storage_interface.rpc_of_backend vdi.attach_info |> Jsonrpc.to_string)))
+      | [], [] -> raise (Xenopsd_error (Internal_error ("Could not find File, BlockDevice, or Nbd implementation: " ^ (Storage_interface.rpc_of_backend vdi.attach_info |> Jsonrpc.to_string))))
     end
   | Some backend_domid ->
     let params, xenstore_data, extra_keys = params_of_backend vdi.attach_info in
@@ -437,13 +447,13 @@ module Mem = struct
       let needed = Memory.bytes_of_kib needed in
       let free = Memory.bytes_of_kib free in
       error "Cannot free %Ld; only %Ld are available" needed free;
-      raise (Cannot_free_this_much_memory(needed, free))
+      raise (Xenopsd_error (Cannot_free_this_much_memory(needed, free)))
     | Memory_interface.MemoryError (Memory_interface.Domains_refused_to_cooperate domids) ->
       debug "Got error_domains_refused_to_cooperate_code from ballooning daemon";
       Xenctrl.with_intf
         (fun xc ->
            let vms = List.map (get_uuid ~xc) domids |> List.map Uuidm.to_string in
-           raise (Vms_failed_to_cooperate(vms))
+           raise (Xenopsd_error (Vms_failed_to_cooperate(vms)))
         )
     | Unix.Unix_error(Unix.ECONNREFUSED, "connect", _) ->
       info "ECONNREFUSED talking to squeezed: assuming it has been switched off";
@@ -643,7 +653,7 @@ let device_by_id xc xs vm kind id =
   match vm |> uuid_of_string |> domid_of_uuid ~xc ~xs with
   | None ->
     debug "VM = %s; does not exist in domain list" vm;
-    raise (Does_not_exist("domain", vm))
+    raise (Xenopsd_error (Does_not_exist("domain", vm)))
   | Some frontend_domid ->
     let fetch_all_from_xenstore_f () = (* expensive *)
       let devices = Device_common.list_frontends ~xs frontend_domid in
@@ -663,10 +673,10 @@ let device_by_id xc xs vm kind id =
     try DeviceCache.get device_cache fetch_all_from_xenstore_f fetch_one_from_xenstore_f frontend_domid id
     with DeviceCache.NotFoundIn ids ->
       debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
-      raise (Device_not_connected)
+      raise (Xenopsd_error Device_not_connected)
 
 (* Extra keys to store in VBD backends to allow us to deactivate VDIs: *)
-type backend = disk option [@@deriving rpc]
+type backend = disk option [@@deriving rpcty]
 let _vdi_id = "vdi-id"
 let _dp_id = "dp-id"
 
@@ -915,7 +925,7 @@ module VM = struct
           ramdisk = direct.ramdisk;
         }
       | PV { boot = Indirect { devices = [] } } ->
-        raise (No_bootable_device)
+        raise (Xenopsd_error No_bootable_device)
       | PV { boot = Indirect ( { devices = d :: _ } ) } ->
         Domain.BuildPV {
           Domain.cmdline = "";
@@ -938,7 +948,7 @@ module VM = struct
                  any cached PV driver information will be kept. *)
               last_start_time = 0.0;
               profile = profile_of ~vm;
-    } |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
+    } |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
 
   let mkints n =
     let rec loop a b = if a = b then [] else a :: (loop (a + 1) b) in
@@ -1133,14 +1143,14 @@ module VM = struct
     with_xc_and_xs
       (fun xc xs ->
          match di_of_uuid ~xc ~xs uuid with
-         | None -> raise (Does_not_exist("domain", vm.Vm.id))
+         | None -> raise (Xenopsd_error (Does_not_exist("domain", vm.Vm.id)))
          | Some di -> f xc xs task vm di
       )
 
   let on_domain_if_exists f (task: Xenops_task.task_handle) vm =
     try
       on_domain f task vm
-    with Does_not_exist("domain", _) ->
+    with Xenopsd_error (Does_not_exist("domain", _)) ->
       debug "Domain for VM %s does not exist: ignoring" vm.Vm.id
 
   let add vm =
@@ -1199,7 +1209,7 @@ module VM = struct
     (* Best-effort attempt to remove metadata - if VM has been powered off
        * then it will have already been deleted by VM.destroy *)
     try DB.remove vm.Vm.id
-    with Does_not_exist("extra", _) -> ()
+    with Xenopsd_error (Does_not_exist("extra", _)) -> ()
 
   let log_exn_continue msg f x = try f x with e -> debug "Safely ignoring exception: %s while %s" (Printexc.to_string e) msg
 
@@ -1223,7 +1233,7 @@ module VM = struct
         ) (get_stubdom ~xs domid);
 
       let devices = Device_common.list_frontends ~xs domid in
-      let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
+      let vbds = List.filter (fun dev -> let open Device_common in match dev.frontend.kind with Vbd _ -> true | _ -> false) devices in
       let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
 
       (* Normally we throw-away our domain-level information. If the domain
@@ -1250,12 +1260,12 @@ module VM = struct
     )
 
   let pause = on_domain (fun xc xs _ _ di ->
-      if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
+      if di.Xenctrl.total_memory_pages = 0n then raise (Xenopsd_error Domain_not_built);
       Domain.pause ~xc di.Xenctrl.domid
     )
 
   let unpause = on_domain (fun xc xs _ _ di ->
-      if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
+      if di.Xenctrl.total_memory_pages = 0n then raise (Xenopsd_error Domain_not_built);
       Domain.unpause ~xc di.Xenctrl.domid;
       Opt.iter
         (fun stubdom_domid ->
@@ -1293,7 +1303,7 @@ module VM = struct
     ) task vm
 
   let set_shadow_multiplier task vm target = on_domain (fun xc xs _ _ di ->
-      if get_domain_type ~xs di = Vm.Domain_PV then raise (Unimplemented "shadow_multiplier for PV domains");
+      if get_domain_type ~xs di = Vm.Domain_PV then raise (Xenopsd_error (Unimplemented "shadow_multiplier for PV domains"));
       let domid = di.Xenctrl.domid in
       let static_max_mib = Memory.mib_of_bytes_used vm.Vm.memory_static_max in
       let newshadow = Int64.to_int (Memory.HVM.shadow_mib static_max_mib vm.Vm.vcpu_max target) in
@@ -1302,7 +1312,7 @@ module VM = struct
       debug "VM = %s; domid = %d; Domain has %d MiB shadow; an increase of %d MiB requested" vm.Vm.id domid curshadow needed_mib;
       if not(Domain.wait_xen_free_mem xc (Int64.mul (Int64.of_int needed_mib) 1024L)) then begin
         error "VM = %s; domid = %d; Failed waiting for Xen to free %d MiB: some memory is not properly accounted" vm.Vm.id domid needed_mib;
-        raise (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib)))
+        raise (Xenopsd_error (Not_enough_memory (Memory.bytes_of_mib (Int64.of_int needed_mib))))
       end;
       debug "VM = %s; domid = %d; shadow_allocation_setto %d MiB" vm.Vm.id domid newshadow;
       Xenctrl.shadow_allocation_set xc domid newshadow;
@@ -1327,7 +1337,7 @@ module VM = struct
      restored with the VM. *)
   let create_device_model_config vm vmextra vbds vifs vgpus vusbs = match vmextra.VmExtra.persistent with
     | { VmExtra.build_info = None }
-    | { VmExtra.ty = None } -> raise (Domain_not_built)
+    | { VmExtra.ty = None } -> raise (Xenopsd_error Domain_not_built)
     | {
       VmExtra.build_info = Some build_info;
       ty = Some ty;
@@ -1343,9 +1353,9 @@ module VM = struct
           | Cirrus, [] -> Device.Dm.Cirrus
           | Standard_VGA, [] -> Device.Dm.Std_vga
           | IGD_passthrough GVT_d, [] -> Device.Dm.GVT_d
-          | Vgpu, [] -> raise (Internal_error "Vgpu mode specified but no vGPUs")
+          | Vgpu, [] -> raise (Xenopsd_error (Internal_error "Vgpu mode specified but no vGPUs"))
           | Vgpu, vgpus -> Device.Dm.Vgpu vgpus
-          | _ -> raise (Internal_error "Invalid graphics mode")
+          | _ -> raise (Xenopsd_error (Internal_error "Invalid graphics mode"))
         in
         let open Device.Dm in {
           memory = build_info.Domain.memory_max;
@@ -1472,7 +1482,7 @@ module VM = struct
               } in
             ((make_build_info direct.kernel builder_spec_info), "")
           | PV { boot = Indirect { devices = [] } } ->
-            raise (No_bootable_device)
+            raise (Xenopsd_error No_bootable_device)
           | PV { boot = Indirect ( { devices = d :: _ } as i ) } ->
             with_disk ~xc ~xs task d false
               (fun dev ->
@@ -1501,7 +1511,7 @@ module VM = struct
               } in
             ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
           | PVinPVH { boot = Indirect { devices = [] } } ->
-            raise (No_bootable_device)
+            raise (Xenopsd_error No_bootable_device)
           | PVinPVH { boot = Indirect ( { devices = d :: _ } as i ) } ->
             with_disk ~xc ~xs task d false
               (fun dev ->
@@ -1551,22 +1561,22 @@ module VM = struct
          | Bootloader.Bad_sexpr x ->
            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_sexpr %s" vm.Vm.id domid x in
            debug "%s" m;
-           raise (Internal_error m)
+           raise (Xenopsd_error (Internal_error m))
          | Bootloader.Bad_error x ->
            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Bad_error %s" vm.Vm.id domid x in
            debug "%s" m;
-           raise (Internal_error m)
+           raise (Xenopsd_error (Internal_error m))
          | Bootloader.Unknown_bootloader x ->
            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Unknown_bootloader %s" vm.Vm.id domid x in
            debug "%s" m;
-           raise (Internal_error m)
+           raise (Xenopsd_error (Internal_error m))
          | Bootloader.Error_from_bootloader x ->
            let m = Printf.sprintf "VM = %s; domid = %d; Bootloader.Error_from_bootloader %s" vm.Vm.id domid x in
            debug "%s" m;
-           raise (Bootloader_error (vm.Vm.id, x))
+           raise (Xenopsd_error (Bootloader_error (vm.Vm.id, x)))
          | Domain.Not_enough_memory m ->
            debug "VM = %s; domid = %d; Domain.Not_enough_memory. Needed: %Ld bytes" vm.Vm.id domid m;
-           raise (Not_enough_memory m)
+           raise (Xenopsd_error (Not_enough_memory m))
          | e ->
            let m = Printf.sprintf "VM = %s; domid = %d; Error: %s" vm.Vm.id domid (Printexc.to_string e) in
            debug "%s" m;
@@ -1609,7 +1619,7 @@ module VM = struct
         Device.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
       | _ -> ()
     with Device.Ioemu_failed (name, msg) ->
-      raise (Failed_to_start_emulator (vm.Vm.id, name, msg))
+      raise (Xenopsd_error (Failed_to_start_emulator (vm.Vm.id, name, msg)))
 
   let create_device_model task vm vbds vifs vgpus vusbs saved_state = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state) task vm
 
@@ -1714,7 +1724,7 @@ module VM = struct
                    try Xapi_stdext_unix.Unixext.fsync fd;
                    with Unix.Unix_error(Unix.EIO, _, _) ->
                      error "Caught EIO in fsync after suspend; suspend image may be corrupt";
-                     raise (IO_error)
+                     raise (Xenopsd_error IO_error)
                 )
             )
         )
@@ -1743,7 +1753,7 @@ module VM = struct
              cancellable_watch (Domain domid) watches [] task ~xs ~timeout:!Xenopsd.additional_ballooning_timeout ()
              |> ignore
            with Watch.Timeout _ ->
-             raise Xenops_interface.Ballooning_timeout_before_migration
+             raise (Xenops_interface.Xenopsd_error Ballooning_timeout_before_migration)
       ) task vm
 
   let save task progress_callback vm flags data vgpu_data =
@@ -1782,9 +1792,9 @@ module VM = struct
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
                    if not(request_shutdown task vm Suspend 30.)
-                   then raise (Failed_to_acknowledge_shutdown_request);
+                   then raise (Xenopsd_error Failed_to_acknowledge_shutdown_request);
                    if not(wait_shutdown task vm Suspend 1200.)
-                   then raise (Failed_to_shutdown(vm.Vm.id, 1200.));
+                   then raise (Xenopsd_error (Failed_to_shutdown(vm.Vm.id, 1200.)));
                 );
               (* Record the final memory usage of the domain so we know how
                  much to allocate for the resume *)
@@ -1794,13 +1804,17 @@ module VM = struct
               (* Flush all outstanding disk blocks *)
 
               let devices = Device_common.list_frontends ~xs domid in
-              let vbds = List.filter (fun device -> match Device_common.(device.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
+              let vbds = List.filter (fun dev -> match Device_common.(dev.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
               List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
               List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
               debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
               List.iter (fun vbds_chunk ->
                   Stdext.Threadext.thread_iter (fun device ->
-                      let backend = Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
+                      let backend =
+                        match Rpcmarshal.unmarshal typ_of_backend (Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string) with
+                        | Ok x -> x
+                        | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal VBD backend: %s" m)))
+                      in
                       let dp = Device.Generic.get_private_key ~xs device _dp_id in
                       match backend with
                       | None (* can never happen due to 'filter' above *)
@@ -1839,7 +1853,7 @@ module VM = struct
               let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
                 | { VmExtra.build_info = None } ->
                   error "VM = %s; No stored build_info: cannot safely restore" vm.Vm.id;
-                  raise (Does_not_exist("build_info", vm.Vm.id))
+                  raise (Xenopsd_error (Does_not_exist("build_info", vm.Vm.id)))
                 | { VmExtra.build_info = Some x; VmExtra.ty } ->
                   let initial_target = get_initial_target ~xs domid in
                   let timeoffset = match ty with
@@ -2017,7 +2031,7 @@ module VM = struct
     with_xc_and_xs
       (fun xc xs ->
          match di_of_uuid ~xc ~xs uuid with
-         | None -> raise (Does_not_exist("domain", vm.Vm.id))
+         | None -> raise (Xenopsd_error (Does_not_exist("domain", vm.Vm.id)))
          | Some di ->
            let path = Printf.sprintf "/local/domain/%d/control/ts" di.Xenctrl.domid in
            xs.Xs.write path (if enabled then "1" else "0")
@@ -2028,12 +2042,12 @@ module VM = struct
     let domid, path =  with_xc_and_xs
         (fun xc xs ->
            match di_of_uuid ~xc ~xs uuid with
-           | None -> raise (Does_not_exist("domain", vm.Vm.id))
+           | None -> raise (Xenopsd_error (Does_not_exist("domain", vm.Vm.id)))
            | Some di ->
              let path = xs.Xs.getdomainpath di.Xenctrl.domid in
              let _ =
                try xs.Xs.read (path ^ "/control/feature-xs-batcmd")
-               with _ -> raise (Unimplemented "run-script is not supported on the given VM (or it is still booting)") in
+               with _ -> raise (Xenopsd_error (Unimplemented "run-script is not supported on the given VM (or it is still booting)")) in
              di.Xenctrl.domid, path ^ "/control/batcmd") in
     let () = with_xc_and_xs
         (fun xc xs ->
@@ -2041,7 +2055,7 @@ module VM = struct
            match state with
            | "" -> () (* state should normally be empty, unless in exceptional case e.g. xapi restarted previously *)
            | "IN PROGRESS" ->
-             raise (Failed_to_run_script "A residual run-script instance in progress, either wait for its completion or reboot the VM.")
+             raise (Xenopsd_error (Failed_to_run_script "A residual run-script instance in progress, either wait for its completion or reboot the VM."))
            | _ ->
              info "Found previous run_script state %s leftover (either not started or completed), remove." state;
              xs.Xs.rm path) in
@@ -2073,14 +2087,14 @@ module VM = struct
     | ("SUCCESS" | "TRUNCATED"), Some rc_int  ->
       Rpc.Dict [("rc", Rpc.Int rc_int); ("stdout", Rpc.String stdout); ("stderr", Rpc.String stderr)]
     | _, _ ->
-      raise (Failed_to_run_script (Printf.sprintf "flag = %s, rc = %s, stdour = %s, stderr = %s" flag rc stdout stderr))
+      raise (Xenopsd_error (Failed_to_run_script (Printf.sprintf "flag = %s, rc = %s, stdour = %s, stderr = %s" flag rc stdout stderr)))
 
   let set_domain_action_request vm request =
     let uuid = uuid_of_vm vm in
     with_xc_and_xs
       (fun xc xs ->
          match di_of_uuid ~xc ~xs uuid with
-         | None -> raise (Does_not_exist("domain", vm.Vm.id))
+         | None -> raise (Xenopsd_error (Does_not_exist("domain", vm.Vm.id)))
          | Some di ->
            Domain.set_action_request ~xs di.Xenctrl.domid (match request with
                | None -> None
@@ -2119,11 +2133,14 @@ module VM = struct
 
   let get_internal_state vdi_map vif_map vm =
     let state = DB.read_exn vm.Vm.id in
-    state.VmExtra.persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string
+    state.VmExtra.persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
 
   let set_internal_state vm state =
     let k = vm.Vm.id in
-    let persistent = state |> Jsonrpc.of_string |> VmExtra.persistent_t_of_rpc in
+    let persistent = match Rpcmarshal.unmarshal VmExtra.typ_of_persistent_t (state |> Jsonrpc.of_string) with
+      | Ok p -> p
+      | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal persistent_t: %s" m)))
+    in
     (* Don't take the timeoffset from [state] (last boot record). Put back
        * the one from [vm] which came straight from the platform keys. *)
     let persistent = match vm.ty with
@@ -2139,7 +2156,7 @@ module VM = struct
     let persistent = { persistent with VmExtra.profile = profile_of ~vm }
       |> DB.revision_of k
     in
-    persistent |> VmExtra.rpc_of_persistent_t |> Jsonrpc.to_string |> fun state_new ->
+    persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string |> fun state_new ->
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
@@ -2153,7 +2170,7 @@ let on_frontend f frontend =
   with_xc_and_xs
     (fun xc xs ->
        let frontend_di = match frontend |> uuid_of_string |> di_of_uuid ~xc ~xs with
-         | None -> raise (Does_not_exist ("domain", frontend))
+         | None -> raise (Xenopsd_error (Does_not_exist ("domain", frontend)))
          | Some x -> x in
        f xc xs frontend_di.Xenctrl.domid (VM.get_domain_type ~xs frontend_di)
     )
@@ -2198,7 +2215,7 @@ module PCI = struct
 
          if not (Sys.file_exists "/sys/bus/pci/drivers/pciback") then begin
            error "PCIBack has not been loaded";
-           raise PCIBack_not_loaded;
+           raise (Xenopsd_error PCIBack_not_loaded);
          end;
 
          Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
@@ -2216,7 +2233,7 @@ module PCI = struct
            with Not_found ->
              debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
         ) vm
-    with (Does_not_exist(_,_)) ->
+    with (Xenopsd_error (Does_not_exist(_,_))) ->
       debug "VM = %s; PCI = %s; Ignoring missing domain" vm (id_of pci)
 
 end
@@ -2233,7 +2250,7 @@ module VGPU = struct
          let vcpus = match vmextra.VmExtra.persistent with
            | { VmExtra.build_info = None } ->
              error "VM = %s; No stored build_info: cannot safely restore" vm;
-             raise (Does_not_exist("build_info", vm))
+             raise (Xenopsd_error (Does_not_exist("build_info", vm)))
            | { VmExtra.build_info = Some build_info } ->
              build_info.Domain.vcpus
          in
@@ -2308,9 +2325,9 @@ module VUSB = struct
            Device.Vusb.vusb_unplug ~xs ~privileged ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport
         ) vm
     with
-    | (Does_not_exist(_,_)) ->
+    | (Xenopsd_error (Does_not_exist(_,_))) ->
       debug "VM = %s; VUSB = %s; Ignoring missing domain" vm (id_of vusb)
-    | (Device_not_connected) ->
+    | (Xenopsd_error Device_not_connected) ->
       debug "VM = %s; VUSB = %s; Ignoring missing device" vm (id_of vusb)
 
 end
@@ -2334,7 +2351,7 @@ module VBD = struct
   let vdi_attach_path vbd = Printf.sprintf "/xapi/%s/private/vdis/%s" (fst vbd.id) (snd vbd.id)
 
   let attach_and_activate task xc xs frontend_domid vbd vdi =
-    let attached_vdi = match vdi with
+    let vdi = match vdi with
       | None ->
         (* XXX: do something better with CDROMs *)
         { domid = this_domid ~xs; attach_info = Storage_interface.{ implementations = [XenDisk {params="";extra=[];backend_type="vbd3"}; BlockDevice {path=""}] } }
@@ -2345,8 +2362,8 @@ module VBD = struct
         let dp = Storage.id_of (string_of_int frontend_domid) vbd.id in
         let vm = fst vbd.id in
         Storage.attach_and_activate ~xc ~xs task vm dp sr vdi (vbd.mode = ReadWrite) in
-    xs.Xs.write (vdi_attach_path vbd) (attached_vdi |> rpc_of_attached_vdi |> Jsonrpc.to_string);
-    attached_vdi
+    xs.Xs.write (vdi_attach_path vbd) (vdi |> rpc_of attached_vdi |> Jsonrpc.to_string);
+    vdi
 
   let frontend_domid_of_device device = device.Device_common.frontend.Device_common.domid
 
@@ -2384,17 +2401,19 @@ module VBD = struct
     (* If the user has provided an override then use that *)
     if List.mem_assoc _backend_kind vbd.extra_backend_keys
     then Device_common.kind_of_string (List.assoc _backend_kind vbd.extra_backend_keys)
-    else match (try Some(xs.Xs.read (vdi_attach_path vbd) |> Jsonrpc.of_string |> attached_vdi_of_rpc) with _ -> None) with
+    else match (try Some(xs.Xs.read (vdi_attach_path vbd) |> Jsonrpc.of_string |> Rpcmarshal.unmarshal typ_of_attached_vdi) with _ -> None) with
       | None ->
         (* An empty VBD has to be a CDROM: anything will do *)
         Device_common.Vbd !Xenopsd.default_vbd_backend_kind
-      | Some vdi ->
+      | Some (Ok vdi) ->
         let _, xenstore_data, _ = params_of_backend vdi.attach_info in
         (* Use the storage manager's preference *)
         if List.mem_assoc _backend_kind xenstore_data
         then Device_common.kind_of_string (List.assoc _backend_kind xenstore_data)
         else Device_common.Vbd !Xenopsd.default_vbd_backend_kind
-
+      | Some (Error (`Msg m)) ->
+        raise (Xenopsd_error (Internal_error (Printf.sprintf "Error unmarshalling attached_vdi: %s" m)))
+        
   let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
   let plug task vm vbd =
@@ -2418,7 +2437,7 @@ module VBD = struct
              (* Remember the VBD id with the device *)
              let vbd_id = _device_id kind, id_of vbd in
              (* Remember the VDI with the device (for later deactivation) *)
-             let vdi_id = _vdi_id, vbd.backend |> rpc_of_backend |> Jsonrpc.to_string in
+             let vdi_id = _vdi_id, vbd.backend |> rpc_of backend |> Jsonrpc.to_string in
              let dp_id = _dp_id, Storage.id_of (string_of_int frontend_domid) vbd.Vbd.id in
              let x = {
                Device.Vbd.mode = (match vbd.mode with
@@ -2440,27 +2459,27 @@ module VBD = struct
                extra_private_keys = dp_id :: vdi_id :: vbd_id :: vbd.extra_private_keys;
                backend_domid = vdi.domid;
              } in
-             let device =
+             let dev =
                Xenops_task.with_subtask task (Printf.sprintf "Vbd.add %s" (id_of vbd))
                  (fun () -> Device.Vbd.add task ~xc ~xs ~hvm:(domain_type = Vm.Domain_HVM) x frontend_domid) in
 
              (* We store away the disk so we can implement VBD.stat *)
-             Opt.iter (fun disk -> xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string)) vbd.backend;
+             Opt.iter (fun d -> xs.Xs.write (vdi_path_of_device ~xs dev) (d |> rpc_of disk |> Jsonrpc.to_string)) vbd.backend;
 
              (* NB now the frontend position has been resolved *)
              let open Device_common in
-             let device_number = device.frontend.devid |> Device_number.of_xenstore_key in
+             let device_number = dev.frontend.devid |> Device_number.of_xenstore_key in
 
              (* If qemu is in a different domain to storage, attach disks to it *)
              let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
              let qemu_frontend = match Device_number.spec device_number with
-               | Device_number.Ide, n, _ when n < 4 ->
+               | Ide, n, _ when n < 4 ->
                  let index = Device_number.to_disk_number device_number in
                  begin match vbd.Vbd.backend with
                    | None   -> Some (index, Empty)
                    | Some _ -> Some (index, create_vbd_frontend ~xc ~xs task qemu_domid vdi)
                  end
-               | _, _, _ -> None in
+               | _,_,_ -> None in
              (* Remember what we've just done *)
              (* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
                 we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
@@ -2490,37 +2509,41 @@ module VBD = struct
            let domid = domid_of_uuid ~xc ~xs (uuid_of_string vm) in
            (* If the device is gone then we don't need to shut it down but we do need
               to free any storage resources. *)
-           let device =
+           let dev =
              try
                Some (device_by_id xc xs vm (device_kind_of ~xs vbd) (id_of vbd))
              with
-             | (Does_not_exist(_,_)) ->
+             | (Xenopsd_error (Does_not_exist(_,_))) ->
                debug "VM = %s; VBD = %s; Ignoring missing domain" vm (id_of vbd);
                None
-             | Device_not_connected ->
+             | Xenopsd_error Device_not_connected ->
                debug "VM = %s; VBD = %s; Ignoring missing device" vm (id_of vbd);
                None in
-           let backend = match device with
+           let backend = match dev with
              | None -> None
-             | Some dv -> Device.Generic.get_private_key ~xs dv _vdi_id |> Jsonrpc.of_string |> backend_of_rpc in
+             | Some dv -> match Rpcmarshal.unmarshal typ_of_backend (Device.Generic.get_private_key ~xs dv _vdi_id |> Jsonrpc.of_string) with
+               | Ok x -> x
+               | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal VBD backend: %s" m)))
+           in
+
            Opt.iter
-             (fun device ->
-                if force && (not (Device.can_surprise_remove ~xs device))
+             (fun dev ->
+                if force && (not (Device.can_surprise_remove ~xs dev))
                 then debug
                     "VM = %s; VBD = %s; Device is not surprise-removable (ignoring and removing anyway)"
                     vm (id_of vbd); (* this happens on normal shutdown too *)
                 (* Case (1): success; Case (2): success; Case (3): an exception is thrown *)
                 Xenops_task.with_subtask task (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
-                  (fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs device);
-             ) device;
+                  (fun () -> (if force then Device.hard_shutdown else Device.clean_shutdown) task ~xs dev);
+             ) dev;
            (* We now have a shutdown device but an active DP: we should destroy the DP if the backend is of type VDI *)
            finally
              (fun () ->
                 Opt.iter
-                  (fun device ->
+                  (fun dev ->
                      Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
-                       (fun () -> Device.Vbd.release task ~xc ~xs device);
-                  ) device;
+                       (fun () -> Device.Vbd.release task ~xc ~xs dev);
+                  ) dev;
                 (* If we have a qemu frontend, detach this too. *)
                 let _ = DB.update vm (
                     Opt.map (fun vm_t ->
@@ -2548,21 +2571,21 @@ module VBD = struct
          with
          | Device_common.Device_error(_, s) ->
            debug "Caught Device_error: %s" s;
-           raise (Device_detach_rejected("VBD", id_of vbd, s))
+           raise (Xenopsd_error (Device_detach_rejected("VBD", id_of vbd, s)))
       )
 
-  let insert task vm vbd disk =
+  let insert task vm vbd d =
     on_frontend
       (fun xc xs frontend_domid domain_type ->
          if domain_type <> Vm.Domain_HVM
-         then plug task vm { vbd with backend = Some disk }
+         then plug task vm { vbd with backend = Some d }
          else begin
            let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) (id_of vbd) in
-           let vdi = attach_and_activate task xc xs frontend_domid vbd (Some disk) in
+           let vdi = attach_and_activate task xc xs frontend_domid vbd (Some d) in
            let params, xenstore_data, _ = params_of_backend vdi.attach_info in
            let phystype = Device.Vbd.Phys in
            (* We store away the disk so we can implement VBD.stat *)
-           xs.Xs.write (vdi_path_of_device ~xs device) (disk |> rpc_of_disk |> Jsonrpc.to_string);
+           xs.Xs.write (vdi_path_of_device ~xs device) (d |> rpc_of disk |> Jsonrpc.to_string);
            Device.Vbd.media_insert ~xs ~dm:(dm_of ~vm) ~phystype ~params device;
            Device_common.add_backend_keys ~xs device "sm-data" xenstore_data
          end
@@ -2618,7 +2641,7 @@ module VBD = struct
 
   let string_of_qos = function
     | None -> "None"
-    | Some x -> x |> Vbd.rpc_of_qos |> Jsonrpc.to_string
+    | Some x -> x |> rpc_of Vbd.qos |> Jsonrpc.to_string
 
   let get_state vm vbd =
     with_xc_and_xs
@@ -2630,7 +2653,10 @@ module VBD = struct
            let backend_present =
              if Device.Vbd.media_is_ejected ~xs device
              then None
-             else Some (vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> disk_of_rpc) in
+             else Some (
+               match vdi_path_of_device ~xs device |> xs.Xs.read |> Jsonrpc.of_string |> Rpcmarshal.unmarshal disk.Rpc.Types.ty with
+               | Ok d -> d
+               | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal disk: %s" m)))) in
            {
              Vbd.active = true;
              plugged = true;
@@ -2638,8 +2664,8 @@ module VBD = struct
              qos_target = qos_target
            }
          with
-         | (Does_not_exist(_, _))
-         | Device_not_connected ->
+         | (Xenopsd_error (Does_not_exist(_, _)))
+         | Xenopsd_error Device_not_connected ->
            { unplugged_vbd with
              Vbd.active = get_active vm vbd
            }
@@ -2661,7 +2687,7 @@ module VBD = struct
              debug "VM = %s; VBD = %s; VBD_unplug needed, device offline: %s" vm (id_of vbd) (Device_common.string_of_device device);
              Some Needs_unplug
            end
-         with Device_not_connected ->
+         with Xenopsd_error Device_not_connected ->
            debug "VM = %s; VBD = %s; Device_not_connected so no action required" vm (id_of vbd);
            None
       )
@@ -2677,7 +2703,7 @@ module VIF = struct
     | Network.Local _ | Network.Sriov _ -> this_domid ~xs
     | Network.Remote (vm, _) ->
       begin match vm |> uuid_of_string |> domid_of_uuid ~xc ~xs with
-        | None -> raise (Does_not_exist ("domain", vm))
+        | None -> raise (Xenopsd_error (Does_not_exist ("domain", vm)))
         | Some x -> x
       end
 
@@ -2724,7 +2750,7 @@ module VIF = struct
         let address = "address", address in
         let gateway = match gateway with Some value -> ["gateway", value] | None -> [] in
         enabled :: address :: gateway
-      | Static4 ([], _) -> raise (Internal_error "Static IPv4 configuration selected, but no address specified.")
+      | Static4 ([], _) -> raise (Xenopsd_error (Internal_error "Static IPv4 configuration selected, but no address specified."))
     in
     let ipv6_setting = match vif.ipv6_configuration with
       | Unspecified6 -> [ "enabled6", "0" ]
@@ -2733,7 +2759,7 @@ module VIF = struct
         let address6 = "address6", address6 in
         let gateway6 = match gateway6 with Some value -> ["gateway6", value] | None -> [] in
         enabled6 :: address6 :: gateway6
-      | Static6 ([], _) -> raise (Internal_error "Static IPv6 configuration selected, but no address specified.")
+      | Static6 ([], _) -> raise (Xenopsd_error (Internal_error "Static IPv6 configuration selected, but no address specified."))
     in
     let settings = constant_setting @ ipv4_setting @ ipv6_setting in
     List.map (fun (k,v) -> Printf.sprintf "%s/%s" _static_ip_setting k, v) settings
@@ -2746,7 +2772,7 @@ module VIF = struct
   let xenstore_of_pvs_proxy proxy =
     match proxy with
     | None -> []
-    | Some (site, servers, interface) ->
+    | Some (s, srvs, iface) ->
       let open Vif.PVS_proxy in
       let server_keys =
         List.mapi (fun i server ->
@@ -2755,12 +2781,12 @@ module VIF = struct
               sprintf "pvs-server-%d-addresses" i, String.concat "," server.addresses;
               sprintf "pvs-server-%d-ports" i, sprintf "%d-%d" server.first_port server.last_port;
             ]
-          ) servers
+          ) srvs
         |> List.flatten
       in
-      ("pvs-site", site) ::
-      ("pvs-interface", interface) ::
-      ("pvs-server-num", string_of_int (List.length servers)) ::
+      ("pvs-site", s) ::
+      ("pvs-interface", iface) ::
+      ("pvs-server-num", string_of_int (List.length srvs)) ::
       server_keys
 
   let active_path vm vif = Printf.sprintf "/vm/%s/devices/vif/%s" vm (snd vif.Vif.id)
@@ -2894,9 +2920,9 @@ module VIF = struct
            List.iter (fun interface ->
                Interface.DB.remove interface.Interface.Interface.name) interfaces
          with
-         | (Does_not_exist(_,_)) ->
+         | (Xenopsd_error (Does_not_exist(_,_))) ->
            debug "VM = %s; Ignoring missing domain" (id_of vif)
-         | (Device_not_connected) ->
+         | (Xenopsd_error Device_not_connected) ->
            debug "VM = %s; Ignoring missing device" (id_of vif)
       );
     ()
@@ -2911,8 +2937,8 @@ module VIF = struct
            let device = device_by_id xc xs vm (device_kind_of vif) (id_of vif) in
            let bridge = match network with
              | Network.Local x -> x
-             | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
-             | Network.Remote _ -> raise (Unimplemented("network driver domains")) in
+             | Network.Sriov _ -> raise (Xenopsd_error (Unimplemented("network SR-IOV")))
+             | Network.Remote _ -> raise (Xenopsd_error (Unimplemented("network driver domains"))) in
 
            Device.Vif.move ~xs device bridge;
 
@@ -2931,9 +2957,9 @@ module VIF = struct
                  Some vm_t
              ) in ()
          with
-         | (Does_not_exist(_,_)) ->
+         | (Xenopsd_error (Does_not_exist(_,_))) ->
            debug "VM = %s; Ignoring missing domain" (id_of vif)
-         | (Device_not_connected) ->
+         | (Xenopsd_error Device_not_connected) ->
            debug "VM = %s; Ignoring missing device" (id_of vif)
       );
     ()
@@ -2949,16 +2975,16 @@ module VIF = struct
            | Network.Sriov _ ->
              debug "VIF = %s; Ignoring setting carrier on network SR-IOV backed VIF" (id_of vif)
          with
-         | (Does_not_exist(_,_)) ->
+         | Xenopsd_error (Does_not_exist(_,_)) ->
            debug "VM = %s; Ignoring missing domain" (id_of vif)
-         | (Device_not_connected) ->
+         | Xenopsd_error (Device_not_connected) ->
            debug "VM = %s; Ignoring missing device" (id_of vif)
       )
 
   let set_locking_mode task vm vif mode =
     with_xc_and_xs
       (fun xc xs -> match vif.backend with
-         | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
+         | Network.Sriov _ -> raise (Xenopsd_error (Unimplemented("network SR-IOV")))
          | Network.Local _ | Network.Remote _ ->
            let open Device_common in
            (* If the device is gone then this is ok *)
@@ -3025,7 +3051,7 @@ module VIF = struct
          | Static4 (address :: _, gateway) ->
            set_ip_static xs xenstore_path "" address gateway
          | Static4 ([], _) ->
-           raise (Internal_error "Static IPv4 configuration selected, but no address specified.")
+           raise (Xenopsd_error (Internal_error "Static IPv4 configuration selected, but no address specified."))
       )
 
   let set_ipv6_configuration task vm vif ipv6_configuration =
@@ -3043,13 +3069,13 @@ module VIF = struct
          | Static6 (address :: _, gateway) ->
            set_ip_static xs xenstore_path "6" address gateway
          | Static6 ([], _) ->
-           raise (Internal_error "Static IPv6 configuration selected, but no address specified.")
+           raise (Xenopsd_error (Internal_error "Static IPv6 configuration selected, but no address specified."))
       )
 
   let set_pvs_proxy task vm vif proxy =
     with_xc_and_xs
       (fun xc xs -> match vif.backend with
-         | Network.Sriov _ -> raise (Unimplemented("network SR-IOV"))
+         | Network.Sriov _ -> raise (Xenopsd_error (Unimplemented("network SR-IOV")))
          | Network.Local _ | Network.Remote _ ->
            let open Device_common in
            (* If the device is gone then this is ok *)
@@ -3121,8 +3147,8 @@ module VIF = struct
                pvs_rules_active = pvs_rules_active;
              }
          with
-         | (Does_not_exist(_,_))
-         | Device_not_connected ->
+         | (Xenopsd_error (Does_not_exist(_,_)))
+         | Xenopsd_error Device_not_connected ->
            { unplugged_vif with
              Vif.active = get_active vm vif
            }
@@ -3138,7 +3164,7 @@ module VIF = struct
              if Hotplug.device_is_online ~xs device
              then None
              else Some Needs_unplug
-           with Device_not_connected ->
+           with Xenopsd_error Device_not_connected ->
              None
       )
 
@@ -3213,7 +3239,7 @@ module Actions = struct
 
   let watch_token domid = Printf.sprintf "xenopsd-xc:domain-%d" domid
 
-  let watches_of_device device =
+  let watches_of_device dev =
     let interesting_backend_keys = [
       "kthread-pid";
       "tapdisk-pid";
@@ -3223,10 +3249,10 @@ module Actions = struct
       "state";
     ] in
     let open Device_common in
-    let be = device.backend.domid in
-    let fe = device.frontend.domid in
-    let kind = string_of_kind device.backend.kind in
-    let devid = device.frontend.devid in
+    let be = dev.backend.domid in
+    let fe = dev.frontend.domid in
+    let kind = string_of_kind dev.backend.kind in
+    let devid = dev.frontend.devid in
     List.map (fun k -> Printf.sprintf "/local/domain/%d/backend/%s/%d/%d/%s" be kind fe devid k) interesting_backend_keys
 
   let unmanaged_domain domid id =
@@ -3269,22 +3295,22 @@ module Actions = struct
         | _ -> ()
       end
 
-  let add_device_watch xs device =
+  let add_device_watch xs dev =
     let open Device_common in
-    debug "Adding watches for: %s" (string_of_device device);
-    let domid = device.frontend.domid in
+    debug "Adding watches for: %s" (string_of_device dev);
+    let domid = dev.frontend.domid in
     let token = watch_token domid in
-    List.iter (Xenstore_watch.watch ~xs token) (watches_of_device device);
-    device_watches := IntMap.add domid (device :: (IntMap.find domid !device_watches)) !device_watches
+    List.iter (Xenstore_watch.watch ~xs token) (watches_of_device dev);
+    device_watches := IntMap.add domid (dev :: (IntMap.find domid !device_watches)) !device_watches
 
-  let remove_device_watch xs device =
+  let remove_device_watch xs dev =
     let open Device_common in
-    debug "Removing watches for: %s" (string_of_device device);
-    let domid = device.frontend.domid in
+    debug "Removing watches for: %s" (string_of_device dev);
+    let domid = dev.frontend.domid in
     let current = IntMap.find domid !device_watches in
     let token = watch_token domid in
-    List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device device);
-    device_watches := IntMap.add domid (List.filter (fun x -> x <> device) current) !device_watches
+    List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device dev);
+    device_watches := IntMap.add domid (List.filter (fun x -> x <> dev) current) !device_watches
 
   let watch_fired xc xs path domains watches =
     let look_for_different_devices domid =
@@ -3528,11 +3554,11 @@ module DEBUG = struct
       with_xc_and_xs
         (fun xc xs ->
            match di_of_uuid ~xc ~xs uuid with
-           | None -> raise (Does_not_exist("domain", k))
+           | None -> raise (Xenopsd_error (Does_not_exist("domain", k)))
            | Some di ->
              Xenctrl.domain_shutdown xc di.Xenctrl.domid Xenctrl.Reboot
         )
     | _ ->
       debug "DEBUG.trigger cmd=%s Unimplemented" cmd;
-      raise (Unimplemented(cmd))
+      raise (Xenopsd_error (Unimplemented(cmd)))
 end

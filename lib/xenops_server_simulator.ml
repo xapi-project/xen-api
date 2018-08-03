@@ -42,7 +42,7 @@ module Domain = struct
     vusbs: Vusb.t list;
     xsdata: (string * string) list;
     last_create_time: float;
-  } [@@deriving rpc]
+  } [@@deriving rpcty]
 end
 
 module DB = TypedTable(struct
@@ -78,7 +78,7 @@ let create_nolock _ vm () =
   debug "Domain.create vm=%s" vm.Vm.id;
   if DB.exists vm.Vm.id then begin
     debug "VM.create_nolock %s: Already_exists" vm.Vm.id;
-    raise (Already_exists("domain", vm.Vm.id))
+    raise (Xenopsd_error (Already_exists("domain", vm.Vm.id)))
   end else begin
     let open Domain in
     let domain = {
@@ -161,7 +161,7 @@ let restore_nolock vm vbds vifs data vgpu_data extras () =
 let do_pause_unpause_nolock vm paused () =
   let d = DB.read_exn vm.Vm.id in
   if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
-  then raise (Domain_not_built)
+  then raise (Xenopsd_error Domain_not_built)
   else DB.write vm.Vm.id { d with Domain.paused = paused }
 
 let do_set_xsdata_nolock vm xsdata () =
@@ -171,13 +171,13 @@ let do_set_xsdata_nolock vm xsdata () =
 let do_set_vcpus_nolock vm n () =
   let d = DB.read_exn vm.Vm.id in
   if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
-  then raise (Domain_not_built)	
+  then raise (Xenopsd_error Domain_not_built)	
   else DB.write vm.Vm.id { d with Domain.vcpus = n }
 
 let do_set_shadow_multiplier_nolock vm m () =
   let d = DB.read_exn vm.Vm.id in
   if not d.Domain.built || (d.Domain.hvm && not(d.Domain.qemu_created))
-  then raise (Domain_not_built)	
+  then raise (Xenopsd_error Domain_not_built)	
   else DB.write vm.Vm.id { d with Domain.shadow_multiplier = m }
 
 let do_set_memory_dynamic_range_nolock vm min max () =
@@ -189,7 +189,7 @@ let add_vif vm vif () =
   let existing_positions = List.map (fun vif -> vif.Vif.position) d.Domain.vifs in
   if List.mem vif.Vif.position existing_positions then begin
     debug "VIF.plug %s.%s: Already exists" (fst vif.Vif.id) (snd vif.Vif.id);
-    raise (Already_exists("vif", string_of_int vif.Vif.position))
+    raise (Xenopsd_error (Already_exists("vif", string_of_int vif.Vif.position)))
   end else DB.write vm { d with Domain.vifs = vif :: d.Domain.vifs }
 
 let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
@@ -205,7 +205,7 @@ let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
   let this_dn = Opt.default next_dn vbd.Vbd.position in
   if List.mem this_dn dns then begin
     debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
-    raise (Already_exists("vbd", Device_number.to_debug_string this_dn))
+    raise (Xenopsd_error (Already_exists("vbd", Device_number.to_debug_string this_dn)))
   end else DB.write vm { d with Domain.vbds = { vbd with Vbd.position = Some this_dn } :: d.Domain.vbds }
 
 let move_vif vm vif network () =
@@ -217,7 +217,7 @@ let move_vif vm vif network () =
     let vif = { vif with Vif.backend = network } in
     DB.write vm { d with Domain.vifs = vif :: vifs }
   | [] ->
-    raise (Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id)))
+    raise (Xenopsd_error (Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
   | _ -> assert false (* at most one *)
 
 let add_pci (vm: Vm.id) (pci: Pci.t) () =
@@ -226,7 +226,7 @@ let add_pci (vm: Vm.id) (pci: Pci.t) () =
   let existing_positions = List.map (fun pci -> pci.Pci.position) d.Domain.pcis in
   if List.mem pci.Pci.position existing_positions then begin
     debug "PCI.plug %s.%s: Already exists" (fst pci.Pci.id) (snd pci.Pci.id);
-    raise (Already_exists("pci", string_of_int pci.Pci.position))
+    raise (Xenopsd_error (Already_exists("pci", string_of_int pci.Pci.position)))
   end else DB.write vm { d with Domain.pcis = pci :: d.Domain.pcis }
 
 let pci_state vm pci () =
@@ -308,7 +308,7 @@ let remove_vif vm vif () =
   let d = DB.read_exn vm in
   let this_one x = x.Vif.id = vif.Vif.id in
   if List.filter this_one d.Domain.vifs = []
-  then raise (Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id)))
+  then raise (Xenopsd_error (Does_not_exist("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
   else DB.write vm { d with Domain.vifs = List.filter (fun x -> not (this_one x)) d.Domain.vifs }
 
 let set_carrier vm vif carrier () =
@@ -345,21 +345,21 @@ let remove_pci vm pci () =
   let d = DB.read_exn vm in
   let this_one x = x.Pci.id = pci.Pci.id in
   if List.filter this_one d.Domain.pcis = []
-  then raise (Does_not_exist("PCI", Printf.sprintf "%s.%s" (fst pci.Pci.id) (snd pci.Pci.id)))
+  then raise (Xenopsd_error (Does_not_exist("PCI", Printf.sprintf "%s.%s" (fst pci.Pci.id) (snd pci.Pci.id))))
   else DB.write vm { d with Domain.pcis = List.filter (fun x -> not (this_one x)) d.Domain.pcis }
 
 let remove_vbd vm vbd () =
   let d = DB.read_exn vm in
   let this_one x = x.Vbd.id = vbd.Vbd.id in
   if List.filter this_one d.Domain.vbds = []
-  then raise (Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id)))
+  then raise (Xenopsd_error (Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))))
   else DB.write vm { d with Domain.vbds = List.filter (fun x -> not (this_one x)) d.Domain.vbds }
 
 let set_qos_vbd vm vbd () =
   let d = DB.read_exn vm in
   let this_one x = x.Vbd.id = vbd.Vbd.id in
   if List.filter this_one d.Domain.vbds = []
-  then raise (Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id)));
+  then raise (Xenopsd_error (Does_not_exist("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))));
   (* XXX *)
   ()
 
@@ -407,9 +407,11 @@ module VM = struct
     let state = Opt.unbox (DB.read vm.Vm.id) in
     let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in
     let vifs = List.map (fun vif -> remap_vif vif_map vif) state.Domain.vifs in
-    {state with Domain.vbds = vbds; Domain.vifs = vifs} |> Domain.rpc_of_t |> Jsonrpc.to_string
+    {state with Domain.vbds = vbds; Domain.vifs = vifs} |> rpc_of Domain.t |> Jsonrpc.to_string
   let set_internal_state vm s =
-    DB.write vm.Vm.id (s |> Jsonrpc.of_string |> Domain.t_of_rpc)
+    match Rpcmarshal.unmarshal Domain.t.Rpc.Types.ty (Jsonrpc.of_string s) with
+    | Ok s -> DB.write vm.Vm.id s
+    | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal Domain.t: %s" m))) 
 
   let wait_ballooning _ _ = ()
 
@@ -491,11 +493,11 @@ module DEBUG = struct
       let rw, ro = List.partition (fun vbd -> vbd.mode = ReadWrite) plug_order in
       if rw @ ro <> plug_order then begin
         debug "DEBUG.trigger: check-vbd-plug-ordering: ordering violation";
-        raise (Internal_error "check-vbd-plug-ordering")
+        raise (Xenopsd_error (Internal_error "check-vbd-plug-ordering"))
       end
     | _ ->
       debug "DEBUG.trigger cmd=%s Not_supported" cmd;
-      raise (Unimplemented(cmd))
+      raise (Xenopsd_error (Unimplemented(cmd)))
 end
 
 let init () = ()

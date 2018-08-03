@@ -71,11 +71,10 @@ let forwarded_path () = path () ^ ".forwarded" (* receive an authenticated fd fr
 let json_path () = path () ^ ".json"
 
 
-module Server = Xenops_interface.Server(Xenops_server)
+
 
 let rpc_fn call =
-  let context = { Xenops_server.transferred_fd = None } in
-  Server.process context call
+  Idl.server Xenops_server.Server.implementation call
 
 let handle_received_fd this_connection =
   let msg_size = 16384 in

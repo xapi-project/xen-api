@@ -16,19 +16,19 @@ open Xenstore
 open Xenops_utils
 
 type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
-  [@@deriving rpc]
+  [@@deriving rpcty]
 
 type devid = int
 (** Represents one end of a device *)
 type endpoint = { domid: int; kind: kind; devid: int }
-[@@deriving rpc]
+[@@deriving rpcty]
 
 (** Represent a device as a pair of endpoints *)
 type device = { 
   frontend: endpoint;
   backend: endpoint
 }
-[@@deriving rpc]
+[@@deriving rpcty]
 
 exception Device_frontend_already_connected of device
 exception Device_disconnect_timeout of device

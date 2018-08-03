@@ -29,7 +29,7 @@ type xen_arm_arch_domainconfig = (* Xenctrl.xen_arm_arch_domainconfig = *) {
   gic_version: int;
   nr_spis: int;
   clock_frequency: int32;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
 | X86_EMU_LAPIC
@@ -41,16 +41,16 @@ type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
 | X86_EMU_VGA
 | X86_EMU_IOMMU
 | X86_EMU_PIT
-| X86_EMU_USE_PIRQ [@@deriving rpc]
+| X86_EMU_USE_PIRQ [@@deriving rpcty]
 
 type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
   emulation_flags: x86_arch_emulation_flags list;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
   | ARM of xen_arm_arch_domainconfig
   | X86 of xen_x86_arch_domainconfig
-[@@deriving rpc]
+[@@deriving rpcty]
 
 type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_HVM
@@ -83,30 +83,30 @@ type create_info = {
   platformdata: (string * string) list;
   bios_strings: (string * string) list;
   has_vendor_device: bool;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type build_hvm_info = {
   shadow_multiplier: float;
   video_mib: int;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type build_pv_info = {
   cmdline: string;
   ramdisk: string option;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type build_pvh_info = {
   cmdline: string;                        (* cmdline for the kernel (image) *)
   modules: (string * string option) list; (* list of modules plus optional cmdlines *)
   shadow_multiplier: float;
   video_mib: int;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type builder_spec_info =
   | BuildHVM of build_hvm_info
   | BuildPV of build_pv_info
   | BuildPVH of build_pvh_info
-  [@@deriving rpc]
+  [@@deriving rpcty]
 
 type build_info = {
   memory_max: int64;    (* memory max in kilobytes *)
@@ -114,7 +114,7 @@ type build_info = {
   kernel: string;       (* in hvm case, point to hvmloader *)
   vcpus: int;           (* vcpus max *)
   priv: builder_spec_info;
-} [@@deriving rpc]
+} [@@deriving rpcty]
 
 type domid = int
 
@@ -235,7 +235,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid =
         default_flags
       end
     end else [] in
-  debug "Domain_config: [%s]" (rpc_of_arch_domainconfig domain_config |> Jsonrpc.to_string);
+  debug "Domain_config: [%s]" (rpc_of arch_domainconfig domain_config |> Jsonrpc.to_string);
   let domid = Xenctrl.domain_create xc vm_info.ssidref flags (Uuidm.to_string uuid) (* domain_config *) in
   let name = if vm_info.name <> "" then vm_info.name else sprintf "Domain-%d" domid in
   try

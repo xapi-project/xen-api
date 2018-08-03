@@ -10,7 +10,7 @@ let tap_open ifname =
   try
     _tap_open ifname
   with
-    Failure msg -> raise (Xenops_interface.Internal_error msg)
+    Failure msg -> raise (Xenops_interface.(Xenopsd_error (Errors.Internal_error msg)))
 
 let with_tap ifname ~fn =
   let fd = tap_open ifname in
