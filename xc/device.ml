@@ -1261,11 +1261,7 @@ module PCI = struct
         let gpu_info_file = Filename.concat gpu_path "information" in
         let gpu_info = Unixext.string_of_file gpu_info_file in
         (* Work around due to PCI ID formatting inconsistency. *)
-        let devstr2 =
-          let devstr2 = Bytes.copy (Bytes.unsafe_of_string devstr) in
-          Bytes.set devstr2 7 '.';
-          Bytes.unsafe_to_string devstr2
-        in
+        let devstr2 = String.mapi (fun i c -> if i = 7 then '.' else c) devstr in
         if false
         || (Stdext.Xstringext.String.has_substr gpu_info devstr2)
         || (Stdext.Xstringext.String.has_substr gpu_info devstr)

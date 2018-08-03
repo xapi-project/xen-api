@@ -106,21 +106,21 @@ let string_of_header h =
 let read_int64 fd = wrap (fun () -> Io.read_int64 ~endianness:`little fd)
 let write_int64 fd x = wrap (fun () -> Io.write_int64 ~endianness:`little fd x)
 
-let save_signature = Bytes.of_string "XenSavedDomv2-\n"
-let legacy_save_signature = Bytes.of_string "XenSavedDomain\n"
-let legacy_qemu_save_signature = Bytes.of_string "QemuDeviceModelRecord\n"
-let qemu_save_signature_legacy_libxc = Bytes.of_string "DeviceModelRecord0002"
+let save_signature =  "XenSavedDomv2-\n"
+let legacy_save_signature =  "XenSavedDomain\n"
+let legacy_qemu_save_signature =  "QemuDeviceModelRecord\n"
+let qemu_save_signature_legacy_libxc =  "DeviceModelRecord0002"
 
 let _write_save_signature fd = Io.write fd save_signature
 let read_save_signature fd =
-  match Io.read fd (Bytes.length save_signature) with
+  match Io.read fd (String.length save_signature) with
   | x when x = save_signature -> `Ok Structured
   | x when x = legacy_save_signature -> `Ok Legacy
-  | x -> `Error (Printf.sprintf "Not a valid signature: \"%s\"" (Bytes.unsafe_to_string x))
+  | x -> `Error (Printf.sprintf "Not a valid signature: \"%s\"" x)
 
 let read_legacy_qemu_header fd =
   try
-    match Io.read fd (Bytes.length legacy_qemu_save_signature) with
+    match Io.read fd (String.length legacy_qemu_save_signature) with
     | x when x = legacy_qemu_save_signature ->
       `Ok (Int64.of_int (Io.read_int ~endianness:`big fd))
     | _ -> `Error "Read invalid legacy qemu save signature"

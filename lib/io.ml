@@ -24,15 +24,15 @@ let read fd size =
     if rd <= 0 then raise End_of_file;
     i := !i - rd
   done;
-  buf
+  Bytes.unsafe_to_string buf
 
 (** write a buf to fd *)
 let write fd buf =
-  let len = Bytes.length buf in
+  let len = String.length buf in
   let i = ref len in
   while !i <> 0
   do
-    let wd = Unix.write fd buf (len - !i) !i in
+    let wd = Unix.write_substring fd buf (len - !i) !i in
     i := !i - wd
   done
 
@@ -62,7 +62,7 @@ let marshall_int ~endianness x =
   Bytes.set buffer b @@ char_of_int ((x lsr 16) land 0xff);
   Bytes.set buffer c @@ char_of_int ((x lsr 8) land 0xff);
   Bytes.set buffer d @@ char_of_int ((x lsr 0) land 0xff);
-  buffer
+  Bytes.unsafe_to_string buffer
 
 let write_int ~endianness fd x = write fd (marshall_int ~endianness x)
 
@@ -77,17 +77,17 @@ let marshall_int64 ~endianness x =
   Bytes.set buffer f @@ char_of_int Int64.(to_int (logand (shift_right_logical x 16) 0xffL));
   Bytes.set buffer g @@ char_of_int Int64.(to_int (logand (shift_right_logical x 8) 0xffL));
   Bytes.set buffer h @@ char_of_int Int64.(to_int (logand (shift_right_logical x 0) 0xffL));
-  buffer
+  Bytes.unsafe_to_string buffer
 
 let write_int64 ~endianness fd x =
   write fd (marshall_int64 ~endianness x)
 
 let unmarshall_int ~endianness buffer =
   let a, b, c, d = byte_order_of_int ~endianness in
-  let a = int_of_char (Bytes.get buffer a)
-  and b = int_of_char (Bytes.get buffer b)
-  and c = int_of_char (Bytes.get buffer c)
-  and d = int_of_char (Bytes.get buffer d) in
+  let a = int_of_char (String.get buffer a)
+  and b = int_of_char (String.get buffer b)
+  and c = int_of_char (String.get buffer c)
+  and d = int_of_char (String.get buffer d) in
   (a lsl 24) lor (b lsl 16) lor (c lsl 8) lor d
 
 let read_int ~endianness fd =
@@ -95,7 +95,7 @@ let read_int ~endianness fd =
   unmarshall_int ~endianness buffer
 
 let unmarshall_int64 ~endianness buffer =
-  let char_to_int64 x = Int64.of_int (int_of_char (Bytes.get buffer x)) in
+  let char_to_int64 x = Int64.of_int (int_of_char (String.get buffer x)) in
   let a, b, c, d, e, f, g, h = byte_order_of_int64 ~endianness in
   let a = char_to_int64 a
   and b = char_to_int64 b
