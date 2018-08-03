@@ -14,7 +14,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (data_source))
   (flags (:standard -w -39))
   (libraries
-   (rpclib
+   (rpclib.core
     rrd
     threads
     xcp))
@@ -27,7 +27,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (rrd_interface))
   (flags (:standard -w -39))
   (libraries
-   (rpclib
+   (rpclib.core
     rrd
     threads
     xcp
@@ -41,7 +41,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (:standard \ data_source rrd_interface rrd_cli))
   (flags (:standard -w -39))
   (libraries
-   (rpclib
+   (rpclib.core
     rrd
     threads
     xcp

@@ -13,7 +13,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xcp.cluster)
   (modules (:standard \ cluster_cli))
   (flags (:standard -w -39))
-  (libraries (xcp threads rpclib))
+  (libraries (xcp threads rpclib.core))
   (wrapped false)
   (preprocess (pps (ppx_deriving_rpc %s)))))
 

@@ -12,7 +12,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name example)
   (flags (:standard -w -39))
   (libraries
-   (rpclib
+   (rpclib.core
     xcp))
   (preprocess (pps (ppx_deriving_rpc %s)))))
 
