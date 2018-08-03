@@ -982,6 +982,8 @@ module PV_Vnc = struct
 end
 
 module type DAEMONPIDPATH = sig
+  val name : string
+  val use_pidfile : bool
   val pid_path : int -> string
 end
 
@@ -998,11 +1000,35 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
 
   let pid_path = D.pid_path
   let pid_path_signal domid = (pid_path domid) ^ "-signal"
+
+  let pidfile_path domid =
+    if D.use_pidfile then
+      Some (sprintf "%s/%s-%d.pid" Device_common.var_run_xen_path D.name domid)
+    else None
+
   let pid ~xs domid =
     try
-      let pid = xs.Xs.read (pid_path domid) in
-      Some (int_of_string pid)
-    with _ -> None
+      match pidfile_path domid with
+      | Some path when Sys.file_exists path ->
+        let pid = path |> Unixext.string_of_file |> String.trim |> int_of_string in
+        Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
+            try
+              Unix.lockf fd Unix.F_TRLOCK 0;
+              (* we succeeded taking the lock: original process is dead.
+               * some other process might've reused its pid *)
+              None
+            with Unix.Unix_error(Unix.EAGAIN, _, _) ->
+              (* cannot obtain lock: process is alive *)
+              Some pid
+        )
+      | _ ->
+        (* backward compatibility during update installation: only has xenstore pid *)
+        let pid = xs.Xs.read (pid_path domid) in
+        Some (int_of_string pid)
+    with e ->
+      debug "Failed to read PID for %s (domid=%d): %s" D.name domid (Printexc.to_string e);
+      None
+
   let is_running ~xs domid =
     match pid ~xs domid with
     | None -> false
@@ -1011,11 +1037,37 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
         Unix.kill p 0; (* This checks the existence of pid p *)
         true
       with _ -> false
+
+  let stop ~xs domid = match pid ~xs domid with
+    | None -> ()
+    | Some pid ->
+      debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" D.name D.name domid pid;
+      let open Generic in
+      best_effort (sprintf "killing %s" D.name)
+        (fun () -> really_kill pid);
+      let key = pid_path domid in
+      best_effort (sprintf "removing XS key %s" key)
+        (fun () -> xs.Xs.rm key);
+      match pidfile_path domid with
+      | None -> ()
+      | Some path ->
+        best_effort (sprintf "removing %s" path)
+          (fun () -> Unix.unlink path)
 end
 
-module Qemu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid end)
-module Vgpu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid end)
+module Qemu = DaemonMgmt(struct
+    let name = "qemu"
+    let use_pidfile = true
+    let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
+end)
+module Vgpu = DaemonMgmt(struct
+    let name = "vgpu"
+    let use_pidfile = false
+    let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid
+end)
 module Varstored = DaemonMgmt(struct
+    let name = "varstored"
+    let use_pidfile = false
     let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
   end)
 
@@ -1777,6 +1829,7 @@ module Dm_Common = struct
             |> List.concat
           )
         ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
+        ; ( Qemu.pidfile_path domid |> function None -> [] | Some x -> ["-pidfile"; x])
         ]
     in
     { argv   = argv
@@ -1912,7 +1965,7 @@ module Dm_Common = struct
   let stop ~xs ~qemu_domid domid  =
     let qemu_pid_path = Qemu.pid_path domid
     in
-    let stop_qemu () = (match (Qemu.pid ~xs domid) with
+    let stop_qemu () = match (Qemu.pid ~xs domid) with
         | None -> () (* nothing to do *)
         | Some qemu_pid ->
           debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
@@ -1926,19 +1979,16 @@ module Dm_Common = struct
           best_effort "unmasking signals, qemu-pid is already gone from xenstore"
             (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
           best_effort "removing device model path from xenstore"
-            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
+            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid));
+          match Qemu.pidfile_path domid with
+          | None -> ()
+          | Some path ->
+            best_effort (sprintf "removing %s" path)
+              (fun () -> Unix.unlink path)
     in
-    let stop_other pidf name = match pidf ~xs domid with
-      | None -> ()
-      | Some pid ->
-        debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" name name domid pid;
-        let open Generic in
-        best_effort (sprintf "killing %s" name)
-          (fun () -> really_kill pid)
-    in
-    let stop_vgpu () = stop_other Vgpu.pid "vgpu" in
+    let stop_vgpu () = Vgpu.stop ~xs domid in
     let stop_varstored () =
-      stop_other Varstored.pid "varstored";
+      Varstored.stop ~xs domid;
       List.iter (fun path ->
           debug "deleting %s" path;
           Unixext.unlink_safe path)
