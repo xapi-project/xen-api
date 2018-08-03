@@ -209,7 +209,7 @@ let release_order_full = [{
      code_name     = Some rel_lima;
      version_major = 2;
      version_minor = 11;
-     branding   = "Unreleased";
+     branding   = "XenServer 7.6";
    };
   ]
 (* When you add a new release, use the version number of the latest release,
