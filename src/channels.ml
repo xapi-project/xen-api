@@ -21,15 +21,16 @@ open Lwt_preemptive
 external _sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub_sendfile64"
 
 let _sendfile from_fd to_fd len =
-  let from_fd = Lwt_unix.unix_file_descr from_fd in
-  let to_fd = Lwt_unix.unix_file_descr to_fd in
+  let unix_from_fd = Lwt_unix.unix_file_descr from_fd in
+  let unix_to_fd = Lwt_unix.unix_file_descr to_fd in
   let max_attempts = 20 in
   let rec loop remaining_attempts =
     Lwt.catch
-      (fun () -> detach (_sendfile from_fd to_fd) len)
+      (fun () -> detach (_sendfile unix_from_fd unix_to_fd) len)
       (function
         | Unix.(Unix_error (EAGAIN, _, _)) when remaining_attempts > 0 ->
-            Lwt_unix.sleep 0.1 >>= fun () ->
+            Lwt_unix.wait_read from_fd >>= fun () ->
+            Lwt_unix.wait_write to_fd >>= fun () ->
             loop (remaining_attempts - 1)
         | e -> Lwt.fail e
       )
