@@ -10,7 +10,6 @@ module type INTERFACE = sig
   module Dynamic : sig
     type id
     val rpc_of_id : id -> Rpc.t
-    val id_of_rpc : Rpc.t -> id
   end
 end
 
