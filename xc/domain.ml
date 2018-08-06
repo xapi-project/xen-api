@@ -1080,15 +1080,30 @@ type suspend_flag = Live | Debug
                 | _ -> acc
               ) (return None) results
           in
+          let cancel_on_error result =
+            let () = match result with
+            | `Ok _ -> ()
+            | `Error e ->
+              Debug.log_backtrace e (Backtrace.get e);
+              warn "Canceling task %s, error during resume: %s" (Xenops_task.get_dbg task)
+                (Printexc.to_string e);
+              Xenops_task.cancel task |> ignore
+            in
+            result
+          in
           let start_reader_thread fd =
             (* Start a reader thread on the given fd. Add a channel back to the
              * main thread for status reporting *)
             debug "Starting reader thread (fd=%d)" (Obj.magic fd);
             let ch = Event.new_channel () in
             let th = Thread.create (fun () ->
-                wrap_exn (fun () -> process_header fd (return ()))
-                |> Event.send ch
-                |> Event.sync
+                let dbg = (Xenops_task.to_interface_task task).Xenops_interface.Task.dbg in
+                Debug.with_thread_associated dbg (fun () ->
+                    wrap_exn (fun () -> process_header fd (return ()))
+                    |> cancel_on_error
+                    |> Event.send ch
+                    |> Event.sync
+                ) ()
               ) () in
             th, ch
           in

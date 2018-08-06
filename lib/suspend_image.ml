@@ -27,6 +27,7 @@ let wrap_exn f =
   try
     f ()
   with e ->
+    Backtrace.is_important e;
     `Error e
 
 let wrap f = wrap_exn (fun () -> return (f ()))
