@@ -1687,8 +1687,7 @@ module Dm_Common = struct
   type info = {
     memory: int64;
     boot: string;
-    firmware: Xenops_types.Vm.firmware_type option;
-    nvram: (string * string) list;
+    firmware: Xenops_types.Vm.firmware_type;
     serial: string option;
     monitor: string option;
     vcpus: int; (* vcpus max *)
@@ -2746,7 +2745,8 @@ module Dm = struct
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
-  let start_varstored ~xs ?(nvram=[]) ?(restore=false) task domid =
+  let start_varstored ~xs ~nvram ?(restore=false) task domid =
+    let open Xenops_types in
     debug "Preparing to start varstored for UEFI boot (domid=%d)" domid;
     let path = !Xc_resources.varstored in
     let name = "varstored" in
@@ -2780,6 +2780,8 @@ module Dm = struct
       | exception Not_found -> None
     in
 
+    let reset_on_boot = nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset in
+    let backend = nvram.Nvram_uefi_variables.backend in
     let open Fe_argv in
     let (>>=) = bind in
     let argf fmt = ksprintf (fun s -> [ "--arg"; s]) fmt in
@@ -2877,8 +2879,10 @@ module Dm = struct
     in
 
     (* start varstored if appropriate *)
-    if info.firmware = Some Uefi then
-      start_varstored ~restore:(action=Restore) ~xs ~nvram:info.nvram task domid;
+    (match info.firmware with
+    | Uefi nvram_uefi ->
+      start_varstored ~restore:(action=Restore) ~xs ~nvram:nvram_uefi task domid
+    | Bios -> ());
 
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 
