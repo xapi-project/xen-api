@@ -1067,7 +1067,7 @@ module Vgpu = DaemonMgmt(struct
 end)
 module Varstored = DaemonMgmt(struct
     let name = "varstored"
-    let use_pidfile = false
+    let use_pidfile = true
     let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
   end)
 
@@ -2751,35 +2751,6 @@ module Dm = struct
     let path = !Xc_resources.varstored in
     let name = "varstored" in
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
-    let reset_on_boot = match List.assoc "EFI-variables-on-boot" nvram with
-      | "persist" -> false
-      | "reset" -> true
-      | bad ->
-        sprintf "unsupported EFI-variables-on-boot %s, use 'persist' or 'reset'" bad
-        |> fun s -> Xenopsd_error (Internal_error s)
-        |> raise
-      | exception Not_found -> false
-    in
-    let default_backend = "xapidb" in
-    let backend = match List.assoc "EFI-variables-backend" nvram with
-      | x when x = default_backend -> x
-      | bad ->
-        sprintf "unsupported EFI-variables-backend %s, use 'xapidb'" bad
-        |> fun s -> Xenopsd_error (Internal_error s)
-        |> raise
-      | exception Not_found -> default_backend
-    in
-    let efivars_init = match List.assoc "EFI-variables" nvram with
-      | efivars when not restore ->
-        let efivars_init_path = efivars_init_path domid in
-        debug "Writing initial EFI variables to %s (domid=%d length=%d)" efivars_init_path
-          domid (String.length efivars);
-        Unixext.write_string_to_file efivars_init_path efivars;
-        Some efivars_init_path
-      | ""  | _ -> None
-      | exception Not_found -> None
-    in
-
     let reset_on_boot = nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset in
     let backend = nvram.Nvram_uefi_variables.backend in
     let open Fe_argv in
@@ -2791,9 +2762,11 @@ module Dm = struct
                ; "--device"; string_of_int 15
                ; "--function"; string_of_int 0
                ; "--backend"; backend ] >>= fun () ->
-      on (not reset_on_boot) @@ Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
+      (Varstored.pidfile_path domid |> function None -> return () | Some x ->
+         Add.many [ "--pidfile"; x ]) >>= fun () ->
+      Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
+      on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
       on restore @@ Add.arg "--resume" >>= fun () ->
-      Add.optional (argf "init:%s") efivars_init >>= fun () ->
       on restore @@ Add.many @@ argf "resume:%s" (efivars_resume_path domid) >>= fun () ->
       Add.many @@ argf "save:%s" (efivars_save_path domid)
     in
