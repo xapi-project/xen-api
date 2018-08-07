@@ -20,6 +20,8 @@ let firmware_type_printer v =
   v |> Rpcmarshal.marshal Xenops_types.Vm.typ_of_firmware_type
   |> Jsonrpc.to_string
 
+let uefi = Xenops_types.Vm.Uefi Xenops_types.Nvram_uefi_variables.default_t
+
 module SanityCheck = Generic.Make(struct
     module Io = struct
       type input_t = ((string * string) list * Xenops_types.Vm.firmware_type option * bool * int64 * int64 * [ `hvm | `pv | `pv_in_pvh ])
@@ -162,11 +164,11 @@ module SanityCheck = Generic.Make(struct
         make_firmware_ok "qemu-upstream-compat" (Some Bios);
 
         (* Check UEFI configuration - qemu upstream *)
-        make_firmware_ok "qemu-upstream" (Some Uefi);
-        make_firmware_ok "qemu-upstream-compat" (Some Uefi);
+        make_firmware_ok "qemu-upstream" (Some uefi);
+        make_firmware_ok "qemu-upstream-compat" (Some uefi);
 
         (* Check UEFI configuration - qemu-trad incompatibility *)
-        (([ "device-model", "qemu-trad" ], Some Uefi, false, 0L, 0L, `hvm),
+        (([ "device-model", "qemu-trad" ], Some uefi, false, 0L, 0L, `hvm),
          Either.Left(Api_errors.Server_error(Api_errors.invalid_value,
                                              ["platform:device-model";
                                               "UEFI boot is not supported with qemu-trad"])));
