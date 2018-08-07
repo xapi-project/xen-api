@@ -22,7 +22,7 @@ open Datamodel_types
         ~lifecycle:[Published, rel_rio, ""; Deprecated, rel_kolkata, "Replaced by VM.domain_type"]
         "boot_policy" "HVM boot policy";
       field ~ty:(Map(String, String)) "boot_params" "HVM boot params";
-      field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.));
+      field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier" "multiplier applied to the amount of shadow that will be made available to the guest" ~default_value:(Some (VFloat 1.))
     ]
 
 let guest_memory =
