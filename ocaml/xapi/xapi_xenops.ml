@@ -156,15 +156,37 @@ let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
 let firmware_of_vm vm =
   let open Xenops_types.Vm in
   match List.assoc "firmware" vm.API.vM_HVM_boot_params with
-  | "bios" -> Some Bios
-  | "uefi" -> Some Uefi
+  | "bios" -> Bios
+  | "uefi" -> Uefi
   | bad ->
     raise Api_errors.(Server_error(invalid_value, [
         "HVM-boot-params['firmware']";
         bad]))
-  | exception Not_found -> None
+  | exception Not_found -> default_firmware
 
-let nvram_of_vm vm = Some vm.API.vM_NVRAM
+let nvram_of_vm vm =
+  let open Xenops_types.Nvram in
+  let on_field name f t =
+    match List.assoc name vm.API.vM_NVRAM with
+    | v -> f v t
+    | exception Not_found -> t
+  in
+  let add_on_boot =
+    on_field "EFI-variables-on-boot" (fun str t -> match str with
+        | "persist" -> { t with efi_variables_on_boot = Persist }
+        | "reset" -> { t with efi_variables_on_boot = Reset }
+        | bad ->
+          raise Api_errors.(Server_error(invalid_value, [
+              "NVRAM['EFI-variables-on-boot']";
+              bad])))
+  in
+  let add_backend =
+    on_field "EFI-variables-backend" (fun efi_variables_backend t ->
+        { t with efi_variables_backend })
+  in
+  default_t
+  |> add_on_boot
+  |> add_backend
 
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
   let timeoffset = string vm_t.API.vM_platform "0" Vm_platform.timeoffset in
@@ -831,7 +853,7 @@ module MD = struct
     let platformdata =
       Vm_platform.sanity_check
         ~platformdata:vm.API.vM_platform
-        ?firmware:(firmware_of_vm vm)
+        ~firmware:(firmware_of_vm vm)
         ~vcpu_max:vm.API.vM_VCPUs_max
         ~vcpu_at_startup:vm.API.vM_VCPUs_at_startup
         ~domain_type:(Helpers.check_domain_type vm.API.vM_domain_type)
