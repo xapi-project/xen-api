@@ -132,7 +132,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
     | `pv -> false
   in
   begin match List.assoc device_model platformdata, firmware with
-  | "qemu-trad", Some Xenops_types.Vm.Uefi ->
+  | "qemu-trad", Some Xenops_types.Vm.Uefi _ ->
     raise (Api_errors.Server_error(Api_errors.invalid_value,
                                    ["platform:device-model";
                                     "UEFI boot is not supported with qemu-trad"]));
