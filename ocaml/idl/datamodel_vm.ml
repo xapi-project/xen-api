@@ -1331,9 +1331,6 @@ let set_HVM_boot_policy = call ~flags:[`Session]
            namespace ~name:"PV" ~contents:pv ();
            namespace ~name:"HVM" ~contents:hvm ();
            field ~ty:(Map(String, String)) "platform" "platform-specific configuration";
-           field ~lifecycle:[Prototyped, rel_naples, ""] ~ty:(Map(String, String)) "NVRAM"
-             ~default_value:(Some (VMap []))
-             "initial value for guest NVRAM (containing UEFI variables, etc)";
 
            field ~lifecycle:[
              Published, rel_rio, "PCI bus path for pass-through devices";
@@ -1403,6 +1400,10 @@ let set_HVM_boot_policy = call ~flags:[`Session]
                Published, rel_kolkata, "The field is now valid"
              ]
            ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
+
+           field ~lifecycle:[Prototyped, rel_naples, ""] ~ty:(Map(String, String)) "NVRAM"
+             ~default_value:(Some (VMap []))
+             "initial value for guest NVRAM (containing UEFI variables, etc)";
          ])
       ()
 
