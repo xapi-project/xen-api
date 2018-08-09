@@ -108,7 +108,8 @@ let contents common filename =
         end;
         tl () >>= fun x ->
         loop x in
-      openstream (Input.of_fd (Vhd_format_lwt.IO.to_file_descr fd)) >>= fun stream ->
+      Vhd_format_lwt.IO.get_file_size filename >>= fun size ->
+      openstream (Some size) (Input.of_fd (Vhd_format_lwt.IO.to_file_descr fd)) >>= fun stream ->
       loop stream in
     Lwt_main.run t;
     `Ok ()
@@ -481,7 +482,7 @@ let serve_vhd_to_raw total_size c dest prezeroed progress _ _ =
       (match !p with Some p -> p blocks_seen | None -> ());
       tl () >>= loop block_size_sectors_shift this_block blocks_seen
     | Cons (_, tl) -> tl () >>= loop block_size_sectors_shift last_block blocks_seen in
-  openstream c >>= fun stream ->
+  openstream (Some total_size) c >>= fun stream ->
   loop 0 (-1L) 0L stream
 
 let serve_tar_to_raw total_size c dest prezeroed progress expected_prefix ignore_checksums =
