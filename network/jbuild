@@ -1,28 +1,9 @@
 (* -*- tuareg -*- *)
-#require "unix"
-
-let flags = function
-  | [] -> ""
-  | pkgs ->
-    let cmd = "ocamlfind ocamlc -verbose" ^ (
-        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-      ) in
-    let ic = Unix.open_process_in
-        (cmd ^ " | grep -oEe '-ppx? (\"([^\"\\]|\\.)+\"|\\w+)'")
-    in
-    let rec go ic acc =
-      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-    in
-    go ic ""
-
-let rewriters_ppx = ["ppx_deriving_rpc"]
-
 let coverage_rewriter =
-  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
-  if is_coverage then
-    "(preprocess (pps (bisect_ppx -conditional)))"
-  else
-    Printf.sprintf "(preprocess (pps (%s)))" (String.concat " " rewriters_ppx)
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
@@ -30,14 +11,14 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
  ((name xcp_network)
   (public_name xcp.network)
-  (flags (:standard -w -39-33 %s))
+  (flags (:standard -w -39-33))
   (modules (:standard \ network_cli))
   (libraries
    (rpclib
     threads
     xcp))
   (wrapped false)
-  %s))
+  (preprocess (pps (ppx_deriving_rpc %s)))))
 
 (executable
  ((name network_cli)
@@ -53,4 +34,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    (deps (network_cli.exe))
      (action (run ${<}))))
 
-|} (flags rewriters_ppx) coverage_rewriter
+|} coverage_rewriter
