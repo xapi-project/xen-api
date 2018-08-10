@@ -1201,7 +1201,7 @@ type suspend_flag = Live | Debug
       manager_path domid fd vgpu_fd
 *)
 
-  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~dm ~manager_path ~domid
+  let suspend_emu_manager ~(task: Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm ~manager_path ~domid
       ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid ~do_suspend_callback =
     let open Suspend_image in let open Suspend_image.M in
     let open Emu_manager in
@@ -1286,7 +1286,8 @@ type suspend_flag = Live | Debug
             if domain_type = `hvm then (
               debug "VM = %s; domid = %d; suspending qemu-dm" (Uuid.to_string uuid) domid;
               Device.Dm.suspend task ~xs ~qemu_domid ~dm domid;
-              Device.Dm.suspend_varstored task ~xs domid |> ignore
+              if is_uefi then
+                Device.Dm.suspend_varstored task ~xs domid |> ignore
             );
             send_done cnx;
             wait_for_message ()
@@ -1374,7 +1375,7 @@ type suspend_flag = Live | Debug
       write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
       debug "Writing Xenops record contents";
       Io.write main_fd xenops_record;
-      suspend_emu_manager ~task ~xc ~xs ~domain_type ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
+      suspend_emu_manager ~task ~xc ~xs ~domain_type ~is_uefi ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
         ~progress_callback ~qemu_domid ~do_suspend_callback >>= fun () ->
       (if is_uefi then write_varstored_record task ~xs domid main_fd else return ()) >>= fun () ->
       (* Qemu record (if this is a hvm domain) *)
