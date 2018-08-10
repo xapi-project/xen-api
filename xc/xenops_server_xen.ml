@@ -1095,7 +1095,7 @@ module VM = struct
                   (domain_config, persistent)
               in
               let create_info = generate_create_info ~xc ~xs vm persistent in
-              let domid = Domain.make ~xc ~xs create_info domain_config (uuid_of_vm vm) in
+              let domid = Domain.make ~xc ~xs create_info vm.vcpu_max domain_config (uuid_of_vm vm) in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
                 | Vm.HVM { Vm.qemu_stubdom = true } ->

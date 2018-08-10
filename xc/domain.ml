@@ -52,6 +52,11 @@ type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
   | X86 of xen_x86_arch_domainconfig
 [@@deriving rpc]
 
+type domain_create_flag = Xenctrl.domain_create_flag =
+  | CDF_HVM
+  | CDF_HAP
+[@@deriving rpc]
+
 let emulation_flags_all = [
     X86_EMU_LAPIC
   ; X86_EMU_HPET
@@ -208,25 +213,25 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
   wait 0
 
 
-let make ~xc ~xs vm_info domain_config uuid =
+let make ~xc ~xs vm_info vcpus domain_config uuid =
   let flags = if vm_info.hvm then begin
       let default_flags =
-        (if vm_info.hvm then [ Xenctrl.CDF_HVM ] else []) @
-        (if (vm_info.hvm && vm_info.hap) then [ Xenctrl.CDF_HAP ] else []) in
+        (if vm_info.hvm then [ CDF_HVM ] else []) @
+        (if (vm_info.hvm && vm_info.hap) then [ CDF_HAP ] else []) in
       if (List.mem_assoc "hap" vm_info.platformdata) then begin
         let hap = List.assoc "hap" vm_info.platformdata in
         if hap = "false" then begin
           info "VM = %s; Hardware Assisted Paging (HAP) disabled" (Uuid.to_string uuid);
-          [ Xenctrl.CDF_HVM ]
+          [ CDF_HVM ]
         end else if hap = "true" then begin
           info "VM = %s; Hardware Assisted Paging (HAP) will be enabled." (Uuid.to_string uuid);
-          [ Xenctrl.CDF_HVM; Xenctrl.CDF_HAP ]
+          [ CDF_HVM; CDF_HAP ]
         end else begin
-          warn "VM = %s; Unrecognized value platform/hap=\"%s\".  Hardware Assisted Paging will be %s." (Uuid.to_string uuid) hap (if List.mem Xenctrl.CDF_HAP default_flags then "enabled" else "disabled");
+          warn "VM = %s; Unrecognized value platform/hap=\"%s\".  Hardware Assisted Paging will be %s." (Uuid.to_string uuid) hap (if List.mem CDF_HAP default_flags then "enabled" else "disabled");
           default_flags
         end
       end else begin
-        info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override" (Uuid.to_string uuid) (if List.mem Xenctrl.CDF_HAP default_flags then "enabled" else "disabled");
+        info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override" (Uuid.to_string uuid) (if List.mem CDF_HAP default_flags then "enabled" else "disabled");
         default_flags
       end
     end else [] in
