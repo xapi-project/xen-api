@@ -1,36 +1,17 @@
 (* -*- tuareg -*- *)
-#require "unix"
-
-let flags = function
-  | [] -> ""
-  | pkgs ->
-    let cmd = "ocamlfind ocamlc -verbose" ^ (
-        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-      ) in
-    let ic = Unix.open_process_in
-        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-    in
-    let rec go ic acc =
-      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-    in
-    go ic ""
-
-let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
-let flags = flags rewriters
-
 let coverage_rewriter =
-  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
-  if is_coverage then
-    "(preprocess (pps (bisect_ppx -conditional)))"
-  else
-    ""
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
 (executables
  ((names (test test_alco))
-  (flags (:standard -w -39 %s))
+  (flags (:standard -w -39))
   (libraries
    (alcotest
     oUnit
@@ -44,7 +25,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xcp.network
     xcp.gpumon
     xcp.xen))
-  %s))
+  (preprocess (pps (ppx_deriving_rpc %s)))  ))
 
 (alias
  ((name runtest)
@@ -56,4 +37,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (deps (test_alco.exe (files_recursively_in test_data)))
   (action (run ${<}))))
 
-|} flags coverage_rewriter
+|} coverage_rewriter
