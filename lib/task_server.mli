@@ -11,14 +11,14 @@ type stringpair = string * string
 module type INTERFACE =
 sig
   val service_name : string
-  exception Does_not_exist of stringpair
-  exception Cancelled of string
+  val does_not_exist : stringpair -> exn
+  val cancelled : string -> exn
+  val marshal_exn : exn -> Rpc.t
+
   module Task :
   sig
     type id = string
     type async_result
-    val rpc_of_async_result : async_result -> Rpc.t
-    val async_result_of_rpc : Rpc.t -> async_result
     type completion_t = {
       duration : float;
       result : async_result option;
@@ -37,10 +37,6 @@ sig
       backtrace: string;
     }
   end
-  module Exception : sig type exnty val rpc_of_exnty : exnty -> Rpc.t end
-  val exnty_of_exn : exn -> Exception.exnty
-  val exn_of_exnty : Exception.exnty -> exn
-  exception Internal_error of string
 end
 
 module Task :

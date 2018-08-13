@@ -27,16 +27,14 @@ type stringpair = string * string
 module type INTERFACE = sig
   val service_name : string
 
-  exception Does_not_exist of stringpair
-  exception Cancelled of string
+  val does_not_exist : string * string -> exn
+  val cancelled : string -> exn
+  val marshal_exn : exn -> Rpc.t
 
   module Task : sig
     type id = string
 
     type async_result
-
-    val rpc_of_async_result : async_result -> Rpc.t
-    val async_result_of_rpc : Rpc.t -> async_result
 
     type completion_t = {
       duration : float;
@@ -61,16 +59,6 @@ module type INTERFACE = sig
   end
 
   (* The following stuff comes from rpc-light.idl *)
-
-  module Exception : sig
-    type exnty
-    val rpc_of_exnty : exnty -> Rpc.t
-  end
-
-  val exnty_of_exn : exn -> Exception.exnty
-  val exn_of_exnty : Exception.exnty -> exn
-
-  exception Internal_error of string
 
 end
 
@@ -174,14 +162,14 @@ module Task = functor (Interface : INTERFACE) -> struct
       Backtrace.is_important e;
       error "Task %s failed; %s" item.id (Printexc.to_string e);
       item.backtrace <- Backtrace.remove e;
-      let e = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
+      let e = e |> Interface.marshal_exn in
       item.state <- Interface.Task.Failed e
 
   let find_locked tasks id =
     try
       SMap.find id !(tasks.task_map)
     with
-    | _ -> raise (Interface.Does_not_exist("task", id))
+    | _ -> raise (Interface.does_not_exist ("task", id))
 
   let to_interface_task t =
     {
@@ -221,7 +209,7 @@ module Task = functor (Interface : INTERFACE) -> struct
       result
     with e ->
       Backtrace.is_important e;
-      let e' = e |> Interface.exnty_of_exn |> Interface.Exception.rpc_of_exnty in
+      let e' = Interface.marshal_exn e in
       t.subtasks <- replace_assoc name (Interface.Task.Failed e') t.subtasks;
       raise e
 
@@ -255,7 +243,7 @@ module Task = functor (Interface : INTERFACE) -> struct
 
   let raise_cancelled task =
     info "Task %s has been cancelled: raising Cancelled exception" task.id;
-    raise (Interface.Cancelled(task.id))
+    raise (Interface.cancelled task.id)
 
   let check_cancelling_locked task =
     task.cancel_points_seen <- task.cancel_points_seen + 1;
