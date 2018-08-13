@@ -1,7 +1,17 @@
 open Xenops_utils
 
-module Xenops_task = Task_server.Task(Xenops_interface)
-module Updates = Updates.Updates(Xenops_interface)
+module XI = struct
+  include Xenops_interface
+
+  let cancelled s = Cancelled s
+  let does_not_exist (x,y) = Does_not_exist (x,y)
+  let marshal_exn e =
+     e |> exnty_of_exn |> Exception.rpc_of_exnty
+end
+
+
+module Xenops_task = Task_server.Task(XI)
+module Updates = Updates.Updates(XI)
 
 let scheduler = Scheduler.make ()
 let updates = Updates.empty scheduler
