@@ -30,7 +30,7 @@ if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; 
 SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight
   xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed
   xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd
-  $MPATHALERT xapi-storage-script xapi-clusterd"
+  $MPATHALERT xapi-storage-script xapi-clusterd message-switch"
 
 TO_RESTART=""
 for svc in $SERVICES ; do
