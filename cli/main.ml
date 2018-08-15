@@ -187,7 +187,21 @@ let serve_cmd =
   let ignore_checksums =
     let doc = "Do not verify checksums" in
     Arg.(value & flag & info ["ignore-checksums"] ~doc) in
-  Term.(ret(pure Impl.serve $ common_options_t $ source $ source_fd $ source_format $ source_protocol $ destination $ destination_fd $ destination_format $ destination_size $ prezeroed $ progress $ machine $ tar_filename_prefix $ ignore_checksums)),
+  Term.(ret(pure Impl.serve
+            $ common_options_t
+            $ source
+            $ source_fd
+            $ source_format
+            $ source_protocol
+            $ destination
+            $ destination_fd
+            $ destination_format
+            $ destination_size
+            $ prezeroed
+            $ progress
+            $ machine
+            $ tar_filename_prefix
+            $ ignore_checksums)),
   Term.info "serve" ~sdocs:_common_options ~doc ~man
 
 let stream_cmd =

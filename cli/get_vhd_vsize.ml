@@ -14,16 +14,19 @@ let get_vhd_vsize filename =
     | End -> return ()
     | Cons (hd, tl) ->
       begin match hd with
-      | Fragment.Footer x ->
-	let size = x.Footer.current_size in
-	Printf.printf "%Ld\n" size;
-	exit 0
-      | _ ->
-	()
+        | Fragment.Footer x ->
+          let size = x.Footer.current_size in
+          Printf.printf "%Ld\n" size;
+          exit 0
+        | _ ->
+          ()
       end;
       tl () >>= fun x ->
-      loop x in
-  openstream (Input.of_fd (Vhd_format_lwt.IO.to_file_descr fd)) >>= fun stream ->
+      loop x
+  in
+  Vhd_format_lwt.IO.get_file_size filename >>= fun file_size ->
+  openstream (Some file_size)
+    (Input.of_fd (Vhd_format_lwt.IO.to_file_descr fd)) >>= fun stream ->
   loop stream >>= fun () -> Vhd_format_lwt.IO.close fd
 
 let _ =
