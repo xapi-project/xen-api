@@ -27,7 +27,10 @@ echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
-SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd $MPATHALERT xapi-storage-script xapi-clusterd"
+SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight
+  xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed
+  xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd
+  $MPATHALERT xapi-storage-script xapi-clusterd"
 
 TO_RESTART=""
 for svc in $SERVICES ; do
