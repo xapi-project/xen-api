@@ -114,4 +114,4 @@ if __name__ == "__main__":
             sys.exit(3)
         sys.exit(0)
     else:
-        Shell().cmdloop('Welcome to the XenServer shell. (Try "VM.get_all")')
+        Shell().cmdloop('Welcome to the Citrix Hypervisor shell. (Try "VM.get_all")')

@@ -299,7 +299,7 @@ let power_behaviour =
   let set_is_default_template = call
       ~name:"set_is_default_template"
       ~hide_from_docs:true
-      ~lifecycle: [Published, rel_falcon, "Allows to define XenServer default templates"]
+      ~lifecycle: [Published, rel_falcon, "Allows to define default templates"]
       ~doc:"Makes the specified VM a default template."
       ~params:[
         Ref _vm, "vm", "The VM that will become a default template";
@@ -1111,7 +1111,7 @@ let power_behaviour =
   let call_plugin = call
       ~name:"call_plugin"
       ~in_product_since:rel_cream
-      ~doc:"Call a XenAPI plugin on this vm"
+      ~doc:"Call an API plugin on this vm"
       ~params:[Ref _vm, "vm", "The vm";
                String, "plugin", "The name of the plugin";
                String, "fn", "The name of the function within the plugin";
@@ -1310,7 +1310,7 @@ let set_HVM_boot_policy = call ~flags:[`Session]
 
            field ~ty:Int "user_version" "Creators of VMs and templates may store version information here.";
            field ~effect:true ~ty:Bool "is_a_template" "true if this is a template. Template VMs can never be started, they are used only for cloning other VMs";
-           field ~ty:Bool ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~writer_roles:_R_POOL_ADMIN ~lifecycle:[Published, rel_falcon, "Identifies XenServer default templates"] "is_default_template" "true if this is a default template. Default template VMs can never be started or migrated, they are used only for cloning other VMs";
+           field ~ty:Bool ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~writer_roles:_R_POOL_ADMIN ~lifecycle:[Published, rel_falcon, "Identifies default templates"] "is_default_template" "true if this is a default template. Default template VMs can never be started or migrated, they are used only for cloning other VMs";
            field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
 
            field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host the VM is currently resident on";

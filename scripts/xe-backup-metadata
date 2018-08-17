@@ -5,7 +5,7 @@
 trap "cleanup" TERM INT
 
 if [ ! -e @INVENTORY@ ]; then
-  echo Must run on a XenServer host.
+  echo Must run on a Citrix Hypervisor host.
   exit 1
 fi
 
