@@ -8,7 +8,7 @@ Xapi Project's XenAPI Management Toolstack
 Xen API (or xapi) is a management stack that configures and controls
 Xen-enabled hosts and resource pools, and co-ordinates resources
 within the pool. Xapi exposes the Xen API interface for many
-languages and is a component of the XenServer project.
+languages and is a component of the Citrix Hypervisor project.
 Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
 4.04.2
 
