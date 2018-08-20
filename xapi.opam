@@ -12,6 +12,8 @@ depends: [
   "jbuilder" {build & >= "1.0+beta11"}
   "alcotest"
   "cdrom"
+  "ctypes" {>= "0.4"}
+  "ctypes-foreign" {>= "0.4"}
   "fd-send-recv"
   "message-switch-unix"
   "mtime"
