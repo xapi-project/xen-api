@@ -1,26 +1,10 @@
-(* -*- tuareg -*- *)
-#require "unix"
+(jbuild_version 1)
 
-let flags = function
-| [] -> ""
-| pkgs ->
-  let cmd = "ocamlfind ocamlc -verbose" ^ (
-    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-  ) in
-  let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-  in
-  let rec go ic acc =
-    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-  in
-  go ic ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library (
   (name local_lib)
   (wrapped false)
   (c_names (sendfile64_stubs))
-  (flags (:standard -w -34-32 %s))
+  (flags (:standard -w -34-32))
   (libraries (
     cohttp-lwt
     cstruct
@@ -40,5 +24,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xenstore_transport
     xenstore_transport.unix
   ))
-))
-|} (flags ["cstruct.ppx"; "ppx_deriving_rpc"])
+  (preprocess (pps (ppx_deriving_rpc cstruct.ppx)))))
