@@ -253,6 +253,7 @@ def main(argv):
     qemu_args += ["-vnc-clipboard-socket-fd", str(s1.fileno())]
     #qemu_args += ["-trace", "events=/root/trace"]
     #qemu_args += ["-monitor", "tcp:127.0.0.1:7777,server,nowait"]
+    #qemu_args += ["-chardev", "stdio,id=ovmf", "-device", "isa-debugcon,chardev=ovmf,iobase=0x402"]
 
     if depriv:
         root_dir = "/var/xen/qemu/root-{}".format(domid)
