@@ -7,7 +7,7 @@ install:
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.04.2
+    - OCAML_VERSION=4.06
     - DISTRO=debian-stable
     - PACKAGE=xapi-storage-script
   matrix:
