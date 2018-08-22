@@ -767,8 +767,8 @@ let database_callback event db =
     match event with
     | Db_cache_types.RefreshRow (tblname, objref) ->
       None
-    | Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
-      R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal oldval) (Schema.Value.marshal newval);
+    | Db_cache_types.WriteField (tblname, objref, fldname,  newval) ->
+      R.debug "WriteField(%s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal newval);
       if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname
       then Some (WriteField(tblname, objref, fldname, Schema.Value.marshal newval))
       else None

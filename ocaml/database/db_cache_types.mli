@@ -116,7 +116,7 @@ end
 (** The core database updates (RefreshRow and PreDelete is more of an 'event') *)
 type update =
   | RefreshRow of string (* tblname *) * string (* objref *)
-  | WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * Schema.Value.t (* oldval *) * Schema.Value.t (* newval *)
+  | WriteField of string (* tblname *) * string (* objref *) * string (* fldname *) * Schema.Value.t (* newval *)
   | PreDelete of string (* tblname *) * string (* objref *)
   | Delete of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)
   | Create of string (* tblname *) * string (* objref *) * (string * Schema.Value.t) list (* values *)

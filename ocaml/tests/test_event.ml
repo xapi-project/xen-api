@@ -57,6 +57,32 @@ let test_event_from_ev_rel () =
   Alcotest.(check int) "list length" 1 (List.length vm_ev);
   Alcotest.(check int) "list length" 1 (List.length vbd_ev)
 
+let test_events_from_obj () =
+  (* Test that events on one object create the correct number of events on other objects *)
+  let __context, session_id = event_setup_common () in
+  let vma = make_vm __context () in
+  let evs = Xapi_event.from __context ["vm"] "" 30.0 |> parse_event_from in
+  let tok = evs.token in
+  let vm_ev = List.filter (fun ev -> ev.ty="vm") evs.events in
+  Alcotest.(check int) "Creation of dom0 and test vma" 2 (List.length vm_ev);
+
+  let vmb = make_vm __context () in
+  let evs2 = Xapi_event.from __context ["vm"] tok 30.0 |> parse_event_from in
+  let tok2 = evs2.token in
+  let vm_ev2 = List.filter (fun ev -> ev.ty="vm") evs2.events in
+  Alcotest.(check int) "Creation of test vmb" 1 (List.length vm_ev2);
+
+  let vbd = make_vbd ~__context ~vM:vma () in
+  let evs3 = Xapi_event.from __context ["vm"] tok2 30.0 |> parse_event_from in
+  let tok3 = evs3.token in
+  let vm_ev3 = List.filter (fun ev -> ev.ty="vm") evs3.events in
+  Alcotest.(check int) "Creation of vbd for vma" 1 (List.length vm_ev3);
+
+  Db.VBD.set_VM __context vbd vmb;
+  let evs4 = Xapi_event.from __context ["vm"] tok3 30.0 |> parse_event_from in
+  let vm_ev4 = List.filter (fun ev -> ev.ty="vm") evs4.events in
+  Alcotest.(check int) "Change vbd from vma to vmb" 2 (List.length vm_ev4)
+
 let test_event_from_timeout () =
   let __context, session_id = event_setup_common () in
   let evs = Xapi_event.from __context ["vm"] "" 30.0 |> parse_event_from in
@@ -242,6 +268,7 @@ let test =
     "test_event_from_timeout", `Slow, test_event_from_timeout;
     "test_event_from_ev", `Quick, test_event_from_ev;
     "test_event_from_ev_rel", `Quick, test_event_from_ev_rel;
+    "test_events_from_obj", `Quick, test_events_from_obj;
     "test_event_next_unblock", `Slow, event_next_unblock;
     "test_event_next", `Slow, event_next_test;
     "test_event_from", `Quick, event_from_test;
