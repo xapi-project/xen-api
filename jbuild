@@ -1,30 +1,9 @@
 (* -*- tuareg -*- *)
-#require "unix"
-
-
 let version =
   let ic = open_in "./VERSION" in
   let version = input_line ic in
   close_in ic;
   version
-
-let flags = function
-  | [] -> ""
-  | pkgs ->
-    let cmd = "ocamlfind ocamlc -verbose" ^ (
-        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-      ) in
-    let ic = Unix.open_process_in
-        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-    in
-    let rec go ic acc =
-      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-    in
-    go ic ""
-
-
-let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
-let flags = flags rewriters
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
@@ -40,7 +19,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executable (
   (name main)
   (public_name xapi-storage-script)
-  (flags (:standard -w -39 %s))
+  (flags (:standard -w -39))
   (libraries (
     async_inotify
     message-switch-async
@@ -55,6 +34,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xcp.rrd
     xcp.storage
   ))
+  (preprocess (pps (ppx_deriving_rpc ppx_sexp_conv)))
+  
 ))
 
 (rule (
@@ -76,4 +57,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name runtest)
   (deps (main.exe (files_recursively_in test/volume)))
   (action (bash "./${<} --root=$PWD/test --self-test-only=true"))))
-|} version flags
+|} version
