@@ -1,37 +1,20 @@
 (* -*- tuareg -*- *)
-#require "unix"
-
-let flags = function
-| [] -> ""
-| pkgs ->
-  let cmd = "ocamlfind ocamlc -verbose" ^ (
-    List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-  ) in
-  let ic = Unix.open_process_in
-    (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-  in
-  let rec go ic acc =
-    try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-  in
-  go ic ""
-
-let rewriters = ["ppx_deriving_rpc"; "ppx_sexp_conv"]
-
 let coverage_rewriter =
-  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
-  if is_coverage then
-    "(preprocess (pps (bisect_ppx -conditional)))"
-  else
-    ""
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(jbuild_version 1)
+
 (ocamllex (db_filter_lex))
 (ocamlyacc (db_filter_parse))
 
 (library
  ((name xapi_database)
   (public_name xapi-database)
-  (flags (:standard -w -39 -bin-annot %s))
+  (flags (:standard -w -39))
   (modules (:standard \
    database_server_main
    db_cache_test
@@ -56,7 +39,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xcp
   ))
   (wrapped false)
-  %s
+  (preprocess (pps (ppx_deriving_rpc ppx_sexp_conv %s)))
  )
 )
 
@@ -146,4 +129,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  )
 )
 
-|} (flags rewriters) coverage_rewriter
+|} coverage_rewriter
