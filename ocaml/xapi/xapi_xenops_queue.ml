@@ -22,7 +22,7 @@ module type XENOPS = module type of Xenops_client.Client
 let queue_override = ref []
 
 let make_client queue_name =
-  let module Client = Xenops_interface.Client(struct
+  let module Client = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct
       let rpc x =
         if !Xcp_client.use_switch
         then begin
@@ -30,7 +30,7 @@ let make_client queue_name =
           then List.assoc queue_name !queue_override x
           else Xcp_client.json_switch_rpc queue_name x
         end else Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string ~srcstr:"xapi" ~dststr:"xenops" Xenops_interface.default_uri x
-    end) in
+    end)) in
   (module Client: XENOPS)
 
 let all_known_xenopsds () = !Xapi_globs.xenopsd_queues
