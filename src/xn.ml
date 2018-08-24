@@ -103,9 +103,11 @@ let success_task f id =
 			match t.Task.state with
 				| Task.Completed _ -> f t
 				| Task.Failed x ->
-					let exn = exn_of_exnty (Exception.exnty_of_rpc x) in
+					let exn = match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty x with 
+                                          | Ok x -> Xenopsd_error x
+                                          | Error (`Msg x) -> Xenopsd_error (Internal_error (Printf.sprintf "Error unmarshalling failure: %s" x)) in
 					begin match exn with
-						| Failed_to_contact_remote_service x ->
+						| Xenopsd_error Failed_to_contact_remote_service x ->
 							Printf.printf "Failed to contact remote service on: %s\n" x;
 							Printf.printf "Check the address and credentials.\n";
 							exit 1;
@@ -243,12 +245,16 @@ let parse_disk_info x = match Re.Str.split_delim (Re.Str.regexp "[,]") x with
 
 let vbd_of_disk_info vm_id info =
 	{
-		Vbd.default_t with
 		Vbd.id = vm_id, info.id;
 		position = Some info.position;
 		mode = info.mode;
 		backend = info.disk;
 		ty = info.ty;
+                unpluggable = true;
+                extra_backend_keys = [];
+                extra_private_keys = [];
+                qos = None;
+                persistent = true;
 	}
 
 let print_disk vbd =
@@ -282,16 +288,24 @@ let parse_vif vm_id (x, idx) =
 			Printf.fprintf stderr "I don't understand '%s'. Please use 'mac=xx:xx:xx:xx:xx:xx,bridge=xenbrX'.\n" x;
 			exit 2
 	) xs in {
-		Vif.default_t with
 		Vif.id = vm_id, string_of_int idx;
 		position = idx;
 		mac = if List.mem_assoc _mac kvpairs then List.assoc _mac kvpairs else "";
-		backend = if List.mem_assoc _bridge kvpairs then Network.Local (List.assoc _bridge kvpairs) else Network.default_t;
+                carrier = true;
+                mtu = 1500;
+                rate = None;
+		backend = if List.mem_assoc _bridge kvpairs then Network.Local (List.assoc _bridge kvpairs) else Network.Local "xenbr0";
+                other_config = [];
+                locking_mode = Vif.default_locking_mode;
+                extra_private_keys = [];
+                ipv4_configuration = Unspecified4;
+                ipv6_configuration = Unspecified6;
+                pvs_proxy = None;
+                vlan = None;
 	}
 
 let print_vm id =
 	let open Xn_cfg_types in
-	let open Vm in
 	let vm_t, _ = Client.VM.stat dbg id in
 	let quote x = Printf.sprintf "'%s'" x in
 	let boot = match vm_t.ty with
@@ -472,6 +486,8 @@ let add copts x () = match add' copts x () with
 
 let add copts x = diagnose_error (add copts x)
 
+let rpc_of t v = Rpcmarshal.marshal t.Rpc.Types.ty v
+
 let string_of_power_state = function
 	| Running   -> "Running"
 	| Suspended -> "Suspend"
@@ -479,13 +495,12 @@ let string_of_power_state = function
 	| Paused    -> "Paused "
 
 let list_verbose () =
-	let open Vm in
 	let vms = Client.VM.list dbg () in
 	List.iter
 		(fun (vm, state) ->
-			Printf.printf "%-45s%-5s\n"  vm.name (state.power_state |> string_of_power_state);
-			Printf.printf "  %s\n" (vm |> rpc_of_t |> Jsonrpc.to_string);
-			Printf.printf "  %s\n" (state |> rpc_of_state |> Jsonrpc.to_string);
+			Printf.printf "%-45s%-5s\n"  vm.Vm.name (state.Vm.power_state |> string_of_power_state);
+			Printf.printf "  %s\n" (vm |> rpc_of Vm.t |> Jsonrpc.to_string);
+			Printf.printf "  %s\n" (state |> rpc_of Vm.state |> Jsonrpc.to_string);
 		) vms
 
 let list_compact () =
@@ -544,10 +559,9 @@ let diagnostics' () =
 	`Ok ()
 
 let stat_vm _ id =
-  let open Vm in
   let vm_t, vm_stat = Client.VM.stat dbg id in
   let kvs =
-    match rpc_of_state vm_stat with
+    match rpc_of Vm.state vm_stat with
     | Dict kvs ->
       List.map (fun (k,v) -> (k, Jsonrpc.to_string v)) kvs
     | _ -> []
@@ -630,21 +644,20 @@ let export copts metadata xm filename (x: Vm.id option) () =
 let export copts metadata xm filename x = diagnose_error(export copts metadata xm filename x)
 
 let delay x t =
-	let open Vm in
 	let vm, _ = find_by_name x in
-	Client.VM.delay dbg vm.id t |> wait_for_task dbg |> success_task ignore_task
+	Client.VM.delay dbg vm.Vm.id t |> wait_for_task dbg |> success_task ignore_task
 
 let import_metadata copts filename =
 	let ic = open_in filename in
 	let buf = Buffer.create 128 in
-	let line = String.make 128 '\000' in
+	let line = Bytes.make 128 '\000' in
 	finally
 		(fun () ->
 			try
 				while true do
-					match input ic line 0 (String.length line) with
+					match input ic line 0 (Bytes.length line) with
 					| 0 -> raise End_of_file
-					| n -> Buffer.add_string buf (String.sub line 0 n)
+					| n -> Buffer.add_bytes buf (Bytes.sub line 0 n)
 				done
 				with End_of_file -> ()
 		) (fun () -> close_in ic);
@@ -759,7 +772,7 @@ let vbd_list x =
 
 let console_list copts x =
 	let _, s = find_by_name x in
-	Printf.fprintf stderr "json=[%s]\n%!" (Jsonrpc.to_string (Vm.rpc_of_state s));
+	Printf.fprintf stderr "json=[%s]\n%!" (Jsonrpc.to_string (rpc_of Vm.state s));
 	let line protocol port =
 		Printf.sprintf "%-10s %-6s" protocol port in
 	let header = line "protocol" "port" in
@@ -807,10 +820,10 @@ let raw_console_proxy sockaddr =
 		   when the underlying connection temporarily breaks, hence provides
 		   seemingly continous connection. *)
 		let block = 65536 in
-		let buf_local = String.make block '\000' in
+		let buf_local = Bytes.make block '\000' in
 		let buf_local_end = ref 0 in
 		let buf_local_start = ref 0 in
-		let buf_remote = String.make block '\000' in
+		let buf_remote = Bytes.make block '\000' in
 		let buf_remote_end = ref 0 in
 		let buf_remote_start = ref 0 in
 		let final = ref false in
@@ -840,7 +853,7 @@ let raw_console_proxy sockaddr =
 					let b = Unix.read Unix.stdin buf_remote
 						!buf_remote_end (block - !buf_remote_end) in
 					let i = ref !buf_remote_end in
-					while !i < !buf_remote_end + b && Char.code buf_remote.[!i] <> 0x1d do incr i; done;
+					while !i < !buf_remote_end + b && Char.code (Bytes.get buf_remote !i) <> 0x1d do incr i; done;
 					if !i < !buf_remote_end + b then final := true;
 					buf_remote_end := !i
 				end;
@@ -905,11 +918,11 @@ let unix_proxy path =
 	| 	_ -> assert false in
 	match Unix.fork () with
 	| 0 ->
-		let buf = String.make 16384 '\000' in
+		let buf = Bytes.make 16384 '\000' in
 		let accept, _ = Unix.accept listen in
 		let copy a b =
 			while true do
-				let n = Unix.read a buf 0 (String.length buf) in
+				let n = Unix.read a buf 0 (Bytes.length buf) in
 				if n = 0 then exit 0;
 				let m = Unix.write b buf 0 n in
 				if m = 0 then exit 0
@@ -959,7 +972,6 @@ let console_connect' copts x =
 let console_connect copts x = diagnose_error (need_vm (console_connect' copts) x)
 
 let start' copts paused console x =
-	let open Vm in
 	let vm, _ = find_by_name x in
 	Client.VM.start dbg vm.id false |> wait_for_task dbg |> success_task ignore_task;
 	if not paused
@@ -1096,10 +1108,10 @@ let task_list _ =
 	let all = Client.TASK.list dbg in
 	List.iter
 		(fun t ->
-			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (print_date t.Task.ctime) t.Task.dbg (t.Task.state |> Task.rpc_of_state |> Jsonrpc.to_string);
+			Printf.printf "%-8s %-12s %-30s %s\n" t.Task.id (print_date t.Task.ctime) t.Task.dbg (t.Task.state |> rpc_of Task.state |> Jsonrpc.to_string);
 			List.iter
 				(fun (name, state) ->
-					Printf.printf "  |_ %-30s %s\n" name (state |> Task.rpc_of_state |> Jsonrpc.to_string)
+					Printf.printf "  |_ %-30s %s\n" name (state |> rpc_of Task.state |> Jsonrpc.to_string)
 				) t.Task.subtasks
 		) all;
 	`Ok ()
