@@ -1,7 +1,6 @@
 
 (executable
   ((name test_rrdd_monitor)
-   (flags (:standard))
    (libraries (oUnit
                rrdd_libs_internal
                ))
