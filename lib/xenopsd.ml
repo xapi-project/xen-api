@@ -74,7 +74,18 @@ let json_path () = path () ^ ".json"
 
 
 let rpc_fn call =
-  Idl.server Xenops_server.Server.implementation call
+  (* Upgrade import_metadata API call *)
+  let call' =
+    match call.Rpc.name,call.Rpc.params with
+    | "VM.import_metadata", [debug_info; metadata] ->
+      debug "Upgrading VM.import_metadata";
+      Rpc.{name="VM.import_metadata"; params=[Rpc.Dict ["debug_info",debug_info; "metadata", metadata]]}
+    | "query", [debug_info; unit_p] ->
+      debug "Upgrading query";
+      Rpc.{name="query"; params=[Rpc.Dict ["debug_info",debug_info; "unit",unit_p]]}
+    | _ -> call
+  in
+  Idl.server Xenops_server.Server.implementation call'
 
 let handle_received_fd this_connection =
   let msg_size = 16384 in
