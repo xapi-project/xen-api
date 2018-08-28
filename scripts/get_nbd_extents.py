@@ -5,10 +5,8 @@ Returns a list of extents with their block statuses for an NBD export.
 
 This program uses new NBD capabilities introduced in QEMU 2.12.
 
-It uses the BLOCK_STATUS NBD extension, which is documented here:
-https://github.com/NetworkBlockDevice/nbd/blob/extension-blockstatus/doc/proto.md
-The structured replies functionality that this extension relies on is in the
-main branch of the NBD protocol docs:
+It uses the BLOCK_STATUS NBD extension, which relies on the structured replies
+functionality. These are documented in the NBD protocol docs:
 https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md
 """
 
@@ -47,7 +45,7 @@ def _get_extents(path, exportname, offset, length):
         client.negotiate_structured_reply()
 
         # Select our metadata context. This context is documented at
-        # https://github.com/NetworkBlockDevice/nbd/blob/extension-blockstatus/doc/proto.md#baseallocation-metadata-context
+        # https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md#baseallocation-metadata-context
         context = 'base:allocation'
         selected_contexts = client.set_meta_contexts(exportname, [context])
         assert_protocol(len(selected_contexts) == 1)
@@ -86,9 +84,15 @@ def _get_extents(path, exportname, offset, length):
 
             # Then process the returned block status info
             assert_protocol(reply['context_id'] == meta_context_id)
+            # Note: There might be consecutive descriptors with the same status value.
             descriptors = reply['descriptors']
-            for descriptor in descriptors:
+            for i, descriptor in enumerate(descriptors):
                 (extent_length, flags) = descriptor
+                if i == extent_length:
+                    # The first N-1 extents must be smaller than the requested
+                    # length, but the last extent can exceed the requested
+                    # length
+                    extent_length = min(extent_length, end - offset)
                 yield {'length': extent_length, 'flags': flags}
                 offset += extent_length
                 assert_protocol(offset <= end)
@@ -107,7 +111,11 @@ def _main():
 
     try:
         parser = argparse.ArgumentParser(
-            description="Return a list of extents with their block statuses")
+            description="Return a list of extents with their block statuses. "
+                        "The returned extents are consecutive, non-overlapping, "
+                        "in the correct order starting from the specified offset, "
+                        "and exactly cover the requested area. There might be "
+                        "consecutive extents with the same status flags.")
         parser.add_argument(
             '--path',
             required=True,

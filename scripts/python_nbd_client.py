@@ -543,7 +543,7 @@ class PythonNbdClient(object):
         view = memoryview(data)
         fields['context_id'] = struct.unpack(">L", view[:4])[0]
         view = view[4:]
-        descriptors = _parse_block_status_descriptors(view)
+        descriptors = list(_parse_block_status_descriptors(view))
         assert_protocol(descriptors)
         fields['descriptors'] = descriptors
 

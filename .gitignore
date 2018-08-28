@@ -2,3 +2,5 @@ _build
 .merlin
 config.mk
 *.install
+
+scripts/*.pyc
