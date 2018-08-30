@@ -11,7 +11,7 @@ XE="@BINDIR@/xe"
 configkey="iscsi_iqn"
 
 if [ ! -f @INVENTORY@ ]; then
-  echo Error: Not a XenServer host
+  echo Error: Not a Citrix Hypervisor host
   exit 1
 fi
 
