@@ -46,6 +46,10 @@ start() {
             fi
 	fi
 
+	# Let's have jemalloc
+	export LD_PRELOAD="/usr/lib64/libjemalloc.so.1"
+	export MALLOC_CONF="narenas:1,tcache:false,lg_dirty_mult:22"
+
 	if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
 	    # clear out qemu coredumps/chroot dirs on system boot:
 	    rm -rf /var/xen/qemu/*
