@@ -14,7 +14,7 @@ depends: [
   "jbuilder" {build}
   "ocamlfind" {build}
   "message-switch-core"
-  "cohttp-async"
+  "cohttp-async" { >= "1.0.2" }
   "async" {>= "v0.9.0"}
 ]
 
