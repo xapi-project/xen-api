@@ -52,7 +52,7 @@ do
 	echo "DNS.${i}=${x}" >> config
 done
 
-openssl genrsa 3072 > privkey.rsa
+openssl genrsa 2048 > privkey.rsa
 
 # Generate certificate-signing-request
 openssl req -batch -new -key privkey.rsa -days 3650 -config config -out cert.csr
