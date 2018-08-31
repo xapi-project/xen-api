@@ -1119,6 +1119,18 @@ let eject ~__context ~host =
     (* FIXME: in the future, we should send the windows AD admin/pass here *)
     (* in order to remove the slave from the AD database during pool-eject *)
 
+    (* CA-293085 - shut down xapi-nbd now rather than as part of reboot. It
+     * tries to talk to xapi during its own shutdown and when that's done
+     * after the pool eject logic has finished it fails and enters a 90s
+     * retry loop. *)
+    begin
+      try
+        debug "Shutting down xapi-nbd";
+        ignore(Helpers.call_script "/usr/bin/systemctl" [ "stop"; "xapi-nbd" ])
+      with e ->
+        warn "Caught %s while shutting down xapi-nbd. Ignoring" (Printexc.to_string e)
+    end;
+
     debug "Pool.eject: rewrite networking first-boot files";
     let management_pif = Xapi_host.get_management_interface ~__context ~host in
     let pif = Db.PIF.get_record ~__context ~self:management_pif in
