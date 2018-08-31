@@ -55,8 +55,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     profiling
     qmp
     mtime.clock.os
-    ppx_deriving_rpc
-    ppx_sexp_conv
+    ppx_sexp_conv.runtime-lib
     re
     re.pcre
   ))
