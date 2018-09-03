@@ -5,6 +5,8 @@ module TestInterface = struct
 
   exception Does_not_exist of (string * string)
   exception Cancelled of string
+  let does_not_exist (a,b) = raise @@ Does_not_exist(a,b)
+  let cancelled a = raise @@ Cancelled a
 
   module Task = struct
     type id = string
@@ -48,6 +50,8 @@ module TestInterface = struct
     | Exception.Does_not_exist (x,y) -> Does_not_exist (x,y)
     | Exception.Cancelled s -> Cancelled s
     | Exception.Unknown s -> Failure s
+
+  let marshal_exn e = e |> exnty_of_exn |> Exception.rpc_of_exnty
 end
 
 module T = Task_server.Task(TestInterface)
