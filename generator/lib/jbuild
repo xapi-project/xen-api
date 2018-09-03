@@ -1,40 +1,12 @@
-(* -*- tuareg -*- *)
-#require "unix"
-
-let flags = function
-  | [] -> ""
-  | pkgs ->
-    let cmd = "ocamlfind ocamlc -verbose" ^ (
-        List.fold_left (fun acc pkg -> acc ^ " -package " ^ pkg) "" pkgs
-      ) in
-    let ic = Unix.open_process_in
-        (cmd ^ " | grep -oEe '-ppx (\"([^\"\\]|\\.)+\"|\\w+)'")
-    in
-    let rec go ic acc =
-      try go ic (acc ^ " " ^ input_line ic) with End_of_file -> close_in ic; acc
-    in
-    go ic ""
-
-let flags = flags ["ppx_deriving_rpc"]
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (jbuild_version 1)
 
-(library (
-  (name xapi_storage)
+(library
+ ((name xapi_storage)
   (public_name xapi-storage)
-  (flags (:standard -warn-error +a-3 %s))
-  (modules (
-    apis
-    common
-    control
-    data
-    files
-    plugin
-    task
-  ))
-  (libraries (
-    rpclib
-  ))
-))
-|} flags
+  (flags
+   (:standard -warn-error +a-3))
+  (modules
+   (apis common control data files plugin task))
+  (preprocess (pps (ppx_deriving_rpc)))
+  (libraries
+   (rpclib))))
