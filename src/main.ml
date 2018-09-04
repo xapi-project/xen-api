@@ -21,11 +21,11 @@ open Cmdliner
 
 let _common_options = "COMMON OPTIONS"
 let help = [ 
- `S _common_options; 
- `P "These options are common to all commands.";
- `S "MORE HELP";
- `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
- `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
+  `S _common_options;
+  `P "These options are common to all commands.";
+  `S "MORE HELP";
+  `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."; `Noblank;
+  `S "BUGS"; `P (Printf.sprintf "Check bug reports at %s" project_url);
 ]
 
 (* Options common to all commands *)
@@ -46,7 +46,7 @@ let common_options_t =
     let doc = Printf.sprintf "Specify queue name in message switch." in
     Arg.(value & opt (some string) default & info ["queue"] ~docs ~doc) in
   Term.(pure Common.make $ debug $ verb $ socket $ queue)
-    
+
 (* Commands *)
 
 let events_cmd =
@@ -116,7 +116,7 @@ let remove_cmd =
     `P "Only Halted VMs may be unregistered.";
     `S "ERRORS";
     `P "Something about power state exceptions";
-   ] in
+  ] in
   Term.(ret (pure Xn.remove $ common_options_t $ vm)),
   Term.info "remove" ~sdocs:_common_options ~doc ~man
 
@@ -353,7 +353,7 @@ let default_cmd =
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
-       
+
 let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; reboot_cmd;
             suspend_cmd; resume_cmd; pause_cmd; unpause_cmd;
             import_cmd; export_cmd; console_cmd; diagnostics_cmd; events_cmd;
