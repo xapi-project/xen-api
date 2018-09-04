@@ -9,7 +9,7 @@ services:
     - docker
 env:
   global:
-    - OCAML_VERSION=4.04.2
+    - OCAML_VERSION=4.06
     - PINS="xcp:."
     - PACKAGE=xapi-idl
     - DISTRO="debian-testing"
