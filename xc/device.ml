@@ -34,7 +34,7 @@ open D
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream [@@deriving rpc]
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream [@@deriving rpcty]
   let fallback = Qemu_trad
   let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
   module Name = struct
@@ -55,7 +55,7 @@ module Profile = struct
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
     | x when x = Name.qemu_upstream        ->
        sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
-       |> fun s -> Internal_error s
+       |> fun s -> Xenopsd_error (Internal_error s)
        |> raise
     | x -> debug "unknown device-model profile %s: defaulting to %s" x Name.qemu_upstream_compat;
       Qemu_upstream_compat
@@ -509,7 +509,7 @@ module Vbd_Common = struct
         (fun x -> x.frontend.devid
                   |> Device_number.of_xenstore_key
                   |> Device_number.spec
-                  |> (fun (_, disk, _) -> disk))
+                  |> function (_,disk,_) -> disk)
         (Device_common.list_frontends ~xs domid) in
     let next = List.fold_left max 0 disks + 1 in
     let open Device_number in
@@ -1171,7 +1171,7 @@ module PCI = struct
     match get_driver devstr	with
     | None -> write_string_to_file (Filename.concat sysfs_i915 "bind") devstr
     | Some (Supported I915) -> ()
-    | Some drv -> raise (Internal_error (Printf.sprintf "Fail to bind to i915, device is bound to %s" (string_of_driver drv)))
+    | Some drv -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Fail to bind to i915, device is bound to %s" (string_of_driver drv))))
 
   let bind_to_nvidia devstr =
     debug "pci: binding device %s to nvidia" devstr;
@@ -1486,7 +1486,7 @@ module Vusb = struct
       debug "usb_reset script %s returned stdout=%s stderr=%s" (String.concat " " argv) stdout stderr
     with err ->
       error "Failed to call usb_reset script with arguments %s" (String.concat " " argv);
-      raise (Internal_error (Printf.sprintf "Call to usb reset failed: %s" (Printexc.to_string err)))
+      raise (Xenopsd_error (Internal_error (Printf.sprintf "Call to usb reset failed: %s" (Printexc.to_string err))))
 
   let cleanup domid =
     try
@@ -1538,7 +1538,7 @@ module Vusb = struct
         debug "%s unexpected QMP result for domid %d Qom_list" __LOC__ domid;
         []
       | exception QMP_connection_error _ ->
-        raise Device_not_connected
+        raise (Xenopsd_error Device_not_connected)
     else
       []
 
@@ -1550,10 +1550,10 @@ module Vusb = struct
   let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
     let device_model = Profile.of_domid domid in
     if device_model = Profile.Qemu_trad then
-      raise (Internal_error
+      raise (Xenopsd_error (Internal_error
                (Printf.sprintf
                   "Failed to plug VUSB %s because domain %d uses device-model profile %s."
-                  id domid (Profile.string_of device_model)));
+                  id domid (Profile.string_of device_model))));
     debug "vusb_plug: plug VUSB device %s" id;
     let get_bus v =
       if String.startswith "1" v then
@@ -1573,7 +1573,7 @@ module Vusb = struct
         *)
         begin match Qemu.pid ~xs domid with
           | Some pid -> usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
-          | _ -> raise (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid))
+          | _ -> raise (Xenopsd_error (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid)))
         end;
         let cmd = Qmp.(Device_add Device.(
                        { driver = "usb-host";
@@ -1594,7 +1594,7 @@ module Vusb = struct
            try
              qmp_send_cmd domid Qmp.(Device_del id) |> ignore
            with QMP_connection_error _ ->
-             raise Device_not_connected
+             raise (Xenopsd_error Device_not_connected)
       )
       (fun () ->
          usb_reset_detach ~hostbus ~hostport ~domid ~privileged
@@ -2087,14 +2087,14 @@ module Backend = struct
         devid
         |> Device_number.of_xenstore_key
         |> Device_number.spec
-        |> function
+        |> function 
            | Ide, 0, _ -> "ide0-cd0"
            | Ide, 1, _ -> "ide0-cd1"
            | Ide, 2, _ -> "ide1-cd0"
            | Ide, 3, _ -> "ide1-cd1"
-           | _ -> raise(Internal_error (
+           | _ -> raise(Xenopsd_error (Internal_error (
                           Printf.sprintf "unexpected disk for devid %d" devid
-                       ))
+                       )))
 
       let qemu_media_change ~xs device _type params =
         Vbd_Common.qemu_media_change ~xs device _type params;
@@ -2112,10 +2112,10 @@ module Backend = struct
                  let fd_info = match qmp_send_cmd ~send_fd:fd_cd domid cmd with
                    | Qmp.Fd_info x -> x
                    | other ->
-                     raise (Internal_error
+                     raise (Xenopsd_error (Internal_error
                               (sprintf
                                  "Unexpected result for QMP command: %s"
-                                 Qmp.(other |> as_msg |> string_of_message))) in
+                                 Qmp.(other |> as_msg |> string_of_message)))) in
                  finally
                    (fun () ->
                       let path   = sprintf "/dev/fdset/%d" fd_info.Qmp.fdset_id in
@@ -2132,10 +2132,10 @@ module Backend = struct
               (fun () ->
                  Unix.close fd_cd)
         with
-        | Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise(Internal_error (Printf.sprintf "Failed to connnect QMP socket: %s" p))
-        | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise(Internal_error (Printf.sprintf "Failed to open CD Image: %s" p))
-        | Internal_error(_) as e -> raise e
-        | e -> raise(Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e)))
+        | Unix.Unix_error(Unix.ECONNREFUSED, "connect", p) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to connnect QMP socket: %s" p)))
+        | Unix.Unix_error(Unix.ENOENT, "open", p) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to open CD Image: %s" p)))
+        | Xenopsd_error (Internal_error _) as e -> raise e
+        | e -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Get unexpected error trying to change CD: %s" (Printexc.to_string e))))
     end (* Backend.Qemu_upstream_compat.Vbd *)
 
     (** Implementation of the Vcpu functions that use the dispatcher for the qemu-upstream-compat backend *)
@@ -2157,7 +2157,7 @@ module Backend = struct
             })) |> ignore
           )
         | false -> ( (* hotunplug *)
-          let err msg = raise (Internal_error msg) in
+          let err msg = raise (Xenopsd_error (Internal_error msg)) in
           let qom_path = qmp_send_cmd domid Qmp.Query_hotpluggable_cpus
           |> function
           | Qmp.Hotpluggable_cpus x -> ( x
@@ -2338,9 +2338,9 @@ module Backend = struct
                       |> function
                       | Qmp.(Fd_info fd) -> fd
                       | other ->
-                        raise (Internal_error (sprintf
+                        raise (Xenopsd_error (Internal_error (sprintf
                                                  "Unexpected result for QMP command: %s"
-                                                 Qmp.(other |> as_msg |> string_of_message)))
+                                                 Qmp.(other |> as_msg |> string_of_message))))
              in
              finally
                (fun () ->
@@ -2833,7 +2833,7 @@ let hard_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.back
 
 let clean_shutdown (task: Xenops_task.task_handle) ~xs (x: device) = match x.backend.kind with
   | Vif -> Vif.clean_shutdown task ~xs x
-  | NetSriovVf -> raise (Unimplemented("network sr-iov"))
+  | NetSriovVf -> raise (Xenopsd_error (Unimplemented("network sr-iov")))
   | Vbd _ | Tap -> Vbd.clean_shutdown task ~xs x
   | Pci -> PCI.clean_shutdown task ~xs x
   | Vfs -> Vfs.clean_shutdown task ~xs x

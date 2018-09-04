@@ -56,8 +56,8 @@ type xen_x86_arch_domainconfig = (* Xenctrl.xen_x86_arch_domainconfig = *) {
 type arch_domainconfig = (* Xenctrl.arch_domainconfig = *)
   | ARM of xen_arm_arch_domainconfig
   | X86 of xen_x86_arch_domainconfig
-val rpc_of_arch_domainconfig : arch_domainconfig -> Rpc.t
-val arch_domainconfig_of_rpc : Rpc.t -> arch_domainconfig
+val typ_of_arch_domainconfig : arch_domainconfig Rpc.Types.typ
+val arch_domainconfig : arch_domainconfig Rpc.Types.def
 
 type create_info = {
   ssidref: int32;
@@ -69,22 +69,22 @@ type create_info = {
   bios_strings: (string * string) list;
   has_vendor_device: bool;
 }
-val create_info_of_rpc: Rpc.t -> create_info
-val rpc_of_create_info: create_info -> Rpc.t
+val typ_of_create_info: create_info Rpc.Types.typ
+val create_info: create_info Rpc.Types.def
 
 type build_hvm_info = {
   shadow_multiplier: float;
   video_mib: int;
 }
-val build_hvm_info_of_rpc: Rpc.t -> build_hvm_info
-val rpc_of_build_hvm_info: build_hvm_info -> Rpc.t
+val typ_of_build_hvm_info: build_hvm_info Rpc.Types.typ
+val build_hvm_info: build_hvm_info Rpc.Types.def
 
 type build_pv_info = {
   cmdline: string;
   ramdisk: string option;
 }
-val build_pv_info_of_rpc: Rpc.t -> build_pv_info
-val rpc_of_build_pv_info: build_pv_info -> Rpc.t
+val typ_of_build_pv_info: build_pv_info Rpc.Types.typ
+val build_pv_info: build_pv_info Rpc.Types.def
 
 type build_pvh_info = {
   cmdline: string;                        (* cmdline for the kernel (image) *)
@@ -92,15 +92,15 @@ type build_pvh_info = {
   shadow_multiplier: float;
   video_mib: int;
 }
-val build_pvh_info_of_rpc: Rpc.t -> build_pvh_info
-val rpc_of_build_pvh_info: build_pvh_info -> Rpc.t
+val typ_of_build_pvh_info: build_pvh_info Rpc.Types.typ
+val build_pvh_info: build_pvh_info Rpc.Types.def
 
 type builder_spec_info =
   | BuildHVM of build_hvm_info
   | BuildPV of build_pv_info
   | BuildPVH of build_pvh_info
-val builder_spec_info_of_rpc: Rpc.t -> builder_spec_info
-val rpc_of_builder_spec_info: builder_spec_info -> Rpc.t
+val typ_of_builder_spec_info: builder_spec_info Rpc.Types.typ
+val builder_spec_info: builder_spec_info Rpc.Types.def
 
 type build_info = {
   memory_max: int64;    (* memory max in kilobytes *)
@@ -109,8 +109,8 @@ type build_info = {
   vcpus: int;           (* vcpus max *)
   priv: builder_spec_info;
 }
-val build_info_of_rpc: Rpc.t -> build_info
-val rpc_of_build_info: build_info -> Rpc.t
+val typ_of_build_info: build_info Rpc.Types.typ
+val build_info: build_info Rpc.Types.def
 
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
 val make: xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> create_info -> int -> arch_domainconfig -> Uuidm.t -> domid

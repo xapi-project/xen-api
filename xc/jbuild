@@ -39,9 +39,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-xenopsd
     xenstore
     xenstore.unix
-    xenstore_transport
     xenstore_transport.unix
-    rpclib
+    rpclib.core
     forkexec
     xcp
     xcp.storage

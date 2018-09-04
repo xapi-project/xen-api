@@ -20,6 +20,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server" end)
 open D
 
+let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
+
 let domain_shutdown_ack_timeout = ref 60.
 
 type context = {
@@ -50,8 +52,8 @@ let get_backend () = match !backend with
 let ignore_exception msg f x =
   try f x
   with
-  | e ->
-    debug "%s: ignoring exception: %s" msg (e |> exnty_of_exn |> Exception.rpc_of_exnty |> Jsonrpc.to_string)
+  | Xenopsd_error e ->
+    debug "%s: ignoring exception: %s" msg (e |> Rpcmarshal.marshal Errors.error.Rpc.Types.ty |> Jsonrpc.to_string)
 
 let filter_prefix prefix xs =
   List.filter_map
@@ -110,9 +112,17 @@ type atomic =
   | VM_rename of (Vm.id * Vm.id)
   | Parallel of Vm.id * string * atomic list
 
-[@@deriving rpc]
+[@@deriving rpcty]
 
-let string_of_atomic x = x |> rpc_of_atomic |> Jsonrpc.to_string
+let string_of_atomic x = x |> rpc_of atomic |> Jsonrpc.to_string
+
+type vm_migrate_op = {
+  vmm_id : Vm.id;
+  vmm_vdi_map : (string * string) list;
+  vmm_vif_map : (string * Network.t) list;
+  vmm_vgpu_pci_map : (string * Pci.address) list;
+  vmm_url : string
+} [@@deriving rpcty]
 
 type operation =
   | VM_start of (Vm.id * bool) (* VM id * 'force' *)
@@ -123,7 +133,7 @@ type operation =
   | VM_resume of (Vm.id * data)
   | VM_restore_vifs of Vm.id
   | VM_restore_devices of (Vm.id * bool)
-  | VM_migrate of (Vm.id * (string * string) list * (string * Network.t) list * (string * Pci.address) list * string)
+  | VM_migrate of vm_migrate_op
   | VM_receive_memory of (Vm.id * Vm.id * int64 * Unix.file_descr)
   | VBD_hotplug of Vbd.id
   | VBD_hotunplug of Vbd.id * bool
@@ -135,9 +145,9 @@ type operation =
   | VIF_check_state of Vif.id
   | VUSB_check_state of Vusb.id
   | Atomic of atomic
-[@@deriving rpc]
+[@@deriving rpcty]
 
-let string_of_operation x = x |> rpc_of_operation |> Jsonrpc.to_string
+let string_of_operation x = x |> rpc_of operation |> Jsonrpc.to_string
 
 module TASK = struct
   open Xenops_task
@@ -151,10 +161,10 @@ module TASK = struct
     try
       let handle = handle_of_id tasks id in
       let state = get_state handle in
-      debug "TASK.signal %s = %s" id (state |> Task.rpc_of_state |> Jsonrpc.to_string);
+      debug "TASK.signal %s = %s" id (state |> rpc_of Task.state |> Jsonrpc.to_string);
       Updates.add (Dynamic.Task id) updates
     with
-      Does_not_exist _ -> debug "TASK.signal %s (object deleted)" id
+      Xenopsd_error (Does_not_exist _) -> debug "TASK.signal %s (object deleted)" id
   let stat _ dbg id = stat' id
   let destroy' id = destroy (handle_of_id tasks id); Updates.remove (Dynamic.Task id) updates
   let destroy _ dbg id = destroy' id
@@ -306,7 +316,7 @@ module VGPU_DB = struct
   let string_of_id (a, b) = a ^ "." ^ b
   let id_of_string str = match Stdext.Xstringext.String.split '.' str with
     | [a; b] -> a, b
-    | _ -> raise (Internal_error ("String cannot be interpreted as vgpu id: "^str))
+    | _ -> raise (Xenopsd_error (Internal_error ("String cannot be interpreted as vgpu id: "^str)))
 
   let ids vm : Vgpu.id list =
     list [ vm ] |> (filter_prefix "vgpu.") |> List.map (fun id -> (vm, id))
@@ -551,8 +561,8 @@ module Redirector = struct
     type q = {
       tag: string;
       items: operation list
-    } [@@deriving rpc]
-    type t = q list [@@deriving rpc]
+    } [@@deriving rpcty]
+    type t = q list [@@deriving rpcty]
 
     let make () =
       Mutex.execute m
@@ -664,8 +674,8 @@ module Worker = struct
              begin match Xenops_task.get_state item with
                | Task.Pending _ ->
                  error "Task %s has been left in a Pending state" id;
-                 let e = Internal_error "Task left in Pending state" in
-                 let e = e |> exnty_of_exn |> Exception.rpc_of_exnty in
+                 let e = Errors.Internal_error "Task left in Pending state" in
+                 let e = rpc_of Errors.error e in
                  Xenops_task.set_state item (Task.Failed e)
                | _ -> ()
              end;
@@ -689,20 +699,20 @@ module WorkerPool = struct
       ctime: string;
       dbg: string;
       subtasks: (string * string) list;
-    } [@@deriving rpc]
+    } [@@deriving rpcty]
     let of_task t =
       let t' = Xenops_task.to_interface_task t in
       {
         id = t'.Task.id;
         ctime = t'.Task.ctime |> Date.of_float |> Date.to_string;
         dbg = t'.Task.dbg;
-        subtasks = List.map (fun (name, state) -> name, state |> Task.rpc_of_state |> Jsonrpc.to_string) t'.Task.subtasks |> List.rev;
+        subtasks = List.map (fun (name, state) -> name, state |> rpc_of Task.state |> Jsonrpc.to_string) t'.Task.subtasks |> List.rev;
       }
     type w = {
       state: string;
       task: task option;
-    } [@@deriving rpc]
-    type t = w list [@@deriving rpc]
+    } [@@deriving rpcty]
+    type t = w list [@@deriving rpcty]
     let make () =
       Mutex.execute m
         (fun () ->
@@ -838,7 +848,7 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
     vgpus = vgpus;
     vusbs = vusbs;
     domains = Some domains;
-  } |> Metadata.rpc_of_t |> Jsonrpc.to_string
+  } |> rpc_of Metadata.t |> Jsonrpc.to_string
 
 (* This is a symptom of the ordering-sensitivity of the SM backend: it is not possible
    to upgrade RO -> RW or downgrade RW -> RO on the fly.
@@ -1094,12 +1104,14 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
           None
         | Task.Failed e ->
           TASK.destroy' id;
-          let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
+          let e = match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with 
+            | Ok x -> Xenopsd_error x
+            | Error (`Msg x) -> Xenopsd_error (Internal_error (Printf.sprintf "Error unmarshalling failure: %s" x)) in
           Some e
         | Task.Pending _ ->
           error "Parallel: queue_atomics_and_wait returned a pending task";
           Xenops_task.cancel task_handle;
-          Some (Cancelled id)
+          Some (Xenopsd_error (Cancelled id))
       ) task_list in
     (* if any error was present, raise first one, so that trigger_cleanup_after_failure is called *)
     List.iter (fun err->match err with None->() |Some e->raise e) errors
@@ -1132,7 +1144,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
          VIF_DB.write id {vif with Vif.carrier = carrier}
       ) (fun () -> VIF_DB.signal id)
   | VIF_set_locking_mode (id, mode) ->
-    debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> Vif.rpc_of_locking_mode |> Jsonrpc.to_string);
+    debug "VIF.set_locking_mode %s %s" (VIF_DB.string_of_id id) (mode |> rpc_of Vif.locking_mode |> Jsonrpc.to_string);
     finally
       (fun () ->
          let vif = VIF_DB.read_exn id in
@@ -1142,7 +1154,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
          B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode
       ) (fun () -> VIF_DB.signal id)
   | VIF_set_pvs_proxy (id, proxy) ->
-    let s = match proxy with None -> "(none)" | Some p -> p |> Vif.PVS_proxy.rpc_of_t |> Jsonrpc.to_string in
+    let s = match proxy with None -> "(none)" | Some p -> p |> rpc_of Vif.PVS_proxy.t |> Jsonrpc.to_string in
     debug "VIF.set_pvs_proxy %s %s" (VIF_DB.string_of_id id) s;
     finally
       (fun () ->
@@ -1194,12 +1206,12 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
     debug "VBD.set_active %s %b" (VBD_DB.string_of_id id) b;
     B.VBD.set_active t (VBD_DB.vm_of id) (VBD_DB.read_exn id) b;
     VBD_DB.signal id
-  | VBD_epoch_begin (id, disk, persistent) ->
-    debug "VBD.epoch_begin %s" (disk |> rpc_of_disk |> Jsonrpc.to_string);
-    B.VBD.epoch_begin t (VBD_DB.vm_of id) disk persistent
-  | VBD_epoch_end (id, disk) ->
-    debug "VBD.epoch_end %s" (disk |> rpc_of_disk |> Jsonrpc.to_string);
-    B.VBD.epoch_end t (VBD_DB.vm_of id) disk
+  | VBD_epoch_begin (id, d, persistent) ->
+    debug "VBD.epoch_begin %s" (d |> rpc_of disk |> Jsonrpc.to_string);
+    B.VBD.epoch_begin t (VBD_DB.vm_of id) d persistent
+  | VBD_epoch_end (id, d) ->
+    debug "VBD.epoch_end %s" (d |> rpc_of disk |> Jsonrpc.to_string);
+    B.VBD.epoch_end t (VBD_DB.vm_of id) d
   | VBD_set_qos id ->
     debug "VBD.set_qos %s" (VBD_DB.string_of_id id);
     B.VBD.set_qos t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
@@ -1221,25 +1233,25 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
       | Running | Paused ->
         B.VBD.insert t (VBD_DB.vm_of id) vbd_t disk;
         VBD_DB.signal id
-      | _ -> raise (Bad_power_state(power, Running))
+      | _ -> raise (Xenopsd_error (Bad_power_state(power, Running)))
     end
   | VBD_eject id ->
     debug "VBD.eject %s" (VBD_DB.string_of_id id);
     let vbd_t = VBD_DB.read_exn id in
-    if vbd_t.Vbd.ty = Vbd.Disk then raise (Media_not_ejectable);
+    if vbd_t.Vbd.ty = Vbd.Disk then raise (Xenopsd_error Media_not_ejectable);
     let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
     begin match power with
       | Running | Paused ->
         B.VBD.eject t (VBD_DB.vm_of id) vbd_t;
         VBD_DB.signal id
-      | _ -> raise (Bad_power_state(power, Running))
+      | _ -> raise (Xenopsd_error (Bad_power_state(power, Running)))
     end
   | VM_remove id ->
     debug "VM.remove %s" id;
     let vm_t = VM_DB.read_exn id in
     let power = (B.VM.get_state vm_t).Vm.power_state in
     begin match power with
-      | Running | Paused -> raise (Bad_power_state(power, Halted))
+      | Running | Paused -> raise (Xenopsd_error (Bad_power_state(power, Halted)))
       | Halted | Suspended ->
         B.VM.remove vm_t;
         List.iter (fun vbd -> VBD_DB.remove vbd.Vbd.id) (VBD_DB.vbds id);
@@ -1305,7 +1317,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
     debug "VM.set_vcpus (%s, %d)" id n;
     let vm_t = VM_DB.read_exn id in
     if n <= 0 || n > vm_t.Vm.vcpu_max
-    then raise (Invalid_vcpus vm_t.Vm.vcpu_max);
+    then raise (Xenopsd_error (Invalid_vcpus vm_t.Vm.vcpu_max));
     B.VM.set_vcpus t vm_t n
   | VM_set_shadow_multiplier (id, m) ->
     debug "VM.set_shadow_multiplier (%s, %.2f)" id m;
@@ -1336,7 +1348,7 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
     VM_DB.signal id;
     (match result with None -> () | Some r -> r := Some res)
   | VM_set_domain_action_request (id, dar) ->
-    debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of_domain_action_request |> Jsonrpc.to_string) dar));
+    debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of domain_action_request |> Jsonrpc.to_string) dar));
     B.VM.set_domain_action_request (VM_DB.read_exn id) dar
   | VM_create_device_model (id, save_state) -> begin
       debug "VM.create_device_model %s" id;
@@ -1376,10 +1388,10 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
     let vm = VM_DB.read_exn id in
     (* wait for a clean shutdown ack; this allows us to abort early. *)
     if not (B.VM.request_shutdown t vm reason (min !domain_shutdown_ack_timeout timeout))
-    then raise (Failed_to_acknowledge_shutdown_request);
+    then raise (Xenopsd_error (Failed_to_acknowledge_shutdown_request));
     let remaining_timeout = max 0. (timeout -. (Unix.gettimeofday () -. start)) in
     if not (B.VM.wait_shutdown t vm reason remaining_timeout)
-    then raise (Failed_to_shutdown(id, timeout))
+    then raise (Xenopsd_error (Failed_to_shutdown(id, timeout)))
   | VM_s3suspend id ->
     debug "VM.s3suspend %s" id;
     B.VM.s3suspend t (VM_DB.read_exn id);
@@ -1467,8 +1479,9 @@ let rec immediate_operation dbg id op =
   | Task.Pending _ -> assert false
   | Task.Completed _ -> ()
   | Task.Failed e ->
-    let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
-    raise e
+    match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
+    | Ok e -> raise (Xenopsd_error e)
+    | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal error: %s" m)))
 
 (* At all times we ensure that an operation which partially fails
    leaves the system in a recoverable state. All that should be
@@ -1494,9 +1507,9 @@ and trigger_cleanup_after_failure op t =
   | VM_receive_memory (id, final_id, _, _) ->
     immediate_operation dbg id (VM_check_state id);
     immediate_operation dbg final_id (VM_check_state final_id);
-  | VM_migrate (id, _, _, _, _) ->
-    immediate_operation dbg id (VM_check_state id);
-    immediate_operation dbg id (VM_check_state id);
+  | VM_migrate vmm ->
+    immediate_operation dbg vmm.vmm_id (VM_check_state vmm.vmm_id);
+    immediate_operation dbg vmm.vmm_id (VM_check_state vmm.vmm_id);
 
   | VBD_hotplug id
   | VBD_hotunplug (id, _) ->
@@ -1620,17 +1633,18 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
     | VIF_hotunplug (id, force) ->
       debug "VIF_hotplug %s.%s %b" (fst id) (snd id) force;
       perform_atomics (atomics_of_operation op) t
-    | VM_migrate (id, vdi_map, vif_map, vgpu_pci_map, url') ->
-      debug "VM.migrate %s -> %s" id url';
+    | VM_migrate vmm ->
+      debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url;
+      let id = vmm.vmm_id in
       let vm = VM_DB.read_exn id in
       let open Xenops_client in
       let dbg = (Xenops_task.to_interface_task t).Task.dbg in
-      let url = Uri.of_string url' in
+      let url = Uri.of_string vmm.vmm_url in
       (* We need to perform version exchange here *)
 
       Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
-      let module Remote = Xenops_interface.Client(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url') end) in
+      let module Remote = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> vmm.vmm_url) end)) in
       let regexp = Re.Pcre.regexp id in
       let new_dest_id = (String.sub id 0 24) ^ "000000000001" in
       let new_src_id = (String.sub id 0 24) ^ "000000000000" in
@@ -1642,7 +1656,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       (* image to the destination. *)
       Redirector.alias ~tag:id ~alias:new_src_id;
 
-      let id' = Remote.VM.import_metadata dbg (Re.replace_string regexp ~by:new_dest_id (export_metadata vdi_map vif_map vgpu_pci_map id)) in
+      let id' = Remote.VM.import_metadata dbg (Re.replace_string regexp ~by:new_dest_id (export_metadata vmm.vmm_vdi_map vmm.vmm_vif_map vmm.vmm_vgpu_pci_map id)) in
       debug "Received vm-id = %s" id';
       let make_url snippet id_str = Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url) ?port:(Uri.port url)
           ~path:(Uri.path url ^ snippet ^ id_str) ~query:(Uri.query url) () in
@@ -1654,7 +1668,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
       (* Waiting here is not essential but adds a degree of safety
          			 * and reducess unnecessary memory copying. *)
-      (try B.VM.wait_ballooning t vm with Ballooning_timeout_before_migration -> ());
+      (try B.VM.wait_ballooning t vm with Xenopsd_error Ballooning_timeout_before_migration -> ());
 
       (* Find out the VM's current memory_limit: this will be used to allocate memory on the receiver *)
       let state = B.VM.get_state vm in
@@ -1687,7 +1701,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
                | Handshake.Success -> ()
                | Handshake.Error msg ->
                  error "cannot transmit vm to host: %s" msg;
-                 raise (Internal_error msg)
+                 raise (Xenopsd_error (Internal_error msg))
              end;
              debug "VM.migrate: Synchronisation point 1";
            in
@@ -1725,7 +1739,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
                  save ~vgpu_fd:(FD vgpu_fd) ();
                );
              final_handshake ()
-           | _ -> raise (Internal_error "Migration of a VM with more than one VGPU is not supported.")
+           | _ -> raise (Xenopsd_error (Internal_error "Migration of a VM with more than one VGPU is not supported."))
         );
       let atomics = [
         VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
@@ -1977,12 +1991,12 @@ module PCI = struct
 
   let string_of_id (a, b) = a ^ "." ^ b
   let add' x =
-    debug "PCI.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+    debug "PCI.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of t x));
     (* Only if the corresponding VM actually exists *)
     let vm = DB.vm_of x.id in
     if not (VM_DB.exists vm) then begin
       debug "VM %s not managed by me" vm;
-      raise (Does_not_exist ("VM", vm));
+      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
     end;
     DB.write x.id x;
     x.id
@@ -1993,7 +2007,7 @@ module PCI = struct
     debug "PCI.remove %s" (string_of_id id);
     let module B = (val get_backend () : S) in
     if (B.PCI.get_state (DB.vm_of id) (PCI_DB.read_exn id)).Pci.plugged
-    then raise (Device_is_connected)
+    then raise (Xenopsd_error Device_is_connected)
     else (DB.remove id)
   let remove _ dbg id =
     Debug.with_thread_associated dbg
@@ -2023,12 +2037,12 @@ module VGPU = struct
 
   let string_of_id (a, b) = a ^ "." ^ b
   let add' x =
-    debug "VGPU.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+    debug "VGPU.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of t x));
     (* Only if the corresponding VM actually exists *)
     let vm = DB.vm_of x.id in
     if not (VM_DB.exists vm) then begin
       debug "VM %s not managed by me" vm;
-      raise (Does_not_exist ("VM", vm));
+      raise (Xenopsd_error (Does_not_exist ("VM", vm)))
     end;
     DB.write x.id x;
     x.id
@@ -2039,7 +2053,7 @@ module VGPU = struct
     debug "VGPU.remove %s" (string_of_id id);
     let module B = (val get_backend () : S) in
     if (B.VGPU.get_state (DB.vm_of id) (VGPU_DB.read_exn id)).Vgpu.plugged
-    then raise (Device_is_connected)
+    then raise (Xenopsd_error Device_is_connected)
     else (DB.remove id)
   let remove _ dbg x =
     Debug.with_thread_associated dbg (fun () -> remove' x) ()
@@ -2068,12 +2082,12 @@ module VUSB = struct
   module DB = VUSB_DB
   let string_of_id (a, b) = a ^ "." ^ b
   let add' x =
-    debug "VUSB.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+    debug "VUSB.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of t x));
     (* Only if the corresponding VM actually exists *)
     let vm = DB.vm_of x.id in
     if not (VM_DB.exists vm) then begin
       debug "VM %s not managed by me" vm;
-      raise (Does_not_exist("VM", vm));
+      raise (Xenopsd_error (Does_not_exist("VM", vm)));
     end;
     DB.write x.id x;
     x.id
@@ -2086,7 +2100,7 @@ module VUSB = struct
     debug "VUSB.remove %s" (string_of_id id);
     let module B = (val get_backend () : S) in
     if (B.VUSB.get_state (DB.vm_of id) (VUSB_DB.read_exn id)).Vusb.plugged
-    then raise (Device_is_connected)
+    then raise (Xenopsd_error Device_is_connected)
     else (DB.remove id)
   let remove _ dbg id =
     Debug.with_thread_associated dbg
@@ -2117,12 +2131,12 @@ module VBD = struct
 
   let string_of_id (a, b) = a ^ "." ^ b
   let add' x =
-    debug "VBD.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of_t x));
+    debug "VBD.add %s %s" (string_of_id x.id) (Jsonrpc.to_string (rpc_of t x));
     (* Only if the corresponding VM actually exists *)
     let vm = DB.vm_of x.id in
     if not (VM_DB.exists vm) then begin
       debug "VM %s not managed by me" vm;
-      raise (Does_not_exist("VM", vm));
+      raise (Xenopsd_error (Does_not_exist("VM", vm)));
     end;
     DB.write x.id x;
     x.id
@@ -2139,7 +2153,7 @@ module VBD = struct
     debug "VBD.remove %s" (string_of_id id);
     let module B = (val get_backend () : S) in
     if (B.VBD.get_state (DB.vm_of id) (VBD_DB.read_exn id)).Vbd.plugged
-    then raise (Device_is_connected)
+    then raise (Xenopsd_error Device_is_connected)
     else (DB.remove id)
 
   let remove _ dbg id =
@@ -2171,12 +2185,12 @@ module VIF = struct
 
   let string_of_id (a, b) = a ^ "." ^ b
   let add' x =
-    debug "VIF.add %s" (Jsonrpc.to_string (rpc_of_t x));
+    debug "VIF.add %s" (Jsonrpc.to_string (rpc_of t x));
     (* Only if the corresponding VM actually exists *)
     let vm = DB.vm_of x.id in
     if not (VM_DB.exists vm) then begin
       debug "VM %s not managed by me" vm;
-      raise (Does_not_exist("VM", vm));
+      raise (Xenopsd_error (Does_not_exist("VM", vm)));
     end;
     (* Generate MAC if necessary *)
     let mac = match x.mac with
@@ -2201,7 +2215,7 @@ module VIF = struct
     debug "VIF.remove %s" (string_of_id id);
     let module B = (val get_backend () : S) in
     if (B.VIF.get_state (DB.vm_of id) (VIF_DB.read_exn id)).Vif.plugged
-    then raise (Device_is_connected)
+    then raise (Xenopsd_error Device_is_connected)
     else (DB.remove id)
   let remove _ dbg id =
     Debug.with_thread_associated dbg
@@ -2266,7 +2280,7 @@ module HOST = struct
     Debug.with_thread_associated dbg
       (fun () ->
          debug "HOST.update_guest_agent_features %s"
-           (Rpc.Enum (List.map Host.rpc_of_guest_agent_feature features)
+           (Rpc.Enum (List.map (rpc_of Host.guest_agent_feature) features)
             |> Jsonrpc.to_string);
          let module B = (val get_backend () : S) in
          B.HOST.update_guest_agent_features features
@@ -2287,7 +2301,7 @@ module VM = struct
   module DB = VM_DB
 
   let add' x =
-    debug "VM.add %s" (Jsonrpc.to_string (rpc_of_t x));
+    debug "VM.add %s" (Jsonrpc.to_string (rpc_of t x));
     DB.write x.id x;
     let module B = (val get_backend () : S) in
     B.VM.add x;
@@ -2305,12 +2319,16 @@ module VM = struct
       TASK.destroy' task_id;
     | Task.Failed e ->
       TASK.destroy' task_id;
-      let e = e |> Exception.exnty_of_rpc |> exn_of_exnty in
+      let e =
+        match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
+        | Ok e -> Xenopsd_error e
+        | Error (`Msg m) -> Xenopsd_error (Internal_error (Printf.sprintf "Error unmarshalling error: %s" m))
+      in
       raise e
     | Task.Pending _ ->
       error "VM.remove: queue_operation_and_wait returned a pending task";
       Xenops_task.cancel task;
-      raise (Cancelled task_id)
+      raise (Xenopsd_error (Cancelled task_id))
 
   let stat' x =
     debug "VM.stat %s" x;
@@ -2370,8 +2388,8 @@ module VM = struct
   let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
   let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-  let migrate context dbg id vdi_map vif_map vgpu_pci_map url =
-    queue_operation dbg id (VM_migrate (id, vdi_map, vif_map, vgpu_pci_map, url))
+  let migrate context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
+    queue_operation dbg id (VM_migrate {vmm_id=id; vmm_vdi_map; vmm_vif_map; vmm_vgpu_pci_map; vmm_url})
 
   let migrate_receive_memory _ _ _ _ _ _ =
     failwith "Unimplemented"
@@ -2431,7 +2449,7 @@ module VM = struct
                   let msg = Printf.sprintf "VM.migrate: version of sending host incompatible with receiving host: no cookie %s" cookie_vgpu_migration in
                   Xenops_migrate.(Handshake.send ~verbose:true transferred_fd (Handshake.Error msg));
                   debug "VM.receive_vgpu: Synchronisation point 1-vgpu ERR %s" msg;
-                  raise (Internal_error msg)
+                  raise (Xenopsd_error (Internal_error msg))
                end
            ;
 
@@ -2472,7 +2490,10 @@ module VM = struct
     Debug.with_thread_associated dbg
       (fun () ->
          let module B = (val get_backend () : S) in
-         let md = s |> Jsonrpc.of_string |> Metadata.t_of_rpc in
+         let md = match Rpcmarshal.unmarshal Metadata.t.Rpc.Types.ty (s |> Jsonrpc.of_string) with
+           | Ok md -> md
+           | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Unable to unmarshal metadata: %s" m)))
+         in
          let id = md.Metadata.vm.Vm.id in
          (* We allow a higher-level toolstack to replace the metadata of a running VM.
             				   Any changes will take place on next reboot. *)
@@ -2647,7 +2668,7 @@ let internal_event_thread_body = Debug.with_thread_associated "events" (fun () -
                 debug "Received an event on managed VUSB %s.%s" (fst id) (snd id);
                 queue_operation dbg (VUSB_DB.vm_of id) (VUSB_check_state id) |> TASK.destroy'
               | x ->
-                debug "Ignoring event on %s" (Jsonrpc.to_string (Dynamic.rpc_of_id x))
+                debug "Ignoring event on %s" (Jsonrpc.to_string (rpc_of Dynamic.id x))
             ) updates;
           id := Some next_id
         done
@@ -2676,22 +2697,25 @@ let register_objects () =
        List.iter VUSB_DB.signal (VUSB_DB.ids vm);
     ) (VM_DB.ids ())
 
+type rpc_t = Rpc.t
+let typ_of_rpc_t = Rpc.Types.(Abstract { aname="Rpc.t"; test_data = [Rpc.Null]; rpc_of = (fun x -> x); of_rpc = (fun x -> Ok x) })
+
 module Diagnostics = struct
   type t = {
     queues: Redirector.Dump.t;
     workers: WorkerPool.Dump.t;
-    scheduler: Scheduler.Dump.dump;
-    updates: Updates.Dump.dump;
+    scheduler: rpc_t;
+    updates: rpc_t;
     tasks: WorkerPool.Dump.task list;
     vm_actions: (string * domain_action_request option) list;
-  } [@@deriving rpc]
+  } [@@deriving rpcty]
 
   let make () =
     let module B = (val get_backend (): S) in {
       queues = Redirector.Dump.make ();
       workers = WorkerPool.Dump.make ();
-      scheduler = Scheduler.Dump.make scheduler;
-      updates = Updates.Dump.make updates;
+      scheduler = Scheduler.Dump.make scheduler |> Scheduler.Dump.rpc_of_dump;
+      updates = Updates.Dump.make updates |> Updates.Dump.rpc_of_dump;
       tasks = List.map WorkerPool.Dump.of_task (Xenops_task.list tasks);
       vm_actions = List.filter_map (fun id -> match VM_DB.read id with
           | Some vm -> Some (id, B.VM.get_domain_action_request vm)
@@ -2701,4 +2725,91 @@ module Diagnostics = struct
 end
 
 let get_diagnostics _ _ () =
-  Diagnostics.make () |> Diagnostics.rpc_of_t |> Jsonrpc.to_string
+  Diagnostics.make () |> rpc_of Diagnostics.t |> Jsonrpc.to_string
+
+module Server = Xenops_interface.XenopsAPI(Idl.GenServerExn ())
+
+let _ =
+  Server.query (query ());
+  Server.get_diagnostics (get_diagnostics ());
+  Server.TASK.cancel (TASK.cancel ());
+  Server.TASK.stat (TASK.stat ());
+  Server.TASK.list (TASK.list ());
+  Server.TASK.destroy (TASK.destroy ());
+  Server.HOST.stat (HOST.stat ());
+  Server.HOST.get_console_data (HOST.get_console_data ());
+  Server.HOST.get_total_memory_mib (HOST.get_total_memory_mib ());
+  Server.HOST.send_debug_keys (HOST.send_debug_keys ());
+  Server.HOST.set_worker_pool_size (HOST.set_worker_pool_size ());
+  Server.HOST.update_guest_agent_features (HOST.update_guest_agent_features ());
+  Server.HOST.upgrade_cpu_features (HOST.upgrade_cpu_features ());
+  Server.VM.add (VM.add ());
+  Server.VM.remove (VM.remove ());
+  Server.VM.migrate (VM.migrate ());
+  Server.VM.create (VM.create ());
+  Server.VM.build (VM.build ());
+  Server.VM.create_device_model (VM.create_device_model ());
+  Server.VM.destroy (VM.destroy ());
+  Server.VM.pause (VM.pause ());
+  Server.VM.unpause (VM.unpause ());
+  Server.VM.request_rdp (VM.request_rdp ());
+  Server.VM.run_script (VM.run_script ());
+  Server.VM.set_xsdata (VM.set_xsdata ());
+  Server.VM.set_vcpus (VM.set_vcpus ());
+  Server.VM.set_shadow_multiplier (VM.set_shadow_multiplier ());
+  Server.VM.set_memory_dynamic_range (VM.set_memory_dynamic_range ());
+  Server.VM.stat (VM.stat ());
+  Server.VM.exists (VM.exists ());
+  Server.VM.list (VM.list ());
+  Server.VM.delay (VM.delay ());
+  Server.VM.start (VM.start ());
+  Server.VM.shutdown (VM.shutdown ());
+  Server.VM.reboot (VM.reboot ());
+  Server.VM.suspend (VM.suspend ());
+  Server.VM.resume (VM.resume ());
+  Server.VM.s3suspend (VM.s3suspend ());
+  Server.VM.s3resume (VM.s3resume ());
+  Server.VM.export_metadata (VM.export_metadata ());
+  Server.VM.import_metadata (VM.import_metadata ());
+  Server.VM.generate_state_string (VM.generate_state_string ());
+  Server.PCI.add (PCI.add ());
+  Server.PCI.remove (PCI.remove ());
+  Server.PCI.stat (PCI.stat ());
+  Server.PCI.list (PCI.list ());
+  Server.VBD.add (VBD.add ());
+  Server.VBD.remove (VBD.remove ());
+  Server.VBD.stat (VBD.stat ());
+  Server.VBD.list (VBD.list ());
+  Server.VBD.plug (VBD.plug ());
+  Server.VBD.unplug (VBD.unplug ());
+  Server.VBD.eject (VBD.eject ());
+  Server.VBD.insert (VBD.insert ());
+  Server.VUSB.add (VUSB.add ());
+  Server.VUSB.remove (VUSB.remove ());
+  Server.VUSB.stat (VUSB.stat ());
+  Server.VUSB.list (VUSB.list ());
+  Server.VUSB.plug (VUSB.plug ());
+  Server.VUSB.unplug (VUSB.unplug ());
+  Server.VIF.add (VIF.add ());
+  Server.VIF.remove (VIF.remove ());
+  Server.VIF.move (VIF.move ());
+  Server.VIF.stat (VIF.stat ());
+  Server.VIF.list (VIF.list ());
+  Server.VIF.plug (VIF.plug ());
+  Server.VIF.unplug (VIF.unplug ());
+  Server.VIF.set_carrier (VIF.set_carrier ());
+  Server.VIF.set_locking_mode (VIF.set_locking_mode ());
+  Server.VIF.set_ipv4_configuration (VIF.set_ipv4_configuration ());
+  Server.VIF.set_ipv6_configuration (VIF.set_ipv6_configuration ());
+  Server.VIF.set_pvs_proxy (VIF.set_pvs_proxy ());
+  Server.VGPU.add (VGPU.add ());
+  Server.VGPU.remove (VGPU.remove ());
+  Server.VGPU.stat (VGPU.stat ());
+  Server.VGPU.list (VGPU.list ());
+  Server.UPDATES.get (UPDATES.get ());
+  Server.UPDATES.last_id (UPDATES.last_id ());
+  Server.UPDATES.inject_barrier (UPDATES.inject_barrier ());
+  Server.UPDATES.remove_barrier (UPDATES.remove_barrier ());
+  Server.UPDATES.refresh_vm (UPDATES.refresh_vm ());
+  Server.DEBUG.trigger (DEBUG.trigger ());
+  Server.DEBUG.shutdown (DEBUG.shutdown ())

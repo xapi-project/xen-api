@@ -3,10 +3,12 @@ open Xenops_utils
 module XI = struct
   include Xenops_interface
 
-  let cancelled s = Cancelled s
-  let does_not_exist (x,y) = Does_not_exist (x,y)
+  let cancelled s = Xenopsd_error (Errors.Cancelled s)
+  let does_not_exist (x,y) = Xenopsd_error (Errors.Does_not_exist (x,y))
   let marshal_exn e =
-     e |> exnty_of_exn |> Exception.rpc_of_exnty
+    match e with
+    | Xenopsd_error e' -> Rpcmarshal.marshal Errors.error.Rpc.Types.ty e'
+    | _ -> raise e
 end
 
 
@@ -40,7 +42,6 @@ let event_wait local_updates task ?from ?timeout_start timeout p =
   result
 
 let task_ended id =
-  let open Xenops_interface.Task in
   let handle = Xenops_task.handle_of_id tasks id in
   match Xenops_task.get_state handle with
   | Completed _

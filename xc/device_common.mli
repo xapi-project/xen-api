@@ -26,8 +26,8 @@ type device = {
   frontend: endpoint;
   backend: endpoint
 }
-val rpc_of_device: device -> Rpc.t
-val device_of_rpc: Rpc.t -> device
+val typ_of_device: device Rpc.Types.typ
+val device : device Rpc.Types.def
 
 exception Device_frontend_already_connected of device
 exception Device_disconnect_timeout of device

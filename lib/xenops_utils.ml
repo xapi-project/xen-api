@@ -14,6 +14,8 @@
 
 open Xenops_interface
 
+let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
+
 let ( |> ) a b = b a
 
 module D = Debug.Make(struct let name = "xenops_utils" end)
@@ -27,6 +29,13 @@ module Unix = struct
 
   let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> file_descr_of_int
   let rpc_of_file_descr x = x |> int_of_file_descr |> Rpc.rpc_of_int
+  
+  let typ_of_file_descr = Rpc.Types.Abstract ({
+      aname = "file_descr";
+      test_data = [Unix.stdout];
+      rpc_of = rpc_of_file_descr;
+      of_rpc = fun x -> Ok (file_descr_of_rpc x);
+  })
 end
 
 let all = List.fold_left (&&) true
@@ -34,8 +43,7 @@ let any = List.fold_left (||) false
 
 module type ITEM = sig
   type t
-  val t_of_rpc: Rpc.t -> t
-  val rpc_of_t: t -> Rpc.t
+  val t: t Rpc.Types.def
   val namespace: string
   type key
   val key: key -> string list
@@ -549,7 +557,7 @@ module TypedTable = functor(I: ITEM) -> struct
     let module FS = (val get_fs_backend () : FS) in
     let path = get_path k in
     debug "TypedTable: Writing %s" (String.concat "/" path);
-    FS.write path (rpc_of_t x)
+    FS.write path (Rpcmarshal.marshal t.Rpc.Types.ty x)
 
   let delete (k: I.key) =
     debug "TypedTable: Deleting %s" (k |> I.key |> of_key |> String.concat "/");
@@ -561,11 +569,11 @@ module TypedTable = functor(I: ITEM) -> struct
   let read (k: I.key) =
     let module FS = (val get_fs_backend () : FS) in
     let path = get_path k in
-    Opt.map (fun x -> t_of_rpc x) (FS.read path)
+    Opt.map (fun x -> match Rpcmarshal.unmarshal t.Rpc.Types.ty x with | Ok x -> x | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal '%s': %s" I.namespace m)) (FS.read path)
 
   let read_exn (k: I.key) = match read k with
     | Some x -> x
-    | None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
+    | None -> raise (Xenopsd_error (Errors.Does_not_exist (I.namespace, I.key k |> String.concat "/")))
 
   let exists (k: I.key) =
     let module FS = (val get_fs_backend () : FS) in
@@ -588,7 +596,7 @@ module TypedTable = functor(I: ITEM) -> struct
       debug "TypedTable: Adding %s" path;
       if exists k then begin
         debug "Key %s already exists" path;
-        raise (Already_exists(I.namespace, path))
+        raise (Xenopsd_error (Errors.Already_exists(I.namespace, path)))
       end else write k x
     )
 
@@ -598,7 +606,7 @@ module TypedTable = functor(I: ITEM) -> struct
       debug "TypedTable: Removing %s" path;
       if not(exists k) then begin
         debug "Key %s does not exist" path;
-        raise (Does_not_exist(I.namespace, path))
+        raise (Xenopsd_error (Errors.Does_not_exist(I.namespace, path)))
       end else delete k
   )
 
@@ -630,11 +638,11 @@ module TypedTable = functor(I: ITEM) -> struct
       debug "TypedTable: Renaming %s -> %s" path path';
       if exists k' then begin
         debug "Key %s already exists" path';
-        raise (Already_exists(I.namespace, path'));
+        raise (Xenopsd_error (Errors.Already_exists(I.namespace, path')));
       end;
       if not(exists k) then begin
         debug "Key %s does not exist" path;
-        raise (Does_not_exist(I.namespace, path));
+        raise (Xenopsd_error (Errors.Does_not_exist(I.namespace, path)));
       end;
       rename k k')
 
@@ -642,7 +650,7 @@ module TypedTable = functor(I: ITEM) -> struct
   let update_exn (k: I.key) (f: t -> t option) =
     update k (
       function
-      | None -> raise (Does_not_exist (I.namespace, I.key k |> String.concat "/"))
+      | None -> raise (Xenopsd_error (Errors.Does_not_exist (I.namespace, I.key k |> String.concat "/")))
       | Some x -> f x
     )
 end

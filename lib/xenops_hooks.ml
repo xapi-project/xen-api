@@ -70,7 +70,7 @@ let execute_hook ~script_name ~args ~reason =
          if i=exitcode_log_and_continue then
            debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script (String.concat "; " args) (String.escaped stdout)
          else
-           raise (Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i))
+           raise (Xenopsd_error (Errors.Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i)))
     )
     scripts
 
@@ -106,7 +106,7 @@ type script =
   | VM_pre_resume
   | VM_post_resume
   | VM_post_destroy
-[@@deriving rpc]
+[@@deriving rpcty]
 
 let vm ~script ~reason ~id =
   let script_name = match script with

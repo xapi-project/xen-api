@@ -22,7 +22,9 @@ module Interface = struct
   type t = {
     name: string;
     vif: Vif.id;
-  } [@@deriving rpc]
+  } [@@deriving rpcty]
+  let rpc_of_t x = Rpcmarshal.marshal t.Rpc.Types.ty x
+  let t_of_rpc x = match Rpcmarshal.unmarshal t.Rpc.Types.ty x with | Ok y -> y | Error (`Msg msg) -> failwith msg
 end
 
 module DB = TypedTable(struct

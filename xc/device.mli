@@ -26,8 +26,8 @@ module Profile: sig
   type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
   (** available qemu profiles *)
 
-  val rpc_of_t: t -> Rpc.t
-  val t_of_rpc: Rpc.t -> t
+  val typ_of: t Rpc.Types.typ
+  val t: t Rpc.Types.def
 
   (** the fallback profile in case an invalid profile string is provided to [of_string] *)
   val fallback : t

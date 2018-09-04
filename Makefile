@@ -26,10 +26,6 @@ doc:
 
 install:
 	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-xenopsd
-ifeq ($(ENABLE_XENLIGHT),--enable-xenlight)
-	install -D _build/install/default/bin/xenopsd-xenlight $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
-	install -D _build/install/default/man/man1/xenopsd-xenlight.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
-endif
 	install -D _build/install/default/bin/xenopsd-simulator $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D _build/install/default/man/man1/xenopsd-simulator.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
 	install -D _build/install/default/bin/xenopsd-xc $(DESTDIR)/$(SBINDIR)/xenopsd-xc
@@ -52,11 +48,9 @@ endif
 
 uninstall:
 	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-xenopsd
-	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xenlight
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xc
 	rm -f $(DESTDIR)/$(OPTDIR)/fence.bin
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
-	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xenlight.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/set-domain-uuid

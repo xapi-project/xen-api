@@ -16,7 +16,7 @@ open Xenops_interface
 open Xenops_server_plugin
 open Xenops_utils
 
-let unimplemented x = raise (Unimplemented x)
+let unimplemented x = raise (Xenopsd_error (Unimplemented x))
 
 let simplified = false
 let init () = ()

@@ -14,7 +14,7 @@
     threads
     stdext
     xcp.xen
-    rpclib
+    rpclib.core
     uutf
     xcp
     rpclib.json
