@@ -123,7 +123,7 @@ let test_xapi_restart_inner () =
       try
         let (_,stat) = Client.VM.stat "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm) in
         stat.Vm.power_state = Running
-      with (Does_not_exist _) ->
+      with (Xenopsd_error Does_not_exist _) ->
         false
     in
     let assert_correct_state (vm, running) =
@@ -186,7 +186,7 @@ let test_xapi_restart_inner () =
 
 let test_xapi_restart () =
   Stdext.Pervasiveext.finally
-    test_xapi_restart_inner
+    (fun () -> match Backtrace.with_backtraces test_xapi_restart_inner with `Ok x -> x | `Error (e,_b) -> raise e)
     unsetup_simulator
 
 let test_nested_virt_licensing () =
