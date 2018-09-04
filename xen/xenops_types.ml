@@ -7,12 +7,12 @@ module TopLevel = struct
     | Halted
     | Suspended
     | Paused
-  [@@deriving sexp, rpc]
+  [@@deriving sexp, rpcty]
 
   type disk =
     | Local of string (** path to a local block device *)
     | VDI of string   (** typically "SR/VDI" *)
-  [@@deriving sexp, rpc]
+  [@@deriving sexp, rpcty]
 end
 
 module Vgpu = struct
@@ -22,158 +22,105 @@ module Vgpu = struct
     high_gm_sz: int64;
     fence_sz: int64;
     monitor_config_file: string option;
-  } [@@deriving sexp, rpc]
+  } [@@deriving sexp, rpcty]
 
   type nvidia = {
     physical_pci_address: address option; (* unused; promoted to Vgpu.t *)
     config_file: string;
-  } [@@deriving sexp, rpc]
+  } [@@deriving sexp, rpcty]
 
   type mxgpu = {
     physical_function: address option; (* unused; promoted to Vgpu.t *)
     vgpus_per_pgpu: int64;
     framebufferbytes: int64;
-  } [@@deriving sexp, rpc]
+  } [@@deriving sexp, rpcty]
 
 end
 
 module Vm = struct
   type igd_passthrough =
     | GVT_d
-  [@@deriving rpc, sexp]
+  [@@deriving rpcty, sexp]
 
   type video_card =
     | Cirrus
     | Standard_VGA
     | Vgpu
     | IGD_passthrough of igd_passthrough
-  [@@deriving rpc, sexp]
+  [@@default Cirrus]
+  [@@deriving rpcty, sexp]
 
   type hvm_info = {
-    hap: bool;
-    shadow_multiplier: float;
-    timeoffset: string;
-    video_mib: int;
-    video: video_card;
-    acpi: bool;
-    serial: string option;
-    keymap: string option;
-    vnc_ip: string option;
-    pci_emulations: string list;
-    pci_passthrough: bool;
-    boot_order: string;
-    qemu_disk_cmdline: bool;
-    qemu_stubdom: bool;
+    hap: bool [@default true];
+    shadow_multiplier: float [@default 1.0];
+    timeoffset: string [@default ""];
+    video_mib: int [@default 4];
+    video: video_card [@default Cirrus];
+    acpi: bool [@default true];
+    serial: string option [@default None];
+    keymap: string option [@default None];
+    vnc_ip: string option [@default None];
+    pci_emulations: string list [@default []];
+    pci_passthrough: bool [@default false];
+    boot_order: string [@default ""]; 
+    qemu_disk_cmdline: bool [@default false];
+    qemu_stubdom: bool [@default false];
   }
-  [@@deriving rpc, sexp]
-
-  let default_video_card = Cirrus
-
-  let default_hvm_info = {
-    hap = true;
-    shadow_multiplier = 1.0;
-    timeoffset = "";
-    video_mib = 4;
-    video = default_video_card;
-    acpi = true;
-    serial = None;
-    keymap = None;
-    vnc_ip = None;
-    pci_emulations = [];
-    pci_passthrough = false;
-    boot_order = "";
-    qemu_disk_cmdline = false;
-    qemu_stubdom = false;
-  }
+  [@@deriving rpcty, sexp]
 
   type pv_direct_boot = {
-    kernel: string;
-    cmdline: string;
-    ramdisk: string option;
+    kernel: string [@default ""];
+    cmdline: string [@default ""];
+    ramdisk: string option [@default None];
   }
-  [@@deriving rpc, sexp]
-
-  let default_pv_direct_boot = {
-    kernel = "";
-    cmdline = "";
-    ramdisk = None;
-  }
+  [@@deriving rpcty, sexp]
 
   type pv_indirect_boot = {
-    bootloader: string;
-    extra_args: string;
-    legacy_args: string;
-    bootloader_args: string;
-    devices: TopLevel.disk list;
+    bootloader: string [@default ""];
+    extra_args: string [@default ""];
+    legacy_args: string [@default ""];
+    bootloader_args: string [@default ""];
+    devices: TopLevel.disk list [@default []];
   }
-  [@@deriving rpc, sexp]
-
-  let default_pv_indirect_boot = {
-    bootloader = "";
-    extra_args = "";
-    legacy_args = "";
-    bootloader_args = "";
-    devices = [];
-  }
+  [@@deriving rpcty, sexp]
 
   type pv_boot =
     | Direct of pv_direct_boot
     | Indirect of pv_indirect_boot
-  [@@deriving rpc, sexp]
-
-  let default_pv_boot = Direct default_pv_direct_boot
+  [@@deriving rpcty, sexp]
 
   type pv_info = {
     boot: pv_boot;
-    framebuffer: bool;
-    framebuffer_ip: string option;
-    vncterm: bool;
-    vncterm_ip: string option;
+    framebuffer: bool [@default true];
+    framebuffer_ip: string option [@default None];
+    vncterm: bool [@default true];
+    vncterm_ip: string option [@default None];
   }
-  [@@deriving rpc, sexp]
-
-  let default_pv_info = {
-    boot = default_pv_boot;
-    framebuffer = true;
-    framebuffer_ip = None;
-    vncterm = true;
-    vncterm_ip = None;
-  }
+  [@@deriving rpcty, sexp]
 
   type builder_info =
     | HVM of hvm_info
     | PV of pv_info
     | PVinPVH of pv_info
-  [@@deriving rpc, sexp]
+  [@@deriving rpcty, sexp]
 
-  let default_builder_info = HVM default_hvm_info
-
-  type id = string [@@deriving rpc, sexp]
-
-  let default_id = ""
+  type id = string [@@deriving rpcty, sexp]
 
   type action =
     | Coredump
     | Shutdown
     | Start
     | Pause
-  [@@deriving rpc, sexp]
-
-  let default_action = Coredump
+  [@@deriving rpcty, sexp]
 
   type scheduler_params = {
     priority: (int * int) option; (* weight, cap *)
     affinity: int list list (* vcpu -> pcpu list *)
-  } [@@deriving rpc, sexp]
-
-  let default_scheduler_params = {
-    priority = None;
-    affinity = [];
-  }
+  } [@@deriving rpcty, sexp]
 
   type t = {
     id: id;
-    name: string;
+    name: string [@default "unnamed"];
     ssidref: int32;
     xsdata: (string * string) list;
     platformdata: (string * string) list;
@@ -192,51 +139,26 @@ module Vm = struct
     on_reboot: action list;
     pci_msitranslate: bool;
     pci_power_mgmt: bool;
-    has_vendor_device: bool;
-  } [@@deriving rpc, sexp]
-
-  let default_t = {
-    id = default_id;
-    name = "unnamed";
-    ssidref = 0l;
-    xsdata = [];
-    platformdata = [];
-    bios_strings = [];
-    ty = default_builder_info;
-    suppress_spurious_page_faults = false;
-    machine_address_size = None;
-    memory_static_max = 0L;
-    memory_dynamic_max = 0L;
-    memory_dynamic_min = 0L;
-    vcpu_max = 0;
-    vcpus = 0;
-    scheduler_params = default_scheduler_params;
-    on_crash = [];
-    on_shutdown = [];
-    on_reboot = [];
-    pci_msitranslate = false;
-    pci_power_mgmt = false;
-    has_vendor_device = false;
-  }
-  let t_of_rpc rpc = Rpc.struct_extend rpc (rpc_of_t default_t) |> t_of_rpc
+    has_vendor_device: bool [@default false];
+  } [@@deriving rpcty, sexp]
 
   type console_protocol =
     | Rfb
     | Vt100
-  [@@deriving rpc, sexp]
+  [@@deriving rpcty, sexp]
 
   type console = {
     protocol: console_protocol;
     port: int;
     path: string;
-  } [@@deriving rpc, sexp]
+  } [@@deriving rpcty, sexp]
 
   type domain_type =
     | Domain_HVM
     | Domain_PV
     | Domain_PVinPVH
     | Domain_undefined
-  [@@deriving rpc, sexp]
+  [@@deriving rpcty, sexp]
 
   type state = {
     power_state: TopLevel.power_state;
@@ -257,6 +179,6 @@ module Vm = struct
     nomigrate: bool; (* true: VM must not migrate *)
     nested_virt: bool; (* true: VM uses nested virtualisation *)
     domain_type: domain_type;
-  } [@@deriving rpc, sexp]
+  } [@@deriving rpcty, sexp]
 
 end

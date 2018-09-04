@@ -34,7 +34,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (vdi_automaton))
   (libraries
-   (rpclib
+   (rpclib.core
     threads
     xcp))
   (wrapped false)
@@ -47,7 +47,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (storage_interface))
   (libraries
    (astring
-    rpclib
+    rpclib.core
     threads
     xapi-stdext-date
     xcp
@@ -61,7 +61,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39 %s))
   (modules (:standard \ storage_interface storage_test vdi_automaton suite vdi_automaton_test))
   (libraries
-   (rpclib
+   (rpclib.core
     threads
     xapi-stdext-date
     xcp

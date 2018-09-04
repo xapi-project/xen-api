@@ -15,7 +15,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries
    (alcotest
     oUnit
-    rpclib
+    rpclib.core
     rpclib.markdown
     threads
     xcp

@@ -12,7 +12,10 @@ let old_vm_t = "{\"id\": \"bc6b8e8a-f0a5-4746-6489-2745756f21b2\", \"ssidref\": 
 let test_upgrade_rules () = 
 	let old_json = old_vm_t in
 	let rpc = Jsonrpc.of_string old_json in
-	let vm_t = Xenops_interface.Vm.t_of_rpc rpc in
+	let vm_t = match Rpcmarshal.unmarshal Xenops_interface.Vm.t.Rpc.Types.ty rpc with
+    | Ok vm -> vm
+    | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal: %s" m) 
+  in
 	assert_equal vm_t.Xenops_interface.Vm.name "unnamed" (* this value is the default in xenops_interface.ml *)
 
 let tests =

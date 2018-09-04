@@ -15,7 +15,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39))
   (modules (:standard \ v6_cli ))
   (libraries
-   (rpclib
+   (rpclib.core
     threads
     xcp))
   (wrapped false)

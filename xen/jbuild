@@ -33,9 +33,9 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  ((name xcp_xen_interface_types)
   (public_name xcp.xen.interface.types)
   (modules (xenops_types device_number))
-  (flags (:standard -w -39 %s))
+  (flags (:standard -w -39-32 %s))
   (libraries
-   (rpclib
+   (rpclib.core
     threads
     xcp))
   (wrapped false)
@@ -47,7 +47,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (xenops_interface))
   (flags (:standard -w -39 %s))
   (libraries
-   (rpclib
+   (rpclib.core
     threads
     xcp
     xcp.xen.interface.types))
@@ -60,10 +60,10 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (:standard \ device_number xenops_interface xenops_types))
   (flags (:standard -w -39 %s))
   (libraries
-   (rpclib
+   (rpclib.core
     threads
     xcp
     xcp.xen.interface))
   (wrapped false)
   %s))
-|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_camlp4) coverage_rewriter (flags rewriters_ppx) coverage_rewriter
+|} (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter (flags rewriters_ppx) coverage_rewriter

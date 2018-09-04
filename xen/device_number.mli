@@ -12,8 +12,7 @@ type spec = bus_type * int * int
 (** A valid device number *)
 type t
 
-val t_of_rpc: Rpc.t -> t
-val rpc_of_t: t -> Rpc.t
+val typ_of : t Rpc.Types.typ
 
 (** [make spec] validates a given device number specification [spec] and returns
     a device number *)
