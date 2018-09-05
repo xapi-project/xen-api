@@ -2066,6 +2066,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.set_HVM_boot_policy: self = '%s'; value = '%s';"
         (vm_uuid ~__context self) value;
       Local.VM.set_HVM_boot_policy ~__context ~self ~value
+
+    let set_NVRAM_EFI_variables ~__context ~self ~value =
+      (* called by varstored, bypasses VM powerstate check *)
+      info "VM.set_NVRAM_EFI_variables: self = '%s'" (vm_uuid ~__context self);
+      Local.VM.set_NVRAM_EFI_variables ~__context ~self ~value
   end
 
   module VM_metrics = struct
