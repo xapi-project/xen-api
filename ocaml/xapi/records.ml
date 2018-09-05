@@ -893,7 +893,7 @@ let vm_record rpc session_id vm =
       make_field ~name:"HVM-shadow-multiplier"
         ~get:(fun () -> string_of_float (x ()).API.vM_HVM_shadow_multiplier)
         ~set:(fun x -> Client.VM.set_HVM_shadow_multiplier rpc session_id vm (float_of_string x)) ();
-      make_field ~name:"NVRAM"
+      make_field ~name:"NVRAM" ~expensive:true
         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_NVRAM)
         ~add_to_map:(fun k v -> Client.VM.add_to_NVRAM rpc session_id vm k v)
         ~remove_from_map:(fun k -> Client.VM.remove_from_NVRAM rpc session_id vm k)
