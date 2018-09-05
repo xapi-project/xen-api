@@ -59,6 +59,7 @@ let vm_operation_table =
     `resume, "resume";
     `resume_on, "resume_on";
     `changing_VCPUs_live, "changing_VCPUs_live";
+    `changing_NVRAM, "changing_NVRAM";
     `start, "start";
     `start_on, "start_on";
     `suspend, "suspend";

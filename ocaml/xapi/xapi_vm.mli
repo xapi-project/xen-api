@@ -167,6 +167,12 @@ val set_VCPUs_number_live :
   __context:Context.t -> self:API.ref_VM -> nvcpu:int64 -> unit
 val add_to_VCPUs_params_live :
   __context:'a -> self:API.ref_VM -> key:'b -> value:'c -> 'd
+val set_NVRAM :
+  __context:Context.t -> self:API.ref_VM -> value:(string*string) list -> unit
+val remove_from_NVRAM :
+  __context:Context.t -> self:API.ref_VM -> key:string -> unit
+val add_to_NVRAM :
+  __context:Context.t -> self:API.ref_VM -> key:string -> value:string -> unit
 val set_memory_dynamic_range :
   __context:Context.t ->
   self:API.ref_VM -> min:Int64.t -> max:Int64.t -> unit

@@ -1751,6 +1751,24 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            forward_vm_op ~local_fn ~__context ~vm:self
              (fun session_id rpc -> Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
 
+    let set_NVRAM ~__context ~self ~value =
+      info "VM.set_NVRAM: self='%s'" (vm_uuid ~__context self);
+      with_vm_operation ~__context ~self ~doc:"VM.set_NVRAM" ~op:`changing_NVRAM
+        (fun () ->
+           Local.VM.set_NVRAM ~__context ~self ~value)
+
+    let remove_from_NVRAM ~__context ~self ~key =
+      info "VM.remove_from_NVRAM: self='%s', key='%s'" (vm_uuid ~__context self) key;
+      with_vm_operation ~__context ~self ~doc:"VM.remove_from_NVRAM" ~op:`changing_NVRAM
+        (fun () ->
+           Local.VM.remove_from_NVRAM ~__context ~self ~key)
+
+    let add_to_NVRAM ~__context ~self ~key ~value =
+      info "VM.add_to_NVRAM: self='%s', key='%s'" (vm_uuid ~__context self) key;
+      with_vm_operation ~__context ~self ~doc:"VM.add_to_NVRAM" ~op:`changing_NVRAM
+        (fun () ->
+           Local.VM.add_to_NVRAM ~__context ~self ~key ~value)
+
     let set_VCPUs_max ~__context ~self ~value =
       info "VM.set_VCPUs_max: self = %s; value = %Ld"
         (vm_uuid ~__context self) value;
