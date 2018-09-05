@@ -11,6 +11,7 @@ let all_vm_operations =
   ; `changing_shadow_memory
   ; `changing_shadow_memory_live
   ; `changing_static_range
+  ; `changing_NVRAM
   ; `checkpoint
   ; `clean_reboot
   ; `clean_shutdown

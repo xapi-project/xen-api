@@ -740,6 +740,15 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu =
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
 
+let set_NVRAM ~__context ~self ~value =
+  Db.VM.set_NVRAM ~__context ~self ~value
+
+let remove_from_NVRAM ~__context ~self ~key =
+  Db.VM.remove_from_NVRAM ~__context ~self ~key
+
+let add_to_NVRAM ~__context ~self ~key ~value =
+  Db.VM.add_to_NVRAM ~__context ~self ~key ~value
+
 (* Use set_memory_dynamic_range instead *)
 let set_memory_target_live ~__context ~self ~target = ()
 
