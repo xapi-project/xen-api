@@ -1262,3 +1262,13 @@ let set_domain_type ~__context ~self ~value =
 let set_HVM_boot_policy ~__context ~self ~value =
   Db.VM.set_domain_type ~__context ~self ~value:(derive_domain_type ~hVM_boot_policy:value);
   Db.VM.set_HVM_boot_policy ~__context ~self ~value
+
+let nvram = Mutex.create ()
+let set_NVRAM_EFI_variables ~__context ~self ~value =
+  Mutex.execute nvram (fun () ->
+    (* do not use remove_from_NVRAM: we do not want to
+    * temporarily end up with an empty NVRAM in HA *)
+    let key = "EFI-variables" in
+    let nvram = Db.VM.get_NVRAM ~__context ~self in
+    let value = (key, value) :: List.remove_assoc key nvram in
+    Db.VM.set_NVRAM ~__context ~self ~value)

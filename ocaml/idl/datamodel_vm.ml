@@ -1223,6 +1223,15 @@ let set_HVM_boot_policy = call ~flags:[`Session]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let set_NVRAM_EFI_variables = call ~flags:[`Session]
+  ~name:"set_NVRAM_EFI_variables"
+  ~lifecycle:[Prototyped, rel_naples, ""]
+  ~params:[Ref _vm, "self", "The VM";
+           String, "value", "The value"]
+  ~hide_from_docs:true
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ()
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1301,6 +1310,7 @@ let set_HVM_boot_policy = call ~flags:[`Session]
                   set_actions_after_crash;
                   set_domain_type;
                   set_HVM_boot_policy;
+                  set_NVRAM_EFI_variables;
                 ]
       ~contents:
         ([ uid _vm;
