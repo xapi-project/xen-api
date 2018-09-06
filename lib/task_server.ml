@@ -54,6 +54,7 @@ module type INTERFACE = sig
       subtasks: (string * state) list;
       debug_info: (string * string) list;
       backtrace: string;
+      cancellable: bool;
     }
 
   end
@@ -85,6 +86,7 @@ module Task = functor (Interface : INTERFACE) -> struct
     mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
     test_cancel_at: int option;                    (* index of the cancel point to trigger *)
     mutable backtrace: Backtrace.t;                (* on error, a backtrace *)
+    mutable cancellable: bool;
   }
 
   and tasks = {
@@ -142,6 +144,7 @@ module Task = functor (Interface : INTERFACE) -> struct
             Some n
           | _ -> None);
       backtrace = Backtrace.empty;
+      cancellable = true;
     } in
     Mutex.execute tasks.m
       (fun () ->
@@ -182,6 +185,7 @@ module Task = functor (Interface : INTERFACE) -> struct
         "cancel_points_seen", string_of_int t.cancel_points_seen
       ];
       backtrace = Sexplib.Sexp.to_string (Backtrace.sexp_of_t t.backtrace);
+      cancellable = t.cancellable;
     }
 
   let handle_of_id tasks id =
@@ -230,8 +234,14 @@ module Task = functor (Interface : INTERFACE) -> struct
   let cancel task =
     let callbacks = Mutex.execute task.tm
         (fun () ->
-           task.cancelling <- true;
-           task.cancel
+           if not task.cancellable then begin
+             info "Task %s is not cancellable." task.id;
+             []
+           end
+           else begin
+             task.cancelling <- true;
+             task.cancel
+           end
         ) in
     List.iter
       (fun f ->
@@ -271,4 +281,9 @@ module Task = functor (Interface : INTERFACE) -> struct
       )
       (fun () -> Mutex.execute t.tm (fun () -> t.cancel <- List.tl t.cancel))
 
+  let prohibit_cancellation task =
+    Mutex.execute task.tm (fun () ->
+        (* If task is cancelling, just cancel it before setting it to not cancellable *)
+        check_cancelling_locked task;
+        task.cancellable <- false)
 end

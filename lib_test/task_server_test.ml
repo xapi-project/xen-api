@@ -27,6 +27,7 @@ module TestInterface = struct
       subtasks: (string * state) list;
       debug_info: (string * string) list;
       backtrace: string;
+      cancellable: bool;
     }
   end
 
