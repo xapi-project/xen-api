@@ -244,11 +244,11 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
              end;
 
              (* Here we find the number of skipped blocks *)
-             debug "suffix=%s last_suffix=%s" suffix last_suffix;
              let num_zero_blocks = (int_of_string suffix) - (int_of_string last_suffix) - 1 in
              let skipped_size = Int64.mul (Int64.of_int !firstchunklength) (Int64.of_int num_zero_blocks) in
              if (num_zero_blocks > 0) then
                begin
+                 debug "suffix=%s last_suffix=%s" suffix last_suffix;
                  if vdi_skip_zeros then
                    (* If we're skipping zeros, seek to the correct place *)
                    ignore(Unix.LargeFile.lseek ofd skipped_size Unix.SEEK_CUR)
