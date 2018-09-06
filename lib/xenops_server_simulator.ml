@@ -389,7 +389,7 @@ module VM = struct
   let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
   let wait_shutdown _ vm reason timeout = true
 
-  let save _ cb vm flags data vgpu_data = Mutex.execute m (save_nolock vm flags data vgpu_data)
+  let save _ cb vm flags data vgpu_data pre_suspend_callback = Mutex.execute m (save_nolock vm flags data vgpu_data)
   let restore _ cb vm vbds vifs data vgpu_data extras = Mutex.execute m (restore_nolock vm vbds vifs data vgpu_data extras)
 
   let s3suspend _ vm = ()
