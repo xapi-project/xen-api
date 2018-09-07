@@ -2710,6 +2710,7 @@ module Dm = struct
       let good_watches = [
         Watch.value_to_become state_path "initialising";
         Watch.value_to_become state_path "running";
+        Watch.value_to_become state_path "resuming";
       ] in
       let error_watch = Watch.value_to_become state_path "error" in
       if cancellable_watch cancel good_watches [ error_watch ] task ~xs ~timeout:3600. () then
