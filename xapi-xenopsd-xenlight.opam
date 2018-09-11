@@ -7,28 +7,11 @@ dev-repo: "https://github.com/xapi-project/xenopsd.git"
 bug-reports: "https://github.com/xapi-project/xenopsd/issues"
 build: [
   ["./configure"]
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
+
+  "ounit"
   "xapi-xenopsd"
-  "cohttp"
-  "core"
-  "ezxenstore"
-  "fd-send-recv"
-  "qmp"
-  "re"
-  "rpc"
-  "sexplib"
-  "uri"
-  "uuidm"
-  "uutf"
-  "xapi-forkexecd"
-  "xapi-idl"
-  "xapi-inventory"
-  "xapi-stdext-unix"
-  "xenctrl"
-  "xenstore"
-  "xenstore_transport"
-  "xmlm"
 ]
