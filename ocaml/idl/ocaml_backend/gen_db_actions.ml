@@ -54,7 +54,7 @@ let dm_to_string tys : O.Module.t =
       | DT.DateTime -> "fun x -> (try Date.assert_utc x with Invalid_argument s -> raise (DateTimeError s)); Date.to_string x"
       | DT.Enum(name, cs) ->
         let aux (c, _) = (OU.constructor_of c)^" -> \""^c^"\"" in
-        "\n    fun v -> match v with\n      "^
+        "fun v -> match v with\n      "^
         String.concat "\n    | " (List.map aux cs)
       (* ^"\n    | _ -> raise (StringEnumTypeError \""^name^"\")" *)
       | DT.Float -> "Printf.sprintf \"%0.18g\""
@@ -97,7 +97,7 @@ let string_to_dm tys : O.Module.t =
       | DT.DateTime -> "fun x -> Date.of_string x"
       | DT.Enum(name, cs) ->
         let aux (c, _) = "\""^c^"\" -> "^(OU.constructor_of c) in
-        "\n    fun v -> match v with\n      "^
+        "fun v -> match v with\n      "^
         String.concat "\n    | " (List.map aux cs)^
         "\n    | _ -> raise (StringEnumTypeError \""^name^"\")"
       | DT.Float -> "float_of_string"
@@ -218,9 +218,10 @@ let ocaml_of_tbl_fields xs =
       (String.concat "; " (List.map (fun f -> "\"" ^ f ^ "\"") sql_fields))
 *)
 
-let open_db_module =
-  "let __t = Context.database_of __context in\n" ^
-  "let module DB = (val (Db_cache.get __t) : Db_interface.DB_ACCESS) in\n"
+let open_db_module = [
+  "let __t = Context.database_of __context in";
+  "let module DB = (val (Db_cache.get __t) : Db_interface.DB_ACCESS) in";
+]
 
 let db_action api : O.Module.t =
   let api = make_db_api api in
@@ -234,8 +235,9 @@ let db_action api : O.Module.t =
       ~name: "get_refs_where"
       ~params: [ Gen_common.context_arg; expr_arg ]
       ~ty: ( OU.alias_of_ty (Ref obj.DT.name) ^ " list")
-      ~body: [ open_db_module; "let refs = (DB.find_refs_with_filter __t \"" ^ tbl ^ "\" " ^ expr ^ ") in ";
-               "List.map Ref.of_string refs " ] () in
+      ~body: (open_db_module @ [
+      "let refs = (DB.find_refs_with_filter __t \"" ^ tbl ^ "\" " ^ expr ^ ") in";
+      "List.map Ref.of_string refs" ]) () in
 
   let get_record_aux_fn_body ?(m="API.") (obj: obj) (all_fields: field list) =
 
@@ -276,10 +278,10 @@ let db_action api : O.Module.t =
       ~name: name
       ~params: [ Gen_common.context_arg; expr_arg ]
       ~ty: ("'a")
-      ~body: [ open_db_module;
-               Printf.sprintf "let records = DB.read_records_where __t \"%s\" %s in"
-                 (Escaping.escape_obj obj.DT.name) expr;
-               Printf.sprintf "List.map (fun (ref,(__regular_fields,__set_refs)) -> Ref.of_string ref, %s __regular_fields __set_refs) records" conversion_fn] () in
+      ~body: (open_db_module @ [
+      Printf.sprintf "let records = DB.read_records_where __t \"%s\" %s in"
+        (Escaping.escape_obj obj.DT.name) expr;
+      Printf.sprintf "List.map (fun (ref,(__regular_fields,__set_refs)) -> Ref.of_string ref, %s __regular_fields __set_refs) records" conversion_fn]) () in
 
   let register_get_record obj = O.Let.make
       ~name:"_"
@@ -410,7 +412,7 @@ let db_action api : O.Module.t =
       ~name: x.msg_name
       ~params: (Gen_common.context_arg :: args)
       ~ty: "'a"
-      ~body: (List.map to_string args @ [ open_db_module; body ]) () in
+      ~body: (List.map to_string args @ open_db_module @ [body]) () in
 
   let obj (obj: obj) =
     let others =
