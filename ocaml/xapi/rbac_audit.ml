@@ -360,7 +360,7 @@ and
       if (List.length str_names) <> (List.length rpc_values)
       then
         ( (* debug mode *)
-          D.debug "cannot marshall arguments for the action %s: name and value list lengths don't match. str_names=[%s], xml_values=[%s]" action ((List.fold_left (fun ss s->ss^s^",") "" str_names)) ((List.fold_left (fun ss s->ss^(Rpc.to_string s)^",") "" rpc_values));
+          D.warn "cannot marshall arguments for the action %s: name and value list lengths don't match. str_names=[%s], xml_values=[%s]" action ((List.fold_left (fun ss s->ss^s^",") "" str_names)) ((List.fold_left (fun ss s->ss^(Rpc.to_string s)^",") "" rpc_values));
           []
         )
       else
