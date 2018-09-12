@@ -41,6 +41,7 @@ let allowed_power_states ~__context ~vmr ~(op:API.vm_operations) =
   | `changing_static_range
   | `changing_memory_limits       -> `Halted :: (if vmr.Db_actions.vM_is_control_domain then [`Running] else [])
   | `changing_shadow_memory
+  | `changing_NVRAM
   | `make_into_template
   | `provision
   | `start
@@ -203,6 +204,7 @@ let check_template ~vmr ~op ~ref_str =
     `changing_memory_limits;
     `changing_shadow_memory;
     `changing_VCPUs;
+    `changing_NVRAM;
     `clone;
     `copy;
     `export;
@@ -568,7 +570,7 @@ let update_allowed_operations ~__context ~self =
        `start; `start_on; `pause; `unpause; `clean_shutdown; `clean_reboot;
        `hard_shutdown; `hard_reboot; `suspend; `resume; `resume_on; `export; `destroy;
        `provision; `changing_VCPUs_live; `pool_migrate; `migrate_send; `make_into_template; `changing_static_range;
-       `changing_shadow_memory; `changing_dynamic_range]
+       `changing_shadow_memory; `changing_dynamic_range; `changing_NVRAM]
   in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
   let allowed =
