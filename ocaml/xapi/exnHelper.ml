@@ -42,9 +42,9 @@ let error_of_exn e =
     map_duplicate_key, [ tbl; fld; uuid; key ]
   | Db_exn.Read_missing_uuid (tbl,ref,uuid) ->
     uuid_invalid, [ tbl; uuid ]
-  | Db_actions.DM_to_String.StringEnumTypeError s
-  | Db_actions.DM_to_String.DateTimeError s
-  | Db_actions.String_to_DM.StringEnumTypeError s ->
+  | String_marshall_helper.StringEnumTypeError s
+  | String_marshall_helper.DateTimeError s
+  | String_unmarshall_helper.StringEnumTypeError s ->
     invalid_value, [ s ]
 
   (* These are the two catch-all patterns. If ever an Errors.Server_error exception		*)

@@ -80,9 +80,7 @@ let dm_to_string tys : O.Module.t =
 
   O.Module.make
     ~name:_dm_to_string
-    ~preamble: [ "exception StringEnumTypeError of string";
-                 "exception DateTimeError of string";
-                 "open String_marshall_helper" ]
+    ~preamble: ["open String_marshall_helper"]
     ~letrec:true
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys) ()
 
@@ -102,6 +100,10 @@ let string_to_dm tys : O.Module.t =
         "\n    | _ -> raise (StringEnumTypeError \""^name^"\")"
       | DT.Float -> "float_of_string"
       | DT.Int -> "Int64.of_string"
+      | DT.Map ((DT.Enum _ as key), value)
+      | DT.Map (key, (DT.Enum _ as value)) ->
+        let kf = OU.alias_of_ty key and vf = OU.alias_of_ty value in
+        "fun m -> enum_map "^kf^" "^vf^" m"
       | DT.Map(key, value) ->
         let kf = OU.alias_of_ty key and vf = OU.alias_of_ty value in
         "fun m -> map "^kf^" "^vf^" m"
@@ -111,6 +113,7 @@ let string_to_dm tys : O.Module.t =
       | DT.Ref s -> "fun x -> (Uuid.uuid_of_string x : "^OU.ocaml_of_ty ty^")"
 *)
       | DT.Ref s -> "fun x -> (Ref.of_string x : "^OU.ocaml_of_ty ty^")"
+      | DT.Set (DT.Enum _ as ty) -> "fun s -> enum_set "^OU.alias_of_ty ty^" s"
       | DT.Set ty -> "fun s -> set "^OU.alias_of_ty ty^" s"
       | DT.String -> "fun x -> x"
       | DT.Record _ -> failwith "record types never stored in the database"
@@ -124,8 +127,7 @@ let string_to_dm tys : O.Module.t =
 
   O.Module.make
     ~name:_string_to_dm
-    ~preamble: [ "exception StringEnumTypeError of string";
-                 "open String_unmarshall_helper" ]
+    ~preamble: ["open String_unmarshall_helper"]
     ~letrec:true
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys) ()
 
