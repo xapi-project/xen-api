@@ -5,34 +5,35 @@ bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
 dev-repo: "git://github.com/xapi-project/xcp-idl"
 maintainer: "xen-api@lists.xen.org"
 tags: [ "org:xapi-project" ]
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
-build-test: ["jbuilder" "runtest" "-p" name]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
+build-test: ["dune" "runtest" "-p" name]
 depends: [
+  "dune" {build}
+
+  "alcotest"
   "astring"
-  "base-threads"
-  "base-unix"
   "cmdliner"
   "cohttp"
-  "fd-send-recv" {>= "2.0.0"}
-  "jbuilder" {build & >= "1.0+beta11"}
+  "fd-send-recv"
   "logs"
   "message-switch-core"
   "message-switch-unix"
-  "ocamlfind" {build}
-  "ounit" {>= "2.0.0"}
+  "ocaml-migrate-parsetree"
+  "ounit"
+  "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "re"
-  "rpc" {>= "5.0.0"}
   "rpclib-legacy"
+  "rrd"
   "sexplib"
+  "base-threads"
+  "base-unix"
   "uri"
   "xapi-backtrace"
-  "xapi-inventory"
-  "xapi-rrd"
   "xapi-stdext-date"
   "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
+  "xcp-inventory"
   "xmlm"
-  "alcotest" {test}
-]
+ ]
