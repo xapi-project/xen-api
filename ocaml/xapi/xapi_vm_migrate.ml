@@ -90,7 +90,7 @@ let with_migrate f =
           decr number))
 
 module XenAPI = Client
-module SMAPI = Storage_interface.Client(struct let rpc call = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" (Storage_migrate.local_url ()) call end)
+module SMAPI = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc call = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" (Storage_migrate.local_url ()) call end))
 
 open Storage_interface
 open Listext
@@ -485,10 +485,10 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
              snapshots
          in
          SMAPI.SR.update_snapshot_info_src
-           ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs)
+           dbg sr vdi url dest dest_vdi snapshot_pairs)
       vdi_to_snapshots_map
-  with Storage_interface.Unknown_RPC call ->
-    debug "Remote SMAPI doesn't implement %s - ignoring" call
+  with Storage_interface.Storage_error Unknown_error ->
+    debug "Remote SMAPI doesn't implement update_snapshot_info_src - ignoring"
 
 type vdi_mirror = {
   vdi : [ `VDI ] API.Ref.t;           (* The API reference of the local VDI *)
@@ -619,7 +619,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
     let dp = Printf.sprintf (if vconf.do_mirror then "mirror_%s" else "copy_%s") vconf.dp in
     try cont dp
     with e ->
-      (try SMAPI.DP.destroy ~dbg ~dp ~allow_leak:false with _ -> info "Failed to cleanup datapath: %s" dp);
+      (try SMAPI.DP.destroy dbg dp false with _ -> info "Failed to cleanup datapath: %s" dp);
       raise e in
 
   let with_remote_vdi remote_vdi cont =
@@ -651,7 +651,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
   let mirror_to_remote new_dp =
     let task =
       if not vconf.do_mirror then
-        SMAPI.DATA.copy ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp ~url:remote.sm_url ~dest:dest_sr_uuid
+        SMAPI.DATA.copy dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr_uuid
       else begin
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
@@ -659,10 +659,10 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         let read_write = true in
         (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
            It's not necessary for copy which will take care of that itself. *)
-        ignore(SMAPI.VDI.attach2 ~dbg ~dp:new_dp ~sr:vconf.sr ~vdi:vconf.location ~read_write);
-        SMAPI.VDI.activate ~dbg ~dp:new_dp ~sr:vconf.sr ~vdi:vconf.location;
+        ignore(SMAPI.VDI.attach2 dbg new_dp vconf.sr vconf.location read_write);
+        SMAPI.VDI.activate dbg new_dp vconf.sr vconf.location;
         ignore(Storage_access.register_mirror __context vconf.location);
-        SMAPI.DATA.MIRROR.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp ~url:remote.sm_url ~dest:dest_sr_uuid
+        SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr_uuid
       end in
 
     let mapfn x =
@@ -688,7 +688,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         None, vdi.vdi
       else
         let mirrorid = task_result |> mirror_of_task dbg in
-        let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mirrorid in
+        let m = SMAPI.DATA.MIRROR.stat dbg mirrorid in
         Some mirrorid, m.Mirror.dest_vdi in
 
     so_far := Int64.add !so_far vconf.size;
@@ -710,8 +710,8 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         match mirror_id with
         | Some mid ->
           ignore(Storage_access.unregister_mirror mid);
-          let m = SMAPI.DATA.MIRROR.stat ~dbg ~id:mid in
-          (try SMAPI.DATA.MIRROR.stop ~dbg ~id:mid with _ -> ());
+          let m = SMAPI.DATA.MIRROR.stat dbg mid in
+          (try SMAPI.DATA.MIRROR.stop dbg mid with _ -> ());
           m.Mirror.failed
         | None -> false in
       if mirror_failed then raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vconf.vdi]))
@@ -1015,7 +1015,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
       (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
       List.iter (fun mirror_record ->
           if mirror_record.mr_mirrored
-          then match mirror_record.mr_dp with | Some dp ->  SMAPI.DP.destroy ~dbg ~dp ~allow_leak:false | None -> ()) all_map;
+          then match mirror_record.mr_dp with | Some dp ->  SMAPI.DP.destroy dbg dp false | None -> ()) all_map;
 
       SMPERF.debug "vm.migrate_send: migration initiated vm:%s" vm_uuid;
 
@@ -1149,8 +1149,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
     end;
     TaskHelper.exn_if_cancelling ~__context;
     begin match e with
-      | Storage_interface.Backend_error(code, params) -> raise (Api_errors.Server_error(code, params))
-      | Storage_interface.Unimplemented(code) -> raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [code]))
+      | Storage_interface.Storage_error Backend_error(code, params) -> raise (Api_errors.Server_error(code, params))
+      | Storage_interface.Storage_error Unimplemented(code) -> raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [code]))
       | Xenops_interface.Xenopsd_error Cancelled _ -> TaskHelper.raise_cancelled ~__context
       | _ -> raise e
     end

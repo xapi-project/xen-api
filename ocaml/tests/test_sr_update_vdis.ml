@@ -25,6 +25,26 @@ let assert_snapshot_of_is_not_null ~__context ~vdi_snapshot =
     "VDI snapshot's `snapshot_of` reference has become null"
     true (vdi <> Ref.null)
 
+let default_vdi_info = {
+  Storage_interface.vdi="";
+  uuid=None;
+  content_id="";
+  name_label="";
+  name_description="";
+  ty="user";
+  metadata_of_pool="";
+  is_a_snapshot=false;
+  snapshot_time=Xapi_stdext_date.Date.to_string Xapi_stdext_date.Date.never;
+  snapshot_of="";
+  read_only=false;
+  cbt_enabled=false;
+  virtual_size=0L;
+  physical_utilisation=0L;
+  persistent=true;
+  sharable=true;
+  sm_config=[];
+}
+
 (* CA-254515 *)
 (* Tests that a single VDI snapshot from the SR is properly updating the
    existing snapshot in the database; the test should pass if the `snapshot_of`

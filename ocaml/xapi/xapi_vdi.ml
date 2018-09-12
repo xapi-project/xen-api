@@ -364,14 +364,13 @@ let require_uuid vdi_info =
 
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
-  let open Storage_interface in
   let open Db_filter_types in
-  let expr = And(Eq(Field "location", Literal newvdi.vdi), Eq(Field "SR", Literal (Ref.string_of sr))) in
+  let expr = And(Eq(Field "location", Literal newvdi.Storage_interface.vdi), Eq(Field "SR", Literal (Ref.string_of sr))) in
   let db_vdis = Db.VDI.get_records_where  ~__context ~expr in
   Xapi_sr.update_vdis ~__context ~sr db_vdis [ newvdi ];
   match Db.VDI.get_records_where  ~__context ~expr with
   | (vdi, _) :: _ -> vdi
-  | [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
+  | [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (Rpcmarshal.marshal Storage_interface.vdi_info.Rpc.Types.ty newvdi |> Jsonrpc.to_string))
 
 let create ~__context ~name_label ~name_description
     ~sR ~virtual_size ~_type
@@ -402,7 +401,6 @@ let create ~__context ~name_label ~name_description
   let task = Context.get_task_id __context in
   let open Storage_interface in
   let vdi_info = {
-    default_vdi_info with
     name_label = name_label;
     name_description = name_description;
     ty = vdi_type;
@@ -411,10 +409,19 @@ let create ~__context ~name_label ~name_description
     virtual_size = virtual_size;
     sharable = sharable;
     sm_config = sm_config;
+    vdi="";
+    uuid=None;
+    content_id="";
+    metadata_of_pool="";
+    is_a_snapshot=false;
+    snapshot_time="";
+    snapshot_of="";
+    physical_utilisation=0L;
+    persistent=true;
   } in
-  let module C = Client(struct let rpc = rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let sm_vdi = transform_storage_exn
-      (fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR) ~vdi_info) in
+      (fun () -> C.VDI.create (Ref.string_of task) (Db.SR.get_uuid ~__context ~self:sR) vdi_info) in
   if virtual_size < sm_vdi.virtual_size
   then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) sm_vdi.vdi virtual_size sm_vdi.virtual_size;
   let db_vdi = update_vdi_db ~__context ~sr:sR sm_vdi in
@@ -472,7 +479,6 @@ let db_forget ~__context ~vdi =
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
   let open Storage_access in
-  let open Storage_interface in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   (* Verify that the location field is unique in this SR - ignore if the vdi is being introduced with same location*)
@@ -484,12 +490,12 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
     ) (Db.SR.get_VDIs ~__context ~self:sR);
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sR in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   let vdi_info =
     transform_storage_exn
       (fun () ->
-         C.VDI.introduce ~dbg:(Ref.string_of task) ~sr:sr' ~uuid ~sm_config ~location
+         C.VDI.introduce (Ref.string_of task) sr' uuid sm_config location
       ) in
   let ref = update_vdi_db ~__context ~sr:sR vdi_info in
 
@@ -515,9 +521,9 @@ let update ~__context ~vdi =
   let task = Context.get_task_id __context in
   let sR = Db.VDI.get_SR ~__context ~self:vdi in
   let sr' = Db.SR.get_uuid ~__context ~self:sR in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-  let vdi_info = C.VDI.stat ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi_loc in
+  let vdi_info = C.VDI.stat (Ref.string_of task) sr' vdi_loc in
   ignore(update_vdi_db ~__context ~sr:sR vdi_info)
 
 let forget ~__context ~vdi = Db.VDI.destroy ~__context ~self:vdi
@@ -543,7 +549,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
     } in
     let sr' = Db.SR.get_uuid ~__context ~self:sR in
     (* We don't use transform_storage_exn because of the clone/copy fallback below *)
-    let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
+    let new_vdi = call_f (Ref.string_of task) sr' vdi_info in
     update_vdi_db ~__context ~sr:sR new_vdi
   in
 
@@ -563,12 +569,12 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   newvdi
 
 let snapshot ~__context ~vdi ~driver_params =
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   let newvdi = Storage_access.transform_storage_exn
       (fun () ->
          try
            snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
-         with Storage_interface.Unimplemented _ ->
+         with Storage_interface.Storage_error (Unimplemented _) ->
            debug "Backend reported not implemented despite it offering the feature";
            raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
       ) in
@@ -675,14 +681,13 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[ `destroy | `d
   else
     begin
       let open Storage_access in
-      let open Storage_interface in
       let task = Context.get_task_id __context in
       let location = Db.VDI.get_location ~__context ~self in
-      let module C = Client(struct let rpc = rpc end) in
+      let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
       let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy _ -> C.VDI.data_destroy in
       transform_storage_exn
         (fun () ->
-           call_f ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
+           call_f (Ref.string_of task) (Db.SR.get_uuid ~__context ~self:sr) location
         );
       if operation = `destroy && Db.is_valid_ref __context self
       then Db.VDI.destroy ~__context ~self;
@@ -722,12 +727,12 @@ let resize ~__context ~vdi ~size =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   Storage_access.transform_storage_exn
     (fun () ->
-       let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+       let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
        let sr = Db.VDI.get_SR ~__context ~self:vdi in
        let sr = Db.SR.get_uuid ~__context ~self:sr in
        let vdi' = Db.VDI.get_location ~__context ~self:vdi in
        let dbg = Ref.string_of (Context.get_task_id __context) in
-       let new_size = C.VDI.resize ~dbg ~sr ~vdi:vdi' ~new_size:size in
+       let new_size = C.VDI.resize dbg sr vdi' size in
        Db.VDI.set_virtual_size ~__context ~self:vdi ~value:new_size
     )
 
@@ -742,9 +747,9 @@ let clone ~__context ~vdi ~driver_params =
   Storage_access.transform_storage_exn
     (fun () ->
        try
-         let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+         let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
          snapshot_and_clone C.VDI.clone ~__context ~vdi ~driver_params
-       with Storage_interface.Unimplemented _ ->
+       with Storage_interface.Storage_error Unimplemented _ ->
          debug "Backend does not implement VDI clone: doing it ourselves";
          let a = Db.VDI.get_record_internal ~__context ~self:vdi in
          let newvdi = create ~__context
@@ -899,14 +904,13 @@ let set_on_boot ~__context ~self ~value =
   Sm.assert_pbd_is_plugged ~__context ~sr;
 
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
   let vdi = Db.VDI.get_location ~__context ~self in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi ~persistent:(value = `persist);
+       C.VDI.set_persistent (Ref.string_of task) sr' vdi (value = `persist);
     );
 
   Db.VDI.set_on_boot ~__context ~self ~value
@@ -921,24 +925,23 @@ let set_name_label ~__context ~self ~value =
   let sr = Db.VDI.get_SR ~__context ~self in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
   let vdi' = Db.VDI.get_location ~__context ~self in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_label:value
+       C.VDI.set_name_label (Ref.string_of task) sr' vdi' value
     );
   update ~__context ~vdi:self
 
 let set_name_description ~__context ~self ~value =
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr = Db.VDI.get_SR ~__context ~self in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
   let vdi' = Db.VDI.get_location ~__context ~self in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_description:value
+       C.VDI.set_name_description (Ref.string_of task) sr' vdi' value
     );
   update ~__context ~vdi:self
 
@@ -980,11 +983,11 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
     let sr = Db.VDI.get_SR ~__context ~self in
     let sr = Db.SR.get_uuid ~__context ~self:sr in
     let vdi = Db.VDI.get_location ~__context ~self in
-    let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
     let call_f = if new_cbt_enabled then C.VDI.enable_cbt else C.VDI.disable_cbt in
     Storage_access.transform_storage_exn
       (fun () ->
-         call_f ~dbg:(Ref.string_of task) ~sr ~vdi
+         call_f (Ref.string_of task) sr vdi
       );
     Db.VDI.set_cbt_enabled ~__context ~self ~value:new_cbt_enabled
   end else
@@ -1010,10 +1013,10 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
   let sr = Db.SR.get_uuid ~__context ~self:sr in
   let vdi_from = Db.VDI.get_location ~__context ~self:vdi_from in
   let vdi_to = Db.VDI.get_location ~__context ~self:vdi_to in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   Storage_access.transform_storage_exn
     (fun () ->
-       C.VDI.list_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
+       C.VDI.list_changed_blocks (Ref.string_of task) sr vdi_from vdi_to
     )
 
 let _get_nbd_info ~__context ~self ~get_server_certificate =

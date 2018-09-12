@@ -136,9 +136,9 @@ val forget : __context:Context.t -> vdi:[ `VDI ] API.Ref.t -> unit
     snapshot operation (e.g. vmhint for NetAPP)
 *)
 val snapshot_and_clone :
-  (dbg:string ->
-   sr:string ->
-   vdi_info:Storage_interface.vdi_info -> Storage_interface.vdi_info) ->
+  (string ->
+   string ->
+   Storage_interface.vdi_info -> Storage_interface.vdi_info) ->
   __context:Context.t ->
   vdi:[ `VDI ] API.Ref.t ->
   driver_params:(string * string) list -> [ `VDI ] API.Ref.t

@@ -27,14 +27,14 @@ let transform_storage_exn f =
   try
     f ()
   with
-  | Backend_error(code, params) as e ->
+  | Storage_error Backend_error(code, params) as e ->
     Backtrace.reraise e (Api_errors.Server_error(code, params))
-  | Backend_error_with_backtrace(code, backtrace :: params) as e ->
+  | Storage_error Backend_error_with_backtrace(code, backtrace :: params) as e ->
     let backtrace = Backtrace.Interop.of_json "SM" backtrace in
     Backtrace.add e backtrace;
     Backtrace.reraise e (Api_errors.Server_error(code, params))
   | Api_errors.Server_error(code, params) as e -> raise e
-  | No_storage_plugin_for_sr sr as e ->
+  | Storage_error No_storage_plugin_for_sr sr as e ->
     Server_helpers.exec_with_new_task "transform_storage_exn"
       (fun __context ->
          let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
@@ -94,7 +94,7 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   }
 
 let redirect sr =
-  raise (Redirect (Some (Pool_role.get_master_address ())))
+  raise (Storage_error (Redirect (Some (Pool_role.get_master_address ()))))
 
 module SMAPIv1 = struct
   (** xapi's builtin ability to call local SM plugins using the existing
@@ -108,7 +108,7 @@ module SMAPIv1 = struct
       	    the backend interface.
       	*)
 
-  type context = Smint.request
+  type context = unit
 
   let vdi_info_from_db ~__context self =
     let vdi_rec = Db.VDI.get_record ~__context ~self in
@@ -202,9 +202,9 @@ module SMAPIv1 = struct
                 with
                 | Smint.Not_implemented_in_backend ->
                   error "SR.create failed SR:%s Not_implemented_in_backend" (Ref.string_of sr);
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -242,7 +242,7 @@ module SMAPIv1 = struct
                   Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type sr
                 with
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -260,7 +260,7 @@ module SMAPIv1 = struct
                   Sm.sr_detach device_config _type sr
                 with
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -281,9 +281,9 @@ module SMAPIv1 = struct
                   Sm.sr_delete device_config _type sr
                 with
                 | Smint.Not_implemented_in_backend ->
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -310,10 +310,10 @@ module SMAPIv1 = struct
                   { sr_uuid; name_label; name_description; total_space; free_space; clustered; health }
                 with
                 | Smint.Not_implemented_in_backend ->
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
                   error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | Sm.MasterOnly -> redirect sr
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
@@ -335,10 +335,10 @@ module SMAPIv1 = struct
                   List.map (vdi_info_of_vdi_rec __context) vdis
                 with
                 | Smint.Not_implemented_in_backend ->
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
                   error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | Sm.MasterOnly -> redirect sr
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
@@ -361,11 +361,11 @@ module SMAPIv1 = struct
            let local_vdis = scan __context ~dbg ~sr in
            let find_sm_vdi ~vdi ~vdi_info_list =
              try List.find (fun x -> x.vdi = vdi) vdi_info_list
-             with Not_found -> raise (Vdi_does_not_exist vdi)
+             with Not_found -> raise (Storage_error (Vdi_does_not_exist vdi))
            in
            let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
              if vdi_info1.content_id <> vdi_info2.content_id
-             then raise (Content_ids_do_not_match (vdi_info1.vdi, vdi_info2.vdi))
+             then raise (Storage_error (Content_ids_do_not_match (vdi_info1.vdi, vdi_info2.vdi)))
            in
            (* For each (local snapshot vdi, source snapshot vdi) pair:
               					 * - Check that the content_ids are the same
@@ -419,7 +419,7 @@ module SMAPIv1 = struct
              Sm.vdi_epoch_begin device_config _type sr self)
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
       try
@@ -460,7 +460,7 @@ module SMAPIv1 = struct
           (fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
         backend
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let attach _ =
       failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
@@ -483,7 +483,7 @@ module SMAPIv1 = struct
              else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
           )
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let deactivate context ~dbg ~dp ~sr ~vdi =
       try
@@ -500,7 +500,7 @@ module SMAPIv1 = struct
              else info "%s sr:%s does not support vdi_deactivate: doing nothing" dp (Ref.string_of sr)
           )
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let detach context ~dbg ~dp ~sr ~vdi =
       try
@@ -519,7 +519,7 @@ module SMAPIv1 = struct
         Mutex.execute vdi_read_write_m
           (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let epoch_end context ~dbg ~sr ~vdi =
       try
@@ -528,7 +528,7 @@ module SMAPIv1 = struct
              Sm.vdi_epoch_end device_config _type sr self)
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let require_uuid vdi_info =
       match vdi_info.Smint.vdi_info_uuid with
@@ -556,7 +556,7 @@ module SMAPIv1 = struct
              newvdi ~__context vi
           )
       with
-      | Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
+      | Api_errors.Server_error(code, params) -> raise (Storage_error (Backend_error(code, params)))
       | Sm.MasterOnly -> redirect sr
 
     (* A list of keys in sm-config that will be preserved on clone/snapshot *)
@@ -607,9 +607,9 @@ module SMAPIv1 = struct
           )
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented call_name)
+        raise (Storage_error (Unimplemented call_name))
       | Sm.MasterOnly -> redirect sr
 
 
@@ -643,9 +643,9 @@ module SMAPIv1 = struct
           )
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.resize")
+        raise (Storage_error (Unimplemented "VDI.resize"))
       | Sm.MasterOnly -> redirect sr
 
     let destroy context ~dbg ~sr ~vdi =
@@ -658,9 +658,9 @@ module SMAPIv1 = struct
           (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | No_VDI ->
-        raise (Vdi_does_not_exist vdi)
+        raise (Storage_error (Vdi_does_not_exist vdi))
       | Sm.MasterOnly -> redirect sr
 
     let stat context ~dbg ~sr ~vdi =
@@ -675,7 +675,7 @@ module SMAPIv1 = struct
           )
       with e ->
         error "VDI.stat caught: %s" (Printexc.to_string e);
-        raise (Vdi_does_not_exist vdi)
+        raise (Storage_error (Vdi_does_not_exist vdi))
 
     let introduce context ~dbg ~sr ~uuid ~sm_config ~location =
       try
@@ -690,7 +690,7 @@ module SMAPIv1 = struct
           )
       with e ->
         error "VDI.introduce caught: %s" (Printexc.to_string e);
-        raise (Vdi_does_not_exist location)
+        raise (Storage_error (Vdi_does_not_exist location))
 
     let set_persistent context ~dbg ~sr ~vdi ~persistent =
       try
@@ -710,7 +710,7 @@ module SMAPIv1 = struct
              end
           )
       with
-      | Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
+      | Api_errors.Server_error(code, params) -> raise (Storage_error (Backend_error(code, params)))
       | Sm.MasterOnly -> redirect sr
 
     let get_by_name context ~dbg ~sr ~name =
@@ -726,7 +726,7 @@ module SMAPIv1 = struct
              vi
            with e ->
              error "VDI.get_by_name caught: %s" (Printexc.to_string e);
-             raise (Vdi_does_not_exist name)
+             raise (Storage_error (Vdi_does_not_exist name))
         )
 
     let set_content_id context ~dbg ~sr ~vdi ~content_id =
@@ -805,11 +805,11 @@ module SMAPIv1 = struct
           )
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.compose")
+        raise (Storage_error (Unimplemented "VDI.compose"))
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | No_VDI ->
-        raise (Vdi_does_not_exist vdi1)
+        raise (Storage_error (Vdi_does_not_exist vdi1))
       | Sm.MasterOnly -> redirect sr
 
     let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value =
@@ -848,11 +848,11 @@ module SMAPIv1 = struct
           );
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented f_name)
+        raise (Storage_error (Unimplemented f_name))
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | No_VDI ->
-        raise (Vdi_does_not_exist vdi)
+        raise (Storage_error (Vdi_does_not_exist vdi))
       | Sm.MasterOnly -> redirect sr
 
     let enable_cbt context =
@@ -876,9 +876,9 @@ module SMAPIv1 = struct
                ))
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.list_changed_blocks")
+        raise (Storage_error (Unimplemented "VDI.list_changed_blocks"))
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | Sm.MasterOnly -> redirect sr
 
   end
@@ -925,8 +925,8 @@ let start_smapiv1_servers () =
   List.iter (fun ty ->
       let path = !Storage_interface.default_path ^ ".d/" ^ ty in
       let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
-      let module S = Storage_interface.Server(SMAPIv1) in
-      let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process None) () in
+      let module S = Storage_interface.Server(SMAPIv1)() in
+      let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process) () in
       let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
       ()
     ) drivers
@@ -1055,9 +1055,9 @@ let on_xapi_start ~__context =
       let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
       let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
       let rpc = external_rpc queue_name uri in
-      let module C = Storage_interface.Client(struct let rpc = rpc end) in
+      let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
       let dbg = Context.string_of_task __context in
-      C.Query.query ~dbg
+      C.Query.query dbg
     in
     log_and_ignore_exn (fun () ->
         let query_result = query ty in
@@ -1096,9 +1096,9 @@ let bind ~__context ~pbd =
   let rpc = external_rpc queue_name uri in
   let service = make_service uuid ty in
   System_domains.register_service service queue_name;
-  let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+  let module Client = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let dbg = Context.string_of_task __context in
-  let info = Client.Query.query ~dbg in
+  let info = Client.Query.query dbg in
   Storage_mux.register sr rpc uuid info;
   info
 
@@ -1122,11 +1122,11 @@ let unbind ~__context ~pbd =
  *)
 let rpc =
   let srcstr = Xcp_client.get_user_agent() in
-  let local_fn = Storage_mux.Server.process None in
+  let local_fn = Storage_mux.Server.process in
   let remote_url_of_ip = Storage_utils.remote_url in
   Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip ~local_fn
 
-module Client = Client(struct let rpc = rpc end)
+module Client = StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end))
 
 let print_delta d =
   debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
@@ -1153,7 +1153,7 @@ let success_task dbg id =
   Client.TASK.destroy dbg id;
   match t.Task.state with
   | Task.Completed _ -> t
-  | Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+  | Task.Failed x -> (match Rpcmarshal.unmarshal Storage_interface.Errors.error.Rpc.Types.ty x with | Ok e -> raise (Storage_error e) | Error (`Msg m) -> failwith (Printf.sprintf "Error unmarshalling exception from remote: %s" m))
   | Task.Pending _ -> failwith "task pending"
 
 let wait_for_task dbg id =
@@ -1233,7 +1233,7 @@ let update_mirror ~__context id =
   with
   | Not_found ->
     debug "Couldn't find mirror id: %s" id
-  | Does_not_exist _ -> ()
+  | Storage_error (Does_not_exist _) -> ()
   | e ->
     error "storage event: Caught %s while updating mirror" (Printexc.to_string e)
 
@@ -1271,7 +1271,7 @@ let events_from_sm () =
 
 let start () =
   let open Storage_impl.Local_domain_socket in
-  let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xapi.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
+  let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xapi.storage" ~rpc_fn:(Storage_mux.Server.process) () in
   info "Started service on org.xen.xapi.storage";
   let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
   ()
@@ -1313,9 +1313,9 @@ let is_attached ~__context ~vbd ~domid  =
     (fun () ->
        let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
        let open Vdi_automaton in
-       let module C = Storage_interface.Client(struct let rpc = rpc end) in
+       let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
        try
-         let x = C.DP.stat_vdi ~dbg ~sr ~vdi () in
+         let x = C.DP.stat_vdi dbg sr vdi () in
          x.superstate <> Detached
        with
        | e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
@@ -1325,7 +1325,7 @@ let is_attached ~__context ~vbd ~domid  =
     useful for executing Storage_interface.Client.VDI functions  *)
 let on_vdi ~__context ~vbd ~domid f =
   let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
-  let module C = Storage_interface.Client(struct let rpc = rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let dp = C.DP.create dbg dp in
   transform_storage_exn
     (fun () ->
@@ -1355,7 +1355,7 @@ let attach_and_activate ~__context ~vbd ~domid f =
        let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
-            let module C = Storage_interface.Client(struct let rpc = rpc end) in
+            let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
             let attach_info = C.VDI.attach2 dbg dp sr vdi read_write in
             C.VDI.activate dbg dp sr vdi;
             f attach_info
@@ -1371,7 +1371,7 @@ let deactivate_and_detach ~__context ~vbd ~domid =
           			   automatically detached and deactivated. *)
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
-            let module C = Storage_interface.Client(struct let rpc = rpc end) in
+            let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
             C.DP.destroy dbg dp false
          )
     )
@@ -1484,7 +1484,7 @@ let refresh_local_vdi_activations ~__context =
        if List.mem sr srs
        then
          try
-           let x = Client.DP.stat_vdi ~dbg ~sr ~vdi () in
+           let x = Client.DP.stat_vdi dbg sr vdi () in
            match x.superstate with
            | Activated RO ->
              lock_vdi (vdi_ref, vdi_rec) RO;

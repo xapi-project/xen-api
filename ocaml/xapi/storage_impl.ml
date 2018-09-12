@@ -99,7 +99,7 @@ let info  (fmt: ('a, unit, string, unit) format4) = if !print_debug then log_to_
 let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
 module Dp = struct
-  type t = string [@@deriving rpc]
+  type t = string [@@deriving rpcty]
   let make username = username
 end
 
@@ -113,12 +113,15 @@ module Vdi = struct
     attach_info :  backend option;    (** Some path when attached; None otherwise *)
     dps: (Dp.t * Vdi_automaton.state) list; (** state of the VDI from each dp's PoV *)
     leaked: Dp.t list;                        (** "leaked" dps *)
-  } [@@deriving rpc]
+  } [@@deriving rpcty]
   let empty () = {
     attach_info = None;
     dps = [];
     leaked = [];
   }
+  let t_of_rpc x = match Rpcmarshal.unmarshal t.Rpc.Types.ty x with | Ok y -> y | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal Vdi.t: %s" m)
+  let rpc_of_t = Rpcmarshal.marshal t.Rpc.Types.ty
+
   (** [superstate x] returns the actual state of the backing VDI by finding the "max" of
       	    the states from the clients' PsoV *)
   let superstate x = Vdi_automaton.superstate (List.map snd x.dps)
@@ -156,7 +159,7 @@ module Vdi = struct
     set_dp_state dp state' t
 
   let to_string_list x =
-    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ Jsonrpc.to_string (rpc_of_backend x)) x.attach_info)) in
+    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)) x.attach_info)) in
     let of_dp (dp, state) = Printf.sprintf "DP: %s: %s%s" dp (Vdi_automaton.string_of_state state) (if List.mem dp x.leaked then "  ** LEAKED" else "") in
     title :: (List.map indent (List.map of_dp x.dps))
 end
@@ -263,7 +266,7 @@ module Everything = struct
 end
 
 module Wrapper = functor(Impl: Server_impl) -> struct
-  type context = Smint.request
+  type context = unit
 
   module Query = struct
     let query = Impl.Query.query
@@ -321,7 +324,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
           Sr.replace vdi new_vdi_t sr_t;
           new_vdi_t
         with
-        | Storage_interface.Internal_error("Storage_access.No_VDI") as e
+        | Storage_interface.Storage_error Internal_error("Storage_access.No_VDI") as e
           when ( op == Vdi_automaton.Deactivate || op == Vdi_automaton.Detach ) ->
           error "Storage_impl: caught exception %s while doing %s . Continuing as if succesful, being optimistic"
             (Printexc.to_string e) (Vdi_automaton.string_of_op op);
@@ -335,7 +338,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
     let perform_nolock context ~dbg ~dp ~sr ~vdi this_op =
       match Host.find sr !Host.host with
-      | None -> raise (Sr_not_attached sr)
+      | None -> raise (Storage_error (Sr_not_attached sr))
       | Some sr_t ->
         let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
         let vdi_t' =
@@ -353,7 +356,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
             let ops = Vdi_automaton.(-) superstate superstate' in
             side_effects context dbg dp sr sr_t vdi vdi_t ops
           with e ->
-            let e = match e with Vdi_automaton.No_operation(a, b) -> Illegal_transition(a,b) | e -> e in
+            let e = match e with Vdi_automaton.No_operation(a, b) -> Storage_error (Illegal_transition(a,b)) | e -> e in
             Errors.add dp sr vdi (Printexc.to_string e);
             raise e
         in
@@ -381,7 +384,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
     (* Attempt to remove a possibly-active datapath associated with [vdi] *)
     let destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak =
       match Host.find sr !Host.host with
-      | None -> raise (Sr_not_attached sr)
+      | None -> raise (Storage_error (Sr_not_attached sr))
       | Some sr_t ->
         Opt.iter (fun vdi_t ->
             let current_state = Vdi.get_dp_state dp vdi_t in
@@ -470,7 +473,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         response xendisk.Storage_interface.params
       | _, file::_, _ -> response file.Storage_interface.path
       | _, _, blockdev::_ -> response blockdev.Storage_interface.path
-      | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (rpc_of_backend backend |> Jsonrpc.to_string)]))
+      | [], [], [] -> raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)])))
 
     let activate context ~dbg ~dp ~sr ~vdi =
       info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s" dbg dp sr vdi;
@@ -511,7 +514,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       match result with
       | { virtual_size = virtual_size' } when virtual_size' < vdi_info.virtual_size ->
         error "VDI.create dbg:%s created a smaller VDI (%Ld)" dbg virtual_size';
-        raise (Backend_error("SR_BACKEND_FAILURE", ["Disk too small"; Int64.to_string vdi_info.virtual_size; Int64.to_string virtual_size']))
+        raise (Storage_error (Backend_error("SR_BACKEND_FAILURE", ["Disk too small"; Int64.to_string vdi_info.virtual_size; Int64.to_string virtual_size'])))
       | result -> result
 
     let snapshot_and_clone call_name call_f context ~dbg ~sr ~vdi_info =
@@ -701,7 +704,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         | [] -> None
         | [x] -> Some x
         | _ -> 
-           raise (Storage_interface.Backend_error (Api_errors.internal_error, [Printf.sprintf "Expected 0 or 1 VDI with datapath, had %d" (List.length vdis_with_dp)]));
+           raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, [Printf.sprintf "Expected 0 or 1 VDI with datapath, had %d" (List.length vdis_with_dp)])))
       in
 
       (* From this point if it didn't raise, the assumption of 0 or 1 VDIs holds *)
@@ -742,7 +745,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       if race_occured then(
 	let message = [Printf.sprintf "Expected no new VDIs with DP after destroy_sr. VDI expected with id %s" (match vdi_ident with | None -> "(not attached)" | Some s -> s)] @
         List.map (fun(vdi, vdi_t) -> Printf.sprintf "VDI found with the dp is %s" vdi) vdis_with_dp in
-        raise (Storage_interface.Backend_error (Api_errors.internal_error, message));
+        raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, message)))
       );      
 
       failure
@@ -782,7 +785,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       | Vdi_automaton.Activated _, Some attach_info ->
         attach_info
       | _ ->
-        raise (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp))
+        raise (Storage_error (Internal_error (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached" sr vdi dp)))
 
 
     let stat_vdi context ~dbg ~sr ~vdi () =
@@ -790,7 +793,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       VDI.with_vdi sr vdi
         (fun () ->
            match Host.find sr !Host.host with
-           | None -> raise (Sr_not_attached sr)
+           | None -> raise (Storage_error (Sr_not_attached sr))
            | Some sr_t ->
              let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
              {
@@ -817,7 +820,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       with_sr sr
         (fun () ->
            match Host.find sr !Host.host with
-           | None -> raise (Sr_not_attached sr)
+           | None -> raise (Storage_error (Sr_not_attached sr))
            | Some _ ->
              Impl.SR.stat context ~dbg ~sr
         )
@@ -827,7 +830,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       with_sr sr
         (fun () ->
            match Host.find sr !Host.host with
-           | None -> raise (Sr_not_attached sr)
+           | None -> raise (Storage_error (Sr_not_attached sr))
            | Some _ ->
              Impl.SR.scan context ~dbg ~sr
         )
@@ -840,7 +843,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
              Impl.SR.create context ~dbg ~sr ~name_label ~name_description ~device_config ~physical_size
            | Some _ ->
              error "SR %s is already attached" sr;
-             raise (Sr_attached sr)
+             raise (Storage_error (Sr_attached sr))
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
@@ -881,7 +884,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       with_sr sr
         (fun () ->
            match Host.find sr !Host.host with
-           | None -> raise (Sr_not_attached sr)
+           | None -> raise (Storage_error (Sr_not_attached sr))
            | Some sr_t ->
              VDI.with_all_vdis sr
                (fun () ->
@@ -993,7 +996,7 @@ module Local_domain_socket = struct
     let s = Buf_io.fd_of bio in
     let rpc = Xmlrpc.call_of_string body in
     (* Printf.fprintf stderr "Request: %s %s\n%!" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params)); *)
-    let result = process (Some req.Http.Request.uri) rpc in
+    let result = process rpc in
     (* Printf.fprintf stderr "Response: %s\n%!" (Rpc.to_string result.Rpc.contents); *)
     let str = Xmlrpc.string_of_response result in
     Http_svr.response_str req s str

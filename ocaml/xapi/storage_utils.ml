@@ -34,8 +34,8 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
         let rpcstr = Rpc.string_of_call call in
         debug "Got failure: checking for redirect, call was: %s, results.contents: %s"
           rpcstr (Jsonrpc.to_string result.Rpc.contents);
-        match Storage_interface.Exception.exnty_of_rpc result.Rpc.contents with
-        | Storage_interface.Exception.Redirect (Some ip) ->
+        match Rpcmarshal.unmarshal Storage_interface.Errors.error.Rpc.Types.ty result.Rpc.contents with
+        | Ok Storage_interface.Errors.Redirect (Some ip) ->
            let newurl = remote_url_of_ip ip in
            debug "Redirecting %s to ip: %s" rpcstr ip;
            (* we need to do a remote call now, so replace [f] *)

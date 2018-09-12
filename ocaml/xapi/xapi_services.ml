@@ -25,11 +25,11 @@ open Threadext
 open Constants
 open Xstringext
 
-type driver_list = Storage_interface.query_result list [@@deriving rpc]
+type driver_list = Storage_interface.query_result list [@@deriving rpcty]
 
 let list_sm_drivers ~__context =
   let all = List.map (Smint.query_result_of_sr_driver_info ++ Sm.info_of_driver) (Sm.supported_drivers ()) in
-  rpc_of_driver_list all
+  Storage_interface.rpc_of driver_list all
 
 let respond req rpc s =
   let txt = Jsonrpc.to_string rpc in
@@ -157,7 +157,7 @@ let rpc ~srcstr ~dststr call =
   XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr
     ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
 
-module Local = Storage_interface.Client(struct let rpc = rpc ~srcstr:"xapi" ~dststr:"smapiv2" end)
+module Local = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc ~srcstr:"xapi" ~dststr:"smapiv2" end))
 
 let put_handler (req: Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s
@@ -191,7 +191,7 @@ let get_handler (req: Http.Request.t) s _ =
        | [ ""; services; "SM"; driver ] when services = _services ->
          begin
            try
-             respond req (Storage_interface.rpc_of_query_result (Smint.query_result_of_sr_driver_info (Sm.info_of_driver driver))) s
+             respond req (Storage_interface.(rpc_of query_result) (Smint.query_result_of_sr_driver_info (Sm.info_of_driver driver))) s
            with _ ->
              Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
              req.Http.Request.close <- true
@@ -212,7 +212,7 @@ let get_handler (req: Http.Request.t) s _ =
            configuration = [];
            required_cluster_stack = [];
          } in
-         respond req (Storage_interface.rpc_of_query_result q) s
+         respond req (Storage_interface.(rpc_of query_result) q) s
        | _ ->
          Http_svr.headers s (Http.http_404_missing ~version:"1.0" ());
          req.Http.Request.close <- true

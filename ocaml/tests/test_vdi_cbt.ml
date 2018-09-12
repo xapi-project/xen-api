@@ -12,10 +12,12 @@
 -  GNU Lesser General Public License for more details.
   *)
 
+let _ = Printexc.register_printer (function | Idl.UnboundImplementation xs -> Some (Printf.sprintf "Idl.UnboundImplementation: [%s]" (String.concat "," xs)) | _ -> None)
 
-let register_smapiv2_server (module S: Storage_interface.Server_impl with type context = unit) sr_ref =
-  let module S = Storage_interface.Server(S) in
-  let rpc = S.process () in
+
+let register_smapiv2_server (module S: Storage_interface.Server_impl) sr_ref =
+  let module S = Storage_interface.Server(S)() in
+  let rpc = S.process in
   let dummy_query_result = Storage_interface.({ driver=""; name=""; description=""; vendor=""; copyright=""; version=""; required_api_version=""; features=[]; configuration=[]; required_cluster_stack=[] }) in
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
@@ -32,7 +34,7 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_chang
       let snapshot = default Storage_skeleton.VDI.snapshot vdi_snapshot
       let clone = default Storage_skeleton.VDI.clone vdi_snapshot
     end
-  end : Storage_interface.Server_impl with type context = unit)
+  end : Storage_interface.Server_impl)
 
 let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
   let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
@@ -64,7 +66,10 @@ let test_cbt_enable_disable () =
     ~vdi_disable_cbt:(fun _ ~dbg ~sr ~vdi -> disable_cbt_params := Some (sr, vdi))
     sr_uuid;
 
-  Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
+  (try
+    Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
+  with
+    Idl.UnboundImplementation x -> Alcotest.fail (Printf.sprintf "Unbound implementation [%s]" (String.concat "," x)));
    check_params "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt" (Some (sr_uuid, vdi_location)) !enable_cbt_params;
   assert_vdi_cbt_enabled_is true "cbt_enabled should be true when VDI.enable_cbt returns successfully";
 
