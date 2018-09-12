@@ -19,14 +19,13 @@ open Storage_client
 let dbg = "sm-cli"
 
 let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
-  let open Storage_interface.Mirror in
   Printf.sprintf
     "id: %s\nsrc_vdi: %s\ndest_vdi: %s\nstatus: %s\nfailed: %b\n"
     id source_vdi dest_vdi
     (String.concat ","
        (List.map
           (function
-            | Receiving -> "Receiving"
+            | Storage_interface.Mirror.Receiving -> "Receiving"
             | Sending -> "Sending"
             | Copying -> "Copying")
           state))
@@ -100,15 +99,15 @@ let wrap common_opts f =
     Printf.fprintf stderr "Failed to connect to %s: %s\n%!" common_opts.Common.socket (Printexc.to_string e);
     Printf.fprintf stderr "Ensure this program is being run as root and try again.\n%!";
     `Error(false, "permission denied")
-  | Storage_interface.Backend_error(code, params) ->
+  | Storage_interface.Storage_error Backend_error(code, params) ->
     Printf.fprintf stderr "Error from storage backend:\n";
     Printf.fprintf stderr "%s: [ %s ]\n" code (String.concat "; " params);
     exit 1
 
 let query common_opts =
   wrap common_opts (fun () ->
-      let q = Client.Query.query ~dbg in
-      Printf.printf "%s\n" (q |> rpc_of_query_result |> Jsonrpc.to_string)
+      let q = Client.Query.query dbg in
+      Printf.printf "%s\n" (q |> Storage_interface.(rpc_of query_result) |> Jsonrpc.to_string)
     )
 
 let filename_suffix = "-filename"
@@ -131,7 +130,7 @@ let string_of_file filename =
 
 let mirror_list common_opts =
   wrap common_opts (fun () ->
-      let list = Client.DATA.MIRROR.list ~dbg in
+      let list = Client.DATA.MIRROR.list dbg in
       List.iter
         (fun (id,status) -> Printf.printf "%s" (string_of_mirror id status))
         list)
@@ -140,7 +139,7 @@ let sr_attach common_opts sr device_config = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     (* Read the advertised device_config from the driver *)
-    let q = Client.Query.query ~dbg in
+    let q = Client.Query.query dbg in
     let expected_device_config_keys = List.map fst q.configuration in
     (* The first 'device_config' will actually be the sr *)
     let device_config = List.tl device_config in
@@ -167,21 +166,21 @@ let sr_attach common_opts sr device_config = match sr with
           exit 1
       ) device_config in
     wrap common_opts (fun () ->
-        Client.SR.attach ~dbg ~sr ~device_config
+        Client.SR.attach dbg sr device_config
       )
 
 let sr_detach common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-        Client.SR.detach ~dbg ~sr
+        Client.SR.detach dbg sr
       )
 
 let sr_stat common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-        let sr_info = Client.SR.stat ~dbg ~sr in
+        let sr_info = Client.SR.stat dbg sr in
         Printf.fprintf stdout "Total space on substrate:      %Ld\n" sr_info.total_space;
         Printf.fprintf stdout "Free space on substrate:       %Ld\n" sr_info.free_space
       )
@@ -190,9 +189,9 @@ let sr_scan common_opts sr = match sr with
   | None -> `Error(true, "must supply SR")
   | Some sr ->
     wrap common_opts (fun () ->
-        let vdis = Client.SR.scan ~dbg ~sr in
+        let vdis = Client.SR.scan dbg sr in
         List.iter (fun vdi ->
-            Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
+            Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of vdi_info vdi))
           ) vdis
       )
 
@@ -241,7 +240,7 @@ let vdi_create common_opts sr name descr virtual_size sharable format = match sr
           sm_config = (match format with None -> [] | Some x -> ["type", x]);
           persistent = true;
         } in
-        let vdi_info = Client.VDI.create ~dbg ~sr ~vdi_info in
+        let vdi_info = Client.VDI.create dbg sr vdi_info in
         Printf.printf "%s\n" vdi_info.vdi
       )
 
@@ -258,23 +257,23 @@ let mirror_start common_opts sr vdi dp url dest =
       let dp = get_opt dp "Need a local data path" in
       let url = get_opt url "Need a URL" in
       let dest = get_opt dest "Need a destination SR" in
-      let task = Client.DATA.MIRROR.start ~dbg ~sr ~vdi ~dp ~url ~dest in
+      let task = Client.DATA.MIRROR.start dbg sr vdi dp url dest in
       Printf.printf "Task id: %s\n" task) common_opts sr vdi
 
 let mirror_stop common_opts id =
   wrap common_opts (fun () ->
-      match id with Some id -> Client.DATA.MIRROR.stop ~dbg ~id
+      match id with Some id -> Client.DATA.MIRROR.stop dbg id
                   | None -> failwith "Need an ID")
 
 let vdi_clone common_opts sr vdi name descr = on_vdi
     (fun sr vdi ->
        wrap common_opts (fun () ->
-           let vdi_info = Client.VDI.stat ~dbg ~sr ~vdi in
+           let vdi_info = Client.VDI.stat dbg sr vdi in
            let vdi_info = { vdi_info with
                             name_label = (match name with None -> vdi_info.name_label | Some x -> x);
                             name_description = (match descr with None -> vdi_info.name_description | Some x -> x);
                           } in
-           let vdi_info = Client.VDI.clone ~dbg ~sr ~vdi_info in
+           let vdi_info = Client.VDI.clone dbg sr vdi_info in
            Printf.printf "%s\n" vdi_info.vdi
          )
     ) common_opts sr vdi
@@ -286,42 +285,42 @@ let vdi_resize common_opts sr vdi new_size = on_vdi
        | Some new_size ->
          let new_size = parse_size new_size in
          wrap common_opts (fun () ->
-             let new_size = Client.VDI.resize ~dbg ~sr ~vdi ~new_size in
+             let new_size = Client.VDI.resize dbg sr vdi new_size in
              Printf.printf "%Ld\n" new_size
            )
     ) common_opts sr vdi
 
 let vdi_destroy common_opts sr vdi =
   on_vdi (fun sr vdi ->
-      Client.VDI.destroy ~dbg ~sr ~vdi
+      Client.VDI.destroy dbg sr vdi
     ) common_opts sr vdi
 
 let vdi_attach common_opts sr vdi =
   on_vdi (fun sr vdi ->
-      let info = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi ~read_write:true in
-      Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of_attach_info info))
+      let info = Client.VDI.attach dbg dbg sr vdi true in
+      Printf.printf "%s\n" (Jsonrpc.to_string (rpc_of attach_info info))
     ) common_opts sr vdi
 
 let vdi_detach common_opts sr vdi =
   on_vdi (fun sr vdi ->
-      Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi
+      Client.VDI.detach dbg dbg sr vdi
     ) common_opts sr vdi
 
 let vdi_activate common_opts sr vdi =
   on_vdi (fun sr vdi ->
-      Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi
+      Client.VDI.activate dbg dbg sr vdi
     ) common_opts sr vdi
 
 let vdi_deactivate common_opts sr vdi =
   on_vdi (fun sr vdi ->
-      Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi
+      Client.VDI.deactivate dbg dbg sr vdi
     ) common_opts sr vdi
 
 let vdi_similar_content common_opts sr vdi =
   on_vdi (fun sr vdi ->
-      let vdis = Client.VDI.similar_content ~dbg ~sr ~vdi in
+      let vdis = Client.VDI.similar_content dbg sr vdi in
       List.iter (fun vdi ->
-          Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of_vdi_info vdi))
+          Printf.fprintf stdout "%s: %s\n" vdi.vdi (Jsonrpc.to_string (rpc_of vdi_info vdi))
         ) vdis
     ) common_opts sr vdi
 
@@ -330,22 +329,22 @@ let vdi_compose common_opts sr vdi1 vdi2 =
       match vdi2 with
       | None -> failwith "must supply VDI2"
       | Some vdi2 ->
-        Client.VDI.compose ~dbg ~sr ~vdi1 ~vdi2
+        Client.VDI.compose dbg sr vdi1 vdi2
     ) common_opts sr vdi1
 
 let vdi_enable_cbt common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.enable_cbt ~dbg ~sr ~vdi
+    Client.VDI.enable_cbt dbg sr vdi
   ) common_opts sr vdi
 
 let vdi_disable_cbt common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.disable_cbt ~dbg ~sr ~vdi
+    Client.VDI.disable_cbt dbg sr vdi
   ) common_opts sr vdi
 
 let vdi_data_destroy common_opts sr vdi =
   on_vdi (fun sr vdi ->
-    Client.VDI.data_destroy ~dbg ~sr ~vdi
+    Client.VDI.data_destroy dbg sr vdi
   ) common_opts sr vdi
 
 let vdi_list_changed_blocks common_opts sr vdi_from vdi_to =
@@ -353,7 +352,7 @@ let vdi_list_changed_blocks common_opts sr vdi_from vdi_to =
      match vdi_to with
      | None -> failwith "must supply VDI_to"
      | Some vdi_to ->
-       let cbt_bitmap = Client.VDI.list_changed_blocks ~dbg ~sr ~vdi_from ~vdi_to in
+       let cbt_bitmap = Client.VDI.list_changed_blocks dbg sr vdi_from vdi_to in
        print_string cbt_bitmap
   ) common_opts sr vdi_from
 
