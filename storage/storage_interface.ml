@@ -214,6 +214,15 @@ type vdi_info = {
   sm_config: (string * string) list [@default []];
 } [@@deriving rpcty]
 
+let default_vdi_info =
+  match
+    Rpcmarshal.unmarshal
+      vdi_info.Rpc.Types.ty
+      Rpc.(Dict ["vdi",String "";
+                 "name_label",String "default"])
+  with
+  | Ok x -> x | Error (`Msg m) -> failwith (Printf.sprintf "Error creating default_vdi_info: %s" m)
+
 type sr_health = Healthy | Recovering [@@deriving rpcty]
 
 type sr_info = {
