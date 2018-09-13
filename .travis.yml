@@ -1,0 +1,13 @@
+language: c
+sudo: required
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+env:
+  global:
+    - PACKAGE="ezxenstore"
+    - PINS="ezxenstore:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
+  matrix:
+    - DISTRO="debian-9-ocaml-4.06"
+      # - DISTRO="debian-9-ocaml-4.07" BASE_REMOTE_BRANCH="407"
