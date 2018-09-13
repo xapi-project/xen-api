@@ -6,12 +6,15 @@ homepage: "https://github.com/xapi-project/ezxenstore"
 bug-reports: "https://github.com/xapi-project/ezxenstore/issues"
 dev-repo: "https://github.com/xapi-project/ezxenstore.git"
 
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
 
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
+
+  "base-threads"
   "cmdliner"
   "logs"
+  "uuidm"
   "xenctrl"
   "xenstore"
   "xenstore_transport"
