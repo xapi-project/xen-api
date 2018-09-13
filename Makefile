@@ -1,10 +1,10 @@
 .PHONY: build release lint test install uninstall clean reindent
 
-build:
-	jbuilder build @install
-
 release:
-	jbuilder build @install
+	dune build @install
+
+build:
+	dune build @install
 
 lint:
 	pycodestyle scripts/*.py
@@ -12,19 +12,19 @@ lint:
 	pylint --disable fixme,too-many-arguments,too-many-instance-attributes scripts/python_nbd_client.py
 
 test: lint
-	jbuilder runtest
+	dune runtest
 
 stresstest:
-	jbuilder build @stresstest
+	dune build @stresstest
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 clean:
-	jbuilder clean
+	dune clean
 
 reindent:
 	ocp-indent --inplace **/*.ml*

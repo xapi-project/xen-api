@@ -1,7 +1,5 @@
-open Lwt
 
 module Impl = Vhd_format.F.From_file(Vhd_format_lwt.IO)
-open Impl
 open Vhd_format.F
 open Vhd_format_lwt.IO
 

@@ -14,7 +14,6 @@
 
 let project_url = "http://github.com/djs55/ocaml-vhd"
 
-open Common
 open Cmdliner
 
 (* Help sections common to all commands *)
