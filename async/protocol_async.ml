@@ -19,9 +19,6 @@ let whoami () = Printf.sprintf "%s:%d"
 
 open Core
 open Async
-open Message_switch_core.Protocol
-open Cohttp
-open Cohttp_async
 
 
 module M = struct
@@ -42,7 +39,7 @@ module M = struct
     let connect () =
       let s = Socket.create Socket.Type.unix in
       Monitor.try_with ~extract_exn:true (fun () -> Socket.connect s (Socket.Address.Unix.create path)) >>= function
-      | Ok x ->
+      | Ok _x ->
         let fd = Socket.fd s in
         let reader = Reader.create fd in
         let writer = Writer.create fd in
@@ -111,7 +108,6 @@ module M = struct
   end
 end
 
-let whoami = M.whoami
 
 module Client = Message_switch_core.Make.Client(M)
 module Server = Message_switch_core.Make.Server(M)

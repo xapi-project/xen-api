@@ -11,7 +11,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library (
   (name message_switch_core)
   (public_name message-switch-core)
-  (flags (:standard -w -39))
+  (flags (:standard -w -39-33-27))
   (libraries (
     cohttp
     sexplib

@@ -15,7 +15,6 @@
  *)
 open Sexplib.Std
 open Lwt
-open Cohttp
 open Logging
 open Clock
 open Mswitch
@@ -69,7 +68,6 @@ module Lwt_result = struct
   let (>>=) m f = m >>= fun x -> f (get_ok x)
 end
 
-open Cohttp_lwt_unix
 
 let make_server config =
   let open Config in
@@ -228,7 +226,7 @@ let make_server config =
       (* If it's the "blocking poll", block first and then call the implementation
          with the new queue state post-blocking *)
       ( match session, request with
-        | Some session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
+        | Some _session, In.Transfer { In.from = from; timeout = timeout; queues = names } ->
           let time = Int64.add (ns ()) (Int64.of_float (timeout *. 1e9)) in
           List.iter (record_transfer time) names;
           let from = match from with None -> -1L | Some x -> Int64.of_string x in
@@ -301,7 +299,7 @@ let make_server config =
 exception Not_a_directory of string
 exception Does_not_exist of string
 
-let main ({ Config.path; pidfile } as config) =
+let main (Config.{pidfile ; _} as config) =
   info "Starting with configuration:";
   info "%s" (Sexplib.Sexp.to_string (Config.sexp_of_t config));
   try

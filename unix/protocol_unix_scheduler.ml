@@ -174,7 +174,7 @@ let process_expired () =
     (fun i ->
        try
          i.fn ()
-       with e -> ()
+       with _e -> ()
     ) expired;
   expired <> [] (* true if work was done *)
 

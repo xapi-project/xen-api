@@ -12,7 +12,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (name switch_main)
   (public_name message-switch)
   (package message-switch)
-  (flags (:standard -w -39))
+  (flags (:standard -w -39-37-32))
   (libraries (
     message-switch-lwt
     message-switch-unix

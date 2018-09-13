@@ -164,7 +164,7 @@ let diagnostics common_opts =
                Printf.printf "       - %s appears to have crashed\n" name
         ) (snd q).Diagnostics.queue_contents in
 
-    let expected_transient_queues (name, q) =
+    let expected_transient_queues (_name, q) =
       List.fold_left (fun acc (_, entry) -> match entry.Entry.message.Message.kind with
         | Message.Response _ -> acc
         | Message.Request name -> name :: acc
@@ -288,10 +288,10 @@ let mscgen common_opts =
     let from_arrow arrow queue connection =
       Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (quote queue) arrow (quote connection) body in
     match e.Event.message with
-    | Event.Message(_, { Message.kind = Message.Response _ }) ->
+    | Event.Message(_, { Message.kind = Message.Response _ ; _}) ->
       (* Opt.iter (to_arrow "<<" e.Event.queue) e.Event.output; *)
       Opt.iter (from_arrow "<<" e.Event.queue) e.Event.input
-    | Event.Message(_, { Message.kind = Message.Request _ }) ->
+    | Event.Message(_, { Message.kind = Message.Request _ ; _}) ->
       Opt.iter (from_arrow "=>" e.Event.queue) e.Event.output;
       Opt.iter (to_arrow "=>" e.Event.queue) e.Event.input;
     | Event.Ack _ -> () in
@@ -336,15 +336,15 @@ let tail common_opts follow =
       let secs = function
         | None -> ""
         | Some x -> Printf.sprintf "%.1f" (Int64.(to_float (div x 1_000_000_000L)) /. 1000.) in
-      let rows = List.map (fun (id, event) ->
+      let rows = List.map (fun (_id, event) ->
           let time = relative_time event in
           let m = event.Event.message in
           [ Printf.sprintf "%.1f" time ] @ (match m with
-              | Event.Message(_, { Message.kind = Message.Response _ }) ->
+              | Event.Message(_, { Message.kind = Message.Response _ ; _}) ->
                 [ endpoint event.Event.output; "<-"; event.Event.queue; "<-"; endpoint event.Event.input ]
-              | Event.Message(_, { Message.kind = Message.Request _ }) ->
+              | Event.Message(_, { Message.kind = Message.Request _ ; _}) ->
                 [ endpoint event.Event.input; "->"; event.Event.queue; "->"; endpoint event.Event.output ]
-              | Event.Ack id ->
+              | Event.Ack _id ->
                 [ endpoint event.Event.input; "->"; event.Event.queue; ""; "" ]
             ) @ [ secs event.Event.processing_time; message m ]
         ) trace.Out.events in

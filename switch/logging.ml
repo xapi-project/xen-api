@@ -15,7 +15,6 @@
  *)
 open Sexplib.Std
 open Lwt
-open Printf
 
 type logger = {
   stream: string Lwt_stream.t;

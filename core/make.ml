@@ -165,7 +165,7 @@ module Client = functor(M: S.BACKEND) -> struct
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
         match transfer.Out.messages with
         | [] -> loop from
-        | m :: ms ->
+        | _m :: _ms ->
           iter_s
             (fun (i, m) ->
                M.Mutex.with_lock requests_m (fun () ->
@@ -186,7 +186,7 @@ module Client = functor(M: S.BACKEND) -> struct
                        loop events_conn
                      end else begin
                        Printf.printf "no wakener for id %s, %Ld\n%!" (fst i) (snd i);
-                       Hashtbl.iter (fun k v ->
+                       Hashtbl.iter (fun k _v ->
                          Printf.printf "  have wakener id %s, %Ld\n%!" (fst k) (snd k)
                        ) wakener;
                        return (`Ok ())
@@ -261,11 +261,11 @@ module Client = functor(M: S.BACKEND) -> struct
     return (`Ok ())
 
   let destroy ~t ~queue:queue_name () =
-    Connection.rpc t.requests_conn (In.Destroy queue_name) >>|= fun result ->
+    Connection.rpc t.requests_conn (In.Destroy queue_name) >>|= fun _result ->
     return (`Ok ())
 
   let shutdown ~t () =
-    Connection.rpc t.requests_conn In.Shutdown >>|= fun result ->
+    Connection.rpc t.requests_conn In.Shutdown >>|= fun _result ->
     return (`Ok ())
 end
 
@@ -338,7 +338,7 @@ module Server = functor(M: S.BACKEND) -> struct
         return (`Ok ())
       end else begin
         message >>= function
-        | `Error e ->
+        | `Error _e ->
           M.connect port >>= fun c ->
           Connection.rpc c (In.Login token) >>|= fun (_: string) ->
           loop c from
@@ -346,7 +346,7 @@ module Server = functor(M: S.BACKEND) -> struct
           let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
           begin match transfer.Out.messages with
             | [] -> loop c from
-            | m :: ms ->
+            | _ :: _ ->
               iter
                 (fun (i, m) ->
                    process m.Message.payload >>= fun response ->
@@ -370,7 +370,4 @@ module Server = functor(M: S.BACKEND) -> struct
     return (`Ok t)
 end
 
-(* The following type is deprecated, used only by legacy Unix clients *)
-type ('a, 'b) result =
-  | Ok of 'a
-  | Error of 'b
+

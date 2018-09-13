@@ -15,7 +15,6 @@
  *)
 
 open Lwt
-open Cohttp
 open Logging
 open Clock
 
@@ -95,18 +94,18 @@ let process_request conn_id queues session request = match session, request with
     return (None, Out.Get txt)
   | None, _ ->
     return (None, Out.Not_logged_in)
-  | Some session, In.List (prefix, `All) ->
+  | Some _session, In.List (prefix, `All) ->
     return (None, Out.List (Q.Directory.list queues prefix))
-  | Some session, In.List (prefix, `Alive) ->
+  | Some _session, In.List (prefix, `Alive) ->
     return (None, Out.List (
       Q.Directory.list queues prefix
       |> List.filter (fun n -> get_next_transfer_expected n <> None)
     ))
-  | Some session, In.CreatePersistent name ->
+  | Some _session, In.CreatePersistent name ->
     return (Some (Q.Directory.add queues name), Out.Create name)
   | Some session, In.CreateTransient name ->
     return (Some (Q.Directory.add queues ~owner:session name), Out.Create name)
-  | Some session, In.Destroy name ->
+  | Some _session, In.Destroy name ->
     return (Some (Q.Directory.remove queues name), Out.Destroy)
   | Some session, In.Ack (name, id) ->
     Traceext.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Ack (name, id); processing_time = None }));
@@ -146,7 +145,7 @@ let process_request conn_id queues session request = match session, request with
         Traceext.add (Event.({time = Unix.gettimeofday (); input = Some session; queue = name; output = None; message = Message (id, data); processing_time = None }));
         return (Some op, Out.Send (Some id))
     end
-  | Some session, In.Shutdown ->
+  | Some _session, In.Shutdown ->
     info "Received shutdown command";
     let (_: unit Lwt.t) =
       Lwt_unix.sleep 1.

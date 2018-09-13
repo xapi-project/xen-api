@@ -76,8 +76,8 @@ module In = struct
     | Get of string list         (** return a web interface resource *)
   [@@deriving rpc]
 
-  let slash = Re_str.regexp_string "/"
-  let split = Re_str.split_delim slash
+  let slash = Re.Str.regexp_string "/"
+  let split = Re.Str.split_delim slash
 
   let of_request body meth path =
     match body, meth, split path with
@@ -232,9 +232,6 @@ module Out = struct
       `OK, x
 end
 
-exception Failed_to_read_response
 
-exception Unsuccessful_response
 
-exception Timeout
 
