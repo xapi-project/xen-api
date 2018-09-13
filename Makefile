@@ -4,7 +4,7 @@ build:
 	dune build @install
 
 release:
-	dune build @install
+	dune build @install --profile=release
 
 install:
 	dune install
