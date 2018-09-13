@@ -2062,8 +2062,8 @@ let update_task ~__context queue_name id =
       if not task_t.Task.cancellable then begin
         let allowed_operations = Db.Task.get_allowed_operations ~__context ~self in
         if List.mem `cancel allowed_operations then begin
-          let allowed_operations' = List.filter (fun x -> x != `cancel) allowed_operations in
-          debug "Set task %s to not cancellable." (Ref.string_of self);
+          let allowed_operations' = List.filter (fun x -> x <> `cancel) allowed_operations in
+          debug "Set task %s to not cancellable." (Ref.really_pretty_and_small self);
           Db.Task.set_allowed_operations ~__context ~self ~value:allowed_operations'
         end
       end
