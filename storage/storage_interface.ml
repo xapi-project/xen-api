@@ -99,6 +99,7 @@ end = struct
 end
 
 type sr = Sr.t
+let sr_pp : Format.formatter -> sr -> unit = fun ppf sr -> Format.fprintf ppf "%s" (Sr.string_of sr)
 
 (** Primary key identifying a VDI within an SR *)
 module Vdi : sig
@@ -114,6 +115,7 @@ end = struct
 end
 
 type vdi = Vdi.t
+let vdi_pp : Format.formatter -> vdi -> unit = fun ppf vdi -> Format.fprintf ppf "%s" (Vdi.string_of vdi)
 
 (** Opaque identifier used by the client to identify a particular operation *)
 type debug_info = string [@@deriving rpcty]
