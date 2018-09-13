@@ -59,7 +59,7 @@ let attach_and_activate task vm dp sr vdi read_write =
   result
 
 let deactivate task dp sr vdi =
-  debug "Deactivating disk %s %s" sr vdi;
+  debug "Deactivating disk %s %s" (Sr.string_of sr) (Vdi.string_of vdi);
   Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
     (transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi))
 
@@ -90,7 +90,7 @@ let get_disk_by_name task path =
   match Stdext.Xstringext.String.split ~limit:2 '/' path with
   | [ sr; vdi ] ->
     info "Processing disk SR=%s VDI=%s" sr vdi;
-    sr, vdi
+    (Sr.of_string sr), (Vdi.of_string vdi)
   | _ ->
     error "Failed to parse VDI name %s (expected SR/VDI)" path;
     raise (Storage_interface.Storage_error (Vdi_does_not_exist path))
