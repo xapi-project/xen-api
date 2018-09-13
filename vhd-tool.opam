@@ -8,28 +8,24 @@ tags: [
   "org:mirage"
   "org:xapi-project"
 ]
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]
+build: [[ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
-  "alcotest" {test}
-  "alcotest-lwt" {test}
-  "base-threads"
-  "cmdliner"
-  "jbuilder" {build & >= "1.0+beta10"}
-  "cohttp" {>= "0.22.0"}
-  "cohttp-lwt" {>= "0.22.0"}
-  "cstruct" {>= "3.0.0"}
-  "io-page-unix"
-  "lwt" {>= "3.0.0"}
+  "dune" {build}
+
+  "cohttp-lwt"
+  "cstruct"
+  "io-page"
+  "lwt"
   "nbd-lwt-unix"
+  "ocaml-migrate-parsetree"
+  "ppx_deriving_rpc"
   "re"
+  "rpclib"
   "sha"
-  "ssl"
-  "tar-unix"
-  "uri"
-  "vhd-format" {>= "0.7.0"}
+  "tar"
+  "vhd-format"
   "vhd-format-lwt"
-  "xapi-idl"
   "xapi-tapctl"
   "xenstore"
   "xenstore_transport"
