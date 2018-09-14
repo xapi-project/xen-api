@@ -24,8 +24,8 @@ end
 
 let sample_send_state = Storage_migrate.State.Send_state.({
     url = "url";
-    dest_sr = "dest_sr";
-    remote_info = Some {dp="remote_dp"; vdi="mirror_vdi"; url="remote_url"};
+    dest_sr = Storage_interface.Sr.of_string "dest_sr";
+    remote_info = Some {dp="remote_dp"; vdi=Storage_interface.Vdi.of_string "mirror_vdi"; url="remote_url"};
     local_dp = "local_dp";
     tapdev = Some (Tapctl.tapdev_of_rpc
         (Rpc.Dict ["minor", Rpc.Int 0L; "tapdisk_pid", Rpc.Int 0L]));
@@ -34,20 +34,20 @@ let sample_send_state = Storage_migrate.State.Send_state.({
   })
 
 let sample_receive_state = Storage_migrate.State.Receive_state.({
-    sr = "my_sr";
-    dummy_vdi = "dummy_vdi";
-    leaf_vdi = "leaf_vdi";
+    sr = Storage_interface.Sr.of_string "my_sr";
+    dummy_vdi = Storage_interface.Vdi.of_string "dummy_vdi";
+    leaf_vdi = Storage_interface.Vdi.of_string "leaf_vdi";
     leaf_dp = "leaf_dp";
-    parent_vdi = "parent_vdi";
-    remote_vdi = "remote_vdi";
+    parent_vdi = Storage_interface.Vdi.of_string "parent_vdi";
+    remote_vdi = Storage_interface.Vdi.of_string "remote_vdi";
   })
 
 let sample_copy_state = Storage_migrate.State.Copy_state.({
     base_dp = "base_dp";
     leaf_dp = "leaf_dp";
     remote_dp = "remote_dp";
-    dest_sr = "dest_sr";
-    copy_vdi = "copy_vdi";
+    dest_sr = Storage_interface.Sr.of_string "dest_sr";
+    copy_vdi = Storage_interface.Vdi.of_string "copy_vdi";
     remote_url = "remote_url";
   })
 

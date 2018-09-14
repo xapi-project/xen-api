@@ -25,25 +25,7 @@ let assert_snapshot_of_is_not_null ~__context ~vdi_snapshot =
     "VDI snapshot's `snapshot_of` reference has become null"
     true (vdi <> Ref.null)
 
-let default_vdi_info = {
-  Storage_interface.vdi="";
-  uuid=None;
-  content_id="";
-  name_label="";
-  name_description="";
-  ty="user";
-  metadata_of_pool="";
-  is_a_snapshot=false;
-  snapshot_time=Xapi_stdext_date.Date.to_string Xapi_stdext_date.Date.never;
-  snapshot_of="";
-  read_only=false;
-  cbt_enabled=false;
-  virtual_size=0L;
-  physical_utilisation=0L;
-  persistent=true;
-  sharable=true;
-  sm_config=[];
-}
+let default_vdi_info = Storage_interface.default_vdi_info
 
 (* CA-254515 *)
 (* Tests that a single VDI snapshot from the SR is properly updating the
@@ -62,10 +44,10 @@ let test_update_existing_snapshot () =
 
   (* create mock snapshot record which we would get from an SR scan *)
   let vdi_snapshot_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_snapshot_uuid;
+    vdi = Storage_interface.Vdi.of_string vdi_snapshot_uuid;
     uuid = Some vdi_snapshot_uuid;
     is_a_snapshot = true;
-    snapshot_of = vdi_uuid;
+    snapshot_of = Storage_interface.Vdi.of_string vdi_uuid;
   }) in
 
   (* attempt to reproduce the issue by updating the snapshot *)
@@ -97,13 +79,13 @@ let test_update_new_vdi_and_snapshot () =
 
   (* create mock VDI/snapshot records which we would get from an SR scan *)
   let vdi_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_uuid;
+    vdi = Storage_interface.Vdi.of_string vdi_uuid;
     uuid = Some vdi_uuid;
   }) in
   let vdi_snapshot_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_snapshot_uuid;
+    vdi = Storage_interface.Vdi.of_string vdi_snapshot_uuid;
     uuid = Some vdi_snapshot_uuid;
-    snapshot_of = vdi_uuid;
+    snapshot_of = Storage_interface.Vdi.of_string vdi_uuid;
     is_a_snapshot = true;
   }) in
 
@@ -127,7 +109,7 @@ let test_sharable_field_updated_for_existing_vdi () =
 
   (* SR.scan returned the correct vdi_info with the up-to-date sharable field *)
   let vdi_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_uuid;
+    vdi = Storage_interface.Vdi.of_string vdi_uuid;
     uuid = Some vdi_uuid;
     sharable = true;
   }) in
@@ -148,7 +130,7 @@ let test_sharable_field_correct_for_new_vdi () =
   (* We do not have this VDI in xapi's database. SR.scan returned it with the
      correct vdi_info containing the up-to-date sharable field. *)
   let vdi_sr_record = Storage_interface.({ default_vdi_info with
-    vdi = vdi_uuid;
+    vdi = Storage_interface.Vdi.of_string vdi_uuid;
     uuid = Some vdi_uuid;
     sharable = true;
   }) in

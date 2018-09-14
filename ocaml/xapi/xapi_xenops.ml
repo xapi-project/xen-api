@@ -85,14 +85,14 @@ let xenops_of_xenapi_power_state = function
   | `Suspended -> Suspended
   | `Paused -> Paused
 
-let xenops_vdi_locator_of_strings sr_uuid vdi_location =
-  Printf.sprintf "%s/%s" sr_uuid vdi_location
+let xenops_vdi_locator_of sr vdi =
+  Printf.sprintf "%s/%s" (Storage_interface.Sr.string_of sr) (Storage_interface.Vdi.string_of vdi)
 
 let xenops_vdi_locator ~__context ~self =
   let sr = Db.VDI.get_SR ~__context ~self in
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
   let vdi_location = Db.VDI.get_location ~__context ~self in
-  xenops_vdi_locator_of_strings sr_uuid vdi_location
+  xenops_vdi_locator_of (Storage_interface.Sr.of_string sr_uuid) (Storage_interface.Vdi.of_string vdi_location)
 
 let disk_of_vdi ~__context ~self =
   try Some (VDI (xenops_vdi_locator ~__context ~self)) with _ -> None

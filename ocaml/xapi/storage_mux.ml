@@ -21,6 +21,9 @@ open Stdext
 open Threadext
 open Storage_interface
 
+let s_of_sr = Sr.string_of
+let s_of_vdi = Vdi.string_of
+
 type plugin = {
   processor: processor;
   backend_domain: string;
@@ -39,14 +42,14 @@ let register sr rpc d info =
   Mutex.execute m
     (fun () ->
        Hashtbl.replace plugins sr { processor = debug_printer rpc; backend_domain = d; query_result = info };
-       debug "register SR %s (currently-registered = [ %s ])" sr (String.concat ", " (Hashtbl.fold (fun sr _ acc -> sr :: acc) plugins []))
+       debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr) (String.concat ", " (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins []))
     )
 
 let unregister sr =
   Mutex.execute m
     (fun () ->
        Hashtbl.remove plugins sr;
-       debug "unregister SR %s (currently-registered = [ %s ])" sr (String.concat ", " (Hashtbl.fold (fun sr _ acc -> sr :: acc) plugins []))
+       debug "unregister SR %s (currently-registered = [ %s ])" (s_of_sr sr) (String.concat ", " (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins []))
     )
 
 let query_result_of_sr sr =
@@ -62,8 +65,8 @@ let of_sr sr =
   Mutex.execute m
     (fun () ->
        if not (Hashtbl.mem plugins sr) then begin
-         error "No storage plugin for SR: %s (currently-registered = [ %s ])" sr (String.concat ", " (Hashtbl.fold (fun sr _ acc -> sr :: acc) plugins []));
-         raise (Storage_error (No_storage_plugin_for_sr sr))
+         error "No storage plugin for SR: %s (currently-registered = [ %s ])" (s_of_sr sr) (String.concat ", " (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins []));
+         raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
        end else (Hashtbl.find plugins sr).processor
     )
 
@@ -97,9 +100,10 @@ module Mux = struct
   let forall f =
     let combine results =
       let all = List.fold_left (fun acc (sr, result) ->
-          (Printf.sprintf "For SR: %s" sr :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
+          (Printf.sprintf "For SR: %s" (s_of_sr sr) :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
       SMSuccess (String.concat "\n" all) in
-    match fail_or combine (multicast f) with
+    let m = multicast f in 
+    match fail_or combine m with
     | SMSuccess x -> x
     | SMFailure e -> raise e
 
@@ -266,13 +270,14 @@ module Mux = struct
     let open Xstringext in
     match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
     | [ sr; name ] ->
+      let sr = Storage_interface.Sr.of_string sr in
       let module C = StorageAPI(Idl.GenClientExnRpc(struct let rpc = of_sr sr end)) in
       sr, C.VDI.get_by_name dbg sr name
     | [ name ] ->
       (match success_or choose (multicast (fun sr rpc ->
            let module C = StorageAPI(Idl.GenClientExnRpc(struct let rpc = of_sr sr end)) in
            sr, C.VDI.get_by_name dbg sr name
-         )) with SMSuccess x -> x
+         )) with SMSuccess (sr,vdi) -> (sr,vdi)
                | SMFailure e -> raise e)
     | _ ->
       raise (Storage_error (Vdi_does_not_exist name))
@@ -295,8 +300,8 @@ module Mux = struct
   module Policy = struct
     let get_backend_vm () ~dbg ~vm ~sr ~vdi =
       if not(Hashtbl.mem plugins sr) then begin
-        error "No registered plugin for sr = %s" sr;
-        raise (Storage_error (No_storage_plugin_for_sr sr))
+        error "No registered plugin for sr = %s" (s_of_sr sr);
+        raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
       end else (Hashtbl.find plugins sr).backend_domain
   end
 

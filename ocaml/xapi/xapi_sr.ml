@@ -454,7 +454,7 @@ let update ~__context ~sr =
   let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   transform_storage_exn
     (fun () ->
-       let sr' = Db.SR.get_uuid ~__context ~self:sr in
+       let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
        let sr_info = C.SR.stat (Ref.string_of task) sr' in
        Db.SR.set_name_label ~__context ~self:sr ~value:sr_info.name_label;
        Db.SR.set_name_description ~__context ~self:sr ~value:sr_info.name_description;
@@ -465,7 +465,7 @@ let update ~__context ~sr =
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
-module StringMap = Map.Make(struct type t = string let compare = compare end)
+module VdiMap = Map.Make(struct type t = Storage_interface.Vdi.t let compare x y = let open Storage_interface.Vdi in compare (string_of x) (string_of y)  end)
 
 (* Update VDI records in the database to be in sync with new information
    from a storage backend. *)
@@ -475,26 +475,26 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   let sr = sr' in
   let db_vdi_map = List.fold_left
       (fun m (r, v) ->
-         StringMap.add v.API.vDI_location (r, v) m
-      ) StringMap.empty
+         VdiMap.add (Vdi.of_string v.API.vDI_location) (r, v) m
+      ) VdiMap.empty
       db_vdis in
   let scan_vdi_map = List.fold_left
-      (fun m v -> StringMap.add v.vdi v m) StringMap.empty vdi_infos in
-  let to_delete = StringMap.merge (fun loc db scan -> match loc, db, scan with
+      (fun m v -> VdiMap.add v.vdi v m) VdiMap.empty vdi_infos in
+  let to_delete = VdiMap.merge (fun loc db scan -> match loc, db, scan with
       | loc, Some (r, v), None -> Some r
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
-  let to_create = StringMap.merge (fun loc db scan -> match loc, db, scan with
+  let to_create = VdiMap.merge (fun loc db scan -> match loc, db, scan with
       | loc, None, Some v -> Some v
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
 
   let find_vdi db_vdi_map loc =
-    if StringMap.mem loc db_vdi_map
-    then fst (StringMap.find loc db_vdi_map)
+    if VdiMap.mem loc db_vdi_map
+    then fst (VdiMap.find loc db_vdi_map)
     else
       (* CA-254515: Also check for the snapshoted VDI in the database *)
-      try Db.VDI.get_by_uuid ~__context ~uuid:loc
+      try Db.VDI.get_by_uuid ~__context ~uuid:(Storage_interface.Vdi.string_of loc)
       with _ -> Ref.null
   in
 
@@ -502,13 +502,13 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
     List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
 
   (* Delete ones which have gone away *)
-  StringMap.iter
+  VdiMap.iter
     (fun loc r ->
        debug "Forgetting VDI: %s" (Ref.string_of r);
        Db.VDI.destroy ~__context ~self:r
     ) to_delete;
   (* Create the new ones *)
-  let db_vdi_map = StringMap.fold
+  let db_vdi_map = VdiMap.fold
       (fun loc vdi m ->
          let ref = Ref.make () in
          let uuid = match vdi.uuid with
@@ -528,22 +528,22 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~sharable:vdi.sharable
            ~read_only:vdi.read_only
            ~xenstore_data:[] ~sm_config:[]
-           ~other_config:[] ~storage_lock:false ~location:vdi.vdi
+           ~other_config:[] ~storage_lock:false ~location:(Vdi.string_of vdi.vdi)
            ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
            ~on_boot:`persist ~allow_caching:false
            ~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
            ~metadata_latest:false
            ~is_tools_iso:(get_is_tools_iso vdi)
            ~cbt_enabled:vdi.cbt_enabled;
-         StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
+         VdiMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
       ) to_create db_vdi_map in
   (* Update the ones which already exist, and the ones which were just created
      and may now potentially have null `snapshot_of` references (CA-254515) *)
-  let to_update = StringMap.merge (fun loc db scan -> match loc, db, scan with
+  let to_update = VdiMap.merge (fun loc db scan -> match loc, db, scan with
       | loc, Some (r, v), Some vi -> Some (r, v, vi)
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
-  StringMap.iter
+  VdiMap.iter
     (fun loc (r, v, (vi: vdi_info)) ->
        if v.API.vDI_name_label <> vi.name_label then begin
          debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
@@ -612,10 +612,10 @@ let scan ~__context ~sr =
   transform_storage_exn
     (fun () ->
        let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-       let vs = C.SR.scan (Ref.string_of task) sr_uuid in
+       let vs = C.SR.scan (Ref.string_of task) (Storage_interface.Sr.of_string sr_uuid) in
        let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
        update_vdis ~__context ~sr:sr db_vdis vs;
-       let sr_info = C.SR.stat (Ref.string_of task) sr_uuid in
+       let sr_info = C.SR.stat (Ref.string_of task) (Storage_interface.Sr.of_string sr_uuid) in
        let virtual_allocation = List.fold_left Int64.add 0L (List.map (fun v -> v.Storage_interface.virtual_size) vs) in
        Db.SR.set_virtual_allocation ~__context ~self:sr ~value:virtual_allocation;
        Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
@@ -644,7 +644,7 @@ let set_name_label ~__context ~sr ~value =
   let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.SR.set_name_label (Ref.string_of task) sr' value
+       C.SR.set_name_label (Ref.string_of task) (Storage_interface.Sr.of_string sr') value
     );
   update ~__context ~sr
 
@@ -655,7 +655,7 @@ let set_name_description ~__context ~sr ~value =
   let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.SR.set_name_description (Ref.string_of task) sr' value
+       C.SR.set_name_description (Ref.string_of task) (Storage_interface.Sr.of_string sr') value
     );
   update ~__context ~sr
 

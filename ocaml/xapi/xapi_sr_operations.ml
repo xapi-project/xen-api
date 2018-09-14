@@ -227,7 +227,7 @@ module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc (struct let rpc = St
 let sr_health_check ~__context ~self =
   if Helpers.i_am_srmaster ~__context ~sr:self then
     let dbg = Ref.string_of (Context.get_task_id __context) in
-    let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
+    let info = C.SR.stat dbg (Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self)) in
     if info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering then begin
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           let task = Client.Task.create ~rpc ~session_id
@@ -236,7 +236,7 @@ let sr_health_check ~__context ~self =
           let _ = Thread.create (fun () ->
               let rec loop () =
                 Thread.delay 30.;
-                let info = C.SR.stat dbg (Db.SR.get_uuid ~__context ~self) in
+                let info = C.SR.stat dbg (Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self)) in
                 if not (Db.Task.get_status ~__context ~self:task = `cancelling) &&
                    info.Storage_interface.clustered && info.Storage_interface.health = Storage_interface.Recovering
                 then

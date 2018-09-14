@@ -480,7 +480,7 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
          let snapshot_pairs =
            List.map
              (fun (local_snapshot_ref, snapshot_mirror) ->
-                Db.VDI.get_uuid ~__context ~self:local_snapshot_ref,
+                Storage_interface.Vdi.of_string (Db.VDI.get_uuid ~__context ~self:local_snapshot_ref),
                 snapshot_mirror.mr_remote_vdi)
              snapshots
          in
@@ -493,8 +493,8 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map =
 type vdi_mirror = {
   vdi : [ `VDI ] API.Ref.t;           (* The API reference of the local VDI *)
   dp : string;                        (* The datapath the VDI will be using if the VM is running *)
-  location : string;                  (* The location of the VDI in the current SR *)
-  sr : string;                        (* The VDI's current SR uuid *)
+  location : Storage_interface.Vdi.t; (* The location of the VDI in the current SR *)
+  sr : Storage_interface.Sr.t;        (* The VDI's current SR uuid *)
   xenops_locator : string;            (* The 'locator' xenops uses to refer to the VDI on the current host *)
   size : Int64.t;                     (* Size of the VDI *)
   snapshot_of : [ `VDI ] API.Ref.t;   (* API's snapshot_of reference *)
@@ -543,9 +543,9 @@ let get_vdi_mirror __context vm vdi do_mirror =
   let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:vdi in
   let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
   let xenops_locator = Xapi_xenops.xenops_vdi_locator ~__context ~self:vdi in
-  let location = Db.VDI.get_location ~__context ~self:vdi in
+  let location = Storage_interface.Vdi.of_string (Db.VDI.get_location ~__context ~self:vdi) in
   let dp = Storage_access.presentative_datapath_of_vbd ~__context ~vm ~vdi in
-  let sr = Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi) in
+  let sr = Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self:(Db.VDI.get_SR ~__context ~self:vdi)) in
   {vdi; dp; location; sr; xenops_locator; size; snapshot_of; do_mirror}
 
 (* We ignore empty or CD VBDs - nothing to do there. Possible redundancy here:
@@ -564,6 +564,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
   let open Storage_access in
   let dest_sr_ref = List.assoc vconf.vdi vdi_map in
   let dest_sr_uuid = XenAPI.SR.get_uuid remote.rpc remote.session dest_sr_ref in
+  let dest_sr = Storage_interface.Sr.of_string dest_sr_uuid in
 
   (* Plug the destination shared SR into destination host and pool master if unplugged.
      Plug the local SR into destination host only if unplugged *)
@@ -601,7 +602,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
      use case is for a shared raw iSCSI SR (same uuid, same VDI uuid) *)
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vconf.vdi in
   let mirror = if !Xapi_globs.relax_xsm_sr_check then
-      if (dest_sr_uuid = vconf.sr) then
+      if (dest_sr = vconf.sr) then
         begin
           (* Check if the VDI uuid already exists in the target SR *)
           if (dest_vdi_exists_on_sr vdi_uuid dest_sr_ref true) then
@@ -612,7 +613,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
       else
         true
     else
-      (not is_intra_pool) || (dest_sr_uuid <> vconf.sr)
+      (not is_intra_pool) || (dest_sr <> vconf.sr)
   in
 
   let with_new_dp cont =
@@ -624,13 +625,14 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
 
   let with_remote_vdi remote_vdi cont =
     debug "Executing remote scan to ensure VDI is known to xapi";
+    let remote_vdi_str = Storage_interface.Vdi.string_of remote_vdi in
     XenAPI.SR.scan remote.rpc remote.session dest_sr_ref;
-    let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" remote_vdi (Ref.string_of dest_sr_ref) in
+    let query = Printf.sprintf "(field \"location\"=\"%s\") and (field \"SR\"=\"%s\")" remote_vdi_str (Ref.string_of dest_sr_ref) in
     let vdis = XenAPI.VDI.get_all_records_where remote.rpc remote.session query in
     let remote_vdi_ref = match vdis with
-      | [] -> raise (Api_errors.Server_error(Api_errors.vdi_location_missing, [Ref.string_of dest_sr_ref; remote_vdi]))
+      | [] -> raise (Api_errors.Server_error(Api_errors.vdi_location_missing, [Ref.string_of dest_sr_ref; remote_vdi_str]))
       | h :: [] -> debug "Found remote vdi reference: %s" (Ref.string_of (fst h)); fst h
-      | _ -> raise (Api_errors.Server_error(Api_errors.location_not_unique, [Ref.string_of dest_sr_ref; remote_vdi])) in
+      | _ -> raise (Api_errors.Server_error(Api_errors.location_not_unique, [Ref.string_of dest_sr_ref; remote_vdi_str])) in
     try cont remote_vdi_ref
     with e ->
       (try XenAPI.VDI.destroy remote.rpc remote.session remote_vdi_ref with _ -> error "Failed to destroy remote VDI");
@@ -641,17 +643,17 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
       mr_mirrored = mirror;
       mr_local_sr = vconf.sr;
       mr_local_vdi = vconf.location;
-      mr_remote_sr = dest_sr_uuid;
+      mr_remote_sr = dest_sr;
       mr_remote_vdi = remote_vdi;
       mr_local_xenops_locator = vconf.xenops_locator;
-      mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of_strings dest_sr_uuid remote_vdi;
+      mr_remote_xenops_locator = Xapi_xenops.xenops_vdi_locator_of dest_sr remote_vdi;
       mr_local_vdi_reference = vconf.vdi;
       mr_remote_vdi_reference = remote_vdi_reference } in
 
   let mirror_to_remote new_dp =
     let task =
       if not vconf.do_mirror then
-        SMAPI.DATA.copy dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr_uuid
+        SMAPI.DATA.copy dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr
       else begin
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
@@ -661,8 +663,9 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
            It's not necessary for copy which will take care of that itself. *)
         ignore(SMAPI.VDI.attach2 dbg new_dp vconf.sr vconf.location read_write);
         SMAPI.VDI.activate dbg new_dp vconf.sr vconf.location;
-        ignore(Storage_access.register_mirror __context vconf.location);
-        SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr_uuid
+        let id = Storage_migrate.State.mirror_id_of (vconf.sr,vconf.location) in (* Layering violation!! *)
+        ignore(Storage_access.register_mirror __context id);
+        SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr
       end in
 
     let mapfn x =
@@ -692,7 +695,10 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         Some mirrorid, m.Mirror.dest_vdi in
 
     so_far := Int64.add !so_far vconf.size;
-    debug "Local VDI %s %s to %s" vconf.location (if vconf.do_mirror then "mirrored" else "copied") remote_vdi;
+    debug "Local VDI %s %s to %s"
+      (Storage_interface.Vdi.string_of vconf.location)
+      (if vconf.do_mirror then "mirrored" else "copied")
+      (Storage_interface.Vdi.string_of remote_vdi);
     mirror_id, remote_vdi in
 
   let post_mirror mirror_id mirror_record =
@@ -1142,9 +1148,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
     let task = Context.get_task_id __context in
     let oc = Db.Task.get_other_config ~__context ~self:task in
     if List.mem_assoc "mirror_failed" oc then begin
-      let failed_vdi = List.assoc "mirror_failed" oc in
+      let failed_vdi = List.assoc "mirror_failed" oc |> Storage_interface.Vdi.of_string in
       let vconf = List.find (fun vconf -> vconf.location=failed_vdi) vms_vdis in
-      debug "Mirror failed for VDI: %s" failed_vdi;
+      debug "Mirror failed for VDI: %s" (Storage_interface.Vdi.string_of failed_vdi);
       raise (Api_errors.Server_error(Api_errors.mirror_failed,[Ref.string_of vconf.vdi]))
     end;
     TaskHelper.exn_if_cancelling ~__context;

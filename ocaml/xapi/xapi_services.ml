@@ -168,7 +168,7 @@ let put_handler (req: Http.Request.t) s _ =
        | "" :: services :: "plugin" :: name :: _ when services = _services ->
          http_proxy_to_plugin req s name
        | [ ""; services; "SM"; "data"; sr; vdi ] when services = _services ->
-         let vdi, _ = Storage_access.find_vdi ~__context sr vdi in
+         let vdi, _ = Storage_access.find_vdi ~__context (Storage_interface.Sr.of_string sr) (Storage_interface.Vdi.of_string vdi) in
          ignore(Import_raw_vdi.import (Some vdi) req s ())
        | [ ""; services; "SM"; "nbd"; sr; vdi; dp ] when services = _services ->
          Storage_migrate.nbd_handler req s sr vdi dp

@@ -133,7 +133,7 @@ let plug ~__context ~self =
         let dbg = Ref.string_of (Context.get_task_id __context) in
         let device_config = Db.PBD.get_device_config ~__context ~self in
         Storage_access.transform_storage_exn
-          (fun () -> C.SR.attach dbg (Db.SR.get_uuid ~__context ~self:sr) device_config);
+          (fun () -> C.SR.attach dbg (Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self:sr)) device_config);
         Db.PBD.set_currently_attached ~__context ~self ~value:true;
 
         Xapi_sr_operations.sr_health_check ~__context ~self:sr;
@@ -189,7 +189,7 @@ let unplug ~__context ~self =
       let dbg = Ref.string_of (Context.get_task_id __context) in
       let uuid = Db.SR.get_uuid ~__context ~self:sr in
       Storage_access.transform_storage_exn
-        (fun () -> C.SR.detach dbg uuid);
+        (fun () -> C.SR.detach dbg (Storage_interface.Sr.of_string uuid));
 
       Storage_access.unbind ~__context ~pbd:self;
       Db.PBD.set_currently_attached ~__context ~self ~value:false;

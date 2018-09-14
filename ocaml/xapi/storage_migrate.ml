@@ -35,12 +35,12 @@ module State = struct
 
   module Receive_state = struct
     type t = {
-      sr : sr;
-      dummy_vdi : vdi;
-      leaf_vdi : vdi;
+      sr : Sr.t;
+      dummy_vdi : Vdi.t;
+      leaf_vdi : Vdi.t;
       leaf_dp : dp;
-      parent_vdi : vdi;
-      remote_vdi : vdi;
+      parent_vdi : Vdi.t;
+      remote_vdi : Vdi.t;
     } [@@deriving rpcty]
 
     let rpc_of_t = Rpcmarshal.marshal t.Rpc.Types.ty
@@ -50,7 +50,7 @@ module State = struct
   module Send_state = struct
     type remote_info = {
       dp: dp;
-      vdi: vdi;
+      vdi: Vdi.t;
       url: string
     } [@@deriving rpcty]
 
@@ -62,7 +62,7 @@ module State = struct
 
     type t = {
       url : string;
-      dest_sr : sr;
+      dest_sr : Sr.t;
       remote_info: remote_info option;
       local_dp : dp;
       tapdev : tapdev option;
@@ -79,8 +79,8 @@ module State = struct
       base_dp : dp;
       leaf_dp : dp;
       remote_dp : dp;
-      dest_sr: sr;
-      copy_vdi: vdi;
+      dest_sr: Sr.t;
+      copy_vdi: Vdi.t;
       remote_url : string;
     } [@@deriving rpcty]
     let rpc_of_t = Rpcmarshal.marshal t.Rpc.Types.ty
@@ -210,14 +210,14 @@ module State = struct
   let find_active_receive_mirror id = find id active_recv
   let find_active_copy id = find id active_copy
 
-  let mirror_id_of (sr,vdi) = Printf.sprintf "%s/%s" sr vdi
+  let mirror_id_of (sr,vdi) = Printf.sprintf "%s/%s" (Storage_interface.Sr.string_of sr) (Storage_interface.Vdi.string_of vdi)
   let of_mirror_id id = match String.split '/' id with
-    | sr::rest -> (sr,String.concat "/" rest)
+    | sr::rest -> Storage_interface.(Sr.of_string sr,Vdi.of_string (String.concat "/" rest))
     | _ -> failwith "Bad id"
-  let copy_id_of (sr,vdi) = Printf.sprintf "copy/%s/%s" sr vdi
+  let copy_id_of (sr,vdi) = Printf.sprintf "copy/%s/%s" (Storage_interface.Sr.string_of sr) (Storage_interface.Vdi.string_of vdi)
   let of_copy_id id =
     match String.split '/' id with
-    | op :: sr :: rest when op="copy" -> (sr,(String.concat "/" rest))
+    | op :: sr :: rest when op="copy" -> Storage_interface.(Sr.of_string sr,Vdi.of_string (String.concat "/" rest))
     | _ -> failwith "Bad id"
 end
 
@@ -308,17 +308,17 @@ let progress_callback start len t y =
 let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
   let remote_url = Http.Url.of_string url in
   let module Remote = StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end)) in
-  debug "copy local=%s/%s url=%s remote=%s/%s" sr vdi url dest dest_vdi;
+  debug "copy local=%s/%s url=%s remote=%s/%s" (Storage_interface.Sr.string_of sr) (Storage_interface.Vdi.string_of vdi) url (Storage_interface.Sr.string_of dest) (Storage_interface.Vdi.string_of dest_vdi);
 
   (* Check the remote SR exists *)
   let srs = Remote.SR.list dbg in
   if not(List.mem dest srs)
-  then failwith (Printf.sprintf "Remote SR %s not found" dest);
+  then failwith (Printf.sprintf "Remote SR %s not found" (Storage_interface.Sr.string_of dest));
 
   let vdis = Remote.SR.scan dbg dest in
   let remote_vdi =
     try List.find (fun x -> x.vdi = dest_vdi) vdis
-    with Not_found -> failwith (Printf.sprintf "Remote VDI %s not found" dest_vdi)
+    with Not_found -> failwith (Printf.sprintf "Remote VDI %s not found" (Storage_interface.Vdi.string_of dest_vdi))
   in
 
   let dest_content_id = remote_vdi.content_id in
@@ -327,14 +327,14 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
   let vdis = Local.SR.scan dbg sr in
   let local_vdi =
     try List.find (fun x -> x.vdi = vdi) vdis
-    with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+    with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" (Storage_interface.Vdi.string_of vdi)) in
 
-  debug "copy local=%s/%s content_id=%s" sr vdi local_vdi.content_id;
-  debug "copy remote=%s/%s content_id=%s" dest dest_vdi remote_vdi.content_id;
+  debug "copy local content_id=%s" local_vdi.content_id;
+  debug "copy remote content_id=%s" dest_content_id;
 
   if local_vdi.virtual_size > remote_vdi.virtual_size then begin
     (* This should never happen provided the higher-level logic is working properly *)
-    error "copy local=%s/%s virtual_size=%Ld > remote=%s/%s virtual_size = %Ld" sr vdi local_vdi.virtual_size dest dest_vdi remote_vdi.virtual_size;
+    error "copy local virtual_size=%Ld > remote virtual_size = %Ld" local_vdi.virtual_size remote_vdi.virtual_size;
     failwith "local VDI is larger than the remote VDI";
   end;
 
@@ -343,7 +343,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
   let base_vdi =
     try
       let x = (List.find (fun x -> x.content_id = dest_content_id) vdis).vdi in
-      debug "local VDI %s has content_id = %s; we will perform an incremental copy" x dest_content_id;
+      debug "local VDI has content_id = %s; we will perform an incremental copy" dest_content_id;
       Some x
     with _ ->
       debug "no local VDI has content_id = %s; we will perform a full copy" dest_content_id;
@@ -355,20 +355,21 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
     let remote_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
     let base_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
     let leaf_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) dest dest_vdi remote_dp) |> Http.Url.to_string in
+    let dest_vdi_url = Http.Url.set_uri remote_url (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri remote_url) (Storage_interface.Sr.string_of dest) (Storage_interface.Vdi.string_of dest_vdi) remote_dp) |> Http.Url.to_string in
 
-    debug "copy remote=%s/%s NBD URL = %s" dest dest_vdi dest_vdi_url;
+    debug "copy remote NBD URL = %s" dest_vdi_url;
 
     let id=State.copy_id_of (sr,vdi) in
     debug "Persisting state for copy (id=%s)" id;
     State.add id State.(Copy_op Copy_state.({
         base_dp; leaf_dp; remote_dp; dest_sr=dest; copy_vdi=remote_vdi.vdi; remote_url=url}));
 
-    SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s" vdi dest_vdi;
+    SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s"
+      (Storage_interface.Vdi.string_of vdi) (Storage_interface.Vdi.string_of dest_vdi);
 
     Pervasiveext.finally (fun () ->
-        debug "activating RW datapath %s on remote=%s/%s" remote_dp dest dest_vdi;
-        ignore(Remote.VDI.attach2 dbg dest dest_vdi remote_dp true);
+        debug "activating RW datapath %s on remote" remote_dp;
+        ignore(Remote.VDI.attach2 dbg remote_dp dest dest_vdi true);
         Remote.VDI.activate dbg remote_dp dest dest_vdi;
 
         with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
@@ -390,12 +391,12 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
          State.remove_copy id
       );
 
-    SMPERF.debug "mirror.copy: copy complete local_vdi:%s dest_vdi:%s" vdi dest_vdi;
+    SMPERF.debug "mirror.copy: copy complete";
 
-    debug "setting remote=%s/%s content_id <- %s" dest dest_vdi local_vdi.content_id;
+    debug "setting remote content_id <- %s" local_vdi.content_id;
     Remote.VDI.set_content_id dbg dest dest_vdi local_vdi.content_id;
     (* PR-1255: XXX: this is useful because we don't have content_ids by default *)
-    debug "setting local=%s/%s content_id <- %s" sr local_vdi.vdi local_vdi.content_id;
+    debug "setting local content_id <- %s" local_vdi.content_id;
     Local.VDI.set_content_id dbg sr local_vdi.vdi local_vdi.content_id;
     Some (Vdi_info remote_vdi)
   with e ->
@@ -426,7 +427,7 @@ let stop ~dbg ~id =
         let vdis = Local.SR.scan dbg sr in
         let local_vdi =
           try List.find (fun x -> x.vdi = vdi) vdis
-          with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+          with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" (Storage_interface.Vdi.string_of vdi)) in
         let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
         let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
         (* Disable mirroring on the local machine *)
@@ -437,7 +438,7 @@ let stop ~dbg ~id =
         begin
           match snap with
           | Some s ->
-            debug "Found snapshot VDI: %s" s.vdi;
+            debug "Found snapshot VDI: %s" (Storage_interface.Vdi.string_of s.vdi);
             Local.VDI.destroy dbg sr s.vdi
           | None ->
             debug "Snapshot VDI already cleaned up"
@@ -452,8 +453,17 @@ let stop ~dbg ~id =
     raise (Storage_interface.Storage_error (Does_not_exist ("mirror",id)))
 
 let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
-  debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
-  SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
+  debug "Mirror.start sr:%s vdi:%s url:%s dest:%s"
+    (Storage_interface.Sr.string_of sr)
+    (Storage_interface.Vdi.string_of vdi)
+    url
+    (Storage_interface.Sr.string_of dest);
+  SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s"
+    (Storage_interface.Sr.string_of sr)
+    (Storage_interface.Vdi.string_of vdi)
+    url
+    (Storage_interface.Sr.string_of dest);
+
   let remote_url = Http.Url.of_string url in
   let module Remote = StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end)) in
 
@@ -461,7 +471,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
   let vdis = Local.SR.scan dbg sr in
   let local_vdi =
     try List.find (fun x -> x.vdi = vdi) vdis
-    with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+    with Not_found -> failwith "Local VDI not found" in
 
   let id = State.mirror_id_of (sr,local_vdi.vdi) in
 
@@ -482,7 +492,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
   try
     let similar_vdis = Local.VDI.similar_content dbg sr vdi in
     let similars = List.filter (fun x -> x <> "") (List.map (fun vdi -> vdi.content_id) similar_vdis) in
-    debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) similar_vdis));
+    debug "Similar VDIs to = [ %s ]" (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" (Storage_interface.Vdi.string_of x.vdi) x.content_id) similar_vdis));
     let result_ty = Remote.DATA.MIRROR.receive_start dbg dest local_vdi id similars in
     let result = match result_ty with
         Mirror.Vhd_mirror x -> x
@@ -491,34 +501,32 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     (* Enable mirroring on the local machine *)
     let mirror_dp = result.Mirror.mirror_datapath in
 
-    let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s" dest result.Mirror.mirror_vdi.vdi mirror_dp) in
+    let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s"
+      (Storage_interface.Sr.string_of dest)
+      (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi) mirror_dp) in
     let dest_url = Http.Url.set_uri remote_url uri in
     let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri in
     let transport = Xmlrpc_client.transport_of_url dest_url in
     debug "Searching for data path: %s" dp;
     let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
-    debug "Got it!";
+
     on_fail := (fun () -> Remote.DATA.MIRROR.receive_cancel dbg id) :: !on_fail;
 
     let tapdev = match tapdisk_of_attach_info attach_info with
       | Some tapdev ->
-        debug "Got tapdev";
         let pid = Tapctl.get_tapdisk_pid tapdev in
         let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
         with_transport transport (with_http request (fun (response, s) ->
-            debug "Here inside the with_transport";
             let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
             finally
               (fun () ->
-                 debug "Connecting to path: %s" path;
                  Unix.connect control_fd (Unix.ADDR_UNIX path);
                  let msg = dp in
                  let len = String.length msg in
                  let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
-                 debug "Sent fd";
                  if written <> len then begin
                    error "Failed to transfer fd to %s" path;
-                   failwith "foo"
+                   failwith "Internal error transferring fd to tapdisk"
                  end)
               (fun () ->
                  Unix.close control_fd)));
@@ -546,26 +554,27 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
       Local.VDI.snapshot dbg sr local_vdi
     with
     | Storage_interface.Storage_error (Backend_error(code, _)) when code = "SR_BACKEND_FAILURE_44" ->
-      raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ sr ]))
+      raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ Storage_interface.Sr.string_of sr ]))
     | e ->
       raise e
     in
-    debug "Done!";
 
     SMPERF.debug "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
-      snapshot.vdi local_vdi.vdi ;
+      (Storage_interface.Vdi.string_of snapshot.vdi)
+      (Storage_interface.Vdi.string_of local_vdi.vdi);
 
     on_fail := (fun () -> Local.VDI.destroy dbg sr snapshot.vdi) :: !on_fail;
 
     begin
       let rec inner () =
-        debug "tapdisk watchdog";
         let alm_opt = State.find_active_local_mirror id in
         match alm_opt with
         | Some alm ->
           let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-          if stats.Tapctl.Stats.nbd_mirror_failed = 1 then
-            Updates.add (Dynamic.Mirror id) updates;
+          if stats.Tapctl.Stats.nbd_mirror_failed = 1 then begin
+            error "Tapdisk mirroring has failed";
+            Updates.add (Dynamic.Mirror id) updates
+          end;
           alm.State.Send_state.watchdog <- Some (Scheduler.one_shot scheduler (Scheduler.Delta 5) "tapdisk_watchdog" inner)
         | None -> ()
       in inner ()
@@ -575,14 +584,18 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     (* Copy the snapshot to the remote *)
     let new_parent = Storage_task.with_subtask task "copy" (fun () ->
         copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest ~dest_vdi:result.Mirror.copy_diffs_to) |> vdi_info in
-    debug "Local VDI %s == remote VDI %s" snapshot.vdi new_parent.vdi;
+    debug "Local VDI %s == remote VDI %s" (Storage_interface.Vdi.string_of snapshot.vdi) (Storage_interface.Vdi.string_of new_parent.vdi);
+
     Remote.VDI.compose dbg dest result.Mirror.copy_diffs_to result.Mirror.mirror_vdi.vdi;
     Remote.VDI.remove_from_sm_config dbg dest result.Mirror.mirror_vdi.vdi "base_mirror";
-    debug "Local VDI %s now mirrored to remote VDI: %s" local_vdi.vdi result.Mirror.mirror_vdi.vdi;
 
-    debug "Destroying dummy VDI %s on remote" result.Mirror.dummy_vdi;
+    debug "Local VDI %s now mirrored to remote VDI: %s"
+      (Storage_interface.Vdi.string_of local_vdi.vdi)
+      (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi);
+
+    debug "Destroying dummy VDI on remote";
     Remote.VDI.destroy dbg dest result.Mirror.dummy_vdi;
-    debug "Destroying snapshot %s on src" snapshot.vdi;
+    debug "Destroying snapshot on src";
     Local.VDI.destroy dbg sr snapshot.vdi;
 
     Some (Mirror_id id)
@@ -644,7 +657,7 @@ let stat ~dbg ~id =
     | (_, Some send_state, _) ->
       let dst_vdi = match send_state.Send_state.remote_info with
         | Some remote_info -> remote_info.Send_state.vdi
-        | None -> ""
+        | None -> Storage_interface.Vdi.of_string ""
       in
       snd (of_mirror_id id), dst_vdi
     | (_, _, Some copy_state) ->
@@ -726,16 +739,17 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 
     debug "Nearest VDI: content_id=%s vdi=%s"
       (Opt.default "None" (Opt.map (fun x -> x.content_id) nearest))
-      (Opt.default "None" (Opt.map (fun x -> x.vdi) nearest));
+      (Opt.default "None" (Opt.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
 
     let parent = match nearest with
       | Some vdi ->
-        debug "Cloning VDI %s" vdi.vdi;
+        debug "Cloning VDI";
         let vdi = add_to_sm_config vdi "base_mirror" id in
         let vdi_clone = Local.VDI.clone dbg sr vdi in
+        debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi);
         if vdi_clone.virtual_size <> vdi_info.virtual_size then begin
           let new_size = Local.VDI.resize dbg sr vdi_clone.vdi vdi_info.virtual_size in
-          debug "Resize local VDI %s to %Ld: result %Ld" vdi_clone.vdi vdi_info.virtual_size new_size;
+          debug "Resize local clone VDI to %Ld: result %Ld" vdi_info.virtual_size new_size;
         end;
         vdi_clone
       | None ->
@@ -843,6 +857,7 @@ let post_detach_hook ~sr ~vdi ~dp =
 
 let nbd_handler req s sr vdi dp =
   debug "sr=%s vdi=%s dp=%s" sr vdi dp;
+  let sr,vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
   let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
   req.Http.Request.close <- true;
   match tapdisk_of_attach_info attach_info with
@@ -869,7 +884,7 @@ let nbd_handler req s sr vdi dp =
     ()
 
 let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
-  debug "copy sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
+  debug "copy sr:%s vdi:%s url:%s dest:%s" (Storage_interface.Sr.string_of sr) (Storage_interface.Vdi.string_of vdi) url (Storage_interface.Sr.string_of dest);
   let remote_url = Http.Url.of_string url in
   let module Remote = StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end)) in
   try
@@ -877,11 +892,11 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     let vdis = Local.SR.scan dbg sr in
     let local_vdi =
       try List.find (fun x -> x.vdi = vdi) vdis
-      with Not_found -> failwith (Printf.sprintf "Local VDI %s not found" vdi) in
+      with Not_found -> failwith (Printf.sprintf "Local VDI not found") in
     try
       let similar_vdis = Local.VDI.similar_content dbg sr vdi in
       let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
-      debug "Similar VDIs to %s = [ %s ]" vdi (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" x.vdi x.content_id) similar_vdis));
+      debug "Similar VDIs = [ %s ]" (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" (Storage_interface.Vdi.string_of x.vdi) x.content_id) similar_vdis));
       let remote_vdis = Remote.SR.scan dbg dest in
       (** We drop cbt_metadata VDIs that do not have any actual data *)
       let remote_vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") remote_vdis in
@@ -895,14 +910,15 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
 
       debug "Nearest VDI: content_id=%s vdi=%s"
         (Opt.default "None" (Opt.map (fun x -> x.content_id) nearest))
-        (Opt.default "None" (Opt.map (fun x -> x.vdi) nearest));
+        (Opt.default "None" (Opt.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
       let remote_base = match nearest with
         | Some vdi ->
-          debug "Cloning VDI %s" vdi.vdi;
+          debug "Cloning VDI";
           let vdi_clone = Remote.VDI.clone dbg dest vdi in
+          debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi);
           if vdi_clone.virtual_size <> local_vdi.virtual_size then begin
             let new_size = Remote.VDI.resize dbg dest vdi_clone.vdi local_vdi.virtual_size in
-            debug "Resize remote VDI %s to %Ld: result %Ld" vdi_clone.vdi local_vdi.virtual_size new_size;
+            debug "Resize remote clone VDI to %Ld: result %Ld" local_vdi.virtual_size new_size;
           end;
           vdi_clone
         | None ->
@@ -964,7 +980,7 @@ let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs 
   let local_vdis = Local.SR.scan dbg sr in
   let find_vdi ~vdi ~vdi_info_list =
     try List.find (fun x -> x.vdi = vdi) vdi_info_list
-    with Not_found -> raise (Storage_error (Vdi_does_not_exist vdi))
+    with Not_found -> raise (Storage_error (Vdi_does_not_exist (Vdi.string_of vdi)))
   in
   let snapshot_pairs_for_remote =
     List.map
