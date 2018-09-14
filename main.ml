@@ -421,7 +421,8 @@ module Attached_SRs = struct
   let state_path = ref None
 
   let add smapiv2 plugin uids =
-    Hashtbl.set !sr_table ~key:smapiv2 ~data:{ sr = plugin; uids };
+    let key = Storage_interface.Sr.string_of smapiv2 in
+    Hashtbl.set !sr_table ~key ~data:{ sr = plugin; uids };
     ( match !state_path with
       | None ->
         return ()
@@ -434,21 +435,24 @@ module Attached_SRs = struct
     return (Ok ())
 
   let find smapiv2 =
-    match Hashtbl.find !sr_table smapiv2 with
+    let key = Storage_interface.Sr.string_of smapiv2 in
+    match Hashtbl.find !sr_table key with
     | None ->
       let open Storage_interface in
-      return (Error (Errors.Sr_not_attached smapiv2))
+      return (Error (Errors.Sr_not_attached key))
     | Some { sr; _ } -> return (Ok sr)
 
   let get_uids smapiv2 =
-    match Hashtbl.find !sr_table smapiv2 with
+    let key = Storage_interface.Sr.string_of smapiv2 in
+    match Hashtbl.find !sr_table key with
     | None ->
       let open Storage_interface in
-      return (Error (Errors.Sr_not_attached smapiv2))
+      return (Error (Errors.Sr_not_attached key))
     | Some { uids; _ } -> return (Ok uids)
 
   let remove smapiv2 =
-    Hashtbl.remove !sr_table smapiv2;
+    let key = Storage_interface.Sr.string_of smapiv2 in
+    Hashtbl.remove !sr_table key;
     return (Ok ())
 
   let reload path =
@@ -505,7 +509,7 @@ let vdi_of_volume x =
   in
   let find_string = find ~of_string:id in
   let open Storage_interface in {
-    vdi = x.Xapi_storage.Control.key;
+    vdi = Vdi.of_string x.Xapi_storage.Control.key;
     uuid = x.Xapi_storage.Control.uuid;
     content_id = "";
     name_label = x.Xapi_storage.Control.name;
@@ -514,7 +518,7 @@ let vdi_of_volume x =
     metadata_of_pool = "";
     is_a_snapshot = find _is_a_snapshot_key ~default:false ~of_string:bool_of_string;
     snapshot_time = find_string _snapshot_time_key ~default:"19700101T00:00:00Z";
-    snapshot_of = find_string _snapshot_of_key ~default:"";
+    snapshot_of = Vdi.of_string (find_string _snapshot_of_key ~default:"");
     read_only = not x.Xapi_storage.Control.read_write;
     cbt_enabled = false;
     virtual_size = x.Xapi_storage.Control.virtual_size;
@@ -734,8 +738,8 @@ let bind ~volume_script_dir =
       | Error _ ->
         (* ensure SR.detach is idempotent *)
         Deferred.Result.return ()
-      | Ok sr ->
-        return_volume_rpc (fun () -> Sr_client.detach volume_rpc dbg sr)
+      | Ok sr' ->
+        return_volume_rpc (fun () -> Sr_client.detach volume_rpc dbg sr')
         >>>= fun response ->
         Attached_SRs.get_uids sr
         >>>= fun uids ->
@@ -809,8 +813,9 @@ let bind ~volume_script_dir =
     in wrap th in
   S.SR.probe sr_probe_impl;
 
-  let sr_create_impl dbg uuid name_label description device_config size =
+  let sr_create_impl dbg sr_uuid name_label description device_config size =
     let th =
+      let uuid = Storage_interface.Sr.string_of sr_uuid in
       Compat.sr_create device_config >>>= fun (device_config, compat_in, compat_out) ->
       return_volume_rpc (fun () ->
         Sr_client.create (volume_rpc ~compat_in ~compat_out)
@@ -876,8 +881,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.create vdi_create_impl;
 
-  let vdi_destroy_impl dbg sr vdi =
+  let vdi_destroy_impl dbg sr vdi' =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       stat ~dbg ~sr ~vdi >>>= fun response ->
       (* Destroy any clone-on-boot volume that might exist *)
@@ -896,14 +902,14 @@ let bind ~volume_script_dir =
   let vdi_snapshot_impl dbg sr vdi_info =
     begin
       Attached_SRs.find sr >>>= fun sr ->
-      let vdi = vdi_info.Storage_interface.vdi in
+      let vdi = Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi in
       return_volume_rpc (fun () -> Volume_client.snapshot volume_rpc dbg sr vdi)
       >>>= fun response ->
       let now = Xapi_stdext_date.Date.(to_string (of_float (Unix.gettimeofday ()))) in
       set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_snapshot_time_key ~value:now >>>= fun () ->
       set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_is_a_snapshot_key ~value:(string_of_bool true) >>>= fun () ->
       set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_snapshot_of_key ~value:vdi >>>= fun () ->
-      let response = { (vdi_of_volume response) with snapshot_time = now; is_a_snapshot = true; snapshot_of = vdi } in
+      let response = { (vdi_of_volume response) with snapshot_time = now; is_a_snapshot = true; snapshot_of = (Storage_interface.Vdi.of_string vdi) } in
       Deferred.Result.return response
     end |> wrap
   in
@@ -912,31 +918,34 @@ let bind ~volume_script_dir =
   let vdi_clone_impl dbg sr vdi_info =
     begin
       Attached_SRs.find sr >>>= fun sr ->
-      clone ~dbg ~sr ~vdi:vdi_info.Storage_interface.vdi
+      clone ~dbg ~sr ~vdi:(Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
       >>>= fun response ->
       Deferred.Result.return (vdi_of_volume response)
     end |> wrap
   in
   S.VDI.clone vdi_clone_impl;
 
-  let vdi_set_name_label_impl dbg sr vdi new_name_label =
+  let vdi_set_name_label_impl dbg sr vdi' new_name_label =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       return_volume_rpc (fun () -> Volume_client.set_name volume_rpc dbg sr vdi new_name_label)
     end |> wrap
   in
   S.VDI.set_name_label vdi_set_name_label_impl;
 
-  let vdi_set_name_description_impl dbg sr vdi new_name_description =
+  let vdi_set_name_description_impl dbg sr vdi' new_name_description =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       return_volume_rpc (fun () -> Volume_client.set_description volume_rpc dbg sr vdi new_name_description)
     end |> wrap
   in
   S.VDI.set_name_description vdi_set_name_description_impl;
 
-  let vdi_resize_impl dbg sr vdi new_size =
+  let vdi_resize_impl dbg sr vdi' new_size =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       return_volume_rpc (fun () -> Volume_client.resize volume_rpc dbg sr vdi new_size) >>>= fun () ->
       (* Now call Volume.stat to discover the size *)
@@ -947,8 +956,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.resize vdi_resize_impl;
 
-  let vdi_stat_impl dbg sr vdi =
+  let vdi_stat_impl dbg sr vdi' =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       stat ~dbg ~sr ~vdi >>>= fun response ->
       Deferred.Result.return (vdi_of_volume response)
@@ -966,8 +976,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.introduce vdi_introduce_impl;
 
-  let vdi_attach2_impl dbg _dp sr vdi _readwrite =
+  let vdi_attach2_impl dbg _dp sr vdi' _readwrite =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       vdi_attach_common dbg sr vdi >>>= fun response ->
       let convert_implementation = function
       | Xapi_storage.Data.XenDisk { params; extra; backend_type } -> Storage_interface.XenDisk { params; extra; backend_type }
@@ -980,8 +991,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.attach2 vdi_attach2_impl;
 
-  let vdi_activate_impl dbg _dp sr vdi =
+  let vdi_activate_impl dbg _dp sr vdi' =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       (* Discover the URIs using Volume.stat *)
       stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -999,8 +1011,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.activate vdi_activate_impl;
 
-  let vdi_deactivate_impl dbg _dp sr vdi =
+  let vdi_deactivate_impl dbg _dp sr vdi' =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       (* Discover the URIs using Volume.stat *)
       stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1015,8 +1028,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.deactivate vdi_deactivate_impl;
 
-  let vdi_detach_impl dbg _dp sr vdi =
+  let vdi_detach_impl dbg _dp sr vdi' =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       (* Discover the URIs using Volume.stat *)
       stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1052,8 +1066,9 @@ let bind ~volume_script_dir =
   in
   S.SR.stat sr_stat_impl;
 
-  let vdi_epoch_begin_impl dbg sr vdi persistent =
+  let vdi_epoch_begin_impl dbg sr vdi' persistent =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       (* Discover the URIs using Volume.stat *)
       stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1081,8 +1096,9 @@ let bind ~volume_script_dir =
   in
   S.VDI.epoch_begin vdi_epoch_begin_impl;
 
-  let vdi_epoch_end_impl dbg sr vdi =
+  let vdi_epoch_end_impl dbg sr vdi' =
     begin
+      let vdi = Storage_interface.Vdi.string_of vdi' in
       Attached_SRs.find sr >>>= fun sr ->
       (* Discover the URIs using Volume.stat *)
       stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1279,7 +1295,7 @@ let self_test_plugin ~root_dir plugin =
         Test.Query.query rpc dbg >>= fun query_result ->
         Test.Query.diagnostics rpc dbg >>= fun _msg ->
 
-      let sr = "dummySR" in
+      let sr = Storage_interface.Sr.of_string "dummySR" in
       let name_label = "dummy name" in
       let name_description = "dummy description" in
       let device_config = ["uri", "file:///dev/null"] in
@@ -1289,7 +1305,7 @@ let self_test_plugin ~root_dir plugin =
       Test.SR.attach rpc dbg sr device_config >>= fun () ->
 
       let vdi_info = {
-        Storage_interface.vdi = "vdi-uuid-1";
+        Storage_interface.vdi = Storage_interface.Vdi.of_string "vdi-uuid-1";
         uuid = None;
         content_id = "";
         name_label = "vdi name";
@@ -1298,7 +1314,7 @@ let self_test_plugin ~root_dir plugin =
         metadata_of_pool = "";
         is_a_snapshot = false;
         snapshot_time = "";
-        snapshot_of = "";
+        snapshot_of = Storage_interface.Vdi.of_string "";
         read_only = false;
         cbt_enabled = false;
         virtual_size = 0L;
