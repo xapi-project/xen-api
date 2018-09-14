@@ -783,17 +783,8 @@ let server_init() =
 
   try
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
-        let nvidia_pci_symlinks () =
-          let source = "/usr/share/nvidia/pci.ids" in
-          let dest = "/usr/share/hwdata/pci.ids.d/nvidia.ids" in
-          debug "Creating symlink: %s -> %s" dest source;
-          let ignore_exists f = try f () with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
-          ignore_exists (fun () -> Unix.mkdir (Filename.dirname dest) 0o700);
-          ignore_exists (fun () -> Unix.symlink source dest)
-        in
         Startup.run ~__context [
           "XAPI SERVER STARTING", [], print_server_starting_message;
-          "NVIDIA PCI symlinks", [], nvidia_pci_symlinks;
           "Parsing inventory file", [], Xapi_inventory.read_inventory;
           "Config (from file) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_inv ~__context;
           "Setting stunnel timeout", [], set_stunnel_timeout;
