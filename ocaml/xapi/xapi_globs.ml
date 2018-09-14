@@ -934,7 +934,7 @@ let xenopsd_queues = ref ([
 
 let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
-let ciphersuites_good_outbound = ref "!EXPORT:RSA+AES128-SHA256"
+let ciphersuites_good_outbound = ref "!EXPORT:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:AES256-SHA256:RSA+AES128-SHA256:AES128-SHA"
 let ciphersuites_legacy_outbound = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+DES-CBC3-SHA"
 
 let gpumon_stop_timeout = ref 10.0
