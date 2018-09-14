@@ -2300,6 +2300,22 @@ let vm_memory_shadow_multiplier_set printer rpc session_id params =
          Client.VM.set_shadow_multiplier_live rpc session_id vm multiplier) params ["multiplier"] in
   ()
 
+let vm_add_tags printer rpc session_id params =
+  ignore(do_vm_op printer rpc session_id
+           (fun vmr ->
+              let vm = vmr.getref () in
+              let tag = List.assoc "tag" params in
+              Client.VM.add_tags rpc session_id vm tag
+            ) params ["tag"])
+
+let vm_remove_tags printer rpc session_id params =
+  ignore(do_vm_op printer rpc session_id
+           (fun vmr ->
+              let vm = vmr.getref () in
+              let tag = List.assoc "tag" params in
+              Client.VM.remove_tags rpc session_id vm tag
+            ) params ["tag"])
+
 let vm_query_services printer rpc session_id params =
   ignore(do_vm_op printer rpc session_id
            (fun vm ->

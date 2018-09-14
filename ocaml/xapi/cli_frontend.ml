@@ -1205,6 +1205,24 @@ let rec cmdtable_data : (string*cmd_spec) list =
       flags=[Vm_selectors];
     };
 
+    "vm-add-tags",
+    {
+      reqd=["tag"];
+      optn=[];
+      help="Add the given value to the tags field of the given VM. If the value is already in that Set, then do nothing.";
+      implementation=No_fd Cli_operations.vm_add_tags;
+      flags=[Standard;Vm_selectors]
+    };
+
+    "vm-remove-tags",
+    {
+      reqd=["tag"];
+      optn=[];
+      help="Remove the given value from the tags field of the given VM. If the value is not in that Set, then do nothing.";
+      implementation=No_fd Cli_operations.vm_remove_tags;
+      flags=[Standard;Vm_selectors]
+    };
+
     "vm-query-services",
     {
       reqd=[];
