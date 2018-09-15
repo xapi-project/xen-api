@@ -12,8 +12,6 @@
 -  GNU Lesser General Public License for more details.
   *)
 
-let _ = Printexc.register_printer (function | Idl.UnboundImplementation xs -> Some (Printf.sprintf "Idl.UnboundImplementation: [%s]" (String.concat "," xs)) | _ -> None)
-
 
 let register_smapiv2_server (module S: Storage_interface.Server_impl) sr_ref =
   let module S = Storage_interface.Server(S)() in
@@ -75,10 +73,7 @@ let test_cbt_enable_disable () =
     ~vdi_disable_cbt:(fun _ ~dbg ~sr ~vdi -> disable_cbt_params := Some (sr, vdi))
     sr;
 
-  (try
-    Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
-  with
-    Idl.UnboundImplementation x -> Alcotest.fail (Printf.sprintf "Unbound implementation [%s]" (String.concat "," x)));
+  Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
    check_params "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt" (Some (sr, vdi)) !enable_cbt_params;
   assert_vdi_cbt_enabled_is true "cbt_enabled should be true when VDI.enable_cbt returns successfully";
 
