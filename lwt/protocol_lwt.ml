@@ -14,10 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-open Message_switch_core.Protocol
 open Lwt
-open Cohttp
-open Cohttp_lwt_unix
 
 
 module M = struct
@@ -53,7 +50,7 @@ module M = struct
     let oc = Lwt_io.of_fd ~close:(fun () -> return ()) ~mode:Lwt_io.output fd in
     return (ic, oc)
 
-  let disconnect (ic, oc) =
+  let disconnect (ic, _oc) =
     Lwt_io.close ic
 
   module Ivar = struct
@@ -87,7 +84,6 @@ module M = struct
   end
 end
 
-let whoami = M.whoami
 
 module Client = Message_switch_core.Make.Client(M)
 module Server = Message_switch_core.Make.Server(M)

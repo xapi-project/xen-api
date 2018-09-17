@@ -15,7 +15,6 @@
  *)
 
 open Message_switch_core.Protocol
-open Cohttp
 
 
 let with_lock m f =
@@ -36,11 +35,8 @@ module IO = struct
   module IO = struct
     type 'a t = 'a
     let ( >>= ) a f = f a
-    let (>>) m n = m >>= fun _ -> n
 
     let return a = a
-
-    let iter = List.iter
 
     type ic = in_channel
     type oc = out_channel
@@ -58,7 +54,7 @@ module IO = struct
       try
         really_input ic buf ofs len; true
       with _ -> false
-    let read_exactly ic len =
+    let _read_exactly ic len =
       let buf = Bytes.create len in
       read_into_exactly ic buf 0 len >>= function
       | true -> return (Some buf)
@@ -86,7 +82,7 @@ module IO = struct
           let ic = Unix.in_channel_of_descr fd in
           let oc = Unix.out_channel_of_descr fd in
           result := Some (ic, oc)
-        with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ENOENT), cmd, _) ->
+        with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ENOENT), _cmd, _) ->
           Unix.close fd;
           (* wait for the server to start *)
           Thread.delay 5.
@@ -102,7 +98,7 @@ module IO = struct
       close_in ic;
       close_out oc
 
-    let flush oc = ()
+    let flush _oc = ()
   end
   include IO
 
@@ -147,7 +143,7 @@ module IO = struct
   end
 
   module Clock = struct
-    type timer = Protocol_unix_scheduler.t
+    type _timer = Protocol_unix_scheduler.t
 
     let started = ref false
     let started_m = Mutex.create ()
@@ -166,7 +162,6 @@ module IO = struct
   end
 end
 
-let whoami = IO.whoami
 
 module Connection = Message_switch_core.Make.Connection(IO)
 
@@ -267,11 +262,11 @@ module Client = struct
           Connection.rpc t.events_conn frame
           >>|= fun raw ->
           (try `Ok (Out.transfer_of_rpc (Jsonrpc.of_string raw))
-           with e -> `Error (`Message_switch `Failed_to_read_response))
+           with _e -> `Error (`Message_switch `Failed_to_read_response))
           >>|= fun transfer ->
           match transfer.Out.messages with
           | [] -> `Ok from
-          | m :: ms ->
+          | _ :: _ ->
             begin match List.fold_left (fun acc (i, m) -> match acc, i, m with
               | `Error e, _, _ -> `Error e
               | `Ok (), i, m ->
@@ -454,7 +449,7 @@ module Server = struct
       `Ok (request_conn, reply_conn) in
 
     reconnect ()
-    >>|= fun ((request_conn, reply_conn) as connections) ->
+    >>|= fun ((request_conn, _reply_conn) as connections) ->
     (* Only allow one reply RPC at a time (no pipelining) *)
     let mutex = IO.Mutex.create () in
 
@@ -469,7 +464,7 @@ module Server = struct
       } in
       let frame = In.Transfer transfer in
       Connection.rpc request_conn frame >>= function
-      | `Error e ->
+      | `Error _e ->
         IO.Mutex.with_lock mutex reconnect
         >>|= fun connections ->
         loop connections from
@@ -477,7 +472,7 @@ module Server = struct
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
         begin match transfer.Out.messages with
           | [] -> loop connections from
-          | m :: ms ->
+          | _ :: _ ->
             List.iter
               (fun (i, m) ->
                  let (_: Thread.t) = Thread.create

@@ -15,7 +15,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     protocol_unix
     protocol_unix_scheduler
   ))
-  (flags (:standard -w -39))
+  (flags (:standard -w -39-27))
   (libraries (
     message-switch-core
     threads

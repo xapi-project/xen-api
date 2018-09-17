@@ -14,8 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 open Sexplib.Std
-open Lwt
-open Logging
 open Clock
 
 module Int64Map = struct
@@ -32,16 +30,16 @@ module Lwt_condition = struct
   include Lwt_condition
   type t' = string [@@deriving sexp]
 
-  let t_of_sexp _ _ = Lwt_condition.create ()
-  let sexp_of_t _ _ = sexp_of_t' "Lwt_condition.t"
+  let _t_of_sexp _ _ = Lwt_condition.create ()
+  let _sexp_of_t _ _ = sexp_of_t' "Lwt_condition.t"
 end
 
 module Lwt_mutex = struct
   include Lwt_mutex
   type t' = string [@@deriving sexp]
 
-  let t_of_sexp _ = Lwt_mutex.create ()
-  let sexp_of_t _ = sexp_of_t' "Lwt_mutex.t"
+  let _t_of_sexp _ = Lwt_mutex.create ()
+  let _sexp_of_t _ = sexp_of_t' "Lwt_mutex.t"
 end
 
 type waiter = {
@@ -120,11 +118,11 @@ let startswith prefix x = String.length x >= (String.length prefix) && (String.s
 module Lengths = struct
   open Message_switch_core.Measurable
   let d x =Description.({ description = "length of queue " ^ x; units = "" })
-  let list_available queues =
+  let _list_available queues =
     StringMap.fold (fun name _ acc ->
         (name, d name) :: acc
       ) queues.queues []
-  let measure queues name =
+  let _measure queues name =
     if StringMap.mem name queues.queues
     then Some (Measurement.Int (StringMap.find name queues.queues).length)
     else None
@@ -247,12 +245,12 @@ let do_op queues = function
   | Op.Send (origin, name, id, body) ->
     Internal.send queues origin name id body
 
-let contents q = Internal.(Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q [])
+let contents q = (Int64Map.fold (fun i e acc -> ((q.name, i), e) :: acc) q.q [])
 
 module Directory = struct
-  let add queues ?owner name =
+  let add _queues ?owner name =
     Op.Directory (Op.Add (owner, name))
-  let remove queues name =
+  let remove _queues name =
     Op.Directory (Op.Remove name)
   let find = Internal.Directory.find
   let list = Internal.Directory.list
@@ -260,7 +258,7 @@ end
 
 let queue_of_id = fst
 
-let ack queues id =
+let ack _queues id =
   Op.Ack(id)
 
 let transfer queues from names =
