@@ -12,15 +12,18 @@ tags: [
   "org:xapi-project"
 ]
 
-build: [[ "jbuilder" "build" "-p" name ]]
+build: [[ "dune" "build" "-p" name ]]
 
 depends: [
-  "jbuilder" {build & >= "1.0+beta11"}
-  "astring"
+  "dune" {build}
   "async" {>= "v0.9.0"}
+  "async_unix"
+  "base-threads"
   "cohttp" {>= "0.22.0"}
-  "rpc" {>= "1.9.52"}
+  "core"
+  "rpclib"
   "uri"
   "xen-api-client"
   "xmlm"
+  "ounit" {test}
 ]

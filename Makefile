@@ -7,32 +7,32 @@ BRANCH ?= master
 .PHONY: release build async-examples lwt-examples install uninstall clean test doc reindent regenerate
 
 release:
-	jbuilder build @install
+	dune build @install --profile=release
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 async-examples:
-	jbuilder build @async_examples/examples
+	dune build @async_examples/examples
 
 lwt-examples:
-	jbuilder build @lwt_examples/examples
+	dune build @lwt_examples/examples
 
 install:
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 uninstall:
-	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc
 
 gh-pages:
 	bash .docgen.sh
