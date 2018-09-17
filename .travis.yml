@@ -6,7 +6,7 @@ script:
   - bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.04.2
+    - OCAML_VERSION=4.06
     - PINS="xen-api-client:. xen-api-client-lwt:. xen-api-client-async:."
     - PACKAGE=xen-api-client
     - DISTRO="ubuntu-14.04"
