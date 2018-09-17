@@ -7,7 +7,7 @@ script:
 env:
   global:
     - OCAML_VERSION=4.04.2
-    - PINS="xen-api-client:."
+    - PINS="xen-api-client:. xen-api-client-lwt:. xen-api-client-async:."
     - PACKAGE=xen-api-client
     - DISTRO="ubuntu-14.04"
   matrix:
