@@ -36,11 +36,28 @@ let test_assert_space_available () =
   let free_bytes = 1_000_000L in
   Alcotest.check_raises
     "test_assert_space_available should raise out_of_space"
-    Api_errors.(Server_error (out_of_space, [Xapi_globs.host_update_dir]))
+    Api_errors.(Server_error (out_of_space, [!Xapi_globs.host_update_dir]))
     (fun () -> Xapi_pool_update.assert_space_available ~get_free_bytes:(fun _ -> free_bytes) "./" (Int64.div free_bytes 2L))
+
+let test_download_restriction () =
+  Xapi_globs.host_update_dir := ".";
+  let assert_no_dots s =
+    Alcotest.(check bool)
+      "test_download_restriction: path must not contain ."
+      true
+      (String.index_opt s '.' = None)
+  in
+  let test path =
+    path
+    |> Filename.concat Constants.get_pool_update_download_uri
+    |> Xapi_pool_update.path_from_uri
+    |> assert_no_dots
+  in
+  List.iter test ["myfile"; ".."; "%2e%2e"]
 
 let test =
   [ "test_pool_update_destroy", `Quick, test_pool_update_destroy
   ; "test_pool_update_refcount", `Quick, test_pool_update_refcount
   ; "test_assert_space_available", `Quick, test_assert_space_available
+  ; "test_download_restriction", `Quick, test_download_restriction
   ]
