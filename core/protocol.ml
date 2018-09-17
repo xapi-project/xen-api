@@ -76,8 +76,7 @@ module In = struct
     | Get of string list         (** return a web interface resource *)
   [@@deriving rpc]
 
-  let slash = Re.Str.regexp_string "/"
-  let split = Re.Str.split_delim slash
+  let split = Astring.String.cuts ~sep:"/"
 
   let of_request body meth path =
     match body, meth, split path with

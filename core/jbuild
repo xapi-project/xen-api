@@ -17,7 +17,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     sexplib
     rpclib
     rpclib.json
-    re.str
+    astring
   ))
   (preprocess (pps (ppx_deriving_rpc ppx_sexp_conv %s)))))
 |} coverage_rewriter
