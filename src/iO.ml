@@ -15,8 +15,6 @@
  *
  *)
 
-open Lwt
-
 let debug_io = ref false
 
 let complete name offset op fd buffer =

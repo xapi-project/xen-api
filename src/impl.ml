@@ -13,7 +13,6 @@
  *)
 
 open Common
-open Cmdliner
 open Lwt
 
 external sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub_sendfile64"
@@ -47,7 +46,7 @@ let require name arg = match arg with
   | None -> failwith (Printf.sprintf "Please supply a %s argument" name)
   | Some x -> x
 
-let get common filename key =
+let get _common filename key =
   try
     let filename = require "filename" filename in
     let key = require "key" key in
@@ -67,7 +66,7 @@ let get common filename key =
     | Not_found ->
       `Error(true, Printf.sprintf "Unknown key. Known keys are: %s" (String.concat ", " Vhd_format.F.Vhd.Field.list))
 
-let info common filename =
+let info _common filename =
   try
     let filename = require "filename" filename in
     let t =
@@ -84,7 +83,7 @@ let info common filename =
   with Failure x ->
     `Error(true, x)
 
-let contents common filename =
+let contents _common filename =
   try
     let filename = require "filename" filename in
     let t =
@@ -95,13 +94,13 @@ let contents common filename =
       | Cons (hd, tl) ->
         let open Vhd_format.F in
         begin match hd with
-        | Fragment.Header x ->
+        | Fragment.Header _x ->
           Printf.printf "Header\n"
-        | Fragment.Footer x ->
+        | Fragment.Footer _x ->
           Printf.printf "Footer\n"
-        | Fragment.BAT x ->
+        | Fragment.BAT _x ->
           Printf.printf "BAT\n"
-        | Fragment.Batmap x ->
+        | Fragment.Batmap _x ->
           Printf.printf "batmap\n"
         | Fragment.Block (offset, buffer) ->
           Printf.printf "Block %Ld (len %d)\n" offset (Cstruct.len buffer)
@@ -135,7 +134,7 @@ let create common filename size parent =
         Vhd_IO.close vhd >>= fun () ->
         return () in
       Lwt_main.run t
-    | Some parent, Some size ->
+    | Some _parent, Some _size ->
       failwith "Overriding the size in a child node not currently implemented"
     end;
      `Ok ()
@@ -178,7 +177,8 @@ let machine_progress_bar total_work =
 
 let no_progress_bar _ _ = ()
 
-let stream_human common _ s _ _ ?(progress = no_progress_bar) () =
+let [@warning "-27"]
+  stream_human _common _ s _ _ ?(progress = no_progress_bar) () =
   let decimal_digits =
     let open Vhd_format.F in
     (* How much space will we need for the sector numbers? *)
@@ -200,11 +200,11 @@ let stream_human common _ s _ _ ?(progress = no_progress_bar) () =
   Printf.printf "# end of stream\n";
   return None
 
-let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
+let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
   let open Nbd_lwt_unix in
   let c = { Nbd.Channel.read = c.Channels.really_read; write = c.Channels.really_write; close = c.Channels.close; is_tls = false } in
 
-  Client.negotiate c "" >>= fun (server, size, flags) ->
+  Client.negotiate c "" >>= fun (server, _size, _flags) ->
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   let total_work = let open Vhd_format.F in Int64.(add (add s.size.metadata s.size.copy) (if prezeroed then 0L else s.size.empty)) in
@@ -219,9 +219,9 @@ let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
         Client.write server (Int64.mul sector 512L) [data] >>= begin
           function
           | Ok () -> return Int64.(of_int (Cstruct.len data))
-          | Error e -> fail (Failure "Got error from NBD library")
+          | Error _e -> fail (Failure "Got error from NBD library")
         end
-      | `Empty n -> (* must be prezeroed *)
+      | `Empty _n -> (* must be prezeroed *)
         assert prezeroed;
         return 0L
       | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Vhd_format.Element.to_string x))) ) >>= fun work ->
@@ -234,7 +234,7 @@ let stream_nbd common c s prezeroed _ ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
-let stream_chunked common c s prezeroed _ ?(progress = no_progress_bar) () =
+let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   let total_work = let open Vhd_format.F in Int64.(add (add s.size.metadata s.size.copy) (if prezeroed then 0L else s.size.empty)) in
@@ -252,7 +252,7 @@ let stream_chunked common c s prezeroed _ ?(progress = no_progress_bar) () =
         c.Channels.really_write header >>= fun () ->
         c.Channels.really_write data >>= fun () ->
         return Int64.(of_int (Cstruct.len data))
-      | `Empty n -> (* must be prezeroed *)
+      | `Empty _n -> (* must be prezeroed *)
         assert prezeroed;
         return 0L
       | _ -> fail (Failure (Printf.sprintf "unexpected stream element: %s" (Vhd_format.Element.to_string x))) ) >>= fun work ->
@@ -269,7 +269,7 @@ let stream_chunked common c s prezeroed _ ?(progress = no_progress_bar) () =
 
   return (Some total_work)
 
-let stream_raw common c s prezeroed _ ?(progress = no_progress_bar) () =
+let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   let total_work = let open Vhd_format.F in Int64.(add (add s.size.metadata s.size.copy) (if prezeroed then 0L else s.size.empty)) in
@@ -337,7 +337,7 @@ module TarStream = struct
       (Int64.of_int file_size)
 end
 
-let stream_tar common c s _ prefix ?(progress = no_progress_bar) () =
+let stream_tar _common c s _ prefix ?(progress = no_progress_bar) () =
   let open TarStream in
   let prefix = match prefix with None -> "" | Some x -> x in
   let block_size = 1024 * 1024 in
@@ -684,7 +684,7 @@ let make_stream common source relative_to source_format destination_format =
     Raw_input.raw t
   | _, _ -> assert false
 
-let write_stream common s destination source_protocol destination_protocol prezeroed progress tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites =
+let write_stream common s destination _source_protocol destination_protocol prezeroed progress tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites =
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -820,8 +820,8 @@ let stream common args =
     Vhd_format_lwt.File.use_unbuffered := common.Common.unbuffered;
 
     let progress_bar = match args with
-    | { StreamCommon.progress = true; machine = true } -> machine_progress_bar
-    | { StreamCommon.progress = true; machine = false } -> console_progress_bar
+    | { StreamCommon.progress = true; machine = true ; _} -> machine_progress_bar
+    | { StreamCommon.progress = true; machine = false ; _} -> console_progress_bar
     | _ -> no_progress_bar in
 
     let thread = stream_t common args ~progress:progress_bar () in

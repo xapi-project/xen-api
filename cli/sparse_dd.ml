@@ -165,7 +165,7 @@ let with_paused_tapdisk path f =
 
 	let context = Tapctl.create () in
 	match Tapctl.of_device context path with
-	| tapdev, _, (Some (driver, path)) ->
+	| tapdev, _, (Some (_driver, path)) ->
 		debug "pausing tapdisk for %s" path;
 		Tapctl.pause context tapdev;
 		after f (fun () ->

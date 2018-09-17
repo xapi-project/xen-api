@@ -15,8 +15,6 @@
  *
  *)
 
-open Lwt
-
 type 'a t = 'a Lwt.t
 let iter fn x = Lwt_list.iter_s fn x
 let return = Lwt.return
@@ -125,5 +123,5 @@ let write oc x =
   Cstruct.blit_from_string x 0 buf 0 (String.length x);
   oc.Channels.really_write buf
 
-let flush oc =
+let flush _oc =
   return ()

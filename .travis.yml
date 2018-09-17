@@ -1,19 +1,13 @@
 language: c
-sudo: false
-services:
-  - docker
-install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+sudo: required
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.06
-    - DISTRO=centos
-    - PACKAGE=vhd-tool
+    - PACKAGE="vhd-tool"
+    - PINS="vhd-tool:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam
-    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-matrix:
-  fast_finish: true
-  allow_failures:
-    - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    - DISTRO="debian-9-ocaml-4.06"
+      # - DISTRO="debian-9-ocaml-4.07" BASE_REMOTE_BRANCH="407"
