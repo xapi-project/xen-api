@@ -70,11 +70,13 @@ let getpid (_sock, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
+let temp_dir = "/var/run/nonpersistent/forkexecd/"
+
 (** Creates a temporary file and opens it for logging. The fd is passed to the function
     'f'. The logfile is guaranteed to be closed afterwards, and unlinked if either the delete flag is set or the call fails. If the
     function 'f' throws an error then the log file contents are read in *)
-let with_logfile_fd ?(delete = true) prefix f = 
-  let logfile = Filename.temp_file prefix ".log" in
+let with_logfile_fd ?(delete = true) prefix f =
+  let logfile = Filename.temp_file ~temp_dir prefix ".log" in
   let read_logfile () = 
     let contents = Xapi_stdext_unix.Unixext.string_of_file logfile in
     Unix.unlink logfile;

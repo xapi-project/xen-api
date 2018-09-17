@@ -1,7 +1,7 @@
 open Fe_debug
 
 let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env =
-  let fd_sock_path = Printf.sprintf "/var/xapi/forker/fd_%s" 
+  let fd_sock_path = Printf.sprintf "%s/fd_%s" Forkhelpers.temp_dir
       (Uuidm.to_string (Uuidm.create `V4)) in
   let fd_sock = Fecomms.open_unix_domain_sock () in
   Xapi_stdext_unix.Unixext.unlink_safe fd_sock_path;
@@ -44,6 +44,7 @@ let _ =
   Sys.set_signal Sys.sigpipe (Sys.Signal_ignore);
 
   let main_sock = Fecomms.open_unix_domain_sock_server "/var/xapi/forker/main" in
+  Xapi_stdext_unix.Unixext.mkdir_rec (Forkhelpers.temp_dir) 0o755;
 
   Daemon.notify Daemon.State.Ready |> ignore;
 

@@ -104,5 +104,7 @@ type 'a result =
     function [f] throws an error then the log file contents are read in *)
 val with_logfile_fd : ?delete:bool -> string -> (Unix.file_descr -> 'a) -> 'a result
 
+(** Temporary directory used for communication *)
+val temp_dir: string
 
 
