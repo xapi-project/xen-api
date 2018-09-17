@@ -137,7 +137,7 @@ let () =
   let printer = function
     | Xenopsd_error e ->
         Some
-          (sprintf "Network_interface.Network_error(%s)" (string_of_error e))
+          (sprintf "Xenops_interface.Xenopsd_error(%s)" (string_of_error e))
     | _ -> None
   in
   Printexc.register_printer printer
