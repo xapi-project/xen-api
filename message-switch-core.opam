@@ -16,9 +16,11 @@ depends: [
   "astring"
   "base-unix"
   "cohttp" {>= "0.21.1"}
-  "rpc" {>= "1.9.51"}
-  "sexplib"
+  "ocaml-migrate-parsetree"
+  "ppx_deriving_rpc"
   "ppx_sexp_conv"
+  "rpclib"
+  "sexplib"
   "mtime" {>= "1.0.0" & < "2.0.0"}
   "mirage-block-unix" {>= "2.4.0"}
   "shared-block-ring" {>= "2.3.0"}
