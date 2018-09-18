@@ -2,22 +2,22 @@
 .PHONY: build release install uninstall clean reindent
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 release:
-	jbuilder build @install
+	dune build @install --profile release
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest
 
 reindent:
 	ocp-indent --inplace **/*.ml*

@@ -1,0 +1,17 @@
+(executable
+ (name main)
+ (public_name xapi-nbd)
+ (libraries
+  cmdliner
+  consts
+  local_xapi_session
+  lwt
+  lwt.unix
+  mirage-block-unix
+  nbd-lwt-unix
+  uri
+  uuidm
+  vbd_store
+  xcp-inventory
+  xen-api-client-lwt)
+)

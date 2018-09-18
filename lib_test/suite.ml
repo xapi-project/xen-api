@@ -1,4 +1,3 @@
-(* We should switch this to alcotest-lwt when it gets into xs-opam *)
 
 open Lwt.Infix
 
