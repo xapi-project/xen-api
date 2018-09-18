@@ -12,20 +12,18 @@ tags: [
   "org:xapi-project"
 ]
 
-build: [[ "jbuilder" "build" "-p" name ]]
+build: [[ "dune" "build" "-p" name ]]
 
 depends: [
-  "jbuilder" {build & >= "1.0+beta11"}
-  "astring"
-  "cohttp" {>= "0.22.0"}
-  "cstruct" {>= "1.0.1"}
-  "lwt" {>= "3.0.0"}
-  "lwt_ssl"
-  "re"
-  "rpc" {>= "1.9.51"}
-  "ssl"
-  "uri"
-  "uuidm"
-  "xen-api-client"
-  "xmlm"
+    "dune" {build}
+    "cohttp" {>= "0.22.0"}
+    "cstruct" {>= "1.0.1"}
+    "lwt" {>= "3.0.0"}
+    "lwt_ssl"
+    "re"
+    "rpclib"
+    "uri"
+    "xen-api-client"
+    "xmlm"
+    "ounit" {test}
 ]

@@ -12,20 +12,20 @@ tags: [
   "org:xapi-project"
 ]
 
-build: [[ "jbuilder" "build" "-p" name ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name ]]
+build-test: [[ "dune" "runtest" "-p" name "-j" jobs ]]
 
 depends: [
-  "jbuilder" {build & >= "1.0+beta11"}
-  "astring"
-  "cohttp" {>= "0.22.0"}
-  "ounit" {test}
-  "re"
-  "rpc" {>= "1.9.51"}
-  "uri"
-  "uuidm"
-  "xapi-client"
-  "xapi-rrd"
-  "xapi-types"
-  "xmlm"
+    "dune" {build & >= "1.0+beta11"}
+    "astring"
+    "cohttp" {>= "0.22.0"}
+    "re"
+    "rpclib"
+    "rrd"
+    "uri"
+    "uuidm"
+    "xapi-client"
+    "xapi-types"
+    "xmlm"
+    "ounit" {test}
 ]
