@@ -156,7 +156,7 @@ let read_localhost_info () =
     dom0_static_max = dom0_static_max;
     ssl_legacy = try (
       bool_of_string (
-        Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"false")
+        Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true")
     ) with _ -> true;
   }
 
