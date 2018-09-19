@@ -193,7 +193,7 @@ let verify_inline_checksum ifd checksum_table =
     raise e
 
 (** Receive a set of VDIs split into chunks in a tar format in a defined order *)
-let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force prefix_vdis =
+let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_inline_checksums ~force prefix_vdis =
   TaskHelper.set_cancellable ~__context;
 
   let progress = new_progress_record __context prefix_vdis in
@@ -273,7 +273,7 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
              made_progress __context progress (Int64.add skipped_size length);
 
 
-             if vsn.Importexport.export_vsn > 0 then
+             if has_inline_checksums then
                begin
                  try
                    verify_inline_checksum ifd checksum_table;
@@ -292,6 +292,10 @@ let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force 
       raise (Api_errors.Server_error (Api_errors.vdi_io_error, ["Device I/O error"]))
   end;
   !checksum_table
+
+let recv_all refresh_session ifd (__context:Context.t) rpc session_id vsn force =
+  let has_inline_checksums = vsn.Importexport.export_vsn > 0 in
+  recv_all_vdi refresh_session ifd __context rpc session_id ~has_inline_checksums ~force
 
 
 (** Receive a set of VDIs split into chunks in a tar format created out of a Zurich/Geneva

@@ -71,17 +71,26 @@ let localhost_handler rpc session_id vdi_opt (req: Request.t) (s: Unix.file_desc
                  error "Not enough info supplied to import";
                  raise (HandleError(Api_errors.Server_error(Api_errors.internal_error, ["Not enough info supplied to import"]),Http.http_400_badrequest ~version:"1.0" ()))
              in
-             let prezeroed = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi) in
-             Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
-               (fun path ->
-                  let headers = Http.http_200_ok ~keep_alive:false () @
-                                [ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
-                                  content_type ] in
-                  Http_svr.headers s headers;
-                  if chunked
-                  then Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) "raw" "chunked" s None path "" prezeroed
-                  else Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) (Importexport.Format.to_string format) "none" s req.Request.content_length path "" prezeroed
-               );
+             let headers = Http.http_200_ok ~keep_alive:false () @
+                           [ Http.Hdr.task_id ^ ":" ^ (Ref.string_of task_id);
+                             content_type ] in
+             Http_svr.headers s headers;
+             begin match format with
+               | Raw | Vhd ->
+                 let prezeroed = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi) in
+                 Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RW
+                   (fun path ->
+                      if chunked
+                      then Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) "raw" "chunked" s None path "" prezeroed
+                      else Vhd_tool_wrapper.receive (Vhd_tool_wrapper.update_task_progress __context) (Importexport.Format.to_string format) "none" s req.Request.content_length path "" prezeroed
+                   );
+               | Tar ->
+                 (* We need to keep refreshing the session to avoid session timeout *)
+                 let refresh_session = Xapi_session.consider_touching_session rpc session_id in
+                 let size = Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
+                 (* VDIs exported as TAR archives will always have inline checksums *)
+                 Stream_vdi.recv_all_vdi refresh_session s __context rpc session_id ~has_inline_checksums:true ~force:false [(Xapi_globs.vdi_tar_export_dir, vdi, size)] |> ignore;
+             end;
              TaskHelper.complete ~__context (Some (API.rpc_of_ref_VDI vdi));
              Some vdi
        with
