@@ -86,13 +86,15 @@ let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x
 let of_rpc t x = match Rpcmarshal.unmarshal t.Rpc.Types.ty x with | Ok y -> y | Error (`Msg m) -> failwith (Printf.sprintf "Error unmarshalling type %s: %s" t.Rpc.Types.name m)
 
 (** Primary key identifying the SR *)
-module Sr : sig
+module type WRAPPEDSTRING = sig
   type t
   val typ_of : t Rpc.Types.typ
   val t : t Rpc.Types.def
   val string_of : t -> string
   val of_string : string -> t
-end = struct
+end
+
+module Sr : WRAPPEDSTRING = struct
   type t = string [@@deriving rpcty]
   let string_of x = x
   let of_string x = x
@@ -102,13 +104,7 @@ type sr = Sr.t
 let sr_pp : Format.formatter -> sr -> unit = fun ppf sr -> Format.fprintf ppf "%s" (Sr.string_of sr)
 
 (** Primary key identifying a VDI within an SR *)
-module Vdi : sig
-  type t
-  val typ_of : t Rpc.Types.typ
-  val t : t Rpc.Types.def
-  val string_of : t -> string
-  val of_string : string -> t
-end = struct
+module Vdi : WRAPPEDSTRING = struct
   type t = string [@@deriving rpcty]
   let string_of x = x
   let of_string x = x
