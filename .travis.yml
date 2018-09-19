@@ -1,16 +1,12 @@
 language: c
-install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
-script:
-    - bash -ex .travis-opam.sh
 sudo: required
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.06
     - PACKAGE=message-switch
     - PINS="message-switch-async:. message-switch-cli:. message-switch-core:.  message-switch:.  message-switch-lwt:.  message-switch-unix:."
-  matrix:
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
-matrix:
-    fast_finish: true
-
+  matrix:
+    - DISTRO="debian-9-ocaml-4.06"
