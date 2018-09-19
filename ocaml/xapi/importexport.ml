@@ -322,14 +322,17 @@ module Format = struct
   type t =
     | Raw
     | Vhd
+    | Tar
 
   let to_string = function
     | Raw -> "raw"
     | Vhd -> "vhd"
+    | Tar -> "tar"
 
   let of_string x = match String.lowercase_ascii x with
     | "raw" -> Some Raw
     | "vhd" -> Some Vhd
+    | "tar" -> Some Tar
     | _ -> None
 
   let filename ~__context vdi format =
@@ -340,6 +343,7 @@ module Format = struct
   let content_type = function
     | Raw -> "application/octet-stream"
     | Vhd -> "application/vhd"
+    | Tar -> "application/tar"
 
   let _key = "format"
 
