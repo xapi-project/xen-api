@@ -10,7 +10,7 @@ env:
     - PACKAGE=message-switch
     - PINS="message-switch-async:. message-switch-cli:. message-switch-core:.  message-switch:.  message-switch-lwt:.  message-switch-unix:."
   matrix:
-    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
 matrix:
     fast_finish: true
 
