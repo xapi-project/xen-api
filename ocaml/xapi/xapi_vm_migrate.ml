@@ -217,33 +217,33 @@ let infer_vgpu_map ~__context ?remote vm =
   | None ->
     let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
     List.map (fun self ->
-      let vgpu = Db.VGPU.get_record ~__context ~self in
-      let device = vgpu.API.vGPU_device in
-      let pci () =
-        vgpu.API.vGPU_scheduled_to_be_resident_on
-        |> fun self -> Db.PGPU.get_PCI ~__context ~self
-        |> fun self -> Db.PCI.get_pci_id ~__context ~self
-        |> Xenops_interface.Pci.address_of_string
-      in
-      try
-        device, pci ()
-      with e -> raise (VGPU_mapping(Printexc.to_string e))
-    ) vgpus
+        let vgpu = Db.VGPU.get_record ~__context ~self in
+        let device = vgpu.API.vGPU_device in
+        let pci () =
+          vgpu.API.vGPU_scheduled_to_be_resident_on
+          |> fun self -> Db.PGPU.get_PCI ~__context ~self
+                         |> fun self -> Db.PCI.get_pci_id ~__context ~self
+                                        |> Xenops_interface.Pci.address_of_string
+        in
+        try
+          device, pci ()
+        with e -> raise (VGPU_mapping(Printexc.to_string e))
+      ) vgpus
   | Some {rpc; session} ->
     let vgpus = XenAPI.VM.get_VGPUs rpc session vm in
     List.map (fun self ->
-      let vgpu = XenAPI.VGPU.get_record rpc session self in
-      let device = vgpu.API.vGPU_device in
-      let pci () =
-        vgpu.API.vGPU_scheduled_to_be_resident_on
-        |> fun self -> XenAPI.PGPU.get_PCI rpc session self
-        |> fun self -> XenAPI.PCI.get_pci_id rpc session self
-        |> Xenops_interface.Pci.address_of_string
-      in
-      try
-        device, pci ()
-      with e -> raise (VGPU_mapping(Printexc.to_string e))
-    ) vgpus
+        let vgpu = XenAPI.VGPU.get_record rpc session self in
+        let device = vgpu.API.vGPU_device in
+        let pci () =
+          vgpu.API.vGPU_scheduled_to_be_resident_on
+          |> fun self -> XenAPI.PGPU.get_PCI rpc session self
+                         |> fun self -> XenAPI.PCI.get_pci_id rpc session self
+                                        |> Xenops_interface.Pci.address_of_string
+        in
+        try
+          device, pci ()
+        with e -> raise (VGPU_mapping(Printexc.to_string e))
+      ) vgpus
 
 let pool_migrate ~__context ~vm ~host ~options =
   Pool_features.assert_enabled ~__context ~f:Features.Xen_motion;
@@ -1030,7 +1030,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
          as soon as the domain migration starts. For these case, there
          will be no (clean) way back from this point. So we disable task
          cancellation for them here.
-       *)
+      *)
       if is_same_host then (TaskHelper.exn_if_cancelling ~__context; TaskHelper.set_not_cancellable ~__context);
 
       (* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
@@ -1069,7 +1069,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
          updates, config or cleanup on the source and destination. There will
          be no (clean) way back from this point, due to these destructive
          changes, so we don't want user intervention e.g. task cancellation.
-       *)
+      *)
       TaskHelper.exn_if_cancelling ~__context;
       TaskHelper.set_not_cancellable ~__context;
       XenAPI.VM.pool_migrate_complete remote.rpc remote.session new_vm remote.dest_host;
@@ -1200,81 +1200,81 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~v
   let host_from = Helpers.LocalObject source_host_ref in
 
   begin match migration_type ~__context ~remote with
-  | `intra_pool ->
-    (* Prevent VMs from being migrated onto a host with a lower platform version *)
-    let host_to = Helpers.LocalObject remote.dest_host in
-    if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
-      raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
+    | `intra_pool ->
+      (* Prevent VMs from being migrated onto a host with a lower platform version *)
+      let host_to = Helpers.LocalObject remote.dest_host in
+      if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
+        raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []));
 
-    (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
-    assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
-    if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host ();
-    let snapshot = Db.VM.get_record ~__context ~self:vm in
-    Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ();
-    if vif_map <> [] then
-      raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
-          "VIF mapping is not allowed for intra-pool migration"]));
+      (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
+      assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
+      if not force then Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host ();
+      let snapshot = Db.VM.get_record ~__context ~self:vm in
+      Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ();
+      if vif_map <> [] then
+        raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
+            "VIF mapping is not allowed for intra-pool migration"]));
 
-  | `cross_pool ->
-    (* Prevent VMs from being migrated onto a host with a lower platform version *)
-    let host_to = Helpers.RemoteObject (remote.rpc, remote.session, remote.dest_host) in
-    if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
-      raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version_migrate,
-                                      [Ref.string_of vm; Ref.string_of remote.dest_host]));
+    | `cross_pool ->
+      (* Prevent VMs from being migrated onto a host with a lower platform version *)
+      let host_to = Helpers.RemoteObject (remote.rpc, remote.session, remote.dest_host) in
+      if not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to) then
+        raise (Api_errors.Server_error (Api_errors.vm_host_incompatible_version_migrate,
+                                        [Ref.string_of vm; Ref.string_of remote.dest_host]));
 
-    (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
-    assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
-    let power_state = Db.VM.get_power_state ~__context ~self:vm in
-    (* The copy mode is only allow on stopped VM *)
-    if (not force) && copy && power_state <> `Halted then
-      raise (Api_errors.Server_error (Api_errors.vm_bad_power_state,
-                                      [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
-    (* Check the host can support the VM's required version of virtual hardware platform *)
-    Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
-    (*Check that the remote host is enabled and not in maintenance mode*)
-    let check_host_enabled = XenAPI.Host.get_enabled remote.rpc remote.session (remote.dest_host) in
-    if not check_host_enabled then
-      raise (Api_errors.Server_error (Api_errors.host_disabled,[Ref.string_of remote.dest_host]));
+      (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
+      assert_sr_support_operations ~__context ~vdi_map ~remote ~ops:required_sr_operations;
+      let power_state = Db.VM.get_power_state ~__context ~self:vm in
+      (* The copy mode is only allow on stopped VM *)
+      if (not force) && copy && power_state <> `Halted then
+        raise (Api_errors.Server_error (Api_errors.vm_bad_power_state,
+                                        [Ref.string_of vm; Record_util.power_to_string `Halted; Record_util.power_to_string power_state]));
+      (* Check the host can support the VM's required version of virtual hardware platform *)
+      Xapi_vm_helpers.assert_hardware_platform_support ~__context ~vm ~host:host_to;
+      (*Check that the remote host is enabled and not in maintenance mode*)
+      let check_host_enabled = XenAPI.Host.get_enabled remote.rpc remote.session (remote.dest_host) in
+      if not check_host_enabled then
+        raise (Api_errors.Server_error (Api_errors.host_disabled,[Ref.string_of remote.dest_host]));
 
-    (* Check that the VM's required CPU features are available on the host *)
-    if not force then
-      Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
+      (* Check that the VM's required CPU features are available on the host *)
+      if not force then
+        Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host:remote.dest_host
+          ~remote:(remote.rpc, remote.session) ();
+
+      (* Check that the destination has enough pCPUs *)
+      Xapi_vm_helpers.assert_enough_pcpus ~__context ~self:vm ~host:remote.dest_host
         ~remote:(remote.rpc, remote.session) ();
 
-    (* Check that the destination has enough pCPUs *)
-    Xapi_vm_helpers.assert_enough_pcpus ~__context ~self:vm ~host:remote.dest_host
-        ~remote:(remote.rpc, remote.session) ();
+      (* Check that all VIFs are mapped. *)
+      let vifs = Db.VM.get_VIFs ~__context ~self:vm in
+      let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
+      let snapshot_vifs = List.flatten
+          (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
+      let vif_map = infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map in
 
-    (* Check that all VIFs are mapped. *)
-    let vifs = Db.VM.get_VIFs ~__context ~self:vm in
-    let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
-    let snapshot_vifs = List.flatten
-        (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
-    let vif_map = infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map in
-
-    try
-      let vdi_map =
-        List.map (fun (vdi, sr) -> {
-              local_vdi_reference = vdi;
-              remote_vdi_reference = None;
-            })
-          vdi_map in
-      let vif_map =
-        List.map (fun (vif, network) -> {
-              local_vif_reference = vif;
-              remote_network_reference = network;
-            })
-          vif_map in
-      let vgpu_map =
-        List.map (fun (vgpu, gpu_group) -> {
-              local_vgpu_reference = vgpu;
-              remote_gpu_group_reference = gpu_group;
-            })
-          vgpu_map in
-      if not (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~vgpu_map ~dry_run:true ~live:true ~copy = []) then
-        raise Api_errors.(Server_error(internal_error, ["assert_can_migrate: inter_pool_metadata_transfer returned a nonempty list"]))
-    with Xmlrpc_client.Connection_reset ->
-      raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
+      try
+        let vdi_map =
+          List.map (fun (vdi, sr) -> {
+                local_vdi_reference = vdi;
+                remote_vdi_reference = None;
+              })
+            vdi_map in
+        let vif_map =
+          List.map (fun (vif, network) -> {
+                local_vif_reference = vif;
+                remote_network_reference = network;
+              })
+            vif_map in
+        let vgpu_map =
+          List.map (fun (vgpu, gpu_group) -> {
+                local_vgpu_reference = vgpu;
+                remote_gpu_group_reference = gpu_group;
+              })
+            vgpu_map in
+        if not (inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~vgpu_map ~dry_run:true ~live:true ~copy = []) then
+          raise Api_errors.(Server_error(internal_error, ["assert_can_migrate: inter_pool_metadata_transfer returned a nonempty list"]))
+      with Xmlrpc_client.Connection_reset ->
+        raise (Api_errors.Server_error(Api_errors.cannot_contact_host, [remote.remote_ip]))
   end;
 
   (* check_vdi_map above has already verified that all VDIs are in the vdi_map *)

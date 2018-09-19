@@ -28,7 +28,7 @@ let sample_send_state = Storage_migrate.State.Send_state.({
     remote_info = Some {dp="remote_dp"; vdi=Storage_interface.Vdi.of_string "mirror_vdi"; url="remote_url"};
     local_dp = "local_dp";
     tapdev = Some (Tapctl.tapdev_of_rpc
-        (Rpc.Dict ["minor", Rpc.Int 0L; "tapdisk_pid", Rpc.Int 0L]));
+                     (Rpc.Dict ["minor", Rpc.Int 0L; "tapdisk_pid", Rpc.Int 0L]));
     failed = false;
     watchdog = None;
   })

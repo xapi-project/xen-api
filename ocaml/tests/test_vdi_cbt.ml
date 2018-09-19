@@ -74,7 +74,7 @@ let test_cbt_enable_disable () =
     sr;
 
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
-   check_params "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt" (Some (sr, vdi)) !enable_cbt_params;
+  check_params "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt" (Some (sr, vdi)) !enable_cbt_params;
   assert_vdi_cbt_enabled_is true "cbt_enabled should be true when VDI.enable_cbt returns successfully";
 
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
@@ -363,10 +363,10 @@ let test_data_destroy =
     let __context, sR, vdi = setup_test_for_data_destroy ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> raise (Failure "error")) () in
     let original_type = Db.VDI.get_type ~__context ~self:vdi in
     try Xapi_vdi.data_destroy ~__context ~self:vdi with _ -> ();
-    Alcotest.check (Alcotest_comparators.vdi_type)
-      "data_destroy should not change the VDI's type to cbt_metadata when it did not succeed, it should preserve the original type"
-      original_type
-      (Db.VDI.get_type ~__context ~self:vdi)
+      Alcotest.check (Alcotest_comparators.vdi_type)
+        "data_destroy should not change the VDI's type to cbt_metadata when it did not succeed, it should preserve the original type"
+        original_type
+        (Db.VDI.get_type ~__context ~self:vdi)
   in
 
   let test_data_destroy_timing =
@@ -393,7 +393,7 @@ let test_data_destroy =
         ignore (bg (fun () -> (try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout with e -> raisedexn := Some e); completed := true));
         Thread.delay timebox_timeout;
         if not !completed then
-                Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout);
+          Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout);
         match !raisedexn with
         | None -> ()
         | Some e -> raise e

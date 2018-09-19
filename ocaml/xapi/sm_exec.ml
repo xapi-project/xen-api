@@ -78,7 +78,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_locatio
            if Db.is_valid_ref __context (Db.SR.get_introduced_by ~__context ~self:sr) then
              if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"; "sr_content_type"]) then
                raise (Storage_interface.Storage_error (Backend_error(Api_errors.operation_not_allowed,
-                                                      [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd])));
+                                                                     [Printf.sprintf "The operation %s is not allowed on this SR as it is being used for disaster recovery." cmd])));
          ) sr_ref;
        let vdi_location =
          if vdi_location <> None
@@ -229,7 +229,7 @@ let exec_xmlrpc ?context ?(needs_session=true) (driver: string) (call: call) =
 
 let xmlrpc_parse_failure (xml: string) (reason: string) =
   raise (Storage_interface.Storage_error (Backend_error (Api_errors.sr_backend_failure,
-                                          [ ""; "XML parse failure: " ^xml; reason ])))
+                                                         [ ""; "XML parse failure: " ^xml; reason ])))
 
 let rethrow_parse_failures xml f =
   try f ()

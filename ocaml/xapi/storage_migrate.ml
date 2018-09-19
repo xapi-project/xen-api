@@ -229,9 +229,9 @@ let rpc ~srcstr ~dststr url =
     let open Http.Url in
     match url with
     | (Http h, d) ->
-       (Http {h with host=ip}, d)
+      (Http {h with host=ip}, d)
     | _ ->
-       remote_url ip
+      remote_url ip
   in
   let local_fn = Helpers.make_remote_rpc_of_url ~srcstr ~dststr url in
   Storage_utils.redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn
@@ -502,8 +502,8 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     let mirror_dp = result.Mirror.mirror_datapath in
 
     let uri = (Printf.sprintf "/services/SM/nbd/%s/%s/%s"
-      (Storage_interface.Sr.string_of dest)
-      (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi) mirror_dp) in
+                 (Storage_interface.Sr.string_of dest)
+                 (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi) mirror_dp) in
     let dest_url = Http.Url.set_uri remote_url uri in
     let request = Http.Request.make ~query:(Http.Url.get_query_params dest_url) ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri in
     let transport = Xmlrpc_client.transport_of_url dest_url in
@@ -550,13 +550,13 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
     let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
     let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
     let snapshot =
-    try
-      Local.VDI.snapshot dbg sr local_vdi
-    with
-    | Storage_interface.Storage_error (Backend_error(code, _)) when code = "SR_BACKEND_FAILURE_44" ->
-      raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ Storage_interface.Sr.string_of sr ]))
-    | e ->
-      raise e
+      try
+        Local.VDI.snapshot dbg sr local_vdi
+      with
+      | Storage_interface.Storage_error (Backend_error(code, _)) when code = "SR_BACKEND_FAILURE_44" ->
+        raise (Api_errors.Server_error(Api_errors.sr_source_space_insufficient, [ Storage_interface.Sr.string_of sr ]))
+      | e ->
+        raise e
     in
 
     SMPERF.debug "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
@@ -974,8 +974,8 @@ let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs 
   let remote_url = Http.Url.of_string url in
   let module Remote =
     StorageAPI(Idl.GenClientExnRpc(struct
-      let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
-    end))
+                 let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+               end))
   in
   let local_vdis = Local.SR.scan dbg sr in
   let find_vdi ~vdi ~vdi_info_list =

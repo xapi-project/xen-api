@@ -87,8 +87,8 @@ let vdi_info_of_vdi_rec __context vdi_rec =
     snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
     snapshot_of =
       (if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
-      then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
-      else "") |> Storage_interface.Vdi.of_string;
+       then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
+       else "") |> Storage_interface.Vdi.of_string;
     read_only = vdi_rec.API.vDI_read_only;
     cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
     virtual_size = vdi_rec.API.vDI_virtual_size;
@@ -215,7 +215,7 @@ module SMAPIv1 = struct
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
                   raise e
              );
-            List.filter (fun (x,_) -> x <> "SRmaster") device_config
+           List.filter (fun (x,_) -> x <> "SRmaster") device_config
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
@@ -961,7 +961,7 @@ let check_queue_exists queue_name =
    The destination uri needs to be local as [xml_http_rpc] doesn't support https calls,
    only file and http.
    Cross-host https calls are only supported by XMLRPC_protocol.rpc
- *)
+*)
 let external_rpc queue_name uri =
   let open Xcp_client in
   if !use_switch then check_queue_exists queue_name;
@@ -1124,7 +1124,7 @@ let unbind ~__context ~pbd =
 (* Internal SM calls: need to handle redirection, we are the toplevel caller.
    The SM can decide that a call needs to be run elsewhere, e.g.
    for a SMAPIv3 plugin the snapshot should be run on the node that has the VDI activated.
- *)
+*)
 let rpc =
   let srcstr = Xcp_client.get_user_agent() in
   let local_fn = Storage_mux.Server.process in
@@ -1406,21 +1406,21 @@ let resynchronise_pbds ~__context ~pbds =
   debug "Currently-attached SRs: [ %s ]" (String.concat "; " (List.map s_of_sr srs));
   List.iter
     (fun self ->
-     try
-       let sr_uuid = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
-       let sr = Storage_interface.Sr.of_string sr_uuid in
-       let value = List.mem sr srs in
-       debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
        try
-         if value then (let (_:query_result) = bind ~__context ~pbd:self in ());
-         Db.PBD.set_currently_attached ~__context ~self ~value
-       with e ->
-         (* Unchecked this will block the dbsync code *)
-         error "Service implementing SR %s has failed. Performing emergency reset of SR state" sr_uuid;
-         Client.SR.reset (Ref.string_of dbg) sr;
-         Db.PBD.set_currently_attached ~__context ~self ~value:false;
-     with Db_exn.DBCache_NotFound(_, ("PBD"|"SR"), _) as e ->
-       debug "Ignoring PBD/SR that got deleted before we resynchronised: %s" (Printexc.to_string e)
+         let sr_uuid = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
+         let sr = Storage_interface.Sr.of_string sr_uuid in
+         let value = List.mem sr srs in
+         debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
+         try
+           if value then (let (_:query_result) = bind ~__context ~pbd:self in ());
+           Db.PBD.set_currently_attached ~__context ~self ~value
+         with e ->
+           (* Unchecked this will block the dbsync code *)
+           error "Service implementing SR %s has failed. Performing emergency reset of SR state" sr_uuid;
+           Client.SR.reset (Ref.string_of dbg) sr;
+           Db.PBD.set_currently_attached ~__context ~self ~value:false;
+       with Db_exn.DBCache_NotFound(_, ("PBD"|"SR"), _) as e ->
+         debug "Ignoring PBD/SR that got deleted before we resynchronised: %s" (Printexc.to_string e)
 
     ) pbds
 

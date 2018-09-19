@@ -26,6 +26,6 @@ let signal id =
     let handle = handle_of_id tasks id in
     let state = get_state handle in
     debug "TASK.signal %s = %s" id (state |> rpc_of Task.state |> Jsonrpc.to_string);
-     Updates.add (Dynamic.Task id) updates
+    Updates.add (Dynamic.Task id) updates
   with
     Storage_error Does_not_exist _ -> debug "TASK.signal %s (object deleted)" id

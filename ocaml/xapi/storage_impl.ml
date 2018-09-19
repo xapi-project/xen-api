@@ -114,13 +114,13 @@ let string_of_date x = Date.to_string (Date.of_float x)
 let rpc_fns keyty valty =
   let rpc_of hashtbl =
     let v = Hashtbl.fold (fun k v acc ->
-      let keystr = 
-        match Rpcmarshal.marshal keyty.Rpc.Types.ty k with
-        | Rpc.String x -> x
-        | _ -> failwith "Runtime error marshalling non-stringish key"
-      in
-      let valuerpc = Rpcmarshal.marshal valty.Rpc.Types.ty v in
-      (keystr, valuerpc)::acc) hashtbl []
+        let keystr = 
+          match Rpcmarshal.marshal keyty.Rpc.Types.ty k with
+          | Rpc.String x -> x
+          | _ -> failwith "Runtime error marshalling non-stringish key"
+        in
+        let valuerpc = Rpcmarshal.marshal valty.Rpc.Types.ty v in
+        (keystr, valuerpc)::acc) hashtbl []
     in Rpc.Dict v
   in
   let of_rpc rpc =
@@ -129,11 +129,11 @@ let rpc_fns keyty valty =
     match rpc with
     | Rpc.Dict kvs ->
       let res = List.fold_left (fun hashtbl (k,v) ->
-        hashtbl >>= fun h ->
-        unm keyty (Rpc.String k) >>= fun key -> 
-        unm valty v >>= fun value ->
-        Hashtbl.replace h key value;
-        Ok h) (Ok (Hashtbl.create (List.length kvs))) kvs in
+          hashtbl >>= fun h ->
+          unm keyty (Rpc.String k) >>= fun key -> 
+          unm valty v >>= fun value ->
+          Hashtbl.replace h key value;
+          Ok h) (Ok (Hashtbl.create (List.length kvs))) kvs in
       res
     | _ -> Error (`Msg "Trying to unmarshal hashtblish thing from a non-dict")
   in (of_rpc,rpc_of)
@@ -292,7 +292,9 @@ module Everything = struct
     let rpc = Jsonrpc.of_string s in
     match Rpcmarshal.unmarshal typ_of rpc with
     | Ok x -> x
-    | Error (`Msg m) -> error "Failed to unmarshal Everything state: %s" m; failwith "Internal error: failed to restore storage state"
+    | Error (`Msg m) ->
+      error "Failed to unmarshal Everything state: %s" m;
+      failwith "Internal error: failed to restore storage state"
 
   let set h = Host.host := h.host; Errors.errors := h.errors
 end
@@ -716,28 +718,28 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         		    it is assumed that all VDIs are already locked. *)
     let destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak vdi_already_locked =
       (* Every VDI in use by this session should be detached and deactivated
-	 This code makes the assumption that a datapath is only on 0 or 1 VDIs. However, it retains debug code (identified below) to verify this.
+         This code makes the assumption that a datapath is only on 0 or 1 VDIs. However, it retains debug code (identified below) to verify this.
          It also assumes that the VDIs associated with a datapath don't change during its execution - again it retains debug code to verify this.	
       *)
 
       let vdis = Sr.list sr_t in
-      
+
       (* Note that we assume this filter returns 0 or 1 items, but we need to verify that. *)
       let vdis_with_dp = List.filter (fun(vdi, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis in
       debug "[destroy_sr] Filtered VDI count:%d" (List.length vdis_with_dp);
       List.iter (fun(vdi, vdi_t) -> debug "[destroy_sr] VDI found with the dp is %s" (s_of_vdi vdi)) vdis_with_dp;
-      
+
       let locker vdi =
         if vdi_already_locked
-          then fun f -> f ()
-          else VDI.with_vdi sr vdi in
+        then fun f -> f ()
+        else VDI.with_vdi sr vdi in
 
       (* This is debug code to verify that no more than 1 VDI matched the datapath. We also convert the 0 and 1 cases to an Option which is more natural to work with *)
       let vdi_to_remove = match vdis_with_dp with
         | [] -> None
         | [x] -> Some x
         | _ -> 
-           raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, [Printf.sprintf "Expected 0 or 1 VDI with datapath, had %d" (List.length vdis_with_dp)])))
+          raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, [Printf.sprintf "Expected 0 or 1 VDI with datapath, had %d" (List.length vdis_with_dp)])))
       in
 
       (* From this point if it didn't raise, the assumption of 0 or 1 VDIs holds *)
@@ -745,14 +747,14 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         | None -> None
         | Some (vdi, vdi_t) -> (
             locker vdi (fun () ->
-              try
-                VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;
-                None
-              with e -> Some e
-            )
+                try
+                  VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;
+                  None
+                with e -> Some e
+              )
           )
       in       
-	
+
       (* This is debug code to assert that we removed the datapath from all VDIs by looking for a situation where a VDI not known about has the datapath at this point *)
       (* Can't just check for vdis_with_dp = 0, the actual removal isn't necessarily complete at this point *)
       let vdi_ident = match vdi_to_remove with
@@ -762,7 +764,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
 
       let vdis = Sr.list sr_t in
       let vdis_with_dp = List.filter (fun(vdi, vdi_t) -> Vdi.dp_on_vdi dp vdi_t) vdis in
-      
+
       (* Function to see if a (vdi, vdi_t) matches vdi_ident *)
       let matches (vdi, vdi_t) = match vdi_ident with
         | None -> false
@@ -774,10 +776,10 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         | [v] -> not (matches v)
         | _ -> true
       in
-	  
+
       if race_occured then(
-	let message = [Printf.sprintf "Expected no new VDIs with DP after destroy_sr. VDI expected with id %s" (match vdi_ident with | None -> "(not attached)" | Some s -> s_of_vdi s)] @
-        List.map (fun(vdi, vdi_t) -> Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi)) vdis_with_dp in
+        let message = [Printf.sprintf "Expected no new VDIs with DP after destroy_sr. VDI expected with id %s" (match vdi_ident with | None -> "(not attached)" | Some s -> s_of_vdi s)] @
+                      List.map (fun(vdi, vdi_t) -> Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi)) vdis_with_dp in
         raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, message)))
       );      
 
@@ -786,7 +788,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
     let destroy context ~dbg ~dp ~allow_leak =
       info "DP.destroy dbg:%s dp:%s allow_leak:%b" dbg dp allow_leak;
       let failures = Host.list !Host.host
-		   |>List.filter_map (fun (sr, sr_t) -> destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false) in
+                     |>List.filter_map (fun (sr, sr_t) -> destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false) in
 
       match failures, allow_leak with
       | [], _  -> ()

@@ -169,12 +169,12 @@ let register_callback_fns() =
     Locking_helpers.Thread_state.released (Locking_helpers.Process("stunnel", pid)) in
   let stunnel_destination_is_ok addr =
     Server_helpers.exec_with_new_task "check_stunnel_destination" (fun __context ->
-      let hosts = Db.Host.get_refs_where ~__context ~expr:(
-        Eq (Field "address", Literal addr)
-      ) in
-      match hosts with
-      | [host] -> (try Message_forwarding.check_live ~__context host; true with _ -> false)
-      | _ -> true)
+        let hosts = Db.Host.get_refs_where ~__context ~expr:(
+            Eq (Field "address", Literal addr)
+          ) in
+        match hosts with
+        | [host] -> (try Message_forwarding.check_live ~__context host; true with _ -> false)
+        | _ -> true)
   in
   Xmlrpc_client.Internal.set_stunnelpid_callback := Some set_stunnelpid;
   Xmlrpc_client.Internal.unset_stunnelpid_callback := Some unset_stunnelpid;
@@ -513,8 +513,8 @@ let check_network_reset () =
            match vlan with
            | Some vlan ->
              begin match Db.PIF.get_refs_where ~__context ~expr:(And (
-               Eq (Field "device", Literal device),
-               Eq (Field "VLAN", Literal vlan))) with
+                 Eq (Field "device", Literal device),
+                 Eq (Field "VLAN", Literal vlan))) with
              | [] -> None
              | pif :: _ -> Some (Db.PIF.get_network ~__context ~self:pif)
              end
@@ -540,7 +540,7 @@ let check_network_reset () =
              | Some network -> network
            in
            let vlan, untagged_PIF = Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif
-             ~network ~tag:(Int64.of_string vlan) ~device in
+               ~network ~tag:(Int64.of_string vlan) ~device in
            untagged_PIF
          in
 

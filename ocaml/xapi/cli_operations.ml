@@ -1515,12 +1515,12 @@ let sr_probe_ext printer rpc session_id params =
     printer (Cli_printer.PMsg "The following SRs were found:");
     List.iteri
       (fun i (sr, probe_result) ->
-        printer (Cli_printer.PMsg (Printf.sprintf "SR %d:" i));
-        printer (Cli_printer.PTable [print_sr sr]);
-        printer (Cli_printer.PMsg (Printf.sprintf "SR %d configuration:" i));
-        printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
-        printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i));
-        printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
+         printer (Cli_printer.PMsg (Printf.sprintf "SR %d:" i));
+         printer (Cli_printer.PTable [print_sr sr]);
+         printer (Cli_printer.PMsg (Printf.sprintf "SR %d configuration:" i));
+         printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
+         printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i));
+         printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
       )
       srs;
   end;
