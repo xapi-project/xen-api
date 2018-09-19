@@ -31,7 +31,7 @@ done
 SIZE=$((${SIZE_GB} * 1024 * 1024 * 1024))
 
 if [ ! -e @INVENTORY@ ]; then
-  echo Must run on a XenServer host.
+  echo Must run on a Citrix Hypervisor host.
   exit 1
 fi
 

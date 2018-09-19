@@ -2633,7 +2633,7 @@ module VDI = struct
       ~in_product_since:rel_boston
       ~params:[Ref _vdi, "self", "The VDI which contains the database to open"]
       ~result:(Ref _session, "A session which can be used to query the database")
-      ~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in XenAPI calls to query its contents."
+      ~doc:"Load the metadata found on the supplied VDI and return a session reference which can be used in API calls to query its contents."
       ~allowed_roles:_R_POOL_OP
       ()
 

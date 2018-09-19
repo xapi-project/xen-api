@@ -3,7 +3,7 @@
 # Citrix Systems Inc, 2008
 
 if [ ! -e @INVENTORY@ ]; then
-  echo Must run on a XenServer host.
+  echo Must run on a Citrix Hypervisor host.
   exit 1
 fi
 
