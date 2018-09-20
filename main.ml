@@ -235,6 +235,7 @@ let vdi_create common_opts sr name descr virtual_size sharable format = match sr
           name_description = descr;
           ty = "user";
           virtual_size = parse_size virtual_size;
+          sharable = sharable;
           sm_config = (match format with None -> [] | Some x -> ["type", x]);
         } in
         let vdi_info = Client.VDI.create dbg sr vdi_info in
