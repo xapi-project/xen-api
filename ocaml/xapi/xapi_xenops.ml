@@ -189,6 +189,18 @@ let firmware_of_vm vm =
         bad]))
   | exception Not_found -> default_firmware
 
+let nvram_post_clone ~__context ~self ~uuid =
+  match Db.VM.get_NVRAM ~__context ~self with
+  | [] -> ()
+  | original ->
+    let uuid = Uuid.to_string uuid in
+    info "VM %s was cloned: clearing certain UEFI variables" uuid;
+    let (_: string*string) =
+      Forkhelpers.execute_command_get_output
+        !Xapi_globs.varstore_rm ["-c"; uuid] in
+    if Db.VM.get_NVRAM ~__context ~self <> original then
+      debug "VM %s: NVRAM changed due to clone" uuid
+
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
   let timeoffset = string vm_t.API.vM_platform "0" Vm_platform.timeoffset in
   (* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
