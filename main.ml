@@ -673,16 +673,16 @@ let bind ~volume_script_dir =
           else features in
         let name = response.Xapi_storage.Plugin.name in
         Deferred.Result.return {
-            Storage_interface.driver = response.Xapi_storage.Plugin.plugin;
-            name;
-            description = response.Xapi_storage.Plugin.description;
-            vendor = response.Xapi_storage.Plugin.vendor;
-            copyright = response.Xapi_storage.Plugin.copyright;
-            version = response.Xapi_storage.Plugin.version;
-            required_api_version;
-            features;
-            configuration = response.Xapi_storage.Plugin.configuration;
-            required_cluster_stack = response.Xapi_storage.Plugin.required_cluster_stack } in
+          Storage_interface.driver = response.Xapi_storage.Plugin.plugin;
+          name;
+          description = response.Xapi_storage.Plugin.description;
+          vendor = response.Xapi_storage.Plugin.vendor;
+          copyright = response.Xapi_storage.Plugin.copyright;
+          version = response.Xapi_storage.Plugin.version;
+          required_api_version;
+          features;
+          configuration = response.Xapi_storage.Plugin.configuration;
+          required_cluster_stack = response.Xapi_storage.Plugin.required_cluster_stack } in
       wrap th)
   in
   S.Query.query query_impl;
@@ -749,7 +749,7 @@ let bind ~volume_script_dir =
             let uri = Uri.of_string datasource in
             match Uri.scheme uri with
             | Some "xeno+shm" ->
-            let uid = Uri.path uri in
+              let uid = Uri.path uri in
               let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
               (RRD.Client.Plugin.Local.deregister RRD.rpc uid).Rpc_async.M.async
               >>= begin function
@@ -778,37 +778,37 @@ let bind ~volume_script_dir =
       in
       response
       |> List.map ~f:(fun probe_result ->
-        let uuid = List.Assoc.find probe_result.Xapi_storage.Control.configuration ~equal:String.equal "sr_uuid" in
-        let open Deferred.Or_error in
-        let smapiv2_probe ?sr_info () =
-        { Storage_interface.configuration=probe_result.configuration; complete=probe_result.complete; sr=sr_info; extra_info=probe_result.extra_info }
-        in
-        match probe_result.Xapi_storage.Control.sr, probe_result.Xapi_storage.Control.complete, uuid with
-        | _, false, Some _uuid ->
-          errorf "A configuration with a uuid cannot be incomplete: %a" pp_probe_result probe_result
-        | Some sr_stat, true, Some _uuid ->
-          let sr_info = {
-            Storage_interface.name_label = sr_stat.Xapi_storage.Control.name;
-            sr_uuid = sr_stat.Xapi_storage.Control.uuid;
-            name_description = sr_stat.Xapi_storage.Control.description;
-            total_space = sr_stat.Xapi_storage.Control.total_space;
-            free_space = sr_stat.Xapi_storage.Control.free_space;
-            clustered = sr_stat.Xapi_storage.Control.clustered;
-            health = match sr_stat.Xapi_storage.Control.health with
-              | Xapi_storage.Control.Healthy _ -> Healthy
-              | Xapi_storage.Control.Recovering _ -> Recovering
-          } in
-          return (smapiv2_probe ~sr_info ())
-        | Some _sr, _, None ->
-          errorf "A configuration is not attachable without a uuid: %a" pp_probe_result probe_result
-        | None, false, None ->
-          return (smapiv2_probe ())
-        | None, true, _ ->
-          return (smapiv2_probe ()))
+          let uuid = List.Assoc.find probe_result.Xapi_storage.Control.configuration ~equal:String.equal "sr_uuid" in
+          let open Deferred.Or_error in
+          let smapiv2_probe ?sr_info () =
+            { Storage_interface.configuration=probe_result.configuration; complete=probe_result.complete; sr=sr_info; extra_info=probe_result.extra_info }
+          in
+          match probe_result.Xapi_storage.Control.sr, probe_result.Xapi_storage.Control.complete, uuid with
+          | _, false, Some _uuid ->
+            errorf "A configuration with a uuid cannot be incomplete: %a" pp_probe_result probe_result
+          | Some sr_stat, true, Some _uuid ->
+            let sr_info = {
+              Storage_interface.name_label = sr_stat.Xapi_storage.Control.name;
+              sr_uuid = sr_stat.Xapi_storage.Control.uuid;
+              name_description = sr_stat.Xapi_storage.Control.description;
+              total_space = sr_stat.Xapi_storage.Control.total_space;
+              free_space = sr_stat.Xapi_storage.Control.free_space;
+              clustered = sr_stat.Xapi_storage.Control.clustered;
+              health = match sr_stat.Xapi_storage.Control.health with
+                | Xapi_storage.Control.Healthy _ -> Healthy
+                | Xapi_storage.Control.Recovering _ -> Recovering
+            } in
+            return (smapiv2_probe ~sr_info ())
+          | Some _sr, _, None ->
+            errorf "A configuration is not attachable without a uuid: %a" pp_probe_result probe_result
+          | None, false, None ->
+            return (smapiv2_probe ())
+          | None, true, _ ->
+            return (smapiv2_probe ()))
       |> Deferred.Or_error.combine_errors
       |> Deferred.Result.map_error ~f:(fun err ->
-        backend_error "SCRIPT_FAILED" ["SR.probe"; Error.to_string_hum err])
-        >>>= fun results ->
+          backend_error "SCRIPT_FAILED" ["SR.probe"; Error.to_string_hum err])
+      >>>= fun results ->
       Deferred.Result.return (Storage_interface.Probe results)
     in wrap th in
   S.SR.probe sr_probe_impl;
@@ -818,8 +818,8 @@ let bind ~volume_script_dir =
       let uuid = Storage_interface.Sr.string_of sr_uuid in
       Compat.sr_create device_config >>>= fun (device_config, compat_in, compat_out) ->
       return_volume_rpc (fun () ->
-        Sr_client.create (volume_rpc ~compat_in ~compat_out)
-        dbg uuid device_config name_label description)
+          Sr_client.create (volume_rpc ~compat_in ~compat_out)
+            dbg uuid device_config name_label description)
       >>>= fun new_device_config ->
       Deferred.Result.return new_device_config
     in wrap th
@@ -828,19 +828,19 @@ let bind ~volume_script_dir =
 
   let sr_set_name_label_impl dbg sr new_name_label =
     (Attached_SRs.find sr >>>= fun sr ->
-    return_volume_rpc (fun () -> Sr_client.set_name volume_rpc dbg sr new_name_label))
+     return_volume_rpc (fun () -> Sr_client.set_name volume_rpc dbg sr new_name_label))
     |> wrap in
   S.SR.set_name_label sr_set_name_label_impl;
 
   let sr_set_name_description_impl dbg sr new_name_description =
     (Attached_SRs.find sr >>>= fun sr ->
-    return_volume_rpc (fun () -> Sr_client.set_description volume_rpc dbg sr new_name_description))
+     return_volume_rpc (fun () -> Sr_client.set_description volume_rpc dbg sr new_name_description))
     |> wrap in
   S.SR.set_name_description sr_set_name_description_impl;
 
   let sr_destroy_impl dbg sr =
     (Attached_SRs.find sr >>>= fun sr ->
-    return_volume_rpc (fun () -> Sr_client.destroy volume_rpc dbg sr))
+     return_volume_rpc (fun () -> Sr_client.destroy volume_rpc dbg sr))
     |> wrap in
   S.SR.destroy sr_destroy_impl;
 
@@ -852,9 +852,9 @@ let bind ~volume_script_dir =
       let response = Array.to_list response in
       (* Filter out volumes which are clone-on-boot transients *)
       let transients = List.fold ~f:(fun set x ->
-        match List.Assoc.find x.Xapi_storage.Control.keys _clone_on_boot_key ~equal:String.equal with
-        | None -> set
-        | Some transient -> Set.add set transient
+          match List.Assoc.find x.Xapi_storage.Control.keys _clone_on_boot_key ~equal:String.equal with
+          | None -> set
+          | Some transient -> Set.add set transient
         ) ~init:(Core.String.Set.empty) response in
       let response = List.filter ~f:(fun x -> not(Set.mem transients x.Xapi_storage.Control.key)) response in
       Deferred.Result.return (List.map ~f:vdi_of_volume response)
@@ -866,14 +866,14 @@ let bind ~volume_script_dir =
     begin
       Attached_SRs.find sr >>>= fun sr ->
       return_volume_rpc (fun () ->
-        Volume_client.create
-          (volume_rpc ~compat_out:Compat.compat_out_volume)
-          dbg
-          sr
-          vdi_info.Storage_interface.name_label
-          vdi_info.name_description
-          vdi_info.virtual_size
-          vdi_info.sharable)
+          Volume_client.create
+            (volume_rpc ~compat_out:Compat.compat_out_volume)
+            dbg
+            sr
+            vdi_info.Storage_interface.name_label
+            vdi_info.name_description
+            vdi_info.virtual_size
+            vdi_info.sharable)
       >>>= update_keys ~dbg ~sr ~key:_vdi_type_key ~value:(match vdi_info.ty with "" -> None | s -> Some s)
       >>>= fun response ->
       Deferred.Result.return (vdi_of_volume response)
@@ -888,11 +888,11 @@ let bind ~volume_script_dir =
       stat ~dbg ~sr ~vdi >>>= fun response ->
       (* Destroy any clone-on-boot volume that might exist *)
       ( match List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key ~equal:String.equal with
-      | None ->
-        return (Ok ())
-      | Some temporary ->
-        (* Destroy the temporary disk we made earlier *)
-        destroy ~dbg ~sr ~vdi
+        | None ->
+          return (Ok ())
+        | Some temporary ->
+          (* Destroy the temporary disk we made earlier *)
+          destroy ~dbg ~sr ~vdi
       ) >>>= fun () ->
       destroy ~dbg ~sr ~vdi
     end |> wrap
@@ -981,10 +981,10 @@ let bind ~volume_script_dir =
       let vdi = Storage_interface.Vdi.string_of vdi' in
       vdi_attach_common dbg sr vdi >>>= fun response ->
       let convert_implementation = function
-      | Xapi_storage.Data.XenDisk { params; extra; backend_type } -> Storage_interface.XenDisk { params; extra; backend_type }
-      | BlockDevice { path } -> BlockDevice { path }
-      | File { path } -> File { path }
-      | Nbd { uri } -> Nbd { uri }
+        | Xapi_storage.Data.XenDisk { params; extra; backend_type } -> Storage_interface.XenDisk { params; extra; backend_type }
+        | BlockDevice { path } -> BlockDevice { path }
+        | File { path } -> File { path }
+        | Nbd { uri } -> Nbd { uri }
       in
       Deferred.Result.return { Storage_interface.implementations = List.map ~f:convert_implementation response.Xapi_storage.Data.implementations }
     end |> wrap
@@ -1060,7 +1060,7 @@ let bind ~volume_script_dir =
         health = match response.Xapi_storage.Control.health with
           | Xapi_storage.Control.Healthy _ -> Healthy
           | Xapi_storage.Control.Recovering _ -> Recovering
-        ;
+            ;
       }
     end |> wrap
   in
@@ -1129,39 +1129,39 @@ let bind ~volume_script_dir =
   S.VDI.compose u;
   S.VDI.get_by_name u;
   S.DATA.MIRROR.receive_start u;
-   S.SR.reset u;
-   S.UPDATES.get u;
-   S.SR.update_snapshot_info_dest u;
-   S.VDI.data_destroy u;
-   S.DATA.MIRROR.list u;
-   S.TASK.stat u;
-   S.VDI.remove_from_sm_config u;
-   S.DP.diagnostics u;
-   S.TASK.destroy u;
-   S.VDI.list_changed_blocks u;
-   S.DP.destroy u;
-   S.VDI.add_to_sm_config u;
-   S.VDI.similar_content u;
-   S.DATA.copy u;
-   S.DP.stat_vdi u;
-   S.DATA.MIRROR.receive_finalize u;
-   S.DP.create u;
-   S.VDI.set_content_id u;
-   S.VDI.disable_cbt u;
-   S.DP.attach_info u;
-   S.TASK.cancel u;
-   S.SR.list u;
-   S.VDI.attach u;
-   S.DATA.MIRROR.stat u;
-   S.TASK.list u;
-   S.VDI.get_url u;
-   S.VDI.enable_cbt u;
-   S.DATA.MIRROR.start u;
-   S.Policy.get_backend_vm u;
-   S.DATA.copy_into u;
-   S.DATA.MIRROR.receive_cancel u;
-   S.SR.update_snapshot_info_src u;
-   S.DATA.MIRROR.stop u;
+  S.SR.reset u;
+  S.UPDATES.get u;
+  S.SR.update_snapshot_info_dest u;
+  S.VDI.data_destroy u;
+  S.DATA.MIRROR.list u;
+  S.TASK.stat u;
+  S.VDI.remove_from_sm_config u;
+  S.DP.diagnostics u;
+  S.TASK.destroy u;
+  S.VDI.list_changed_blocks u;
+  S.DP.destroy u;
+  S.VDI.add_to_sm_config u;
+  S.VDI.similar_content u;
+  S.DATA.copy u;
+  S.DP.stat_vdi u;
+  S.DATA.MIRROR.receive_finalize u;
+  S.DP.create u;
+  S.VDI.set_content_id u;
+  S.VDI.disable_cbt u;
+  S.DP.attach_info u;
+  S.TASK.cancel u;
+  S.SR.list u;
+  S.VDI.attach u;
+  S.DATA.MIRROR.stat u;
+  S.TASK.list u;
+  S.VDI.get_url u;
+  S.VDI.enable_cbt u;
+  S.DATA.MIRROR.start u;
+  S.Policy.get_backend_vm u;
+  S.DATA.copy_into u;
+  S.DATA.MIRROR.receive_cancel u;
+  S.SR.update_snapshot_info_src u;
+  S.DATA.MIRROR.stop u;
   Rpc_async.server S.implementation
 
 let process_smapiv2_requests server txt =
@@ -1283,9 +1283,9 @@ let self_test_plugin ~root_dir plugin =
   let volume_script_dir = Filename.(concat (concat root_dir "volume") plugin) in
   let process = process_smapiv2_requests (bind ~volume_script_dir) in
   let rpc call = call |> Jsonrpc.string_of_call |> process
-        >>= fun r ->
-        debug "RPC: %s" r;
-        return (Jsonrpc.response_of_string r)
+    >>= fun r ->
+    debug "RPC: %s" r;
+    return (Jsonrpc.response_of_string r)
   in
   let module Test = Storage_interface.StorageAPI(Rpc_async.GenClient()) in
   let dbg = "debug" in
@@ -1295,49 +1295,49 @@ let self_test_plugin ~root_dir plugin =
         Test.Query.query rpc dbg >>= fun query_result ->
         Test.Query.diagnostics rpc dbg >>= fun _msg ->
 
-      let sr = Storage_interface.Sr.of_string "dummySR" in
-      let name_label = "dummy name" in
-      let name_description = "dummy description" in
-      let device_config = ["uri", "file:///dev/null"] in
-      let physical_size = 0L in
-      Test.SR.create rpc dbg sr name_label name_description device_config physical_size >>= fun device_config ->
-      Test.SR.detach rpc dbg sr >>= fun () ->
-      Test.SR.attach rpc dbg sr device_config >>= fun () ->
+        let sr = Storage_interface.Sr.of_string "dummySR" in
+        let name_label = "dummy name" in
+        let name_description = "dummy description" in
+        let device_config = ["uri", "file:///dev/null"] in
+        let physical_size = 0L in
+        Test.SR.create rpc dbg sr name_label name_description device_config physical_size >>= fun device_config ->
+        Test.SR.detach rpc dbg sr >>= fun () ->
+        Test.SR.attach rpc dbg sr device_config >>= fun () ->
 
-      let vdi_info = {
-        Storage_interface.vdi = Storage_interface.Vdi.of_string "vdi-uuid-1";
-        uuid = None;
-        content_id = "";
-        name_label = "vdi name";
-        name_description = "vdi description";
-        ty = "redolog";
-        metadata_of_pool = "";
-        is_a_snapshot = false;
-        snapshot_time = "";
-        snapshot_of = Storage_interface.Vdi.of_string "";
-        read_only = false;
-        cbt_enabled = false;
-        virtual_size = 0L;
-        physical_utilisation = 0L;
-        persistent = false;
-        sm_config = [];
-        sharable = false;
-      } in
+        let vdi_info = {
+          Storage_interface.vdi = Storage_interface.Vdi.of_string "vdi-uuid-1";
+          uuid = None;
+          content_id = "";
+          name_label = "vdi name";
+          name_description = "vdi description";
+          ty = "redolog";
+          metadata_of_pool = "";
+          is_a_snapshot = false;
+          snapshot_time = "";
+          snapshot_of = Storage_interface.Vdi.of_string "";
+          read_only = false;
+          cbt_enabled = false;
+          virtual_size = 0L;
+          physical_utilisation = 0L;
+          persistent = false;
+          sm_config = [];
+          sharable = false;
+        } in
 
-      Test.VDI.create rpc dbg sr vdi_info >>= fun vdi_info ->
-      Test.VDI.stat rpc dbg sr vdi_info.vdi >>= fun _vdi_info ->
-      Test.VDI.destroy rpc dbg sr vdi_info.vdi >>= fun () ->
+        Test.VDI.create rpc dbg sr vdi_info >>= fun vdi_info ->
+        Test.VDI.stat rpc dbg sr vdi_info.vdi >>= fun _vdi_info ->
+        Test.VDI.destroy rpc dbg sr vdi_info.vdi >>= fun () ->
 
-      Test.SR.stat rpc dbg sr >>= fun _sr_info ->
-      Test.SR.scan rpc dbg sr >>= fun _sr_list ->
+        Test.SR.stat rpc dbg sr >>= fun _sr_info ->
+        Test.SR.scan rpc dbg sr >>= fun _sr_list ->
 
-      if List.mem query_result.features "SR_PROBE" ~equal:String.equal then
-        Test.SR.probe rpc dbg plugin device_config [] >>= fun result ->
-        return ()
-      else
-        return ()
+        if List.mem query_result.features "SR_PROBE" ~equal:String.equal then
+          Test.SR.probe rpc dbg plugin device_config [] >>= fun result ->
+          return ()
+        else
+          return ()
       end |> deferred)
-    >>= function | Ok x -> Async.Deferred.return x | Error y -> failwith "self test failed"
+  >>= function | Ok x -> Async.Deferred.return x | Error y -> failwith "self test failed"
 
 let self_test ~root_dir =
   (self_test_plugin ~root_dir "org.xen.xapi.storage.dummy"
