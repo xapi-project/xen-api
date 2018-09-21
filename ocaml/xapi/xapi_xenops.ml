@@ -1039,29 +1039,44 @@ module Xapi_cache = struct
       		updated whenever we receive an event from xapi. *)
 
   let cache = Hashtbl.create 10 (* indexed by Vm.id *)
+  let mutex = Mutex.create ()
+  let with_lock f =
+    Mutex.execute mutex f
 
-  let _register_nolock id initial_value =
+  let register id initial_value =
     debug "xapi_cache: creating cache for %s" id;
-    if not(Hashtbl.mem cache id) || (Hashtbl.find cache id = None)
-    then Hashtbl.replace cache id initial_value
+    with_lock (fun () ->
+        match Hashtbl.find_opt cache id with
+        | Some (Some _) ->
+          (* don't change if we already have a valid cached entry *)
+          ()
+        | None | Some None ->
+          (* we do not have a cache entry for this id,
+           * or we have only an empty cache entry *)
+          Hashtbl.replace cache id initial_value)
 
-  let _unregister_nolock id =
+  let unregister id =
     debug "xapi_cache: deleting cache for %s" id;
-    Hashtbl.remove cache id
+    with_lock (fun () ->
+        Hashtbl.remove cache id)
 
-  let find_nolock id =
-    if Hashtbl.mem cache id
-    then Hashtbl.find cache id
-    else None
+  let update_if_changed id newvalue =
+    let updated = with_lock (fun () ->
+        match Hashtbl.find_opt cache id with
+        | Some (Some old) when old = newvalue ->
+          (* the value did not change: tell the caller it has no action to take *)
+          false
+        | _ ->
+          Hashtbl.replace cache id (Some newvalue);
+          (* We either did not have a value before, or we had a different one:
+           * tell the caller that it needs to perform an update *)
+          true) in
+    debug "xapi_cache:%s updating cache for %s" (if updated then "" else " not") id;
+    updated
 
-  let update_nolock id t =
-    if Hashtbl.mem cache id then begin
-      debug "xapi_cache: updating cache for %s" id;
-      Hashtbl.replace cache id t
-    end else debug "xapi_cache: not updating cache for %s" id
-
-
-  let list_nolock () = Hashtbl.fold (fun id _ acc -> id :: acc) cache []
+  let list () =
+    with_lock (fun () ->
+        Hashtbl.fold (fun id _ acc -> id :: acc) cache [])
 end
 
 module Xenops_cache = struct
@@ -1087,22 +1102,23 @@ module Xenops_cache = struct
   }
 
   let cache = Hashtbl.create 10 (* indexed by Vm.id *)
+  let mutex = Mutex.create ()
+  let with_lock f =
+    Mutex.execute mutex f
 
-  let _register_nolock id =
+  let register id =
     debug "xenops_cache: creating empty cache for %s" id;
-    Hashtbl.replace cache id empty
+    with_lock (fun () ->
+        Hashtbl.replace cache id empty)
 
-  let _unregister_nolock id =
+  let unregister id =
     debug "xenops_cache: deleting cache for %s" id;
-    Hashtbl.remove cache id
+    with_lock (fun () ->
+        Hashtbl.remove cache id)
 
   let find id : t option =
-    Mutex.execute metadata_m
-      (fun () ->
-         if Hashtbl.mem cache id
-         then Some (Hashtbl.find cache id)
-         else None
-      )
+    with_lock (fun () ->
+        Hashtbl.find_opt cache id)
 
   let find_vm id : Vm.state option =
     match find id with
@@ -1147,11 +1163,10 @@ module Xenops_cache = struct
     | _ -> None
 
   let update id t =
-    Mutex.execute metadata_m
-      (fun () ->
-         if Hashtbl.mem cache id
-         then Hashtbl.replace cache id t
-         else debug "xenops_cache: Not updating cache for unregistered VM %s" id
+    with_lock (fun () ->
+        if Hashtbl.mem cache id
+        then Hashtbl.replace cache id t
+        else debug "xenops_cache: Not updating cache for unregistered VM %s" id
       )
 
   let update_vbd id info =
@@ -1183,7 +1198,9 @@ module Xenops_cache = struct
     let existing = Opt.default empty (find id) in
     update id { existing with vm = info }
 
-  let list_nolock () = Hashtbl.fold (fun id _ acc -> id :: acc) cache []
+  let list () =
+    with_lock (fun () ->
+        Hashtbl.fold (fun id _ acc -> id :: acc) cache [])
 end
 
 module Xenopsd_metadata = struct
@@ -1217,10 +1234,9 @@ module Xenopsd_metadata = struct
 
         maybe_persist_md ~__context ~self txt;
 
-        Xapi_cache._register_nolock id (Some txt);
-        Xenops_cache._register_nolock id;
-        id
-      )
+        Xapi_cache.register id (Some txt);
+        Xenops_cache.register id;
+        id)
 
   let delete_nolock ~__context id =
     let dbg = Context.string_of_task __context in
@@ -1230,8 +1246,8 @@ module Xenopsd_metadata = struct
       Client.VM.remove dbg id;
 
       (* Once the VM has been successfully removed from xenopsd, remove the caches *)
-      Xenops_cache._unregister_nolock id;
-      Xapi_cache._unregister_nolock id
+      Xenops_cache.unregister id;
+      Xapi_cache.unregister id
 
     with
     | Bad_power_state(_, _) ->
@@ -1269,25 +1285,21 @@ module Xenopsd_metadata = struct
          if vm_exists_in_xenopsd queue_name dbg id
          then
            let txt = create_metadata ~__context ~self |> Metadata.rpc_of_t |> Jsonrpc.to_string in
-           begin match Xapi_cache.find_nolock id with
-             | Some old when old = txt -> ()
-             | _ ->
-               debug "VM %s metadata has changed: updating xenopsd" id;
-               info "xenops: VM.import_metadata %s" txt;
-               maybe_persist_md ~__context ~self txt;
-               Xapi_cache.update_nolock id (Some txt);
-               let module Client = (val make_client queue_name : XENOPS) in
-               let (_: Vm.id) = Client.VM.import_metadata dbg txt in
-               ()
-           end
-      )
+           if Xapi_cache.update_if_changed id txt then begin
+             debug "VM %s metadata has changed: updating xenopsd" id;
+             info "xenops: VM.import_metadata %s" txt;
+             maybe_persist_md ~__context ~self txt;
+             let module Client = (val make_client queue_name : XENOPS) in
+             let (_: Vm.id) = Client.VM.import_metadata dbg txt in
+             ()
+           end)
 end
 
 let add_caches id =
   Mutex.execute metadata_m
     (fun () ->
-       Xapi_cache._register_nolock id None;
-       Xenops_cache._register_nolock id;
+       Xapi_cache.register id None;
+       Xenops_cache.register id;
     )
 
 
@@ -2371,7 +2383,7 @@ let events_from_xapi () =
                 let resident_VMs = Db.Host.get_resident_VMs ~__context ~self:localhost in
 
                 let uuids = List.map (fun self -> Db.VM.get_uuid ~__context ~self) resident_VMs in
-                let cached = Mutex.execute metadata_m (fun () -> Xenops_cache.list_nolock ()) in
+                let cached = Xenops_cache.list () in
                 let missing_in_cache = Listext.List.set_difference uuids cached in
                 let extra_in_cache = Listext.List.set_difference cached uuids in
                 if missing_in_cache <> []
