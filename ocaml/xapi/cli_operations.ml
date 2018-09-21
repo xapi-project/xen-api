@@ -1473,9 +1473,10 @@ let sr_probe printer rpc session_id params =
   try
     (* If it's the new format, try to print it more nicely *)
     let open Storage_interface in
-    match probe_result_of_rpc (Xmlrpc.of_string txt) with
-    | Raw x -> printer (Cli_printer.PList [ x ])
-    | Probe x -> failwith "Not implemented, this return type is for probe_ext"
+    match Rpcmarshal.unmarshal probe_result.Rpc.Types.ty (Xmlrpc.of_string txt) with
+    | Ok (Raw x) -> printer (Cli_printer.PList [ x ])
+    | Ok (Probe x) -> failwith "Not implemented, this return type is for probe_ext"
+    | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal probe result: %s" m)
   with _ ->
     printer (Cli_printer.PList [txt])
 
@@ -1514,12 +1515,12 @@ let sr_probe_ext printer rpc session_id params =
     printer (Cli_printer.PMsg "The following SRs were found:");
     List.iteri
       (fun i (sr, probe_result) ->
-        printer (Cli_printer.PMsg (Printf.sprintf "SR %d:" i));
-        printer (Cli_printer.PTable [print_sr sr]);
-        printer (Cli_printer.PMsg (Printf.sprintf "SR %d configuration:" i));
-        printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
-        printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i));
-        printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
+         printer (Cli_printer.PMsg (Printf.sprintf "SR %d:" i));
+         printer (Cli_printer.PTable [print_sr sr]);
+         printer (Cli_printer.PMsg (Printf.sprintf "SR %d configuration:" i));
+         printer (Cli_printer.PTable [probe_result.API.probe_result_configuration]);
+         printer (Cli_printer.PMsg (Printf.sprintf "SR %d extra information:" i));
+         printer (Cli_printer.PTable [probe_result.API.probe_result_extra_info]);
       )
       srs;
   end;

@@ -176,11 +176,11 @@ let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
   let queue = !Storage_interface.queue_name ^ "." ^ _type in
   let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
   let rpc = Storage_access.external_rpc queue uri in
-  let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+  let module Client = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let dbg = Context.string_of_task __context in
 
   Storage_access.transform_storage_exn
-    (fun () -> Client.SR.probe ~dbg ~queue ~device_config ~sm_config |> f )
+    (fun () -> Client.SR.probe dbg queue device_config sm_config |> f )
 
 let probe = call_probe ~f:(
     function
@@ -215,13 +215,13 @@ let probe = call_probe ~f:(
       in
 
       let sr_info Storage_interface.{
-        sr_uuid;
-        name_label;
-        name_description;
-        total_space;
-        free_space;
-        clustered;
-        health} =
+          sr_uuid;
+          name_label;
+          name_description;
+          total_space;
+          free_space;
+          clustered;
+          health} =
         let el_uuid = match sr_uuid with
           | Some sr_uuid -> [T.el "UUID" [T.data sr_uuid]]
           | None -> []
@@ -282,10 +282,10 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
     ~_type ~content_type ~shared ~sm_config =
   let pbds, sr_ref =
     Xapi_clustering.with_clustering_lock_if_needed ~__context ~sr_sm_type:_type __LOC__ (fun () ->
-      Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:_type;
-  Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
-  debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
-  (* This breaks the udev SR which doesn't support sr_probe *)
+        Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type:_type;
+        Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
+        debug "SR.create name_label=%s sm_config=[ %s ]" name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
+        (* This breaks the udev SR which doesn't support sr_probe *)
 (*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
 	begin
@@ -302,43 +302,43 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
 		  | _ -> ()
 	end;
 *)
-  let sr_uuid = Uuid.make_uuid() in
-  let sr_uuid_str = Uuid.to_string sr_uuid in
-  (* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
-     	we have to clean up the record.*)
-  let sr_ref =
-    introduce  ~__context ~uuid:sr_uuid_str ~name_label
-      ~name_description ~_type ~content_type ~shared ~sm_config
-  in
-  let pbds =
-    if shared then
-      let create_on_host host =
-        Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host ~other_config:[]
-      in
-      let master = Helpers.get_master ~__context in
-      let hosts = master :: (List.filter (fun x -> x <> master) (Db.Host.get_all ~__context)) in
-      List.map create_on_host hosts
-    else
-      [Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
-  in
-  let device_config = begin
-    try
-      Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
-    with e ->
-      Db.SR.destroy ~__context ~self:sr_ref;
-      List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
-      raise e
-  end in
-  Helpers.call_api_functions ~__context
-    (fun rpc session_id ->
-       List.iter
-         (fun self ->
-            try
-              Db.PBD.set_device_config ~__context ~self ~value:device_config;
-                with e -> warn "Could not set PBD device-config '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
-             pbds);
-      pbds, sr_ref
-    ) in
+        let sr_uuid = Uuid.make_uuid() in
+        let sr_uuid_str = Uuid.to_string sr_uuid in
+        (* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
+           	we have to clean up the record.*)
+        let sr_ref =
+          introduce  ~__context ~uuid:sr_uuid_str ~name_label
+            ~name_description ~_type ~content_type ~shared ~sm_config
+        in
+        let pbds =
+          if shared then
+            let create_on_host host =
+              Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host ~other_config:[]
+            in
+            let master = Helpers.get_master ~__context in
+            let hosts = master :: (List.filter (fun x -> x <> master) (Db.Host.get_all ~__context)) in
+            List.map create_on_host hosts
+          else
+            [Xapi_pbd.create_thishost ~__context ~sR:sr_ref ~device_config ~currently_attached:false ]
+        in
+        let device_config = begin
+          try
+            Storage_access.create_sr ~__context ~sr:sr_ref ~name_label ~name_description ~physical_size
+          with e ->
+            Db.SR.destroy ~__context ~self:sr_ref;
+            List.iter (fun pbd -> Db.PBD.destroy ~__context ~self:pbd) pbds;
+            raise e
+        end in
+        Helpers.call_api_functions ~__context
+          (fun rpc session_id ->
+             List.iter
+               (fun self ->
+                  try
+                    Db.PBD.set_device_config ~__context ~self ~value:device_config;
+                  with e -> warn "Could not set PBD device-config '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+               pbds);
+        pbds, sr_ref
+      ) in
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        let tasks = List.map (fun self ->
@@ -451,12 +451,11 @@ let destroy  ~__context ~sr =
 let update ~__context ~sr =
   let open Storage_access in
   let task = Context.get_task_id __context in
-  let open Storage_interface in
-  let module C = Client(struct let rpc = rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   transform_storage_exn
     (fun () ->
-       let sr' = Db.SR.get_uuid ~__context ~self:sr in
-       let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr' in
+       let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+       let sr_info = C.SR.stat (Ref.string_of task) sr' in
        Db.SR.set_name_label ~__context ~self:sr ~value:sr_info.name_label;
        Db.SR.set_name_description ~__context ~self:sr ~value:sr_info.name_description;
        Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
@@ -466,34 +465,36 @@ let update ~__context ~sr =
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
-module StringMap = Map.Make(struct type t = string let compare = compare end)
+module VdiMap = Map.Make(struct type t = Storage_interface.Vdi.t let compare x y = let open Storage_interface.Vdi in compare (string_of x) (string_of y)  end)
 
 (* Update VDI records in the database to be in sync with new information
    from a storage backend. *)
 let update_vdis ~__context ~sr db_vdis vdi_infos =
+  let sr' = sr in
   let open Storage_interface in
+  let sr = sr' in
   let db_vdi_map = List.fold_left
       (fun m (r, v) ->
-         StringMap.add v.API.vDI_location (r, v) m
-      ) StringMap.empty
+         VdiMap.add (Vdi.of_string v.API.vDI_location) (r, v) m
+      ) VdiMap.empty
       db_vdis in
   let scan_vdi_map = List.fold_left
-      (fun m v -> StringMap.add v.vdi v m) StringMap.empty vdi_infos in
-  let to_delete = StringMap.merge (fun loc db scan -> match loc, db, scan with
+      (fun m v -> VdiMap.add v.vdi v m) VdiMap.empty vdi_infos in
+  let to_delete = VdiMap.merge (fun loc db scan -> match loc, db, scan with
       | loc, Some (r, v), None -> Some r
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
-  let to_create = StringMap.merge (fun loc db scan -> match loc, db, scan with
+  let to_create = VdiMap.merge (fun loc db scan -> match loc, db, scan with
       | loc, None, Some v -> Some v
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
 
   let find_vdi db_vdi_map loc =
-    if StringMap.mem loc db_vdi_map
-    then fst (StringMap.find loc db_vdi_map)
+    if VdiMap.mem loc db_vdi_map
+    then fst (VdiMap.find loc db_vdi_map)
     else
       (* CA-254515: Also check for the snapshoted VDI in the database *)
-      try Db.VDI.get_by_uuid ~__context ~uuid:loc
+      try Db.VDI.get_by_uuid ~__context ~uuid:(Storage_interface.Vdi.string_of loc)
       with _ -> Ref.null
   in
 
@@ -501,13 +502,13 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
     List.mem_assoc "xs-tools" vdi.sm_config && List.assoc "xs-tools" vdi.sm_config = "true" in
 
   (* Delete ones which have gone away *)
-  StringMap.iter
+  VdiMap.iter
     (fun loc r ->
        debug "Forgetting VDI: %s" (Ref.string_of r);
        Db.VDI.destroy ~__context ~self:r
     ) to_delete;
   (* Create the new ones *)
-  let db_vdi_map = StringMap.fold
+  let db_vdi_map = VdiMap.fold
       (fun loc vdi m ->
          let ref = Ref.make () in
          let uuid = match vdi.uuid with
@@ -527,22 +528,22 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
            ~sharable:vdi.sharable
            ~read_only:vdi.read_only
            ~xenstore_data:[] ~sm_config:[]
-           ~other_config:[] ~storage_lock:false ~location:vdi.vdi
+           ~other_config:[] ~storage_lock:false ~location:(Vdi.string_of vdi.vdi)
            ~managed:true ~missing:false ~parent:Ref.null ~tags:[]
            ~on_boot:`persist ~allow_caching:false
            ~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
            ~metadata_latest:false
            ~is_tools_iso:(get_is_tools_iso vdi)
            ~cbt_enabled:vdi.cbt_enabled;
-         StringMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
+         VdiMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
       ) to_create db_vdi_map in
   (* Update the ones which already exist, and the ones which were just created
      and may now potentially have null `snapshot_of` references (CA-254515) *)
-  let to_update = StringMap.merge (fun loc db scan -> match loc, db, scan with
+  let to_update = VdiMap.merge (fun loc db scan -> match loc, db, scan with
       | loc, Some (r, v), Some vi -> Some (r, v, vi)
       | _, _, _ -> None
     ) db_vdi_map scan_vdi_map in
-  StringMap.iter
+  VdiMap.iter
     (fun loc (r, v, (vi: vdi_info)) ->
        if v.API.vDI_name_label <> vi.name_label then begin
          debug "%s name_label <- %s" (Ref.string_of r) vi.name_label;
@@ -606,17 +607,16 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 let scan ~__context ~sr =
   let open Storage_access in
   let task = Context.get_task_id __context in
-  let open Storage_interface in
-  let module C = Client(struct let rpc = rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let sr' = Ref.string_of sr in
   transform_storage_exn
     (fun () ->
        let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-       let vs = C.SR.scan ~dbg:(Ref.string_of task) ~sr:sr_uuid in
+       let vs = C.SR.scan (Ref.string_of task) (Storage_interface.Sr.of_string sr_uuid) in
        let db_vdis = Db.VDI.get_records_where ~__context ~expr:(Eq(Field "SR", Literal sr')) in
        update_vdis ~__context ~sr:sr db_vdis vs;
-       let sr_info = C.SR.stat ~dbg:(Ref.string_of task) ~sr:sr_uuid in
-       let virtual_allocation = List.fold_left Int64.add 0L (List.map (fun v -> v.virtual_size) vs) in
+       let sr_info = C.SR.stat (Ref.string_of task) (Storage_interface.Sr.of_string sr_uuid) in
+       let virtual_allocation = List.fold_left Int64.add 0L (List.map (fun v -> v.Storage_interface.virtual_size) vs) in
        Db.SR.set_virtual_allocation ~__context ~self:sr ~value:virtual_allocation;
        Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space;
        Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
@@ -639,25 +639,23 @@ let set_shared ~__context ~sr ~value =
 
 let set_name_label ~__context ~sr ~value =
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.SR.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_label:value
+       C.SR.set_name_label (Ref.string_of task) (Storage_interface.Sr.of_string sr') value
     );
   update ~__context ~sr
 
 let set_name_description ~__context ~sr ~value =
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.SR.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~new_name_description:value
+       C.SR.set_name_description (Ref.string_of task) (Storage_interface.Sr.of_string sr') value
     );
   update ~__context ~sr
 

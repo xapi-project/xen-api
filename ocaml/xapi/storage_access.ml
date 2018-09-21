@@ -23,18 +23,21 @@ open Storage_interface
 module D=Debug.Make(struct let name="storage_access" end)
 open D
 
+let s_of_vdi = Vdi.string_of
+let s_of_sr = Sr.string_of
+
 let transform_storage_exn f =
   try
     f ()
   with
-  | Backend_error(code, params) as e ->
+  | Storage_error Backend_error(code, params) as e ->
     Backtrace.reraise e (Api_errors.Server_error(code, params))
-  | Backend_error_with_backtrace(code, backtrace :: params) as e ->
+  | Storage_error Backend_error_with_backtrace(code, backtrace :: params) as e ->
     let backtrace = Backtrace.Interop.of_json "SM" backtrace in
     Backtrace.add e backtrace;
     Backtrace.reraise e (Api_errors.Server_error(code, params))
   | Api_errors.Server_error(code, params) as e -> raise e
-  | No_storage_plugin_for_sr sr as e ->
+  | Storage_error No_storage_plugin_for_sr sr as e ->
     Server_helpers.exec_with_new_task "transform_storage_exn"
       (fun __context ->
          let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
@@ -47,6 +50,8 @@ exception No_VDI
 
 (* Find a VDI given a storage-layer SR and VDI *)
 let find_vdi ~__context sr vdi =
+  let sr = s_of_sr sr in
+  let vdi = s_of_vdi vdi in
   let open Db_filter_types in
   let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
   match Db.VDI.get_records_where ~__context ~expr:(And((Eq (Field "location", Literal vdi)),Eq (Field "SR", Literal (Ref.string_of sr)))) with
@@ -57,7 +62,7 @@ let find_vdi ~__context sr vdi =
 let find_content ~__context ?sr name =
   (* PR-1255: the backend should do this for us *)
   let open Db_filter_types in
-  let expr = Opt.default True (Opt.map (fun sr -> Eq(Field "SR", Literal (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:sr)))) sr) in
+  let expr = Opt.default True (Opt.map (fun sr -> Eq(Field "SR", Literal (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) )))) sr) in
   let all = Db.VDI.get_records_where ~__context ~expr in
   List.find
     (fun (_, vdi_rec) ->
@@ -71,7 +76,7 @@ let vdi_info_of_vdi_rec __context vdi_rec =
       List.assoc "content_id" vdi_rec.API.vDI_other_config
     with Not_found -> vdi_rec.API.vDI_location (* PR-1255 *)
   in {
-    vdi = vdi_rec.API.vDI_location;
+    vdi = Storage_interface.Vdi.of_string vdi_rec.API.vDI_location;
     uuid = Some vdi_rec.API.vDI_uuid;
     content_id = content_id; (* PR-1255 *)
     name_label = vdi_rec.API.vDI_name_label;
@@ -81,9 +86,9 @@ let vdi_info_of_vdi_rec __context vdi_rec =
     is_a_snapshot = vdi_rec.API.vDI_is_a_snapshot;
     snapshot_time = Date.to_string vdi_rec.API.vDI_snapshot_time;
     snapshot_of =
-      if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
-      then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
-      else "";
+      (if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of
+       then Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
+       else "") |> Storage_interface.Vdi.of_string;
     read_only = vdi_rec.API.vDI_read_only;
     cbt_enabled = vdi_rec.API.vDI_cbt_enabled;
     virtual_size = vdi_rec.API.vDI_virtual_size;
@@ -94,7 +99,7 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   }
 
 let redirect sr =
-  raise (Redirect (Some (Pool_role.get_master_address ())))
+  raise (Storage_error (Redirect (Some (Pool_role.get_master_address ()))))
 
 module SMAPIv1 = struct
   (** xapi's builtin ability to call local SM plugins using the existing
@@ -108,7 +113,7 @@ module SMAPIv1 = struct
       	    the backend interface.
       	*)
 
-  type context = Smint.request
+  type context = unit
 
   let vdi_info_from_db ~__context self =
     let vdi_rec = Db.VDI.get_record ~__context ~self in
@@ -191,7 +196,7 @@ module SMAPIv1 = struct
       Server_helpers.exec_with_new_task "SR.create" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
            let subtask_of = Some (Context.get_task_id __context) in
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
            Db.SR.set_name_label ~__context ~self:sr ~value:name_label;
            Db.SR.set_name_description ~__context ~self:sr ~value:name_description;
            let device_config = (Sm.sm_master true) :: device_config in
@@ -202,35 +207,35 @@ module SMAPIv1 = struct
                 with
                 | Smint.Not_implemented_in_backend ->
                   error "SR.create failed SR:%s Not_implemented_in_backend" (Ref.string_of sr);
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.create failed SR:%s error:%s" (Ref.string_of sr) e';
                   raise e
              );
-            List.filter (fun (x,_) -> x <> "SRmaster") device_config
+           List.filter (fun (x,_) -> x <> "SRmaster") device_config
         )
 
     let set_name_label context ~dbg ~sr ~new_name_label =
       Server_helpers.exec_with_new_task "SR.set_name_label" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
            Db.SR.set_name_label ~__context ~self:sr ~value:new_name_label
         )
 
     let set_name_description context ~dbg ~sr ~new_name_description =
       Server_helpers.exec_with_new_task "SR.set_name_description" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
            Db.SR.set_name_description ~__context ~self:sr ~value:new_name_description
         )
 
     let attach context ~dbg ~sr ~device_config =
       Server_helpers.exec_with_new_task "SR.attach" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
 
            (* Existing backends expect an SRMaster flag to be added
               					   through the device-config. *)
@@ -242,7 +247,7 @@ module SMAPIv1 = struct
                   Sm.sr_attach (Some (Context.get_task_id __context), device_config) _type sr
                 with
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.attach failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -252,7 +257,7 @@ module SMAPIv1 = struct
     let detach context ~dbg ~sr =
       Server_helpers.exec_with_new_task "SR.detach" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
 
            Sm.call_sm_functions ~__context ~sR:sr
              (fun device_config _type ->
@@ -260,7 +265,7 @@ module SMAPIv1 = struct
                   Sm.sr_detach device_config _type sr
                 with
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -273,7 +278,7 @@ module SMAPIv1 = struct
     let destroy context ~dbg ~sr =
       Server_helpers.exec_with_new_task "SR.destroy" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
 
            Sm.call_sm_functions ~__context ~sR:sr
              (fun device_config _type ->
@@ -281,9 +286,9 @@ module SMAPIv1 = struct
                   Sm.sr_delete device_config _type sr
                 with
                 | Smint.Not_implemented_in_backend ->
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
                   error "SR.detach failed SR:%s error:%s" (Ref.string_of sr) e';
@@ -294,7 +299,7 @@ module SMAPIv1 = struct
     let stat context ~dbg ~sr:sr' =
       Server_helpers.exec_with_new_task "SR.stat" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr' in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr') in
            Sm.call_sm_functions ~__context ~sR:sr
              (fun device_config _type ->
                 try
@@ -310,10 +315,10 @@ module SMAPIv1 = struct
                   { sr_uuid; name_label; name_description; total_space; free_space; clustered; health }
                 with
                 | Smint.Not_implemented_in_backend ->
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
                   error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | Sm.MasterOnly -> redirect sr
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
@@ -325,7 +330,7 @@ module SMAPIv1 = struct
     let scan context ~dbg ~sr:sr' =
       Server_helpers.exec_with_new_task "SR.scan" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let sr = Db.SR.get_by_uuid ~__context ~uuid:sr' in
+           let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr') in
            Sm.call_sm_functions ~__context ~sR:sr
              (fun device_config _type ->
                 try
@@ -335,10 +340,10 @@ module SMAPIv1 = struct
                   List.map (vdi_info_of_vdi_rec __context) vdis
                 with
                 | Smint.Not_implemented_in_backend ->
-                  raise (Storage_interface.Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ]))
+                  raise (Storage_interface.Storage_error (Backend_error(Api_errors.sr_operation_not_supported, [ Ref.string_of sr ])))
                 | Api_errors.Server_error(code, params) ->
                   error "SR.scan failed SR:%s code=%s params=[%s]" (Ref.string_of sr) code (String.concat "; " params);
-                  raise (Backend_error(code, params))
+                  raise (Storage_error (Backend_error(code, params)))
                 | Sm.MasterOnly -> redirect sr
                 | e ->
                   let e' = ExnHelper.string_of_exn e in
@@ -361,11 +366,11 @@ module SMAPIv1 = struct
            let local_vdis = scan __context ~dbg ~sr in
            let find_sm_vdi ~vdi ~vdi_info_list =
              try List.find (fun x -> x.vdi = vdi) vdi_info_list
-             with Not_found -> raise (Vdi_does_not_exist vdi)
+             with Not_found -> raise (Storage_error (Vdi_does_not_exist (s_of_vdi vdi)))
            in
            let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
              if vdi_info1.content_id <> vdi_info2.content_id
-             then raise (Content_ids_do_not_match (vdi_info1.vdi, vdi_info2.vdi))
+             then raise (Storage_error (Content_ids_do_not_match (s_of_vdi vdi_info1.vdi, s_of_vdi vdi_info2.vdi)))
            in
            (* For each (local snapshot vdi, source snapshot vdi) pair:
               					 * - Check that the content_ids are the same
@@ -419,7 +424,7 @@ module SMAPIv1 = struct
              Sm.vdi_epoch_begin device_config _type sr self)
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
       try
@@ -460,7 +465,7 @@ module SMAPIv1 = struct
           (fun () -> Hashtbl.replace vdi_read_write (sr, vdi) read_write);
         backend
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let attach _ =
       failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
@@ -469,7 +474,7 @@ module SMAPIv1 = struct
       try
         let read_write = Mutex.execute vdi_read_write_m
             (fun () ->
-               if not (Hashtbl.mem vdi_read_write (sr, vdi)) then error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW" sr vdi;
+               if not (Hashtbl.mem vdi_read_write (sr, vdi)) then error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW" (s_of_sr sr) (s_of_vdi vdi);
                Hashtbl.find vdi_read_write (sr, vdi)) in
         for_vdi ~dbg ~sr ~vdi "VDI.activate"
           (fun device_config _type sr self ->
@@ -483,7 +488,7 @@ module SMAPIv1 = struct
              else info "%s sr:%s does not support vdi_activate: doing nothing" dp (Ref.string_of sr)
           )
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let deactivate context ~dbg ~dp ~sr ~vdi =
       try
@@ -500,7 +505,7 @@ module SMAPIv1 = struct
              else info "%s sr:%s does not support vdi_deactivate: doing nothing" dp (Ref.string_of sr)
           )
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let detach context ~dbg ~dp ~sr ~vdi =
       try
@@ -519,7 +524,7 @@ module SMAPIv1 = struct
         Mutex.execute vdi_read_write_m
           (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
       with Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let epoch_end context ~dbg ~sr ~vdi =
       try
@@ -528,7 +533,7 @@ module SMAPIv1 = struct
              Sm.vdi_epoch_end device_config _type sr self)
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
 
     let require_uuid vdi_info =
       match vdi_info.Smint.vdi_info_uuid with
@@ -544,19 +549,19 @@ module SMAPIv1 = struct
       try
         Server_helpers.exec_with_new_task "VDI.create" ~subtask_of:(Ref.of_string dbg)
           (fun __context ->
-             let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+             let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) in
              let vi =
                Sm.call_sm_functions ~__context ~sR:sr
                  (fun device_config _type ->
                     Sm.vdi_create device_config _type sr vdi_info.sm_config vdi_info.ty
                       vdi_info.virtual_size vdi_info.name_label vdi_info.name_description
                       vdi_info.metadata_of_pool vdi_info.is_a_snapshot
-                      vdi_info.snapshot_time vdi_info.snapshot_of vdi_info.read_only
+                      vdi_info.snapshot_time (s_of_vdi vdi_info.snapshot_of) vdi_info.read_only
                  ) in
              newvdi ~__context vi
           )
       with
-      | Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
+      | Api_errors.Server_error(code, params) -> raise (Storage_error (Backend_error(code, params)))
       | Sm.MasterOnly -> redirect sr
 
     (* A list of keys in sm-config that will be preserved on clone/snapshot *)
@@ -573,7 +578,7 @@ module SMAPIv1 = struct
                     call_f device_config _type vdi_info.sm_config sr self
                  ) in
              (* PR-1255: modify clone, snapshot to take the same parameters as create? *)
-             let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
+             let self, _ = find_vdi ~__context sr (Storage_interface.Vdi.of_string vi.Smint.vdi_info_location) in
              let clonee, _ = find_vdi ~__context sr vdi_info.vdi in
              let content_id =
                try
@@ -597,7 +602,7 @@ module SMAPIv1 = struct
                    Db.VDI.add_to_sm_config ~__context ~self ~key ~value;
                  )
                ) vdi_info.sm_config;
-             for_vdi ~dbg ~sr ~vdi:vi.Smint.vdi_info_location "VDI.update"
+             for_vdi ~dbg ~sr ~vdi:(Storage_interface.Vdi.of_string vi.Smint.vdi_info_location) "VDI.update"
                (fun device_config _type sr self ->
                   Sm.vdi_update device_config _type sr self
                );
@@ -607,9 +612,9 @@ module SMAPIv1 = struct
           )
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented call_name)
+        raise (Storage_error (Unimplemented call_name))
       | Sm.MasterOnly -> redirect sr
 
 
@@ -638,14 +643,14 @@ module SMAPIv1 = struct
             ) in
         Server_helpers.exec_with_new_task "VDI.resize" ~subtask_of:(Ref.of_string dbg)
           (fun __context ->
-             let self, _ = find_vdi ~__context sr vi.Smint.vdi_info_location in
+             let self, _ = find_vdi ~__context sr (Storage_interface.Vdi.of_string vi.Smint.vdi_info_location) in
              Db.VDI.get_virtual_size ~__context ~self
           )
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.resize")
+        raise (Storage_error (Unimplemented "VDI.resize"))
       | Sm.MasterOnly -> redirect sr
 
     let destroy context ~dbg ~sr ~vdi =
@@ -658,9 +663,9 @@ module SMAPIv1 = struct
           (fun () -> Hashtbl.remove vdi_read_write (sr, vdi))
       with
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | No_VDI ->
-        raise (Vdi_does_not_exist vdi)
+        raise (Storage_error (Vdi_does_not_exist (s_of_vdi vdi)))
       | Sm.MasterOnly -> redirect sr
 
     let stat context ~dbg ~sr ~vdi =
@@ -675,13 +680,13 @@ module SMAPIv1 = struct
           )
       with e ->
         error "VDI.stat caught: %s" (Printexc.to_string e);
-        raise (Vdi_does_not_exist vdi)
+        raise (Storage_error (Vdi_does_not_exist (s_of_vdi vdi)))
 
     let introduce context ~dbg ~sr ~uuid ~sm_config ~location =
       try
         Server_helpers.exec_with_new_task "VDI.introduce" ~subtask_of:(Ref.of_string dbg)
           (fun __context ->
-             let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+             let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) in
              let vi =
                Sm.call_sm_functions ~__context ~sR:sr
                  (fun device_config sr_type ->
@@ -690,7 +695,7 @@ module SMAPIv1 = struct
           )
       with e ->
         error "VDI.introduce caught: %s" (Printexc.to_string e);
-        raise (Vdi_does_not_exist location)
+        raise (Storage_error (Vdi_does_not_exist location))
 
     let set_persistent context ~dbg ~sr ~vdi ~persistent =
       try
@@ -698,23 +703,23 @@ module SMAPIv1 = struct
           (fun __context ->
              if not persistent then begin
                info "VDI.set_persistent: calling VDI.clone and VDI.destroy to make an empty vhd-leaf";
-               let location = for_vdi ~dbg ~sr ~vdi "VDI.clone"
+               let new_vdi = for_vdi ~dbg ~sr ~vdi "VDI.clone"
                    (fun device_config _type sr self ->
                       let vi = Sm.vdi_clone device_config _type [] sr self in
-                      vi.Smint.vdi_info_location
+                      Storage_interface.Vdi.of_string vi.Smint.vdi_info_location
                    ) in
-               for_vdi ~dbg ~sr ~vdi:location "VDI.destroy"
+               for_vdi ~dbg ~sr ~vdi:new_vdi "VDI.destroy"
                  (fun device_config _type sr self ->
                     Sm.vdi_delete device_config _type sr self
                  )
              end
           )
       with
-      | Api_errors.Server_error(code, params) -> raise (Backend_error(code, params))
+      | Api_errors.Server_error(code, params) -> raise (Storage_error (Backend_error(code, params)))
       | Sm.MasterOnly -> redirect sr
 
     let get_by_name context ~dbg ~sr ~name =
-      info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg sr name;
+      info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg (s_of_sr sr) name;
       (* PR-1255: the backend should do this for us *)
       Server_helpers.exec_with_new_task "VDI.get_by_name" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
@@ -726,11 +731,11 @@ module SMAPIv1 = struct
              vi
            with e ->
              error "VDI.get_by_name caught: %s" (Printexc.to_string e);
-             raise (Vdi_does_not_exist name)
+             raise (Storage_error (Vdi_does_not_exist name))
         )
 
     let set_content_id context ~dbg ~sr ~vdi ~content_id =
-      info "VDI.get_by_content dbg:%s sr:%s vdi:%s content_id:%s" dbg sr vdi content_id;
+      info "VDI.get_by_content dbg:%s sr:%s vdi:%s content_id:%s" dbg (s_of_sr sr) (s_of_vdi vdi) content_id;
       (* PR-1255: the backend should do this for us *)
       Server_helpers.exec_with_new_task "VDI.set_content_id" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
@@ -740,11 +745,11 @@ module SMAPIv1 = struct
         )
 
     let similar_content context ~dbg ~sr ~vdi =
-      info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg sr vdi;
+      info "VDI.similar_content dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi);
       Server_helpers.exec_with_new_task "VDI.similar_content" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
            (* PR-1255: the backend should do this for us. *)
-           let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:sr in
+           let sr_ref = Db.SR.get_by_uuid ~__context ~uuid:(Storage_interface.Sr.string_of sr) in
            (* Return a nearest-first list of similar VDIs. "near" should mean
               					   "has similar blocks" but we approximate this with distance in the tree *)
            let module StringMap = Map.Make(struct type t = string let compare = compare end) in
@@ -792,7 +797,7 @@ module SMAPIv1 = struct
         )
 
     let compose context ~dbg ~sr ~vdi1 ~vdi2 =
-      info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg sr vdi1 vdi2;
+      info "VDI.compose dbg:%s sr:%s vdi1:%s vdi2:%s" dbg (s_of_sr sr) (s_of_vdi vdi1) (s_of_vdi vdi2);
       try
         Server_helpers.exec_with_new_task "VDI.compose" ~subtask_of:(Ref.of_string dbg)
           (fun __context ->
@@ -805,29 +810,29 @@ module SMAPIv1 = struct
           )
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.compose")
+        raise (Storage_error (Unimplemented "VDI.compose"))
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | No_VDI ->
-        raise (Vdi_does_not_exist vdi1)
+        raise (Storage_error (Vdi_does_not_exist (Storage_interface.Vdi.string_of vdi1)))
       | Sm.MasterOnly -> redirect sr
 
     let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value =
-      info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg sr vdi key value;
+      info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg (s_of_sr sr) (s_of_vdi vdi) key value;
       Server_helpers.exec_with_new_task "VDI.add_to_sm_config" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
            let self = find_vdi ~__context sr vdi |> fst in
            Db.VDI.add_to_sm_config ~__context ~self ~key ~value)
 
     let remove_from_sm_config context ~dbg ~sr ~vdi ~key =
-      info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg sr vdi key;
+      info "VDI.remove_from_sm_config dbg:%s sr:%s vdi:%s key:%s" dbg (s_of_sr sr) (s_of_vdi vdi) key;
       Server_helpers.exec_with_new_task "VDI.remove_from_sm_config" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
            let self = find_vdi ~__context sr vdi |> fst in
            Db.VDI.remove_from_sm_config ~__context ~self ~key)
 
     let get_url context ~dbg ~sr ~vdi =
-      info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg sr vdi;
+      info "VDI.get_url dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi);
       (* XXX: PR-1255: tapdisk shouldn't hardcode xapi urls *)
       (* peer_ip/session_ref/vdi_ref *)
       Server_helpers.exec_with_new_task "VDI.get_url" ~subtask_of:(Ref.of_string dbg)
@@ -848,11 +853,11 @@ module SMAPIv1 = struct
           );
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented f_name)
+        raise (Storage_error (Unimplemented f_name))
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | No_VDI ->
-        raise (Vdi_does_not_exist vdi)
+        raise (Storage_error (Vdi_does_not_exist (Storage_interface.Vdi.string_of vdi)))
       | Sm.MasterOnly -> redirect sr
 
     let enable_cbt context =
@@ -876,9 +881,9 @@ module SMAPIv1 = struct
                ))
       with
       | Smint.Not_implemented_in_backend ->
-        raise (Unimplemented "VDI.list_changed_blocks")
+        raise (Storage_error (Unimplemented "VDI.list_changed_blocks"))
       | Api_errors.Server_error(code, params) ->
-        raise (Backend_error(code, params))
+        raise (Storage_error (Backend_error(code, params)))
       | Sm.MasterOnly -> redirect sr
 
   end
@@ -925,8 +930,8 @@ let start_smapiv1_servers () =
   List.iter (fun ty ->
       let path = !Storage_interface.default_path ^ ".d/" ^ ty in
       let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
-      let module S = Storage_interface.Server(SMAPIv1) in
-      let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process None) () in
+      let module S = Storage_interface.Server(SMAPIv1)() in
+      let s = Xcp_service.make ~path ~queue_name ~rpc_fn:(S.process) () in
       let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
       ()
     ) drivers
@@ -956,7 +961,7 @@ let check_queue_exists queue_name =
    The destination uri needs to be local as [xml_http_rpc] doesn't support https calls,
    only file and http.
    Cross-host https calls are only supported by XMLRPC_protocol.rpc
- *)
+*)
 let external_rpc queue_name uri =
   let open Xcp_client in
   if !use_switch then check_queue_exists queue_name;
@@ -1055,9 +1060,9 @@ let on_xapi_start ~__context =
       let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
       let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
       let rpc = external_rpc queue_name uri in
-      let module C = Storage_interface.Client(struct let rpc = rpc end) in
+      let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
       let dbg = Context.string_of_task __context in
-      C.Query.query ~dbg
+      C.Query.query dbg
     in
     log_and_ignore_exn (fun () ->
         let query_result = query ty in
@@ -1096,10 +1101,10 @@ let bind ~__context ~pbd =
   let rpc = external_rpc queue_name uri in
   let service = make_service uuid ty in
   System_domains.register_service service queue_name;
-  let module Client = Storage_interface.Client(struct let rpc = rpc end) in
+  let module Client = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let dbg = Context.string_of_task __context in
-  let info = Client.Query.query ~dbg in
-  Storage_mux.register sr rpc uuid info;
+  let info = Client.Query.query dbg in
+  Storage_mux.register (Storage_interface.Sr.of_string sr) rpc uuid info;
   info
 
 let unbind ~__context ~pbd =
@@ -1111,7 +1116,7 @@ let unbind ~__context ~pbd =
 
   let sr = Db.SR.get_uuid ~__context ~self:sr in
   info "SR %s will nolonger be implemented by VM %s" sr (Ref.string_of driver);
-  Storage_mux.unregister sr;
+  Storage_mux.unregister (Storage_interface.Sr.of_string sr);
 
   let service = make_service uuid ty in
   System_domains.unregister_service service
@@ -1119,14 +1124,14 @@ let unbind ~__context ~pbd =
 (* Internal SM calls: need to handle redirection, we are the toplevel caller.
    The SM can decide that a call needs to be run elsewhere, e.g.
    for a SMAPIv3 plugin the snapshot should be run on the node that has the VDI activated.
- *)
+*)
 let rpc =
   let srcstr = Xcp_client.get_user_agent() in
-  let local_fn = Storage_mux.Server.process None in
+  let local_fn = Storage_mux.Server.process in
   let remote_url_of_ip = Storage_utils.remote_url in
   Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip ~local_fn
 
-module Client = Client(struct let rpc = rpc end)
+module Client = StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end))
 
 let print_delta d =
   debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
@@ -1153,7 +1158,7 @@ let success_task dbg id =
   Client.TASK.destroy dbg id;
   match t.Task.state with
   | Task.Completed _ -> t
-  | Task.Failed x -> raise (exn_of_exnty (Exception.exnty_of_rpc x))
+  | Task.Failed x -> (match Rpcmarshal.unmarshal Storage_interface.Errors.error.Rpc.Types.ty x with | Ok e -> raise (Storage_error e) | Error (`Msg m) -> failwith (Printf.sprintf "Error unmarshalling exception from remote: %s" m))
   | Task.Pending _ -> failwith "task pending"
 
 let wait_for_task dbg id =
@@ -1186,12 +1191,12 @@ let add_to_progress_map f id = Mutex.execute progress_map_m (fun () -> Hashtbl.a
 let remove_from_progress_map id = Mutex.execute progress_map_m (fun () -> Hashtbl.remove progress_map_tbl id); id
 let get_progress_map id = Mutex.execute progress_map_m (fun () -> try Hashtbl.find progress_map_tbl id with _ -> (fun x -> x))
 
-let register_mirror __context vdi =
+let register_mirror __context mid =
   let task = Context.get_task_id __context in
-  debug "Registering mirror of vdi %s with task %s" vdi (Ref.string_of task);
-  Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl vdi task); vdi
-let unregister_mirror vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl vdi); vdi
-let get_mirror_task vdi = Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl vdi)
+  debug "Registering mirror id %s with task %s" mid (Ref.string_of task);
+  Mutex.execute progress_map_m (fun () -> Hashtbl.add mirror_task_tbl mid task); mid
+let unregister_mirror mid = Mutex.execute progress_map_m (fun () -> Hashtbl.remove mirror_task_tbl mid); mid
+let get_mirror_task mid = Mutex.execute progress_map_m (fun () -> Hashtbl.find mirror_task_tbl mid)
 
 exception Not_an_sm_task
 let wrap id = TaskHelper.Sm id
@@ -1223,17 +1228,17 @@ let update_mirror ~__context id =
     if m.Mirror.failed
     then
       debug "Mirror %s has failed" id;
-    let task = get_mirror_task m.Mirror.source_vdi in
+    let task = get_mirror_task id in
     debug "Mirror associated with task: %s" (Ref.string_of task);
     (* Just to get a nice error message *)
     Db.Task.remove_from_other_config ~__context ~self:task ~key:"mirror_failed";
-    Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:m.Mirror.source_vdi;
+    Db.Task.add_to_other_config ~__context ~self:task ~key:"mirror_failed" ~value:(s_of_vdi m.Mirror.source_vdi);
     Helpers.call_api_functions ~__context
       (fun rpc session_id -> XenAPI.Task.cancel rpc session_id task)
   with
   | Not_found ->
     debug "Couldn't find mirror id: %s" id
-  | Does_not_exist _ -> ()
+  | Storage_error (Does_not_exist _) -> ()
   | e ->
     error "storage event: Caught %s while updating mirror" (Printexc.to_string e)
 
@@ -1247,7 +1252,7 @@ let rec events_watch ~__context from =
         debug "sm event on Task %s" id;
         update_task ~__context id
       | Vdi vdi ->
-        debug "sm event on VDI %s: ignoring" vdi
+        debug "sm event on VDI %s: ignoring" (s_of_vdi vdi)
       | Dp dp ->
         debug "sm event on DP %s: ignoring" dp
       | Mirror id ->
@@ -1271,7 +1276,7 @@ let events_from_sm () =
 
 let start () =
   let open Storage_impl.Local_domain_socket in
-  let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xapi.storage" ~rpc_fn:(Storage_mux.Server.process None) () in
+  let s = Xcp_service.make ~path:Xapi_globs.storage_unix_domain_socket ~queue_name:"org.xen.xapi.storage" ~rpc_fn:(Storage_mux.Server.process) () in
   info "Started service on org.xen.xapi.storage";
   let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever s) () in
   ()
@@ -1304,7 +1309,7 @@ let of_vbd ~__context ~vbd ~domid =
   let device_number = Device_number.of_string has_qemu userdevice in
   let device = Device_number.to_linux_device device_number in
   let dp = datapath_of_vbd ~domid ~device in
-  rpc, (Ref.string_of dbg), dp, (Db.SR.get_uuid ~__context ~self:sr), location
+  rpc, (Ref.string_of dbg), dp, (Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self:sr)), (Storage_interface.Vdi.of_string location)
 
 (** [is_attached __context vbd] returns true if the [vbd] has an attached
     or activated datapath. *)
@@ -1313,19 +1318,19 @@ let is_attached ~__context ~vbd ~domid  =
     (fun () ->
        let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
        let open Vdi_automaton in
-       let module C = Storage_interface.Client(struct let rpc = rpc end) in
+       let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
        try
-         let x = C.DP.stat_vdi ~dbg ~sr ~vdi () in
+         let x = C.DP.stat_vdi dbg sr vdi () in
          x.superstate <> Detached
        with
-       | e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e); false
+       | e -> error "Unable to query state of VDI: %s, %s" (s_of_vdi vdi) (Printexc.to_string e); false
     )
 
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions  *)
 let on_vdi ~__context ~vbd ~domid f =
   let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
-  let module C = Storage_interface.Client(struct let rpc = rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let dp = C.DP.create dbg dp in
   transform_storage_exn
     (fun () ->
@@ -1338,8 +1343,9 @@ let reset ~__context ~vm =
     (fun () ->
        Opt.iter
          (fun pbd ->
-            let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
-            info "Resetting all state associated with SR: %s" sr;
+            let sr_uuid = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
+            let sr = Storage_interface.Sr.of_string sr_uuid in
+            info "Resetting all state associated with SR: %s" sr_uuid;
             Client.SR.reset (Ref.string_of dbg) sr;
             Db.PBD.set_currently_attached ~__context ~self:pbd ~value:false;
          ) (System_domains.pbd_of_vm ~__context ~vm)
@@ -1355,7 +1361,7 @@ let attach_and_activate ~__context ~vbd ~domid f =
        let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
-            let module C = Storage_interface.Client(struct let rpc = rpc end) in
+            let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
             let attach_info = C.VDI.attach2 dbg dp sr vdi read_write in
             C.VDI.activate dbg dp sr vdi;
             f attach_info
@@ -1371,7 +1377,7 @@ let deactivate_and_detach ~__context ~vbd ~domid =
           			   automatically detached and deactivated. *)
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
-            let module C = Storage_interface.Client(struct let rpc = rpc end) in
+            let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
             C.DP.destroy dbg dp false
          )
     )
@@ -1397,23 +1403,24 @@ let dp_destroy ~__context dp allow_leak =
 let resynchronise_pbds ~__context ~pbds =
   let dbg = Context.get_task_id __context in
   let srs = Client.SR.list (Ref.string_of dbg) in
-  debug "Currently-attached SRs: [ %s ]" (String.concat "; " srs);
+  debug "Currently-attached SRs: [ %s ]" (String.concat "; " (List.map s_of_sr srs));
   List.iter
     (fun self ->
-     try
-       let sr = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
-       let value = List.mem sr srs in
-       debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
        try
-         if value then (let (_:query_result) = bind ~__context ~pbd:self in ());
-         Db.PBD.set_currently_attached ~__context ~self ~value
-       with e ->
-         (* Unchecked this will block the dbsync code *)
-         error "Service implementing SR %s has failed. Performing emergency reset of SR state" sr;
-         Client.SR.reset (Ref.string_of dbg) sr;
-         Db.PBD.set_currently_attached ~__context ~self ~value:false;
-     with Db_exn.DBCache_NotFound(_, ("PBD"|"SR"), _) as e ->
-       debug "Ignoring PBD/SR that got deleted before we resynchronised: %s" (Printexc.to_string e)
+         let sr_uuid = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self) in
+         let sr = Storage_interface.Sr.of_string sr_uuid in
+         let value = List.mem sr srs in
+         debug "Setting PBD %s currently_attached <- %b" (Ref.string_of self) value;
+         try
+           if value then (let (_:query_result) = bind ~__context ~pbd:self in ());
+           Db.PBD.set_currently_attached ~__context ~self ~value
+         with e ->
+           (* Unchecked this will block the dbsync code *)
+           error "Service implementing SR %s has failed. Performing emergency reset of SR state" sr_uuid;
+           Client.SR.reset (Ref.string_of dbg) sr;
+           Db.PBD.set_currently_attached ~__context ~self ~value:false;
+       with Db_exn.DBCache_NotFound(_, ("PBD"|"SR"), _) as e ->
+         debug "Ignoring PBD/SR that got deleted before we resynchronised: %s" (Printexc.to_string e)
 
     ) pbds
 
@@ -1476,15 +1483,15 @@ let refresh_local_vdi_activations ~__context =
 
   let dbg = Ref.string_of (Context.get_task_id __context) in
   let srs = Client.SR.list dbg in
-  let sr_uuids = List.map (fun sr -> (sr, Db.SR.get_uuid ~__context ~self:sr)) (Db.SR.get_all ~__context) in
+  let sr_uuids = List.map (fun sr -> (sr, Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self:sr))) (Db.SR.get_all ~__context) in
   List.iter
     (fun (vdi_ref, vdi_rec) ->
        let sr = List.assoc vdi_rec.API.vDI_SR sr_uuids in
-       let vdi = vdi_rec.API.vDI_location in
+       let vdi = Storage_interface.Vdi.of_string vdi_rec.API.vDI_location in
        if List.mem sr srs
        then
          try
-           let x = Client.DP.stat_vdi ~dbg ~sr ~vdi () in
+           let x = Client.DP.stat_vdi dbg sr vdi () in
            match x.superstate with
            | Activated RO ->
              lock_vdi (vdi_ref, vdi_rec) RO;
@@ -1501,7 +1508,7 @@ let refresh_local_vdi_activations ~__context =
            | Detached ->
              unlock_vdi (vdi_ref, vdi_rec)
          with
-         | e -> error "Unable to query state of VDI: %s, %s" vdi (Printexc.to_string e)
+         | e -> error "Unable to query state of VDI: %s, %s" (s_of_vdi vdi) (Printexc.to_string e)
        else unlock_vdi (vdi_ref, vdi_rec)
     ) all_vdi_recs
 
@@ -1523,7 +1530,8 @@ let create_sr ~__context ~sr ~name_label ~name_description ~physical_size =
        let pbd, pbd_t = Sm.get_my_pbd_for_sr __context sr in
        let (_ : query_result) = bind ~__context ~pbd in
        let dbg = Ref.string_of (Context.get_task_id __context) in
-       let result = Client.SR.create dbg (Db.SR.get_uuid ~__context ~self:sr) name_label name_description pbd_t.API.pBD_device_config physical_size in
+       let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
+       let result = Client.SR.create dbg (Storage_interface.Sr.of_string sr_uuid) name_label name_description pbd_t.API.pBD_device_config physical_size in
        unbind ~__context ~pbd;
        result
     )
@@ -1537,7 +1545,7 @@ let destroy_sr ~__context ~sr ~and_vdis =
        let (_ : query_result) = bind ~__context ~pbd in
        let dbg = Ref.string_of (Context.get_task_id __context) in
        let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-       Client.SR.attach dbg sr_uuid pbd_t.API.pBD_device_config;
+       Client.SR.attach dbg (Storage_interface.Sr.of_string sr_uuid) pbd_t.API.pBD_device_config;
        (* The current backends expect the PBD to be temporarily set to currently_attached = true *)
        Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true;
        Pervasiveext.finally
@@ -1545,12 +1553,12 @@ let destroy_sr ~__context ~sr ~and_vdis =
             try
               List.iter (fun vdi ->
                   let location = Db.VDI.get_location ~__context ~self:vdi in
-                  Client.VDI.destroy dbg sr_uuid location)
+                  Client.VDI.destroy dbg (Storage_interface.Sr.of_string sr_uuid) (Storage_interface.Vdi.of_string location))
                 and_vdis;
-              Client.SR.destroy dbg sr_uuid
+              Client.SR.destroy dbg (Storage_interface.Sr.of_string sr_uuid)
             with exn ->
               (* Clean up: SR is left attached if destroy fails *)
-              Client.SR.detach dbg sr_uuid;
+              Client.SR.detach dbg (Storage_interface.Sr.of_string sr_uuid);
               raise exn
          )
          (fun () ->
