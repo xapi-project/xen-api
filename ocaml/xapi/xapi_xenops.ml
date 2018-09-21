@@ -19,7 +19,6 @@ open Network
 
 open Stdext
 open Xstringext
-open Listext
 open Threadext
 open Pervasiveext
 open Fun
@@ -202,7 +201,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
     vdis
     |> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
     |> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
-    |> List.filter_map (fun (reference, record) ->
+    |> Listext.List.filter_map (fun (reference, record) ->
         Opt.of_exception (fun () ->
             reference,
             List.assoc Vm_platform.timeoffset
@@ -330,7 +329,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 
   let make_indirect_boot_record { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } =
     {
-      boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
+      boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = Listext.List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
       framebuffer = bool vm.API.vM_platform false "pvfb";
       framebuffer_ip = None; (* None PR-1255 *)
       vncterm = begin match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
@@ -351,7 +350,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
   |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
-  |> List.filter_map (fun vif ->
+  |> Listext.List.filter_map (fun vif ->
          match backend_of_vif ~__context ~vif with
          | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
          | _ -> None
@@ -1128,38 +1127,31 @@ module Xenops_cache = struct
   let find_vbd id : Vbd.state option =
     match find (fst id) with
     | Some { vbds = vbds } ->
-      if List.mem_assoc id vbds
-      then Some (List.assoc id vbds)
-      else None
+      List.assoc_opt id vbds
     | _ -> None
 
   let find_vif id : Vif.state option =
     match find (fst id) with
     | Some { vifs = vifs } ->
-      if List.mem_assoc id vifs
-      then Some (List.assoc id vifs)
-      else None
+      List.assoc_opt id vifs
     | _ -> None
 
   let find_pci id : Pci.state option =
     match find (fst id) with
     | Some { pcis = pcis } ->
-      if List.mem_assoc id pcis
-      then Some (List.assoc id pcis)
-      else None
+      List.assoc_opt id pcis
     | _ -> None
 
   let find_vgpu id : Vgpu.state option =
     match find (fst id) with
     | Some { vgpus = vgpus } ->
-      if List.mem_assoc id vgpus
-      then Some (List.assoc id vgpus)
-      else None
+      List.assoc_opt id vgpus
     | _ -> None
 
   let find_vusb id : Vusb.state option =
     match find (fst id) with
-    | Some { vusbs = vusbs } when List.mem_assoc id vusbs -> Some (List.assoc id vusbs)
+    | Some { vusbs = vusbs } ->
+      List.assoc_opt id vusbs
     | _ -> None
 
   let update id t =
@@ -1611,7 +1603,7 @@ let update_vm ~__context id =
                      (fun protocol ->
                         let self = List.assoc protocol current_protocols in
                         Db.Console.destroy ~__context ~self
-                     ) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+                     ) (Listext.List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
                    (* Create consoles that have appeared *)
                    List.iter
                      (fun (protocol, _) ->
@@ -1625,7 +1617,7 @@ let update_vm ~__context id =
                         Db.Console.create ~__context ~ref ~uuid
                           ~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
                           ~other_config:[] ~port
-                     ) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+                     ) (Listext.List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
                 ) info;
             with e ->
               error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
