@@ -104,21 +104,23 @@ let read_record_internal db tblname objref =
   try
     let tbl = TableSet.find tblname (Database.tableset db) in
     let row = Table.find objref tbl in
-    let fvlist = Row.fold (fun k _ d env -> (k,d)::env) row [] in
-    (* Unfortunately the interface distinguishes between Set(Ref _) types and
-       	           ordinary fields *)
     let schema = Schema.table tblname (Database.schema db) in
-    let set_ref = List.filter (fun (k, _) ->
-        let column = Schema.Table.find k schema in
-        column.Schema.Column.issetref
-      ) fvlist in
-    let fvlist = List.map (fun (k, v) ->
-        k, Schema.Value.marshal v
-      ) fvlist in
     (* the set_ref fields must be converted back into lists *)
-    let set_ref = List.map (fun (k, v) ->
-        k, Schema.Value.Unsafe_cast.set v) set_ref in
-    (fvlist, set_ref)
+    let map_setref_opt k v =
+        let column = Schema.Table.find k schema in
+        if column.Schema.Column.issetref then
+          Some (Schema.Value.Unsafe_cast.set v)
+        else None in
+    let map_fvlist v = Schema.Value.marshal v
+    in
+    (* Unfortunately the interface distinguishes between Set(Ref _) types and
+       ordinary fields *)
+    Row.fold (fun k _ d (accum_fvlist, accum_setref) ->
+        let accum_setref = match map_setref_opt k d with
+        | Some v -> (k, v) :: accum_setref
+        | None -> accum_setref in
+        let accum_fvlist = (k, map_fvlist d) :: accum_fvlist in
+        accum_fvlist, accum_setref) row ([], [])
   with Not_found ->
     raise (DBCache_NotFound ("missing row", tblname, objref))
 
