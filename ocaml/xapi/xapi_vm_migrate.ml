@@ -172,13 +172,13 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid xenops
        		 * Xenops_interface.Internal_error("End_of_file") the second, then success. *)
     with
     (* User cancelled migration *)
-    | Xenops_interface.Cancelled _ as e when TaskHelper.is_cancelling ~__context ->
+    | Xenops_interface.Xenopsd_error Cancelled _ as e when TaskHelper.is_cancelling ~__context ->
       debug "xenops: Migration cancelled by user.";
       raise e
 
     (* VM rebooted during migration - first raises Cancelled, then Internal_error  "End_of_file" *)
-    | Xenops_interface.Cancelled _
-    | Xenops_interface.Internal_error "End_of_file" as e ->
+    | Xenops_interface.Xenopsd_error Cancelled _
+    | Xenops_interface.Xenopsd_error (Internal_error "End_of_file") as e ->
       debug "xenops: will retry migration: caught %s from %s in attempt %d of %d."
         (Printexc.to_string e) !progress try_no max;
       migrate_with_retries ~__context queue_name max (try_no + 1) dbg vm_uuid xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops
@@ -295,13 +295,13 @@ let pool_migrate ~__context ~vm ~host ~options =
           with _ -> ()
         end;
         match exn with
-        | Xenops_interface.Failed_to_acknowledge_shutdown_request ->
+        | Xenops_interface.Xenopsd_error Failed_to_acknowledge_shutdown_request ->
           raise Api_errors.(Server_error (vm_failed_shutdown_ack, [Ref.string_of vm]))
-        | Xenops_interface.Cancelled _ ->
+        | Xenops_interface.Xenopsd_error Cancelled _ ->
           TaskHelper.raise_cancelled ~__context
-        | Xenops_interface.Storage_backend_error (code, _) ->
+        | Xenops_interface.Xenopsd_error Storage_backend_error (code, _) ->
           raise Api_errors.(Server_error (sr_backend_failure, [code]))
-        | Xenops_interface.Ballooning_timeout_before_migration ->
+        | Xenops_interface.Xenopsd_error Ballooning_timeout_before_migration ->
           raise Api_errors.(Server_error (ballooning_timeout_before_migration, [Ref.string_of vm]))
         | _ -> raise exn
     )
@@ -1039,8 +1039,8 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
                  xenops_vif_map xenops_vgpu_map remote.xenops_url;
                Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid)
         with
-        | Xenops_interface.Does_not_exist ("VM",_)
-        | Xenops_interface.Does_not_exist ("extra",_) ->
+        | Xenops_interface.Xenopsd_error Does_not_exist ("VM",_)
+        | Xenops_interface.Xenopsd_error Does_not_exist ("extra",_) ->
           info "%s: VM %s stopped being live during migration"
             "vm_migrate_send" vm_uuid
         | VGPU_mapping(msg) ->
@@ -1151,7 +1151,7 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
     begin match e with
       | Storage_interface.Backend_error(code, params) -> raise (Api_errors.Server_error(code, params))
       | Storage_interface.Unimplemented(code) -> raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [code]))
-      | Xenops_interface.Cancelled _ -> TaskHelper.raise_cancelled ~__context
+      | Xenops_interface.Xenopsd_error Cancelled _ -> TaskHelper.raise_cancelled ~__context
       | _ -> raise e
     end
 

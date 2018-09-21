@@ -662,7 +662,7 @@ let set_stunnel_legacy_inv ~__context () =
       | s -> s
     );
   Stunnel.set_legacy_ciphersuites !Xapi_globs.ciphersuites_legacy_outbound;
-  let s = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true" in
+  let s = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"false" in
   let legacy = try
       bool_of_string s
     with e ->

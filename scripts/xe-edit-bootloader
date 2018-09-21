@@ -5,7 +5,7 @@
 # Script which lets you edit the grub.conf in a Linux guest virtual disk.
 
 if [ ! -e @INVENTORY@ ]; then
-  echo Must run on a XenServer host.
+  echo Must run on a Citrix Hypervisor host.
   exit 1
 fi
 
