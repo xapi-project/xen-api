@@ -252,7 +252,6 @@ let device_kind_of_backend_keys backend_keys =
 
 let params_of_backend backend =
   let blockdevs, files, xendisks, nbds =
-    let open Storage_interface in
     List.fold_left
       (fun (blockdevs, files, xendisks, nbds) ->
          function
@@ -269,14 +268,13 @@ let params_of_backend backend =
       let xenstore_data = xendisk.Storage_interface.extra in
       if List.mem_assoc backend_kind xenstore_data then xenstore_data else ("backend-kind", backend_kind) :: xenstore_data
     | [] ->
-      raise (Xenopsd_error (Internal_error ("Could not find XenDisk implementation: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string))))
+      raise (Xenopsd_error (Internal_error ("Could not find XenDisk implementation: " ^ (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string))))
   in
-  let open Storage_interface in
   let params, extra_keys = match blockdevs, files, nbds, xendisks with
   | {path}::_, _, _, _ | _, {path}::_, _, _ -> (path, [])
   | _, _, {uri}::_, xendisk::_ -> (uri, ["qemu-params", xendisk.Storage_interface.params])
   | _ ->
-    raise (Xenopsd_error (Internal_error ("Could not find BlockDevice, File, or Nbd implementation: " ^ (Storage_interface.rpc_of_backend backend |> Jsonrpc.to_string))))
+    raise (Xenopsd_error (Internal_error ("Could not find BlockDevice, File, or Nbd implementation: " ^ (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string))))
   in
   (params, xenstore_data, extra_keys)
 
@@ -289,7 +287,6 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
     raise (Xenopsd_error (Does_not_exist("domain", backend_vm_id)))
   | Some backend_domid when backend_domid = frontend_domid -> begin
       (* There's no need to use a PV disk if we're in the same domain *)
-      let open Storage_interface in
       let paths, nbds =
         List.fold_left
           (fun (paths, nbds) -> function
@@ -303,7 +300,7 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
       match paths, nbds with
       | path::_, _ -> Name path
       | _, nbd::_ -> Nbd nbd
-      | [], [] -> raise (Xenopsd_error (Internal_error ("Could not find File, BlockDevice, or Nbd implementation: " ^ (Storage_interface.rpc_of_backend vdi.attach_info |> Jsonrpc.to_string))))
+      | [], [] -> raise (Xenopsd_error (Internal_error ("Could not find File, BlockDevice, or Nbd implementation: " ^ (Storage_interface.(rpc_of backend) vdi.attach_info |> Jsonrpc.to_string))))
     end
   | Some backend_domid ->
     let params, xenstore_data, extra_keys = params_of_backend vdi.attach_info in
@@ -351,7 +348,7 @@ module Storage = struct
   (* We need to deal with driver domains here: *)
   let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
     let result = attach_and_activate task vm dp sr vdi read_write in
-    let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm sr vdi)
+    let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm (Sr.string_of sr) (Vdi.string_of vdi))
         (transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
     match domid_of_uuid ~xc ~xs (uuid_of_string backend) with
     | None ->
@@ -413,7 +410,6 @@ end
 let with_disk ~xc ~xs task disk write f = match disk with
   | Local path -> f path
   | VDI path ->
-    let open Storage_interface in
     let open Storage in
     let sr, vdi = get_disk_by_name task path in
     let dp = Client.DP.create "with_disk" (Printf.sprintf "xenopsd/task/%s" (Xenops_task.id_of_handle task)) in
@@ -430,7 +426,7 @@ let with_disk ~xc ~xs task disk write f = match disk with
               | Name path -> f path
               | Device device -> f (Device_common.block_device_of_device device)
               | Nbd nbd ->
-                debug "with_disk: using nbd-client for %s" (Storage_interface.rpc_of_nbd nbd |> Jsonrpc.to_string);
+                debug "with_disk: using nbd-client for %s" (Storage_interface.(rpc_of nbd) nbd |> Jsonrpc.to_string);
                 NbdClient.with_nbd_device ~nbd f
            )
            (fun () ->

@@ -25,12 +25,12 @@ module Client = Storage_client.Client
 let transform_exception f x =
   try f x
   with
-  | Backend_error_with_backtrace(code, backtrace :: params) as e ->
+  | Storage_error Backend_error_with_backtrace(code, backtrace :: params) as e ->
     let backtrace = Backtrace.Interop.of_json "SM" backtrace in
     let exn = Xenopsd_error (Storage_backend_error(code, params)) in
     Backtrace.add exn backtrace;
     Backtrace.reraise e exn
-  | Backend_error(code, params) as e ->
+  | Storage_error Backend_error(code, params) as e ->
     error "Re-raising exception %s: %s" code (String.concat "; " params);
     Backtrace.reraise e (Xenopsd_error (Storage_backend_error(code, params)))
 
@@ -59,7 +59,7 @@ let attach_and_activate task vm dp sr vdi read_write =
   result
 
 let deactivate task dp sr vdi =
-  debug "Deactivating disk %s %s" sr vdi;
+  debug "Deactivating disk %s %s" (Sr.string_of sr) (Vdi.string_of vdi);
   Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
     (transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi))
 
@@ -72,7 +72,7 @@ let dp_destroy task dp =
              Client.DP.destroy "dp_destroy" dp false;
              waiting_for_plugin := false
            with
-           | Storage_interface.No_storage_plugin_for_sr sr as e ->
+           | Storage_interface.Storage_error No_storage_plugin_for_sr sr as e ->
              (* Since we have an activated disk in this SR, assume we are still
                 						   waiting for xapi to register the SR's plugin. *)
              debug "Caught %s - waiting for xapi to register storage plugins."
@@ -90,7 +90,7 @@ let get_disk_by_name task path =
   match Stdext.Xstringext.String.split ~limit:2 '/' path with
   | [ sr; vdi ] ->
     info "Processing disk SR=%s VDI=%s" sr vdi;
-    sr, vdi
+    (Sr.of_string sr), (Vdi.of_string vdi)
   | _ ->
     error "Failed to parse VDI name %s (expected SR/VDI)" path;
-    raise (Storage_interface.Vdi_does_not_exist path)
+    raise (Storage_interface.Storage_error (Vdi_does_not_exist path))
