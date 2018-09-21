@@ -19,6 +19,8 @@ open Xenops_interface
 
 let test_vm_name = "__test_vm"
 
+let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x
+
 type vm_config = {
   oc: (string * string) list;
   platform: (string * string) list;
@@ -250,7 +252,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                                   (list (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type)))
                                                let string_of_output_t =
                                                  Test_printers.list (fun vgpu ->
-                                                     Xenops_interface.Vgpu.rpc_of_implementation vgpu |> Rpc.to_string)
+                                                     rpc_of Xenops_interface.Vgpu.implementation vgpu |> Rpc.to_string)
                                              end
 
                                              module State = Test_state.XapiDb

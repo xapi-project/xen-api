@@ -53,7 +53,16 @@ let mime_of_extension = function
   | "gif"          -> "image/gif"
   | "png"          -> "image/png"
   | "jpg" | "jpeg" -> "image/jpeg"
+  | "xml"          -> "application/xml"
+  | "rpm"          -> "application/x-rpm"
   | _              -> application_octet_stream
+
+let response_file s file_path =
+  let mime_content_type =
+    let open Stdext.Opt in
+    let ext = map String.lowercase_ascii (get_extension file_path) in
+    default application_octet_stream (map mime_of_extension ext) in
+  Http_svr.response_file ~mime_content_type s file_path
 
 let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) _ =
   let uri_base_len = String.length uri_base in
@@ -74,12 +83,7 @@ let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) 
       let stat = Unix.stat file_path in
       (* if a directory, automatically add index.html *)
       let file_path = if stat.Unix.st_kind = Unix.S_DIR then file_path ^ "/index.html" else file_path in
-
-      let mime_content_type =
-        let open Stdext.Opt in
-        let ext = map String.lowercase_ascii (get_extension file_path) in
-        default application_octet_stream (map mime_of_extension ext) in
-      Http_svr.response_file ~mime_content_type s file_path
+      response_file s file_path
     end
   with
     _ -> Http_svr.response_missing s (missing uri)

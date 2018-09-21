@@ -1679,8 +1679,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
       info "VM.assert_can_migrate_sender: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.assert_can_migrate_sender ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
+      try
       forward_vm_op ~local_fn ~__context ~vm
         (fun session_id rpc -> Client.VM.assert_can_migrate_sender rpc session_id vm dest live vdi_map vif_map vgpu_map options)
+      with
+      | Api_errors.Server_error(code, params) when code=Api_errors.message_method_unknown ->
+        warn "VM.assert_can_migrate_sender is not known by destination, assuming it can ignore this check."
 
     let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
       info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm);

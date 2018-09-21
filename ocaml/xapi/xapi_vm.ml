@@ -895,8 +895,7 @@ let run_script ~__context ~vm ~args =
   (* For the moment, we only make use of "script". *)
   let script = List.assoc "script" args in
   if String.length script > 1024 then raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, ["length restriction"; ""; "The script length must not exceed 1024 bytes"]));
-  try Xapi_xenops.run_script ~__context ~self:vm script
-  with Xenops_interface.Failed_to_run_script reason -> raise (Api_errors.Server_error(Api_errors.xenapi_plugin_failure, [ reason ]))
+  Xapi_xenops.run_script ~__context ~self:vm script
 
 
 (* A temporal database holding the latest calling log for each VM. It's fine for it to be host local as a VM won't be resident on two hosts at the same time, nor does it migrate that frequently *)

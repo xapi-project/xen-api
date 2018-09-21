@@ -113,7 +113,7 @@ let with_inc_refcount ~__context ~uuid ~vdi f =
 let detach_helper ~__context ~uuid ~vdi =
   with_dec_refcount ~__context ~uuid ~vdi
     (fun ~__context ~uuid ~vdi ->
-       let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+       let mount_point_parent_dir = String.concat "/" [!Xapi_globs.host_update_dir; uuid] in
        let mount_point = Filename.concat mount_point_parent_dir "vdi" in
        debug "pool_update.detach_helper %s from %s" uuid mount_point;
        if try Sys.is_directory mount_point with _ -> false then begin
@@ -200,7 +200,7 @@ let attach_helper ~__context ~uuid ~vdi =
   let ip = Db.Host.get_address ~__context ~self:host in
   with_inc_refcount ~__context ~uuid ~vdi
     (fun ~__context ~uuid ~vdi ->
-       let mount_point_parent_dir = String.concat "/" [Xapi_globs.host_update_dir; uuid] in
+       let mount_point_parent_dir = String.concat "/" [!Xapi_globs.host_update_dir; uuid] in
        let mount_point = Filename.concat mount_point_parent_dir "vdi" in
        debug "pool_update.attach_helper %s to %s" uuid mount_point;
        let output, _ = Forkhelpers.execute_command_get_output "/bin/mkdir" ["-p"; mount_point] in
@@ -285,7 +285,7 @@ let parse_update_info xml =
   | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <update> in update.xml"]))
 
 let extract_applied_update_info applied_uuid  =
-  let applied_update = Printf.sprintf "%s/applied/%s" Xapi_globs.host_update_dir applied_uuid in
+  let applied_update = Printf.sprintf "%s/applied/%s" !Xapi_globs.host_update_dir applied_uuid in
   debug "pool_update.extract_applied_update_info, will parse '%s'" applied_update;
   let xml = Xml.parse_file applied_update in
   parse_update_info xml
@@ -295,7 +295,7 @@ let extract_update_info ~__context ~vdi ~verify =
   finally
     (fun () ->
        let url = attach_helper ~__context ~uuid:vdi_uuid ~vdi in
-       let update_path = Printf.sprintf "%s/%s/vdi" Xapi_globs.host_update_dir vdi_uuid in
+       let update_path = Printf.sprintf "%s/%s/vdi" !Xapi_globs.host_update_dir vdi_uuid in
        debug "pool_update.extract_update_info get url='%s', will parse_file in '%s'" url update_path;
        let xml = try
          Xml.parse_file (Filename.concat update_path "update.xml")
@@ -320,7 +320,7 @@ let assert_space_available ?(multiplier=3L) ?(get_free_bytes=get_free_bytes) upd
     begin
       error "Not enough space on filesystem to upload update. Required %Ld, \
              but only %Ld available" really_required free_bytes;
-      raise (Api_errors.Server_error (Api_errors.out_of_space, [Xapi_globs.host_update_dir]))
+      raise (Api_errors.Server_error (Api_errors.out_of_space, [!Xapi_globs.host_update_dir]))
     end
 
 exception Cannot_expose_yum_repo_on_slave
@@ -385,9 +385,9 @@ let introduce ~__context ~vdi =
     raise Api_errors.(Server_error(vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))
   end;
 
-  ignore(Unixext.mkdir_safe Xapi_globs.host_update_dir 0o755);
+  ignore(Unixext.mkdir_safe !Xapi_globs.host_update_dir 0o755);
   (*If current disk free space is smaller than 1MB raise exception*)
-  assert_space_available ~multiplier:1L Xapi_globs.host_update_dir (Int64.mul 1024L 1024L);
+  assert_space_available ~multiplier:1L !Xapi_globs.host_update_dir (Int64.mul 1024L 1024L);
   let update_info = extract_update_info ~__context ~vdi ~verify in
   try
     let update = Db.Pool_update.get_by_uuid ~__context ~uuid:update_info.uuid in
@@ -459,7 +459,7 @@ let detach_attached_updates __context =
     )
 
 let resync_host ~__context ~host =
-  let update_applied_dir = Filename.concat Xapi_globs.host_update_dir "applied" in
+  let update_applied_dir = Filename.concat !Xapi_globs.host_update_dir "applied" in
   if Sys.file_exists update_applied_dir then begin
     debug "pool_update.resync_host scanning directory %s for applied updates" update_applied_dir;
     let updates_applied = try Array.to_list (Sys.readdir update_applied_dir) with _ -> [] in
@@ -532,19 +532,21 @@ let resync_host ~__context ~host =
     |> List.iter (fun self -> destroy ~__context ~self)
   end
 
+let path_from_uri uri =
+  (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
+  String.sub_to_end uri (String.length Constants.get_pool_update_download_uri)
+  |> Filename.concat !Xapi_globs.host_update_dir
+  |> Uri.pct_decode
+  |> Stdext.Unixext.resolve_dot_and_dotdot
+
 let pool_update_download_handler (req: Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;
-  (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
-  let filepath = String.sub_to_end req.Request.uri (String.length Constants.get_pool_update_download_uri)
-                 |> Filename.concat Xapi_globs.host_update_dir
-                 |> Stdext.Unixext.resolve_dot_and_dotdot 
-                 |> Uri.pct_decode  in
+  let filepath = path_from_uri req.Request.uri in
   debug "pool_update.pool_update_download_handler %s" filepath;
-
-  if not(String.startswith Xapi_globs.host_update_dir filepath) || not (Sys.file_exists filepath) then begin
-    debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath Xapi_globs.host_update_dir;
+  if not(String.startswith !Xapi_globs.host_update_dir filepath) || not (Sys.file_exists filepath) then begin
+    debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath !Xapi_globs.host_update_dir;
     Http_svr.response_forbidden ~req s
   end else begin
-    Http_svr.response_file s filepath;
+    Fileserver.response_file s filepath;
     req.Request.close <- true
   end

@@ -9,14 +9,22 @@ build: [[ "jbuilder" "build" "-p" name ]]
 
 depends: [
   "jbuilder" {build & >= "1.0+beta11"}
+
   "astring"
-  "rpc"
+  "http-svr"
+  "ocaml-migrate-parsetree"
+  "ppx_deriving_rpc"
+  "rpclib"
+  "sexpr"
+  "base-threads"
+  "uuid"
   "uuidm"
   "xapi-consts"
   "xapi-datamodel"
-  "xapi-idl"
   "xapi-stdext-date"
-  "xapi-libs-transitional"
-  "xapi-stdext-date"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-std"
+  "xapi-stdext-unix"
+  "xcp"
 ]
 

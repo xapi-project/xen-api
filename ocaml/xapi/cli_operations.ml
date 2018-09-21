@@ -87,7 +87,9 @@ let waiter printer rpc session_id params task =
        Client.Task.destroy rpc session_id task
     )
 
-(* Return the list of k=v pairs for maps *)
+(* Return the list of k=v pairs for maps.
+   Works for key which is not follow by a ':',
+   also match old syntax 'device-config-key' for backwards compatability *)
 let read_map_params name params =
   let len = String.length name + 1 in (* include ':' *)
   let filter_params = List.filter (fun (p,_) -> (String.startswith name p) && (String.length p > len)) params in
@@ -1419,13 +1421,6 @@ let parse_host_uuid ?(default_master=true) rpc session_id params =
     else failwith "Required parameter not found: host-uuid"
   end
 
-let parse_device_config params =
-  (* Ack! We're supposed to use the format device-config:key=value but we need to match device-config-key=value for *)
-  (* backwards compatability *)
-  let len = String.length "device-config:" in
-  let filter_params = List.filter (fun (p,_) -> (String.startswith "device-config" p) && (String.length p > len)) params in
-  List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params
-
 (* SR create destroy list param-list param-get param-set param-add param-remove *)
 
 let sr_create fd printer rpc session_id params =
@@ -1438,7 +1433,7 @@ let sr_create fd printer rpc session_id params =
     with _ -> 0L in
   let _type=List.assoc "type" params in
   let content_type = List.assoc_default "content-type" params "" in
-  let device_config = parse_device_config params in
+  let device_config = read_map_params "device-config" params in
   (* If the device-config parameter is of the form k-filename=v, then we assume the
      	   key is 'k' and the value is stored in a file named 'v' *)
   let suffix = "-filename" in
@@ -1472,7 +1467,7 @@ let sr_introduce printer rpc session_id params =
 let sr_probe printer rpc session_id params =
   let host = parse_host_uuid rpc session_id params in
   let _type = List.assoc "type" params in
-  let device_config = parse_device_config params in
+  let device_config = read_map_params "device-config" params in
   let sm_config = read_map_params "sm-config" params in
   let txt = Client.SR.probe ~rpc ~session_id ~host ~_type ~device_config ~sm_config in
   try
@@ -1487,7 +1482,7 @@ let sr_probe printer rpc session_id params =
 let sr_probe_ext printer rpc session_id params =
   let host = parse_host_uuid rpc session_id params in
   let _type = List.assoc "type" params in
-  let device_config = parse_device_config params in
+  let device_config = read_map_params "device-config" params in
   let sm_config = read_map_params "sm-config" params in
   let results = Client.SR.probe_ext ~rpc ~session_id ~host ~device_config ~_type ~sm_config in
   let srs, complete_configs, incomplete_configs =
@@ -4760,7 +4755,7 @@ let vgpu_destroy printer rpc session_id params =
 
 let dr_task_create printer rpc session_id params =
   let _type = List.assoc "type" params in
-  let device_config = parse_device_config params in
+  let device_config = read_map_params "device-config" params in
   let whitelist = if List.mem_assoc "sr-whitelist" params then String.split ',' (List.assoc "sr-whitelist" params) else [] in
   let dr_task = Client.DR_task.create ~rpc ~session_id ~_type ~device_config ~whitelist in
   let uuid = Client.DR_task.get_uuid ~rpc ~session_id ~self:dr_task in

@@ -591,7 +591,7 @@ let host_query_ha = call ~flags:[`Session]
   let call_plugin = call
       ~name:"call_plugin"
       ~in_product_since:rel_orlando
-      ~doc:"Call a XenAPI plugin on this host"
+      ~doc:"Call an API plugin on this host"
       ~params:[Ref _host, "host", "The host";
                String, "plugin", "The name of the plugin";
                String, "fn", "The name of the function within the plugin";
@@ -614,7 +614,7 @@ let host_query_ha = call ~flags:[`Session]
       ~name:"call_extension"
       ~in_product_since:rel_ely
       ~custom_marshaller:true
-      ~doc:"Call a XenAPI extension on this host"
+      ~doc:"Call an API extension on this host"
       ~params:[Ref _host, "host", "The host";
                String, "call", "Rpc call for the extension";]
       ~result:(String, "Result from the extension")
@@ -1053,7 +1053,7 @@ let host_query_ha = call ~flags:[`Session]
   let set_ssl_legacy = call
       ~name:"set_ssl_legacy"
       ~lifecycle:[Published, rel_dundee, ""]
-      ~doc:"Enable/disable SSLv3 for interoperability with older versions of XenServer. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. XenAPI login sessions will remain valid."
+      ~doc:"Enable/disable SSLv3 for interoperability with older server versions. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. API login sessions will remain valid."
       ~params:[
         Ref _host, "self", "The host";
         Bool, "value", "True to allow SSLv3 and ciphersuites as used in old XenServer versions";
@@ -1430,7 +1430,7 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_inverness, ""] ~ty:(Set (Ref _pusb)) "PUSBs" "List of physical USBs in the host";
-           field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older XenServers. This controls both incoming and outgoing connections. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. XenAPI login sessions will remain valid.";
+           field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older server versions. This controls both incoming and outgoing connections. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. API login sessions will remain valid.";
            field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
            field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:display "display" "indicates whether the host is configured to output its console to a physical display device";
            field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";

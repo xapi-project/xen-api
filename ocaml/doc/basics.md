@@ -1,6 +1,6 @@
 # API Basics
 
-This document defines the XenServer Management API - an interface for remotely
+This document defines the Citrix Hypervisor Management API - an interface for remotely
 configuring and controlling virtualised guests running on a Xen-enabled host.
 
 The API is presented here as a set of Remote Procedure Calls (RPCs). There are
