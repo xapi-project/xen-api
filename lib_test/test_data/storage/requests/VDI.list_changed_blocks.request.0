@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>VDI.list_changed_blocks</methodName><params><param><value><struct><member><name>vdi_tp</name><value>vdi_tp</value></member><member><name>vdi_from</name><value>vdi_from</value></member><member><name>sr</name><value>sr</value></member><member><name>dbg</name><value>dbg</value></member></struct></value></param></params></methodCall>

@@ -18,7 +18,7 @@
 
 (** An automaton representing the VDI state machine *)
 
-type ro_rw = RO | RW [@@deriving rpc]
+type ro_rw = RO | RW [@@deriving rpcty]
 
 let string_of_ro_rw = function
 	| RO -> "RO" | RW -> "RW"
@@ -27,7 +27,7 @@ type state =
 	| Detached
 	| Attached of ro_rw
 	| Activated of ro_rw
-[@@deriving rpc]
+[@@deriving rpcty]
 
 let string_of_state = function
 	| Detached        -> "detached"

@@ -13,7 +13,7 @@
  *)
 [@@@ocaml.warning "-27"]
 
-let u x = raise (Storage_interface.Unimplemented x)
+let u x = raise (Storage_interface.(Storage_error (Errors.Unimplemented x)))
 
 type context = unit
 

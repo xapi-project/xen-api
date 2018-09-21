@@ -20,7 +20,7 @@ clean:
 	    dune clean
 
 test:
-	    dune runtest --dev -j $$(getconf _NPROCESSORS_ONLN)
+	    dune runtest -j $$(getconf _NPROCESSORS_ONLN)
 
 # requires odoc
 doc:

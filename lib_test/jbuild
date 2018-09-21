@@ -24,6 +24,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xcp.updates
     xcp.network
     xcp.gpumon
+    xcp.storage
     xcp.xen))
   (preprocess (pps (ppx_deriving_rpc %s)))  ))
 
