@@ -8,7 +8,7 @@ module XI = struct
   let marshal_exn e =
     match e with
     | Xenopsd_error e' -> Rpcmarshal.marshal Errors.error.Rpc.Types.ty e'
-    | _ -> raise e
+    | _ -> Rpcmarshal.marshal Errors.error.Rpc.Types.ty (Errors.Internal_error (Printexc.to_string e))
 end
 
 
