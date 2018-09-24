@@ -25,6 +25,7 @@ UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING = 'UPDATE_PRECHECK_FAILED_PREREQUISI
 UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT = 'UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT'
 UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION = 'UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION'
 UPDATE_PRECHECK_FAILED_OUT_OF_SPACE = 'UPDATE_PRECHECK_FAILED_OUT_OF_SPACE'
+UPDATE_PRECHECK_FAILED_GPGKEY_NOT_IMPORTED = 'UPDATE_PRECHECK_FAILED_GPGKEY_NOT_IMPORTED'
 PATCH_PRECHECK_FAILED_ISO_MOUNTED = 'PATCH_PRECHECK_FAILED_ISO_MOUNTED'
 PATCH_PRECHECK_FAILED_VM_RUNNING = 'PATCH_PRECHECK_FAILED_VM_RUNNING'
 INVALID_UPDATE = 'INVALID_UPDATE'
@@ -37,7 +38,9 @@ ERROR_MESSAGE_PROCESSING_CONFLICT = '--> Processing Conflict:'
 ERROR_MESSAGE_PREREQUISITE = 'Requires: '
 ERROR_MESSAGE_VERSION_REQUIRED = 'Requires: '
 ERROR_MESSAGE_VERSION_INSTALLED = 'Installed: '
+ERROR_MESSAGE_VERSION_UPDATED_BY = 'Updated By: '
 ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
+ERROR_MESSAGE_GPGKEY_NOT_IMPORTED = 'Gpg Keys not imported'
 ERROR_XML_START = '<error errorcode='
 ERROR_XML_END = '</error>'
 ERRORCODE = 'errorcode'
@@ -61,6 +64,9 @@ class WrongServerVersion(Exception):
     pass
 
 class InvalidUpdate(Exception):
+    pass
+
+class GpgkeyNotImported(Exception):
     pass
 
 class IsoMounted(Exception):
@@ -117,10 +123,15 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     yum_env['LANG'] = 'C'
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
     output, _ = p.communicate()
-    xcp.logger.info('pool_update.precheck %r returncode=%r output=%r', cmd, p.returncode, output)
+    xcp.logger.info('pool_update.precheck %r returncode=%r output:', cmd, p.returncode)
+    for line in output.split('\n'):
+        xcp.logger.info(line)
     if p.returncode != 0:
         if ERROR_MESSAGE_DOWNLOAD_PACKAGE in output:
             raise InvalidUpdate('Missing package(s) in the update')
+
+        if ERROR_MESSAGE_GPGKEY_NOT_IMPORTED in output:
+            raise GpgkeyNotImported()
 
         if PATCH_PRECHECK_FAILED_ISO_MOUNTED in output:
             raise IsoMounted
@@ -142,7 +153,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
                     raise ConflictPresent(conflict_updates.rstrip())
                 else:
                     raise PrecheckFailure(errmsg)
-            elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and ERROR_MESSAGE_VERSION_INSTALLED in errmsg:
+            elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and (ERROR_MESSAGE_VERSION_INSTALLED in errmsg or ERROR_MESSAGE_VERSION_UPDATED_BY in errmsg):
                 regex = ERROR_MESSAGE_VERSION_REQUIRED + '(.+?)\n.+ {2,2}(.+)$'
                 match = re.search(regex, errmsg, flags=re.DOTALL)
                 if match:
@@ -175,10 +186,20 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
             raise PrecheckFailure(output)
 
     if os.path.isfile(update_precheck_file):
-        pp = subprocess.Popen(update_precheck_file, shell=False, stdout=subprocess.PIPE, close_fds=True)
+        pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True)
         precheck_output, _ = pp.communicate()
-        xcp.logger.info('pool_update.precheck %r precheck_output=%r', update_precheck_file, precheck_output)
+        xcp.logger.info('pool_update.precheck %r precheck_output:', update_precheck_file)
+        for line in precheck_output.split('\n'):
+            xcp.logger.info(line)
         if pp.returncode != 0:
+            regex = ERROR_XML_START + '.+' + ERROR_XML_END
+            m = re.search(regex, precheck_output, flags=re.DOTALL)
+            if m:
+                try:
+                    xmldoc = xml.dom.minidom.parseString(m.group(0))
+                except:
+                    raise PrecheckFailure(precheck_output)
+                parse_precheck_failure(xmldoc)
             raise PrecheckFailure(precheck_output)
         else:
             if '\n' in precheck_output:
@@ -218,7 +239,7 @@ if __name__ == '__main__':
         statvfs = os.statvfs('/')
         available_dom0_disk_size = statvfs.f_frsize * statvfs.f_bavail
         try:
-            required_size = int(int(session.xenapi.pool_update.get_installation_size(update)) * 1.5)
+            required_size = int(session.xenapi.pool_update.get_installation_size(update))
             if required_size > available_dom0_disk_size:
                 print(failure_message(UPDATE_PRECHECK_FAILED_OUT_OF_SPACE,
                     [update_package, str(available_dom0_disk_size), str(required_size)]))
@@ -259,6 +280,8 @@ if __name__ == '__main__':
         print(failure_message(UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION, [update_package, installed_version, required_version]))
     except InvalidUpdate as e:
         print(failure_message(INVALID_UPDATE, [update_package, str(e)]))
+    except GpgkeyNotImported as e:
+        print(failure_message(UPDATE_PRECHECK_FAILED_GPGKEY_NOT_IMPORTED, [update_package]))
     except IsoMounted as e:
         print(failure_message(PATCH_PRECHECK_FAILED_ISO_MOUNTED, [update]))
     except VmRunning as e:

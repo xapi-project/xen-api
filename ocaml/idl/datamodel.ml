@@ -1223,6 +1223,8 @@ let _ =
     ~doc:"The update precheck stage failed: the server is of an incorrect version." ();
   error Api_errors.update_precheck_failed_out_of_space ["update"; "available_space"; "required_space "]
     ~doc:"The update precheck stage failed: the server does not have enough space." ();
+  error Api_errors.update_precheck_failed_gpgkey_not_imported ["update"]
+    ~doc:"The update precheck stage failed: RPM package validation requires a GPG key that is not present on the host." ();
 
   (* Pool errors *)
 
