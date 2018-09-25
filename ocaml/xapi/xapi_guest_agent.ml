@@ -233,7 +233,7 @@ let get_initial_guest_metrics (lookup: string -> string option) (list: string ->
   (* to avoid breakage whilst 'micro' is added to linux and windows agents, default this field
      to -1 if it's not present in xenstore *)
   let pv_drivers_version =
-    if List.mem_assoc "micro" pv_drivers_version then pv_drivers_version (* already there; do nothing *)
+    if pv_drivers_version = [] || List.mem_assoc "micro" pv_drivers_version then pv_drivers_version (* already there; do nothing *)
     else ("micro","-1")::pv_drivers_version
   in
   {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;}
