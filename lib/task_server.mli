@@ -35,6 +35,7 @@ sig
       subtasks: (string * state) list;
       debug_info: (string * string) list;
       backtrace: string;
+      cancellable: bool;
     }
   end
 end
@@ -100,4 +101,6 @@ module Task :
 
     (* Sets a cancellation function to be called if the task is cancelled *)
     val with_cancel : task_handle -> (unit -> unit) -> (unit -> 'a) -> 'a
+    (* Set a task not cancellable *)
+    val prohibit_cancellation: task_handle -> unit
   end
