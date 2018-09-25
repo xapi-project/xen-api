@@ -72,6 +72,7 @@ OCAML_OBJS = \
 	test_pvs_server \
 	test_pvs_cache_storage \
   test_extauth_plugin_ADpbis \
+	test_guest_agent \
 
 OCamlProgram(suite, suite $(OCAML_OBJS) )
 
