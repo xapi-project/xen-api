@@ -2058,7 +2058,15 @@ let update_task ~__context queue_name id =
     let task_t = Client.TASK.stat dbg id in
     match task_t.Task.state with
     | Task.Pending x ->
-      Db.Task.set_progress ~__context ~self ~value:x
+      Db.Task.set_progress ~__context ~self ~value:x;
+      if not task_t.Task.cancellable then begin
+        let allowed_operations = Db.Task.get_allowed_operations ~__context ~self in
+        if List.mem `cancel allowed_operations then begin
+          let allowed_operations' = List.filter (fun x -> x <> `cancel) allowed_operations in
+          debug "Set task %s to not cancellable." (Ref.really_pretty_and_small self);
+          Db.Task.set_allowed_operations ~__context ~self ~value:allowed_operations'
+        end
+      end
     | _ -> ()
   with Not_found ->
     (* Since this is called on all tasks, possibly after the task has been
