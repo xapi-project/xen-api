@@ -1402,7 +1402,14 @@ let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xeno
     VM_DB.signal id
   | VM_save (id, flags, data, vgpu_data) ->
     debug "VM.save %s" id;
-    B.VM.save t progress_callback (VM_DB.read_exn id) flags data vgpu_data
+    let set_task_not_cancellable task =
+      (* Prohibit cancelation of the task just before suspending the domain *)
+      let task_id = Xenops_task.id_of_handle task in
+      debug "VM %s will suspend, mark task %s to not cancellable." id task_id;
+      Xenops_task.prohibit_cancellation task;
+      TASK.signal task_id
+    in
+    B.VM.save t progress_callback (VM_DB.read_exn id) flags data vgpu_data set_task_not_cancellable
   | VM_restore (id, data, vgpu_data) ->
     debug "VM.restore %s" id;
     if id |> VM_DB.exists |> not

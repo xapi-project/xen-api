@@ -1752,7 +1752,7 @@ module VM = struct
              raise (Xenops_interface.Xenopsd_error Ballooning_timeout_before_migration)
       ) task vm
 
-  let save task progress_callback vm flags data vgpu_data =
+  let save task progress_callback vm flags data vgpu_data pre_suspend_callback =
     let flags' =
       List.map
         (function
@@ -1787,6 +1787,7 @@ module VM = struct
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
+                   pre_suspend_callback task;
                    if not(request_shutdown task vm Suspend 30.)
                    then raise (Xenopsd_error Failed_to_acknowledge_shutdown_request);
                    if not(wait_shutdown task vm Suspend 1200.)
