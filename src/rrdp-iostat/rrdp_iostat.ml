@@ -369,18 +369,26 @@ module Blktap3_stats_wrapper = struct
     initialise ();
 
     let rec loop () =
-      try
-        let evs = Inotify.read inotify in
-        List.iter (fun (_w, kind_list, _, path) ->
-            let is_create = List.mem Inotify.Create kind_list in
-            let is_delete = List.mem Inotify.Delete kind_list in
-            match is_create, is_delete, path with
-            | _    , true , Some p -> remove_file p; loop ()
-            | true , false, Some p -> add_file p; loop ()
-            | _    , _    , _ -> loop ()) evs
-      with
-      | e ->
-        D.debug "Unexpected other exception: %s" (Printexc.to_string e);
+      let result =
+        try
+          let evs = Inotify.read inotify in
+          List.iter (fun (_w, kind_list, _, path) ->
+              let is_create = List.mem Inotify.Create kind_list in
+              let is_delete = List.mem Inotify.Delete kind_list in
+              match is_create, is_delete, path with
+              | _    , true , Some p -> remove_file p
+              | true , false, Some p -> add_file p
+              | _    , _    , _ -> ()) evs;
+          Ok ()
+        with
+        | e ->
+          D.debug "Unexpected other exception: %s" (Printexc.to_string e);
+          Error ()
+      in
+      match result with
+      | Ok () ->
+        loop ()
+      | Error () ->
         initialise ();
         loop ()
     in loop ()
