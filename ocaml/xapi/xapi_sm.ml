@@ -66,8 +66,8 @@ let update_from_query_result ~__context (self, r) q_result =
     info "Registering SM plugin %s (version %s)" (String.lowercase_ascii q_result.driver) q_result.version;
     if r.API.sM_type <> _type
     then Db.SM.set_type ~__context ~self ~value:_type;
-    if r.API.sM_name_label <> query_result.name
-    then Db.SM.set_name_label ~__context ~self ~value:query_result.name;
+    if r.API.sM_name_label <> q_result.name
+    then Db.SM.set_name_label ~__context ~self ~value:q_result.name;
     if r.API.sM_name_description <> q_result.description
     then Db.SM.set_name_description ~__context ~self ~value:q_result.description;
     if r.API.sM_vendor <> q_result.vendor
