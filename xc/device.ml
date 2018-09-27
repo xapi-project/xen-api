@@ -2238,7 +2238,9 @@ module Backend = struct
             debug "Added QMP Event fd for domain %d" domid
           with e ->
             debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
-            remove domid
+            remove domid;
+            raise @@ Ioemu_failed
+              (sprintf "domid %d" domid, "QMP failure at "^__LOC__)
 
         let qmp_event_handle domid qmp_event =
           (* This function will be extended to handle qmp events *)
