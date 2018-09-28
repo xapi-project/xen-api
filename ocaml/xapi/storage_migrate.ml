@@ -244,7 +244,7 @@ let vdi_info x =
 module Local = StorageAPI(Idl.GenClientExnRpc(struct let rpc call = rpc ~srcstr:"smapiv2" ~dststr:"smapiv2" (local_url ()) call end))
 
 let tapdisk_of_attach_info (backend:Storage_interface.backend) =
-  let xendisks, _, _, _ = Attach_helpers.implementations_of_backend backend in
+  let xendisks, _, _, _ = Storage_interface.implementations_of_backend backend in
   match xendisks with
   | xendisk :: _ -> begin
       let path = xendisk.Storage_interface.params in
@@ -278,7 +278,7 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
        let path =
          Opt.map
            (fun (vdi, backend) ->
-              let (_, blockdevs, files, _) = Attach_helpers.implementations_of_backend backend in
+              let (_, blockdevs, files, _) = Storage_interface.implementations_of_backend backend in
               match blockdevs, files with
               | ({ path })::_, _ | _, ({ path })::_ ->
                 Local.VDI.activate dbg dp sr vdi;

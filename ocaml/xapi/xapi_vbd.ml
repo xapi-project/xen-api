@@ -73,7 +73,7 @@ let plug ~__context ~self =
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
     Storage_access.attach_and_activate ~__context ~vbd:self ~domid
       (fun attach_info ->
-         let (xendisks, blockdevs, files, nbds) = Attach_helpers.implementations_of_backend attach_info in
+         let (xendisks, blockdevs, files, nbds) = Storage_interface.implementations_of_backend attach_info in
          let device_path =
            match files, blockdevs, nbds with
            | { path }::_, _, _ | _, { path }::_, _ -> path
