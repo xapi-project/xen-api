@@ -106,6 +106,13 @@ module Sysfs = struct
     let all = Array.to_list (Sys.readdir "/sys/class/net") in
     List.filter (fun name -> Sys.is_directory ("/sys/class/net/" ^ name)) all
 
+  let exists dev =
+    List.mem dev @@ list ()
+
+  let assert_exists dev =
+    if not @@ exists dev then
+      raise (Network_error (Interface_does_not_exist dev))
+
   let list_drivers () =
     try
       Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
@@ -357,6 +364,7 @@ module Ip = struct
     List.map (fun i -> List.nth args (succ i)) indices
 
   let get_link_flags dev =
+    Sysfs.assert_exists dev;
     let output = call ["link"; "show"; "dev"; dev] in
     let i = String.index output '<' in
     let j = String.index output '>' in
@@ -369,11 +377,13 @@ module Ip = struct
     with _ -> false
 
   let link_set dev args =
+    Sysfs.assert_exists dev;
     ignore (call ~log:true ("link" :: "set" :: dev :: args))
 
   let link_set_mtu dev mtu =
     try ignore (link_set dev ["mtu"; string_of_int mtu])
-    with e -> error "MTU size is not supported: %s" (string_of_int mtu)
+    with Network_error (Script_error _) ->
+      error "MTU size is not supported: %d" mtu
 
   let link_set_up dev =
     link_set dev ["up"]
@@ -390,11 +400,13 @@ module Ip = struct
       (fun () -> List.iter link_set_up up_links)
 
   let link ?(version=V46) dev attr =
+    Sysfs.assert_exists dev;
     let v = string_of_version version in
     let output = call (v @ ["link"; "show"; "dev"; dev]) in
     find output attr
 
   let addr ?(version=V46) dev attr =
+    Sysfs.assert_exists dev;
     let v = string_of_version version in
     let output = call (v @ ["addr"; "show"; "dev"; dev]) in
     find output attr
@@ -487,6 +499,7 @@ module Ip = struct
 
   let flush_ip_addr ?(ipv6=false) dev =
     try
+      Sysfs.assert_exists dev;
       let mode = if ipv6 then "-6" else "-4" in
       ignore (call ~log:true [mode; "addr"; "flush"; "dev"; dev])
     with _ -> ()
@@ -494,6 +507,7 @@ module Ip = struct
   let del_ip_addr dev (ip, prefixlen) = 
     let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
     try
+      Sysfs.assert_exists dev;
       ignore (call ~log:true ["addr"; "del"; addr; "dev"; dev])
     with _ -> ()
 
@@ -503,6 +517,7 @@ module Ip = struct
 
   let set_route ?network dev gateway =
     try
+      Sysfs.assert_exists dev;
       match network with
       | None ->
         ignore (call ~log:true ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
@@ -517,12 +532,12 @@ module Ip = struct
     Printf.sprintf "%s.%d" interface vlan
 
   let create_vlan interface vlan =
-    if not (List.mem (vlan_name interface vlan) (Sysfs.list ())) then
+    if not (Sysfs.exists (vlan_name interface vlan)) then
       ignore (call ~log:true ["link"; "add"; "link"; interface; "name"; vlan_name interface vlan;
                               "type"; "vlan"; "id"; string_of_int vlan])
 
   let destroy_vlan name =
-    if List.mem name (Sysfs.list ()) then
+    if Sysfs.exists name then
       ignore (call ~log:true ["link"; "delete"; name])
 
   let set_vf_mac dev index mac =
