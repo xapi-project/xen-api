@@ -183,6 +183,20 @@ let parse_nbd_uri nbd =
     end
   | _ -> fail ()
 
+(** Separates the implementations of the given backend returned from
+    the VDI.attach2 SMAPIv2 call based on their type *)
+let implementations_of_backend backend =
+  List.fold_left
+    (fun (xendisks, blockdevices, files, nbds) implementation ->
+       match implementation with
+       | XenDisk xendisk -> (xendisk::xendisks, blockdevices, files, nbds)
+       | BlockDevice blockdevice -> (xendisks, blockdevice::blockdevices, files, nbds)
+       | File file -> (xendisks, blockdevices, file::files, nbds)
+       | Nbd nbd -> (xendisks, blockdevices, files, nbd::nbds)
+    )
+    ([], [], [], [])
+    backend.implementations
+
 (** Uniquely identifies the contents of a VDI *)
 type content_id = string [@@deriving rpcty]
 
