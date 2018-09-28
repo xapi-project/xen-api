@@ -130,7 +130,7 @@ let host_install is_cert ~name ~cert =
     mkdir_cert_path is_cert;
     write_string_to_file filename cert;
     Unix.chmod filename (cert_perms is_cert);
-    rehash()
+    ignore(execute_command_get_output "/opt/xensource/bin/update-ca-bundle.sh" [])
   with
   | e ->
     warn "Exception installing %s %s: %s" (get_type is_cert) name
