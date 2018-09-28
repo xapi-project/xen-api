@@ -735,7 +735,7 @@ module Bridge = struct
                      						 * device name or not on the requested bridge is bad. *)
                   if parent' = parent && vlan' = vlan &&
                      (device <> vlan_name || not (List.mem device bridge_interfaces)) then
-                    raise (Vlan_in_use (parent, vlan))
+                    raise (Network_error (Vlan_in_use (parent, vlan)))
                 ) (Proc.get_vlans ());
               (* Robustness enhancement: ensure there are no other VLANs in the bridge *)
               let current_interfaces = List.filter (fun n ->
@@ -817,7 +817,7 @@ module Bridge = struct
     Debug.with_thread_associated dbg (fun () ->
         match !backend_kind with
         | Openvswitch -> Ovs.bridge_to_ports name
-        | Bridge -> raise Not_implemented
+        | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let get_all_ports dbg from_cache =
@@ -828,14 +828,14 @@ module Bridge = struct
         else
           match !backend_kind with
           | Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
-          | Bridge -> raise Not_implemented
+          | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let get_bonds _ dbg ~name =
     Debug.with_thread_associated dbg (fun () ->
         match !backend_kind with
         | Openvswitch -> Ovs.bridge_to_ports name
-        | Bridge -> raise Not_implemented
+        | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let get_all_bonds dbg from_cache =
@@ -847,7 +847,7 @@ module Bridge = struct
         else
           match !backend_kind with
           | Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
-          | Bridge -> raise Not_implemented
+          | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   type bond_link_info = {
@@ -892,7 +892,7 @@ module Bridge = struct
     Debug.with_thread_associated dbg (fun () ->
         match !backend_kind with
         | Openvswitch -> Ovs.bridge_to_vlan name
-        | Bridge -> raise Not_implemented
+        | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let add_default_flows _ dbg bridge mac interfaces =
@@ -962,7 +962,7 @@ module Bridge = struct
       Ovs.mod_port real_bridge name "no-flood";
       Interface.bring_up () dbg ~name
     | Bridge ->
-      raise Not_implemented
+      raise (Network_error Not_implemented)
 
   let add_port dbg bond_mac bridge name interfaces bond_properties kind =
     Debug.with_thread_associated dbg (fun () ->
@@ -1052,7 +1052,7 @@ module Bridge = struct
             | "secure" -> Some Secure
             | _ -> None
           end
-        | Bridge -> raise Not_implemented
+        | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let is_persistent _ dbg ~name =
@@ -1121,7 +1121,7 @@ module PVS_proxy = struct
       Jsonrpc_client.with_rpc ~path:!path ~call ()
     with e ->
       error "Error when calling PVS proxy: %s" (Printexc.to_string e);
-      raise PVS_proxy_connection_error
+      raise (Network_error PVS_proxy_connection_error)
 
   let configure_site dbg config =
     debug "Configuring PVS proxy for site %s" config.site_uuid;

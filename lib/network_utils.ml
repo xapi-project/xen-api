@@ -19,13 +19,6 @@ open Network_interface
 
 module D = Debug.Make(struct let name = "network_utils" end)
 open D
-exception Script_missing of string
-exception Script_error of (string * string) list
-exception Read_error of string
-exception Write_error of string
-exception Not_implemented
-exception Vlan_in_use of (string * int)
-exception PVS_proxy_connection_error
 
 type util_error =
   | Bus_out_of_range
@@ -78,7 +71,7 @@ let check_n_run run_func script args =
   | Unix.Unix_error (e, a, b) ->
     error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
     error "Assuming script %s doesn't exist" script;
-    raise (Script_missing script)
+    raise (Network_error (Script_missing script))
   | Forkhelpers.Spawn_internal_error(stderr, stdout, e)->
     let message =
       match e with
@@ -88,8 +81,11 @@ let check_n_run run_func script args =
     in
     error "Call '%s %s' exited badly: %s [stdout = '%s'; stderr = '%s']" script
       (String.concat " " args) message stdout stderr;
-    raise (Script_error ["script", script; "args", String.concat " " args; "code",
-                                                                           message; "stdout", stdout; "stderr", stderr])
+    raise (Network_error (Script_error ["script", script;
+                                        "args", String.concat " " args;
+                                        "code", message;
+                                        "stdout", stdout;
+                                        "stderr", stderr]))
 
 let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
   let call_script_internal env script args =
@@ -136,18 +132,18 @@ module Sysfs = struct
     with
     | End_of_file -> ""
     (* Match the exception when the device state if off *)
-    | Sys_error("Invalid argument") -> raise (Read_error file)
+    | Sys_error("Invalid argument") -> raise (Network_error (Read_error file))
     | exn ->
       error "Error in read one line of file: %s, exception %s\n%s"
         file (Printexc.to_string exn) (Printexc.get_backtrace ());
-      raise (Read_error file)
+      raise (Network_error (Read_error file))
 
   let write_one_line file l =
     let outchan = open_out file in
     try
       output_string outchan (l ^ "\n");
       close_out outchan
-    with exn -> close_out outchan; raise (Write_error file)
+    with exn -> close_out outchan; raise (Network_error (Write_error file))
 
   let is_physical name =
     try
