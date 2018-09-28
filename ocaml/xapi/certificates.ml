@@ -146,7 +146,7 @@ let host_uninstall is_cert ~name =
   debug "Uninstalling %s %s" (get_type is_cert) name;
   try
     Sys.remove filename;
-    rehash()
+    ignore(execute_command_get_output "/opt/xensource/bin/update-ca-bundle.sh" [])
   with
   | e ->
     warn "Exception uninstalling %s %s: %s" (get_type is_cert) name
