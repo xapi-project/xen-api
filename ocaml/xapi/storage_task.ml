@@ -10,7 +10,7 @@ module SI = struct
   let does_not_exist (x,y) = Storage_error (Does_not_exist (x,y))
   let marshal_exn e = match e with
     | Storage_error e -> Rpcmarshal.marshal Errors.error.Rpc.Types.ty e
-    | _ -> raise e
+    | _ -> Rpcmarshal.marshal Errors.error.Rpc.Types.ty (Errors.Internal_error (Printexc.to_string e))
 end
 
 module Storage_task = Task_server.Task(SI)
