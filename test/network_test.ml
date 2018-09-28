@@ -15,11 +15,11 @@
 open OUnit
 
 let base_suite =
-	"base_suite" >:::
-		[
-			Network_test_lacp_properties.suite;
-			Test_jsonrpc_client.suite;
-		]
+  "base_suite" >:::
+  [
+    Network_test_lacp_properties.suite;
+    Test_jsonrpc_client.suite;
+  ]
 
 let _ = 
   Coverage.init "network_test";
