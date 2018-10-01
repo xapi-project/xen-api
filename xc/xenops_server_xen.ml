@@ -515,7 +515,12 @@ module Mem = struct
       wants to keep the memory, then call [transfer_reservation_to_domain]. *)
   let with_reservation dbg min max f =
     let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range dbg min max) in
-    f amount id
+    try
+      f amount id
+    with e ->
+      delete_reservation dbg id;
+      raise e
+
 
   (** Transfer this 'reservation' to the given domain id *)
   let transfer_reservation_to_domain_exn dbg domid (reservation_id, amount) =
