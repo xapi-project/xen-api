@@ -494,7 +494,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
          However, they ignore the return value, so in practice it does not matter what
          we return from here. *)
-      let (xendisks, blockdevs, files, _nbds) = Attach_helpers.implementations_of_backend backend in
+      let (xendisks, blockdevs, files, _nbds) = Storage_interface.implementations_of_backend backend in
       let response params =
         (* We've thrown o_direct info away from the SMAPIv1 info during the conversion to SMAPIv3 attach info *)
         (* The removal of these fields does not break read caching info propagation for SMAPIv1
