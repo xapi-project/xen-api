@@ -132,14 +132,15 @@ module Sysfs = struct
 
   let read_one_line file =
     try
-      let inchan = open_in file in
-      Pervasiveext.finally
-        (fun () -> input_line inchan)
-        (fun () -> close_in inchan)
+      Unixext.string_of_file file
+      |> String.split_on_char '\n'
+      |> List.hd
+      (* Note: the list returned by split_on_char is guaranteed to be non-empty *)
     with
     | End_of_file -> ""
-    (* Match the exception when the device state if off *)
-    | Sys_error("Invalid argument") -> raise (Network_error (Read_error file))
+    | Unix.Unix_error (Unix.EINVAL, _, _) ->
+      (* The device is not yet up *)
+      raise (Network_error (Read_error file))
     | exn ->
       error "Error in read one line of file: %s, exception %s\n%s"
         file (Printexc.to_string exn) (Printexc.get_backtrace ());
