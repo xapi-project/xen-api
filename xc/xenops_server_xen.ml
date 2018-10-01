@@ -251,17 +251,7 @@ let device_kind_of_backend_keys backend_keys =
   with Not_found -> Device_common.Vbd !Xenopsd.default_vbd_backend_kind
 
 let params_of_backend backend =
-  let blockdevs, files, xendisks, nbds =
-    List.fold_left
-      (fun (blockdevs, files, xendisks, nbds) ->
-         function
-         | BlockDevice b -> (b::blockdevs, files, xendisks, nbds)
-         | File f -> (blockdevs, f::files, xendisks, nbds)
-         | XenDisk x -> (blockdevs, files, x::xendisks, nbds)
-         | Nbd nbd -> (blockdevs, files, xendisks, nbd::nbds))
-      ([], [], [], [])
-      backend.implementations
-  in
+  let xendisks, blockdevs, files, nbds = Storage_interface.implementations_of_backend backend in
   let xenstore_data = match xendisks with
     | xendisk::_ ->
       let backend_kind = xendisk.Storage_interface.backend_type in
@@ -287,20 +277,11 @@ let create_vbd_frontend ~xc ~xs task frontend_domid vdi =
     raise (Xenopsd_error (Does_not_exist("domain", backend_vm_id)))
   | Some backend_domid when backend_domid = frontend_domid -> begin
       (* There's no need to use a PV disk if we're in the same domain *)
-      let paths, nbds =
-        List.fold_left
-          (fun (paths, nbds) -> function
-             | File {path} | BlockDevice {path; _} -> (path::paths, nbds)
-             | Nbd nbd -> (paths, nbd::nbds)
-             | XenDisk _ -> (paths, nbds)
-          )
-          ([], [])
-          vdi.attach_info.implementations
-      in
-      match paths, nbds with
-      | path::_, _ -> Name path
-      | _, nbd::_ -> Nbd nbd
-      | [], [] -> raise (Xenopsd_error (Internal_error ("Could not find File, BlockDevice, or Nbd implementation: " ^ (Storage_interface.(rpc_of backend) vdi.attach_info |> Jsonrpc.to_string))))
+      let _xendisks, blockdevs, files, nbds = Storage_interface.implementations_of_backend vdi.attach_info in
+      match files, blockdevs, nbds with
+      | {path}::_, _, _ | _, {path}::_, _ -> Name path
+      | _, _, nbd::_ -> Nbd nbd
+      | [], [], [] -> raise (Xenopsd_error (Internal_error ("Could not find File, BlockDevice, or Nbd implementation: " ^ (Storage_interface.(rpc_of backend) vdi.attach_info |> Jsonrpc.to_string))))
     end
   | Some backend_domid ->
     let params, xenstore_data, extra_keys = params_of_backend vdi.attach_info in
