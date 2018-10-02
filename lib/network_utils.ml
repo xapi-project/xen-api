@@ -60,7 +60,22 @@ let igmp_query_maxresp_time = ref "5000"
 let enable_ipv6_mcast_snooping = ref false
 let mcast_snooping_disable_flood_unregistered = ref true
 
-let check_n_run run_func script args =
+let default_error_handler script args stdout stderr status =
+  let message =
+    match status with
+    | Unix.WEXITED n -> Printf.sprintf "Exit code %d" n
+    | Unix.WSIGNALED s -> Printf.sprintf "Signaled %d" s (* Note that this is the internal ocaml signal number, see Sys module *)
+    | Unix.WSTOPPED s -> Printf.sprintf "Stopped %d" s
+  in
+  error "Call '%s %s' exited badly: %s [stdout = '%s'; stderr = '%s']" script
+    (String.concat " " args) message stdout stderr;
+  raise (Network_error (Script_error ["script", script;
+                                      "args", String.concat " " args;
+                                      "code", message;
+                                      "stdout", stdout;
+                                      "stderr", stderr]))
+
+let check_n_run ?(on_error=default_error_handler) run_func script args =
   try
     Unix.access script [ Unix.X_OK ];
     (* Use the same $PATH as xapi *)
@@ -72,34 +87,22 @@ let check_n_run run_func script args =
     error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
     error "Assuming script %s doesn't exist" script;
     raise (Network_error (Script_missing script))
-  | Forkhelpers.Spawn_internal_error(stderr, stdout, e)->
-    let message =
-      match e with
-      | Unix.WEXITED n -> Printf.sprintf "Exit code %d" n
-      | Unix.WSIGNALED s -> Printf.sprintf "Signaled %d" s (* Note that this is the internal ocaml signal number, see Sys module *)
-      | Unix.WSTOPPED s -> Printf.sprintf "Stopped %d" s
-    in
-    error "Call '%s %s' exited badly: %s [stdout = '%s'; stderr = '%s']" script
-      (String.concat " " args) message stdout stderr;
-    raise (Network_error (Script_error ["script", script;
-                                        "args", String.concat " " args;
-                                        "code", message;
-                                        "stdout", stdout;
-                                        "stderr", stderr]))
+  | Forkhelpers.Spawn_internal_error(stderr, stdout, status)->
+    on_error script args stdout stderr status
 
-let call_script ?(timeout=Some 60.0) script args =
+let call_script ?(timeout=Some 60.0) ?on_error script args =
   let call_script_internal env script args =
     let (out,err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
     out
   in
-  check_n_run call_script_internal script args
+  check_n_run ?on_error call_script_internal script args
 
-let fork_script script args =
+let fork_script ?on_error script args =
   let fork_script_internal env script args =
     let pid = Forkhelpers.safe_close_and_exec ~env None None None [] script args in
     Forkhelpers.dontwaitpid pid;
   in
-  check_n_run fork_script_internal script args
+  check_n_run ?on_error fork_script_internal script args
 
 module Sysfs = struct
   let list () =
