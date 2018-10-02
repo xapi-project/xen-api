@@ -901,6 +901,13 @@ module Proc = struct
   let get_bond_links_up name =
     let statusses = get_bond_slave_info name "MII Status" in
     List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
+
+  let get_ipv6_disabled () =
+    try
+      Unixext.string_of_file "/proc/sys/net/ipv6/conf/all/disable_ipv6"
+      |> String.trim
+      |> (=) "1"
+    with _ -> false
 end
 
 module Ovs = struct
