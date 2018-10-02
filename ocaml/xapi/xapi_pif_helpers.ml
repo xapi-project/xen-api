@@ -95,7 +95,6 @@ let get_pif_topo ~__context ~pif_rec =
   in
   let pif_t_list = get_pif_type_till_root [] pif_rec in
   let pif_t_list = List.rev pif_t_list in
-  debug "PIF type of %s is: %s" pif_rec.API.pIF_uuid (String.concat " " (List.map pif_type_to_string pif_t_list));
   pif_t_list
 
 let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~pif_topo ~tag =
