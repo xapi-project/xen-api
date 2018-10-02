@@ -222,6 +222,7 @@ type errors =
   | Vlan_in_use of (string * int) (** [Vlan_in_use (bridge, vlan_id)] is reported when [vlan_id] on [bridge] is inuse *)
   | PVS_proxy_connection_error (** [PVS_proxy_connection_error] is reported when unable to connect PVS proxy *)
   | Interface_does_not_exist of string (** The named network interface does not exist *)
+  | Bridge_does_not_exist of string (** The named bridge does not exist *)
   | Internal_error of string
   | Unknown_error (** The default variant for forward compatibility. *)
 [@@default Unknown_error]
