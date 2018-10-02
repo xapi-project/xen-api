@@ -78,11 +78,12 @@ let refresh_internal ~__context ~self =
     (Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg bridge))
     (Int64.to_string);
 
-  maybe_update_database "capabilities"
-    (pif.API.pIF_capabilities)
-    (Db.PIF.set_capabilities)
-    (fun () -> Net.Interface.get_capabilities dbg pif.API.pIF_device)
-    (String.concat "; ")
+  if pif.API.pIF_physical then
+    maybe_update_database "capabilities"
+      (pif.API.pIF_capabilities)
+      (Db.PIF.set_capabilities)
+      (fun () -> Net.Interface.get_capabilities dbg pif.API.pIF_device)
+      (String.concat "; ")
 
 let refresh ~__context ~host ~self =
   let localhost = Helpers.get_localhost ~__context in
