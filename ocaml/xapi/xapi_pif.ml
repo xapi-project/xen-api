@@ -35,11 +35,9 @@ let get_device_pci ~__context ~host ~device =
   | _  -> Ref.null
 
 let refresh_internal ~__context ~self =
-  let device = Db.PIF.get_device ~__context ~self in
-  let network = Db.PIF.get_network ~__context ~self in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
   let dbg = Context.string_of_task __context in
-  let host = Db.PIF.get_host ~__context ~self in
+  let pif = Db.PIF.get_record ~__context ~self in
+  let bridge = Db.Network.get_bridge ~__context ~self:pif.API.pIF_network in
 
   (* Update the specified PIF field in the database, if
      	 * and only if a corresponding value can be read from
@@ -47,10 +45,10 @@ let refresh_internal ~__context ~self =
      	 * different from the current field value.
      	 *)
   let maybe_update_database
-      field_name get_field set_field get_value print_value =
+      field_name db_value set_field get_value print_value =
     Opt.iter
       (fun value ->
-         if value <> (get_field ~__context ~self)
+         if value <> db_value
          then begin
            debug "PIF %s %s <- %s"
              (Ref.string_of self)
@@ -60,29 +58,30 @@ let refresh_internal ~__context ~self =
          end)
       (Opt.of_exception (fun () -> get_value ())) in
 
-  if Db.PIF.get_physical ~__context ~self then
+  if pif.API.pIF_physical then
     maybe_update_database "MAC"
-      (Db.PIF.get_MAC)
+      (pif.API.pIF_MAC)
       (Db.PIF.set_MAC)
-      (fun () -> Net.Interface.get_mac dbg device)
+      (fun () -> Net.Interface.get_mac dbg pif.API.pIF_device)
       (fun x -> x);
 
   maybe_update_database "PCI"
-    (Db.PIF.get_PCI)
+    (pif.API.pIF_PCI)
     (Db.PIF.set_PCI)
-    (fun () -> get_device_pci ~__context ~host ~device)
+    (fun () -> get_device_pci ~__context
+                 ~host:pif.API.pIF_host ~device:pif.API.pIF_device)
     (Ref.string_of);
 
   maybe_update_database "MTU"
-    (Db.PIF.get_MTU)
+    (pif.API.pIF_MTU)
     (Db.PIF.set_MTU)
     (Int64.of_int ++ (fun () -> Net.Interface.get_mtu dbg bridge))
     (Int64.to_string);
 
   maybe_update_database "capabilities"
-    (Db.PIF.get_capabilities)
+    (pif.API.pIF_capabilities)
     (Db.PIF.set_capabilities)
-    (fun () -> Net.Interface.get_capabilities dbg device)
+    (fun () -> Net.Interface.get_capabilities dbg pif.API.pIF_device)
     (String.concat "; ")
 
 let refresh ~__context ~host ~self =
