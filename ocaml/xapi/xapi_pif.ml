@@ -37,7 +37,14 @@ let get_device_pci ~__context ~host ~device =
 let refresh_internal ~__context ~self =
   let dbg = Context.string_of_task __context in
   let pif = Db.PIF.get_record ~__context ~self in
-  let bridge = Db.Network.get_bridge ~__context ~self:pif.API.pIF_network in
+  let network =
+    if Db.is_valid_ref __context pif.API.pIF_bond_slave_of then
+      let master = Db.Bond.get_master ~__context ~self:pif.API.pIF_bond_slave_of in
+      Db.PIF.get_network ~__context ~self:master
+    else
+      pif.API.pIF_network
+  in
+  let bridge = Db.Network.get_bridge ~__context ~self:network in
 
   (* Update the specified PIF field in the database, if
      	 * and only if a corresponding value can be read from
