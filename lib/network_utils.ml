@@ -905,6 +905,28 @@ module Proc = struct
 end
 
 module Ovs = struct
+  let match_multiple patterns s =
+    let rec loop = function
+    | [] -> None
+    | pattern :: rest ->
+      match Re.exec_opt pattern s with
+      | Some groups -> Some groups
+      | None -> loop rest
+    in
+    loop patterns
+
+  let patterns = List.map Re.Perl.compile_pat [
+    "no bridge named (.*)\n";
+    "no row \"(.*)\" in table Bridge"
+  ]
+
+  let error_handler script args stdout stderr exn =
+    match match_multiple patterns stderr with
+    | Some groups ->
+      let bridge = Re.Group.get groups 1 in
+      raise (Network_error (Bridge_does_not_exist bridge))
+    | None ->
+      default_error_handler script args stdout stderr exn
 
   module Cli : sig
     val vsctl : string list -> string
@@ -915,12 +937,12 @@ module Ovs = struct
     let s = Semaphore.create 5
     let vsctl args =
       Semaphore.execute s (fun () ->
-          call_script ovs_vsctl ("--timeout=20" :: args)
+          call_script ~on_error:error_handler ovs_vsctl ("--timeout=20" :: args)
         )
     let ofctl args =
-      call_script ovs_ofctl args
+      call_script ~on_error:error_handler ovs_ofctl args
     let appctl args =
-      call_script ovs_appctl args
+      call_script ~on_error:error_handler ovs_appctl args
   end
 
   module type Cli_S = module type of Cli
