@@ -11,7 +11,7 @@ env:
   global:
     - OCAML_VERSION=4.06
     - PINS="xcp:."
-    - PACKAGE=xapi-idl
+    - PACKAGE=xcp
     - DISTRO="debian-testing"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
