@@ -38,6 +38,32 @@ module StringSet = Set.Make(String)
 
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
+let call_script ?(log_successful_output=true) ?env script args =
+  try
+    Unix.access script [ Unix.X_OK ];
+    (* Use the same $PATH as xapi *)
+    let env = match env with
+      | None -> [| "PATH=" ^ (Sys.getenv "PATH") |]
+      | Some env -> env
+    in
+    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
+    if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
+    output
+  with
+  | Unix.Unix_error _ as e ->
+    debug "Assuming script %s doesn't exist: caught %s" script (ExnHelper.string_of_exn e);
+    raise e
+  | Forkhelpers.Spawn_internal_error(stderr, stdout, status) as e ->
+    let message =
+      match status with
+      | Unix.WEXITED n -> Printf.sprintf "exited with code %d" n
+      | Unix.WSIGNALED n -> Printf.sprintf "was killed by signal %d" n
+      | Unix.WSTOPPED n -> Printf.sprintf "was stopped by signal %d" n
+    in
+    debug "%s %s %s [stdout = '%s'; stderr = '%s']" script (String.concat " " args)
+      message stdout stderr;
+    raise e
+
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
@@ -200,11 +226,11 @@ let update_pif_address ~__context ~self =
 let update_getty () =
   (* Running update-issue service on best effort basis *)
   try
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script []);
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.kill_process_script ["-q"; "-HUP"; "mingetty"; "agetty"])
+    ignore (call_script ~log_successful_output:false !Xapi_globs.update_issue_script []);
+    ignore (call_script ~log_successful_output:false !Xapi_globs.kill_process_script
+      ["-q"; "-HUP"; "-r"; ".*getty"])
   with e ->
-    debug "update_getty at %s caught exception: %s"
-      __LOC__ (Printexc.to_string e)
+    warn "Unable to update getty at %s" __LOC__
 
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
@@ -884,25 +910,6 @@ let on_oem ~__context =
   is_oem ~__context ~host:this_host
 
 exception File_doesnt_exist of string
-
-let call_script ?(log_successful_output=true) ?env script args =
-  try
-    Unix.access script [ Unix.X_OK ];
-    (* Use the same $PATH as xapi *)
-    let env = match env with
-      | None -> [| "PATH=" ^ (Sys.getenv "PATH") |]
-      | Some env -> env
-    in
-    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
-    if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
-    output
-  with
-  | Unix.Unix_error _ as e ->
-    debug "Assuming script %s doesn't exist: caught %s" script (ExnHelper.string_of_exn e);
-    raise e
-  | Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) as e->
-    debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
-    raise e
 
 (* Repeatedly bisect a range to find the maximum value for which the monotonic function returns true *)
 let rec bisect f lower upper =
