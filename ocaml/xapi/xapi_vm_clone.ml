@@ -427,6 +427,10 @@ let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
                      else clone_single_vdi rpc session_id disk_op ~__context original driver_params) in
 
               Db.VM.set_suspend_VDI ~__context ~self:ref ~value:suspend_VDI;
+
+              if not is_a_snapshot then
+                Xapi_xenops.nvram_post_clone ~__context ~self:ref ~uuid;
+
               Db.VM.remove_from_current_operations ~__context ~self:ref ~key:task_id;
               Xapi_vm_lifecycle.force_state_reset ~__context ~self:ref ~value:new_power_state;
 
