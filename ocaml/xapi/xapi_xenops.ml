@@ -35,7 +35,7 @@ let check_power_state_is ~__context ~self ~expected =
   else
     (* CA-233915: only warn about unexpected power state - the check
      * is too naive to make it an assertion
-     *)
+    *)
     let actual = Db.VM.get_power_state ~__context ~self in
     if actual <> expected then
       warn "Potential problem: VM %s in power state '%s' when expecting '%s'"
@@ -84,14 +84,14 @@ let xenops_of_xenapi_power_state = function
   | `Suspended -> Suspended
   | `Paused -> Paused
 
-let xenops_vdi_locator_of_strings sr_uuid vdi_location =
-  Printf.sprintf "%s/%s" sr_uuid vdi_location
+let xenops_vdi_locator_of sr vdi =
+  Printf.sprintf "%s/%s" (Storage_interface.Sr.string_of sr) (Storage_interface.Vdi.string_of vdi)
 
 let xenops_vdi_locator ~__context ~self =
   let sr = Db.VDI.get_SR ~__context ~self in
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
   let vdi_location = Db.VDI.get_location ~__context ~self in
-  xenops_vdi_locator_of_strings sr_uuid vdi_location
+  xenops_vdi_locator_of (Storage_interface.Sr.of_string sr_uuid) (Storage_interface.Vdi.of_string vdi_location)
 
 let disk_of_vdi ~__context ~self =
   try Some (VDI (xenops_vdi_locator ~__context ~self)) with _ -> None
@@ -123,7 +123,7 @@ let backend_of_vif ~__context ~vif =
   let net = Db.Network.get_record ~__context ~self:vif_record.Db_actions.vIF_network in
   let host = Helpers.get_localhost ~__context in
   let pifs = Xapi_network_attach_helpers.get_local_pifs ~__context
-    ~network:vif_record.Db_actions.vIF_network ~host
+      ~network:vif_record.Db_actions.vIF_network ~host
   in
   match pifs with
   | [] -> backend_of_network net
@@ -137,7 +137,7 @@ let backend_of_vif ~__context ~vif =
             Pciops.pcidev_of_pci ~__context vif_record.Db_actions.vIF_reserved_pci in
           Network.Sriov {domain; bus; dev; fn}
         else raise (Api_errors.(Server_error (internal_error,
-            [Printf.sprintf "No reserved_pci for network SR-IOV vif %s" (Ref.string_of vif)])))
+                                              [Printf.sprintf "No reserved_pci for network SR-IOV vif %s" (Ref.string_of vif)])))
       end
     else backend_of_network net
 
@@ -353,10 +353,10 @@ let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
   |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
   |> Listext.List.filter_map (fun vif ->
-         match backend_of_vif ~__context ~vif with
-         | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
-         | _ -> None
-     )
+      match backend_of_vif ~__context ~vif with
+      | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
+      | _ -> None
+    )
 
 module MD = struct
   (** Convert between xapi DB records and xenopsd records *)
@@ -776,7 +776,7 @@ module MD = struct
         path = path;
       }
     with
-      | e ->
+    | e ->
       error "Caught %s: while getting PUSB path %s" (Printexc.to_string e) pusb.API.pUSB_path;
       raise e
 
@@ -1966,17 +1966,17 @@ let update_pci ~__context id =
 
                Opt.iter
                  (fun vgpu ->
-                   let scheduled =
-                     Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
-                   in
-                   if Db.is_valid_ref __context scheduled && state.Pci.plugged
-                   then
-                     Helpers.call_api_functions ~__context
-                       (fun rpc session_id ->
-                          XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
-                            ~self:vgpu ~value:scheduled);
-                   debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-                   Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.Pci.plugged
+                    let scheduled =
+                      Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
+                    in
+                    if Db.is_valid_ref __context scheduled && state.Pci.plugged
+                    then
+                      Helpers.call_api_functions ~__context
+                        (fun rpc session_id ->
+                           XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+                             ~self:vgpu ~value:scheduled);
+                    debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
+                    Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.Pci.plugged
                  ) vgpu_opt
             ) info;
           Xenops_cache.update_pci id (Opt.map snd info);
@@ -2099,7 +2099,15 @@ let update_task ~__context queue_name id =
     let task_t = Client.TASK.stat dbg id in
     match task_t.Task.state with
     | Task.Pending x ->
-      Db.Task.set_progress ~__context ~self ~value:x
+      Db.Task.set_progress ~__context ~self ~value:x;
+      if not task_t.Task.cancellable then begin
+        let allowed_operations = Db.Task.get_allowed_operations ~__context ~self in
+        if List.mem `cancel allowed_operations then begin
+          let allowed_operations' = List.filter (fun x -> x <> `cancel) allowed_operations in
+          debug "Set task %s to not cancellable." (Ref.really_pretty_and_small self);
+          Db.Task.set_allowed_operations ~__context ~self ~value:allowed_operations'
+        end
+      end
     | _ -> ()
   with Not_found ->
     (* Since this is called on all tasks, possibly after the task has been
@@ -2212,16 +2220,16 @@ let resync_resident_on ~__context =
   let xapi_thinks_are_here, xapi_thinks_are_not_here =
     List.partition (fun ((id, _), _) ->
         List.exists (fun (id', _) -> id=id') resident_vms_in_db)
-        xenopsd_vms_in_xapi in
+      xenopsd_vms_in_xapi in
 
   (* Of those xapi thinks aren't here, are any running on another host? If
      so, kill the VM here. If they aren't running on another host (to the
      best of our knowledge), set the resident_on to be here. *)
   let xapi_thinks_are_elsewhere, xapi_thinks_are_nowhere =
     List.partition (fun ((id, _), _) ->
-      let vm_ref = vm_of_id ~__context id in
-      Db.is_valid_ref __context (Db.VM.get_resident_on ~__context ~self:vm_ref)
-    ) xapi_thinks_are_not_here in
+        let vm_ref = vm_of_id ~__context id in
+        Db.is_valid_ref __context (Db.VM.get_resident_on ~__context ~self:vm_ref)
+      ) xapi_thinks_are_not_here in
 
   (* This is the list of VMs xapi thought were running here, but actually
      aren't *)
@@ -2279,20 +2287,20 @@ let resync_resident_on ~__context =
       let vm = vm_of_id ~__context id in
       info "Setting resident_on for VM %s to be this host as xenopsd is aware of it" id;
       Db.VM.set_resident_on ~__context ~self:vm ~value:localhost)
-      xapi_thinks_are_nowhere;
+    xapi_thinks_are_nowhere;
 
   List.iter (fun ((id, state), _queue_name) ->
       match xenapi_of_xenops_power_state (Some state.Vm.power_state) with
       | `Running | `Paused -> add_caches id;
       | _ -> ()
-  ) xenopsd_vms_in_xapi;
+    ) xenopsd_vms_in_xapi;
 
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter (fun (id, vm) ->
       info "VM %s was marked as resident here in the DB but isn't known to xenopsd. Resetting in DB" id;
       Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm ~value:`Halted;
       Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null;
-  ) xapi_vms_not_in_xenopsd
+    ) xapi_vms_not_in_xenopsd
 
 let resync_all_vms ~__context =
   (* This should now be correct *)
@@ -2309,7 +2317,7 @@ let on_xapi_restart ~__context =
   (* For all available xenopsds, start the event thread. This will cause
      events on everything xenopsd knows about, hence a refresh of all VMs. *)
   List.iter (fun queue_name ->
-    let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
+      let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
       ()
     ) (all_known_xenopsds ());
 
@@ -2476,63 +2484,63 @@ let transform_xenops_exn ~__context ~vm queue_name f =
         ) fmt in
     begin match e with
       | Xenopsd_error e' -> begin
-        match e' with 
-      | Internal_error msg -> internal "xenopsd internal error: %s" msg
-      | Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
-      | Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
-      | Unimplemented(fn) -> reraise Api_errors.not_implemented [ fn ]
-      | Domain_not_built -> internal "domain has not been built"
-      | Invalid_vcpus n -> internal "the maximum number of vcpus configured for this VM is currently: %d" n
-      | Bad_power_state(found, expected) ->
-        let f x = xenapi_of_xenops_power_state (Some x) |> Record_util.power_state_to_string in
-        let found = f found and expected = f expected in
-        reraise Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; found ]
-      | Failed_to_acknowledge_shutdown_request ->
-        reraise Api_errors.vm_failed_shutdown_ack [ Ref.string_of vm ]
-      | Failed_to_shutdown(id, timeout) ->
-        reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
-      | Device_is_connected ->
-        internal "Cannot remove device because it is connected to a VM"
-      | Device_not_connected ->
-        internal "Device is not connected"
-      | Device_detach_rejected(cls, id, msg) ->
-        reraise Api_errors.device_detach_rejected [ cls; id; msg ]
-      | Media_not_ejectable -> internal "the media in this drive cannot be ejected"
-      | Media_present -> internal "there is already media in this drive"
-      | Media_not_present -> internal "there is no media in this drive"
-      | No_bootable_device -> internal "there is no bootable device"
-      | Bootloader_error (uuid, msg) ->
-        let vm = Db.VM.get_by_uuid ~__context ~uuid in
-        reraise Api_errors.bootloader_failed [Ref.string_of vm; msg]
-      | Cannot_free_this_much_memory(needed, free) ->
-        reraise Api_errors.host_not_enough_free_memory [ Int64.to_string needed; Int64.to_string free ]
-      | Vms_failed_to_cooperate vms ->
-        let vms' = List.map (fun uuid -> Db.VM.get_by_uuid ~__context ~uuid |> Ref.string_of) vms in
-        reraise Api_errors.vms_failed_to_cooperate vms'
-      | IO_error -> reraise Api_errors.vdi_io_error ["I/O error saving VM suspend image"]
-      | Failed_to_contact_remote_service x -> reraise Api_errors.vm_migrate_contact_remote_service_failed []
-      | Hook_failed(script, reason, stdout, i) -> reraise Api_errors.xapi_hook_failed [ script; reason; stdout; i ]
-      | Not_enough_memory needed -> internal "there was not enough memory (needed %Ld bytes)" needed
-      | Cancelled id ->
-        let task =
-          try
-            TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id))
-          with _ ->
-            debug "xenopsd task id %s is not associated with a XenAPI task" id;
-            Ref.null in
-        reraise Api_errors.task_cancelled [ Ref.string_of task ]
-      | Storage_backend_error(code, params) -> reraise code params
-      | PCIBack_not_loaded -> internal "pciback has not loaded"
-      | Failed_to_start_emulator (uuid, name, msg) ->
-        let vm = Db.VM.get_by_uuid ~__context ~uuid in
-        reraise Api_errors.failed_to_start_emulator [Ref.string_of vm; name; msg]
-      | Ballooning_timeout_before_migration ->
-        reraise Api_errors.ballooning_timeout_before_migration [Ref.string_of vm]
-      | Unknown_error ->
-        internal "Unknown error returned from xenopsd"
-      | Failed_to_run_script reason ->
-        reraise Api_errors.xenapi_plugin_failure [ reason ]
-    end
+          match e' with 
+          | Internal_error msg -> internal "xenopsd internal error: %s" msg
+          | Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
+          | Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
+          | Unimplemented(fn) -> reraise Api_errors.not_implemented [ fn ]
+          | Domain_not_built -> internal "domain has not been built"
+          | Invalid_vcpus n -> internal "the maximum number of vcpus configured for this VM is currently: %d" n
+          | Bad_power_state(found, expected) ->
+            let f x = xenapi_of_xenops_power_state (Some x) |> Record_util.power_state_to_string in
+            let found = f found and expected = f expected in
+            reraise Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; found ]
+          | Failed_to_acknowledge_shutdown_request ->
+            reraise Api_errors.vm_failed_shutdown_ack [ Ref.string_of vm ]
+          | Failed_to_shutdown(id, timeout) ->
+            reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
+          | Device_is_connected ->
+            internal "Cannot remove device because it is connected to a VM"
+          | Device_not_connected ->
+            internal "Device is not connected"
+          | Device_detach_rejected(cls, id, msg) ->
+            reraise Api_errors.device_detach_rejected [ cls; id; msg ]
+          | Media_not_ejectable -> internal "the media in this drive cannot be ejected"
+          | Media_present -> internal "there is already media in this drive"
+          | Media_not_present -> internal "there is no media in this drive"
+          | No_bootable_device -> internal "there is no bootable device"
+          | Bootloader_error (uuid, msg) ->
+            let vm = Db.VM.get_by_uuid ~__context ~uuid in
+            reraise Api_errors.bootloader_failed [Ref.string_of vm; msg]
+          | Cannot_free_this_much_memory(needed, free) ->
+            reraise Api_errors.host_not_enough_free_memory [ Int64.to_string needed; Int64.to_string free ]
+          | Vms_failed_to_cooperate vms ->
+            let vms' = List.map (fun uuid -> Db.VM.get_by_uuid ~__context ~uuid |> Ref.string_of) vms in
+            reraise Api_errors.vms_failed_to_cooperate vms'
+          | IO_error -> reraise Api_errors.vdi_io_error ["I/O error saving VM suspend image"]
+          | Failed_to_contact_remote_service x -> reraise Api_errors.vm_migrate_contact_remote_service_failed []
+          | Hook_failed(script, reason, stdout, i) -> reraise Api_errors.xapi_hook_failed [ script; reason; stdout; i ]
+          | Not_enough_memory needed -> internal "there was not enough memory (needed %Ld bytes)" needed
+          | Cancelled id ->
+            let task =
+              try
+                TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id))
+              with _ ->
+                debug "xenopsd task id %s is not associated with a XenAPI task" id;
+                Ref.null in
+            reraise Api_errors.task_cancelled [ Ref.string_of task ]
+          | Storage_backend_error(code, params) -> reraise code params
+          | PCIBack_not_loaded -> internal "pciback has not loaded"
+          | Failed_to_start_emulator (uuid, name, msg) ->
+            let vm = Db.VM.get_by_uuid ~__context ~uuid in
+            reraise Api_errors.failed_to_start_emulator [Ref.string_of vm; name; msg]
+          | Ballooning_timeout_before_migration ->
+            reraise Api_errors.ballooning_timeout_before_migration [Ref.string_of vm]
+          | Unknown_error ->
+            internal "Unknown error returned from xenopsd"
+          | Failed_to_run_script reason ->
+            reraise Api_errors.xenapi_plugin_failure [ reason ]
+        end
       | e -> raise e
     end
 
@@ -2951,7 +2959,7 @@ let resume ~__context ~self ~start_paused ~force =
        Db.VM.set_suspend_VDI ~__context ~self ~value:Ref.null;
        (* Clearing vGPU metadata should happen as late as possible
         * to make sure we only do it on a successful resume
-        *)
+       *)
        Xapi_gpumon.clear_vgpu_metadata ~__context ~vm:self;
        Helpers.call_api_functions ~__context
          (fun rpc session_id ->
@@ -3195,8 +3203,8 @@ let vif_move ~__context ~self network =
        let backend = backend_of_vif ~__context ~vif:self in
        match backend with
        | Network.Sriov _ -> raise Api_errors.(Server_error(internal_error, [
-         Printf.sprintf "vif_move: Unable to move a network SR-IOV backed VIF %s"
-           (Ref.string_of self)]))
+           Printf.sprintf "vif_move: Unable to move a network SR-IOV backed VIF %s"
+             (Ref.string_of self)]))
        | _ ->
          let dbg = Context.string_of_task __context in
          let module Client = (val make_client queue_name : XENOPS) in
@@ -3282,4 +3290,4 @@ let vusb_unplug ~__context ~self =
     vusb_unplug_hvm ~__context ~self
   else
     raise Api_errors.(Server_error(internal_error, [
-             Printf.sprintf "vusb_unplug: Unable to unplug vusb %s" (Ref.string_of self)]))
+        Printf.sprintf "vusb_unplug: Unable to unplug vusb %s" (Ref.string_of self)]))

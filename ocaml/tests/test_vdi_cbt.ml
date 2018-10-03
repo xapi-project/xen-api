@@ -13,9 +13,9 @@
   *)
 
 
-let register_smapiv2_server (module S: Storage_interface.Server_impl with type context = unit) sr_ref =
-  let module S = Storage_interface.Server(S) in
-  let rpc = S.process () in
+let register_smapiv2_server (module S: Storage_interface.Server_impl) sr_ref =
+  let module S = Storage_interface.Server(S)() in
+  let rpc = S.process in
   let dummy_query_result = Storage_interface.({ driver=""; name=""; description=""; vendor=""; copyright=""; version=""; required_api_version=""; features=[]; configuration=[]; required_cluster_stack=[] }) in
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
@@ -32,7 +32,7 @@ let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_chang
       let snapshot = default Storage_skeleton.VDI.snapshot vdi_snapshot
       let clone = default Storage_skeleton.VDI.clone vdi_snapshot
     end
-  end : Storage_interface.Server_impl with type context = unit)
+  end : Storage_interface.Server_impl)
 
 let register_smapiv2_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone sr_ref =
   let s = make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () in
@@ -47,32 +47,41 @@ let make_mock_server_infrastructure ~__context =
   let _: _ API.Ref.t = Test_common.make_pbd ~__context ~host ~sR ~currently_attached:true () in
   sR
 
+let alcotestable_of_def def =
+  let pp fmt a = Format.fprintf fmt "%s" (Rpcmarshal.marshal def.Rpc.Types.ty a |> Jsonrpc.to_string) in
+  Alcotest.testable pp (=)
+
+let alco_sr = alcotestable_of_def Storage_interface.Sr.t
+let alco_vdi = alcotestable_of_def Storage_interface.Vdi.t
+
 let test_cbt_enable_disable () =
   let __context = Test_common.make_test_database () in
   let sr_ref = Test_common.make_sr ~__context () in
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
+  let sr = Storage_interface.Sr.of_string sr_uuid in
   let vdi_location = "test123" in
+  let vdi = Storage_interface.Vdi.of_string vdi_location in
   let vdi_ref = Test_common.make_vdi ~__context ~sR:sr_ref ~location:vdi_location () in
   let assert_vdi_cbt_enabled_is value msg =
     Alcotest.(check bool) msg value (Db.VDI.get_cbt_enabled ~__context ~self:vdi_ref) in
-  let check_params = Alcotest.(check (option (pair string string))) in
+  let check_params = Alcotest.(check (option (pair alco_sr alco_vdi))) in
 
   let enable_cbt_params = ref None in
   let disable_cbt_params = ref None in
   register_smapiv2_server
     ~vdi_enable_cbt:(fun _ ~dbg ~sr ~vdi -> enable_cbt_params := Some (sr, vdi))
     ~vdi_disable_cbt:(fun _ ~dbg ~sr ~vdi -> disable_cbt_params := Some (sr, vdi))
-    sr_uuid;
+    sr;
 
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
-   check_params "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt" (Some (sr_uuid, vdi_location)) !enable_cbt_params;
+  check_params "The parameters should be correctly passed to SMAPIv2 from VDI.enable_cbt" (Some (sr, vdi)) !enable_cbt_params;
   assert_vdi_cbt_enabled_is true "cbt_enabled should be true when VDI.enable_cbt returns successfully";
 
   Xapi_vdi.enable_cbt ~__context ~self:vdi_ref;
   assert_vdi_cbt_enabled_is true "VDI.enable_cbt should be idempotent";
 
   Xapi_vdi.disable_cbt ~__context ~self:vdi_ref;
-  check_params "The parameters should be correctly passed to SMAPIv2 from VDI.disable_cbt" (Some (sr_uuid, vdi_location)) !disable_cbt_params;
+  check_params "The parameters should be correctly passed to SMAPIv2 from VDI.disable_cbt" (Some (sr, vdi)) !disable_cbt_params;
   assert_vdi_cbt_enabled_is false "cbt_enabled should be false when VDI.disable_cbt returns successfully";
 
   Xapi_vdi.disable_cbt ~__context ~self:vdi_ref;
@@ -279,12 +288,12 @@ let setup_test_for_data_destroy ?(vdi_data_destroy=(fun _ ~dbg ~sr ~vdi -> ())) 
 
   let sR = make_mock_server_infrastructure ~__context in
   let vdi = Test_common.make_vdi ~__context ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
-  register_smapiv2_server ~vdi_data_destroy (Db.SR.get_uuid ~__context ~self:sR);
+  register_smapiv2_server ~vdi_data_destroy (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string);
   (__context, sR, vdi)
 
 let test_allowed_operations_updated_when_necessary () =
   let __context, sR, self = setup_test_for_data_destroy () in
-  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR);
+  register_smapiv2_server ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> ()) (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string);
 
   let assert_allowed_operations msg check =
     Alcotest.(check bool) msg true (check (Db.VDI.get_allowed_operations ~__context ~self))
@@ -354,10 +363,10 @@ let test_data_destroy =
     let __context, sR, vdi = setup_test_for_data_destroy ~vdi_data_destroy:(fun _ ~dbg ~sr ~vdi -> raise (Failure "error")) () in
     let original_type = Db.VDI.get_type ~__context ~self:vdi in
     try Xapi_vdi.data_destroy ~__context ~self:vdi with _ -> ();
-    Alcotest.check (Alcotest_comparators.vdi_type)
-      "data_destroy should not change the VDI's type to cbt_metadata when it did not succeed, it should preserve the original type"
-      original_type
-      (Db.VDI.get_type ~__context ~self:vdi)
+      Alcotest.check (Alcotest_comparators.vdi_type)
+        "data_destroy should not change the VDI's type to cbt_metadata when it did not succeed, it should preserve the original type"
+        original_type
+        (Db.VDI.get_type ~__context ~self:vdi)
   in
 
   let test_data_destroy_timing =
@@ -384,7 +393,7 @@ let test_data_destroy =
         ignore (bg (fun () -> (try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout with e -> raisedexn := Some e); completed := true));
         Thread.delay timebox_timeout;
         if not !completed then
-                Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout);
+          Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout);
         match !raisedexn with
         | None -> ()
         | Some e -> raise e
@@ -479,24 +488,27 @@ let test_vdi_list_changed_blocks () =
   let __context = Test_common.make_test_database () in
   let sR = make_mock_server_infrastructure ~__context in
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sR in
+  let sr = Storage_interface.Sr.of_string sr_uuid in
 
   let list_changed_blocks_params = ref None in
   let list_changed_blocks_string = "listchangedblocks000" in
 
   let vdi_from_location = "vdi_from_location" in
-  let vdi_from = Test_common.make_vdi ~__context ~location:vdi_from_location ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
+  let vdi_from_ref = Test_common.make_vdi ~__context ~location:vdi_from_location ~is_a_snapshot:true ~managed:true ~cbt_enabled:true ~sR () in
+  let vdi_from = Storage_interface.Vdi.of_string vdi_from_location in
   let vdi_to_location = "vdi_to_location" in
-  let vdi_to = Test_common.make_vdi ~__context~location:vdi_to_location  ~sR ~cbt_enabled:true ~managed:true () in
+  let vdi_to_ref = Test_common.make_vdi ~__context~location:vdi_to_location  ~sR ~cbt_enabled:true ~managed:true () in
+  let vdi_to = Storage_interface.Vdi.of_string vdi_to_location in
 
   register_smapiv2_server
     ~vdi_list_changed_blocks:(fun _ ~dbg ~sr ~vdi_from ~vdi_to -> list_changed_blocks_params := Some (sr,(vdi_from,vdi_to)); list_changed_blocks_string)
-    (Db.SR.get_uuid ~__context ~self:sR);
+    (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string);
 
   Alcotest.(check string) "VDI.list_changed_blocks"
-    (Xapi_vdi.list_changed_blocks ~__context ~vdi_from ~vdi_to)
+    (Xapi_vdi.list_changed_blocks ~__context ~vdi_from:vdi_from_ref ~vdi_to:vdi_to_ref)
     list_changed_blocks_string;
-  Alcotest.(check (option (pair string (pair string string)))) "VDI.list_changed_blocks parameters"
-    (Some (sr_uuid, (vdi_from_location, vdi_to_location)))
+  Alcotest.(check (option (pair alco_sr (pair alco_vdi alco_vdi)))) "VDI.list_changed_blocks parameters"
+    (Some (sr, (vdi_from, vdi_to)))
     !list_changed_blocks_params
 
 let test =

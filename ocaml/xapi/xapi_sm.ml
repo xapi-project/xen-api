@@ -55,34 +55,34 @@ let create_from_query_result ~__context q =
       ~required_cluster_stack:q.required_cluster_stack
   end
 
-let update_from_query_result ~__context (self, r) query_result =
+let update_from_query_result ~__context (self, r) q_result =
   let open Storage_interface in
-  let _type = String.lowercase_ascii query_result.driver in
+  let _type = String.lowercase_ascii q_result.driver in
   if _type <> "storage_access"
   then begin
-    let driver_filename = Sm_exec.cmd_name query_result.driver in
-    let features = Smint.parse_string_int64_features query_result.features in
+    let driver_filename = Sm_exec.cmd_name q_result.driver in
+    let features = Smint.parse_string_int64_features q_result.features in
     let capabilities = List.map fst features in
-    info "Registering SM plugin %s (version %s)" (String.lowercase_ascii query_result.driver) query_result.version;
+    info "Registering SM plugin %s (version %s)" (String.lowercase_ascii q_result.driver) q_result.version;
     if r.API.sM_type <> _type
     then Db.SM.set_type ~__context ~self ~value:_type;
-    if r.API.sM_name_label <> query_result.name
-    then Db.SM.set_name_label ~__context ~self ~value:query_result.name;
-    if r.API.sM_name_description <> query_result.description
-    then Db.SM.set_name_description ~__context ~self ~value:query_result.description;
-    if r.API.sM_vendor <> query_result.vendor
-    then Db.SM.set_vendor ~__context ~self ~value:query_result.vendor;
-    if r.API.sM_copyright <> query_result.copyright
-    then Db.SM.set_copyright ~__context ~self ~value:query_result.copyright;
-    if r.API.sM_required_api_version <> query_result.required_api_version
-    then Db.SM.set_required_api_version ~__context ~self ~value:query_result.required_api_version;
+    if r.API.sM_name_label <> q_result.name
+    then Db.SM.set_name_label ~__context ~self ~value:q_result.name;
+    if r.API.sM_name_description <> q_result.description
+    then Db.SM.set_name_description ~__context ~self ~value:q_result.description;
+    if r.API.sM_vendor <> q_result.vendor
+    then Db.SM.set_vendor ~__context ~self ~value:q_result.vendor;
+    if r.API.sM_copyright <> q_result.copyright
+    then Db.SM.set_copyright ~__context ~self ~value:q_result.copyright;
+    if r.API.sM_required_api_version <> q_result.required_api_version
+    then Db.SM.set_required_api_version ~__context ~self ~value:q_result.required_api_version;
     if (r.API.sM_capabilities <> capabilities || r.API.sM_features <> features)
     then begin
       Db.SM.set_capabilities ~__context ~self ~value:capabilities;
       Db.SM.set_features ~__context ~self ~value:features;
     end;
-    if r.API.sM_configuration <> query_result.configuration
-    then Db.SM.set_configuration ~__context ~self ~value:query_result.configuration;
+    if r.API.sM_configuration <> q_result.configuration
+    then Db.SM.set_configuration ~__context ~self ~value:q_result.configuration;
     if r.API.sM_driver_filename <> driver_filename
     then Db.SM.set_driver_filename ~__context ~self ~value:driver_filename
   end
@@ -104,32 +104,32 @@ let _serialize_reg =
       end
   end
 
-let unregister_plugin ~__context query_result =
+let unregister_plugin ~__context q_result =
   _serialize_reg begin fun () ->
     let open Storage_interface in
-    let driver = String.lowercase_ascii query_result.driver in
-    if is_v1 query_result.required_api_version then begin
-      info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
+    let driver = String.lowercase_ascii q_result.driver in
+    if is_v1 q_result.required_api_version then begin
+      info "Not unregistering SM plugin %s (required_api_version %s < 2.0)" driver q_result.required_api_version;
     end else
       List.iter
         (fun (rf, rc) ->
            if rc.API.sM_type = driver then
              try
-               info "Unregistering SM plugin %s (version %s)" driver query_result.version;
+               info "Unregistering SM plugin %s (version %s)" driver q_result.version;
                Db.SM.destroy ~__context ~self:rf
              with e ->
                warn "Ignore unregistering SM plugin failure: %s" (Printexc.to_string e))
         (Db.SM.get_all_records ~__context)
   end
 
-let register_plugin ~__context query_result =
+let register_plugin ~__context q_result =
   _serialize_reg begin fun () ->
     let open Storage_interface in
-    let driver = String.lowercase_ascii query_result.driver in
-    if is_v1 query_result.required_api_version then begin
-      info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver query_result.required_api_version;
+    let driver = String.lowercase_ascii q_result.driver in
+    if is_v1 q_result.required_api_version then begin
+      info "Not registering SM plugin %s (required_api_version %s < 2.0)" driver q_result.required_api_version;
     end else begin
-      unregister_plugin ~__context query_result;
-      create_from_query_result ~__context query_result
+      unregister_plugin ~__context q_result;
+      create_from_query_result ~__context q_result
     end
   end

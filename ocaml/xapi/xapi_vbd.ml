@@ -73,7 +73,7 @@ let plug ~__context ~self =
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self);
     Storage_access.attach_and_activate ~__context ~vbd:self ~domid
       (fun attach_info ->
-         let (xendisks, blockdevs, files, nbds) = Attach_helpers.implementations_of_backend attach_info in
+         let (xendisks, blockdevs, files, nbds) = Storage_interface.implementations_of_backend attach_info in
          let device_path =
            match files, blockdevs, nbds with
            | { path }::_, _, _ | _, { path }::_, _ -> path
@@ -81,7 +81,7 @@ let plug ~__context ~self =
              debug "Using nbd-client for VBD.plug of VBD '%s'" (Ref.string_of self);
              let unix_socket_path, export_name = Storage_interface.parse_nbd_uri nbd in
              NbdClient.start_nbd_client ~unix_socket_path ~export_name
-           | [], [], [] -> raise (Storage_interface.Backend_error (Api_errors.internal_error, ["No File, BlockDevice or Nbd implementation in Datapath.attach response: " ^ (Storage_interface.rpc_of_backend attach_info |> Jsonrpc.to_string)]))
+           | [], [], [] -> raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, ["No File, BlockDevice or Nbd implementation in Datapath.attach response: " ^ (Storage_interface.(rpc_of backend) attach_info |> Jsonrpc.to_string)])))
          in
          let device_path =
            let prefix = "/dev/" in

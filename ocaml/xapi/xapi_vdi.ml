@@ -27,22 +27,22 @@ open Printf
 
 let check_sm_feature_error (op:API.vdi_operations) sm_features sr =
   let required_sm_feature = Smint.(match op with
-  | `forget
-  | `copy
-  | `force_unlock
-  | `blocked
-    -> None
-  | `snapshot -> Some Vdi_snapshot
-  | `destroy -> Some Vdi_delete
-  | `resize -> Some Vdi_resize
-  | `update -> Some Vdi_update
-  | `resize_online -> Some Vdi_resize_online
-  | `generate_config -> Some Vdi_generate_config
-  | `clone -> Some Vdi_clone
-  | `mirror -> Some Vdi_mirror
-  | `enable_cbt | `disable_cbt | `data_destroy | `list_changed_blocks -> Some Vdi_configure_cbt
-  | `set_on_boot -> Some Vdi_reset_on_boot
-  ) in
+      | `forget
+      | `copy
+      | `force_unlock
+      | `blocked
+        -> None
+      | `snapshot -> Some Vdi_snapshot
+      | `destroy -> Some Vdi_delete
+      | `resize -> Some Vdi_resize
+      | `update -> Some Vdi_update
+      | `resize_online -> Some Vdi_resize_online
+      | `generate_config -> Some Vdi_generate_config
+      | `clone -> Some Vdi_clone
+      | `mirror -> Some Vdi_mirror
+      | `enable_cbt | `disable_cbt | `data_destroy | `list_changed_blocks -> Some Vdi_configure_cbt
+      | `set_on_boot -> Some Vdi_reset_on_boot
+    ) in
   match required_sm_feature with
   | None -> None
   | Some feature ->
@@ -78,201 +78,201 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
      not (List.mem op Xapi_globs.rpu_allowed_vdi_operations)
   then Some (Api_errors.not_supported_during_upgrade, [])
   else
-  (* Don't fail with other_operation_in_progress if VDI mirroring is in progress
-     	 * and destroy is called as part of VDI mirroring *)
-  let is_vdi_mirroring_in_progress = (List.exists (fun (_, op) -> op = `mirror) current_ops) && (op = `destroy) in
-  if (List.exists (fun (_, op) -> op <> `copy) current_ops) && not is_vdi_mirroring_in_progress
-  then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
-  else
-    (* check to see whether it's a local cd drive *)
-    let sr = record.Db_actions.vDI_SR in
-    let sr_type = Db.SR.get_type ~__context ~self:sr in
-    let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
-
-    (* Check to see if any PBDs are attached *)
-    let open Db_filter_types in
-    let pbds_attached = match pbd_records with
-      | [] -> Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))
-      | _ -> List.filter (fun (_, pbd_record) -> (pbd_record.API.pBD_SR = sr) && pbd_record.API.pBD_currently_attached) pbd_records
-    in
-    if (List.length pbds_attached = 0) && List.mem op [`resize;]
-    then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
+    (* Don't fail with other_operation_in_progress if VDI mirroring is in progress
+       	 * and destroy is called as part of VDI mirroring *)
+    let is_vdi_mirroring_in_progress = (List.exists (fun (_, op) -> op = `mirror) current_ops) && (op = `destroy) in
+    if (List.exists (fun (_, op) -> op <> `copy) current_ops) && not is_vdi_mirroring_in_progress
+    then Some(Api_errors.other_operation_in_progress,["VDI"; _ref])
     else
-      (* check to see whether VBDs exist which are using this VDI *)
+      (* check to see whether it's a local cd drive *)
+      let sr = record.Db_actions.vDI_SR in
+      let sr_type = Db.SR.get_type ~__context ~self:sr in
+      let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
 
-      (* Only a 'live' operation can be performed if there are active (even RO) devices *)
-      let my_active_vbd_records = match vbd_records with
-        | None -> List.map snd (Db.VBD.get_internal_records_where ~__context
-                                ~expr:(
-                                  And(Eq (Field "VDI", Literal _ref),
-                                      Or(
-                                        Eq (Field "currently_attached", Literal "true"),
-                                        Eq (Field "reserved", Literal "true")))
-                                ))
-        | Some records -> List.map snd (List.filter (fun (_, vbd_record) ->
-            vbd_record.Db_actions.vBD_VDI = _ref' && (vbd_record.Db_actions.vBD_currently_attached || vbd_record.Db_actions.vBD_reserved)
-          ) records)
+      (* Check to see if any PBDs are attached *)
+      let open Db_filter_types in
+      let pbds_attached = match pbd_records with
+        | [] -> Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true")))
+        | _ -> List.filter (fun (_, pbd_record) -> (pbd_record.API.pBD_SR = sr) && pbd_record.API.pBD_currently_attached) pbd_records
       in
-      let my_active_rw_vbd_records = List.filter
-          (fun vbd -> vbd.Db_actions.vBD_mode = `RW)
-          my_active_vbd_records
-      in
+      if (List.length pbds_attached = 0) && List.mem op [`resize;]
+      then Some(Api_errors.sr_no_pbds, [Ref.string_of sr])
+      else
+        (* check to see whether VBDs exist which are using this VDI *)
 
-      (* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
-      let my_has_current_operation_vbd_records = match vbd_records with
-        | None -> List.map snd (Db.VBD.get_internal_records_where ~__context
-                                ~expr:(
-                                  And(Eq (Field "VDI", Literal _ref), Not (Eq (Field "current_operations", Literal "()")))
-                                ))
-        | Some records -> List.map snd (List.filter (fun (_, vbd_record) ->
-            vbd_record.Db_actions.vBD_VDI = _ref' && vbd_record.Db_actions.vBD_current_operations <> []
-          ) records)
-      in
+        (* Only a 'live' operation can be performed if there are active (even RO) devices *)
+        let my_active_vbd_records = match vbd_records with
+          | None -> List.map snd (Db.VBD.get_internal_records_where ~__context
+                                    ~expr:(
+                                      And(Eq (Field "VDI", Literal _ref),
+                                          Or(
+                                            Eq (Field "currently_attached", Literal "true"),
+                                            Eq (Field "reserved", Literal "true")))
+                                    ))
+          | Some records -> List.map snd (List.filter (fun (_, vbd_record) ->
+              vbd_record.Db_actions.vBD_VDI = _ref' && (vbd_record.Db_actions.vBD_currently_attached || vbd_record.Db_actions.vBD_reserved)
+            ) records)
+        in
+        let my_active_rw_vbd_records = List.filter
+            (fun vbd -> vbd.Db_actions.vBD_mode = `RW)
+            my_active_vbd_records
+        in
 
-      (* If the VBD is currently_attached then some operations can still be performed ie:
-         			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
-         			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831)
-         VDI.data_destroy: it is not allowed on VDIs linked to a VM, but the
-           implementation first waits for the VDI's VBDs to be unplugged and
-           destroyed, and the checks are performed there.
-      *)
-      let operation_can_be_performed_live = match op with
-        | `snapshot | `resize_online | `blocked | `clone | `mirror | `enable_cbt | `disable_cbt | `data_destroy -> true
-        | _ -> false in
+        (* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
+        let my_has_current_operation_vbd_records = match vbd_records with
+          | None -> List.map snd (Db.VBD.get_internal_records_where ~__context
+                                    ~expr:(
+                                      And(Eq (Field "VDI", Literal _ref), Not (Eq (Field "current_operations", Literal "()")))
+                                    ))
+          | Some records -> List.map snd (List.filter (fun (_, vbd_record) ->
+              vbd_record.Db_actions.vBD_VDI = _ref' && vbd_record.Db_actions.vBD_current_operations <> []
+            ) records)
+        in
 
-      let operation_can_be_performed_with_ro_attach =
-        operation_can_be_performed_live ||
-        (match op with
-         | `copy -> true
-         | _ -> false)
-      in
+        (* If the VBD is currently_attached then some operations can still be performed ie:
+           			   VDI.clone (if the VM is suspended we have to have the 'allow_clone_suspended_vm'' flag)
+           			   VDI.snapshot; VDI.resize_online; 'blocked' (CP-831)
+           VDI.data_destroy: it is not allowed on VDIs linked to a VM, but the
+             implementation first waits for the VDI's VBDs to be unplugged and
+             destroyed, and the checks are performed there.
+        *)
+        let operation_can_be_performed_live = match op with
+          | `snapshot | `resize_online | `blocked | `clone | `mirror | `enable_cbt | `disable_cbt | `data_destroy -> true
+          | _ -> false in
 
-      (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
+        let operation_can_be_performed_with_ro_attach =
+          operation_can_be_performed_live ||
+          (match op with
+           | `copy -> true
+           | _ -> false)
+        in
 
-      let blocked_by_attach =
+        (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
+
         let blocked_by_attach =
-          if operation_can_be_performed_live
-          then false
-          else begin
-            if operation_can_be_performed_with_ro_attach
-            then (my_active_rw_vbd_records <> [])
-            else (my_active_vbd_records <> [])
-          end
+          let blocked_by_attach =
+            if operation_can_be_performed_live
+            then false
+            else begin
+              if operation_can_be_performed_with_ro_attach
+              then (my_active_rw_vbd_records <> [])
+              else (my_active_vbd_records <> [])
+            end
+          in
+          let allow_attached_vbds =
+            (* We use Valid_ref_list.list to ignore exceptions due to invalid references that
+               could propagate to the message forwarding layer, which calls this
+               function to check for errors - these exceptions would prevent the
+               actual XenAPI function from being run. Checks called from the
+               message forwarding layer should not fail with an exception. *)
+            let true_for_all_active_vbds f = Valid_ref_list.for_all f my_active_vbd_records in
+            match op with
+            | `list_changed_blocks ->
+              let vbd_connected_to_vm_snapshot vbd =
+                let vm = vbd.Db_actions.vBD_VM in
+                Db.is_valid_ref __context vm && (Db.VM.get_is_a_snapshot ~__context ~self:vm)
+              in
+              (* We allow list_changed_blocks on VDIs attached to snapshot VMs,
+                 because VM.checkpoint may set the currently_attached fields of the
+                 snapshot's VBDs to true, and this would block list_changed_blocks. *)
+              true_for_all_active_vbds vbd_connected_to_vm_snapshot
+            | _ -> false
+          in
+          blocked_by_attach && (not allow_attached_vbds)
         in
-        let allow_attached_vbds =
-          (* We use Valid_ref_list.list to ignore exceptions due to invalid references that
-             could propagate to the message forwarding layer, which calls this
-             function to check for errors - these exceptions would prevent the
-             actual XenAPI function from being run. Checks called from the
-             message forwarding layer should not fail with an exception. *)
-          let true_for_all_active_vbds f = Valid_ref_list.for_all f my_active_vbd_records in
-          match op with
-          | `list_changed_blocks ->
-            let vbd_connected_to_vm_snapshot vbd =
-              let vm = vbd.Db_actions.vBD_VM in
-              Db.is_valid_ref __context vm && (Db.VM.get_is_a_snapshot ~__context ~self:vm)
-            in
-            (* We allow list_changed_blocks on VDIs attached to snapshot VMs,
-               because VM.checkpoint may set the currently_attached fields of the
-               snapshot's VBDs to true, and this would block list_changed_blocks. *)
-            true_for_all_active_vbds vbd_connected_to_vm_snapshot
-          | _ -> false
-        in
-        blocked_by_attach && (not allow_attached_vbds)
-      in
-      if blocked_by_attach
-      then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
-      else
-
-      (* data_destroy first waits for all the VBDs to disappear in its
-         implementation, so it is harmless to allow it when any of the VDI's
-         VBDs have operations in progress. This ensures that we avoid the retry
-         mechanism of message forwarding and only use the event loop. *)
-      if my_has_current_operation_vbd_records <> [] && op <> `data_destroy
-      then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
-      else
-
-      let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
-      let sm_feature_error = check_sm_feature_error op sm_features sr in
-      if sm_feature_error <> None
-      then sm_feature_error
-
-      else
-      let allowed_for_cbt_metadata_vdi = match op with
-        | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
-        | `blocked | `data_destroy | `destroy | `list_changed_blocks | `force_unlock | `forget | `generate_config | `update -> true in
-      if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
-      then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
-      else
-      let allowed_when_cbt_enabled = match op with
-        | `mirror | `set_on_boot -> false
-        | `blocked | `clone | `copy | `data_destroy | `destroy | `disable_cbt | `enable_cbt | `list_changed_blocks | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
-      if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
-      then Some (Api_errors.vdi_cbt_enabled, [_ref])
-      else
-
-      let check_destroy () =
-        if sr_type = "udev"
-        then Some (Api_errors.vdi_is_a_physical_device, [_ref])
+        if blocked_by_attach
+        then Some (Api_errors.vdi_in_use,[_ref; (Record_util.vdi_operation_to_string op)])
         else
-        if is_tools_sr
-        then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-        else if List.mem record.Db_actions.vDI_type [ `rrd ]
-        then Some (Api_errors.vdi_has_rrds, [_ref])
-        else
-        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-        then Some (Api_errors.ha_is_enabled, [])
-        else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_enable_in_progress ~__context
-        then Some (Api_errors.ha_enable_in_progress, [])
-        else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_disable_in_progress ~__context
-        then Some (Api_errors.ha_disable_in_progress, [])
-        else None
-      in
 
-      begin match op with
-      | `forget ->
-        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-        then Some (Api_errors.ha_is_enabled, [])
-        else if List.mem record.Db_actions.vDI_type [ `rrd ]
-        then Some (Api_errors.vdi_has_rrds, [_ref])
-        else None
-      | `destroy -> check_destroy ()
-      | `data_destroy ->
-        if not record.Db_actions.vDI_is_a_snapshot
-        then Some (Api_errors.operation_not_allowed, ["VDI is not a snapshot: " ^ _ref])
-        else if not record.Db_actions.vDI_cbt_enabled
-        then Some (Api_errors.vdi_no_cbt_metadata, [_ref])
-        else check_destroy ()
-      | `resize ->
-        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-        then Some (Api_errors.ha_is_enabled, [])
-        else None
-      | `resize_online ->
-        if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-        then Some (Api_errors.ha_is_enabled, [])
-        else None
-      | `snapshot when record.Db_actions.vDI_sharable ->
-        Some (Api_errors.vdi_is_sharable, [ _ref ])
-      | `snapshot when reset_on_boot ->
-        Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
-      | `snapshot ->
-        if List.exists (fun (_, op) -> op = `copy) current_ops
-        then Some (Api_errors.operation_not_allowed, ["Snapshot operation not allowed during copy."])
-        else None
-      | `copy ->
-        if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
-        then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
-        else None
-      | (`enable_cbt | `disable_cbt) ->
-        if record.Db_actions.vDI_is_a_snapshot
-        then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
-        else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
-        then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
-        else if reset_on_boot
-        then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
-        else None
-      | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `list_changed_blocks | `blocked | `update -> None
-      end
+          (* data_destroy first waits for all the VBDs to disappear in its
+             implementation, so it is harmless to allow it when any of the VDI's
+             VBDs have operations in progress. This ensures that we avoid the retry
+             mechanism of message forwarding and only use the event loop. *)
+        if my_has_current_operation_vbd_records <> [] && op <> `data_destroy
+        then Some (Api_errors.other_operation_in_progress, [ "VDI"; _ref ])
+        else
+
+          let sm_features = Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type in
+          let sm_feature_error = check_sm_feature_error op sm_features sr in
+          if sm_feature_error <> None
+          then sm_feature_error
+
+          else
+            let allowed_for_cbt_metadata_vdi = match op with
+              | `clone | `copy | `disable_cbt | `enable_cbt | `mirror | `resize | `resize_online | `snapshot | `set_on_boot -> false
+              | `blocked | `data_destroy | `destroy | `list_changed_blocks | `force_unlock | `forget | `generate_config | `update -> true in
+            if not allowed_for_cbt_metadata_vdi && record.Db_actions.vDI_type = `cbt_metadata
+            then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string `cbt_metadata ])
+            else
+              let allowed_when_cbt_enabled = match op with
+                | `mirror | `set_on_boot -> false
+                | `blocked | `clone | `copy | `data_destroy | `destroy | `disable_cbt | `enable_cbt | `list_changed_blocks | `force_unlock | `forget | `generate_config | `resize | `resize_online | `snapshot | `update -> true in
+              if not allowed_when_cbt_enabled && record.Db_actions.vDI_cbt_enabled
+              then Some (Api_errors.vdi_cbt_enabled, [_ref])
+              else
+
+                let check_destroy () =
+                  if sr_type = "udev"
+                  then Some (Api_errors.vdi_is_a_physical_device, [_ref])
+                  else
+                  if is_tools_sr
+                  then Some (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+                  else if List.mem record.Db_actions.vDI_type [ `rrd ]
+                  then Some (Api_errors.vdi_has_rrds, [_ref])
+                  else
+                  if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+                  then Some (Api_errors.ha_is_enabled, [])
+                  else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_enable_in_progress ~__context
+                  then Some (Api_errors.ha_enable_in_progress, [])
+                  else if List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata ] && Xapi_pool_helpers.ha_disable_in_progress ~__context
+                  then Some (Api_errors.ha_disable_in_progress, [])
+                  else None
+                in
+
+                begin match op with
+                  | `forget ->
+                    if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+                    then Some (Api_errors.ha_is_enabled, [])
+                    else if List.mem record.Db_actions.vDI_type [ `rrd ]
+                    then Some (Api_errors.vdi_has_rrds, [_ref])
+                    else None
+                  | `destroy -> check_destroy ()
+                  | `data_destroy ->
+                    if not record.Db_actions.vDI_is_a_snapshot
+                    then Some (Api_errors.operation_not_allowed, ["VDI is not a snapshot: " ^ _ref])
+                    else if not record.Db_actions.vDI_cbt_enabled
+                    then Some (Api_errors.vdi_no_cbt_metadata, [_ref])
+                    else check_destroy ()
+                  | `resize ->
+                    if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+                    then Some (Api_errors.ha_is_enabled, [])
+                    else None
+                  | `resize_online ->
+                    if ha_enabled && List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+                    then Some (Api_errors.ha_is_enabled, [])
+                    else None
+                  | `snapshot when record.Db_actions.vDI_sharable ->
+                    Some (Api_errors.vdi_is_sharable, [ _ref ])
+                  | `snapshot when reset_on_boot ->
+                    Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+                  | `snapshot ->
+                    if List.exists (fun (_, op) -> op = `copy) current_ops
+                    then Some (Api_errors.operation_not_allowed, ["Snapshot operation not allowed during copy."])
+                    else None
+                  | `copy ->
+                    if List.mem record.Db_actions.vDI_type [ `ha_statefile; `redo_log ]
+                    then Some (Api_errors.operation_not_allowed, ["VDI containing HA statefile or redo log cannot be copied (check the VDI's allowed operations)."])
+                    else None
+                  | (`enable_cbt | `disable_cbt) ->
+                    if record.Db_actions.vDI_is_a_snapshot
+                    then Some (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
+                    else if not (List.mem record.Db_actions.vDI_type [ `user; `system ])
+                    then Some (Api_errors.vdi_incompatible_type, [ _ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type ])
+                    else if reset_on_boot
+                    then Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+                    else None
+                  | `mirror | `clone | `generate_config | `force_unlock | `set_on_boot | `list_changed_blocks | `blocked | `update -> None
+                end
 
 let assert_operation_valid ~__context ~self ~(op:API.vdi_operations) =
   let pool = Helpers.get_pool ~__context in
@@ -298,12 +298,12 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
    * If/when we do this, we can update test_vdi_allowed_operations.ml to
    * re-enable (and maybe alter) the relevant part of
    * test_update_allowed_operations.
-   *)
+  *)
   let all_ops = Listext.List.set_difference
-    (* Older XenServers choke on ops they don't recognise during SXM, so
-     * until we have a better solution we consider only old ones: CA-260245 *)
-    Xapi_globs.pre_ely_vdi_operations
-    [`blocked]
+      (* Older XenServers choke on ops they don't recognise during SXM, so
+       * until we have a better solution we consider only old ones: CA-260245 *)
+      Xapi_globs.pre_ely_vdi_operations
+      [`blocked]
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed =
@@ -364,14 +364,13 @@ let require_uuid vdi_info =
 
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
-  let open Storage_interface in
   let open Db_filter_types in
-  let expr = And(Eq(Field "location", Literal newvdi.vdi), Eq(Field "SR", Literal (Ref.string_of sr))) in
+  let expr = And(Eq(Field "location", Literal (Storage_interface.Vdi.string_of newvdi.Storage_interface.vdi)), Eq(Field "SR", Literal (Ref.string_of sr))) in
   let db_vdis = Db.VDI.get_records_where  ~__context ~expr in
   Xapi_sr.update_vdis ~__context ~sr db_vdis [ newvdi ];
   match Db.VDI.get_records_where  ~__context ~expr with
   | (vdi, _) :: _ -> vdi
-  | [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (string_of_vdi_info newvdi))
+  | [] -> failwith (Printf.sprintf "newvdi failed to create a VDI for %s" (Rpcmarshal.marshal Storage_interface.vdi_info.Rpc.Types.ty newvdi |> Jsonrpc.to_string))
 
 let create ~__context ~name_label ~name_description
     ~sR ~virtual_size ~_type
@@ -402,7 +401,7 @@ let create ~__context ~name_label ~name_description
   let task = Context.get_task_id __context in
   let open Storage_interface in
   let vdi_info = {
-    default_vdi_info with
+    Storage_interface.default_vdi_info with
     name_label = name_label;
     name_description = name_description;
     ty = vdi_type;
@@ -412,11 +411,11 @@ let create ~__context ~name_label ~name_description
     sharable = sharable;
     sm_config = sm_config;
   } in
-  let module C = Client(struct let rpc = rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
   let sm_vdi = transform_storage_exn
-      (fun () -> C.VDI.create ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sR) ~vdi_info) in
+      (fun () -> C.VDI.create (Ref.string_of task) (Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string) vdi_info) in
   if virtual_size < sm_vdi.virtual_size
-  then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) sm_vdi.vdi virtual_size sm_vdi.virtual_size;
+  then info "sr:%s vdi:%s requested virtual size %Ld < actual virtual size %Ld" (Ref.string_of sR) (Storage_interface.Vdi.string_of sm_vdi.vdi) virtual_size sm_vdi.virtual_size;
   let db_vdi = update_vdi_db ~__context ~sr:sR sm_vdi in
   Db.VDI.set_other_config ~__context ~self:db_vdi ~value:other_config;
   Db.VDI.set_sharable ~__context ~self:db_vdi ~value:sharable;
@@ -472,7 +471,6 @@ let db_forget ~__context ~vdi =
 
 let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of =
   let open Storage_access in
-  let open Storage_interface in
   debug "introduce uuid=%s name_label=%s sm_config=[ %s ]" uuid name_label (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config));
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   (* Verify that the location field is unique in this SR - ignore if the vdi is being introduced with same location*)
@@ -483,13 +481,13 @@ let introduce ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharabl
        then raise (Api_errors.Server_error (Api_errors.location_not_unique, [ Ref.string_of sR; location ]))
     ) (Db.SR.get_VDIs ~__context ~self:sR);
   let task = Context.get_task_id __context in
-  let sr' = Db.SR.get_uuid ~__context ~self:sR in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let sr' = Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
   let vdi_info =
     transform_storage_exn
       (fun () ->
-         C.VDI.introduce ~dbg:(Ref.string_of task) ~sr:sr' ~uuid ~sm_config ~location
+         C.VDI.introduce (Ref.string_of task) sr' uuid sm_config location
       ) in
   let ref = update_vdi_db ~__context ~sr:sR vdi_info in
 
@@ -514,10 +512,10 @@ let update ~__context ~vdi =
   debug "update ref=%s location=%s" (Ref.string_of vdi) vdi_loc;
   let task = Context.get_task_id __context in
   let sR = Db.VDI.get_SR ~__context ~self:vdi in
-  let sr' = Db.SR.get_uuid ~__context ~self:sR in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let sr' = Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   Sm.assert_pbd_is_plugged ~__context ~sr:sR;
-  let vdi_info = C.VDI.stat ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi_loc in
+  let vdi_info = C.VDI.stat (Ref.string_of task) sr' (Storage_interface.Vdi.of_string vdi_loc) in
   ignore(update_vdi_db ~__context ~sr:sR vdi_info)
 
 let forget ~__context ~vdi = Db.VDI.destroy ~__context ~self:vdi
@@ -541,9 +539,9 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
       (Storage_access.vdi_info_of_vdi_rec __context vdi_rec) with
       sm_config = driver_params;
     } in
-    let sr' = Db.SR.get_uuid ~__context ~self:sR in
+    let sr' = Db.SR.get_uuid ~__context ~self:sR |> Storage_interface.Sr.of_string in
     (* We don't use transform_storage_exn because of the clone/copy fallback below *)
-    let new_vdi = call_f ~dbg:(Ref.string_of task) ~sr:sr' ~vdi_info in
+    let new_vdi = call_f (Ref.string_of task) sr' vdi_info in
     update_vdi_db ~__context ~sr:sR new_vdi
   in
 
@@ -563,12 +561,12 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   newvdi
 
 let snapshot ~__context ~vdi ~driver_params =
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   let newvdi = Storage_access.transform_storage_exn
       (fun () ->
          try
            snapshot_and_clone C.VDI.snapshot ~__context ~vdi ~driver_params
-         with Storage_interface.Unimplemented _ ->
+         with Storage_interface.Storage_error (Unimplemented _) ->
            debug "Backend reported not implemented despite it offering the feature";
            raise (Api_errors.Server_error(Api_errors.unimplemented_in_sm_backend, [ Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi) ]))
       ) in
@@ -658,10 +656,10 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[ `destroy | `d
   Xapi_vdi_helpers.assert_managed ~__context ~vdi:self;
 
   begin match operation with
-  | `data_destroy timeout ->
-    (* If this VDI has any VBDs, first wait for them to disappear. *)
-    wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout
-  | `destroy -> ()
+    | `data_destroy timeout ->
+      (* If this VDI has any VBDs, first wait for them to disappear. *)
+      wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout
+    | `destroy -> ()
   end;
 
   let vbds = Db.VDI.get_VBDs ~__context ~self in
@@ -675,14 +673,13 @@ let destroy_and_data_destroy_common ~__context ~self ~(operation:[ `destroy | `d
   else
     begin
       let open Storage_access in
-      let open Storage_interface in
       let task = Context.get_task_id __context in
       let location = Db.VDI.get_location ~__context ~self in
-      let module C = Client(struct let rpc = rpc end) in
+      let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
       let call_f = match operation with `destroy -> C.VDI.destroy | `data_destroy _ -> C.VDI.data_destroy in
       transform_storage_exn
         (fun () ->
-           call_f ~dbg:(Ref.string_of task) ~sr:(Db.SR.get_uuid ~__context ~self:sr) ~vdi:location
+           call_f (Ref.string_of task) (Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string) (Storage_interface.Vdi.of_string location)
         );
       if operation = `destroy && Db.is_valid_ref __context self
       then Db.VDI.destroy ~__context ~self;
@@ -722,12 +719,12 @@ let resize ~__context ~vdi ~size =
   Xapi_vdi_helpers.assert_managed ~__context ~vdi;
   Storage_access.transform_storage_exn
     (fun () ->
-       let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+       let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
        let sr = Db.VDI.get_SR ~__context ~self:vdi in
-       let sr = Db.SR.get_uuid ~__context ~self:sr in
-       let vdi' = Db.VDI.get_location ~__context ~self:vdi in
+       let sr = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+       let vdi' = Db.VDI.get_location ~__context ~self:vdi |> Storage_interface.Vdi.of_string in
        let dbg = Ref.string_of (Context.get_task_id __context) in
-       let new_size = C.VDI.resize ~dbg ~sr ~vdi:vdi' ~new_size:size in
+       let new_size = C.VDI.resize dbg sr vdi' size in
        Db.VDI.set_virtual_size ~__context ~self:vdi ~value:new_size
     )
 
@@ -742,9 +739,9 @@ let clone ~__context ~vdi ~driver_params =
   Storage_access.transform_storage_exn
     (fun () ->
        try
-         let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+         let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
          snapshot_and_clone C.VDI.clone ~__context ~vdi ~driver_params
-       with Storage_interface.Unimplemented _ ->
+       with Storage_interface.Storage_error Unimplemented _ ->
          debug "Backend does not implement VDI clone: doing it ourselves";
          let a = Db.VDI.get_record_internal ~__context ~self:vdi in
          let newvdi = create ~__context
@@ -899,14 +896,13 @@ let set_on_boot ~__context ~self ~value =
   Sm.assert_pbd_is_plugged ~__context ~sr;
 
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
-  let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let vdi = Db.VDI.get_location ~__context ~self in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+  let vdi' = Db.VDI.get_location ~__context ~self |> Storage_interface.Vdi.of_string in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_persistent ~dbg:(Ref.string_of task) ~sr:sr' ~vdi ~persistent:(value = `persist);
+       C.VDI.set_persistent (Ref.string_of task) sr' vdi' (value = `persist);
     );
 
   Db.VDI.set_on_boot ~__context ~self ~value
@@ -919,26 +915,25 @@ let set_name_label ~__context ~self ~value =
   let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr = Db.VDI.get_SR ~__context ~self in
-  let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let vdi' = Db.VDI.get_location ~__context ~self in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+  let vdi' = Db.VDI.get_location ~__context ~self |> Storage_interface.Vdi.of_string in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_name_label ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_label:value
+       C.VDI.set_name_label (Ref.string_of task) sr' vdi' value
     );
   update ~__context ~vdi:self
 
 let set_name_description ~__context ~self ~value =
   let open Storage_access in
-  let open Storage_interface in
   let task = Context.get_task_id __context in
   let sr = Db.VDI.get_SR ~__context ~self in
-  let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let vdi' = Db.VDI.get_location ~__context ~self in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+  let vdi' = Db.VDI.get_location ~__context ~self |> Storage_interface.Vdi.of_string in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
-       C.VDI.set_name_description ~dbg:(Ref.string_of task) ~sr:sr' ~vdi:vdi' ~new_name_description:value
+       C.VDI.set_name_description (Ref.string_of task) sr' vdi' value
     );
   update ~__context ~vdi:self
 
@@ -978,13 +973,13 @@ let change_cbt_status ~__context ~self ~new_cbt_enabled ~caller_name =
   if Db.VDI.get_cbt_enabled ~__context ~self <> new_cbt_enabled then begin
     let task = Context.get_task_id __context in
     let sr = Db.VDI.get_SR ~__context ~self in
-    let sr = Db.SR.get_uuid ~__context ~self:sr in
-    let vdi = Db.VDI.get_location ~__context ~self in
-    let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+    let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+    let vdi' = Db.VDI.get_location ~__context ~self |> Storage_interface.Vdi.of_string in
+    let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
     let call_f = if new_cbt_enabled then C.VDI.enable_cbt else C.VDI.disable_cbt in
     Storage_access.transform_storage_exn
       (fun () ->
-         call_f ~dbg:(Ref.string_of task) ~sr ~vdi
+         call_f (Ref.string_of task) sr' vdi'
       );
     Db.VDI.set_cbt_enabled ~__context ~self ~value:new_cbt_enabled
   end else
@@ -1007,13 +1002,13 @@ let list_changed_blocks ~__context ~vdi_from ~vdi_to =
   let task = Context.get_task_id __context in
   (* We have to pass the SR of vdi_to to the SMAPIv2 call *)
   let sr = Db.VDI.get_SR ~__context ~self:vdi_to in
-  let sr = Db.SR.get_uuid ~__context ~self:sr in
-  let vdi_from = Db.VDI.get_location ~__context ~self:vdi_from in
-  let vdi_to = Db.VDI.get_location ~__context ~self:vdi_to in
-  let module C = Storage_interface.Client(struct let rpc = Storage_access.rpc end) in
+  let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
+  let vdi_from = Db.VDI.get_location ~__context ~self:vdi_from |> Storage_interface.Vdi.of_string in
+  let vdi_to = Db.VDI.get_location ~__context ~self:vdi_to |> Storage_interface.Vdi.of_string in
+  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
   Storage_access.transform_storage_exn
     (fun () ->
-       C.VDI.list_changed_blocks ~dbg:(Ref.string_of task) ~sr ~vdi_from ~vdi_to
+       C.VDI.list_changed_blocks (Ref.string_of task) sr' vdi_from vdi_to
     )
 
 let _get_nbd_info ~__context ~self ~get_server_certificate =
@@ -1032,11 +1027,11 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   in
 
   let nbd_networks = Db.Network.get_all ~__context |>
-  Valid_ref_list.filter (fun nwk ->
-    (* Despite the singular name, Db.get_purpose returns a list. *)
-    Db.Network.get_purpose ~__context ~self:nwk |>
-    List.exists (fun p -> p=`nbd || p=`insecure_nbd)
-  ) in
+                     Valid_ref_list.filter (fun nwk ->
+                         (* Despite the singular name, Db.get_purpose returns a list. *)
+                         Db.Network.get_purpose ~__context ~self:nwk |>
+                         List.exists (fun p -> p=`nbd || p=`insecure_nbd)
+                       ) in
 
   let get_ips host =
     let get_ips pif =
@@ -1052,7 +1047,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
                                     Eq (Field "currently_attached", Literal "true")))
     in
     let attached_nbd_pifs = attached_pifs |>
-    List.filter (fun pif -> List.mem (Db.PIF.get_network ~__context ~self:pif) nbd_networks) in
+                            List.filter (fun pif -> List.mem (Db.PIF.get_network ~__context ~self:pif) nbd_networks) in
     attached_nbd_pifs |> Valid_ref_list.flat_map get_ips
   in
 
@@ -1061,42 +1056,42 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let exportname = Printf.sprintf "/%s?session_id=%s" vdi_uuid session_id in
 
   hosts_with_attached_pbds |> Valid_ref_list.flat_map (fun host ->
-    let ips = get_ips host in
-    (* Check if empty: avoid inter-host calls and other work if so. *)
-    if ips = [] then [] else
-    let cert = get_server_certificate ~host in
-    let port = 10809L in
-    let rec seek = function
-      | [] -> (
-          error "Found no subject DNS names in this hosts's certificate. Returning empty string as subject.";
-          ""
-        )
-      | last :: [] -> last (* Better to return a possible wildcard than nothing *)
-      | name :: xs -> if (String.contains name '*') then seek xs else name
-    in
-    let subject = try
-      seek (Certificates.hostnames_of_pem_cert cert)
-    with e -> (
-      error "get_nbd_info: failed to read subject from TLS certificate! Falling back to Host.hostname. Exn was %s" (ExnHelper.string_of_exn e);
-      Db.Host.get_hostname ~__context ~self:host
+      let ips = get_ips host in
+      (* Check if empty: avoid inter-host calls and other work if so. *)
+      if ips = [] then [] else
+        let cert = get_server_certificate ~host in
+        let port = 10809L in
+        let rec seek = function
+          | [] -> (
+              error "Found no subject DNS names in this hosts's certificate. Returning empty string as subject.";
+              ""
+            )
+          | last :: [] -> last (* Better to return a possible wildcard than nothing *)
+          | name :: xs -> if (String.contains name '*') then seek xs else name
+        in
+        let subject = try
+            seek (Certificates.hostnames_of_pem_cert cert)
+          with e -> (
+              error "get_nbd_info: failed to read subject from TLS certificate! Falling back to Host.hostname. Exn was %s" (ExnHelper.string_of_exn e);
+              Db.Host.get_hostname ~__context ~self:host
+            )
+        in
+        let template = API.{
+            vdi_nbd_server_info_exportname = exportname;
+            vdi_nbd_server_info_address = "";
+            vdi_nbd_server_info_port = port;
+            vdi_nbd_server_info_cert = cert;
+            vdi_nbd_server_info_subject = subject;
+          } in
+        ips |> List.map
+          (fun addr -> API.{template with vdi_nbd_server_info_address = addr})
     )
-    in
-    let template = API.{
-      vdi_nbd_server_info_exportname = exportname;
-      vdi_nbd_server_info_address = "";
-      vdi_nbd_server_info_port = port;
-      vdi_nbd_server_info_cert = cert;
-      vdi_nbd_server_info_subject = subject;
-    } in
-    ips |> List.map
-     (fun addr -> API.{template with vdi_nbd_server_info_address = addr})
-  )
 
 let get_nbd_info ~__context ~self =
-    let get_server_certificate ~host = Helpers.call_api_functions
-        ~__context
-        (fun rpc session_id -> Client.Host.get_server_certificate ~rpc ~session_id ~host)
-    in
-    _get_nbd_info ~__context ~self ~get_server_certificate
+  let get_server_certificate ~host = Helpers.call_api_functions
+      ~__context
+      (fun rpc session_id -> Client.Host.get_server_certificate ~rpc ~session_id ~host)
+  in
+  _get_nbd_info ~__context ~self ~get_server_certificate
 
 (* let pool_migrate = "See Xapi_vm_migrate.vdi_pool_migrate!" *)
