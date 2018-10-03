@@ -269,10 +269,15 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
       | Ok x ->
         let check = Rpcmarshal.marshal typ x in
         if (to_string (sort_dicts check)) <> (to_string (sort_dicts rpc)) then begin
-          let err = Printf.sprintf "Round-trip failed. Before: '%s' After: '%s'"
-            (to_string rpc)
-            (to_string check) in
-          raise (MarshalError err)
+          match Rpcmarshal.unmarshal typ check with
+          | Ok y when y <> x ->
+            let err = Printf.sprintf "Round-trip failed (OCaml values different too). Before: '%s' After: '%s'"
+                (to_string rpc)
+                (to_string check) in
+            raise (MarshalError err)
+          | Ok _ -> ()
+          | Error (`Msg m) ->
+            raise (MarshalError m)
         end;
         x
       | Error (`Msg m) ->

@@ -335,7 +335,7 @@ module Task = struct
     subtasks: (string * state) list;
     debug_info: (string * string) list;
     backtrace: string;
-    cancellable: bool;
+    cancellable: bool [@default false];
   }  [@@deriving rpcty]
 end
 
