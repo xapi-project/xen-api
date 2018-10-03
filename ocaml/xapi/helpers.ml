@@ -80,14 +80,17 @@ let get_primary_ip_addr ~__context iface primary_address_type =
   else
     try
       let dbg = Context.string_of_task __context in
-      let addrs = match primary_address_type with
-        | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
-        | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
-      in
-      let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
-      (* Filter out link-local addresses *)
-      let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
-      Some (List.hd addrs)
+      if Net.Interface.exists dbg iface then
+        let addrs = match primary_address_type with
+          | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
+          | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
+        in
+        let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
+        (* Filter out link-local addresses *)
+        let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
+        Some (List.hd addrs)
+      else
+        None
     with _ -> None
 
 let get_management_ip_addr ~__context =
@@ -169,25 +172,28 @@ let update_pif_address ~__context ~self =
   let bridge = Db.Network.get_bridge ~__context ~self:network in
   let dbg = Context.string_of_task __context in
   try
-    begin
-      match Net.Interface.get_ipv4_addr dbg bridge with
-      | (addr, plen) :: _ ->
-        let ip = Unix.string_of_inet_addr addr in
-        let netmask = Network_interface.prefixlen_to_netmask plen in
-        if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-          debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
-          Db.PIF.set_IP ~__context ~self ~value:ip;
-          Db.PIF.set_netmask ~__context ~self ~value:netmask
-        end
-      | _ -> ()
-    end;
-    let ipv6_addr = Net.Interface.get_ipv6_addr dbg bridge in
-    let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
-    if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
-      debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
-        bridge (String.concat "; " ipv6_addr');
-      Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
-    end
+    if Net.Interface.exists dbg bridge then begin
+      begin
+        match Net.Interface.get_ipv4_addr dbg bridge with
+        | (addr, plen) :: _ ->
+          let ip = Unix.string_of_inet_addr addr in
+          let netmask = Network_interface.prefixlen_to_netmask plen in
+          if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
+            debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
+            Db.PIF.set_IP ~__context ~self ~value:ip;
+            Db.PIF.set_netmask ~__context ~self ~value:netmask
+          end
+        | _ -> ()
+      end;
+      let ipv6_addr = Net.Interface.get_ipv6_addr dbg bridge in
+      let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
+      if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
+        debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
+          bridge (String.concat "; " ipv6_addr');
+        Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
+      end
+    end else
+      debug "Bridge %s is not up; not updating IP" bridge
   with _ ->
     debug "Bridge %s is not up; not updating IP" bridge
 
@@ -203,20 +209,22 @@ let update_getty () =
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
-    match Net.Interface.get_ipv4_gateway dbg bridge with
-    | Some addr -> Db.PIF.set_gateway ~__context ~self:pif ~value:(Unix.string_of_inet_addr addr)
-    | None -> ()
+    if Net.Interface.exists dbg bridge then
+      match Net.Interface.get_ipv4_gateway dbg bridge with
+      | Some addr -> Db.PIF.set_gateway ~__context ~self:pif ~value:(Unix.string_of_inet_addr addr)
+      | None -> ()
   with _ ->
     warn "Unable to get the gateway of PIF %s (%s)" (Ref.string_of pif) bridge
 
 let set_DNS ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
-    match Net.Interface.get_dns dbg bridge with
-    | (nameservers, _) when nameservers != [] ->
-      let dns = String.concat "," (List.map (Unix.string_of_inet_addr) nameservers) in
-      Db.PIF.set_DNS ~__context ~self:pif ~value:dns;
-    | _ -> ()
+    if Net.Interface.exists dbg bridge then
+      match Net.Interface.get_dns dbg bridge with
+      | (nameservers, _) when nameservers != [] ->
+        let dns = String.concat "," (List.map (Unix.string_of_inet_addr) nameservers) in
+        Db.PIF.set_DNS ~__context ~self:pif ~value:dns;
+      | _ -> ()
   with _ ->
     warn "Unable to get the dns of PIF %s (%s)" (Ref.string_of pif) bridge
 
