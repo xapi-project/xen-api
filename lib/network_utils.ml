@@ -60,46 +60,50 @@ let igmp_query_maxresp_time = ref "5000"
 let enable_ipv6_mcast_snooping = ref false
 let mcast_snooping_disable_flood_unregistered = ref true
 
-let check_n_run run_func script args =
+let default_error_handler script args stdout stderr status =
+  let message =
+    match status with
+    | Unix.WEXITED n -> Printf.sprintf "Exit code %d" n
+    | Unix.WSIGNALED s -> Printf.sprintf "Signaled %d" s (* Note that this is the internal ocaml signal number, see Sys module *)
+    | Unix.WSTOPPED s -> Printf.sprintf "Stopped %d" s
+  in
+  error "Call '%s %s' exited badly: %s [stdout = '%s'; stderr = '%s']" script
+    (String.concat " " args) message stdout stderr;
+  raise (Network_error (Script_error ["script", script;
+                                      "args", String.concat " " args;
+                                      "code", message;
+                                      "stdout", stdout;
+                                      "stderr", stderr]))
+
+let check_n_run ?(on_error=default_error_handler) ?(log=true) run_func script args =
   try
     Unix.access script [ Unix.X_OK ];
     (* Use the same $PATH as xapi *)
     let env = [| "PATH=" ^ (Sys.getenv "PATH") |] in
-    info "%s %s" script (String.concat " " args);
+    if log then
+      info "%s %s" script (String.concat " " args);
     run_func env script args
   with
   | Unix.Unix_error (e, a, b) ->
     error "Caught unix error: %s [%s, %s]" (Unix.error_message e) a b;
     error "Assuming script %s doesn't exist" script;
     raise (Network_error (Script_missing script))
-  | Forkhelpers.Spawn_internal_error(stderr, stdout, e)->
-    let message =
-      match e with
-      | Unix.WEXITED n -> Printf.sprintf "Exit code %d" n
-      | Unix.WSIGNALED s -> Printf.sprintf "Signaled %d" s (* Note that this is the internal ocaml signal number, see Sys module *)
-      | Unix.WSTOPPED s -> Printf.sprintf "Stopped %d" s
-    in
-    error "Call '%s %s' exited badly: %s [stdout = '%s'; stderr = '%s']" script
-      (String.concat " " args) message stdout stderr;
-    raise (Network_error (Script_error ["script", script;
-                                        "args", String.concat " " args;
-                                        "code", message;
-                                        "stdout", stdout;
-                                        "stderr", stderr]))
+  | Forkhelpers.Spawn_internal_error(stderr, stdout, status)->
+    on_error script args stdout stderr status
 
-let call_script ?(log_successful_output=false) ?(timeout=Some 60.0) script args =
+let call_script ?(timeout=Some 60.0) ?on_error ?log script args =
   let call_script_internal env script args =
     let (out,err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
     out
   in
-  check_n_run call_script_internal script args
+  check_n_run ?on_error ?log call_script_internal script args
 
-let fork_script script args =
+let fork_script ?on_error ?log script args =
   let fork_script_internal env script args =
     let pid = Forkhelpers.safe_close_and_exec ~env None None None [] script args in
     Forkhelpers.dontwaitpid pid;
   in
-  check_n_run fork_script_internal script args
+  check_n_run ?on_error ?log fork_script_internal script args
 
 module Sysfs = struct
   let list () =
@@ -132,14 +136,15 @@ module Sysfs = struct
 
   let read_one_line file =
     try
-      let inchan = open_in file in
-      Pervasiveext.finally
-        (fun () -> input_line inchan)
-        (fun () -> close_in inchan)
+      Unixext.string_of_file file
+      |> String.split_on_char '\n'
+      |> List.hd
+      (* Note: the list returned by split_on_char is guaranteed to be non-empty *)
     with
     | End_of_file -> ""
-    (* Match the exception when the device state if off *)
-    | Sys_error("Invalid argument") -> raise (Network_error (Read_error file))
+    | Unix.Unix_error (Unix.EINVAL, _, _) ->
+      (* The device is not yet up *)
+      raise (Network_error (Read_error file))
     | exn ->
       error "Error in read one line of file: %s, exception %s\n%s"
         file (Printexc.to_string exn) (Printexc.get_backtrace ());
@@ -353,19 +358,17 @@ module Ip = struct
     | V6 -> ["-6"]
     | V46 -> []
 
-  let call ?(log=false) args =
-    call_script ~log_successful_output:log iproute2 args
+  let call ?log args =
+    call_script ?log iproute2 args
 
   let find output attr =
-    info "Looking for %s in [%s]" attr output;
     let args = Astring.String.fields ~empty:false output in
     let indices = (Xapi_stdext_std.Listext.List.position (fun s -> s = attr) args) in
-    info "Found at [ %s ]" (String.concat ", " (List.map string_of_int indices));
     List.map (fun i -> List.nth args (succ i)) indices
 
   let get_link_flags dev =
     Sysfs.assert_exists dev;
-    let output = call ["link"; "show"; "dev"; dev] in
+    let output = call ~log:false ["link"; "show"; "dev"; dev] in
     let i = String.index output '<' in
     let j = String.index output '>' in
     let flags = String.sub output (i + 1) (j - i - 1) in
@@ -378,7 +381,7 @@ module Ip = struct
 
   let link_set dev args =
     Sysfs.assert_exists dev;
-    ignore (call ~log:true ("link" :: "set" :: dev :: args))
+    ignore (call ("link" :: "set" :: dev :: args))
 
   let link_set_mtu dev mtu =
     try ignore (link_set dev ["mtu"; string_of_int mtu])
@@ -402,13 +405,13 @@ module Ip = struct
   let link ?(version=V46) dev attr =
     Sysfs.assert_exists dev;
     let v = string_of_version version in
-    let output = call (v @ ["link"; "show"; "dev"; dev]) in
+    let output = call ~log:false (v @ ["link"; "show"; "dev"; dev]) in
     find output attr
 
   let addr ?(version=V46) dev attr =
     Sysfs.assert_exists dev;
     let v = string_of_version version in
-    let output = call (v @ ["addr"; "show"; "dev"; dev]) in
+    let output = call ~log:false (v @ ["addr"; "show"; "dev"; dev]) in
     find output attr
 
   let get_mtu dev =
@@ -488,42 +491,42 @@ module Ip = struct
       else []
     in
     try
-      ignore (call ~log:true (["addr"; "add"; addr; "dev"; dev] @ broadcast))
+      ignore (call (["addr"; "add"; addr; "dev"; dev] @ broadcast))
     with _ -> ()
 
   let set_ipv6_link_local_addr dev =
     let addr = get_ipv6_link_local_addr dev in
     try
-      ignore (call ~log:true ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
+      ignore (call ["addr"; "add"; addr; "dev"; dev; "scope"; "link"])
     with _ -> ()
 
   let flush_ip_addr ?(ipv6=false) dev =
     try
       Sysfs.assert_exists dev;
       let mode = if ipv6 then "-6" else "-4" in
-      ignore (call ~log:true [mode; "addr"; "flush"; "dev"; dev])
+      ignore (call [mode; "addr"; "flush"; "dev"; dev])
     with _ -> ()
 
   let del_ip_addr dev (ip, prefixlen) = 
     let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
     try
       Sysfs.assert_exists dev;
-      ignore (call ~log:true ["addr"; "del"; addr; "dev"; dev])
+      ignore (call ["addr"; "del"; addr; "dev"; dev])
     with _ -> ()
 
   let route_show ?(version=V46) dev =
     let v = string_of_version version in
-    call (v @ ["route"; "show"; "dev"; dev])
+    call ~log:false (v @ ["route"; "show"; "dev"; dev])
 
   let set_route ?network dev gateway =
     try
       Sysfs.assert_exists dev;
       match network with
       | None ->
-        ignore (call ~log:true ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+        ignore (call ["route"; "replace"; "default"; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
       | Some (ip, prefixlen) ->
         let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
-        ignore (call ~log:true ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
+        ignore (call ["route"; "replace"; addr; "via"; Unix.string_of_inet_addr gateway; "dev"; dev])
     with _ -> ()
 
   let set_gateway dev gateway = set_route dev gateway
@@ -533,12 +536,12 @@ module Ip = struct
 
   let create_vlan interface vlan =
     if not (Sysfs.exists (vlan_name interface vlan)) then
-      ignore (call ~log:true ["link"; "add"; "link"; interface; "name"; vlan_name interface vlan;
+      ignore (call ["link"; "add"; "link"; interface; "name"; vlan_name interface vlan;
                               "type"; "vlan"; "id"; string_of_int vlan])
 
   let destroy_vlan name =
     if Sysfs.exists name then
-      ignore (call ~log:true ["link"; "delete"; name])
+      ignore (call ["link"; "delete"; name])
 
   let set_vf_mac dev index mac =
     try
@@ -778,17 +781,17 @@ module Dhclient = struct
            | _ -> l) [] options in
     write_conf_file ~ipv6 interface options;
     let ipv6' = if ipv6 then ["-6"] else [] in
-    call_script ~log_successful_output:true ~timeout:None dhclient (ipv6' @ gw_opt @ ["-q";
-                                                                                      "-pf"; pid_file ~ipv6 interface;
-                                                                                      "-lf"; lease_file ~ipv6 interface;
-                                                                                      "-cf"; conf_file ~ipv6 interface;
-                                                                                      interface])
+    call_script ~timeout:None dhclient (ipv6' @ gw_opt @ ["-q";
+                                                          "-pf"; pid_file ~ipv6 interface;
+                                                          "-lf"; lease_file ~ipv6 interface;
+                                                          "-cf"; conf_file ~ipv6 interface;
+                                                          interface])
 
   let stop ?(ipv6=false) interface =
     try
-      ignore (call_script ~log_successful_output:true dhclient ["-r";
-                                                                "-pf"; pid_file ~ipv6 interface;
-                                                                interface]);
+      ignore (call_script dhclient ["-r";
+                                    "-pf"; pid_file ~ipv6 interface;
+                                    interface]);
       Unix.unlink (pid_file ~ipv6 interface)
     with _ -> ()
 
@@ -815,12 +818,12 @@ module Dhclient = struct
 end
 
 module Fcoe = struct
-  let call ?(log=false) args =
-    call_script ~log_successful_output:log ~timeout:(Some 10.0) !fcoedriver args
+  let call ?log args =
+    call_script ?log ~timeout:(Some 10.0) !fcoedriver args
 
   let get_capabilities name =
     try
-      let output = call ["--xapi"; name; "capable"] in
+      let output = call ~log:false ["--xapi"; name; "capable"] in
       if Astring.String.is_infix ~affix:"True" output then ["fcoe"] else []
     with _ ->
       debug "Failed to get fcoe support status on device %s" name;
@@ -829,7 +832,7 @@ end
 
 module Sysctl = struct
   let write value variable =
-    ignore (call_script ~log_successful_output:true sysctl ["-q"; "-w"; variable ^ "=" ^ value])
+    ignore (call_script sysctl ["-q"; "-w"; variable ^ "=" ^ value])
 
   let set_ipv6_autoconf interface value =
     try
@@ -898,9 +901,38 @@ module Proc = struct
   let get_bond_links_up name =
     let statusses = get_bond_slave_info name "MII Status" in
     List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
+
+  let get_ipv6_disabled () =
+    try
+      Unixext.string_of_file "/proc/sys/net/ipv6/conf/all/disable_ipv6"
+      |> String.trim
+      |> (=) "1"
+    with _ -> false
 end
 
 module Ovs = struct
+  let match_multiple patterns s =
+    let rec loop = function
+    | [] -> None
+    | pattern :: rest ->
+      match Re.exec_opt pattern s with
+      | Some groups -> Some groups
+      | None -> loop rest
+    in
+    loop patterns
+
+  let patterns = List.map Re.Perl.compile_pat [
+    "no bridge named (.*)\n";
+    "no row \"(.*)\" in table Bridge"
+  ]
+
+  let error_handler script args stdout stderr exn =
+    match match_multiple patterns stderr with
+    | Some groups ->
+      let bridge = Re.Group.get groups 1 in
+      raise (Network_error (Bridge_does_not_exist bridge))
+    | None ->
+      default_error_handler script args stdout stderr exn
 
   module Cli : sig
     val vsctl : ?log:bool -> string list -> string
@@ -909,14 +941,14 @@ module Ovs = struct
   end = struct
     open Xapi_stdext_threads
     let s = Semaphore.create 5
-    let vsctl ?(log=false) args =
+    let vsctl ?log args =
       Semaphore.execute s (fun () ->
-          call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args)
+          call_script ~on_error:error_handler ?log ovs_vsctl ("--timeout=20" :: args)
         )
-    let ofctl ?(log=false) args =
-      call_script ~log_successful_output:log ovs_ofctl args
-    let appctl ?(log=false) args =
-      call_script ~log_successful_output:log ovs_appctl args
+    let ofctl ?log args =
+      call_script ~on_error:error_handler ?log ovs_ofctl args
+    let appctl ?log args =
+      call_script ~on_error:error_handler ?log ovs_appctl args
   end
 
   module type Cli_S = module type of Cli
@@ -932,7 +964,7 @@ module Ovs = struct
           let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
           let uuids = List.map (String.trim) raw_list in
           List.map (fun uuid ->
-              let raw = String.trim (vsctl ["get"; "interface"; uuid; "name"]) in
+              let raw = String.trim (vsctl ~log:false ["get"; "interface"; uuid; "name"]) in
               String.sub raw 1 (String.length raw - 2)) uuids
         else
           []
@@ -940,7 +972,7 @@ module Ovs = struct
 
     let bridge_to_ports name =
       try
-        let ports = String.trim (vsctl ["list-ports"; name]) in
+        let ports = String.trim (vsctl ~log:false ["list-ports"; name]) in
         let ports' =
           if ports <> "" then
             Astring.String.cuts ~empty:false ~sep:"\n" ports
@@ -952,7 +984,7 @@ module Ovs = struct
 
     let bridge_to_interfaces name =
       try
-        let ifaces = String.trim (vsctl ["list-ifaces"; name]) in
+        let ifaces = String.trim (vsctl ~log:false ["list-ifaces"; name]) in
         if ifaces <> "" then
           Astring.String.cuts ~empty:false ~sep:"\n" ifaces
         else
@@ -961,8 +993,8 @@ module Ovs = struct
 
     let bridge_to_vlan name =
       try
-        let parent = vsctl ["br-to-parent"; name] |> String.trim in
-        let vlan = vsctl ["br-to-vlan"; name] |> String.trim |> int_of_string in
+        let parent = vsctl ~log:false ["br-to-parent"; name] |> String.trim in
+        let vlan = vsctl ~log:false ["br-to-vlan"; name] |> String.trim |> int_of_string in
         Some (parent, vlan)
       with e ->
         debug "bridge_to_vlan: %s" (Printexc.to_string e);
@@ -975,7 +1007,7 @@ module Ovs = struct
 
     let get_bond_link_status name =
       try
-        let raw = appctl ["bond/show"; name] in
+        let raw = appctl ~log:false ["bond/show"; name] in
         let lines = Astring.String.cuts ~empty:false ~sep:"\n" raw in
         List.fold_left (fun (slaves, active_slave) line ->
             let slaves =
@@ -1001,7 +1033,7 @@ module Ovs = struct
 
     let get_bond_mode name =
       try
-        let output = String.trim (vsctl ["get"; "port"; name; "bond_mode"]) in
+        let output = String.trim (vsctl ~log:false ["get"; "port"; name; "bond_mode"]) in
         if output <> "[]" then Some output else None
       with _ ->
         None
@@ -1043,14 +1075,14 @@ module Ovs = struct
           in
           let setting = if do_workaround then "on" else "off" in
           (try
-             ignore (call_script ~log_successful_output:true ovs_vlan_bug_workaround [interface; setting]);
+             ignore (call_script ovs_vlan_bug_workaround [interface; setting]);
            with _ -> ());
         ) phy_interfaces
 
     let get_vlans name =
       try
         let vlans_with_uuid =
-          let raw = vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
+          let raw = vsctl ~log:false ["--bare"; "-f"; "table"; "--"; "--columns=name,_uuid"; "find"; "port"; "fake_bridge=true"] in
           if raw <> "" then
             let lines = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) in
             List.map (fun line -> Scanf.sscanf line "%s %s" (fun a b-> a, b)) lines
@@ -1058,7 +1090,7 @@ module Ovs = struct
             []
         in
         let bridge_ports =
-          let raw = vsctl ["get"; "bridge"; name; "ports"] in
+          let raw = vsctl ~log:false ["get"; "bridge"; name; "ports"] in
           let raw = String.trim raw in
           if raw <> "[]" then
             let raw_list = (Astring.String.cuts ~empty:false ~sep:"," (String.sub raw 1 (String.length raw - 2))) in
@@ -1080,7 +1112,7 @@ module Ovs = struct
 
     let get_mcast_snooping_enable ~name =
       try
-        vsctl ~log:true ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
+        vsctl ~log:false ["--"; "get"; "bridge"; name; "mcast_snooping_enable"]
         |> String.trim
         |> bool_of_string
       with _ -> false
@@ -1157,14 +1189,14 @@ module Ovs = struct
           ["--"; "set"; "bridge"; name; "other_config:mcast-snooping-disable-flood-unregistered=" ^ (string_of_bool !mcast_snooping_disable_flood_unregistered)]
         | _ -> []
       in
-      vsctl ~log:true (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
+      vsctl (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
                        vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping @ set_ipv6_igmp_snooping @ disable_flood_unregistered)
 
     let destroy_bridge name =
-      vsctl ~log:true ["--"; "--if-exists"; "del-br"; name]
+      vsctl ["--"; "--if-exists"; "del-br"; name]
 
     let list_bridges () =
-      let bridges = String.trim (vsctl ["list-br"]) in
+      let bridges = String.trim (vsctl ~log:false ["list-br"]) in
       if bridges <> "" then
         Astring.String.cuts ~empty:false ~sep:"\n" bridges
       else
@@ -1173,13 +1205,13 @@ module Ovs = struct
     let create_port ?(internal=false) name bridge =
       let type_args =
         if internal then ["--"; "set"; "interface"; name; "type=internal"] else [] in
-      vsctl ~log:true (["--"; "--may-exist"; "add-port"; bridge; name] @ type_args)
+      vsctl (["--"; "--may-exist"; "add-port"; bridge; name] @ type_args)
 
     let destroy_port name =
-      vsctl ~log:true ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
+      vsctl ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
 
     let port_to_bridge name =
-      vsctl ~log:true ["port-to-br"; name]
+      vsctl ~log:false ["port-to-br"; name]
 
     let make_bond_properties name properties =
       let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay";
@@ -1255,11 +1287,11 @@ module Ovs = struct
                   ["--"; "set"; "interface"; iface ] @ per_iface_args)
                interfaces)
       in
-      vsctl ~log:true (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
+      vsctl (["--"; "--may-exist"; "add-bond"; bridge; name] @ interfaces @
                        mac_args @ args @ per_iface_args)
 
     let get_fail_mode bridge =
-      vsctl ["get-fail-mode"; bridge]
+      vsctl ~log:false ["get-fail-mode"; bridge]
 
     let add_default_flows bridge mac interfaces =
       let ports = List.map (fun interface -> vsctl ["get"; "interface"; interface; "ofport"]) interfaces in
@@ -1277,58 +1309,58 @@ module Ovs = struct
                Printf.sprintf "idle_timeout=0,priority=0,in_port=%s,dl_dst=%s,actions=local" port mac]
             ) ports)
       in
-      List.iter (fun flow -> ignore (ofctl ~log:true ["add-flow"; bridge; flow])) flows
+      List.iter (fun flow -> ignore (ofctl ["add-flow"; bridge; flow])) flows
 
     let mod_port bridge port action =
-      ofctl ~log:true ["mod-port"; bridge; port; action] |> ignore
+      ofctl ["mod-port"; bridge; port; action] |> ignore
 
     let set_mtu interface mtu =
-      vsctl ~log:true ["set"; "interface"; interface; Printf.sprintf "mtu_request=%d" mtu]
+      vsctl ["set"; "interface"; interface; Printf.sprintf "mtu_request=%d" mtu]
 
   end
   include Make(Cli)
 end
 
 module Brctl = struct
-  let call ?(log=false) args =
-    call_script ~log_successful_output:log !brctl args
+  let call args =
+    call_script !brctl args
 
   let create_bridge name =
     if not (List.mem name (Sysfs.list ())) then
-      ignore (call ~log:true ["addbr"; name])
+      ignore (call ["addbr"; name])
 
   let destroy_bridge name =
     if List.mem name (Sysfs.list ()) then
-      ignore (call ~log:true ["delbr"; name])
+      ignore (call ["delbr"; name])
 
   let create_port bridge name =
     if not (List.mem name (Sysfs.bridge_to_interfaces bridge)) then
-      ignore (call ~log:true ["addif"; bridge; name])
+      ignore (call ["addif"; bridge; name])
 
   let destroy_port bridge name =
     if List.mem name (Sysfs.bridge_to_interfaces bridge) then
-      ignore (call ~log:true ["delif"; bridge; name])
+      ignore (call ["delif"; bridge; name])
 
   let set_forwarding_delay bridge time =
-    ignore (call ~log:true ["setfd"; bridge; string_of_int time])
+    ignore (call ["setfd"; bridge; string_of_int time])
 end
 
 module Ethtool = struct
-  let call ?(log=false) args =
-    call_script ~log_successful_output:log !ethtool args
+  let call args =
+    call_script !ethtool args
 
   let set_options name options =
     if options <> [] then
-      ignore (call ~log:true ("-s" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+      ignore (call ("-s" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
 
   let set_offload name options =
     if options <> [] then
-      ignore (call ~log:true ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
+      ignore (call ("-K" :: name :: (List.concat (List.map (fun (k, v) -> [k; v]) options))))
 end
 
 module Dracut = struct
-  let call ?(log=false) args =
-    call_script ~timeout:(Some !dracut_timeout) ~log_successful_output:log !dracut args
+  let call args =
+    call_script ~timeout:(Some !dracut_timeout) !dracut args
 
   let rebuild_initrd () =
     try
@@ -1340,8 +1372,8 @@ module Dracut = struct
 end
 
 module Modinfo = struct
-  let call ?(log=false) args =
-    call_script ~log_successful_output:log !modinfo args
+  let call args =
+    call_script !modinfo args
 
   let is_param_array driver param_name =
     try

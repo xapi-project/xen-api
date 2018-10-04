@@ -323,6 +323,9 @@ module Interface = struct
 
   let set_ipv6_conf _ dbg ~name ~conf =
     Debug.with_thread_associated dbg (fun () ->
+      if Proc.get_ipv6_disabled () then
+        warn "Not configuring IPv6 address for %s (IPv6 is disabled)" name
+      else begin
         debug "Configuring IPv6 address for %s: %s" name (conf |> Rpcmarshal.marshal typ_of_ipv6 |> Jsonrpc.to_string);
         update_config name {(get_config name) with ipv6_conf = conf};
         match conf with
@@ -371,6 +374,7 @@ module Interface = struct
           let add_addrs = Xapi_stdext_std.Listext.List.set_difference addrs cur_addrs in
           List.iter (Ip.del_ip_addr name) rm_addrs;
           List.iter (Ip.set_ip_addr name) add_addrs
+      end
       ) ()
 
   let get_ipv6_gateway _ dbg ~name =
@@ -385,6 +389,9 @@ module Interface = struct
 
   let set_ipv6_gateway _ dbg ~name ~address =
     Debug.with_thread_associated dbg (fun () ->
+      if Proc.get_ipv6_disabled () then
+        warn "Not configuring IPv6 gateway for %s (IPv6 is disabled)" name
+      else begin
         debug "Configuring IPv6 gateway for %s: %s" name (Unix.string_of_inet_addr address);
         update_config name {(get_config name) with ipv6_gateway = Some address};
         if !config.gateway_interface = None || !config.gateway_interface = Some name then begin
@@ -392,6 +399,7 @@ module Interface = struct
           Ip.set_gateway name address
         end else
           debug "%s is NOT the default gateway interface" name
+      end
       ) ()
 
   let set_ipv4_routes _ dbg ~name ~routes =
