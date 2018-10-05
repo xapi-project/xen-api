@@ -81,7 +81,7 @@ module VBD = struct
         (fun () -> Vbd_store.remove vbd_uuid)
 
     let cleanup () =
-    Local_xapi_session.with_session @@ fun rpc session_id ->
+      Local_xapi_session.with_session @@ fun rpc session_id ->
       Lwt_log.notice_f "Checking if there are any VBDs to clean up that leaked during the previous run" >>= fun () ->
       Vbd_store.get_all () >>= fun vbd_uuids ->
       Lwt_list.iter_s
