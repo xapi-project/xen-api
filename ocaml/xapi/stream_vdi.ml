@@ -100,6 +100,52 @@ let write_block ~__context filename buffer ofd len =
     then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
     else raise e
 
+type descriptor = {
+  length : int64;
+  status_flags : int32;
+}
+
+
+let cycle_descriptors descriptor_list offset =
+  let round_up a b =
+    if a mod b == 0
+        then (a / b)
+        else (a / b) + 1
+  in
+  let rec range a b =
+    if a > b then []
+    else a :: range (a + 1) b
+  in
+  let not_empty status_flag =
+    match (Int32.to_int status_flag) with
+      | 3 -> true
+      | _ -> false
+  in
+  let find_blocks descriptor offset increment =
+    (* List of chunks to be copied *)
+    (* Assume existence of "not_empty" function for status flags *)
+    match (not_empty descriptor.status_flags) with
+        | true -> begin
+            (* Rounds down *)
+            let start_chunk = offset / increment in
+            let num_chunks = round_up (Int64.to_int descriptor.length) increment in
+            let chunks = range start_chunk (start_chunk + num_chunks) in
+            chunks, descriptor.length
+            end
+        | _ -> [], descriptor.length
+  in
+  let rec loop descriptor_list offset chunks =
+      if (List.length descriptor_list) == 1 then begin
+          let new_chunks, add_offset = find_blocks (List.hd descriptor_list) offset 1024 in
+          (chunks@new_chunks), (Int64.add add_offset (Int64.of_int offset))
+      end
+      else begin
+          let new_chunks, add_offset = loop [List.hd descriptor_list] offset chunks in
+          let rec_chunks, rec_offset = loop (List.tl descriptor_list) (Int64.to_int add_offset) new_chunks in
+          rec_chunks, rec_offset
+      end in
+  let chunks, offset = loop descriptor_list offset [] in
+  chunks, offset
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
     association list mapping tar filename -> string (containing the SHA1 checksums) *)
