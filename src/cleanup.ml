@@ -70,6 +70,7 @@ module VBD = struct
           (fun () -> a)
           b
           (fun e ->
+             Local_xapi_session.with_session @@ fun rpc session_id ->
              Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd >>= fun () ->
              Lwt.fail e)
       in
@@ -116,10 +117,12 @@ module VBD = struct
                    (fun () -> f vbd)
                    (fun () ->
                       Lwt_log.notice_f "Unplugging VBD %s" (API.Ref.string_of vbd) >>= fun () ->
+                      Local_xapi_session.with_session @@ fun rpc session_id ->
                       Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd)
               )
               (fun () ->
                  Lwt_log.notice_f "Destroying VBD %s" (API.Ref.string_of vbd) >>= fun () ->
+                 Local_xapi_session.with_session @@ fun rpc session_id ->
                  Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd
               )
           )
