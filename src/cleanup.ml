@@ -21,7 +21,8 @@ let ignore_exn_log_error msg t = Lwt.catch t (fun e -> Lwt_log.error (msg ^ ": "
 module VBD = struct
   module StringSet = Set.Make(String)
 
-  let cleanup_vbd rpc session_id vbd =
+  let cleanup_vbd vbd =
+    Local_xapi_session.with_session @@ fun rpc session_id ->
     Xen_api.VBD.unplug ~rpc ~session_id ~self:vbd >>= fun () ->
     Xen_api.VBD.destroy ~rpc ~session_id ~self:vbd
 
@@ -43,13 +44,13 @@ module VBD = struct
        remove the VBDs that we clean up from the persistent VBD list. However,
        this does not cause a problem, because we ignore exceptions that happen
        during the cleanups. *)
-    let cleanup rpc session_id =
+    let cleanup () =
       Lwt_log.notice_f "Checking if there are any VBDs to clean up that leaked during runtime" >>= fun () ->
       StringSet.elements !vbds_to_clean_up
       |> Lwt_list.iter_s (fun vbd ->
           ignore_exn_log_error (Printf.sprintf "Caught exception while cleaning up VBD with ref %s" vbd) (fun () ->
               Lwt_log.warning_f "Cleaning up VBD with ref %s" vbd >>= fun () ->
-              cleanup_vbd rpc session_id (API.Ref.of_string vbd))
+              cleanup_vbd (API.Ref.of_string vbd))
         )
   end
 
@@ -78,7 +79,8 @@ module VBD = struct
         f
         (fun () -> Vbd_store.remove vbd_uuid)
 
-    let cleanup rpc session_id =
+    let cleanup () =
+    Local_xapi_session.with_session @@ fun rpc session_id ->
       Lwt_log.notice_f "Checking if there are any VBDs to clean up that leaked during the previous run" >>= fun () ->
       Vbd_store.get_all () >>= fun vbd_uuids ->
       Lwt_list.iter_s
@@ -88,7 +90,7 @@ module VBD = struct
                Lwt.catch
                  (fun () ->
                     Xen_api.VBD.get_by_uuid ~rpc ~session_id ~uuid >>= fun vbd ->
-                    cleanup_vbd rpc session_id vbd)
+                    cleanup_vbd vbd)
                  (function
                    | Api_errors.Server_error (e, _) when e = Api_errors.uuid_invalid ->
                      (* This VBD has already been cleaned up, maybe by the signal handler *)
@@ -178,7 +180,7 @@ module Runtime = struct
           Block.Runtime.cleanup ())
       >>= fun () ->
       ignore_exn_log_error "Caught exception while cleaning up VBDs" (fun () ->
-          Local_xapi_session.with_session VBD.Runtime.cleanup
+          VBD.Runtime.cleanup ()
         )
     in
 
@@ -193,6 +195,5 @@ module Runtime = struct
 end
 
 module Persistent = struct
-  let cleanup () =
-    Local_xapi_session.with_session VBD.Persistent.cleanup
+  let cleanup () = VBD.Persistent.cleanup ()
 end
