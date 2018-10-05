@@ -17,7 +17,8 @@ open OUnit
 open Test_highlevel
 
 let firmware_type_printer v =
-  v |> Xenops_types.Vm.rpc_of_firmware_type |> Jsonrpc.to_string
+  v |> Rpcmarshal.marshal Xenops_types.Vm.typ_of_firmware_type
+  |> Jsonrpc.to_string
 
 let uefi = Xenops_types.Vm.Uefi Xenops_types.Nvram_uefi_variables.default_t
 
