@@ -6,4 +6,5 @@
 set -e
 
 mkdir -p /etc/stunnel
-find /etc/stunnel/certs -name '*.pem' | xargs cat > /etc/stunnel/xapi-stunnel-ca-bundle.pem
+find /etc/stunnel/certs -name '*.pem' | xargs cat > /etc/stunnel/xapi-stunnel-ca-bundle.pem.tmp
+mv /etc/stunnel/xapi-stunnel-ca-bundle.pem.tmp /etc/stunnel/xapi-stunnel-ca-bundle.pem
