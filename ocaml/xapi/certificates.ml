@@ -28,8 +28,10 @@ let c_rehash = "/usr/bin/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
 let pem_certificate_footer = "-----END CERTIFICATE-----"
 
+let certificate_path = "/etc/stunnel/certs"
+
 let library_path is_cert =
-  if is_cert then Stunnel.certificate_path else Stunnel.crl_path
+  if is_cert then certificate_path else Stunnel.crl_path
 
 let library_filename is_cert name =
   Filename.concat (library_path is_cert) name
@@ -44,6 +46,8 @@ let rehash () =
   mkdir_cert_path false;
   rehash' (library_path true);
   rehash' (library_path false)
+
+let update_ca_bundle () = ignore (execute_command_get_output "/opt/xensource/bin/update-ca-bundle.sh" [])
 
 let get_type is_cert =
   if is_cert then "certificate" else "CRL"
@@ -130,7 +134,7 @@ let host_install is_cert ~name ~cert =
     mkdir_cert_path is_cert;
     write_string_to_file filename cert;
     Unix.chmod filename (cert_perms is_cert);
-    rehash()
+    update_ca_bundle ()
   with
   | e ->
     warn "Exception installing %s %s: %s" (get_type is_cert) name
@@ -146,7 +150,7 @@ let host_uninstall is_cert ~name =
   debug "Uninstalling %s %s" (get_type is_cert) name;
   try
     Sys.remove filename;
-    rehash()
+    update_ca_bundle ()
   with
   | e ->
     warn "Exception uninstalling %s %s: %s" (get_type is_cert) name
