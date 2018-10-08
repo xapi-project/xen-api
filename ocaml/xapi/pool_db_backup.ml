@@ -250,7 +250,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
 (* Master sync thread *)
 let pool_db_backup_thread () = Debug.with_thread_named "pool_db_backup_thread" (fun () ->
     Server_helpers.exec_with_new_task "Pool DB sync" (fun __context ->
-        while (true) do
+        while (not !Xapi_globs.slave_dbs) do
           try
             begin
               let hosts = Db.Host.get_all ~__context in

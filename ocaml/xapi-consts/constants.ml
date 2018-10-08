@@ -63,6 +63,7 @@ let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
 let get_pool_update_download_uri = "/update/"         (* ocaml/xapi/xapi_pool_update.ml *)
 
+let database_backup_uri = "/database_backup"
 let use_compression = "use_compression"
 
 (* If VM.HVM_boot_policy is set to this then we boot using qemu-dm *)

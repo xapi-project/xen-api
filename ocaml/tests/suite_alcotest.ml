@@ -50,6 +50,8 @@ let () =
     ; "Test_vm_placement", Test_vm_placement.test
     ; "Test_vm_memory_constraints", Test_vm_memory_constraints.test
     ; "Test_xapi_xenops", Test_xapi_xenops.test
+    ; "Test_db_backup", Test_db_backup.test
+    ; "Test_with_wakeup", Test_with_wakeup.test
     ; "Test_network_event_loop", Test_network_event_loop.test
     ]
 

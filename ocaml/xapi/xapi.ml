@@ -94,7 +94,6 @@ let start_database_engine () =
 
   Db_ref.update_database t (Database.register_callback "redo_log" Redo_log.database_callback);
   Db_ref.update_database t (Database.register_callback "events" Eventgen.database_callback);
-
   debug "Performing initial DB GC";
   Db_gc.single_pass ();
 
@@ -637,6 +636,7 @@ let common_http_handlers = [
   ("post_json_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("post_jsonrpc_options", (Http_svr.BufIO (Api_server.options_callback)));
   ("get_pool_update_download", (Http_svr.FdIO Xapi_pool_update.pool_update_download_handler));
+  ("database_backup", (Http_svr.FdIO Xapi_database_backup.handler));
 ]
 
 let listen_unix_socket sock_path =
@@ -889,6 +889,7 @@ let server_init() =
 
     Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context ->
         Startup.run ~__context [
+          "Slave database backup", [ Startup.OnlySlave; Startup.OnThread; ], (Xapi_database_backup.slave_db_backup_loop ~__context);
           "Checking emergency network reset", [], check_network_reset;
           "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
           "Reconfig (from DB) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_db ~__context;
@@ -934,7 +935,6 @@ let server_init() =
           "Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
           "Stats reporting thread", [], Xapi_stats.start;
         ];
-
         if !debug_dummy_data then (
           Startup.run ~__context [ "populating db with dummy data", [ Startup.OnlyMaster; Startup.NoExnRaising ],
                                    (fun () -> Debug_populate.do_populate ~vms:1000 ~vdis_per_vm:3 ~networks:10 ~srs:10 ~tasks:1000) ]
@@ -967,7 +967,6 @@ let server_init() =
             end
           | None -> ()
         in
-
         Startup.run ~__context [
           "fetching database backup", [ Startup.OnlySlave; Startup.NoExnRaising ],
           (fun () -> Pool_db_backup.fetch_database_backup ~master_address:(Pool_role.get_master_address())

@@ -22,6 +22,12 @@ val unregister: __context:Context.t -> classes:string list -> unit
 val next: __context:Context.t -> Rpc.t
 (** Blocking call which returns the next set of events relevant to this session. *)
 
+val with_wakeup : Context.t -> string -> ((unit -> unit) -> string list -> API.ref_task -> 'a) -> 'a
+(** Allow us to make a function call that creates a task, so we can grab control back by killing the task *)
+
+val with_safe_missing_handling : (unit -> 'a) -> 'a
+(* Allow us to make a safer db call with a retry if we hit Db Not Found*)
+
 val from: __context:Context.t -> classes:string list -> token:string -> timeout:float -> Rpc.t
 (** Blocking call which returns the next set of events from a given set of
     classes/objects, or the empty list if the timeout is exceeded *)

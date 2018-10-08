@@ -35,7 +35,7 @@ module Value = struct
     | String of string
     | Set of string list
     | Pairs of (string * string) list
-  [@@deriving sexp]
+  [@@deriving sexp, rpc]
 
   let marshal = function
     | String x -> x

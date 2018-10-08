@@ -16,7 +16,6 @@ module D=Debug.Make(struct let name="network_event_loop" end)
 open D
 
 let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_event_seconds ~wait_after_failure_seconds =
-
   (* We keep track of the network objects in the database using this event loop. *)
   let classes = ["network"] in
   (* We keep track of the interfaces that we last passed to the firewall script
@@ -26,13 +25,10 @@ let _watch_networks_for_nbd_changes __context ~update_firewall ~wait_after_event
 
   let api_timeout = 60. in
   let timeout = 30. +. api_timeout +. !Db_globs.master_connection_reset_timeout in
-
   let wait_for_network_change ~token =
     let from =
-      Helpers.call_api_functions ~__context
-        (fun rpc session_id ->
-           Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc)
-    in
+        Event_types.parse_event_from (Xapi_slave_db.call_with_updated_context __context
+                                        (Xapi_event.with_safe_missing_handling (fun () -> (Xapi_event.from ~classes ~token ~timeout)))) in
     from.Event_types.token
   in
 

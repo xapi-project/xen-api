@@ -698,10 +698,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         let unfinished = List.exists (fun state -> state = `pending) statuses in
         if unfinished
         then begin
-          let from = Helpers.call_api_functions ~__context
-              (fun rpc session_id -> Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0) in
           debug "Using events to wait for tasks: %s" (String.concat "," classes);
-          let from = Event_types.event_from_of_rpc from in
+          let from = Event_types.parse_event_from
+              (Xapi_slave_db.call_with_updated_context __context
+                 (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token ~timeout:30.0))) in
           process from.Event_types.token
         end else
           ()

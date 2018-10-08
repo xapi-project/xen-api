@@ -97,6 +97,9 @@ module Table : sig
   (** [fold_over_deleted now f t initial] folds [f key stat acc] over the keys
       which have been recently deleted. Note this is not guaranteed to remember
       all events, so the list may be short. *)
+
+  val get_deleted : t -> (Time.t * Time.t * string) list
+  val get_deleted_len : t -> int
 end
 
 module TableSet : MAP with type value = Table.t

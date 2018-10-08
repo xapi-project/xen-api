@@ -5735,6 +5735,7 @@ let http_actions = [
   ("post_jsonrpc", (Post, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
   ("post_jsonrpc_options", (Options, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
   ("get_pool_update_download", (Get, Constants.get_pool_update_download_uri, false, [], _R_READ_ONLY, []));
+  ("database_backup", (Get, Constants.database_backup_uri, false, [], _R_POOL_ADMIN, []))
 ]
 
 (* these public http actions will NOT be checked by RBAC *)

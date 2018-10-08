@@ -467,7 +467,8 @@ let from_inner __context session subs from from_t deadline =
     with_call session subs
       (fun sub ->
          let rec grab_nonempty_range () =
-           let (msg_gen, messages, tableset, (creates,mods,deletes,last)) as result = Db_lock.with_lock (fun () -> grab_range (Db_backend.make ())) in
+           let (msg_gen, messages, tableset, (creates,mods,deletes,last)) as result = Db_lock.with_lock (fun () ->
+               grab_range (Context.database_of __context)) in
            if creates = [] && mods = [] && deletes = [] && messages = [] && Unix.gettimeofday () < deadline then begin
              last_generation := last; (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
              sub.cur_id <- last; (* last id the client got is equivalent to the current one *)
@@ -525,7 +526,7 @@ let from_inner __context session subs from from_t deadline =
   }
 
 let from ~__context ~classes ~token ~timeout =
-  let session = Context.get_session_id __context in
+  let session = if Context.has_session_id __context then Context.get_session_id __context else (Ref.make ()) in
   let from, from_t =
     try
       Token.of_string token
@@ -544,7 +545,7 @@ let from ~__context ~classes ~token ~timeout =
   let rec loop () =
     let event_from = from_inner __context session subs from from_t deadline in
     if event_from.events = [] && (Unix.gettimeofday () < deadline) then begin
-      debug "suppressing empty event.from";
+      (*debug "suppressing empty event.from";*)
       loop ()
     end else begin
       rpc_of_event_from event_from
@@ -569,6 +570,35 @@ let inject ~__context ~_class ~_ref =
 
 (* Internal interface ****************************************************)
 
+let with_wakeup __context loc f =
+  debug "Creating wakeup for %s" loc;
+  let label = "TaskForEvents " ^ loc in
+  let _t =
+    let subtask_of = Context.get_task_id __context in
+    Context.make ~task_description:"Task for event from loop" ~subtask_of ~task_in_database:true label
+    |> Context.get_task_id
+  in
+  let class_str = ("task/" ^ (Ref.string_of _t)) in
+  let wakeup_classes = [class_str] in
+  let wakeup_function = (fun () ->
+      try
+        Db.Task.destroy ~__context ~self:_t
+      with Db_exn.DBCache_NotFound _ -> debug "Event thread has already woken up"
+    ) in
+  let return = f wakeup_function wakeup_classes _t in
+  wakeup_function ();
+  return
+let dbm = Mutex.create ()
+let db_init_condition = Condition.create ()
+
+let with_safe_missing_handling f =
+  try
+    f ()
+  with Db_exn.DBCache_NotFound _ ->
+    debug "The database probably hasn't been initialised yet, wait for an event and then retry";
+    Condition.wait db_init_condition dbm;
+    f ()
+
 let event_add ?snapshot ty op reference  =
   let objs = List.filter (fun x->x.Datamodel_types.gen_events) (Dm_api.objects_of_api Datamodel.all_api) in
   let objs = List.map (fun x->x.Datamodel_types.name) objs in
@@ -579,7 +609,8 @@ let event_add ?snapshot ty op reference  =
     let ev = { id = Int64.to_string !Next.id; ts; ty = String.lowercase_ascii ty; op; reference; snapshot } in
     From.add ev;
     Next.add ev
-  end
+  end;
+  Condition.broadcast db_init_condition
 
 let register_hooks () = Db_action_helper.events_register event_add
 

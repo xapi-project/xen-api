@@ -59,6 +59,8 @@ val from_forwarded_task :
     context, it fails with [Failure "Could not find a session_id"]. *)
 val get_session_id : t -> API.ref_session
 
+val update_session_id : API.ref_session option -> t -> t
+val has_session_id : t -> bool
 (** [get_task_id __context] returns the task id stored in [__context]. Such a task can be either a task stored in
     database or a tempory task (also called dummy). *)
 val get_task_id : t -> API.ref_task
@@ -76,6 +78,9 @@ val get_origin : t -> string
 
 (** [database_of __context] returns a database handle, which can be used by Db.* *)
 val database_of : t -> Db_ref.t
+
+(** [update_database __context database] returns a context, with a newly updated Db_ref **)
+val update_database : t -> Db_ref.t -> t
 
 (** {6 Destructors} *)
 

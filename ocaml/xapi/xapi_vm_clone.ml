@@ -33,7 +33,6 @@ let delete_disks rpc session_id disks =
 
 let wait_for_subtask ?progress_minmax ~__context task =
   Helpers.call_api_functions ~__context (fun rpc session ->
-      let refresh_session = Xapi_session.consider_touching_session rpc session in
       let main_task = Context.get_task_id __context in
 
       let cancel_task () =
@@ -78,12 +77,13 @@ let wait_for_subtask ?progress_minmax ~__context task =
 
       (* Watch for events relating to the VDI copy sub-task and the over-arching task *)
       while not !finished do
-        let events = Client.Event.from rpc session
-            [Printf.sprintf "task/%s" (Ref.string_of task);
-             Printf.sprintf "task/%s" (Ref.string_of main_task)]
-            !token 30. |> Event_types.event_from_of_rpc in
+        let classes = [Printf.sprintf "task/%s" (Ref.string_of task);
+                       Printf.sprintf "task/%s" (Ref.string_of main_task);
+                       Printf.sprintf "session/%s" (Ref.string_of session)] in
+        let events = Xapi_slave_db.call_with_updated_context __context (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token:!token ~timeout:30.))
+                     |> Event_types.parse_event_from in
         token := events.token;
-        refresh_session ();
+        Xapi_session.consider_touching_session rpc session ();
         let checkevent ev =
           match Event_helper.record_of_event ev with
           | Event_helper.Task (r, Some x) ->
