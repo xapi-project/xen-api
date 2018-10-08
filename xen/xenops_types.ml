@@ -37,6 +37,24 @@ module Vgpu = struct
 
 end
 
+module Nvram_uefi_variables = struct
+  type onboot =
+    | Persist
+    | Reset
+    [@@deriving rpcty, sexp]
+
+  type t = {
+    on_boot: onboot [@default Persist];
+    backend: string [@default "xapidb"];
+  } [@@deriving rpcty, sexp]
+
+  let default_t =
+    match Rpcmarshal.unmarshal t.Rpc.Types.ty Rpc.(Dict []) with
+    | Ok x -> x
+    | Error (`Msg m) ->
+      failwith (Printf.sprintf "Error creating Nvram_uefi_variables.default_t: %s" m)
+end
+
 module Vm = struct
   type igd_passthrough =
     | GVT_d
@@ -49,6 +67,13 @@ module Vm = struct
     | IGD_passthrough of igd_passthrough
   [@@default Cirrus]
   [@@deriving rpcty, sexp]
+
+  type firmware_type =
+    | Bios
+    | Uefi of Nvram_uefi_variables.t
+  [@@deriving rpcty, sexp]
+
+  let default_firmware = Bios [@@deriving rpcty]
 
   type hvm_info = {
     hap: bool [@default true];
@@ -65,6 +90,7 @@ module Vm = struct
     boot_order: string [@default ""]; 
     qemu_disk_cmdline: bool [@default false];
     qemu_stubdom: bool [@default false];
+    firmware: firmware_type [@default default_firmware];
   }
   [@@deriving rpcty, sexp]
 
