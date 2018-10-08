@@ -25,7 +25,7 @@ exception Stunnel_binary_missing
 exception Stunnel_error of string
 exception Stunnel_verify_error of string
 
-let certificate_path = "/etc/stunnel/certs"
+let certificates_bundle_path = "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
 let crl_path = "/etc/stunnel/crls"
 let verify_certificates_ctrl = "/var/xapi/verify_certificates"
 
@@ -134,10 +134,15 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
          }
 
 let config_file verify_cert extended_diagnosis host port legacy =
-
   let good_ciphers () = match !good_ciphersuites with
     | None -> raise (Stunnel_error "good_ciphersuites is unset in the OCaml Stunnel module.")
     | Some s -> s
+  in
+  let is_fips =
+    Inventory.inventory_filename := "/etc/xensource-inventory";
+    try
+      bool_of_string (Inventory.lookup ~default:"false" "CC_PREPARATIONS")
+    with _ -> false
   in
   String.concat "\n" @@ List.concat
   [ [ "client=yes"
@@ -149,12 +154,12 @@ let config_file verify_cert extended_diagnosis host port legacy =
       None -> "" |
       Some x -> Printf.sprintf "TIMEOUTidle = %d" x)
     ; Printf.sprintf "connect=%s:%d" host port
-    ; "fips = no"; (* stunnel fips-mode stops us using sslVersion other than TLSv1 which means 1.0 only. *)
     ]
+  ; if is_fips then [] else ["fips=no"]
   ; if extended_diagnosis then ["debug=4"] else []
   ; if verify_cert then
       ["verify=2"
-      ; sprintf "CApath=%s" certificate_path
+      ; sprintf "CAfile=%s" certificates_bundle_path
       ; sprintf "CRLpath=%s" crl_path
       ]
     else []

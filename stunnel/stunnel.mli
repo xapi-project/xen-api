@@ -16,7 +16,6 @@ exception Stunnel_binary_missing
 exception Stunnel_error of string
 exception Stunnel_verify_error of string
 
-val certificate_path : string
 val crl_path : string
 
 val timeoutidle : int option ref
