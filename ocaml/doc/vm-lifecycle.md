@@ -44,3 +44,7 @@ When using HVM booting, `HVM_boot_policy` and `HVM_boot_params` specify the boot
 handling.  Only one policy is currently defined, "BIOS order".  In this case,
 `HVM_boot_params` should contain one key-value pair "order" = "N" where N is the
 string that will be passed to QEMU.
+Optionally `HVM_boot_params` can contain another key-value pair "firmware"
+with values "bios" or "uefi" (default is "bios" if absent).
+By default Secure Boot is not enabled, it can be enabled when "uefi" is enabled by setting
+`VM.platform["secureboot"]` to true.

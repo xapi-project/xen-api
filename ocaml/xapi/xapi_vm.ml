@@ -483,6 +483,7 @@ let create ~__context ~name_label ~name_description
     ~hardware_platform_version
     ~has_vendor_device ~reference_label
     ~domain_type
+    ~nVRAM
   : API.ref_VM =
 
   if has_vendor_device then
@@ -545,6 +546,7 @@ let create ~__context ~name_label ~name_description
     ~hVM_boot_policy ~hVM_boot_params ~hVM_shadow_multiplier
     ~suspend_VDI:Ref.null
     ~platform
+    ~nVRAM
     ~pV_kernel ~pV_ramdisk ~pV_args ~pV_bootloader ~pV_bootloader_args
     ~pV_legacy_args
     ~pCI_bus ~other_config ~domid:(-1L) ~domarch:""
@@ -737,6 +739,15 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu =
 
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
   raise (Api_errors.Server_error (Api_errors.not_implemented, [ "add_to_VCPUs_params_live" ]))
+
+let set_NVRAM ~__context ~self ~value =
+  Db.VM.set_NVRAM ~__context ~self ~value
+
+let remove_from_NVRAM ~__context ~self ~key =
+  Db.VM.remove_from_NVRAM ~__context ~self ~key
+
+let add_to_NVRAM ~__context ~self ~key ~value =
+  Db.VM.add_to_NVRAM ~__context ~self ~key ~value
 
 (* Use set_memory_dynamic_range instead *)
 let set_memory_target_live ~__context ~self ~target = ()
@@ -1259,3 +1270,13 @@ let set_domain_type ~__context ~self ~value =
 let set_HVM_boot_policy ~__context ~self ~value =
   Db.VM.set_domain_type ~__context ~self ~value:(derive_domain_type ~hVM_boot_policy:value);
   Db.VM.set_HVM_boot_policy ~__context ~self ~value
+
+let nvram = Mutex.create ()
+let set_NVRAM_EFI_variables ~__context ~self ~value =
+  Mutex.execute nvram (fun () ->
+    (* do not use remove_from_NVRAM: we do not want to
+    * temporarily end up with an empty NVRAM in HA *)
+    let key = "EFI-variables" in
+    let nvram = Db.VM.get_NVRAM ~__context ~self in
+    let value = (key, value) :: List.remove_assoc key nvram in
+    Db.VM.set_NVRAM ~__context ~self ~value)

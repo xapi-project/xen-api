@@ -887,6 +887,31 @@ let power_behaviour =
       ~allowed_roles:_R_VM_ADMIN
       ()
 
+  let remove_from_NVRAM = call ~flags:[`Session]
+      ~name:"remove_from_NVRAM"
+      ~lifecycle:[Prototyped, rel_naples, ""]
+      ~params:[Ref _vm, "self", "The VM";
+               String, "key", "The key"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let add_to_NVRAM = call ~flags:[`Session]
+      ~name:"add_to_NVRAM"
+      ~lifecycle:[Prototyped, rel_naples, ""]
+      ~params:[Ref _vm, "self", "The VM";
+               String, "key", "The key";
+               String, "value", "The value"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
+  let set_NVRAM = call ~flags:[`Session]
+      ~name:"set_NVRAM"
+      ~lifecycle:[Prototyped, rel_naples, ""]
+      ~params:[Ref _vm, "self", "The VM";
+               Map(String, String), "value", "The value"]
+      ~allowed_roles:_R_VM_ADMIN
+      ()
+
   let send_sysrq = call
       ~name:"send_sysrq"
       ~in_product_since:rel_rio
@@ -1164,6 +1189,7 @@ let power_behaviour =
               "changing_shadow_memory_live", "Changing the shadow memory for a running VM.";
               "changing_VCPUs", "Changing VCPU settings for a halted VM.";
               "changing_VCPUs_live", "Changing VCPU settings for a running VM.";
+              "changing_NVRAM", "Changing NVRAM for a halted VM.";
               "assert_operation_valid", "";
               "data_source_op", "Add, remove, query or list data sources";
               "update_allowed_operations", "";
@@ -1223,6 +1249,15 @@ let set_HVM_boot_policy = call ~flags:[`Session]
   ~allowed_roles:_R_VM_ADMIN
   ()
 
+let set_NVRAM_EFI_variables = call ~flags:[`Session]
+  ~name:"set_NVRAM_EFI_variables"
+  ~lifecycle:[Prototyped, rel_naples, ""]
+  ~params:[Ref _vm, "self", "The VM";
+           String, "value", "The value"]
+  ~hide_from_docs:true
+  ~allowed_roles:_R_LOCAL_ROOT_ONLY
+  ()
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1243,6 +1278,9 @@ let set_HVM_boot_policy = call ~flags:[`Session]
                   pool_migrate; pool_migrate_complete;
                   set_vcpus_number_live;
                   add_to_VCPUs_params_live;
+                  set_NVRAM;
+                  add_to_NVRAM;
+                  remove_from_NVRAM;
                   set_ha_restart_priority;  (* updates the allowed-operations of the VM *)
                   set_ha_always_run;        (* updates the allowed-operations of the VM *)
                   compute_memory_overhead;
@@ -1301,6 +1339,7 @@ let set_HVM_boot_policy = call ~flags:[`Session]
                   set_actions_after_crash;
                   set_domain_type;
                   set_HVM_boot_policy;
+                  set_NVRAM_EFI_variables;
                 ]
       ~contents:
         ([ uid _vm;
@@ -1400,6 +1439,10 @@ let set_HVM_boot_policy = call ~flags:[`Session]
                Published, rel_kolkata, "The field is now valid"
              ]
            ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
+
+           field ~lifecycle:[Prototyped, rel_naples, ""] ~qualifier:StaticRO ~ty:(Map(String, String)) "NVRAM"
+             ~default_value:(Some (VMap []))
+             "initial value for guest NVRAM (containing UEFI variables, etc). Cannot be changed while the VM is running";
          ])
       ()
 

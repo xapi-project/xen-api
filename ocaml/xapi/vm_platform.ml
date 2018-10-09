@@ -114,7 +114,7 @@ let is_valid_device_model ~key ~platformdata =
   with Not_found ->
     false
 
-let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~domain_type ~filter_out_unknowns =
+let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type ~filter_out_unknowns =
   (* Filter out unknown flags, if applicable *)
   let platformdata =
     if filter_out_unknowns
@@ -133,6 +133,14 @@ let sanity_check ~platformdata ~vcpu_max ~vcpu_at_startup ~domain_type ~filter_o
     | `hvm | `pv_in_pvh -> true
     | `pv -> false
   in
+  begin match List.assoc device_model platformdata, firmware with
+  | "qemu-trad", Some Xenops_types.Vm.Uefi _ ->
+    raise (Api_errors.Server_error(Api_errors.invalid_value,
+                                   ["platform:device-model";
+                                    "UEFI boot is not supported with qemu-trad"]));
+  | exception Not_found -> ()
+  | _ -> ()
+  end;
   if check_cores_per_socket && (List.mem_assoc "cores-per-socket" platformdata) then
     begin
       try

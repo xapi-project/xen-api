@@ -142,7 +142,8 @@ val create :
   hardware_platform_version:int64 ->
   has_vendor_device:bool ->
   reference_label:string ->
-  domain_type:API.domain_type
+  domain_type:API.domain_type ->
+  nVRAM:(string * string) list
   -> API.ref_VM
 val destroy : __context:Context.t -> self:[ `VM ] Ref.t -> unit
 val clone :
@@ -166,6 +167,12 @@ val set_VCPUs_number_live :
   __context:Context.t -> self:API.ref_VM -> nvcpu:int64 -> unit
 val add_to_VCPUs_params_live :
   __context:'a -> self:API.ref_VM -> key:'b -> value:'c -> 'd
+val set_NVRAM :
+  __context:Context.t -> self:API.ref_VM -> value:(string*string) list -> unit
+val remove_from_NVRAM :
+  __context:Context.t -> self:API.ref_VM -> key:string -> unit
+val add_to_NVRAM :
+  __context:Context.t -> self:API.ref_VM -> key:string -> value:string -> unit
 val set_memory_dynamic_range :
   __context:Context.t ->
   self:API.ref_VM -> min:Int64.t -> max:Int64.t -> unit
@@ -250,3 +257,5 @@ val assert_can_set_has_vendor_device : __context:Context.t -> self:API.ref_VM ->
 val import : __context:Context.t -> url:string -> sr:API.ref_SR -> full_restore:bool -> force:bool -> API.ref_VM list
 val set_domain_type : __context:Context.t -> self:API.ref_VM -> value:API.domain_type -> unit
 val set_HVM_boot_policy : __context:Context.t -> self:API.ref_VM -> value:string -> unit
+val set_NVRAM_EFI_variables :
+  __context:Context.t -> self:API.ref_VM -> value:string -> unit
