@@ -146,7 +146,7 @@ let cycle_descriptors descriptor_list offset =
     end
   in
   let chunks, offset = process [] offset descriptor_list  in
-  chunks, offset
+  List.map (fun a -> a * Int64.to_int chunk_size) chunks, offset
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
     association list mapping tar filename -> string (containing the SHA1 checksums) *)
