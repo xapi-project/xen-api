@@ -141,12 +141,13 @@ module Sriov = struct
     if is_support then ["sriov"] else []
 
   let config_sriov ~enable dev  =
+    let op = if enable then "enable" else "disable" in
     let open Rresult.R.Infix in
     Sysfs.get_driver_name_err dev >>= fun driver ->
     let config = Modprobe.get_config_from_comments driver in
     match Modprobe.get_vf_param config with
     | Some vf_param ->
-      debug "enable SR-IOV on a device: %s via modprobe" dev;
+      debug "%s SR-IOV on a device: %s via modprobe" op dev;
       (if enable then Modprobe.get_maxvfs driver config else Ok 0) >>= fun numvfs ->
       (* CA-287340: Even if the current numvfs equals to the target numvfs,
          			it is still needed to update SR-IOV modprobe config file, as the
@@ -158,7 +159,7 @@ module Sriov = struct
       else
         Ok Modprobe_successful_requires_reboot
     | None ->
-      debug "enable SR-IOV on a device: %s via sysfs" dev;
+      debug "%s SR-IOV on a device: %s via sysfs" op dev;
       begin
         if enable then Sysfs.get_sriov_maxvfs dev
         else Sysfs.unbind_child_vfs dev >>= fun () -> Ok 0
