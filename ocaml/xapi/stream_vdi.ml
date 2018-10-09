@@ -141,13 +141,11 @@ let cycle_descriptors descriptor_list offset =
   let rec process acc offset = function
     | [] -> acc, offset
     | x::xs -> begin
-        (* Insert proper increment here *)
-        let increment = 5 in
-        let chunks, add_offset = find_blocks x offset increment in
+        let chunks, add_offset = find_blocks x offset (Int64.to_int chunk_size) in
         process (add_unique_chunks acc chunks) (offset + (Int64.to_int add_offset)) xs
     end
   in
-  let chunks, offset = process [] 0 descriptor_list  in
+  let chunks, offset = process [] offset descriptor_list  in
   chunks, offset
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
