@@ -134,7 +134,7 @@ let cycle_descriptors descriptor_list offset =
   in
 
   let rec add_unique_chunks acc = function
-    | [] -> List.rev acc
+    | [] -> acc
     | x::xs -> add_unique_chunks (check_exists x acc) xs
   in
 
