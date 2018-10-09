@@ -111,6 +111,7 @@ let cycle_descriptors descriptor_list offset =
     if a > b then []
     else a :: range (a + 1) b
   in
+  (* Insert proper not_empty function here *)
   let not_empty status_flag =
     match (Int32.to_int status_flag) with
       | 3 -> true
@@ -120,7 +121,8 @@ let cycle_descriptors descriptor_list offset =
     match (not_empty descriptor.status_flags) with
         | true -> begin
             let start_chunk = offset / increment in
-            let end_chunk = (Int64.to_int descriptor.length + offset) / increment in
+            (* If the chunk ends at the boundary don't include the next chunk *)
+            let end_chunk = (Int64.to_int descriptor.length + offset - 1) / increment in
             let chunks = range start_chunk end_chunk in
             chunks, descriptor.length
             end
