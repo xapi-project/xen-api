@@ -328,8 +328,6 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
         (* Call networkd even if currently_attached is false, just to update its state *)
         debug "Making sure that PIF %s is up" rc.API.pIF_uuid;
 
-        let old_ip = try Net.Interface.get_ipv4_addr dbg bridge with _ -> [] in
-
         (* If the PIF is a bond master, the bond slaves will now go down *)
         (* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
         begin match rc.API.pIF_bond_master_of with
@@ -420,8 +418,12 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
             Net.Interface.make_config dbg false interface_config
           );
 
-        let new_ip = try Net.Interface.get_ipv4_addr dbg bridge with _ -> [] in
-        if new_ip <> old_ip then begin
+        let new_ip =
+          match Net.Interface.get_ipv4_addr dbg bridge with
+          | (ip, _) :: _ -> Unix.string_of_inet_addr ip
+          | [] -> ""
+        in
+        if new_ip <> rc.API.pIF_IP then begin
           warn "An IP address of dom0 was changed";
           warn "About to kill idle client stunnels";
           (* The master_connection would otherwise try to take a broken stunnel from the cache *)

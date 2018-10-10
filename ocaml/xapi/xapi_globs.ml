@@ -120,6 +120,10 @@ let default_platform_version = "0.0.0"
    and Miami GA (2) [inline checksums, no end-of-tar checksum table] *)
 let export_vsn = 2
 
+(** When exporting a VDI in TAR format, the VDI's data will be stored under
+    this directory in the archive. *)
+let vdi_tar_export_dir = "vdi"
+
 let software_version () =
   (* In the case of XCP, all product_* fields will be blank. *)
   List.filter (fun (_, value) -> value <> "")

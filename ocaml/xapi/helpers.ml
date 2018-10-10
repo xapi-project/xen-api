@@ -38,6 +38,32 @@ module StringSet = Set.Make(String)
 
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
+let call_script ?(log_successful_output=true) ?env script args =
+  try
+    Unix.access script [ Unix.X_OK ];
+    (* Use the same $PATH as xapi *)
+    let env = match env with
+      | None -> [| "PATH=" ^ (Sys.getenv "PATH") |]
+      | Some env -> env
+    in
+    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
+    if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
+    output
+  with
+  | Unix.Unix_error _ as e ->
+    debug "Assuming script %s doesn't exist: caught %s" script (ExnHelper.string_of_exn e);
+    raise e
+  | Forkhelpers.Spawn_internal_error(stderr, stdout, status) as e ->
+    let message =
+      match status with
+      | Unix.WEXITED n -> Printf.sprintf "exited with code %d" n
+      | Unix.WSIGNALED n -> Printf.sprintf "was killed by signal %d" n
+      | Unix.WSTOPPED n -> Printf.sprintf "was stopped by signal %d" n
+    in
+    debug "%s %s %s [stdout = '%s'; stderr = '%s']" script (String.concat " " args)
+      message stdout stderr;
+    raise e
+
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
@@ -80,14 +106,17 @@ let get_primary_ip_addr ~__context iface primary_address_type =
   else
     try
       let dbg = Context.string_of_task __context in
-      let addrs = match primary_address_type with
-        | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
-        | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
-      in
-      let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
-      (* Filter out link-local addresses *)
-      let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
-      Some (List.hd addrs)
+      if Net.Interface.exists dbg iface then
+        let addrs = match primary_address_type with
+          | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
+          | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
+        in
+        let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
+        (* Filter out link-local addresses *)
+        let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
+        Some (List.hd addrs)
+      else
+        None
     with _ -> None
 
 let get_management_ip_addr ~__context =
@@ -169,54 +198,59 @@ let update_pif_address ~__context ~self =
   let bridge = Db.Network.get_bridge ~__context ~self:network in
   let dbg = Context.string_of_task __context in
   try
-    begin
-      match Net.Interface.get_ipv4_addr dbg bridge with
-      | (addr, plen) :: _ ->
-        let ip = Unix.string_of_inet_addr addr in
-        let netmask = Network_interface.prefixlen_to_netmask plen in
-        if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
-          debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
-          Db.PIF.set_IP ~__context ~self ~value:ip;
-          Db.PIF.set_netmask ~__context ~self ~value:netmask
-        end
-      | _ -> ()
-    end;
-    let ipv6_addr = Net.Interface.get_ipv6_addr dbg bridge in
-    let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
-    if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
-      debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
-        bridge (String.concat "; " ipv6_addr');
-      Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
-    end
+    if Net.Interface.exists dbg bridge then begin
+      begin
+        match Net.Interface.get_ipv4_addr dbg bridge with
+        | (addr, plen) :: _ ->
+          let ip = Unix.string_of_inet_addr addr in
+          let netmask = Network_interface.prefixlen_to_netmask plen in
+          if ip <> Db.PIF.get_IP ~__context ~self || netmask <> Db.PIF.get_netmask ~__context ~self then begin
+            debug "PIF %s bridge %s IP address changed: %s/%s" (Db.PIF.get_uuid ~__context ~self) bridge ip netmask;
+            Db.PIF.set_IP ~__context ~self ~value:ip;
+            Db.PIF.set_netmask ~__context ~self ~value:netmask
+          end
+        | _ -> ()
+      end;
+      let ipv6_addr = Net.Interface.get_ipv6_addr dbg bridge in
+      let ipv6_addr' = List.map (fun (addr, plen) -> Printf.sprintf "%s/%d" (Unix.string_of_inet_addr addr) plen) ipv6_addr in
+      if ipv6_addr' <> Db.PIF.get_IPv6 ~__context ~self then begin
+        debug "PIF %s bridge %s IPv6 address changed: %s" (Db.PIF.get_uuid ~__context ~self)
+          bridge (String.concat "; " ipv6_addr');
+        Db.PIF.set_IPv6 ~__context ~self ~value:ipv6_addr'
+      end
+    end else
+      debug "Bridge %s is not up; not updating IP" bridge
   with _ ->
     debug "Bridge %s is not up; not updating IP" bridge
 
 let update_getty () =
   (* Running update-issue service on best effort basis *)
   try
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.update_issue_script []);
-    ignore (Forkhelpers.execute_command_get_output !Xapi_globs.kill_process_script ["-q"; "-HUP"; "mingetty"; "agetty"])
+    ignore (call_script ~log_successful_output:false !Xapi_globs.update_issue_script []);
+    ignore (call_script ~log_successful_output:false !Xapi_globs.kill_process_script
+      ["-q"; "-HUP"; "-r"; ".*getty"])
   with e ->
-    debug "update_getty at %s caught exception: %s"
-      __LOC__ (Printexc.to_string e)
+    warn "Unable to update getty at %s" __LOC__
 
 let set_gateway ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
-    match Net.Interface.get_ipv4_gateway dbg bridge with
-    | Some addr -> Db.PIF.set_gateway ~__context ~self:pif ~value:(Unix.string_of_inet_addr addr)
-    | None -> ()
+    if Net.Interface.exists dbg bridge then
+      match Net.Interface.get_ipv4_gateway dbg bridge with
+      | Some addr -> Db.PIF.set_gateway ~__context ~self:pif ~value:(Unix.string_of_inet_addr addr)
+      | None -> ()
   with _ ->
     warn "Unable to get the gateway of PIF %s (%s)" (Ref.string_of pif) bridge
 
 let set_DNS ~__context ~pif ~bridge =
   let dbg = Context.string_of_task __context in
   try
-    match Net.Interface.get_dns dbg bridge with
-    | (nameservers, _) when nameservers != [] ->
-      let dns = String.concat "," (List.map (Unix.string_of_inet_addr) nameservers) in
-      Db.PIF.set_DNS ~__context ~self:pif ~value:dns;
-    | _ -> ()
+    if Net.Interface.exists dbg bridge then
+      match Net.Interface.get_dns dbg bridge with
+      | (nameservers, _) when nameservers != [] ->
+        let dns = String.concat "," (List.map (Unix.string_of_inet_addr) nameservers) in
+        Db.PIF.set_DNS ~__context ~self:pif ~value:dns;
+      | _ -> ()
   with _ ->
     warn "Unable to get the dns of PIF %s (%s)" (Ref.string_of pif) bridge
 
@@ -876,25 +910,6 @@ let on_oem ~__context =
   is_oem ~__context ~host:this_host
 
 exception File_doesnt_exist of string
-
-let call_script ?(log_successful_output=true) ?env script args =
-  try
-    Unix.access script [ Unix.X_OK ];
-    (* Use the same $PATH as xapi *)
-    let env = match env with
-      | None -> [| "PATH=" ^ (Sys.getenv "PATH") |]
-      | Some env -> env
-    in
-    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
-    if log_successful_output then debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args) output;
-    output
-  with
-  | Unix.Unix_error _ as e ->
-    debug "Assuming script %s doesn't exist: caught %s" script (ExnHelper.string_of_exn e);
-    raise e
-  | Forkhelpers.Spawn_internal_error(stderr, stdout, Unix.WEXITED n) as e->
-    debug "%s %s exited with code %d [stdout = '%s'; stderr = '%s']" script (String.concat " " args) n stdout stderr;
-    raise e
 
 (* Repeatedly bisect a range to find the maximum value for which the monotonic function returns true *)
 let rec bisect f lower upper =

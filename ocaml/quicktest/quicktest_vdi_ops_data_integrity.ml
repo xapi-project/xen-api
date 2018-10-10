@@ -94,6 +94,7 @@ let export_import_vdi rpc session_id ~exportformat sR vdi =
 
 let export_import_raw = export_import_vdi ~exportformat:"raw"
 let export_import_vhd = export_import_vdi ~exportformat:"vhd"
+let export_import_tar = export_import_vdi ~exportformat:"tar"
 
 let f test_case =
   let open Qt_filter in
@@ -117,4 +118,5 @@ let tests () =
   (data_integrity_tests copy_vdi "VDI.copy") @
   (large_data_integrity_tests copy_vdi "VDI.copy") @
   (data_integrity_tests export_import_raw "VDI export/import to/from raw file") @
-  (data_integrity_tests export_import_vhd "VDI export/import to/from VHD file")
+  (data_integrity_tests export_import_vhd "VDI export/import to/from VHD file") @
+  (data_integrity_tests export_import_tar "VDI export/import to/from TAR file")
