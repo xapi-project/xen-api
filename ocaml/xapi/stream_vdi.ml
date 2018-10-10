@@ -100,37 +100,48 @@ let write_block ~__context filename buffer ofd len =
     then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
     else raise e
 
-(* Example = [{"length": 2097152, "flags": 0}, {"length": 1902848, "flags": 3}]*)
 type descriptor = {
   length : int64;
   status_flags : int32;
 }
 
+let flag_hole = 1l
+let flag_zero = 2l
+
 let cycle_descriptors descriptor_list offset =
-  let rec range a b =
-    if a > b then []
-    else a :: range (a + 1) b
+  let rec range acc a b =
+    if a > b then acc
+    else range (a::acc) (Int64.add a 1L) b
   in
-  (* Insert proper not_empty function here *)
-  let not_empty status_flag =
-    match (Int32.to_int status_flag) with
-      | 3 -> true
-      | _ -> false
+
+  let is_empty e =
+    let has_flag flag =
+      Int32.logand e.status_flags flag = flag
+    in
+    (* We assume the destination is prezeroed, so we do not have to copy zeroed extents *)
+    (has_flag flag_hole) || (has_flag flag_zero)
   in
+
   let find_blocks descriptor offset increment =
-    match (not_empty descriptor.status_flags) with
-        | true -> begin
-            let start_chunk = offset / increment in
-            (* If the chunk ends at the boundary don't include the next chunk *)
-            let end_chunk = (Int64.to_int descriptor.length + offset - 1) / increment in
-            let chunks = range start_chunk end_chunk in
-            chunks, descriptor.length
-            end
-        | false -> [], descriptor.length
+    match (is_empty descriptor) with
+      | false -> begin
+        let start_chunk = Int64.div offset increment in
+        (* If the chunk ends at the boundary don't include the next chunk *)
+        let end_chunk = Int64.div (Int64.add (Int64.add descriptor.length  offset) Int64.minus_one ) increment in
+        let chunks = range [] start_chunk end_chunk in
+        chunks, descriptor.length
+        end
+      | true -> [], descriptor.length
   in
+  (* Only compare to most recent chunk added*)
   let check_exists a b =
-    if List.exists ((=)a) b = false then b@[a]
-       else b
+    match b with
+    | [] -> a::b
+    | _ -> begin
+      let b_rev = List.rev b in
+      if Int64.equal a (List.hd b_rev) then b
+      else List.rev (a::b_rev)
+      end
   in
 
   let rec add_unique_chunks acc = function
@@ -141,12 +152,13 @@ let cycle_descriptors descriptor_list offset =
   let rec process acc offset = function
     | [] -> acc, offset
     | x::xs -> begin
-        let chunks, add_offset = find_blocks x offset (Int64.to_int chunk_size) in
-        process (add_unique_chunks acc chunks) (offset + (Int64.to_int add_offset)) xs
-    end
+      let chunks, add_offset = find_blocks x offset chunk_size in
+      process (add_unique_chunks acc (List.rev chunks)) (Int64.add offset add_offset) xs
+      end
   in
-  let chunks, offset = process [] offset descriptor_list  in
-  List.map (fun a -> a * Int64.to_int chunk_size) chunks, offset
+
+  let chunks, _ = process [] offset descriptor_list  in
+  chunks
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
     association list mapping tar filename -> string (containing the SHA1 checksums) *)
