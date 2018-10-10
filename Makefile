@@ -43,6 +43,7 @@ install:
 	install -D ./scripts/setup-pvs-proxy-rules $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	install -D ./scripts/common.py $(DESTDIR)/$(LIBEXECDIR)/common.py
 	install -D ./scripts/igmp_query_injector.py $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py
+	install -D ./scripts/send_message.py $(DESTDIR)/$(LIBEXECDIR)/send_message.py
 	install -D ./scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
@@ -66,6 +67,7 @@ uninstall:
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/setup-pvs-proxy-rules
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/common.py*
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/igmp_query_injector.py*
+	rm -f $(DESTDIR)/$(LIBEXECDIR)/send_message.py*
 	rm -f $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
 
 .DEFAULT_GOAL := release
