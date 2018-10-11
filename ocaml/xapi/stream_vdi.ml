@@ -100,6 +100,64 @@ let write_block ~__context filename buffer ofd len =
     then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
     else raise e
 
+type descriptor = {
+  length : int64;
+  status_flags : int32;
+}
+
+(* Flags for extents returned for the base:allocation NBD metadata context, documented at https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md *)
+let flag_hole = 1l
+let flag_zero = 2l
+
+(** [descriptor_list] should be an list of non-overlapping extents, ordered from lowest offset to highest. *)
+let cycle_descriptors descriptor_list offset =
+  (* Output range includes start and end points *)
+  let rec range acc start_chunk end_chunk =
+    if end_chunk < start_chunk then acc
+    else range (end_chunk::acc) start_chunk Int64.(add end_chunk minus_one)
+  in
+
+  let is_empty e =
+    let has_flag flag =
+      Int32.logand e.status_flags flag = flag
+    in
+    (* We assume the destination is prezeroed, so we do not have to copy zeroed extents *)
+    (has_flag flag_hole) || (has_flag flag_zero)
+  in
+
+  let find_blocks descriptor offset increment =
+    match (is_empty descriptor) with
+      | false -> begin
+        let start_chunk = Int64.div offset increment in
+        (* If the chunk ends at the boundary don't include the next chunk *)
+        let end_chunk = let open Int64 in div (add (add descriptor.length offset) minus_one) increment in
+        let chunks = range [] start_chunk end_chunk in
+        chunks, descriptor.length
+        end
+      | true -> [], descriptor.length
+  in
+  (* Only compare to most recent chunk added*)
+  let add_new a b =
+    match b with
+    | hd :: _ when Int64.equal a hd -> b
+    | _ -> a::b
+  in
+
+  let rec add_unique_chunks acc = function
+    | [] -> List.rev acc
+    | x::xs -> add_unique_chunks (add_new x acc) xs
+  in
+
+  let rec process acc offset = function
+    | [] -> acc, offset
+    | x::xs -> begin
+      let chunks, add_offset = find_blocks x offset chunk_size in
+      process (add_unique_chunks (List.rev acc) chunks) (Int64.add offset add_offset) xs
+      end
+  in
+
+  let chunks, _ = process [] offset descriptor_list  in
+  chunks
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
     association list mapping tar filename -> string (containing the SHA1 checksums) *)
