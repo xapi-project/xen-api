@@ -134,7 +134,7 @@ let cycle_descriptors descriptor_list offset =
       | true -> [], descriptor.length
   in
   (* Only compare to most recent chunk added*)
-  let check_exists a b =
+  let add_new a b =
     match b with
     | [] -> a::b
     | _ -> begin
@@ -145,7 +145,7 @@ let cycle_descriptors descriptor_list offset =
 
   let rec add_unique_chunks acc = function
     | [] -> List.rev acc
-    | x::xs -> add_unique_chunks (check_exists x acc) xs
+    | x::xs -> add_unique_chunks (add_new x acc) xs
   in
 
   let rec process acc offset = function
