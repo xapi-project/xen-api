@@ -110,8 +110,8 @@ let flag_zero = 2l
 
 let cycle_descriptors descriptor_list offset =
   let rec range acc a b =
-    if a > b then acc
-    else range (a::acc) (Int64.add a 1L) b
+    if a < b then acc
+    else range (a::acc) (Int64.add a Int64.minus_one) b
   in
 
   let is_empty e =
@@ -128,7 +128,7 @@ let cycle_descriptors descriptor_list offset =
         let start_chunk = Int64.div offset increment in
         (* If the chunk ends at the boundary don't include the next chunk *)
         let end_chunk = Int64.div (Int64.add (Int64.add descriptor.length  offset) Int64.minus_one ) increment in
-        let chunks = range [] start_chunk end_chunk in
+        let chunks = range [] end_chunk start_chunk in
         chunks, descriptor.length
         end
       | true -> [], descriptor.length
@@ -138,14 +138,13 @@ let cycle_descriptors descriptor_list offset =
     match b with
     | [] -> a::b
     | _ -> begin
-      let b_rev = List.rev b in
-      if Int64.equal a (List.hd b_rev) then b
-      else List.rev (a::b_rev)
+      if Int64.equal a (List.hd b) then b
+      else a::b
       end
   in
 
   let rec add_unique_chunks acc = function
-    | [] -> acc
+    | [] -> List.rev acc
     | x::xs -> add_unique_chunks (check_exists x acc) xs
   in
 
@@ -153,7 +152,7 @@ let cycle_descriptors descriptor_list offset =
     | [] -> acc, offset
     | x::xs -> begin
       let chunks, add_offset = find_blocks x offset chunk_size in
-      process (add_unique_chunks acc (List.rev chunks)) (Int64.add offset add_offset) xs
+      process (add_unique_chunks (List.rev acc) chunks) (Int64.add offset add_offset) xs
       end
   in
 
