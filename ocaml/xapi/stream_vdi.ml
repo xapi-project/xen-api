@@ -105,13 +105,15 @@ type descriptor = {
   status_flags : int32;
 }
 
+(* Flags for extents returned for the base:allocation NBD metadata context, documented at https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md *)
 let flag_hole = 1l
 let flag_zero = 2l
 
 let cycle_descriptors descriptor_list offset =
-  let rec range acc a b =
-    if a < b then acc
-    else range (a::acc) Int64.(add a minus_one) b
+  (* Output range includes start and end points *)
+  let rec range acc start_chunk end_chunk =
+    if end_chunk < start_chunk then acc
+    else range (end_chunk::acc) start_chunk Int64.(add end_chunk minus_one)
   in
 
   let is_empty e =
@@ -128,7 +130,7 @@ let cycle_descriptors descriptor_list offset =
         let start_chunk = Int64.div offset increment in
         (* If the chunk ends at the boundary don't include the next chunk *)
         let end_chunk = let open Int64 in div (add (add descriptor.length offset) minus_one) increment in
-        let chunks = range [] end_chunk start_chunk in
+        let chunks = range [] start_chunk end_chunk in
         chunks, descriptor.length
         end
       | true -> [], descriptor.length
