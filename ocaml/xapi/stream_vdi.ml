@@ -109,6 +109,7 @@ type descriptor = {
 let flag_hole = 1l
 let flag_zero = 2l
 
+(** [descriptor_list] should be an list of non-overlapping extents, ordered from lowest offset to highest. *)
 let cycle_descriptors descriptor_list offset =
   (* Output range includes start and end points *)
   let rec range acc start_chunk end_chunk =
