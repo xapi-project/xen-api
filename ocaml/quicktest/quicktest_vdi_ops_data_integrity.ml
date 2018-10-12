@@ -96,27 +96,33 @@ let export_import_raw = export_import_vdi ~exportformat:"raw"
 let export_import_vhd = export_import_vdi ~exportformat:"vhd"
 let export_import_tar = export_import_vdi ~exportformat:"tar"
 
-let f test_case =
-  let open Qt_filter in
-  test_case |> conn |> sr SR.(all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso)
-
 let data_integrity_tests vdi_op op_name =
-  [ [op_name^": small empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:noop ~vdi_op] |> f
-  ; [op_name^": small random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:write_random_data ~vdi_op] |> f
-  ; [op_name^": small full VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:fill ~vdi_op] |> f
+  [ (op_name^": small empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:noop ~vdi_op)
+  ; (op_name^": small random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:write_random_data ~vdi_op)
+  ; (op_name^": small full VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:fill ~vdi_op)
   ]
-  |> List.concat
 
 let large_data_integrity_tests vdi_op op_name =
   let b = Random.int64 16L in
-  [ [op_name^": ~2GiB empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:noop ~vdi_op] |> f
-  ; [op_name^": ~2GiB random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:write_random_data ~vdi_op] |> f
+  [ (op_name^": ~2GiB empty VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:noop ~vdi_op)
+  ; (op_name^": ~2GiB random VDI", `Slow, check_vdi_unchanged ~vdi_size:Sizes.(2L**gib +* b) ~prepare_vdi:write_random_data ~vdi_op)
   ]
-  |> List.concat
+
+let sr_with_vdi_create_destroy = Qt_filter.SR.(all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso)
+
+let supported_srs test_case =
+  let open Qt_filter in
+  test_case |> conn |> sr sr_with_vdi_create_destroy
+
+(* XXX Currently only GFS2 SRs support sparse reading of VDIs exported as TAR *)
+let supported_gfs2_srs test_case =
+  let open Qt_filter in
+  test_case |> conn |> sr (sr_with_vdi_create_destroy |> SR.has_type("gfs2"))
 
 let tests () =
-  (data_integrity_tests copy_vdi "VDI.copy") @
-  (large_data_integrity_tests copy_vdi "VDI.copy") @
-  (data_integrity_tests export_import_raw "VDI export/import to/from raw file") @
-  (data_integrity_tests export_import_vhd "VDI export/import to/from VHD file") @
-  (data_integrity_tests export_import_tar "VDI export/import to/from TAR file")
+  (data_integrity_tests copy_vdi "VDI.copy" |> supported_srs) @
+  (large_data_integrity_tests copy_vdi "VDI.copy" |> supported_srs) @
+  (data_integrity_tests export_import_raw "VDI export/import to/from raw file" |> supported_srs) @
+  (data_integrity_tests export_import_vhd "VDI export/import to/from VHD file" |> supported_srs) @
+  (data_integrity_tests export_import_tar "VDI export/import to/from TAR file" |> supported_srs) @
+  (large_data_integrity_tests export_import_tar "VDI export/import to/from TAR file" |> supported_gfs2_srs)
