@@ -62,6 +62,7 @@ let vm_suspended = addMessage "VM_SUSPENDED" 5L
 let vm_resumed = addMessage "VM_RESUMED" 5L
 let vm_crashed = addMessage "VM_CRASHED" 2L (* Name conflict with Api_errors; unused in xen-api *)
 let vm_cloned = addMessage "VM_CLONED" 5L (* Prviously missing from table *)
+let vm_secure_boot_failed = addMessage "VM_SECURE_BOOT_FAILED" 5L (* Raised by varstored *)
 
 let host_sync_data_failed = addMessage "HOST_SYNC_DATA_FAILED" 3L (* Kept for backward compatibility; used in XenCenter *)
 let host_clock_skew_detected = addMessage "HOST_CLOCK_SKEW_DETECTED" 3L
