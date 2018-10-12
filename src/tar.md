@@ -4,8 +4,8 @@ This document describes the disk encoding used in version XXX of the XenServer V
 
 Each disk is encoded as a directory full of files, within a stream in 'tar' format. The directory name must match the name of the VDI within the VM metadata XML file. Each disk is subdivided into blocks each of which is represented by 2 files:
 
- ---------- 1 djs djs 1048576 Jan  1  1970 00000000
- ---------- 1 djs djs      40 Jan  1  1970 00000000.checksum
+    ---------- 1 djs djs 1048576 Jan  1  1970 00000000
+    ---------- 1 djs djs      40 Jan  1  1970 00000000.checksum
 
 The file stem is treated as a counter, *not as a disk offset*. The counter increases monotonically through the stream. The file with the suffix .checksum contains the sha1sum of the corresponding block e.g.
 
