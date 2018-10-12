@@ -2753,8 +2753,6 @@ module Dm = struct
     let on cond value = if cond then value else return () in
     let args =
       Add.many [ "--domain"; string_of_int domid
-               ; "--device"; string_of_int 15
-               ; "--function"; string_of_int 0
                ; "--backend"; backend ] >>= fun () ->
       (Varstored.pidfile_path domid |> function None -> return () | Some x ->
          Add.many [ "--pidfile"; x ]) >>= fun () ->
