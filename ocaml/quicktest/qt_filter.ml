@@ -178,8 +178,14 @@ module SR = struct
   let has_capabilities caps =
     sr_filter (fun i -> Xapi_stdext_std.Listext.List.subset caps i.Qt.capabilities)
 
-  let not_type _type =
-    sr_filter (fun i -> Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id ~self:i.Qt.sr <> _type)
+  (* Helper to filter SRs of specific types *)
+  let has_one_of_types types sr_info =
+    List.mem (Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id ~self:sr_info.Qt.sr) types
+
+  let has_type sr_type = sr_filter (has_one_of_types [sr_type])
+
+  let not_type sr_type =
+    sr_filter (fun i -> Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id ~self:i.Qt.sr <> sr_type)
 
   let is_smapiv1 sr_info = sr_info.Qt.required_sm_api_version < "3.0"
 
@@ -189,10 +195,7 @@ module SR = struct
   let smapiv3 =
     sr_filter (fun i -> not (is_smapiv1 i))
 
-  let has_type types sr_info =
-    List.mem (Client.Client.SR.get_type ~rpc:!A.rpc ~session_id:!session_id ~self:sr_info.Qt.sr) types
-
-  let thin_pro = sr_filter (has_type ["gfs2"; "nfs"; "smb"; "ext"; "file"])
+  let thin_pro = sr_filter (has_one_of_types ["gfs2"; "nfs"; "smb"; "ext"; "file"])
 
   (** Creates a [Alcotest.test_case] from the given [storage_test_case] using the
       specified session ID and SR *)
