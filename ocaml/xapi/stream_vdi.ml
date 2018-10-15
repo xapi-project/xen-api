@@ -30,6 +30,9 @@ open D
 (** Inside the tar we divide each VDI into small 'chunk_size' blocks: *)
 let chunk_size = Int64.mul 1024L 1024L (* 1 MiB *)
 
+(** Maximum range for sparseness query *)
+let max_sparseness_size = Int64.mul 10240L chunk_size
+
 let checksum_extension = ".checksum"
 
 type vdi = string (* directory prefix in tar file *) * API.ref_VDI * Int64.t (* size to send/recieve *)
@@ -41,7 +44,7 @@ let with_open_vdi __context rpc session_id vdi_ref mode flags perms f =
     (fun dom0_path ->
        debug "with_open_vdi opening: %s" dom0_path;
        let ofd = Unix.openfile dom0_path flags perms in
-       Pervasiveext.finally (fun () -> f ofd) (fun () -> Unix.close ofd))
+       Pervasiveext.finally (fun () -> f ofd dom0_path) (fun () -> Unix.close ofd))
 
 (** Used to sort VDI prefixes into a canonical order for streaming. Currently lexicographic
     sort on the externalised reference (used as a 'directory name') *)
@@ -100,6 +103,98 @@ let write_block ~__context filename buffer ofd len =
     then raise (Api_errors.Server_error (Api_errors.client_error, [ExnHelper.string_of_exn e]))
     else raise e
 
+let get_device_numbers path =
+  let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
+  let major = rdev / 256 and minor = rdev mod 256 in
+  (major, minor)
+
+let is_nbd_device path =
+  let nbd_device_num = 43 in
+  let (major, _) = get_device_numbers path in
+  major = nbd_device_num
+
+type nbd_connect_info =
+  { path : string
+  ; exportname : string
+  } [@@deriving rpc]
+
+let get_nbd_device path =
+  let nbd_device_prefix = "/dev/nbd" in
+  if Astring.String.is_prefix ~affix:nbd_device_prefix path && is_nbd_device path then begin
+    let nbd_number =
+      String.sub path (String.length nbd_device_prefix) (String.length path - String.length nbd_device_prefix)
+    in
+    let { path; exportname } =
+      let persistent_nbd_info_dir = "/var/run/nonpersistent/nbd" in
+      let filename = persistent_nbd_info_dir ^ "/" ^ nbd_number in
+      Xapi_stdext_unix.Unixext.string_of_file filename
+      |> Jsonrpc.of_string
+      |> nbd_connect_info_of_rpc
+    in
+    Some (path, exportname)
+  end else None
+
+type extent = {
+  flags : int32;
+  length : int64;
+} [@@deriving rpc]
+
+type extent_list = extent list [@@deriving rpc]
+
+(* Flags for extents returned for the base:allocation NBD metadata context, documented at https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md *)
+let flag_hole = 1l
+let flag_zero = 2l
+
+(** [descriptor_list] should be an list of non-overlapping extents, ordered from lowest offset to highest. *)
+let cycle_descriptors descriptor_list offset =
+  (* Output range includes start and end points *)
+  let rec range acc start_chunk end_chunk =
+    if end_chunk < start_chunk then acc
+    else range (end_chunk::acc) start_chunk Int64.(add end_chunk minus_one)
+  in
+
+  let is_empty e =
+    let has_flag flag =
+      Int32.logand e.flags flag = flag
+    in
+    (* We assume the destination is prezeroed, so we do not have to copy zeroed extents *)
+    (has_flag flag_hole) || (has_flag flag_zero)
+  in
+
+  let find_blocks descriptor offset increment =
+    match (is_empty descriptor) with
+      | false -> begin
+        let start_chunk = Int64.div offset increment in
+        (* If the chunk ends at the boundary don't include the next chunk *)
+        let end_chunk = let open Int64 in div (add (add descriptor.length offset) minus_one) increment in
+        let chunks = range [] start_chunk end_chunk in
+        chunks, descriptor.length
+        end
+      | true -> [], descriptor.length
+  in
+  (* Only compare to most recent chunk added*)
+  let add_new a b =
+    match b with
+    | hd :: _ when Int64.equal a hd -> b
+    | _ -> a::b
+  in
+
+  let rec add_unique_chunks acc = function
+    | [] -> List.rev acc
+    | x::xs -> add_unique_chunks (add_new x acc) xs
+  in
+
+  let rec process acc offset = function
+    | [] -> acc, offset
+    | x::xs -> begin
+      let chunks, add_offset = find_blocks x offset chunk_size in
+      process (add_unique_chunks (List.rev acc) chunks) (Int64.add offset add_offset) xs
+      end
+  in
+
+  let chunks, _ = process [] offset descriptor_list  in
+  chunks
+
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
     association list mapping tar filename -> string (containing the SHA1 checksums) *)
@@ -113,53 +208,95 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 
   let send_one ofd (__context:Context.t) (prefix, vdi_ref, size) =
     let size = Db.VDI.get_virtual_size ~__context ~self:vdi_ref in
+    let reusable_buffer =  Bytes.make (Int64.to_int chunk_size) '\000' in
 
     with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
-      (fun ifd ->
+    (fun ifd dom0_path ->
+      (match get_nbd_device dom0_path with
+      | None ->
+        (* NB. It used to be that chunks could be larger than a native int *)
+        (* could handle, but this is no longer the case! Ensure all chunks *)
+        (* are strictly less than 2^30 bytes *)
+        let rec stream_from (chunk_no: int) (offset: int64) =
+          refresh_session ();
+          let remaining = Int64.sub size offset in
+          if remaining > 0L
+          then
+            begin
+              let this_chunk = (min remaining chunk_size) in
+              let last_chunk = this_chunk = remaining in
+              let this_chunk = Int64.to_int this_chunk in
+              let filename = Printf.sprintf "%s/%08d" prefix chunk_no in
 
-         let reusable_buffer =  Bytes.make (Int64.to_int chunk_size) '\000' in
+              let now = Unix.gettimeofday () in
+              let time_since_transmission = now -. !last_transmission_time in
 
-         (* NB. It used to be that chunks could be larger than a native int *)
-         (* could handle, but this is no longer the case! Ensure all chunks *)
-         (* are strictly less than 2^30 bytes *)
-         let rec stream_from (chunk_no: int) (offset: int64) =
-           refresh_session ();
-           let remaining = Int64.sub size offset in
-           if remaining > 0L
-           then
-             begin
-               let this_chunk = (min remaining chunk_size) in
-               let last_chunk = this_chunk = remaining in
-               let this_chunk = Int64.to_int this_chunk in
-               let filename = Printf.sprintf "%s/%08d" prefix chunk_no in
+              (* We always include the first and last blocks *)
+              let first_or_last = chunk_no = 0 || last_chunk in
 
-               let now = Unix.gettimeofday () in
-               let time_since_transmission = now -. !last_transmission_time in
-
-               (* We always include the first and last blocks *)
-               let first_or_last = chunk_no = 0 || last_chunk in
-
-               if time_since_transmission > 5. && not first_or_last then begin
-                 last_transmission_time := now;
-                 write_block ~__context filename Bytes.empty ofd 0;
-                 (* no progress has been made *)
-                 stream_from (chunk_no + 1) offset
-               end else begin
-                 let buffer = if (Int64.of_int this_chunk) = chunk_size
-                   then reusable_buffer
-                   else Bytes.make this_chunk '\000'
-                 in
-                 Unixext.really_read ifd buffer 0 this_chunk;
-                 if not (Zerocheck.is_all_zeros (Bytes.unsafe_to_string buffer) this_chunk) || first_or_last then begin
-                   last_transmission_time := now;
-                   write_block ~__context filename buffer ofd this_chunk;
-                 end;
-                 made_progress __context progress (Int64.of_int this_chunk);
-                 stream_from (chunk_no + 1) (Int64.add offset chunk_size);
-               end
-             end
-         in
-         stream_from 0 0L);
+              if time_since_transmission > 5. && not first_or_last then begin
+                last_transmission_time := now;
+                write_block ~__context filename Bytes.empty ofd 0;
+                (* no progress has been made *)
+                stream_from (chunk_no + 1) offset
+              end else begin
+                let buffer = if (Int64.of_int this_chunk) = chunk_size
+                  then reusable_buffer
+                  else Bytes.make this_chunk '\000'
+                in
+                Unixext.really_read ifd buffer 0 this_chunk;
+                if not (Zerocheck.is_all_zeros (Bytes.unsafe_to_string buffer) this_chunk) || first_or_last then begin
+                  last_transmission_time := now;
+                  write_block ~__context filename buffer ofd this_chunk;
+                end;
+                made_progress __context progress (Int64.of_int this_chunk);
+                stream_from (chunk_no + 1) (Int64.add offset chunk_size);
+              end
+            end
+        in
+        stream_from 0 0L
+      | Some (path, exportname) ->
+          let actually_write_chunk (this_chunk_no: int) (this_chunk_size: int) =
+            let buffer = if this_chunk_size = Int64.to_int chunk_size
+              then reusable_buffer
+              else Bytes.make this_chunk_size '\000'
+            in
+            let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
+            Unix.LargeFile.lseek ifd (Int64.mul (Int64.of_int this_chunk_no) chunk_size) Unix.SEEK_SET |> ignore;
+            Unixext.really_read ifd buffer 0 this_chunk_size;
+            last_transmission_time := Unix.gettimeofday ();
+            write_block ~__context filename buffer ofd this_chunk_size;
+            made_progress __context progress (Int64.of_int this_chunk_size);
+          in
+          let rec stream_from_offset (offset: int64) =
+            let remaining = Int64.sub size offset in
+            if remaining > 0L then begin
+              let this_chunk_size = min (Int64.to_int chunk_size) (Int64.to_int remaining) in
+              let this_chunk_no = Int64.div offset chunk_size in
+              let now = Unix.gettimeofday () in
+              let time_since_transmission = now -. !last_transmission_time in
+              if offset = 0L || remaining <= chunk_size || time_since_transmission > 5. then begin
+                actually_write_chunk (Int64.to_int this_chunk_no) this_chunk_size;
+                stream_from_offset (Int64.add offset (Int64.of_int this_chunk_size))
+              end else begin
+                let remaining = Int64.mul (Int64.div (Int64.sub remaining 1L) chunk_size) chunk_size in
+                (* Get sparseness for next 10GB or until the end rounded by last chunk, whichever is smaller *)
+                let sparseness_size = min max_sparseness_size remaining in
+                let output, _ = Forkhelpers.execute_command_get_output "/opt/xensource/libexec/get_nbd_extents.py" ["--path"; path; "--exportname"; exportname; "--offset"; Int64.to_string offset; "--length"; Int64.to_string sparseness_size] in
+                let extents = extent_list_of_rpc (Jsonrpc.of_string output) in
+                let chunks = cycle_descriptors extents offset in
+                List.iter (
+                  fun chunk ->
+                    begin
+                    actually_write_chunk (Int64.to_int chunk) (Int64.to_int chunk_size);
+                    end
+                  ) chunks;
+                stream_from_offset (Int64.add offset sparseness_size)
+              end
+            end
+          in
+          stream_from_offset 0L)
+      );
     debug "Finished streaming VDI" in
   for_each_vdi __context (send_one ofd __context) prefix_vdis
 
@@ -209,7 +346,7 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
     debug "begun import of VDI%s preserving sparseness" (if vdi_skip_zeros then "" else " NOT");
 
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
-      (fun ofd ->
+      (fun ofd dom0_path ->
          let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
 
          let rec stream_from (last_suffix: string) (offset: int64) =
@@ -315,7 +452,7 @@ let recv_all_zurich refresh_session ifd (__context:Context.t) rpc session_id pre
     (* Open this VDI and stream in all the blocks. Return when hdr represents
        a chunk which is not part of this VDI or the end of stream is reached. *)
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
-      (fun ofd ->
+      (fun ofd dom0_path ->
          let rec stream_from (last_suffix: string) = match !hdr with
            | Some hdr ->
              refresh_session ();
