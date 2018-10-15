@@ -49,6 +49,11 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
       f ()
     with Db_exn.DBCache_NotFound("missing table", tbl', "") when tbl' = tbl -> ()
 
+  let expect_integrity_violation tbl fld v f =
+    try
+      f ()
+    with Db_exn.Integrity_violation(tbl', fld', v') when tbl' = tbl && fld' = fld && v' = v -> ()
+
   let expect_uniqueness_violation tbl fld v f =
     try
       f ()
@@ -423,12 +428,16 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
     if not (List.mem valid_ref (Client.read_refs t "VM"))
     then failwith "read_refs did not include <valid ref>";
 
+    Printf.printf "create_row <duplicate ref> <duplicate uuid>\n";
+    Client.create_row t "VM" (make_vm valid_ref (valid_uuid)) valid_ref;
+
     Printf.printf "create_row <duplicate ref> <unique uuid>\n";
-    expect_uniqueness_violation "VM" "_ref" valid_ref
+    expect_integrity_violation "VM" "uuid" valid_uuid
       (fun () ->
          Client.create_row t "VM" (make_vm valid_ref (valid_uuid ^ "unique")) valid_ref;
          failwith "create_row <duplicate ref> <unique uuid>"
       );
+
     Printf.printf "create_row <unique ref> <duplicate uuid>\n";
     expect_uniqueness_violation "VM" "uuid" valid_uuid
       (fun () ->
