@@ -170,14 +170,16 @@ let fld_check t tblname objref (fldname, value) =
   (v = value, fldname, v)
 
 let create_row t tblname kvs' new_objref =
-  if is_valid_ref t new_objref then
-      let uniq_check_list = List.map (fld_check t tblname new_objref) kvs' in
-      let failure_opt = List.find_opt (fun (tf, _, _) -> not tf) uniq_check_list in
-      match failure_opt with
-      | Some (_, f, v) -> raise (Integrity_violation (tblname, f, v))
-      | _ -> ()
-  else
-    with_lock (fun () -> create_row_locked t tblname kvs' new_objref)
+  with_lock (fun () ->
+      if is_valid_ref t new_objref then
+        let uniq_check_list = List.map (fld_check t tblname new_objref) kvs' in
+        let failure_opt = List.find_opt (fun (tf, _, _) -> not tf) uniq_check_list in
+        match failure_opt with
+        | Some (_, f, v) -> raise (Integrity_violation (tblname, f, v))
+        | _ -> ()
+      else
+        create_row_locked t tblname kvs' new_objref
+    )
 
 (* Do linear scan to find field values which match where clause *)
 let read_field_where t rcd =
