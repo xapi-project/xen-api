@@ -41,19 +41,20 @@ let test_assert_space_available () =
 
 let test_download_restriction () =
   Xapi_globs.host_update_dir := ".";
-  let assert_no_dots s =
+  let assert_no_dots (_, s) =
     Alcotest.(check bool)
       "test_download_restriction: path must not contain ."
       true
       (String.index_opt s '.' = None)
   in
+  let uuid = Helpers.get_localhost_uuid () in
   let test path =
     path
     |> Filename.concat Constants.get_pool_update_download_uri
-    |> Xapi_pool_update.path_from_uri
+    |> Xapi_pool_update.path_and_host_from_uri
     |> assert_no_dots
   in
-  List.iter test ["myfile"; ".."; "%2e%2e"]
+  List.map (fun s -> String.concat uuid [s] ) ["/myfile"; "/.."; "/%2e%2e"] |> List.iter test
 
 let test =
   [ "test_pool_update_destroy", `Quick, test_pool_update_destroy
