@@ -10,9 +10,7 @@ available: [ os = "linux" ]
 depends: [
   "ocaml"
   "jbuilder" {build}
-  "forkexec"
-  "xapi-stdext-pervasives"
-  "xapi-stdext-unix"
+  "compression"
 ]
 synopsis: "Further transitional libraries required by xapi"
 description: """

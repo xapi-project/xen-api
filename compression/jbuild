@@ -1,0 +1,9 @@
+(library
+ ((name compression)
+  (public_name compression)
+  (libraries
+   (forkexec
+    threads
+    xapi-stdext-pervasives
+    xapi-stdext-unix))
+ ))
