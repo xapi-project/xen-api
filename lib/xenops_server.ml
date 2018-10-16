@@ -1708,7 +1708,9 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
                | Handshake.Success -> ()
                | Handshake.Error msg ->
                  error "cannot transmit vm to host: %s" msg;
-                 raise (Xenopsd_error (Internal_error msg))
+                 match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty (Jsonrpc.of_string msg) with
+                 | Ok e ->    raise (Xenopsd_error e)
+                 | Error _ -> raise (Xenopsd_error (Internal_error msg))
              end;
              debug "VM.migrate: Synchronisation point 1";
            in
@@ -1800,7 +1802,13 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            ) t;
            Handshake.send s Handshake.Success
          with e ->
-           Handshake.send s (Handshake.Error (Printexc.to_string e));
+           let msg = match e with
+             | Xenopsd_error error ->
+               Rpcmarshal.marshal Errors.error.Rpc.Types.ty error
+               |> Jsonrpc.to_string
+             | _ -> Printexc.to_string e
+           in
+           Handshake.send s (Handshake.Error msg);
            raise e
         );
         debug "VM.receive_memory: Synchronisation point 1";
