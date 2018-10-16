@@ -122,9 +122,10 @@ let get_nbd_device path =
   let nbd_device_prefix = "/dev/nbd" in
   if Astring.String.is_prefix ~affix:nbd_device_prefix path && is_nbd_device path then begin
     let nbd_number =
-      String.sub path (String.length nbd_device_prefix) (String.length path - String.length nbd_device_prefix)
+      Astring.String.with_range ~first:(String.length nbd_device_prefix) path
     in
     let { path; exportname } =
+      (* persistent_nbd_info_dir is written from nbd_client_manager.py as part of VBD plug*)
       let persistent_nbd_info_dir = "/var/run/nonpersistent/nbd" in
       let filename = persistent_nbd_info_dir ^ "/" ^ nbd_number in
       Xapi_stdext_unix.Unixext.string_of_file filename
@@ -171,23 +172,23 @@ let get_chunk_numbers_in_increasing_order descriptor_list offset =
       | false ->
         let start_chunk = Int64.div offset increment in
         (* If the chunk ends at the boundary don't include the next chunk *)
-        let end_chunk = let open Int64 in div (add (add descriptor.length offset) minus_one) increment in
+        let end_chunk = Int64.(div (add (add descriptor.length offset) minus_one) increment) in
         let chunks = range [] start_chunk end_chunk in
         chunks, descriptor.length
       | true -> [], descriptor.length
   in
 
   (* Only compare to most recent chunk added *)
-  let add_new a b =
-    match b with
-    | hd :: _ when Int64.equal a hd -> b
-    | _ -> a::b
+  let add_new acc b =
+    match acc with
+    | hd :: _ when Int64.equal b hd -> acc
+    | _ -> b::acc
   in
 
   (* Output decreasing chunk numbers, x should be increasing and acc should be decreasing *)
   let rec add_unique_chunks acc = function
     | [] -> acc
-    | x::xs -> add_unique_chunks (add_new x acc) xs
+    | x::xs -> add_unique_chunks (add_new acc x) xs
   in
 
   (* This works in reverse order *)
@@ -209,9 +210,6 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 
   let progress = new_progress_record __context prefix_vdis in
 
-  (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
-  let last_transmission_time = ref 0. in
-
   let send_one ofd (__context:Context.t) (prefix, vdi_ref, size) =
     let size = Db.VDI.get_virtual_size ~__context ~self:vdi_ref in
     let reusable_buffer =  Bytes.make (Int64.to_int chunk_size) '\000' in
@@ -220,6 +218,8 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
     (fun ifd dom0_path ->
       (match get_nbd_device dom0_path with
       | None ->
+        (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
+        let last_transmission_time = ref 0. in
         (* NB. It used to be that chunks could be larger than a native int *)
         (* could handle, but this is no longer the case! Ensure all chunks *)
         (* are strictly less than 2^30 bytes *)
@@ -262,6 +262,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
         in
         stream_from 0 0L
       | Some (path, exportname) ->
+          let last_transmission_time = ref 0L in
           let actually_write_chunk (this_chunk_no: int) (this_chunk_size: int) =
             let buffer = if this_chunk_size = Int64.to_int chunk_size
               then reusable_buffer
@@ -270,7 +271,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
             let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
             Unix.LargeFile.lseek ifd (Int64.mul (Int64.of_int this_chunk_no) chunk_size) Unix.SEEK_SET |> ignore;
             Unixext.really_read ifd buffer 0 this_chunk_size;
-            last_transmission_time := Unix.gettimeofday ();
+            last_transmission_time := Mtime_clock.now_ns ();
             write_block ~__context filename buffer ofd this_chunk_size;
             made_progress __context progress (Int64.of_int this_chunk_size);
           in
@@ -279,23 +280,21 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
             if remaining > 0L then begin
               let this_chunk_size = min (Int64.to_int chunk_size) (Int64.to_int remaining) in
               let this_chunk_no = Int64.div offset chunk_size in
-              let now = Unix.gettimeofday () in
-              let time_since_transmission = now -. !last_transmission_time in
-              if offset = 0L || remaining <= chunk_size || time_since_transmission > 5. then begin
+              let now = Mtime_clock.now_ns () in
+              let time_since_transmission = Int64.sub now !last_transmission_time in
+              if offset = 0L || remaining <= chunk_size || time_since_transmission > 5000000000L then begin
                 actually_write_chunk (Int64.to_int this_chunk_no) this_chunk_size;
                 stream_from_offset (Int64.add offset (Int64.of_int this_chunk_size))
               end else begin
                 let remaining = Int64.mul (Int64.div (Int64.sub remaining 1L) chunk_size) chunk_size in
                 (* Get sparseness for next 10GB or until the end rounded by last chunk, whichever is smaller *)
                 let sparseness_size = min max_sparseness_size remaining in
-                let output, _ = Forkhelpers.execute_command_get_output "/opt/xensource/libexec/get_nbd_extents.py" ["--path"; path; "--exportname"; exportname; "--offset"; Int64.to_string offset; "--length"; Int64.to_string sparseness_size] in
+                let output, _ = Forkhelpers.execute_command_get_output Xapi_globs.get_nbd_extents ["--path"; path; "--exportname"; exportname; "--offset"; Int64.to_string offset; "--length"; Int64.to_string sparseness_size] in
                 let extents = extent_list_of_rpc (Jsonrpc.of_string output) in
                 let chunks = get_chunk_numbers_in_increasing_order extents offset in
                 List.iter (
                   fun chunk ->
-                    begin
                     actually_write_chunk (Int64.to_int chunk) (Int64.to_int chunk_size);
-                    end
                   ) chunks;
                 stream_from_offset (Int64.add offset sparseness_size)
               end
