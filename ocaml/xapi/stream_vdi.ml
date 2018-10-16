@@ -141,13 +141,17 @@ type extent = {
 
 type extent_list = extent list [@@deriving rpc]
 
-(* Flags for extents returned for the base:allocation NBD metadata context, documented at https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md *)
+(* Flags for extents returned for the base:allocation NBD metadata context,
+   documented at https://github.com/NetworkBlockDevice/nbd/blob/master/doc/proto.md *)
 let flag_hole = 1l
 let flag_zero = 2l
 
-(** [descriptor_list] should be an list of non-overlapping extents, ordered from lowest offset to highest. *)
-let cycle_descriptors descriptor_list offset =
-  (* Output range includes start and end points *)
+(** [descriptor_list] should be a list of non-overlapping extents, ordered from
+    lowest offset to highest.
+    [offset] is the current offset needed to translate from relative extents to 
+    absolute chunk numbers *)
+let get_chunk_numbers_in_increasing_order descriptor_list offset =
+  (* Output increasing range includes start and end points *)
   let rec range acc start_chunk end_chunk =
     if end_chunk < start_chunk then acc
     else range (end_chunk::acc) start_chunk Int64.(add end_chunk minus_one)
@@ -161,39 +165,41 @@ let cycle_descriptors descriptor_list offset =
     (has_flag flag_hole) || (has_flag flag_zero)
   in
 
-  let find_blocks descriptor offset increment =
+  (* Output increasing chunks numbers covered by this descriptor if it is not empty *)
+  let get_non_empty_chunks descriptor offset increment =
     match (is_empty descriptor) with
-      | false -> begin
+      | false ->
         let start_chunk = Int64.div offset increment in
         (* If the chunk ends at the boundary don't include the next chunk *)
         let end_chunk = let open Int64 in div (add (add descriptor.length offset) minus_one) increment in
         let chunks = range [] start_chunk end_chunk in
         chunks, descriptor.length
-        end
       | true -> [], descriptor.length
   in
-  (* Only compare to most recent chunk added*)
+
+  (* Only compare to most recent chunk added *)
   let add_new a b =
     match b with
     | hd :: _ when Int64.equal a hd -> b
     | _ -> a::b
   in
 
+  (* Output decreasing chunk numbers, x should be increasing and acc should be decreasing *)
   let rec add_unique_chunks acc = function
-    | [] -> List.rev acc
+    | [] -> acc
     | x::xs -> add_unique_chunks (add_new x acc) xs
   in
 
+  (* This works in reverse order *)
   let rec process acc offset = function
-    | [] -> acc, offset
-    | x::xs -> begin
-      let chunks, add_offset = find_blocks x offset chunk_size in
-      process (add_unique_chunks (List.rev acc) chunks) (Int64.add offset add_offset) xs
-      end
+    | [] -> acc
+    | x::xs ->
+      let chunks, add_offset = get_non_empty_chunks x offset chunk_size in
+      process (add_unique_chunks acc chunks) (Int64.add offset add_offset) xs
   in
 
-  let chunks, _ = process [] offset descriptor_list  in
-  chunks
+  let chunks = process [] offset descriptor_list  in
+  List.rev chunks
 
 
 (** Stream a set of VDIs split into chunks in a tar format in a defined order. Return an
@@ -284,7 +290,7 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
                 let sparseness_size = min max_sparseness_size remaining in
                 let output, _ = Forkhelpers.execute_command_get_output "/opt/xensource/libexec/get_nbd_extents.py" ["--path"; path; "--exportname"; exportname; "--offset"; Int64.to_string offset; "--length"; Int64.to_string sparseness_size] in
                 let extents = extent_list_of_rpc (Jsonrpc.of_string output) in
-                let chunks = cycle_descriptors extents offset in
+                let chunks = get_chunk_numbers_in_increasing_order extents offset in
                 List.iter (
                   fun chunk ->
                     begin
