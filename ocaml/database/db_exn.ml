@@ -15,6 +15,7 @@
 exception Duplicate_key of (*class*) string * (*field*) string * (*uuid*) string * (*key*) string
 exception DBCache_NotFound of string*string*string
 exception Uniqueness_constraint_violation of string*string*string
+exception Integrity_violation of string*string*string
 
 exception Read_missing_uuid of (*class*) string * (*ref*) string * (*uuid*) string
 exception Too_many_values of   (*class*) string * (*ref*) string * (*uuid*) string
