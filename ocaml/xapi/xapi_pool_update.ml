@@ -543,16 +543,24 @@ let path_and_host_from_uri uri =
       |> Stdext.Unixext.resolve_dot_and_dotdot
     in
     (host,resolved_path)
-  | _ -> failwith "Expecting "
+  | _ -> failwith "Expecting both host and path in the uri"
 
 let proxy_request req s host_uuid =
   Server_helpers.exec_with_new_task "pool_update_proxy_request" (fun __context ->
-    let host = Db.Host.get_by_uuid ~__context ~uuid:host_uuid in
-    let ip = Db.Host.get_address ~__context ~self:host in
-    let transport = Xmlrpc_client.(SSL(SSL.make (), ip, 443)) in
-    Xmlrpc_client.with_transport transport (fun fd ->
-      Unixext.really_write_string fd (Http.Request.to_wire_string req);
-      Unixext.proxy s fd)
+    let host =
+      try Some (Db.Host.get_by_uuid ~__context ~uuid:host_uuid) with _ -> None
+    in
+    match host with
+    |Some host ->
+      let ip = Db.Host.get_address ~__context ~self:host in
+      let transport = Xmlrpc_client.(SSL(SSL.make (), ip, 443)) in
+      Xmlrpc_client.with_transport transport (fun fd ->
+        Unixext.really_write_string fd (Http.Request.to_wire_string req);
+        Unixext.proxy s fd)
+    |None ->
+      debug "Caught exception while get Host by uuid %s" host_uuid;
+      Http_svr.response_badrequest ~req s;
+    req.Request.close <- true
   )
 
 let pool_update_download_handler (req: Request.t) s _ =
