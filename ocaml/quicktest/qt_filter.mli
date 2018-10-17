@@ -56,6 +56,9 @@ module SR : sig
   val allowed_operations : API.storage_operations_set -> srs -> srs
   val has_capabilities : string list -> srs -> srs
 
+  val has_type : string -> srs -> srs
+  (** Selects SRs of the given type *)
+
   val not_type : string -> srs -> srs
   (** Filters out SRs of the given type *)
 
