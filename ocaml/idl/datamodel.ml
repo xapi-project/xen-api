@@ -435,7 +435,7 @@ module Pool_update = struct
       ~in_product_since:rel_ely
       ~versioned_params:[
         {param_type=Ref _pool_update; param_name="self"; param_doc="The update to be attached"; param_release=ely_release; param_default=None};
-        {param_type=Bool; param_name="use_localhost_proxy"; param_doc="Use the localhost proxy"; param_release=ely_release; param_default=Some (VBool false)};
+        {param_type=Bool; param_name="use_localhost_proxy"; param_doc="Use the localhost proxy"; param_release=naples_release; param_default=Some (VBool false)};
       ]
       ~result:(String, "The file URL of pool update")
       ~allowed_roles:_R_POOL_OP

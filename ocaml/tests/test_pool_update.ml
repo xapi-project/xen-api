@@ -25,12 +25,11 @@ let test_pool_update_destroy () =
 let test_pool_update_refcount () =
   let assert_equal = Alcotest.(check int) "assertion called by test_pool_update_refcount" in
   let __context = Mock.make_context_with_new_db "Mock context" in
-  let uuid = Helpers.get_localhost_uuid () in
   let vdi = make_vdi ~__context ~virtual_size:4096L () in
-  Xapi_pool_update.with_inc_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> ());
-  Xapi_pool_update.with_inc_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
-  Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
-  Xapi_pool_update.with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi -> ())
+  Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi (fun ~__context ~uuid ~vdi -> ());
+  Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
+  Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi (fun ~__context ~uuid ~vdi -> assert_equal 0 1);
+  Xapi_pool_update.with_dec_refcount ~__context ~uuid:"a" ~vdi (fun ~__context ~uuid ~vdi -> ())
 
 let test_assert_space_available () =
   let free_bytes = 1_000_000L in
@@ -47,14 +46,13 @@ let test_download_restriction () =
       true
       (String.index_opt s '.' = None)
   in
-  let uuid = Helpers.get_localhost_uuid () in
   let test path =
     path
     |> Filename.concat Constants.get_pool_update_download_uri
     |> Xapi_pool_update.path_and_host_from_uri
     |> assert_no_dots
   in
-  List.map (fun s -> String.concat uuid [s] ) ["/myfile"; "/.."; "/%2e%2e"] |> List.iter test
+  List.iter test ["/myfile"; "/.."; "/%2e%2e"]
 
 let test =
   [ "test_pool_update_destroy", `Quick, test_pool_update_destroy
