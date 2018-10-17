@@ -273,9 +273,11 @@ let pool_migrate ~__context ~vm ~host ~options =
         Xapi_network.with_networks_attached_for_vm ~__context ~vm ~host (fun () ->
             (* XXX: PR-1255: the live flag *)
             info "xenops: VM.migrate %s to %s" vm_uuid xenops_url;
-            migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_vgpu_map xenops_url;
-            (* Delete all record of this VM locally (including caches) *)
-            Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid;
+            Xapi_xenops.transform_xenops_exn ~__context ~vm queue_name (fun () ->
+              migrate_with_retry ~__context queue_name dbg vm_uuid [] [] xenops_vgpu_map xenops_url;
+              (* Delete all record of this VM locally (including caches) *)
+              Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
+            )
           );
         Rrdd_proxy.migrate_rrd ~__context ~vm_uuid ~host_uuid:(Ref.string_of host) ();
         detach_local_network_for_vm ~__context ~vm ~destination:host;
@@ -294,16 +296,7 @@ let pool_migrate ~__context ~vm ~host ~options =
             end;
           with _ -> ()
         end;
-        match exn with
-        | Xenops_interface.Xenopsd_error Failed_to_acknowledge_shutdown_request ->
-          raise Api_errors.(Server_error (vm_failed_shutdown_ack, [Ref.string_of vm]))
-        | Xenops_interface.Xenopsd_error Cancelled _ ->
-          TaskHelper.raise_cancelled ~__context
-        | Xenops_interface.Xenopsd_error Storage_backend_error (code, _) ->
-          raise Api_errors.(Server_error (sr_backend_failure, [code]))
-        | Xenops_interface.Xenopsd_error Ballooning_timeout_before_migration ->
-          raise Api_errors.(Server_error (ballooning_timeout_before_migration, [Ref.string_of vm]))
-        | _ -> raise exn
+        raise exn
     )
 
 let pool_migrate_complete ~__context ~vm ~host =
