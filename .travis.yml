@@ -15,8 +15,7 @@ env:
     matrix:
         - BASE_REMOTE=git://github.com/xapi-project/xs-opam REVDEPS=true
         - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-    matrix:
-        fast_finish: true
-        allow_failures:
-            - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-
+matrix:
+    fast_finish: true
+    allow_failures:
+        - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
