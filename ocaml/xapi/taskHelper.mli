@@ -13,6 +13,7 @@
  *)
 (* task constructor is hidden : it us used internally by context.ml*)
 (* val string_of_task: string -> API.ref_task -> string *)
+val get_name : __context:Context.t -> string
 val operate_on_db_task :
   __context:Context.t -> (API.ref_task -> unit) -> unit
 val destroy : __context:Context.t -> API.ref_task -> unit

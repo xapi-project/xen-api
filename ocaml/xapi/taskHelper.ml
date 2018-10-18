@@ -85,17 +85,19 @@ let assert_op_valid ?(ok_if_no_session_in_context=false) ~__context task_id =
       (* 2. if not own task, has this session permission to destroy any tasks? *)
       assert_permission_task_op_any ()
 
+let get_name ~__context =
+  let task_id = Context.get_task_id __context in
+  if Ref.is_dummy task_id then
+    Ref.name_of_dummy task_id
+  else
+    Db.Task.get_name_label ~__context ~self:task_id
+
 let destroy ~__context task_id =
   if not (Ref.is_dummy task_id)
   then (
     assert_op_valid ~ok_if_no_session_in_context:true ~__context task_id;
     Db_actions.DB_Action.Task.destroy ~__context ~self:task_id
   )
-(*
-  if Context.get_task_id __context = task_id
-  then debug "task destroyed"
-  else debug "task %s destroyed" (string_of_task "" task_id)
-*)
 
 (* set the ref fn to break the cyclic dependency *)
 let init () =
@@ -264,4 +266,3 @@ let unregister_task __context id =
        Hashtbl.remove task_to_id_tbl task;
     );
   ()
-

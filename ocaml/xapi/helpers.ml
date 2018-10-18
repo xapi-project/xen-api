@@ -1053,11 +1053,6 @@ let assert_is_valid_ref ~__context ~name ~ref =
       name; Ref.string_of ref;
     ]))
 
-(* Useful for making readable(ish) logs: *)
-let short_string_of_ref x =
-  let x' = Ref.string_of x in
-  String.sub x' (String.length "OpaqueRef:") 8
-
 let force_loopback_vbd ~__context =
   (* Workaround assumption in SMRT: if a global flag is set, force use
      	   of loopback VBDs. *)

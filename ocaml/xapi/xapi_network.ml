@@ -169,7 +169,7 @@ let deregister_vif ~__context vif =
          (* Are there any more vifs using this network? *)
          let others = Hashtbl.fold (fun v n acc -> if n = network then v :: acc else acc)
              active_vifs_to_networks [] in
-         debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]" (Ref.string_of vif) (Ref.string_of network) (String.concat "; " (List.map Helpers.short_string_of_ref others));
+         debug "deregister_vif vif=%s network=%s remaining vifs = [ %s ]" (Ref.string_of vif) (Ref.string_of network) (String.concat "; " (List.map Ref.short_string_of others));
          if others = [] then begin
            let dbg = Context.string_of_task __context in
            let ifs = Net.Bridge.get_interfaces dbg bridge in
