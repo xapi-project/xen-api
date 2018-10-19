@@ -102,6 +102,7 @@ cert = ${PEMFILE}
 ciphers = !SSLv2:${GOOD_CIPHERS}${EXTRA_CIPHERS}
 curve = secp384r1
 TIMEOUTclose = 0
+options = CIPHER_SERVER_PREFERENCE
 options = NO_SSLv2
 EOF
     if [ $BACK_COMPAT = 0 ]; then
