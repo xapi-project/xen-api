@@ -559,12 +559,12 @@ let proxy_request req s host_uuid =
         Unixext.proxy s fd)
     |None ->
       debug "Caught exception while get Host by uuid %s" host_uuid;
-      Http_svr.response_badrequest ~req s;
-    req.Request.close <- true
+      Http_svr.response_badrequest ~req s
   )
 
 let pool_update_download_handler (req: Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;
+  req.Request.close <- true;
   let localhost_uuid = Helpers.get_localhost_uuid () in
   let (host_uuid, filepath) = path_and_host_from_uri req.Request.uri in
   debug "pool_update.pool_update_download_handler %s" filepath;
@@ -575,7 +575,6 @@ let pool_update_download_handler (req: Request.t) s _ =
       debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath !Xapi_globs.host_update_dir;
       Http_svr.response_forbidden ~req s
     end else begin
-      Fileserver.response_file s filepath;
-      req.Request.close <- true
+      Fileserver.response_file s filepath
     end
   end
