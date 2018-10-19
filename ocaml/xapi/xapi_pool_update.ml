@@ -195,9 +195,8 @@ let create_yum_config ~__context ~self ~url =
   ; "" (* Newline at the end of the file *)
   ]
 
-let attach_helper ~__context ~uuid ~vdi =
+let attach_helper ~__context ~uuid ~vdi ~use_localhost_proxy =
   let host = Helpers.get_localhost ~__context in
-  let ip = Db.Host.get_address ~__context ~self:host in
   with_inc_refcount ~__context ~uuid ~vdi
     (fun ~__context ~uuid ~vdi ->
        let mount_point_parent_dir = String.concat "/" [!Xapi_globs.host_update_dir; uuid] in
@@ -217,12 +216,13 @@ let attach_helper ~__context ~uuid ~vdi =
        with_api_errors (mount device) mount_point;
        debug "pool_update.attach_helper Mounted %s" mount_point
     );
-  "http://" ^ ip ^ Constants.get_pool_update_download_uri ^ uuid ^ "/vdi"
+  let ip = if use_localhost_proxy then "127.0.0.1" else Db.Host.get_address ~__context ~self:host in 
+  "http://" ^ ip ^ Constants.get_pool_update_download_uri ^ (Db.Host.get_uuid ~__context ~self:host) ^ "/" ^ uuid ^ "/vdi"
 
-let attach ~__context ~self =
+let attach ~__context ~self ~use_localhost_proxy =
   let uuid = Db.Pool_update.get_uuid ~__context ~self in
   let vdi = Db.Pool_update.get_vdi ~__context ~self in
-  create_yum_config ~__context ~self ~url:(attach_helper ~__context ~uuid ~vdi)
+  create_yum_config ~__context ~self ~url:(attach_helper ~__context ~uuid ~vdi ~use_localhost_proxy)
 
 exception Bad_update_info
 exception Invalid_update_uuid of string
@@ -294,7 +294,7 @@ let extract_update_info ~__context ~vdi ~verify =
   let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   finally
     (fun () ->
-       let url = attach_helper ~__context ~uuid:vdi_uuid ~vdi in
+       let url = attach_helper ~__context ~uuid:vdi_uuid ~vdi ~use_localhost_proxy:true in
        let update_path = Printf.sprintf "%s/%s/vdi" !Xapi_globs.host_update_dir vdi_uuid in
        debug "pool_update.extract_update_info get url='%s', will parse_file in '%s'" url update_path;
        let xml = try
@@ -532,21 +532,49 @@ let resync_host ~__context ~host =
     |> List.iter (fun self -> destroy ~__context ~self)
   end
 
-let path_from_uri uri =
+let path_and_host_from_uri uri =
   (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
-  String.sub_to_end uri (String.length Constants.get_pool_update_download_uri)
-  |> Filename.concat !Xapi_globs.host_update_dir
-  |> Uri.pct_decode
-  |> Stdext.Unixext.resolve_dot_and_dotdot
+  let host_and_path = String.sub_to_end uri (String.length Constants.get_pool_update_download_uri) in
+  match String.split ~limit:2 '/' host_and_path with
+  | [host; untrusted_path] ->
+    let resolved_path = untrusted_path
+      |> Filename.concat !Xapi_globs.host_update_dir
+      |> Uri.pct_decode
+      |> Stdext.Unixext.resolve_dot_and_dotdot
+    in
+    (host,resolved_path)
+  | _ -> failwith "Expecting both host and path in the uri"
+
+let proxy_request req s host_uuid =
+  Server_helpers.exec_with_new_task "pool_update_proxy_request" (fun __context ->
+    let host =
+      try Some (Db.Host.get_by_uuid ~__context ~uuid:host_uuid) with _ -> None
+    in
+    match host with
+    |Some host ->
+      let ip = Db.Host.get_address ~__context ~self:host in
+      let transport = Xmlrpc_client.(SSL(SSL.make (), ip, 443)) in
+      Xmlrpc_client.with_transport transport (fun fd ->
+        Unixext.really_write_string fd (Http.Request.to_wire_string req);
+        Unixext.proxy s fd)
+    |None ->
+      debug "Caught exception while get Host by uuid %s" host_uuid;
+      Http_svr.response_badrequest ~req s
+  )
 
 let pool_update_download_handler (req: Request.t) s _ =
   debug "pool_update.pool_update_download_handler URL %s" req.Request.uri;
-  let filepath = path_from_uri req.Request.uri in
+  req.Request.close <- true;
+  let localhost_uuid = Helpers.get_localhost_uuid () in
+  let (host_uuid, filepath) = path_and_host_from_uri req.Request.uri in
   debug "pool_update.pool_update_download_handler %s" filepath;
-  if not(String.startswith !Xapi_globs.host_update_dir filepath) || not (Sys.file_exists filepath) then begin
-    debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath !Xapi_globs.host_update_dir;
-    Http_svr.response_forbidden ~req s
-  end else begin
-    Fileserver.response_file s filepath;
-    req.Request.close <- true
+  if host_uuid <> localhost_uuid then
+    proxy_request req s host_uuid
+  else begin
+    if not(String.startswith !Xapi_globs.host_update_dir filepath) || not (Sys.file_exists filepath) then begin
+      debug "Rejecting request for file: %s (outside of or not existed in directory %s)" filepath !Xapi_globs.host_update_dir;
+      Http_svr.response_forbidden ~req s
+    end else begin
+      Fileserver.response_file s filepath
+    end
   end
