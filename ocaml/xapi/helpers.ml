@@ -1294,3 +1294,9 @@ let retry ~__context ~doc ?(policy = Policy.standard) f =
 
 let retry_with_global_lock ~__context ~doc ?policy f =
   retry ~__context ~doc ?policy (fun () -> with_global_lock f)
+
+(* For Havana,stunnel use legacy by default, set legacy=false when cc enable *)
+let stunnel_should_use_legacy () =
+  try
+    not (bool_of_string (Xapi_inventory.lookup "CC_PREPARATIONS" ~default:"false"))
+  with _ -> true

@@ -154,10 +154,10 @@ let read_localhost_info () =
     machine_serial_name = lookup_inventory_nofail Xapi_inventory._machine_serial_name;
     total_memory_mib = total_memory_mib;
     dom0_static_max = dom0_static_max;
-    ssl_legacy = try (
-      bool_of_string (
-        Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true")
-    ) with _ -> true;
+    ssl_legacy = if not (Helpers.stunnel_should_use_legacy ()) then false else
+      try
+        bool_of_string (Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"true")
+      with _ -> true;
   }
 
 (** Returns the maximum of two values. *)
