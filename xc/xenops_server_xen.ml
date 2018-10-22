@@ -883,7 +883,9 @@ module VM = struct
       | "hvm"       -> Domain_HVM
       | "pv"        -> Domain_PV
       | "pv-in-pvh" -> Domain_PVinPVH
-      | x           -> Domain_undefined
+      | x           ->
+        warn "domid = %d; Undefined domain type found (%s)" di.Xenctrl.domid x;
+        Domain_undefined
     with Xs_protocol.Enoent _ ->
       (* Fallback for the upgrade case, where the new xs key may not exist *)
       if di.Xenctrl.hvm_guest then
