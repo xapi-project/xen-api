@@ -218,6 +218,18 @@ let get_product_releases in_product_since =
     | x::xs -> if x=in_product_since then "closed"::x::xs else go_through_release_order xs
   in go_through_release_order release_order
 
+let havana_release =
+  { internal = get_product_releases rel_havana
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
+
+let ely_release =
+  { internal = get_product_releases rel_ely
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
+
 let dundee_plus_release =
   { internal = get_product_releases rel_dundee_plus
   ; opensource=get_oss_releases None
@@ -4079,6 +4091,10 @@ let pool_update_attach = call
     ~in_oss_since:None
     ~in_product_since:rel_ely
     ~params:[ Ref _pool_update, "self", "The update to be attached"]
+    ~versioned_params:[
+      {param_type=Ref _pool_update; param_name="self"; param_doc="The update to be attached"; param_release=ely_release; param_default=None};
+      {param_type=Bool; param_name="use_localhost_proxy"; param_doc="Use the localhost proxy"; param_release=havana_release; param_default=Some (VBool false)};
+    ]
     ~result:(String, "The file URL of pool update")
     ~allowed_roles:_R_POOL_OP
     ()

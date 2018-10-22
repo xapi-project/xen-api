@@ -250,7 +250,7 @@ if __name__ == '__main__':
 
         # attach and get the yum configuration
         # generate the yum configuration file
-        yum_conf = session.xenapi.pool_update.attach(update)
+        yum_conf = session.xenapi.pool_update.attach(update, True)
         yum_conf_file = os.path.join(TMP_DIR, update_uuid, 'yum.conf')
         try:
             os.makedirs(os.path.dirname(yum_conf_file))
