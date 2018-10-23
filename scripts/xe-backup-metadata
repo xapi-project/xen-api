@@ -134,7 +134,7 @@ echo Using SR: ${sr_name}
 if [ -z "${vdi_uuid}" ]; then
   if [ "${create_vdi}" -gt 0 ]; then
     echo -n "Creating new backup VDI: "
-    vdi_uuid=$(${XE} vdi-create virtual-size=250MiB sr-uuid=${sr_uuid} type=user name-label="Pool Metadata Backup")
+    vdi_uuid=$(${XE} vdi-create virtual-size=500MiB sr-uuid=${sr_uuid} type=user name-label="Pool Metadata Backup")
     init_fs=1
     if [ $? -ne 0 ]; then
        echo failed
