@@ -38,10 +38,24 @@ let test_assert_space_available () =
   assert_raises_api_error Api_errors.out_of_space
     (fun () -> Xapi_pool_update.assert_space_available "./" (Int64.div free_bytes 2L))
 
+let test_download_restriction () =
+  Xapi_globs.host_update_dir := ".";
+  let assert_no_dots s =
+    assert_raises Not_found (fun () -> String.index s '.')
+  in
+  let test path =
+    path
+    |> Filename.concat Constants.get_pool_update_download_uri
+    |> Xapi_pool_update.path_from_uri
+    |> assert_no_dots
+  in
+  List.iter test ["myfile"; ".."; "%2e%2e"]
+
 let test =
   "test_pool_update" >:::
   [
     "test_pool_update_destroy" >:: test_pool_update_destroy;
     "test_pool_update_refcount" >:: test_pool_update_refcount;
     "test_assert_space_available" >:: test_assert_space_available;
+    "test_download_restriction" >:: test_download_restriction;
   ]

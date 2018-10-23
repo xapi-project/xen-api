@@ -652,7 +652,7 @@ let persist_xenopsd_md = "persist_xenopsd_md"
 let persist_xenopsd_md_root = Filename.concat "/var/lib/xcp" "xenopsd_md"
 
 (** {Host updates directory} *)
-let host_update_dir = "/var/update"
+let host_update_dir = ref "/var/update"
 
 (** Dynamic configurations to be read whenever xapi (re)start *)
 
