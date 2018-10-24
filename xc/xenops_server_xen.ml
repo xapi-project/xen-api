@@ -2206,18 +2206,9 @@ module PCI = struct
       ) vm
 
   let unplug task vm pci =
-    try
-      on_frontend
-        (fun xc xs frontend_domid domain_type ->
-           try
-             if domain_type = Vm.Domain_HVM
-             then Device.PCI.release [ pci.address ] frontend_domid
-             else error "VM = %s; PCI.unplug is only supported for HVM guests" vm
-           with Not_found ->
-             debug "VM = %s; PCI.unplug %s.%s caught Not_found: assuming device is unplugged already" vm (fst pci.id) (snd pci.id)
-        ) vm
-    with (Xenopsd_error (Does_not_exist(_,_))) ->
-      debug "VM = %s; PCI = %s; Ignoring missing domain" vm (id_of pci)
+    (* We don't currently need to do anything here. Any necessary cleanup happens
+     * in Domain.destroy. *)
+    ()
 
 end
 
