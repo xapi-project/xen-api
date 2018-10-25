@@ -1524,16 +1524,22 @@ let update_vm ~__context id =
             Opt.iter
               (fun (_, state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
-                 let domain_type = match state.Vm.domain_type with
-                   | Domain_HVM       -> `hvm
-                   | Domain_PV        -> `pv
-                   | Domain_PVinPVH   -> `pv_in_pvh
-                   | Domain_undefined -> `unspecified
+                 let update domain_type =
+                   debug "xenopsd event: Updating VM %s current_domain_type <- %s"
+                     id (Record_util.domain_type_to_string domain_type);
+                   Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
+                     ~value:domain_type
                  in
-                 debug "xenopsd event: Updating VM %s current_domain_type <- %s"
-                   id (Record_util.domain_type_to_string domain_type);
-                 Db.VM_metrics.set_current_domain_type ~__context ~self:metrics
-                   ~value:domain_type;
+                 match state.Vm.domain_type with
+                 | Domain_HVM       -> update `hvm
+                 | Domain_PV        -> update `pv
+                 | Domain_PVinPVH   -> update `pv_in_pvh
+                 | Domain_undefined ->
+                   if power_state <> `Halted then
+                     debug "xenopsd returned an undefined domain type for non-halted VM %s;\
+                       assuming this is transient, so not updating current_domain_type" id
+                   else
+                     update `unspecified
               )
               info
           end;

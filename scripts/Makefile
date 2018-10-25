@@ -66,6 +66,7 @@ install:
 	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) nbd-firewall-config.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
+	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(BINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(BINDIR)

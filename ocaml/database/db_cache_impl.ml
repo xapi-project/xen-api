@@ -167,8 +167,21 @@ let create_row_locked t tblname kvs' new_objref =
   update_database t (add_row tblname new_objref row);
   Database.notify (Create(tblname, new_objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])) (get_database t)
 
+let fld_check t tblname objref (fldname, value) =
+  let v = Schema.Value.marshal (read_field_internal t tblname fldname objref (get_database t)) in
+  (v = value, fldname, v)
+
 let create_row t tblname kvs' new_objref =
-  with_lock (fun () -> create_row_locked t tblname kvs' new_objref)
+  with_lock (fun () ->
+      if is_valid_ref t new_objref then
+        let uniq_check_list = List.map (fld_check t tblname new_objref) kvs' in
+        let failure_opt = List.find_opt (fun (tf, _, _) -> not tf) uniq_check_list in
+        match failure_opt with
+        | Some (_, f, v) -> raise (Integrity_violation (tblname, f, v))
+        | _ -> ()
+      else
+        create_row_locked t tblname kvs' new_objref
+    )
 
 (* Do linear scan to find field values which match where clause *)
 let read_field_where t rcd =

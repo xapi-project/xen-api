@@ -4119,13 +4119,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Pool_update.destroy: pool update = '%s'" (pool_update_uuid ~__context self);
       Local.Pool_update.destroy ~__context ~self
 
-    let attach ~__context ~self =
+    let attach ~__context ~self ~use_localhost_proxy =
       info "Pool_update.attach: pool update = '%s'" (pool_update_uuid ~__context self);
-      let local_fn = Local.Pool_update.attach ~self in
+      let local_fn = Local.Pool_update.attach ~self ~use_localhost_proxy in
       let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
       if Db.is_valid_ref __context update_vdi then
         VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-          (fun session_id rpc -> Client.Pool_update.attach rpc session_id self)
+          (fun session_id rpc -> Client.Pool_update.attach ~rpc ~session_id ~self ~use_localhost_proxy)
       else
         raise (Api_errors.Server_error(Api_errors.cannot_find_update, [(pool_update_uuid ~__context self)]))
 

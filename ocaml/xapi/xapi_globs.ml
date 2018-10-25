@@ -201,6 +201,8 @@ let base_template_name_key = "base_template_name"
 let vbd_task_key = "task_id"
 let related_to_key = "related_to"
 
+let get_nbd_extents = "/opt/xensource/libexec/get_nbd_extents.py"
+
 (* other-config keys to sync over when mirroring/remapping/importing a VDI *)
 let vdi_other_config_sync_keys = [ "config-drive" ]
 
@@ -838,7 +840,7 @@ let xenopsd_queues = ref ([
 
 let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
-let ciphersuites_good_outbound = ref "!EXPORT:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384:AES256-SHA256:RSA+AES128-SHA256:AES128-SHA"
+let ciphersuites_good_outbound = ref "!EXPORT:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256"
 let ciphersuites_legacy_outbound = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+DES-CBC3-SHA"
 
 let gpumon_stop_timeout = ref 10.0

@@ -205,10 +205,10 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts vms_and_snaps
 
   debug "Planning configuration for offline agile VMs = %s"
     (Binpack.string_of_configuration
-       (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.Host.get_hostname ~__context ~self:x))
-       (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.VM.get_name_label ~__context ~self:x)) config);
+       (fun x -> Printf.sprintf "%s (%s)" (Ref.short_string_of x) (Db.Host.get_hostname ~__context ~self:x))
+       (fun x -> Printf.sprintf "%s (%s)" (Ref.short_string_of x) (Db.VM.get_name_label ~__context ~self:x)) config);
   debug "VMs to attempt to evacuate: [ %s ]"
-    (String.concat "; " (List.map (fun (r, record) -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref r) record.API.vM_name_label) vms_and_snapshots));
+    (String.concat "; " (List.map (fun (r, record) -> Printf.sprintf "%s (%s)" (Ref.short_string_of r) record.API.vM_name_label) vms_and_snapshots));
   let h = Binpack.choose_heuristic config in
   h.Binpack.get_specific_plan config (List.map fst vms_and_snapshots)
 
@@ -226,13 +226,13 @@ type configuration_change = {
 let no_configuration_change = { old_vms_leaving = []; old_vms_arriving = []; hosts_to_disable = []; num_failures = None; new_vms_to_protect = [] }
 
 let string_of_configuration_change ~__context (x: configuration_change) =
-  let string_of_host h = Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref h) (Db.Host.get_name_label ~__context ~self:h) in
+  let string_of_host h = Printf.sprintf "%s (%s)" (Ref.short_string_of h) (Db.Host.get_name_label ~__context ~self:h) in
   Printf.sprintf "configuration_change = { old_vms_leaving = [ %s ]; new_vms_arriving = [ %s ]; hosts_to_disable = [ %s ]; num_failures = %s; new_vms = [ %s ] }"
-    (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Helpers.short_string_of_ref vm_ref) vm_t.API.vM_name_label) x.old_vms_leaving))
-    (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Helpers.short_string_of_ref vm_ref) vm_t.API.vM_name_label) x.old_vms_arriving))
+    (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Ref.short_string_of vm_ref) vm_t.API.vM_name_label) x.old_vms_leaving))
+    (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Ref.short_string_of vm_ref) vm_t.API.vM_name_label) x.old_vms_arriving))
     (String.concat "; " (List.map string_of_host x.hosts_to_disable))
     (Stdext.Opt.default "no change" (Stdext.Opt.map string_of_int x.num_failures))
-    (String.concat "; " (List.map Helpers.short_string_of_ref x.new_vms_to_protect))
+    (String.concat "; " (List.map Ref.short_string_of x.new_vms_to_protect))
 
 (* Deterministic function which chooses a single host to 'pin' a non-agile VM to. Note we don't consider only live hosts:
    otherwise a non-agile VM may 'move' between several hosts which it can actually run on, which is not what we need for
@@ -244,10 +244,10 @@ let host_of_non_agile_vm ~__context all_hosts_and_snapshots_sorted (vm, snapshot
   | (host, host_snapshot) :: _ ->
     (* Multiple hosts are possible because "not agile" means "not restartable on every host". It is
        	 possible to unplug PBDs so that only a proper subset of hosts (not the singleton element) supports a VM. *)
-    debug "Non-agile VM %s (%s) considered pinned to Host %s (%s)" (Helpers.short_string_of_ref vm) snapshot.API.vM_name_label (Helpers.short_string_of_ref host) host_snapshot.API.host_hostname;
+    debug "Non-agile VM %s (%s) considered pinned to Host %s (%s)" (Ref.short_string_of vm) snapshot.API.vM_name_label (Ref.short_string_of host) host_snapshot.API.host_hostname;
     [ vm, host ]
   | [] ->
-    warn "No host could support protected xHA VM: %s (%s)" (Helpers.short_string_of_ref vm) (snapshot.API.vM_name_label);
+    warn "No host could support protected xHA VM: %s (%s)" (Ref.short_string_of vm) (snapshot.API.vM_name_label);
     []
 
 let get_live_set ~__context =
@@ -340,10 +340,10 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
       if List.mem scheduled live_hosts
       then Some scheduled else None in
 
-  let string_of_vm vm = Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref vm) (List.assoc vm vms_to_ensure_running).API.vM_name_label in
+  let string_of_vm vm = Printf.sprintf "%s (%s)" (Ref.short_string_of vm) (List.assoc vm vms_to_ensure_running).API.vM_name_label in
   let string_of_host host =
     let name = (List.assoc host all_hosts_and_snapshots).API.host_name_label in
-    Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref host) name in
+    Printf.sprintf "%s (%s)" (Ref.short_string_of host) name in
   let string_of_plan p = String.concat "; " (List.map (fun (vm, host) -> Printf.sprintf "%s -> %s" (string_of_vm vm) (string_of_host host)) p) in
 
   debug "Protected VMs: [ %s ]" (String.concat "; " (List.map (fun (vm, _) -> string_of_vm vm) vms_to_ensure_running));
@@ -450,8 +450,8 @@ let plan_for_n_failures ~__context ~all_protected_vms ?live_set ?(change = no_co
     end else begin
       debug "plan_for_n_failures config = %s"
         (Binpack.string_of_configuration
-           (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.Host.get_hostname ~__context ~self:x))
-           (fun x -> Printf.sprintf "%s (%s)" (Helpers.short_string_of_ref x) (Db.VM.get_name_label ~__context ~self:x)) config);
+           (fun x -> Printf.sprintf "%s (%s)" (Ref.short_string_of x) (Db.Host.get_hostname ~__context ~self:x))
+           (fun x -> Printf.sprintf "%s (%s)" (Ref.short_string_of x) (Db.VM.get_name_label ~__context ~self:x)) config);
       Binpack.check_configuration config;
       let h = Binpack.choose_heuristic config in
       match h.Binpack.plan_always_possible config, non_agile_protected_vms_exist with
