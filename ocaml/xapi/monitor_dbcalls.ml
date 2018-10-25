@@ -173,7 +173,7 @@ let pifs_and_memory_update_fn xc =
     )
 
 let monitor_dbcall_thread () =
-  Xenctrl.with_intf (fun xc ->
+  Xenctrlx.with_intf (fun xc ->
       while true do
         try
           pifs_and_memory_update_fn xc;

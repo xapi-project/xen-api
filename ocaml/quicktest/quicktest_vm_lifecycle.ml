@@ -70,7 +70,7 @@ let one rpc s vm test =
       in
       begin
         try
-          Xenctrl.with_intf (fun xc -> Xenctrl.domain_shutdown xc (Int64.to_int domid) reason)
+          Xenctrlx.with_intf (fun xc -> Xenctrl.domain_shutdown xc (Int64.to_int domid) reason)
         with e ->
           Printf.printf "Ignoring exception: %s" (Printexc.to_string e)
       end

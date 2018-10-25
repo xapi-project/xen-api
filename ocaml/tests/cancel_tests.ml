@@ -277,7 +277,7 @@ let test ({ session_id = session_id; vm = vm; id = id } as env) (op, n) =
            match xs.Xs.directory (Printf.sprintf "/vm/%s/domains" id) with
            | [ domid ] ->
              let open Xenctrl in
-             with_intf
+             Xenctrlx.with_intf
                (fun xc ->
                   let di = domain_getinfo xc (int_of_string domid) in
                   f (Some di)

@@ -89,7 +89,7 @@ let refresh_localhost_info ~__context info =
   Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
   let caps = try
-      String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc))
+      String.split ' ' (Xenctrlx.with_intf (fun xc -> Xenctrl.version_capabilities xc))
     with _ ->
       warn "Unable to query hypervisor capabilities";
       [] in
