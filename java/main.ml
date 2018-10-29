@@ -34,7 +34,6 @@ open Printf
 open Str
 
 open Datamodel_types
-open Datamodel_utils
 open Dm_api
 open CommonFunctions
 module DT = Datamodel_types
@@ -192,7 +191,7 @@ let rec get_marshall_function_rec = function
   | Float         -> "Double"
   | Bool          -> "Boolean"
   | DateTime      -> "Date"
-  | Enum(name,ls) -> class_case name
+  | Enum(name,_) -> class_case name
   | Set(t1)       -> sprintf "SetOf%s" (get_marshall_function_rec t1)
   | Map(t1, t2)   -> sprintf "MapOf%s%s" (get_marshall_function_rec t1) (get_marshall_function_rec t2)
   | Ref(ty)       -> class_case ty (* We want to hide all refs *)
@@ -225,7 +224,7 @@ let get_method_deprecated_string message =
   if get_method_deprecated message  then "@Deprecated"
   else "";;
 
-let get_method_param {param_type=ty; param_name=name} =
+let get_method_param {param_type=ty; param_name=name; _} =
   let ty = get_java_type ty in
   let name = camel_case name in
   sprintf "%s %s" ty name
@@ -235,8 +234,8 @@ let get_method_params_for_signature params =
 
 let get_method_params_for_xml message params=
   let f = function
-    | {param_type=Record _; param_name=name} -> (camel_case name) ^ "_map"
-    | {param_name=name}                      -> camel_case name in
+    | {param_type=Record _; param_name=name; _} -> (camel_case name) ^ "_map"
+    | {param_name=name; _}                      -> camel_case name in
   match params with
   | [] -> if is_method_static message then []
     else ["this.ref"]
@@ -311,10 +310,10 @@ let gen_method file cls message params async_version =
     fprintf file "        String session = c.getSessionReference();\n"
   else ();
 
-  let record_params = List.filter (function {param_type=Record _} -> true | _ -> false) message.msg_params in
+  let record_params = List.filter (function {param_type=Record _; _} -> true | _ -> false) message.msg_params in
 
   List.iter
-    (fun {param_name=s} ->
+    (fun {param_name=s; _} ->
        let name = camel_case s in
        fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name name)
     record_params;
@@ -400,7 +399,7 @@ and gen_record_tostring_contents file prefix = function
 (***)
 
 
-let rec field_default = function
+let field_default = function
   | String        -> "\"\""
   | Int           -> "0"
   | Float         -> "0.0"
@@ -411,8 +410,8 @@ let rec field_default = function
   | Set(t1)       -> sprintf "new LinkedHashSet<%s>()" (get_java_type t1)
   | Map(t1, t2)   -> sprintf "new HashMap<%s, %s>()" (get_java_type t1) (get_java_type t2)
   | Ref(ty)       -> sprintf "new %s(\"OpaqueRef:NULL\")" (class_case ty)
-  | Record(ty)    -> assert false
-  | Option(ty)    -> "null"
+  | Record(_)    -> assert false
+  | Option(_)    -> "null"
 
 
 let gen_record_tomap_field file prefix field =
@@ -637,7 +636,7 @@ let rec gen_marshall_body file = function
         }\n"
 
   | Ref(ty)       -> fprintf file "        return new %s((String) object);\n" (class_case ty)
-  | Enum(name,ls) ->
+  | Enum(name, _) ->
     fprintf file "        try {\n";
     fprintf file "            return %s.valueOf(((String) object).toUpperCase().replace('-','_'));\n" (class_case name);
     fprintf file "        } catch (IllegalArgumentException ex) {\n";
@@ -995,11 +994,11 @@ let populate_releases class_dir =
 let gen_get_all_records_test classes =
   let class_records =
     classes |>
-    List.filter (fun {obj_lifecycle;} ->
+    List.filter (fun {obj_lifecycle; _} ->
         not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle)) |>
-    List.filter (fun {messages;} ->
+    List.filter (fun {messages; _} ->
         List.exists (fun x -> x.msg_name = "get_all_records") messages) |>
-    List.map (fun {name;} -> class_case name) |>
+    List.map (fun {name; _} -> class_case name) |>
     List.sort String.compare
   in
   let json =`O ["api_class_records", `A (List.map (fun x -> `O ["api_class_record", `String x];) class_records); ] in

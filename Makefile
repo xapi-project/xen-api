@@ -41,14 +41,14 @@ ifndef SR_XML
 endif
 
 build:
-	jbuilder build --dev \
+	dune build --dev \
 		c/gen_c_binding.exe \
 		csharp/gen_csharp_binding.exe \
 		java/main.exe \
 		powershell/gen_powershell_binding.exe
 
 clean:
-	jbuilder clean
+	dune clean
 
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --inplace
@@ -56,7 +56,7 @@ reindent:
 .PHONY: build clean reindent
 
 c:
-	jbuilder build c/gen_c_binding.exe
+	dune build c/gen_c_binding.exe
 #autogeneration
 	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
 #source
@@ -70,7 +70,7 @@ c:
 	cp LICENSE _build/default/c/autogen/COPYING
 
 csharp:
-	jbuilder build csharp/gen_csharp_binding.exe
+	dune build csharp/gen_csharp_binding.exe
 #autogeneration
 	mkdir -p _build/default/csharp/autogen/src/Properties
 	mkdir -p _build/default/csharp/autogen/samples
@@ -87,7 +87,7 @@ csharp:
 	sh windows-line-endings.sh _build/default/csharp/autogen
 
 java:
-	jbuilder build java/main.exe
+	dune build java/main.exe
 #autogeneration
 	mkdir -p _build/default/java/autogen/com/xensource/xenapi
 	mkdir -p _build/default/java/autogen/samples
@@ -104,7 +104,7 @@ java:
 	cp java/LICENSE.Apache-2.0.txt _build/default/java/autogen
 
 powershell:
-	jbuilder build powershell/gen_powershell_binding.exe
+	dune build powershell/gen_powershell_binding.exe
 #autogeneration
 	mkdir -p _build/default/powershell/autogen/src/Properties
 	mkdir -p _build/default/powershell/autogen/samples
