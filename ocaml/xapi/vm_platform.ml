@@ -53,6 +53,8 @@ let fallback_device_model_stage_3      = "qemu-upstream-compat"
 let fallback_device_model_stage_4      = fallback_device_model_stage_3
 let fallback_device_model_default_value = fallback_device_model_stage_3
 
+let fallback_device_model_default_value_uefi = "qemu-upstream-uefi"
+
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_flags = [
   acpi;

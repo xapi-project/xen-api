@@ -246,6 +246,22 @@ let start ~__context ~vm ~start_paused ~force =
     debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
   end;
 
+  let default_value = match Xapi_xenops.firmware_of_vm vmr with
+    | Bios -> Vm_platform.fallback_device_model_default_value
+    | Uefi _ -> Vm_platform.fallback_device_model_default_value_uefi in
+  let platform = vmr.API.vM_platform
+                 |> Xapi_vm_helpers.ensure_device_model_profile_present
+                   ~__context ~domain_type:vmr.API.vM_domain_type
+                   ~default_value ~is_a_template:false
+  in
+  let vmr =
+    if platform <> vmr.API.vM_platform then begin
+      Db.VM.set_platform ~__context ~self:vm ~value:platform;
+      { vmr with API.vM_platform = platform }
+    end else vmr
+  in
+
+
   (* Check to see if we're using correct device-model when vm has VUSBs*)
 
   let vusbs = Db.VM.get_VUSBs ~__context ~self:vm in
@@ -521,7 +537,6 @@ let create ~__context ~name_label ~name_description
     ~current_domain_type:`unspecified
   ;
   let domain_type = if domain_type = `unspecified then derive_domain_type ~hVM_boot_policy else domain_type in
-  let platform = platform |> (Xapi_vm_helpers.ensure_device_model_profile_present ~__context ~domain_type) in
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
     ~power_state:(`Halted) ~allowed_operations:[]
     ~current_operations:[]
