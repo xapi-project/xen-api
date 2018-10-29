@@ -5,6 +5,8 @@ end
 open Xapi_stdext_pervasives.Pervasiveext
 
 module Make(Algorithm : ALGORITHM) = struct
+  let available () = Sys.file_exists Algorithm.executable
+
   (** Helper function to prevent double-closes of file descriptors *)
   let close to_close fd =
     if List.mem fd !to_close then Unix.close fd;

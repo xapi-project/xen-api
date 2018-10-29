@@ -3,6 +3,9 @@ module type ALGORITHM = sig
 end
 
 module Make : functor (Algorithm : ALGORITHM) -> sig
+  (** Returns whether this compression algorithm is available *)
+  val available: unit -> bool
+
   (** Runs a compression process which is fed from a pipe whose entrance is passed to 'f'
       and whose output is 'ofd' *)
   val compress: Unix.file_descr -> (Unix.file_descr -> unit) -> unit
