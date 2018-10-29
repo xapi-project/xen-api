@@ -34,6 +34,11 @@ type version = {
   export_vsn: int; (* 0 if missing, indicates eg whether to expect sha1sums in the stream *)
 }
 
+(** Supported compression algorithms *)
+type compression_algorithm =
+  | Gzip
+  | Zstd
+
 let rpc_of_version x =
   let open Xapi_globs in
   Rpc.Dict(
