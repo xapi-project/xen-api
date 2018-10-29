@@ -253,12 +253,6 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
   let is_vmss_snapshot =
       is_a_snapshot && (Xapi_vmss.is_vmss_snapshot ~__context) in
 
-  let platform =
-    all.Db_actions.vM_platform
-    |> (Xapi_vm_helpers.ensure_device_model_profile_present
-          ~__context ~domain_type:all.Db_actions.vM_domain_type)
-  in
-
   (* create a new VM *)
   Db.VM.create ~__context
     ~ref
@@ -300,7 +294,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
     ~hVM_boot_params:all.Db_actions.vM_HVM_boot_params
     ~hVM_shadow_multiplier:all.Db_actions.vM_HVM_shadow_multiplier
     ~suspend_VDI:Ref.null
-    ~platform
+    ~platform:all.Db_actions.vM_platform
     ~pV_kernel:all.Db_actions.vM_PV_kernel
     ~pV_ramdisk:all.Db_actions.vM_PV_ramdisk
     ~pV_args:all.Db_actions.vM_PV_args
