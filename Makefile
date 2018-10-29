@@ -41,7 +41,7 @@ ifndef SR_XML
 endif
 
 build:
-	dune build --dev \
+	dune build \
 		c/gen_c_binding.exe \
 		csharp/gen_csharp_binding.exe \
 		java/main.exe \
@@ -56,7 +56,7 @@ reindent:
 .PHONY: build clean reindent
 
 c:
-	dune build c/gen_c_binding.exe
+	dune build --profile=release c/gen_c_binding.exe
 #autogeneration
 	_build/default/c/gen_c_binding.exe -d _build/default/c/autogen -t c/templates
 #source
@@ -70,7 +70,7 @@ c:
 	cp LICENSE _build/default/c/autogen/COPYING
 
 csharp:
-	dune build csharp/gen_csharp_binding.exe
+	dune build --profile=release csharp/gen_csharp_binding.exe
 #autogeneration
 	mkdir -p _build/default/csharp/autogen/src/Properties
 	mkdir -p _build/default/csharp/autogen/samples
@@ -87,7 +87,7 @@ csharp:
 	sh windows-line-endings.sh _build/default/csharp/autogen
 
 java:
-	dune build java/main.exe
+	dune build --profile=release java/main.exe
 #autogeneration
 	mkdir -p _build/default/java/autogen/com/xensource/xenapi
 	mkdir -p _build/default/java/autogen/samples
@@ -104,7 +104,7 @@ java:
 	cp java/LICENSE.Apache-2.0.txt _build/default/java/autogen
 
 powershell:
-	dune build powershell/gen_powershell_binding.exe
+	dune build --profile=release powershell/gen_powershell_binding.exe
 #autogeneration
 	mkdir -p _build/default/powershell/autogen/src/Properties
 	mkdir -p _build/default/powershell/autogen/samples
