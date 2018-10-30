@@ -1,12 +1,19 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "https://github.com/xapi-project/xen-api.git"
-
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 build: [[ "jbuilder" "build" "-p" name ]]
 
 depends: [
+  "ocaml"
   "jbuilder" {build & >= "1.0+beta11"}
 ]
+synopsis: "The xapi toolstack daemon which implements the XenAPI"
+description: """
+This daemon exposes the XenAPI and is used by clients such as 'xe'
+and 'XenCenter' to manage clusters of Xen-enabled hosts."""
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master/master.tar.gz"
+}
