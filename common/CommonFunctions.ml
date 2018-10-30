@@ -52,7 +52,7 @@ let rec list_distinct list =
 
 let rec list_last = function
   | x::[]  -> x
-  | hd::tl -> list_last tl
+  | _::tl -> list_last tl
   | []     -> failwith "Cannot return the last element of an empty list."
 
 and list_index_of x list =
@@ -72,8 +72,8 @@ let rec gen_param_groups_for_releases releaseOrder params =
 and is_method_static message =
   match message.msg_params with
   | []                     -> true
-  | {param_name="self"}::_ -> false
-  | {param_type=ty}::_     -> not (ty = Ref message.msg_obj_name)
+  | {param_name="self"; _}::_ -> false
+  | {param_type=ty; _}::_     -> not (ty = Ref message.msg_obj_name)
 
 and get_method_params_list message =
   if is_method_static message then message.msg_params
@@ -114,7 +114,7 @@ and get_first_release releases =
   let filtered = List.filter (fun x -> List.mem x releases) code_name_order in
   match filtered with
   | []     -> ""
-  | hd::tl -> hd
+  | hd::_ -> hd
 
 and get_first_release_string release =
   if release = "" then ""
@@ -127,12 +127,12 @@ and get_deprecated_info_message_string version =
 
 and get_prototyped_release lifecycle =
   match lifecycle with
-  | [Prototyped, release, doc] -> release
+  | [Prototyped, release, _] -> release
   | _                          -> ""
 
 and get_prototyped_release_string lifecycle =
   match lifecycle with
-  | [Prototyped, release, doc] -> "Experimental. "^(get_first_release_string release)
+  | [Prototyped, release, _] -> "Experimental. "^(get_first_release_string release)
   | _                          -> ""
 
 and get_published_info_message message cls =

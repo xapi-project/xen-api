@@ -1,12 +1,10 @@
-(jbuild_version 1)
-
-(library(
+(library
   (name CommonFunctions)
   (wrapped false)
-  (libraries (
+  (libraries
     xapi-datamodel
     mustache
     xapi-stdext-pervasives
     xapi-stdext-unix
-  ))
-))
+  )
+)

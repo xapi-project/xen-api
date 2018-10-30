@@ -1,12 +1,10 @@
-(jbuild_version 1)
-
-(executable(
+(executable
   (name main)
-  (libraries (
+  (libraries
     xapi-datamodel
     str
     CommonFunctions
     xapi-stdext-unix
     astring
-  ))
-))
+  )
+)

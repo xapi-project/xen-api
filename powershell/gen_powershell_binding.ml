@@ -31,7 +31,6 @@
 open Printf
 open Datamodel
 open Datamodel_types
-open Datamodel_utils
 open Dm_api
 open Common_functions
 open CommonFunctions
@@ -305,7 +304,7 @@ and print_converters classes =
 (*************************)
 
 and gen_cmdlets obj =
-  let {name=classname; messages} = obj in
+  let {name=classname; messages; _} = obj in
   let stem = ocaml_class_to_csharp_class classname in
 
   let cmdlets = [{
@@ -458,12 +457,12 @@ and print_methods_class classname has_uuid has_name =
 and gen_constructor obj classname messages =
   match messages with
   | []  -> ""
-  | [x] -> (print_header_constructor x obj classname)^
+  | [x] -> (print_header_constructor x classname)^
            (print_params_constructor x obj classname)^
            (print_methods_constructor x obj classname)
   | _   -> assert false
 
-and print_header_constructor message obj classname =
+and print_header_constructor message classname =
   sprintf "%s
 
 using System;
@@ -556,19 +555,19 @@ and print_methods_constructor message obj classname =
         #endregion
    }
 }\n"
-    (if is_real_constructor message then gen_make_record message obj classname
-     else gen_make_fields message obj classname)
+    (if is_real_constructor message then gen_make_record obj classname
+     else gen_make_fields message obj)
     (gen_shouldprocess "New" message classname)
     (gen_csharp_api_call message classname "New" "passthru")
 
 and create_param_parse param paramName =
   match param.param_type with
-  | Ref name -> sprintf "
+  | Ref _ -> sprintf "
             string %s = %s.opaque_ref;\n"
-                  (String.lowercase_ascii param.param_name) paramName
+               (String.lowercase_ascii param.param_name) paramName
   | _ -> ""
 
-and gen_make_record message obj classname =
+and gen_make_record obj classname =
   sprintf "
             if (Record == null && HashTable == null)
             {
@@ -595,7 +594,7 @@ and gen_record_field field =
                 " (ocaml_field_to_csharp_property field) in
   let assignment =
     match field.ty with
-    |  Ref r     -> sprintf "    Record.%s = new %s(%s == null ? \"OpaqueRef:NULL\" : %s.opaque_ref);"
+    |  Ref _     -> sprintf "    Record.%s = new %s(%s == null ? \"OpaqueRef:NULL\" : %s.opaque_ref);"
                       (full_name field) (obj_internal_type field.ty)
                       (ocaml_field_to_csharp_property field) (ocaml_field_to_csharp_property field)
     |  Map(u, v) -> sprintf "    Record.%s = CommonCmdletFunctions.ConvertHashTableToDictionary<%s, %s>(%s);"
@@ -606,7 +605,7 @@ and gen_record_field field =
   in
   chk ^ assignment
 
-and gen_make_fields message obj classname =
+and gen_make_fields message obj =
   sprintf "
             if (Record != null)
             {%s
@@ -635,7 +634,7 @@ and explode_record_fields message fields =
   |  hd::tl ->
     if List.exists (fun x -> (full_name hd) = x.param_name) message.msg_params then
       match hd.ty with
-      | Map(u, v) -> print_map tl hd
+      | Map(_, _) -> print_map tl hd
       | _ -> print_record tl hd
     else explode_record_fields message tl
 
@@ -670,7 +669,7 @@ and convert_from_hashtable fname ty =
                               x x field
   | Map(Ref x, Record _) -> sprintf "Marshalling.ParseMapRefRecord<%s, Proxy_%s>(HashTable, %s)"
                               (exposed_class_name x) (exposed_class_name x) field
-  | Map(u, v) as x       -> maps := TypeSet.add x !maps;
+  | Map(_, _) as x       -> maps := TypeSet.add x !maps;
     sprintf "(Marshalling.ParseHashTable(HashTable, %s))" field
   | Record name          -> sprintf "new %s((Proxy_%s)HashTable[%s])"
                               (exposed_class_name name)
@@ -1324,21 +1323,20 @@ and print_cmdlet_methods classname messages commonVerb =
 
 and print_xenobject_params obj classname mandatoryRef includeXenObject includeUuidAndName =
   let publicName = ocaml_class_to_csharp_property classname in
-  let privateName = lower_and_underscore_first publicName in
   sprintf "%s
 
         [Parameter(ParameterSetName = \"Ref\"%s, ValueFromPipelineByPropertyName = true, Position = 0)]
         [Alias(\"opaque_ref\")]
         public XenRef<%s> Ref { get; set; }
 %s%s\n"
-    (if includeXenObject then print_param_xen_object (qualified_class_name classname) publicName privateName
+    (if includeXenObject then print_param_xen_object (qualified_class_name classname) publicName
      else "")
     (if mandatoryRef then ", Mandatory = true" else "")
     (qualified_class_name classname)
     (print_param_uuid ((has_uuid obj) && includeUuidAndName))
     (print_param_name ((has_name obj) && includeUuidAndName))
 
-and print_param_xen_object qualifiedClassName publicName privateName =
+and print_param_xen_object qualifiedClassName publicName =
   sprintf "
         [Parameter(ParameterSetName = \"XenObject\", Mandatory = true, ValueFromPipeline = true, Position = 0)]
         public %s %s { get; set; }"
@@ -1356,30 +1354,6 @@ and print_param_name hasName =
         [Alias(\"name_label\")]
         public string Name { get; set; }\n"
   else sprintf ""
-
-and gen_switch_params classname message commonVerb =
-  let cutMessageName = cut_msg_name (pascal_case message.msg_name) commonVerb in
-  let switchName = if cutMessageName = "Host" then "XenHost" else cutMessageName in
-  sprintf "
-        [Parameter(ParameterSetName = \"%s\", Mandatory = true)]
-        public SwitchParameter %s
-        {
-            get { return %s; }
-            set
-            {
-                %s = value;
-                %sIsSpecified = true;
-            }
-        }
-        private bool %s;
-        private bool %sIsSpecified;\n"
-    switchName
-    switchName
-    (lower_and_underscore_first switchName)
-    (lower_and_underscore_first switchName)
-    (lower_and_underscore_first switchName)
-    (lower_and_underscore_first switchName)
-    (lower_and_underscore_first switchName)
 
 and print_async_param asyncMessages =
   match asyncMessages with
@@ -1600,15 +1574,15 @@ and gen_csharp_api_call_sync message classname commonVerb =
                     %s.%s(%s);\n"
                                (qualified_class_name classname) (message.msg_name)
                                (gen_call_params classname message commonVerb)
-  | Some (Ref r, _)       -> sprintf "
+  | Some (Ref _, _)       -> sprintf "
                     string objRef = %s.%s(%s);\n"
                                (qualified_class_name classname) (message.msg_name)
                                (gen_call_params classname message commonVerb)
-  | Some (Set (Ref r), _) -> sprintf "
+  | Some (Set (Ref _), _) -> sprintf "
                     var refs = %s.%s(%s);\n"
                                (qualified_class_name classname)
                                (message.msg_name) (gen_call_params classname message commonVerb)
-  | Some (Map (u, v), _)  -> sprintf "
+  | Some (Map (_, _), _)  -> sprintf "
                     var dict = %s.%s(%s);\n"
                                (qualified_class_name classname) (message.msg_name)
                                (gen_call_params classname message commonVerb)
@@ -1655,10 +1629,10 @@ and gen_csharp_api_call_sync_pipe message classname =
                         WriteObject(records, true);"
                                (qualified_class_name r)
                                (qualified_class_name r)
-  | Some (Map (u, v), _)  -> sprintf "
+  | Some (Map (_, _), _)  -> sprintf "
                         Hashtable ht = CommonCmdletFunctions.ConvertDictionaryToHashtable(dict);
                         WriteObject(ht, true);"
-  | Some (x, _)           -> sprintf "
+  | Some (_, _)           -> sprintf "
                         WriteObject(obj, true);"
 
 and gen_call_params classname message commonVerb =
@@ -1701,7 +1675,7 @@ and gen_param_list classname params message commonVerb =
   | "Add"    ->
     (match messageParams with
      | [x]   -> procParams@[api_call_param x]
-     | [x;y] -> procParams@[cutMessageName^".Key"; valueOfPair y]
+     | [_;y] -> procParams@[cutMessageName^".Key"; valueOfPair y]
      | _     ->  Printf.eprintf "%s" message.msg_name; assert false)
   | "Set"    ->
     (match messageParams with

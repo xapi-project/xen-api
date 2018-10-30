@@ -655,7 +655,7 @@ and gen_to_proxy_line out_chan content =
 
   | Namespace (_, c) -> List.iter (gen_to_proxy_line out_chan) c
 
-and gen_overload out_chan classname message generator =
+and gen_overload message generator =
   let methodParams = get_method_params_list message in
   match methodParams with
   | [] -> generator []
@@ -664,7 +664,7 @@ and gen_overload out_chan classname message generator =
 
 and gen_exposed_method_overloads out_chan cls message =
   let generator = fun x -> gen_exposed_method out_chan cls message x in
-  gen_overload out_chan cls.name message generator
+  gen_overload message generator
 
 and gen_exposed_method out_chan cls msg curParams =
   let classname = cls.name in
@@ -721,7 +721,7 @@ and gen_exposed_method out_chan cls msg curParams =
 
 and returns_xenobject msg =
   match msg.msg_result with
-  |  Some (Record r, _) -> true
+  |  Some (Record _, _) -> true
   |  _ -> false
 
 and get_params_doc msg classname params =
@@ -987,14 +987,14 @@ namespace XenAPI
 }
 "
 
-and gen_proxy_for_class protocol out_chan {name=classname; messages=messages} =
+and gen_proxy_for_class protocol out_chan {name=classname; messages; _} =
   List.iter (gen_proxy_method_overloads protocol out_chan classname) messages;
   if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
     gen_proxy_method protocol out_chan classname (get_all_records_method classname) []
 
 and gen_proxy_method_overloads protocol out_chan classname message =
   let generator = fun x -> gen_proxy_method protocol out_chan classname message x in
-  gen_overload out_chan classname message generator
+  gen_overload message generator
 
 and gen_proxy_method protocol out_chan classname message params =
   let print format = fprintf out_chan format in
@@ -1021,7 +1021,7 @@ and gen_proxy_method protocol out_chan classname message params =
   | CommonFunctions.JsonRpc ->
     let return_word =
       match message.msg_result with
-      | Some (typ, _) -> "return "
+      | Some (_, _) -> "return "
       | None -> ""
     in
     let param_converters = List.map (fun x -> json_converter x.param_type) params in
@@ -1070,7 +1070,7 @@ and proxy_param ~with_types ~json p =
   if json then (
     if with_types then (
       let exposed_type_json = function
-        | Ref name -> "string"
+        | Ref _ -> "string"
         | x -> exposed_type x
       in
       sprintf "%s _%s" (exposed_type_json p.param_type) (String.lowercase_ascii p.param_name)
@@ -1087,10 +1087,10 @@ and proxy_param ~with_types ~json p =
 
 
 and ctor_fields fields =
-  List.filter (function { DT.qualifier = (DT.StaticRO | DT.RW) } -> true | _ -> false) fields
+  List.filter (function { DT.qualifier = (DT.StaticRO | DT.RW); _ } -> true | _ -> false) fields
 
 
-and gen_proxyclass out_chan {name=classname; contents=contents} =
+and gen_proxyclass out_chan {name=classname; contents; _} =
   let print format = fprintf out_chan format in
 
   print
@@ -1319,7 +1319,7 @@ and proxy_type = function
   | Float               -> "double"
   | Bool                -> "bool"
   | DateTime            -> "DateTime"
-  | Ref name            -> "string"
+  | Ref _               -> "string"
   | Set (Record name)   -> "Proxy_" ^ exposed_class_name name ^ "[]"
   | Set _               -> "string []"
   | Enum _              -> "string"
@@ -1329,7 +1329,6 @@ and proxy_type = function
   | Option Bool         -> "bool?"
   | Option DateTime     -> "DateTime?"
   | Option x            -> proxy_type x
-  | x                   -> eprintf "%s" (Types.to_string x); assert false
 
 and exposed_type_opt = function
     Some (typ, _) -> exposed_type typ
@@ -1361,7 +1360,7 @@ and exposed_type = function
 
 
 and internal_type = function
-  | Ref name                -> (* THIS SHOULD BE: Printf.sprintf "XenRef<%s>" name *) "string"
+  | Ref _                -> (* THIS SHOULD BE: Printf.sprintf "XenRef<%s>" name *) "string"
   | Set(Ref name)           -> Printf.sprintf "List<XenRef<%s>>" (exposed_class_name name)
   | x                       -> exposed_type x
 
@@ -1462,14 +1461,14 @@ and convert_to_proxy thing ty =
   | Ref _            -> sprintf "%s ?? \"\"" thing
   | String           -> sprintf "%s ?? \"\"" thing
   | Enum (name,_)    -> sprintf "%s_helper.ToString(%s)" name thing
-  | Set (Ref name)   -> sprintf "%s == null ? new string[] {} : Helper.RefListToStringArray(%s)" thing thing
+  | Set (Ref _)      -> sprintf "%s == null ? new string[] {} : Helper.RefListToStringArray(%s)" thing thing
   | Set(String)      -> thing
   | Set (Int)        -> sprintf "%s == null ? new string[] {} : Helper.LongArrayToStringArray(%s)" thing thing
   | Set(Enum(_, _))  -> sprintf "%s == null ? new string[] {} : Helper.ObjectListToStringArray(%s)" thing thing
   | Map(u, v) as x   -> maps := TypeSet.add x !maps;
     sprintf "%s(%s)"
       (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
-  | Record name      -> sprintf "%s.ToProxy()" thing
+  | Record _      -> sprintf "%s.ToProxy()" thing
   | Option Int       -> sprintf "%s == null ? null : %s.ToString()" thing thing
   | Option Bool
   | Option Float
@@ -1477,14 +1476,14 @@ and convert_to_proxy thing ty =
   | Option Ref _
   | Option String                   -> thing
   | Option (Enum (name,_))          -> sprintf "%s == null ? null : %s_helper.ToString(%s)" thing name thing
-  | Option (Set (Ref name))         -> sprintf "%s == null ? null : Helper.RefListToStringArray(%s)" thing thing
+  | Option (Set (Ref _))            -> sprintf "%s == null ? null : Helper.RefListToStringArray(%s)" thing thing
   | Option (Set(String))            -> thing
   | Option (Set (Int))              -> sprintf "%s == null ? null : Helper.LongArrayToStringArray(%s)" thing thing
   | Option (Set(Enum(_, _)))        -> sprintf "%s == null ? null : Helper.ObjectListToStringArray(%s)" thing thing
   | Option (Map(u, v) as x)         -> maps := TypeSet.add x !maps;
     sprintf "%s == null ? null : %s(%s)" thing
       (sanitise_function_name (sprintf "Maps.convert_to_proxy_%s_%s" (exposed_type_as_literal u) (exposed_type_as_literal v))) thing
-  | Option (Record name)            -> sprintf "%s == null ? null : %s.ToProxy()" thing thing
+  | Option (Record _)            -> sprintf "%s == null ? null : %s.ToProxy()" thing thing
   | x                               -> eprintf "%s" (Types.to_string x); assert false
 
 
@@ -1504,18 +1503,6 @@ and escaped = function
 and full_name field =
   escaped (String.concat "_" field.full_name)
 
-and is_readonly field =
-  match field.qualifier with
-    RW   -> "false"
-  | _    -> "true"
-
-
-and is_static_readonly field =
-  match field.qualifier with
-    StaticRO     -> "true"
-  | DynamicRO    -> "false"
-  | _            -> "false"
-
 and json_param p =
   let thing = String.lowercase_ascii p.param_name in
   match p.param_type with
@@ -1526,10 +1513,11 @@ and json_param p =
   | String
   | Ref _          -> sprintf "_%s ?? \"\"" thing
   | Enum _         -> sprintf "_%s.StringOf()" thing
-  | Set (Ref name) -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s, serializer)" thing thing
-  | Set u          -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s)" thing thing
-  | Map (u, v)     -> sprintf "_%s == null ? new JObject() : JObject.FromObject(_%s, serializer)" thing thing
-  | Record name    -> sprintf "_%s.ToJObject()" thing
+  | Set (Ref _) -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s, serializer)" thing thing
+  | Set _          -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s)" thing thing
+  | Map (_, _)     -> sprintf "_%s == null ? new JObject() : JObject.FromObject(_%s, serializer)" thing thing
+  | Record _    -> sprintf "_%s.ToJObject()" thing
+  | _           -> assert false;
 
 and json_deserialise_opt = function
   | Some (typ, _) -> sprintf "<%s>" (exposed_type typ)
@@ -1541,7 +1529,7 @@ and json_converter typ =
   | Enum (name, _)        -> sprintf "new %sConverter()" name
   | Ref name              -> sprintf "new XenRefConverter<%s>()" (exposed_class_name name)
   | Set (Ref name)        -> sprintf "new XenRefListConverter<%s>()" (exposed_class_name name)
-  | Map (Ref u, Record v) -> sprintf "new XenRefXenObjectMapConverter<%s>()" (exposed_class_name u)
+  | Map (Ref u, Record _) -> sprintf "new XenRefXenObjectMapConverter<%s>()" (exposed_class_name u)
   | Map (Ref u, Ref v)    -> sprintf "new XenRefXenRefMapConverter<%s, %s>()" (exposed_class_name u) (exposed_class_name v)
   | Map (Ref u, Int)      -> sprintf "new XenRefLongMapConverter<%s>()" (exposed_class_name u)
   | Map (Ref u, String)   -> sprintf "new XenRefStringMapConverter<%s>()" (exposed_class_name u)
@@ -1558,7 +1546,7 @@ and json_converter_opt = function
   | None -> ""
 
 and json_return_opt thing = function
-  | Some (typ, _) -> "return " ^ thing
+  | Some (_, _) -> "return " ^ thing
   | None -> thing
 
 and json_serialization_attr fr =
@@ -1567,7 +1555,7 @@ and json_serialization_attr fr =
   | Enum (name, _)        -> sprintf "\n        [JsonConverter(typeof(%sConverter))]" name
   | Ref name              -> sprintf "\n        [JsonConverter(typeof(XenRefConverter<%s>))]" (exposed_class_name name)
   | Set (Ref name)        -> sprintf "\n        [JsonConverter(typeof(XenRefListConverter<%s>))]" (exposed_class_name name)
-  | Map (Ref u, Record v) -> sprintf "\n        [JsonConverter(typeof(XenRefObjectMapConverter<%s>))]" (exposed_class_name u)
+  | Map (Ref u, Record _) -> sprintf "\n        [JsonConverter(typeof(XenRefObjectMapConverter<%s>))]" (exposed_class_name u)
   | Map (Ref u, Ref v)    -> sprintf "\n        [JsonConverter(typeof(XenRefXenRefMapConverter<%s, %s>))]" (exposed_class_name u) (exposed_class_name v)
   | Map (Ref u, Int)      -> sprintf "\n        [JsonConverter(typeof(XenRefLongMapConverter<%s>))]" (exposed_class_name u)
   | Map (Ref u, String)   -> sprintf "\n        [JsonConverter(typeof(XenRefStringMapConverter<%s>))]" (exposed_class_name u)
@@ -1609,9 +1597,8 @@ and get_default_value_per_type ty thing =
                         (if thing = [] then "" else String.concat ", " (List.map (fun x-> sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x) thing))
   | Set _          -> sprintf " = new %s() {%s}" (exposed_type ty) (String.concat ", " thing)
   | Map(u, v)      -> sprintf " = new Dictionary<%s, %s>() {%s}" (exposed_type u) (exposed_type v) (String.concat ", " thing)
-  | Record name    -> sprintf " = new %s()" (exposed_type ty)
+  | Record _    -> sprintf " = new %s()" (exposed_type ty)
   | Option x       -> if thing = [] then "" else get_default_value_per_type x thing
-  | x              -> eprintf "%s" (Types.to_string x); assert false
 
 and gen_i18n_errors () =
   Friendly_error_names.parse_sr_xml sr_xml;

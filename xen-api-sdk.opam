@@ -1,15 +1,19 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xen-api-sdk"
+synopsis: "Xen API SDK generation code."
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 license: "BSD 2-Clause"
 homepage: "https://github.com/xapi-project/xen-api-sdk"
 bug-reports: "https://github.com/xapi-project/xen-api-sdk/issues"
-dev-repo: "https://github.com/xapi-project/xen-api-sdk.git"
+dev-repo: "git+https://github.com/xapi-project/xen-api-sdk.git"
+url {
+  src: "https://github.com/xapi-project/xen-api-sdk/archive/master.tar.gz"
+}
 tags: [ "org:xapi-project" ]
-build: [[ "jbuilder" "build" "-p" name ]]
+build: [[ "dune" "build" "-p" name ]]
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
   "xapi-datamodel"
   "mustache"
   "astring"

@@ -32,8 +32,6 @@
 open Printf
 open Datamodel
 open Datamodel_types
-open Datamodel_utils
-open Dm_api
 
 module DU = Datamodel_utils
 
@@ -105,9 +103,9 @@ and type_default ty =
   | Float       -> ""
   | Bool        -> ""
   | Enum _      -> ""
-  | Record r    -> ""
-  | Ref r       -> ""
-  | Map(u, v)   -> " = new Hashtable()"
+  | Record _    -> ""
+  | Ref _       -> ""
+  | Map(_, _)   -> " = new Hashtable()"
   | Set(String) -> " = new string[0]"
   | _           -> sprintf " = new %s()"(exposed_type ty)
 
@@ -117,16 +115,6 @@ and escaped = function
 
 and full_name field =
   escaped (String.concat "_" field.full_name)
-and is_readonly field =
-  match field.qualifier with
-  | RW   -> "false"
-  | _    -> "true"
-
-and is_static_readonly field =
-  match field.qualifier with
-  | StaticRO     -> "true"
-  | DynamicRO    -> "false"
-  | _            -> "false"
 
 and exposed_type_opt = function
   | Some (typ, _) -> exposed_type typ
@@ -153,7 +141,7 @@ and exposed_type = function
 and obj_internal_type = function
   | Ref x         -> sprintf "XenRef<%s>" (qualified_class_name x)
   | Set(Ref x)    -> sprintf "List<XenRef<%s>>" (qualified_class_name x)
-  | Map(u, v)     -> "Hashtable"
+  | Map(_, _)     -> "Hashtable"
   | Record x      -> qualified_class_name x
   | Set(Record x) -> sprintf "List<%s>" (qualified_class_name x)
   | x             -> exposed_type x

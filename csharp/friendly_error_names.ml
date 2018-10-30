@@ -28,10 +28,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
-open Dm_api
-open Datamodel_utils
-open Datamodel_types
-
 module DT=Datamodel_types
 
 let friendly_names = Hashtbl.create 10
