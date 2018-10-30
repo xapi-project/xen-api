@@ -1,9 +1,17 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "John Else"
 homepage: "https://github.com/xapi-project/rrd-transport"
 dev-repo: "https://github.com/xapi-project/rrd-transport"
 bug-reports: "https://github.com/xapi-project/rrd-transport"
 depends: [
+  "ocaml"
   "rrd-transport" {>= "2.0.0"}
 ]
+synopsis: "Shared-memory protocols for exposing performance counters"
+description: """
+VMs running on a Xen host can use this library to expose performance
+counters which can be sampled by the xapi performance monitoring daemon."""
+url {
+  src: "https://github.com/xapi-project/rrd-transport/archive/master.tar.gz"
+}
