@@ -1,18 +1,23 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xapi-xenopsd-simulator"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xenopsd"
-dev-repo: "https://github.com/xapi-project/xenopsd.git"
+dev-repo: "git+https://github.com/xapi-project/xenopsd.git"
 bug-reports: "https://github.com/xapi-project/xenopsd/issues"
 build: [
   ["./configure"]
   [ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
+  "ocaml"
   "dune" {build}
-
   "ounit"
   "base-unix"
   "xapi-xenopsd"
 ]
+synopsis:
+  "Simulation backend allowing testing of the higher-level xenops logic."
+url {
+  src: "https://github.com/xapi-project/xenopsd/archive/master/master.tar.gz"
+}
