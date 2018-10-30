@@ -544,31 +544,7 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
       log_exn_rm ~xs (Hotplug.get_hotplug_base_by_uuid uuid domid)
   end;
   (* Also zap any remaining cancellation paths in xenstore *)
-  Cancel_utils.cleanup_for_domain ~xs domid;
-
-  (* Block waiting for the dying domain to disappear: aim is to catch shutdown errors early*)
-  let still_exists () =
-    try
-      let _ = Xenctrl.domain_getinfo xc domid in
-      debug "VM = %s; domid = %d; Domain still exist, waiting for it to disappear." (Uuid.to_string uuid) domid;
-      true
-    with
-    | Xenctrl.Error err ->
-      debug "VM = %s; domid = %d; Domain nolonger exists (%s)" (Uuid.to_string uuid) domid err;
-      false
-    | e ->
-      error "VM = %s; domid = %d; Xenctrl.domain_getinfo threw: %s" (Uuid.to_string uuid) domid (Printexc.to_string e);
-      raise e in
-  let start = Unix.gettimeofday () in
-  let timeout = 60. in
-  while still_exists () && (Unix.gettimeofday () -. start < timeout) do
-    Thread.delay 5.
-  done;
-  if still_exists () then begin
-    error "VM = %s; domid = %d; Domain stuck in dying state after 30s; resetting UUID to %s. This probably indicates a backend driver bug." (Uuid.to_string uuid) domid s;
-    raise (Domain_stuck_in_dying_state domid)
-  end
-
+  Cancel_utils.cleanup_for_domain ~xs domid
 
 let pause ~xc domid =
   Xenctrl.domain_pause xc domid
