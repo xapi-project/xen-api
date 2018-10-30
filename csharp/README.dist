@@ -3,21 +3,20 @@ XenServer.NET
 
 Version @SDK_VERSION@
 
-XenServer.NET is a complete SDK for Citrix XenServer,
-exposing the XenServer API as .NET classes. It is written in C#.
+XenServer.NET is a complete SDK for Citrix Hypervisor, exposing the Citrix
+Hypervisor API as .NET classes. It is written in C#.
 
-It is available in the XenServer-SDK-@SDK_VERSION@.zip, which can be downloaded
-from http://www.citrix.com/downloads/xenserver/.
+It is available in the CitrixHypervisor-SDK-@SDK_VERSION@.zip, which can be downloaded
+from https://www.citrix.com/downloads/citrix-hypervisor/.
 
-For XenServer documentation, see http://docs.citrix.com.
-XenServer.NET includes a class for every XenServer class, and a method for
-each XenServer API call, so API documentation and examples written for
-for other languages will apply equally well to .NET.
-In particular, the SDK Guide and API Documentation are ideal for developers
-wishing to use XenServer.NET.
+For Citrix Hypervisor documentation, see https://docs.citrix.com.
+XenServer.NET includes a class for every API class, and a method for each API
+call, so API documentation and examples written for other languages will apply
+equally well to .NET. In particular, the SDK Guide and the Management API Guide
+are ideal for developers wishing to use XenServer.NET.
 
 For community content, blogs, and downloads, visit
-http://xenserver.org/partners/developing-products-for-xenserver.html.
+https://xenserver.org/partners/developing-products-for-xenserver.html.
 
 XenServer.NET is free software. You can redistribute and modify it under the
 terms of the BSD license. See LICENSE.txt for details.
@@ -38,7 +37,7 @@ Dependencies
 
 XenServer.NET is dependent upon the following libraries:
 
-- XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
+- XML-RPC.NET by Charles Cook (see http://xml-rpc.net).
   XML-RPC.NET is licensed under the MIT X11 license; see
   LICENSE.CookComputing.XmlRpcV2.txt for details. The library
   (CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
@@ -51,7 +50,7 @@ XenServer.NET is dependent upon the following libraries:
 Downloads
 ---------
 
-The XenServer-SDK-@SDK_VERSION@.zip contains the following folders that are
+The CitrixHypervisor-SDK-@SDK_VERSION@.zip contains the following folders that are
 relevant to .NET programmers:
 - XenServer.NET\bin: contains the ready compiled binaries
 - XenServer.NET\src: contains the source code shipped as a Visual Studio project.
@@ -61,7 +60,7 @@ relevant to .NET programmers:
 Getting Started
 ---------------
 
-Download and unzip the XenServer-SDK-@SDK_VERSION@.zip.
+Download and unzip the CitrixHypervisor-SDK-@SDK_VERSION@.zip.
 
 A. To use the compiled binaries in your code:
   1.  Copy both XenServer.dll and CookComputing.XmlRpcV2.dll from the bin folder

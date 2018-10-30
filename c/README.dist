@@ -3,20 +3,20 @@ libxenserver
 
 Version @SDK_VERSION@
 
-libxenserver is a complete SDK for Citrix XenServer, exposing the XenServer
-API to C programmers.
+libxenserver is a complete SDK for Citrix Hypervisor exposing the Citrix
+Hypervisor API to C programmers.
 
-It is available in the XenServer-SDK-@SDK_VERSION@.zip, which can be downloaded
-from http://www.citrix.com/downloads/xenserver/.
+It is available in the CitrixHypervisor-SDK-@SDK_VERSION@.zip, which can be downloaded
+from https://www.citrix.com/downloads/citrix-hypervisor/.
 
-For XenServer documentation, see http://docs.ctrix.com.
-libxenserver includes a C function call for each XenServer API call, so API
+For Citrix Hypervisor documentation, see https://docs.ctrix.com.
+libxenserver includes a C function call for each API call, so API
 documentation and examples written for for other languages can be easily
-mapped to C. In particular, the SDK Guide and API Documentation are ideal
+mapped to C. In particular, the SDK Guide and the Management API Guide are ideal
 for developers wishing to use libxenserver.
 
 For community content, blogs, and downloads, visit
-http://xenserver.org/partners/developing-products-for-xenserver.html.
+https://xenserver.org/partners/developing-products-for-xenserver.html.
 
 libxenserver is free software. You can redistribute and modify it under the
 terms of the BSD license. See COPYING for details.
@@ -50,8 +50,8 @@ on all systems.)
 Folder structure
 ----------------
 
-The XenServer-SDK-@SDK_VERSION@.zip contains the following folders that are
-relevant to C programmers:
+The CitrixHypervisor-SDK-@SDK_VERSION@.zip contains the following folders that
+are relevant to C programmers:
 - libxenserver/bin: contains the compiled binaries
 - libxenserver/src: contains the source code and tests.
 

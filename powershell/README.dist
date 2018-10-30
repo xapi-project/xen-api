@@ -1,22 +1,22 @@
-Citrix XenServer PowerShell Module
-==================================
+Citrix Hypervisor PowerShell Module
+===================================
 
 Version @SDK_VERSION@
 
-The XenServer PowerShell Module is a complete SDK for Citrix XenServer, exposing
-the XenServer API as Windows PowerShell cmdlets.
+The Citrix Hypervisor PowerShell Module is a complete SDK for Citrix Hypervisor,
+exposing the Citrix Hypervisor API as Windows PowerShell cmdlets.
 
-It is available in the XenServer-SDK-@SDK_VERSION@.zip, which can be downloaded
-from http://www.citrix.com/downloads/xenserver/.
+It is available in the CitrixHypervisor-SDK-@SDK_VERSION@.zip, which can be downloaded
+from https://www.citrix.com/downloads/citrix-hypervisor/.
 
-For XenServer documentation, see http://docs.citrix.com.
-The XenServer PowerShell Module includes a cmdlet for each XenServer API call,
+For Citrix Hypervisor documentation, see https://docs.citrix.com.
+The Citrix Hypervisor PowerShell Module includes a cmdlet for each API call,
 so API documentation and examples written for other languages will apply equally
-well to PowerShell. In particular, the SDK Guide and API Documentation are ideal
-for developers wishing to use this module.
+well to PowerShell. In particular, the SDK Guide and the Management API Guide
+are ideal for developers wishing to use this module.
 
 For community content, blogs, and downloads, visit
-http://xenserver.org/partners/developing-products-for-xenserver.html
+https://xenserver.org/partners/developing-products-for-xenserver.html
 
 This module is free software. You can redistribute and modify it under the
 terms of the BSD license. See LICENSE.txt for details.
@@ -35,35 +35,37 @@ This library requires .NET 4.5 and PowerShell 4.0.
 Dependencies
 ------------
 
-The XenServer PowerShell Module is dependent upon the following libraries:
+The Citrix Hypervisor PowerShell Module is dependent upon the following libraries:
 
-- XML-RPC.NET by Charles Cook (see http://www.xml-rpc.net).
+- XML-RPC.NET by Charles Cook (see http://xml-rpc.net).
   XML-RPC.NET is licensed under the MIT X11 license; see
   LICENSE.CookComputing.XmlRpcV2.txt for details. The library
-  (CookComputing.XmlRpcV2.dll) is shipped with the XenServer PowerShell Module.
+  (CookComputing.XmlRpcV2.dll) is shipped with the Citrix Hypervisor PowerShell
+  Module.
 
 - Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
   JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
-  for details. The library (Newtonsoft.Json.dll) is shipped with the XenServer
-  PowerShell Module.
+  for details. The library (Newtonsoft.Json.dll) is shipped with the Citrix
+  Hypervisor PowerShell Module.
 
 
 Folder Structure
 ----------------
 
-The XenServer-SDK-@SDK_VERSION@.zip contains the following folders that are
-relevant to PowerShell users:
+The CitrixHypervisor-SDK-@SDK_VERSION@.zip contains the following folders that
+are relevant to PowerShell users:
 
-- XenServerPowerShell\XenServerPSModule: this is the XenServer PowerShell Module
-- XenServerPowerShell\src: contains the C# source code for the XenServer cmdlets
-  shipped as a Visual Studio project.
+- XenServerPowerShell\XenServerPSModule: this is the Citrix Hypervisor PowerShell
+  Module
+- XenServerPowerShell\src: contains the C# source code for the Citrix Hypervisor
+  cmdlets shipped as a Visual Studio project.
 - XenServerPowerShell\samples: contains the sample scripts accompanying the module.
 
 
 Getting Started
 ---------------
 
-1.  Download and unzip the XenServer-SDK-@SDK_VERSION@.zip.
+1.  Download and unzip the CitrixHypervisor-SDK-@SDK_VERSION@.zip.
 
     Note that, if you use Internet Explorer, it is likely that the zip file will
     be marked as "blocked" during the download, in which case you will need to
@@ -100,21 +102,21 @@ Getting Started
     inconvenient. You probably want to change it to RemoteSigned, as above.
 
     If the current policy is Unrestricted or RemoteSigned, it is compatible with
-    the XenServer PowerShell Module, so there is nothing to do.
+    the Citrix Hypervisor PowerShell Module, so there is nothing to do.
 
 5.  Exit the privileged instance of PowerShell.
 
 6.  Open a PowerShell prompt as a regular user (click Start > Windows PowerShell)
-    and import the XenServer PowerShell Module:
+    and import the Citrix Hypervisor PowerShell Module:
 
         PS> Import-Module XenServerPSModule
 
-7.  If you wish to load specific environment settings when the XenServer PowerShell
-    Module is loaded, create the file XenServerProfile.ps1 and put it in
-    $env:UserProfile\Documents\WindowsPowerShell for per-user configuration or
-    $env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration.
+7.  If you wish to load specific environment settings when the Citrix Hypervisor
+    PowerShell Module is loaded, create the file XenServerProfile.ps1 and put it
+    in $env:UserProfile\Documents\WindowsPowerShell for per-user configuration
+    or $env:windir\system32\WindowsPowerShell\v1.0 for system-wide configuration.
 
-8.  For an overview of the XenServer PowerShell Module type:
+8.  For an overview of the Citrix Hypervisor PowerShell Module type:
 
         PS> Get-Help about_XenServer
 
