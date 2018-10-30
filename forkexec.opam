@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/"
@@ -9,6 +9,7 @@ tags: [ "org:xapi-project" ]
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 
 depends: [
+  "ocaml"
   "jbuilder" {build}
   "base-threads"
   "fd-send-recv"
@@ -19,3 +20,9 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
 ]
+synopsis: "Sub-process control service for xapi"
+description:
+  "This daemon creates and manages sub-processes on behalf of xapi."
+url {
+  src: "https://github.com/xapi-project/forkexecd/archive/master.tar.gz"
+}
