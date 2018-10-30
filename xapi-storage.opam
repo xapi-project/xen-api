@@ -1,21 +1,29 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xapi-storage"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xapi-storage/issues"
 dev-repo: "git://github.com/xapi-project/xapi-storage.git"
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+build: [
+  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+]
 depends: [
+  "ocaml"
   "jbuilder" {build}
-  "ounit" {test}
+  "ounit" {with-test}
   "rpc"
   "xmlm"
   "cmdliner"
 ]
 depexts: [
-  [["centos"] ["python"]]
-  [["debian"] ["python"]]
-  [["ubuntu"] ["python"]]
+  ["python"] {os-distribution = "centos"}
+  ["python"] {os-distribution = "debian"}
+  ["python"] {os-distribution = "ubuntu"}
 ]
+synopsis: "Code and documentation generator for the Xapi storage interface"
+url {
+  src:
+    "https://github.com/xapi-project/xapi-storage/archive/master/master.tar.gz"
+}
