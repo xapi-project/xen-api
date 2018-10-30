@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "message-switch-lwt"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
@@ -11,10 +11,17 @@ build: [
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
 depends: [
+  "ocaml"
   "jbuilder" {build}
   "ocamlfind" {build}
   "message-switch-core"
   "lwt" {>= "3.0.0"}
   "cohttp-lwt-unix"
 ]
-
+synopsis: "A simple store-and-forward message switch."
+description: """
+The switch stores messages in queues with well-known names. Clients use
+a simple HTTP protocol to enqueue and dequeue messages."""
+url {
+  src: "https://github.com/xapi-project/message-switch/archive/master.tar.gz"
+}
