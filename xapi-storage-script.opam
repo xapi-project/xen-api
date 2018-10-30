@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xapi-storage-script"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
@@ -9,12 +9,13 @@ dev-repo: "git://github.com/xapi-project/xapi-storage-script"
 tags: [ "org:xapi-project" ]
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
+  "ocaml"
   "jbuilder" {build}
-  "xapi-idl" {>= "0.10.0" }
+  "xapi-idl" {>= "0.10.0"}
   "xapi-storage"
   "async" {>= "v0.9.0"}
   "async_inotify"
-  "async_unix" {>= "112.24.00" }
+  "async_unix" {>= "112.24.00"}
   "core"
   "message-switch-unix"
   "message-switch-async"
@@ -24,3 +25,11 @@ depends: [
   "ppx_sexp_conv"
   "xapi-stdext-date"
 ]
+synopsis: "A directory full of scripts can be a Xapi storage implementation"
+description: """
+This daemon watches a directory for subdirectories, and when a subdir
+is created a storage service is registered."""
+url {
+  src:
+    "https://github.com/xapi-project/xapi-storage-script/archive/master/master.tar.gz"
+}
