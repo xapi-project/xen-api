@@ -256,6 +256,9 @@ let start ~__context ~vm ~start_paused ~force =
   if sriov_networks <> [] then
     Pool_features.assert_enabled ~__context ~f:Features.Network_sriov;
 
+  if Xapi_vm_helpers.vm_needs_pviommu ~__context ~self:vm then
+    Xapi_host_helpers.assert_host_pviommu_ready ();
+
   if not force then
     assert_memory_constraints ~__context ~vm vmr.API.vM_platform;
 
