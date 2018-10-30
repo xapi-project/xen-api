@@ -1,9 +1,15 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/ocaml-rrdd-plugin/issues"
 dev-repo: "git://github.com/xapi-project/ocaml-rrdd-plugin.git"
-depends: [
-  "rrdd-plugin"
-]
+depends: ["ocaml" "rrdd-plugin"]
+synopsis: "A plugin library for the xapi performance monitoring daemon"
+description: """
+This library allows one to expose a datasource which can then be
+sampled by the performance monitoring daemon."""
+url {
+  src:
+    "https://github.com/xapi-project/ocaml-rrdd-plugin/archive/master.tar.gz"
+}
