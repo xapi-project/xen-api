@@ -1,16 +1,16 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
-dev-repo: "https://github.com/xapi-project/xen-api.git"
-
-build: [[ "jbuilder" "build" "-p" name ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
-
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build: [
+  ["jbuilder" "build" "-p" name]
+  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+]
 depends: [
+  "ocaml"
   "jbuilder" {build & >= "1.0+beta11"}
-
   "alcotest"
   "cdrom"
   "ctypes"
@@ -59,7 +59,14 @@ depends: [
   "yojson"
 ]
 depexts: [
-  [["debian"] ["hwdata" "libpci-dev" "libpam-dev"]]
-  [["ubuntu"] ["hwdata" "libpci-dev" "libpam-dev"]]
-  [["centos"] ["hwdata" "pciutils-devel" "pam-devel"]]
+  ["hwdata" "libpci-dev" "libpam-dev"] {os-distribution = "debian"}
+  ["hwdata" "libpci-dev" "libpam-dev"] {os-distribution = "ubuntu"}
+  ["hwdata" "pciutils-devel" "pam-devel"] {os-distribution = "centos"}
 ]
+synopsis: "The xapi toolstack daemon which implements the XenAPI"
+description: """
+This daemon exposes the XenAPI and is used by clients such as 'xe'
+and 'XenCenter' to manage clusters of Xen-enabled hosts."""
+url {
+  src: "https://github.com/xapi-project/xen-api/archive/master/master.tar.gz"
+}
