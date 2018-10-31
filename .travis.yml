@@ -1,20 +1,13 @@
 language: c
-# Avoid running in a container, as this doesn't work for the ocaml tests.
 sudo: required
-python:
-  - "2.7"
-install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-  - pip install --user flake8
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
   global:
+    - PACKAGE="xapi-storage"
+    - PINS="xapi-storage:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
     - secure: "HswxrOJpdVA+i26zbpi47w9GsS25ix8w8gu+9GSi7tJ5AuWrBvVWV2PQ9CN1kVILzQFou1c/PeCyijvN5xudnRC7bRQETYazVfAUO5Fpu6UhYO1YQL69oo+vVzgLwVRicn5Pj3/sCR6McHekFe4Tt08tYM3oj3apA37qxeWx0Dw="
-    - OCAML_VERSION=4.04
-    - DISTRO=debian-stable
-    - PACKAGE=xapi-storage
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam
-script:
-  - flake8 --show-source python --ignore E201,E202,E301,E302,E305,E501,F401,W292,E402,W503
-  - bash -ex .travis-opam.sh
-  # Make sure the script is not echoing any sensitive data
-  - opam config exec -- bash +x -e ./update_gh_pages.sh
+  matrix:
+    - DISTRO="debian-9-ocaml-4.06"
