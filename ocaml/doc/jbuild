@@ -22,4 +22,24 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (preprocess (pps (ppx_deriving_rpc %s)))
  )
 )
+
+(alias (
+  (name jsapigen)
+  (deps (
+    jsapi.exe
+    (files_recursively_in templates)
+  ))
+  (package xapi-datamodel)
+  (action (run ${<}))
+))
+
+(alias (
+  (name runtest)
+  (deps (
+    jsapi.exe
+    (files_recursively_in templates)
+  ))
+  (package xapi-datamodel)
+  (action (run ${<}))
+))
 |} coverage_rewriter

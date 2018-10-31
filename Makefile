@@ -2,6 +2,7 @@ include config.mk
 
 OPAM_PREFIX=$(DESTDIR)$(shell opam config var prefix)
 OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
+XAPIDOC=_build/install/default/xapi/doc
 
 .PHONY: build clean test doc reindent install uninstall
 
@@ -15,12 +16,15 @@ test:
 	jbuilder runtest --no-buffer -j $$(getconf _NPROCESSORS_ONLN)
 
 doc:
-	jbuilder build ocaml/doc/jsapi.exe ocaml/idl/datamodel_main.exe
-	jbuilder exec -- ocaml/doc/jsapi.exe -destdir _build/install/default/xapi/doc/html -templdir ocaml/doc/templates
-	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css _build/install/default/xapi/doc/html
-	jbuilder exec -- ocaml/idl/datamodel_main.exe -closed -markdown _build/install/default/xapi/doc/markdown
-	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh _build/install/default/xapi/doc
-	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} _build/install/default/xapi/doc/markdown/ \;
+	jbuilder build ocaml/idl/datamodel_main.exe
+	jbuilder build -f @ocaml/doc/jsapigen
+	mkdir -p $(XAPIDOC)/html
+	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
+	cp _build/default/ocaml/doc/branding.js $(XAPIDOC)/html
+	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css $(XAPIDOC)/html
+	jbuilder exec -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
+	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
+	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
 
 doc-json:
 	jbuilder build ocaml/idl/json_backend/gen_json.exe
@@ -71,9 +75,9 @@ install: build doc
 	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
-	cp -r _build/install/default/xapi/doc/html $(DESTDIR)$(DOCDIR)
-	cp -r _build/install/default/xapi/doc/markdown $(DESTDIR)$(DOCDIR)
-	cp _build/install/default/xapi/doc/*.dot _build/install/default/xapi/doc/doc-convert.sh $(DESTDIR)$(DOCDIR)
+	cp -r $(XAPIDOC)/html $(DESTDIR)$(DOCDIR)
+	cp -r $(XAPIDOC)/markdown $(DESTDIR)$(DOCDIR)
+	cp $(XAPIDOC)/*.dot $(XAPIDOC)/doc-convert.sh $(DESTDIR)$(DOCDIR)
 
 uninstall:
 	# only removes the libraries, which were installed with `jbuilder install`

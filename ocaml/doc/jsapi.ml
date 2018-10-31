@@ -23,12 +23,10 @@ and changes_t = change_t list
 [@@deriving rpc]
 
 let destdir = ref "."
-let templdir = ref ""
 
 let parse_args () =
   Arg.parse [
       "-destdir", Arg.Set_string destdir, "the destination directory for the generated files";
-      "-templdir", Arg.Set_string templdir, "the directory with the template (mustache) files";
     ]
     (fun x-> Printf.printf "Ignoring anonymous argument %s" x)
     ("Generates documentation for the datamodel classes. See -help.")
@@ -120,6 +118,6 @@ let _ =
   generate_files api_dir;
 
   render_template
-    (Filename.concat !templdir "branding.mustache")
+    "templates/branding.mustache"
     json_releases
     (Filename.concat !destdir "branding.js");
