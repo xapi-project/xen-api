@@ -34,22 +34,25 @@ open D
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream [@@deriving rpcty]
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi [@@deriving rpcty]
   let fallback = Qemu_trad
   let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
   module Name = struct
     let qemu_trad            = "qemu-trad"
     let qemu_upstream_compat = "qemu-upstream-compat"
     let qemu_upstream        = "qemu-upstream"
+    let qemu_upstream_uefi   = "qemu-upstream-uefi"
   end
   let wrapper_of = function
     | Qemu_trad            -> !Resources.qemu_dm_wrapper
     | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
     | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
+    | Qemu_upstream_uefi   -> !Resources.upstream_compat_qemu_dm_wrapper
   let string_of  = function
     | Qemu_trad              -> Name.qemu_trad
     | Qemu_upstream_compat   -> Name.qemu_upstream_compat
     | Qemu_upstream          -> Name.qemu_upstream
+    | Qemu_upstream_uefi     -> Name.qemu_upstream
   let of_string  = function
     | x when x = Name.qemu_trad            -> Qemu_trad
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
@@ -57,6 +60,7 @@ module Profile = struct
        sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
        |> fun s -> Xenopsd_error (Internal_error s)
        |> raise
+    | x when x = Name.qemu_upstream_uefi   -> Qemu_upstream_uefi
     | x -> debug "unknown device-model profile %s: defaulting to %s" x Name.qemu_upstream_compat;
       Qemu_upstream_compat
 
@@ -152,10 +156,10 @@ module Generic = struct
       raise e
 
   let safe_rm ~xs path =
-    try 
+    try
       debug "xenstore-rm %s" path;
       xs.Xs.rm path
-    with _ -> debug "Failed to xenstore-rm %s; continuing" path 
+    with _ -> debug "Failed to xenstore-rm %s; continuing" path
 
   (* Helper function to delete the frontend, backend and error trees for a device.
      This must only be done after synchronising with the hotplug scripts.
@@ -182,7 +186,7 @@ module Generic = struct
     with _ -> false
 
   (** Checks whether the supplied device still exists (ie hasn't been deleted) *)
-  let exists ~xs (x: device) = 
+  let exists ~xs (x: device) =
     let backend_stub = backend_path_of_device ~xs x in
     try
       ignore_string(xs.Xs.read backend_stub);
@@ -285,7 +289,7 @@ module Generic = struct
    When the watch fires, call a predicate function and look for an error node.
    If an error node appears, throw Device_error. If the predicate returns true then
    return unit. If the timeout expires throw Device_disconnect_timeout. *)
-let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate otherpath domid kind devid = 
+let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate otherpath domid kind devid =
 	let doc' = Printf.sprintf "%s (timeout = %f; %s)" doc timeout (print_device domid kind devid) in
   	let errorpath = error_node domid kind devid in
 	debug "Device.wait_for_error_or %s (watching [ %s; %s ])" doc' otherpath errorpath;
@@ -500,7 +504,7 @@ module Vbd_Common = struct
     if !Xenopsd.run_hotplug_scripts
     then Hotplug.run_hotplug_script x [ "remove" ];
 
-    (* As for add above, if the frontend is in dom0, we can wait for the frontend 
+    (* As for add above, if the frontend is in dom0, we can wait for the frontend
        	 * to unplug as well as the backend. CA-13506 *)
     if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
 
@@ -539,7 +543,7 @@ module Vbd_Common = struct
       | None ->
         make (free_device ~xs hvm domid) in
     let devid = to_xenstore_key device_number in
-    let device = 
+    let device =
       let backend = { domid = x.backend_domid; kind = x.kind; devid = devid }
       in  device_of_backend backend domid
     in
@@ -674,7 +678,7 @@ end
 
 module Vif = struct
 
-  let add ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
+  let add ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[])
       ~netty ~carrier ?(protocol=Protocol_Native) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) (task: Xenops_task.task_handle) domid =
     debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" domid devid mac carrier
       (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
@@ -763,7 +767,7 @@ module Vif = struct
 
   let hard_shutdown = Generic.hard_shutdown
 
-  let set_carrier ~xs (x: device) carrier = 
+  let set_carrier ~xs (x: device) carrier =
     debug "Device.Vif.set_carrier %s <- %b" (string_of_device x) carrier;
     let disconnect_path = disconnect_path_of_device ~xs x in
     xs.Xs.write disconnect_path (if carrier then "0" else "1")
@@ -791,13 +795,13 @@ end
 (** Network SR-IOV VFs:                                                                 *)
 module NetSriovVf = struct
 
-  let add  ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
+  let add  ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[])
       ~pci ~vlan ~carrier ?(extra_private_keys=[]) ?(extra_xenserver_keys=[])
       (task: Xenops_task.task_handle) domid =
     let vlan_str = match vlan with None -> "none" | Some vlan -> sprintf "%Ld" vlan in
     let rate_str = match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b in
     debug "Device.NetSriovVf.add domid=%d devid=%d pci=%s vlan=%s mac=%s carrier=%b \
-           rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" 
+           rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]"
       domid devid (Xenops_interface.Pci.string_of_address pci)  vlan_str mac carrier rate_str
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
@@ -925,7 +929,7 @@ module PV_Vnc = struct
   let get_statefile ~xs domid =
     match pid ~xs domid with
     | None -> None
-    | Some pid -> 
+    | Some pid ->
       let filename = vncterm_statefile pid in
       if Sys.file_exists filename then
         Some filename
@@ -934,7 +938,7 @@ module PV_Vnc = struct
 
   let save ~xs domid =
     match pid ~xs domid with
-    | Some pid -> 
+    | Some pid ->
       Unix.kill pid Sys.sigusr1;
       let filename = vncterm_statefile pid in
       let delay = 10. in
@@ -1364,10 +1368,10 @@ module PCI = struct
   let device_model_state_path xs be_domid fe_domid =
     Printf.sprintf "%s/device-model/%d/state" (xs.Xs.getdomainpath be_domid) fe_domid
 
-  let signal_device_model ~xs domid cmd parameter = 
+  let signal_device_model ~xs domid cmd parameter =
     debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
     let be_domid = 0 in (* XXX: assume device model is in domain 0 *)
-    let be_path = xs.Xs.getdomainpath be_domid in 
+    let be_path = xs.Xs.getdomainpath be_domid in
     (* Currently responses go in this global place. Blank it to prevent request/response/request confusion *)
     xs.Xs.rm (device_model_state_path xs be_domid domid);
 
@@ -1393,7 +1397,7 @@ module PCI = struct
     end
 
   (* Return a list of PCI devices *)
-  let list ~xs domid = 
+  let list ~xs domid =
     (* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
     List.map (fun (_, y) -> (0, y)) (read_pcidir ~xs domid)
 
@@ -1785,7 +1789,7 @@ module Dm_Common = struct
     in
     let disp_options, wait_for_port =
       match info.disp with
-      | NONE -> 
+      | NONE ->
         ([], false)
       | SDL (opts, x11name) ->
         ([], false)
@@ -1989,6 +1993,65 @@ module Dm_Common = struct
     stop_varstored ();
     stop_qemu ()
 
+  let format_of_media (media:media) file =
+    match media, file with
+    | Disk, _   -> ["format=raw"]
+    | Cdrom, "" -> []
+    | Cdrom, _  -> ["format=raw"]
+
+  let lba_of_media = function
+    | Disk  -> "force-lba=on"
+    | Cdrom -> "force-lba=off"
+
+
+  type disk_type_args = int * string * media -> string list
+
+  let ide = "ide"
+  let ide_device_of (index, file, media) =
+    [ "-drive"; String.concat "," ([
+          sprintf "file=%s" file;
+          "if=ide";
+          sprintf "index=%d" index;
+          sprintf "media=%s" (string_of_media media);
+          lba_of_media media;
+        ] @ (format_of_media media file))
+    ]
+
+  let nvme = "nvme"
+  let nvme_device_of (index, file, media) =
+    let id = sprintf "disk%d" index in
+    [ "-drive"; String.concat "," (
+          [ sprintf "id=%s" id
+          ; "if=none"
+          ; sprintf "file=%s" file
+          ; sprintf "media=%s" (string_of_media media)
+          ; lba_of_media media
+          ] @ (format_of_media media file))
+    ; "-device"; String.concat ","
+        ([ "nvme"
+         ; sprintf "serial=%s" id
+         ; sprintf "drive=%s" id
+         ; sprintf "addr=%d" 7
+           (* 4 and 5 are NICs, and we can only have two, 6 is platform *)
+         ])
+    ]
+
+  let xen_platform ~xs ~domid =
+    let device_id =
+      try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
+      with _ -> "0001"
+    in
+    [ "-device"; String.concat "," [
+          "xen-platform"
+        ; "addr=3"
+        ; sprintf "device-id=0x%s" device_id
+        ; "revision=0x2"
+        ; "class-id=0x0100"
+        ; "subvendor_id=0x5853"
+        ; sprintf"subsystem_id=0x%s" device_id
+        ]
+    ]
+
 end (* End of module Dm_Common *)
 
 
@@ -2133,7 +2196,145 @@ module Backend = struct
   end (* Backend.Qemu_trad *)
 
   (** Implementation of the backend common signature for the qemu-upstream-compat backend *)
-  module Qemu_upstream_compat : Intf  = struct
+  module type Qemu_upstream_config = sig
+    module NIC: sig
+      val max_emulated: int (** Should be <= the hardcoded maximum number of emulated NICs *)
+      val default: string
+      val addr: devid:int -> index:int -> int
+    end
+
+    module DISK : sig
+      val max_emulated: int option (** None = just the qemu imposed 4 IDE device limit *)
+      val default: string
+      val types: (string * Dm_Common.disk_type_args) list
+    end
+
+    module Firmware: sig
+      val supported: Xenops_types.Vm.firmware_type -> bool
+    end
+
+    module XenPV: sig
+      val addr : xs:Xenstore.Xs.xsh -> domid: int -> Dm_Common.info -> nics:(string * string * int) list -> int
+    end
+
+    module XenPlatform: sig
+      val device: xs:Xenstore.Xs.xsh -> domid:int -> string list
+    end
+
+    val name : string
+  end
+
+  module Config_qemu_upstream_compat = struct
+    module NIC = struct
+      let max_emulated = 8
+      let default = "rtl8139"
+      let base_addr = 4
+      let addr ~devid ~index = devid + base_addr
+    end
+
+    module DISK = struct
+      let max_emulated = None
+      let default = Dm_Common.ide
+      let types = [Dm_Common.ide, Dm_Common.ide_device_of]
+    end
+
+    module XenPlatform = struct
+      let device ~xs ~domid =
+        let has_platform_device =
+          try
+            int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
+          with _ -> true
+        in
+        if has_platform_device then Dm_Common.xen_platform ~xs ~domid
+        else []
+    end
+
+    module XenPV = struct
+      let addr ~xs ~domid info ~nics =
+        (** [first_gap n xs] expects an ascending list of integers [xs].
+         * It looks for a gap in sequence [xs] and returns the first it
+         * finds at position n or higher:
+         * first_gap 4 []      = 4
+         * first_gap 4 [5;6]   = 4
+         * first_gap 4 [1;3]   = 4
+         * first_gap 4 [5;6;8] = 4
+         * first_gap 4 [4;5;7] = 6
+         * first_gap 4 [4;5;6] = 7
+        *)
+        let rec first_gap n = function
+          | []             -> n
+          | x::xs when x<n -> first_gap n xs
+          | x::xs when x=n -> first_gap (n+1) xs
+          | x::xs          -> n
+        in
+
+        let has_nvidia_vgpu =
+          let open Xenops_interface.Vgpu in
+          let open Dm_Common in
+          match info.disp with
+          | VNC(Vgpu [{implementation = Nvidia _}],_,_,_,_) -> true
+          | SDL(Vgpu [{implementation = Nvidia _}],_)       -> true
+          | _                                               -> false
+        in
+
+        if has_nvidia_vgpu then 2
+        else if XenPlatform.device ~xs ~domid = [] then 3
+        else
+          nics
+          |> List.map (fun (_, _, devid) -> devid + NIC.base_addr)
+          |> first_gap NIC.base_addr
+    end
+
+    module Firmware = struct
+      let supported _ = true
+    end
+
+    let name = Profile.Name.qemu_upstream_compat
+  end
+
+  module Config_qemu_upstream_uefi = struct
+    (*
+       0: i440FX
+       1: PIIX3
+       2: VGA or empty
+       3: Xen platform or empty
+       4 - 5: NIC (limited to first 2)
+       6: Xen PV
+       7: NVME
+       8+: vGPU and other pass-through devices
+     *)
+    module NIC = struct
+      let max_emulated = 2
+      let default = "e1000"
+      let addr ~devid ~index = 4 + index
+    end
+
+    module DISK = struct
+      let max_emulated = Some 1
+      let default = Dm_Common.nvme
+      let types = [ Dm_Common.ide, Dm_Common.ide_device_of
+                  ; Dm_Common.nvme, Dm_Common.nvme_device_of ]
+    end
+
+    module XenPV = struct
+      let addr ~xs ~domid _ ~nics = 6
+    end
+
+    module XenPlatform = struct
+      let device = Dm_Common.xen_platform
+    end
+
+    module Firmware = struct
+      let supported =
+        let open Xenops_types.Vm in function
+        | Bios -> false
+        | Uefi _ -> true
+    end
+ 
+    let name = Profile.Name.qemu_upstream_uefi
+  end
+
+  module Make_qemu_upstream(DefaultConfig: Qemu_upstream_config) : Intf  = struct
 
     (** Implementation of the Vbd functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Vbd = struct
@@ -2142,7 +2343,7 @@ module Backend = struct
         devid
         |> Device_number.of_xenstore_key
         |> Device_number.spec
-        |> function 
+        |> function
            | Ide, 0, _ -> "ide0-cd0"
            | Ide, 1, _ -> "ide0-cd1"
            | Ide, 2, _ -> "ide1-cd0"
@@ -2273,7 +2474,7 @@ module Backend = struct
 
         let remove domid =
           Lookup.channel_of domid >>= fun c ->
-          try 
+          try
             finally
               (fun () ->
                  Lookup.remove c domid;
@@ -2349,7 +2550,7 @@ module Backend = struct
               Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
                   Lookup.domid_of fd >>= fun domid ->
                   Lookup.channel_of domid >>= fun c ->
-                  let qmp = Qmp_protocol.to_fd c in  
+                  let qmp = Qmp_protocol.to_fd c in
                   if is_flag_in then
                     match Readln.read qmp with
                     | Readln.Ok msgs  -> List.iter (process domid) msgs
@@ -2457,6 +2658,8 @@ module Backend = struct
         (uuid, fd)
 
       let qemu_args ~xs ~dm info restore domid =
+        let module Config = DefaultConfig in
+        debug "Using device-model=%s for domid=%d" Config.name domid;
         let common = Dm_Common.qemu_args ~xs ~dm info restore domid ~domid_for_vnc:true in
 
         let usb =
@@ -2480,42 +2683,39 @@ module Backend = struct
           with _ -> info.Dm_Common.serial
         in
 
+        let nic_type =
+          try xs.Xs.read (sprintf "/local/domain/%d/platform/nic_type" domid)
+          with _ -> Config.NIC.default
+        in
+
+        let disk_type =
+          try xs.Xs.read (sprintf "/local/domain/%d/platform/disk_type" domid)
+          with _ -> Config.DISK.default in
+
+        let disk_interface = match List.assoc_opt disk_type Config.DISK.types with
+          | Some interface -> interface
+          | None ->
+            raise (Ioemu_failed (sprintf "domid %d" domid,
+                                 sprintf "Unknown platform:disk_type=%s in device-model=%s" disk_type Config.name))
+        in
+
+        if not (Config.Firmware.supported info.firmware) then
+          (* XAPI itself should've already prevented this, but lets double check *)
+          raise (Ioemu_failed (sprintf "domid %d" domid,
+                               sprintf "The firmware doesn't support device-model=%s" Config.name));
+
         let mult xs ys =
           List.map (fun x -> List.map (fun y -> x^"."^y) ys) xs |>
           List.concat in
         let global =
           mult
-            ["piix3-ide-xen"; "piix3-usb-uhci"; "rtl8139"]
+            ["piix3-ide-xen"; "piix3-usb-uhci"; nic_type]
             ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
         in
 
         let qmp = ["libxl"; "event"] |>
                   List.map (fun x -> ["-qmp"; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid]) |>
                   List.concat in
-
-        let has_platform_device =
-          try
-            int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
-          with _ -> true
-        in
-        let xen_platform_device =
-          if has_platform_device then begin
-            let device_id =
-              try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
-              with _ -> "0001"
-            in
-            [ "-device"; String.concat "," [
-                  "xen-platform"
-                ; "addr=3"
-                ; sprintf "device-id=0x%s" device_id
-                ; "revision=0x2"
-                ; "class-id=0x0100"
-                ; "subvendor_id=0x5853"
-                ; sprintf"subsystem_id=0x%s" device_id
-                ]
-            ]
-          end else []
-        in
 
         let pv_device addr =
           try
@@ -2543,42 +2743,40 @@ module Backend = struct
             ; [ "-S"]
             ; [ "-global"; "PIIX4_PM.revision_id=0x1"]
             ; [ "-global"; "ide-hd.ver=0.10.2"]
+            ; [ "-global"; "e1000.autonegotiation=on"]
+            ; [ "-global"; "e1000.mitigation=on"]
+            ; [ "-global"; "e1000.extra_mac_registers=on"]
             ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ; qmp
-            ; xen_platform_device
+            ; Config.XenPlatform.device ~xs ~domid
             ] in
 
+        let disks_cdrom, disks_other =
+          info.Dm_Common.disks
+          |> List.partition (function (_, _, Dm_Common.Cdrom) -> true | (_, _, _) -> false)
+        in
+
+        let limit_emulated_disks disks =
+          let disks = List.stable_sort (fun (a, _, _) (b, _, _) -> compare a b) disks in
+          match Config.DISK.max_emulated with
+          | Some limit when List.length disks > limit ->
+            debug "Limiting the number of emulated disks to %d" limit;
+            Xapi_stdext_std.Listext.List.take limit disks
+          | _ -> disks
+        in
+
         let disks' =
-          let format_of_media (media:Dm_Common.media) file =
-            match media, file with
-            | Dm_Common.Disk, _   -> ["format=raw"]
-            | Dm_Common.Cdrom, "" -> []
-            | Dm_Common.Cdrom, _  -> ["format=raw"]
-          in
-          let lba_of_media (media:Dm_Common.media) =
-            match media with
-            | Dm_Common.Disk  -> "force-lba=on"
-            | Dm_Common.Cdrom -> "force-lba=off"
-          in
-          List.map (fun (index, file, media) -> [
-              "-drive"; String.concat "," ([
-                sprintf "file=%s" file;
-                "if=ide";
-                sprintf "index=%d" index;
-                sprintf "media=%s" (Dm_Common.string_of_media media);
-                lba_of_media media;
-              ] @ (format_of_media media file))
-            ])
-            info.Dm_Common.disks
-          |> List.concat
+          [ List.map Dm_Common.ide_device_of disks_cdrom
+          ; disks_other |> limit_emulated_disks |> List.map disk_interface ]
+          |> List.concat |> List.concat
         in
 
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort
           (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         let nic_count = List.length nics in
-        let nic_max   = Dm_Common.max_emulated_nics in
+        let nic_max   = Config.NIC.max_emulated in
         if nic_count > nic_max then
           debug "Limiting the number of emulated NICs to %d" nic_max;
         (* Take the first 'max_emulated_nics' elements from the list. *)
@@ -2588,61 +2786,29 @@ module Backend = struct
          * for a nic to the existing fds and arguments (fds, argv)
         *)
         let none = ["-net"; "none"] in
-        let add_nic (fds, argv) (mac, bridge, devid) =
+        let add_nic (index, fds, argv) (mac, bridge, devid) =
           let ifname          = sprintf "tap%d.%d" domid devid in
           let uuid, _  as tap = tap_open ifname in
           let args =
-            [ "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%x" devid mac (devid + 4)
+            [ "-device"; sprintf "%s,netdev=tapnet%d,mac=%s,addr=%x" nic_type devid mac (Config.NIC.addr ~devid ~index)
             ; "-netdev"; sprintf "tap,id=tapnet%d,fd=%s" devid uuid
             ] in
-          (tap::fds, args@argv) in
+          (index+1, tap::fds, args@argv) in
 
-        (** [first_gap n xs] expects an ascending list of integers [xs].
-         * It looks for a gap in sequence [xs] and returns the first it
-         * finds at position n or higher:
-         * first_gap 4 []      = 4
-         * first_gap 4 [5;6]   = 4
-         * first_gap 4 [1;3]   = 4
-         * first_gap 4 [5;6;8] = 4
-         * first_gap 4 [4;5;7] = 6
-         * first_gap 4 [4;5;6] = 7
-         *)
-        let rec first_gap n = function
-          | []             -> n
-          | x::xs when x<n -> first_gap n xs
-          | x::xs when x=n -> first_gap (n+1) xs
-          | x::xs          -> n
-        in
-
-        let has_nvidia_vgpu =
-          let open Xenops_interface.Vgpu in
-          let open Dm_Common in
-          match info.disp with
-          | VNC(Vgpu [{implementation = Nvidia _}],_,_,_,_) -> true
-          | SDL(Vgpu [{implementation = Nvidia _}],_)       -> true
-          | _                                               -> false
-        in
-
-        let pv_device_addr =
-          if has_nvidia_vgpu            then 2 else
-          if not @@ has_platform_device then 3 else
-            nics
-            |> List.map (fun (_, _, devid) -> devid+4)
-            |> first_gap 4
-        in
+        let pv_device_addr = Config.XenPV.addr ~xs ~domid info ~nics in
 
         (* Go over all nics and collect file descriptors and command
          * line arguments. Add these to the already existing command
          * line arguments in common
         *)
-        List.fold_left add_nic ([],[]) nics
+        List.fold_left add_nic (0, [],[]) nics
         |> function
-        |  _, []    ->
+        |  _, _, []    ->
           Dm_Common.
             { argv   = common.argv   @ misc @ disks' @ pv_device pv_device_addr @ none
             ; fd_map = common.fd_map
             }
-        | fds, argv ->
+        | _, fds, argv ->
           Dm_Common.
             { argv   = common.argv   @ misc @ disks' @ pv_device pv_device_addr @ argv
             ; fd_map = common.fd_map @ fds
@@ -2656,13 +2822,17 @@ module Backend = struct
   end (* Backend.Qemu_upstream *)
 
   (** Implementation of the backend common signature for the qemu-upstream backend *)
+  module Qemu_upstream_compat  = Make_qemu_upstream(Config_qemu_upstream_compat)
   module Qemu_upstream  = Qemu_upstream_compat
   (** Until the stage 4 defined in the qemu upstream design is implemented, qemu_upstream behaves as qemu_upstream_compat *)
+
+  module Qemu_upstream_uefi  = Make_qemu_upstream(Config_qemu_upstream_uefi)
 
   let of_profile p = match p with
     | Profile.Qemu_trad            -> (module Qemu_trad            : Intf)
     | Profile.Qemu_upstream_compat -> (module Qemu_upstream_compat : Intf)
     | Profile.Qemu_upstream        -> (module Qemu_upstream        : Intf)
+    | Profile.Qemu_upstream_uefi   -> (module Qemu_upstream_uefi  : Intf)
 
   let init() =
     Qemu_upstream.Dm.Event.init()
@@ -2953,7 +3123,7 @@ let get_vnc_port ~xs ~dm domid =
   then Dm.get_vnc_port ~xs ~dm domid
   else PV_Vnc.get_vnc_port ~xs domid
 
-let get_tc_port ~xs domid = 
+let get_tc_port ~xs domid =
   (* Check whether a qemu exists for this domain *)
   let qemu_exists = Qemu.is_running ~xs domid in
   if qemu_exists

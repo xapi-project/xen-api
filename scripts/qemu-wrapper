@@ -157,11 +157,6 @@ def main(argv):
 
     qemu_args.extend(argv[2:])
 
-    # support toolstack override of NIC device model for debug purposes
-    nic = xenstore_read("/local/domain/%d/platform/nic_type" % domid)
-    if nic:
-        qemu_args = map(lambda x: x.replace("rtl8139", nic), qemu_args)
-
     global hvm_serial
     hvm_serial = xenstore_read("/local/domain/%d/platform/hvm_serial" % domid)
 
