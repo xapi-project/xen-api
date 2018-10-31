@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xapi-tapctl"
 maintainer: "jonathan.ludlam@citrix.com"
 authors: "xen-api@lists.xen.org"
@@ -8,6 +8,7 @@ dev-repo: "git://github.com/xapi-project/tapctl.git"
 tags: [ "org:xapi-project" ]
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
+  "ocaml"
   "jbuilder" {build}
   "xapi-stdext-unix"
   "xapi-stdext-std"
@@ -17,4 +18,11 @@ depends: [
   "rpc"
   "base-threads"
 ]
-
+synopsis: "A library to control tapdisk on a Xen host"
+description: """
+Tapdisk is used to create block devices for VMs. This library allows
+tapdisks to be manipulated: created, destroyed, paused, unpaused and
+the storage media inserted and ejected."""
+url {
+  src: "https://github.com/xapi-project/tapctl/archive/master.tar.gz"
+}

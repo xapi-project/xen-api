@@ -1,20 +1,13 @@
 language: c
-install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
-script:
-  - bash -ex .travis-docker.sh
 sudo: required
-services:
-  - docker
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.04.2
-    - PACKAGE=xapi-tapctl
-    - DISTRO="debian-stable"
+    - PACKAGE="xapi-tapctl"
+    - PINS="xapi-tapctl:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
-      - BASE_REMOTE=git://github.com/xapi-project/xs-opam
-      - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-matrix:
-    fast_finish: true
-    allow_failures:
-      - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    - DISTRO="debian-9-ocaml-4.06"
+      # - DISTRO="debian-9-ocaml-4.07" BASE_REMOTE_BRANCH="407"language: c
