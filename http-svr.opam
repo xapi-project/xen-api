@@ -1,15 +1,16 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
-dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
-
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
-
+dev-repo: "git+https://github.com/xapi-project/xen-api-libs-transitional.git"
+build: [
+  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+]
 available: [ os = "linux" ]
 depends: [
+  "ocaml"
   "jbuilder" {build}
   "astring"
   "rpc"
@@ -22,5 +23,13 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xml-light2"
-  "ounit" {test & >= "2.0.0"}
+  "ounit" {with-test & >= "2.0.0"}
 ]
+synopsis: "Further transitional libraries required by xapi"
+description: """
+These libraries are provided for backwards compatibility only.
+No new code should use these libraries."""
+url {
+  src:
+    "https://github.com/xapi-project/xen-api-libs-transitional/archive/master.tar.gz"
+}
