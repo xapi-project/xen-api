@@ -1,13 +1,14 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xapi-storage-cli"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "xen-api@lists.xen.org" ]
 license: "LGPL-2.1 with OCaml linking exception"
 homepage: "https://github.com/xapi-project/sm-cli"
 bug-reports: "https://github.com/xapi-project/sm-cli/issues"
-dev-repo: "https://github.com/xapi-project/sm-cli.git"
+dev-repo: "git+https://github.com/xapi-project/sm-cli.git"
 build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
+  "ocaml"
   "jbuilder" {build}
   "base-threads"
   "xapi-idl"
@@ -15,3 +16,10 @@ depends: [
   "rpc"
   "cmdliner"
 ]
+synopsis: "A CLI for xapi storage services."
+description: """
+The CLI allows you to directly manipulate virtual disk images, without
+them being attached to VMs."""
+url {
+  src: "https://github.com/xapi-project/sm-cli/archive/master/master.tar.gz"
+}
