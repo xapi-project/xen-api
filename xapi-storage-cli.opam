@@ -11,9 +11,10 @@ depends: [
   "ocaml"
   "jbuilder" {build}
   "base-threads"
-  "xapi-idl"
   "re"
-  "rpc"
+  "rpclib"
+  "ppx_deriving_rpc"
+  "xcp"
   "cmdliner"
 ]
 synopsis: "A CLI for xapi storage services."
