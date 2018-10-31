@@ -13,6 +13,10 @@ depends: [
   "ocaml"
   "jbuilder" {build}
   "ounit" {with-test}
+  "alcotest" {with-test}
+  "lwt" {with-test}
+  "rpclib" {with-test}
+  "ppx_deriving_rpc" {with-test}
   "rpc"
   "xmlm"
   "cmdliner"
