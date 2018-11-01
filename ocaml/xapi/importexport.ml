@@ -39,6 +39,17 @@ type compression_algorithm =
   | Gzip
   | Zstd
 
+let compression_algorithm_of_string = function
+  | "true"
+  | "gzip" -> Some Gzip
+  | "zstd" -> Some Zstd
+  | _      -> None
+
+let string_of_compression_algorithm = function
+  | None      -> "false"
+  | Some Gzip -> "gzip"
+  | Some Zstd -> "zstd"
+
 let rpc_of_version x =
   let open Xapi_globs in
   Rpc.Dict(
