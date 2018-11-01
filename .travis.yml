@@ -1,27 +1,13 @@
 language: c
 sudo: required
-dist: trusty
-before_install:
-    - sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ trusty main universe"
-    - sudo apt-get update -qq
-    - sudo apt-get install libgcrypt20 liblzma5 libselinux1
-    - wget "http://archive.ubuntu.com/ubuntu/ubuntu/pool/main/s/systemd/libsystemd0_229-4ubuntu4_amd64.deb"
-    - wget "http://archive.ubuntu.com/ubuntu/ubuntu/pool/main/s/systemd/libsystemd-dev_229-4ubuntu4_amd64.deb"
-    - sudo dpkg -i libsystemd0_229-4ubuntu4_amd64.deb libsystemd-dev_229-4ubuntu4_amd64.deb
-    - git clone https://github.com/xapi-project/xs-opam /tmp/xs-opam && cd /tmp/xs-opam && sh tools/into_repo.sh && cd -
-install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
-script:
-    - bash -ex .travis-opam.sh
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.04
     - PACKAGE=xapi-xenops
     - PINS="xapi-xenops:. xapi-xenops-utils:. xenops:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
-    - BASE_REMOTE=/tmp/xs-opam
-    - EXTRA_REMOTES=/tmp/xs-opam
-matrix:
-    fast_finish: true
-    allow_failures:
-        - env: EXTRA_REMOTES=/tmp/xs-opam
+    - DISTRO="debian-9-ocaml-4.06"
+      # - DISTRO="debian-9-ocaml-4.07" BASE_REMOTE_BRANCH="407"
