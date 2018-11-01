@@ -3747,7 +3747,7 @@ let blob_create printer rpc session_id params =
     raise (Cli_util.Cli_failure "Need one of: vm-uuid, host-uuid, network-uuid, sr-uuid or pool-uuid")
 
 
-let export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm =
+let export_common fd printer rpc session_id params filename num ?task_uuid compression preserve_power_state vm =
   let vm_metadata_only : bool = get_bool_param params "metadata" in
   let export_snapshots : bool =
     if List.mem_assoc "include-snapshots" params
@@ -3781,27 +3781,32 @@ let export_common fd printer rpc session_id params filename num ?task_uuid use_c
             (Ref.string_of exporttask)
             (Ref.string_of (vm.getref ()))
             Constants.use_compression
-            (if use_compression then "true" else "false")
+            (Importexport.string_of_compression_algorithm compression)
             preserve_power_state
             export_snapshots)
          "Export";
        num := !num + 1)
     (fun () -> task_destroy_fn ())
 
+let get_compression_algorithm params =
+  if List.mem_assoc "compress" params
+  then Importexport.compression_algorithm_of_string (List.assoc "compress" params)
+  else None
+
 let vm_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let use_compression = get_bool_param params "compress" in
+  let compression = get_compression_algorithm params in
   let preserve_power_state = get_bool_param params "preserve-power-state" in
   let task_uuid = if (List.mem_assoc "task-uuid" params) then Some (List.assoc "task-uuid" params) else None in
   let num = ref 1 in
   let op vm =
-    export_common fd printer rpc session_id params filename num ?task_uuid use_compression preserve_power_state vm
+    export_common fd printer rpc session_id params filename num ?task_uuid compression preserve_power_state vm
   in
   ignore(do_vm_op printer rpc session_id op params ["filename"; "metadata"; "compress"; "preserve-power-state"; "include-snapshots"])
 
 let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let use_compression = get_bool_param params "compress" in
+  let compression = get_compression_algorithm params in
   let preserve_power_state = get_bool_param params "preserve-power-state" in
   let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
@@ -3810,7 +3815,7 @@ let vm_export_aux obj_type fd printer rpc session_id params =
     failwith (Printf.sprintf "This operation can only be performed on a VM template. %s is not a VM template." uuid);
   if obj_type = "snapshot" && not (Client.VM.get_is_a_snapshot rpc session_id ref) then
     failwith (Printf.sprintf "This operation can only be performed on a VM snapshot. %s is not a VM snapshot." uuid);
-  export_common fd printer rpc session_id params filename num use_compression preserve_power_state (vm_record rpc session_id ref)
+  export_common fd printer rpc session_id params filename num compression preserve_power_state (vm_record rpc session_id ref)
 
 let vm_copy_bios_strings printer rpc session_id params =
   let host = Client.Host.get_by_uuid rpc session_id (List.assoc "host-uuid" params) in
