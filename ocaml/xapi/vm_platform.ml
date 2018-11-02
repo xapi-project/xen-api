@@ -53,6 +53,8 @@ let fallback_device_model_stage_3      = "qemu-upstream-compat"
 let fallback_device_model_stage_4      = fallback_device_model_stage_3
 let fallback_device_model_default_value = fallback_device_model_stage_3
 
+let fallback_device_model_default_value_uefi = "qemu-upstream-uefi"
+
 (* This is only used to block the 'present multiple physical cores as one big hyperthreaded core' feature *)
 let filtered_flags = [
   acpi;
@@ -109,7 +111,7 @@ let is_true ~key ~platformdata ~default =
 let is_valid_device_model ~key ~platformdata =
   try
     match List.assoc key platformdata with
-    | "qemu-upstream-compat" -> true
+    | "qemu-upstream-compat" | "qemu-upstream-uefi" | "qemu-upstream" -> true
     | _ -> false
   with Not_found ->
     false
@@ -138,6 +140,10 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
     raise (Api_errors.Server_error(Api_errors.invalid_value,
                                    ["platform:device-model";
                                     "UEFI boot is not supported with qemu-trad"]));
+  | "qemu-upstream-uefi", Some Xenops_types.Vm.Bios ->
+    raise (Api_errors.Server_error(Api_errors.invalid_value,
+                                   ["platform:device-model";
+                                    "BIOS boot is not supported with qemu-upstream-uefi"]));
   | exception Not_found -> ()
   | _ -> ()
   end;

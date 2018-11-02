@@ -470,6 +470,7 @@ module VM : HandlerTools = struct
         vm_record with API.vM_platform =
                          (Xapi_vm_helpers.ensure_device_model_profile_present ~__context
                             ~domain_type:vm_record.API.vM_domain_type
+                            ~is_a_template:vm_record.API.vM_is_a_template
                             vm_record.API.vM_platform)
       }
       in
