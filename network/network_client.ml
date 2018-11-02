@@ -37,4 +37,4 @@ let rpc call =
            call
     )
 
-module Client = Network_interface.Interface_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
+module Client = Network_interface.Interface_API(Idl.Exn.GenClient(struct let rpc=rpc end))

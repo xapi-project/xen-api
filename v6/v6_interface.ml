@@ -92,8 +92,6 @@ type errors =
 
 (** Pass error variant as exn for error handler *)
 exception V6_error of errors
-[@@deriving rpcty]
-
 
 let () = (* register printer *)
   let sprintf = Printf.sprintf in

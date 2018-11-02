@@ -38,5 +38,5 @@ let rpc call =
 		then json_switch_rpc !queue_name call
 		else xml_http_rpc ~srcstr:"xapi" ~dststr:"v6d" xml_url call
 
-module Client = V6_interface.RPC_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
+module Client = V6_interface.RPC_API(Idl.Exn.GenClient(struct let rpc=rpc end))
 include Client

@@ -1140,7 +1140,7 @@ end
 
 
 module Server (Impl : Server_impl) () = struct
-  module S = StorageAPI(Idl.GenServerExn ())
+  module S = StorageAPI(Idl.Exn.GenServer ())
 
   let _ =
     S.Query.query (fun dbg -> Impl.Query.query () ~dbg);
@@ -1277,7 +1277,7 @@ module Server (Impl : Server_impl) () = struct
 
 
   (* Bind all *)
-  let process call = Idl.server S.implementation call
+  let process call = Idl.Exn.server S.implementation call
 
 end
 
