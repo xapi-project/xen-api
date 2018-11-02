@@ -85,7 +85,7 @@ let rpc_fn call =
       Rpc.{name="query"; params=[Rpc.Dict ["debug_info",debug_info; "unit",unit_p]]}
     | _ -> call
   in
-  Idl.server Xenops_server.Server.implementation call'
+  Idl.Exn.server Xenops_server.Server.implementation call'
 
 let handle_received_fd this_connection =
   let msg_size = 16384 in
