@@ -52,7 +52,7 @@ module Profile = struct
     | Qemu_trad              -> Name.qemu_trad
     | Qemu_upstream_compat   -> Name.qemu_upstream_compat
     | Qemu_upstream          -> Name.qemu_upstream
-    | Qemu_upstream_uefi     -> Name.qemu_upstream
+    | Qemu_upstream_uefi     -> Name.qemu_upstream_uefi
   let of_string  = function
     | x when x = Name.qemu_trad            -> Qemu_trad
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
