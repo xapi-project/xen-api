@@ -111,7 +111,7 @@ let is_true ~key ~platformdata ~default =
 let is_valid_device_model ~key ~platformdata =
   try
     match List.assoc key platformdata with
-    | "qemu-upstream-compat" -> true
+    | "qemu-upstream-compat" | "qemu-upstream-uefi" | "qemu-upstream" -> true
     | _ -> false
   with Not_found ->
     false
