@@ -1527,7 +1527,17 @@ let reset_networking ~__context ~host =
                 Db.PIF_metrics.destroy ~__context ~self:metrics
               end;
               Db.PIF.destroy ~__context ~self;
-            ) local_pifs
+  ) local_pifs;
+  let netw_sriov_is_local self =
+    List.mem (Db.Network_sriov.get_physical_PIF ~__context ~self) local_pifs
+  in
+  let netw_sriovs =
+    List.filter netw_sriov_is_local (Db.Network_sriov.get_all ~__context)
+  in
+  List.iter (fun self ->
+      let uuid = Db.Network_sriov.get_uuid ~__context ~self in
+      debug "destroying network_sriov %s" uuid;
+      Db.Network_sriov.destroy ~__context ~self) netw_sriovs
 
 (* Local storage caching *)
 
