@@ -84,7 +84,8 @@ def _get_extents(path, exportname, offset, length):
 
             # Then process the returned block status info
             assert_protocol(reply['context_id'] == meta_context_id)
-            # Note: There might be consecutive descriptors with the same status value.
+            # Note: There might be consecutive descriptors with the same status
+            # value.
             descriptors = reply['descriptors']
             for i, descriptor in enumerate(descriptors):
                 (extent_length, flags) = descriptor
@@ -112,10 +113,11 @@ def _main():
     try:
         parser = argparse.ArgumentParser(
             description="Return a list of extents with their block statuses. "
-                        "The returned extents are consecutive, non-overlapping, "
-                        "in the correct order starting from the specified offset, "
-                        "and exactly cover the requested area. There might be "
-                        "consecutive extents with the same status flags.")
+                        "The returned extents are consecutive, non-"
+                        "overlapping, in the correct order starting from the "
+                        "specified offset, and exactly cover the requested "
+                        "area. There might be consecutive extents with the "
+                        "same status flags.")
         parser.add_argument(
             '--path',
             required=True,
