@@ -1,7 +1,7 @@
 .PHONY: build release lint test install uninstall clean reindent
 
 release:
-	dune build @install
+	dune build -p vhd-tool -j $$(getconf _NPROCESSORS_ONLN)
 
 build:
 	dune build @install
@@ -18,10 +18,10 @@ stresstest:
 	dune build @stresstest
 
 install:
-	dune install
+	dune install -p vhd-tool
 
 uninstall:
-	dune uninstall
+	dune uninstall -p vhd-tool
 
 clean:
 	dune clean

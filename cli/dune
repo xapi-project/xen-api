@@ -1,0 +1,29 @@
+(executables
+  (names main sparse_dd get_vhd_vsize)
+  (public_names vhd-tool sparse_dd get_vhd_vsize)
+  (libraries
+    local_lib
+    cstruct
+  )
+)
+
+(rule
+  (targets vhd-tool.1)
+  (deps (:x main.exe))
+  (action (
+    with-stdout-to %{targets} (run %{x} --help=groff)
+  ))
+)
+
+(rule
+  (targets sparse_dd.1)
+  (deps (:x sparse_dd.exe))
+  (action (
+    with-stdout-to %{targets} (run %{x} --help=groff)
+  ))
+)
+
+(install
+  (section man)
+  (files vhd-tool.1 sparse_dd.1)
+)

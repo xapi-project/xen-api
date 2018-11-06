@@ -30,6 +30,12 @@ depends: [
   "xenstore"
   "xenstore_transport"
 ]
+depexts: [
+  ["libssl-dev"] {os-distribution = "debian"}
+  ["libssl-dev"] {os-distribution = "ubuntu"}
+  ["openssl-devel"] {os-distribution = "centos"}
+  ["openssl-devel"] {os-distribution = "fedora"}
+]
 synopsis: ".vhd file manipulation"
 url {
   src: "https://github.com/xapi-project/vhd-tool/archive/master.tar.gz"
