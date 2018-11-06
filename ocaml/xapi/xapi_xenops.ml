@@ -1990,6 +1990,11 @@ let on_xapi_restart ~__context =
       let (_: Thread.t) = Thread.create events_from_xenopsd queue_name in
       ()
     ) (all_known_xenopsds ());
+  info "applying guest agent configuration during restart";
+  let pool = Helpers.get_pool ~__context in
+  let config = Db.Pool.get_guest_agent_config ~__context ~self:pool in
+  apply_guest_agent_config ~__context config;
+
 
   (* Get a list of all the ids of VMs that Xapi thinks are resident here *)
   let resident_vms_in_db =
