@@ -45,15 +45,16 @@ class IGMPQueryInjector(object):
         try:
             self.inject_packet(vif, mac)
             log.info('Inject IGMP query to vif:%s, mac:%s' % (vif, mac))
-        except:
+        except Exception as e:
             log.error('Inject IGMP query to vif:%s, mac:%s failed' % (vif, mac))
+            log.logException(e)
 
     def inject_packet(self, iface, dst_mac):
         ether_part = Ether(src='00:00:00:00:00:00', dst=dst_mac)
         ip_part = IP(ttl=1, src='0.0.0.0', dst='224.0.0.1')
         igmp_part = IGMP(type=0x11)
-        igmp_part.mrtime = (self.max_resp_time / 100) & 0xff
-        igmp_part.igmpize(ether=ether_part, ip=ip_part)
+        igmp_part.mrcode = (self.max_resp_time / 100) & 0xff
+        igmp_part.igmpize()
         # Make this IGMP query packet as an unicast packet
         ether_part.dst = dst_mac
         sendp(ether_part / ip_part / igmp_part, iface=iface, verbose=False)
