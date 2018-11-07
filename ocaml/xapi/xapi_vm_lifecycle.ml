@@ -279,7 +279,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   | `pool_migrate | `migrate_send
     when List.for_all is_migratable  vgpus
       && List.for_all is_suspendable vgpus -> None
-  | `suspend
+  | `suspend | `checkpoint
     when List.for_all is_suspendable vgpus -> None
   | `pool_migrate | `migrate_send | `suspend | `checkpoint ->
     Some (Api_errors.vm_has_vgpu, [ref_str])
