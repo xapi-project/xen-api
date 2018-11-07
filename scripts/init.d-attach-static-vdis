@@ -39,6 +39,7 @@ attach_all(){
 	    if [ $? -ne 0 ]; then
 	       RC=1
 	       logger "Attempt to attach VDI: ${UUID} failed -- skipping (Error was: ${OUTPUT})"
+	       return $RC
 	    fi
 	done
 	return $RC
