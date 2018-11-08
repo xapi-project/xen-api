@@ -157,7 +157,7 @@ let rpc ~srcstr ~dststr call =
   XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr
     ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
 
-module Local = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc ~srcstr:"xapi" ~dststr:"smapiv2" end))
+module Local = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc ~srcstr:"xapi" ~dststr:"smapiv2" end))
 
 let put_handler (req: Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s

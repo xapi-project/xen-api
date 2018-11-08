@@ -1060,7 +1060,7 @@ let on_xapi_start ~__context =
       let queue_name = !Storage_interface.queue_name ^ "." ^ ty in
       let uri () = Storage_interface.uri () ^ ".d/" ^ ty in
       let rpc = external_rpc queue_name uri in
-      let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+      let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
       let dbg = Context.string_of_task __context in
       C.Query.query dbg
     in
@@ -1101,7 +1101,7 @@ let bind ~__context ~pbd =
   let rpc = external_rpc queue_name uri in
   let service = make_service uuid ty in
   System_domains.register_service service queue_name;
-  let module Client = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+  let module Client = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   let dbg = Context.string_of_task __context in
   let info = Client.Query.query dbg in
   Storage_mux.register (Storage_interface.Sr.of_string sr) rpc uuid info;
@@ -1131,7 +1131,7 @@ let rpc =
   let remote_url_of_ip = Storage_utils.remote_url in
   Storage_utils.redirectable_rpc ~srcstr ~dststr:"smapiv2" ~remote_url_of_ip ~local_fn
 
-module Client = StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end))
+module Client = StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end))
 
 let print_delta d =
   debug "Received update: %s" (Jsonrpc.to_string (Storage_interface.Dynamic.rpc_of_id d))
@@ -1318,7 +1318,7 @@ let is_attached ~__context ~vbd ~domid  =
     (fun () ->
        let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
        let open Vdi_automaton in
-       let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+       let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
        try
          let x = C.DP.stat_vdi dbg sr vdi () in
          x.superstate <> Detached
@@ -1330,7 +1330,7 @@ let is_attached ~__context ~vbd ~domid  =
     useful for executing Storage_interface.Client.VDI functions  *)
 let on_vdi ~__context ~vbd ~domid f =
   let rpc, dbg, dp, sr, vdi = of_vbd ~__context ~vbd ~domid in
-  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+  let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   let dp = C.DP.create dbg dp in
   transform_storage_exn
     (fun () ->
@@ -1361,7 +1361,7 @@ let attach_and_activate ~__context ~vbd ~domid f =
        let read_write = Db.VBD.get_mode ~__context ~self:vbd = `RW in
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
-            let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+            let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
             let attach_info = C.VDI.attach2 dbg dp sr vdi read_write in
             C.VDI.activate dbg dp sr vdi;
             f attach_info
@@ -1377,7 +1377,7 @@ let deactivate_and_detach ~__context ~vbd ~domid =
           			   automatically detached and deactivated. *)
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
-            let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+            let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
             C.DP.destroy dbg dp false
          )
     )

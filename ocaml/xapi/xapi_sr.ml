@@ -176,7 +176,7 @@ let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
   let queue = !Storage_interface.queue_name ^ "." ^ _type in
   let uri () = Storage_interface.uri () ^ ".d/" ^ _type in
   let rpc = Storage_access.external_rpc queue uri in
-  let module Client = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+  let module Client = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   let dbg = Context.string_of_task __context in
 
   Storage_access.transform_storage_exn
@@ -451,7 +451,7 @@ let destroy  ~__context ~sr =
 let update ~__context ~sr =
   let open Storage_access in
   let task = Context.get_task_id __context in
-  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+  let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   transform_storage_exn
     (fun () ->
        let sr' = Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string in
@@ -607,7 +607,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 let scan ~__context ~sr =
   let open Storage_access in
   let task = Context.get_task_id __context in
-  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = rpc end)) in
+  let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   let sr' = Ref.string_of sr in
   transform_storage_exn
     (fun () ->
@@ -641,7 +641,7 @@ let set_name_label ~__context ~sr ~value =
   let open Storage_access in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
+  let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
        C.SR.set_name_label (Ref.string_of task) (Storage_interface.Sr.of_string sr') value
@@ -652,7 +652,7 @@ let set_name_description ~__context ~sr ~value =
   let open Storage_access in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
-  let module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end)) in
+  let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = Storage_access.rpc end)) in
   transform_storage_exn
     (fun () ->
        C.SR.set_name_description (Ref.string_of task) (Storage_interface.Sr.of_string sr') value
