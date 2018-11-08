@@ -152,7 +152,7 @@ let _ =
   let server = Xcp_service.make
       ~path:!Network_interface.default_path
       ~queue_name:!Network_interface.queue_name
-      ~rpc_fn:(Idl.server Network_server.S.implementation)
+      ~rpc_fn:(Idl.Exn.server Network_server.S.implementation)
       () in
 
   Xcp_service.maybe_daemonize ~start_fn:(fun () ->
