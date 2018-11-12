@@ -727,6 +727,28 @@ module HOST = struct
          let features_hvm = get_featureset xc Featureset_hvm in
          let features_oldstyle = oldstyle_featuremask xc in
 
+         (* Compatibility with Xen 4.7 *)
+         (* This is temporary until new CPUID/MSR levelling work is done *)
+         let cpuid_common_1d_features = 0x0183f3ffL in
+
+         (* Set X86_FEATURE_HTT in 1d *)
+         features_pv.(0)  <- Int64.logor features_pv.(0)  0x10000000L;
+         features_hvm.(0) <- Int64.logor features_hvm.(0) 0x10000000L;
+
+         (* Set X86_FEATURE_X2APIC in 1c *)
+         features_pv.(1)  <- Int64.logor features_pv.(1)  0x200000L;
+         features_hvm.(1) <- Int64.logor features_hvm.(1) 0x200000L;
+
+         (* Share CPUID_COMMON_1D_FEATURES with e1d *)
+         let tmp = Int64.logand features_pv.(0)  cpuid_common_1d_features in
+         features_pv.(2)  <- Int64.logor features_pv.(2)  tmp;
+         let tmp = Int64.logand features_hvm.(0) cpuid_common_1d_features in
+         features_hvm.(2) <- Int64.logor features_hvm.(2) tmp;
+
+         (* Set X86_FEATURE_CMP_LEGACY in e1c *)
+         features_pv.(3)  <- Int64.logor features_pv.(3)  0x2L;
+         features_hvm.(3) <- Int64.logor features_hvm.(3) 0x2L;
+
          let v = version xc in
          let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
          let xen_capabilities = version_capabilities xc in
