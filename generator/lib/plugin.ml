@@ -88,5 +88,7 @@ let interfaces = Codegen.Interfaces.create
     ~title:"The Plugin interface"
     ~description:[
       "The xapi toolstack expects all plugins to support a basic query";
+      "interface. This means that if you plan to implement both, a volume";
+      "and a datapath plugin, make sure that both implement the query";
       "interface."]
     ~interfaces:[P.implementation ()]
