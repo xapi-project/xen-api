@@ -450,21 +450,6 @@ let remove_restricted_pbd_keys = {
       ) (Db.PBD.get_all ~__context)
 }
 
-let update_tools_sr_pbd_device_config = {
-  description = "Updating Tools SR PBD.device_config";
-  version = (fun x -> x <= creedence);
-  fn = fun ~__context ->
-    let tools_srs = List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) (Db.SR.get_all ~__context) in
-    begin match tools_srs with
-    | sr :: others ->
-      (* Let there be only one Tools SR *)
-      List.iter (fun self -> Db.SR.destroy ~__context ~self) others;
-      Db.SR.get_PBDs ~__context ~self:sr
-      |> List.iter (fun self -> Db.PBD.set_device_config ~__context ~self ~value:Xapi_globs.tools_sr_pbd_device_config)
-    | [] -> () (* Do nothing - dbsync_master creates new tools SR *)
-    end
-}
-
 let upgrade_recommendations_for_gpu_passthru = {
   description = "Upgrading recommendations to allow GPU passthrough on HVM Linux guests";
   version = (fun x -> x < cream);
@@ -527,7 +512,6 @@ let rules = [
   default_has_vendor_device_false;
   default_pv_drivers_detected_false;
   remove_restricted_pbd_keys;
-  update_tools_sr_pbd_device_config;
   upgrade_recommendations_for_gpu_passthru;
 ]
 

@@ -479,57 +479,39 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
 
   new_host_ref
 
-and create_or_get_sr_on_master __context rpc session_id (sr_ref, sr)
-  : API.ref_SR =
+and create_or_get_sr_on_master __context rpc session_id (sr_ref,sr): API.ref_SR =
   let my_uuid = sr.API.sR_uuid in
-  let new_sr_ref =
-    try Client.SR.get_by_uuid ~rpc ~session_id ~uuid:my_uuid with _ ->
-      let my_pbd_ref = List.hd (Db.SR.get_PBDs ~__context ~self:sr_ref) in
-      let my_pbd = Db.PBD.get_record ~__context ~self:my_pbd_ref in
-      let pbds_on_master = Client.PBD.get_all_records ~rpc ~session_id in
-      (* The only possible shared SRs are ISO, as other SRs cannot be shared properly across pools. *)
-      (* In this case, if we find a SR with a PBD having the same device_config field, we pick this SR instead of building a new one *)
-      let iso_already_exists_on_master () =
-        List.exists
-          (fun (_, x) ->
-            Listext.List.set_equiv x.API.pBD_device_config
-              my_pbd.API.pBD_device_config )
-          pbds_on_master
+  try
+    Client.SR.get_by_uuid ~rpc ~session_id ~uuid:my_uuid
+  with _ ->
+    if sr.API.sR_is_tools_sr then
+      (* find the tools SR and return it *)
+      try
+        Client.SR.get_all_records ~rpc ~session_id
+        |> List.find (fun (_, sr) -> sr.API.sR_is_tools_sr)
+        |> (fun (ref,_) -> ref)
+      with Not_found ->
+        let msg = Printf.sprintf "can't find SR %s of tools iso" my_uuid in
+        raise Api_errors.(Server_error (internal_error, [ msg ]))
+    else begin
+      debug "Found no SR with uuid = '%s' on the master, so creating one."
+        my_uuid ;
+      let ref =
+        Client.SR.introduce ~rpc ~session_id ~uuid:my_uuid
+          ~name_label:sr.API.sR_name_label
+          ~name_description:sr.API.sR_name_description
+          ~_type:sr.API.sR_type
+          ~content_type:sr.API.sR_content_type
+          ~shared:false
+          ~sm_config:sr.API.sR_sm_config
       in
-      if
-        sr.API.sR_shared
-        && sr.API.sR_content_type = "iso"
-        && iso_already_exists_on_master ()
-      then
-        let similar_pbd_ref, similar_pbd =
-          List.find
-            (fun (_, x) ->
-              Listext.List.set_equiv x.API.pBD_device_config
-                my_pbd.API.pBD_device_config )
-            pbds_on_master
-        in
-        similar_pbd.API.pBD_SR
-      else (
-        debug "Found no SR with uuid = '%s' on the master, so creating one."
-          my_uuid ;
-        let ref =
-          Client.SR.introduce ~rpc ~session_id ~uuid:my_uuid
-            ~name_label:sr.API.sR_name_label
-            ~name_description:sr.API.sR_name_description
-            ~_type:sr.API.sR_type
-            ~content_type:sr.API.sR_content_type
-            ~shared:false
-            ~sm_config:sr.API.sR_sm_config
-        in
-        (* copy other-config into newly created sr record: *)
-        no_exn
-          (fun () ->
-            Client.SR.set_other_config ~rpc ~session_id ~self:ref
-              ~value:sr.API.sR_other_config )
-          () ;
-        ref )
-  in
-  new_sr_ref
+      (* copy other-config into newly created sr record: *)
+      no_exn
+        (fun () ->
+          Client.SR.set_other_config ~rpc ~session_id ~self:ref
+            ~value:sr.API.sR_other_config ) ();
+      ref
+    end
 
 let create_or_get_pbd_on_master __context rpc session_id (pbd_ref, pbd) : API.ref_PBD =
   let my_uuid = pbd.API.pBD_uuid in

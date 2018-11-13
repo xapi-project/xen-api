@@ -131,26 +131,35 @@ let create_tools_sr __context name_label name_description sr_introduce maybe_cre
     (Xapi_globs.i18n_original_value_prefix ^ "name_label"), name_label;
     (Xapi_globs.i18n_original_value_prefix ^ "name_description"), name_description
   ] in
+  let destroy self =
+    try Db.SR.destroy ~__context ~self with e ->
+      warn "failed to destroy redundant tools SR %s: %s"
+        (Ref.string_of self) (Printexc.to_string e) in
   let sr =
-    let tools_srs = List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) (Db.SR.get_all ~__context) in
+    let srs = Db.SR.get_all ~__context in
+    let tools_srs =
+      List.filter (fun self -> Db.SR.get_is_tools_sr ~__context ~self) srs in
+    let old_srs =
+      List.filter (fun self ->
+          let other_config = Db.SR.get_other_config ~__context ~self in
+          (Db.SR.get_is_tools_sr ~__context ~self = false) &&
+          ((List.mem_assoc Xapi_globs.tools_sr_tag other_config) ||
+           (List.mem_assoc Xapi_globs.xensource_internal other_config))
+        ) srs in
     match tools_srs with
     | sr :: others ->
       (* Let there be only one Tools SR *)
-      List.iter (fun self -> Db.SR.destroy ~__context ~self) others;
+      List.iter destroy others;
+      List.iter destroy old_srs;
       sr
     | [] ->
       (* First check if there is an SR with the old tags on it, which needs upgrading (set is_tools_sr). *)
       (* We cannot do this in xapi_db_upgrade, because that runs later. *)
-      let old_srs =
-        List.filter (fun self ->
-            let other_config = Db.SR.get_other_config ~__context ~self in
-            (List.mem_assoc Xapi_globs.tools_sr_tag other_config) ||
-            (List.mem_assoc Xapi_globs.xensource_internal other_config)
-          ) (Db.SR.get_all ~__context)
-      in
       match old_srs with
-      | sr :: _ ->
-        Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true; sr
+      | sr :: others ->
+        Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true;
+        List.iter destroy others; (* destroy bogus Tool SRs CA-300103 *)
+        sr
       | [] ->
         create_magic_sr name_label name_description other_config
   in
@@ -164,7 +173,12 @@ let create_tools_sr __context name_label name_description sr_introduce maybe_cre
     let extra = List.filter (fun (k, _) -> not (List.mem k keys)) oc in
     extra @ other_config
   in
-  Db.SR.set_other_config ~__context ~self:sr ~value:other_config
+  Db.SR.set_other_config ~__context ~self:sr ~value:other_config;
+  List.iter
+    (fun self ->
+       Db.PBD.set_device_config ~__context ~self
+         ~value:Xapi_globs.tools_sr_pbd_device_config)
+    (Db.SR.get_PBDs ~__context ~self:sr)
 
 let create_tools_sr_noexn __context =
   let name_label = Xapi_globs.tools_sr_name () in
