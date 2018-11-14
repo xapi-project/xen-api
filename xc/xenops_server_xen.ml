@@ -1767,6 +1767,15 @@ module VM = struct
              raise (Xenops_interface.Xenopsd_error Ballooning_timeout_before_migration)
       ) task vm
 
+  let assert_can_save vm =
+    with_xc_and_xs (fun xc xs ->
+        let uuid = uuid_of_vm vm in
+        match domid_of_uuid ~xc ~xs uuid with
+        | None -> failwith (Printf.sprintf "VM %s disappeared" (Uuidm.to_string uuid))
+        | Some domid ->
+          Device.Dm.assert_can_suspend ~xs ~dm:(dm_of ~vm) domid
+      )
+
   let save task progress_callback vm flags data vgpu_data pre_suspend_callback =
     let flags' =
       List.map

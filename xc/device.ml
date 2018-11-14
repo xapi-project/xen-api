@@ -1380,22 +1380,6 @@ module PCI = struct
                                Printf.sprintf "device-model/%d/parameter" domid, parameter ];
       )
 
-  let wait_device_model (task: Xenops_task.task_handle) ~xs domid =
-    let be_domid = 0 in
-    let path = device_model_state_path xs be_domid domid in
-    let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
-    let shutdown = Watch.key_to_disappear (Qemu.pid_path domid) in
-    let cancel = Domain domid in
-    let (_: bool) = cancellable_watch cancel [ watch; shutdown ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
-    if Qemu.is_running ~xs domid then begin
-      let answer = try xs.Xs.read path with _ -> "" in
-      xs.Xs.rm path;
-      Some answer
-    end else begin
-      info "wait_device_model: qemu has shutdown";
-      None
-    end
-
   (* Return a list of PCI devices *)
   let list ~xs domid =
     (* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
@@ -2052,6 +2036,9 @@ module Dm_Common = struct
         ]
     ]
 
+  let cant_suspend_reason_path domid =
+    sprintf "/local/domain/%d/data/cant_suspend_reason" domid
+
 end (* End of module Dm_Common *)
 
 
@@ -2079,6 +2066,9 @@ module Backend = struct
 
       (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the vnc server for [domid] can be found *)
       val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> Socket.t option
+
+      (** [assert_can_suspend xenstore xc] checks whether suspending is prevented by QEMU *)
+      val assert_can_suspend: xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 
       (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
@@ -2121,6 +2111,8 @@ module Backend = struct
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
             (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
           )
+
+      let assert_can_suspend ~xs _ = ()
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
@@ -2389,6 +2381,24 @@ module Backend = struct
         raise @@ Ioemu_failed
           (sprintf "domid %d" domid, "QMP failure at "^__LOC__)
 
+    let update_cant_suspend domid xs =
+      let as_msg cmd = Qmp.(Success(Some __LOC__, cmd)) in
+      (* changing this will cause fire_event_on_vm to get called, which will do a VM.check_state,
+       * which will trigger a VM.stat from XAPI to update migratable state *)
+      let path = Dm_Common.cant_suspend_reason_path domid in
+      (* This will raise QMP_Error if it can't do it, we catch it and update xenstore. *)
+      match qmp_send_cmd domid Qmp.Query_migratable with
+      | Qmp.Unit ->
+        debug "query-migratable precheck passed (domid=%d)" domid;
+        Generic.safe_rm ~xs path;
+      | other ->
+        raise @@
+        (Xenopsd_error (Internal_error (sprintf
+                                          "Unexpected result for QMP command: %s"
+                                          Qmp.(other |> as_msg |> string_of_message))))
+      | exception QMP_Error (_, msg) ->
+        xs.Xs.write path msg
+
     let qmp_event_handle domid qmp_event =
       (* This function will be extended to handle qmp events *)
       debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
@@ -2421,7 +2431,7 @@ module Backend = struct
       qmp_event.data |> function
       | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
       | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
-      | _ -> () (* unhandled QMP events *)
+      | _ -> with_xs (update_cant_suspend domid) (* unhandled QMP events, including RESUME, and DEVICE_DELETED *)
 
     let process domid line =
       match Qmp.message_of_string line with
@@ -2574,6 +2584,20 @@ module Backend = struct
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
             Some (Socket.Unix (Dm_Common.vnc_socket_path domid))
           )
+
+      let assert_can_suspend ~xs domid =
+        QMP_Event.update_cant_suspend domid xs;
+        match xs.Xs.read (Dm_Common.cant_suspend_reason_path domid) with
+        | msg ->
+          debug "assert_can_suspend: rejecting (domid=%d)" domid;
+          raise @@
+          Xenopsd_error (Device_detach_rejected("VM",
+                                                domid |> Xenops_helpers.uuid_of_domid ~xs
+                                                |> Uuidm.to_string,
+                                                msg))
+        | exception e ->
+          debug "assert_can_suspend: OK (domid=%d)" domid;
+          () (* key not present *)
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         let as_msg cmd = Qmp.(Success(Some __LOC__, cmd)) in
@@ -2880,6 +2904,10 @@ module Dm = struct
   let get_vnc_port ~xs ~dm domid =
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.get_vnc_port ~xs domid
+
+  let assert_can_suspend ~xs ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Dm.assert_can_suspend ~xs domid
 
   let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid ~dm domid =
     let module Q = (val Backend.of_profile dm) in

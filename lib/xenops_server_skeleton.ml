@@ -66,6 +66,7 @@ module VM = struct
   let set_memory_dynamic_range _ _ _ _ = unimplemented "VM.set_memory_dynamic_range"
   let request_shutdown _ _ _ _ = unimplemented "VM.request_shutdown"
   let wait_shutdown _ _ _ _ = unimplemented "VM.wait_shutdown"
+  let assert_can_save _ = unimplemented "VM.assert_can_save"
   let save _ _ _ _ _ _ _ = unimplemented "VM.save"
   let restore _ _ _ _ _ _ _ = unimplemented "VM.restore"
   let s3suspend _ _ = unimplemented "VM.s3suspend"
