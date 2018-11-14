@@ -339,8 +339,6 @@ let demu_restore_path : (_, _, _) format = "/var/lib/xen/demu-resume.%d"
 let var_run_xen_path = "/var/run/xen"
 let qmp_libxl_path = (sprintf "%s/qmp-libxl-%d") var_run_xen_path
 let qmp_event_path = (sprintf "%s/qmp-event-%d") var_run_xen_path
-let efivars_resume_path = (sprintf "%s/efi-vars-resume-%d.dat") var_run_xen_path
-let efivars_save_path = (sprintf "%s/efi-vars-save-%d.dat") var_run_xen_path
 
 (* Where qemu writes its state and is signalled *)
 let device_model_path ~qemu_domid domid = sprintf "/local/domain/%d/device-model/%d" qemu_domid domid

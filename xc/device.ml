@@ -1637,6 +1637,87 @@ end
 
 let can_surprise_remove ~xs (x: device) = Generic.can_surprise_remove ~xs x
 
+module Chroot : sig
+  type t = {
+    root: string;
+    uid: int;
+    gid: int;
+  }
+  module Path : sig
+    type t
+    val of_string : relative:string -> t
+  end
+  (** [absolute_path_outside chroot path] returns the absolute path outside the chroot *)
+  val absolute_path_outside : t -> Path.t -> string
+
+  (** [chroot_path_inside path] returns the path when inside the chroot *)
+  val chroot_path_inside : Path.t -> string
+
+  (** [prepare chroot path] ensures that [path] is owned by the chrooted daemon and rw- *)
+  val prepare : t -> Path.t -> unit
+
+  (** [of_domid daemon domid] describes a chroot for specified daemon and domain *)
+  val of_domid : daemon:string -> domid:int -> t
+
+  (** [create chroot] Creates the specified chroot with appropriate permissions *)
+  val create : t -> unit
+
+  (** [destroy chroot] Deletes the chroot *)
+  val destroy: t -> unit
+end = struct
+  type t = {
+    root: string;
+    uid: int;
+    gid: int;
+  }
+
+  module Path = struct
+    type t = string
+    let of_string ~relative =
+      if not (Filename.is_implicit relative) then
+        invalid_arg (Printf.sprintf "Expected implicit filename, but got '%s' (at %s)" relative __LOC__);
+      relative
+  end
+
+  let absolute_path_outside chroot path =
+    Filename.concat chroot.root path
+
+  let chroot_path_inside path = Filename.concat "/" path
+
+  let prepare chroot path =
+    let fullpath = absolute_path_outside chroot path in
+    Unixext.with_file fullpath [Unix.O_CREAT; Unix.O_EXCL] 0o600 (fun fd ->
+        Unix.fchown fd chroot.uid chroot.gid)
+
+  let qemu_base_uid () = (Unix.getpwnam "qemu_base").Unix.pw_uid
+  let qemu_base_gid () = (Unix.getpwnam "qemu_base").Unix.pw_gid
+
+  let of_domid ~daemon ~domid =
+    let root = Printf.sprintf "%s/%s-root-%d" Device_common.var_run_xen_path daemon domid in
+    (* per VM uid/gid as for QEMU *)
+    let uid = qemu_base_uid () + domid in
+    let gid = qemu_base_gid () + domid in
+    { root; uid; gid }
+
+  let create chroot =
+    try
+      Xenops_utils.Unixext.mkdir_rec chroot.root 0o755;
+      (* we want parent dir to be 0o755 and this dir 0o750 *)
+      Unix.chmod chroot.root 0o750;
+      (* the chrooted daemon will have r-x permissions *)
+      Unix.chown chroot.root 0 chroot.gid;
+      debug "Created chroot %s" chroot.root
+    with e ->
+      Backtrace.is_important e;
+      D.warn "Failed to create chroot at %s for UID %d: %s" chroot.root chroot.uid
+        (Printexc.to_string e);
+      raise e
+
+  let destroy chroot =
+    Generic.best_effort (Printf.sprintf "removing chroot %s" chroot.root)
+      (fun () -> Xenops_utils.FileFS.rmtree chroot.root)
+end
+
 (** Dm_Common contains the private Dm functions that are common between the qemu profile backends. *)
 module Dm_Common = struct
 
@@ -1692,6 +1773,10 @@ module Dm_Common = struct
     }
 
   let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
+
+  let varstored_chroot ~domid = Chroot.of_domid ~daemon:"varstored" ~domid
+  let efivars_resume_path = Chroot.Path.of_string ~relative:"efi-vars-resume.dat"
+  let efivars_save_path = Chroot.Path.of_string ~relative:"efi-vars-save.dat"
 
   let get_vnc_port ~xs domid ~f =
     match Qemu.is_running ~xs domid with
@@ -1966,12 +2051,11 @@ module Dm_Common = struct
     let stop_vgpu () = Vgpu.stop ~xs domid in
     let stop_varstored () =
       Varstored.stop ~xs domid;
-      List.iter (fun path ->
-          debug "deleting %s" path;
-          Unixext.unlink_safe path)
-        [ efivars_resume_path domid
-        ; efivars_save_path domid
-        ]
+      let gid = (varstored_chroot ~domid).Chroot.gid in
+      let dbg = Printf.sprintf "stop_varstored for domid %d" domid in
+      Generic.best_effort "Stop listening on deprivileged socket" (fun () ->
+          Varstore_privileged_client.Client.destroy dbg gid);
+      Chroot.destroy @@ varstored_chroot ~domid
     in
     stop_vgpu ();
     stop_varstored ();
@@ -2927,7 +3011,7 @@ module Dm = struct
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
-  let start_varstored ~xs ~nvram ?(restore=false) task domid =
+  let start_varstored ~xs ~nvram ?(restore=false) (task : Xenops_task.task_handle) domid =
     let open Xenops_types in
     debug "Preparing to start varstored for UEFI boot (domid=%d)" domid;
     let path = !Xc_resources.varstored in
@@ -2939,16 +3023,32 @@ module Dm = struct
     let (>>=) = bind in
     let argf fmt = ksprintf (fun s -> [ "--arg"; s]) fmt in
     let on cond value = if cond then value else return () in
+    let chroot = varstored_chroot ~domid in
+    Chroot.create chroot;
+    let socket_path = Chroot.Path.of_string ~relative:"xapi-depriv-socket" in
+    let absolute_socket_path = Chroot.absolute_path_outside chroot socket_path in
+    let vm_uuidm = match Uuidm.of_string vm_uuid with Some uuid -> uuid | None ->
+     failwith (Printf.sprintf "Invalid VM uuid %s" vm_uuid) in
+    Varstore_privileged_client.Client.create (Xenops_task.get_dbg task) vm_uuidm chroot.gid absolute_socket_path;
+(*    Unix.chmod absolute_socket_path 0o660;
+      Unix.chown absolute_socket_path 0 chroot.gid; *)
+    Chroot.prepare chroot efivars_save_path;
     let args =
       Add.many [ "--domain"; string_of_int domid
-               ; "--backend"; backend ] >>= fun () ->
+               ; "--chroot"; chroot.root
+               ; "--depriv"
+               ; "--uid"; string_of_int chroot.uid
+               ; "--gid"; string_of_int chroot.gid
+               ; "--backend"; backend
+               ; "--arg"; Printf.sprintf "socket:%s" (Chroot.chroot_path_inside socket_path)
+               ] >>= fun () ->
       (Varstored.pidfile_path domid |> function None -> return () | Some x ->
-         Add.many [ "--pidfile"; x ]) >>= fun () ->
+           Add.many [ "--pidfile"; x ]) >>= fun () ->
       Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
       on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
       on restore @@ Add.arg "--resume" >>= fun () ->
-      on restore @@ Add.many @@ argf "resume:%s" (efivars_resume_path domid) >>= fun () ->
-      Add.many @@ argf "save:%s" (efivars_save_path domid)
+      on restore @@ Add.many @@ argf "resume:%s" (Chroot.chroot_path_inside efivars_resume_path) >>= fun () ->
+      Add.many @@ argf "save:%s" (Chroot.chroot_path_inside efivars_save_path)
     in
     let args = Fe_argv.run args |> snd |> Fe_argv.argv in
     let pid = start_daemon ~path ~args ~name ~domid ~fds:[] () in
@@ -3103,11 +3203,12 @@ module Dm = struct
   let suspend_varstored (task: Xenops_task.task_handle) ~xs domid =
     debug "Called Dm.suspend_varstored (domid=%d)" domid;
     Varstored.stop ~xs domid;
-    Unixext.string_of_file (efivars_save_path domid)
+    Unixext.string_of_file @@ Chroot.absolute_path_outside (varstored_chroot ~domid) efivars_save_path
 
   let restore_varstored (task: Xenops_task.task_handle) ~xs ~efivars domid =
     debug "Called Dm.restore_varstored (domid=%d)" domid;
-    let path = efivars_resume_path domid in
+    Chroot.create (varstored_chroot ~domid);
+    let path = Chroot.absolute_path_outside (varstored_chroot ~domid) efivars_resume_path in
     debug "Writing EFI variables to %s (domid=%d)" path domid;
     Unixext.write_string_to_file path efivars;
     debug "Wrote EFI variables to %s (domid=%d)" path domid
