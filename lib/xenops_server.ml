@@ -1651,7 +1651,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
       Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
-      let module Remote = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> vmm.vmm_url) end)) in
+      let module Remote = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> vmm.vmm_url) end)) in
       let regexp = Re.Pcre.regexp id in
       let new_dest_id = (String.sub id 0 24) ^ "000000000001" in
       let new_src_id = (String.sub id 0 24) ^ "000000000000" in
@@ -2742,7 +2742,7 @@ end
 let get_diagnostics _ _ () =
   Diagnostics.make () |> rpc_of Diagnostics.t |> Jsonrpc.to_string
 
-module Server = Xenops_interface.XenopsAPI(Idl.GenServerExn ())
+module Server = Xenops_interface.XenopsAPI(Idl.Exn.GenServer ())
 
 let _ =
   Server.query (query ());
