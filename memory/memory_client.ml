@@ -23,5 +23,5 @@ let rpc call =
 		then json_switch_rpc queue_name call
 		else xml_http_rpc ~srcstr:"xenops" ~dststr:"squeezed" xml_url call
 
-module Client = Memory_interface.API(Idl.GenClientExnRpc(struct let rpc=rpc end))
+module Client = Memory_interface.API(Idl.Exn.GenClient(struct let rpc=rpc end))
 

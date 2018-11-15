@@ -22,4 +22,4 @@ let rpc call =
       ~dststr:"gpumon"
       xml_url
       call
-module Client = Gpumon_interface.RPC_API(Idl.GenClientExnRpc(struct let rpc=rpc end))
+module Client = Gpumon_interface.RPC_API(Idl.Exn.GenClient(struct let rpc=rpc end))

@@ -16,7 +16,7 @@ let default_cmd =
   Cmdliner.Term.info "cluster_cli" ~version:(version_str Cmds.description) ~doc
 
 let cli () =
-  let rpc = Cluster_client.rpc Cluster_client.json_url in
+  let rpc = Cluster_client.rpc_internal Cluster_client.json_url in
   Cmdliner.Term.eval_choice default_cmd (List.map (fun t -> t rpc) (Cmds.implementation ()))
 
 let _ = cli ()

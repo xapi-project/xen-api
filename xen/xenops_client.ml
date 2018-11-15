@@ -15,7 +15,7 @@
 open Xenops_interface
 open Xcp_client
 
-module Client = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct
+module Client = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct
 	let rpc call =
 		if !use_switch
 		then json_switch_rpc !queue_name call
@@ -23,7 +23,7 @@ module Client = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct
 end))
 
 let query dbg url =
-	let module Remote = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end)) in
+	let module Remote = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct let rpc = xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> url) end)) in
 	Remote.query dbg ()
 
 let event_wait dbg ?from p =

@@ -27,7 +27,7 @@ let rec retry_econnrefused f =
       (* error "Caught %s: does the storage service need restarting?" (Printexc.to_string e); *)
       raise e
 
-module Client = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct
+module Client = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct
   let rpc call =
     retry_econnrefused
       (fun () ->
