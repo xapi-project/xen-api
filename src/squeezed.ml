@@ -35,7 +35,7 @@ let options = [
    implementations rather than return a Result.result. Once all the
    methods are bound, the function S.implementation : Rpc.call -> Rpc.response
    is the dispatcher. *)
-module S=Memory_interface.API(Idl.GenServerExn ())
+module S=Memory_interface.API(Idl.Exn.GenServer ())
 
 (* This is where we bind the method declarations to the implementations.
    Care has to be taken to bind each and every method declared as there
@@ -64,7 +64,7 @@ let _ =
   let server = Xcp_service.make
       ~path:Memory_interface.xml_path
       ~queue_name:Memory_interface.queue_name
-      ~rpc_fn:(Idl.server S.implementation)
+      ~rpc_fn:(Idl.Exn.server S.implementation)
       () in
 
   maybe_daemonize ();
