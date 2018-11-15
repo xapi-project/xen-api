@@ -6,10 +6,10 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/tapctl/issues"
 dev-repo: "git://github.com/xapi-project/tapctl.git"
 tags: [ "org:xapi-project" ]
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build}
   "xapi-stdext-unix"
   "xapi-stdext-std"
   "xapi-stdext-threads"

@@ -1,12 +1,10 @@
-(jbuild_version 1)
-
-(library (
+(library
   (name tapctl)
   (public_name xapi-tapctl)
   (wrapped false)
-  (flags (:standard -w -37-39))
-  (preprocess (pps (ppx_deriving_rpc))) 
-  (libraries (
+  (flags (:standard))
+  (preprocess (pps ppx_deriving_rpc))
+  (libraries
     re
     rpclib
     threads
@@ -15,5 +13,5 @@
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-monadic
-  ))
-))
+  )
+)

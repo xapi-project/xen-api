@@ -4,26 +4,26 @@ OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	jbuilder build @install
+	dune build -p xapi-tapctl -j $$(getconf _NPROCESSORS_ONLN)
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 install:
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-tapctl
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) -p xapi-tapctl
 
 uninstall:
-	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-tapctl
+	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) -p xapi-tapctl
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc -profile=release
 
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
