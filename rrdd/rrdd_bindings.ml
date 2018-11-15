@@ -68,7 +68,7 @@ module type RRDD_IMPLEMENTATION = sig
 end
 
 (* Generate empty server before binding API calls *)
-module Server = Rrd_interface.RPC_API(Idl.GenServerExn ())
+module Server = Rrd_interface.RPC_API(Idl.Exn.GenServer ())
 
 (* -- Server-implementation RPC bindings -- *)
 module Make(Impl : RRDD_IMPLEMENTATION) = struct

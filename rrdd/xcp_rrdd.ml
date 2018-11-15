@@ -705,12 +705,12 @@ let _ =
           let server = Xcp_service.make
               ~path:!Rrd_interface.default_path
               ~queue_name:!Rrd_interface.queue_name
-              ~rpc_fn:(Idl.server Rrdd_bindings.Server.implementation)
+              ~rpc_fn:(Idl.Exn.server Rrdd_bindings.Server.implementation)
               () in
           Debug.with_thread_associated "main" Xcp_service.serve_forever server
         end
       ) () in
-  start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.server Rrdd_bindings.Server.implementation);
+  start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.Exn.server Rrdd_bindings.Server.implementation);
 
   ignore @@ Discover.start ();
 
