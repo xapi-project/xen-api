@@ -59,7 +59,7 @@ let missing_uri () =
    returns a successful RPC response *)
 let return_rpc typ result =
   (* Operator to unwrap the wrapped async return type of ocaml-rpc's Rpc_async *)
-  let (>*=) a b = a |> Rpc_async.M.deferred >>= b in
+  let (>*=) a b = a |> Rpc_async.T.get >>= b in
   Monitor.try_with
     ~extract_exn:true
     (fun () ->
@@ -620,7 +620,7 @@ let bind ~volume_script_dir =
     return_data_rpc (fun () -> Datapath_client.attach rpc dbg uri domain)
   in
 
-  let wrap th = Rpc_async.M.{async=th} in
+  let wrap th = Rpc_async.T.put th in
   (* the actual API call for this plugin, sharing same version ref across all calls *) 
   let query_impl = (fun dbg ->
       let th =
@@ -715,7 +715,7 @@ let bind ~volume_script_dir =
           | Some "xeno+shm" ->
             let uid = Uri.path uri in
             let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
-            (RRD.Client.Plugin.Local.register RRD.rpc uid Rrd.Five_Seconds Rrd_interface.V2).Rpc_async.M.async
+            (RRD.Client.Plugin.Local.register RRD.rpc uid Rrd.Five_Seconds Rrd_interface.V2) |> Rpc_async.T.get
             >>= begin function
               | Ok  _ -> loop (uid :: acc) datasources
               | Error x -> raise Rrd_interface.(Rrdd_error x) end
@@ -751,7 +751,7 @@ let bind ~volume_script_dir =
             | Some "xeno+shm" ->
               let uid = Uri.path uri in
               let uid = if String.length uid > 1 then String.sub uid ~pos:1 ~len:(String.length uid - 1) else uid in
-              (RRD.Client.Plugin.Local.deregister RRD.rpc uid).Rpc_async.M.async
+              (RRD.Client.Plugin.Local.deregister RRD.rpc uid) |> Rpc_async.T.get
               >>= begin function
                 | Ok _ -> loop datasources
                 | Error x -> raise Rrd_interface.(Rrdd_error x) end
@@ -1290,7 +1290,7 @@ let self_test_plugin ~root_dir plugin =
   let module Test = Storage_interface.StorageAPI(Rpc_async.GenClient()) in
   let dbg = "debug" in
   Monitor.try_with (fun () ->
-      let open Rpc_async.M in
+      let open Rpc_async.ErrM in
       begin
         Test.Query.query rpc dbg >>= fun query_result ->
         Test.Query.diagnostics rpc dbg >>= fun _msg ->
@@ -1336,8 +1336,8 @@ let self_test_plugin ~root_dir plugin =
           return ()
         else
           return ()
-      end |> deferred)
-  >>= function | Ok x -> Async.Deferred.return x | Error y -> failwith "self test failed"
+      end |> Rpc_async.T.get) >>=
+  function | Ok x -> Async.Deferred.return x | Error y -> failwith "self test failed"
 
 let self_test ~root_dir =
   (self_test_plugin ~root_dir "org.xen.xapi.storage.dummy"
