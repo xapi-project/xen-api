@@ -90,7 +90,7 @@ let join_internal ~__context ~self =
       let result =
         Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list
       in
-      match result with
+      match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Result.Ok () ->
         debug "Cluster join create was successful for cluster_host %s" (Ref.string_of self);
         Db.Cluster_host.set_joined ~__context ~self ~value:true;
@@ -146,7 +146,7 @@ let destroy_op ~__context ~self ~force =
         else Cluster_client.LocalClient.leave,   "destroy"
       in
       let result = local_fn (rpc ~__context) dbg in
-      match result with
+      match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
       | Result.Ok () ->
         Db.Cluster_host.destroy ~__context ~self;
         debug "Cluster_host.%s was successful" fn_str;
@@ -186,7 +186,7 @@ let forget ~__context ~self =
 
       let pending = List.map ip_of_str pending in
       let result = Cluster_client.LocalClient.declare_dead (rpc ~__context) dbg pending in
-      match result with
+      match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
       | Result.Ok () ->
         debug "Successfully forgot permanently dead hosts, setting pending forget to empty";
         Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:[];
@@ -216,7 +216,7 @@ let enable ~__context ~self =
         name = None
       } in (* TODO: Pass these through from CLI *)
       let result = Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config in
-      match result with
+      match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
       | Result.Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:true;
         debug "Cluster_host.enable was successful for cluster_host: %s" (Ref.string_of self)
@@ -233,7 +233,7 @@ let disable ~__context ~self =
       assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self;
 
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
-      match result with
+      match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
       | Result.Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:false;
         debug "Cluster_host.disable was successful for cluster_host: %s" (Ref.string_of self)

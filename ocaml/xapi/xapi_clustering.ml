@@ -237,7 +237,7 @@ let rpc ~__context =
     raise Api_errors.(Server_error(Api_errors.operation_not_allowed,
                                    ["clustering daemon has not been started yet"]));
   match Context.get_test_clusterd_rpc __context with
-  | Some rpc -> rpc
+  | Some rpc -> fun req -> rpc req |> Idl.IdM.return
   | None ->
     Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
 

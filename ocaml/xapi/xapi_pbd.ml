@@ -112,7 +112,7 @@ let check_sharing_constraint ~__context ~sr =
                                         [ Ref.string_of sr; Ref.string_of (Db.PBD.get_host ~__context ~self:(List.hd others)) ]))
   end
 
-module C = Storage_interface.StorageAPI(Idl.GenClientExnRpc(struct let rpc = Storage_access.rpc end))
+module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = Storage_access.rpc end))
 
 let plug ~__context ~self =
   (* It's possible to end up with a PBD being plugged after "unbind" is

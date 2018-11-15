@@ -22,7 +22,7 @@ module type XENOPS = module type of Xenops_client.Client
 let queue_override = ref []
 
 let make_client queue_name =
-  let module Client = Xenops_interface.XenopsAPI(Idl.GenClientExnRpc(struct
+  let module Client = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct
       let rpc x =
         if !Xcp_client.use_switch
         then begin
