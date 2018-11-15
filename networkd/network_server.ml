@@ -18,7 +18,7 @@ open Xapi_stdext_std
 open Xapi_stdext_unix
 open Xapi_stdext_monadic
 
-module S = Network_interface.Interface_API(Idl.GenServerExn ())
+module S = Network_interface.Interface_API(Idl.Exn.GenServer ())
 module D = Debug.Make(struct let name = "network_server" end)
 open D
 
