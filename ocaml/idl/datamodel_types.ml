@@ -67,159 +67,190 @@ type api_release = {
   version_major: int;
   version_minor: int;
   branding: string;
+  release_date: string option;
 }
 
-(* When you add a new release, use the version number of the latest release,
-   and "Unreleased" for the branding, until the actual values are finalised. *)
+(* When you add a new release, use the version number of the latest release, "Unreleased"
+   for the branding and None for the release date, until the actual values are finalised. *)
+
 let release_order_full = [{
     code_name     = Some rel_rio;
     version_major = 1;
     version_minor = 1;
-    branding   = "XenServer 4.0";
+    branding      = "XenServer 4.0";
+    release_date  = Some "August 2007";
   }; {
      code_name     = Some rel_miami;
      version_major = 1;
      version_minor = 2;
-     branding   = "XenServer 4.1";
+     branding      = "XenServer 4.1";
+     release_date  = Some "March 2008";
    }; {
      code_name     = Some rel_symc;
      version_major = 1;
      version_minor = 2;
-     branding   = "XenServer 4.1.1";
+     branding      = "XenServer 4.1.1";
+     release_date  = None;
    }; {
      code_name     = Some rel_orlando;
      version_major = 1;
      version_minor = 3;
-     branding   = "XenServer 5.0";
+     branding      = "XenServer 5.0";
+     release_date  = Some "September 2008";
    }; {
      code_name     = Some rel_orlando_update_1;
      version_major = 1;
      version_minor = 3;
-     branding   = "XenServer 5.0 Update 1";
+     branding      = "XenServer 5.0 Update 1";
+     release_date  = None;
    }; {
      code_name     = None;
      version_major = 1;
      version_minor = 4;
-     branding   = "Unreleased";
+     branding      = "Unreleased";
+     release_date  = None;
    }; {
      code_name     = None;
      version_major = 1;
      version_minor = 5;
-     branding   = "XenServer 5.0 update 3";
+     branding      = "XenServer 5.0 update 3";
+     release_date  = None;
    }; {
      code_name     = Some rel_george;
      version_major = 1;
      version_minor = 6;
-     branding   = "XenServer 5.5";
+     branding      = "XenServer 5.5";
+     release_date  = Some "June 2009";
    }; {
      code_name     = Some rel_midnight_ride;
      version_major = 1;
      version_minor = 7;
-     branding   = "XenServer 5.6";
+     branding      = "XenServer 5.6";
+     release_date  = Some "May 2010";
    }; {
      code_name     = Some rel_cowley;
      version_major = 1;
      version_minor = 8;
-     branding   = "XenServer 5.6 FP1";
+     branding      = "XenServer 5.6 FP1";
+     release_date  = Some "December 2010";
    }; {
      code_name     = Some rel_boston;
      version_major = 1;
      version_minor = 9;
-     branding   = "XenServer 6.0";
+     branding      = "XenServer 6.0";
+     release_date  = Some "September 2011";
    }; {
      code_name     = Some rel_tampa;
      version_major = 1;
      version_minor = 10;
-     branding   = "XenServer 6.1";
+     branding      = "XenServer 6.1";
+     release_date  = Some "September 2012";
    }; {
      code_name     = Some rel_clearwater;
      version_major = 2;
      version_minor = 0;
-     branding   = "XenServer 6.2";
+     branding      = "XenServer 6.2";
+     release_date   = Some "June 2013";
    }; {
      code_name     = Some rel_vgpu_tech_preview;
      version_major = 2;
      version_minor = 0;
-     branding   = "XenServer 6.2 SP1 Tech-Preview";
+     branding      = "XenServer 6.2 SP1 Tech-Preview";
+     release_date  = None;
    }; {
      code_name     = Some rel_vgpu_productisation;
      version_major = 2;
      version_minor = 1;
-     branding   = "XenServer 6.2 SP1";
+     branding      = "XenServer 6.2 SP1";
+     release_date = Some "December 2013";
    }; {
      code_name     = Some rel_clearwater_felton;
      version_major = 2;
      version_minor = 2;
-     branding   = "XenServer 6.2 SP1 Hotfix 4";
+     branding      = "XenServer 6.2 SP1 Hotfix 4";
+     release_date  = Some "April 2014";
    }; {
      code_name     = Some rel_clearwater_whetstone;
      version_major = 2;
      version_minor = 2;
-     branding   = "XenServer 6.2 SP1 Hotfix 11";
+     branding      = "XenServer 6.2 SP1 Hotfix 11";
+     release_date  = Some "October 2014";
    }; {
      code_name     = Some rel_creedence;
      version_major = 2;
      version_minor = 3;
-     branding   = "XenServer 6.5";
+     branding      = "XenServer 6.5";
+     release_date  = Some "January 2015";
    }; {
      code_name     = Some rel_cream;
      version_major = 2;
      version_minor = 4;
-     branding   = "XenServer 6.5 SP1";
+     branding      = "XenServer 6.5 SP1";
+     release_date  = Some "May 2015";
    }; {
      code_name     = Some rel_indigo;
      version_major = 2;
      version_minor = 4;
-     branding   = "XenServer 6.5 SP1 Hotfix 31";
+     branding      = "XenServer 6.5 SP1 Hotfix 31";
+     release_date  = None;
    }; {
      code_name     = Some rel_dundee;
      version_major = 2;
      version_minor = 5;
-     branding   = "XenServer 7.0";
+     branding      = "XenServer 7.0";
+     release_date  = Some "May 2016";
    }; {
      code_name     = Some rel_ely;
      version_major = 2;
      version_minor = 6;
-     branding   = "XenServer 7.1";
+     branding      = "XenServer 7.1";
+     release_date  = Some "February 2017";
    }; {
      code_name     = Some rel_honolulu;
      version_major = 2;
      version_minor = 6;
-     branding   = "XenServer 7.1 CU1";
+     branding      = "XenServer 7.1 CU1";
+     release_date  = None;
    }; {
      code_name     = Some rel_falcon;
      version_major = 2;
      version_minor = 7;
-     branding   = "XenServer 7.2";
+     branding      = "XenServer 7.2";
+     release_date  = Some "May 2017";
    }; {
      code_name     = Some rel_inverness;
      version_major = 2;
      version_minor = 8;
-     branding   = "XenServer 7.3";
+     branding      = "XenServer 7.3";
+     release_date  = Some "December 2017"
    }; {
      code_name     = Some rel_jura;
      version_major = 2;
      version_minor = 9;
-     branding   = "XenServer 7.4";
+     branding      = "XenServer 7.4";
+     release_date  = Some "February 2018";
    }; {
      code_name     = Some rel_kolkata;
      version_major = 2;
      version_minor = 10;
-     branding   = "XenServer 7.5";
+     branding      = "XenServer 7.5";
+     release_date  = Some "May 2018";
    }; {
      code_name     = Some rel_lima;
      version_major = 2;
      version_minor = 11;
-     branding   = "XenServer 7.6";
+     branding      = "XenServer 7.6";
+     release_date  = Some "September 2018";
    }; {
      code_name     = Some rel_naples;
      version_major = 2;
      version_minor = 12;
-     branding      = "Unreleased"
+     branding      = "Unreleased";
+     release_date  = None;
    };
   ]
-(* When you add a new release, use the version number of the latest release,
-   and "Unreleased" for the branding, until the actual values are finalised. *)
+(* When you add a new release, use the version number of the latest release, "Unreleased"
+   for the branding and None for the release date, until the actual values are finalised. *)
 
 let release_order =
   List.filter (fun x -> x.code_name <> None) release_order_full

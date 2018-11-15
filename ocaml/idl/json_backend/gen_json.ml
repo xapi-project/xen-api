@@ -361,4 +361,46 @@ let _ =
 
   let release_info = releases objs in
   Xapi_stdext_unix.Unixext.write_string_to_file (Filename.concat destdir "release_info.json")
-    (string_of_json 0 release_info)
+    (string_of_json 0 release_info);
+
+  let release_yaml = function
+    | {code_name = Some x; version_major; version_minor; branding = y;} -> Printf.sprintf "%s: %s\n" x y
+    | _ -> ""
+  in
+  Xapi_stdext_unix.Unixext.write_string_to_file (Filename.concat destdir "releases.yml")
+    (release_order_full |> List.map release_yaml |> String.concat "");
+
+  let release_md_dir = Filename.concat destdir "releases" in
+  Xapi_stdext_unix.Unixext.mkdir_rec release_md_dir 0o755;
+
+  let class_md_dir = Filename.concat destdir "classes" in
+  Xapi_stdext_unix.Unixext.mkdir_rec class_md_dir 0o755;
+
+  let release_md = function
+  | {code_name = Some x; version_major; version_minor; branding; release_date = y} ->
+    ["---";
+    "layout: xenapi-release";
+    Printf.sprintf "release: %s" x;
+    "release_index: true";
+    "---\n";
+    match y with Some z -> Printf.sprintf "Released in %s.\n" z | _ -> "";
+    ] |>
+    String.concat "\n" |>
+    Xapi_stdext_unix.Unixext.write_string_to_file (Filename.concat release_md_dir (Printf.sprintf "%s.md" x))
+  | _ -> ()
+  in
+  release_order_full |> List.iter release_md;
+
+  let class_md = function
+  | {name; _} ->
+    ["---";
+    "layout: xenapi-class";
+    Printf.sprintf "class: %s" name;
+    "class_index: true";
+    "---\n";
+    ] |>
+    String.concat "\n" |>
+    Xapi_stdext_unix.Unixext.write_string_to_file
+      (Filename.concat class_md_dir (Printf.sprintf "%s.md" name))
+  in
+  objs |> List.iter class_md;
