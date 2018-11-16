@@ -114,7 +114,18 @@ module CreateToolsSR = Generic.Make (Generic.EncapsulateState (struct
     one with is_tools_iso=true *)
       ( [ ("Toolz", "Toolz ISOs", [(Xapi_globs.tools_sr_tag, "true")], false)
         ; ("Other", "Other SR", [extra_oc], true) ]
-      , [(name, description, extra_oc :: other_config)] ) ]
+      , [(name, description, extra_oc :: other_config)] )
+    ; (* Two old SRs - one gets promoted, the other removed *)
+      ( [ ("Toolz"  , "Toolz ISOs"  , [(Xapi_globs.tools_sr_tag, "true")], false)
+        ; ("Toolz 2", "Toolz ISOs 2", [(Xapi_globs.tools_sr_tag, "true")], false)]
+      , [(name, description, other_config)] )
+    ; (* two new SRs, two old SRs - pick first new, remove the others *)
+      ( [ ("Toolz"  , "Toolz ISOs"  , [(Xapi_globs.tools_sr_tag, "true")], true)
+        ; ("Toolz 2", "Toolz ISOs 2", [(Xapi_globs.tools_sr_tag, "true")], true)
+        ; ("Toolz 3", "Toolz ISOs 3", [(Xapi_globs.tools_sr_tag, "true")], false)
+        ; ("Toolz 4", "Toolz ISOs 4", [(Xapi_globs.tools_sr_tag, "true")], false)]
+      , [(name, description, other_config)] )
+    ]
 end))
 
 let test =
