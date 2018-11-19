@@ -109,6 +109,13 @@ let with_inc_refcount ~__context ~uuid ~vdi f =
         Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1)
     )
 
+let get_locally_attached ~__context ~uuid ~vdi =
+    let mount_dir = Filename.concat !Xapi_globs.host_update_dir uuid in
+    let mount_dir_opt = if Sys.file_exists mount_dir then Some mount_dir else None in
+    let dom0 = Helpers.get_domain_zero ~__context in
+    let vbds = List.filter (fun self -> Db.VBD.get_VM ~__context ~self = dom0) (Db.VDI.get_VBDs ~__context ~self:vdi) in 
+    (mount_dir_opt, vbds)
+
 let detach_helper ~__context ~uuid ~vdi =
   with_dec_refcount ~__context ~uuid ~vdi
     (fun ~__context ~uuid ~vdi ->
@@ -486,9 +493,11 @@ let destroy ~__context ~self =
 let detach_attached_updates __context =
   Db.Pool_update.get_all ~__context |>
   List.iter ( fun self ->
-      Helpers.log_exn_continue ("detach_attached_updates: update_uuid " ^ (Db.Pool_update.get_uuid ~__context ~self))
-        (fun () -> ignore(Helpers.call_api_functions ~__context
-                            (fun rpc session_id -> Client.Pool_update.detach ~rpc ~session_id ~self))) ()
+      let uuid = Db.Pool_update.get_uuid ~__context ~self in
+      let vdi = Db.Pool_update.get_vdi ~__context ~self in
+      match get_locally_attached ~__context ~uuid ~vdi with
+      | None, [] -> ()
+      | _ -> Helpers.log_exn_continue ("detach_attached_updates: update_uuid " ^ uuid) (fun () -> detach_helper ~__context ~uuid ~vdi) ()
     )
 
 let resync_host ~__context ~host =
