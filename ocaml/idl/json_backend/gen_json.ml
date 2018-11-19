@@ -401,6 +401,7 @@ let _ =
     ] |>
     String.concat "\n" |>
     Xapi_stdext_unix.Unixext.write_string_to_file
-      (Filename.concat class_md_dir (Printf.sprintf "%s.md" name))
+      (Filename.concat class_md_dir
+        (Printf.sprintf "%s.md" (String.lowercase_ascii name)))
   in
   objs |> List.iter class_md;
