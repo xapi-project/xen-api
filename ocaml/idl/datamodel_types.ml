@@ -114,7 +114,7 @@ let release_order_full = [{
      version_major = 1;
      version_minor = 5;
      branding      = "XenServer 5.0 update 3";
-     release_date  = None;
+     release_date  = Some "September 2008";
    }; {
      code_name     = Some rel_george;
      version_major = 1;
@@ -192,7 +192,7 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 4;
      branding      = "XenServer 6.5 SP1 Hotfix 31";
-     release_date  = None;
+     release_date  = Some "December 2015";
    }; {
      code_name     = Some rel_dundee;
      version_major = 2;
@@ -210,7 +210,7 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 6;
      branding      = "XenServer 7.1 CU1";
-     release_date  = None;
+     release_date  = Some "September 2017";
    }; {
      code_name     = Some rel_falcon;
      version_major = 2;
