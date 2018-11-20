@@ -43,3 +43,4 @@
 [submodule "vendor/xenopsd"]
 	path = vendor/xenopsd
 	url = git@github.com:jonludlam/xenopsd
+	branch = hackathon-events
