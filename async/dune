@@ -1,0 +1,19 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "(preprocess (pps bisect_ppx))"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(library
+  (name message_switch_async)
+  (public_name message-switch-async)
+  (libraries
+    async
+    cohttp-async
+    message-switch-core
+  )
+  %s
+)
+|} coverage_rewriter

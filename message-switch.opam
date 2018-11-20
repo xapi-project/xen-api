@@ -13,8 +13,9 @@ build: [
 ]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build & >= "1.4"}
   "ocamlfind" {build}
+  "odoc" {with-doc}
   "message-switch-lwt"
   "message-switch-unix"
   "cmdliner"
@@ -23,7 +24,7 @@ depends: [
   "cohttp-async" {>= "1.0.2"}
   "message-switch-async" {with-test}
 ]
-synopsis: "A simple store-and-forward message switch."
+synopsis: "A simple store-and-forward message switch"
 description: """
 The switch stores messages in queues with well-known names. Clients use
 a simple HTTP protocol to enqueue and dequeue messages."""
