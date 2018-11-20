@@ -2141,10 +2141,22 @@ let update_task ~__context queue_name id =
      | e ->
        error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
+module DB=Dbgen.Make(Xenops_types.DB)
+let local_db = ref (Xenops_types.DB.empty_db, 0L)
+
 let rec events_watch ~__context cancel queue_name from =
   let dbg = Context.string_of_task __context in
   if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0;
   let module Client = (val make_client queue_name : XENOPS) in
+  let gen, marshalled_update = Client.UPDATES.get_deltas dbg from None in
+  let current_db, current_gen = !local_db in
+  D.debug "Got some updates with generation %Ld, we are at %Ld" gen current_gen;
+  let () = match Rpcmarshal.unmarshal_partial Xenops_types.DB.typ_of current_db  marshalled_update with
+    | Result.Ok next ->
+      local_db := (next, gen)
+  | Result.Error (`Msg m) ->
+    failwith (Printf.sprintf "DB update delta failed: %s" m)
+  in
   let barriers, events, next = Client.UPDATES.get dbg from None in
   if !cancel then raise (Api_errors.Server_error(Api_errors.task_cancelled, []));
   let done_events = ref [] in
