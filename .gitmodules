@@ -46,3 +46,7 @@
 	path = vendor/xenopsd
 	url = git@github.com:jonludlam/xenopsd
 	branch = hackathon-events
+[submodule "vendor/ezxenstore"]
+	path = vendor/ezxenstore
+	url = git@github.com:jonludlam/ezxenstore
+	branch = cache
