@@ -1,0 +1,45 @@
+[submodule "vendor/backtrace"]
+	path = vendor/backtrace
+	url = git@github.com:xapi-project/backtrace
+[submodule "vendor/forkexecd"]
+	path = vendor/forkexecd
+	url = git@github.com:xapi-project/forkexecd
+[submodule "vendor/message-switch"]
+	path = vendor/message-switch
+	url = git@github.com:xapi-project/message-switch
+[submodule "vendor/ocaml-rpc"]
+	path = vendor/ocaml-rpc
+	url = git@github.com:mirage/ocaml-rpc
+[submodule "vendor/rrdd-plugin"]
+	path = vendor/rrdd-plugin
+	url = git@github.com:xapi-project/rrdd-plugin
+[submodule "vendor/rrd-transport"]
+	path = vendor/rrd-transport
+	url = git@github.com:xapi-project/rrd-transport
+[submodule "vendor/stdext"]
+	path = vendor/stdext
+	url = git@github.com:xapi-project/stdext
+[submodule "vendor/tapctl"]
+	path = vendor/tapctl
+	url = git@github.com:xapi-project/tapctl
+[submodule "vendor/netdev"]
+	path = vendor/netdev
+	url = git@github.com:xapi-project/netdev
+[submodule "vendor/xcp-rrd"]
+	path = vendor/xcp-rrd
+	url = git@github.com:xapi-project/xcp-rrd
+[submodule "vendor/xapi-test-utils"]
+	path = vendor/xapi-test-utils
+	url = git@github.com:xapi-project/xapi-test-utils
+[submodule "vendor/xcp-idl"]
+	path = vendor/xcp-idl
+	url = git@github.com:xapi-project/xcp-idl
+[submodule "vendor/xcp-inventory"]
+	path = vendor/xcp-inventory
+	url = git@github.com:xapi-project/xcp-inventory
+[submodule "vendor/xen-api-libs-transitional"]
+	path = vendor/xen-api-libs-transitional
+	url = git@github.com:xapi-project/xen-api-libs-transitional
+[submodule "vendor/xenopsd"]
+	path = vendor/xenopsd
+	url = git@github.com:xapi-project/xenopsd
