@@ -9,7 +9,7 @@
 	url = git@github.com:xapi-project/message-switch
 [submodule "vendor/ocaml-rpc"]
 	path = vendor/ocaml-rpc
-	url = git@github.com:mirage/ocaml-rpc
+	url = git@github.com:jonludlam/ocaml-rpc
 [submodule "vendor/rrdd-plugin"]
 	path = vendor/rrdd-plugin
 	url = git@github.com:xapi-project/rrdd-plugin
@@ -33,7 +33,7 @@
 	url = git@github.com:xapi-project/xapi-test-utils
 [submodule "vendor/xcp-idl"]
 	path = vendor/xcp-idl
-	url = git@github.com:xapi-project/xcp-idl
+	url = git@github.com:jonludlam/xcp-idl
 [submodule "vendor/xcp-inventory"]
 	path = vendor/xcp-inventory
 	url = git@github.com:xapi-project/xcp-inventory
@@ -42,4 +42,4 @@
 	url = git@github.com:xapi-project/xen-api-libs-transitional
 [submodule "vendor/xenopsd"]
 	path = vendor/xenopsd
-	url = git@github.com:xapi-project/xenopsd
+	url = git@github.com:jonludlam/xenopsd
