@@ -18,8 +18,6 @@ module P = Printf
 
 open Core
 open Async
-
-open Message_switch_core.Protocol
 open Message_switch_async.Protocol_async
 
 let path = ref "/var/run/message-switch/sock"
