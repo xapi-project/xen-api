@@ -2112,6 +2112,28 @@ let update_task ~__context queue_name id =
 module DB=Dbgen.Make(Xenops_types.DB)
 let local_db = ref (Xenops_types.DB.empty_db, 0L)
 
+let dynamic_of_class_id cls id =
+       match cls, Astring.String.cut ~sep:"." id with
+| "Vm", _ -> Dynamic.Vm id
+| "Vbd", Some (id1, id2) -> Dynamic.Vbd (id1, id2)
+| "Vif", Some (id1, id2)  -> Dynamic.Vif (id1,id2)
+| "Pci", Some (id1, id2)  -> Dynamic.Pci (id1, id2)
+| "Vgpu", Some (id1, id2)  -> Dynamic.Vgpu (id1, id2)
+| "Vusb", Some (id1, id2)  -> Dynamic.Vusb (id1, id2)
+| "Task", _ -> Dynamic.Task id
+| _ -> failwith "Invalid delta"
+
+let events_of_deltas = function
+  | Rpc.Dict obj_classes ->
+    List.fold_left (fun events (cls, delta) ->
+        match delta with
+        | Rpc.Dict objects ->
+          List.fold_left (fun events (id, _) ->
+              dynamic_of_class_id cls id :: events) events objects
+        | _ -> failwith "Objects was a not a dict, bug!"
+      ) [] obj_classes |> List.rev
+  | _ -> failwith "Delta was not a dict, bug!"
+
 let rec events_watch ~__context cancel queue_name from =
   let dbg = Context.string_of_task __context in
   if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0;
@@ -2125,7 +2147,12 @@ let rec events_watch ~__context cancel queue_name from =
   | Result.Error (`Msg m) ->
     failwith (Printf.sprintf "DB update delta failed: %s" m)
   in
-  let barriers, events, next = Client.UPDATES.get dbg from None in
+  (* {"class":{"id" : _; ...}} -> Class of id
+   * next: latest gen count
+   * update VM with the stat response from the local DB
+   * *)
+  let events = events_of_deltas  marshalled_update in
+  let next = Int64.to_int gen in
   if !cancel then raise (Api_errors.Server_error(Api_errors.task_cancelled, []));
   let done_events = ref [] in
   let already_done x = List.mem x !done_events in
