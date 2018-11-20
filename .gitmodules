@@ -10,6 +10,7 @@
 [submodule "vendor/ocaml-rpc"]
 	path = vendor/ocaml-rpc
 	url = git@github.com:jonludlam/ocaml-rpc
+	branch = hackathon-events
 [submodule "vendor/rrdd-plugin"]
 	path = vendor/rrdd-plugin
 	url = git@github.com:xapi-project/rrdd-plugin
@@ -34,6 +35,7 @@
 [submodule "vendor/xcp-idl"]
 	path = vendor/xcp-idl
 	url = git@github.com:jonludlam/xcp-idl
+	branch = hackathon-events
 [submodule "vendor/xcp-inventory"]
 	path = vendor/xcp-inventory
 	url = git@github.com:xapi-project/xcp-inventory
