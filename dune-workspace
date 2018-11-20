@@ -1,0 +1,4 @@
+(lang dune 1.4)
+(context default)
+(profile dev)
+(env (_ (flags (:standard -w a -no-strict-sequence -no-strict-formats))))
