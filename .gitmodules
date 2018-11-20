@@ -50,3 +50,7 @@
 	path = vendor/ezxenstore
 	url = git@github.com:jonludlam/ezxenstore
 	branch = cache
+[submodule "vendor/xenops-cli"]
+	path = vendor/xenops-cli
+	url = git@github.com:jonludlam/xenops-cli
+	branch = hackathon-events
