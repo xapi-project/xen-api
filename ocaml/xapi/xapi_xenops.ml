@@ -44,15 +44,26 @@ let check_power_state_is ~__context ~self ~expected =
         (Record_util.power_to_string expected)
         (Record_util.power_to_string actual)
 
-let event_wait queue_name dbg ?from p =
-  let finished = ref false in
-  let event_id = ref from in
-  let module Client = (val make_client queue_name : XENOPS) in
-  while not !finished do
-    let _, deltas, next_id = Client.UPDATES.get dbg !event_id (Some 30) in
-    event_id := Some next_id;
-    List.iter (fun d -> if p d then finished := true) deltas;
-  done
+let dynamic_of_class_id cls id =
+       match cls, Astring.String.cut ~sep:"." id with
+| "vm", _ -> Dynamic.Vm id
+| "vbd", Some (id1, id2) -> Dynamic.Vbd (id1, id2)
+| "vif", Some (id1, id2)  -> Dynamic.Vif (id1,id2)
+| "pci", Some (id1, id2)  -> Dynamic.Pci (id1, id2)
+| "vgpu", Some (id1, id2)  -> Dynamic.Vgpu (id1, id2)
+| "vusb", Some (id1, id2)  -> Dynamic.Vusb (id1, id2)
+| "task", _ -> Dynamic.Task id
+| cls, _ -> failwith (Printf.sprintf "Invalid delta, unknown class: %s" cls)
+let events_of_deltas = function
+  | Rpc.Dict obj_classes ->
+    List.fold_left (fun events (cls, delta) ->
+        match delta with
+        | Rpc.Dict objects ->
+          List.fold_left (fun events (id, _) ->
+              dynamic_of_class_id cls id :: events) events objects
+        | _ -> failwith "Objects was a not a dict, bug!"
+      ) [] obj_classes |> List.rev
+  | _ -> failwith "Delta was not a dict, bug!"
 
 let task_ended queue_name dbg id =
   let module Client = (val make_client queue_name : XENOPS) in
@@ -61,15 +72,24 @@ let task_ended queue_name dbg id =
   | Task.Failed _ -> true
   | Task.Pending _ -> false
 
+module DB=Dbgen.Make(Xenops_types.DB)
+let local_db = ref (Xenops_types.DB.empty_db, 0L)
+
+let task_delta_event_mutex = Mutex.create ()
+let task_delta_event_received = Condition.create ()
+
 let wait_for_task queue_name dbg id =
-  let module Client = (val make_client queue_name : XENOPS) in
-  let finished = function
-    | Dynamic.Task id' ->
-      id = id' && (task_ended queue_name dbg id)
-    | _ ->
-      false in
-  let from = Client.UPDATES.last_id dbg in
-  if not(task_ended queue_name dbg id) then event_wait queue_name dbg ~from finished;
+  let is_finished () =
+    let tasks = (fst !local_db).task in
+    try match (Refmap.find id tasks).state with
+    | Task.Completed _ | Task.Failed _ -> true
+    | Task.Pending _ -> false
+    with Not_found -> false (* Task not in database yet, we have to wait for it to appear *)
+  in
+  Mutex.execute task_delta_event_mutex (fun () ->
+      while not @@ is_finished () do
+        Condition.wait task_delta_event_received task_delta_event_mutex
+      done);
   id
 
 let xenapi_of_xenops_power_state = function
@@ -2111,31 +2131,6 @@ let update_task ~__context queue_name id =
      | e ->
        error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
-module DB=Dbgen.Make(Xenops_types.DB)
-let local_db = ref (Xenops_types.DB.empty_db, 0L)
-
-let dynamic_of_class_id cls id =
-       match cls, Astring.String.cut ~sep:"." id with
-| "vm", _ -> Dynamic.Vm id
-| "vbd", Some (id1, id2) -> Dynamic.Vbd (id1, id2)
-| "vif", Some (id1, id2)  -> Dynamic.Vif (id1,id2)
-| "pci", Some (id1, id2)  -> Dynamic.Pci (id1, id2)
-| "vgpu", Some (id1, id2)  -> Dynamic.Vgpu (id1, id2)
-| "vusb", Some (id1, id2)  -> Dynamic.Vusb (id1, id2)
-| "task", _ -> Dynamic.Task id
-| x, _ -> failwith (Printf.sprintf "Invalid delta %s" x)
-
-let events_of_deltas = function
-  | Rpc.Dict obj_classes ->
-    List.fold_left (fun events (cls, delta) ->
-        match delta with
-        | Rpc.Dict objects ->
-          List.fold_left (fun events (id, _) ->
-              dynamic_of_class_id cls id :: events) events objects
-        | _ -> failwith "Objects was a not a dict, bug!"
-      ) [] obj_classes |> List.rev
-  | _ -> failwith "Delta was not a dict, bug!"
-
 let rec events_watch ~__context cancel queue_name from =
   let dbg = Context.string_of_task __context in
   if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0;
@@ -2145,9 +2140,14 @@ let rec events_watch ~__context cancel queue_name from =
   D.debug "Got some updates with generation %Ld, we are at %Ld" gen current_gen;
   let () = match Rpcmarshal.unmarshal_partial Xenops_types.DB.typ_of current_db  marshalled_update with
     | Result.Ok next ->
-      local_db := (next, gen)
+      Mutex.execute task_delta_event_mutex (fun () ->
+      local_db := (next, gen);
+      match marshalled_update with
+      | Rpc.Dict classes when List.mem_assoc "task" classes ->
+        Condition.broadcast task_delta_event_received
+      | _ -> ())
   | Result.Error (`Msg m) ->
-    failwith (Printf.sprintf "DB update delta failed: %s" m)
+    failwith (Printf.sprintf "DB update delta failed: %s. Delta: %s" m (Rpc.to_string marshalled_update))
   in
   (* {"class":{"id" : _; ...}} -> Class of id
    * next: latest gen count
@@ -2203,6 +2203,7 @@ let events_from_xenopsd queue_name =
          try
            events_watch ~__context (ref false) queue_name None;
          with e ->
+           D.log_backtrace ();
            error "%s event thread caught: %s" queue_name (string_of_exn e);
            Thread.delay 10.
        done
