@@ -1356,11 +1356,13 @@ module Events_from_xenopsd = struct
     let module Client = (val make_client queue_name : XENOPS) in
     debug "Client.UPDATES.inject";
     let id = Client.UPDATES.inject dbg in
-    debug "Waiting for token greater than: %Ld" id;
+    debug "Waiting for token greater than or equal to: %Ld" id;
     Mutex.execute m
       (fun () ->
-         while id > !latest_event do Condition.wait c m done
-      )
+         while !latest_event < id do Condition.wait c m done
+      );
+    debug "Finished waiting"
+
   let wakeup id =
     debug "Waking threads - id = %Ld" id;
     Mutex.execute m (fun () ->
@@ -2114,14 +2116,14 @@ let local_db = ref (Xenops_types.DB.empty_db, 0L)
 
 let dynamic_of_class_id cls id =
        match cls, Astring.String.cut ~sep:"." id with
-| "Vm", _ -> Dynamic.Vm id
-| "Vbd", Some (id1, id2) -> Dynamic.Vbd (id1, id2)
-| "Vif", Some (id1, id2)  -> Dynamic.Vif (id1,id2)
-| "Pci", Some (id1, id2)  -> Dynamic.Pci (id1, id2)
-| "Vgpu", Some (id1, id2)  -> Dynamic.Vgpu (id1, id2)
-| "Vusb", Some (id1, id2)  -> Dynamic.Vusb (id1, id2)
-| "Task", _ -> Dynamic.Task id
-| _ -> failwith "Invalid delta"
+| "vm", _ -> Dynamic.Vm id
+| "vbd", Some (id1, id2) -> Dynamic.Vbd (id1, id2)
+| "vif", Some (id1, id2)  -> Dynamic.Vif (id1,id2)
+| "pci", Some (id1, id2)  -> Dynamic.Pci (id1, id2)
+| "vgpu", Some (id1, id2)  -> Dynamic.Vgpu (id1, id2)
+| "vusb", Some (id1, id2)  -> Dynamic.Vusb (id1, id2)
+| "task", _ -> Dynamic.Task id
+| x, _ -> failwith (Printf.sprintf "Invalid delta %s" x)
 
 let events_of_deltas = function
   | Rpc.Dict obj_classes ->
@@ -2190,8 +2192,8 @@ let rec events_watch ~__context cancel queue_name from =
              update_task ~__context queue_name id
          end) l
   in
-  Events_from_xenopsd.wakeup gen;
   do_updates events;
+  Events_from_xenopsd.wakeup gen;
   events_watch ~__context cancel queue_name (Some next)
 
 let events_from_xenopsd queue_name =
@@ -2373,11 +2375,12 @@ module Events_from_xapi = struct
         (fun rpc session_id ->
            XenAPI.Event.inject ~rpc ~session_id ~_class:"VM" ~_ref:(Ref.string_of self)
         ) in
-    debug "Waiting for token greater than: %s" t;
+    debug "Waiting for token greater than or equal to: %s" t;
     Mutex.execute m
       (fun () ->
          while !greatest_token < t do Condition.wait c m done
-      )
+      );
+    debug "Finished waiting"
 
   let broadcast new_token =
     Mutex.execute m

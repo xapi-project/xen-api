@@ -110,7 +110,7 @@ let test_xapi_restart_inner () =
 
     (* Kill the event thread *)
     cancel := true;
-    Client.UPDATES.inject_barrier "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm1) 0;
+    Client.UPDATES.inject "dbg";
     let before = Unix.gettimeofday () in
     Thread.join th;
     let after = Unix.gettimeofday () in
@@ -169,7 +169,7 @@ let test_xapi_restart_inner () =
     Xapi_xenops.resync_all_vms ~__context;
 
     cancel := true;
-    Client.UPDATES.inject_barrier "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm1) 0;
+    Client.UPDATES.inject "dbg";
     let before = Unix.gettimeofday () in
     Thread.join th;
     let after = Unix.gettimeofday () in
