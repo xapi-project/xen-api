@@ -75,6 +75,12 @@ let task_ended queue_name dbg id =
 module DB=Dbgen.Make(Xenops_types.DB)
 let local_db = ref (Xenops_types.DB.empty_db, 0L)
 
+let vm_stat id =
+  let db, _ = !local_db in
+  try Refmap.find id db.vm
+  with Not_found ->
+    invalid_arg (Printf.sprintf "VM %s is unknown" id)
+
 let task_delta_event_mutex = Mutex.create ()
 let task_delta_event_received = Condition.create ()
 
@@ -1431,15 +1437,15 @@ let update_vm ~__context id =
         let previous = Xenops_cache.find_vm id in
         let dbg = Context.string_of_task __context in
         let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
-        let info = try Some (Client.VM.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        let info = try Some (vm_stat id) with _ -> None in
+        if info = previous
         then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
         else begin
           debug "xenopsd event: processing event for VM %s" id;
           if info = None then debug "xenopsd event: VM state missing: assuming VM has shut down";
           let should_update_allowed_operations = ref false in
           let different f =
-            let a = Opt.map (fun x -> f (snd x)) info in
+            let a = Opt.map (fun x -> f x) info in
             let b = Opt.map f previous in
             a <> b in
           (* Helpers to create and update guest metrics when needed *)
@@ -1460,7 +1466,7 @@ let update_vm ~__context id =
             let gm = Db.VM.get_guest_metrics ~__context ~self in
             if gm = Ref.null then
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    List.iter
                      (fun domid ->
                         try
@@ -1480,7 +1486,7 @@ let update_vm ~__context id =
                 ) info in
           let check_guest_agent () =
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  Opt.iter (fun oldstate ->
                      let old_ga = oldstate.Vm.guest_agent in
                      let new_ga = state.Vm.guest_agent in
@@ -1512,7 +1518,7 @@ let update_vm ~__context id =
              does fail then we may end up permanently out-of-sync until either a
              process restart or an event is generated. We may wish to periodically
              inject artificial events IF there has been an event sync failure? *)
-          let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).Vm.power_state) info) in
+          let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> x.Vm.power_state) info) in
 
           (* We preserve the current_domain_type of suspended VMs like we preserve
              the currently_attached fields for VBDs/VIFs etc - it's important to know
@@ -1521,7 +1527,7 @@ let update_vm ~__context id =
              any VM that's not `Halted cannot have an unspecified current_domain_type *)
           if different (fun x -> x.domain_type) && (power_state <> `Suspended) then begin
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  let update domain_type =
                    debug "xenopsd event: Updating VM %s current_domain_type <- %s"
@@ -1581,7 +1587,7 @@ let update_vm ~__context id =
               should_update_allowed_operations := true;
               debug "xenopsd event: Updating VM %s domid" id;
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    match state.Vm.domids with
                    | value :: _ ->
                      Db.VM.set_domid ~__context ~self ~value:(Int64.of_int value)
@@ -1603,7 +1609,7 @@ let update_vm ~__context id =
             try
               debug "xenopsd event: Updating VM %s consoles" id;
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    let localhost = Helpers.get_localhost ~__context in
                    let address = Db.Host.get_address ~__context ~self:localhost in
                    let uri = Printf.sprintf "https://%s%s" address Constants.console_uri in
@@ -1647,7 +1653,7 @@ let update_vm ~__context id =
           if different (fun x -> x.memory_target) then begin
             try
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.Vm.memory_target;
                    Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
                 ) info
@@ -1657,7 +1663,7 @@ let update_vm ~__context id =
           if different (fun x -> x.rtc_timeoffset) then begin
             try
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    if state.Vm.rtc_timeoffset <> "" then begin
                      debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
                      (try Db.VM.remove_from_platform ~__context ~self ~key:Vm_platform.timeoffset with _ -> ());
@@ -1669,7 +1675,7 @@ let update_vm ~__context id =
           end;
           if different (fun x -> x.hvm) then begin
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  debug "xenopsd event: Updating VM %s hvm <- %s"
                    id (string_of_bool state.Vm.hvm);
@@ -1680,7 +1686,7 @@ let update_vm ~__context id =
           end;
           if different (fun x -> x.nomigrate) then begin
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  debug "xenopsd event: Updating VM %s nomigrate <- %s"
                    id (string_of_bool state.Vm.nomigrate);
@@ -1691,7 +1697,7 @@ let update_vm ~__context id =
           end;
           if different (fun x -> x.nested_virt) then begin
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  debug "xenopsd event: Updating VM %s nested_virt <- %s"
                    id (string_of_bool state.Vm.nested_virt);
@@ -1702,7 +1708,7 @@ let update_vm ~__context id =
           end;
           let update_pv_drivers_detected () =
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  try
                    let gm = Db.VM.get_guest_metrics ~__context ~self in
                    debug "xenopsd event: Updating VM %s PV drivers detected %b" id state.Vm.pv_drivers_detected;
@@ -1715,7 +1721,7 @@ let update_vm ~__context id =
           if different (fun x -> x.last_start_time) then begin
             try
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.Vm.last_start_time));
                    let metrics = Db.VM.get_metrics ~__context ~self in
                    let start_time = Date.of_float state.Vm.last_start_time in
@@ -1735,7 +1741,7 @@ let update_vm ~__context id =
               error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
           end;
           Opt.iter
-            (fun (_, state) ->
+            (fun (state) ->
                List.iter
                  (fun domid ->
                     (* Guest metrics could have been destroyed during the last_start_time check
@@ -1765,7 +1771,7 @@ let update_vm ~__context id =
             ) info;
           if different (fun x -> x.Vm.vcpu_target) then begin
             Opt.iter
-              (fun (_, state) ->
+              (fun (state) ->
                  try
                    debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
                    let metrics = Db.VM.get_metrics ~__context ~self in
@@ -1777,7 +1783,7 @@ let update_vm ~__context id =
           if different (fun x -> x.shadow_multiplier_target) then begin
             try
               Opt.iter
-                (fun (_, state) ->
+                (fun (state) ->
                    debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.Vm.shadow_multiplier_target;
                    if state.Vm.power_state <> Halted && state.Vm.shadow_multiplier_target >= 0.0 then
                      Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value:state.Vm.shadow_multiplier_target
@@ -1785,7 +1791,7 @@ let update_vm ~__context id =
             with e ->
               error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
           end;
-          Xenops_cache.update_vm id (Opt.map snd info);
+          Xenops_cache.update_vm id info;
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context
               (fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
@@ -2899,12 +2905,13 @@ let suspend ~__context ~self =
     (fun () ->
        assert_resident_on ~__context ~self;
        let id = id_of_vm ~__context ~self in
-       let dbg = Context.string_of_task __context in
        let module Client = (val make_client queue_name : XENOPS) in
-       let vm_t, state = Client.VM.stat dbg id in
+       let dbg = Context.string_of_task __context in
+       let state = vm_stat id in
        (* XXX: this needs to be at boot time *)
        let space_needed =
-         let ram = Int64.(of_float (to_float vm_t.Vm.memory_static_max *. 1.2 *. 1.05)) in
+         let static_max = Db.VM.get_memory_static_max ~__context ~self in
+         let ram = Int64.(of_float (to_float static_max *. 1.2 *. 1.05)) in
          let vgpu =
            Db.VM.get_VGPUs ~__context ~self
            |> List.map (fun self -> Db.VGPU.get_type ~__context ~self)
@@ -3134,7 +3141,7 @@ let has_qemu ~__context ~vm =
   let id = Db.VM.get_uuid ~__context ~self:vm in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module Client = (val make_client queue_name : XENOPS) in
-  let _, state = Client.VM.stat dbg id in
+  let state = vm_stat id in
   state.Vm.domain_type = Domain_HVM
 
 let ejectable ~__context ~self =
