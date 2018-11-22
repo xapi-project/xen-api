@@ -1,0 +1,15 @@
+(executable
+ (name xenopsd_test)
+ (libraries oUnit xenopsd)
+ (preprocess
+  (pps ppx_deriving_rpc ppx_sexp_conv bisect_ppx -conditional)
+ )
+)
+
+(alias
+ (name runtest)
+ (deps xenopsd_test.exe)
+ (action
+  (run %{deps})
+ )
+)

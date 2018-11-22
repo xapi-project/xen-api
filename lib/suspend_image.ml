@@ -34,9 +34,7 @@ let wrap f = wrap_exn (fun () -> return (f ()))
 
 module Xenops_record = struct
   open Sexplib
-  open Sexplib.Std
   open Sexplib.Conv
-  open Xenops_interface
 
   type t = {
     time: string;
@@ -113,7 +111,7 @@ let legacy_save_signature = Bytes.of_string "XenSavedDomain\n"
 let legacy_qemu_save_signature = Bytes.of_string "QemuDeviceModelRecord\n"
 let qemu_save_signature_legacy_libxc = Bytes.of_string "DeviceModelRecord0002"
 
-let write_save_signature fd = Io.write fd save_signature
+let _write_save_signature fd = Io.write fd save_signature
 let read_save_signature fd =
   match Io.read fd (Bytes.length save_signature) with
   | x when x = save_signature -> `Ok Structured
@@ -125,7 +123,7 @@ let read_legacy_qemu_header fd =
     match Io.read fd (Bytes.length legacy_qemu_save_signature) with
     | x when x = legacy_qemu_save_signature ->
       `Ok (Int64.of_int (Io.read_int ~endianness:`big fd))
-    | x -> `Error "Read invalid legacy qemu save signature"
+    | _ -> `Error "Read invalid legacy qemu save signature"
   with e ->
     `Error ("Failed to read signature: " ^ (Printexc.to_string e))
 
@@ -169,7 +167,7 @@ let with_conversion_script task name hvm fd f =
     ]
   in
   let (m, c) = Mutex.create (), Condition.create () in
-  let spawn_thread_and_close_fd name fd' f =
+  let spawn_thread_and_close_fd _name fd' f =
     let status = ref Running in
     let thread =
       Thread.create (fun () ->

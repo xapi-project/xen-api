@@ -89,7 +89,8 @@ let create_nolock _ vm () =
       paused = true;
       built = false;
       vcpus = vm.Vm.vcpus;
-      shadow_multiplier = (match vm.Vm.ty with Vm.HVM { Vm.shadow_multiplier = x } -> x | _ -> 1.);
+      shadow_multiplier = (match vm.Vm.ty with Vm.HVM {
+        Vm.shadow_multiplier = x ; _ } -> x | _ -> 1.);
       memory_dynamic_min = vm.Vm.memory_dynamic_min;
       memory_dynamic_max = vm.Vm.memory_dynamic_max;
       qemu_created = false;
@@ -127,7 +128,7 @@ let destroy_nolock vm () =
   (* Idempotent *)
   if DB.exists vm.Vm.id then DB.delete vm.Vm.id
 
-let build_nolock vm vbds vifs vgpus vusbs extras () =
+let build_nolock vm _vbds _vifs _vgpus _vusbs _extras () =
   debug "Domain.build vm=%s" vm.Vm.id;
   debug "setting built <- true";
   DB.write vm.Vm.id { (DB.read_exn vm.Vm.id) with Domain.built = true }
@@ -152,10 +153,10 @@ let request_shutdown_nolock vm reason () =
   Updates.add (Dynamic.Vm vm.Vm.id) updates;
   true
 
-let save_nolock vm _ data vgpu_data () =
+let save_nolock vm _ _data _vgpu_data () =
   DB.write vm.Vm.id { (DB.read_exn vm.Vm.id) with Domain.suspended = true }
 
-let restore_nolock vm vbds vifs data vgpu_data extras () =
+let restore_nolock vm _vbds _vifs _data _vgpu_data _extras () =
   DB.write vm.Vm.id { (DB.read_exn vm.Vm.id) with Domain.built = true }
 
 let do_pause_unpause_nolock vm paused () =
@@ -236,7 +237,7 @@ let pci_state vm pci () =
     let d = DB.read_exn vm in
     let this_one x = x.Pci.id = pci.Pci.id in
     match List.filter this_one d.Domain.pcis with
-    | [ pci ] ->
+    | [ _pci ] ->
       {
         Pci.plugged = true
       }
@@ -250,7 +251,7 @@ let vgpu_state vm vgpu () =
     let d = DB.read_exn vm in
     let this_one x = x.Vgpu.id = vgpu.Vgpu.id in
     match List.filter this_one d.Domain.vgpus with
-    | [ vgpu ] ->
+    | [ _vgpu ] ->
       {
         unplugged_vgpu with
         Vgpu.plugged = true;
@@ -265,7 +266,7 @@ let vusb_state vm vusb () =
     let d = DB.read_exn vm in
     let this_one x = x.Vusb.id = vusb.Vusb.id in
     match List.filter this_one d.Domain.vusbs with
-    | [ vusb ] ->
+    | [ _vusb ] ->
       {
         Vusb.plugged = true;
       }
@@ -296,7 +297,7 @@ let vif_state vm vif () =
     let d = DB.read_exn vm in
     let this_one x = x.Vif.id = vif.Vif.id in
     match List.filter this_one d.Domain.vifs with
-    | [ domain ] ->
+    | [ _domain ] ->
       {
         unplugged_vif with
         Vif.plugged = true;
@@ -373,8 +374,8 @@ end
 module VM = struct
   include Xenops_server_skeleton.VM
 
-  let add vm = ()
-  let remove vm = ()
+  let add _vm = ()
+  let remove _vm = ()
   let create _ memory_limit vm = Mutex.execute m (create_nolock memory_limit vm)
   let destroy _ vm = Mutex.execute m (destroy_nolock vm)
   let pause _ vm = Mutex.execute m (do_pause_unpause_nolock vm true)
@@ -383,26 +384,26 @@ module VM = struct
   let set_vcpus _ vm n = Mutex.execute m (do_set_vcpus_nolock vm n)
   let set_shadow_multiplier _ vm n = Mutex.execute m (do_set_shadow_multiplier_nolock vm n)
   let set_memory_dynamic_range _ vm min max = Mutex.execute m (do_set_memory_dynamic_range_nolock vm min max)
-  let build ?restore_fd _ vm vbds vifs vgpus vusbs extras force = Mutex.execute m (build_nolock vm vbds vifs vgpus vusbs extras)
-  let create_device_model _ vm vbds vifs vgpus vusbs _ = Mutex.execute m (create_device_model_nolock vm)
+  let build ?restore_fd:_ _ vm vbds vifs vgpus vusbs extras _force = Mutex.execute m (build_nolock vm vbds vifs vgpus vusbs extras)
+  let create_device_model _ vm _vbds _vifs _vgpus _vusbs _ = Mutex.execute m (create_device_model_nolock vm)
   let destroy_device_model _ vm = Mutex.execute m (destroy_device_model_nolock vm)
-  let request_shutdown _ vm reason ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
-  let wait_shutdown _ vm reason timeout = true
+  let request_shutdown _ vm reason _ack_delay = Mutex.execute m (request_shutdown_nolock vm reason)
+  let wait_shutdown _ _vm _reason _timeout = true
 
-  let save _ cb vm flags data vgpu_data pre_suspend_callback = Mutex.execute m (save_nolock vm flags data vgpu_data)
-  let restore _ cb vm vbds vifs data vgpu_data extras = Mutex.execute m (restore_nolock vm vbds vifs data vgpu_data extras)
+  let save _ _cb vm flags data vgpu_data _pre_suspend_callback = Mutex.execute m (save_nolock vm flags data vgpu_data)
+  let restore _ _cb vm vbds vifs data vgpu_data extras = Mutex.execute m (restore_nolock vm vbds vifs data vgpu_data extras)
 
-  let s3suspend _ vm = ()
-  let s3resume _ vm = ()
+  let s3suspend _ _vm = ()
+  let s3resume _ _vm = ()
 
   let get_state vm = Mutex.execute m (get_state_nolock vm)
 
-  let request_rdp vm enabled = ()
-  let run_script _ vm script = Rpc.Dict [("rc", Rpc.Int 0L); ("stdout", Rpc.String ""); ("stderr", Rpc.String "")]
-  let set_domain_action_request vm request = ()
+  let request_rdp _vm _enabled = ()
+  let run_script _ _vm _script = Rpc.Dict [("rc", Rpc.Int 0L); ("stdout", Rpc.String ""); ("stderr", Rpc.String "")]
+  let set_domain_action_request _vm _request = ()
   let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
 
-  let generate_state_string vm = ""
+  let generate_state_string _vm = ""
   let get_internal_state vdi_map vif_map vm =
     let state = Opt.unbox (DB.read vm.Vm.id) in
     let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in
@@ -424,7 +425,7 @@ module PCI = struct
 
   let get_state vm pci = Mutex.execute m (pci_state vm pci)
 
-  let get_device_action_request vm pci = None
+  let get_device_action_request _vm _pci = None
 end
 
 module VGPU = struct
@@ -433,31 +434,31 @@ module VGPU = struct
 end
 
 module VUSB = struct
-  let plug _ vm vusb = ()
-  let unplug _ vm vusb = ()
+  let plug _ _vm _vusb = ()
+  let unplug _ _vm _vusb = ()
   let get_state vm vusb = Mutex.execute m (vusb_state vm vusb)
-  let get_device_action_request vm vusb = None
+  let get_device_action_request _vm _vusb = None
 end
 
 module VBD = struct
-  let set_active _ (vm: Vm.id) (vbd: Vbd.t) (b: bool) = ()
-  let epoch_begin _ (vm: Vm.id) (disk: disk) (persistent: bool) = ()
-  let epoch_end _ (vm: Vm.id) (disk: disk) = ()
+  let set_active _ (_vm: Vm.id) (_vbd: Vbd.t) (_b: bool) = ()
+  let epoch_begin _ (_vm: Vm.id) (_disk: disk) (_persistent: bool) = ()
+  let epoch_end _ (_vm: Vm.id) (_disk: disk) = ()
   let plug _ (vm: Vm.id) (vbd: Vbd.t) = Mutex.execute m (add_vbd vm vbd)
   let unplug _ vm vbd _ = Mutex.execute m (remove_vbd vm vbd)
 
-  let insert _ vm vbd disk = ()
-  let eject _ vm vbd = ()
+  let insert _ _vm _vbd _disk = ()
+  let eject _ _vm _vbd = ()
 
   let set_qos _ vm vbd = Mutex.execute m (set_qos_vbd vm vbd)
 
   let get_state vm vbd = Mutex.execute m (vbd_state vm vbd)
 
-  let get_device_action_request vm vbd = None
+  let get_device_action_request _vm _vbd = None
 end
 
 module VIF = struct
-  let set_active _ (vm: Vm.id) (vif: Vif.t) (b: bool) = ()
+  let set_active _ (_vm: Vm.id) (_vif: Vif.t) (_b: bool) = ()
   let plug _ vm vif = Mutex.execute m (add_vif vm vif)
   let unplug _ vm vif _ = Mutex.execute m (remove_vif vm vif)
   let move _ vm vif network = Mutex.execute m (move_vif vm vif network)
@@ -469,7 +470,7 @@ module VIF = struct
 
   let get_state vm vif = Mutex.execute m (vif_state vm vif)
 
-  let get_device_action_request vm vif = None
+  let get_device_action_request _vm _vif = None
 end
 
 module UPDATES = struct

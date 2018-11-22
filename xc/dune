@@ -1,0 +1,28 @@
+(executable
+ (name xenops_xc_main)
+ (public_name xenopsd-xc)
+ (package xapi-xenopsd-xc)
+ (flags -warn-error +a-3)
+ 
+ (libraries astring xenctrl xapi-xenopsd xenstore xenstore.unix
+  xenstore_transport.unix rpclib.core forkexec xcp xcp.storage xcp.memory
+  xcp.rrd xcp.network rrd sexplib xcp-inventory ezxenstore profiling qmp
+  mtime.clock.os ppx_sexp_conv.runtime-lib re re.pcre xeneventchn)
+
+ (preprocess
+  (pps ppx_deriving_rpc ppx_sexp_conv bisect_ppx -conditional)
+ )
+)
+
+(rule
+ (with-stdout-to
+  xenopsd-xc.1
+  (run %{dep:xenops_xc_main.exe} --help=groff)
+ )
+)
+
+(install
+ (section man)
+ (files xenopsd-xc.1)
+ (package xapi-xenopsd-xc)
+)

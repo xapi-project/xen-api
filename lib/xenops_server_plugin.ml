@@ -50,7 +50,6 @@ let string_of_data x = x |> rpc_of data |> Jsonrpc.to_string
 type flag =
   | Live
 [@@deriving rpcty]
-let string_of_flag x = x |> rpc_of flag |> Jsonrpc.to_string
 let string_of_flag = function
   | Live -> "Live"
 

@@ -1,0 +1,20 @@
+(library
+ (name c_stubs)
+ (public_name xapi-xenopsd.c_stubs)
+ (wrapped false)
+ (c_names poll_stubs sockopt_stubs statdev_stubs tuntap_stubs xenctrlext_stubs)
+ (c_library_flags
+  (:include xentoollog_flags.sexp)
+ )
+)
+
+(rule
+ (targets xentoollog_flags.sexp)
+ (deps ../xentoollog_flags)
+ (action
+  (with-stdout-to
+   %{targets}
+   (bash "echo \"($(< %{deps}))\"")
+  )
+ )
+)
