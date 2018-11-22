@@ -17,7 +17,7 @@ exception Invalid_Mac of string
 let check_mac mac =
   try
     if String.length mac <> 17 then failwith "mac length";
-    Scanf.sscanf mac "%2x:%2x:%2x:%2x:%2x:%2x" (fun a b c d e f -> ());
+    Scanf.sscanf mac "%2x:%2x:%2x:%2x:%2x:%2x" (fun _ _ _ _ _ _ -> ());
     mac
   with _ ->
     raise (Invalid_Mac mac)
@@ -40,7 +40,7 @@ let make_local_mac bytes =
 
 (* Generate a completely random local MAC *)
 let random_local_mac () =
-  make_local_mac (Array.init 6 (fun i -> Random.int 0x100))
+  make_local_mac (Array.init 6 (fun _ -> Random.int 0x100))
 
 let hashchain_local_mac dev seed =
   let hash x = Digest.string x in

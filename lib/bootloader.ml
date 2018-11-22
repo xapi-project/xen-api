@@ -19,7 +19,6 @@
    4. Add support to control a slave screen process, to make a 'bios'
 *)
 
-open String
 open Xenops_utils
 open Xenops_task
 
@@ -182,7 +181,7 @@ let extract (task: Xenops_task.task_handle) ~bootloader ~disk ?(legacy_args="") 
           | Some p -> Some (sanity_check_path p));
       kernel_args = Printf.sprintf "%s %s %s" result.kernel_args legacy_args extra_args
     }
-  with Forkhelpers.Spawn_internal_error(stderr, stdout, _) ->
+  with Forkhelpers.Spawn_internal_error(stderr, _stdout, _) ->
     parse_exception stderr
 
 let delete x =

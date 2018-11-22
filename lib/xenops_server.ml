@@ -152,7 +152,7 @@ let string_of_operation x = x |> rpc_of operation |> Jsonrpc.to_string
 module TASK = struct
   open Xenops_task
 
-  let cancel _ dbg id =
+  let cancel _ _dbg id =
     Xenops_task.cancel (handle_of_id tasks id)
   let stat' id =
     handle_of_id tasks id |> to_interface_task
@@ -165,10 +165,10 @@ module TASK = struct
       Updates.add (Dynamic.Task id) updates
     with
       Xenopsd_error (Does_not_exist _) -> debug "TASK.signal %s (object deleted)" id
-  let stat _ dbg id = stat' id
+  let stat _ _dbg id = stat' id
   let destroy' id = destroy (handle_of_id tasks id); Updates.remove (Dynamic.Task id) updates
-  let destroy _ dbg id = destroy' id
-  let list _ dbg = list tasks |> List.map Xenops_task.to_interface_task
+  let destroy _ _dbg id = destroy' id
+  let list _ _dbg = list tasks |> List.map Xenops_task.to_interface_task
 end
 
 module VM_DB = struct
@@ -770,7 +770,7 @@ module WorkerPool = struct
       )
 
   let start size =
-    for i = 1 to size do
+    for _i = 1 to size do
       incr Redirector.default;
       incr Redirector.parallel_queues
     done
@@ -779,10 +779,10 @@ module WorkerPool = struct
     let inner queues =
       let active = count_active queues in
       debug "XXX active = %d" active;
-      for i = 1 to max 0 (size - active) do
+      for _i = 1 to max 0 (size - active) do
         incr queues
       done;
-      for i = 1 to max 0 (active - size) do
+      for _i = 1 to max 0 (active - size) do
         decr queues
       done
     in
@@ -815,14 +815,14 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
                            | Vm.PV pv_info ->
                              Vm.PV {pv_info with
                                     Vm.boot = match pv_info.Vm.boot with
-                                      | Vm.Direct x -> pv_info.Vm.boot
+                                      | Vm.Direct _ -> pv_info.Vm.boot
                                       | Vm.Indirect pv_indirect_boot ->
                                         Vm.Indirect { pv_indirect_boot with Vm.devices =
                                                                               List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } }
                            | Vm.PVinPVH pv_info ->
                              Vm.PVinPVH {pv_info with
                                     Vm.boot = match pv_info.Vm.boot with
-                                      | Vm.Direct x -> pv_info.Vm.boot
+                                      | Vm.Direct _ -> pv_info.Vm.boot
                                       | Vm.Indirect pv_indirect_boot ->
                                         Vm.Indirect { pv_indirect_boot with Vm.devices =
                                                                               List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
@@ -1085,11 +1085,11 @@ let rec atomics_of_operation = function
     ]
   | _ -> []
 
-let rec perform_atomic ~progress_callback ?subtask ?result (op: atomic) (t: Xenops_task.task_handle) : unit =
+let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
   Xenops_task.check_cancelling t;
   match op with
-  | Parallel (id, description, atoms) ->
+  | Parallel (_id, description, atoms) ->
     (* parallel_id is a unused unique name prefix for a parallel worker queue *)
     let parallel_id = Printf.sprintf "Parallel:task=%s.atoms=%d.(%s)" (Xenops_task.id_of_handle t) (List.length atoms) description in
     debug "begin_%s" parallel_id;
@@ -1473,7 +1473,7 @@ let perform_atomics atomics t =
       ) 0. atomics in
   ()
 
-let rec immediate_operation dbg id op =
+let rec immediate_operation dbg _id op =
   let task = Xenops_task.add tasks dbg (fun t -> perform op t; None) in
   let task_id = Xenops_task.id_of_handle task in
   TASK.destroy' task_id;
@@ -1586,7 +1586,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_restore (id, _, _)
   | VM_delay (id, _) ->
     immediate_operation dbg id (VM_check_state id)
-  | Parallel (id, description, ops) ->
+  | Parallel (_id, _description, ops) ->
     List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
   | VM_rename (id1,id2) ->
     immediate_operation dbg id1 (VM_check_state id1);
@@ -1602,19 +1602,19 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         | Running -> info "VM %s is already running" id
         | _ -> perform_atomics (atomics_of_operation op) t; VM_DB.signal id
       end
-    | VM_poweroff (id, timeout) ->
+    | VM_poweroff (id, _timeout) ->
       debug "VM.poweroff %s" id;
       perform_atomics (atomics_of_operation op) t;
       VM_DB.signal id
-    | VM_reboot (id, timeout) ->
+    | VM_reboot (id, _timeout) ->
       debug "VM.reboot %s" id;
       rebooting id (fun () -> perform_atomics (atomics_of_operation op) t);
       VM_DB.signal id
-    | VM_shutdown (id, timeout) ->
+    | VM_shutdown (id, _timeout) ->
       debug "VM.shutdown %s" id;
       perform_atomics (atomics_of_operation op) t;
       VM_DB.signal id
-    | VM_suspend (id, data) ->
+    | VM_suspend (id, _data) ->
       debug "VM.suspend %s" id;
       perform_atomics (atomics_of_operation op) t;
       VM_DB.signal id
@@ -1624,7 +1624,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
     | VM_restore_devices (id, restore_vifs) -> (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
       debug "VM_restore_devices %s %b" id restore_vifs;
       perform_atomics (atomics_of_operation op) t;
-    | VM_resume (id, data) ->
+    | VM_resume (id, _data) ->
       debug "VM.resume %s" id;
       perform_atomics (atomics_of_operation op) t;
       VM_DB.signal id
@@ -1644,7 +1644,6 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url;
       let id = vmm.vmm_id in
       let vm = VM_DB.read_exn id in
-      let open Xenops_client in
       let dbg = (Xenops_task.to_interface_task t).Task.dbg in
       let url = Uri.of_string vmm.vmm_url in
       (* We need to perform version exchange here *)
@@ -1736,7 +1735,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
              first_handshake ();
              save ();
              final_handshake ()
-           | [(vm_id,dev_id)] ->
+           | [(_vm_id,dev_id)] ->
              let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id (new_dest_id,dev_id)) in
              Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
                  do_request vgpu_fd [cookie_vgpu_migration, ""] vgpu_url;
@@ -2356,7 +2355,7 @@ module VM = struct
   let stat _ dbg id =
     Debug.with_thread_associated dbg (fun () -> (stat' id)) ()
 
-  let exists _ dbg id =
+  let exists _ _dbg id =
     match DB.read id with
     | Some _ -> true
     | None -> false
@@ -2403,7 +2402,7 @@ module VM = struct
   let s3suspend _ dbg id = queue_operation dbg id (Atomic(VM_s3suspend id))
   let s3resume _ dbg id = queue_operation dbg id (Atomic(VM_s3resume id))
 
-  let migrate context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
+  let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
     queue_operation dbg id (VM_migrate {vmm_id=id; vmm_vdi_map; vmm_vif_map; vmm_vgpu_pci_map; vmm_url})
 
   let migrate_receive_memory _ _ _ _ _ _ =
@@ -2495,11 +2494,11 @@ module VM = struct
            Response.write (fun _ -> ()) response s
       ) ()
 
-  let generate_state_string _ dbg vm =
+  let generate_state_string _ _dbg vm =
     let module B = (val get_backend () : S) in
     B.VM.generate_state_string vm
 
-  let export_metadata _ dbg id = export_metadata [] [] [] id
+  let export_metadata _ _dbg id = export_metadata [] [] [] id
 
   let import_metadata _ dbg s =
     Debug.with_thread_associated dbg
