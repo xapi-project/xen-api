@@ -1,14 +1,12 @@
-(jbuild_version 1)
-
-(library (
+(library
   (name inventory)
-  (public_name xcp-inventory)
+  (public_name xapi-inventory)
   (wrapped false)
-  (libraries (
+  (libraries
     uuidm
     astring
     xapi-stdext-unix
     xapi-stdext-threads
     threads
-  ))
-))
+  )
+)

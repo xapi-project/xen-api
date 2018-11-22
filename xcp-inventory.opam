@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "xcp-inventory"
 maintainer: "xen-api@lists.xen.org"
 authors: "xen-api@lists.xen.org"
@@ -6,18 +6,10 @@ homepage: "https://github.com/xapi-project/xcp-inventory"
 bug-reports: "https://github.com/xapi-project/xcp-inventory/issues"
 dev-repo: "git://github.com/xapi-project/xcp-inventory.git"
 tags: [ "org:xapi-project" ]
-build: [
-  ["./configure" "--default_inventory=%{prefix}%/etc"]
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
-]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
 depends: [
-  "ocamlfind" {build}
-  "jbuilder" {build}
-  "base-threads"
-  "astring"
-  "xapi-stdext-unix"
-  "xapi-stdext-threads"
-  "cmdliner"
-  "uuidm"
+  "ocaml"
+  "xapi-inventory"
 ]
+synopsis: "Library for accessing the xapi toolstack inventory file"
+description: """
+This package has been renamed to 'xapi-inventory' and can safely be removed"""
