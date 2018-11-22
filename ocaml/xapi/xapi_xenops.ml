@@ -2339,7 +2339,11 @@ let on_xapi_restart ~__context =
       ()
     ) (all_known_xenopsds ());
 
-  resync_all_vms ~__context
+  resync_all_vms ~__context;
+  info "applying guest agent configuration during restart";
+  let pool = Helpers.get_pool ~__context in
+  let config = Db.Pool.get_guest_agent_config ~__context ~self:pool in
+  apply_guest_agent_config ~__context config
 
 let assert_resident_on ~__context ~self =
   let localhost = Helpers.get_localhost ~__context in

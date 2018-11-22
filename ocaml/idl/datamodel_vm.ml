@@ -1209,7 +1209,7 @@ let assert_operation_valid = call
     ~doc:"Check to see whether this operation is acceptable in the current state of the system, raising an error if the operation is invalid for some reason"
     ~params:[Ref _vm, _self, "reference to the object";
              operations, "op", "proposed operation" ]
-    ~allowed_roles:_R_POOL_ADMIN
+    ~allowed_roles:_R_READ_ONLY
     ()
 
 let update_allowed_operations = call

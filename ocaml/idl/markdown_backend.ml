@@ -92,6 +92,7 @@ let rec of_ty = function
   | Map (a, b) -> "(" ^ (of_ty a) ^ " &#45;&gt; " ^ (of_ty b) ^ ") map"
   | Ref obj -> (escape obj) ^ " ref"
   | Record obj -> (escape obj) ^ " record"
+  | _ -> assert false
 
 let of_ty_opt = function
     None -> "void" | Some(ty, _) -> of_ty ty
@@ -149,6 +150,7 @@ let markdown_section_of_message printer obj ~is_class_deprecated ~is_class_remov
         (List.map (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name) x.msg_params)))
   );
   printer "```";
+  printer "";
 
   if x.msg_params <> [] then begin
     printer "_Arguments:_";
@@ -164,14 +166,24 @@ let markdown_section_of_message printer obj ~is_class_deprecated ~is_class_remov
       (pad_right (escape p.param_doc) col_width_40)
     in
     List.iter (fun p -> printer (get_param_row p)) x.msg_params;
-    printer "";
+    printer ""
+  end;
 
-    printer ("_Return Type:_" ^ (if is_event_from then " an event batch" else sprintf " `%s`" return_type));
-    printer "";
-    let descr = desc_of_ty_opt x.msg_result in
-    if descr <> ""  then
-      (printer (escape descr);
-      printer "")
+  let print_rbac = fun y ->
+    match y.msg_allowed_roles with
+    | Some yy when yy <> [] ->
+      printer ("_Minimum Role:_ " ^ (List.hd (List.rev yy)));
+      printer ""
+    | _ -> ()
+  in
+  print_rbac x;
+
+  printer ("_Return Type:_" ^ (if is_event_from then " an event batch" else sprintf " `%s`" return_type));
+  printer "";
+  let descr = desc_of_ty_opt x.msg_result in
+  if descr <> ""  then begin
+    printer (escape descr);
+    printer ""
   end;
 
   if x.msg_errors <> [] then begin

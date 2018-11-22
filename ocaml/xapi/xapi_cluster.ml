@@ -58,7 +58,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
 
       Xapi_clustering.Daemon.enable ~__context;
       let result = Cluster_client.LocalClient.create (rpc ~__context) dbg init_config in
-      match result with
+      match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
       | Result.Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
         Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~cluster_token ~cluster_stack ~pending_forget:[]
