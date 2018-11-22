@@ -12,7 +12,7 @@ env:
     - OCAML_VERSION=4.06
     - PINS="xcp:."
     - PACKAGE=xcp
-    - DISTRO="debian-testing"
+    - DISTRO="debian-9"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
       POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID TEST_DEPS="alcotest" TEST_CMD='jbuilder runtest --no-buffer' bash -ex coverage.sh"

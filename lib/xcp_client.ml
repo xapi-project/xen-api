@@ -100,6 +100,14 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 let xml_http_rpc = http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string
 let json_switch_rpc queue_name = switch_rpc queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
 
+let () =
+  Printexc.register_printer (function
+    | Xmlm.Error ((line, col), error) ->
+        Some
+          (Printf.sprintf "Xmlm.Error(%d:%d, \"%s\")" line col
+             (Xmlm.error_message error))
+    | _ -> None )
+
 (* Use a binary 16-byte length to frame RPC messages *)
 let binary_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset") url (call: Rpc.call) : Rpc.response =
 	let uri = Uri.of_string (url ()) in
