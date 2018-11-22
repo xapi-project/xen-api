@@ -19,7 +19,10 @@ echo Token MD5: $(echo $GH_TOKEN | md5sum)
 rev=$(git rev-parse --short HEAD)
 
 # Copy data we're interested in out of the container
+docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/classes $HOME/classes
+docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/releases $HOME/releases
 docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/xenapi.json $HOME/
+docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/releases.yml $HOME/
 docker cp ${CONTAINER_NAME}:/home/builder/xen-api/_build/install/default/jekyll/release_info.json $HOME/
 
 # Go to home and setup git
@@ -32,7 +35,10 @@ git clone "https://$GH_TOKEN@github.com/xapi-project/xapi-project.github.io.git"
 
 # Copy data we're interested in into the right place
 cd xapi-project.github.io
+cp -f $HOME/classes/* xen-api/classes/
+cp -f $HOME/releases/* xen-api/releases/
 cp -f $HOME/xenapi.json _data/
+cp -f $HOME/releases.yml _data/
 cp -f $HOME/release_info.json _data/
 
 git commit -am "Updated XenAPI docs based on xen-api/${rev}"
