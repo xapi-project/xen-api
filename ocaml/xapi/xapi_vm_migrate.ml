@@ -138,15 +138,24 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
     )
 
 (** Check that none of the VDIs that are mapped to a different SR have CBT
-    enabled. This function must be called with the complete [vdi_map],
-    which contains all the VDIs of the VM.
+    or encryption enabled. This function must be called with the complete
+    [vdi_map], which contains all the VDIs of the VM.
     [check_vdi_map] should be called before this function to verify that this
     is the case. *)
-let assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map =
+let assert_can_migrate_vdis ~__context ~vdi_map =
+  let assert_cbt_not_enabled vdi =
+    if Db.VDI.get_cbt_enabled ~__context ~self:vdi then
+      raise Api_errors.(Server_error(vdi_cbt_enabled, [Ref.string_of vdi]))
+  in
+  let assert_not_encrypted vdi =
+    let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+    if List.exists (fun (key, _value) -> key = "key_hash") sm_config then
+      failwith ("Migration of encrypted VDI " ^ (Ref.string_of vdi) ^ " is not allowed")
+  in
   List.iter (fun (vdi, target_sr) ->
-      if (Db.VDI.get_cbt_enabled ~__context ~self:vdi) then begin
-        if (target_sr <> (Db.VDI.get_SR ~__context ~self:vdi)) then
-          raise Api_errors.(Server_error(vdi_cbt_enabled, [Ref.string_of vdi]))
+      if target_sr <> (Db.VDI.get_SR ~__context ~self:vdi) then begin
+        assert_cbt_not_enabled vdi;
+        assert_not_encrypted vdi;
       end
     ) vdi_map
 
@@ -900,9 +909,9 @@ let migrate_send'  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~optio
   let vdi_map = vdi_map @ extra_vdi_map in
   let all_vdis = vms_vdis @ extra_vdis in
 
-  (* The vdi_map should be complete at this point - it should include all the
-     VDIs in the all_vdis list. *)
-  assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map;
+  (* This is a good time to check our VDIs, because the vdi_map should be
+     complete at this point; it should include all the VDIs in the all_vdis list. *)
+  assert_can_migrate_vdis ~__context ~vdi_map;
 
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
@@ -1271,7 +1280,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~v
   end;
 
   (* check_vdi_map above has already verified that all VDIs are in the vdi_map *)
-  assert_no_cbt_enabled_vdi_migrated ~__context ~vdi_map
+  assert_can_migrate_vdis ~__context ~vdi_map
 
 let assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options =
   (* Check that the destination host has compatible pGPUs -- if needed *)
