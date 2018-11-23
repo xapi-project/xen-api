@@ -49,6 +49,7 @@ let dynamic_of_class_id cls id =
 | "vm", _ -> Dynamic.Vm id
 | "vbd", Some (id1, id2) -> Dynamic.Vbd (id1, id2)
 | "vif", Some (id1, id2)  -> Dynamic.Vif (id1,id2)
+| "vbd", Some (id1, id2)  -> Dynamic.Vbd (id1, id2)
 | "pci", Some (id1, id2)  -> Dynamic.Pci (id1, id2)
 | "vgpu", Some (id1, id2)  -> Dynamic.Vgpu (id1, id2)
 | "vusb", Some (id1, id2)  -> Dynamic.Vusb (id1, id2)
@@ -60,10 +61,10 @@ let events_of_deltas = function
         match delta with
         | Rpc.Dict objects ->
           List.fold_left (fun events (id, _) ->
-              dynamic_of_class_id cls id :: events) events objects
-        | _ -> failwith "Objects was a not a dict, bug!"
-      ) [] obj_classes |> List.rev
-  | _ -> failwith "Delta was not a dict, bug!"
+              dynamic_of_class_id cls id :: events) events (List.filter (fun (cls,_) -> cls <> "__p") objects)
+        | e -> failwith (Printf.sprintf "Objects was a not a dict, bug! (it was: %s)" (Jsonrpc.to_string e))
+      ) [] (List.filter (fun (cls,_) -> cls <> "__p") obj_classes) |> List.rev
+  | e -> failwith (Printf.sprintf "Delta was not a dict, bug! (it was: %s)" (Jsonrpc.to_string e))
 
 let task_ended queue_name dbg id =
   let module Client = (val make_client queue_name : XENOPS) in
@@ -2144,7 +2145,7 @@ let rec events_watch ~__context cancel queue_name from =
   let gen, marshalled_update = Client.UPDATES.get_deltas dbg from None in
   let current_db, current_gen = !local_db in
   D.debug "Got some updates with generation %Ld, we are at %Ld" gen current_gen;
-  let () = match Rpcmarshal.unmarshal_partial Xenops_types.DB.typ_of current_db  marshalled_update with
+  let () = match Rpcmarshal.unmarshal_partial Xenops_types.DB.typ_of current_db marshalled_update with
     | Result.Ok next ->
       Mutex.execute task_delta_event_mutex (fun () ->
       local_db := (next, gen);
