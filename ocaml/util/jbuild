@@ -20,7 +20,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    build_info
   ))
   (libraries (
-   xcp-inventory
+   xapi-inventory
   ))
   (wrapped false)
   %s
