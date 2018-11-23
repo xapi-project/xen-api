@@ -53,7 +53,7 @@ depends: [
   "xapi-types"
   "xapi-xenopsd"
   "xcp"
-  "xcp-inventory"
+  "xapi-inventory"
   "xenctrl"
   "xml-light2"
   "yojson"
