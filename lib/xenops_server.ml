@@ -99,7 +99,7 @@ type atomic =
   | VM_create_device_model of (Vm.id * bool)
   | VM_destroy_device_model of Vm.id
   | VM_destroy of Vm.id
-  | VM_create of (Vm.id * int64 option)
+  | VM_create of (Vm.id * int64 option * Vm.id option)
   | VM_build of (Vm.id * bool)
   | VM_shutdown_domain of (Vm.id * shutdown_request * float)
   | VM_s3suspend of Vm.id
@@ -888,7 +888,7 @@ let rec atomics_of_operation = function
     [
       VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
     ] @ simplify [
-      VM_create (id, None)
+      VM_create (id, None, None)
     ] @ [
       VM_build (id,force);
     ] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
@@ -1051,7 +1051,7 @@ let rec atomics_of_operation = function
     (* If we've got a vGPU, then save its state will be in the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
     simplify [
-      VM_create (id, None);
+      VM_create (id, None, None);
     ] @ [
       VM_hook_script(id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
     ] @ List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id)
@@ -1366,9 +1366,9 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
   | VM_destroy id ->
     debug "VM.destroy %s" id;
     B.VM.destroy t (VM_DB.read_exn id)
-  | VM_create (id, memory_upper_bound) ->
+  | VM_create (id, memory_upper_bound, final_id) ->
     debug "VM.create %s memory_upper_bound = %s" id (Opt.default "None" (Opt.map Int64.to_string memory_upper_bound));
-    B.VM.create t memory_upper_bound (VM_DB.read_exn id)
+    B.VM.create t memory_upper_bound (VM_DB.read_exn id) final_id
   | VM_build (id,force) ->
     debug "VM.build %s" id;
     let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in
@@ -1577,7 +1577,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_create_device_model (id, _)
   | VM_destroy_device_model id
   | VM_destroy id
-  | VM_create (id, _)
+  | VM_create (id, _, _)
   | VM_build (id, _)
   | VM_shutdown_domain (id, _, _)
   | VM_s3suspend id
@@ -1795,7 +1795,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
         (try
            perform_atomics (
-             simplify [VM_create (id, Some memory_limit);] @
+             simplify [VM_create (id, Some memory_limit, Some final_id);] @
              (* Perform as many operations as possible on the destination domain before pausing the original domain *)
              (atomics_of_operation (VM_restore_vifs id))
            ) t;
@@ -2363,7 +2363,7 @@ module VM = struct
   let list _ dbg () =
     Debug.with_thread_associated dbg (fun () -> DB.list ()) ()
 
-  let create _ dbg id = queue_operation dbg id (Atomic(VM_create (id, None)))
+  let create _ dbg id = queue_operation dbg id (Atomic(VM_create (id, None, None)))
 
   let build _ dbg id force = queue_operation dbg id (Atomic(VM_build (id, force)))
 
