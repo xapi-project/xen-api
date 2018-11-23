@@ -171,7 +171,7 @@ let main backend =
       ~rpc_fn
       () in
 
-  (* we need to catch this to make sure at_exit handlers are
+  (** we need to catch this to make sure at_exit handlers are
    * triggered. In particuar, triggers for the bisect_ppx coverage
    * profiling *)
 

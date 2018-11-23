@@ -19,7 +19,7 @@ let is_valid ~key ~platformdata =
   (not (List.mem_assoc key platformdata)) ||
   (match List.assoc key platformdata |> String.lowercase_ascii with
    | "true" | "1" | "false" | "0" -> true
-   | _ -> false
+   | v -> false
   )
 
 let is_true ~key ~platformdata ~default =

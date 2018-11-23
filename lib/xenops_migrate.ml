@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Xenops_interface
+open Xenops_utils
+open Xenops_client
 
 module D = Debug.Make(struct let name = "xenops_migrate" end)
 open D

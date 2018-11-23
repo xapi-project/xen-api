@@ -49,7 +49,7 @@ let epoch_end task sr vdi =
        Client.VDI.epoch_end (Xenops_task.get_dbg task) sr vdi
     ) ()
 
-let attach_and_activate task _vm dp sr vdi read_write =
+let attach_and_activate task vm dp sr vdi read_write =
   let result =
     Xenops_task.with_subtask task (Printf.sprintf "VDI.attach2 %s" dp)
       (transform_exception (fun () -> Client.VDI.attach2 "attach_and_activate" dp sr vdi read_write)) in
@@ -72,7 +72,7 @@ let dp_destroy task dp =
              Client.DP.destroy "dp_destroy" dp false;
              waiting_for_plugin := false
            with
-           | Storage_interface.Storage_error No_storage_plugin_for_sr _sr as e ->
+           | Storage_interface.Storage_error No_storage_plugin_for_sr sr as e ->
              (* Since we have an activated disk in this SR, assume we are still
                 						   waiting for xapi to register the SR's plugin. *)
              debug "Caught %s - waiting for xapi to register storage plugins."
@@ -86,7 +86,7 @@ let dp_destroy task dp =
          done
        ))
 
-let get_disk_by_name _task path =
+let get_disk_by_name task path =
   match Stdext.Xstringext.String.split ~limit:2 '/' path with
   | [ sr; vdi ] ->
     info "Processing disk SR=%s VDI=%s" sr vdi;

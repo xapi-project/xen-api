@@ -380,7 +380,7 @@ module FileFS = struct
   let read path =
     try
       Some (filename_of path |> Unixext.string_of_file |> Jsonrpc.of_string)
-    with _ ->
+    with e ->
       None
   let write path x =
     let filename = filename_of path in

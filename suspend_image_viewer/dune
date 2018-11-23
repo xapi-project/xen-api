@@ -1,5 +1,0 @@
-(executable
- (name suspend_image_viewer)
- (flags :standard -warn-error +a-3)
- (libraries xapi-xenopsd cmdliner profiling)
-)
