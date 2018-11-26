@@ -40,11 +40,11 @@ clean:
 	dune clean
 
 test:
-	dune runtest --no-buffer
+	dune runtest --no-buffer --profile=release
 
 # requires odoc
 doc:
-	dune build @doc
+	dune build @doc --profile=release
 
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
