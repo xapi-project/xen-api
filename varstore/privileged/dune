@@ -1,6 +1,6 @@
 (library
-  (name xcp_varstore_privileged)
-  (public_name xcp.varstore.privileged)
+  (name xapi_idl_varstore_privileged)
+  (public_name xapi-idl.varstore.privileged)
   (modules (:standard \ varstore_privileged_cli))
   (flags (:standard -w -39))
   (libraries xcp threads rpclib.core)
@@ -14,7 +14,7 @@
     cmdliner
     rpclib.cmdliner
     rpclib.markdown
-    xcp.varstore.privileged))
+    xapi-idl.varstore.privileged))
 
 (alias
  (name   runtest)

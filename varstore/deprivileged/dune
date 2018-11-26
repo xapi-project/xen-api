@@ -1,9 +1,9 @@
 (library
-  (name xcp_varstore_deprivileged)
-  (public_name xcp.varstore.deprivileged)
+  (name xapi_idl_varstore_deprivileged)
+  (public_name xapi-idl.varstore.deprivileged)
   (modules (:standard \ varstore_deprivileged_cli))
   (flags (:standard -w -39))
-  (libraries xcp threads rpclib.core xcp.xen)
+  (libraries xcp threads rpclib.core xapi-idl.xen)
   (wrapped false)
   (preprocess (pps ppx_deriving_rpc bisect_ppx -conditional)))
 
@@ -14,7 +14,7 @@
     cmdliner
     rpclib.cmdliner
     rpclib.markdown
-    xcp.varstore.deprivileged))
+    xapi-idl.varstore.deprivileged))
 
 (alias
  (name   runtest)
