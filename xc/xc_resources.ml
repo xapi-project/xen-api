@@ -16,7 +16,6 @@ let vif_script = ref "/usr/lib/xcp/scripts/vif"
 let vbd_script = ref "/etc/xen/scripts/block"
 let pci_flr_script = ref "/usr/lib/xcp/lib/pci-flr"
 let igmp_query_injector_script = ref "/usr/libexec/xenopsd/igmp_query_injector.py"
-let send_message_script = ref "/usr/libexec/xenopsd/send_message.py"
 
 let vncterm = ref "vncterm"
 let xenguest = ref "xenguest"
@@ -57,6 +56,5 @@ let nonessentials = [
   X_OK, "vncterm", vncterm, "path to the vncterm binary";
   X_OK, "gimtool", gimtool, "path to the gimtool binary";
   X_OK, "igmp-query-injector-script", igmp_query_injector_script, "path to the igmp query injector script";
-  X_OK, "send-message-script", send_message_script, "path to the script of sending message to xapi";
 ] @ Resources.hvm_guests @ Resources.pv_guests @ Resources.pvinpvh_guests
 
