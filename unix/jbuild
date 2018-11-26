@@ -6,18 +6,19 @@ let coverage_rewriter =
   | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(library
+(jbuild_version 1)
+
+(library (
   (name message_switch_unix)
   (public_name message-switch-unix)
-  (modules
+  (modules (
     protocol_unix
     protocol_unix_scheduler
-  )
+  ))
   (flags (:standard -w -39-27))
-  (libraries
+  (libraries (
     message-switch-core
     threads
-  )
-  (preprocess (pps ppx_deriving_rpc %s))
-)
+  ))
+  (preprocess (pps (ppx_deriving_rpc %s)))))
 |} coverage_rewriter

@@ -6,24 +6,26 @@ let coverage_rewriter =
   | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(executable
+(jbuild_version 1)
+
+(executable (
   (name switch_main)
   (public_name message-switch)
   (package message-switch)
   (flags (:standard -w -39-37-32))
-  (libraries
-    cmdliner
-    cohttp-lwt-unix
-    io-page-unix
+  (libraries (
     lwt_log
     message-switch-lwt
     message-switch-unix
+    cohttp-lwt-unix
+    io-page-unix
     mtime
     mtime.clock.os
     mirage-block-unix
     shared-block-ring
     sexplib
-  )
-  (preprocess (pps ppx_sexp_conv %s))
-)
+    cmdliner
+  ))
+  (preprocess (pps (ppx_sexp_conv %s)))))
+
 |} coverage_rewriter

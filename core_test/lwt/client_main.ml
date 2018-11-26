@@ -14,7 +14,9 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+open Cohttp_lwt_unix
 open Lwt
+open Message_switch_core.Protocol
 open Message_switch_lwt.Protocol_lwt
 
 let path = ref "/var/run/message-switch/sock"

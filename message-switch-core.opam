@@ -12,9 +12,8 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "jbuilder" {build}
   "ocamlfind" {build}
-  "odoc" {with-doc}
   "astring"
   "base-unix"
   "cohttp" {>= "0.21.1"}
@@ -27,7 +26,7 @@ depends: [
   "mirage-block-unix" {>= "2.4.0"}
   "shared-block-ring" {>= "2.3.0"}
 ]
-synopsis: "A simple store-and-forward message switch"
+synopsis: "A simple store-and-forward message switch."
 description: """
 The switch stores messages in queues with well-known names. Clients use
 a simple HTTP protocol to enqueue and dequeue messages."""

@@ -12,14 +12,13 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "jbuilder" {build}
   "ocamlfind" {build}
-  "odoc" {with-doc}
   "message-switch-core"
   "lwt" {>= "3.0.0"}
   "cohttp-lwt-unix"
 ]
-synopsis: "A simple store-and-forward message switch"
+synopsis: "A simple store-and-forward message switch."
 description: """
 The switch stores messages in queues with well-known names. Clients use
 a simple HTTP protocol to enqueue and dequeue messages."""
