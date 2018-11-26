@@ -7,7 +7,7 @@
  (libraries astring xenctrl xapi-xenopsd xenstore xenstore.unix
   xenstore_transport.unix rpclib.core forkexec xcp xcp.storage xcp.memory
   xcp.rrd xcp.network rrd sexplib xcp-inventory ezxenstore profiling qmp
-  mtime.clock.os ppx_sexp_conv.runtime-lib re re.pcre xeneventchn)
+  mtime.clock.os ppx_sexp_conv.runtime-lib re re.pcre)
 
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv bisect_ppx -conditional)

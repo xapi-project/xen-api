@@ -3508,26 +3508,6 @@ let look_for_xenctrl () =
       exit 1;
     end
 
-let watch_xen_event () =
-  let open Xeneventchn in
-  let handle = init () in
-  let virq_enomem_port = bind_virq handle Enomem in
-  let host_uuid = Inventory.lookup Inventory._installation_uuid in
-  let rec process_event () =
-    debug "waiting for xen event at (%s)" __LOC__;
-    let port = pending handle in
-    if port = virq_enomem_port then begin
-      info "Sending HOST_LOW_MEMORY message.";
-      (* Call the script to call xenapi to create message which indicates the host is in low memory situation *)
-      let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.send_message_script ["--name"; "HOST_LOW_MEMORY"; "--priority"; "2"; "--class"; "host"; "--uuid"; host_uuid; "--body"; "Host does not have enough memory in xen heap"]  in
-      Forkhelpers.dontwaitpid pid
-    end;
-    (* We want to receive further notification, so unmask it *)
-    if to_int port <> -1 then unmask handle port;
-    process_event ()
-  in
-  process_event ()
-
 let init () =
   look_for_forkexec ();
 
@@ -3563,17 +3543,6 @@ let init () =
   Device.Backend.init();
   debug "xenstore is responding to requests";
   let () = Watcher.create_watcher_thread () in
-  let (_: Thread.t) = Thread.create (fun () ->
-      debug "starting xen event watch thread.";
-      while true do
-        try
-          watch_xen_event ()
-        with e ->
-          debug "watch_xen_event thread raised: %s" (Printexc.to_string e);
-          debug "watch_xen_event thread backtrace: %s" (Printexc.get_backtrace ());
-          Thread.delay 5.;
-      done) ()
-  in
   ()
 
 module DEBUG = struct
