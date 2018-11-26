@@ -18,6 +18,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib.markdown
     threads
     xapi-idl
+    xapi-idl.cluster
     xapi-idl.rrd
     xapi-idl.memory
     xapi-idl.updates
@@ -26,6 +27,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-idl.storage
     xapi-idl.varstore.privileged
     xapi-idl.varstore.deprivileged
+    xapi-idl.v6
     xapi-idl.xen
   )
   (preprocess (pps ppx_deriving_rpc %s))
