@@ -24,6 +24,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-idl.network
     xapi-idl.gpumon
     xapi-idl.storage
+    xapi-idl.varstore.privileged
+    xapi-idl.varstore.deprivileged
     xapi-idl.xen
   )
   (preprocess (pps ppx_deriving_rpc %s))
