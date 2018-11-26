@@ -89,6 +89,14 @@ let make_kpatch_list () =
 
 open Xstringext
 
+(** [count_cpus] returns the number of CPUs found in /proc/cpuinfo *)
+let count_cpus () =
+  let cpuinfo = "/proc/cpuinfo" in
+  let re = Re.Perl.compile @@ Re.Perl.re {|^processor\s*:\s+\d+|} in
+  let matches line = Re.matches re line <> [] in
+  let count n line = if matches line then n+1 else n in
+  Stdext.Unixext.file_lines_fold count 0 cpuinfo
+
 (* NB: this is dom0's view of the world, not Xen's. *)
 let read_dom0_memory_usage () =
   try
@@ -223,7 +231,7 @@ and ensure_domain_zero_metrics_record ~__context ~domain_zero_ref (host_info: ho
       debug "Domain 0 record does not have associated metrics record. Creating now";
       let metrics_ref = Ref.make() in
       create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_memory_constraints host_info)
-        ~vcpus:(calculate_domain_zero_vcpu_count ~__context);
+        ~vcpus:(count_cpus ());
       Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
     end
 
@@ -237,8 +245,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
   let localhost = Helpers.get_localhost ~__context in
   (* Read the control domain uuid from the inventory file *)
   let uuid = host_info.dom0_uuid in
-  (* FIXME: Assume dom0 has 1 vCPU per Host_cpu for now *)
-  let vcpus = calculate_domain_zero_vcpu_count ~__context in
+  let vcpus = count_cpus () in
   let metrics = Ref.make () in
   (* Now create the database record. *)
   Db.VM.create ~__context ~ref:domain_zero_ref
@@ -379,9 +386,6 @@ and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_con
         target = 0L;
       }
     else raise e
-
-and calculate_domain_zero_vcpu_count ~__context : int =
-  List.length (Db.Host.get_host_CPUs ~__context ~self:(Helpers.get_localhost ~__context))
 
 open Db_filter
 
