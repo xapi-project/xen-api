@@ -1,0 +1,20 @@
+[Unit]
+Description=Varstored XAPI socket deprivileging daemon
+Documentation=man:varstored-guard(1)
+After=message-switch.service syslog.target
+Before=xenopsd.service
+Wants=message-switch.service syslog.target
+
+[Service]
+Type=simple
+Environment=OCAMLRUNPARAM=b
+ExecStart=/usr/sbin/varstored-guard
+# Needed to ensure exceptions are logged when the program fails:
+StandardError=syslog
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

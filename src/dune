@@ -1,0 +1,15 @@
+(executable
+ (name main)
+ (libraries
+	cohttp-lwt 
+	message-switch-lwt
+	rpclib-lwt 
+	xcp 
+	xcp.varstore.deprivileged
+	xcp.varstore.privileged
+	xen-api-client-lwt)
+ (preprocess (pps ppx_deriving_rpc bisect_ppx -conditional)))
+
+(install
+ (section sbin)
+ (files (main.exe as varstored-guard)))
