@@ -150,7 +150,7 @@ let assert_can_migrate_vdis ~__context ~vdi_map =
   let assert_not_encrypted vdi =
     let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
     if List.exists (fun (key, _value) -> key = "key_hash") sm_config then
-      failwith ("Migration of encrypted VDI " ^ (Ref.string_of vdi) ^ " is not allowed")
+      raise Api_errors.(Server_error(vdi_is_encrypted, [Ref.string_of vdi]))
   in
   List.iter (fun (vdi, target_sr) ->
       if target_sr <> (Db.VDI.get_SR ~__context ~self:vdi) then begin
