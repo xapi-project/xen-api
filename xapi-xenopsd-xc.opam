@@ -31,7 +31,7 @@ depends: [
   "uutf"
   "xapi-xenopsd"
   "xcp"
-  "xcp-inventory"
+  "xapi-inventory"
   "xenctrl"
   "xapi-xenopsd"
   "xenstore"
