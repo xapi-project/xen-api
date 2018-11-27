@@ -268,6 +268,7 @@ let vdi_on_boot_mode_incompatible_with_operation = "VDI_ON_BOOT_MODE_INCOMPATIBL
 let vdi_not_in_map = "VDI_NOT_IN_MAP"
 let vdi_cbt_enabled = "VDI_CBT_ENABLED"
 let vdi_no_cbt_metadata = "VDI_NO_CBT_METADATA"
+let vdi_is_encrypted = "VDI_IS_ENCRYPTED"
 let vif_not_in_map = "VIF_NOT_IN_MAP"
 let cannot_create_state_file = "CANNOT_CREATE_STATE_FILE"
 
