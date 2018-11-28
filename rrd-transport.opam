@@ -5,12 +5,12 @@ homepage: "https://github.com/xapi-project/rrd-transport"
 dev-repo: "git+https://github.com/xapi-project/rrd-transport.git"
 bug-reports: "https://github.com/xapi-project/rrd-transport"
 build: [
-  ["jbuilder" "build" "-p" name "-j" jobs]
-  ["jbuilder" "runtest" "-p" name] {with-test}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
 ]
 depends: [
   "ocaml"
-  "jbuilder" {build & >= "1.0+beta10"}
+  "dune" {build & >= "1.0+beta10"}
   "cstruct"
   "crc"
   "astring"

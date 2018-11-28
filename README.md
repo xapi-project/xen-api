@@ -11,7 +11,7 @@ Build dependencies:
 
 * [cmdliner](https://github.com/dbuenzli/cmdliner) (for test executables only)
 * [cstruct](https://github.com/avsm/ocaml-cstruct)
-* [xcp](https://github.com/xapi-project/xcp-idl)
-* [xcp-rrd](https://github.com/xen-org/xcp-rrd)
+* [xapi-idl](https://github.com/xapi-project/xcp-idl)
+* [xapi-rrd](https://github.com/xen-org/xcp-rrd)
 * [xen-gnt](https://github.com/mirage/ocaml-gnt)
 * [crc](https://github.com/xapi-project/ocaml-crc)

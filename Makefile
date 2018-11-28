@@ -4,30 +4,30 @@ OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	jbuilder build @install
+	dune build @install --profile=release
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 install:
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) rrd-transport
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) rrd-transport
 	install -D _build/install/default/bin/rrdreader $(DESTDIR)$(BINDIR)/rrdreader
 	install -D _build/install/default/bin/rrdwriter $(DESTDIR)$(BINDIR)/rrdwriter
 
 uninstall:
-	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 	rm -f $(DESTDIR)$(BINDIR)/rrdreader
 	rm -f $(DESTDIR)$(BINDIR)/rrdwriter
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest --profile=release
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc --profile=release
 
 gh-pages:
 	bash .docgen.sh

@@ -2,7 +2,7 @@ opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "John Else"
 homepage: "https://github.com/xapi-project/rrd-transport"
-dev-repo: "https://github.com/xapi-project/rrd-transport"
+dev-repo: "git+https://github.com/xapi-project/rrd-transport.git"
 bug-reports: "https://github.com/xapi-project/rrd-transport"
 depends: [
   "ocaml"
