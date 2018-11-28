@@ -132,7 +132,6 @@ let host_cpu_features_down = addMessage "HOST_CPU_FEATURES_DOWN" 3L
 let host_cpu_features_up = addMessage "HOST_CPU_FEATURES_UP" 5L
 let pool_cpu_features_down = addMessage "POOL_CPU_FEATURES_DOWN" 5L
 let pool_cpu_features_up = addMessage "POOL_CPU_FEATURES_UP" 5L
-let host_low_memory = addMessage "HOST_LOW_MEMORY" 2L
 
 (* Cluster messages *)
 let cluster_host_enable_failed = addMessage "CLUSTER_HOST_ENABLE_FAILED" 3L
