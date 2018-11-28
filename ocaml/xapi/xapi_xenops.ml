@@ -2897,7 +2897,8 @@ let suspend ~__context ~self =
               Client.VM.suspend dbg id d |> sync_with_task __context ~cancellable:false queue_name;
               Events_from_xenopsd.wait queue_name dbg id ();
               Xapi_vm_lifecycle.assert_final_power_state_is ~__context ~self ~expected:`Suspended;
-              if not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
+              if not(Xapi_vm_lifecycle.checkpoint_in_progress ~__context ~vm:self)
+              && not(Db.VM.get_resident_on ~__context ~self = Ref.null) then
                 raise Api_errors.(Server_error(internal_error, [
                     Printf.sprintf "suspend: The VM %s is still resident on the host" (Ref.string_of self)]));
             with e ->

@@ -584,6 +584,10 @@ let update_allowed_operations ~__context ~self =
   if Db.is_valid_ref __context appliance then
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
+let checkpoint_in_progress ~__context ~vm =
+  Listext.List.setify (List.map snd (Db.VM.get_current_operations ~__context ~self:vm))
+  |> List.mem `checkpoint
+
 (** 1. Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc.  Current-operations won't be
     cleaned 
@@ -637,7 +641,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     Db.VM.set_requires_reboot ~__context ~self ~value:false
   end;
 
-  if state = `Halted || state = `Suspended then begin
+  (* Do not clear resident_on for VM and VGPU in a checkpoint operation *)
+  if state = `Halted || (state = `Suspended && not (checkpoint_in_progress ~__context ~vm:self)) then begin
     Db.VM.set_resident_on ~__context ~self ~value:Ref.null;
     (* make sure we aren't reserving any memory for this VM *)
     Db.VM.set_scheduled_to_be_resident_on ~__context ~self ~value:Ref.null;
