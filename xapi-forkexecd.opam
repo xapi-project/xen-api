@@ -7,12 +7,12 @@ dev-repo: "git://github.com/xapi-project/forkexecd"
 tags: [ "org:xapi-project" ]
 
 build: [
-  ["jbuilder" "build" "-p" name "-j" jobs]
-  ["jbuilder" "runtest" "-p" name] {with-test}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
 ]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build}
   "astring"
   "forkexec"
   "systemd" {>= "1.2"}
