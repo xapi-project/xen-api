@@ -68,6 +68,27 @@ let test_null_vdi () =
         all_vm_operations
     )
 
+let test_vm_set_nvram_running () =
+  with_test_vm (fun __context vm_ref ->
+      Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
+      let old_nvram = ["EFI-variables", "AAAA"] in
+      Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref ~value:old_nvram;
+      Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
+      Alcotest.check_raises
+        "VM.set_NVRAM should fail when the VM is running"
+        Api_errors.(Server_error (vm_bad_power_state, [Ref.string_of vm_ref; "halted"; "running"]))
+        (fun () ->
+           Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref ~value:["EFI-variables", "BBBB"]);
+      let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
+      Alcotest.(check (list (pair string string))) "NVRAM not updated" old_nvram read_nvram;
+
+      let new_vars = "CCCC" in
+      let new_nvram = ["EFI-variables", new_vars] in
+      Api_server.Forwarder.VM.set_NVRAM_EFI_variables ~__context ~self:vm_ref ~value:new_vars;
+      let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
+      Alcotest.(check (list (pair string string))) "NVRAM not updated" new_nvram read_nvram;
+  )
+
 let compare_errors = Alcotest.(check (option (pair string (list string)))) "same error codes"
 
 (* Operations that check the validity of other VM operations should
@@ -116,4 +137,5 @@ let test =
   ; "test_operation_checks_allowed", `Quick, test_operation_checks_allowed
   ; "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved", `Quick, test_migration_allowed_when_cbt_enabled_vdis_are_not_moved
   ; "test_sxm_disallowed_when_rum", `Quick, test_sxm_disallowed_when_rum
+  ; "test_vm_set_nvram when VM is running", `Quick, test_vm_set_nvram_running
   ]
