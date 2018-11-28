@@ -2506,6 +2506,11 @@ module Backend = struct
             | Dm_Common.Disk  -> "force-lba=on"
             | Dm_Common.Cdrom -> "force-lba=off"
           in
+          let cache_of_media (media:Dm_Common.media) =
+            match media with
+            | Dm_Common.Disk  -> ["cache=none"]
+            | Dm_Common.Cdrom -> []
+          in
           List.map (fun (index, file, media) -> [
               "-drive"; String.concat "," ([
                 sprintf "file=%s" file;
@@ -2513,7 +2518,7 @@ module Backend = struct
                 sprintf "index=%d" index;
                 sprintf "media=%s" (Dm_Common.string_of_media media);
                 lba_of_media media;
-              ] @ (format_of_media media file))
+              ] @ (format_of_media media file) @ (cache_of_media media))
             ])
             info.Dm_Common.disks
           |> List.concat
