@@ -221,8 +221,6 @@ let checkpoint ~__context ~vm ~new_name =
   (* restore the power state of the VM *)
   if power_state = `Running
   then begin
-    let localhost = Helpers.get_localhost ~__context in
-    Db.VM.set_resident_on ~__context ~self:vm ~value:localhost;
     debug "Performing a slow resume";
     Xapi_xenops.resume ~__context ~self:vm ~start_paused:false ~force:false;
   end;
