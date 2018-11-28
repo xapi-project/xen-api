@@ -22,7 +22,6 @@ depends: [
   "cmdliner"
   "uuidm"
 ]
-conflicts: "xcp-inventory" {!= "transition"}
 synopsis: "Library for accessing the xapi toolstack inventory file"
 description: """
 The inventory file provides global host identify information
