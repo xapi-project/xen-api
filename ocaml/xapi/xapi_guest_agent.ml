@@ -204,9 +204,13 @@ let mutex = Mutex.create ()
    a directory from xenstore. Both are relative to the guest's domainpath. *)
 let get_initial_guest_metrics (lookup: string -> string option) (list: string -> string list) =
   let all_control = list "control" in
-  let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) -> match lookup xskey with
-      | Some xsval -> [ mapkey, xsval ]
-      | None -> []) kvpairs) in
+  let cant_suspend_reason = lookup "data/cant_suspend_reason" in
+  let to_map kvpairs = List.concat (List.map (fun (xskey, mapkey) ->
+      match lookup xskey, xskey, cant_suspend_reason with
+      | Some xsval, "control/feature-suspend", Some reason ->
+        ["data-cant-suspend-reason", reason]
+      | Some xsval, _, _ -> [ mapkey, xsval ]
+      | None, _, _ -> []) kvpairs) in
 
   let get_tristate xskey =
     match lookup xskey with
