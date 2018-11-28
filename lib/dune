@@ -10,7 +10,7 @@
  (public_name xapi-xenopsd)
  (wrapped false)
  (flags :standard -warn-error +a-3)
- (libraries c_stubs stdext threads threads.posix uuidm xmlm cohttp uri rpclib.core forkexec fd-send-recv xcp xcp.xen xcp.storage xcp.updates sexplib ppx_sexp_conv.runtime-lib uutf ezxenstore xenstore xenstore.unix xenstore_transport xenstore_transport.unix core re re.pcre)
+ (libraries c_stubs stdext threads threads.posix uuidm xmlm cohttp uri rpclib.core forkexec fd-send-recv xapi-idl xapi-idl.xen xapi-idl.storage xapi-idl.updates sexplib ppx_sexp_conv.runtime-lib uutf ezxenstore xenstore xenstore.unix xenstore_transport xenstore_transport.unix core re re.pcre)
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv bisect_ppx -conditional)
  )

@@ -3,10 +3,10 @@
  (public_name xenopsd-xc)
  (package xapi-xenopsd-xc)
  (flags -warn-error +a-3)
- 
+
  (libraries astring xenctrl xapi-xenopsd xenstore xenstore.unix
-  xenstore_transport.unix rpclib.core forkexec xcp xcp.storage xcp.memory
-  xcp.rrd xcp.network rrd sexplib xapi-inventory ezxenstore profiling qmp
+  xenstore_transport.unix rpclib.core forkexec xapi-idl xapi-idl.storage xapi-idl.memory
+  xapi-idl.rrd xapi-idl.network rrd sexplib xapi-inventory ezxenstore profiling qmp
   mtime.clock.os ppx_sexp_conv.runtime-lib re re.pcre)
 
  (preprocess

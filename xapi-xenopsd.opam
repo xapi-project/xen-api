@@ -29,7 +29,7 @@ depends: [
   "uri"
   "uuidm"
   "uutf"
-  "xcp"
+  "xapi-idl"
   "xenstore"
   "xenstore_transport"
   "xmlm"

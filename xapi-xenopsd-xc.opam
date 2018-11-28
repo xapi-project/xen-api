@@ -30,7 +30,7 @@ depends: [
   "uuidm"
   "uutf"
   "xapi-xenopsd"
-  "xcp"
+  "xapi-idl"
   "xapi-inventory"
   "xenctrl"
   "xapi-xenopsd"
