@@ -53,7 +53,7 @@ module VM = struct
 
   let rename _ _ = ()
   let remove _ = ()
-  let create _ _ _ = unimplemented "VM.create"
+  let create _ _ _ _ = unimplemented "VM.create"
   let build ?restore_fd:_ _ _ _ _ _ = unimplemented "VM.build"
   let create_device_model _ _ _ _ _ = unimplemented "VM.create_device_model"
   let destroy_device_model _ _ = unimplemented "VM.destroy_device_model"

@@ -213,7 +213,7 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
   wait 0
 
 
-let make ~xc ~xs vm_info vcpus domain_config uuid =
+let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
   let flags = if vm_info.hvm then begin
       let default_flags =
         (if vm_info.hvm then [ CDF_HVM ] else []) @
@@ -263,10 +263,13 @@ let make ~xc ~xs vm_info vcpus domain_config uuid =
           xenstore_iter t (fun d -> t.Xst.setperms d roperm) vm_path
         else begin
           t.Xst.mkdirperms vm_path roperm;
-          t.Xst.writev vm_path [
+          let final_uuid = match final_uuid with
+            | None -> []
+            | Some final_uuid -> ["final-uuid", final_uuid] in
+          t.Xst.writev vm_path ([
             "uuid", (Uuid.to_string uuid);
             "name", name;
-          ];
+          ] @ final_uuid);
         end;
         t.Xst.write (Printf.sprintf "%s/domains/%d" vm_path domid) dom_path;
         t.Xst.write (Printf.sprintf "%s/domains/%d/create-time" vm_path domid) (Int64.to_string create_time);

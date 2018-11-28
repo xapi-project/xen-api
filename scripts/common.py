@@ -20,6 +20,7 @@ import subprocess
 
 path = "/sbin:/usr/sbin:/bin:/usr/bin:" + os.path.dirname(sys.argv[0])
 vif_hotplug = "/etc/xapi.d/vif-hotplug"
+xs_read = "/usr/bin/xenstore-read"
 xenops_base_path = "/var/run/nonpersistent/xenopsd"
 xenops_path = None
 
@@ -176,7 +177,14 @@ class VIF:
         return False
     def get_external_ids(self):
         results = {}
-        results["xs-vm-uuid"] = self.vm_uuid
+        # if this is a migration target VM, we have to use final-uuid as value of `xs-vm-uuid`
+        rc, stdout, _ = doexec([xs_read, '/vm/%s/final-uuid' % self.vm_uuid])
+        if rc == 0:
+            vm_uuid = stdout.readline().strip()
+            send_to_syslog("This is a migration target VM, so fix value of 'xs-vm-uuid' from %s to %s" % (self.vm_uuid, vm_uuid))
+        else:
+            vm_uuid = self.vm_uuid
+        results["xs-vm-uuid"] = vm_uuid
         if "vif-uuid" in self.json["extra_private_keys"]:
             results["xs-vif-uuid"] = self.json["extra_private_keys"]["vif-uuid"]
         if "network-uuid" in self.json["extra_private_keys"]:

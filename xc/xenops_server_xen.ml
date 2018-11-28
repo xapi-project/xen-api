@@ -1027,7 +1027,7 @@ module VM = struct
       has_vendor_device = vm.has_vendor_device;
     }
 
-  let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm =
+  let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
         (* Ensure the DB contains something for this VM - this is to avoid a race with the *)
@@ -1111,7 +1111,7 @@ module VM = struct
                   (domain_config, persistent)
               in
               let create_info = generate_create_info ~xc ~xs vm persistent in
-              let domid = Domain.make ~xc ~xs create_info vm.vcpu_max domain_config (uuid_of_vm vm) in
+              let domid = Domain.make ~xc ~xs create_info vm.vcpu_max domain_config (uuid_of_vm vm) final_id in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               begin match vm.Vm.ty with
                 | Vm.HVM { Vm.qemu_stubdom = true } ->
@@ -1199,6 +1199,8 @@ module VM = struct
             begin
               debug "Renaming domain %d from %s to %s" di.Xenctrl.domid vm vm';
               Xenctrl.domain_sethandle xc di.Xenctrl.domid vm';
+              let final_uuid_path = "/vm/" ^ vm ^ "/final-uuid" in
+              safe_rm xs final_uuid_path;
               debug "Moving xenstore tree";
               Domain.move_xstree xs di.Xenctrl.domid vm vm';
 
