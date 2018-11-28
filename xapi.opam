@@ -52,7 +52,7 @@ depends: [
   "xapi-test-utils"
   "xapi-types"
   "xapi-xenopsd"
-  "xcp"
+  "xapi-idl"
   "xapi-inventory"
   "xenctrl"
   "xml-light2"

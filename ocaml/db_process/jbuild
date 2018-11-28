@@ -17,7 +17,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    unix
    xapi-inventory
    xapi-database
-   xcp  ;for the Debug module
+   xapi-idl  ;for the Debug module
   ))
   %s
  )

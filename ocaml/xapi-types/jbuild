@@ -25,7 +25,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    uuidm
    xapi-consts
    xapi-stdext-date
-   xcp
+   xapi-idl
   ))
   (wrapped false)
   (preprocess (pps (ppx_deriving_rpc %s)))
