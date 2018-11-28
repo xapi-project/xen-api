@@ -11,4 +11,4 @@ To build by hand first install dependencies:
     * stdext
     * syslog
     * re
-    * xcp
+    * xapi-idl

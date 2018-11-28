@@ -1,0 +1,11 @@
+(library
+  (name squeeze)
+  (flags (:standard :standard -bin-annot))
+  (libraries
+    re
+    re.str
+    xapi-idl
+    threads
+  )
+  (wrapped false)
+)
