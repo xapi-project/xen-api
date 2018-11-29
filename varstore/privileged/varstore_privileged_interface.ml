@@ -103,5 +103,5 @@ module RPC_API (R : RPC) = struct
     declare
       "destroy"
       ["Stop listening on sockets for the specified group"]
-      (debug_info_p @-> gid_p @-> returning unit_p err)
+      (debug_info_p @-> gid_p @-> path_p @-> returning unit_p err)
 end
