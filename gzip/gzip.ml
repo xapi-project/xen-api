@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Gzip = Compression.Make(struct
+module Gzip = Xapi_compression.Make(struct
   (** Path to the gzip binary *)
   let executable = "/bin/gzip"
 end)

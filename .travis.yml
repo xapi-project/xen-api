@@ -5,7 +5,7 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.t
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - PINS="compression:. gzip:. http-svr:. pciutil:. sexpr:. sha1:. stunnel:. uuid:. xapi-libs-transitional:. xenctrlext:. xml-light2:. zstd:."
+    - PINS="gzip:. http-svr:. pciutil:. sexpr:. sha1:. stunnel:. uuid:. xapi-compression:. xapi-libs-transitional:. xenctrlext:. xml-light2:. zstd:."
     - PACKAGE=xapi-libs-transitional
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:

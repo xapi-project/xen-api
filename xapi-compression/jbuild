@@ -1,6 +1,6 @@
 (library
- ((name compression)
-  (public_name compression)
+ ((name xapi_compression)
+  (public_name xapi-compression)
   (libraries
    (forkexec
     threads

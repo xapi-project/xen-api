@@ -2,5 +2,5 @@
  ((name zstd)
   (public_name zstd)
   (libraries
-   (compression))
+   (xapi-compression))
  ))

@@ -10,7 +10,7 @@ available: [ os = "linux" ]
 depends: [
   "ocaml"
   "jbuilder" {build}
-  "compression"
+  "xapi-compression"
 ]
 synopsis: "Further transitional libraries required by xapi"
 description: """

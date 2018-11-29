@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Zstd = Compression.Make(struct
+module Zstd = Xapi_compression.Make(struct
   (** Path to the zstd binary *)
   let executable = "/usr/bin/zstd"
 end)

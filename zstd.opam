@@ -10,5 +10,5 @@ build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 available: [ os = "linux" ]
 depends: [
   "jbuilder" {build}
-  "compression"
+  "xapi-compression"
 ]
