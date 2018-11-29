@@ -25,10 +25,10 @@ let sockets = Hashtbl.create 127
 
 (* caller here is trusted (xenopsd through message-switch *)
 let depriv_create dbg vm_uuid gid path =
-  if Hashtbl.mem sockets gid
+  if Hashtbl.mem sockets path
   then
     Lwt.return_error
-      (Varstore_privileged_interface.InternalError (Printf.sprintf "GID %d is already in use" gid))
+      (Varstore_privileged_interface.InternalError (Printf.sprintf "Path %s is already in use" path))
     |> Rpc_lwt.T.put
   else
     ret
@@ -42,7 +42,7 @@ let depriv_create dbg vm_uuid gid path =
       gid;
     make_server_rpcfn path vm_uuid_str
     >>= fun stop_server ->
-    Hashtbl.add sockets gid (stop_server, path);
+    Hashtbl.add sockets path stop_server;
     Lwt_unix.chmod path 0o660 >>= fun () -> Lwt_unix.chown path 0 gid
 
 let safe_unlink path =
@@ -50,16 +50,16 @@ let safe_unlink path =
     (fun () -> Lwt_unix.unlink path)
     (function Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e)
 
-let depriv_destroy dbg gid =
-  D.debug "[%s] stopping server for gid %d" dbg gid;
+let depriv_destroy dbg gid path =
+  D.debug "[%s] stopping server for gid %d and path %s" dbg gid path;
   ret
   @@
-  match Hashtbl.find_opt sockets gid with
+  match Hashtbl.find_opt sockets path with
   | None ->
-    D.warn "[%s] asked to stop server for gid %d, but it doesn't exist" dbg gid;
+    D.warn "[%s] asked to stop server for path %s, but it doesn't exist" dbg path;
     Lwt.return_unit
-  | Some (stop_server, path) ->
-    let finally () = safe_unlink path >|= fun () -> Hashtbl.remove sockets gid in
+  | Some stop_server ->
+    let finally () = safe_unlink path >|= fun () -> Hashtbl.remove sockets path in
     Lwt.finalize stop_server finally
     >>= fun () ->
     D.debug "[%s] stopped server for gid %d and removed socket" dbg gid;
