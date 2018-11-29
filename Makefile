@@ -4,10 +4,10 @@ OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	jbuilder build @install
+	dune build @install --profile=release
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 install:
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
@@ -16,14 +16,14 @@ uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest --profile=release
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc --profile=release
 
 gh-pages:
 	bash .docgen.sh

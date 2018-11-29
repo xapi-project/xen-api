@@ -1,6 +1,0 @@
-PKG cmdliner bigarray threads oUnit rrd-transport
-S lib
-S rrdd
-
-B _build/lib
-B _build/rrdd

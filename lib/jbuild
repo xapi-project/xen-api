@@ -1,7 +1,0 @@
-(library
- ((name rrdd_libs)
-  (public_name xapi-rrdd)
-  (modules (constants stats))
-  (flags (:standard -bin-annot))
-  (libraries (xcp threads))
- ))
