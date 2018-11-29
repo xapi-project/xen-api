@@ -33,6 +33,19 @@ trap error EXIT ERR
 mount $DEVICE $TMP
 tar -C $TMP -xzp
 
+# The dom0 partition layout changed between 6.x and 7.x and restoring backups
+# from the old partition layout does not work in some cases so fail the
+# restore operation.
+
+CUR_VER="$PRODUCT_VERSION"
+. "$TMP@INVENTORY@"
+PREV_VER="$PRODUCT_VERSION"
+
+if [ "${CUR_VER%%.*}" -ge 7 -a "${PREV_VER%%.*}" -lt 7 ]; then
+    echo "Cannot restore backup created with a different partition layout."
+    exit 1
+fi
+
 # The installer checks for this file when looking for a backup partition.
 touch $TMP/.xen-backup-partition
 
