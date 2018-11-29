@@ -42,8 +42,28 @@ let read_management_conf () =
     let device = List.assoc "LABEL" args in
     let vlan = if List.mem_assoc "VLAN" args then Some (List.assoc "VLAN" args) else None in
     Inventory.reread_inventory ();
-    let bridge_name = Inventory.lookup Inventory._management_interface in
-    debug "Management bridge in inventory file: %s" bridge_name;
+    let bridge_name =
+      let inventory_bridge =
+        try Some (Inventory.lookup Inventory._management_interface)
+        with Inventory.Missing_inventory_key _ -> None
+      in
+      match inventory_bridge with
+      | Some "" | None ->
+        let bridge =
+          if vlan = None then
+            bridge_naming_convention device
+          else
+            (* At this point, we don't know what the VLAN bridge name will be,
+             * so use a temporary name. Xapi will replace the bridge once the name
+             * has been decided on. *)
+            "xentemp"
+        in
+        debug "No management bridge in inventory file... using %s" bridge;
+        bridge
+      | Some bridge ->
+        debug "Management bridge in inventory file: %s" bridge;
+        bridge
+    in
     let mac = Network_utils.Ip.get_mac device in
     let ipv4_conf, ipv4_gateway, dns =
       match List.assoc "MODE" args with
@@ -78,24 +98,20 @@ let read_management_conf () =
                                  ports = [device, {default_port with interfaces = [device]}];
                                  persistent_b = true
                                 } in
-      if bridge_name = "" then
-        [], []
-      else begin
-        match vlan with
-        | None ->
-          [device, phy_interface; bridge_name, bridge_interface],
-          [bridge_name, primary_bridge_conf]
-        | Some vlan ->
-          let parent = bridge_naming_convention device in
-          let secondary_bridge_conf = {default_bridge with
-                                       vlan = Some (parent, int_of_string vlan);
-                                       bridge_mac = (Some mac);
-                                       persistent_b = true
-                                      } in
-          let parent_bridge_interface = {default_interface with persistent_i = true} in
-          [device, phy_interface; parent, parent_bridge_interface; bridge_name, bridge_interface],
-          [parent, primary_bridge_conf; bridge_name, secondary_bridge_conf]
-      end
+      match vlan with
+      | None ->
+        [device, phy_interface; bridge_name, bridge_interface],
+        [bridge_name, primary_bridge_conf]
+      | Some vlan ->
+        let parent = bridge_naming_convention device in
+        let secondary_bridge_conf = {default_bridge with
+                                     vlan = Some (parent, int_of_string vlan);
+                                     bridge_mac = (Some mac);
+                                     persistent_b = true
+                                    } in
+        let parent_bridge_interface = {default_interface with persistent_i = true} in
+        [device, phy_interface; parent, parent_bridge_interface; bridge_name, bridge_interface],
+        [parent, primary_bridge_conf; bridge_name, secondary_bridge_conf]
     in
     {interface_config = interface_config; bridge_config = bridge_config;
      gateway_interface = Some bridge_name; dns_interface = Some bridge_name}
