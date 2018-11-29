@@ -6,18 +6,18 @@ license: "LGPL-2.1 with OCaml linking exception"
 homepage: "https://github.com/xapi-project/sm-cli"
 bug-reports: "https://github.com/xapi-project/sm-cli/issues"
 dev-repo: "git+https://github.com/xapi-project/sm-cli.git"
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build}
   "base-threads"
   "re"
   "rpclib"
   "ppx_deriving_rpc"
-  "xcp"
+  "xapi-idl"
   "cmdliner"
 ]
-synopsis: "A CLI for xapi storage services."
+synopsis: "A CLI for xapi storage services"
 description: """
 The CLI allows you to directly manipulate virtual disk images, without
 them being attached to VMs."""

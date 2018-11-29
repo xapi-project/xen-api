@@ -1,18 +1,16 @@
-(jbuild_version 1)
-
-(executable (
+(executable
   (name main)
   (public_name sm-cli)
   (flags (:standard -w -39))
-  (libraries (
-    xcp
-    xcp.storage
+  (libraries
+    xapi-idl
+    xapi-idl.storage
     re
     re.str
     rpclib
     rpclib.json
     cmdliner
     threads
-  ))
-  (preprocess (pps (ppx_deriving_rpc)))
-))
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
