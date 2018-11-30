@@ -142,7 +142,7 @@ let () =
    * this is only needed for syscalls that would otherwise block *)
   Lwt_unix.set_pool_size 16
 
-let with_xapi f = SessionCache.with_session cache f
+let with_xapi f = Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
 
 (* Unfortunately Cohttp doesn't provide us a way to know when it finished
  * creating the socket, and creating the socket is done asynchronously in an Lwt promise.
@@ -151,8 +151,11 @@ let with_xapi f = SessionCache.with_session cache f
 let rec wait_for_file_to_appear path =
   Lwt_unix.yield () >>= fun () ->
   Lwt_unix.file_exists path >>= function
-  | true -> Lwt.return_unit
+  | true ->
+    D.debug "File %s is present" path;
+    Lwt.return_unit
   | false ->
+    D.debug "Waiting for file %s to appear" path;
     Lwt_unix.sleep 0.1 >>= fun () ->
     wait_for_file_to_appear path
 
