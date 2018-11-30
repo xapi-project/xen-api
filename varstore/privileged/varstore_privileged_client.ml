@@ -15,7 +15,7 @@
 open Varstore_privileged_interface
 
 (* daemon only listens on message-switch *)
-let rpc call = Xcp_client.json_switch_rpc queue_name call
+let rpc call = Xcp_client.json_switch_rpc ~timeout:20 queue_name call
 
 module Client = RPC_API (Idl.Exn.GenClient (struct
   let rpc = rpc
