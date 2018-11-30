@@ -1,8 +1,5 @@
-(jbuild_version 1)
-
 (library
- ((name profiling)
+  (name profiling)
   (flags (:standard -bin-annot -safe-string))
   (wrapped false)
- )
 )

@@ -5,10 +5,10 @@ MANDIR ?= /usr/share/man/man1
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	jbuilder build @install @networkd/man
+	dune build @install @networkd/man --profile=release
 
 build:
-	jbuilder build @install @networkd/man --dev
+	dune build @install @networkd/man
 
 install:
 	mkdir -p $(DESTDIR)$(SBINDIR)
@@ -24,14 +24,14 @@ uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/networkd_db
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest --profile=release
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc --profile=release
 
 reindent:
 	ocp-indent --inplace **/*.ml*
