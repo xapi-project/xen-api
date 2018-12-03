@@ -4,22 +4,22 @@ OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 .PHONY: release build install uninstall clean reindent
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 release:
-	jbuilder build @install
+	dune build @install --profile=release
 
 install:
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xenops
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-xenops
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xenops
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-xenops
 	install -D _build/install/default/bin/list_domains $(DESTDIR)$(BINDIR)/list_domains
 
 uninstall:
-	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 	rm -f $(DESTDIR)$(BINDIR)/list_domains
 
 clean:
-	jbuilder clean
+	dune clean
 
 reindent:
 	git ls-files '**/*.ml' | xargs ocp-indent --inplace

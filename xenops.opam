@@ -7,7 +7,7 @@ dev-repo: "git://github.com/xapi-project/xenops.git"
 build:  [[ "jbuilder" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml" {>= "4.01.0"}
-  "jbuilder" {build & >= "1.0+beta10"}
+  "dune" {build}
   "ezxenstore"
   "xapi-stdext-pervasives"
   "xapi-libs-transitional"
