@@ -1,15 +1,21 @@
-opam-version: "1"
+opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
-build-test: ["jbuilder" "runtest" "-p" name]
+authors:  "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/xcp-rrdd"
+bug-reports: "https://github.com/xapi-project/xcp-rrdd/issues"
+dev-repo: "git+https://github.com/xapi-project/xcp-rrdd.git"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
+]
 depends: [
+  "ocaml" {>= "4.02.0"}
+  "dune" {build}
   "astring"
-  "ezxenstore"
   "inotify"
   "io-page"
-  "jbuilder" {build & >= "1.0+beta10"}
   "mtime"
-  "ounit" {test}
+  "ounit" {with-test}
   "rpc"
   "systemd"
   "xapi-backtrace"
@@ -22,7 +28,11 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
 ]
-ocaml-version: [>= "4.02.0"]
-conflicts: [
-    "fd-send-recv" {< "2.0.0"}
-]
+synopsis: "Performance monitoring daemon for xapi"
+description: """
+This daemon monitors "datasources" i.e. time-varying values such as
+performance counters and records the samples in RRD archives. These
+archives can be used to examine historical performance trends."""
+url {
+  src: "https://github.com/xapi-project/xcp-rrdd/archive/master.tar.gz"
+}
