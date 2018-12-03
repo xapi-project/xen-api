@@ -7,10 +7,10 @@ homepage: "https://github.com/xapi-project/xapi-storage-script"
 bug-reports: "https://github.com/xapi-project/xapi-storage-script/issues"
 dev-repo: "git://github.com/xapi-project/xapi-storage-script"
 tags: [ "org:xapi-project" ]
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build}
   "xapi-idl" {>= "0.10.0"}
   "xapi-storage"
   "async" {>= "v0.9.0"}
