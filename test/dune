@@ -1,0 +1,16 @@
+(executable
+  (name fe_test)
+  (libraries
+    forkexec
+    uuidm
+    xapi-stdext-range
+    xapi-stdext-unix
+  )
+)
+
+(alias
+  (name runtest)
+  (package xapi-forkexecd)
+  (deps fe_test.sh fe_test.exe ../src/fe_main.exe)
+  (action (bash "sudo ./fe_test.sh"))
+)

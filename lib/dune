@@ -1,0 +1,17 @@
+(library
+  (name forkexec)
+  (public_name forkexec)
+  (wrapped false)
+  (flags (:standard))
+  (libraries
+    fd-send-recv
+    rpclib.json
+    threads
+    uuidm
+    xapi-stdext-monadic
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+    xapi-idl
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)

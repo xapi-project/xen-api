@@ -1,7 +1,6 @@
 (executable
- ((name fe_cli)
+  (name fe_cli)
   (public_name forkexecd-cli)
   (package xapi-forkexecd)
-  (libraries (forkexec
-              uuidm))
- ))
+  (libraries forkexec uuidm)
+)
