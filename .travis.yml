@@ -4,9 +4,9 @@ script: bash -ex .travis-opam.sh
 sudo: true
 env:
   global:
-    - OCAML_VERSION=4.04
+    - OCAML_VERSION=4.06
     - PACKAGE=xapi-inventory
-    - PINS="xcp-inventory:. xapi-inventory:."
+    - PINS="xapi-inventory:."
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam

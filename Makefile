@@ -1,22 +1,28 @@
 .PHONY: build clean release test reindent install uninstall
 
 build:
-	jbuilder build @install --dev
+	dune build @install
 
 clean:
-	jbuilder clean
+	dune clean
 
 release:
-	jbuilder build @install
+	jbuilder build @install  --profile=release
+
+install:
+	dune install --profile=release
+
+uninstall:
+	dune uninstall --profile=release
 
 test:
-	jbuilder runtest --no-buffer
+	dune runtest --no-buffer --profile=release
 
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
 
 #requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc --profile=release
 
 .DEFAULT_GOAL := release
