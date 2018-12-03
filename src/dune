@@ -1,0 +1,14 @@
+(executable
+  (name rrd2csv)
+  (public_name rrd2csv)
+  (package rrd2csv)
+  (libraries
+    threads
+    xapi-idl.rrd
+    xapi-client
+    xapi-stdext-monadic
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+  )
+)

@@ -1,12 +1,14 @@
-DESTDIR ?= 
+DESTDIR ?=
 BINDIR ?= /opt/xensource/bin
 MANDIR ?= /opt/xensource/man/man1
 
 all: build
 
-
 build:
-	jbuilder build
+	dune build @install
+
+release:
+	dune build @install --profile=release
 
 install: build
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -19,6 +21,7 @@ uninstall:
 	rm -f $(DESTDIR)$(MANDIR)/rrd2csv.1.man
 
 clean:
-	jbuilder clean
+	dune clean
 
-.PHONY: all build install uninstall clean
+.PHONY: all build release install uninstall clean
+.DEFAULT_GOAL := release
