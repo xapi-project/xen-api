@@ -1,0 +1,18 @@
+(ocamlyacc xn_cfg_parser)
+(ocamllex xn_cfg_lexer)
+
+(executable
+  (name main)
+  (public_name xenops-cli)
+  (libraries
+      cmdliner
+      re
+      rpclib
+      rpclib.json
+      threads
+      uuidm
+      xapi-idl
+      xapi-idl.xen
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)
