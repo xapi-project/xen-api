@@ -1,28 +1,28 @@
 (* -*- tuareg -*- *)
-#require "unix"
 
 let coverage_rewriter ~full =
-  let is_coverage = try Unix.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
+  let is_coverage = try Sys.getenv "BISECT_ENABLE" = "YES" with Not_found -> false in
   match is_coverage, full with
   | true, true -> "(preprocess (pps (bisect_ppx -conditional)))"
   | true, _    -> "bisect_ppx -conditional"
   | _          -> ""
 
-
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
- ((name rrd_transport)
+  (name rrd_transport)
   (public_name rrd-transport)
   (wrapped false)
-  (libraries (astring
-              bigarray
-              crc
-              cstruct
-              rrd
-              threads
-              xcp.rrd
-              xen-gnt
-              xen-gnt-unix))
+  (libraries
+    astring
+    bigarray
+    crc
+    cstruct
+    rrd
+    threads
+    xapi-idl.rrd
+    xen-gnt
+    xen-gnt-unix
+  )
   %s
- ))
+)
 |} (coverage_rewriter ~full:true)

@@ -2,12 +2,12 @@ opam-version: "2.0"
 maintainer: "xen-api@lists.xen.org"
 authors: "John Else"
 homepage: "https://github.com/xapi-project/rrd-transport"
-dev-repo: "https://github.com/xapi-project/rrd-transport"
+dev-repo: "git+https://github.com/xapi-project/rrd-transport.git"
 bug-reports: "https://github.com/xapi-project/rrd-transport"
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "jbuilder" {build & >= "1.0+beta10"}
+  "dune" {build & >= "1.0+beta10"}
   "cmdliner"
   "xapi-rrd-transport" {>= "2.0.0"}
 ]
