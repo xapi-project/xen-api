@@ -6,29 +6,31 @@ let coverage_rewriter =
   | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(jbuild_version 1)
 
 (library
- ((name xcp_cluster)
-  (public_name xcp.cluster)
+  (name xcp_cluster)
+  (public_name xapi-idl.cluster)
   (modules (:standard \ cluster_cli))
   (flags (:standard -w -39))
-  (libraries (xcp threads rpclib.core))
+  (libraries xapi-idl threads rpclib.core)
   (wrapped false)
-  (preprocess (pps (ppx_deriving_rpc %s)))))
+  (preprocess (pps ppx_deriving_rpc %s))
+)
 
 (executable
- ((name cluster_cli)
-  (modules (cluster_cli))
+  (name cluster_cli)
+  (modules cluster_cli)
   (libraries
-   (cmdliner
+    cmdliner
     rpclib.cmdliner
     rpclib.markdown
-    xcp.cluster))))
+    xapi-idl.cluster
+  )
+)
 
 (alias
- ((name runtest)
-  (deps (cluster_cli.exe))
-  (action (run ${<}))))
-
+  (name runtest)
+  (deps (:x cluster_cli.exe))
+  (action (run %%{x}))
+)
 |} coverage_rewriter

@@ -1,0 +1,44 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+
+(executables
+  (names test test_alco)
+  (flags (:standard -w -39))
+  (libraries
+    alcotest
+    oUnit
+    rpclib.core
+    rpclib.markdown
+    threads
+    xapi-idl
+    xapi-idl.rrd
+    xapi-idl.memory
+    xapi-idl.updates
+    xapi-idl.network
+    xapi-idl.gpumon
+    xapi-idl.storage
+    xapi-idl.xen
+  )
+  (preprocess (pps ppx_deriving_rpc %s))
+)
+
+(alias
+  (name runtest)
+  (deps (:x test.exe) (source_tree test_data))
+  (action (run %%{x} -runner sequential))
+)
+
+(alias
+  (name runtest)
+  (deps (:x test_alco.exe) (source_tree test_data))
+  (action (run %%{x}))
+)
+
+|} coverage_rewriter

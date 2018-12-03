@@ -1,0 +1,76 @@
+(library
+  (name xcp_storage_interface_types)
+  (public_name xapi-idl.storage.interface.types)
+  (flags (:standard -w -39))
+  (modules vdi_automaton)
+  (libraries
+    rpclib.core
+    threads
+    xapi-idl
+  )
+  (wrapped false)
+  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc))
+)
+
+(library
+  (name xcp_storage_interface)
+  (public_name xapi-idl.storage.interface)
+  (flags (:standard -w -39))
+  (modules storage_interface)
+  (libraries
+    astring
+    rpclib.core
+    threads
+    xapi-stdext-date
+    xapi-idl
+    xapi-idl.storage.interface.types
+  )
+  (wrapped false)
+  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc))
+)
+
+(library
+  (name xcp_storage)
+  (public_name xapi-idl.storage)
+  (flags (:standard -w -39))
+  (modules (:standard \ storage_interface storage_test vdi_automaton suite vdi_automaton_test))
+  (libraries
+    rpclib.core
+    threads
+    xapi-stdext-date
+    xapi-idl
+    xapi-idl.storage.interface
+  )
+  (wrapped false)
+  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc))
+)
+
+(executable
+  (name storage_test)
+  (flags (:standard -w -39))
+  (modules storage_test)
+  (libraries
+    cmdliner
+    oUnit
+    xapi-idl
+    xapi-idl.storage
+  )
+  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc))
+)
+
+(executable
+  (name suite)
+  (flags (:standard -w -39))
+  (modules suite vdi_automaton_test)
+  (libraries
+    alcotest
+    xapi-idl.storage.interface
+    xapi-idl.storage.interface.types
+  )
+)
+
+(alias
+  (name runtest)
+  (deps (:x suite.exe))
+  (action (run %{x}))
+)

@@ -1,0 +1,74 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+
+(library
+  (name xcp_rrd_interface_types)
+  (public_name xapi-idl.rrd.interface.types)
+  (modules data_source)
+  (flags (:standard -w -39))
+  (libraries
+    rpclib.core
+    rrd
+    threads
+    xapi-idl
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc %s))
+)
+
+(library
+  (name xcp_rrd_interface)
+  (public_name xapi-idl.rrd.interface)
+  (modules rrd_interface)
+  (flags (:standard -w -39))
+  (libraries
+    rpclib.core
+    rrd
+    threads
+    xapi-idl
+    xapi-idl.rrd.interface.types
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc %s))
+)
+
+(library
+  (name xcp_rrd)
+  (public_name xapi-idl.rrd)
+  (modules (:standard \ data_source rrd_interface rrd_cli))
+  (flags (:standard -w -39))
+  (libraries
+    rpclib.core
+    rrd
+    threads
+    xapi-idl
+    xapi-idl.rrd.interface
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc %s))
+)
+
+(executable
+  (name rrd_cli)
+  (modules rrd_cli)
+  (libraries
+    cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xapi-idl.rrd
+  )
+)
+
+(alias
+  (name runtest)
+  (deps (:x rrd_cli.exe))
+  (action (run %%{x}))
+)
+
+|} coverage_rewriter coverage_rewriter coverage_rewriter

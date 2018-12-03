@@ -1,0 +1,11 @@
+(executable
+  (name channel_helper)
+  (modules channel_helper)
+  (libraries
+    cmdliner
+    lwt
+    lwt.unix
+    xapi-idl
+  )
+  (preprocess (pps ppx_deriving_rpc))
+)

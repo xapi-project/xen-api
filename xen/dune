@@ -1,0 +1,56 @@
+(* -*- tuareg -*- *)
+
+(* (preprocess (pps)) doesn't work with camlp4 and  the other ppx derivers,
+   it complains about missing rpc_of_t *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+
+(library
+  (name xcp_xen_interface_types)
+  (public_name xapi-idl.xen.interface.types)
+  (modules xenops_types device_number)
+  (flags (:standard -w -39-32))
+  (libraries
+    rpclib.core
+    threads
+    xapi-idl
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
+)
+
+(library
+  (name xcp_xen_interface)
+  (public_name xapi-idl.xen.interface)
+  (modules xenops_interface)
+  (flags (:standard -w -39))
+  (libraries
+    rpclib.core
+    threads
+    xapi-idl
+    xapi-idl.xen.interface.types
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
+)
+
+(library
+  (name xcp_xen)
+  (public_name xapi-idl.xen)
+  (modules (:standard \ device_number xenops_interface xenops_types))
+  (flags (:standard -w -39))
+  (libraries
+    rpclib.core
+    threads
+    xapi-idl
+    xapi-idl.xen.interface
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
+)
+|} coverage_rewriter coverage_rewriter coverage_rewriter

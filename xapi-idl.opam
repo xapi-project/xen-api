@@ -5,8 +5,36 @@ bug-reports: "https://github.com/xapi-project/xcp-idl/issues"
 dev-repo: "git://github.com/xapi-project/xcp-idl"
 maintainer: "xen-api@lists.xen.org"
 tags: [ "org:xapi-project" ]
-depends: ["ocaml" "xcp"]
-synopsis: "Interface descriptions and common boilerplate for xapi services."
+depends: [
+  "ocaml"
+  "dune" {build}
+  "alcotest"
+  "astring"
+  "cmdliner"
+  "cohttp"
+  "fd-send-recv"
+  "logs"
+  "message-switch-core"
+  "message-switch-unix"
+  "ocaml-migrate-parsetree"
+  "ounit"
+  "ppx_deriving_rpc"
+  "ppx_sexp_conv"
+  "re"
+  "rrd"
+  "sexplib"
+  "base-threads"
+  "base-unix"
+  "uri"
+  "xapi-backtrace"
+  "xapi-stdext-date"
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-inventory"
+  "xmlm"
+]
+synopsis: "Interface descriptions and common boilerplate for xapi services"
 description: """
 The xapi toolstack is a set of communicating services including
   - xenopsd: low-level Xen domain management

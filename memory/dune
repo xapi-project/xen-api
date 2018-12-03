@@ -6,32 +6,36 @@ let coverage_rewriter =
   | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(jbuild_version 1)
 
 (library
- ((name xapi_gpumon)
-  (public_name xcp.gpumon)
-  (flags (:standard -w -39-33))
-  (modules (:standard \ gpumon_cli ))
+  (name xcp_memory)
+  (public_name xapi-idl.memory)
+  (flags (:standard -w -39))
+  (modules (:standard \ memory_cli))
   (libraries
-   (rpclib.core
+    rpclib.core
     threads
-    xcp))
+    xapi-idl
+  )
   (wrapped false)
-  (preprocess (pps (ppx_deriving_rpc %s)))))
+  (preprocess (pps ppx_deriving_rpc %s))
+)
 
 (executable
- ((name gpumon_cli)
-  (modules (gpumon_cli))
+  (name memory_cli)
+  (modules memory_cli)
   (libraries
-   (cmdliner
+    cmdliner
     rpclib.cmdliner
     rpclib.markdown
-    xcp.gpumon))))
+    xapi-idl.memory
+  )
+)
 
 (alias
- ((name runtest)
-  (deps (gpumon_cli.exe))
-  (action (run ${<}))))
+  (name runtest)
+  (deps (:x memory_cli.exe))
+  (action (run %%{x}))
+)
 
 |} coverage_rewriter

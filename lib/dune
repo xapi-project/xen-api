@@ -17,20 +17,20 @@ let runtime_coverage_enabled, coverage_dep =
     "disabled.ml", ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(jbuild_version 1)
 
 (rule
-  ((targets (xcp_coverage.ml))
-   (action (copy coverage/%s ${@}))))
+   (targets xcp_coverage.ml)
+   (action (copy coverage/%s %%{targets}))
+)
 
 (library
- ((name xcp)
-  (public_name xcp)
+  (name xcp)
+  (public_name xapi-idl)
   (flags (:standard -w -39 -warn-error -3))
   (modules (:standard \ scheduler task_server updates))
-  (c_names (syslog_stubs))
+  (c_names syslog_stubs)
   (libraries
-   (%s
+    %s
     cmdliner
     cohttp
     fd-send-recv
@@ -49,17 +49,20 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-stdext-monadic
     xapi-stdext-pervasives
     xapi-stdext-threads
-    xcp-inventory
-    xmlm))
+    xapi-inventory
+    xmlm
+  )
   (wrapped false)
-  (preprocess (pps (ppx_sexp_conv ppx_deriving_rpc %s)))))
+  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc %s))
+)
 
 (library
- ((name xcp_updates)
-  (public_name xcp.updates)
+  (name xcp_updates)
+  (public_name xapi-idl.updates)
   (flags (:standard -w -39))
-  (modules (updates task_server scheduler))
-  (libraries (xcp))
+  (modules updates task_server scheduler)
+  (libraries xapi-idl)
   (wrapped false)
-  (preprocess (pps (ppx_deriving_rpc %s)))))
+  (preprocess (pps ppx_deriving_rpc %s))
+)
 |} runtime_coverage_enabled coverage_dep coverage_rewriter coverage_rewriter

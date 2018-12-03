@@ -6,18 +6,20 @@ let coverage_rewriter =
   | exception Not_found -> ""
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(jbuild_version 1)
 
 (executable
- ((name example)
+  (name example)
   (flags (:standard -w -39))
   (libraries
-   (rpclib.core
-    xcp))
-  (preprocess (pps (ppx_deriving_rpc %s)))))
+    rpclib.core
+    xapi-idl
+  )
+  (preprocess (pps ppx_deriving_rpc %s))
+)
 
 (alias
- ((name runtest)
-  (deps (example.exe))
-  (action (run ${<}))))
+  (name runtest)
+  (deps (:x example.exe))
+  (action (run %%{x}))
+)
 |} coverage_rewriter
