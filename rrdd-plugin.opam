@@ -4,10 +4,10 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/ocaml-rrdd-plugin/issues"
 dev-repo: "git://github.com/xapi-project/ocaml-rrdd-plugin.git"
-build: [["jbuilder" "build" "-p" name "-j" jobs]]
+build: [["dune" "build" "-p" name "-j" jobs]]
 depends: [
   "ocaml"
-  "jbuilder" {build & >= "1.0+beta10"}
+  "dune" {build & >= "1.0+beta10"}
   "astring"
   "rpc"
   "xapi-forkexecd"
