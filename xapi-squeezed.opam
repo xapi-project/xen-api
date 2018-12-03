@@ -1,14 +1,16 @@
-opam-version: "1"
-maintainer: "dave.scott@eu.citrix.com"
-
+opam-version: "2.0"
+author: "dave.scott@eu.citrix.com"
+maintainer: "xen-api@lists.xen.org"
+homepage: "https://github.com/xapi-project/squeezed"
+bug-reports: "https://github.com/xapi-project/squeezed/issues"
+dev-repo: "git://github.com/xapi-project/squeezed.git"
 build: [
-  "jbuilder" "build" "-p" name "-j" jobs
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
 ]
-
-build-test: ["jbuilder" "runtest" "-p" name]
-
 depends: [
-  "jbuilder" {build}
+  "ocaml"
+  "dune" {build}
   "uuidm"
   "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
@@ -24,3 +26,11 @@ depends: [
   "xenstore_transport"
   "xenctrl" {>= "0.9.20"}
 ]
+synopsis: "A memory ballooning daemon for the Xen hypervisor"
+description: """
+The squeezed daemon shares host memory among running VMs using the
+balloon drivers to move memory."""
+url {
+  src:
+    "https://github.com/xapi-project/squeezed/archive/master/master.tar.gz"
+}
