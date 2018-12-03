@@ -189,15 +189,28 @@ let firmware_of_vm vm =
         bad]))
   | exception Not_found -> default_firmware
 
+let varstore_rm_with_sandbox ~__context ~vm_uuid f =
+  let dbg = Context.string_of_task __context in
+  let domid = 0 in
+  let chroot, socket_path = Xenops_sandbox.Varstore_guard.start dbg ~domid ~vm_uuid ~paths:[] in
+  Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f chroot socket_path)
+    (fun () ->
+       let (_: string list) = Xenops_sandbox.Varstore_guard.stop dbg ~domid ~paths:[] in ())
+
 let nvram_post_clone ~__context ~self ~uuid =
   match Db.VM.get_NVRAM ~__context ~self with
   | [] -> ()
   | original ->
     let uuid = Uuid.to_string uuid in
     info "VM %s was cloned: clearing certain UEFI variables" uuid;
-    let (_: string*string) =
-      Forkhelpers.execute_command_get_output
-        !Xapi_globs.varstore_rm ["-c"; uuid] in
+
+    varstore_rm_with_sandbox ~__context ~vm_uuid:uuid (fun chroot socket_path ->
+      Forkhelpers.execute_command_get_output !Xapi_globs.varstore_rm
+        ["-c"; uuid
+        ; "-r"; chroot.root
+        ; "-u"; string_of_int chroot.uid
+        ; "-g"; string_of_int chroot.gid
+        ; "-s"; socket_path ] |> ignore);
     if Db.VM.get_NVRAM ~__context ~self <> original then
       debug "VM %s: NVRAM changed due to clone" uuid
 
