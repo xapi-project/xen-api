@@ -12,6 +12,6 @@
   uri
   uuidm
   vbd_store
-  xcp-inventory
+  xapi-inventory
   xen-api-client-lwt)
 )
