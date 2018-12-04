@@ -1,5 +1,4 @@
 (library
-  (name profiling)
-  (flags (:standard -bin-annot -safe-string))
-  (wrapped false)
+ (name profiling)
+ (wrapped false)
 )

@@ -1,17 +1,18 @@
 (executable
-  (name network_test)
-  (flags (:standard -bin-annot -safe-string))
-  (libraries
-    astring
-    networklibs
-    oUnit
-    profiling
-    xapi-test-utils
-  )
+ (name network_test)
+ (libraries astring networklibs oUnit profiling xapi-test-utils)
 )
 
 (alias
-  (name runtest)
-  (deps (:x network_test.exe) (source_tree jsonrpc_files))
-  (action  (chdir ../ (run %{x})))
+ (name runtest)
+ (deps
+  (:x network_test.exe)
+  (source_tree jsonrpc_files)
+ )
+ (action
+  (chdir
+   ../
+   (run %{x})
+  )
+ )
 )
