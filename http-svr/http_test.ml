@@ -84,7 +84,7 @@ let test_radix_tree1 _ =
 let test_radix_tree2 _ =
   let open Radix_tree in
   let t = make_radix_tree () in
-  let all = fold (fun k v acc -> k :: acc) [] t in
+  let all = fold (fun k _ acc -> k :: acc) [] t in
   if List.length all <> (List.length test_strings)
   then failwith "fold"
 
@@ -92,30 +92,30 @@ let test_url _ =
   let open Http in
   let open Http.Url in
   begin match of_string "file:/var/xapi/storage" with
-    | File { path = "/var/xapi/storage" }, { uri = "/" } -> ()
+    | File { path = "/var/xapi/storage" }, { uri = "/"; _ } -> ()
     | _ -> assert false
   end;
   begin match of_string "http://root:foo@localhost" with
-    | Http t, { uri = "/" } ->
+    | Http t, { uri = "/"; _ } ->
       assert (t.auth = Some(Basic("root", "foo")));
       assert (t.ssl = false);
       assert (t.host = "localhost");
     | _ -> assert false
   end;
   begin match of_string "https://google.com/gmail" with
-    | Http t, { uri = "/gmail" } ->
+    | Http t, { uri = "/gmail"; _ } ->
       assert (t.ssl = true);
       assert (t.host = "google.com");
     | _ -> assert false
   end;
   begin match of_string "https://xapi.xen.org/services/SM" with
-    | Http t, { uri = "/services/SM" } ->
+    | Http t, { uri = "/services/SM"; _ } ->
       assert (t.ssl = true);
       assert (t.host = "xapi.xen.org");
     | _ -> assert false
   end;
   begin match of_string "https://root:foo@xapi.xen.org:1234/services/SM" with
-    | Http t, { uri = "/services/SM" } ->
+    | Http t, { uri = "/services/SM"; _ } ->
       assert (t.auth = Some(Basic("root", "foo")));
       assert (t.port = Some 1234);
       assert (t.ssl = true);

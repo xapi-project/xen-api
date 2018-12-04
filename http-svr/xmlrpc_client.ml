@@ -104,7 +104,7 @@ let run_watchdog timeout (fire_fn : unit -> unit) f (pout,pin) =
   let fired = ref None in
   let th = Thread.create (fun () ->
     match Unix.select [pout] [] [] timeout with
-      | [x],[],[] ->
+      | [_],[],[] ->
         fired := Some false
       | _,_,_ ->
         fire_fn ();

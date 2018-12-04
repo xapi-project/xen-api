@@ -94,7 +94,7 @@ let threads n f =
 
 let sample n f =
   let p = ref Normal_population.empty in
-  for i = 1 to n do
+  for _ = 1 to n do
     let v = f () in
     p := Normal_population.sample !p (float_of_int v);
   done;

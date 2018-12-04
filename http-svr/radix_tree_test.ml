@@ -48,7 +48,7 @@ let check1 () = List.iter
        then failwith (Printf.sprintf "x = %s" x)) test_strings
 
 let check2 () =
-  let all = fold (fun k v acc -> k :: acc) [] t in
+  let all = fold (fun k _ acc -> k :: acc) [] t in
   if List.length all <> (List.length test_strings)
   then failwith "fold"
 
@@ -61,12 +61,12 @@ let _ =
   check2 ();
   let time n f =
     let start = Unix.gettimeofday () in
-    for i = 0 to n do
+    for _ = 0 to n do
       f ()
     done;
     let t = Unix.gettimeofday () -. start in
     float_of_int n /. t in (* ops per sec *)
-  let before = time 1000000 (fun () -> previous_longest_prefix "/") in
+  let before = time 1000000 (fun () -> ignore(previous_longest_prefix "/")) in
   let after = time 1000000 (fun () -> ignore(longest_prefix "/" t)) in
   Printf.printf "Before: %.1f lookups/sec\n" before;
   Printf.printf "After: %.1f lookups/sec\n" after
