@@ -1,3 +1,6 @@
+0.39.0 (04-Dec-2018)
+* This file in no longer maintained. See the Git history'
+
 0.10.0 (14-Aug-2015):
 * Preliminary support for FCoE
 * Support xapi `originator`
@@ -15,7 +18,7 @@
 0.9.4 (3-Jun-2014):
 * Use oasis for building
 * Update to new stdext interface
-* Fix CA-118425/SCTX-1559: An earlier error could cause problems with VLANs 
+* Fix CA-118425/SCTX-1559: An earlier error could cause problems with VLANs
 * Enable LACP bonding on linux bridge
 * Fix CA-116420: Bonds were getting incorrect MAC addresses on 3.x kernels
 * Fix CA-120846: Finding MAC addresses for bonds
