@@ -1,14 +1,17 @@
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 MANDIR ?= /usr/share/man/man1
+JOBS = $(shell getconf _NPROCESSORS_ONLN)
+PROFILE=release
+
 
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	dune build @install @networkd/man --profile=release
+	dune build @install @networkd/man --profile=$(PROFILE) -j $(JOBS)
 
 build:
-	dune build @install @networkd/man
+	dune build @install @networkd/man -j $(JOBS)
 
 install:
 	mkdir -p $(DESTDIR)$(SBINDIR)
@@ -27,11 +30,11 @@ clean:
 	dune clean
 
 test:
-	dune runtest --profile=release
+	dune runtest --profile=$(PROFIE)
 
 # requires odoc
 doc:
-	dune build @doc --profile=release
+	dune build @doc --profile=$(PROFILE)
 
 reindent:
 	ocp-indent --inplace **/*.ml*
