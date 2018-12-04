@@ -65,7 +65,7 @@ let read_management_conf () =
         bridge
     in
     let mac = Network_utils.Ip.get_mac device in
-    let ipv4_conf, ipv4_gateway, dns =
+    let ipv4_conf, ipv4_gateway, _dns =
       match List.assoc "MODE" args with
       | "static" ->
         let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in

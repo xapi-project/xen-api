@@ -12,12 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_pervasives.Pervasiveext
-open Network_utils
-
 module D = Debug.Make(struct let name = "networkd" end)
-open D
-
 
 let resources = [
   { Xcp_service.name = "network-conf";

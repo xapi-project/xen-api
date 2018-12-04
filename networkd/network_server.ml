@@ -14,8 +14,6 @@
 
 open Network_utils
 open Network_interface
-open Xapi_stdext_std
-open Xapi_stdext_unix
 open Xapi_stdext_monadic
 
 module S = Network_interface.Interface_API(Idl.Exn.GenServer ())
@@ -76,7 +74,7 @@ let clear_state () =
 let reset_state () =
   config := Network_config.read_management_conf ()
 
-let set_gateway_interface dbg name =
+let set_gateway_interface _dbg name =
   (* Update dhclient conf for interface on changing default gateway.
      	 * If new default gateway is not same as gateway_interface from networkd.db then
      	 * we need to remove gateway information from gateway_interface *)
@@ -93,7 +91,7 @@ let set_gateway_interface dbg name =
   debug "Setting gateway interface to %s" name;
   config := {!config with gateway_interface = Some name}
 
-let set_dns_interface dbg name =
+let set_dns_interface _dbg name =
   debug "Setting DNS interface to %s" name;
   config := {!config with dns_interface = Some name}
 
@@ -127,12 +125,12 @@ module Sriov = struct
 
   let get_capabilities dev =
     let open Rresult.R.Infix in
-    let maxvfs_modprobe = 
+    let maxvfs_modprobe =
       Sysfs.get_driver_name_err dev >>= fun driver ->
       Modprobe.get_config_from_comments driver
       |> Modprobe.get_maxvfs driver
     and maxvfs_sysfs = Sysfs.get_sriov_maxvfs dev in
-    let is_support = 
+    let is_support =
       match maxvfs_modprobe, maxvfs_sysfs with
       | Ok v, _ -> v > 0
       | Error _ , Ok v -> v > 0
@@ -209,7 +207,7 @@ module Sriov = struct
         debug "Config VF with pci address: %s" pcibuspath;
         match make_vf_conf_internal pcibuspath vf_info.mac vlan rate with
         | Result.Ok () -> (Ok:config_result)
-        | Result.Error (Fail_to_set_vf_rate, msg) -> 
+        | Result.Error (Fail_to_set_vf_rate, msg) ->
           debug "%s" msg;
           Error Config_vf_rate_not_supported
         | Result.Error (_, msg) -> debug "%s" msg; Error (Unknown msg)
@@ -364,7 +362,7 @@ module Interface = struct
             ignore (Dhclient.stop ~ipv6:true name);
           Sysctl.set_ipv6_autoconf name false;
           (* add the link_local and clean the old one only when needed *)
-          let cur_addrs = 
+          let cur_addrs =
             let addrs = Ip.get_ipv6 name in
             let maybe_link_local = Ip.split_addr (Ip.get_ipv6_link_local_addr name) in
             match maybe_link_local with
@@ -411,7 +409,7 @@ module Interface = struct
         List.iter (fun r -> Ip.set_route ~network:(r.subnet, r.netmask) name r.gateway) routes
       ) ()
 
-  let get_dns dbg name =
+  let get_dns dbg _name =
     Debug.with_thread_associated dbg (fun () ->
         let nameservers, domains = Xapi_stdext_unix.Unixext.file_lines_fold (fun (nameservers, domains) line ->
             if Astring.String.is_prefix ~affix:"nameserver" line then
@@ -464,7 +462,7 @@ module Interface = struct
     Debug.with_thread_associated dbg (fun () ->
         debug "Configuring ethtool settings for %s: %s" name
           (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-        let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default_interface.ethtool_settings in
+        let add_defaults = List.filter (fun (k, _) -> not (List.mem_assoc k params)) default_interface.ethtool_settings in
         let params = params @ add_defaults in
         update_config name {(get_config name) with ethtool_settings = params};
         Ethtool.set_options name params
@@ -474,7 +472,7 @@ module Interface = struct
     Debug.with_thread_associated dbg (fun () ->
         debug "Configuring ethtool offload settings for %s: %s" name
           (String.concat ", " (List.map (fun (k, v) -> k ^ "=" ^ v) params));
-        let add_defaults = List.filter (fun (k, v) -> not (List.mem_assoc k params)) default_interface.ethtool_offload in
+        let add_defaults = List.filter (fun (k, _) -> not (List.mem_assoc k params)) default_interface.ethtool_offload in
         let params = params @ add_defaults in
         update_config name {(get_config name) with ethtool_offload = params};
         Ethtool.set_offload name params
@@ -534,7 +532,7 @@ module Interface = struct
           if conservative then begin
             (* Do not touch non-persistent interfaces *)
             debug "Only configuring persistent interfaces";
-            List.filter (fun (name, interface) -> interface.persistent_i) config
+            List.filter (fun (_name, interface) -> interface.persistent_i) config
           end else
             config
         in
@@ -709,11 +707,11 @@ module Bridge = struct
                   (debug "%s isn't a valid setting for other_config:vswitch-disable-in-band" dib;
                    None)
             in
-            let old_igmp_snooping = Ovs.get_mcast_snooping_enable name in
+            let old_igmp_snooping = Ovs.get_mcast_snooping_enable ~name in
             ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band ?igmp_snooping
                       vlan vlan_bug_workaround name);
             if igmp_snooping = Some true && not old_igmp_snooping then
-              Ovs.inject_igmp_query name
+              Ovs.inject_igmp_query ~name
 
           | Bridge ->
             ignore (Brctl.create_bridge name);
@@ -832,8 +830,8 @@ module Bridge = struct
   let get_all_ports dbg from_cache =
     Debug.with_thread_associated dbg (fun () ->
         if from_cache then
-          let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
-          List.map (fun (port, {interfaces}) -> port, interfaces) ports
+          let ports = List.concat (List.map (fun (_, {ports;_}) -> ports) !config.bridge_config) in
+          List.map (fun (port, {interfaces;_}) -> port, interfaces) ports
         else
           match !backend_kind with
           | Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
@@ -850,8 +848,8 @@ module Bridge = struct
   let get_all_bonds dbg from_cache =
     Debug.with_thread_associated dbg (fun () ->
         if from_cache then
-          let ports = List.concat (List.map (fun (_, {ports}) -> ports) !config.bridge_config) in
-          let names = List.map (fun (port, {interfaces}) -> port, interfaces) ports in
+          let ports = List.concat (List.map (fun (_, {ports;_}) -> ports) !config.bridge_config) in
+          let names = List.map (fun (port, {interfaces;_}) -> port, interfaces) ports in
           List.filter (fun (_, ifs) -> List.length ifs > 1) names
         else
           match !backend_kind with
@@ -911,7 +909,8 @@ module Bridge = struct
         | Bridge -> ()
       ) ()
 
-  let add_basic_port dbg bridge name {interfaces; bond_mac; bond_properties} =
+  let add_basic_port dbg bridge name
+    {interfaces; bond_mac; bond_properties;_} =
     match !backend_kind with
     | Openvswitch ->
       if List.length interfaces = 1 then begin
@@ -963,7 +962,7 @@ module Bridge = struct
       end else
         ignore (Brctl.create_port bridge name)
 
-  let add_pvs_proxy_port dbg bridge name port =
+  let add_pvs_proxy_port dbg bridge name _port =
     match !backend_kind with
     | Openvswitch ->
       ignore (Ovs.create_port ~internal:true name bridge);
@@ -1077,7 +1076,7 @@ module Bridge = struct
 
   let make_config dbg conservative config =
     Debug.with_thread_associated dbg (fun () ->
-        let vlans_go_last (_, {vlan=vlan_of_a}) (_, {vlan=vlan_of_b}) =
+      let vlans_go_last (_, {vlan=vlan_of_a;_}) (_, {vlan=vlan_of_b;_}) =
           if vlan_of_a = None && vlan_of_b = None then 0
           else if vlan_of_a <> None && vlan_of_b = None then 1
           else if vlan_of_a = None && vlan_of_b <> None then -1
@@ -1085,11 +1084,11 @@ module Bridge = struct
         in
         let config =
           if conservative then begin
-            let persistent_config = List.filter (fun (name, bridge) -> bridge.persistent_b) config in
+            let persistent_config = List.filter (fun (_name, bridge) -> bridge.persistent_b) config in
             debug "Ensuring the following persistent bridges are up: %s"
               (String.concat ", " (List.map (fun (name, _) -> name) persistent_config));
             let vlan_parents = Xapi_stdext_std.Listext.List.filter_map (function
-                | (_, {vlan=Some (parent, _)}) ->
+              | (_, {vlan=Some (parent, _);_}) ->
                   if not (List.mem_assoc parent persistent_config) then
                     Some (parent, List.assoc parent config)
                   else
@@ -1132,13 +1131,13 @@ module PVS_proxy = struct
       error "Error when calling PVS proxy: %s" (Printexc.to_string e);
       raise (Network_error PVS_proxy_connection_error)
 
-  let configure_site dbg config =
+  let configure_site _dbg config =
     debug "Configuring PVS proxy for site %s" config.site_uuid;
     let call = {Rpc.name = "configure_site"; params = [Rpcmarshal.marshal t.ty config]} in
     let _ = do_call call in
     ()
 
-  let remove_site dbg uuid =
+  let remove_site _dbg uuid =
     debug "Removing PVS proxy for site %s" uuid;
     let call = Rpc.{name = "remove_site"; params = [Dict ["site_uuid", Rpcmarshal.marshal Rpc.Types.string.ty uuid]]} in
     let _ = do_call call in
@@ -1156,7 +1155,7 @@ let on_startup () =
           let file = String.trim (Xapi_stdext_unix.Unixext.string_of_file "/etc/sysconfig/network") in
           let args = Astring.String.cuts ~empty:false ~sep:"\n" file in
           let args = List.map (fun s -> match (Astring.String.cuts ~sep:"=" s) with k :: [v] -> k, v | _ -> "", "") args in
-          let args = List.filter (fun (k, v) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
+          let args = List.filter (fun (k, _) -> k <> "DNSDEV" && k <> "GATEWAYDEV") args in
           let s = String.concat "\n" (List.map (fun (k, v) -> k ^ "=" ^ v) args) ^ "\n" in
           Xapi_stdext_unix.Unixext.write_string_to_file "/etc/sysconfig/network" s
         with _ -> ()

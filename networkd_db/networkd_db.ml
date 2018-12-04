@@ -17,7 +17,7 @@ open Network_interface
 let name = "networkd_db"
 
 (* catch signals for clean shutdown *)
-let stop signal =
+let stop _signal =
   exit 0
 
 let handle_shutdown () =
