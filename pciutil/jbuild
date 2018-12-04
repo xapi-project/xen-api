@@ -1,6 +1,0 @@
-(library
- ((name pciutil)
-  (public_name pciutil)
-  (libraries (threads
-              xapi-stdext-unix))
- ))

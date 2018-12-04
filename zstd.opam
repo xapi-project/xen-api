@@ -5,10 +5,10 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
 dev-repo: "https://github.com/xapi-project/xen-api-libs-transitional.git"
 
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build: [[ "dune" "build" "-p" name "-j" jobs ]]
 
 available: [ os = "linux" ]
 depends: [
-  "jbuilder" {build}
+  "dune" {build}
   "xapi-compression"
 ]

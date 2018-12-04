@@ -1,0 +1,5 @@
+(library
+  (name gzip)
+  (public_name gzip)
+  (libraries xapi-compression)
+)

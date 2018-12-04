@@ -21,7 +21,7 @@ synopsis: "Further transitional libraries required by xapi"
 description: """
 These libraries are provided for backwards compatibility only.
 No new code should use these libraries."""
-build: ["jbuilder" "runtest" "-j" jobs] {with-test}
+build: ["dune" "runtest" "-j" jobs] {with-test}
 url {
   src:
     "https://github.com/xapi-project/xen-api-libs-transitional/archive/master.tar.gz"

@@ -4,26 +4,26 @@ OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	jbuilder build @install
+	dune build @install
 
 build:
-	jbuilder build @install --dev
+	dune build @install --dev
 
 install:
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 uninstall:
-	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc
 
 reindent:
 	git ls-files '*.ml' '*.mli' | xargs ocp-indent --inplace

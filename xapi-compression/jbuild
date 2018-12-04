@@ -1,9 +1,0 @@
-(library
- ((name xapi_compression)
-  (public_name xapi-compression)
-  (libraries
-   (forkexec
-    threads
-    xapi-stdext-pervasives
-    xapi-stdext-unix))
- ))

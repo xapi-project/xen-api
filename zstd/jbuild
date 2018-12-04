@@ -1,6 +1,0 @@
-(library
- ((name zstd)
-  (public_name zstd)
-  (libraries
-   (xapi-compression))
- ))
