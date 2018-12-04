@@ -30,7 +30,12 @@ clean:
 	dune clean
 
 test:
-	dune runtest --profile=$(PROFIE)
+	dune runtest --profile=$(PROFILE)
+
+gprof:
+	dune runtest --profile=gprof
+	@echo "To view results, run:"
+	@echo "gprof _build/default/test/network_test.exe _build/default/gmon.out"
 
 # requires odoc
 doc:
