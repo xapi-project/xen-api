@@ -5,8 +5,8 @@ install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.t
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - PACKAGE="xcp-networkd"
-    - PINS="xcp-networkd:."
-    - BASE_REMOTE="https://github.com/xcp-networkd-project/xs-opam.git"
+    - PACKAGE="xapi-networkd"
+    - PINS="xapi-networkd:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
     - DISTRO="debian-9-ocaml-4.06"

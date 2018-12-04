@@ -1,5 +1,5 @@
 opam-version: "2.0"
-maintainer: "jonathan.ludlam@eu.citrix.com"
+maintainer: "xen-api@lists.xen.org"
 authors: "jonathan.ludlam@eu.citrix.com"
 homepage: "https://github.com/xapi-project/xcp-networkd"
 dev-repo: "git+https://github.com/xapi-project/xcp-networkd.git"
@@ -9,16 +9,22 @@ build: [
   ["dune" "runtest" "-p" name] {with-test}
 ]
 depends: [
-  "ocaml"
-  "dune" {build}
+  "astring"          
+  "base-threads"
+  "forkexec"
+  "mtime"
   "netlink"
-  "rpc"
+  "ounit"
+  "re"
+  "rpclib"
   "systemd"
-  "xapi-forkexecd"
   "xapi-idl"
   "xapi-inventory"
-  "xapi-libs-transitional"
-  "xapi-stdext" {>= "3.0.0"}
+  "xapi-stdext-monadic"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
+  "xapi-test-utils"
   "xen-api-client"
 ]
 synopsis: "The XCP networking daemon"
