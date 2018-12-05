@@ -1,6 +1,11 @@
 (executable
  (name network_test)
- (libraries astring networklibs oUnit profiling xapi-test-utils)
+ (libraries
+  astring
+  networklibs
+  oUnit
+  profiling
+  xapi-test-utils)
 )
 
 (alias
@@ -10,9 +15,7 @@
   (source_tree jsonrpc_files)
  )
  (action
-  (chdir
-   ../
-   (run %{x})
+  (chdir ../ (run %{x})
   )
  )
 )

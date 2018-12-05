@@ -24,8 +24,22 @@
  (name networkd)
  (public_name xapi-networkd)
  (package xapi-networkd)
- (libraries forkexec netlink networklibs profiling rpclib systemd threads xapi-stdext-monadic xapi-stdext-pervasives xapi-stdext-threads xapi-stdext-unix xapi-inventory xapi-idl xapi-idl.network xen-api-client)
-)
+ (libraries
+  forkexec
+  netlink
+  networklibs
+  profiling
+  rpclib
+  systemd
+  threads
+  xapi-stdext-monadic
+  xapi-stdext-pervasives
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi-inventory
+  xapi-idl
+  xapi-idl.network
+  xen-api-client))
 
 (alias
  (name man)
