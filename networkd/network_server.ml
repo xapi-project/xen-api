@@ -376,16 +376,6 @@ module Interface = struct
       end
       ) ()
 
-  let get_ipv6_gateway _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        let output = Ip.route_show ~version:Ip.V6 name in
-        try
-          let line = List.find (fun s -> Astring.String.is_prefix ~affix:"default via" s) (Astring.String.cuts ~empty:false ~sep:"\n" output) in
-          let addr = List.nth (Astring.String.cuts ~empty:false ~sep:" " line) 2 in
-          Some (Unix.inet_addr_of_string addr)
-        with Not_found -> None
-      ) ()
-
   let set_ipv6_gateway _ dbg ~name ~address =
     Debug.with_thread_associated dbg (fun () ->
       if Proc.get_ipv6_disabled () then
@@ -511,11 +501,6 @@ module Interface = struct
         Ip.link_set_down name
       ) ()
 
-  let is_persistent _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        (get_config name).persistent_i
-      ) ()
-
   let set_persistent dbg name value =
     Debug.with_thread_associated dbg (fun () ->
         debug "Making interface %s %spersistent" name (if value then "" else "non-");
@@ -597,13 +582,6 @@ module Bridge = struct
     with _ ->
       warn "Network-conf file not found. Falling back to Open vSwitch.";
       backend_kind := Openvswitch
-
-  let get_bond_links_up _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        match !backend_kind with
-        | Openvswitch -> Ovs.get_bond_links_up name
-        | Bridge -> Proc.get_bond_links_up name
-      ) ()
 
   let get_all dbg () =
     Debug.with_thread_associated dbg (fun () ->
@@ -820,13 +798,6 @@ module Bridge = struct
         !backend_kind
       ) ()
 
-  let get_ports _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        match !backend_kind with
-        | Openvswitch -> Ovs.bridge_to_ports name
-        | Bridge -> raise (Network_error Not_implemented)
-      ) ()
-
   let get_all_ports dbg from_cache =
     Debug.with_thread_associated dbg (fun () ->
         if from_cache then
@@ -836,13 +807,6 @@ module Bridge = struct
           match !backend_kind with
           | Openvswitch -> List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
           | Bridge -> raise (Network_error Not_implemented)
-      ) ()
-
-  let get_bonds _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        match !backend_kind with
-        | Openvswitch -> Ovs.bridge_to_ports name
-        | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let get_all_bonds dbg from_cache =
@@ -893,13 +857,6 @@ module Bridge = struct
               in
               {slave; up; active}
             ) slaves
-      ) ()
-
-  let get_vlan _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        match !backend_kind with
-        | Openvswitch -> Ovs.bridge_to_vlan name
-        | Bridge -> raise (Network_error Not_implemented)
       ) ()
 
   let add_default_flows _ dbg bridge mac interfaces =
@@ -1049,23 +1006,6 @@ module Bridge = struct
             Linux_bonding.get_bond_slaves (List.hd bond_ifaces)
           else
             physical_ifaces
-      ) ()
-
-  let get_fail_mode _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        match !backend_kind with
-        | Openvswitch ->
-          begin match Ovs.get_fail_mode name with
-            | "standalone" -> Some Standalone
-            | "secure" -> Some Secure
-            | _ -> None
-          end
-        | Bridge -> raise (Network_error Not_implemented)
-      ) ()
-
-  let is_persistent _ dbg ~name =
-    Debug.with_thread_associated dbg (fun () ->
-        (get_config name).persistent_b
       ) ()
 
   let set_persistent dbg name value =

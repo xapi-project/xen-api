@@ -416,11 +416,6 @@ module Ip = struct
   let get_mtu dev =
     int_of_string (List.hd (link dev "mtu"))
 
-  let get_state dev =
-    match addr dev "state" with
-    | "UP" :: _ -> true
-    | _ -> false
-
   let get_mac dev =
     List.hd (link dev "link/ether")
 
@@ -897,10 +892,6 @@ module Proc = struct
       error "Error: could not read /proc/net/vlan/config";
       []
 
-  let get_bond_links_up name =
-    let statusses = get_bond_slave_info name "MII Status" in
-    List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
-
   let get_ipv6_disabled () =
     try
       Unixext.string_of_file "/proc/sys/net/ipv6/conf/all/disable_ipv6"
@@ -1024,11 +1015,6 @@ module Ovs = struct
             slaves, active_slave
           ) ([], None) lines
       with _ -> [], None
-
-    let get_bond_links_up name =
-      let slaves, _ = get_bond_link_status name in
-      let links_up = List.filter snd slaves in
-      List.length (links_up)
 
     let get_bond_mode name =
       try
@@ -1208,9 +1194,6 @@ module Ovs = struct
 
     let destroy_port name =
       vsctl ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
-
-    let port_to_bridge name =
-      vsctl ~log:false ["port-to-br"; name]
 
     let make_bond_properties name properties =
       let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay";

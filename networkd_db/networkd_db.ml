@@ -16,15 +16,6 @@ open Network_interface
 
 let name = "networkd_db"
 
-(* catch signals for clean shutdown *)
-let stop _signal =
-  exit 0
-
-let handle_shutdown () =
-  Sys.set_signal Sys.sigterm (Sys.Signal_handle stop);
-  Sys.set_signal Sys.sigint (Sys.Signal_handle stop);
-  Sys.set_signal Sys.sigpipe Sys.Signal_ignore
-
 let _ =
   let bridge = ref "" in
   let iface = ref "" in
