@@ -3,4 +3,6 @@
 
 The easiest way to install is via opam:
 
+  opam repo add xs-opam https://github.com/xapi-project/xs-opam.git
   opam pin add .
+

@@ -1,17 +1,16 @@
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 MANDIR ?= /usr/share/man/man1
-JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 
 
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	dune build @install @networkd/man --profile=$(PROFILE) -j $(JOBS)
+	dune build @install @networkd/man --profile=$(PROFILE)
 
 build:
-	dune build @install @networkd/man -j $(JOBS)
+	dune build @install @networkd/man
 
 install:
 	mkdir -p $(DESTDIR)$(SBINDIR)
