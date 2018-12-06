@@ -147,13 +147,14 @@ def main(argv):
     # prepare the correct set of ACPI tables in hvmloader
     xenstore_write("/local/domain/%d/platform/device-model" % domid, "qemu_xen")
 
-    trad_compat = 'true'
+    trad_compat = '-trad-compat' in argv
     igdpt = ''
+    machine = 'pc-0.10' if trad_compat else 'pc-i440fx-2.10'
 
     qemu_args.extend(['-machine',
-                      'pc-0.10,accel=xen,max-ram-below-4g=%lu,'
+                      '%s,accel=xen,max-ram-below-4g=%lu,'
                       'allow-unassigned=true,trad_compat=%s%s'
-                      % (mmio_start, trad_compat, igdpt)])
+                      % (machine, mmio_start, trad_compat, igdpt)])
 
     qemu_args.extend(argv[2:])
 
@@ -164,8 +165,11 @@ def main(argv):
 
     vga_type = 'cirrus-vga'
     vgamem_mb = 4
-    vga_extra_props = ["rombar=1,romfile=",
-                       "subvendor_id=0x5853,subsystem_id=0x0001,addr=2"]
+    vga_extra_props = ["addr=2"]
+    vga_extra_props += ["romfile="]
+    if trad_compat:
+        vga_extra_props += ["rombar=1",
+                            "subvendor_id=0x5853,subsystem_id=0x0001"]
     upgraded_save_image = None
     serial_c = ''
     tmp_serial_c = ''
@@ -189,6 +193,10 @@ def main(argv):
             depriv = False
             continue
 
+        if p == "-trad-compat":
+            del qemu_args[n]
+            continue
+
         if p == "-acpi":
             del qemu_args[n]
             continue
@@ -201,7 +209,8 @@ def main(argv):
 
         if p == "-std-vga":
             vga_type = 'VGA'
-            vga_extra_props += ['qemu-extended-regs=false']
+            if trad_compat:
+                vga_extra_props += ['qemu-extended-regs=false']
             del qemu_args[n]
             continue
 
@@ -212,7 +221,8 @@ def main(argv):
 
         if p == "-xengt":
             vga_type = 'VGA'
-            vga_extra_props += ['qemu-extended-regs=false']
+            if trad_compat:
+                vga_extra_props += ['qemu-extended-regs=false']
             n += 1
             continue
 

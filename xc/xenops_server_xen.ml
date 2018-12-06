@@ -2269,7 +2269,10 @@ module VGPU = struct
            | { VmExtra.build_info = Some build_info } ->
              build_info.Domain.vcpus
          in
-         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus
+         let profile = match vmextra.VmExtra.persistent.profile with
+           | None -> Device.Profile.Qemu_upstream_compat
+           | Some p -> p in
+         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus profile
       ) vm
 
   let get_state vm vgpu =
