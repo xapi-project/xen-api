@@ -4,7 +4,7 @@ OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	dune build @install
+	dune build @install --profile=release
 
 build:
 	dune build @install --dev
