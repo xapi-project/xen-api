@@ -1,11 +1,13 @@
 BINDIR ?= /usr/bin
 SBINDIR ?= /usr/sbin
 MANDIR ?= /usr/share/man/man1
+PROFILE=release
+
 
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
-	dune build @install @networkd/man --profile=release
+	dune build @install @networkd/man --profile=$(PROFILE)
 
 build:
 	dune build @install @networkd/man
@@ -27,11 +29,16 @@ clean:
 	dune clean
 
 test:
-	dune runtest --profile=release
+	dune runtest --profile=$(PROFILE)
+
+gprof:
+	dune runtest --profile=gprof
+	@echo "To view results, run:"
+	@echo "gprof _build/default/test/network_test.exe _build/default/gmon.out"
 
 # requires odoc
 doc:
-	dune build @doc --profile=release
+	dune build @doc --profile=$(PROFILE)
 
 reindent:
 	ocp-indent --inplace **/*.ml*

@@ -14,7 +14,6 @@
 
 open Xapi_stdext_pervasives
 open Xapi_stdext_unix
-open Xapi_stdext_std
 open Network_interface
 
 module D = Debug.Make(struct let name = "network_utils" end)
@@ -93,7 +92,7 @@ let check_n_run ?(on_error=default_error_handler) ?(log=true) run_func script ar
 
 let call_script ?(timeout=Some 60.0) ?on_error ?log script args =
   let call_script_internal env script args =
-    let (out,err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
+    let (out,_err) = Forkhelpers.execute_command_get_output ~env ?timeout script args in
     out
   in
   check_n_run ?on_error ?log call_script_internal script args
@@ -155,7 +154,7 @@ module Sysfs = struct
     try
       output_string outchan (l ^ "\n");
       close_out outchan
-    with exn -> close_out outchan; raise (Network_error (Write_error file))
+    with _ -> close_out outchan; raise (Network_error (Write_error file))
 
   let is_physical name =
     try
@@ -175,7 +174,7 @@ module Sysfs = struct
     try
       let devpath = Unix.readlink (getpath name "device") in
       List.hd (List.rev (Astring.String.cuts ~empty:false ~sep:"/" devpath))
-    with exn -> "N/A"
+    with _ -> "N/A"
 
   let get_pci_ids name =
     let read_id_from path =
@@ -193,7 +192,7 @@ module Sysfs = struct
     try
       let driver_path = Unix.readlink (getpath dev "device/driver") in
       match Astring.String.cut ~sep:"/" ~rev:true driver_path with
-      | Some (prefix, suffix) -> Some suffix
+      | Some (_prefix, suffix) -> Some suffix
       | None ->
         debug "get %s driver name: %s does not contain slash" dev driver_path;
         None
@@ -416,11 +415,6 @@ module Ip = struct
 
   let get_mtu dev =
     int_of_string (List.hd (link dev "mtu"))
-
-  let get_state dev =
-    match addr dev "state" with
-    | "UP" :: _ -> true
-    | _ -> false
 
   let get_mac dev =
     List.hd (link dev "link/ether")
@@ -748,7 +742,7 @@ module Dhclient = struct
     let ipv6' = if ipv6 then "6" else "" in
     Filename.concat "/var/lib/xcp" (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
-  let generate_conf ?(ipv6=false) interface options =
+  let[@warning "-27"] generate_conf ?(ipv6=false) interface options =
     let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
                    "nis-servers"; "ntp-servers"; "interface-mtu"] in
     let set_gateway = 
@@ -874,7 +868,7 @@ module Proc = struct
         loop None [] lines
       in
       check_lines lines
-    with e ->
+    with _ ->
       error "Error: could not read %s." (bonding_dir ^ name);
       []
 
@@ -894,13 +888,9 @@ module Proc = struct
           with _ ->
             vlans
         ) [] "/proc/net/vlan/config"
-    with e ->
+    with _ ->
       error "Error: could not read /proc/net/vlan/config";
       []
-
-  let get_bond_links_up name =
-    let statusses = get_bond_slave_info name "MII Status" in
-    List.fold_left (fun x (_, y) -> x + (if y = "up" then 1 else 0)) 0 statusses
 
   let get_ipv6_disabled () =
     try
@@ -1002,7 +992,7 @@ module Ovs = struct
 
     let get_real_bridge name =
       match bridge_to_vlan name with
-      | Some (parent, vlan) -> parent
+      | Some (parent, _vlan) -> parent
       | None -> name
 
     let get_bond_link_status name =
@@ -1025,11 +1015,6 @@ module Ovs = struct
             slaves, active_slave
           ) ([], None) lines
       with _ -> [], None
-
-    let get_bond_links_up name =
-      let slaves, _ = get_bond_link_status name in
-      let links_up = List.filter snd slaves in
-      List.length (links_up)
 
     let get_bond_mode name =
       try
@@ -1119,7 +1104,7 @@ module Ovs = struct
 
     let inject_igmp_query ~name =
       try
-        let vvifs = get_bridge_vlan_vifs name in
+        let vvifs = get_bridge_vlan_vifs ~name in
         let bvifs = bridge_to_interfaces name in
         let bvifs' = List.filter (fun vif -> Astring.String.is_prefix ~affix:"vif" vif) bvifs in
         (* The vifs may be large. However considering current XS limit of 1000VM*7NIC/VM + 800VLANs, the buffer of CLI should be sufficient for lots of vifxxxx.xx *)
@@ -1209,9 +1194,6 @@ module Ovs = struct
 
     let destroy_port name =
       vsctl ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
-
-    let port_to_bridge name =
-      vsctl ~log:false ["port-to-br"; name]
 
     let make_bond_properties name properties =
       let known_props = ["mode"; "hashing-algorithm"; "updelay"; "downdelay";
@@ -1422,7 +1404,7 @@ module Modprobe = struct
   let get_config_from_comments driver =
     try
       let open Xapi_stdext_std.Listext in
-      Unixext.read_lines (getpath driver)
+      Unixext.read_lines ~path:(getpath driver)
       |> List.filter_map (fun x ->
           let line = String.trim x in
           if not (Astring.String.is_prefix ~affix:("# ") line)
@@ -1501,7 +1483,7 @@ module Modprobe = struct
       else
         trimed_s
     in
-    let lines = try Unixext.read_lines (getpath driver) with _ -> [] in
+    let lines = try Unixext.read_lines ~path:(getpath driver) with _ -> [] in
     let new_conf = List.map parse_single_line lines in
     match !has_probe_conf, !need_rebuild_initrd with
     | true, true ->

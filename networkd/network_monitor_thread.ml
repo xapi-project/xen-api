@@ -32,7 +32,7 @@ let xapi_rpc xml =
   let open Xmlrpc_client in
   XMLRPC_protocol.rpc ~srcstr:"xcp-networkd" ~dststr:"xapi" ~transport:(Unix "/var/xapi/xapi") ~http:(xmlrpc ~version:"1.0" "/") xml
 
-let send_bond_change_alert dev interfaces message =
+let send_bond_change_alert _dev interfaces message =
   let ifaces = String.concat "+" (List.sort String.compare interfaces) in
   let module XenAPI = Client.Client in
   let session_id = XenAPI.Session.login_with_password
@@ -156,7 +156,7 @@ let rec monitor dbg () =
      let transform_taps devs =
        let newdevnames = Xapi_stdext_std.Listext.List.setify (List.map fst devs) in
        List.map (fun name ->
-           let devs' = List.filter (fun (n,x) -> n=name) devs in
+           let devs' = List.filter (fun (n,_) -> n=name) devs in
            let tot = List.fold_left (fun acc (_,b) ->
                {default_stats with
                 rx_bytes = Int64.add acc.rx_bytes b.rx_bytes;
@@ -175,7 +175,7 @@ let rec monitor dbg () =
              let open Network_server.Bridge in
              let bond_slaves =
                if List.mem_assoc dev bonds then
-                 get_bond_link_info () dbg dev
+                 get_bond_link_info () dbg ~name:dev
                else
                  []
              in
@@ -261,8 +261,9 @@ let signal_networking_change () =
   let module XenAPI = Client.Client in
   let session = XenAPI.Session.slave_local_login_with_password ~rpc:xapi_rpc ~uname:"" ~pwd:"" in
   Pervasiveext.finally
-    (fun () -> XenAPI.Host.signal_networking_change xapi_rpc session)
-    (fun () -> XenAPI.Session.local_logout xapi_rpc session)
+    (fun () -> XenAPI.Host.signal_networking_change ~rpc:xapi_rpc
+    ~session_id:session)
+    (fun () -> XenAPI.Session.local_logout ~rpc:xapi_rpc ~session_id:session)
 
 (* Remove all outstanding reads on a file descriptor *)
 let clear_input fd =

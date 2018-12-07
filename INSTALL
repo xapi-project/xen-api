@@ -3,18 +3,6 @@
 
 The easiest way to install is via opam:
 
-    opam init
-    opam remote add xen-org git://github.com/xen-org/opam-repo-dev
-    opam install xcp-networkd
-
-# Coverage Profiling
-
-This code can be instrumented for coverage profiling:
-
-    make coverage
-    make
-
-See [COVERAGE.md](./COVERAGE.md) for details and
-[profiling/](./profiling/) for supporting code.
-
+  opam repo add xs-opam https://github.com/xapi-project/xs-opam.git
+  opam pin add .
 

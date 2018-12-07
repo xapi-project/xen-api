@@ -1,40 +1,47 @@
 (rule
-  (targets version.ml)
-  (deps ../VERSION)
-  (action (with-stdout-to %{targets} (bash "cat %{deps} | sed s/^/\"let version = \"\\\"/ | sed s/$/\\\"/")))
+ (targets version.ml)
+ (deps ../VERSION)
+ (action
+  (with-stdout-to
+   %{targets}
+   (bash "cat %{deps} | sed s/^/\"let version = \"\\\"/ | sed s/$/\\\"/")
+  )
+ )
 )
 
 (rule
-  (targets xcp-networkd.1)
-  (deps networkd.exe)
-  (action  (with-stdout-to %{targets} (run %{deps} "--help=groff")))
+ (targets xcp-networkd.1)
+ (deps networkd.exe)
+ (action
+  (with-stdout-to
+   %{targets}
+   (run %{deps} "--help=groff")
+  )
+ )
 )
 
 (executable
-  (name networkd)
-  (public_name xapi-networkd)
-  (package xapi-networkd)
-  (flags (:standard -bin-annot -safe-string))
-  (libraries
-    forkexec
-    netlink
-    networklibs
-    profiling
-    rpclib
-    systemd
-    threads
-    xapi-stdext-monadic
-    xapi-stdext-pervasives
-    xapi-stdext-threads
-    xapi-stdext-unix
-    xapi-inventory
-    xapi-idl
-    xapi-idl.network
-    xen-api-client
-  )
-)
+ (name networkd)
+ (public_name xapi-networkd)
+ (package xapi-networkd)
+ (libraries
+  forkexec
+  netlink
+  networklibs
+  profiling
+  rpclib
+  systemd
+  threads
+  xapi-stdext-monadic
+  xapi-stdext-pervasives
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi-inventory
+  xapi-idl
+  xapi-idl.network
+  xen-api-client))
 
 (alias
-  (name man)
-  (deps xcp-networkd.1)
+ (name man)
+ (deps xcp-networkd.1)
 )

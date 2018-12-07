@@ -1,12 +1,10 @@
 (executable
-  (name networkd_db)
-  (public_name networkd_db)
-  (package xapi-networkd)
-  (flags (:standard -bin-annot -safe-string))
-  (libraries
-    networklibs
-    profiling
-    threads
-    xapi-idl.network
-  )
+ (name networkd_db)
+ (public_name networkd_db)
+ (package xapi-networkd)
+ (libraries
+  networklibs
+  profiling
+  threads
+  xapi-idl.network)
 )

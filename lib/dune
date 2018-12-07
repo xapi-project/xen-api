@@ -1,18 +1,16 @@
 (library
-  (name networklibs)
-  (flags (:standard :standard -bin-annot -safe-string))
-  (libraries
-    astring
-    forkexec
-    mtime
-    mtime.clock.os
-    rpclib
-    systemd
-    threads
-    re.perl
-    xapi-stdext-unix
-    xapi-inventory
-    xapi-idl.network
-   )
-  (wrapped false)
+ (name networklibs)
+ (libraries
+  astring
+  forkexec
+  mtime
+  mtime.clock.os
+  rpclib
+  systemd
+  threads
+  re.perl
+  xapi-stdext-unix
+  xapi-inventory
+  xapi-idl.network)
+ (wrapped false)
 )

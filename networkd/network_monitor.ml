@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Network_interface
 include Network_stats
 
 let write_stats stats =
