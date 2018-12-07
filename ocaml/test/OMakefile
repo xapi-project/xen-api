@@ -2,7 +2,7 @@ OCAMLPACKS = oUnit sexpr xcp xmlm stunnel xml-light2 http-svr uuid	\
              netdev tapctl xenctrl xenctrlext xenstore-compat	\
              pciutil oclock gzip sha1 sha.sha1 xcp.network xcp.rrd xcp.storage	\
              xcp.xen xcp.memory xcp.v6 tar tar.unix oPasswd xcp-inventory \
-             rrdd-plugin pci xapi-test-utils
+             rrdd-plugin pci xapi-test-utils re.perl
 
 OCAMLINCLUDES = \
 	../database \
