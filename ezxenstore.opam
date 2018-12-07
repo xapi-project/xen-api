@@ -1,17 +1,14 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "jonathan.ludlam@citrix.com"
 authors: ["xen-api@lists.xensource.com"]
 license: "ISC"
 homepage: "https://github.com/xapi-project/ezxenstore"
 bug-reports: "https://github.com/xapi-project/ezxenstore/issues"
-dev-repo: "https://github.com/xapi-project/ezxenstore.git"
-
+dev-repo: "git+https://github.com/xapi-project/ezxenstore.git"
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
-
 depends: [
-  "dune" {build}
-
-  "base-threads"
+  "ocaml"
+  "dune" {build & >= "1.4"}
   "cmdliner"
   "logs"
   "uuidm"
@@ -19,3 +16,9 @@ depends: [
   "xenstore"
   "xenstore_transport"
 ]
+synopsis:
+  "An easy-to-use interface to xenstore"
+description: """
+An easy-to-use xenstore library with a simplified interface geared
+towards use within a daemon that maintains a single connection to
+xenstored."""

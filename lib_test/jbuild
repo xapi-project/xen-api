@@ -1,9 +1,0 @@
-(executable
- ((name main)
-  (libraries (ezxenstore))))
-
-(alias
- ((name runtest)
-  (deps (main.exe))
-  (action (run ${<}))))
-
