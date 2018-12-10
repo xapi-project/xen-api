@@ -11,6 +11,10 @@ PROFILE=release
 build:
 	dune build @install -j $(JOBS) --profile=$(PROFILE)
 
+# Quickly verify that the code compiles, without actually building it
+check:
+	dune build @check -j $(JOBS) --profile=$(PROFILE)
+
 clean:
 	dune clean
 

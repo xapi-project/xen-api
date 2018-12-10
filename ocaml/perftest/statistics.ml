@@ -61,8 +61,8 @@ module Hist = struct
   let to_gnuplot (x: t) (fd: Unix.file_descr) =
     iter x (fun bin_start bin_end height ->
         let center = (bin_start +. bin_end) /. 2.0 in
-        let line = Printf.sprintf "%f %f\n" center height in
-        let (_: int) = Unix.write fd line 0 (String.length line) in ()
+        let line = Printf.sprintf "%f %f\n" center height |> Bytes.of_string in
+        let (_: int) = Unix.write fd line 0 (Bytes.length line) in ()
       )
 
   exception Stop

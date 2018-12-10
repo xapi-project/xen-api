@@ -44,7 +44,6 @@ type update_info = {
   key: string;
   installation_size: int64;
   after_apply_guidance: API.after_apply_guidance list;
-  other_config: (string * string) list;
   enforce_homogeneity: bool; (* true = all hosts in a pool must have this update *)
 }
 
@@ -286,7 +285,6 @@ let parse_update_info xml =
       ; key = Filename.basename key
       ; installation_size
       ; after_apply_guidance = guidance
-      ; other_config = []
       ; enforce_homogeneity
       }
   | _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <update> in update.xml"]))
