@@ -76,16 +76,16 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    stdext
    threads
    xenctrl
-   xcp
-   xcp.cluster
-   xcp.rrd
-   xcp.storage
-   xcp.xen
-   xcp.network
-   xcp.v6
-   xcp.memory
-   xcp.gpumon
-   xcp.updates
+   xapi-idl
+   xapi-idl.cluster
+   xapi-idl.rrd
+   xapi-idl.storage
+   xapi-idl.xen
+   xapi-idl.network
+   xapi-idl.v6
+   xapi-idl.memory
+   xapi-idl.gpumon
+   xapi-idl.updates
    rrdd-plugin
    xapi-xenopsd
    xapi-netdev
@@ -104,4 +104,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xapi_internal
   ))
 ))
-|} coverage_rewriter 
+|} coverage_rewriter

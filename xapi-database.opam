@@ -25,7 +25,7 @@ depends: [
   "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
-  "xcp"
+  "xapi-idl"
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """

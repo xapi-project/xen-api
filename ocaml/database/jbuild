@@ -36,7 +36,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xapi-stdext-std
    xapi-stdext-threads
    xapi-stdext-unix
-   xcp
+   xapi-idl
   ))
   (wrapped false)
   (preprocess (pps (ppx_deriving_rpc ppx_sexp_conv %s)))
@@ -56,7 +56,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
  )
 )
 
-(executable 
+(executable
  ((name db_cache_test)
   (modules (db_cache_test))
   (libraries (
