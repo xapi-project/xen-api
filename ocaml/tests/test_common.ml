@@ -404,7 +404,6 @@ let make_pool_update ~__context
     ; key
     ; installation_size
     ; after_apply_guidance
-    ; other_config
     ; enforce_homogeneity
     } in
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi;

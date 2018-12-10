@@ -182,10 +182,7 @@ val find_or_create_network :
   string -> string -> __context:Context.t -> [ `network ] Ref.t
 
 (** Convenient lookup tables for scanning etc *)
-type tables = {
-  device_to_mac_table : (string * string) list;
-  pif_to_device_table : (API.ref_PIF * string) list;
-}
+type tables
 
 (** Construct and return lookup {!tables} with information about the network interfaces *)
 val make_tables : __context:Context.t -> host:[ `host ] Ref.t -> tables
