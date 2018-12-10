@@ -770,3 +770,10 @@ let chunks size lst =
         else [op]::xs::xss
     ) [] lst
   |> List.map (fun xs -> List.rev xs) |> List.rev
+
+let best_effort txt f =
+  try
+    f ()
+  with e ->
+    info "%s: ignoring exception %s" txt (Printexc.to_string e)
+
