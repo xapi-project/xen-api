@@ -4,9 +4,9 @@
 	cohttp-lwt 
 	message-switch-lwt
 	rpclib-lwt 
-	xcp 
-	xcp.varstore.deprivileged
-	xcp.varstore.privileged
+	xapi-idl 
+	xapi-idl.varstore.deprivileged
+	xapi-idl.varstore.privileged
 	xen-api-client-lwt)
  (preprocess (pps ppx_deriving_rpc bisect_ppx -conditional)))
 
