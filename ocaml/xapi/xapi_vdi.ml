@@ -299,11 +299,12 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
    * re-enable (and maybe alter) the relevant part of
    * test_update_allowed_operations.
   *)
-  let all_ops = Listext.List.set_difference
-      (* Older XenServers choke on ops they don't recognise during SXM, so
-       * until we have a better solution we consider only old ones: CA-260245 *)
-      Xapi_globs.pre_ely_vdi_operations
-      [`blocked]
+  let all_ops = 
+    Xapi_globs.pre_ely_vdi_operations
+    |> List.filter (function
+       | `blocked -> false (* CA-260245 *)
+       | `force_unlock -> false (* CA-281176 *)
+       | _ -> true )
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
   let allowed =
