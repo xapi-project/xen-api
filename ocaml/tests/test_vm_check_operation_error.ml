@@ -86,7 +86,7 @@ let test_vm_set_nvram_running () =
       let new_nvram = ["EFI-variables", new_vars] in
       Api_server.Forwarder.VM.set_NVRAM_EFI_variables ~__context ~self:vm_ref ~value:new_vars;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
-      Alcotest.(check (list (pair string string))) "NVRAM not updated" new_nvram read_nvram;
+      Alcotest.(check (list (pair string string))) "NVRAM updated" new_nvram read_nvram;
   )
 
 let compare_errors = Alcotest.(check (option (pair string (list string)))) "same error codes"
