@@ -2436,7 +2436,11 @@ module Backend = struct
                                           "Unexpected result for QMP command: %s"
                                           Qmp.(other |> as_msg |> string_of_message))))
       | exception QMP_Error (_, msg) ->
-        xs.Xs.write path msg
+        match Astring.String.find_sub ~sub:"CommandNotFound" msg with
+        | None -> xs.Xs.write path msg
+        | Some _ ->
+          debug "query-migratable ignoring precheck, qemu too old (domid=%d)" domid;
+          Generic.safe_rm ~xs path
 
     let qmp_event_handle domid qmp_event =
       (* This function will be extended to handle qmp events *)
