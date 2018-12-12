@@ -461,7 +461,7 @@ let test_update_allowed_operations () =
   Db.VBD.set_currently_attached ~__context ~self:vbd_ref ~value:false; 
   Xapi_vdi.update_allowed_operations ~__context ~self:vdi_ref;
   let allowed_operations = Db.VDI.get_allowed_operations ~__context ~self:vdi_ref in
-  let ok_ops : API.vdi_operations_set = [`generate_config; `force_unlock; `update; `forget; `destroy; `snapshot; `resize; `copy; `clone] in
+  let ok_ops : API.vdi_operations_set = [`generate_config; `update; `forget; `destroy; `snapshot; `resize; `copy; `clone] in
   Alcotest.(check Alcotest_comparators.vdi_operations_set) "update_allowed_operations should be correct" ok_ops allowed_operations
 
 let test =
