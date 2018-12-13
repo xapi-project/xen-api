@@ -34,27 +34,28 @@ open D
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi [@@deriving rpcty]
-  let fallback = Qemu_trad
-  let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
+  (* Qemu_trad cannot be removed from here, we need to be able to unmarshal it,
+   * it must not be used as a fallback anywhere though *)
+  type t = Qemu_trad | Qemu_none | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi [@@deriving rpcty]
+  let fallback = Qemu_upstream_compat
+  let all = [ Qemu_none; Qemu_upstream_compat; Qemu_upstream ]
   module Name = struct
+    let qemu_none            = "qemu-none"
     let qemu_trad            = "qemu-trad"
     let qemu_upstream_compat = "qemu-upstream-compat"
     let qemu_upstream        = "qemu-upstream"
     let qemu_upstream_uefi   = "qemu-upstream-uefi"
   end
   let wrapper_of = function
-    | Qemu_trad            -> !Resources.qemu_dm_wrapper
+    | Qemu_none|Qemu_trad  -> "/bin/false"
     | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
     | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
     | Qemu_upstream_uefi   -> !Resources.upstream_compat_qemu_dm_wrapper
-  let string_of  = function
-    | Qemu_trad              -> Name.qemu_trad
-    | Qemu_upstream_compat   -> Name.qemu_upstream_compat
-    | Qemu_upstream          -> Name.qemu_upstream
-    | Qemu_upstream_uefi     -> Name.qemu_upstream_uefi
   let of_string  = function
-    | x when x = Name.qemu_trad            -> Qemu_trad
+    | x when x = Name.qemu_trad            ->
+       sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
+       |> fun s -> Xenopsd_error (Internal_error s)
+       |> raise
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
     | x when x = Name.qemu_upstream        ->
        sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
@@ -63,9 +64,6 @@ module Profile = struct
     | x when x = Name.qemu_upstream_uefi   -> Qemu_upstream_uefi
     | x -> debug "unknown device-model profile %s: defaulting to %s" x Name.qemu_upstream_compat;
       Qemu_upstream_compat
-
-  (* XXX remove again *)
-  let of_domid x = if is_upstream_qemu x then Qemu_upstream else Qemu_trad
 end
 
 (** Represent an IPC endpoint *)
@@ -1576,12 +1574,6 @@ module Vusb = struct
       qmp_send_cmd domid Qmp.(Device_add Device.({driver; device=USB { USB.id=driver_id; params=None }})) |> ignore
 
   let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
-    let device_model = Profile.of_domid domid in
-    if device_model = Profile.Qemu_trad then
-      raise (Xenopsd_error (Internal_error
-               (Printf.sprintf
-                  "Failed to plug VUSB %s because domain %d uses device-model profile %s."
-                  id domid (Profile.string_of device_model))));
     debug "vusb_plug: plug VUSB device %s" id;
     let get_bus v =
       if String.startswith "1" v then
@@ -2092,18 +2084,18 @@ module Backend = struct
     end
   end
 
-  (** Implementation of the backend common signature for the qemu-trad backend *)
-  module Qemu_trad : Intf = struct
+  (** Implementation of the backend common signature for the qemu-none (PV) backend *)
+  module Qemu_none : Intf = struct
     module Vgpu = struct
       let device ~index:_ = None
     end
 
-    (** Implementation of the Vbd functions that use the dispatcher for the qemu-trad backend *)
+    (** Implementation of the Vbd functions that use the dispatcher for the qemu-none backend *)
     module Vbd = struct
       let qemu_media_change = Vbd_Common.qemu_media_change
     end
 
-    (** Implementation of the Vcpu functions that use the dispatcher for the qemu-trad backend *)
+    (** Implementation of the Vcpu functions that use the dispatcher for the qemu-none backend *)
     module Vcpu = struct
       let add = Vcpu_Common.add
       let set = Vcpu_Common.set
@@ -2111,9 +2103,8 @@ module Backend = struct
       let status = Vcpu_Common.status
     end
 
-    (** Implementation of the Dm functions that use the dispatcher for the qemu-trad backend *)
+    (** Implementation of the Dm functions that use the dispatcher for the qemu-none backend *)
     module Dm = struct
-
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
             (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
@@ -2124,67 +2115,18 @@ module Backend = struct
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 
-      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val
-          ~timeout ~cancel ?(fds=[]) _ =
-        let pid = Dm_Common.start_daemon ~path ~args ~name ~domid ~fds () in
-        Dm_Common.wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val
-          ~timeout ~cancel ();
-        pid
+      let stop ~xs ~qemu_domid domid = ()
 
-      let stop ~xs ~qemu_domid domid =
-        let pid = Qemu.pid ~xs domid in
-        Dm_Common.stop ~xs ~qemu_domid domid;
-        match pid with
-        | None -> () (* nothing to do *)
-        | Some qemu_pid ->
-          Generic.best_effort "removing core files from /var/xen/qemu"
-            (fun () -> Unix.rmdir ("/var/xen/qemu/"^(string_of_int qemu_pid)))
+      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
+        raise (Ioemu_failed (name, "PV guests have no IO emulator"))
 
-      let qemu_args ~xs ~dm info restore domid =
-        let common = Dm_Common.qemu_args ~xs ~dm info restore domid in
-
-        let usb =
-          match info.Dm_Common.usb with
-          | Dm_Common.Disabled -> []
-          | Dm_Common.Enabled devices ->
-            let devs = devices |> List.map (fun (x,_) -> ["-usbdevice"; x]) |> List.concat in
-            "-usb" :: devs
-        in
-
-        let misc = List.concat
-            [ [ "-d"; string_of_int domid
-              ; "-m"; Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
-              ; "-boot"; info.Dm_Common.boot
-              ]
-            ; usb
-            ; [ "-vcpus"; string_of_int info.Dm_Common.vcpus]
-            ; (info.Dm_Common.serial |> function None -> [] | Some x -> [ "-serial"; x ])
-            ; (info.Dm_Common.parallel |> function None -> [] | Some x -> [ "-parallel"; x])
-            ] in
-
-        (* Sort the VIF devices by devid *)
-        let nics = List.stable_sort (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
-        if List.length nics > Dm_Common.max_emulated_nics then debug "Limiting the number of emulated NICs to %d" Dm_Common.max_emulated_nics;
-        (* Take the first 'max_emulated_nics' elements from the list. *)
-        let nics = Xapi_stdext_std.Listext.List.take Dm_Common.max_emulated_nics nics in
-
-        (* qemu need a different id for every vlan, or things get very bad *)
-        let nics' =
-          if nics <> [] then
-            List.mapi (fun vlan_id (mac, bridge, devid) ->
-                [
-                  "-net"; sprintf "nic,vlan=%d,macaddr=%s,model=rtl8139" vlan_id mac;
-                  "-net"; sprintf "tap,vlan=%d,bridge=%s,ifname=tap%d.%d" vlan_id bridge domid devid
-                ]
-              ) nics
-          else [["-net"; "none"]]
-        in
-        Dm_Common.{ common with argv = common.argv @ misc @ (List.concat nics') }
+      let qemu_args ~xs ~dm info restore domid = { Dm_Common.argv = []; fd_map = [] }
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
 
-    end (* Backend.Qemu_trad.Dm *)
-  end (* Backend.Qemu_trad *)
+    end (* Backend.Qemu_none.Dm *)
+  end (* Backend.Qemu_none *)
+
 
   (** Implementation of the backend common signature for the qemu-upstream-compat backend *)
   module type Qemu_upstream_config = sig
@@ -2894,7 +2836,11 @@ module Backend = struct
   module Qemu_upstream_uefi  = Make_qemu_upstream(Config_qemu_upstream_uefi)
 
   let of_profile p = match p with
-    | Profile.Qemu_trad            -> (module Qemu_trad            : Intf)
+    | Profile.Qemu_trad            ->
+      (* checks elsewhere should've blocked or transparently upgraded qemu-trad,
+       * if we reach this place there is a bug elsewhere *)
+      assert false
+    | Profile.Qemu_none            -> (module Qemu_none : Intf)
     | Profile.Qemu_upstream_compat -> (module Qemu_upstream_compat : Intf)
     | Profile.Qemu_upstream        -> (module Qemu_upstream        : Intf)
     | Profile.Qemu_upstream_uefi   -> (module Qemu_upstream_uefi  : Intf)

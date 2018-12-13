@@ -23,7 +23,7 @@ exception Cdrom
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile: sig
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi
+  type t = Qemu_trad | Qemu_none | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi
   (** available qemu profiles *)
 
   val typ_of: t Rpc.Types.typ
@@ -44,9 +44,6 @@ module Profile: sig
 
   (** [wrapper_of profile] returns the qemu wrapper script path of a profile *)
   val wrapper_of: t -> string
-
-  (** [string_of  profile] returns the profile name of a profile *)
-  val string_of : t -> string
 
   (** [of_string  profile_name] returns the profile of a profile name, and [fallback] if an invalid name is provided. *)
   val of_string : string -> t

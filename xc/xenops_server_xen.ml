@@ -176,7 +176,7 @@ module DB = struct
   let revise_profile_qemu_trad vm persistent =
       Device.Profile.{persistent with VmExtra.profile =
         match persistent.VmExtra.profile with
-        | Some Qemu_trad when persistent.VmExtra.version = VmExtra.persistent_version_pre_lima ->
+        | Some Qemu_trad (* when persistent.VmExtra.version = VmExtra.persistent_version_pre_lima *) ->
           debug "vm %s: revised %s->%s" vm Name.qemu_trad Name.qemu_upstream_compat;
           Some Qemu_upstream_compat
         | x -> x
@@ -840,9 +840,10 @@ let dB_m = Mutex.create ()
 let dm_of ~vm = Mutex.execute dB_m (fun () ->
     try
       let vmextra = DB.read_exn vm in
-      match VmExtra.(vmextra.persistent.profile) with
-      | None -> Device.Profile.fallback
-      | Some x -> x
+      match VmExtra.(vmextra.persistent.profile, vmextra.persistent.ty) with
+      | None, Some (PV _ | PVinPVH _) -> Device.Profile.Qemu_none
+      | None, (Some (HVM _) | None) -> Device.Profile.fallback
+      | Some x, _ -> x
     with _ -> Device.Profile.fallback
   )
 
