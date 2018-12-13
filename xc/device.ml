@@ -1803,14 +1803,6 @@ module Dm_Common = struct
     ; fd_map = []
     }
 
-  let vnconly_cmdline ~info ?(extras=[]) domid =
-    let disp_options, _ = cmdline_of_disp info in
-    [
-      "-d"; string_of_int domid;
-      "-M"; "xenpv"; ] (* the stubdom is a PV guest *)
-    @ disp_options
-    @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
-
   let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci restore device =
     let open Xenops_interface.Vgpu in
     let suspend_file = sprintf demu_save_path domid in
@@ -3016,7 +3008,7 @@ module Dm = struct
     | _ -> failwith "Unsupported vGPU configuration"
 
 
-  type action = Start | Restore | StartVNC
+  type action = Start | Restore
 
   let __start (task: Xenops_task.task_handle)
       ~xs ~dm ?(timeout = !Xenopsd.qemu_dm_ready_timeout) action info domid =
@@ -3024,7 +3016,6 @@ module Dm = struct
     let args = match action with
       | Start    -> qemu_args ~xs ~dm info false domid
       | Restore  -> qemu_args ~xs ~dm info true  domid
-      | StartVNC -> Dm_Common.{argv = vnconly_cmdline ~info domid; fd_map = []}
     in
 
     debug "Device.Dm.start domid=%d args: [%s]"
@@ -3099,9 +3090,6 @@ module Dm = struct
 
   let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     __start task ~xs ~dm ?timeout Restore info domid
-
-  let start_vnconly (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
-    __start task ~xs ~dm ?timeout StartVNC info domid
 
   let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus profile =
     debug "Called Dm.restore_vgpu";

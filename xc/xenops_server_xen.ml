@@ -1394,15 +1394,11 @@ module VM = struct
         ) vifs in
       match ty with
       | PV { framebuffer = false } -> None
-      | PV { framebuffer = true; framebuffer_ip=Some vnc_ip } ->
-        Some (make ~hvm:false ~vnc_ip ())
-      | PV { framebuffer = true; framebuffer_ip=None } ->
-        Some (make ~hvm:false ())
+      | PV { framebuffer = true; _ }
+      | PVinPVH { framebuffer = true; _ } ->
+        debug "Ignoring request for a PV VNC console (would require qemu-trad)";
+        None
       | PVinPVH { framebuffer = false } -> None
-      | PVinPVH { framebuffer = true; framebuffer_ip=Some vnc_ip } ->
-        Some (make ~hvm:true ~vnc_ip ())
-      | PVinPVH { framebuffer = true; framebuffer_ip=None } ->
-        Some (make ~hvm:true ())
       | HVM hvm_info ->
         let disks = List.filter_map (fun vbd ->
             let id = vbd.Vbd.id in
@@ -1608,22 +1604,11 @@ module VM = struct
           match vm.Vm.ty with
           | Vm.HVM { Vm.qemu_stubdom = true } ->
             if saved_state then failwith "Cannot resume with stubdom yet";
-            Opt.iter
-              (fun stubdom_domid ->
-                 Stubdom.build task ~xc ~xs ~dm:qemu_dm ~store_domid ~console_domid info xenguest di.Xenctrl.domid stubdom_domid;
-                 Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info stubdom_domid
-              ) (get_stubdom ~xs di.Xenctrl.domid);
+            debug "Ignoring request for PV VNC in stubdom (would require qemu-trad)"
           | Vm.HVM { Vm.qemu_stubdom = false } ->
             (if saved_state then Device.Dm.restore else Device.Dm.start)
               task ~xs ~dm:qemu_dm info di.Xenctrl.domid
-          | Vm.PV _ ->
-            Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
-            Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-            Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
-          | Vm.PVinPVH _ ->
-            Device.Vfb.add ~xc ~xs di.Xenctrl.domid;
-            Device.Vkbd.add ~xc ~xs di.Xenctrl.domid;
-            Device.Dm.start_vnconly task ~xs ~dm:qemu_dm info di.Xenctrl.domid
+          | Vm.PV _ | Vm.PVinPVH _ -> assert false
         ) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
       match vm.Vm.ty with
       | Vm.PV { vncterm = true; vncterm_ip = ip }
