@@ -145,3 +145,11 @@ let default_token_timeout_coefficient_s = 1.0
 (* Minimum threshold for token timeout parameters *)
 let minimum_token_timeout_s = 1.0
 let minimum_token_timeout_coefficient_s = 0.65
+
+
+(* Maximum VHD Size *)
+(** From XenServer 7.5 Configuration Limits:
+    https://docs.citrix.com/content/dam/docs/en-us/xenserver/current-release/downloads/xenserver-config-limits.pdf
+    Using (2TiB - 4GiB), instead of the (2TB - 4GB) limit defined in the above
+    document, does not work, we cannot create a VDI of that size. *)
+let max_vhd_size = Sizes.((2L ** tb) -* (4L ** gb))
