@@ -706,8 +706,6 @@ let _ =
     ~doc:"The operation cannot be performed because this VDI has rrd stats" ();
   error Api_errors.vdi_too_small [ "vdi"; "minimum size" ]
     ~doc:"The VDI is too small. Please resize it to at least the minimum size." ();
-  error Api_errors.vdi_too_large [ "vdi"; "maximum size" ]
-    ~doc:"The VDI is too large." ();
   error Api_errors.vdi_not_sparse [ "vdi" ]
     ~doc:"The VDI is not stored using a sparse format. It is not possible to query and manipulate only the changed blocks (or 'block differences' or 'disk deltas') between two VDIs. Please select a VDI which uses a sparse-aware technology such as VHD." ();
   error Api_errors.vdi_is_a_physical_device [ "vdi" ]
