@@ -13,6 +13,7 @@
  *)
 
 open Xapi_stdext_std
+open Xapi_stdext_std.Listext
 open Xapi_stdext_unix
 open Xapi_stdext_threads.Threadext
 
@@ -158,6 +159,12 @@ module Stat = struct
   (* io_ticks        milliseconds  total time this block device has been active	*)
   (* time_in_queue   milliseconds  total wait time for all requests				*)
 
+  (* In newer kernels only, ignored *)
+  (* discard I/Os    requests      number of discard I/Os processed                             *)
+  (* discard merges  requests      number of discard I/Os merged with in-queue I/O              *)
+  (* discard sectors sectors       number of sectors discarded                                  *)
+  (* discard ticks   milliseconds  total wait time for discard requests                         *)
+
   (* --- Added for our needs --- *)
 
   (* inflight_read   requests      read requests in flight                        *)
@@ -174,7 +181,7 @@ module Stat = struct
     let sectors_to_bytes = Int64.mul hw_sector_size in
     let read_bytes = sectors_to_bytes (List.nth stats 2) in
     let write_bytes = sectors_to_bytes (List.nth stats 6) in
-    let res = stats @ inflight_stats @ [read_bytes; write_bytes] in
+    let res = (Xapi_stdext_std.Listext.List.take 11 stats) @ inflight_stats @ [read_bytes; write_bytes] in
     begin
       assert (List.length res = 15);
       res
