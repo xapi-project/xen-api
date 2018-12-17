@@ -66,9 +66,9 @@ namespace XenAPI
                 return true;
             if (o1 == null || o2 == null)
                 return o1 == null && IsEmptyCollection(o2) || o2 == null && IsEmptyCollection(o1);
-            if (typeof(T) is IDictionary)
+            if (o1 is IDictionary)
                 return AreDictEqual((IDictionary)o1, (IDictionary)o2);
-            if (typeof(T) is System.Collections.ICollection)
+            if (o1 is ICollection)
                 return AreCollectionsEqual((ICollection)o1, (ICollection)o2);
             return o1.Equals(o2);
         }
