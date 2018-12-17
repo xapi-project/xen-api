@@ -9,5 +9,4 @@ env:
     - PINS="vhd-tool:."
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
-    - DISTRO="debian-9-ocaml-4.06"
-      # - DISTRO="debian-9-ocaml-4.07" BASE_REMOTE_BRANCH="407"
+    - DISTRO="debian-9-ocaml-4.07"
