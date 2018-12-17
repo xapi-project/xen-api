@@ -1,17 +1,18 @@
+PROFILE=dev
 .PHONY: build release lint test install uninstall clean reindent
 
 release:
-	dune build -p vhd-tool -j $$(getconf _NPROCESSORS_ONLN)
+	dune build -p vhd-tool
 
 build:
-	dune build @install
+	dune build --profile=$(PROFILE)
 
 lint:
 	pycodestyle scripts/*.py
 	pylint --disable too-many-locals scripts/get_nbd_extents.py
 	pylint --disable fixme,too-many-arguments,too-many-instance-attributes scripts/python_nbd_client.py
 
-test: lint
+test:
 	dune runtest
 
 stresstest:
