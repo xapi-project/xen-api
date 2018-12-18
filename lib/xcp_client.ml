@@ -31,10 +31,10 @@ let get_ok = function
       Format.pp_print_flush fmt ();
       failwith (Buffer.contents b)
 
-let switch_rpc queue_name string_of_call response_of_string =
+let switch_rpc ?timeout queue_name string_of_call response_of_string =
 	let t = get_ok (Message_switch_unix.Protocol_unix.Client.connect ~switch:!switch_path ()) in
 	fun call ->
-		response_of_string (get_ok (Message_switch_unix.Protocol_unix.Client.rpc ~t ~queue:queue_name ~body:(string_of_call call) ()))
+		response_of_string (get_ok (Message_switch_unix.Protocol_unix.Client.rpc ~t ?timeout ~queue:queue_name ~body:(string_of_call call) ()))
 
 let split_colon str =
   try
@@ -98,7 +98,7 @@ let http_rpc string_of_call response_of_string ?(srcstr="unset") ?(dststr="unset
 					end
 		)
 let xml_http_rpc = http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string
-let json_switch_rpc queue_name = switch_rpc queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
+let json_switch_rpc ?timeout queue_name = switch_rpc ?timeout queue_name Jsonrpc.string_of_call Jsonrpc.response_of_string
 
 let () =
   Printexc.register_printer (function

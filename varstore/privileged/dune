@@ -1,0 +1,22 @@
+(library
+  (name xapi_idl_varstore_privileged)
+  (public_name xapi-idl.varstore.privileged)
+  (modules (:standard \ varstore_privileged_cli))
+  (flags (:standard -w -39))
+  (libraries xcp threads rpclib.core)
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc bisect_ppx -conditional)))
+
+(executable
+  (name varstore_privileged_cli)
+  (modules varstore_privileged_cli)
+  (libraries
+    cmdliner
+    rpclib.cmdliner
+    rpclib.markdown
+    xapi-idl.varstore.privileged))
+
+(alias
+ (name   runtest)
+ (deps   varstore_privileged_cli.exe)
+ (action (run %{deps})))

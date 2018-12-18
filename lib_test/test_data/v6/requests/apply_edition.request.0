@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>apply_edition</methodName><params><param><value>debug_info</value></param><param><value>string</value></param><param><value><struct><member><name>string_pair_lst</name><value>string_pair_lst</value></member></struct></value></param></params></methodCall>

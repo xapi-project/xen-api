@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>declare-dead</methodName><params><param><value><struct><member><name>dead_members</name><value><array><data><value><array><data><value>IPv4</value><value>dead_members</value></data></array></value></data></array></value></member><member><name>dbg</name><value>dbg</value></member></struct></value></param></params></methodCall>
