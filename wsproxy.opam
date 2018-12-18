@@ -1,21 +1,29 @@
-opam-version: "1.2"
+opam-version: "2.0"
 name: "wsproxy"
 maintainer: "xen-api@lists.xen.org"
 authors: [ "Jon Ludlam <jonathan.ludlam@citrix.com>"
            "Marcello Seri <marcello.seri@citrix.com>" ]
 license: "LGPL-2.0 with OCaml linking exception"
 homepage: "https://github.com/xapi-project/wsproxy"
-dev-repo: "https://github.com/xapi-project/wsproxy.git"
+dev-repo: "git+https://github.com/xapi-project/wsproxy.git"
 bug-reports: "https://github.com/xapi-project/wsproxy/issues"
-build: [[ "jbuilder" "build" "-p" name "-j" jobs ]]
-build-test: [[ "jbuilder" "runtest" "-p" name "-j" jobs ]]
+build: [
+  ["jbuilder" "build" "-p" name "-j" jobs]
+  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+]
 depends: [
+  "ocaml"
   "jbuilder" {build}
   "base64"
-  "lwt" { >= "3.0.0" }
+  "lwt" {>= "3.0.0"}
+  "lwt_log"
   "re"
   "uuidm"
-  "ounit" {test}
-  "qcheck" {test}
+  "ounit" {with-test}
+  "qcheck" {with-test}
 ]
 tags: [ "org:xapi-project" ]
+synopsis: "Websockets proxy for VNC traffic"
+url {
+  src: "https://github.com/xapi-project/wsproxy/archive/master/master.tar.gz"
+}
