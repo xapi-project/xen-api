@@ -13,7 +13,6 @@
  *)
 
 open Xapi_stdext_std
-open Xapi_stdext_std.Listext
 open Xapi_stdext_unix
 open Xapi_stdext_threads.Threadext
 
@@ -298,7 +297,7 @@ let get_sr_vdi_to_stats = get_sr_vdi_to_stats_fun ~f:Stat.get_unsafe
 let get_sr_vdi_to_iostats = get_sr_vdi_to_stats_fun ~f:Iostat.get_unsafe
 
 let sr_to_sth s_v_to_i =
-  let fold_fun acc ((s,v),sth) =
+  let fold_fun acc ((s,_v),sth) =
     try
       let cur = List.assoc s acc in
       Listext.List.replace_assoc s (sth::cur) acc
@@ -349,7 +348,7 @@ module Blktap3_stats_wrapper = struct
     let domdev_of_file f =
       try
         Scanf.sscanf f "vbd3-%d-%d" (fun domid devid -> Some (domid, devid))
-      with e ->
+      with _ ->
         None
     in
 
@@ -570,7 +569,7 @@ module Iostats_value = struct
       avgqu_sz = 0.;
     }
 
-  let make iostats last_iostats stats_blktap3 last_stats_blktap3 : t =
+  let make iostats _last_iostats stats_blktap3 last_stats_blktap3 : t =
     let (++) = Int64.add and (--) = Int64.sub and to_float = Int64.to_float in
     (* stats_blktap3 and stats won't both present at a time *)
     match stats_blktap3 with
@@ -601,7 +600,7 @@ module Iostats_value = struct
           avgqu_sz = acc.avgqu_sz +. v.avgqu_sz;
         }) empty values
 
-  let make_ds ~owner ~name ~key_format (value : t) =
+  let [@warning "-27"] make_ds  ~owner ~name ~key_format (value : t) =
     let ds_make = Ds.ds_make ~default:true in
     [
       owner, ds_make ~name:(key_format "latency")
@@ -635,9 +634,9 @@ let gen_metrics () =
   let get_stats_blktap3_by_vdi vdi =
     if List.mem_assoc vdi vdi_to_vm then
       let vm_uuid, _pos, devid = List.assoc vdi vdi_to_vm in
-      match List.filter (fun (domid', vm_uuid') -> vm_uuid' = vm_uuid) domUs with
+      match List.filter (fun (_domid', vm_uuid') -> vm_uuid' = vm_uuid) domUs with
       | [] -> None, None
-      | (domid, vm_uuid) :: _ ->
+      | (domid, _vm_uuid) :: _ ->
         let find_blktap3 blktap3_assoc_list =
           let key = (domid, devid) in
           if List.mem_assoc key blktap3_assoc_list then
@@ -657,7 +656,7 @@ let gen_metrics () =
 
   (* Convert raw iostats/stats (and blktap3 stats) list to structured record *)
   let sr_vdi_to_iostats_values =
-    List.map (fun ((sr, vdi) as sr_vdi, iostats) ->
+    List.map (fun ((_sr, vdi) as sr_vdi, iostats) ->
         let last_iostats = match !sr_vdi_to_last_iostats_values with
           | None -> None
           | Some s -> if Hashtbl.mem s sr_vdi then Some (Hashtbl.find s sr_vdi) else None in
@@ -665,7 +664,7 @@ let gen_metrics () =
         (sr_vdi, Iostats_value.make iostats last_iostats stats_blktap3 last_stats_blktap3)
       ) sr_vdi_to_iostats in
   let sr_vdi_to_stats_values =
-    List.map (fun ((sr, vdi) as sr_vdi, stats) ->
+    List.map (fun ((_sr, vdi) as sr_vdi, stats) ->
         let last_stats = match !sr_vdi_to_last_stats_values with
           | None -> None
           | Some s -> if Hashtbl.mem s sr_vdi then Some (Hashtbl.find s sr_vdi) else None in
@@ -715,8 +714,8 @@ let gen_metrics () =
     ] in
   (* Lookup the VM(s) for this VDI and associate with the RRD for those VM(s) *)
   let data_sources_vm_iostats = List.flatten (
-      List.map (fun ((sr, vdi), iostats_value) ->
-          let create_metrics (vm, pos, devid) =
+      List.map (fun ((_sr, vdi), iostats_value) ->
+          let create_metrics (vm, pos, _devid) =
             let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
             Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format iostats_value
           in
@@ -724,8 +723,8 @@ let gen_metrics () =
           List.map create_metrics vms
         ) sr_vdi_to_iostats_values) in
   let data_sources_vm_stats = List.flatten (
-      List.map (fun ((sr, vdi), stats_value) ->
-          let create_metrics (vm, pos, devid) =
+      List.map (fun ((_sr, vdi), stats_value) ->
+          let create_metrics (vm, pos, _devid) =
             let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
             Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format stats_value
           in

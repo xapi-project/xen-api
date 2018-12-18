@@ -74,7 +74,7 @@ let get_states cpu_state : int64 list =
 (* list_package [1;2;3;4] 2 = [[1;2];[3;4]] *)
 let list_package (l:'a list) (n:int) : 'a list list =
   if n = 0 then failwith "Rrdp_xenpm.list_package: package too small";
-  let nbelt,accsmall,accbig =
+  let _nbelt,accsmall,accbig =
     List.fold_left (fun (nbelt, accsmall, accbig) elt ->
         if nbelt < n then (nbelt+1, elt::accsmall, accbig)
         else (1, [elt], (List.rev accsmall)::accbig)) (0,[],[]) l
