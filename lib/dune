@@ -9,6 +9,7 @@
  (libraries
   consts
   lwt
+  lwt_log
   lwt.unix
   xen-api-client-lwt
  )
@@ -18,6 +19,7 @@
  (name vbd_store)
  (libraries
   lwt
+  lwt_log
   lwt.unix
  )
  (modules vbd_store)
