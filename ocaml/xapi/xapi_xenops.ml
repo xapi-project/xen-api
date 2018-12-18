@@ -19,7 +19,6 @@ open Network
 
 open Stdext
 open Xstringext
-open Listext
 open Threadext
 open Pervasiveext
 open Fun
@@ -190,6 +189,30 @@ let firmware_of_vm vm =
         bad]))
   | exception Not_found -> default_firmware
 
+let varstore_rm_with_sandbox ~__context ~vm_uuid f =
+  let dbg = Context.string_of_task __context in
+  let domid = 0 in
+  let chroot, socket_path = Xenops_sandbox.Varstore_guard.start dbg ~domid ~vm_uuid ~paths:[] in
+  Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f chroot socket_path)
+    (fun () -> Xenops_sandbox.Varstore_guard.stop dbg ~domid)
+
+let nvram_post_clone ~__context ~self ~uuid =
+  match Db.VM.get_NVRAM ~__context ~self with
+  | [] -> ()
+  | original ->
+    let uuid = Uuid.to_string uuid in
+    info "VM %s was cloned: clearing certain UEFI variables" uuid;
+
+    varstore_rm_with_sandbox ~__context ~vm_uuid:uuid (fun chroot socket_path ->
+      Forkhelpers.execute_command_get_output !Xapi_globs.varstore_rm
+        ["-c"; uuid
+        ; "-r"; chroot.root
+        ; "-u"; string_of_int chroot.uid
+        ; "-g"; string_of_int chroot.gid
+        ; "-s"; socket_path ] |> ignore);
+    if Db.VM.get_NVRAM ~__context ~self <> original then
+      debug "VM %s: NVRAM changed due to clone" uuid
+
 let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
   let timeoffset = string vm_t.API.vM_platform "0" Vm_platform.timeoffset in
   (* If any VDI has on_boot = reset AND has a VDI.other_config:timeoffset
@@ -204,7 +227,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
     vdis
     |> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
     |> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
-    |> List.filter_map (fun (reference, record) ->
+    |> Listext.List.filter_map (fun (reference, record) ->
         Opt.of_exception (fun () ->
             reference,
             List.assoc Vm_platform.timeoffset
@@ -332,7 +355,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 
   let make_indirect_boot_record { Helpers.bootloader = b; extra_args = e; legacy_args = l; pv_bootloader_args = p; vdis = vdis } =
     {
-      boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
+      boot = Indirect { bootloader = b; extra_args = e; legacy_args = l; bootloader_args = p; devices = Listext.List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis };
       framebuffer = bool vm.API.vM_platform false "pvfb";
       framebuffer_ip = None; (* None PR-1255 *)
       vncterm = begin match List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config with
@@ -353,7 +376,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
   |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
-  |> List.filter_map (fun vif ->
+  |> Listext.List.filter_map (fun vif ->
       match backend_of_vif ~__context ~vif with
       | Network.Sriov {domain; bus; dev; fn} -> Some (domain, bus, dev, fn)
       | _ -> None
@@ -1041,29 +1064,44 @@ module Xapi_cache = struct
       		updated whenever we receive an event from xapi. *)
 
   let cache = Hashtbl.create 10 (* indexed by Vm.id *)
+  let mutex = Mutex.create ()
+  let with_lock f =
+    Mutex.execute mutex f
 
-  let _register_nolock id initial_value =
+  let register id initial_value =
     debug "xapi_cache: creating cache for %s" id;
-    if not(Hashtbl.mem cache id) || (Hashtbl.find cache id = None)
-    then Hashtbl.replace cache id initial_value
+    with_lock (fun () ->
+        match Hashtbl.find_opt cache id with
+        | Some (Some _) ->
+          (* don't change if we already have a valid cached entry *)
+          ()
+        | None | Some None ->
+          (* we do not have a cache entry for this id,
+           * or we have only an empty cache entry *)
+          Hashtbl.replace cache id initial_value)
 
-  let _unregister_nolock id =
+  let unregister id =
     debug "xapi_cache: deleting cache for %s" id;
-    Hashtbl.remove cache id
+    with_lock (fun () ->
+        Hashtbl.remove cache id)
 
-  let find_nolock id =
-    if Hashtbl.mem cache id
-    then Hashtbl.find cache id
-    else None
+  let update_if_changed id newvalue =
+    let updated = with_lock (fun () ->
+        match Hashtbl.find_opt cache id with
+        | Some (Some old) when old = newvalue ->
+          (* the value did not change: tell the caller it has no action to take *)
+          false
+        | _ ->
+          Hashtbl.replace cache id (Some newvalue);
+          (* We either did not have a value before, or we had a different one:
+           * tell the caller that it needs to perform an update *)
+          true) in
+    debug "xapi_cache:%s updating cache for %s" (if updated then "" else " not") id;
+    updated
 
-  let update_nolock id t =
-    if Hashtbl.mem cache id then begin
-      debug "xapi_cache: updating cache for %s" id;
-      Hashtbl.replace cache id t
-    end else debug "xapi_cache: not updating cache for %s" id
-
-
-  let list_nolock () = Hashtbl.fold (fun id _ acc -> id :: acc) cache []
+  let list () =
+    with_lock (fun () ->
+        Hashtbl.fold (fun id _ acc -> id :: acc) cache [])
 end
 
 module Xenops_cache = struct
@@ -1089,22 +1127,23 @@ module Xenops_cache = struct
   }
 
   let cache = Hashtbl.create 10 (* indexed by Vm.id *)
+  let mutex = Mutex.create ()
+  let with_lock f =
+    Mutex.execute mutex f
 
-  let _register_nolock id =
+  let register id =
     debug "xenops_cache: creating empty cache for %s" id;
-    Hashtbl.replace cache id empty
+    with_lock (fun () ->
+        Hashtbl.replace cache id empty)
 
-  let _unregister_nolock id =
+  let unregister id =
     debug "xenops_cache: deleting cache for %s" id;
-    Hashtbl.remove cache id
+    with_lock (fun () ->
+        Hashtbl.remove cache id)
 
   let find id : t option =
-    Mutex.execute metadata_m
-      (fun () ->
-         if Hashtbl.mem cache id
-         then Some (Hashtbl.find cache id)
-         else None
-      )
+    with_lock (fun () ->
+        Hashtbl.find_opt cache id)
 
   let find_vm id : Vm.state option =
     match find id with
@@ -1114,46 +1153,38 @@ module Xenops_cache = struct
   let find_vbd id : Vbd.state option =
     match find (fst id) with
     | Some { vbds = vbds } ->
-      if List.mem_assoc id vbds
-      then Some (List.assoc id vbds)
-      else None
+      List.assoc_opt id vbds
     | _ -> None
 
   let find_vif id : Vif.state option =
     match find (fst id) with
     | Some { vifs = vifs } ->
-      if List.mem_assoc id vifs
-      then Some (List.assoc id vifs)
-      else None
+      List.assoc_opt id vifs
     | _ -> None
 
   let find_pci id : Pci.state option =
     match find (fst id) with
     | Some { pcis = pcis } ->
-      if List.mem_assoc id pcis
-      then Some (List.assoc id pcis)
-      else None
+      List.assoc_opt id pcis
     | _ -> None
 
   let find_vgpu id : Vgpu.state option =
     match find (fst id) with
     | Some { vgpus = vgpus } ->
-      if List.mem_assoc id vgpus
-      then Some (List.assoc id vgpus)
-      else None
+      List.assoc_opt id vgpus
     | _ -> None
 
   let find_vusb id : Vusb.state option =
     match find (fst id) with
-    | Some { vusbs = vusbs } when List.mem_assoc id vusbs -> Some (List.assoc id vusbs)
+    | Some { vusbs = vusbs } ->
+      List.assoc_opt id vusbs
     | _ -> None
 
   let update id t =
-    Mutex.execute metadata_m
-      (fun () ->
-         if Hashtbl.mem cache id
-         then Hashtbl.replace cache id t
-         else debug "xenops_cache: Not updating cache for unregistered VM %s" id
+    with_lock (fun () ->
+        if Hashtbl.mem cache id
+        then Hashtbl.replace cache id t
+        else debug "xenops_cache: Not updating cache for unregistered VM %s" id
       )
 
   let update_vbd id info =
@@ -1185,7 +1216,9 @@ module Xenops_cache = struct
     let existing = Opt.default empty (find id) in
     update id { existing with vm = info }
 
-  let list_nolock () = Hashtbl.fold (fun id _ acc -> id :: acc) cache []
+  let list () =
+    with_lock (fun () ->
+        Hashtbl.fold (fun id _ acc -> id :: acc) cache [])
 end
 
 module Xenopsd_metadata = struct
@@ -1219,10 +1252,9 @@ module Xenopsd_metadata = struct
 
         maybe_persist_md ~__context ~self txt;
 
-        Xapi_cache._register_nolock id (Some txt);
-        Xenops_cache._register_nolock id;
-        id
-      )
+        Xapi_cache.register id (Some txt);
+        Xenops_cache.register id;
+        id)
 
   let delete_nolock ~__context id =
     let dbg = Context.string_of_task __context in
@@ -1232,8 +1264,8 @@ module Xenopsd_metadata = struct
       Client.VM.remove dbg id;
 
       (* Once the VM has been successfully removed from xenopsd, remove the caches *)
-      Xenops_cache._unregister_nolock id;
-      Xapi_cache._unregister_nolock id
+      Xenops_cache.unregister id;
+      Xapi_cache.unregister id
 
     with
     | Xenopsd_error (Bad_power_state(_, _)) ->
@@ -1275,25 +1307,21 @@ module Xenopsd_metadata = struct
          if vm_exists_in_xenopsd queue_name dbg id
          then
            let txt = create_metadata ~__context ~self |> rpc_of Metadata.t |> Jsonrpc.to_string in
-           begin match Xapi_cache.find_nolock id with
-             | Some old when old = txt -> ()
-             | _ ->
-               debug "VM %s metadata has changed: updating xenopsd" id;
-               info "xenops: VM.import_metadata %s" txt;
-               maybe_persist_md ~__context ~self txt;
-               Xapi_cache.update_nolock id (Some txt);
-               let module Client = (val make_client queue_name : XENOPS) in
-               let (_: Vm.id) = Client.VM.import_metadata dbg txt in
-               ()
-           end
-      )
+           if Xapi_cache.update_if_changed id txt then begin
+             debug "VM %s metadata has changed: updating xenopsd" id;
+             info "xenops: VM.import_metadata %s" txt;
+             maybe_persist_md ~__context ~self txt;
+             let module Client = (val make_client queue_name : XENOPS) in
+             let (_: Vm.id) = Client.VM.import_metadata dbg txt in
+             ()
+           end)
 end
 
 let add_caches id =
   Mutex.execute metadata_m
     (fun () ->
-       Xapi_cache._register_nolock id None;
-       Xenops_cache._register_nolock id;
+       Xapi_cache.register id None;
+       Xenops_cache.register id;
     )
 
 
@@ -1610,7 +1638,7 @@ let update_vm ~__context id =
                      (fun protocol ->
                         let self = List.assoc protocol current_protocols in
                         Db.Console.destroy ~__context ~self
-                     ) (List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
+                     ) (Listext.List.set_difference (List.map fst current_protocols) (List.map fst new_protocols));
                    (* Create consoles that have appeared *)
                    List.iter
                      (fun (protocol, _) ->
@@ -1624,7 +1652,7 @@ let update_vm ~__context id =
                         Db.Console.create ~__context ~ref ~uuid
                           ~protocol:(to_xenapi_console_protocol protocol) ~location ~vM:self
                           ~other_config:[] ~port
-                     ) (List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
+                     ) (Listext.List.set_difference (List.map fst new_protocols) (List.map fst current_protocols));
                 ) info;
             with e ->
               error "Caught %s: while updating VM %s consoles" (Printexc.to_string e) id
@@ -2389,7 +2417,7 @@ let events_from_xapi () =
                 let resident_VMs = Db.Host.get_resident_VMs ~__context ~self:localhost in
 
                 let uuids = List.map (fun self -> Db.VM.get_uuid ~__context ~self) resident_VMs in
-                let cached = Mutex.execute metadata_m (fun () -> Xenops_cache.list_nolock ()) in
+                let cached = Xenops_cache.list () in
                 let missing_in_cache = Listext.List.set_difference uuids cached in
                 let extra_in_cache = Listext.List.set_difference cached uuids in
                 if missing_in_cache <> []

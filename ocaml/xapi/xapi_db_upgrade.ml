@@ -523,7 +523,7 @@ let upgrade_vm_platform_device_model =
         ( "platform"
         , string_to_assoc str
           |> Xapi_vm_helpers.ensure_device_model_profile_present
-            ~__context ~domain_type
+            ~__context ~domain_type ~is_a_template:false
           |> assoc_to_string
         )
       | other -> other in
@@ -538,9 +538,10 @@ let upgrade_vm_platform_device_model =
           (* update VM record *)
           let domain_type = Db.VM.get_domain_type ~__context ~self:vm in
           let platform    = Db.VM.get_platform ~__context ~self:vm in
+          let is_a_template = Db.VM.get_is_a_template ~__context ~self:vm in
           let platform' =
             Xapi_vm_helpers.ensure_device_model_profile_present
-              ~__context ~domain_type platform in
+              ~__context ~domain_type ~is_a_template platform in
           Db.VM.set_platform ~__context ~self:vm ~value:platform';
           (* update snapshot meta data *)
           Db.VM.get_snapshot_metadata ~__context ~self:vm

@@ -739,6 +739,8 @@ let firewall_port_config_script = ref "/etc/xapi.d/plugins/firewall-port"
 
 let nbd_client_manager_script = ref "/opt/xensource/libexec/nbd_client_manager.py"
 
+let varstore_rm = ref "/usr/bin/varstore-rm"
+
 let disable_logging_for= ref []
 
 let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
@@ -1024,6 +1026,7 @@ module Resources = struct
     "nbd-firewall-config", nbd_firewall_config_script, "Executed after NBD-related networking changes to configure the firewall for NBD";
     "firewall-port-config", firewall_port_config_script, "Executed when starting/stopping xapi-clusterd to configure firewall port";
     "nbd_client_manager", nbd_client_manager_script, "Executed to safely connect to and disconnect from NBD devices using nbd-client";
+    "varstore-rm", varstore_rm, "Executed to clear certain UEFI variables during clone"
   ]
   let essential_files = [
     "pool_config_file", pool_config_file, "Pool configuration file";

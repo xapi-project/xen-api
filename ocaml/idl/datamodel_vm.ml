@@ -1439,7 +1439,6 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
                Published, rel_kolkata, "The field is now valid"
              ]
            ~default_value:(Some (VEnum "unspecified")) "domain_type" "The type of domain that will be created when the VM is started";
-
            field ~lifecycle:[Prototyped, rel_naples, ""] ~qualifier:StaticRO ~ty:(Map(String, String)) "NVRAM"
              ~default_value:(Some (VMap []))
              "initial value for guest NVRAM (containing UEFI variables, etc). Cannot be changed while the VM is running";

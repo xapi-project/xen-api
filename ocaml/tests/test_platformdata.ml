@@ -166,12 +166,19 @@ module SanityCheck = Generic.Make(struct
         (* Check UEFI configuration - qemu upstream *)
         make_firmware_ok "qemu-upstream" (Some uefi);
         make_firmware_ok "qemu-upstream-compat" (Some uefi);
+        make_firmware_ok "qemu-upstream-uefi" (Some uefi);
 
         (* Check UEFI configuration - qemu-trad incompatibility *)
         (([ "device-model", "qemu-trad" ], Some uefi, false, 0L, 0L, `hvm),
          Either.Left(Api_errors.Server_error(Api_errors.invalid_value,
                                              ["platform:device-model";
                                               "UEFI boot is not supported with qemu-trad"])));
+
+        (* Check BIOS configuration - qemu-upstream-uefi incompatibility *)
+        (([ "device-model", "qemu-upstream-uefi" ], Some Bios, false, 0L, 0L, `hvm),
+         Either.Left(Api_errors.Server_error(Api_errors.invalid_value,
+                                             ["platform:device-model";
+                                              "BIOS boot is not supported with qemu-upstream-uefi"])));
       ]
   end)
 

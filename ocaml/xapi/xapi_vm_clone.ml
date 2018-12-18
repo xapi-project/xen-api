@@ -253,12 +253,6 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
   let is_vmss_snapshot =
       is_a_snapshot && (Xapi_vmss.is_vmss_snapshot ~__context) in
 
-  let platform =
-    all.Db_actions.vM_platform
-    |> (Xapi_vm_helpers.ensure_device_model_profile_present
-          ~__context ~domain_type:all.Db_actions.vM_domain_type)
-  in
-
   (* create a new VM *)
   Db.VM.create ~__context
     ~ref
@@ -300,7 +294,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
     ~hVM_boot_params:all.Db_actions.vM_HVM_boot_params
     ~hVM_shadow_multiplier:all.Db_actions.vM_HVM_shadow_multiplier
     ~suspend_VDI:Ref.null
-    ~platform
+    ~platform:all.Db_actions.vM_platform
     ~pV_kernel:all.Db_actions.vM_PV_kernel
     ~pV_ramdisk:all.Db_actions.vM_PV_ramdisk
     ~pV_args:all.Db_actions.vM_PV_args
@@ -427,6 +421,10 @@ let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
                      else clone_single_vdi rpc session_id disk_op ~__context original driver_params) in
 
               Db.VM.set_suspend_VDI ~__context ~self:ref ~value:suspend_VDI;
+
+              if not is_a_snapshot then
+                Xapi_xenops.nvram_post_clone ~__context ~self:ref ~uuid;
+
               Db.VM.remove_from_current_operations ~__context ~self:ref ~key:task_id;
               Xapi_vm_lifecycle.force_state_reset ~__context ~self:ref ~value:new_power_state;
 
