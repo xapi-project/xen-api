@@ -29,6 +29,7 @@ let run_hotplug_scripts = ref true
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
 let vgpu_ready_timeout = ref 30.
+let varstored_ready_timeout = ref 30.
 let use_upstream_qemu = ref false
 
 let watch_queue_length = ref 1000
@@ -54,6 +55,7 @@ let options = [
   "hotplug_timeout", Arg.Set_float hotplug_timeout, (fun () -> string_of_float !hotplug_timeout), "Time before we assume hotplug scripts have failed";
   "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, (fun () -> string_of_float !qemu_dm_ready_timeout), "Time before we assume qemu has become stuck";
   "vgpu-ready-timeout", Arg.Set_float vgpu_ready_timeout, (fun () -> string_of_float !vgpu_ready_timeout), "Time before we assume vgpu has become stuck or unresponsive";
+  "varstored-ready-timeout", Arg.Set_float varstored_ready_timeout, (fun () -> string_of_float !varstored_ready_timeout), "Time before we assume varstored has become stuck or unresponsive";
   "watch_queue_length", Arg.Set_int watch_queue_length, (fun () -> string_of_int !watch_queue_length), "Maximum number of unprocessed xenstore watch events before we restart";
   "use-upstream-qemu", Arg.Bool (fun x -> use_upstream_qemu := x), (fun () -> string_of_bool !use_upstream_qemu), "True if we want to use upsteam QEMU";
   "default-vbd-backend-kind", Arg.Set_string default_vbd_backend_kind, (fun () -> !default_vbd_backend_kind), "Default backend for VBDs";

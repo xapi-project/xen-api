@@ -28,6 +28,7 @@ let setup_vif_rules = ref "setup-vif-rules"
 let setup_pvs_proxy_rules = ref "setup-pvs-proxy-rules"
 let vgpu = ref "vgpu"
 let gimtool = ref "/opt/xensource/bin/gimtool"
+let varstored = ref "varstored"
 
 let alternatives = ref "/usr/lib/xapi/alternatives"
 
@@ -53,6 +54,7 @@ let nonessentials = [
   X_OK, "pci-flr-script", pci_flr_script, "path to the PCI function-level reset script";
   X_OK, "alternatives", alternatives, "path to the alternative xenguests";
   X_OK, "vgpu", vgpu, "path to the vgpu binary";
+  X_OK, "varstored", varstored, "path to the varstored binary";
   X_OK, "vncterm", vncterm, "path to the vncterm binary";
   X_OK, "gimtool", gimtool, "path to the gimtool binary";
   X_OK, "igmp-query-injector-script", igmp_query_injector_script, "path to the igmp query injector script";

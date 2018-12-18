@@ -779,16 +779,12 @@ module HOST = struct
   let get_console_data () =
     with_xc_and_xs
       (fun xc xs ->
-         let raw = Bytes.of_string (Xenctrl.readconsolering xc) in
          (* There may be invalid XML characters in the buffer, so remove them *)
          let is_printable chr =
            let x = int_of_char chr in
            x=13 || x=10 || (x >= 0x20 && x <= 0x7e) in
-         for i = 0 to Bytes.length raw - 1 do
-           if not(is_printable (Bytes.get raw i))
-           then Bytes.set raw i ' '
-         done;
-         Bytes.unsafe_to_string raw
+         Xenctrl.readconsolering xc |> String.mapi (fun i c ->
+             if not (is_printable c) then ' ' else c)
       )
   let get_total_memory_mib () =
     with_xc_and_xs
@@ -1016,6 +1012,10 @@ module VM = struct
 
     let platformdata = vm.platformdata |> default "acpi_s3" "0" |> default "acpi_s4" "0" in
 
+    let is_uefi = match ty with
+      | HVM { firmware = Uefi _; _ } -> true
+      | _ -> false in
+
     {
       Domain.ssidref = vm.ssidref;
       hvm = hvm;
@@ -1025,6 +1025,7 @@ module VM = struct
       platformdata = platformdata @ vcpus;
       bios_strings = vm.bios_strings;
       has_vendor_device = vm.has_vendor_device;
+      is_uefi;
     }
 
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
@@ -1351,7 +1352,7 @@ module VM = struct
       ty = Some ty;
       VmExtra.qemu_vbds = qemu_vbds;
     } ->
-      let make ?(boot_order="cd") ?(serial="pty") ?(monitor="null")
+      let make ?(boot_order="cd") ?(firmware=default_firmware) ?(serial="pty") ?(monitor="null")
           ?(nics=[]) ?(disks=[]) ?(vgpus=[])
           ?(pci_emulations=[]) ?(usb=Device.Dm.Disabled)
           ?(parallel=None)
@@ -1368,6 +1369,7 @@ module VM = struct
         let open Device.Dm in {
           memory = build_info.Domain.memory_max;
           boot = boot_order;
+          firmware = firmware;
           serial = Some serial;
           monitor = Some monitor;
           vcpus = build_info.Domain.vcpus; (* vcpus max *)
@@ -1432,6 +1434,7 @@ module VM = struct
           then Some (List.assoc "parallel" vm.Vm.platformdata)
           else None in
         Some (make ~video_mib:hvm_info.video_mib
+                ~firmware:hvm_info.firmware
                 ~video:hvm_info.video ~acpi:hvm_info.acpi
                 ?serial:hvm_info.serial ?keymap:hvm_info.keymap
                 ?vnc_ip:hvm_info.vnc_ip ~usb ~parallel
@@ -1764,6 +1767,15 @@ module VM = struct
              raise (Xenops_interface.Xenopsd_error Ballooning_timeout_before_migration)
       ) task vm
 
+  let assert_can_save vm =
+    with_xc_and_xs (fun xc xs ->
+        let uuid = uuid_of_vm vm in
+        match domid_of_uuid ~xc ~xs uuid with
+        | None -> failwith (Printf.sprintf "VM %s disappeared" (Uuidm.to_string uuid))
+        | Some domid ->
+          Device.Dm.assert_can_suspend ~xs ~dm:(dm_of ~vm) domid
+      )
+
   let save task progress_callback vm flags data vgpu_data pre_suspend_callback =
     let flags' =
       List.map
@@ -1785,6 +1797,9 @@ module VM = struct
 
          with_data ~xc ~xs task data true
            (fun fd ->
+              let is_uefi = match vm.ty with
+                | HVM { firmware = Uefi _; _ } -> true
+                | _ -> false in
               let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
               let vgpu_fd =
                 match vgpu_data with
@@ -1795,7 +1810,7 @@ module VM = struct
               in
               let manager_path = choose_emu_manager vm.Vm.platformdata in
               Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm) ~progress_callback
-                ~qemu_domid ~manager_path vm_str domid fd vgpu_fd flags'
+                ~qemu_domid ~manager_path ~is_uefi vm_str domid fd vgpu_fd flags'
                 (fun () ->
                    (* SCTX-2558: wait more for ballooning if needed *)
                    wait_ballooning task vm;
@@ -2254,7 +2269,10 @@ module VGPU = struct
            | { VmExtra.build_info = Some build_info } ->
              build_info.Domain.vcpus
          in
-         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus
+         let profile = match vmextra.VmExtra.persistent.profile with
+           | None -> Device.Profile.Qemu_upstream_compat
+           | Some p -> p in
+         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus profile
       ) vm
 
   let get_state vm vgpu =

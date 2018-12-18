@@ -34,6 +34,7 @@ implemented):
     * Qemu_trad    : The qemu save file for the Qemu used in XenServer
     * Qemu_xen*    : Not implemented
     * Demu*        : Not implemented
+    * Varstored*   : Not implemented
     * End_of_image : A footer marker to denote the end of the suspend image
 
 Some of the above types do not have the notion of a length since they cannot be

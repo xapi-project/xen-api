@@ -23,7 +23,7 @@ exception Cdrom
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile: sig
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi
   (** available qemu profiles *)
 
   val typ_of: t Rpc.Types.typ
@@ -246,6 +246,7 @@ sig
   type info = {
     memory: int64;
     boot: string;
+    firmware: Xenops_types.Vm.firmware_type;
     serial: string option;
     monitor: string option;
     vcpus: int; (* vcpus max *)
@@ -285,10 +286,13 @@ sig
   val start : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
   val start_vnconly : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
   val restore : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> dm:Profile.t -> ?timeout:float -> info -> Xenctrl.domid -> unit
+  val assert_can_suspend : xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> unit
   val suspend : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
   val resume : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
   val stop : xs:Xenstore.Xs.xsh -> qemu_domid:int -> dm:Profile.t -> Xenctrl.domid -> unit
-  val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> unit
+  val restore_vgpu : Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid  -> Xenops_interface.Vgpu.t -> int -> Profile.t  -> unit
+  val suspend_varstored: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> Xenctrl.domid -> string
+  val restore_varstored: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> efivars:string -> Xenctrl.domid -> unit
 
   val after_suspend_image: xs:Xenstore.Xs.xsh -> dm:Profile.t -> qemu_domid:int -> int -> unit
 end

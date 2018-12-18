@@ -33,6 +33,7 @@ type header_type =
   | Qemu_trad
   | Qemu_xen
   | Demu
+  | Varstored
   | End_of_image
 
 type format = Structured | Legacy
@@ -40,7 +41,7 @@ type header = header_type * int64
 
 val string_of_header : header -> string
 
-val save_signature : bytes
+val save_signature : string
 val read_save_signature : Unix.file_descr -> [`Ok of format | `Error of string]
 val read_legacy_qemu_header : Unix.file_descr -> [`Ok of int64 | `Error of string]
 val write_qemu_header_for_legacy_libxc : Unix.file_descr -> int64 ->  [`Ok of unit | `Error of exn]

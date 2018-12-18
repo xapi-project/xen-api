@@ -59,6 +59,7 @@ let essentials = [
 let nonessentials = [
   X_OK, "convert-legacy-stream", legacy_conv_tool, "path to convert-legacy-stream tool";
   R_OK, "cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info";
+  X_OK, "verify-stream-v2", verify_libxc_v2, "tool to verify suspend image libxc stream"
 ]
 
 let make_resources ~essentials ~nonessentials =

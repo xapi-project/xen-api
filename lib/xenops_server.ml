@@ -1648,6 +1648,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let url = Uri.of_string vmm.vmm_url in
       (* We need to perform version exchange here *)
 
+      let module B = (val get_backend () : S) in
+      B.VM.assert_can_save vm;
       Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
 
       let module Remote = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> vmm.vmm_url) end)) in

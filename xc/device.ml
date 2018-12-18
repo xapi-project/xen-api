@@ -34,22 +34,25 @@ open D
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
-  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream [@@deriving rpcty]
+  type t = Qemu_trad | Qemu_upstream_compat | Qemu_upstream | Qemu_upstream_uefi [@@deriving rpcty]
   let fallback = Qemu_trad
   let all = [ Qemu_trad; Qemu_upstream_compat; Qemu_upstream ]
   module Name = struct
     let qemu_trad            = "qemu-trad"
     let qemu_upstream_compat = "qemu-upstream-compat"
     let qemu_upstream        = "qemu-upstream"
+    let qemu_upstream_uefi   = "qemu-upstream-uefi"
   end
   let wrapper_of = function
     | Qemu_trad            -> !Resources.qemu_dm_wrapper
     | Qemu_upstream_compat -> !Resources.upstream_compat_qemu_dm_wrapper
     | Qemu_upstream        -> !Resources.upstream_compat_qemu_dm_wrapper
+    | Qemu_upstream_uefi   -> !Resources.upstream_compat_qemu_dm_wrapper
   let string_of  = function
     | Qemu_trad              -> Name.qemu_trad
     | Qemu_upstream_compat   -> Name.qemu_upstream_compat
     | Qemu_upstream          -> Name.qemu_upstream
+    | Qemu_upstream_uefi     -> Name.qemu_upstream_uefi
   let of_string  = function
     | x when x = Name.qemu_trad            -> Qemu_trad
     | x when x = Name.qemu_upstream_compat -> Qemu_upstream_compat
@@ -57,6 +60,7 @@ module Profile = struct
        sprintf "unsupported device-model profile %s: use %s" x Name.qemu_upstream_compat
        |> fun s -> Xenopsd_error (Internal_error s)
        |> raise
+    | x when x = Name.qemu_upstream_uefi   -> Qemu_upstream_uefi
     | x -> debug "unknown device-model profile %s: defaulting to %s" x Name.qemu_upstream_compat;
       Qemu_upstream_compat
 
@@ -152,10 +156,10 @@ module Generic = struct
       raise e
 
   let safe_rm ~xs path =
-    try 
+    try
       debug "xenstore-rm %s" path;
       xs.Xs.rm path
-    with _ -> debug "Failed to xenstore-rm %s; continuing" path 
+    with _ -> debug "Failed to xenstore-rm %s; continuing" path
 
   (* Helper function to delete the frontend, backend and error trees for a device.
      This must only be done after synchronising with the hotplug scripts.
@@ -182,7 +186,7 @@ module Generic = struct
     with _ -> false
 
   (** Checks whether the supplied device still exists (ie hasn't been deleted) *)
-  let exists ~xs (x: device) = 
+  let exists ~xs (x: device) =
     let backend_stub = backend_path_of_device ~xs x in
     try
       ignore_string(xs.Xs.read backend_stub);
@@ -285,7 +289,7 @@ module Generic = struct
    When the watch fires, call a predicate function and look for an error node.
    If an error node appears, throw Device_error. If the predicate returns true then
    return unit. If the timeout expires throw Device_disconnect_timeout. *)
-let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate otherpath domid kind devid = 
+let wait_for_error_or ~xs ?(timeout=Hotplug.hotplug_timeout) doc predicate otherpath domid kind devid =
 	let doc' = Printf.sprintf "%s (timeout = %f; %s)" doc timeout (print_device domid kind devid) in
   	let errorpath = error_node domid kind devid in
 	debug "Device.wait_for_error_or %s (watching [ %s; %s ])" doc' otherpath errorpath;
@@ -327,12 +331,8 @@ let destroy ~xs domid kind devid =
     with Unixext.Process_still_alive ->
       debug "%d: failed to respond to SIGTERM, sending SIGKILL" pid;
       Unixext.kill_and_wait ~signal:Sys.sigkill pid
-  let best_effort txt f =
-    try
-      f ()
-    with e ->
-      info "%s: ignoring exception %s" txt (Printexc.to_string e)
 
+  let best_effort = Xenops_utils.best_effort
 end
 
 (****************************************************************************************)
@@ -500,7 +500,7 @@ module Vbd_Common = struct
     if !Xenopsd.run_hotplug_scripts
     then Hotplug.run_hotplug_script x [ "remove" ];
 
-    (* As for add above, if the frontend is in dom0, we can wait for the frontend 
+    (* As for add above, if the frontend is in dom0, we can wait for the frontend
        	 * to unplug as well as the backend. CA-13506 *)
     if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
 
@@ -539,7 +539,7 @@ module Vbd_Common = struct
       | None ->
         make (free_device ~xs hvm domid) in
     let devid = to_xenstore_key device_number in
-    let device = 
+    let device =
       let backend = { domid = x.backend_domid; kind = x.kind; devid = devid }
       in  device_of_backend backend domid
     in
@@ -578,11 +578,6 @@ module Vbd_Common = struct
       "mode", string_of_mode x.mode;
       "params", x.params;
     ]);
-    (* We don't have PV drivers for HVM guests for CDROMs. We prevent
-       blkback from successfully opening the device since this can
-       prevent qemu CD eject (and subsequent vdi_deactivate) *)
-    let no_phys_device =
-      if hvm && (x.dev_type = CDROM) then ["no-physical-device", ""] else [] in
 
     Opt.iter
       (fun protocol ->
@@ -591,9 +586,8 @@ module Vbd_Common = struct
 
     let back = Hashtbl.fold (fun k v acc -> (k, v) :: acc) back_tbl [] in
     let front = Hashtbl.fold (fun k v acc -> (k, v) :: acc) front_tbl [] in
-    let priv = no_phys_device @ x.extra_private_keys in
 
-    Generic.add_device ~xs device back front priv [];
+    Generic.add_device ~xs device back front x.extra_private_keys [];
     device
 
   let add_wait (task: Xenops_task.task_handle) ~xc ~xs device =
@@ -680,7 +674,7 @@ end
 
 module Vif = struct
 
-  let add ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
+  let add ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[])
       ~netty ~carrier ?(protocol=Protocol_Native) ?(extra_private_keys=[]) ?(extra_xenserver_keys=[]) (task: Xenops_task.task_handle) domid =
     debug "Device.Vif.add domid=%d devid=%d mac=%s carrier=%b rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" domid devid mac carrier
       (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
@@ -769,7 +763,7 @@ module Vif = struct
 
   let hard_shutdown = Generic.hard_shutdown
 
-  let set_carrier ~xs (x: device) carrier = 
+  let set_carrier ~xs (x: device) carrier =
     debug "Device.Vif.set_carrier %s <- %b" (string_of_device x) carrier;
     let disconnect_path = disconnect_path_of_device ~xs x in
     xs.Xs.write disconnect_path (if carrier then "0" else "1")
@@ -797,13 +791,13 @@ end
 (** Network SR-IOV VFs:                                                                 *)
 module NetSriovVf = struct
 
-  let add  ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[]) 
+  let add  ~xs ~devid ~mac ?mtu ?(rate=None) ?(backend_domid=0) ?(other_config=[])
       ~pci ~vlan ~carrier ?(extra_private_keys=[]) ?(extra_xenserver_keys=[])
       (task: Xenops_task.task_handle) domid =
     let vlan_str = match vlan with None -> "none" | Some vlan -> sprintf "%Ld" vlan in
     let rate_str = match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b in
     debug "Device.NetSriovVf.add domid=%d devid=%d pci=%s vlan=%s mac=%s carrier=%b \
-           rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]" 
+           rate=%s other_config=[%s] extra_private_keys=[%s] extra_xenserver_keys=[%s]"
       domid devid (Xenops_interface.Pci.string_of_address pci)  vlan_str mac carrier rate_str
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
@@ -931,7 +925,7 @@ module PV_Vnc = struct
   let get_statefile ~xs domid =
     match pid ~xs domid with
     | None -> None
-    | Some pid -> 
+    | Some pid ->
       let filename = vncterm_statefile pid in
       if Sys.file_exists filename then
         Some filename
@@ -940,7 +934,7 @@ module PV_Vnc = struct
 
   let save ~xs domid =
     match pid ~xs domid with
-    | Some pid -> 
+    | Some pid ->
       Unix.kill pid Sys.sigusr1;
       let filename = vncterm_statefile pid in
       let delay = 10. in
@@ -982,6 +976,8 @@ module PV_Vnc = struct
 end
 
 module type DAEMONPIDPATH = sig
+  val name : string
+  val use_pidfile : bool
   val pid_path : int -> string
 end
 
@@ -998,11 +994,35 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
 
   let pid_path = D.pid_path
   let pid_path_signal domid = (pid_path domid) ^ "-signal"
+
+  let pidfile_path domid =
+    if D.use_pidfile then
+      Some (sprintf "%s/%s-%d.pid" Device_common.var_run_xen_path D.name domid)
+    else None
+
   let pid ~xs domid =
     try
-      let pid = xs.Xs.read (pid_path domid) in
-      Some (int_of_string pid)
-    with _ -> None
+      match pidfile_path domid with
+      | Some path when Sys.file_exists path ->
+        let pid = path |> Unixext.string_of_file |> String.trim |> int_of_string in
+        Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
+            try
+              Unix.lockf fd Unix.F_TRLOCK 0;
+              (* we succeeded taking the lock: original process is dead.
+               * some other process might've reused its pid *)
+              None
+            with Unix.Unix_error(Unix.EAGAIN, _, _) ->
+              (* cannot obtain lock: process is alive *)
+              Some pid
+        )
+      | _ ->
+        (* backward compatibility during update installation: only has xenstore pid *)
+        let pid = xs.Xs.read (pid_path domid) in
+        Some (int_of_string pid)
+    with e ->
+      debug "Failed to read PID for %s (domid=%d): %s" D.name domid (Printexc.to_string e);
+      None
+
   let is_running ~xs domid =
     match pid ~xs domid with
     | None -> false
@@ -1011,10 +1031,39 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
         Unix.kill p 0; (* This checks the existence of pid p *)
         true
       with _ -> false
+
+  let stop ~xs domid = match pid ~xs domid with
+    | None -> ()
+    | Some pid ->
+      debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" D.name D.name domid pid;
+      let open Generic in
+      best_effort (sprintf "killing %s" D.name)
+        (fun () -> really_kill pid);
+      let key = pid_path domid in
+      best_effort (sprintf "removing XS key %s" key)
+        (fun () -> xs.Xs.rm key);
+      match pidfile_path domid with
+      | None -> ()
+      | Some path ->
+        best_effort (sprintf "removing %s" path)
+          (fun () -> Unix.unlink path)
 end
 
-module Qemu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid end)
-module Vgpu = DaemonMgmt(struct let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid end)
+module Qemu = DaemonMgmt(struct
+    let name = "qemu"
+    let use_pidfile = true
+    let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
+end)
+module Vgpu = DaemonMgmt(struct
+    let name = "vgpu"
+    let use_pidfile = false
+    let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid
+end)
+module Varstored = DaemonMgmt(struct
+    let name = "varstored"
+    let use_pidfile = true
+    let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
+  end)
 
 module PCI = struct
 
@@ -1206,11 +1255,7 @@ module PCI = struct
         let gpu_info_file = Filename.concat gpu_path "information" in
         let gpu_info = Unixext.string_of_file gpu_info_file in
         (* Work around due to PCI ID formatting inconsistency. *)
-        let devstr2 =
-          let devstr2 = Bytes.copy (Bytes.unsafe_of_string devstr) in
-          Bytes.set devstr2 7 '.';
-          Bytes.unsafe_to_string devstr2
-        in
+        let devstr2 = String.mapi (fun i c -> if i = 7 then '.' else c) devstr in
         if false
         || (Stdext.Xstringext.String.has_substr gpu_info devstr2)
         || (Stdext.Xstringext.String.has_substr gpu_info devstr)
@@ -1319,10 +1364,10 @@ module PCI = struct
   let device_model_state_path xs be_domid fe_domid =
     Printf.sprintf "%s/device-model/%d/state" (xs.Xs.getdomainpath be_domid) fe_domid
 
-  let signal_device_model ~xs domid cmd parameter = 
+  let signal_device_model ~xs domid cmd parameter =
     debug "Device.Pci.signal_device_model domid=%d cmd=%s param=%s" domid cmd parameter;
     let be_domid = 0 in (* XXX: assume device model is in domain 0 *)
-    let be_path = xs.Xs.getdomainpath be_domid in 
+    let be_path = xs.Xs.getdomainpath be_domid in
     (* Currently responses go in this global place. Blank it to prevent request/response/request confusion *)
     xs.Xs.rm (device_model_state_path xs be_domid domid);
 
@@ -1331,24 +1376,8 @@ module PCI = struct
                                Printf.sprintf "device-model/%d/parameter" domid, parameter ];
       )
 
-  let wait_device_model (task: Xenops_task.task_handle) ~xs domid =
-    let be_domid = 0 in
-    let path = device_model_state_path xs be_domid domid in
-    let watch = Watch.value_to_appear path |> Watch.map (fun _ -> ()) in
-    let shutdown = Watch.key_to_disappear (Qemu.pid_path domid) in
-    let cancel = Domain domid in
-    let (_: bool) = cancellable_watch cancel [ watch; shutdown ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
-    if Qemu.is_running ~xs domid then begin
-      let answer = try xs.Xs.read path with _ -> "" in
-      xs.Xs.rm path;
-      Some answer
-    end else begin
-      info "wait_device_model: qemu has shutdown";
-      None
-    end
-
   (* Return a list of PCI devices *)
-  let list ~xs domid = 
+  let list ~xs domid =
     (* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
     List.map (fun (_, y) -> (0, y)) (read_pcidir ~xs domid)
 
@@ -1636,6 +1665,7 @@ module Dm_Common = struct
   type info = {
     memory: int64;
     boot: string;
+    firmware: Xenops_types.Vm.firmware_type;
     serial: string option;
     monitor: string option;
     vcpus: int; (* vcpus max *)
@@ -1658,6 +1688,9 @@ module Dm_Common = struct
     }
 
   let vnc_socket_path = (sprintf "%s/vnc-%d") Device_common.var_run_xen_path
+
+  let efivars_resume_path = Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-resume.dat"
+  let efivars_save_path = Xenops_sandbox.Chroot.Path.of_string ~relative:"efi-vars-save.dat"
 
   let get_vnc_port ~xs domid ~f =
     match Qemu.is_running ~xs domid with
@@ -1739,7 +1772,7 @@ module Dm_Common = struct
     in
     let disp_options, wait_for_port =
       match info.disp with
-      | NONE -> 
+      | NONE ->
         ([], false)
       | SDL (opts, x11name) ->
         ([], false)
@@ -1772,6 +1805,7 @@ module Dm_Common = struct
             |> List.concat
           )
         ; ( info.monitor  |> function None -> [] | Some x -> [ "-monitor";  x])
+        ; ( Qemu.pidfile_path domid |> function None -> [] | Some x -> ["-pidfile"; x])
         ]
     in
     { argv   = argv
@@ -1786,16 +1820,19 @@ module Dm_Common = struct
     @ disp_options
     @ (List.fold_left (fun l (k, v) -> ("-" ^ k) :: (match v with None -> l | Some v -> v :: l)) [] extras)
 
-  let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci restore =
+  let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci restore device =
     let open Xenops_interface.Vgpu in
     let suspend_file = sprintf demu_save_path domid in
+    let device_opt = match device with
+      | None -> []
+      | Some d -> ["--device"; string_of_int d] in
     let base_args = [
       "--domain=" ^ (string_of_int domid);
       "--vcpus=" ^ (string_of_int vcpus);
       "--gpu=" ^ (Xenops_interface.Pci.string_of_address pci);
       "--config=" ^ vgpu.config_file;
       "--suspend=" ^ suspend_file;
-    ] in
+    ] @ device_opt in
     let fd_arg = if restore then ["--resume"] else [] in
     List.concat [base_args; fd_arg]
 
@@ -1849,7 +1886,7 @@ module Dm_Common = struct
     (string_of_int domid) :: "--syslog" :: args
 
   (* Forks a daemon and then returns the pid. *)
-  let start_daemon ~path ~args ~name ~domid ?(fds=[]) _ =
+  let start_daemon ~path ~args ~name ~domid ?(fds=[]) () =
     debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
     let syslog_key = (Printf.sprintf "%s-%d" name domid) in
     let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
@@ -1907,7 +1944,7 @@ module Dm_Common = struct
   let stop ~xs ~qemu_domid domid  =
     let qemu_pid_path = Qemu.pid_path domid
     in
-    let stop_qemu () = (match (Qemu.pid ~xs domid) with
+    let stop_qemu () = match (Qemu.pid ~xs domid) with
         | None -> () (* nothing to do *)
         | Some qemu_pid ->
           debug "qemu-dm: stopping qemu-dm with SIGTERM (domid = %d)" domid;
@@ -1921,18 +1958,85 @@ module Dm_Common = struct
           best_effort "unmasking signals, qemu-pid is already gone from xenstore"
             (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid);
           best_effort "removing device model path from xenstore"
-            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid)))
+            (fun () -> xs.Xs.rm (device_model_path ~qemu_domid domid));
+          match Qemu.pidfile_path domid with
+          | None -> ()
+          | Some path ->
+            best_effort (sprintf "removing %s" path)
+              (fun () -> Unix.unlink path)
     in
-    let stop_vgpu () = match (Vgpu.pid ~xs domid) with
-      | None -> ()
-      | Some vgpu_pid ->
-        debug "vgpu: stopping vgpu with SIGTERM (domid = %d pid = %d)" domid vgpu_pid;
-        let open Generic in
-        best_effort "killing vgpu"
-          (fun () -> really_kill vgpu_pid)
+    let stop_vgpu () = Vgpu.stop ~xs domid in
+    let stop_varstored () =
+      Varstored.stop ~xs domid;
+      let dbg = Printf.sprintf "stop domid %d" domid in
+      Xenops_sandbox.Varstore_guard.stop dbg ~domid
     in
     stop_vgpu ();
+    stop_varstored ();
     stop_qemu ()
+
+  let format_of_media (media:media) file =
+    match media, file with
+    | Disk, _   -> ["format=raw"]
+    | Cdrom, "" -> []
+    | Cdrom, _  -> ["format=raw"]
+
+  let lba_of_media = function
+    | Disk  -> "force-lba=on"
+    | Cdrom -> "force-lba=off"
+
+
+  type disk_type_args = int * string * media -> string list
+
+  let ide = "ide"
+  let ide_device_of ~trad_compat (index, file, media) =
+    [ "-drive"; String.concat "," (List.concat [
+          [ sprintf "file=%s" file
+          ; "if=ide"
+          ; sprintf "index=%d" index
+          ; sprintf "media=%s" (string_of_media media)
+          ]
+        ; if trad_compat then [lba_of_media media] else []
+        ; format_of_media media file])
+    ]
+
+  let nvme = "nvme"
+  let nvme_device_of (index, file, media) =
+    let id = sprintf "disk%d" index in
+    [ "-drive"; String.concat "," (
+          [ sprintf "id=%s" id
+          ; "if=none"
+          ; sprintf "file=%s" file
+          ; sprintf "media=%s" (string_of_media media)
+          ] @ (format_of_media media file))
+    ; "-device"; String.concat ","
+        ([ "nvme"
+         ; sprintf "serial=%s" id
+         ; sprintf "drive=%s" id
+         ; sprintf "addr=%d" 7
+           (* 4 and 5 are NICs, and we can only have two, 6 is platform *)
+         ])
+    ]
+
+  let xen_platform ~trad_compat ~xs ~domid =
+    let device_id =
+      try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
+      with _ -> "0001"
+    in
+    [ "-device"; String.concat "," (List.concat [
+          [ "xen-platform"
+          ; "addr=3"
+          ]
+        ; if trad_compat then
+            [ sprintf "device-id=0x%s" device_id
+            ; "revision=0x2"
+            ; "class-id=0x0100"
+            ; "subvendor_id=0x5853"
+            ; sprintf"subsystem_id=0x%s" device_id ] else []])
+    ]
+
+  let cant_suspend_reason_path domid =
+    sprintf "/local/domain/%d/data/cant_suspend_reason" domid
 
 end (* End of module Dm_Common *)
 
@@ -1942,6 +2046,12 @@ module Backend = struct
 
   (** Common signature for all the profile backends *)
   module type Intf = sig
+
+    (** Vgpu functions that use the dispatcher to choose between different profile
+     * and device-model backends *)
+    module Vgpu: sig
+      val device: index:int -> int option
+    end
 
     (** Vbd functions that use the dispatcher to choose between different profile backends *)
     module Vbd: sig
@@ -1959,12 +2069,11 @@ module Backend = struct
     (** Dm functions that use the dispatcher to choose between different profile backends *)
     module Dm: sig
 
-      module Event: sig
-        val init : unit -> unit
-      end
-
       (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the vnc server for [domid] can be found *)
       val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> Socket.t option
+
+      (** [assert_can_suspend xenstore xc] checks whether suspending is prevented by QEMU *)
+      val assert_can_suspend: xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 
       (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
@@ -1986,6 +2095,9 @@ module Backend = struct
 
   (** Implementation of the backend common signature for the qemu-trad backend *)
   module Qemu_trad : Intf = struct
+    module Vgpu = struct
+      let device ~index:_ = None
+    end
 
     (** Implementation of the Vbd functions that use the dispatcher for the qemu-trad backend *)
     module Vbd = struct
@@ -2003,14 +2115,12 @@ module Backend = struct
     (** Implementation of the Dm functions that use the dispatcher for the qemu-trad backend *)
     module Dm = struct
 
-      module Event = struct
-        let init () = ()
-      end
-
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
             (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
           )
+
+      let assert_can_suspend ~xs _ = ()
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
@@ -2078,7 +2188,346 @@ module Backend = struct
   end (* Backend.Qemu_trad *)
 
   (** Implementation of the backend common signature for the qemu-upstream-compat backend *)
-  module Qemu_upstream_compat : Intf  = struct
+  module type Qemu_upstream_config = sig
+    module NIC: sig
+      val max_emulated: int (** Should be <= the hardcoded maximum number of emulated NICs *)
+      val default: string
+      val addr: devid:int -> index:int -> int
+      val extra_flags: string list
+    end
+
+    module DISK : sig
+      val max_emulated: int option (** None = just the qemu imposed 4 IDE device limit *)
+      val default: string
+      val types: (string * Dm_Common.disk_type_args) list
+    end
+
+    module Firmware: sig
+      val supported: Xenops_types.Vm.firmware_type -> bool
+    end
+
+    module XenPV: sig
+      val addr : xs:Xenstore.Xs.xsh -> domid: int -> Dm_Common.info -> nics:(string * string * int) list -> int
+    end
+
+    module XenPlatform: sig
+      val device: xs:Xenstore.Xs.xsh -> domid:int -> string list
+    end
+
+    module VGPU: sig
+      val device: index:int -> int option
+    end
+
+    val extra_qemu_args: nic_type:string -> string list
+    val name : string
+  end
+
+  module Config_qemu_upstream_compat = struct
+    module NIC = struct
+      let max_emulated = 8
+      let default = "rtl8139"
+      let base_addr = 4
+      let addr ~devid ~index = devid + base_addr
+      let extra_flags = []
+    end
+
+    module DISK = struct
+      let max_emulated = None
+      let default = Dm_Common.ide
+      let types = [Dm_Common.ide, Dm_Common.ide_device_of ~trad_compat:true]
+    end
+
+    module XenPlatform = struct
+      let device ~xs ~domid =
+        let has_platform_device =
+          try
+            int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
+          with _ -> true
+        in
+        if has_platform_device then Dm_Common.xen_platform ~trad_compat:true ~xs ~domid
+        else []
+    end
+
+    module VGPU = struct
+      let device ~index:_ = None
+    end
+
+    module XenPV = struct
+      let addr ~xs ~domid info ~nics =
+        (** [first_gap n xs] expects an ascending list of integers [xs].
+         * It looks for a gap in sequence [xs] and returns the first it
+         * finds at position n or higher:
+         * first_gap 4 []      = 4
+         * first_gap 4 [5;6]   = 4
+         * first_gap 4 [1;3]   = 4
+         * first_gap 4 [5;6;8] = 4
+         * first_gap 4 [4;5;7] = 6
+         * first_gap 4 [4;5;6] = 7
+        *)
+        let rec first_gap n = function
+          | []             -> n
+          | x::xs when x<n -> first_gap n xs
+          | x::xs when x=n -> first_gap (n+1) xs
+          | x::xs          -> n
+        in
+
+        let has_nvidia_vgpu =
+          let open Xenops_interface.Vgpu in
+          let open Dm_Common in
+          match info.disp with
+          | VNC(Vgpu [{implementation = Nvidia _}],_,_,_,_) -> true
+          | SDL(Vgpu [{implementation = Nvidia _}],_)       -> true
+          | _                                               -> false
+        in
+
+        if has_nvidia_vgpu then 2
+        else if XenPlatform.device ~xs ~domid = [] then 3
+        else
+          nics
+          |> List.map (fun (_, _, devid) -> devid + NIC.base_addr)
+          |> first_gap NIC.base_addr
+    end
+
+    module Firmware = struct
+      let supported _ = true
+    end
+
+    let name = Profile.Name.qemu_upstream_compat
+    let extra_qemu_args ~nic_type =
+      let mult xs ys =
+        List.map (fun x -> List.map (fun y -> x^"."^y) ys) xs |>
+        List.concat in
+      List.concat [
+        ["-trad-compat"]
+        ; [ "-global"; "PIIX4_PM.revision_id=0x1"]
+        ; [ "-global"; "ide-hd.ver=0.10.2"]
+        ; mult
+            ["piix3-ide-xen"; "piix3-usb-uhci"; nic_type]
+            ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
+          |> List.map (fun x -> ["-global"; x]) |> List.concat
+      ]
+  end
+
+  module Config_qemu_upstream_uefi = struct
+    (*
+       0: i440FX
+       1: PIIX3
+       2: VGA or empty
+       3: Xen platform or empty
+       4 - 5: NIC (limited to first 2)
+       6: Xen PV
+       7: NVME
+       8+: vGPU and other pass-through devices
+     *)
+    module NIC = struct
+      let max_emulated = 2
+      let default = "e1000"
+      let addr ~devid ~index = 4 + index
+      let extra_flags = ["rombar=0"]
+    end
+
+    module DISK = struct
+      let max_emulated = Some 1
+      let default = Dm_Common.nvme
+      let types = [ Dm_Common.ide, Dm_Common.ide_device_of ~trad_compat:false
+                  ; Dm_Common.nvme, Dm_Common.nvme_device_of ]
+    end
+
+    module XenPV = struct
+      let addr ~xs ~domid _ ~nics = 6
+    end
+
+    module VGPU = struct
+      let device ~index = Some (8 + index)
+    end
+
+    module XenPlatform = struct
+      let device = Dm_Common.xen_platform ~trad_compat:false
+    end
+
+    module Firmware = struct
+      let supported =
+        let open Xenops_types.Vm in function
+        | Bios -> false
+        | Uefi _ -> true
+    end
+
+    let name = Profile.Name.qemu_upstream_uefi
+
+    let extra_qemu_args ~nic_type:_ = []
+  end
+
+  (** Handler for the QMP events in upstream qemu *)
+  module QMP_Event = struct
+    open Qmp
+
+    let (>>=) m f = match m with | Some x -> f x | None -> ()
+    let (>>|) m f = match m with | Some _ -> () | None -> f ()
+
+    (** Efficient lookup table between file descriptors, channels and domain ids *)
+    module Lookup = struct
+      let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
+      let add c domid =
+        Hashtbl.replace ftod (Qmp_protocol.to_fd c) domid;
+        Hashtbl.replace dtoc domid c
+      let remove c domid =
+        Hashtbl.remove ftod (Qmp_protocol.to_fd c);
+        Hashtbl.remove dtoc domid
+      let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
+      let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
+    end
+
+    (** File-descriptor event monitor implementation for the epoll library *)
+    module Monitor = struct
+      module Epoll = Core.Linux_ext.Epoll
+      module Flags = Core.Linux_ext.Epoll.Flags
+      let create () = (Core.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
+      let add m fd = Epoll.set m fd Flags.in_
+      let remove m fd = Epoll.remove m fd
+      let wait m = Epoll.wait m ~timeout:`Never
+      let with_event m fn = function
+        | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
+        | `Timeout -> debug "Shouldn't receive epoll timeout event in qmp_event_thread"
+    end
+    let m = Monitor.create ()
+
+    let monitor_path domid = qmp_event_path domid
+    let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
+
+    let remove domid =
+      Lookup.channel_of domid >>= fun c ->
+      try
+        finally
+          (fun () ->
+             Lookup.remove c domid;
+             Monitor.remove m (Qmp_protocol.to_fd c);
+             debug "Removed QMP Event fd for domain %d" domid)
+          (fun () -> Qmp_protocol.close c)
+      with e -> debug_exn (Printf.sprintf "Got exception trying to remove QMP on domain-%d" domid) e
+
+    let add domid =
+      try
+        Lookup.channel_of domid >>| fun () ->
+        let c = Qmp_protocol.connect (monitor_path domid) in
+        Qmp_protocol.negotiate c;
+        Qmp_protocol.write c (Command (None, Cont));
+        Lookup.add c domid;
+        Monitor.add m (Qmp_protocol.to_fd c);
+        debug "Added QMP Event fd for domain %d" domid
+      with e ->
+        debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
+        remove domid;
+        raise @@ Ioemu_failed
+          (sprintf "domid %d" domid, "QMP failure at "^__LOC__)
+
+    let update_cant_suspend domid xs =
+      let as_msg cmd = Qmp.(Success(Some __LOC__, cmd)) in
+      (* changing this will cause fire_event_on_vm to get called, which will do a VM.check_state,
+       * which will trigger a VM.stat from XAPI to update migratable state *)
+      let path = Dm_Common.cant_suspend_reason_path domid in
+      (* This will raise QMP_Error if it can't do it, we catch it and update xenstore. *)
+      match qmp_send_cmd domid Qmp.Query_migratable with
+      | Qmp.Unit ->
+        debug "query-migratable precheck passed (domid=%d)" domid;
+        Generic.safe_rm ~xs path;
+      | other ->
+        raise @@
+        (Xenopsd_error (Internal_error (sprintf
+                                          "Unexpected result for QMP command: %s"
+                                          Qmp.(other |> as_msg |> string_of_message))))
+      | exception QMP_Error (_, msg) ->
+        match Astring.String.find_sub ~sub:"CommandNotFound" msg with
+        | None -> xs.Xs.write path msg
+        | Some _ ->
+          debug "query-migratable ignoring precheck, qemu too old (domid=%d)" domid;
+          Generic.safe_rm ~xs path
+
+    let qmp_event_handle domid qmp_event =
+      (* This function will be extended to handle qmp events *)
+      debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
+
+      let rtc_change timeoffset =
+        with_xs (fun xs ->
+            let timeoffset_key = sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) in
+            try
+              let rtc = xs.Xs.read timeoffset_key in
+              xs.Xs.write timeoffset_key Int64.(add timeoffset (of_string rtc) |> to_string)
+            with e -> error "Failed to process RTC_CHANGE for domain %d: %s" domid (Printexc.to_string e)
+          )
+      in
+
+      let xen_platform_pv_driver_info pv_info =
+        with_xs (fun xs ->
+            let is_hvm_linux { product_num; build_num } =
+              let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
+              (product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff)
+            in
+            if is_hvm_linux pv_info then
+              begin
+                let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
+                List.iter (write_local_domain "control/feature-") ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"];
+                List.iter (write_local_domain "data/") ["updated"]
+              end
+          )
+      in
+
+      qmp_event.data |> function
+      | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
+      | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
+      | _ -> with_xs (update_cant_suspend domid) (* unhandled QMP events, including RESUME, and DEVICE_DELETED *)
+
+    let process domid line =
+      match Qmp.message_of_string line with
+      | Event e ->  qmp_event_handle domid e
+      | msg     ->  debug "Got non-event message, domain-%d: %s" domid
+                      (string_of_message msg)
+
+    let qmp_event_thread () =
+      debug "Starting QMP_Event thread";
+      (* Add the existing qmp sockets first *)
+      Sys.readdir var_run_xen_path
+      |> Array.to_list
+      |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
+
+      while true do
+        try
+          Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
+              Lookup.domid_of fd >>= fun domid ->
+              Lookup.channel_of domid >>= fun c ->
+              let qmp = Qmp_protocol.to_fd c in
+              if is_flag_in then
+                match Readln.read qmp with
+                | Readln.Ok msgs  -> List.iter (process domid) msgs
+
+                | Readln.Error msg ->
+                  error "domain-%d: %s, close QMP socket" domid msg;
+                  Readln.free qmp;
+                  remove domid
+
+                | Readln.EOF ->
+                  debug "domain-%d: end of file, close QMP socket" domid;
+                  Readln.free qmp;
+                  remove domid
+              else begin
+                debug "EPOLL error on domain-%d, close QMP socket" domid;
+                Readln.free qmp;
+                remove domid;
+              end
+            )
+        with e ->
+          debug_exn "Exception in qmp_event_thread: %s" e;
+      done
+
+  end (* Qemu_upstream_compat.Dm.QMP_Event *)
+
+  module Event = struct
+    let init () = ignore(Thread.create QMP_Event.qmp_event_thread ())
+  end
+
+  module Make_qemu_upstream(DefaultConfig: Qemu_upstream_config) : Intf  = struct
+    module Vgpu = struct
+      let device = DefaultConfig.VGPU.device
+    end
 
     (** Implementation of the Vbd functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Vbd = struct
@@ -2087,7 +2536,7 @@ module Backend = struct
         devid
         |> Device_number.of_xenstore_key
         |> Device_number.spec
-        |> function 
+        |> function
            | Ide, 0, _ -> "ide0-cd0"
            | Ide, 1, _ -> "ide0-cd1"
            | Ide, 2, _ -> "ide1-cd0"
@@ -2178,156 +2627,24 @@ module Backend = struct
 
     (** Implementation of the Dm functions that use the dispatcher for the qemu-upstream-compat backend *)
     module Dm = struct
-
-      (** Handler for the QMP events in upstream qemu *)
-      module QMP_Event = struct
-        open Qmp
-
-        let (>>=) m f = match m with | Some x -> f x | None -> ()
-        let (>>|) m f = match m with | Some _ -> () | None -> f ()
-
-        (** Efficient lookup table between file descriptors, channels and domain ids *)
-        module Lookup = struct
-          let ftod, dtoc = Hashtbl.create 16, Hashtbl.create 16
-          let add c domid =
-            Hashtbl.replace ftod (Qmp_protocol.to_fd c) domid;
-            Hashtbl.replace dtoc domid c
-          let remove c domid =
-            Hashtbl.remove ftod (Qmp_protocol.to_fd c);
-            Hashtbl.remove dtoc domid
-          let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
-          let channel_of domid = try Some (Hashtbl.find dtoc domid) with Not_found -> None
-        end
-
-        (** File-descriptor event monitor implementation for the epoll library *)
-        module Monitor = struct
-          module Epoll = Core.Linux_ext.Epoll
-          module Flags = Core.Linux_ext.Epoll.Flags
-          let create () = (Core.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
-          let add m fd = Epoll.set m fd Flags.in_
-          let remove m fd = Epoll.remove m fd
-          let wait m = Epoll.wait m ~timeout:`Never
-          let with_event m fn = function
-            | `Ok -> Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
-            | `Timeout -> debug "Shouldn't receive epoll timeout event in qmp_event_thread"
-        end
-        let m = Monitor.create ()
-
-        let monitor_path domid = qmp_event_path domid
-        let debug_exn msg e = debug "%s: %s" msg (Printexc.to_string e)
-
-        let remove domid =
-          Lookup.channel_of domid >>= fun c ->
-          try 
-            finally
-              (fun () ->
-                 Lookup.remove c domid;
-                 Monitor.remove m (Qmp_protocol.to_fd c);
-                 debug "Removed QMP Event fd for domain %d" domid)
-              (fun () -> Qmp_protocol.close c)
-          with e -> debug_exn (Printf.sprintf "Got exception trying to remove QMP on domain-%d" domid) e
-
-        let add domid =
-          try
-            Lookup.channel_of domid >>| fun () ->
-            let c = Qmp_protocol.connect (monitor_path domid) in
-            Qmp_protocol.negotiate c;
-            Qmp_protocol.write c (Command (None, Cont));
-            Lookup.add c domid;
-            Monitor.add m (Qmp_protocol.to_fd c);
-            debug "Added QMP Event fd for domain %d" domid
-          with e ->
-            debug_exn (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket" domid) e;
-            remove domid;
-            raise @@ Ioemu_failed
-              (sprintf "domid %d" domid, "QMP failure at "^__LOC__)
-
-        let qmp_event_handle domid qmp_event =
-          (* This function will be extended to handle qmp events *)
-          debug "Got QMP event, domain-%d: %s" domid qmp_event.event;
-
-          let rtc_change timeoffset =
-            with_xs (fun xs ->
-                let timeoffset_key = sprintf "/vm/%s/rtc/timeoffset" (Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) in
-                try
-                  let rtc = xs.Xs.read timeoffset_key in
-                  xs.Xs.write timeoffset_key Int64.(add timeoffset (of_string rtc) |> to_string)
-                with e -> error "Failed to process RTC_CHANGE for domain %d: %s" domid (Printexc.to_string e)
-              )
-          in
-
-          let xen_platform_pv_driver_info pv_info =
-            with_xs (fun xs ->
-                let is_hvm_linux { product_num; build_num } =
-                  let _XEN_IOPORT_LINUX_PRODNUM = 3 in (* from Linux include/xen/platform_pci.h *)
-                  (product_num = _XEN_IOPORT_LINUX_PRODNUM) && (build_num <= 0xff)
-                in
-                if is_hvm_linux pv_info then
-                  begin
-                    let write_local_domain prefix x = xs.Xs.write (Printf.sprintf "/local/domain/%d/%s%s" domid prefix x) "1" in
-                    List.iter (write_local_domain "control/feature-") ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"];
-                    List.iter (write_local_domain "data/") ["updated"]
-                  end
-              )
-          in
-
-          qmp_event.data |> function
-          | Some (RTC_CHANGE timeoffset)         -> rtc_change timeoffset
-          | Some (XEN_PLATFORM_PV_DRIVER_INFO x) -> xen_platform_pv_driver_info x
-          | _ -> () (* unhandled QMP events *)
-
-        let process domid line =
-          match Qmp.message_of_string line with
-          | Event e ->  qmp_event_handle domid e
-          | msg     ->  debug "Got non-event message, domain-%d: %s" domid
-                          (string_of_message msg)
-
-        let qmp_event_thread () =
-          debug "Starting QMP_Event thread";
-          (* Add the existing qmp sockets first *)
-          Sys.readdir var_run_xen_path
-          |> Array.to_list
-          |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
-
-          while true do
-            try
-              Monitor.wait m |> Monitor.with_event m (fun fd is_flag_in ->
-                  Lookup.domid_of fd >>= fun domid ->
-                  Lookup.channel_of domid >>= fun c ->
-                  let qmp = Qmp_protocol.to_fd c in  
-                  if is_flag_in then
-                    match Readln.read qmp with
-                    | Readln.Ok msgs  -> List.iter (process domid) msgs
-
-                    | Readln.Error msg ->
-                      error "domain-%d: %s, close QMP socket" domid msg;
-                      Readln.free qmp;
-                      remove domid
-
-                    | Readln.EOF ->
-                      debug "domain-%d: end of file, close QMP socket" domid;
-                      Readln.free qmp;
-                      remove domid
-                  else begin
-                    debug "EPOLL error on domain-%d, close QMP socket" domid;
-                    Readln.free qmp;
-                    remove domid;
-                  end
-                )
-            with e ->
-              debug_exn "Exception in qmp_event_thread: %s" e;
-          done
-
-      end (* Qemu_upstream_compat.Dm.QMP_Event *)
-
-      module Event = struct
-        let init () = ignore(Thread.create QMP_Event.qmp_event_thread ())
-      end
-
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
             Some (Socket.Unix (Dm_Common.vnc_socket_path domid))
           )
+
+      let assert_can_suspend ~xs domid =
+        QMP_Event.update_cant_suspend domid xs;
+        match xs.Xs.read (Dm_Common.cant_suspend_reason_path domid) with
+        | msg ->
+          debug "assert_can_suspend: rejecting (domid=%d)" domid;
+          raise @@
+          Xenopsd_error (Device_detach_rejected("VM",
+                                                domid |> Xenops_helpers.uuid_of_domid ~xs
+                                                |> Uuidm.to_string,
+                                                msg))
+        | exception e ->
+          debug "assert_can_suspend: OK (domid=%d)" domid;
+          () (* key not present *)
 
       let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid domid =
         let as_msg cmd = Qmp.(Success(Some __LOC__, cmd)) in
@@ -2402,6 +2719,8 @@ module Backend = struct
         (uuid, fd)
 
       let qemu_args ~xs ~dm info restore domid =
+        let module Config = DefaultConfig in
+        debug "Using device-model=%s for domid=%d" Config.name domid;
         let common = Dm_Common.qemu_args ~xs ~dm info restore domid ~domid_for_vnc:true in
 
         let usb =
@@ -2425,42 +2744,30 @@ module Backend = struct
           with _ -> info.Dm_Common.serial
         in
 
-        let mult xs ys =
-          List.map (fun x -> List.map (fun y -> x^"."^y) ys) xs |>
-          List.concat in
-        let global =
-          mult
-            ["piix3-ide-xen"; "piix3-usb-uhci"; "rtl8139"]
-            ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
+        let nic_type =
+          try xs.Xs.read (sprintf "/local/domain/%d/platform/nic_type" domid)
+          with _ -> Config.NIC.default
         in
+
+        let disk_type =
+          try xs.Xs.read (sprintf "/local/domain/%d/platform/disk_type" domid)
+          with _ -> Config.DISK.default in
+
+        let disk_interface = match List.assoc_opt disk_type Config.DISK.types with
+          | Some interface -> interface
+          | None ->
+            raise (Ioemu_failed (sprintf "domid %d" domid,
+                                 sprintf "Unknown platform:disk_type=%s in device-model=%s" disk_type Config.name))
+        in
+
+        if not (Config.Firmware.supported info.firmware) then
+          (* XAPI itself should've already prevented this, but lets double check *)
+          raise (Ioemu_failed (sprintf "domid %d" domid,
+                               sprintf "The firmware doesn't support device-model=%s" Config.name));
 
         let qmp = ["libxl"; "event"] |>
                   List.map (fun x -> ["-qmp"; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid]) |>
                   List.concat in
-
-        let has_platform_device =
-          try
-            int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
-          with _ -> true
-        in
-        let xen_platform_device =
-          if has_platform_device then begin
-            let device_id =
-              try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
-              with _ -> "0001"
-            in
-            [ "-device"; String.concat "," [
-                  "xen-platform"
-                ; "addr=3"
-                ; sprintf "device-id=0x%s" device_id
-                ; "revision=0x2"
-                ; "class-id=0x0100"
-                ; "subvendor_id=0x5853"
-                ; sprintf"subsystem_id=0x%s" device_id
-                ]
-            ]
-          end else []
-        in
 
         let pv_device addr =
           try
@@ -2486,44 +2793,37 @@ module Backend = struct
             ; [ "-trace"; "enable=xen_platform_log"]
             ; [ "-sandbox"; "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
             ; [ "-S"]
-            ; [ "-global"; "PIIX4_PM.revision_id=0x1"]
-            ; [ "-global"; "ide-hd.ver=0.10.2"]
-            ; (global |> List.map (fun x -> ["-global"; x]) |> List.concat)
+            ; Config.extra_qemu_args ~nic_type
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ; qmp
-            ; xen_platform_device
+            ; Config.XenPlatform.device ~xs ~domid
             ] in
 
+        let disks_cdrom, disks_other =
+          info.Dm_Common.disks
+          |> List.partition (function (_, _, Dm_Common.Cdrom) -> true | (_, _, _) -> false)
+        in
+
+        let limit_emulated_disks disks =
+          let disks = List.stable_sort (fun (a, _, _) (b, _, _) -> compare a b) disks in
+          match Config.DISK.max_emulated with
+          | Some limit when List.length disks > limit ->
+            debug "Limiting the number of emulated disks to %d" limit;
+            Xapi_stdext_std.Listext.List.take limit disks
+          | _ -> disks
+        in
+
         let disks' =
-          let format_of_media (media:Dm_Common.media) file =
-            match media, file with
-            | Dm_Common.Disk, _   -> ["format=raw"]
-            | Dm_Common.Cdrom, "" -> []
-            | Dm_Common.Cdrom, _  -> ["format=raw"]
-          in
-          let lba_of_media (media:Dm_Common.media) =
-            match media with
-            | Dm_Common.Disk  -> "force-lba=on"
-            | Dm_Common.Cdrom -> "force-lba=off"
-          in
-          List.map (fun (index, file, media) -> [
-              "-drive"; String.concat "," ([
-                sprintf "file=%s" file;
-                "if=ide";
-                sprintf "index=%d" index;
-                sprintf "media=%s" (Dm_Common.string_of_media media);
-                lba_of_media media;
-              ] @ (format_of_media media file))
-            ])
-            info.Dm_Common.disks
-          |> List.concat
+          [ List.map (List.assoc Dm_Common.ide Config.DISK.types) disks_cdrom
+          ; disks_other |> limit_emulated_disks |> List.map disk_interface ]
+          |> List.concat |> List.concat
         in
 
         (* Sort the VIF devices by devid *)
         let nics = List.stable_sort
           (fun (_,_,a) (_,_,b) -> compare a b) info.Dm_Common.nics in
         let nic_count = List.length nics in
-        let nic_max   = Dm_Common.max_emulated_nics in
+        let nic_max   = Config.NIC.max_emulated in
         if nic_count > nic_max then
           debug "Limiting the number of emulated NICs to %d" nic_max;
         (* Take the first 'max_emulated_nics' elements from the list. *)
@@ -2533,61 +2833,34 @@ module Backend = struct
          * for a nic to the existing fds and arguments (fds, argv)
         *)
         let none = ["-net"; "none"] in
-        let add_nic (fds, argv) (mac, bridge, devid) =
+        let add_nic (index, fds, argv) (mac, bridge, devid) =
           let ifname          = sprintf "tap%d.%d" domid devid in
           let uuid, _  as tap = tap_open ifname in
           let args =
-            [ "-device"; sprintf "rtl8139,netdev=tapnet%d,mac=%s,addr=%x" devid mac (devid + 4)
+            [ "-device"; String.concat "," (
+                  [ nic_type
+                  ; sprintf "netdev=tapnet%d" devid
+                  ; sprintf "mac=%s" mac
+                  ; sprintf "addr=%x" (Config.NIC.addr ~devid ~index) ]
+                  @ Config.NIC.extra_flags)
             ; "-netdev"; sprintf "tap,id=tapnet%d,fd=%s" devid uuid
             ] in
-          (tap::fds, args@argv) in
+          (index+1, tap::fds, args@argv) in
 
-        (** [first_gap n xs] expects an ascending list of integers [xs].
-         * It looks for a gap in sequence [xs] and returns the first it
-         * finds at position n or higher:
-         * first_gap 4 []      = 4
-         * first_gap 4 [5;6]   = 4
-         * first_gap 4 [1;3]   = 4
-         * first_gap 4 [5;6;8] = 4
-         * first_gap 4 [4;5;7] = 6
-         * first_gap 4 [4;5;6] = 7
-         *)
-        let rec first_gap n = function
-          | []             -> n
-          | x::xs when x<n -> first_gap n xs
-          | x::xs when x=n -> first_gap (n+1) xs
-          | x::xs          -> n
-        in
-
-        let has_nvidia_vgpu =
-          let open Xenops_interface.Vgpu in
-          let open Dm_Common in
-          match info.disp with
-          | VNC(Vgpu [{implementation = Nvidia _}],_,_,_,_) -> true
-          | SDL(Vgpu [{implementation = Nvidia _}],_)       -> true
-          | _                                               -> false
-        in
-
-        let pv_device_addr =
-          if has_nvidia_vgpu            then 2 else
-          if not @@ has_platform_device then 3 else
-            nics
-            |> List.map (fun (_, _, devid) -> devid+4)
-            |> first_gap 4
-        in
+        let pv_device_addr = Config.XenPV.addr ~xs ~domid info ~nics in
 
         (* Go over all nics and collect file descriptors and command
          * line arguments. Add these to the already existing command
          * line arguments in common
         *)
-        List.fold_left add_nic ([],[]) nics
+        List.fold_left add_nic (0, [],[]) nics
         |> function
-        |  _, []    ->
+        |  _, _, []    ->
           Dm_Common.
             { argv   = common.argv   @ misc @ disks' @ pv_device pv_device_addr @ none
             ; fd_map = common.fd_map
             }
-        | fds, argv ->
+        | _, fds, argv ->
           Dm_Common.
             { argv   = common.argv   @ misc @ disks' @ pv_device pv_device_addr @ argv
             ; fd_map = common.fd_map @ fds
@@ -2601,16 +2874,20 @@ module Backend = struct
   end (* Backend.Qemu_upstream *)
 
   (** Implementation of the backend common signature for the qemu-upstream backend *)
+  module Qemu_upstream_compat  = Make_qemu_upstream(Config_qemu_upstream_compat)
   module Qemu_upstream  = Qemu_upstream_compat
   (** Until the stage 4 defined in the qemu upstream design is implemented, qemu_upstream behaves as qemu_upstream_compat *)
+
+  module Qemu_upstream_uefi  = Make_qemu_upstream(Config_qemu_upstream_uefi)
 
   let of_profile p = match p with
     | Profile.Qemu_trad            -> (module Qemu_trad            : Intf)
     | Profile.Qemu_upstream_compat -> (module Qemu_upstream_compat : Intf)
     | Profile.Qemu_upstream        -> (module Qemu_upstream        : Intf)
+    | Profile.Qemu_upstream_uefi   -> (module Qemu_upstream_uefi  : Intf)
 
   let init() =
-    Qemu_upstream.Dm.Event.init()
+    Event.init()
 end
 
 (*
@@ -2666,6 +2943,10 @@ module Dm = struct
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.get_vnc_port ~xs domid
 
+  let assert_can_suspend ~xs ~dm domid =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Dm.assert_can_suspend ~xs domid
+
   let suspend (task: Xenops_task.task_handle) ~xs ~qemu_domid ~dm domid =
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.suspend task ~xs ~qemu_domid domid
@@ -2684,6 +2965,44 @@ module Dm = struct
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
+  let start_varstored ~xs ~nvram ?(restore=false) (task : Xenops_task.task_handle) domid =
+    let open Xenops_types in
+    debug "Preparing to start varstored for UEFI boot (domid=%d)" domid;
+    let path = !Xc_resources.varstored in
+    let name = "varstored" in
+    let vm_uuid = Xenops_helpers.uuid_of_domid ~xs domid |> Uuidm.to_string in
+    let reset_on_boot = nvram.Nvram_uefi_variables.on_boot = Nvram_uefi_variables.Reset in
+    let backend = nvram.Nvram_uefi_variables.backend in
+    let open Fe_argv in
+    let (>>=) = bind in
+    let argf fmt = ksprintf (fun s -> [ "--arg"; s]) fmt in
+    let on cond value = if cond then value else return () in
+    let chroot, socket_path =
+      Xenops_sandbox.Varstore_guard.start (Xenops_task.get_dbg task) ~vm_uuid ~domid ~paths:[ efivars_save_path] in
+    let args =
+      Add.many [ "--domain"; string_of_int domid
+               ; "--chroot"; chroot.root
+               ; "--depriv"
+               ; "--uid"; string_of_int chroot.uid
+               ; "--gid"; string_of_int chroot.gid
+               ; "--backend"; backend
+               ; "--arg"; Printf.sprintf "socket:%s" socket_path
+               ] >>= fun () ->
+      (Varstored.pidfile_path domid |> function None -> return () | Some x ->
+           Add.many [ "--pidfile"; x ]) >>= fun () ->
+      Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
+      on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
+      on restore @@ Add.arg "--resume" >>= fun () ->
+      on restore @@ Add.many @@ argf "resume:%s" (Xenops_sandbox.Chroot.chroot_path_inside efivars_resume_path) >>= fun () ->
+      Add.many @@ argf "save:%s" (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
+    in
+    let args = Fe_argv.run args |> snd |> Fe_argv.argv in
+    let pid = start_daemon ~path ~args ~name ~domid ~fds:[] () in
+    let ready_path = Varstored.pid_path domid in
+    wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
+      ~cancel:(Cancel_utils.Varstored domid) ();
+    Forkhelpers.dontwaitpid pid
+
   let start_vgpu ~xs task ?(restore=false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
@@ -2698,9 +3017,11 @@ module Dm = struct
         debug "start_vgpu: got VGPU with physical pci address %s"
           (Xenops_interface.Pci.string_of_address pci);
         PCI.bind [pci] PCI.Nvidia;
-        let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore in
+        let module Q = (val Backend.of_profile profile) in
+        let device = Q.Vgpu.device ~index:0 in
+        let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore device in
         let vgpu_pid = start_daemon ~path:!Xc_resources.vgpu ~args ~name:"vgpu"
-            ~domid ~fds:[] profile in
+            ~domid ~fds:[] () in
         wait_path ~pid:vgpu_pid ~task ~name:"vgpu" ~domid ~xs
           ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
           ~cancel ();
@@ -2757,6 +3078,12 @@ module Dm = struct
         start_vgpu ~xs task domid vgpus info.vcpus dm
       | _ -> ()
     in
+
+    (* start varstored if appropriate *)
+    (match info.firmware with
+    | Uefi nvram_uefi ->
+      start_varstored ~restore:(action=Restore) ~xs ~nvram:nvram_uefi task domid
+    | Bios -> ());
 
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 
@@ -2817,9 +3144,21 @@ module Dm = struct
   let start_vnconly (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     __start task ~xs ~dm ?timeout StartVNC info domid
 
-  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus =
+  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus profile =
     debug "Called Dm.restore_vgpu";
-    start_vgpu ~xs task ~restore:true domid [vgpu] vcpus Profile.Qemu_trad
+    start_vgpu ~xs task ~restore:true domid [vgpu] vcpus profile
+
+  let suspend_varstored (task: Xenops_task.task_handle) ~xs domid =
+    debug "Called Dm.suspend_varstored (domid=%d)" domid;
+    Varstored.stop ~xs domid;
+    Xenops_sandbox.Varstore_guard.read ~domid efivars_save_path
+
+  let restore_varstored (task: Xenops_task.task_handle) ~xs ~efivars domid =
+    debug "Called Dm.restore_varstored (domid=%d)" domid;
+    let path = Xenops_sandbox.Varstore_guard.prepare ~domid efivars_resume_path in
+    debug "Writing EFI variables to %s (domid=%d)" path domid;
+    Unixext.write_string_to_file path efivars;
+    debug "Wrote EFI variables to %s (domid=%d)" path domid
 
 end (* Dm *)
 
@@ -2850,7 +3189,7 @@ let get_vnc_port ~xs ~dm domid =
   then Dm.get_vnc_port ~xs ~dm domid
   else PV_Vnc.get_vnc_port ~xs domid
 
-let get_tc_port ~xs domid = 
+let get_tc_port ~xs domid =
   (* Check whether a qemu exists for this domain *)
   let qemu_exists = Qemu.is_running ~xs domid in
   if qemu_exists

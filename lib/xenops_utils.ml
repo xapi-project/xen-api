@@ -299,7 +299,7 @@ module Unixext = struct
   let write_string_to_file fname s =
     atomic_write_to_file fname 0o644 (fun fd ->
         let len = String.length s in
-        let written = Unix.write fd (Bytes.unsafe_of_string s) 0 len in
+        let written = Unix.write_substring fd s 0 len in
         if written <> len then (failwith "Short write occured!"))
 
   exception Process_still_alive
@@ -770,3 +770,10 @@ let chunks size lst =
         else [op]::xs::xss
     ) [] lst
   |> List.map (fun xs -> List.rev xs) |> List.rev
+
+let best_effort txt f =
+  try
+    f ()
+  with e ->
+    info "%s: ignoring exception %s" txt (Printexc.to_string e)
+
