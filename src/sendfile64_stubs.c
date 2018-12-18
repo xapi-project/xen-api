@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+#include <errno.h>
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
@@ -58,7 +59,25 @@ CAMLprim value stub_sendfile64(value in_fd, value out_fd, value len){
 #ifdef __linux__
   rc = TRIED_AND_FAILED;
   bytes = sendfile(c_out_fd, c_in_fd, NULL, c_len);
-  if (bytes != -1) rc = OK;
+  if (bytes != -1) {
+      rc = OK;
+  } else if (errno == EINVAL) {
+      int flags;
+      int result = 0;
+
+      flags = fcntl(c_in_fd, F_GETFL, NULL);
+      if (flags > 0) {
+          result = fcntl(c_in_fd, F_SETFL, flags & ~O_DIRECT);
+
+          if (result == 0) {
+              bytes = sendfile(c_out_fd, c_in_fd, NULL, c_len);
+              if (bytes != -1) {
+                  rc = OK;
+              }
+              fcntl(c_in_fd, F_SETFL, flags);
+          }
+      }
+  }
 #endif
 
   leave_blocking_section();
