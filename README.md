@@ -19,8 +19,8 @@ The generation code is written in [OCaml][1].
 Install [opam][2]. It is also recommended to install one of the listed external
 solvers (e.g. aspcud).
 
-Ensure you are using version 4.06.1 of the OCaml compiler:
-`opam switch 4.06.1`
+Ensure you are using version 4.07.1 of the OCaml compiler:
+`opam switch 4.07.1`
 
 and you have the package depext: `opam install depext`
 
