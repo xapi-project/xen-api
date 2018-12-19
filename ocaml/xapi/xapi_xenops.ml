@@ -14,6 +14,7 @@
 
 module D=Debug.Make(struct let name="xenops" end)
 open D
+module StringSet = Set.Make(String)
 
 open Network
 
@@ -2416,14 +2417,14 @@ let events_from_xapi () =
                 (* We register for events on resident_VMs only *)
                 let resident_VMs = Db.Host.get_resident_VMs ~__context ~self:localhost in
 
-                let uuids = List.map (fun self -> Db.VM.get_uuid ~__context ~self) resident_VMs in
-                let cached = Xenops_cache.list () in
-                let missing_in_cache = Listext.List.set_difference uuids cached in
-                let extra_in_cache = Listext.List.set_difference cached uuids in
-                if missing_in_cache <> []
-                then error "events_from_xapi: missing from the cache: [ %s ]" (String.concat "; " missing_in_cache);
-                if extra_in_cache <> []
-                then error "events_from_xapi: extra items in the cache: [ %s ]" (String.concat "; " extra_in_cache);
+                let uuids = StringSet.of_list (List.rev_map (fun self -> Db.VM.get_uuid ~__context ~self) resident_VMs) in
+                let cached = StringSet.of_list (Xenops_cache.list ()) in
+                let missing_in_cache = StringSet.diff uuids cached in
+                let extra_in_cache = StringSet.diff cached uuids in
+                if not (StringSet.is_empty missing_in_cache)
+                then error "events_from_xapi: missing from the cache: [ %s ]" (String.concat "; " (StringSet.elements missing_in_cache));
+                if not (StringSet.is_empty extra_in_cache)
+                then error "events_from_xapi: extra items in the cache: [ %s ]" (String.concat "; " (StringSet.elements extra_in_cache));
 
                 let classes = List.map (fun x -> Printf.sprintf "VM/%s" (Ref.string_of x)) resident_VMs in
                 (* NB we re-use the old token so we don't get events we've already
