@@ -145,3 +145,6 @@ let default_token_timeout_coefficient_s = 1.0
 (* Minimum threshold for token timeout parameters *)
 let minimum_token_timeout_s = 1.0
 let minimum_token_timeout_coefficient_s = 0.65
+
+(* Maximum VHD Size *)
+let max_vhd_size = Sizes.(2040L ** gib)

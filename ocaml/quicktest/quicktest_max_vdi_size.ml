@@ -1,19 +1,12 @@
-
-(** From XenServer 7.5 Configuration Limits:
-    https://docs.citrix.com/content/dam/docs/en-us/xenserver/current-release/downloads/xenserver-config-limits.pdf
-    Using (2TiB - 4GiB), instead of the (2TB - 4GB) limit defined in the above
-    document, does not work, we cannot create a VDI of that size. *)
-let max_vdi_size = Sizes.((2L ** tb) -* (4L ** gb))
-
 let with_max_vdi rpc session_id sr f =
-  Qt.VDI.with_new rpc session_id ~virtual_size:max_vdi_size sr
+  Qt.VDI.with_new rpc session_id ~virtual_size:Constants.max_vhd_size sr
     (fun vdi ->
        (* We write some data to the very end of the VDI to ensure the IO code
           gets tested with large offsets *)
        Qt.VDI.with_open rpc session_id vdi `RW
          (fun fd ->
             let data = Bytes.make 1024 't' in
-            let offset = Int64.sub max_vdi_size 1024L in
+            let offset = Int64.sub Constants.max_vhd_size 1024L in
             assert (Unix.LargeFile.lseek fd offset Unix.SEEK_SET = offset);
             assert (Unix.write fd data 0 1024 = 1024)
          );
