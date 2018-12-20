@@ -53,6 +53,12 @@ let localhost_handler rpc session_id vdi (req: Http.Request.t) (s: Unix.file_des
              Http_svr.headers s headers;
              match format with
              | Raw | Vhd ->
+               if format = Vhd then begin
+                 let size = Db.VDI.get_virtual_size ~__context ~self:vdi in
+                 if size > Constants.max_vhd_size
+                 then raise (Api_errors.Server_error(Api_errors.vdi_too_large, [ Ref.string_of vdi; Int64.to_string Constants.max_vhd_size]))
+               end;
+
                Sm_fs_ops.with_block_attached_device __context rpc session_id vdi `RO
                  (fun path ->
                     match Importexport.base_vdi_of_req ~__context req with
