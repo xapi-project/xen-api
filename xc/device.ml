@@ -2672,21 +2672,35 @@ module Backend = struct
              Unix.close save_fd)
 
 
-      (* Wait for QEMU's event socket to appear. *)
+      (* Wait for QEMU's event socket to appear. Connect to it
+       * to make sure it is ready. *)
       let wait_event_socket ~task ~name ~domid ~timeout =
         let finished = ref false in
         let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
+        let now = Mtime_clock.now () in
         let target =
-          match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
+          match Mtime.(add_span now (Span.of_uint64_ns timeout_ns)) with
           | None -> raise (Ioemu_failed (name, "Timeout overflow"))
           | Some x -> x in
-        while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
-          Xenops_task.check_cancelling task;
-          if Sys.file_exists (qmp_event_path domid) then
-            finished := true
-          else
-            ignore (Unix.select [] [] [] 0.05)
-        done;
+        let path   = qmp_event_path domid in
+        let socket = Unix.(socket PF_UNIX SOCK_STREAM 0) in
+        finally (* make sure we don't leak socket *)
+          (fun () ->
+             while Mtime.is_earlier (Mtime_clock.now ()) ~than:target
+                   && not !finished do
+               Xenops_task.check_cancelling task; (* might raise exn *)
+               if Sys.file_exists path then
+                 try
+                   Unix.connect socket Unix.(ADDR_UNIX path);
+                   finished := true
+                 with e ->
+                   debug "QMP event socket for domid %d not yet ready: %s"
+                     domid (Printexc.to_string e);
+                   Unix.sleepf 0.1
+               else
+                 Unix.sleepf 0.05;
+             done;)
+          (fun () -> Unix.close socket);
         if not !finished then
           raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
 
