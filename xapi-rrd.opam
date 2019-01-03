@@ -7,11 +7,22 @@ dev-repo: "git+https://github.com/xapi-project/xcp-rrd.git"
 tags: [
   "org:xapi-project"
 ]
-depends: ["ocaml" "rrd"]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build & >= "1.4.0"}
+  "base-bigarray"
+  "base-unix"
+  "rpc" {>= "1.9.51" & < "5.0.0"} | ("rpclib" & "ppx_deriving_rpc")
+  "xmlm"
+  "uuidm"
+  "ounit" {with-test}
+]
 synopsis: "RRD library for use with xapi"
 description: """
 Round-Robin Databases (RRDs) are constant-space datastructures
 used for archiving historical data where the older data is stored
-at a lower resolution.
-
-Dummy package. Will have to become the main package in the future"""
+at a lower resolution."""

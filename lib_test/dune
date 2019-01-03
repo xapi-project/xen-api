@@ -5,8 +5,8 @@
     bigarray
     oUnit
     unix
-    rrd
-    rrd.unix)
+    xapi-rrd
+    xapi-rrd.unix)
 )
 
 (alias

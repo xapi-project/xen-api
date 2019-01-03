@@ -1,11 +1,11 @@
 (library
   (name rrd_unix)
-  (public_name rrd.unix)
+  (public_name xapi-rrd.unix)
   (wrapped false)
   (libraries
     unix
     uuidm
-    rrd
+    xapi-rrd
     xmlm
   )
 )

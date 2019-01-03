@@ -1,6 +1,6 @@
 (library
   (name rrd)
-  (public_name rrd)
+  (public_name xapi-rrd)
   (flags (:standard -w -34-39))
   (wrapped false)
   (libraries
