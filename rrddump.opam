@@ -1,10 +1,21 @@
-opam-version: "1"
-maintainer: "john.else@citrix.com"
+
+
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: ["John Else"]
+homepage: "https://github.com/xapi-project/xcp-rrd"
+bug-reports: "https://github.com/xapi-project/xcp-rrd/issues"
+dev-repo: "git+https://github.com/xapi-project/xcp-rrd.git"
+tags: [
+  "org:xapi-project"
+]
 build: [
-     ["jbuilder" "build" "-p" name "-j" jobs]
+  ["dune" "build" "-p" name "-j" jobs]
 ]
 depends: [
   "xapi-rrd"
-  "xapi-stdext-unix"
   "xmlm"
 ]
+synopsis: "Tool to dump RRD contents to XML format"
+description: """
+Tool to dump RRD contents to XML format"""

@@ -1,20 +1,18 @@
 
-.PHONY: build release install uninstall clean reindent
+PROFILE=release
+.PHONY: build install uninstall clean reindent
 
 build:
-	jbuilder build @install --dev
-
-release:
-	jbuilder build @install
+	dune build @install --profile=$(PROFILE)
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 clean:
-	jbuilder clean
+	dune clean
 
 reindent:
 	ocp-indent --inplace **/*.ml

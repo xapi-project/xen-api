@@ -1,0 +1,5 @@
+(executable
+  (name rrddump)
+  (public_name rrddump)
+  (libraries threads xapi-rrd.unix)
+)
