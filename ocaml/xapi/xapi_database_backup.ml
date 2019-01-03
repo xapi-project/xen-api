@@ -299,14 +299,13 @@ let write_db_to_disk =
     end
 
 let start_stunnel_connection () =
-  Slave_backup_master_connection.is_slave := (fun () -> true);
-  Slave_backup_master_connection.is_slave := (fun () -> Pool_role.is_slave ());
-  Slave_backup_master_connection.get_master_address := Pool_role.get_master_address;
-  Slave_backup_master_connection.master_rpc_path := Constants.database_backup_uri;
-  Slave_backup_master_connection.on_database_connection_established :=
-    (fun () -> Slave_backup_master_connection.get_master_address := Pool_role.get_master_address);
-  Slave_backup_master_connection.start_master_connection_watchdog ();
-  Slave_backup_master_connection.open_secure_connection ();
+  Master_connection.is_slave := (fun () -> Pool_role.is_slave ());
+  Master_connection.get_master_address := Pool_role.get_master_address;
+  Master_connection.Slave_backup_connection.master_rpc_path := Constants.database_backup_uri;
+  Master_connection.Slave_backup_connection.on_database_connection_established :=
+    (fun () -> Master_connection.get_master_address := Pool_role.get_master_address);
+  Master_connection.Slave_backup_connection.start_master_connection_watchdog ();
+  Master_connection.Slave_backup_connection.open_secure_connection ();
   debug "Created connection to master"
 
 let loop ~__context () =
@@ -327,7 +326,7 @@ let loop ~__context () =
     let now = Mtime_clock.count start in
     let changes =
       !token_str
-      |> Slave_backup_master_connection.execute_remote_fn
+      |> Master_connection.Slave_backup_connection.execute_remote_fn
       |> Jsonrpc.of_string
       |> delta_of_rpc
     in

@@ -124,8 +124,8 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
   if manual then begin
     (* Make sure we quickly exit on error *)
     debug "Phase 2.2: setting flag to make us restart when the connection to the master dies";
-    Master_connection.restart_on_connection_timeout := true;
-    Master_connection.connection_timeout := 0.;
+    Master_connection.Master_connection.restart_on_connection_timeout := true;
+    Master_connection.Master_connection.connection_timeout := 0.;
   end;
   if !hosts_which_failed <> [] then begin
     error "Some hosts failed to commit [ %s ]: this node will now restart in a broken state"

@@ -958,7 +958,7 @@ let set_stunnel_legacy ~__context legacy =
   debug "Setting stunnel legacy runtime config to %b" legacy;
   Stunnel.set_legacy_protocol_and_ciphersuites_allowed legacy;
   debug "Resetting long running stunnel clients e.g. master connection";
-  Master_connection.force_connection_reset ();
+  Master_connection.Master_connection.force_connection_reset ();
   debug "Resetting long running stunnel server proxy";
   Xapi_mgmt_iface.reconfigure_stunnel ~__context;
   info "Updating stunnel legacy inventory to %b." legacy;

@@ -35,7 +35,7 @@ module W=Debug.Make(struct let name="watchdog" end)
 let _ =
   Master_connection.is_slave := Pool_role.is_slave;
   Master_connection.get_master_address := Pool_role.get_master_address;
-  Master_connection.master_rpc_path := Constants.remote_db_access_uri
+  Master_connection.Master_connection.master_rpc_path := Constants.remote_db_access_uri
 
 
 (** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
@@ -688,8 +688,8 @@ let server_init() =
 
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
-  let initial_connection_timeout = !Master_connection.connection_timeout in
-  Master_connection.connection_timeout := -1.; (* never timeout *)
+  let initial_connection_timeout = !Master_connection.Master_connection.connection_timeout in
+  Master_connection.Master_connection.connection_timeout := -1.; (* never timeout *)
 
   let call_extauth_hook_script_after_xapi_initialize ~__context = (* CP-709 *)
     (* in each initialization of xapi, extauth_hook script must be called in case this host was *)
@@ -846,7 +846,7 @@ let server_init() =
               let ip = wait_for_management_ip_address ~__context in
 
               debug "Start master_connection watchdog";
-              ignore (Master_connection.start_master_connection_watchdog ());
+              ignore (Master_connection.Master_connection.start_master_connection_watchdog ());
 
               debug "Attempting to communicate with master";
               (* Try to say hello to the pool *)
@@ -862,14 +862,14 @@ let server_init() =
             done;
             debug "Startup successful";
             Xapi_globs.slave_emergency_mode := false;
-            Master_connection.connection_timeout := initial_connection_timeout;
+            Master_connection.Master_connection.connection_timeout := initial_connection_timeout;
 
             begin
               try
                 (* We can't tolerate an exception in db synchronization so fall back into emergency mode
                    if this happens and try again later.. *)
-                Master_connection.restart_on_connection_timeout := false;
-                Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
+                Master_connection.Master_connection.restart_on_connection_timeout := false;
+                Master_connection.Master_connection.connection_timeout := 10.; (* give up retrying after 10s *)
                 Db_cache_impl.initialise ();
                 Sm.register ();
                 Startup.run ~__context [
@@ -882,9 +882,9 @@ let server_init() =
                   server_run_in_emergency_mode()
                 end
             end;
-            Master_connection.connection_timeout := !Db_globs.master_connection_retry_timeout;
-            Master_connection.restart_on_connection_timeout := true;
-            Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
+            Master_connection.Master_connection.connection_timeout := !Db_globs.master_connection_retry_timeout;
+            Master_connection.Master_connection.restart_on_connection_timeout := true;
+            Master_connection.Master_connection.on_database_connection_established := (fun () -> on_master_restart ~__context);
         end);
 
     Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context ->
