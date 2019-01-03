@@ -1,0 +1,5 @@
+(executable
+  (name wsproxy)
+  (public_name wsproxy)
+  (libraries re.str lwt lwt.unix uuidm wslib)
+)
