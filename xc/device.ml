@@ -2696,9 +2696,9 @@ module Backend = struct
                  with e ->
                    debug "QMP event socket for domid %d not yet ready: %s"
                      domid (Printexc.to_string e);
-                   Unix.sleepf 0.1
+                   Thread.delay 0.1
                else
-                 Unix.sleepf 0.05;
+                 Thread.delay 0.05;
              done;)
           (fun () -> Unix.close socket);
         if not !finished then
