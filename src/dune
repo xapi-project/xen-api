@@ -1,0 +1,4 @@
+(library
+  (name wslib)
+  (libraries base64 lwt lwt_log lwt.unix)
+)

@@ -1,19 +1,18 @@
 opam-version: "2.0"
 name: "wsproxy"
 maintainer: "xen-api@lists.xen.org"
-authors: [ "Jon Ludlam <jonathan.ludlam@citrix.com>"
-           "Marcello Seri <marcello.seri@citrix.com>" ]
+authors: [ "Jon Ludlam" "Marcello Seri" ]
 license: "LGPL-2.0 with OCaml linking exception"
 homepage: "https://github.com/xapi-project/wsproxy"
 dev-repo: "git+https://github.com/xapi-project/wsproxy.git"
 bug-reports: "https://github.com/xapi-project/wsproxy/issues"
 build: [
-  ["jbuilder" "build" "-p" name "-j" jobs]
-  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build}
   "base64"
   "lwt" {>= "3.0.0"}
   "lwt_log"

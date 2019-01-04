@@ -1,6 +1,0 @@
-(jbuild_version 1)
-
-(library
- ((name wslib)
-  (libraries (base64 lwt lwt_log lwt.unix))
- ))
