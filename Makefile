@@ -1,8 +1,5 @@
 include config.mk
 
-OPAM_PREFIX=$(DESTDIR)$(shell opam config var prefix)
-OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
-
 .PHONY: build clean release test reindent install uninstall doc
 
 release:
@@ -25,7 +22,7 @@ doc:
 	dune build @doc --profile=release
 
 install:
-	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) -p xapi-xenopsd
+	dune install -p xapi-xenopsd
 	install -D _build/install/default/bin/xenopsd-simulator $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
 	install -D _build/install/default/man/man1/xenopsd-simulator.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
 	install -D _build/install/default/bin/xenopsd-xc $(DESTDIR)/$(SBINDIR)/xenopsd-xc
@@ -47,7 +44,7 @@ install:
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) LIBEXECDIR=$(LIBEXECDIR) ETCDIR=$(ETCDIR) ./scripts/make-custom-xenopsd.conf
 
 uninstall:
-	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) -p xapi-xenopsd
+	dune uninstall -p xapi-xenopsd
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-xc
 	rm -f $(DESTDIR)/$(OPTDIR)/fence.bin
 	rm -f $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
