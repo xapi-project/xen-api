@@ -80,9 +80,13 @@ let wait_for_subtask ?progress_minmax ~__context task =
         let classes = [Printf.sprintf "task/%s" (Ref.string_of task);
                        Printf.sprintf "task/%s" (Ref.string_of main_task);
                        Printf.sprintf "session/%s" (Ref.string_of session)] in
-        let events = Xapi_slave_db.call_with_updated_context __context (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token:!token ~timeout:30.))
-                     |> Event_types.parse_event_from in
-        token := events.token;
+        let open Event_types in
+        let events = ref {events = []; valid_ref_counts = []; token = ""} in
+        if !Xapi_globs.slave_dbs then
+          events := Event_types.parse_event_from (Xapi_slave_db.call_with_updated_context __context (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token:!token ~timeout:30.)))
+        else
+          events := event_from_of_rpc (Client.Event.from rpc session classes !token 30.);
+        token := !events.token;
         Xapi_session.consider_touching_session rpc session ();
         let checkevent ev =
           match Event_helper.record_of_event ev with
@@ -91,7 +95,7 @@ let wait_for_subtask ?progress_minmax ~__context task =
             else if r=main_task then process_main_task x
           | _ -> () (* received an irrelevant event *)
         in
-        List.iter checkevent events.events
+        List.iter checkevent !events.events
       done;
       debug "Finished listening for events relating to tasks %s and %s" (Ref.string_of task) (Ref.string_of main_task);
 

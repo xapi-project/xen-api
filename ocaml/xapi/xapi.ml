@@ -889,7 +889,7 @@ let server_init() =
 
     Server_helpers.exec_with_new_task "server_init" ~task_in_database:true (fun __context ->
         Startup.run ~__context [
-          "Slave database backup", [ Startup.OnlySlave; Startup.OnThread; ], (Xapi_database_backup.slave_db_backup_loop ~__context);
+          "Slave database backup", [ Startup.OnlySlave; Startup.OnThread; ], (if !Xapi_globs.slave_dbs then Xapi_database_backup.slave_db_backup_loop ~__context else (fun () -> ()));
           "Checking emergency network reset", [], check_network_reset;
           "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
           "Reconfig (from DB) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_db ~__context;

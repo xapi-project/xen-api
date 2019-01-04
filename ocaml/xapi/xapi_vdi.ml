@@ -608,9 +608,16 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
            vdi.API.vDI_VBDs)
         most_recent_snapshot
     in
-    let from = Event_types.parse_event_from (Xapi_slave_db.call_with_updated_context __context (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token ~timeout))) in
-    List.iter (fun event -> debug "wait_for_vbds_to_be_unplugged_and_destroyed: got event %s" (Event_types.string_of_event event)) from.Event_types.events;
-    (from.Event_types.token, most_recent_vbds_field from.Event_types.events)
+    let open Event_types in
+    let from = ref {events = []; valid_ref_counts = []; token = ""} in
+    if !Xapi_globs.slave_dbs then
+      from := Event_types.parse_event_from (Xapi_slave_db.call_with_updated_context __context (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token ~timeout)))
+    else
+      from := Helpers.call_api_functions ~__context
+        (fun rpc session_id ->
+          Client.Event.from ~rpc ~session_id ~classes ~token ~timeout |> Event_types.event_from_of_rpc);
+    List.iter (fun event -> debug "wait_for_vbds_to_be_unplugged_and_destroyed: got event %s" (Event_types.string_of_event event)) !from.Event_types.events;
+    (!from.Event_types.token, most_recent_vbds_field !from.Event_types.events)
   in
 
   (* Wait for 4 seconds in total for all the VBDs of this VDI to be unplugged & destroyed *)

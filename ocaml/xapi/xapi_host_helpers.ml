@@ -310,10 +310,14 @@ module Configuration = struct
   let watch_other_configs ~__context delay =
     let loop (token, was_in_rpu) =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          let events = (Xapi_slave_db.call_with_updated_context __context
+          let open Event_types in
+          let events = ref {events = []; valid_ref_counts = []; token = ""} in
+          if !Xapi_globs.slave_dbs then
+            events := Event_types.parse_event_from ((Xapi_slave_db.call_with_updated_context __context
                           (Xapi_event.with_safe_missing_handling (fun () ->
-                          (Xapi_event.from ~classes:["host"; "pool"] ~token ~timeout:delay))))
-                       |> Event_types.parse_event_from  in
+                          (Xapi_event.from ~classes:["host"; "pool"] ~token ~timeout:delay)))))
+          else
+            events := Event_types.event_from_of_rpc (Client.Client.Event.from rpc session_id ["host"; "pool"] token delay);
           let check_host (host_ref,host_rec) =
             let oc = host_rec.API.host_other_config in
             let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
@@ -334,7 +338,7 @@ module Configuration = struct
               | _ -> ()
             end
           in
-          let event_recs = List.map Event_helper.record_of_event events.Event_types.events in
+          let event_recs = List.map Event_helper.record_of_event !events.Event_types.events in
           let in_rpu = List.fold_left (fun in_rpu ev ->
               match ev with
               | Event_helper.Pool (_pool_ref, Some pool_rec) ->
@@ -354,7 +358,7 @@ module Configuration = struct
                   check_host (host_ref, host_rec)
                 end
               | _ -> ()) event_recs;
-          (events.Event_types.token, in_rpu)
+          (!events.Event_types.token, in_rpu)
         )
     in
     loop
