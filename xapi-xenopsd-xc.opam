@@ -22,7 +22,7 @@ depends: [
   "qmp"
   "re"
   "rpclib"
-  "rrd"
+  "xapi-rrd"
   "sexplib"
   "stdext"
   "base-threads"

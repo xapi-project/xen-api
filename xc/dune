@@ -6,7 +6,7 @@
 
  (libraries astring xenctrl xapi-xenopsd xenstore xenstore.unix
   xenstore_transport.unix rpclib.core forkexec xapi-idl xapi-idl.storage xapi-idl.memory
-  xapi-idl.rrd xapi-idl.network xapi-idl.varstore.privileged rrd sexplib xapi-inventory ezxenstore profiling qmp
+  xapi-idl.rrd xapi-idl.network xapi-idl.varstore.privileged xapi-rrd sexplib xapi-inventory ezxenstore profiling qmp
   mtime.clock.os ppx_sexp_conv.runtime-lib re re.pcre)
 
  (preprocess
