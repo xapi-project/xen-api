@@ -195,7 +195,14 @@ let certfile =
 
 let ciphersuites =
   let doc = "Set of ciphersuites for TLS (specified in the format accepted by OpenSSL, stunnel etc.)" in
-  let suites = "!EXPORT:RSA+AES128-SHA256" in
+  let suites =
+    String.concat ":"
+    [ "!EXPORT"
+    ; "ECDHE-RSA-AES256-SHA384"
+    ; "ECDHE-RSA-AES256-GCM-SHA384"
+    ; "AES256-SHA256"
+    ; "AES128-SHA256"
+    ] in
   Arg.(value & opt string suites & info ["ciphersuites"] ~doc)
 
 let cmd =
