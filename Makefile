@@ -1,7 +1,8 @@
 include config.mk
 
-OPAM_PREFIX=$(DESTDIR)$(shell opam config var prefix)
-OPAM_LIBDIR=$(DESTDIR)$(shell opam config var lib)
+OPAM_PREFIX=$(shell opam config var prefix)
+OPAM_LIBDIR=$(shell opam config var lib)
+
 XAPIDOC=_build/install/default/xapi/doc
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
@@ -78,8 +79,7 @@ install: build doc
 # ocaml/database
 	scripts/install.sh 755 _build/install/default/bin/block_device_io $(DESTDIR)$(LIBEXECDIR)/block_device_io
 # Libraries
-	dune install --profile=$(PROFILE) --prefix=$(OPAM_PREFIX) \
-		--libdir=$(OPAM_LIBDIR) \
+	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
@@ -89,4 +89,4 @@ install: build doc
 
 uninstall:
 	# only removes the libraries, which were installed with `dune install`
-	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+	dune uninstall xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
