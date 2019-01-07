@@ -6,10 +6,10 @@ script:
   - bash -ex .travis-docker.sh
 env:
   global:
-    - OCAML_VERSION=4.06
+    - OCAML_VERSION=4.07
     - PINS="xen-api-client:. xen-api-client-lwt:. xen-api-client-async:."
     - PACKAGE=xen-api-client
-    - DISTRO="ubuntu-14.04"
+    - DISTRO="debian-9"
   matrix:
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
     - PACKAGE=xen-api-client-async BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="make async-examples"
