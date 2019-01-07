@@ -192,9 +192,11 @@ let help = [
 let certfile =
   let doc = "Path to file containing TLS certificate." in
   Arg.(value & opt string "" & info ["certfile"] ~doc)
+
 let ciphersuites =
   let doc = "Set of ciphersuites for TLS (specified in the format accepted by OpenSSL, stunnel etc.)" in
-  Arg.(value & opt string "!EXPORT:RSA+AES128-SHA256" & info ["ciphersuites"] ~doc)
+  let suites = "!EXPORT:RSA+AES128-SHA256" in
+  Arg.(value & opt string suites & info ["ciphersuites"] ~doc)
 
 let cmd =
   let doc = "Expose VDIs over authenticated NBD connections" in
