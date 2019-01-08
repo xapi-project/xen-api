@@ -700,15 +700,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         then begin
           debug "Using events to wait for tasks: %s" (String.concat "," classes);
           let open Event_types in
-          let f = ref {events = []; valid_ref_counts = []; token = ""} in
-          if !Xapi_globs.slave_dbs then begin
-            f := Event_types.parse_event_from
+          let from = ref {events = []; valid_ref_counts = []; token = ""} in
+          if !Xapi_globs.slave_dbs then
+            from := Event_types.parse_event_from
                 (Xapi_slave_db.call_with_updated_context __context
                    (Xapi_event.with_safe_missing_handling (fun () -> Xapi_event.from ~classes ~token ~timeout:30.0)))
-          end else
-            f := event_from_of_rpc
+          else
+            from := event_from_of_rpc
                 (Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0));
-          process !f.Event_types.token
+          process !from.Event_types.token
         end else
           ()
       in

@@ -94,6 +94,7 @@ let start_database_engine () =
 
   Db_ref.update_database t (Database.register_callback "redo_log" Redo_log.database_callback);
   Db_ref.update_database t (Database.register_callback "events" Eventgen.database_callback);
+
   debug "Performing initial DB GC";
   Db_gc.single_pass ();
 
@@ -935,6 +936,7 @@ let server_init() =
           "Caching metadata VDIs created by foreign pools.", [ Startup.OnlyMaster; ], cache_metadata_vdis;
           "Stats reporting thread", [], Xapi_stats.start;
         ];
+
         if !debug_dummy_data then (
           Startup.run ~__context [ "populating db with dummy data", [ Startup.OnlyMaster; Startup.NoExnRaising ],
                                    (fun () -> Debug_populate.do_populate ~vms:1000 ~vdis_per_vm:3 ~networks:10 ~srs:10 ~tasks:1000) ]
@@ -967,6 +969,7 @@ let server_init() =
             end
           | None -> ()
         in
+
         Startup.run ~__context [
           "fetching database backup", [ Startup.OnlySlave; Startup.NoExnRaising ],
           (fun () -> Pool_db_backup.fetch_database_backup ~master_address:(Pool_role.get_master_address())

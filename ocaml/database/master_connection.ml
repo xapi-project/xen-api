@@ -24,7 +24,6 @@ type db_record = (string * string) list * (string * (string list)) list
 module D = Debug.Make(struct let name = "master_connection" end)
 open D
 
-(* Universal functions *)
 module StunnelDebug=Debug.Make(struct let name="stunnel" end)
 exception Content_length_required
 exception Goto_handler
@@ -33,14 +32,11 @@ exception Cannot_connect_to_master
 let is_slave : (unit -> bool) ref = ref (fun () -> error "is_slave called without having been set. This is a fatal error."; raise Uninitialised)
 let get_master_address = ref (fun () -> error "get_master_address called without having been set. This is a fatal error"; raise Uninitialised)
 
-(* Module type definitions *)
-
 module type CONNECTION = sig
   val make_request : string -> string -> string -> Http.Request.t
   val with_maybe_lock : (unit -> string) -> string
 end
 
-(* Functor Definition *)
 module Connection = functor (C : CONNECTION) -> struct
   let master_rpc_path = ref "<invalid>"
   let my_connection : Stunnel.t option ref = ref None
@@ -262,7 +258,6 @@ module Connection = functor (C : CONNECTION) -> struct
 
 end
 
-(* Module definitions *)
 module Slave_backup = struct
   let make_request path token_str rpc_path =
     (* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)

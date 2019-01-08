@@ -65,36 +65,35 @@ let get_gen db =
 let get_del_from_table_name token ts table =
   Table.fold_over_deleted token (fun key _ acc -> ({key; table})::acc) (TableSet.find table ts) []
 
-let get_deleted ~token db table_list =
-  List.concat (List.rev_map (get_del_from_table_name token (Database.tableset db)) table_list)
+let get_deleted ~token db tables =
+  List.concat (List.rev_map (get_del_from_table_name token (Database.tableset db)) tables)
 
 let check_for_updates token db =
-  let ts = Database.tableset db in
   let handle_obj obj = Row.fold_over_recent token (fun fldname {created; modified; deleted} value acc ->
       {fldname; stat={created;modified;deleted}; value=value}::acc) obj [] in
   let handle_table table = Table.fold_over_recent token (fun objref {created; modified; deleted} value acc ->
       {objref; stat={created;modified;deleted}; fields=(handle_obj value)}::acc) table [] in
   TableSet.fold_over_recent token (fun tblname {created; modified; deleted} value acc ->
-      {tblname; stat={created;modified;deleted}; rows=(handle_table value)}::acc) ts []
+      {tblname; stat={created;modified;deleted}; rows=(handle_table value)}::acc) (Database.tableset db) []
 
-let counter db table =
-  (table, (Table.fold (fun _ _ _ acc -> succ(acc)) (TableSet.find table (Database.tableset db)) 0))
+let counter db tblname =
+  (tblname, (Table.fold (fun _ _ _ acc -> succ(acc)) (TableSet.find tblname (Database.tableset db)) 0))
 
-let object_count db table_list =
-  List.rev_map (counter db) table_list
+let object_count db tables =
+  List.rev_map (counter db) tables
 
 let get_delta __context token =
   Mutex.execute Db_lock.dbcache_mutex (fun () ->
       let db = Db_ref.get_database (Context.database_of __context) in
-      let table_list = TableSet.fold (fun table stat value acc -> table::acc) (Database.tableset db) [] in
+      let table_names = TableSet.fold (fun table stat value acc -> table::acc) (Database.tableset db) [] in
       let tables = check_for_updates token db in
-      let deleted = get_deleted token db table_list in
+      let deleted = get_deleted token db table_names in
       let t = Manifest.generation (Database.manifest db) in
       {fresh_token=t;
        last_event_token=Int64.pred t;
        tables=tables;
        deletes=deleted;
-       counts=object_count db table_list})
+       counts=object_count db table_names})
 
 let handler (req: Request.t) s _ =
   try
@@ -156,11 +155,11 @@ let make_change stat tblname objref fldname newval db =
 let compare_by_tblname (c1: (string * int)) (c2: (string * int)) =
   String.compare (fst c1) (fst c2)
 
-let count_check (c1_list: (string * int) list) (c2_list: (string * int) list) =
-  let c1_list = List.sort compare_by_tblname c1_list in
-  let c2_list = List.sort compare_by_tblname c2_list in
+let count_check (master_counts: (string * int) list) (slave_counts: (string * int) list) =
+  let master_counts = List.sort compare_by_tblname master_counts in
+  let slave_counts = List.sort compare_by_tblname slave_counts in
   try
-    List.for_all2 (fun (a,b) (c,d) -> a=c && b=d) c1_list c2_list
+    List.for_all2 (fun (a,b) (c,d) -> a=c && b=d) master_counts slave_counts
   with Invalid_argument _ -> false
 
 let compare_by_modified u1 u2 =
@@ -221,7 +220,7 @@ let modified_check db tblname =
               (true, tstat)))) t' true
 
 let created_check db tblname =
-  let _t = TableSet.find tblname (Database.tableset db) in
+  let t' = TableSet.find tblname (Database.tableset db) in
   Table.fold (fun name tstat value ->
       (fun (b:bool) ->
          fst ((
@@ -230,13 +229,13 @@ let created_check db tblname =
                      (b && s.created <= rowstat.created, s)
                   )))
                value)
-              (true, tstat)))) _t true
+              (true, tstat)))) t' true
 
-let modified_time_stamp_sanity db table_list =
-  List.for_all (modified_check db) table_list
+let modified_time_stamp_sanity db tables =
+  List.for_all (modified_check db) tables
 
-let created_time_stamp_sanity db table_list =
-  List.for_all (created_check db) table_list
+let created_time_stamp_sanity db tables =
+  List.for_all (created_check db) tables
 
 let apply_changes (delta:delta) =
   if (Manifest.generation (Database.manifest !Xapi_slave_db.slave_db)) < delta.fresh_token then
@@ -249,19 +248,19 @@ let apply_changes (delta:delta) =
       in
       Xapi_slave_db.slave_db := new_db;
     end;
-  let table_list = TableSet.fold (fun table stat value acc -> table::acc) (Database.tableset !Xapi_slave_db.slave_db) [] in
+  let tables = TableSet.fold (fun table stat value acc -> table::acc) (Database.tableset !Xapi_slave_db.slave_db) [] in
   (* Need to check that we haven't missed anything *)
-  let slave_counts = object_count !Xapi_slave_db.slave_db table_list in
+  let slave_counts = object_count !Xapi_slave_db.slave_db tables in
   if not (count_check slave_counts delta.counts) then
     begin
       debug "The local database and the master database do not appear to be the same size - clearing slave db";
       Xapi_slave_db.clear_db ()
     end;
-  if not (created_time_stamp_sanity !Xapi_slave_db.slave_db table_list && modified_time_stamp_sanity !Xapi_slave_db.slave_db table_list) then begin
+  if not (created_time_stamp_sanity !Xapi_slave_db.slave_db tables && modified_time_stamp_sanity !Xapi_slave_db.slave_db tables) then begin
     debug "The stat fields are not correct - clearing slave db";
     Xapi_slave_db.clear_db ()
   end;
-  table_list
+  tables
 
 let send_notification __context token (u:update) =
   let __context = Xapi_slave_db.update_context_db __context in
@@ -275,18 +274,13 @@ let send_notification __context token (u:update) =
   if u.stat.modified = u.stat.deleted then
     reasons := [];
 
-  if u.fldname = "" then begin
-    List.iter (fun r -> debug "Reason: %s" r) !reasons;
-  end else ();
+  if u.fldname = "" then List.iter (fun r -> debug "Reason: %s" r) !reasons;
+  List.iter (fun r -> Db_action_helper.events_notify u.tblname r u.objref) !reasons
 
-  List.iter (fun r ->
-      Db_action_helper.events_notify u.tblname r u.objref;
-    ) !reasons
-
-let handle_notifications __context token (master_delta:delta) table_list =
+let handle_notifications __context token (master_delta:delta) tables =
   let dels = ref [] in
   Mutex.execute Xapi_slave_db.slave_db_mutex (fun () ->
-      dels := get_deleted token !Xapi_slave_db.slave_db table_list;
+      dels := get_deleted token !Xapi_slave_db.slave_db tables
     );
   List.iter (fun (d:del_tables) -> Db_action_helper.events_notify d.table "del" d.key) !dels;
   List.iter (send_notification __context token) (f_all master_delta.tables)
@@ -311,7 +305,7 @@ let start_stunnel_connection () =
 let loop ~__context () =
   let delay_seconds = !Xapi_globs.slave_db_writeout_time in
   let start = Mtime_clock.counter () in
-  let token_str = ref "-2" in
+  let token = ref "-2" in
   let psec = Xapi_globs.pool_secret in
   let addr = ref (Pool_role.get_master_address()) in
   while (true) do
@@ -325,19 +319,19 @@ let loop ~__context () =
     end;
     let now = Mtime_clock.count start in
     let changes =
-      !token_str
+      !token
       |> Master_connection.Slave_backup_connection.execute_remote_fn
       |> Jsonrpc.of_string
       |> delta_of_rpc
     in
-    let table_list = ref [] in
-    Mutex.execute Xapi_slave_db.slave_db_mutex (fun () -> table_list := apply_changes changes);
-    handle_notifications __context (Int64.of_string !token_str) changes !table_list;
+    let tables = ref [] in
+    Mutex.execute Xapi_slave_db.slave_db_mutex (fun () -> tables := apply_changes changes);
+    handle_notifications __context (Int64.of_string !token) changes !tables;
     if Mtime.Span.to_s now > delay_seconds then write_db_to_disk;
-    if changes.last_event_token > (get_gen !Xapi_slave_db.slave_db) then begin
-      token_str := Int64.to_string (get_gen !Xapi_slave_db.slave_db);
-    end else
-      token_str := Int64.to_string changes.last_event_token;
+    if changes.last_event_token > (get_gen !Xapi_slave_db.slave_db) then
+      token := Int64.to_string (get_gen !Xapi_slave_db.slave_db)
+    else
+      token := Int64.to_string changes.last_event_token
   done
 
 let slave_db_backup_loop ~__context () =
@@ -352,6 +346,6 @@ let slave_db_backup_loop ~__context () =
       e ->
       Debug.log_backtrace e (Backtrace.get e);
       debug "Exception in Slave Database Backup Thread - %s" (Printexc.to_string e);
-    Thread.delay 0.5;
+    Thread.delay 0.5
   done
 

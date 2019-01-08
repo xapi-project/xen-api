@@ -544,12 +544,11 @@ let from ~__context ~classes ~token ~timeout =
      	   snapshot can't be taken. *)
   let rec loop () =
     let event_from = from_inner __context session subs from from_t deadline in
-    if event_from.events = [] && (Unix.gettimeofday () < deadline) then begin
-      (*debug "suppressing empty event.from";*)
+    if event_from.events = [] && (Unix.gettimeofday () < deadline) then
       loop ()
-    end else begin
+    else
       rpc_of_event_from event_from
-    end in
+    in
   loop ()
 
 let get_current_id ~__context = Mutex.execute Next.m (fun () -> !Next.id)
@@ -578,16 +577,16 @@ let with_wakeup __context loc f =
     Context.make ~task_description:"Task for event from loop" ~subtask_of ~task_in_database:true label
     |> Context.get_task_id
   in
-  let class_str = ("task/" ^ (Ref.string_of _t)) in
-  let wakeup_classes = [class_str] in
-  let wakeup_function = (fun () ->
-      try
-        Db.Task.destroy ~__context ~self:_t
+  let classes = ("task/" ^ (Ref.string_of _t)) in
+  let wakeup_classes = [classes] in
+  let wakeup_function () =
+      try Db.Task.destroy ~__context ~self:_t
       with Db_exn.DBCache_NotFound _ -> debug "Event thread has already woken up"
-    ) in
+    in
   let return = f wakeup_function wakeup_classes _t in
   wakeup_function ();
   return
+
 let dbm = Mutex.create ()
 let db_init_condition = Condition.create ()
 
