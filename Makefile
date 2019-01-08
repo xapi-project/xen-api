@@ -1,5 +1,3 @@
-OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
-OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
 URL ?= https://github.com/xapi-project/xen-api
 BRANCH ?= master
@@ -19,10 +17,10 @@ lwt-examples:
 	dune build @lwt_examples/examples
 
 install:
-	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune install
 
 uninstall:
-	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
+	dune uninstall
 
 clean:
 	dune clean
