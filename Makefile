@@ -1,23 +1,22 @@
 
-.PHONY: release build install uninstall test clean reindent
+PROFILE=release
+
+.PHONY: build install uninstall test clean reindent
 
 build:
-	jbuilder build @install --dev
-
-release:
-	jbuilder build @install
+	dune build @install --profile=$(PROFILE)
 
 install:
-	jbuilder install
+	dune install
 
 uninstall:
-	jbuilder uninstall
+	dune uninstall
 
 test:
-	jbuilder runtest
+	dune runtest --profile=$(PROFILE)
 
 clean:
-	jbuilder clean
+	dune clean
 
 reindent:
 	git ls-files '**/*.ml' | xargs ocp-indent --inplace

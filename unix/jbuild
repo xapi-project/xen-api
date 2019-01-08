@@ -1,6 +1,0 @@
-(library
- ((name rrd_unix)
-  (public_name rrd.unix)
-  (wrapped false)
-  (libraries (unix uuidm rrd xmlm))
- ))

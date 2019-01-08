@@ -1,0 +1,16 @@
+(executable
+  (name unit_tests)
+  (modules unit_tests)
+  (libraries
+    bigarray
+    oUnit
+    unix
+    xapi-rrd
+    xapi-rrd.unix)
+)
+
+(alias
+  (name runtest)
+  (deps (:x unit_tests.exe))
+  (action (run %{x}))
+)
