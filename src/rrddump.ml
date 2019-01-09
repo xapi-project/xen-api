@@ -38,8 +38,14 @@ let text_export rrd =
     done
   done
 
+let with_input_file filename f =
+  let ic = open_in filename in
+finally (fun () -> f ic) (fun () -> close_in ic)
+
 let _ =
-  let body = Xapi_stdext_unix.Unixext.string_of_file Sys.argv.(1) in
-  let input = Xmlm.make_input (`String (0, body)) in
-  let rrd = Rrd.from_xml input in
-  text_export rrd
+  let dump_channel ic =
+    let input = Xmlm.make_input ic in
+    let rrd = Rrd.from_xml input in
+    text_export rrd
+  in
+  with_input_file Sys.argv.(1) dump_channel
