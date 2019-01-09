@@ -1,8 +1,8 @@
 (library
- ((name xen_api_client_async)
+  (name xen_api_client_async)
   (public_name xen-api-client-async)
   (libraries
-   (async
+    async
     async_unix
     cohttp
     core
@@ -11,6 +11,6 @@
     threads
     uri
     xen-api-client
-    xmlm))
-  (wrapped false)))
-
+    xmlm)
+  (wrapped false)
+)

@@ -1,0 +1,36 @@
+(executable
+  (name list_vms)
+  (modules list_vms)
+  (libraries
+    lwt
+    lwt.unix
+    xen-api-client
+    xen-api-client-lwt)
+)
+
+(executable
+  (name upload_disk)
+  (modules upload_disk)
+  (libraries
+    lwt
+    lwt.unix
+    xen-api-client
+    xen-api-client-lwt)
+)
+
+(executable
+  (name watch_metrics)
+  (modules watch_metrics)
+  (libraries
+    cohttp.lwt
+    lwt
+    lwt.unix
+    xen-api-client
+    xen-api-client-lwt)
+)
+
+(alias
+  (name examples)
+  (deps list_vms.exe upload_disk.exe watch_metrics.exe)
+  (package xen-api-client-lwt)
+)

@@ -1,8 +1,8 @@
- (library
- ((name xen_api_client_lwt)
+(library
+  (name xen_api_client_lwt)
   (public_name xen-api-client-lwt)
   (libraries
-   (cohttp
+    cohttp
     cstruct
     lwt
     lwt_ssl
@@ -12,5 +12,6 @@
     rpclib.json
     uri
     xen-api-client
-    xmlm))
-  (wrapped false)))
+    xmlm)
+  (wrapped false)
+)
