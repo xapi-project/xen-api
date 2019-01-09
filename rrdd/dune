@@ -27,8 +27,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     mtime.clock.os
     systemd
     xapi-backtrace
-    rrd
-    rrd.unix
+    xapi-rrd
+    xapi-rrd.unix
     rrd-transport
     xapi-rrdd
     xapi-stdext-monadic
