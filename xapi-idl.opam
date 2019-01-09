@@ -23,7 +23,7 @@ depends: [
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "re"
-  "rrd"
+  "xapi-rrd"
   "sexplib"
   "base-threads"
   "base-unix"

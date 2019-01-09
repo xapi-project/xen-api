@@ -14,7 +14,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39))
   (libraries
     rpclib.core
-    rrd
+    xapi-rrd
     threads
     xapi-idl
   )
@@ -29,7 +29,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39))
   (libraries
     rpclib.core
-    rrd
+    xapi-rrd
     threads
     xapi-idl
     xapi-idl.rrd.interface.types
@@ -45,7 +45,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39))
   (libraries
     rpclib.core
-    rrd
+    xapi-rrd
     threads
     xapi-idl
     xapi-idl.rrd.interface
