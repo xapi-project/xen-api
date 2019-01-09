@@ -11,7 +11,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     threads
-    rrd
+    xapi-rrd
     rrd-transport
     xapi-idl.rrd
     xenstore_transport.unix
