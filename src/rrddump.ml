@@ -38,13 +38,18 @@ let text_export rrd =
     done
   done
 
+let finally f ~(always: unit -> unit) =
+  match f () with
+  | result      -> always (); result
+  | exception e -> always (); raise e
+
 let with_input_file filename f =
   let ic = open_in filename in
-finally (fun () -> f ic) (fun () -> close_in ic)
+  finally (fun () -> f ic) ~always:(fun () -> close_in ic)
 
 let _ =
   let dump_channel ic =
-    let input = Xmlm.make_input ic in
+    let input = Xmlm.make_input (`Channel ic)  in
     let rrd = Rrd.from_xml input in
     text_export rrd
   in
