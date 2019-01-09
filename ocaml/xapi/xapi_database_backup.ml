@@ -274,7 +274,6 @@ let send_notification __context token (u:update) =
   if u.stat.modified = u.stat.deleted then
     reasons := [];
 
-  if u.fldname = "" then List.iter (fun r -> debug "Reason: %s" r) !reasons;
   List.iter (fun r -> Db_action_helper.events_notify u.tblname r u.objref) !reasons
 
 let handle_notifications __context token (master_delta:delta) tables =
