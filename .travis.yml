@@ -8,8 +8,8 @@ script:
     - bash -ex .travis-docker.sh
 env:
     global:
-        - OCAML_VERSION=4.04.2
-        - DISTRO=debian-stable
+        - OCAML_VERSION=4.07
+        - DISTRO=debian-unstable
         - PINS="rrdd-plugin:. xapi-rrdd-plugin:."
         - PACKAGE=rrdd-plugin
         - TESTS=false
