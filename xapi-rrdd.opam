@@ -18,6 +18,7 @@ depends: [
   "ounit" {with-test}
   "rpc"
   "systemd"
+	"ezxenstore"
   "xapi-backtrace"
   "xapi-idl"
   "xapi-libs-transitional"
