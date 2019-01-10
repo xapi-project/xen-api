@@ -317,6 +317,7 @@ let loop ~__context () =
       start_stunnel_connection ();
     end;
     let now = Mtime_clock.count start in
+    Xapi_event.wait_for_db_update ();
     let changes =
       !token
       |> Master_connection.Slave_backup_connection.execute_remote_fn

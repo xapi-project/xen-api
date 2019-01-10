@@ -588,7 +588,9 @@ let with_wakeup __context loc f =
   return
 
 let dbm = Mutex.create ()
+let dbu = Mutex.create ()
 let db_init_condition = Condition.create ()
+let db_update_condition = Condition.create ()
 
 let with_safe_missing_handling f =
   try
@@ -597,6 +599,9 @@ let with_safe_missing_handling f =
     debug "The database probably hasn't been initialised yet, wait for an event and then retry";
     Condition.wait db_init_condition dbm;
     f ()
+
+let wait_for_db_update () =
+  Condition.wait db_update_condition dbu
 
 let event_add ?snapshot ty op reference  =
   let objs = List.filter (fun x->x.Datamodel_types.gen_events) (Dm_api.objects_of_api Datamodel.all_api) in
@@ -609,7 +614,8 @@ let event_add ?snapshot ty op reference  =
     From.add ev;
     Next.add ev
   end;
-  Condition.broadcast db_init_condition
+  Condition.broadcast db_init_condition;
+  Condition.broadcast db_update_condition
 
 let register_hooks () = Db_action_helper.events_register event_add
 

@@ -40,6 +40,8 @@ val inject: __context:Context.t -> _class:string -> _ref:string -> string
 
 val event_add: ?snapshot:Rpc.t -> string -> string -> string -> unit
 
+val wait_for_db_update: unit -> unit
+
 val register_hooks: unit -> unit
 
 (* Called whenever a session is being destroyed i.e. by Session.logout and db_gc *)
