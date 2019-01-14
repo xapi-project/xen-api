@@ -1,0 +1,16 @@
+(rule
+	(deps (source_tree libseahash))
+	(targets libseahash_stubs.a)
+	(action
+		(bash "make -C libseahash && cp libseahash/libseahash_stubs.a libseahash_stubs.a")
+	)
+)
+
+(library
+	(name seahash)
+	(self_build_stubs_archive (seahash))
+	(libraries
+		ctypes
+		ctypes.foreign
+	)
+)

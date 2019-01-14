@@ -33,7 +33,9 @@ let chunk_size = Int64.mul 1024L 1024L (* 1 MiB *)
 (** Maximum range for sparseness query *)
 let max_sparseness_size = Int64.mul 10240L chunk_size
 
-let checksum_extension = ".checksum"
+let checksum_extension = ".seahash"
+let checksum_extension_backwards = ".checksum"
+let checksum_extension_imports = [checksum_extension; checksum_extension_backwards] (* All valid import formats *)
 
 type vdi = string (* directory prefix in tar file *) * API.ref_VDI * Int64.t (* size to send/recieve *)
 
@@ -91,7 +93,7 @@ let made_progress __context progress n =
 let write_block ~__context filename buffer ofd len =
   let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
   try
-    let csum = Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) in
+    let csum = Seahash.Hash.to_hex (Seahash.Hash.bytes buffer) in
     Tar_unix.write_block hdr (fun ofd -> Unix.write ofd buffer 0 len |> ignore) ofd;
     (* Write the checksum as a separate file *)
     let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
@@ -312,7 +314,7 @@ let verify_inline_checksum ifd checksum_table =
   let hdr = Tar_unix.Header.get_next_header ifd in
   let file_name = hdr.Tar_unix.Header.file_name in
   let length = hdr.Tar_unix.Header.file_size in
-  if not(String.endswith checksum_extension file_name) then begin
+  if not(List.exists (String.endswith file_name) checksum_extension_imports) then begin
     let msg = Printf.sprintf "Expected to find an inline checksum, found file called: %s" file_name in
     error "%s" msg;
     raise (Failure msg)
@@ -324,7 +326,7 @@ let verify_inline_checksum ifd checksum_table =
     let csum = Bytes.unsafe_to_string csum in
     Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
     (* Look up the relevant file_name in the checksum_table *)
-    let original_file_name = String.sub file_name 0 (String.length file_name - (String.length checksum_extension)) in
+    let original_file_name = String.sub file_name 0 (String.index file_name '.') in
     let csum' = List.assoc original_file_name !checksum_table in
     if csum <> csum' then begin
       error "File %s checksum mismatch (%s <> %s)" original_file_name csum csum';
@@ -407,10 +409,14 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
              in
              Unixext.really_read ifd buffer 0 (Int64.to_int length);
              Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
-             let csum = Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) in
-
-             checksum_table := (file_name, csum) :: !checksum_table;
-
+             
+             let csum = if String.endswith file_name checksum_extension 
+             	then Seahash.Hash.to_hex (Seahash.Hash.bytes buffer) 
+             	else Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) 
+	     	 in
+		
+	     	 checksum_table := (file_name, csum) :: !checksum_table;
+             
              Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
              made_progress __context progress (Int64.add skipped_size length);
 

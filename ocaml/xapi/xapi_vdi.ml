@@ -939,7 +939,7 @@ let set_name_description ~__context ~self ~value =
   update ~__context ~vdi:self
 
 let checksum ~__context ~self =
-  let do_checksum f = Digest.to_hex (Digest.file f) in
+  let do_checksum f = Seahash.Hash.to_hex (Seahash.Hash.file f) in
   Helpers.call_api_functions ~__context
     (fun rpc session_id -> Sm_fs_ops.with_block_attached_device __context rpc session_id self `RO do_checksum)
 

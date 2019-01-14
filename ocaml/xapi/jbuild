@@ -54,6 +54,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules (:standard \ xapi_main))
   (libraries (
+   seahash
    unixpwd
    pam
    pciutil
