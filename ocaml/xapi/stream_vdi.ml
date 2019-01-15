@@ -34,8 +34,8 @@ let chunk_size = Int64.mul 1024L 1024L (* 1 MiB *)
 let max_sparseness_size = Int64.mul 10240L chunk_size
 
 let checksum_extension = ".seahash"
-let checksum_extension_backwards = ".checksum"
-let checksum_extension_imports = [checksum_extension; checksum_extension_backwards] (* All valid import formats *)
+let checksum_extension_backwards = ".checksum" (* For backwards compatability reasons *)
+let checksum_extension_imports = [checksum_extension; checksum_extension_backwards] (* All supported import formats *)
 
 type vdi = string (* directory prefix in tar file *) * API.ref_VDI * Int64.t (* size to send/recieve *)
 
@@ -151,7 +151,7 @@ let flag_zero = 2l
 
 (** [descriptor_list] should be a list of non-overlapping extents, ordered from
     lowest offset to highest.
-    [offset] is the current offset needed to translate from relative extents to 
+    [offset] is the current offset needed to translate from relative extents to
     absolute chunk numbers *)
 let get_chunk_numbers_in_increasing_order descriptor_list offset =
   (* Output increasing range includes start and end points *)
@@ -310,11 +310,10 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 exception Invalid_checksum of string
 
 (* Rio GA and later only *)
-let verify_inline_checksum ifd checksum_table =
-  let hdr = Tar_unix.Header.get_next_header ifd in
-  let file_name = hdr.Tar_unix.Header.file_name in
-  let length = hdr.Tar_unix.Header.file_size in
-  if not(List.exists (String.endswith file_name) checksum_extension_imports) then begin
+let verify_inline_checksum ifd checksum_hdr checksum_table =
+  let file_name = checksum_hdr.Tar_unix.Header.file_name in
+  let length = checksum_hdr.Tar_unix.Header.file_size in
+  if not(List.exists (Filename.check_suffix file_name) checksum_extension_imports) then begin
     let msg = Printf.sprintf "Expected to find an inline checksum, found file called: %s" file_name in
     error "%s" msg;
     raise (Failure msg)
@@ -324,9 +323,9 @@ let verify_inline_checksum ifd checksum_table =
     let csum = Bytes.make length' ' ' in
     Unixext.really_read ifd csum 0 length';
     let csum = Bytes.unsafe_to_string csum in
-    Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
+    Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length checksum_hdr);
     (* Look up the relevant file_name in the checksum_table *)
-    let original_file_name = String.sub file_name 0 (String.index file_name '.') in
+    let original_file_name = Filename.remove_extension file_name in
     let csum' = List.assoc original_file_name !checksum_table in
     if csum <> csum' then begin
       error "File %s checksum mismatch (%s <> %s)" original_file_name csum csum';
@@ -409,22 +408,25 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
              in
              Unixext.really_read ifd buffer 0 (Int64.to_int length);
              Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
-             
-             let csum = if String.endswith file_name checksum_extension 
-             	then Seahash.Hash.to_hex (Seahash.Hash.bytes buffer) 
-             	else Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) 
-	     	 in
-		
-	     	 checksum_table := (file_name, csum) :: !checksum_table;
-             
+
+						 (* Fetch the checksum file (next file in the tar) *)
+             let checksum_hdr = Tar_unix.Header.get_next_header ifd in
+	  				 let checksum_file_name = checksum_hdr.Tar_unix.Header.file_name in
+
+             let csum = if Filename.check_suffix checksum_file_name checksum_extension
+             		then Seahash.Hash.to_hex (Seahash.Hash.bytes buffer)
+             		else Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer))
+	     			 in
+
+	     			 checksum_table := (file_name, csum) :: !checksum_table;
+
              Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
              made_progress __context progress (Int64.add skipped_size length);
-
 
              if has_inline_checksums then
                begin
                  try
-                   verify_inline_checksum ifd checksum_table;
+                   verify_inline_checksum ifd checksum_hdr checksum_table;
                  with
                  | Invalid_checksum s as e ->
                    if not(force) then raise e
