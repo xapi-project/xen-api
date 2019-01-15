@@ -82,7 +82,7 @@ let init_tls_get_server_ctx ~certfile ~ciphersuites =
   let certfile = require_str "certfile" certfile in
   let ciphersuites = require_str "ciphersuites" ciphersuites in
   Some (Nbd_lwt_unix.TlsServer
-    (Nbd_lwt_unix.init_tls_get_ctx ~certfile ~ciphersuites)
+    (Nbd_lwt_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile ~ciphersuites)
   )
 
 let xapi_says_use_tls () =
