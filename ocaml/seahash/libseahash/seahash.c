@@ -110,7 +110,7 @@ uint64_t hash_filedesc(int fd) {
 	return hash_file(in);
 }
 
-int main(int argc, char **argv) {
+/*int main(int argc, char **argv) {
 	// These hash outputs were precomputed using the SeaHash reference implementation (which is written in Rust).
 	char temp[4096];
 
@@ -142,4 +142,4 @@ int main(int argc, char **argv) {
 	fclose(in);
 
 	puts("Tests Passed!");
-}
+}*/
