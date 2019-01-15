@@ -1,13 +1,12 @@
+PROFILE=release
+
 OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
 OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-.PHONY: release build install uninstall clean test doc reindent
-
-release:
-	dune build @install --profile=release
+.PHONY: build install uninstall clean test doc reindent
 
 build:
-	dune build @install --dev
+	dune build @install --profile=$(PROFILE)
 
 install:
 	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR)
@@ -19,11 +18,11 @@ clean:
 	dune clean
 
 test:
-	dune runtest
+	dune runtest --profile=$(PROFILE)
 
 # requires odoc
 doc:
-	dune build @doc
+	dune build @doc --profile=$(PROFILE)
 
 reindent:
 	git ls-files '*.ml' '*.mli' | xargs ocp-indent --inplace
