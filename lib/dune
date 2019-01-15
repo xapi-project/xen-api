@@ -2,7 +2,7 @@
 
 let coverage_rewriter =
   match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "(preprocess (pps bisect_ppx))"
+  | "YES" -> "bisect_ppx"
   | _ -> ""
   | exception Not_found -> ""
 
@@ -13,8 +13,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (public_name xen-api-client)
   (flags (:standard -w -39))
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc))
-  %s
+  (preprocess (pps ppx_deriving_rpc %s))
   (libraries
     astring
     cohttp
