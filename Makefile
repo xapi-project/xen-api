@@ -1,14 +1,12 @@
+PROFILE=release
 DESTDIR ?=
 ETCDIR ?= /etc/xensource
 LIBEXECDIR ?= /opt/xensource/libexec
 
-.PHONY: release build install uninstall clean doc reindent
-
-release:
-	jbuilder build @install
+.PHONY: build install uninstall clean doc reindent
 
 build:
-	jbuilder build @install --dev
+	dune build @install --profile=$(PROFILE)
 
 install:
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
@@ -29,14 +27,11 @@ uninstall:
 	rm -f $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 
 clean:
-	jbuilder clean
+	dune clean
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc --profile=$(PROFILE)
 
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
-
-
-.DEFAULT_GOAL := release

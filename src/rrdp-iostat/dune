@@ -1,9 +1,7 @@
-(jbuild_version 1)
-
-(executable (
+(executable
   (name rrdp_iostat)
   (public_name xcp-rrdd-iostat)
-  (libraries (
+  (libraries
     rrdd-plugin
     rrdd-plugins.libs
     xapi-stdext-std
@@ -15,5 +13,5 @@
     xenctrl
     xenstore.unix
     inotify
-  ))
-))
+  )
+)
