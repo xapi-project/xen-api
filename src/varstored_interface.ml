@@ -13,7 +13,6 @@
  *)
 
 open Rpc
-open Idl
 open Lwt.Infix
 
 module D = Debug.Make (struct
