@@ -1,13 +1,11 @@
-(jbuild_version 1)
-
-(executable (
+(executable
   (name rrdp_squeezed)
   (public_name xcp-rrdd-squeezed)
-  (libraries (
+  (libraries
     rrdd-plugin
     rrdd-plugins.libs
     xapi-stdext-std
     threads
     ezxenstore
-  ))
-))
+  )
+)

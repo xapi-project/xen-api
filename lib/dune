@@ -1,11 +1,9 @@
-(jbuild_version 1)
-
-(library (
+(library
   (name rrdd_plugins_libs)
   (public_name rrdd-plugins.libs)
   (wrapped false)
-  (preprocess (pps (ppx_cstruct)))
-  (libraries (
+  (preprocess (pps ppx_cstruct))
+  (libraries
     cstruct-unix
-  ))
-))
+  )
+)
