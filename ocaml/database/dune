@@ -1,0 +1,122 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+
+(ocamllex db_filter_lex)
+(ocamlyacc db_filter_parse)
+
+(library
+  (name xapi_database)
+  (public_name xapi-database)
+  (flags (:standard -w -39))
+  (modules (:standard \
+    database_server_main
+    db_cache_test
+    block_device_io
+    unit_test_marshall
+    unit_test_sql)
+  )
+  (libraries
+    rpclib
+    ppx_sexp_conv.runtime-lib
+    sexpr
+    threads
+    http-svr
+    gzip
+    uuid
+    xapi-stdext-encodings
+    xapi-stdext-monadic
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-idl
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
+)
+
+(executable
+  (name block_device_io)
+  (public_name block_device_io)
+  (package xapi)
+  (modules
+   block_device_io
+  )
+  (libraries
+    xapi-database
+  )
+)
+
+(executable
+  (name db_cache_test)
+  (modules db_cache_test)
+  (libraries
+    oUnit
+    xapi-database
+  )
+)
+
+(executable
+  (name unit_test_marshall)
+  (modules
+    unit_test_marshall
+  )
+  (libraries
+    xapi-database
+  )
+)
+
+(executable
+  (name unit_test_sql)
+  (modules unit_test_sql)
+  (libraries xapi-database)
+)
+
+(executable
+  (name database_server_main)
+  (modules
+    database_server_main
+  )
+  (libraries
+    xapi-database
+    threads
+    xapi-stdext-threads
+    http-svr
+  )
+)
+
+(alias
+  (name runtest)
+  (deps (:x unit_test_marshall.exe))
+  (package xapi-database)
+  (action (run %%{x}))
+)
+
+(alias
+  (name runtest)
+  (deps (:x unit_test_sql.exe) sql_msg_example.txt)
+  (package xapi-database)
+  (action (run %%{x}))
+)
+
+(alias
+  (name runtest)
+  (deps (:x database_server_main.exe))
+  (package xapi-database)
+  (action (run %%{x} --master db.xml --test))
+)
+
+(alias
+  (name runtest)
+  (deps (:x db_cache_test.exe))
+  (package xapi-database)
+  (action (run %%{x}))
+)
+
+|} coverage_rewriter

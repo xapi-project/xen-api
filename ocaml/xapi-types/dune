@@ -1,0 +1,32 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(rule
+  (targets aPI.ml)
+  (deps ../idl/ocaml_backend/gen_api_main.exe)
+  (action (run %%{deps} -filterinternal true -filter closed -mode api -output %%{targets}))
+)
+
+(library
+  (name xapi_types)
+  (public_name xapi-types)
+  (flags (:standard))
+  (libraries
+   astring
+   http-svr
+   rpclib
+   threads
+   uuidm
+   xapi-consts
+   xapi-stdext-date
+   xapi-idl
+  )
+  (wrapped false)
+  (preprocess (pps ppx_deriving_rpc %s))
+)
+|} coverage_rewriter

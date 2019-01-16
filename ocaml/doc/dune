@@ -1,0 +1,42 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(executable
+  (name jsapi)
+  (flags (:standard))
+  (libraries
+   xapi-datamodel
+   xapi-consts
+   stdext
+   uuid
+   gzip
+   mustache
+  )
+  (preprocess (pps ppx_deriving_rpc %s))
+)
+
+(alias
+  (name jsapigen)
+  (deps
+    (:x jsapi.exe)
+    (source_tree templates)
+  )
+  (package xapi-datamodel)
+  (action (run %%{x}))
+)
+
+(alias
+  (name runtest)
+  (deps
+    (:x jsapi.exe)
+    (source_tree templates)
+  )
+  (package xapi-datamodel)
+  (action (run %%{x}))
+)
+|} coverage_rewriter
