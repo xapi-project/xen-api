@@ -378,6 +378,7 @@ let rpu_allowed_vm_operations = [
   `hard_shutdown;
   `import;
   `make_into_template;
+  `migrate_send;
   `pause;
   `pool_migrate;
   `power_state_reset;
