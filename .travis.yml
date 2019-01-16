@@ -2,8 +2,11 @@ language: c
 sudo: required
 install:
   - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+  - wget https://raw.githubusercontent.com/xapi-project/xapi-travis-scripts/master/coverage.sh
 script:
   - bash -ex .travis-docker.sh
+services:
+  - docker
 env:
   global:
     - OCAML_VERSION=4.07
@@ -11,7 +14,8 @@ env:
     - PACKAGE=xen-api-client
     - DISTRO="debian-9"
   matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
+        POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex coverage.sh"
     - PACKAGE=xen-api-client-async BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOK="make async-examples"
     - PACKAGE=xen-api-client-lwt BASE_REMOTE=git://github.com/xapi-project/xs-opam POST_INSTALL_HOOL="make lwt-examples"
     - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
