@@ -1,8 +1,0 @@
-(jbuild_version 1)
-
-(library
- ((name unixpwd_stubs)
-  (wrapped false)
-  (c_names
-   (unixpwd unixpwd_stubs))))
-

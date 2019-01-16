@@ -15,7 +15,7 @@ set -ex
 docker run --rm --volume=$PWD:/mnt --workdir=/mnt \
   --env "TRAVIS=$TRAVIS" \
   --env "TRAVIS_JOB_ID=$TRAVIS_JOB_ID" \
-  ocaml/opam2:ubuntu-18.04-ocaml-4.06 \
+  ocaml/opam2:ubuntu-18.04-ocaml-4.07 \
   bash -ex -c '
 sudo apt-get update
 

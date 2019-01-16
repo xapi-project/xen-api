@@ -4,11 +4,11 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
-build: [[ "jbuilder" "build" "-p" name ]]
+build: [[ "dune" "build" "-p" name ]]
 
 depends: [
   "ocaml"
-  "jbuilder" {build & >= "1.0+beta11"}
+  "dune" {build & >= "1.4"}
   "astring"
   "http-svr"
   "ocaml-migrate-parsetree"

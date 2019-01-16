@@ -1,0 +1,29 @@
+(* -*- tuareg -*- *)
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "bisect_ppx"
+  | _ -> ""
+  | exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+
+(executable
+  (name quicktest)
+  (public_name quicktestbin)
+  (package xapi)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (libraries
+    alcotest
+    unix
+    xapi_internal
+    xapi-consts
+    xapi-stdext-date
+    xapi-stdext-monadic
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+  )
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
+)
+|} coverage_rewriter

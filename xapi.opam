@@ -5,12 +5,12 @@ homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 build: [
-  ["jbuilder" "build" "-p" name]
-  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+  ["dune" "build" "-p" name]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
-  "jbuilder" {build & >= "1.0+beta11"}
+  "dune" {build & >= "1.4"}
   "alcotest"
   "cdrom"
   "ctypes"
