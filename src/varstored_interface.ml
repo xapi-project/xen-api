@@ -200,7 +200,11 @@ let serve_forever_lwt rpc_fn path =
     server_wait_exit
   in
   Lwt_switch.add_hook (Some shutdown) cleanup;
-  wait_for_file_to_appear path >>= fun () ->
+  (* if server_wait_exit fails then cancel waiting for file to appear
+   * otherwise do not cancel the server if the file appeared (Lwt.protected) *)
+  Lwt.pick
+    [ Lwt_unix.with_timeout 120. (fun () -> wait_for_file_to_appear path)
+    ; Lwt.protected server_wait_exit ] >>= fun () ->
   Lwt.return cleanup
 
 (* Create a restricted RPC function and socket for a specific VM *)

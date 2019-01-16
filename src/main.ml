@@ -65,7 +65,6 @@ let safe_unlink path =
     (function Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e)
 
 
-(* FIXME: EADDRINUSE exception gets swallowed?? *)
 let listen_for_vm { Persistent.vm_uuid; path; gid } =
     let vm_uuid_str = Uuidm.to_string vm_uuid in
     D.debug "resume: listening on socket %s for VM %s" path vm_uuid_str;
