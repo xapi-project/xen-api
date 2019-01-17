@@ -13,7 +13,6 @@
  *)
 
 open Rpc
-open Idl
 open Lwt.Infix
 
 module D = Debug.Make (struct
@@ -146,18 +145,21 @@ let with_xapi f = Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_sessio
 
 (* Unfortunately Cohttp doesn't provide us a way to know when it finished
  * creating the socket, and creating the socket is done asynchronously in an Lwt promise.
- * It only ever returns from server creation when the server
- * is stopped *)
+ * It only ever returns from server creation when the server is stopped.
+ * Try actually connecting: the file could be present but nobody listening on the other side.
+ * *)
 let rec wait_for_file_to_appear path =
   Lwt_unix.yield () >>= fun () ->
-  Lwt_unix.file_exists path >>= function
-  | true ->
-    D.debug "File %s is present" path;
-    Lwt.return_unit
-  | false ->
-    D.debug "Waiting for file %s to appear" path;
-    Lwt_unix.sleep 0.1 >>= fun () ->
-    wait_for_file_to_appear path
+  Lwt.try_bind (fun () ->
+    Conduit_lwt_unix.connect ~ctx:Conduit_lwt_unix.default_ctx (`Unix_domain_socket (`File path)))
+    (fun (_, ic, _oc) ->
+       D.debug "Socket at %s works" path;
+       (* do not close both channels, or we get an EBADF *)
+       Lwt_io.close ic)
+    (fun e ->
+       D.debug "Waiting for file %s to appear (%s)" path (Printexc.to_string e);
+       Lwt_unix.sleep 0.1 >>= fun () ->
+       wait_for_file_to_appear path)
 
 let serve_forever_lwt rpc_fn path =
   let conn_closed _ = () in
@@ -198,7 +200,11 @@ let serve_forever_lwt rpc_fn path =
     server_wait_exit
   in
   Lwt_switch.add_hook (Some shutdown) cleanup;
-  wait_for_file_to_appear path >>= fun () ->
+  (* if server_wait_exit fails then cancel waiting for file to appear
+   * otherwise do not cancel the server if the file appeared (Lwt.protected) *)
+  Lwt.pick
+    [ Lwt_unix.with_timeout 120. (fun () -> wait_for_file_to_appear path)
+    ; Lwt.protected server_wait_exit ] >>= fun () ->
   Lwt.return cleanup
 
 (* Create a restricted RPC function and socket for a specific VM *)

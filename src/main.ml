@@ -23,6 +23,63 @@ end)
 let ret v = v >>= Lwt.return_ok |> Rpc_lwt.T.put
 let sockets = Hashtbl.create 127
 
+module Persistent = struct
+  type args = {
+    vm_uuid: Varstore_privileged_interface.Uuidm.t;
+    path: string;
+    gid: int;
+  } [@@deriving rpcty]
+
+  type t = args list [@@deriving rpcty]
+
+  let saveto path data =
+    let json = data
+               |> Rpcmarshal.marshal typ_of
+               |> Jsonrpc.to_string in
+    Lwt_io.with_file ~mode:Lwt_io.Output path
+      (fun ch -> Lwt_io.write ch json)
+
+  let loadfrom path =
+    Lwt_unix.file_exists path >>= function
+    | false -> Lwt.return_nil
+    | true ->
+        Lwt_io.with_file ~mode:Lwt_io.Input path
+          (fun ch -> Lwt_io.read ch) >>= fun json ->
+        json |> Jsonrpc.of_string |>
+        Rpcmarshal.unmarshal typ_of
+        |> function
+        | Ok result -> Lwt.return result
+        | Error (`Msg m) -> Lwt.fail_with m
+end
+
+
+let recover_path = "/run/nonpersistent/varstored-guard-active.json"
+
+let store_args sockets =
+  Hashtbl.fold (fun path (_, (vm_uuid, gid)) acc -> { Persistent.vm_uuid; path; gid } :: acc) sockets []
+    |> Persistent.saveto recover_path
+
+let safe_unlink path =
+  Lwt.catch
+    (fun () -> Lwt_unix.unlink path)
+    (function Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e)
+
+
+let listen_for_vm { Persistent.vm_uuid; path; gid } =
+    let vm_uuid_str = Uuidm.to_string vm_uuid in
+    D.debug "resume: listening on socket %s for VM %s" path vm_uuid_str;
+    safe_unlink path >>= fun () ->
+    make_server_rpcfn path vm_uuid_str
+    >>= fun stop_server ->
+    Hashtbl.add sockets path (stop_server, (vm_uuid, gid));
+    Lwt_unix.chmod path 0o660 >>= fun () -> Lwt_unix.chown path 0 gid
+
+let resume () =
+  Persistent.loadfrom recover_path >>=
+  Lwt_list.iter_p listen_for_vm >>= fun () ->
+  D.debug "resume completed";
+  Lwt.return_unit
+
 (* caller here is trusted (xenopsd through message-switch *)
 let depriv_create dbg vm_uuid gid path =
   if Hashtbl.mem sockets path
@@ -33,22 +90,10 @@ let depriv_create dbg vm_uuid gid path =
   else
     ret
     @@
-    let vm_uuid_str = Uuidm.to_string vm_uuid in
-    D.debug
-      "[%s] creating deprivileged socket for VM %s at %s, owned by group %d"
-      dbg
-      vm_uuid_str
-      path
-      gid;
-    make_server_rpcfn path vm_uuid_str
-    >>= fun stop_server ->
-    Hashtbl.add sockets path stop_server;
-    Lwt_unix.chmod path 0o660 >>= fun () -> Lwt_unix.chown path 0 gid
-
-let safe_unlink path =
-  Lwt.catch
-    (fun () -> Lwt_unix.unlink path)
-    (function Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return_unit | e -> Lwt.fail e)
+    (D.debug "[%s] creating deprivileged socket at %s, owned by group %d"
+      dbg path gid;
+     listen_for_vm { Persistent.path; vm_uuid; gid } >>= fun () ->
+     store_args sockets)
 
 let depriv_destroy dbg gid path =
   D.debug "[%s] stopping server for gid %d and path %s" dbg gid path;
@@ -58,7 +103,7 @@ let depriv_destroy dbg gid path =
   | None ->
     D.warn "[%s] asked to stop server for path %s, but it doesn't exist" dbg path;
     Lwt.return_unit
-  | Some stop_server ->
+  | Some (stop_server, _) ->
     let finally () = safe_unlink path >|= fun () -> Hashtbl.remove sockets path in
     Lwt.finalize stop_server finally
     >>= fun () ->
@@ -93,6 +138,11 @@ let make_message_switch_server () =
     Lwt_switch.add_hook (Some shutdown) (fun () ->
         D.debug "Stopping message-switch queue server";
         Server.shutdown ~t () >|= Lwt.wakeup server_stopped );
+    (* best effort resume *)
+    Lwt.catch resume (fun e ->
+        D.log_backtrace ();
+        D.warn "Resume failed: %s" (Printexc.to_string e);
+        Lwt.return_unit) >>= fun () ->
     wait_server
   | `Error (`Msg m) ->
     Lwt.fail_with (Printf.sprintf "Failed to listen on message-switch queue: %s" m)
