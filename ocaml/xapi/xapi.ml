@@ -107,6 +107,7 @@ let start_database_engine () =
   (* CA-22304: make sure the event callback is registered before clients are unblocked *)
   debug "Registering database event callback";
   Xapi_event.register_hooks ();
+  Xapi_database_backup.register_hooks ();
   Xapi_message.register_event_hook ();
   debug "Signalling any waiting db clients to proceed";
   Mutex.execute database_ready_for_clients_m

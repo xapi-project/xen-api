@@ -82,9 +82,12 @@ let counter db tblname =
 let object_count db tables =
   List.rev_map (counter db) tables
 
+let changes_to_db = Condition.create ()
+let wakeup_fn () = Condition.broadcast changes_to_db
+let register_hooks () = Db_action_helper.events_register (fun ?snapshot _ _ _ -> wakeup_fn ())
+
 let get_delta __context token =
-  Mutex.execute Db_lock.dbcache_mutex (fun () ->
-      let db = Db_ref.get_database (Context.database_of __context) in
+  let delta_expected db =
       let table_names = TableSet.fold (fun table stat value acc -> table::acc) (Database.tableset db) [] in
       let tables = check_for_updates token db in
       let deleted = get_deleted token db table_names in
@@ -93,7 +96,21 @@ let get_delta __context token =
        last_event_token=Int64.pred t;
        tables=tables;
        deletes=deleted;
-       counts=object_count db table_names})
+       counts=object_count db table_names} in
+  (* compare token to master db *)
+  Mutex.execute Db_lock.dbcache_mutex (fun () ->
+      let db = Db_ref.get_database (Context.database_of __context) in
+      if token < Manifest.generation (Database.manifest db) then
+        delta_expected db
+      else
+        let task_name = "Timeout from waiting for db changes" in
+        let timeout = 10. in
+        let delay = 0. in
+        Xapi_periodic_scheduler.add_to_queue task_name (Xapi_periodic_scheduler.Periodic timeout) delay wakeup_fn;
+        Xapi_event.wait_for_db_update ();
+        Xapi_periodic_scheduler.remove_from_queue task_name;
+        delta_expected db
+    )
 
 let handler (req: Request.t) s _ =
   try
@@ -317,7 +334,6 @@ let loop ~__context () =
       start_stunnel_connection ();
     end;
     let now = Mtime_clock.count start in
-    Xapi_event.wait_for_db_update ();
     let changes =
       !token
       |> Master_connection.Slave_backup_connection.execute_remote_fn
