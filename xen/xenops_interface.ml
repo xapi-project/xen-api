@@ -229,7 +229,7 @@ module Vgpu = struct
       {x with physical_pci_address= address}
     | _ -> x
 
-  type state = {plugged: bool; emulator_pid: int option} [@@deriving rpcty]
+  type state = {active: bool; plugged: bool; emulator_pid: int option} [@@deriving rpcty]
 end
 
 module Vusb = struct
