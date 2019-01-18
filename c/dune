@@ -3,7 +3,6 @@
   (libraries
     xapi-datamodel
     CommonFunctions
-    xapi-stdext-pervasives
     xapi-stdext-unix
     astring
   )

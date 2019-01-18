@@ -29,18 +29,22 @@
  *)
 
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
 open Printf
 open Datamodel_types
 
+
 type wireProtocol = XmlRpc | JsonRpc
+
+let finally f ~(always: unit -> unit) =
+  match f () with
+  | result      -> always (); result
+  | exception e -> always (); raise e
 
 let with_output filename f =
   let io = open_out filename in
-  finally
-    (fun () -> f io)
-    (fun () -> close_out io)
+  finally (fun () -> f io)
+    ~always:(fun () -> close_out io)
 
 
 let rec list_distinct list =
@@ -182,7 +186,7 @@ and render_template template_file json output_file =
   let rendered = Mustache.render templ json in
   let out_chan = open_out output_file in
   finally (fun () -> output_string out_chan rendered)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 let render_file (infile,outfile) json templates_dir dest_dir=
   let input_path = Filename.concat templates_dir infile in

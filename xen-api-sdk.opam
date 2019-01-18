@@ -18,5 +18,4 @@ depends: [
   "mustache"
   "astring"
   "xapi-stdext-unix"
-  "xapi-stdext-pervasives"
 ]

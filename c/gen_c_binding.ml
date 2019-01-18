@@ -32,7 +32,6 @@
 
 
 open Xapi_stdext_unix
-open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 open Datamodel_types
 open Datamodel_utils
@@ -154,7 +153,7 @@ and gen_class f g clas targetdir =
   let out_chan = open_out (Filename.concat targetdir (g clas.name))
   in
   finally (fun () -> f clas out_chan)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 
 and gen_enum f g targetdir = function
@@ -164,7 +163,7 @@ and gen_enum f g targetdir = function
     let out_chan = open_out (Filename.concat targetdir (g name))
     in
     finally (fun () -> f x out_chan)
-      (fun () -> close_out out_chan)
+      ~always:(fun () -> close_out out_chan)
 
   | _ -> assert false
 
@@ -177,7 +176,7 @@ and gen_map f g targetdir = function
     let out_chan = open_out (Filename.concat targetdir (g name))
     in
     finally (fun () -> f name l r out_chan)
-      (fun () -> close_out out_chan)
+      ~always:(fun () -> close_out out_chan)
 
   | _ -> assert false
 
@@ -1000,7 +999,7 @@ and gen_failure_h () =
       gen_failure_enum out_chan;
       gen_failure_funcs out_chan;
       print_h_footer out_chan)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 and gen_failure_enum out_chan =
   let print format = fprintf out_chan format in
@@ -1087,7 +1086,7 @@ xen_api_failure_from_string(const char *str)
 
 " Licence.bsd_two_clause
         (String.concat ",\n    " (failure_lookup_entries () )))
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 and failure_lookup_entries () =
   List.sort String.compare

@@ -29,7 +29,6 @@
  *)
 
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 open Datamodel
 open Datamodel_types
@@ -309,7 +308,7 @@ and gen_class_file cls =
   let out_chan = open_out (Filename.concat destdir (exposed_class_name cls.name)^".cs")
   in
   finally (fun () -> gen_class out_chan cls)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 and gen_class out_chan cls =
   let print format = fprintf out_chan format in
@@ -859,7 +858,7 @@ and gen_proxy protocol =
   let out_chan = open_out (Filename.concat destdir output_file)
   in
   finally (fun () -> gen_proxy' protocol out_chan)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 and gen_proxy' protocol out_chan =
   let print format = fprintf out_chan format in
@@ -1129,7 +1128,7 @@ and gen_enum = function
     let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
     in
     finally (fun () -> gen_enum' name contents out_chan)
-      (fun () -> close_out out_chan)
+      ~always:(fun () -> close_out out_chan)
   | _ -> assert false
 
 
@@ -1212,7 +1211,7 @@ and gen_maps() =
   let out_chan = open_out (Filename.concat destdir "Maps.cs")
   in
   finally (fun () -> gen_maps' out_chan)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 
 and gen_maps' out_chan =

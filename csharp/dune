@@ -4,6 +4,5 @@
     xapi-datamodel
     CommonFunctions
     astring
-    xapi-stdext-pervasives
   )
 )
