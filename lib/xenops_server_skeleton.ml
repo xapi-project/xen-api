@@ -115,6 +115,7 @@ module VIF = struct
 end
 module VGPU = struct
   let start _ _ _ _ = unimplemented "VGPU.start"
+  let set_active _ _ _ _ = ()
   let get_state _ _ = unplugged_vgpu
 end
 module VUSB = struct

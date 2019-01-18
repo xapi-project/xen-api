@@ -86,6 +86,7 @@ type atomic =
   | PCI_unplug of Pci.id
   | VUSB_plug of Vusb.id
   | VUSB_unplug of Vusb.id
+  | VGPU_set_active of Vgpu.id * bool
   | VGPU_start of (Vgpu.id * bool)
   | VM_set_xsdata of (Vm.id * (string * string) list)
   | VM_set_vcpus of (Vm.id * int)
@@ -914,16 +915,18 @@ let rec atomics_of_operation = function
            (VIF_DB.vifs id)
         ) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
                         (VIF_DB.vifs id |> vif_plug_order)
-                     ) @ simplify [
+    ) @ simplify (List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true))
+                    (VGPU_DB.vgpus id)
+                                  ) @ simplify [
       (* Unfortunately this has to be done after the vbd,vif
-         			   devices have been created since qemu reads xenstore keys
-         			   in preference to its own commandline. After this is
-         			   fixed we can consider creating qemu as a part of the
-         			   'build' *)
+         devices have been created since qemu reads xenstore keys
+         in preference to its own commandline. After this is
+         fixed we can consider creating qemu as a part of the
+         'build' *)
       VM_create_device_model (id, false);
       (* We hotplug PCI devices into HVM guests via qemu, since
-         			   otherwise hotunplug triggers some kind of unfixed race
-         			   condition causing an interrupt storm. *)
+         otherwise hotunplug triggers some kind of unfixed race
+         condition causing an interrupt storm. *)
     ] @ simplify (List.map (fun pci -> PCI_plug pci.Pci.id)
                     (PCI_DB.pcis id |> pci_plug_order)
 
@@ -979,6 +982,8 @@ let rec atomics_of_operation = function
     (if restore_vifs
      then atomics_of_operation (VM_restore_vifs id)
      else []
+    ) @ (List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true))
+           (VGPU_DB.vgpus id)
     ) @ simplify [
       (* Unfortunately this has to be done after the devices have been created since
          			   qemu reads xenstore keys in preference to its own commandline. After this is
@@ -1009,7 +1014,9 @@ let rec atomics_of_operation = function
            (VBD_DB.vbds id)
         ) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, false))
                (VIF_DB.vifs id)
-            ) @ [
+               ) @ (List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, false))
+                      (VGPU_DB.vgpus id)
+                   ) @ [
       VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason)
     ]
   | VM_reboot (id, timeout) ->
@@ -1307,6 +1314,10 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
       (fun () ->
          B.VUSB.unplug t (VUSB_DB.vm_of id) (VUSB_DB.read_exn id);
       ) (fun () -> VUSB_DB.signal id)
+  | VGPU_set_active (id, b) ->
+    debug "VGPU set_active %s %b" (VGPU_DB.string_of_id id) b;
+    B.VGPU.set_active t (VGPU_DB.vm_of id) (VGPU_DB.read_exn id) b;
+    VGPU_DB.signal id
   | VGPU_start (id, saved_state) ->
     debug "VGPU.start %s" (VGPU_DB.string_of_id id);
     B.VGPU.start t (VGPU_DB.vm_of id) (VGPU_DB.read_exn id) saved_state
@@ -1560,6 +1571,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VUSB_unplug id ->
     immediate_operation dbg (fst id) (VUSB_check_state id)
 
+  | VGPU_set_active (id, _)
   | VGPU_start (id, _) ->
     immediate_operation dbg (fst id) (VM_check_state (VGPU_DB.vm_of id))
 

@@ -699,6 +699,7 @@ let unplugged_vif = {
 }
 
 let unplugged_vgpu = {
+  Vgpu.active = false;
   Vgpu.plugged = false;
   Vgpu.emulator_pid = None;
 }

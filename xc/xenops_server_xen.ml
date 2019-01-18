@@ -2239,6 +2239,14 @@ module PCI = struct
 
 end
 
+let set_active_device path active =
+  with_xs
+    (fun xs ->
+       if active
+       then xs.Xs.write path "1"
+       else safe_rm xs path;
+    )
+
 module VGPU = struct
   open Vgpu
 
@@ -2261,6 +2269,19 @@ module VGPU = struct
          Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus profile
       ) vm
 
+  let active_path vm vgpu = Printf.sprintf "/vm/%s/devices/vgpu/%s" vm (snd vgpu.Vgpu.id)
+
+  let set_active task vm vgpu active =
+    try
+      set_active_device (active_path vm vgpu) active
+    with e ->
+      debug "VGPU.set_active %s.%s <- %b failed: %s" (fst vgpu.Vgpu.id) (snd vgpu.Vgpu.id) active (Printexc.to_string e)
+
+  let get_active vm vgpu =
+    try
+      with_xs (fun xs -> xs.Xs.read (active_path vm vgpu)) = "1"
+    with _ -> false
+
   let get_state vm vgpu =
     on_frontend
       (fun _ xs frontend_domid _ ->
@@ -2272,8 +2293,8 @@ module VGPU = struct
            | Nvidia _ -> Device.Vgpu.pid ~xs frontend_domid
          in
          match emulator_pid with
-         | Some pid -> {plugged = true; emulator_pid}
-         | None -> {plugged = false; emulator_pid})
+         | Some pid -> {Vgpu.active = true; plugged = true; emulator_pid}
+         | None -> {Vgpu.active = get_active vm vgpu; plugged = false; emulator_pid})
       vm
 end
 
@@ -2335,14 +2356,6 @@ module VUSB = struct
       debug "VM = %s; VUSB = %s; Ignoring missing device" vm (id_of vusb)
 
 end
-
-let set_active_device path active =
-  with_xs
-    (fun xs ->
-       if active
-       then xs.Xs.write path "1"
-       else safe_rm xs path;
-    )
 
 module VBD = struct
   open Vbd
