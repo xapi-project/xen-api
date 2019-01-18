@@ -28,7 +28,7 @@ module Rrdd = Rrd_client.Client
 open Xenops_interface
 open Xapi_xenops_queue
 
-let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x 
+let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x
 
 let check_power_state_is ~__context ~self ~expected =
   if expected <> `Running then
@@ -2519,7 +2519,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
         ) fmt in
     begin match e with
       | Xenopsd_error e' -> begin
-          match e' with 
+          match e' with
           | Internal_error msg -> internal "xenopsd internal error: %s" msg
           | Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
           | Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
