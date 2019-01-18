@@ -2417,7 +2417,7 @@ module VBD = struct
         else Device_common.Vbd !Xenopsd.default_vbd_backend_kind
       | Some (Error (`Msg m)) ->
         raise (Xenopsd_error (Internal_error (Printf.sprintf "Error unmarshalling attached_vdi: %s" m)))
-        
+
   let vdi_path_of_device ~xs device = Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
   let plug task vm vbd =
@@ -2827,7 +2827,7 @@ module VIF = struct
            let interfaces = interfaces_of_vif frontend_domid vif.id vif.position in
            let mac = Mac.check_mac vif.mac in
            let with_common_params f =
-             f ~xs ~devid:vif.position ~mac ?mtu:(Some vif.mtu) ?rate:(Some vif.rate) 
+             f ~xs ~devid:vif.position ~mac ?mtu:(Some vif.mtu) ?rate:(Some vif.rate)
                ?backend_domid:(Some backend_domid)
                ?other_config:(Some vif.other_config) in
            List.iter (fun interface ->
@@ -3120,7 +3120,7 @@ module VIF = struct
 
   let get_state vm vif =
     with_xc_and_xs
-      (fun xc xs -> 
+      (fun xc xs ->
          try
            let (d: Device_common.device) = device_by_id xc xs vm (device_kind_of vif) (id_of vif) in
            let domid = d.Device_common.frontend.Device_common.domid in

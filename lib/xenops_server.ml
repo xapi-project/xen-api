@@ -1104,7 +1104,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
           None
         | Task.Failed e ->
           TASK.destroy' id;
-          let e = match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with 
+          let e = match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
             | Ok x -> Xenopsd_error x
             | Error (`Msg x) -> Xenopsd_error (Internal_error (Printf.sprintf "Error unmarshalling failure: %s" x)) in
           Some e
