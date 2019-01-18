@@ -1,0 +1,14 @@
+(library
+  (name xapi_stdext_unix)
+  (public_name xapi-stdext-unix)
+  (c_names
+    blkgetsize_stubs
+    unixext_open_stubs
+    unixext_stubs
+    unixext_write_stubs)
+  (libraries
+    fd-send-recv
+    unix
+    xapi-stdext-pervasives
+    xapi-stdext-std)
+)

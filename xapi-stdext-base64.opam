@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "jonathan.ludlam@citrix.com"
 authors: "xen-api@list.xen.org"
 bug-reports: "https://github.com/xapi-project/stdext/issues"
@@ -6,9 +6,14 @@ dev-repo: "git://github.com/xapi-project/stdext.git"
 homepage: "https://xapi-project.github.io/"
 tags: [ "org:xapi-project" ]
 
-build:  [[ "jbuilder" "build" "-p" name "-j" jobs ]]
+build:  [[ "dune" "build" "-p" name "-j" jobs ]]
 
 depends: [
-  "jbuilder" {build}
+  "ocaml"
+  "dune" {build}
   "base64"
 ]
+synopsis: "A deprecated collection of utility functions - Base64 module"
+description: """
+This library is provided for a transitionary period only.
+No new code should use this library."""

@@ -1,4 +1,4 @@
-opam-version: "1.2"
+opam-version: "2.0"
 maintainer: "jonathan.ludlam@citrix.com"
 authors: "xen-api@list.xen.org"
 bug-reports: "https://github.com/xapi-project/stdext/issues"
@@ -6,4 +6,9 @@ dev-repo: "git://github.com/xapi-project/stdext.git"
 homepage: "https://xapi-project.github.io/"
 tags: [ "org:xapi-project" ]
 
-depends: [ "stdext" ]
+depends: ["ocaml" "stdext"]
+synopsis: "Deprecated xapi standard library extension"
+description: """
+This is a dummy package to facilitate the migration to xapi-stdext 3.0.0
+of oasis-built packages, where several package were split out of the main
+stdext package and the findlib name changed from stdext to xapi-stdext."""
