@@ -101,6 +101,7 @@ module Errors = struct
     | Invalid_vcpus of int
     | Bad_power_state of (power_state * power_state)
     | Failed_to_acknowledge_shutdown_request
+    | Failed_to_acknowledge_suspend_request
     | Failed_to_shutdown of (string * float)
     | Device_is_connected
     | Device_not_connected
