@@ -650,6 +650,8 @@ let _ =
     ~doc:"You attempted to migrate a VDI to or from an SR which doesn't support migration" ();
   error Api_errors.vm_failed_shutdown_ack [ "vm" ]
     ~doc:"VM didn't acknowledge the need to shutdown." ();
+  error Api_errors.vm_failed_suspend_ack [ "vm" ]
+    ~doc:"VM didn't acknowledge the need to suspend." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
     ~doc:"VM failed to shutdown before the timeout expired" ();
   error Api_errors.vm_crashed [ "vm" ]
