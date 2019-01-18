@@ -41,7 +41,7 @@ module Nvram_uefi_variables = struct
   type onboot =
     | Persist
     | Reset
-    [@@deriving rpcty, sexp]
+  [@@deriving rpcty, sexp]
 
   type t = {
     on_boot: onboot [@default Persist];
@@ -87,7 +87,7 @@ module Vm = struct
     vnc_ip: string option [@default None];
     pci_emulations: string list [@default []];
     pci_passthrough: bool [@default false];
-    boot_order: string [@default ""]; 
+    boot_order: string [@default ""];
     qemu_disk_cmdline: bool [@default false];
     qemu_stubdom: bool [@default false];
     firmware: firmware_type [@default default_firmware];
