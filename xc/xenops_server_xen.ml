@@ -1802,7 +1802,7 @@ module VM = struct
                    wait_ballooning task vm;
                    pre_suspend_callback task;
                    if not(request_shutdown task vm Suspend 30.)
-                   then raise (Xenopsd_error Failed_to_acknowledge_shutdown_request);
+                   then raise (Xenopsd_error Failed_to_acknowledge_suspend_request);
                    if not(wait_shutdown task vm Suspend 1200.)
                    then raise (Xenopsd_error (Failed_to_shutdown(vm.Vm.id, 1200.)));
                 );
