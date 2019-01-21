@@ -1857,13 +1857,11 @@ let update_vgpu ~__context id =
                         XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
                           ~self:vgpu ~value:scheduled)
                  end;
-                 if not vgpu_record.API.vGPU_currently_attached
-                 then Db.VGPU.set_currently_attached ~__context
-                     ~self:vgpu ~value:true
-               end else begin
-                 if vgpu_record.API.vGPU_currently_attached
-                 then Db.VGPU.set_currently_attached ~__context
-                     ~self:vgpu ~value:false;
+               end;
+               Db.VGPU.set_currently_attached ~__context
+                 ~self:vgpu ~value:(state.plugged || state.active);
+               if not (state.plugged || state.active) then begin
+                 debug "VGPU.remove %s.%s" (fst id) (snd id);
                  try Client.VGPU.remove dbg id
                  with e -> debug "VGPU.remove failed: %s" (Printexc.to_string e)
                end) info;
