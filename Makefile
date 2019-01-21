@@ -1,8 +1,5 @@
 include config.mk
 
-OPAM_PREFIX=$(shell opam config var prefix)
-OPAM_LIBDIR=$(shell opam config var lib)
-
 XAPIDOC=_build/install/default/xapi/doc
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
@@ -47,7 +44,6 @@ install: build doc
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
-	mkdir -p $(OPAM_LIBDIR)
 # ocaml/xapi
 	make -C scripts install
 	cp -f _build/install/default/bin/xapi $(DESTDIR)$(SBINDIR)/xapi
