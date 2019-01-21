@@ -1804,7 +1804,7 @@ module VM = struct
                    if not(request_shutdown task vm Suspend 30.)
                    then raise (Xenopsd_error Failed_to_acknowledge_suspend_request);
                    if not(wait_shutdown task vm Suspend 1200.)
-                   then raise (Xenopsd_error (Failed_to_shutdown(vm.Vm.id, 1200.)));
+                   then raise (Xenopsd_error (Failed_to_suspend(vm.Vm.id, 1200.)));
                 );
               (* Record the final memory usage of the domain so we know how
                  much to allocate for the resume *)
