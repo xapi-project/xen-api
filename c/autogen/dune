@@ -1,0 +1,13 @@
+(rule
+  (targets COPYING)
+  (deps ../../LICENSE)
+  (action (copy %{deps} %{targets}))
+)
+
+(alias
+  (name generate)
+  (deps
+    COPYING
+    (source_tree .)
+  )
+)

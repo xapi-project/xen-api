@@ -6,3 +6,12 @@
     astring
   )
 )
+
+(alias
+  (name generate)
+  (deps
+    (:x gen_powershell_binding.exe)
+    (source_tree templates)
+  )
+  (action (run %{x}))
+)

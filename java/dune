@@ -4,7 +4,15 @@
     xapi-datamodel
     str
     CommonFunctions
-    xapi-stdext-unix
     astring
   )
+)
+
+(alias
+  (name generate)
+  (deps
+    (:x main.exe)
+    (source_tree templates)
+  )
+  (action (run %{x}))
 )

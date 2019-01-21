@@ -17,5 +17,4 @@ depends: [
   "xapi-datamodel"
   "mustache"
   "astring"
-  "xapi-stdext-unix"
 ]

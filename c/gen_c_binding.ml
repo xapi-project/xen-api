@@ -31,7 +31,6 @@
 (* Generator of C bindings from the datamodel *)
 
 
-open Xapi_stdext_unix
 open Printf
 open Datamodel_types
 open Datamodel_utils
@@ -44,24 +43,8 @@ module TypeSet = Set.Make(struct
   end)
 
 
-let open_source'   = ref false
-let destdir'       = ref ""
-let templates_dir' = ref ""
-
-let _ =
-  Arg.parse
-    [
-      "-t", Arg.Set_string templates_dir', "specifies the firectory with the mustache templates to use";
-      "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
-      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-    ]
-    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
-    ("Generates C bindings for the XenAPI. See -help.")
-
-let open_source = !open_source'
-let destdir = !destdir'
-let templates_dir = !templates_dir'
-
+let destdir = "autogen"
+let templates_dir = "templates"
 
 let api =
   Datamodel_utils.named_self := true;
@@ -69,18 +52,14 @@ let api =
   let obj_filter _ = true in
   let field_filter field =
     (not field.internal_only) &&
-    (if open_source then List.mem "3.0.3" field.release.opensource
-     else List.mem "closed" field.release.internal)
+    (List.mem "closed" field.release.internal)
   in
   let message_filter msg =
     Datamodel_utils.on_client_side msg &&
     (not msg.msg_hide_from_docs) &&
-    (if open_source then
-       (List.mem "3.0.3" msg.msg_release.opensource)
-     else
-       (List.mem "closed" msg.msg_release.internal)
-       && (msg.msg_name <> "get")
-       && (msg.msg_name <> "get_data_sources"))
+    (List.mem "closed" msg.msg_release.internal) &&
+    (msg.msg_name <> "get") &&
+    (msg.msg_name <> "get_data_sources")
   in
   filter obj_filter field_filter message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
@@ -108,8 +87,6 @@ let joined sep f l =
 let rec main() =
   let include_dir = Filename.concat destdir "include" in
   let src_dir = Filename.concat destdir "src" in
-  Unixext.mkdir_rec (Filename.concat include_dir "xen/api") 0o755;
-  Unixext.mkdir_rec src_dir 0o755;
 
   gen_failure_h();
   gen_failure_c();
