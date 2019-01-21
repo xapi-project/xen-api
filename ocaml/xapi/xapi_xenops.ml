@@ -2536,6 +2536,8 @@ let transform_xenops_exn ~__context ~vm queue_name f =
             reraise Api_errors.vm_failed_suspend_ack [ Ref.string_of vm ]
           | Failed_to_shutdown(id, timeout) ->
             reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
+          | Failed_to_suspend(id, timeout) ->
+            reraise Api_errors.vm_suspend_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
           | Device_is_connected ->
             internal "Cannot remove device because it is connected to a VM"
           | Device_not_connected ->

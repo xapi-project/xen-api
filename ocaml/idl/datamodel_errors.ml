@@ -654,6 +654,8 @@ let _ =
     ~doc:"VM didn't acknowledge the need to suspend." ();
   error Api_errors.vm_shutdown_timeout [ "vm"; "timeout" ]
     ~doc:"VM failed to shutdown before the timeout expired" ();
+  error Api_errors.vm_suspend_timeout [ "vm"; "timeout" ]
+    ~doc:"VM failed to suspend before the timeout expired" ();
   error Api_errors.vm_crashed [ "vm" ]
     ~doc:"The VM crashed" ();
   error Api_errors.vm_rebooted [ "vm" ]
