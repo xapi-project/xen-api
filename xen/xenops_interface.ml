@@ -103,6 +103,7 @@ module Errors = struct
     | Failed_to_acknowledge_shutdown_request
     | Failed_to_acknowledge_suspend_request
     | Failed_to_shutdown of (string * float)
+    | Failed_to_suspend of (string * float)
     | Device_is_connected
     | Device_not_connected
     | Device_detach_rejected of (string * string * string)
