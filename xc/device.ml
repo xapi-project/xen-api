@@ -1738,11 +1738,8 @@ module Dm_Common = struct
           "-vgt_high_gm_sz"; Int64.to_string gvt_g.high_gm_sz;
           "-vgt_fence_sz"; Int64.to_string gvt_g.fence_sz;
         ]
-        and config_file_opt = match gvt_g.monitor_config_file with
-          | Some path -> ["-vgt_monitor_config_file"; path]
-          | None -> []
         and priv_opt = ["-priv"] in
-        List.flatten [base_opts; config_file_opt; priv_opt]
+        List.flatten [base_opts; priv_opt]
       | Vgpu [{implementation = MxGPU mxgpu}] -> []
       | Vgpu _ -> failwith "Unsupported vGPU configuration"
       | Std_vga -> ["-std-vga"]
