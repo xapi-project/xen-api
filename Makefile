@@ -1,6 +1,3 @@
-OPAM_PREFIX?=$(shell opam config var prefix)
-OPAM_LIBDIR?=$(shell opam config var lib)
-
 .PHONY: release build install uninstall clean test doc reindent
 
 release:
