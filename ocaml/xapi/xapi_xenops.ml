@@ -28,7 +28,7 @@ module Rrdd = Rrd_client.Client
 open Xenops_interface
 open Xapi_xenops_queue
 
-let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x 
+let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x
 
 let check_power_state_is ~__context ~self ~expected =
   if expected <> `Running then
@@ -2517,7 +2517,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
         ) fmt in
     begin match e with
       | Xenopsd_error e' -> begin
-          match e' with 
+          match e' with
           | Internal_error msg -> internal "xenopsd internal error: %s" msg
           | Already_exists(thing, id) -> internal "Object with type %s and id %s already exists in xenopsd" thing id
           | Does_not_exist(thing, id) -> internal "Object with type %s and id %s does not exist in xenopsd" thing id
@@ -2530,8 +2530,12 @@ let transform_xenops_exn ~__context ~vm queue_name f =
             reraise Api_errors.vm_bad_power_state [ Ref.string_of vm; expected; found ]
           | Failed_to_acknowledge_shutdown_request ->
             reraise Api_errors.vm_failed_shutdown_ack [ Ref.string_of vm ]
+          | Failed_to_acknowledge_suspend_request ->
+            reraise Api_errors.vm_failed_suspend_ack [ Ref.string_of vm ]
           | Failed_to_shutdown(id, timeout) ->
             reraise Api_errors.vm_shutdown_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
+          | Failed_to_suspend(id, timeout) ->
+            reraise Api_errors.vm_suspend_timeout [ vm_of_id ~__context id |> Ref.string_of; string_of_float timeout ]
           | Device_is_connected ->
             internal "Cannot remove device because it is connected to a VM"
           | Device_not_connected ->
