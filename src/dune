@@ -1,7 +1,7 @@
 (library
   (name local_lib)
   (wrapped false)
-  (c_names sendfile64_stubs)
+  (c_names direct_copy_stubs)
   (flags (:standard -w -34-32-39))
   (libraries
     cohttp-lwt
