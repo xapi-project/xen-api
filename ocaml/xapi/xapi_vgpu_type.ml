@@ -43,7 +43,6 @@ module Identifier = struct
     low_gm_sz : int64;
     high_gm_sz : int64;
     fence_sz : int64;
-    monitor_config_file : string option;
   }
 
   type mxgpu_id = {
@@ -73,14 +72,11 @@ module Identifier = struct
           nvidia_id.vdev_id
           nvidia_id.vsubdev_id
       | GVT_g gvt_g_id ->
-        Printf.sprintf "gvt-g,%04x,%Lx,%Lx,%Lx,%s"
+        Printf.sprintf "gvt-g,%04x,%Lx,%Lx,%Lx"
           gvt_g_id.pdev_id
           gvt_g_id.low_gm_sz
           gvt_g_id.high_gm_sz
           gvt_g_id.fence_sz
-          (match gvt_g_id.monitor_config_file with
-           | Some path -> path
-           | None -> "")
       | MxGPU mxgpu_id ->
         Printf.sprintf "mxgpu,%04x,%Lx"
           mxgpu_id.pdev_id
@@ -679,7 +675,7 @@ module Vendor_intel = struct
     try
       Some (Scanf.sscanf
               line
-              "%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld fence_sz=%Ld framebuffer_sz=%Ld max_heads=%Ld resolution=%Ldx%Ld monitor_config_file=%s"
+              "%04x experimental=%c name='%s@' low_gm_sz=%Ld high_gm_sz=%Ld fence_sz=%Ld framebuffer_sz=%Ld max_heads=%Ld resolution=%Ldx%Ld"
               (fun pdev_id
                 experimental
                 model_name
@@ -689,15 +685,13 @@ module Vendor_intel = struct
                 framebuffer_sz
                 num_heads
                 max_x
-                max_y
-                monitor_config_file ->
+                max_y ->
                 {
                   identifier = Identifier.({
                       pdev_id;
                       low_gm_sz;
                       high_gm_sz;
                       fence_sz;
-                      monitor_config_file = Some monitor_config_file;
                     });
                   experimental = (experimental <> '0');
                   model_name;
@@ -746,10 +740,6 @@ module Vendor_intel = struct
           ; vgt_high_gm_sz, Int64.to_string conf.identifier.high_gm_sz
           ; vgt_fence_sz, Int64.to_string conf.identifier.fence_sz
           ]
-        ; match conf.identifier.monitor_config_file with
-          | Some monitor_config_file ->
-            [vgt_monitor_config_file, monitor_config_file]
-          | None -> []
         ]
       in
       Some {

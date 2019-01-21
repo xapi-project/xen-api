@@ -139,14 +139,12 @@ let gvt_g_041a = {
     Xapi_globs.vgt_low_gm_sz, "128";
     Xapi_globs.vgt_high_gm_sz, "384";
     Xapi_globs.vgt_fence_sz, "4";
-    Xapi_globs.vgt_monitor_config_file, "/etc/gvt-g-monitor.conf";
   ];
   identifier = Identifier.(GVT_g {
       pdev_id = 0x041a;
       low_gm_sz = 128L;
       high_gm_sz = 384L;
       fence_sz = 4L;
-      monitor_config_file = Some "/etc/gvt-g-monitor.conf";
     });
   experimental = false;
 }

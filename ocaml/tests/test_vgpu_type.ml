@@ -208,12 +208,11 @@ module IntelTest = struct
   let string_of_vgpu_conf conf =
     let open Identifier in
     let open Vendor_intel in
-    Printf.sprintf "%04x %Ld %Ld %Ld %s %b %s"
+    Printf.sprintf "%04x %Ld %Ld %Ld %b %s"
       conf.identifier.pdev_id
       conf.identifier.low_gm_sz
       conf.identifier.high_gm_sz
       conf.identifier.fence_sz
-      (Test_printers.(option string) conf.identifier.monitor_config_file)
       conf.experimental
       conf.model_name
 
@@ -233,14 +232,13 @@ module IntelTest = struct
         "", None;
         "nonsense123", None;
         (* Test some success cases. *)
-        "1234 experimental=0 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 framebuffer_sz=128 max_heads=1 resolution=1920x1080 monitor_config_file=/my/file",
+        "1234 experimental=0 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 framebuffer_sz=128 max_heads=1 resolution=1920x1080",
         Some {
           Vendor_intel.identifier = Identifier.({
               pdev_id = 0x1234;
               low_gm_sz = 128L;
               high_gm_sz = 384L;
               fence_sz = 4L;
-              monitor_config_file = Some "/my/file";
             });
           experimental = false;
           model_name = "myvgpu";
@@ -249,14 +247,13 @@ module IntelTest = struct
           max_x = 1920L;
           max_y = 1080L;
         };
-        "1234 experimental=1 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 framebuffer_sz=128 max_heads=1 resolution=1920x1080 monitor_config_file=/my/file",
+        "1234 experimental=1 name='myvgpu' low_gm_sz=128 high_gm_sz=384 fence_sz=4 framebuffer_sz=128 max_heads=1 resolution=1920x1080",
         Some {
           Vendor_intel.identifier = Identifier.({
               pdev_id = 0x1234;
               low_gm_sz = 128L;
               high_gm_sz = 384L;
               fence_sz = 4L;
-              monitor_config_file = Some "/my/file";
             });
           experimental = true;
           model_name = "myvgpu";
@@ -293,7 +290,6 @@ module IntelTest = struct
                   low_gm_sz = 128L;
                   high_gm_sz = 384L;
                   fence_sz = 4L;
-                  monitor_config_file = Some "/path/to/file1";
                 });
               experimental = false;
               model_name = "GVT-g on 1234";
@@ -308,7 +304,6 @@ module IntelTest = struct
                   low_gm_sz = 128L;
                   high_gm_sz = 384L;
                   fence_sz = 4L;
-                  monitor_config_file = Some "/path/to/file2";
                 });
               experimental = true;
               model_name = "GVT-g on 1234 (experimental)";
@@ -327,7 +322,6 @@ module IntelTest = struct
                   low_gm_sz = 128L;
                   high_gm_sz = 384L;
                   fence_sz = 4L;
-                  monitor_config_file = Some "/path/to/file1";
                 });
               experimental = false;
               model_name = "GVT-g on 1234";
