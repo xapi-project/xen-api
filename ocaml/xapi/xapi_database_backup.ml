@@ -105,8 +105,7 @@ let get_delta __context token =
       else
         let task_name = "Timeout from waiting for db changes" in
         let timeout = 10. in
-        let delay = 0. in
-        Xapi_periodic_scheduler.add_to_queue task_name (Xapi_periodic_scheduler.Periodic timeout) delay wakeup_fn;
+        Xapi_periodic_scheduler.add_to_queue task_name Xapi_periodic_scheduler.OneShot (timeout +. Unix.gettimeofday ()) wakeup_fn;
         Xapi_event.wait_for_db_update ();
         Xapi_periodic_scheduler.remove_from_queue task_name;
         delta_expected db
