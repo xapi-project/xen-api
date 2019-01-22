@@ -51,8 +51,11 @@ public class Connection
 {
     /**
      * The version of the bindings that this class belongs to.
+     *
+     * @deprecated This field is not used any more.
      */
-    public static final String BINDINGS_VERSION = "@SDK_VERSION@";
+    @Deprecated
+    public static final String BINDINGS_VERSION = "";
 
     private APIVersion apiVersion;
 
