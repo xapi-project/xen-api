@@ -15,8 +15,6 @@
 open Common
 open Lwt
 
-external sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub_sendfile64"
-
 module F = Vhd_format.F.From_file(Vhd_format_lwt.IO)
 module In = Vhd_format.F.From_input(Input)
 module Channel_In = Vhd_format.F.From_input(struct

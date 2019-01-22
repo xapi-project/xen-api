@@ -18,15 +18,28 @@
 open Lwt
 open Lwt_preemptive
 
-external _sendfile: Unix.file_descr -> Unix.file_descr -> int64 -> int64 = "stub_sendfile64"
+type handle
 
-let _sendfile from_fd to_fd len =
+external _init: Unix.file_descr -> Unix.file_descr -> handle = "stub_init"
+external _cleanup: handle -> unit = "stub_cleanup"
+external _direct_copy: handle -> int64 -> int64 = "stub_direct_copy"
+
+let with_handle from_fd to_fd f =
   let unix_from_fd = Lwt_unix.unix_file_descr from_fd in
   let unix_to_fd = Lwt_unix.unix_file_descr to_fd in
+  let handle = _init unix_from_fd unix_to_fd in
+  Lwt.finalize
+    (fun () -> f handle)
+    (fun () ->
+      _cleanup handle;
+      Lwt.return_unit
+    )
+
+let _direct_copy handle from_fd to_fd len =
   let max_attempts = 20 in
   let rec loop remaining_attempts =
     Lwt.catch
-      (fun () -> detach (_sendfile unix_from_fd unix_to_fd) len)
+      (fun () -> detach (_direct_copy handle) len)
       (function
         | Unix.(Unix_error (EAGAIN, _, _)) when remaining_attempts > 0 ->
             Lwt_unix.wait_read from_fd >>= fun () ->
@@ -45,8 +58,8 @@ let maybe_fdatasync stat to_fd =
 
 (* The OS implementation can return short (e.g. Linux will stop at a 2GiB boundary).
    This function keeps copying until all the bytes are copied. *)
-let rec sendfile from_fd to_fd len =
-  (* sendfile requires sockets in non-blocking mode *)
+let direct_copy from_fd to_fd len =
+  (* direct_copy requires sockets in non-blocking mode *)
   let with_blocking_fd fd f =
     Lwt_unix.blocking fd
     >>= function
@@ -65,10 +78,10 @@ let rec sendfile from_fd to_fd len =
 
   let sync_limit = Int64.(mul 4L (mul 1024L 1024L)) in
 
-  let write from_fd to_fd to_write =
+  let write handle from_fd to_fd to_write =
     let rec loop remaining =
       if remaining > 0L then begin
-        _sendfile from_fd to_fd remaining
+        _direct_copy handle from_fd to_fd remaining
         >>= fun written ->
         loop (Int64.sub remaining written)
       end else return () in
@@ -84,18 +97,21 @@ let rec sendfile from_fd to_fd len =
     (fun from_fd ->
       with_blocking_fd to_fd
         (fun to_fd ->
-          Lwt_unix.LargeFile.fstat to_fd
-          >>= fun stat ->
-          let rec loop remaining =
-            if remaining > 0L then begin
-              let to_write = min sync_limit remaining in
-              write from_fd to_fd to_write
-              >>= fun written ->
-              maybe_fdatasync stat to_fd
-              >>= fun () ->
-              loop (Int64.sub remaining written)
-            end else return () in
-          loop len
+          with_handle from_fd to_fd
+            (fun handle ->
+              Lwt_unix.LargeFile.fstat to_fd
+              >>= fun stat ->
+              let rec loop remaining =
+                if remaining > 0L then begin
+                  let to_write = min sync_limit remaining in
+                  write handle from_fd to_fd to_write
+                  >>= fun written ->
+                  maybe_fdatasync stat to_fd
+                  >>= fun () ->
+                  loop (Int64.sub remaining written)
+                end else return () in
+              loop len
+            )
         )
     )
 
@@ -122,7 +138,7 @@ let of_raw_fd fd =
     return () in
   let skip _ = fail Impossible_to_seek in
   let copy_from from_fd len =
-    sendfile from_fd fd len
+    direct_copy from_fd fd len
     >>= fun () ->
     offset := Int64.(add !offset len);
     return len in
@@ -167,7 +183,7 @@ let of_ssl_fd fd ssl_legacy good_ciphersuites legacy_ciphersuites =
     return () in
   let skip _ = fail Impossible_to_seek in
   let copy_from from_fd len =
-    sendfile from_fd fd len
+    direct_copy from_fd fd len
     >>= fun () ->
     offset := Int64.(add !offset len);
     return len in
