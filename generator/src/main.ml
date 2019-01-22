@@ -1,7 +1,6 @@
 open Cmdliner
 
 let gen_markdown path =
-  let open Rpc.Types in
   let open Xapi_storage in
   let open Files in
 
@@ -17,7 +16,6 @@ let gen_markdown path =
   `Ok ()
 
 let gen_python path =
-  let open Rpc.Types in
   let open Xapi_storage in
   let open Files in
 

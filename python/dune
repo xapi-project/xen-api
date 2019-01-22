@@ -1,0 +1,11 @@
+(alias
+  (name python)
+  (deps
+    (:x ../generator/src/main.exe)
+    (source_tree .)
+  )
+  (action (progn
+    (run mkdir -p xapi/storage/api/v5)
+    (run %{x} gen_python -p xapi/storage/api/v5)
+  ))
+)

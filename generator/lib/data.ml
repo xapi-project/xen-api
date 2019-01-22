@@ -1,4 +1,3 @@
-open Rpc
 open Idl
 open Common
 

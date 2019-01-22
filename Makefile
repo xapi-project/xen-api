@@ -1,44 +1,37 @@
 PYTHON_PREFIX?=/usr
 OPAM_PREFIX?=$(shell opam config var prefix)
 OPAM_LIBDIR?=$(shell opam config var lib)
+PROFILE=release
 
-.PHONY: release build install uninstall clean test lint doc reindent
-
-release:
-	jbuilder build @install
-	jbuilder build @python
-	make -C _build/default/python
+.PHONY: build install uninstall clean test lint doc reindent
 
 build:
-	jbuilder build @install --dev
-	jbuilder build @python --dev
+	dune build @install --profile=$(PROFILE)
+	dune build @python --profile=$(PROFILE)
 	make -C _build/default/python
 
 install:
-	jbuilder install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-storage
+	dune install --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-storage
 	make -C _build/default/python install PREFIX=$(PYTHON_PREFIX)
 
 uninstall:
-	jbuilder uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-storage
+	dune uninstall --prefix=$(OPAM_PREFIX) --libdir=$(OPAM_LIBDIR) xapi-storage
 	make -C _build/default/python uninstall
 
 clean:
-	jbuilder clean
+	dune clean
 
 test:
-	jbuilder runtest
+	dune runtest
 
 lint:
-	jbuilder build @python
+	dune build @python
 	pylint --disable=line-too-long,too-few-public-methods,unused-argument,no-self-use,invalid-name,broad-except,protected-access,redefined-builtin,too-many-lines,wildcard-import,too-many-branches,too-many-arguments,unused-wildcard-import,raising-format-tuple,too-many-statements,duplicate-code _build/default/python/xapi/storage/api/v5/*.py
 	pycodestyle --ignore=E501 _build/default/python/xapi/storage/api/v5/*.py
 
 # requires odoc
 doc:
-	jbuilder build @doc
+	dune build @doc
 
 reindent:
 	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
-
-
-.DEFAULT_GOAL := release
