@@ -1,9 +1,38 @@
 (executable
   (name gen_csharp_binding)
+  (modules Gen_csharp_binding)
   (libraries
     xapi-datamodel
     CommonFunctions
     astring
-    xapi-stdext-pervasives
   )
+)
+
+(executable
+  (name friendly_error_names)
+  (modules Friendly_error_names)
+  (libraries
+    xapi-datamodel
+    CommonFunctions
+  )
+)
+
+(alias
+  (name generate)
+  (deps
+    (:x gen_csharp_binding.exe)
+    (source_tree templates)
+  )
+  (action (run %{x}))
+)
+
+(alias
+  (name generate)
+  (deps
+    (:x friendly_error_names.exe)
+    FriendlyErrorNames.resx
+    (:y %{env:SR_XML=../XE_SR_ERRORCODES.xml})
+    (source_tree templates)
+  )
+  (action (run %{x} -s %{y}))
 )

@@ -4,7 +4,5 @@
   (libraries
     xapi-datamodel
     mustache
-    xapi-stdext-pervasives
-    xapi-stdext-unix
   )
 )

@@ -28,7 +28,24 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *)
 
+open CommonFunctions
+
 module DT=Datamodel_types
+
+let sr_xml' = ref ""
+
+let _ =
+  Arg.parse
+    [
+      "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
+    ]
+    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
+    ("Generates C# bindings for the XenAPI. See -help.")
+
+let sr_xml = !sr_xml'
+
+let destdir = "autogen/src"
+let templdir = "templates"
 
 let friendly_names = Hashtbl.create 10
 
@@ -93,3 +110,19 @@ let parse_resx filename =
     Xml.Error e as exn ->
     Printf.eprintf "%s\n%!" (Xml.error e);
     raise exn
+
+
+let _ =
+  let resx_file = "FriendlyErrorNames.resx" in
+  parse_sr_xml sr_xml;
+  parse_resx resx_file;
+  let errors = friendly_names_all Datamodel.errors in
+  let json = `O [
+      "i18n_errors", `A (List.map (fun (x, y) ->
+          `O [
+            "i18n_error_key", `String x;
+            "i18n_error_description", `String y;
+          ];) errors);
+    ]
+  in
+  render_file ("FriendlyErrorNames.mustache", resx_file) json templdir destdir

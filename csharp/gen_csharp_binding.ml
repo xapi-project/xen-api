@@ -29,7 +29,6 @@
  *)
 
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 open Datamodel
 open Datamodel_types
@@ -45,12 +44,6 @@ module TypeSet = Set.Make(struct
     let compare = compare
   end)
 
-let open_source' = ref false
-let destdir'    = ref ""
-let sr_xml'     = ref ""
-let resx_file'  = ref ""
-let templdir'     = ref ""
-
 let get_deprecated_attribute_string version =
   match version with
   | None -> ""
@@ -60,23 +53,9 @@ let get_deprecated_attribute message =
   let version = message.msg_release.internal_deprecated_since in
   get_deprecated_attribute_string version
 
-let _ =
-  Arg.parse
-    [
-      "-r", Arg.Set_string resx_file', "specifies the location of the FriendlyErrorNames.resx file";
-      "-s", Arg.Set_string sr_xml', "specifies the location of the XE_SR_ERRORCODES.xml file";
-      "-o", Arg.Set open_source', "requests a version of the API filtered for open source";
-      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-      "-t", Arg.Set_string templdir', "the directory with the template (mustache) files";
-    ]
-    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
-    ("Generates C# bindings for the XenAPI. See -help.")
 
-let open_source = !open_source'
-let destdir = !destdir'
-let sr_xml = !sr_xml'
-let resx_file = !resx_file'
-let templdir = !templdir'
+let destdir = "autogen/src"
+let templdir = "templates"
 
 
 let api =
@@ -84,17 +63,13 @@ let api =
 
   let obj_filter _ = true in
   let field_filter field =
-    (not field.internal_only) &&
-    ((not open_source && (List.mem "closed" field.release.internal)) ||
-     (open_source && (List.mem "3.0.3" field.release.opensource)))
+    (not field.internal_only) && (List.mem "closed" field.release.internal)
   in
   let message_filter msg =
     Datamodel_utils.on_client_side msg &&
     (not msg.msg_hide_from_docs) &&
     (* XXX: C# binding generates get_all_records some other way *)
-    (msg.msg_tag <> (FromObject GetAllRecords)) &&
-    ((not open_source && (List.mem "closed" msg.msg_release.internal)) ||
-     (open_source && (List.mem "3.0.3" msg.msg_release.opensource)))
+    (msg.msg_tag <> (FromObject GetAllRecords)) && (List.mem "closed" msg.msg_release.internal)
   in
   filter obj_filter field_filter message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
@@ -309,7 +284,7 @@ and gen_class_file cls =
   let out_chan = open_out (Filename.concat destdir (exposed_class_name cls.name)^".cs")
   in
   finally (fun () -> gen_class out_chan cls)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 and gen_class out_chan cls =
   let print format = fprintf out_chan format in
@@ -859,7 +834,7 @@ and gen_proxy protocol =
   let out_chan = open_out (Filename.concat destdir output_file)
   in
   finally (fun () -> gen_proxy' protocol out_chan)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 and gen_proxy' protocol out_chan =
   let print format = fprintf out_chan format in
@@ -1129,7 +1104,7 @@ and gen_enum = function
     let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
     in
     finally (fun () -> gen_enum' name contents out_chan)
-      (fun () -> close_out out_chan)
+      ~always:(fun () -> close_out out_chan)
   | _ -> assert false
 
 
@@ -1212,7 +1187,7 @@ and gen_maps() =
   let out_chan = open_out (Filename.concat destdir "Maps.cs")
   in
   finally (fun () -> gen_maps' out_chan)
-    (fun () -> close_out out_chan)
+    ~always:(fun () -> close_out out_chan)
 
 
 and gen_maps' out_chan =
@@ -1600,24 +1575,11 @@ and get_default_value_per_type ty thing =
   | Record _    -> sprintf " = new %s()" (exposed_type ty)
   | Option x       -> if thing = [] then "" else get_default_value_per_type x thing
 
-and gen_i18n_errors () =
-  Friendly_error_names.parse_sr_xml sr_xml;
-  Friendly_error_names.parse_resx resx_file;
-  let errors = Friendly_error_names.friendly_names_all Datamodel.errors in
-  let json = `O [
-      "i18n_errors", `A (List.map (fun (x, y) ->
-          `O [
-            "i18n_error_key", `String x;
-            "i18n_error_description", `String y;
-          ];) errors);
-    ]
-  in
-  render_file ("FriendlyErrorNames.mustache", "FriendlyErrorNames.resx") json templdir destdir
+
 
 let populate_releases ()=
   render_file ("ApiVersion.mustache", "ApiVersion.cs") json_releases templdir destdir
 
 let _ =
   main();
-  gen_i18n_errors();
   populate_releases()

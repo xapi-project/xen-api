@@ -44,20 +44,9 @@ module TypeSet = Set.Make(
     let compare = compare
   end)
 
-let destdir' = ref ""
-let templdir' = ref ""
 
-let _ =
-  Arg.parse
-    [
-      "-d", Arg.Set_string destdir', "specifies the destination directory for the generated files";
-      "-t", Arg.Set_string templdir', "the directory with the template (mustache) files";
-    ]
-    (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
-    ("Generates PowerShell bindings for the XenAPI. See -help.")
-
-let destdir = !destdir'
-let templdir = !templdir'
+let destdir = "autogen/src"
+let templdir = "templates"
 
 type cmdlet =
   {
