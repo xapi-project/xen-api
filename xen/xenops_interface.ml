@@ -441,7 +441,7 @@ module Host = struct
     ; features_oldstyle: int64 array }
   [@@deriving rpcty]
 
-  type chipset_info = {iommu: bool} [@@deriving rpcty]
+  type chipset_info = {iommu: bool; hvm: bool} [@@deriving rpcty]
 
   type hypervisor = {version: string; capabilities: string} [@@deriving rpcty]
 
