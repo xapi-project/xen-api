@@ -43,6 +43,7 @@ module HOST = struct
     };
     chipset_info = {
       iommu = false;
+      hvm = false;
     }
   }
   let get_console_data () = ""

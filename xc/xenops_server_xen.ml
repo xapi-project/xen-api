@@ -754,6 +754,7 @@ module HOST = struct
          let xen_capabilities = version_capabilities xc in
 
          let iommu = List.mem CAP_DirectIO p.capabilities in
+         let hvm = List.mem CAP_HVM p.capabilities in
 
          {
            Host.cpu_info = {
@@ -777,6 +778,7 @@ module HOST = struct
            };
            chipset_info = {
              iommu = iommu;
+             hvm = hvm;
            }
          }
       )
