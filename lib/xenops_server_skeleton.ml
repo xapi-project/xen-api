@@ -40,6 +40,9 @@ module HOST = struct
     hypervisor = {
       Host.version = "";
       capabilities = "";
+    };
+    chipset_info = {
+      iommu = false;
     }
   }
   let get_console_data () = ""
