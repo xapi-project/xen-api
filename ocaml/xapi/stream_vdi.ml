@@ -33,7 +33,9 @@ let chunk_size = Int64.mul 1024L 1024L (* 1 MiB *)
 (** Maximum range for sparseness query *)
 let max_sparseness_size = Int64.mul 10240L chunk_size
 
-let checksum_extension = ".checksum"
+let checksum_extension_xxh = ".xxhash"
+let checksum_extension_sha = ".checksum"
+let checksum_supported_extension = [checksum_extension_xxh; checksum_extension_sha] (* Supported checksum formats *)
 
 type vdi = string (* directory prefix in tar file *) * API.ref_VDI * Int64.t (* size to send/recieve *)
 
@@ -91,10 +93,10 @@ let made_progress __context progress n =
 let write_block ~__context filename buffer ofd len =
   let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
   try
-    let csum = Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) in
+    let csum = Printf.sprintf "%016LX" (XXHash.XXH64.hash (Bytes.unsafe_to_string buffer)) in
     Tar_unix.write_block hdr (fun ofd -> Unix.write ofd buffer 0 len |> ignore) ofd;
     (* Write the checksum as a separate file *)
-    let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
+    let hdr' = Tar_unix.Header.make (filename ^ checksum_extension_xxh) (Int64.of_int (String.length csum)) in
     Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write_substring ofd csum 0 (String.length csum))) ofd
   with
     Unix.Unix_error (a,b,c) as e ->
@@ -308,12 +310,11 @@ let send_all refresh_session ofd ~__context rpc session_id (prefix_vdis: vdi lis
 exception Invalid_checksum of string
 
 (* Rio GA and later only *)
-let verify_inline_checksum ifd checksum_table =
-  let hdr = Tar_unix.Header.get_next_header ifd in
+let verify_inline_checksum ifd checksum_table hdr =
   let file_name = hdr.Tar_unix.Header.file_name in
   let length = hdr.Tar_unix.Header.file_size in
-  if not(String.endswith checksum_extension file_name) then begin
-    let msg = Printf.sprintf "Expected to find an inline checksum, found file called: %s" file_name in
+  if not(List.exists (Filename.check_suffix file_name) checksum_supported_extension) then begin
+    let msg = Printf.sprintf "Expected to find a supported inline checksum file, instead found a file called: %s" file_name in
     error "%s" msg;
     raise (Failure msg)
   end;
@@ -324,7 +325,7 @@ let verify_inline_checksum ifd checksum_table =
     let csum = Bytes.unsafe_to_string csum in
     Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
     (* Look up the relevant file_name in the checksum_table *)
-    let original_file_name = String.sub file_name 0 (String.length file_name - (String.length checksum_extension)) in
+    let original_file_name = Filename.remove_extension file_name in
     let csum' = List.assoc original_file_name !checksum_table in
     if csum <> csum' then begin
       error "File %s checksum mismatch (%s <> %s)" original_file_name csum csum';
@@ -348,7 +349,7 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
   let recv_one ifd (__context:Context.t) (prefix, vdi_ref, size) =
     let vdi_skip_zeros = not (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi_ref) in
     (* If this is true, we skip writing zeros. Only for sparse files (vhd only atm) *)
-    debug "begun import of VDI%s preserving sparseness" (if vdi_skip_zeros then "" else " NOT");
+    debug "begun import of VDI %s preserving sparseness" (if vdi_skip_zeros then "" else "NOT");
 
     with_open_vdi __context rpc session_id vdi_ref `RW [Unix.O_WRONLY] 0o644
       (fun ofd dom0_path ->
@@ -407,18 +408,31 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
              in
              Unixext.really_read ifd buffer 0 (Int64.to_int length);
              Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
-             let csum = Sha1.to_hex (Sha1.string (Bytes.unsafe_to_string buffer)) in
+             
+             let buffer_string = Bytes.unsafe_to_string buffer in
+             let csum_hdr = Tar_unix.Header.get_next_header ifd in (* Header of the checksum file *)
+             let csum_file_name = csum_hdr.Tar_unix.Header.file_name in
+	     	 
+             let csum = (* Infer checksum algorithm from the file extension *)
+                match Filename.extension csum_file_name with
+                | m when m = checksum_extension_xxh -> Printf.sprintf "%016LX" (XXHash.XXH64.hash buffer_string)
+                | m when m = checksum_extension_sha -> Sha1.to_hex (Sha1.string buffer_string)
+                | _ -> begin
+                    let msg = Printf.sprintf "Found unsupported checksum file: %s" csum_file_name in
+                    error "%s" msg;
+                    raise (Failure msg)
+                end
+             in
 
              checksum_table := (file_name, csum) :: !checksum_table;
 
              Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr);
              made_progress __context progress (Int64.add skipped_size length);
 
-
              if has_inline_checksums then
                begin
                  try
-                   verify_inline_checksum ifd checksum_table;
+                   verify_inline_checksum ifd checksum_table csum_hdr;
                  with
                  | Invalid_checksum s as e ->
                    if not(force) then raise e
