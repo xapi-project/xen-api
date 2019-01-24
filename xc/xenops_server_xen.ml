@@ -753,6 +753,9 @@ module HOST = struct
          let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
          let xen_capabilities = version_capabilities xc in
 
+         let iommu = List.mem CAP_DirectIO p.capabilities in
+         let hvm = List.mem CAP_HVM p.capabilities in
+
          {
            Host.cpu_info = {
              Host.cpu_count;
@@ -772,6 +775,10 @@ module HOST = struct
            hypervisor = {
              Host.version = xen_version_string;
              capabilities = xen_capabilities;
+           };
+           chipset_info = {
+             iommu = iommu;
+             hvm = hvm;
            }
          }
       )
