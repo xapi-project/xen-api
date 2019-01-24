@@ -1,0 +1,17 @@
+(rule
+	(targets xxhash_stubs.c xxhash_generated.ml)
+	(deps (:gen ../stubs/xxhash_stubgen.exe))
+	(action (run %{gen}))
+)
+
+(library
+	(name xxhash)
+	(wrapped false)
+	(libraries
+		ctypes
+		xxhash_bindings
+		xapi-stdext-pervasives
+	)
+	(c_names xxhash_stubs)
+	(c_library_flags (-lxxhash))
+)

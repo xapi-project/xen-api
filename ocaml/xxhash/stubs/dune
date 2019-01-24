@@ -1,0 +1,16 @@
+(executable 
+	(name xxhash_stubgen)
+	(libraries 
+		ctypes.stubs
+		xxhash_bindings
+	)
+	(modules xxhash_stubgen)
+)
+
+(library
+	(name xxhash_bindings)
+	(libraries
+		ctypes
+	)
+	(modules xxhash_bindings)
+)
