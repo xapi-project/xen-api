@@ -16,9 +16,48 @@ open Xapi_stdext_threads.Threadext
 
 open Xapi_stdext_unix
 
-(* This exception is setup to be raised on sigint by Process.initialise, and is
-   used to cancel the synchronous function Reporter.start. *)
+(* This exception is setup to be raised on sigint by Process.initialise,
+ * and is used to cancel the synchronous function Reporter.start. *)
 exception Killed
+let killed = ref false (* CA-309024, Killed might escape *)
+
+let signal_name signum =
+  let signals =
+    let t = Hashtbl.create 30 in
+    let map =
+      [ ("SIGABRT", -1)
+      ; ("SIGALRM", -2)
+      ; ("SIGFPE", -3)
+      ; ("SIGHUP", -4)
+      ; ("SIGILL", -5)
+      ; ("SIGINT", -6)
+      ; ("SIGKILL", -7)
+      ; ("SIGPIPE", -8)
+      ; ("SIGQUIT", -9)
+      ; ("SIGSEGV", -10)
+      ; ("SIGTERM", -11)
+      ; ("SIGUSR1", -12)
+      ; ("SIGUSR2", -13)
+      ; ("SIGCHLD", -14)
+      ; ("SIGCONT", -15)
+      ; ("SIGSTOP", -16)
+      ; ("SIGTSTP", -17)
+      ; ("SIGTTIN", -18)
+      ; ("SIGTTOU", -19)
+      ; ("SIGVTALRM", -20)
+      ; ("SIGPROF", -21)
+      ; ("SIGBUS", -22)
+      ; ("SIGPOLL", -23)
+      ; ("SIGSYS", -24)
+      ; ("SIGTRAP", -25)
+      ; ("SIGURG", -26)
+      ; ("SIGXCPU", -27)
+      ; ("SIGXFSZ", -28) ]
+    in
+    List.iter (fun (str, key) -> Hashtbl.add t key str) map ;
+    t in
+    try Hashtbl.find signals signum with Not_found ->
+      Printf.sprintf "unknown signal (%d)" signum
 
 module Utils = struct
   let now () = Int64.of_float (Unix.gettimeofday ())
@@ -178,6 +217,7 @@ module Reporter = struct
     end;
     while !running do
       try
+        if !killed then raise Killed;
         report ();
         match reporter with
         | Some reporter -> begin
@@ -197,6 +237,7 @@ module Reporter = struct
       with
       | Sys.Break | Killed ->
         (* Handle cancellation via signal handler. *)
+        D.info "received exception Killed or Break - cleaning up";
         cleanup ();
         running := false
       | e ->
@@ -205,7 +246,8 @@ module Reporter = struct
           (Printexc.to_string e);
         D.log_backtrace ();
         Thread.delay 10.0
-    done
+    done;
+    D.info "leaving main loop"
 
   let start_local (module D : Debug.DEBUG)
       ~reporter
@@ -362,14 +404,18 @@ module Process = functor (N : (sig val name : string end)) -> struct
   module D = Debug.Make(struct let name=N.name end)
 
   let on_sigterm signum =
-    D.info "Received signal %d: deregistering plugin %s..." signum N.name;
+    D.info "Received signal %s: deregistering plugin %s..."
+      (signal_name signum) N.name;
+    D.info "Raising exception Killed in %s" __LOC__;
+    killed := true;
     raise Killed
 
   let initialise () =
-    Sys.set_signal Sys.sigterm (Sys.Signal_handle on_sigterm);
-
     (* CA-92551, CA-97938: Use syslog's local0 facility *)
     Debug.set_facility Syslog.Local0;
+
+    D.info "installing signal handler for SIGTERM in %s" __LOC__;
+    Sys.set_signal Sys.sigterm (Sys.Signal_handle on_sigterm);
 
     let pidfile = ref "" in
     let daemonize = ref false in
@@ -382,10 +428,10 @@ module Process = functor (N : (sig val name : string end)) -> struct
       (Printf.sprintf "Usage: %s [-daemon] [-pidfile filename]" N.name);
 
     if !daemonize then (
-      D.debug "Daemonizing ..";
+      D.info "Daemonizing ..";
       Unixext.daemonize ()
     ) else (
-      D.debug "Not daemonizing ..";
+      D.info "Not daemonizing ..";
       Sys.catch_break true;
       Debug.log_to_stdout ()
     );
