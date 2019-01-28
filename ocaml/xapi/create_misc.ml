@@ -111,25 +111,13 @@ let read_dom0_memory_usage () =
 
 let read_localhost_info () =
   let xen_verstring, total_memory_mib =
-    try
-      let xc = Xenctrl.interface_open () in
-      Xenctrl.interface_close xc;
-      let open Xapi_xenops_queue in
-      let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-      let stat = Client.HOST.stat "read_localhost_info" in
-      let xen_verstring = stat.hypervisor.version in
-      let total_memory_mib =
-        Client.HOST.get_total_memory_mib "read_localhost_info" in
-      xen_verstring, total_memory_mib
-    with e ->
-      if Pool_role.is_unit_test ()
-      then "0.0.0", 0L
-      else begin
-        warn "Failed to read xen version";
-        match Balloon.get_memtotal () with
-        | None -> "unknown", 0L
-        | Some x -> "unknown", Int64.(div x (mul 1024L 1024L))
-      end
+    let open Xapi_xenops_queue in
+    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+    let stat = Client.HOST.stat "read_localhost_info" in
+    let xen_verstring = stat.hypervisor.version in
+    let total_memory_mib =
+      Client.HOST.get_total_memory_mib "read_localhost_info" in
+    xen_verstring, total_memory_mib
   and linux_verstring =
     let verstring = ref "" in
     let f line =
