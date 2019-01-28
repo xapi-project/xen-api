@@ -1269,6 +1269,7 @@ let host_record rpc session_id host =
         ~get:(fun () -> (x ()).API.host_iscsi_iqn) ~set:(fun s -> Client.Host.set_iscsi_iqn rpc session_id host s) ();
       make_field ~name:"multipathing"
         ~get:(fun () -> string_of_bool (x ()).API.host_multipathing) ~set:(fun s -> Client.Host.set_multipathing rpc session_id host (safe_bool_of_string "multipathing" s)) ();
+      make_field ~name:"uefi-certificates" ~get:(fun () -> (x ()).API.host_uefi_certificates) ()
     ]}
 
 let vdi_record rpc session_id vdi =
