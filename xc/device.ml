@@ -2002,9 +2002,11 @@ module Dm_Common = struct
     ]
 
   let xen_platform ~trad_compat ~xs ~domid =
-    let device_id =
-      try xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid)
-      with _ -> "0001"
+    let device_id, revision =
+      try
+        xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid),
+        "2"
+      with _ -> "0001", "1"
     in
     [ "-device"; String.concat "," (List.concat [
           [ "xen-platform"
@@ -2012,7 +2014,7 @@ module Dm_Common = struct
           ]
         ; if trad_compat then
             [ sprintf "device-id=0x%s" device_id
-            ; "revision=0x2"
+            ; sprintf "revision=0x%s" revision
             ; "class-id=0x0100"
             ; "subvendor_id=0x5853"
             ; sprintf"subsystem_id=0x%s" device_id ] else []])
