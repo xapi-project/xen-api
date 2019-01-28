@@ -113,13 +113,12 @@ let read_localhost_info () =
   let xen_verstring, total_memory_mib =
     try
       let xc = Xenctrl.interface_open () in
-      let v = Xenctrl.version xc in
       Xenctrl.interface_close xc;
-      let open Xenctrl in
-      let xen_verstring = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
+      let open Xapi_xenops_queue in
+      let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+      let stat = Client.HOST.stat "read_localhost_info" in
+      let xen_verstring = stat.hypervisor.version in
       let total_memory_mib =
-        let open Xapi_xenops_queue in
-        let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
         Client.HOST.get_total_memory_mib "read_localhost_info" in
       xen_verstring, total_memory_mib
     with e ->
