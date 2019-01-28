@@ -88,11 +88,11 @@ let refresh_localhost_info ~__context info =
   Db.Host.set_API_version_minor ~__context ~self:host ~value:Datamodel_common.api_version_minor;
   Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-  let caps = try
-      String.split ' ' (Xenctrl.with_intf (fun xc -> Xenctrl.version_capabilities xc))
-    with _ ->
-      warn "Unable to query hypervisor capabilities";
-      [] in
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+  let dbg = Context.string_of_task __context in
+  let stat = Client.HOST.stat dbg in
+  let caps = String.split ' ' stat.hypervisor.capabilities in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context);
 
