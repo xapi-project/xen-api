@@ -1826,15 +1826,11 @@ let allocate_resources_for_vm ~__context ~self ~vm ~live =
   (* Implemented entirely in Message_forwarding *)
   ()
 
-(*let set_uefi_certificates ~rpc ~session_id ~host ~pool =
-  if Client.Client.Pool.get_uefi_certificates ~rpc ~session_id ~self:pool= "" then
-    Client.Client.Pool.set_uefi_certificates ~rpc ~session_id ~self:pool ~value:(Client.Client.Host.get_uefi_certificates ~rpc ~session_id ~self:host)*)
-
 let set_uefi_certificates ~__context ~host ~value =
   Db.Host.set_uefi_certificates ~__context ~self:host ~value;
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_uefi_certificates ~__context ~self:pool  = "" then
-    Db.Pool.set_uefi_certificates ~__context ~self:pool ~value:(Db.Host.get_uefi_certificates ~__context ~self:host)
+    Db.Pool.set_uefi_certificates ~__context ~self:pool ~value
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then raise Api_errors.(Server_error (invalid_value, ["value"; value]));
