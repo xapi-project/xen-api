@@ -83,16 +83,13 @@ let refresh_localhost_info ~__context info =
   debug "Updating host software_version and updates_requiring_reboot";
 
   Create_misc.create_updates_requiring_reboot_info ~__context ~host;
-  Create_misc.create_software_version ~__context;
+  let new_info = Create_misc.read_localhost_info ~__context in
+  Create_misc.create_software_version ~__context new_info;
   Db.Host.set_API_version_major ~__context ~self:host ~value:Datamodel_common.api_version_major;
   Db.Host.set_API_version_minor ~__context ~self:host ~value:Datamodel_common.api_version_minor;
   Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-  let open Xapi_xenops_queue in
-  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-  let dbg = Context.string_of_task __context in
-  let stat = Client.HOST.stat dbg in
-  let caps = String.split ' ' stat.hypervisor.capabilities in
+  let caps = String.split ' ' new_info.hypervisor.capabilities in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context);
 
@@ -120,13 +117,9 @@ let refresh_localhost_info ~__context info =
 
 
 (** Record host memory properties in database *)
-let record_host_memory_properties ~__context =
+let record_host_memory_properties ~__context info =
   let self = !Xapi_globs.localhost_ref in
-  let dbg = Context.string_of_task __context in
-  let open Xapi_xenops_queue in
-  let module Client = (val make_client (default_xenopsd ()): XENOPS) in
-  let total_memory_mib = Client.HOST.get_total_memory_mib dbg in
-  let total_memory_bytes = Memory.bytes_of_mib total_memory_mib in
+  let total_memory_bytes = Memory.bytes_of_mib info.total_memory_mib in
 
   let metrics = Db.Host.get_metrics ~__context ~self in
   Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
@@ -234,7 +227,7 @@ let update_env __context sync_keys =
 
   (* Ensure basic records exist: *)
 
-  let info = Create_misc.read_localhost_info () in
+  let info = Create_misc.read_localhost_info ~__context in
 
   (* create localhost record if doesn't already exist *)
   switched_sync Xapi_globs.sync_create_localhost (fun () ->
@@ -262,12 +255,12 @@ let update_env __context sync_keys =
 
   (* maybe record host memory properties in database *)
   switched_sync Xapi_globs.sync_record_host_memory_properties (fun () ->
-      record_host_memory_properties ~__context;
+      record_host_memory_properties ~__context info;
     );
 
   switched_sync Xapi_globs.sync_create_host_cpu (fun () ->
       debug "creating cpu";
-      Create_misc.create_host_cpu ~__context;
+      Create_misc.create_host_cpu ~__context info;
     );
 
   let localhost = Helpers.get_localhost ~__context in
@@ -331,7 +324,7 @@ let update_env __context sync_keys =
     );
 
   switched_sync Xapi_globs.sync_chipset_info (fun () ->
-      Create_misc.create_chipset_info ~__context;
+      Create_misc.create_chipset_info ~__context info;
     );
 
   switched_sync Xapi_globs.sync_gpus (fun () ->

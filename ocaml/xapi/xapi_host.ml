@@ -1495,7 +1495,8 @@ let license_remove ~__context ~host =
 
 let refresh_pack_info ~__context ~host =
   debug "Refreshing software_version";
-  Create_misc.create_software_version ~__context
+  let host_info = Create_misc.read_localhost_info ~__context in
+  Create_misc.create_software_version ~__context host_info
 
 (* Network reset *)
 

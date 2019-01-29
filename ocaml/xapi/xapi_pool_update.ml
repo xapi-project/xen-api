@@ -503,7 +503,8 @@ let resync_host ~__context ~host =
         Db.Pool_patch.remove_from_other_config ~__context ~self:pool_patch_ref ~key:"enforce_homogeneity";
       ) update_refs;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host;
-    Create_misc.create_software_version ~__context
+    let host_info = Create_misc.read_localhost_info ~__context in
+    Create_misc.create_software_version ~__context host_info
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 

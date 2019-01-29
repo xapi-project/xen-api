@@ -43,6 +43,9 @@ type host_info = {
   total_memory_mib: int64;
   dom0_static_max: int64;
   ssl_legacy: bool;
+  cpu_info : Xenops_interface.Host.cpu_info;
+  chipset_info : Xenops_interface.Host.chipset_info;
+  hypervisor : Xenops_interface.Host.hypervisor;
 }
 
 (** The format of the response looks like
@@ -109,15 +112,12 @@ let read_dom0_memory_usage () =
   with _ ->
     None
 
-let read_localhost_info () =
-  let xen_verstring, total_memory_mib =
-    let open Xapi_xenops_queue in
-    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-    let stat = Client.HOST.stat "read_localhost_info" in
-    let xen_verstring = stat.hypervisor.version in
-    let total_memory_mib =
-      Client.HOST.get_total_memory_mib "read_localhost_info" in
-    xen_verstring, total_memory_mib
+let read_localhost_info ~__context =
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+  let dbg = Context.string_of_task __context in
+  let stat = Client.HOST.stat dbg in
+  let total_memory_mib = Client.HOST.get_total_memory_mib dbg
   and linux_verstring =
     let verstring = ref "" in
     let f line =
@@ -137,7 +137,7 @@ let read_localhost_info () =
       Int64.(mul total_memory_mib (mul 1024L 1024L)) in
   {
     name_label=this_host_name;
-    xen_verstring=xen_verstring;
+    xen_verstring=stat.hypervisor.version;
     linux_verstring=linux_verstring;
     hostname=this_host_name;
     uuid=me;
@@ -149,6 +149,9 @@ let read_localhost_info () =
     machine_serial_name = lookup_inventory_nofail Xapi_inventory._machine_serial_name;
     total_memory_mib = total_memory_mib;
     dom0_static_max = dom0_static_max;
+    cpu_info = stat.cpu_info;
+    chipset_info = stat.chipset_info;
+    hypervisor = stat.hypervisor;
     ssl_legacy = try (
       bool_of_string (
         Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"false")
@@ -444,10 +447,9 @@ let make_packs_info () =
   with _ -> []
 
 (** Create a complete assoc list of version information *)
-let make_software_version ~__context =
+let make_software_version ~__context host_info =
   let dbg = Context.string_of_task __context in
   let option_to_list k o = match o with None -> [] | Some x -> [ k, x ] in
-  let info = read_localhost_info () in
   let v6_version =
     (* Best-effort attempt to read the date-based version from v6d *)
     try
@@ -461,51 +463,47 @@ let make_software_version ~__context =
   v6_version @
   [
     "xapi", get_xapi_verstring ();
-    "xen", info.xen_verstring;
-    "linux", info.linux_verstring;
+    "xen", host_info.xen_verstring;
+    "linux", host_info.linux_verstring;
     "xencenter_min", Xapi_globs.xencenter_min_verstring;
     "xencenter_max", Xapi_globs.xencenter_max_verstring;
     "network_backend", Network_interface.string_of_kind (Net.Bridge.get_kind dbg ());
     Xapi_globs._db_schema, Printf.sprintf "%d.%d" Datamodel_common.schema_major_vsn Datamodel_common.schema_minor_vsn;
   ] @
-  (option_to_list "oem_manufacturer" info.oem_manufacturer) @
-  (option_to_list "oem_model" info.oem_model) @
-  (option_to_list "oem_build_number" info.oem_build_number) @
-  (option_to_list "machine_serial_number" info.machine_serial_number) @
-  (option_to_list "machine_serial_name" info.machine_serial_name) @
+  (option_to_list "oem_manufacturer" host_info.oem_manufacturer) @
+  (option_to_list "oem_model" host_info.oem_model) @
+  (option_to_list "oem_build_number" host_info.oem_build_number) @
+  (option_to_list "machine_serial_number" host_info.machine_serial_number) @
+  (option_to_list "machine_serial_name" host_info.machine_serial_name) @
   (option_to_list "xen_livepatches" (make_xen_livepatch_list ())) @
   (option_to_list "kernel_livepatches" (make_kpatch_list ())) @
   make_packs_info ()
 
-let create_software_version ~__context =
-  let software_version = make_software_version ~__context in
+let create_software_version ~__context host_info =
+  let software_version = make_software_version ~__context host_info in
   let host = Helpers.get_localhost ~__context in
   Db.Host.set_software_version ~__context ~self:host ~value:software_version
 
-let create_host_cpu ~__context =
-  let open Xapi_xenops_queue in
+let create_host_cpu ~__context host_info =
   let open Map_check in
   let open Cpuid_helpers in
-  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-  let dbg = Context.string_of_task __context in
-  let stat = Client.HOST.stat dbg in
 
-  let open Xenops_interface.Host in
+  let cpu_info = host_info.cpu_info in
   let cpu = [
-    "cpu_count", string_of_int stat.cpu_info.cpu_count;
-    "socket_count", string_of_int stat.cpu_info.socket_count;
-    "vendor", stat.cpu_info.vendor;
-    "speed", stat.cpu_info.speed;
-    "modelname", stat.cpu_info.modelname;
-    "family", stat.cpu_info.family;
-    "model", stat.cpu_info.model;
-    "stepping", stat.cpu_info.stepping;
-    "flags", stat.cpu_info.flags;
+    "cpu_count", string_of_int cpu_info.cpu_count;
+    "socket_count", string_of_int cpu_info.socket_count;
+    "vendor", cpu_info.vendor;
+    "speed", cpu_info.speed;
+    "modelname", cpu_info.modelname;
+    "family", cpu_info.family;
+    "model", cpu_info.model;
+    "stepping", cpu_info.stepping;
+    "flags", cpu_info.flags;
     (* To support VMs migrated from hosts which do not support CPU levelling v2,
        		   set the "features" key to what it would be on such hosts. *)
-    "features", Cpuid_helpers.string_of_features stat.cpu_info.features_oldstyle;
-    "features_pv", Cpuid_helpers.string_of_features stat.cpu_info.features_pv;
-    "features_hvm", Cpuid_helpers.string_of_features stat.cpu_info.features_hvm;
+    "features", Cpuid_helpers.string_of_features cpu_info.features_oldstyle;
+    "features_pv", Cpuid_helpers.string_of_features cpu_info.features_pv;
+    "features_hvm", Cpuid_helpers.string_of_features cpu_info.features_hvm;
   ] in
   let host = Helpers.get_localhost ~__context in
   let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
@@ -517,7 +515,7 @@ let create_host_cpu ~__context =
   Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 
   let before = getf ~default:[||] features_hvm old_cpu_info in
-  let after = stat.cpu_info.features_hvm in
+  let after = cpu_info.features_hvm in
   if not (is_equal before after) && before <> [||] then begin
     let lost = is_strict_subset (intersect before after) before in
     let gained = is_strict_subset (intersect before after) after in
@@ -538,21 +536,21 @@ let create_host_cpu ~__context =
   (* Recreate all Host_cpu objects *)
 
   (* Not all /proc/cpuinfo files contain MHz information. *)
-  let speed = try Int64.of_float (float_of_string stat.cpu_info.speed) with _ -> 0L in
-  let model = try Int64.of_string stat.cpu_info.model with _ -> 0L in
-  let family = try Int64.of_string stat.cpu_info.family with _ -> 0L in
+  let speed = try Int64.of_float (float_of_string cpu_info.speed) with _ -> 0L in
+  let model = try Int64.of_string cpu_info.model with _ -> 0L in
+  let family = try Int64.of_string cpu_info.family with _ -> 0L in
 
   (* Recreate all Host_cpu objects *)
   let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
   List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
-  for i = 0 to stat.cpu_info.cpu_count - 1
+  for i = 0 to cpu_info.cpu_count - 1
   do
     let uuid = Uuid.to_string (Uuid.make_uuid ())
     and ref = Ref.make () in
     debug "Creating CPU %d: %s" i uuid;
     ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
-              ~vendor:stat.cpu_info.vendor ~speed ~modelname:stat.cpu_info.modelname
-              ~utilisation:0. ~flags:stat.cpu_info.flags ~stepping:stat.cpu_info.stepping ~model ~family
+              ~vendor:cpu_info.vendor ~speed ~modelname:cpu_info.modelname
+              ~utilisation:0. ~flags:cpu_info.flags ~stepping:cpu_info.stepping ~model ~family
               ~features:"" ~other_config:[])
   done
 
@@ -615,14 +613,10 @@ let create_pool_cpuinfo ~__context =
   end
 
 
-let create_chipset_info ~__context =
+let create_chipset_info ~__context host_info =
   let host = Helpers.get_localhost ~__context in
   let iommu =
-    let open Xapi_xenops_queue in
-    let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
-    let dbg = Context.string_of_task __context in
-    let stat = Client.HOST.stat dbg in
-    if stat.chipset_info.iommu then
+    if host_info.chipset_info.iommu then
       "true"
     else
       "false" in

@@ -53,6 +53,23 @@ let make_localhost ~__context ?(features=Features.all_features) () =
     total_memory_mib = 1024L;
     dom0_static_max = Memory.bytes_of_mib 512L;
     ssl_legacy = false;
+    cpu_info =
+      { cpu_count = 1
+      ; socket_count = 1
+      ; vendor = ""
+      ; speed = ""
+      ; modelname = ""
+      ; family = ""
+      ; model = ""
+      ; stepping = ""
+      ; flags = ""
+      ; features = [||]
+      ; features_pv = [||]
+      ; features_hvm = [||]
+      ; features_oldstyle = [||]
+    };
+    hypervisor = {version = "unknown"; capabilities = ""};
+    chipset_info = {iommu = false; hvm = false}
   } in
 
   Dbsync_slave.create_localhost ~__context host_info;
