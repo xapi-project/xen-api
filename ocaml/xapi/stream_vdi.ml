@@ -312,9 +312,8 @@ exception Invalid_checksum of string
 (* Rio GA and later only *)
 let verify_inline_checksum ifd checksum_table hdr =
   let file_name = hdr.Tar_unix.Header.file_name in
-  let extension = Filename.extension file_name in
   let length = hdr.Tar_unix.Header.file_size in
-  if not(List.mem extension checksum_supported_extension) then begin
+  if not(List.exists (Filename.check_suffix file_name) checksum_supported_extension) then begin
     let msg = Printf.sprintf "Expected to find a supported inline checksum file, instead found a file called: %s" file_name in
     error "%s" msg;
     raise (Failure msg)
@@ -412,11 +411,12 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
              
              let buffer_string = Bytes.unsafe_to_string buffer in
              
-             let csum_hdr = Tar_unix.Header.get_next_header ifd in
+             let csum_hdr = Tar_unix.Header.get_next_header ifd in (* Header of the checksum file *)
+	     let csum_file_name = csum_hdr.Tar_unix.Header.file_name in
              
-             let csum = if hdr.Tar_unix.Header.file_name <> checksum_extension 
-             	then Sha1.to_hex (Sha1.string buffer_string)
-             	else Printf.sprintf "%016LX" (XXH64.hash buffer_string)
+             let csum = if Filename.check_suffix csum_file_name checksum_extension (* Infer the hash algorithm *)
+             	then Printf.sprintf "%016LX" (XXH64.hash buffer_string)
+             	else Sha1.to_hex (Sha1.string buffer_string)
      	     in
 
              checksum_table := (file_name, csum) :: !checksum_table;
