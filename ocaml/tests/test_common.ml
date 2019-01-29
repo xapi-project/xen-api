@@ -514,7 +514,7 @@ let make_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
 let make_cluster_and_cluster_host ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(cluster_token="") ?(pIF=Ref.null) ?(cluster_stack=Constants.default_smapiv3_cluster_stack)
     ?(allowed_operations=[]) ?(current_operations=[]) ?(pool_auto_join=true)
-    ?(token_timeout=Constants.default_token_timeout_s) 
+    ?(token_timeout=Constants.default_token_timeout_s)
     ?(token_timeout_coefficient=Constants.default_token_timeout_coefficient_s) ?(cluster_config=[])
     ?(other_config=[]) ?(host=Ref.null) () =
   Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]

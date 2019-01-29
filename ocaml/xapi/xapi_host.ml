@@ -1162,11 +1162,11 @@ let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
 (* CP-717: Enables external auth/directory service on a single host within the pool with specified config, *)
 (* type and service_name. Fails if an auth/directory service is already enabled for this host (must disable first).*)
 (*
-* Each Host object will contain a string field, external_auth_type which will specify the type of the external auth/directory service.
-	  o In the case of AD, this will contain the string "AD". (If we subsequently allow other types of external auth/directory service to be configured, e.g. LDAP, then new type strings will be defined accordingly)
-	  o When no external authentication service is configured, this will contain the empty string
-* Each Host object will contain a (string*string) Map field, external_auth_configuration. This field is provided so that a particular xapi authentiation module has the option of persistently storing any configuration parameters (represented as key/value pairs) within the agent database.
-* Each Host object will contain a string field, external_auth_service_name, which contains sufficient information to uniquely identify and address the external authentication/directory service. (e.g. in the case of AD this would be a domain name)
+ * Each Host object will contain a string field, external_auth_type which will specify the type of the external auth/directory service.
+   o In the case of AD, this will contain the string "AD". (If we subsequently allow other types of external auth/directory service to be configured, e.g. LDAP, then new type strings will be defined accordingly)
+   o When no external authentication service is configured, this will contain the empty string
+ * Each Host object will contain a (string*string) Map field, external_auth_configuration. This field is provided so that a particular xapi authentiation module has the option of persistently storing any configuration parameters (represented as key/value pairs) within the agent database.
+ * Each Host object will contain a string field, external_auth_service_name, which contains sufficient information to uniquely identify and address the external authentication/directory service. (e.g. in the case of AD this would be a domain name)
 *)
 open Auth_signature
 open Extauth
