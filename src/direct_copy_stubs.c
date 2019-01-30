@@ -134,7 +134,9 @@ CAMLprim value stub_direct_copy(value handle, value len){
     ssize_t bread;
     ssize_t bwritten = 0;
 
-    bread = read(cpinfo->in_fd, cpinfo->buffer, (remaining < XFER_BUFSIZ)?remaining:XFER_BUFSIZ) ;
+    bread = read(cpinfo->in_fd, cpinfo->buffer, (remaining < XFER_BUFSIZ)?remaining:XFER_BUFSIZ);
+    /* If we previously hit exactly the end of the input by accident, we're done. */
+    if (bread == 0) break;
     if (bread < 0) {
         rc = READ_FAILED;
         goto fail;
