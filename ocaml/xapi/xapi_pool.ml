@@ -532,6 +532,9 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
       (* Copy other-config into newly created host record: *)
       no_exn (fun () -> Client.Host.set_other_config ~rpc ~session_id ~self:ref ~value:host.API.host_other_config) ();
 
+      (* Copy the uefi-certificates into the newly created host record *)
+      no_exn (fun () -> Client.Host.set_uefi_certificates ~rpc ~session_id ~host:ref ~value:host.API.host_uefi_certificates) ();
+
       (* Copy the crashdump SR *)
       let my_crashdump_sr = Db.Host.get_crash_dump_sr ~__context ~self:host_ref in
       if my_crashdump_sr <> Ref.null then begin
