@@ -113,8 +113,9 @@ def prepare_exec():
     restrict_fsize()
 
     flags = CLONE_NEWNS | CLONE_NEWIPC
-    # hvm_serial may require network access so don't unshare the network.
-    if not hvm_serial:
+    # serial redirection for debug may be using the network so don't
+    # unshare in this case
+    if not network_serial:
         flags |= CLONE_NEWNET
     unshare(flags)
 
@@ -158,9 +159,6 @@ def main(argv):
 
     qemu_args.extend(argv[2:])
 
-    global hvm_serial
-    hvm_serial = xenstore_read("/local/domain/%d/platform/hvm_serial" % domid)
-
     n = 0
 
     vga_type = 'cirrus-vga'
@@ -174,6 +172,9 @@ def main(argv):
     serial_c = ''
     tmp_serial_c = ''
     depriv = True
+
+    global network_serial
+    network_serial = False
 
     while n < len(qemu_args):
         p = qemu_args[n]
@@ -191,6 +192,17 @@ def main(argv):
         if p == "-priv":
             del qemu_args[n]
             depriv = False
+            continue
+
+        if p == "-serial":
+            params = qemu_args[n + 1].split(',')
+            # There are other network options apart from 'tcp' but,
+            # in practice, tcp is always used for serial debug
+            if params[0].startswith('tcp'):
+                print "serial: '%s'" % qemu_args[n + 1]
+                network_serial = True
+
+            n += 1
             continue
 
         if p == "-trad-compat":
