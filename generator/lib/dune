@@ -1,0 +1,8 @@
+(library
+  (name xapi_storage)
+  (public_name xapi-storage)
+  (flags (:standard -warn-error +a-3))
+  (modules apis common control data files plugin task)
+  (preprocess (pps ppx_deriving_rpc))
+  (libraries rpclib)
+)

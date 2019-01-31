@@ -6,12 +6,11 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xapi-storage/issues"
 dev-repo: "git://github.com/xapi-project/xapi-storage.git"
 build: [
-  ["jbuilder" "build" "-p" name "-j" jobs]
-  ["jbuilder" "runtest" "-p" name "-j" jobs] {with-test}
+  ["dune" "build" "-p" name "-j" jobs]
 ]
 depends: [
   "ocaml"
-  "jbuilder" {build}
+  "dune" {build}
   "ounit" {with-test}
   "alcotest" {with-test}
   "lwt" {with-test}
