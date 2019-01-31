@@ -115,6 +115,18 @@ let disconnect_path_of_device ~xs (x: device) =
 let kthread_pid_path_of_device ~xs (x: device) =
   sprintf "%s/kthread-pid" (backend_path_of_device ~xs x)
 
+let backend_queue_regexp = Re.Pcre.regexp "^queue-\\d+$"
+
+(** Where linux blkback may write its thread ids if multiple queues/rings are in use *)
+let kthread_pid_paths_of_device ~xs (x: device) =
+  let backend_path = backend_path_of_device ~xs x in
+  let paths = xs.Xs.directory backend_path in
+  if List.mem "kthread-pid" paths then
+    [sprintf "%s/kthread-pid" backend_path]
+  else
+    List.filter (Re.execp backend_queue_regexp) paths
+    |> List.map (fun queue -> sprintf "%s/%s/kthread-pid" backend_path queue)
+
 (** Location of the backend error path *)
 let backend_error_path_of_device ~xs (x : device) =
   sprintf "%s/error/backend/%s/%d"

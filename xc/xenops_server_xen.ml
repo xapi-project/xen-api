@@ -2638,24 +2638,25 @@ module VBD = struct
              | Ionice qos ->
                try
                  let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) (id_of vbd) in
-                 let path = Device_common.kthread_pid_path_of_device ~xs device in
-                 let kthread_pid = xs.Xs.read path |> int_of_string in
-                 ionice qos kthread_pid
-               with
-               | Xs_protocol.Enoent _ ->
-                 (* This means the kthread-pid hasn't been written yet. We'll be called back later. *)
-                 ()
-               | e ->
+                 let paths = Device_common.kthread_pid_paths_of_device ~xs device in
+                 (* May be [], which means that the kthread-pids haven't been written yet. We'll be called back later. *)
+                 List.iter (fun path ->
+                   xs.Xs.read path |> int_of_string |> ionice qos
+                 ) paths
+               with e ->
                  error "Failed to ionice kthread-pid: %s" (Printexc.to_string e)
            ) vbd.Vbd.qos
       )
 
   let get_qos xc xs vm vbd device =
     try
-      let path = Device_common.kthread_pid_path_of_device ~xs device in
-      let kthread_pid = xs.Xs.read path |> int_of_string in
-      let i = run !Xc_resources.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
-      Opt.map (fun i -> Ionice i) i
+      match Device_common.kthread_pid_paths_of_device ~xs device with
+      | path :: _ ->
+        (* Assume that all threads have the same QoS config, because that is how we set it above *)
+        let kthread_pid = xs.Xs.read path |> int_of_string in
+        let i = run !Xc_resources.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
+        Opt.map (fun i -> Ionice i) i
+      | [] -> None
     with
     | Ionice.Parse_failed x ->
       warn "Failed to parse ionice result: %s" x;
@@ -3154,8 +3155,12 @@ module VIF = struct
                device = Some device;
              }
            | Network.Local _ | Network.Remote _ ->
-             let path = Device_common.kthread_pid_path_of_device ~xs d in
-             let kthread_pid = try xs.Xs.read path |> int_of_string with _ -> 0 in
+             let kthread_pid =
+               match Device_common.kthread_pid_paths_of_device ~xs d with
+               (* There is at most one path for VIFs *)
+               | path :: _ -> (try xs.Xs.read path |> int_of_string with _ -> 0)
+               | [] -> 0
+              in
              let pra_path = Hotplug.vif_pvs_rules_active_path_of_device ~xs d in
              let pvs_rules_active = try (ignore (xs.Xs.read pra_path); true) with _ -> false in
              (* We say the device is present unless it has been deleted
