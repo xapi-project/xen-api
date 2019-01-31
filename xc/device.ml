@@ -2344,9 +2344,9 @@ module Backend = struct
       try
         Lookup.channel_of domid >>| fun () ->
         let c = Qmp_protocol.connect (monitor_path domid) in
+        Lookup.add c domid;
         Qmp_protocol.negotiate c;
         Qmp_protocol.write c (Command (None, Cont));
-        Lookup.add c domid;
         Monitor.add m (Qmp_protocol.to_fd c);
         debug "Added QMP Event fd for domain %d" domid
       with e ->
