@@ -113,7 +113,7 @@ let get_locally_attached ~__context ~uuid ~vdi =
     let mount_dir = Filename.concat !Xapi_globs.host_update_dir uuid in
     let mount_dir_opt = if Sys.file_exists mount_dir then Some mount_dir else None in
     let dom0 = Helpers.get_domain_zero ~__context in
-    let vbds = List.filter (fun self -> Db.VBD.get_VM ~__context ~self = dom0) (Db.VDI.get_VBDs ~__context ~self:vdi) in 
+    let vbds = List.filter (fun self -> Db.VBD.get_VM ~__context ~self = dom0) (Db.VDI.get_VBDs ~__context ~self:vdi) in
     (mount_dir_opt, vbds)
 
 let detach_helper ~__context ~uuid ~vdi =
@@ -222,7 +222,7 @@ let attach_helper ~__context ~uuid ~vdi ~use_localhost_proxy =
        with_api_errors (mount device) mount_point;
        debug "pool_update.attach_helper Mounted %s" mount_point
     );
-  let ip = if use_localhost_proxy then "127.0.0.1" else Db.Host.get_address ~__context ~self:host in 
+  let ip = if use_localhost_proxy then "127.0.0.1" else Db.Host.get_address ~__context ~self:host in
   "http://" ^ ip ^ Constants.get_pool_update_download_uri ^ (Db.Host.get_uuid ~__context ~self:host) ^ "/" ^ uuid ^ "/vdi"
 
 let attach ~__context ~self ~use_localhost_proxy =
@@ -400,13 +400,13 @@ let introduce ~__context ~vdi =
     if not (Db.is_valid_ref __context vdi_of_update) then begin
         Db.Pool_update.set_vdi ~__context ~self:update ~value:vdi;
         update
-    end 
-    else if vdi <> vdi_of_update then 
+    end
+    else if vdi <> vdi_of_update then
         raise (Api_errors.Server_error(Api_errors.update_already_exists, [update_info.uuid]))
     else
         update
   with
-  | Db_exn.Read_missing_uuid (_,_,_) -> 
+  | Db_exn.Read_missing_uuid (_,_,_) ->
     let update = Ref.make () in
     create_update_record ~__context ~update ~update_info ~vdi;
     update
@@ -503,7 +503,8 @@ let resync_host ~__context ~host =
         Db.Pool_patch.remove_from_other_config ~__context ~self:pool_patch_ref ~key:"enforce_homogeneity";
       ) update_refs;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host;
-    Create_misc.create_software_version ~__context
+    let host_info = Create_misc.read_localhost_info ~__context in
+    Create_misc.create_software_version ~__context host_info
   end
   else Db.Host.set_updates ~__context ~self:host ~value:[];
 
