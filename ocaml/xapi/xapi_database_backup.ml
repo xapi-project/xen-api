@@ -83,6 +83,7 @@ let object_count db tables =
   List.rev_map (counter db) tables
 
 let changes_to_db = Condition.create ()
+let dbm = Mutex.create ()
 let wakeup_fn () = Condition.broadcast changes_to_db
 let register_hooks () = Db_action_helper.events_register (fun ?snapshot _ _ _ -> wakeup_fn ())
 
@@ -106,7 +107,7 @@ let get_delta __context token =
         let task_name = "Timeout from waiting for db changes" in
         let timeout = 10. in
         Xapi_periodic_scheduler.add_to_queue task_name Xapi_periodic_scheduler.OneShot (timeout +. Unix.gettimeofday ()) wakeup_fn;
-        Xapi_event.wait_for_db_update ();
+        Condition.wait changes_to_db dbm;
         Xapi_periodic_scheduler.remove_from_queue task_name;
         delta_expected db
     )
