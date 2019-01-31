@@ -21,7 +21,6 @@ open Debug
 open Http
 open Forkhelpers
 open Pervasiveext
-open XXHash
 
 exception Failure of string
 
@@ -34,8 +33,9 @@ let chunk_size = Int64.mul 1024L 1024L (* 1 MiB *)
 (** Maximum range for sparseness query *)
 let max_sparseness_size = Int64.mul 10240L chunk_size
 
-let checksum_extension = ".xxhash"
-let checksum_supported_extension = [checksum_extension; ".checksum"] (* Supported checksum formats, .checksum == SHA1 *)
+let checksum_extension_xxh = ".xxhash"
+let checksum_extension_sha = ".checksum"
+let checksum_supported_extension = [checksum_extension_xxh; checksum_extension_sha] (* Supported checksum formats *)
 
 type vdi = string (* directory prefix in tar file *) * API.ref_VDI * Int64.t (* size to send/recieve *)
 
@@ -93,10 +93,10 @@ let made_progress __context progress n =
 let write_block ~__context filename buffer ofd len =
   let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
   try
-    let csum = Printf.sprintf "%016LX" (XXH64.hash (Bytes.unsafe_to_string buffer)) in
+    let csum = Printf.sprintf "%016LX" (XXHash.XXH64.hash (Bytes.unsafe_to_string buffer)) in
     Tar_unix.write_block hdr (fun ofd -> Unix.write ofd buffer 0 len |> ignore) ofd;
     (* Write the checksum as a separate file *)
-    let hdr' = Tar_unix.Header.make (filename ^ checksum_extension) (Int64.of_int (String.length csum)) in
+    let hdr' = Tar_unix.Header.make (filename ^ checksum_extension_xxh) (Int64.of_int (String.length csum)) in
     Tar_unix.write_block hdr' (fun ofd -> ignore(Unix.write_substring ofd csum 0 (String.length csum))) ofd
   with
     Unix.Unix_error (a,b,c) as e ->
@@ -410,14 +410,19 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
              Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
              
              let buffer_string = Bytes.unsafe_to_string buffer in
-             
              let csum_hdr = Tar_unix.Header.get_next_header ifd in (* Header of the checksum file *)
-	     let csum_file_name = csum_hdr.Tar_unix.Header.file_name in
-             
-             let csum = if Filename.check_suffix csum_file_name checksum_extension (* Infer the hash algorithm *)
-             	then Printf.sprintf "%016LX" (XXH64.hash buffer_string)
-             	else Sha1.to_hex (Sha1.string buffer_string)
-     	     in
+             let csum_file_name = csum_hdr.Tar_unix.Header.file_name in
+	     	 
+	     	 let csum = (* Infer checksum algorithm from the file format *)
+			 	match Filename.extension csum_file_name with
+				| m when m = checksum_extension_xxh -> Printf.sprintf "%016LX" (XXHash.XXH64.hash buffer_string)
+				| m when m = checksum_extension_sha -> Sha1.to_hex (Sha1.string buffer_string)
+				| _ -> begin
+						let msg = Printf.sprintf "Found unsupported checksum file: %s" csum_file_name in
+						error "%s" msg;
+						raise (Failure msg)
+					end
+			 in
 
              checksum_table := (file_name, csum) :: !checksum_table;
 

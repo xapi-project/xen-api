@@ -60,9 +60,9 @@ depends: [
   "yojson"
 ]
 depexts: [
-  ["hwdata" "libpci-dev" "libpam-dev"] {os-distribution = "debian"}
-  ["hwdata" "libpci-dev" "libpam-dev"] {os-distribution = "ubuntu"}
-  ["hwdata" "pciutils-devel" "pam-devel"] {os-distribution = "centos"}
+  ["hwdata" "libpci-dev" "libpam-dev" "libxxhash-dev" "libxxhash0"] {os-distribution = "debian"}
+  ["hwdata" "libpci-dev" "libpam-dev" "libxxhash-dev" "libxxhash0"] {os-distribution = "ubuntu"}
+  ["hwdata" "pciutils-devel" "pam-devel" "xxhash-devel" "xxhash-libs"] {os-distribution = "centos"}
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """
