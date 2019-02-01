@@ -3,6 +3,7 @@
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
 import sys, os, subprocess, json, urlparse, itertools
+import time
 import XenAPI, inventory, xmlrpclib
 
 main_dir = "/etc/xensource/static-vdis"
@@ -11,9 +12,11 @@ xapi_storage_script = "/usr/libexec/xapi-storage-script"
 smapiv3_config = "device-config"
 
 def call_volume_plugin(name, command, args):
-    args = [(xapi_storage_script + "/volume/org.xen.xapi.storage." + name + "/"
-             + command), "static-vdis"] + args
-    output = subprocess.check_output(args)
+    cmd_args = [(xapi_storage_script + "/volume/org.xen.xapi.storage." + name + "/"
+             + command), "static-vdis"]
+    if args:
+        cmd_args.extend(args)
+    output = subprocess.check_output(cmd_args)
     return json.loads(output)
 
 def call_datapath_plugin(name, command, args):
@@ -57,7 +60,25 @@ def load(name):
     d["delete-next-boot"] = dnb
     return d
 
+def wait_for_corosync_quorum():
+    cmd_args = ['xcli', 'diagnostics', '--json', 'static-vdis']
+    quorate = False
+    while not quorate:
+        output = subprocess.check_output(cmd_args)
+        output_map = json.loads(output)
+        quorate = output_map.get('is_quorate')
+        if not quorate:
+            time.sleep(1)
+
+def check_clusterstack(ty):
+    config = call_volume_plugin(ty, "Plugin.Query", None)
+
+    if 'corosync' in config.get('required_cluster_stack', ''):
+        wait_for_corosync_quorum()
+
 def sr_attach(ty, device_config):
+    check_clusterstack(ty)
+
     args = [arg for (k,v) in device_config.iteritems()
             for arg in ["--configuration", k, v]]
     return call_volume_plugin(ty, "SR.attach", args)
