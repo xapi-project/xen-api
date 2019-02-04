@@ -35,20 +35,12 @@ let with_handle from_fd to_fd f =
       Lwt.return_unit
     )
 
-let _direct_copy handle from_fd to_fd len =
-  let max_attempts = 20 in
-  let rec loop remaining_attempts =
-    Lwt.catch
-      (fun () -> detach (_direct_copy handle) len)
-      (function
-        | Unix.(Unix_error (EAGAIN, _, _)) when remaining_attempts > 0 ->
-            Lwt_unix.wait_read from_fd >>= fun () ->
-            Lwt_unix.wait_write to_fd >>= fun () ->
-            loop (remaining_attempts - 1)
-        | e -> Lwt.fail e
-      )
-  in
-  loop max_attempts
+let _direct_copy handle _from_fd _to_fd len =
+  (* Atlhough the FD is set to blocking mode (by [with_blocking_fd]),
+   * the fcntl flags are only updated lazily, either by
+   * first call to an Lwt_unix IO function or [wrap_syscall].
+   * Perform `wrap_syscall` here to avoid EAGAIN *)
+  detach (_direct_copy handle) len
 
 let maybe_fdatasync stat to_fd =
   match stat.Lwt_unix.LargeFile.st_kind with
@@ -66,6 +58,11 @@ let direct_copy from_fd to_fd len =
     | true -> f fd
     | false ->
       Lwt_unix.set_blocking fd true;
+      (* [set_blocking] sets the flags lazily,
+       * force them to be set by querying it *)
+      Lwt_unix.blocking fd >>= function
+      | false -> Lwt.fail_with "Failed to set FD to blocking mode"
+      | true ->
       Lwt.catch
         (fun () ->
           f fd
