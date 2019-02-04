@@ -116,7 +116,7 @@ module Configuration : sig
 
   val set_multipathing : bool -> unit
   (** [set_multipathing enabled] will touch the file specified in Xapi_globs
-      (usually /var/run/nonpersistent/multipath_enabled) if [enabled] is true,
+      (usually /var/lib/xcp/multipath_enabled) if [enabled] is true,
       otherwise it will remove the file. *)
 
   val sync_config_files : __context:Context.t -> unit
