@@ -238,6 +238,26 @@ let assert_memory_constraints ~__context ~vm platformdata =
    same VM twice during memory calculations to determine whether a given VM can start on a particular host..
 *)
 
+let update_platform_secureboot ~__context ~self platform =
+  match List.assoc "secureboot" platform with
+  | exception Not_found -> platform
+  | "auto" -> ("secureboot", string_of_bool (Db.Pool.get_uefi_certificates ~__context ~self <> "")) :: (List.remove_assoc "secureboot" platform)
+  | _ -> platform
+
+let save_uefi_certificates_to_dir ~__context ~pool ~vm =
+  let uefi_key = !Xapi_globs.varstore_dir ^ "KEK.auth" in
+  if not (Sys.file_exists uefi_key) then
+    if Sys.file_exists !Xapi_globs.varstore_dir && Sys.is_directory !Xapi_globs.varstore_dir then
+      let contents = (Xapi_stdext_base64.Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool)) in
+      if contents <> "" then begin
+        let filename = "xapi_uefi_certificates.tar" in
+        Unixext.with_file filename [Unix.O_RDWR; Unix.O_CREAT] 0o755 (fun fd ->
+            Unixext.write_string_to_file filename contents;
+            Tar_unix.Archive.extract (fun _ -> !Xapi_globs.varstore_dir) fd);
+        debug "UEFI tar file extracted to varstore directory";
+        Sys.remove filename
+      end
+
 let start ~__context ~vm ~start_paused ~force =
   let vmr = Db.VM.get_record ~__context ~self:vm in
   if vmr.API.vM_ha_restart_priority = Constants.ha_restart
@@ -246,13 +266,16 @@ let start ~__context ~vm ~start_paused ~force =
     debug "Setting ha_always_run on vm=%s as true during VM.start" (Ref.string_of vm)
   end;
 
+  let pool = Helpers.get_pool ~__context in
   let default_value = match Xapi_xenops.firmware_of_vm vmr with
     | Bios -> Vm_platform.fallback_device_model_default_value
-    | Uefi _ -> Vm_platform.fallback_device_model_default_value_uefi in
+    | Uefi _ -> save_uefi_certificates_to_dir ~__context ~pool:pool ~vm;
+      Vm_platform.fallback_device_model_default_value_uefi in
   let platform = vmr.API.vM_platform
                  |> Xapi_vm_helpers.ensure_device_model_profile_present
                    ~__context ~domain_type:vmr.API.vM_domain_type
                    ~default_value ~is_a_template:false
+                 |> update_platform_secureboot ~__context ~self:pool
   in
   let vmr =
     if platform <> vmr.API.vM_platform then begin
@@ -260,7 +283,6 @@ let start ~__context ~vm ~start_paused ~force =
       { vmr with API.vM_platform = platform }
     end else vmr
   in
-
 
   (* Check to see if we're using correct device-model when vm has VUSBs*)
 
