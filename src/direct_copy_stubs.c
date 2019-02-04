@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <assert.h>
+#include <poll.h>
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
@@ -41,7 +42,9 @@ enum direct_copy_rc {
   TRIED_AND_FAILED     = 1,
   READ_FAILED          = 2,
   WRITE_FAILED         = 3,
-  WRITE_UNEXPECTED_EOF = 4
+  WRITE_UNEXPECTED_EOF = 4,
+  WRITE_POLL_FAILED    = 5,
+  READ_POLL_FAILED     = 6
 };
 
 #define XFER_BUFSIZ (2*1024*1024)
@@ -106,6 +109,16 @@ CAMLprim value stub_cleanup(value handle)
   CAMLreturn(Val_unit);
 }
 
+/* Wait for an fd. There will be a subsequent read() or write()
+ * to collect any fd error conditions that might occur */
+static inline int pollwait(int fd, short event) {
+    struct pollfd pfd;
+
+    pfd.fd = fd;
+    pfd.events = event;
+    return poll(&pfd, 1, -1);
+}
+
 CAMLprim value stub_direct_copy(value handle, value len){
   CAMLparam2(handle, len);
   CAMLlocal1(result);
@@ -138,6 +151,18 @@ CAMLprim value stub_direct_copy(value handle, value len){
     /* If we previously hit exactly the end of the input by accident, we're done. */
     if (bread == 0) break;
     if (bread < 0) {
+        if (errno == EINTR) continue;
+        if (errno == EAGAIN) {
+            if (pollwait(cpinfo->in_fd, POLLIN) < 0) {
+                /* If poll() got interrupted, hitting read() (or, later, write()
+                 * again one extra time to try again is insignificant, and avoids
+                 * another loop */
+                if (errno == EINTR) continue;
+                rc = READ_POLL_FAILED;
+                goto fail;
+            }
+            continue;
+        }
         rc = READ_FAILED;
         goto fail;
     }
@@ -150,6 +175,18 @@ CAMLprim value stub_direct_copy(value handle, value len){
           goto fail;
       }
       if (ret < 0) {
+          if (errno == EINTR) continue;
+          /* If someone passed us a non-blocking FD and we got
+           * EAGAIN, we need to keep trying, because the input FD
+           * could be something we cannot rewind. */
+          if (errno == EAGAIN) {
+              if (pollwait(cpinfo->out_fd, POLLOUT) < 0) {
+                  if (errno == EINTR) continue;
+                  rc = WRITE_POLL_FAILED;
+                  goto fail;
+              }
+              continue;
+          }
           rc = WRITE_FAILED;
           goto fail;
       }
@@ -177,6 +214,12 @@ fail:
       break;
     case WRITE_UNEXPECTED_EOF:
       caml_failwith("direct_copy: Unexpected EOF on write");
+      break;
+    case WRITE_POLL_FAILED:
+      uerror("write poll", Nothing);
+      break;
+    case READ_POLL_FAILED:
+      uerror("read poll", Nothing);
       break;
     case OK:
       break;
