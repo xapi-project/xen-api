@@ -17,12 +17,38 @@ open Xapi_cluster
 (** NOTE: This mock rpc is also used by tests in test_clustering *)
 
 let test_clusterd_rpc ~__context call =
-  let token = "test_token" in
+  let test_token = "test_token" in
   match call.Rpc.name, call.Rpc.params with
   | "create", _ ->
-    Rpc.{success = true; contents = Rpc.String token }
+    Rpc.{success = true; contents = Rpc.String test_token }
   | ("enable" | "disable" | "destroy" | "leave"), _ ->
     Rpc.{success = true; contents = Rpc.Null }
+  | "diagnostics", _ ->
+    let open Cluster_interface in
+    let id = 1l in
+    let me = { addr = IPv4 "192.0.2.1"; id } in
+    let cluster_config = { cluster_name = "xapi-clusterd"
+    ; enabled_members = [ me ]
+    ; authkey = "foo"
+    ; config_version = 1L
+    ; cluster_token_timeout_ms = 20000L
+    ; cluster_token_coefficient_ms = 1000L
+    } in
+    let diag =
+      { config_valid = true
+      ; live_cluster_config = Some cluster_config
+      ; next_cluster_config = Some cluster_config
+      ; saved_cluster_config = Some cluster_config
+      ; is_enabled = true
+      ; all_members = Some [ me ]
+      ; node_id = None
+      ; token = Some test_token
+      ; num_times_booted = 1
+      ; is_quorate = true
+      ; is_running = true
+      ; startup_finished = true } in
+    let contents = Rpcmarshal.marshal Cluster_interface.diagnostics.Rpc.Types.ty diag in
+    Rpc.{success = true; contents }
   | name, params ->
     Alcotest.failf "Unexpected RPC: %s(%s)" name (String.concat " " (List.map Rpc.to_string params))
 
