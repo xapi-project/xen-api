@@ -235,7 +235,7 @@ let assert_cluster_host_quorate ~__context ~self =
   | Result.Ok diag ->
     debug "Local cluster host is quorate: %b" diag.Cluster_interface.is_quorate;
     if not diag.Cluster_interface.is_quorate then
-        raise Api_errors.(Server_error (cluster_host_not_joined, [Ref.string_of self]))
+      raise Api_errors.(Server_error (cluster_host_not_joined, [Ref.string_of self]))
   | Result.Error error ->
     warn "Cannot query cluster host quorate status";
     handle_error error
@@ -250,15 +250,15 @@ let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type
         Db.Cluster.get_cluster_stack ~__context ~self:cluster
       in
       let error_no_cluster_host_found condition =
-        debug "No_cluster_host found%s" condition;
+        debug "No_cluster_host found %s" condition;
         raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
       in
       match find_cluster_host ~__context ~host with
-        | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
-          assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true;
-          assert_cluster_host_quorate ~__context ~self:cluster_host
-        | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
-        | None -> error_no_cluster_host_found ""
+      | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
+        assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true;
+        assert_cluster_host_quorate ~__context ~self:cluster_host
+      | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
+      | None -> error_no_cluster_host_found ""
   end
 
 let is_clustering_disabled_on_host ~__context host =
