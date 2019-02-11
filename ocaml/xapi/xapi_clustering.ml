@@ -37,7 +37,7 @@ let with_clustering_lock where f =
            debug "Function execution finished; returned host-local clustering lock. (%s)" where))
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
-  Db.PIF.get_records_where, and they're just strings there *)
+   Db.PIF.get_records_where, and they're just strings there *)
 let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   debug "Looking up PIF for network %s" (Ref.string_of network);
   let pifs = Db.PIF.get_records_where ~__context
@@ -86,7 +86,7 @@ let handle_error = function
 
 let assert_cluster_host_can_be_created ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) with
+          ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) with
   | [] -> ()
   | _ -> raise Api_errors.(Server_error (internal_error, [ "Cluster host cannot be created because it already exists" ]))
 
@@ -109,13 +109,13 @@ let assert_cluster_stack_valid ~cluster_stack =
 
 let with_clustering_lock_if_needed ~__context ~sr_sm_type where f =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
-    | [] -> f ()
-    | _required_cluster_stacks -> with_clustering_lock where f
+  | [] -> f ()
+  | _required_cluster_stacks -> with_clustering_lock where f
 
 let with_clustering_lock_if_cluster_exists ~__context where f =
   match Db.Cluster.get_all ~__context with
-    | [] -> f ()
-    | _ -> with_clustering_lock where f
+  | [] -> f ()
+  | _ -> with_clustering_lock where f
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
@@ -163,12 +163,12 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
       (Db.Host.get_PBDs ~__context ~self:host) in
   let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
   if List.exists
-    (fun sr ->
-       (* XXX This check is a bit too conservative, because the SR requires
-          only one of these cluster stacks to be configured and running. *)
-       let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
-       List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type)
-    ) srs
+      (fun sr ->
+         (* XXX This check is a bit too conservative, because the SR requires
+            only one of these cluster stacks to be configured and running. *)
+         let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+         List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type)
+      ) srs
   then raise Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
 
 module Daemon = struct
@@ -185,11 +185,11 @@ module Daemon = struct
     let port = (string_of_int !Xapi_globs.xapi_clusterd_port) in
     debug "Enabling and starting the clustering daemon";
     begin try
-      maybe_call_script ~__context systemctl ["cat"; service];
-    with _ ->
-      (* call_script already logged the error *)
-      D.info "No clustering implementation is available";
-      raise Api_errors.(Server_error (not_implemented, [ "Cluster.create" ]))
+        maybe_call_script ~__context systemctl ["cat"; service];
+      with _ ->
+        (* call_script already logged the error *)
+        D.info "No clustering implementation is available";
+        raise Api_errors.(Server_error (not_implemented, [ "Cluster.create" ]))
     end;
     maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
     maybe_call_script ~__context systemctl [ "enable"; service ];
