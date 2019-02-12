@@ -174,7 +174,7 @@ module Sriov = struct
       ) ()
 
   let disable dbg name =
-    Debug.with_thread_associated dbg (fun () ->	
+    Debug.with_thread_associated dbg (fun () ->
         debug "Disable network SR-IOV by name: %s" name;
         match config_sriov ~enable:false name with
         | Ok _ -> (Ok:disable_result)
@@ -200,7 +200,7 @@ module Sriov = struct
       (fun () -> Ip.set_vf_rate dev index 0) rate
 
   let make_vf_config dbg pci_address (vf_info : sriov_pci_t) =
-    Debug.with_thread_associated dbg (fun () ->	
+    Debug.with_thread_associated dbg (fun () ->
         let vlan = Opt.map Int64.to_int vf_info.vlan
         and rate = Opt.map Int64.to_int vf_info.rate
         and pcibuspath = Xcp_pci.string_of_address pci_address in
@@ -486,7 +486,8 @@ module Interface = struct
   let has_vlan dbg name vlan =
     (* Identify the vlan is used by kernel which is unknown to XAPI *)
     Debug.with_thread_associated dbg (fun () ->
-        List.exists (fun (_, v, p) -> v = vlan && p = name) (Proc.get_vlans ())
+        let temp_interfaces = Sysfs.bridge_to_interfaces Network_config.temp_vlan in
+        List.exists (fun (d, v, p) -> v = vlan && p = name && not (List.mem d temp_interfaces)) (Proc.get_vlans ())
       ) ()
 
   let bring_up _ dbg ~name =

@@ -249,7 +249,7 @@ module Sysfs = struct
                  |> (fun p -> try read_one_line p |> duplex_of_string with _ -> Duplex_unknown)
     in (speed, duplex)
 
-  let get_dev_nums_with_same_driver driver = 
+  let get_dev_nums_with_same_driver driver =
     try
       Sys.readdir ("/sys/bus/pci/drivers/" ^ driver)
       |> Array.to_list
@@ -264,7 +264,7 @@ module Sysfs = struct
       Result.Ok devices.(0)
     with _ -> Result.Error (Parent_device_of_vf_not_found, "Can not get parent device for " ^ pcibuspath)
 
-  let get_child_vfs_sysfs_paths dev = 
+  let get_child_vfs_sysfs_paths dev =
     try
       let device_path = getpath dev "device" in
       Result. Ok (
@@ -279,7 +279,7 @@ module Sysfs = struct
     try
       let open Rresult.R.Infix in
       get_child_vfs_sysfs_paths parent_dev >>= fun paths ->
-      let group = 
+      let group =
         List.find (fun x -> Astring.String.is_infix ~affix:pcibuspath (Unix.readlink x)) paths
         |> Re.exec_opt (Re.Perl.compile_pat "virtfn(\\d+)")
       in
@@ -291,25 +291,25 @@ module Sysfs = struct
   let unbind_child_vfs dev =
     let open Rresult.R.Infix in
     let unbind vf_path =
-      let driver_name = 
+      let driver_name =
         try
           Unix.readlink (Filename.concat vf_path "driver")
           |> Filename.basename
-        with _ -> "" 
+        with _ -> ""
       and vf_pcibuspath =
         Unix.readlink vf_path
         |> Filename.basename
       in
       if driver_name = "" then Result.Ok ()  (* not bind to any driver, Ok *)
       else begin
-        debug "unbinding %s from driver %s at %s" vf_path driver_name vf_pcibuspath; 
+        debug "unbinding %s from driver %s at %s" vf_path driver_name vf_pcibuspath;
         let unbind_interface = Filename.concat vf_path "driver/unbind"
         and remove_slot_interface = Filename.concat vf_path "driver/remove_slot" in
         begin try
             write_one_line remove_slot_interface vf_pcibuspath
           with _ -> ()
         end;
-        try 
+        try
           write_one_line unbind_interface vf_pcibuspath; Result.Ok ()
         with _ -> Result.Error (Fail_to_unbind_from_driver, Printf.sprintf "%s: VF Fail to be unbound from driver %s" vf_path driver_name)
       end
@@ -320,7 +320,7 @@ module Sysfs = struct
   let get_sriov_numvfs dev =
     try
       getpath dev "device/sriov_numvfs"
-      |> read_one_line  
+      |> read_one_line
       |> String.trim
       |> int_of_string
     with _ -> 0
@@ -328,7 +328,7 @@ module Sysfs = struct
   let get_sriov_maxvfs dev =
     try
       Ok (getpath dev "device/sriov_totalvfs"
-          |> read_one_line  
+          |> read_one_line
           |> String.trim
           |> int_of_string)
     with _ -> Error (Fail_to_get_maxvfs, "Failed to get maxvfs from sysfs interface for device: " ^ dev)
@@ -501,7 +501,7 @@ module Ip = struct
       ignore (call [mode; "addr"; "flush"; "dev"; dev])
     with _ -> ()
 
-  let del_ip_addr dev (ip, prefixlen) = 
+  let del_ip_addr dev (ip, prefixlen) =
     let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
     try
       Sysfs.assert_exists dev;
@@ -745,8 +745,8 @@ module Dhclient = struct
   let[@warning "-27"] generate_conf ?(ipv6=false) interface options =
     let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
                    "nis-servers"; "ntp-servers"; "interface-mtu"] in
-    let set_gateway = 
-      if List.mem (`gateway interface) options 
+    let set_gateway =
+      if List.mem (`gateway interface) options
       then (debug "%s is the default gateway interface" interface; ["routers"])
       else (debug "%s is NOT the default gateway interface" interface; [])
     in
@@ -769,9 +769,9 @@ module Dhclient = struct
     (* but some buggy DHCP servers ignore this *)
     (* See CA-137892 *)
     let gw_opt = List.fold_left
-        (fun l x -> 
-           match x with 
-           | `gateway y -> ["-e"; "GATEWAYDEV="^y] 
+        (fun l x ->
+           match x with
+           | `gateway y -> ["-e"; "GATEWAYDEV="^y]
            | _ -> l) [] options in
     write_conf_file ~ipv6 interface options;
     let ipv6' = if ipv6 then ["-6"] else [] in
@@ -1090,9 +1090,9 @@ module Ovs = struct
     let get_bridge_vlan_vifs ~name =
       try
         let vlan_fake_bridges = get_vlans name in
-        List.fold_left(fun vifs br -> 
+        List.fold_left(fun vifs br ->
             let vifs' = bridge_to_interfaces br in
-            vifs' @ vifs) [] vlan_fake_bridges 
+            vifs' @ vifs) [] vlan_fake_bridges
       with _ -> []
 
     let get_mcast_snooping_enable ~name =
@@ -1387,20 +1387,20 @@ module Modprobe = struct
       Result.Ok ()
     with _ -> Result.Error (Fail_to_write_modprobe_cfg, "Failed to write modprobe configuration file for: " ^ driver)
 
- (*
-	For a igb driver, the module config file will be at path `/etc/modprobe.d/igb.conf`
-	The module config file is like:
-	# VFs-param: max_vfs
-	# VFs-maxvfs-by-default: 7
-	# VFs-maxvfs-by-user:
-	options igb max_vfs=7,7
+  (*
+    For a igb driver, the module config file will be at path `/etc/modprobe.d/igb.conf`
+    The module config file is like:
+    # VFs-param: max_vfs
+    # VFs-maxvfs-by-default: 7
+    # VFs-maxvfs-by-user:
+    options igb max_vfs=7,7
 
-	Example of calls:
-	"igb" -> "VFs-param" -> Some "max_vfs"
-	"igb" -> "VFs-maxvfs-by-default" -> Some "7"
-	"igb" -> "VFs-maxvfs-by-user" -> None
-	"igb" -> "Not existed comments" -> None
-	*)
+    Example of calls:
+    "igb" -> "VFs-param" -> Some "max_vfs"
+    "igb" -> "VFs-maxvfs-by-default" -> Some "7"
+    "igb" -> "VFs-maxvfs-by-user" -> None
+    "igb" -> "Not existed comments" -> None
+  *)
   let get_config_from_comments driver =
     try
       let open Xapi_stdext_std.Listext in
@@ -1428,12 +1428,12 @@ module Modprobe = struct
     with _ -> None
 
   let get_maxvfs driver config =
-    let get_default_maxvfs config = 
+    let get_default_maxvfs config =
       try
         Some (List.assoc "VFs-maxvfs-by-default" config |> int_of_string)
       with _ -> None
     in
-    let get_user_defined_maxvfs config = 
+    let get_user_defined_maxvfs config =
       try
         Some (List.assoc "VFs-maxvfs-by-user" config |> int_of_string)
       with _ -> None
@@ -1461,8 +1461,8 @@ module Modprobe = struct
     end >>= fun option ->
     let need_rebuild_initrd = ref false in
     let has_probe_conf = ref false in
-    let parse_single_line s = 
-      let parse_driver_options s = 
+    let parse_single_line s =
+      let parse_driver_options s =
         match Astring.String.cut ~sep:"=" s  with
         (* has SR-IOV configuration but the max_vfs is exactly what we want to set, so no changes and return s *)
         | Some (k, v) when k = vf_param && v = option -> has_probe_conf := true; s
@@ -1489,7 +1489,7 @@ module Modprobe = struct
     | true, true ->
       write_conf_file driver new_conf >>= fun () ->
       Dracut.rebuild_initrd ()
-    | false, false -> 
+    | false, false ->
       let new_option_line = Printf.sprintf "options %s %s=%s" driver vf_param option in
       write_conf_file driver (new_conf @ [new_option_line]) >>= fun () ->
       Dracut.rebuild_initrd ()
