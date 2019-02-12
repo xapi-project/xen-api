@@ -23,6 +23,8 @@ exception Write_error
 let empty_config = default_config
 
 let config_file_path = "/var/lib/xcp/networkd.db"
+let temp_vlan = "xentemp"
+
 
 let bridge_naming_convention (device: string) =
   if Astring.String.is_prefix ~affix:"eth" device
@@ -56,7 +58,7 @@ let read_management_conf () =
             (* At this point, we don't know what the VLAN bridge name will be,
              * so use a temporary name. Xapi will replace the bridge once the name
              * has been decided on. *)
-            "xentemp"
+            temp_vlan
         in
         debug "No management bridge in inventory file... using %s" bridge;
         bridge

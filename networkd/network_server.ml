@@ -486,7 +486,7 @@ module Interface = struct
   let has_vlan dbg name vlan =
     (* Identify the vlan is used by kernel which is unknown to XAPI *)
     Debug.with_thread_associated dbg (fun () ->
-        let temp_interfaces = Sysfs.bridge_to_interfaces "xentemp" in
+        let temp_interfaces = Sysfs.bridge_to_interfaces Network_config.temp_vlan in
         List.exists (fun (d, v, p) -> v = vlan && p = name && not (List.mem d temp_interfaces)) (Proc.get_vlans ())
       ) ()
 
