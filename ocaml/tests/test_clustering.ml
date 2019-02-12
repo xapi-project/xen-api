@@ -162,6 +162,8 @@ let test_assert_cluster_host_enabled =
 
 let make_scenario ?(cluster_host=(Some true)) () =
   let __context = T.make_test_database () in
+  Context.set_test_rpc __context (Test_cluster.test_rpc ~__context);
+  Context.set_test_clusterd_rpc __context (Test_cluster.test_clusterd_rpc ~__context);
   let host = Db.Host.get_all ~__context |> List.hd in
   let cluster, cluster_host = match cluster_host with
     | None -> Ref.null, Ref.null
@@ -173,6 +175,7 @@ let make_scenario ?(cluster_host=(Some true)) () =
   in
   let _sm_1 : _ API.Ref.t= T.make_sm ~__context ~_type:"gfs2" ~required_cluster_stack:[default_stack] () in
   let _sm_2 : _ API.Ref.t= T.make_sm ~__context ~_type:"lvm" ~required_cluster_stack:[] () in
+  Xapi_clustering.Daemon.enable __context;
   __context, host, cluster, cluster_host
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled () =

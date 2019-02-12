@@ -37,7 +37,7 @@ let with_clustering_lock where f =
            debug "Function execution finished; returned host-local clustering lock. (%s)" where))
 
 (* Note we have to add type annotations to network/host here because they're only used in the context of
-  Db.PIF.get_records_where, and they're just strings there *)
+   Db.PIF.get_records_where, and they're just strings there *)
 let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   debug "Looking up PIF for network %s" (Ref.string_of network);
   let pifs = Db.PIF.get_records_where ~__context
@@ -86,7 +86,7 @@ let handle_error = function
 
 let assert_cluster_host_can_be_created ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) with
+          ~expr:Db_filter_types.(Eq(Literal (Ref.string_of host),Field "host")) with
   | [] -> ()
   | _ -> raise Api_errors.(Server_error (internal_error, [ "Cluster host cannot be created because it already exists" ]))
 
@@ -109,13 +109,13 @@ let assert_cluster_stack_valid ~cluster_stack =
 
 let with_clustering_lock_if_needed ~__context ~sr_sm_type where f =
   match get_required_cluster_stacks ~__context ~sr_sm_type with
-    | [] -> f ()
-    | _required_cluster_stacks -> with_clustering_lock where f
+  | [] -> f ()
+  | _required_cluster_stacks -> with_clustering_lock where f
 
 let with_clustering_lock_if_cluster_exists ~__context where f =
   match Db.Cluster.get_all ~__context with
-    | [] -> f ()
-    | _ -> with_clustering_lock where f
+  | [] -> f ()
+  | _ -> with_clustering_lock where f
 
 let find_cluster_host ~__context ~host =
   match Db.Cluster_host.get_refs_where ~__context
@@ -147,26 +147,6 @@ let assert_cluster_host_enabled ~__context ~self ~expected =
     | true  -> raise Api_errors.(Server_error(clustering_disabled, [Ref.string_of self]))
     | false -> raise Api_errors.(Server_error(clustering_enabled, [Ref.string_of self]))
 
-let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type =
-  begin match get_required_cluster_stacks ~__context ~sr_sm_type with
-    | [] -> ()
-    | required_cluster_stacks ->
-      (* One of these [required_cluster_stacks] should be configured and running *)
-      let cluster_stack_of ~cluster_host =
-        let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
-        Db.Cluster.get_cluster_stack ~__context ~self:cluster
-      in
-      let error_no_cluster_host_found condition =
-        debug "No_cluster_host found%s" condition;
-        raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
-      in
-      match find_cluster_host ~__context ~host with
-        | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
-          assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true
-        | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
-        | None -> error_no_cluster_host_found ""
-  end
-
 (* certain cluster_host operations (such as enable, disable) must run on the host on which it is
    operating on in order to work correctly, as they must communicate directly to the local
    xapi-clusterd daemon running on the target host *)
@@ -183,12 +163,12 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__conte
       (Db.Host.get_PBDs ~__context ~self:host) in
   let srs = List.map (fun pbd -> Db.PBD.get_SR ~__context ~self:pbd) pbds in
   if List.exists
-    (fun sr ->
-       (* XXX This check is a bit too conservative, because the SR requires
-          only one of these cluster stacks to be configured and running. *)
-       let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
-       List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type)
-    ) srs
+      (fun sr ->
+         (* XXX This check is a bit too conservative, because the SR requires
+            only one of these cluster stacks to be configured and running. *)
+         let sr_sm_type = Db.SR.get_type ~__context ~self:sr in
+         List.mem cluster_stack (get_required_cluster_stacks ~__context ~sr_sm_type)
+      ) srs
   then raise Api_errors.(Server_error (cluster_stack_in_use, [ cluster_stack ]))
 
 module Daemon = struct
@@ -205,11 +185,11 @@ module Daemon = struct
     let port = (string_of_int !Xapi_globs.xapi_clusterd_port) in
     debug "Enabling and starting the clustering daemon";
     begin try
-      maybe_call_script ~__context systemctl ["cat"; service];
-    with _ ->
-      (* call_script already logged the error *)
-      D.info "No clustering implementation is available";
-      raise Api_errors.(Server_error (not_implemented, [ "Cluster.create" ]))
+        maybe_call_script ~__context systemctl ["cat"; service];
+      with _ ->
+        (* call_script already logged the error *)
+        D.info "No clustering implementation is available";
+        raise Api_errors.(Server_error (not_implemented, [ "Cluster.create" ]))
     end;
     maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
     maybe_call_script ~__context systemctl [ "enable"; service ];
@@ -240,6 +220,46 @@ let rpc ~__context =
   | Some rpc -> fun req -> rpc req |> Idl.IdM.return
   | None ->
     Cluster_client.rpc (fun () -> failwith "Can only communicate with xapi-clusterd through message-switch")
+
+let assert_cluster_host_quorate ~__context ~self =
+  (* With the latest kernel GFS2 would hang on mount if clustering is not working yet,
+   * whereas previously we got a 'Transport endpoint not connected' error.
+   * Ensure that we are quorate now: even if we have enabled the cluster host we may not have
+   * achieved quorum yet if we have just booted and haven't seen enough hosts.
+   * Do this via an API call rather than reading a field in the database, because the field in the
+   * database could be out of date.
+   * *)
+  let result = Cluster_client.LocalClient.diagnostics (rpc ~__context) "assert_cluster_host_quorate"
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Result.Ok diag ->
+    debug "Local cluster host is quorate: %b" diag.Cluster_interface.is_quorate;
+    if not diag.Cluster_interface.is_quorate then
+      raise Api_errors.(Server_error (cluster_host_not_joined, [Ref.string_of self]))
+  | Result.Error error ->
+    warn "Cannot query cluster host quorate status";
+    handle_error error
+
+let assert_cluster_host_is_enabled_for_matching_sms ~__context ~host ~sr_sm_type =
+  begin match get_required_cluster_stacks ~__context ~sr_sm_type with
+    | [] -> ()
+    | required_cluster_stacks ->
+      (* One of these [required_cluster_stacks] should be configured and running *)
+      let cluster_stack_of ~cluster_host =
+        let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
+        Db.Cluster.get_cluster_stack ~__context ~self:cluster
+      in
+      let error_no_cluster_host_found condition =
+        debug "No_cluster_host found %s" condition;
+        raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+      in
+      match find_cluster_host ~__context ~host with
+      | Some cluster_host when (List.mem (cluster_stack_of ~cluster_host) required_cluster_stacks) ->
+        assert_cluster_host_enabled ~__context ~self:cluster_host ~expected:true;
+        assert_cluster_host_quorate ~__context ~self:cluster_host
+      | Some _ -> error_no_cluster_host_found " with matching cluster_stack"
+      | None -> error_no_cluster_host_found ""
+  end
 
 let is_clustering_disabled_on_host ~__context host =
   match find_cluster_host ~__context ~host with
