@@ -25,7 +25,6 @@ type context = unit
 let network_conf = ref "/etc/xcp/network.conf"
 let config : config_t ref = ref Network_config.empty_config
 let backend_kind = ref Openvswitch
-let enic_workaround_until_version = ref "2.3.0.30"
 
 let legacy_management_interface_start () =
   try
@@ -95,30 +94,12 @@ let set_dns_interface _dbg name =
   debug "Setting DNS interface to %s" name;
   config := {!config with dns_interface = Some name}
 
-(* Returns `true` if vs1 is older than vs2 *)
-let is_older_version vs1 vs2 () =
-  try
-    let list_of_version vs = List.map int_of_string (Astring.String.cuts ~empty:false ~sep:"." vs) in
-    let rec loop vs1' vs2' =
-      match vs1', vs2' with
-      | [], _ | _, [] -> false
-      | a :: _, b :: _ when a < b -> true
-      | _ :: tl1, _ :: tl2 -> loop tl1 tl2
-    in
-    loop (list_of_version vs1) (list_of_version vs2)
-  with _ ->
-    warn "Failed to compare driver version.";
-    false
-
 (* The enic driver is for Cisco UCS devices. The current driver adds VLAN0 headers
  * to all incoming packets, which confuses certain guests OSes. The workaround
  * constitutes adding a VLAN0 Linux device to strip those headers again.
 *)
 let need_enic_workaround () =
-  !backend_kind = Bridge && List.mem "enic" (Sysfs.list_drivers ()) && (!enic_workaround_until_version <> "") && (
-    match Sysfs.get_driver_version "enic" () with
-    | Some vs -> (is_older_version vs !enic_workaround_until_version ())
-    | None -> false )
+  !backend_kind = Bridge && List.mem "enic" (Sysfs.list_drivers ())
 
 module Sriov = struct
   open S.Sriov

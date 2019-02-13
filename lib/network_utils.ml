@@ -123,13 +123,6 @@ module Sysfs = struct
       warn "Failed to obtain list of drivers from sysfs";
       []
 
-  let get_driver_version driver () =
-    try
-      Some (String.trim (Xapi_stdext_unix.Unixext.string_of_file ("/sys/bus/pci/drivers/" ^ driver ^ "/module/version")))
-    with _ ->
-      warn "Failed to obtain driver version from sysfs";
-      None
-
   let getpath dev attr =
     Printf.sprintf "/sys/class/net/%s/%s" dev attr
 
