@@ -749,6 +749,9 @@ module HOST = struct
          features_pv.(3)  <- Int64.logor features_pv.(3)  0x2L;
          features_hvm.(3) <- Int64.logor features_hvm.(3) 0x2L;
 
+         (* Set X86_FEATURE_IBS in e1c for HVM guests *)
+         features_hvm.(3) <- Int64.logor features_hvm.(3) 0x400L;
+
          let v = version xc in
          let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
          let xen_capabilities = version_capabilities xc in
