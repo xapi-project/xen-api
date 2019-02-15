@@ -71,7 +71,7 @@ let start path handler =
   with_fd fd_sock ~callback:(fun _ -> loop ())
 
 
-let proxy (fd : Lwt_unix.file_descr) protocol localport =
+let proxy (fd : Lwt_unix.file_descr) addr protocol =
   let open LwtWsIteratee in
   let open Lwt_support in
   begin match protocol with
@@ -85,7 +85,7 @@ let proxy (fd : Lwt_unix.file_descr) protocol localport =
       Lwt_log.warning_f "Unknown protocol, fallback to hybi10" >>= fun () ->
       Lwt.return (wsframe, wsunframe) 
   end >>= fun (frame,unframe) ->
-  with_open_connection_fd "localhost" localport ~callback:(fun localfd ->
+  with_open_connection_fd addr ~callback:(fun localfd ->
       let session_id = Uuidm.v `V4 |> Uuidm.to_string in
       Lwt_log.debug_f "Starting proxy session %s" session_id >>= fun () ->
       let thread1 =
@@ -100,13 +100,23 @@ let proxy (fd : Lwt_unix.file_descr) protocol localport =
       >>= fun () -> Lwt_log.debug_f "Closing proxy session %s" session_id)
 
 
+module RX = struct
+  let socket = Re.Str.regexp "^/var/run/xen/vnc-[0-9]+$"
+  let port   = Re.Str.regexp "^[0-9]+$"
+end
+
 let handler sock msg =
   Lwt_log.debug_f "Got msg: %s" msg >>= fun () ->
   match Re.Str.(split @@ regexp "[:]") msg with
+  | [protocol;_;path]
+  | [protocol;path] when Re.Str.string_match RX.socket path 0 ->
+    let addr = Unix.ADDR_UNIX path in
+    proxy sock addr protocol
   | [protocol;_;sport]
-  | [protocol;sport] ->
-    let port = int_of_string sport in
-    proxy sock protocol port
+  | [protocol;sport] when Re.Str.string_match RX.port sport 0 ->
+    let localhost = Unix.inet_addr_loopback in
+    let addr = Unix.ADDR_INET(localhost, int_of_string sport) in
+    proxy sock addr protocol
   | _ -> Lwt_log.warning "Malformed msg: not proxying"
 
 

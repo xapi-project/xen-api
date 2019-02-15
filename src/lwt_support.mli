@@ -35,10 +35,12 @@ val with_fd: Lwt_unix.file_descr
   -> callback:(Lwt_unix.file_descr -> 'a Lwt.t)
   -> 'a Lwt.t
 
-(** Given a host and a port, open a TCP connection and execute the function 
-    [callback] passing it the connected file descriptor, ensuring to close
-    the file descriptor when returning.
-    The function can fail with Unix exceptions and Host_not_found. *)
-val with_open_connection_fd : string -> int
+(** Given socket, open a connection and execute the function
+    [callback] passing it the connected file descriptor, ensuring to
+    close the file descriptor when returning.  The function can fail
+    with Unix exceptions and Host_not_found. *)
+
+val with_open_connection_fd : Unix.sockaddr
   -> callback:(Lwt_unix.file_descr -> 'a Lwt.t)
   -> 'a Lwt.t
+

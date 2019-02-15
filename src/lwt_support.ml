@@ -57,15 +57,10 @@ let with_fd fd ~callback =
     (* The Lwt.catch below prevents errors on double close of the fd. *)
     (fun () -> Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit))
 
-let with_open_connection_fd host port ~callback =
-  Lwt_unix.gethostbyname host >>= fun he ->
-  if (Array.length he.Lwt_unix.h_addr_list) = 0
-  then Lwt.fail (Host_not_found host)
-  else
-    let ip = he.Unix.h_addr_list.(0) in
-    let addr = Unix.ADDR_INET(ip, port) in
-    let s = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
-    with_fd s ~callback:(fun fd -> 
+let with_open_connection_fd addr ~callback =
+  let s = Lwt_unix.(socket (Unix.domain_of_sockaddr addr) SOCK_STREAM 0) in
+  with_fd s ~callback:(fun fd ->
         Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
         Lwt_unix.connect fd addr >>= fun () ->
         callback fd)
+
