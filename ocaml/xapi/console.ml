@@ -90,7 +90,7 @@ let ensure_proxy_running () =
   end
 
 let ws_proxy __context req protocol address s =
-  let port = match address with
+  let addr = match address with
     | Port p -> string_of_int p
     | Path p -> p
   in
@@ -127,7 +127,7 @@ let ws_proxy __context req protocol address s =
               let wsprotocol = match ty with
                 | Ws_helpers.Hixie76 -> "hixie76"
                 | Ws_helpers.Hybi10 -> "hybi10" in
-              let message = Printf.sprintf "%s:%s:%s" wsprotocol protocol port  in
+              let message = Printf.sprintf "%s:%s:%s" wsprotocol protocol addr in
               let len = String.length message in
               ignore(Unixext.send_fd_substring sock message 0 len [] s)
             end
