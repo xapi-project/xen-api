@@ -260,7 +260,7 @@ let update_pcpus xc =
     ) ([], 0) newinfos in
   let sum_array = Array.fold_left (fun acc v -> Int64.add acc v) 0L newinfos in
   let avg_array = Int64.to_float sum_array /. (float_of_int len_newinfos) in
-  let avgcpu_ds = (Host, ds_make 
+  let avgcpu_ds = (Host, ds_make
                      ~name:"cpu_avg" ~units:"(fraction)"
                      ~description:"Average physical cpu usage"
                      ~value:(Rrd.VT_Float (avg_array /. 1.0e9)) ~min:0.0 ~max:1.0
@@ -554,7 +554,7 @@ module Discover: DISCOVER = struct
   let directory = Rrdd_server.Plugin.base_path
 
   (** [is_valid f] is true, if [f] is a filename for an RRD file.
-      	 *  Currently we only ignore *.tmp files *)
+   *  Currently we only ignore *.tmp files *)
   let is_valid file =
     not @@ Filename.check_suffix file ".tmp"
 
@@ -566,10 +566,10 @@ module Discover: DISCOVER = struct
       |> String.concat ","
 
   (* [register file] is called when we found a new file in the watched
-     	 * directory. We do not verify that this is a proper RRD file.
-     	 * [file] is not a complete path but just the basename of the file.
-     	 * This corresponds to how the file is used by the Plugin module,
-     	 * *)
+   * directory. We do not verify that this is a proper RRD file.
+   * [file] is not a complete path but just the basename of the file.
+   * This corresponds to how the file is used by the Plugin module,
+   * *)
   let register file =
     info "RRD plugin %s discovered - registering it" file;
     let info  = Rrd.Five_Seconds in
@@ -578,14 +578,14 @@ module Discover: DISCOVER = struct
     |> ignore (* seconds until next reading phase *)
 
   (* [deregister file] is called when a file is removed from the watched
-     	 * directory *)
+   * directory *)
   let deregister file =
     info "RRD plugin - de-registering %s" file;
     Rrdd_server.Plugin.Local.deregister file
 
   (* Here we dispatch over all events that we receive. Note that
-     	 * [Inotify.read] blocks until an event becomes available. Hence, this
-     	 * code needs to run in its own thread. *)
+   * [Inotify.read] blocks until an event becomes available. Hence, this
+   * code needs to run in its own thread. *)
   let watch dir =
     let fd          = Inotify.create () in
     let selectors   =
@@ -694,9 +694,9 @@ let _ =
 
   debug "Starting the HTTP server ..";
   (* Eventually we should switch over to xcp_service to declare our services,
-     	   but since it doesn't support HTTP GET and PUT we keep the old code for now.
-     	   We must avoid creating the Unix domain socket twice, so we only call
-     	   Xcp_service.serve_forever if we are actually using the message-switch. *)
+   * but since it doesn't support HTTP GET and PUT we keep the old code for now.
+   * We must avoid creating the Unix domain socket twice, so we only call
+   * Xcp_service.serve_forever if we are actually using the message-switch. *)
   let (_: Thread.t) =
     Thread.create (fun () ->
         if !Xcp_client.use_switch then begin
