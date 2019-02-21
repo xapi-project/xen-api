@@ -305,10 +305,10 @@ let update_memory _xc doms =
     ) [] doms
 
 let update_loadavg () =
-  Host, ds_make ~name:"loadavg" ~units:"(fraction)"
+  [(Host, ds_make ~name:"loadavg" ~units:"(fraction)"
     ~description:"Domain0 loadavg"
     ~value:(Rrd.VT_Float (Rrdd_common.loadavg ()))
-    ~ty:Rrd.Gauge ~default:true ()
+    ~ty:Rrd.Gauge ~default:true ())]
 
 (*****************************************************)
 (* network related code                              *)
@@ -489,7 +489,7 @@ let generate_all_dom0_stats xc timestamp domains uuid_domids =
       handle_exn "update_netdev" (fun _ -> update_netdev domains) [];
       handle_exn "cache_stats" (fun _ -> read_cache_stats timestamp) [];
       handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
-      handle_exn "update_loadavg" (fun _ -> [update_loadavg ()]) [];
+      handle_exn "update_loadavg" (fun _ -> update_loadavg ()) [];
       handle_exn "update_memory" (fun _ -> update_memory xc domains) []
     ]
 
