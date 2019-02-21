@@ -182,13 +182,10 @@ module Watcher = WatchXenstore(Meminfo)
 (* cpu related code                                  *)
 (*****************************************************)
 
-(* This function is used both for getting vcpu stats and for getting the uuids
- * of the VMs present on this host. *)
-let update_vcpus xc doms =
-  List.fold_left (fun (dss, uuid_domids, domids) dom ->
-      let domid = dom.Xenctrl.domid in
+(* This function is used for getting vcpu stats of the VMs present on this host. *)
+let update_vcpus xc doms uuid_domids =
+  List.fold_left (fun dss (dom, (uuid, domid)) ->
       let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
-      let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
 
       let rec cpus i dss =
         if i >= maxcpus then dss else
@@ -233,11 +230,10 @@ let update_vcpus xc doms =
           dss
       in
       try
-        let dss = cpus 0 dss in
-        (dss, (uuid, domid)::uuid_domids, domid::domids)
+        cpus 0 dss
       with _ ->
-        (dss, uuid_domids, domid::domids)
-    ) ([], [], []) doms
+        dss
+    ) [] (List.combine doms uuid_domids)
 
 let physcpus = ref [| |]
 
@@ -473,19 +469,23 @@ let domain_snapshot xc =
          let first = String.sub uuid 0 18 in
          not (List.mem first uuid_blacklist))
       (Xenctrl.domain_getinfolist xc 0) in
+  let uuid_domid_of_domain dom =
+    let domid = dom.Xenctrl.domid
+    and uuid = uuid_of_domain dom in
+    (uuid, domid), domid in
+  let uuid_domids, domids = List.split (List.map uuid_domid_of_domain domains) in
   let timestamp = Unix.gettimeofday () in
   let domain_paused d = d.Xenctrl.paused in
   let my_paused_domain_uuids =
     List.map uuid_of_domain (List.filter domain_paused domains) in
-  let vcpus, uuid_domids, domids = update_vcpus xc domains in
   Hashtblext.remove_other_keys memory_targets domids;
-  timestamp, domains, uuid_domids, vcpus, my_paused_domain_uuids
+  timestamp, domains, uuid_domids, my_paused_domain_uuids
 
-let generate_all_dom0_stats xc timestamp domains uuid_domids vcpus =
+let generate_all_dom0_stats xc timestamp domains uuid_domids =
   List.concat [
       handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
       handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
-      vcpus;
+      handle_exn "update_vcpus" (fun _ -> update_vcpus xc domains uuid_domids) [];
       handle_exn "update_netdev" (fun _ -> update_netdev domains) [];
       handle_exn "cache_stats" (fun _ -> read_cache_stats timestamp) [];
       handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
@@ -498,8 +498,8 @@ let write_dom0_stats xc = ()
 let do_monitor_write xc =
   Rrdd_libs.Stats.time_this "monitor"
     (fun _ ->
-       let timestamp, domains, uuid_domids, vcpus, my_paused_vms = domain_snapshot xc in
-       let dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids vcpus in
+       let timestamp, domains, uuid_domids, my_paused_vms = domain_snapshot xc in
+       let dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids in
        write_dom0_stats xc;
        let plugins_stats = Rrdd_server.Plugin.read_stats () in
        let stats = List.rev_append plugins_stats dom0_stats in
