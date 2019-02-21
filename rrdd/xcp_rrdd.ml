@@ -15,9 +15,9 @@
 (*
  * This is the entry point of the RRD daemon. It is responsible for binding
  * the daemon's interface to a file descriptor (used by RRD daemon client),
- * creating a daemon thread (that executes the monitoring code), and starting
- * the monitor_dbcalls thread, which updates the central database with
- * up-to-date performance metrics.
+ * creating a daemon thread (that executes the monitoring and file-writing code),
+ * and starting the monitor_dbcalls thread, which updates the central database
+ * with up-to-date performance metrics.
  *
  * Invariants:
  * 1) xapi depends on rrdd, and not vice-versa.
@@ -463,7 +463,7 @@ let uuid_blacklist = [
   "00000000-0000-0000";
   "deadbeef-dead-beef" ]
 
-let read_all_dom0_stats xc =
+let domain_snapshot xc =
   let uuid_of_domain d =
     Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
   let domains =
@@ -477,6 +477,11 @@ let read_all_dom0_stats xc =
   let domain_paused d = d.Xenctrl.paused in
   let my_paused_domain_uuids =
     List.map uuid_of_domain (List.filter domain_paused domains) in
+  let vcpus, uuid_domids, domids = update_vcpus xc domains in
+  Hashtblext.remove_other_keys memory_targets domids;
+  timestamp, domains, uuid_domids, vcpus, my_paused_domain_uuids
+
+let generate_all_dom0_stats xc timestamp domains uuid_domids vcpus =
   let vifs =
     try update_netdev domains
     with e ->
@@ -484,9 +489,7 @@ let read_all_dom0_stats xc =
         (Printexc.to_string e);
       []
   in
-  let vcpus, uuid_domids, domids = update_vcpus xc domains in
-  Hashtblext.remove_other_keys memory_targets domids;
-  let real_stats = List.concat [
+  List.concat [
       handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
       handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
       vcpus;
@@ -495,33 +498,35 @@ let read_all_dom0_stats xc =
       handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
       handle_exn "update_loadavg" (fun _ -> [update_loadavg ()]) [];
       handle_exn "update_memory" (fun _ -> update_memory xc domains) []
-    ] in
-  real_stats, uuid_domids, timestamp, my_paused_domain_uuids
+    ]
 
-let do_monitor xc =
+let write_dom0_stats xc = ()
+
+let do_monitor_write xc =
   Rrdd_libs.Stats.time_this "monitor"
     (fun _ ->
-       let dom0_stats, uuid_domids, timestamp, my_paused_vms =
-         read_all_dom0_stats xc in
+       let timestamp, domains, uuid_domids, vcpus, my_paused_vms = domain_snapshot xc in
+       let dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids vcpus in
+       write_dom0_stats xc;
        let plugins_stats = Rrdd_server.Plugin.read_stats () in
        let stats = List.rev_append plugins_stats dom0_stats in
        Rrdd_stats.print_snapshot ();
        Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
     )
 
-let monitor_loop () =
-  Debug.with_thread_named "monitor" (fun () ->
+let monitor_write_loop () =
+  Debug.with_thread_named "monitor_write" (fun () ->
       Xenctrl.with_intf (fun xc ->
           while true
           do
             try
-              do_monitor xc;
+              do_monitor_write xc;
               Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
                 );
               Thread.delay !Rrdd_shared.timeslice
             with _ ->
-              debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
+              debug "Monitor/write thread caught an exception. Pausing for 10s, then restarting.";
               log_backtrace ();
               Thread.delay 10.
           done
@@ -724,7 +729,7 @@ let _ =
   debug "Creating monitoring loop thread ..";
   let () =
     try
-      Debug.with_thread_associated "main" monitor_loop ()
+      Debug.with_thread_associated "main" monitor_write_loop ()
     with _ ->
       error "monitoring loop thread has failed" in
 
