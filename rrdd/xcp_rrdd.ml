@@ -482,18 +482,11 @@ let domain_snapshot xc =
   timestamp, domains, uuid_domids, vcpus, my_paused_domain_uuids
 
 let generate_all_dom0_stats xc timestamp domains uuid_domids vcpus =
-  let vifs =
-    try update_netdev domains
-    with e ->
-      debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s"
-        (Printexc.to_string e);
-      []
-  in
   List.concat [
       handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
       handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
       vcpus;
-      vifs;
+      handle_exn "update_netdev" (fun _ -> update_netdev domains) [];
       handle_exn "cache_stats" (fun _ -> read_cache_stats timestamp) [];
       handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
       handle_exn "update_loadavg" (fun _ -> [update_loadavg ()]) [];
