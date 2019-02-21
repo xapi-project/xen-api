@@ -572,48 +572,43 @@ module Bridge = struct
         | Bridge -> Sysfs.get_all_bridges ()
       ) ()
 
-  let destroy_existing_vlan_bridge name (parent, vlan) =
-    begin match !backend_kind with
-      | Openvswitch ->
-        let bridges =
-          let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
-          if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) else []
-        in
-        let existing_bridges =
-          List.filter ( fun bridge ->
-              match Ovs.bridge_to_vlan bridge with
-              | Some (p, v) -> p = parent && v = vlan
-              | None -> false
-            ) bridges in
-        List.iter (fun bridge ->
-            if bridge <> name then begin
-              debug "Destroying existing bridge %s" bridge;
-              remove_config bridge;
-              ignore (Ovs.destroy_bridge bridge)
-            end
-          ) existing_bridges
-      | Bridge ->
-        let ifaces = Sysfs.bridge_to_interfaces parent in
-        let existing_bridges =
-          match List.filter (fun (_, tag, iface) -> tag = vlan && List.mem iface ifaces) (Proc.get_vlans ()) with
-          | [] -> []
-          | (vlan_iface, _, _) :: _ ->
-            List.filter (fun bridge ->
-                List.mem vlan_iface (Sysfs.bridge_to_interfaces bridge)
-              ) (Sysfs.get_all_bridges ())
-        in
-        List.iter (fun bridge ->
-            if bridge <> name then begin
-              debug "Destroying existing bridge %s" bridge;
-              Interface.bring_down "Destroying existing bridge" bridge;
-              remove_config bridge;
-              List.iter (fun dev ->
-                  Brctl.destroy_port bridge dev;
-                ) (Sysfs.bridge_to_interfaces bridge);
-              ignore (Brctl.destroy_bridge bridge)
-            end
-          ) existing_bridges
-    end
+  (* Destroy any existing OVS bridge that isn't the "wanted bridge" and has the
+   * given VLAN on it. *)
+  let destroy_existing_vlan_ovs_bridge wanted_bridge (parent, vlan) =
+    let vlan_bridges =
+      let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
+      if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) else []
+    in
+    let existing_bridges =
+      List.filter ( fun bridge ->
+          match Ovs.bridge_to_vlan bridge with
+          | Some (p, v) -> p = parent && v = vlan
+          | None -> false
+        ) vlan_bridges in
+    List.iter (fun bridge ->
+        if bridge <> wanted_bridge then begin
+          debug "Destroying existing bridge %s" bridge;
+          remove_config bridge;
+          ignore (Ovs.destroy_bridge bridge)
+        end
+      ) existing_bridges
+
+  (* Destroy any existing Linux bridge that isn't the "wanted bridge" and has the
+   * given VLAN on it. *)
+  let destroy_existing_vlan_linux_bridge dbg wanted_bridge vlan_device =
+    List.iter (fun bridge ->
+      if bridge <> wanted_bridge then
+        let ifaces_on_bridge = Sysfs.bridge_to_interfaces bridge in
+        if List.mem vlan_device ifaces_on_bridge then begin
+          debug "Destroying existing bridge %s" bridge;
+          Interface.bring_down dbg bridge;
+          remove_config bridge;
+          List.iter (fun dev ->
+              Brctl.destroy_port bridge dev;
+            ) ifaces_on_bridge;
+          ignore (Brctl.destroy_bridge bridge)
+        end
+    ) (Sysfs.get_all_bridges ())
 
   let create dbg vlan mac igmp_snooping other_config name =
     Debug.with_thread_associated dbg (fun () ->
@@ -624,7 +619,6 @@ module Bridge = struct
             | None -> ""
             | Some (parent, vlan) -> Printf.sprintf " (VLAN %d on bridge %s)" vlan parent
           );
-        Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_bridge name) vlan;
         update_config name {(get_config name) with vlan; bridge_mac=mac; igmp_snooping; other_config};
         begin match !backend_kind with
           | Openvswitch ->
@@ -668,6 +662,7 @@ module Bridge = struct
                    None)
             in
             let old_igmp_snooping = Ovs.get_mcast_snooping_enable ~name in
+            Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_ovs_bridge name) vlan;
             ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band ?igmp_snooping
                       vlan vlan_bug_workaround name);
             if igmp_snooping = Some true && not old_igmp_snooping then
@@ -696,6 +691,7 @@ module Bridge = struct
                   parent_bridge_interface
               in
               let vlan_name = Ip.vlan_name parent_interface vlan in
+              destroy_existing_vlan_linux_bridge dbg name vlan_name;
               (* Check if the VLAN is already in use by something else *)
               List.iter (fun (device, vlan', parent') ->
                   (* A device for the same VLAN (parent + tag), but with a different
