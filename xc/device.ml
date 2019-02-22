@@ -2319,7 +2319,12 @@ module Backend = struct
     module Monitor = struct
       module Epoll = Core.Linux_ext.Epoll
       module Flags = Core.Linux_ext.Epoll.Flags
-      let create () = (Core.Or_error.ok_exn Epoll.create) ~num_file_descrs:1001 ~max_ready_events:1
+      let num_file_descrs =
+        match Core.Unix.RLimit.((get num_file_descriptors).cur) with
+        | Core.Unix.RLimit.Limit v -> Int64.to_int v
+        | Core.Unix.RLimit.Infinity -> raise (Xenopsd_error (Internal_error "Got infinity fds error"))
+      let () = debug "File descriptor limit is: %d" num_file_descrs
+      let create () = (Core.Or_error.ok_exn Epoll.create) ~num_file_descrs ~max_ready_events:1
       let add m fd = Epoll.set m fd Flags.in_
       let remove m fd = Epoll.remove m fd
       let wait m = Epoll.wait m ~timeout:`Never
