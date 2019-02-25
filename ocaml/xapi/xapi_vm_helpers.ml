@@ -345,11 +345,6 @@ let vm_needs_iommu ~__context ~self =
     (fun vgpu -> Xapi_vgpu.requires_passthrough ~__context ~self:vgpu <> None)
     (Db.VM.get_VGPUs ~__context ~self)
 
-let vm_needs_pviommu ~__context ~self =
-  List.exists
-    (fun vgpu -> Xapi_vgpu.requires_passthrough ~__context ~self:vgpu = None)
-    (Db.VM.get_VGPUs ~__context ~self)
-
 let assert_host_has_iommu ~__context ~host =
   let chipset_info = Db.Host.get_chipset_info ~__context ~self:host in
   if List.assoc "iommu" chipset_info <> "true" then

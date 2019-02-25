@@ -94,10 +94,6 @@ val assert_startup_complete : unit -> unit
 (** [assert_startup_complete ()] will raise `host_still_booting` if the startup
     sequence is not yet complete. *)
 
-val assert_host_pviommu_ready : unit -> unit
-(** [assert_host_pviommu_ready ()] will raise `host_still_booting` if the pviommu
-    is not ready acccording to /sys/kernel/pv_iommu_ready. *)
-
 module Host_requires_reboot : sig
   val set : unit -> unit
   (** [set ()] is used to signal the host needs a reboot. This could be, for
