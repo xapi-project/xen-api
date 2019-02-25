@@ -494,8 +494,8 @@ let dom0_stat_generators = [
 
 let generate_all_dom0_stats xc timestamp domains uuid_domids =
   let handle_generator (name, generator) =
-    handle_exn name (fun _ -> generator xc timestamp domains uuid_domids) [] in
-  List.concat (List.map handle_generator dom0_stat_generators)
+    (name, handle_exn name (fun _ -> generator xc timestamp domains uuid_domids) []) in
+  List.map handle_generator dom0_stat_generators
 
 let write_dom0_stats xc = ()
 
@@ -503,8 +503,9 @@ let do_monitor_write xc =
   Rrdd_libs.Stats.time_this "monitor"
     (fun _ ->
        let timestamp, domains, uuid_domids, my_paused_vms = domain_snapshot xc in
-       let dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids in
+       let tagged_dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids in
        write_dom0_stats xc;
+       let dom0_stats = List.concat (List.map snd tagged_dom0_stats) in
        let plugins_stats = Rrdd_server.Plugin.read_stats () in
        let stats = List.rev_append plugins_stats dom0_stats in
        Rrdd_stats.print_snapshot ();
