@@ -481,17 +481,21 @@ let domain_snapshot xc =
   Hashtblext.remove_other_keys memory_targets domids;
   timestamp, domains, uuid_domids, my_paused_domain_uuids
 
+let dom0_stat_generators = [
+  "ha_stats", (fun _ _ _ _ -> Rrdd_ha_stats.all ());
+  "read_mem_metrics", (fun xc _ _ _ -> read_mem_metrics xc);
+  "update_vcpus", (fun xc _ domains uuid_domids -> update_vcpus xc domains uuid_domids);
+  "update_netdev", (fun _ _ domains _ -> update_netdev domains);
+  "cache_stats", (fun _ timestamp _ _ -> read_cache_stats timestamp);
+  "update_pcpus", (fun xc _ _ _ -> update_pcpus xc);
+  "update_loadavg", (fun _ _ _ _ -> update_loadavg ());
+  "update_memory", (fun xc _ domains _ -> update_memory xc domains)
+]
+
 let generate_all_dom0_stats xc timestamp domains uuid_domids =
-  List.concat [
-      handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
-      handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
-      handle_exn "update_vcpus" (fun _ -> update_vcpus xc domains uuid_domids) [];
-      handle_exn "update_netdev" (fun _ -> update_netdev domains) [];
-      handle_exn "cache_stats" (fun _ -> read_cache_stats timestamp) [];
-      handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
-      handle_exn "update_loadavg" (fun _ -> update_loadavg ()) [];
-      handle_exn "update_memory" (fun _ -> update_memory xc domains) []
-    ]
+  let handle_generator (name, generator) =
+    handle_exn name (fun _ -> generator xc timestamp domains uuid_domids) [] in
+  List.concat (List.map handle_generator dom0_stat_generators)
 
 let write_dom0_stats xc = ()
 
