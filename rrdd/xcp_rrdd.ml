@@ -100,7 +100,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 (* Monitoring code --- START. *)
 
 open Xapi_stdext_monadic
-open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
 module Hashtblext = Xapi_stdext_std.Hashtblext
 open Network_stats
@@ -403,7 +402,7 @@ let read_cache_stats timestamp =
     let assoc_list =
       cache_stats_out
       |> Astring.String.cuts ~sep:"\n"
-      |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
+      |> Xapi_stdext_std.Listext.List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
     (*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
     {time = timestamp;
