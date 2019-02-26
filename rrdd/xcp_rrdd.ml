@@ -667,7 +667,8 @@ let doc = String.concat "\n" [
 
 (** write memory stats to the filesystem so they can be propagated to xapi *)
 let stats_to_write = [
-  (*"update_memory"*)
+  "update_memory";
+  "read_mem_metrics"
 ]
 
 let configure_writers () =
