@@ -662,10 +662,10 @@ let doc = String.concat "\n" [
 
 (** we need to make sure we call exit on fatal signals to
  * make sure profiling data is dumped
-*)
-let stop signal =
+ *)
+let stop err signal =
   debug "caught signal %d" signal;
-  exit 1
+  exit err
 
 (* Entry point. *)
 let _ =
@@ -673,9 +673,10 @@ let _ =
   Rrdd_bindings.Rrd_daemon.bind (); (* bind PPX-generated server calls to implementation of API *)
 
   (* Prevent shutdown due to sigpipe interrupt. This protects against
-     	 * potential stunnel crashes. *)
+   * potential stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
-  Sys.set_signal Sys.sigterm (Sys.Signal_handle stop);
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1));
+  Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0));
 
   (* Enable the new logging library. *)
   Debug.set_facility Syslog.Local5;
