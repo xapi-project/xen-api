@@ -496,14 +496,19 @@ let generate_all_dom0_stats xc timestamp domains uuid_domids =
     (name, handle_exn name (fun _ -> generator xc timestamp domains uuid_domids) []) in
   List.map handle_generator dom0_stat_generators
 
-let write_dom0_stats xc = ()
+let write_dom0_stats writers timestamp tagged_dss =
+  let write_dss (name, writer) = match List.assoc_opt name tagged_dss with
+    | None -> debug "Could not write stats for \"%s\": no stats were associated with this name" name
+    | Some dss -> writer.Rrd_writer.write_payload {timestamp; datasources=dss}
+  in
+  List.iter write_dss writers
 
-let do_monitor_write xc =
+let do_monitor_write xc writers =
   Rrdd_libs.Stats.time_this "monitor"
     (fun _ ->
        let timestamp, domains, uuid_domids, my_paused_vms = domain_snapshot xc in
        let tagged_dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids in
-       write_dom0_stats xc;
+       write_dom0_stats writers (Int64.of_float timestamp) tagged_dom0_stats;
        let dom0_stats = List.concat (List.map snd tagged_dom0_stats) in
        let plugins_stats = Rrdd_server.Plugin.read_stats () in
        let stats = List.rev_append plugins_stats dom0_stats in
@@ -511,13 +516,13 @@ let do_monitor_write xc =
        Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
     )
 
-let monitor_write_loop () =
+let monitor_write_loop writers =
   Debug.with_thread_named "monitor_write" (fun () ->
       Xenctrl.with_intf (fun xc ->
           while true
           do
             try
-              do_monitor_write xc;
+              do_monitor_write xc writers;
               Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
                 );
@@ -660,11 +665,30 @@ let doc = String.concat "\n" [
     "This service maintains a list of registered datasources (shared memory pages containing metadata and time-varying values), periodically polls the datasources and records historical data in RRD format.";
   ]
 
+(** write memory stats to the filesystem so they can be propagated to xapi *)
+let stats_to_write = [
+  (*"update_memory"*)
+]
+
+let configure_writers () =
+  List.map
+    (fun name ->
+      let path = Rrdd_server.Plugin.get_path name in
+      ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644);
+      let writer = snd (Rrd_writer.FileWriter.create
+        {path; shared_page_count = 1}
+        Rrd_protocol_v2.protocol
+      ) in
+      name, writer
+    )
+    stats_to_write
+
 (** we need to make sure we call exit on fatal signals to
  * make sure profiling data is dumped
  *)
-let stop err signal =
+let stop err writers signal =
   debug "caught signal %d" signal;
+  List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers;
   exit err
 
 (* Entry point. *)
@@ -672,11 +696,13 @@ let _ =
 
   Rrdd_bindings.Rrd_daemon.bind (); (* bind PPX-generated server calls to implementation of API *)
 
+  let writers = configure_writers () in
+
   (* Prevent shutdown due to sigpipe interrupt. This protects against
    * potential stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
-  Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1));
-  Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0));
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1 writers));
+  Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0 writers));
 
   (* Enable the new logging library. *)
   Debug.set_facility Syslog.Local5;
@@ -727,7 +753,7 @@ let _ =
   debug "Creating monitoring loop thread ..";
   let () =
     try
-      Debug.with_thread_associated "main" monitor_write_loop ()
+      Debug.with_thread_associated "main" monitor_write_loop writers
     with _ ->
       error "monitoring loop thread has failed" in
 
