@@ -262,47 +262,6 @@ let dss_pcpus xc =
                      ~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ()) in
   avgcpu_ds::dss
 
-let dss_mem_vms doms =
-  List.fold_left (fun acc dom ->
-      let domid = dom.Xenctrl.domid in
-      let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
-      let memory = Int64.mul kib 1024L in
-      let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
-      let main_mem_ds = (
-        VM uuid,
-        ds_make ~name:"memory" ~description:"Memory currently allocated to VM" ~units:"B"
-          ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-      ) in
-      let memory_target_opt =
-        try
-          Mutex.execute memory_targets_m
-            (fun _ -> Some (Hashtbl.find memory_targets domid))
-        with Not_found -> None in
-      let mem_target_ds =
-        Opt.map
-          (fun memory_target -> (
-               VM uuid,
-               ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
-                 ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-             )) memory_target_opt
-      in
-      let other_ds =
-        if domid = 0 then None
-        else begin
-          try
-            let mem_free = IntMap.find domid !current_meminfofree_values in
-            Some (
-              VM uuid,
-              ds_make ~name:"memory_internal_free" ~units:"KiB"
-                ~description:"Memory used as reported by the guest agent"
-                ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-            )
-          with Not_found -> None
-        end
-      in
-      main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
-    ) [] doms
-
 let dss_loadavg () =
   [(Host, ds_make ~name:"loadavg" ~units:"(fraction)"
     ~description:"Domain0 loadavg"
@@ -378,6 +337,47 @@ let dss_mem_host xc =
     (Host, ds_make ~name:"memory_free_kib" ~description:"Total amount of free memory"
        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
   ]
+
+let dss_mem_vms doms =
+  List.fold_left (fun acc dom ->
+      let domid = dom.Xenctrl.domid in
+      let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
+      let memory = Int64.mul kib 1024L in
+      let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
+      let main_mem_ds = (
+        VM uuid,
+        ds_make ~name:"memory" ~description:"Memory currently allocated to VM" ~units:"B"
+          ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+      ) in
+      let memory_target_opt =
+        try
+          Mutex.execute memory_targets_m
+            (fun _ -> Some (Hashtbl.find memory_targets domid))
+        with Not_found -> None in
+      let mem_target_ds =
+        Opt.map
+          (fun memory_target -> (
+               VM uuid,
+               ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
+                 ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+             )) memory_target_opt
+      in
+      let other_ds =
+        if domid = 0 then None
+        else begin
+          try
+            let mem_free = IntMap.find domid !current_meminfofree_values in
+            Some (
+              VM uuid,
+              ds_make ~name:"memory_internal_free" ~units:"KiB"
+                ~description:"Memory used as reported by the guest agent"
+                ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+            )
+          with Not_found -> None
+        end
+      in
+      main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
+    ) [] doms
 
 (**** Local cache SR stuff *)
 
@@ -483,12 +483,12 @@ let domain_snapshot xc =
 let dom0_stat_generators = [
   "ha", (fun _ _ _ _ -> Rrdd_ha_stats.all ());
   "mem_host", (fun xc _ _ _ -> dss_mem_host xc);
-  "vcpus", (fun xc _ domains uuid_domids -> dss_vcpus xc domains uuid_domids);
-  "netdev", (fun _ _ domains _ -> dss_netdev domains);
-  "cache", (fun _ timestamp _ _ -> dss_cache timestamp);
+  "mem_vms", (fun _ _ domains _ -> dss_mem_vms domains);
   "pcpus", (fun xc _ _ _ -> dss_pcpus xc);
+  "vcpus", (fun xc _ domains uuid_domids -> dss_vcpus xc domains uuid_domids);
   "loadavg", (fun _ _ _ _ -> dss_loadavg ());
-  "mem_vms", (fun _ _ domains _ -> dss_mem_vms domains)
+  "netdev", (fun _ _ domains _ -> dss_netdev domains);
+  "cache", (fun _ timestamp _ _ -> dss_cache timestamp)
 ]
 
 let generate_all_dom0_stats xc timestamp domains uuid_domids =
