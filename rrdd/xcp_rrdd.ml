@@ -674,7 +674,7 @@ let stats_to_write = [
 let configure_writers () =
   List.map
     (fun name ->
-      let path = Rrdd_server.Plugin.get_path name in
+      let path = Rrdd_server.Plugin.get_path ("xcp-rrdd-" ^ name) in
       ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644);
       let writer = snd (Rrd_writer.FileWriter.create
         {path; shared_page_count = 1}
