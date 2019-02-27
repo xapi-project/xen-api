@@ -251,9 +251,9 @@ let save_uefi_certificates_to_dir ~__context ~pool ~vm =
       let contents = (Xapi_stdext_base64.Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool)) in
       if contents <> "" then begin
         let filename = "xapi_uefi_certificates.tar" in
-        Unixext.with_file filename [Unix.O_RDWR; Unix.O_CREAT] 0o755 (fun fd ->
-            Unixext.write_string_to_file filename contents;
-            Tar_unix.Archive.extract (fun _ -> !Xapi_globs.varstore_dir) fd);
+        Unixext.write_string_to_file filename contents;
+        Unixext.with_file filename [Unix.O_RDONLY; Unix.O_CREAT] 0o755 (fun fd ->
+            Tar_unix.Archive.extract (Filename.concat !Xapi_globs.varstore_dir) fd);
         debug "UEFI tar file extracted to varstore directory";
         Sys.remove filename
       end
