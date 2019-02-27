@@ -182,7 +182,7 @@ module Watcher = WatchXenstore(Meminfo)
 (*****************************************************)
 
 (* This function is used for getting vcpu stats of the VMs present on this host. *)
-let update_vcpus xc doms uuid_domids =
+let dss_vcpus xc doms uuid_domids =
   List.fold_left (fun dss (dom, (uuid, domid)) ->
       let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
 
@@ -236,7 +236,7 @@ let update_vcpus xc doms uuid_domids =
 
 let physcpus = ref [| |]
 
-let update_pcpus xc =
+let dss_pcpus xc =
   let len = Array.length !physcpus in
   let newinfos = if len = 0 then (
       let physinfo = Xenctrl.physinfo xc in
@@ -262,7 +262,7 @@ let update_pcpus xc =
                      ~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ()) in
   avgcpu_ds::dss
 
-let update_memory _xc doms =
+let dss_mem_vms doms =
   List.fold_left (fun acc dom ->
       let domid = dom.Xenctrl.domid in
       let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
@@ -303,7 +303,7 @@ let update_memory _xc doms =
       main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
     ) [] doms
 
-let update_loadavg () =
+let dss_loadavg () =
   [(Host, ds_make ~name:"loadavg" ~units:"(fraction)"
     ~description:"Domain0 loadavg"
     ~value:(Rrd.VT_Float (Rrdd_common.loadavg ()))
@@ -313,7 +313,7 @@ let update_loadavg () =
 (* network related code                              *)
 (*****************************************************)
 
-let update_netdev doms =
+let dss_netdev doms =
   let stats = Network_stats.read_stats () in
   let dss, sum_rx, sum_tx =
     List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
@@ -366,9 +366,9 @@ let update_netdev doms =
   ] @ dss
 
 (*****************************************************)
-(* generic code                                      *)
+(* memory stats                                      *)
 (*****************************************************)
-let read_mem_metrics xc =
+let dss_mem_host xc =
   let physinfo = Xenctrl.physinfo xc in
   let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
   and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
@@ -393,7 +393,7 @@ let cached_cache_dss = ref []
 
 let tapdisk_cache_stats : string = Filename.concat "/opt/xensource/bin" "tapdisk-cache-stats"
 
-let read_cache_stats timestamp =
+let dss_cache timestamp =
   let cache_sr_opt = Mutex.execute cache_sr_lock (fun _ -> !cache_sr_uuid) in
   let do_read cache_sr =
     debug "do_read: %s %s" tapdisk_cache_stats cache_sr;
@@ -481,14 +481,14 @@ let domain_snapshot xc =
   timestamp, domains, uuid_domids, my_paused_domain_uuids
 
 let dom0_stat_generators = [
-  "ha_stats", (fun _ _ _ _ -> Rrdd_ha_stats.all ());
-  "read_mem_metrics", (fun xc _ _ _ -> read_mem_metrics xc);
-  "update_vcpus", (fun xc _ domains uuid_domids -> update_vcpus xc domains uuid_domids);
-  "update_netdev", (fun _ _ domains _ -> update_netdev domains);
-  "cache_stats", (fun _ timestamp _ _ -> read_cache_stats timestamp);
-  "update_pcpus", (fun xc _ _ _ -> update_pcpus xc);
-  "update_loadavg", (fun _ _ _ _ -> update_loadavg ());
-  "update_memory", (fun xc _ domains _ -> update_memory xc domains)
+  "ha", (fun _ _ _ _ -> Rrdd_ha_stats.all ());
+  "mem_host", (fun xc _ _ _ -> dss_mem_host xc);
+  "vcpus", (fun xc _ domains uuid_domids -> dss_vcpus xc domains uuid_domids);
+  "netdev", (fun _ _ domains _ -> dss_netdev domains);
+  "cache", (fun _ timestamp _ _ -> dss_cache timestamp);
+  "pcpus", (fun xc _ _ _ -> dss_pcpus xc);
+  "loadavg", (fun _ _ _ _ -> dss_loadavg ());
+  "mem_vms", (fun _ _ domains _ -> dss_mem_vms domains)
 ]
 
 let generate_all_dom0_stats xc timestamp domains uuid_domids =
@@ -667,14 +667,16 @@ let doc = String.concat "\n" [
 
 (** write memory stats to the filesystem so they can be propagated to xapi *)
 let stats_to_write = [
-  "update_memory";
-  "read_mem_metrics"
+  "mem_host";
+  "mem_vms"
 ]
+
+let writer_basename = (^) "xcp-rrdd-"
 
 let configure_writers () =
   List.map
     (fun name ->
-      let path = Rrdd_server.Plugin.get_path ("xcp-rrdd-" ^ name) in
+      let path = Rrdd_server.Plugin.get_path (writer_basename name) in
       ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644);
       let writer = snd (Rrd_writer.FileWriter.create
         {path; shared_page_count = 1}
