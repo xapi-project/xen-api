@@ -1829,8 +1829,8 @@ let allocate_resources_for_vm ~__context ~self ~vm ~live =
 let set_uefi_certificates ~__context ~host ~value =
   Db.Host.set_uefi_certificates ~__context ~self:host ~value;
   let pool = Helpers.get_pool ~__context in
-  if Db.Pool.get_uefi_certificates ~__context ~self:pool  = "" then
-    Db.Pool.set_uefi_certificates ~__context ~self:pool ~value
+  if value <> "" then
+  	Db.Pool.set_uefi_certificates ~__context ~self:pool ~value
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then raise Api_errors.(Server_error (invalid_value, ["value"; value]));
