@@ -38,6 +38,7 @@ function usage {
     echo " -d: Dont perform a backup, but leave the disk mounted in a shell"
     echo " -k: Number of older backups to preserve (default: ${history_kept})"
     echo " -n: Just try to find a backup VDI and stop the script after that"
+    echo " -f  Force backup even when less than 10% free capacity is left on the backup VDI"
     echo " -v: Verbose output"
     echo 
     echo
@@ -60,7 +61,9 @@ init_fs=0
 create_vdi=0 
 just_find_vdi=0
 fs_uninitialised=0
-while getopts "hvink:u:dc" opt ; do
+usage_alert=90
+force_backup=0
+while getopts "hvink:u:dcf" opt ; do
     case $opt in
     h) usage ;;
     c) create_vdi=1 ; fs_uninitialised=1 ;;
@@ -70,6 +73,7 @@ while getopts "hvink:u:dc" opt ; do
     d) leave_mounted=1 ;;
     n) just_find_vdi=1 ;;
     v) debug="" ;;
+    f) force_backup=1 ;;
     *) echo "Invalid option"; usage ;;
     esac
 done
@@ -215,6 +219,15 @@ if [ ${leave_mounted} -eq 0 ]; then
      echo "}" >> ${lrconf}
      echo done
      echo ${metadata_version} >> ${mnt}/.ctxs-metadata-backup
+  fi
+
+  # check the usage of the backup VDI
+  usage=`cd ${mnt} && df . | sed -n "2p" | awk '{ print $5 }' | tr -d '%'`
+  echo "Checking backup VDI space usage: $usage%"
+  if [ $usage -gt $usage_alert ] && [ ${force_backup} -eq 0 ]; then
+    echo "Running out of space, you can use "-d" option to attach VDI and free more space, exit now."
+    cleanup
+    exit 1
   fi
 
   # invoke logrotate to rotate over old pool db backups
