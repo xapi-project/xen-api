@@ -519,15 +519,15 @@ let create_host_cpu ~__context host_info =
   if not (is_equal before after) && before <> [||] then begin
     let lost = is_strict_subset (intersect before after) before in
     let gained = is_strict_subset (intersect before after) after in
-    let body = Printf.sprintf "The CPU features of this host have changed.%s%s"
+    info "The CPU features of this host have changed.%s%s Old features_hvm=%s."
         (if lost then " Some features have gone away." else "")
         (if gained then " Some features were added." else "")
-    in
-    info "%s" body;
+        (string_of_features before);
 
-    if not (Helpers.rolling_upgrade_in_progress ~__context) then
-      let (name, priority) = if lost then Api_messages.host_cpu_features_down else Api_messages.host_cpu_features_up in
+    if not (Helpers.rolling_upgrade_in_progress ~__context) && lost then
+      let (name, priority) = Api_messages.host_cpu_features_down in
       let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+      let body = Printf.sprintf "The CPU features of this host have changed. Some features have gone away." in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           ignore (XenAPI.Message.create rpc session_id name priority `Host obj_uuid body)
         )
@@ -598,15 +598,15 @@ let create_pool_cpuinfo ~__context =
   if not (is_equal before after) && before <> [||] then begin
     let lost = is_strict_subset (intersect before after) before in
     let gained = is_strict_subset (intersect before after) after in
-    let body = Printf.sprintf "The pool-level CPU features have changed.%s%s"
+    info "The pool-level CPU features have changed.%s%s Old features_hvm=%s."
         (if lost then " Some features have gone away." else "")
         (if gained then " Some features were added." else "")
-    in
-    info "%s" body;
+        (string_of_features before);
 
-    if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 then
-      let (name, priority) = if lost then Api_messages.pool_cpu_features_down else Api_messages.pool_cpu_features_up in
+    if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 && lost then
+      let (name, priority) = Api_messages.pool_cpu_features_down in
       let obj_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+      let body = Printf.sprintf "The pool-level CPU features have changed. Some features have gone away." in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
         )
