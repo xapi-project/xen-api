@@ -552,7 +552,7 @@ let monitor_write_loop writers =
 *)
 
 module type DISCOVER = sig
-  val start: unit -> Xapi_stdext_threads.Threadext.Thread.t
+  val start: string list -> Xapi_stdext_threads.Threadext.Thread.t
 end
 
 module Discover: DISCOVER = struct
@@ -560,8 +560,8 @@ module Discover: DISCOVER = struct
 
   (** [is_valid f] is true, if [f] is a filename for an RRD file.
    *  Currently we only ignore *.tmp files *)
-  let is_valid file =
-    not @@ Filename.check_suffix file ".tmp"
+  let is_valid files_to_ignore file =
+     not @@ List.mem file files_to_ignore && not @@ Filename.check_suffix file ".tmp"
 
   let events_as_string
     : Inotify.event_kind list -> string
@@ -591,7 +591,7 @@ module Discover: DISCOVER = struct
   (* Here we dispatch over all events that we receive. Note that
    * [Inotify.read] blocks until an event becomes available. Hence, this
    * code needs to run in its own thread. *)
-  let watch dir =
+  let watch ignored_files dir =
     let fd          = Inotify.create () in
     let selectors   =
       [ Inotify.S_Create
@@ -599,6 +599,7 @@ module Discover: DISCOVER = struct
       ; Inotify.S_Moved_to
       ; Inotify.S_Moved_from
       ] in
+    let is_valid = is_valid ignored_files in
     let rec loop = function
       | []  -> Inotify.read fd |> loop
       | (_, [Inotify.Create], _, Some file)::es when is_valid file ->
@@ -632,18 +633,18 @@ module Discover: DISCOVER = struct
     )
 
   (* [scan] scans a directory for plugins and registers them *)
-  let scan dir =
+  let scan ignored_files dir =
     debug "RRD plugin - scanning %s" dir;
     Sys.readdir dir
     |> Array.to_list
-    |> List.filter is_valid
+    |> List.filter (is_valid ignored_files)
     |> List.iter register
 
-  let start () =
+  let start ignored_files =
     Thread.create (fun dir ->
         debug "RRD plugin - starting discovery thread";
         while true do
-          try scan dir; watch dir with e -> begin
+          try scan ignored_files dir; watch ignored_files dir with e -> begin
               error "RRD plugin discovery error: %s" (Printexc.to_string e);
               Thread.delay 10.0
             end
@@ -740,7 +741,7 @@ let _ =
       ) () in
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.Exn.server Rrdd_bindings.Server.implementation);
 
-  ignore @@ Discover.start ();
+  ignore @@ Discover.start (List.map writer_basename stats_to_write);
 
   debug "Starting xenstore-watching thread ..";
   let () =
