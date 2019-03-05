@@ -31,9 +31,27 @@ let get_fake_stats uuids =
   in
   if fake_dir_exists then List.concat (collect_fake_stats uuids) else []
 
+
+(** [override_stats test overridable overrider] is the tuple of [overridable]
+    list with items replaced from [overrider] that pass the [test]; and the
+    list of items from [overrider] that failed the [test].
+    Each list produced maintains the order present in their list of origin *)
+let override_stats test overridable overrider =
+  List.fold_left
+    (fun (filtered, all_unused) (owner, ds) ->
+      let replacements, unused = List.partition (test (owner, ds)) all_unused in
+      if List.length replacements = 0 then
+        filtered @ [(owner, ds)], unused
+      else
+        filtered @ replacements, unused
+    ) ([], overrider) overridable
+
+(* Returns the list real with all the elements from fake added; without the
+ * elements of real that have a matching element in fake with the same owner,
+ * but a different ds name.
+ *)
 let combine_stats real fake =
-  (* Remove all of the real DSs that are shadowed by fake dss *)
-  let real2 = List.fold_left (fun acc (fake_ds_x, fake_ds_ds) ->
-      List.filter (fun (x, ds) -> x = fake_ds_x && ds.ds_name <> fake_ds_ds.ds_name) acc
-    ) real fake in
-  real2 @ fake
+  let test (owner, ds) =
+    fun (over_o, over_ds) -> owner = over_o && ds.ds_name <> over_ds.ds_name in
+  let combined, extra = override_stats test real fake in
+  combined @ extra
