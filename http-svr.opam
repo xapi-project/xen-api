@@ -13,10 +13,10 @@ depends: [
   "ocaml"
   "dune" {build}
   "astring"
+  "base64" {>= "3.1.0"}
   "rpc"
   "sha"
   "stunnel"
-  "xapi-stdext-base64"
   "xapi-stdext-date"
   "xapi-stdext-monadic"
   "xapi-stdext-pervasives"

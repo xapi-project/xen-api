@@ -88,7 +88,7 @@ let v10_upgrade req s =
   let key = find_header headers "sec-websocket-key" in
   (*let vsn = find_header headers "sec-websocket-version" in*)
   let result = key ^ ws_uuid |> Sha1.string |> Sha1.to_bin in
-  let key = Xapi_stdext_base64.Base64.encode result in 
+  let key = Base64.encode_string result in
   let headers = http_101_websocket_upgrade_15 key in
   Http.output_http s headers
 

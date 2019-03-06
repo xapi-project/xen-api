@@ -158,15 +158,16 @@ let authorization_of_string x =
   then
     let end_of_string s from =
       String.sub s from ((String.length s)-from) in
-    let userpass = Xapi_stdext_base64.Base64.decode (end_of_string x (String.length basic)) in
-    match Astring.String.cuts ~sep:":" userpass with
-    | [ username; password ] -> Basic(username, password)
-    | _ -> UnknownAuth x
+    match Base64.decode (end_of_string x (String.length basic)) with
+    | Result.Ok userpass -> (match Astring.String.cuts ~sep:":" userpass with
+      | [ username; password ] -> Basic(username, password)
+      | _ -> UnknownAuth x)
+    | Result.Error _ -> UnknownAuth x
   else UnknownAuth x
 
 let string_of_authorization = function
   | UnknownAuth x -> x
-  | Basic(username, password) -> "Basic " ^ (Xapi_stdext_base64.Base64.encode (username ^ ":" ^ password))
+  | Basic(username, password) -> "Basic " ^ (Base64.encode_string (username ^ ":" ^ password))
 
 type method_t = Get | Post | Put | Connect | Options | Unknown of string [@@deriving rpc]
 

@@ -6,11 +6,11 @@
   (modules (:standard \ http_test radix_tree_test test_client test_server))
   (preprocess (pps ppx_deriving_rpc))
   (libraries  astring
+              base64
               rpclib
               sha
               stunnel
               threads
-              xapi-stdext-base64
               xapi-stdext-date
               xapi-stdext-monadic
               xapi-stdext-pervasives
