@@ -8,7 +8,7 @@ open Datamodel_roles
               When introducing a new release, bump the schema minor version to the next hundred
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
-let schema_minor_vsn = 300
+let schema_minor_vsn = 400
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -100,7 +100,7 @@ let tech_preview_releases = [
 (* Normally xencenter_min_verstring and xencenter_max_verstring in the xapi_globs should be set to the same value,
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
-let api_version_minor = 11L
+let api_version_minor = 12L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
