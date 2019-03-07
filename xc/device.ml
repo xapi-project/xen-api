@@ -3154,12 +3154,8 @@ module Dm = struct
       let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
       let cancel = Cancel_utils.Vgpu domid in
       if not (Vgpu.is_running ~xs domid) then begin
-        (* The below line does nothing if the device is already bound to the
-           			 * nvidia driver. We rely on xapi to refrain from attempting to run
-           			 * a vGPU on a device which is passed through to a guest. *)
-        debug "start_vgpu: got VGPU with physical pci address %s"
-          (Xenops_interface.Pci.string_of_address pci);
-        PCI.bind [pci] PCI.Nvidia;
+        let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
+          PCI.bind pcis PCI.Nvidia;
         let module Q = (val Backend.of_profile profile) in
         let device = Q.Vgpu.device ~index:0 in
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore device in
@@ -3283,9 +3279,9 @@ module Dm = struct
   let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     __start task ~xs ~dm ?timeout Restore info domid
 
-  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus profile =
+  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpus vcpus profile =
     debug "Called Dm.restore_vgpu";
-    start_vgpu ~xs task ~restore:true domid [vgpu] vcpus profile
+    start_vgpu ~xs task ~restore:true domid vgpus vcpus profile
 
   let suspend_varstored (task: Xenops_task.task_handle) ~xs domid =
     debug "Called Dm.suspend_varstored (domid=%d)" domid;

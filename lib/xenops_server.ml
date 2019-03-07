@@ -91,7 +91,7 @@ type atomic =
   | VUSB_plug of Vusb.id
   | VUSB_unplug of Vusb.id
   | VGPU_set_active of Vgpu.id * bool
-  | VGPU_start of (Vgpu.id * bool)
+  | VGPU_start of (Vgpu.id list * bool)
   | VM_set_xsdata of (Vm.id * (string * string) list)
   | VM_set_vcpus of (Vm.id * int)
   | VM_set_shadow_multiplier of (Vm.id * float)
@@ -1061,11 +1061,16 @@ let rec atomics_of_operation = function
   | VM_resume (id, data) ->
     (* If we've got a vGPU, then save its state will be in the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
+    let vgpu_start_operations = 
+      match VGPU_DB.ids id with
+      | [] -> []
+      | vgpus -> [VGPU_start (vgpus, true)]
+    in
     simplify [
       VM_create (id, None, None);
     ] @ [
       VM_hook_script(id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
-    ] @ List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id)
+    ] @ vgpu_start_operations
     @ [
       VM_restore (id, data, vgpu_data);
     ] @ (atomics_of_operation (VM_restore_devices (id, true))
@@ -1326,9 +1331,10 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     debug "VGPU set_active %s %b" (VGPU_DB.string_of_id id) b;
     B.VGPU.set_active t (VGPU_DB.vm_of id) (VGPU_DB.read_exn id) b;
     VGPU_DB.signal id
-  | VGPU_start (id, saved_state) ->
-    debug "VGPU.start %s" (VGPU_DB.string_of_id id);
-    B.VGPU.start t (VGPU_DB.vm_of id) (VGPU_DB.read_exn id) saved_state
+  | VGPU_start (ids, saved_state) ->
+    debug "VGPU.start %s" (ids |> List.map VGPU_DB.string_of_id |> String.concat " ");
+    let vgpus = List.map (fun id -> VGPU_DB.read_exn id) ids in
+    B.VGPU.start t (VGPU_DB.vm_of (List.hd ids)) vgpus saved_state
   | VM_set_xsdata (id, xsdata) ->
     debug "VM.set_xsdata (%s, [ %s ])" id (String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xsdata));
     B.VM.set_xsdata t (VM_DB.read_exn id) xsdata
@@ -1579,9 +1585,12 @@ and trigger_cleanup_after_failure_atom op t =
   | VUSB_unplug id ->
     immediate_operation dbg (fst id) (VUSB_check_state id)
 
-  | VGPU_set_active (id, _)
-  | VGPU_start (id, _) ->
+  | VGPU_set_active (id, _) ->
     immediate_operation dbg (fst id) (VM_check_state (VGPU_DB.vm_of id))
+
+  | VGPU_start (ids, _) ->
+    let id = List.hd ids in
+      immediate_operation dbg (fst id) (VM_check_state (VGPU_DB.vm_of id))
 
   | VM_hook_script_stable (id, _, _, _)
   | VM_hook_script (id, _, _)
@@ -1839,8 +1848,11 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         debug "VM.receive_memory restoring VM";
         (* Check if there is a separate vGPU data channel *)
         let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        let vgpu_ids = VGPU_DB.ids id in
         perform_atomics (
-          List.map (fun vgpu_id -> VGPU_start (vgpu_id, true)) (VGPU_DB.ids id) @ [
+          [
+            VGPU_start (vgpu_ids, true);
+          ] @ [
             VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
           ]) t;
         debug "VM.receive_memory restore complete";

@@ -2348,7 +2348,7 @@ module VGPU = struct
 
   let id_of vgpu = snd vgpu.id
 
-  let start task vm vgpu saved_state =
+  let start task vm vgpus saved_state =
     on_frontend
       (fun _ xs frontend_domid _ ->
          let vmextra = DB.read_exn vm in
@@ -2362,7 +2362,7 @@ module VGPU = struct
          let profile = match vmextra.VmExtra.persistent.profile with
            | None -> Device.Profile.Qemu_upstream_compat
            | Some p -> p in
-         Device.Dm.restore_vgpu task ~xs frontend_domid vgpu vcpus profile
+         Device.Dm.restore_vgpu task ~xs frontend_domid vgpus vcpus profile
       ) vm
 
   let active_path vm vgpu = Printf.sprintf "/vm/%s/devices/vgpu/%s" vm (snd vgpu.Vgpu.id)
