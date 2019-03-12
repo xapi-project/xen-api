@@ -24,13 +24,10 @@ open D
 module StringSet = Set.Make(struct type t = string let compare = compare end)
 let dont_log_error = ref StringSet.empty
 
-let metrics_dir = Filename.dirname Xapi_globs.pvs_proxy_metrics_path_prefix
-let metrics_prefix = Filename.basename Xapi_globs.pvs_proxy_metrics_path_prefix
-
 let find_rrd_files () =
-  Sys.readdir metrics_dir
+  Sys.readdir Xapi_globs.metrics_root
   |> Array.to_list
-  |> List.filter (String.startswith metrics_prefix)
+  |> List.filter (String.startswith Xapi_globs.metrics_prefix_pvs_proxy)
 
   (* The PVS Proxy status cache [pvs_proxy_cached] contains the status
    * entries from PVS Proxies as reported via RRD. When the status
@@ -47,7 +44,7 @@ let find_rrd_files () =
 let get_changes () =
   List.iter (fun filename ->
       try
-        let path = Filename.concat metrics_dir filename in
+        let path = Filename.concat Xapi_globs.metrics_root filename in
         let reader = Rrd_reader.FileReader.create path Rrd_protocol_v2.protocol in
         let payload = reader.Rrd_reader.read_payload () in
         dont_log_error := StringSet.remove filename !dont_log_error;
@@ -60,7 +57,7 @@ let get_changes () =
                 | Rrd.VT_Float v -> int_of_float v
                 | Rrd.VT_Unknown -> -1
               in
-              if ds.Ds.ds_name = Xapi_globs.pvs_proxy_status_ds_name then
+              if ds.Ds.ds_name = "pvscache_status" then
                 Hashtbl.add pvs_proxy_tmp vm_uuid value
             | _ ->
               () (* we are only interested in VM stats *)

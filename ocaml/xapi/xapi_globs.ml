@@ -551,10 +551,10 @@ let cpu_info_features_key = "features"
 let cpu_info_features_pv_key = "features_pv"
 let cpu_info_features_hvm_key = "features_hvm"
 
-(** PVS proxy *)
+(** Metrics *)
 
-let pvs_proxy_metrics_path_prefix = "/dev/shm/metrics/pvsproxy-"
-let pvs_proxy_status_ds_name = "pvscache_status"
+let metrics_root = "/dev/shm/metrics"
+let metrics_prefix_pvs_proxy = "pvsproxy-"
 
 (** Path to trigger file for Network Reset. *)
 let network_reset_trigger = "/tmp/network-reset"
