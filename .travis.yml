@@ -1,23 +1,12 @@
 language: c
-sudo: false
-services:
-  - docker
-install:
-  - wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
-  - wget https://raw.githubusercontent.com/xapi-project/xapi-travis-scripts/master/coverage.sh
-script: bash -ex ./.travis-docker.sh
+sudo: required
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
 env:
   global:
+    - PACKAGE="xapi-stdext"
     - PINS="stdext:. xapi-stdext:. xapi-stdext-base64:. xapi-stdext-bigbuffer:. xapi-stdext-date:. xapi-stdext-deprecated:. xapi-stdext-encodings:. xapi-stdext-monadic:. xapi-stdext-pervasives:. xapi-stdext-range:. xapi-stdext-std:. xapi-stdext-threads:. xapi-stdext-unix:. xapi-stdext-zerocheck:."
-    - OCAML_VERSION=4.07
-    - DISTRO="ubuntu-16.04"
-    - TEST=false
-    - BASE_REMOTE="https://github.com/xapi-project/xs-opam"
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
-    - PACKAGE=xapi-stdext \
-      POST_INSTALL_HOOK="opam install alcotest; env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex coverage.sh"
-    - PACKAGE=stdext REVDEPS=true
-matrix:
-  fast_finish: true
-  allow_failures:
-    - env: PACKAGE=xapi-stdext OCAML_VERSION=4.07
+    - DISTRO="debian-9-ocaml-4.07"
