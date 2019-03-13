@@ -315,36 +315,26 @@ CAMLprim value stub_fdset_is_empty(value set)
 CAMLprim value stub_statvfs(value filename) 
 {
   CAMLparam1(filename);
-  CAMLlocal2(v,tmp);
+  CAMLlocal1(v);
   int ret;
-  int i;
   struct statvfs buf;
 
   ret = statvfs(String_val(filename), &buf);
 
   if(ret == -1) uerror("statvfs", Nothing);
 
-  tmp=caml_copy_int64(0);
-
-  /* Allocate the thing to return and ensure each of the
-	 fields is set to something valid before attempting 
-	 any further allocations */
-  v=alloc_small(11,0);
-  for(i=0; i<11; i++) {
-	Field(v,i)=tmp;
-  }
-
-  Field(v,0)=caml_copy_int64(buf.f_bsize);
-  Field(v,1)=caml_copy_int64(buf.f_frsize);
-  Field(v,2)=caml_copy_int64(buf.f_blocks);
-  Field(v,3)=caml_copy_int64(buf.f_bfree);
-  Field(v,4)=caml_copy_int64(buf.f_bavail);
-  Field(v,5)=caml_copy_int64(buf.f_files);
-  Field(v,6)=caml_copy_int64(buf.f_ffree);
-  Field(v,7)=caml_copy_int64(buf.f_favail);
-  Field(v,8)=caml_copy_int64(buf.f_fsid);
-  Field(v,9)=caml_copy_int64(buf.f_flag);
-  Field(v,10)=caml_copy_int64(buf.f_namemax);
+  v=caml_alloc(11,0);
+  Store_field(v, 0, caml_copy_int64(buf.f_bsize));
+  Store_field(v, 1, caml_copy_int64(buf.f_frsize));
+  Store_field(v, 2, caml_copy_int64(buf.f_blocks));
+  Store_field(v, 3, caml_copy_int64(buf.f_bfree));
+  Store_field(v, 4, caml_copy_int64(buf.f_bavail));
+  Store_field(v, 5, caml_copy_int64(buf.f_files));
+  Store_field(v, 6, caml_copy_int64(buf.f_ffree));
+  Store_field(v, 7, caml_copy_int64(buf.f_favail));
+  Store_field(v, 8, caml_copy_int64(buf.f_fsid));
+  Store_field(v, 9, caml_copy_int64(buf.f_flag));
+  Store_field(v,10, caml_copy_int64(buf.f_namemax));
 
   CAMLreturn(v);
 }
