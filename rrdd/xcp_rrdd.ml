@@ -496,9 +496,7 @@ let read_all_dom0_stats xc =
       handle_exn "update_loadavg" (fun _ -> [update_loadavg ()]) [];
       handle_exn "update_memory" (fun _ -> update_memory xc domains) []
     ] in
-  let fake_stats = Rrdd_fake.get_fake_stats (List.map fst uuid_domids) in
-  let all_stats = Rrdd_fake.combine_stats real_stats fake_stats in
-  all_stats, uuid_domids, timestamp, my_paused_domain_uuids
+  real_stats, uuid_domids, timestamp, my_paused_domain_uuids
 
 let do_monitor xc =
   Rrdd_libs.Stats.time_this "monitor"
