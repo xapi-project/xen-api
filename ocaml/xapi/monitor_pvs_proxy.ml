@@ -12,11 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Threadext
-open Listext
-open Xstringext
-open Monitor_dbcalls_cache
+module Mtxext = Stdext.Threadext.Mutex
+module Lstext = Stdext.Listext.List
+module Strext = Stdext.Xstringext.String
+module Mcache = Monitor_dbcalls_cache
 
 module D = Debug.Make(struct let name = "monitor_pvs_proxy" end)
 open D
@@ -27,7 +26,7 @@ let dont_log_error = ref StringSet.empty
 let find_rrd_files () =
   Sys.readdir Xapi_globs.metrics_root
   |> Array.to_list
-  |> List.filter (String.startswith Xapi_globs.metrics_prefix_pvs_proxy)
+  |> List.filter (Strext.startswith Xapi_globs.metrics_prefix_pvs_proxy)
 
   (* The PVS Proxy status cache [pvs_proxy_cached] contains the status
    * entries from PVS Proxies as reported via RRD. When the status
@@ -50,7 +49,7 @@ let get_changes () =
         dont_log_error := StringSet.remove filename !dont_log_error;
 
         payload.Rrd_protocol.datasources
-        |> List.filter_map (function
+        |> Lstext.filter_map (function
           | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "pvscache_status"
               -> Some (vm_uuid, ds)
           | _ -> None (* we are only interested in VM stats *)
@@ -62,7 +61,7 @@ let get_changes () =
             | Rrd.VT_Float v -> int_of_float v
             | Rrd.VT_Unknown -> -1
           in
-          Hashtbl.add pvs_proxy_tmp vm_uuid value
+          Hashtbl.add Mcache.pvs_proxy_tmp vm_uuid value
           )
       with e ->
         if not (StringSet.mem filename !dont_log_error) then begin
@@ -72,11 +71,11 @@ let get_changes () =
     ) (find_rrd_files ());
 
   (* Check if anything has changed since our last reading. *)
-  get_updates_map ~before:pvs_proxy_cached ~after:pvs_proxy_tmp
+  Mcache.get_updates_map ~before:Mcache.pvs_proxy_cached ~after:Mcache.pvs_proxy_tmp
 
 let set_changes ?except () =
-  Mutex.execute pvs_proxy_cached_m (fun _ ->
-      transfer_map ?except ~source:pvs_proxy_tmp ~target:pvs_proxy_cached
+  Mtxext.execute Mcache.pvs_proxy_cached_m (fun _ ->
+      Mcache.transfer_map ?except ~source:Mcache.pvs_proxy_tmp ~target:Mcache.pvs_proxy_cached
     )
 
 let pvs_proxy_status_of_int = function
@@ -96,7 +95,7 @@ let update () =
             let value = pvs_proxy_status_of_int status in
             let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
             Db.VM.get_VIFs ~__context ~self:vm
-            |> List.filter_map (fun vif -> Pvs_proxy_control.find_proxy_for_vif ~__context ~vif)
+            |> Lstext.filter_map (fun vif -> Pvs_proxy_control.find_proxy_for_vif ~__context ~vif)
             |> List.filter (fun self -> Db.PVS_proxy.get_currently_attached ~__context ~self)
             |> List.iter (fun self -> Db.PVS_proxy.set_status ~__context ~self ~value)
           with e ->
