@@ -15,9 +15,6 @@
  * @group Performance Monitoring
 *)
 
-open Stdext
-open Xstringext
-
 type pif = {
   pif_name: string;
   pif_carrier: bool;
@@ -40,7 +37,7 @@ end
 let vif_device_of_string x =
   let open Vif_device in
   try
-    let ty = String.sub x 0 3 and params = String.sub_to_end x 3 in
+    let ty, params = Astring.String.span ~max:3 x in
     let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
     let di = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfo xc domid) in
     let uuid = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.to_string in
@@ -50,3 +47,8 @@ let vif_device_of_string x =
     | "tap" -> Some { pv = false; vif = vif; domid = domid; devid = devid }
     | _ -> failwith "bad device"
   with _ -> None
+
+let find_rrd_files prefix =
+  Sys.readdir Xapi_globs.metrics_root
+  |> Array.to_list
+  |> List.filter (Astring.String.is_prefix ~affix:prefix)

@@ -14,7 +14,6 @@
 
 module Mtxext = Stdext.Threadext.Mutex
 module Lstext = Stdext.Listext.List
-module Strext = Stdext.Xstringext.String
 module Mcache = Monitor_dbcalls_cache
 
 module D = Debug.Make(struct let name = "monitor_pvs_proxy" end)
@@ -22,11 +21,6 @@ open D
 
 module StringSet = Set.Make(String)
 let dont_log_error = ref StringSet.empty
-
-let find_rrd_files () =
-  Sys.readdir Xapi_globs.metrics_root
-  |> Array.to_list
-  |> List.filter (Strext.startswith Xapi_globs.metrics_prefix_pvs_proxy)
 
   (* The PVS Proxy status cache [pvs_proxy_cached] contains the status
    * entries from PVS Proxies as reported via RRD. When the status
@@ -68,7 +62,7 @@ let get_changes () =
           error "Unable to read PVS-proxy status for %s: %s" filename (Printexc.to_string e);
           dont_log_error := StringSet.add filename !dont_log_error
         end
-    ) (find_rrd_files ());
+    ) (Monitor_types.find_rrd_files Xapi_globs.metrics_prefix_pvs_proxy);
 
   (* Check if anything has changed since our last reading. *)
   Mcache.get_updates_map ~before:Mcache.pvs_proxy_cached ~after:Mcache.pvs_proxy_tmp
