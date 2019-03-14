@@ -19,9 +19,6 @@ module Mcache = Monitor_dbcalls_cache
 module D = Debug.Make(struct let name = "monitor_pvs_proxy" end)
 open D
 
-module StringSet = Set.Make(String)
-let dont_log_error = ref StringSet.empty
-
   (* The PVS Proxy status cache [pvs_proxy_cached] contains the status
    * entries from PVS Proxies as reported via RRD. When the status
    * changes, it is updated in the xapi database. However: The xapi
@@ -40,7 +37,7 @@ let get_changes () =
         let path = Filename.concat Xapi_globs.metrics_root filename in
         let reader = Rrd_reader.FileReader.create path Rrd_protocol_v2.protocol in
         let payload = reader.Rrd_reader.read_payload () in
-        dont_log_error := StringSet.remove filename !dont_log_error;
+        Mcache.log_errors_from filename;
 
         payload.Rrd_protocol.datasources
         |> Lstext.filter_map (function
@@ -58,9 +55,9 @@ let get_changes () =
           Hashtbl.add Mcache.pvs_proxy_tmp vm_uuid value
           )
       with e ->
-        if not (StringSet.mem filename !dont_log_error) then begin
+        if not (Mcache.is_ignored filename) then begin
           error "Unable to read PVS-proxy status for %s: %s" filename (Printexc.to_string e);
-          dont_log_error := StringSet.add filename !dont_log_error
+          Mcache.ignore_errors_from filename
         end
     ) (Monitor_types.find_rrd_files Xapi_globs.metrics_prefix_pvs_proxy);
 
