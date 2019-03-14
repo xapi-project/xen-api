@@ -46,6 +46,10 @@ def error(message, *args, **kwargs):
     _LOGGER.error(message, *args, **kwargs)
 
 
+def critical(message, *args, **kwargs):
+    _LOGGER.critical(message, *args, **kwargs)
+
+
 def log_call_argv():
     info("called as: %s" % (sys.argv))
 
