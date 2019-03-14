@@ -34,12 +34,10 @@ open D
 let get_changes () =
   List.iter (fun filename ->
       try
-        let path = Filename.concat Xapi_globs.metrics_root filename in
-        let reader = Rrd_reader.FileReader.create path Rrd_protocol_v2.protocol in
-        let payload = reader.Rrd_reader.read_payload () in
+        let datasources = Monitor_types.datasources_from_filename filename in
         Mcache.log_errors_from filename;
 
-        payload.Rrd_protocol.datasources
+        datasources
         |> Lstext.filter_map (function
           | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "pvscache_status"
               -> Some (vm_uuid, ds)
