@@ -1,5 +1,4 @@
 (* New modules *)
-module Base64 = Xapi_stdext_base64.Base64
 module Date = Xapi_stdext_date.Date
 module Encodings = Xapi_stdext_encodings.Encodings
 module Range = Xapi_stdext_range.Range
