@@ -213,7 +213,7 @@ let filtered_headers headers =
     headers
 
 let encoded_auth un pw =
-  Base64.encode (Printf.sprintf "%s:%s" un pw)
+  Base64.encode_string (Printf.sprintf "%s:%s" un pw)
 
 let wlb_encoded_auth ~__context =
   let pool = Helpers.get_pool ~__context in

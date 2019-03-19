@@ -246,7 +246,7 @@ let update_platform_secureboot ~__context ~self platform =
 
 let extract_certificate_file name =
   if String.contains name '/' then
-	(* Internal error: tarfile not created correctly *) 
+	(* Internal error: tarfile not created correctly *)
 	failwith ("Invalid path in certificate tarball: " ^ name);
   let path = Filename.concat !Xapi_globs.varstore_dir name in
   Helpers.touch_file path;
@@ -265,11 +265,12 @@ let save_uefi_certificates_to_dir ~__context ~pool ~vm =
   let uefi_key = !Xapi_globs.varstore_dir ^ "KEK.auth" in
   if not (Sys.file_exists uefi_key) then
     if Sys.file_exists !Xapi_globs.varstore_dir && Sys.is_directory !Xapi_globs.varstore_dir then
-      let contents = (Xapi_stdext_base64.Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool)) in
-      if contents <> "" then begin
+      match Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool) with
+      | Ok contents when contents <> "" ->
         with_temp_file_contents ~contents (Tar_unix.Archive.extract extract_certificate_file);
         debug "UEFI tar file extracted to varstore directory";
-      end
+      | Ok _ -> (); (* no UEFI tar file *)
+      | Error _ -> debug "UEFI tar file was not extracted: it was not base64-encoded correctly"
 
 let start ~__context ~vm ~start_paused ~force =
   let vmr = Db.VM.get_record ~__context ~self:vm in

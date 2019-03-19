@@ -240,7 +240,7 @@ let zip data = (* todo: remove i/o, make this more efficient *)
       )
       (fun ()-> Sys.remove tmp_path)
     ;
-    let b64zdata = Xapi_stdext_base64.Base64.encode (Bytes.unsafe_to_string !zdata) in
+    let b64zdata = Base64.encode_string (Bytes.unsafe_to_string !zdata) in
     b64zdata
   with e->
     D.debug "error %s zipping data: %s" (ExnHelper.string_of_exn e) data;
