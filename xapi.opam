@@ -12,6 +12,7 @@ depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
   "alcotest"
+  "base64"
   "cdrom"
   "ctypes"
   "ctypes-foreign"

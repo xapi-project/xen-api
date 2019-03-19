@@ -1466,7 +1466,7 @@ let apply_edition ~__context ~host ~edition ~force =
 let license_add ~__context ~host ~contents =
   let license =
     try
-      Base64.decode contents
+      Base64.decode_exn contents
     with _ ->
       error "Base64 decoding of supplied license has failed";
       raise Api_errors.(Server_error(license_processing_error, []))
