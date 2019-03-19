@@ -232,7 +232,7 @@ let zip data = (* todo: remove i/o, make this more efficient *)
               let cin = Unix.in_channel_of_descr fd_in in
               let cin_len = in_channel_length cin in
               zdata := (Bytes.create cin_len);
-              for i = 1 to cin_len do 
+              for i = 1 to cin_len do
                 Bytes.set !zdata (i-1) (input_char cin);
               done
            )
