@@ -3097,7 +3097,7 @@ let host_license_add fd printer rpc session_id params =
   | Some license ->
     debug "Checking license [%s]" license;
     (try
-       Client.Host.license_add rpc session_id host (Base64.encode license);
+       Client.Host.license_add rpc session_id host (Base64.encode_string license);
        marshal fd (Command (Print "License applied."))
      with _ ->
        marshal fd (Command (PrintStderr "Failed to apply license file.\n"));

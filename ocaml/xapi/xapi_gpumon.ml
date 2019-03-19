@@ -46,7 +46,7 @@ module Nvidia = struct
     let metadata =
       pgpu_pci_address
       |> Gpumon_client.Client.Nvidia.get_pgpu_metadata dbg
-      |> Stdext.Base64.encode
+      |> Base64.encode_string
     in [key, metadata]
 
   let vgpu_impl ~__context vgpu =
@@ -83,7 +83,7 @@ module Nvidia = struct
       |> Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid
       |> (function
           | []      -> []
-          | [meta]  -> [key, Stdext.Base64.encode meta]
+          | [meta]  -> [key, Base64.encode_string meta]
           | _::_    -> failwith @@ Printf.sprintf
               "%s: VM %s (dom %d) has more than one NVIDIA vGPU (%s)"
               this (Ref.string_of vm) domid __LOC__)
@@ -100,7 +100,7 @@ module Nvidia = struct
   let assert_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~dest_host ~encoded_pgpu_metadata =
     let dbg = Context.string_of_task __context in
     let vm_domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-    let pgpu_metadata = Stdext.Base64.decode encoded_pgpu_metadata in
+    let pgpu_metadata = Base64.decode_exn encoded_pgpu_metadata in
     match vgpu_impl ~__context vgpu with
     | `passthrough | `gvt_g | `mxgpu ->
       debug "Skipping, vGPU %s implementation for VM %s is not Nvidia" (Ref.string_of vgpu) (Ref.string_of vm)
@@ -147,11 +147,11 @@ module Nvidia = struct
       let pgpu_metadata () =
         Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
         |> List.assoc key
-        |> Stdext.Base64.decode in
+        |> Base64.decode_exn in
       let vgpu_metadata () =
         Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu
         |> (fun md -> [List.assoc key md])
-        |> List.map Stdext.Base64.decode in
+        |> List.map Base64.decode_exn in
       match
         Gpumon_client.Client.Nvidia.get_pgpu_vgpu_compatibility
           dbg
