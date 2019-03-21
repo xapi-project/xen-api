@@ -1,11 +1,17 @@
 [Unit]
 Description=Performance monitoring/alarm generation daemon
+After=xapi.service
+Wants=xapi.service
 
 [Service]
 EnvironmentFile=-/etc/sysconfig/perfmon
 ExecStart=@BINDIR@/perfmon $PERFMON_FLAGS
 StandardError=null
 SuccessExitStatus=0 1
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
 
 [Install]
 WantedBy=multi-user.target

@@ -52,8 +52,8 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
  *
  * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
  * will need to be made in XenCenter *)
-let xencenter_min_verstring = "2.11"
-let xencenter_max_verstring = "2.11"
+let xencenter_min_verstring = "2.12"
+let xencenter_max_verstring = "2.12"
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
@@ -446,7 +446,6 @@ let igd_passthru_key = "igd_passthrough"
 let vgt_low_gm_sz = "vgt_low_gm_sz"
 let vgt_high_gm_sz = "vgt_high_gm_sz"
 let vgt_fence_sz = "vgt_fence_sz"
-let vgt_monitor_config_file = "vgt_monitor_config_file"
 
 let mxgpu_vgpus_per_pgpu = "vgpus_per_pgpu"
 

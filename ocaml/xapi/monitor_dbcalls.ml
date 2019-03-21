@@ -26,8 +26,7 @@ open D
 let get_host_memory_changes xc =
   let physinfo = Xenctrl.physinfo xc in
   let bytes_of_pages pages =
-    let kib = Xenctrl.pages_to_kib (Int64.of_nativeint pages) in
-    Int64.shift_left kib 10
+    Memory.bytes_of_pages (Int64.of_nativeint pages)
   in
   let free_bytes = bytes_of_pages physinfo.Xenctrl.free_pages in
   let total_bytes = bytes_of_pages physinfo.Xenctrl.total_pages in
@@ -50,8 +49,7 @@ let get_vm_memory_changes xc =
     if not dom.dying then
       begin
         let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
-        let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.total_memory_pages) in
-        let memory = Int64.mul kib 1024L in
+        let memory = Memory.bytes_of_pages (Int64.of_nativeint dom.total_memory_pages) in
         Hashtbl.add vm_memory_tmp uuid memory
       end
   in

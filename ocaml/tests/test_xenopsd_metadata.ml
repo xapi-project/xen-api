@@ -311,7 +311,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                      low_gm_sz = 128L;
                                                      high_gm_sz = 384L;
                                                      fence_sz = 4L;
-                                                     monitor_config_file = Some "/etc/gvt-g-monitor.conf";
+                                                     monitor_config_file = None;
                                                    })
                                                ];
                                              ]

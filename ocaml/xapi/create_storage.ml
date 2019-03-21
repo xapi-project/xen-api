@@ -53,7 +53,8 @@ let plug_unplugged_pbds __context =
          then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
          else Xapi_pbd.plug ~__context ~self
        with e -> debug "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
-    my_pbds
+    my_pbds;
+  Xapi_host_helpers.consider_enabling_host ~__context
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
 let maybe_create_pbd rpc session_id sr device_config me =

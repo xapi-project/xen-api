@@ -204,21 +204,6 @@ let assert_startup_complete () =
     (fun () -> if not (!startup_complete) then
         raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
 
-let assert_host_pviommu_ready =
-  let is_ready = ref false in
-  fun () ->
-    (if not !is_ready then
-       try
-         let s = Unixext.string_of_file "/sys/kernel/pv_iommu_ready" in
-         is_ready := Scanf.sscanf s " %d " (=) 1;
-       with _ ->
-         (* If we had difficulty reading/converting the key (e.g. the key
-            doesn't exist), we'll assume the flag is not accountable (e.g.
-            from previous releases with no such key) and simply go ahead. *)
-         is_ready := true);
-    if not !is_ready then
-      raise (Api_errors.Server_error (Api_errors.host_still_booting, []))
-
 let consider_enabling_host_nolock ~__context =
   debug "Xapi_host_helpers.consider_enabling_host_nolock called";
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.

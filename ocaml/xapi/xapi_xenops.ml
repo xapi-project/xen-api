@@ -699,11 +699,7 @@ module MD = struct
           fence_sz =
             List.assoc Xapi_globs.vgt_fence_sz internal_config
             |> Int64.of_string;
-          monitor_config_file =
-            if List.mem_assoc Xapi_globs.vgt_monitor_config_file internal_config
-            then Some
-                (List.assoc Xapi_globs.vgt_monitor_config_file internal_config)
-            else None;
+          monitor_config_file = None; (* unused *)
         }
       in {
         id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);

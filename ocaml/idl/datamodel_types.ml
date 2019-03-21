@@ -246,15 +246,15 @@ let release_order_full = [{
      code_name     = Some rel_naples;
      version_major = 2;
      version_minor = 12;
-     branding      = "Unreleased";
-     release_date  = None;
+     branding      = "Citrix Hypervisor 8.0";
+     release_date  = Some "March 2019";
    }; {
      code_name     = Some rel_oslo;
      version_major = 2;
      version_minor = 13;
      branding      = "Unreleased";
      release_date  = None;
-   };
+   }
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"
    for the branding and None for the release date, until the actual values are finalised. *)
