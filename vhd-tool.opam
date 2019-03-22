@@ -14,11 +14,12 @@ depends: [
   "ocaml"
   "dune" {build}
   "cohttp-lwt"
-  "cstruct"
+  "cstruct" {>= "3.0.0"}
   "io-page"
   "lwt"
   "nbd-lwt-unix"
   "ocaml-migrate-parsetree"
+  "ppx_cstruct"
   "ppx_deriving_rpc"
   "re"
   "rpclib"
