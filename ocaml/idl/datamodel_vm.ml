@@ -1019,7 +1019,7 @@ let power_behaviour =
   let set_bios_strings = call
       ~name: "set_bios_strings"
       ~in_product_since:rel_inverness
-      ~doc:"Set custom BIOS strings to this VM. VM will be given a default set of BIOS strings, only some of which can be overridden by the supplied values. Allowed keys are: 'bios-vendor', 'bios-version', 'system-manufacturer', 'system-product-name', 'system-version', 'system-serial-number', 'enclosure-asset-tag'"
+      ~doc:"Set custom BIOS strings to this VM. VM will be given a default set of BIOS strings, only some of which can be overridden by the supplied values. Allowed keys are: 'bios-vendor', 'bios-version', 'system-manufacturer', 'system-product-name', 'system-version', 'system-serial-number', 'enclosure-asset-tag', 'baseboard-manufacturer', 'baseboard-product-name', 'baseboard-version', 'baseboard-serial-number', 'baseboard-asset-tag', 'baseboard-location-in-chassis', 'enclosure-asset-tag'"
       ~params:[Ref _vm, "self", "The VM to modify";
                Map (String, String), "value", "The custom BIOS strings as a list of key-value pairs"]
       ~allowed_roles:_R_VM_ADMIN
