@@ -70,3 +70,15 @@ and 'XenCenter' to manage clusters of Xen-enabled hosts."""
 url {
   src: "https://github.com/xapi-project/xen-api/archive/master/master.tar.gz"
 }
+
+pin-depends: [
+  ["ezxenstore.dev" "git+https://github.com/psafont/ezxenstore.git#cache"]
+  ["ppx_deriving_rpc.dev" "git+https://github.com/psafont/ocaml-rpc.git#dbgen"]
+  ["rpc.dev" "git+https://github.com/psafont/ocaml-rpc.git#dbgen"]
+  ["rpclib.dev" "git+https://github.com/psafont/ocaml-rpc.git#dbgen"]
+  ["rpclib-async.dev" "git+https://github.com/psafont/ocaml-rpc.git#dbgen"]
+  ["rpclib-lwt.dev" "git+https://github.com/psafont/ocaml-rpc.git#dbgen"]
+  ["xapi-idl.dev" "git+https://github.com/psafont/xcp-idl.git#delta-updates"]
+  ["xapi-rrdd.dev" "git+https://github.com/psafont/xcp-rrdd.git#xenstore-cache"]
+  ["xapi-xenopsd.dev" "git+https://github.com/psafont/xenopsd.git#delta-updates"]
+]
