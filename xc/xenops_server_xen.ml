@@ -131,6 +131,7 @@ module VmExtra = struct
   (* Known versions of the VM persistent metadata created by xenopsd *)
   let persistent_version_pre_lima = 0
   let persistent_version_lima     = 1
+  let persistent_version_naples   = 2
 
   (** Extra data we store per VM. The persistent data is preserved when
       the domain is suspended so it can be re-used in the following 'create'
@@ -1053,7 +1054,7 @@ module VM = struct
                  VmExtra.{ default_persistent_t with
                            (* version 1 and later distinguish VMs started in Lima and later versions of xenopsd
                               from those VMs started in pre-Lima versions that didn't have this version field *)
-                           version = VmExtra.persistent_version_lima
+                           version = VmExtra.persistent_version_naples
                          ; ty = Some vm.ty
                          ; last_start_time = Unix.gettimeofday ()
                          ; domain_config = Some (VmExtra.domain_config_of_vm vm)
