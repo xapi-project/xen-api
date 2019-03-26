@@ -5,7 +5,6 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xenopsd"
 dev-repo: "git+https://github.com/xapi-project/xenopsd.git"
 bug-reports: "https://github.com/xapi-project/xenopsd/issues"
-patches: ["xenopsd-evtchn-revert-CP29693.patch"]
 build: [
   ["./configure"]
   ["dune" "build" "-p" name "-j" jobs]
