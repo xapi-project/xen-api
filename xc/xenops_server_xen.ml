@@ -154,6 +154,7 @@ module VmExtra = struct
     pci_msitranslate: bool [@default false];
     pci_power_mgmt: bool [@default false];
     pv_drivers_detected: bool [@default false];
+    xen_platform: (int * int) option;  (* (device_id, revision) for QEMU *)
   } [@@deriving rpcty]
 
   let default_persistent_t = match Rpcmarshal.unmarshal typ_of_persistent_t (Rpc.Dict []) with Ok x -> x | _ -> failwith "Failed to make default_persistent_t"
@@ -1040,6 +1041,16 @@ module VM = struct
       is_uefi;
     }
 
+  let xen_platform_of ~vm =
+    match List.assoc_opt "device_id" vm.Xenops_interface.Vm.platformdata with
+    | Some device_id ->
+      (* The revision is always 2 if a device_id is specified *)
+      int_of_string ("0x" ^ device_id), 2
+    | None ->
+      (* The device_id is always 1 if it is unspecified *)
+      (* The revision is always 1 if the device_id is unspecified *)
+      1, 1
+
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
@@ -1363,6 +1374,7 @@ module VM = struct
       VmExtra.build_info = Some build_info;
       ty = Some ty;
       VmExtra.qemu_vbds = qemu_vbds;
+      xen_platform;
     } ->
       let make ?(boot_order="cd") ?(firmware=default_firmware) ?(serial="pty") ?(monitor="null")
           ?(nics=[]) ?(disks=[]) ?(vgpus=[])
@@ -1395,6 +1407,7 @@ module VM = struct
           disp = VNC (video, vnc_ip, true, 0, keymap);
           pci_passthrough = pci_passthrough;
           video_mib=video_mib;
+          xen_platform;
           extras = [];
         } in
       let nics = List.filter_map (fun vif ->
@@ -1604,8 +1617,7 @@ module VM = struct
 
   let build ?restore_fd task vm vbds vifs vgpus vusbs extras force = on_domain (build_domain vm vbds vifs vgpus vusbs extras force) task vm
 
-  let create_device_model_exn vbds vifs vgpus vusbs saved_state xc xs task vm di =
-    let vmextra = DB.read_exn vm.Vm.id in
+  let create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra xc xs task vm di =
     let qemu_dm = dm_of ~vm in
     let xenguest = choose_xenguest vm.Vm.platformdata in
     debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
@@ -1629,7 +1641,23 @@ module VM = struct
     with Device.Ioemu_failed (name, msg) ->
       raise (Xenopsd_error (Failed_to_start_emulator (vm.Vm.id, name, msg)))
 
-  let create_device_model task vm vbds vifs vgpus vusbs saved_state = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state) task vm
+  let create_device_model task vm vbds vifs vgpus vusbs saved_state =
+    let _ =
+      DB.update_exn vm.Vm.id (fun d ->
+        let vmextra =
+          (* Fill in the xen-platform data, if it is not yet set *)
+          match d.VmExtra.persistent.xen_platform with
+          | None ->
+            VmExtra.{persistent = { d.persistent with
+              xen_platform = Some (xen_platform_of ~vm)
+            }}
+          | _ -> d
+        in
+        let () = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra) task vm in
+        (* Ensure that the updated vmextra is written back to the DB *)
+        Some vmextra
+      )
+    in ()
 
   let request_shutdown task vm reason ack_delay =
     let reason = shutdown_reason reason in

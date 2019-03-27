@@ -1676,6 +1676,7 @@ module Dm_Common = struct
     pci_emulations: string list;
     pci_passthrough: bool;
     video_mib : int;
+    xen_platform: (int * int) option;
     extras: (string * string option) list;
   }
 
@@ -2004,23 +2005,22 @@ module Dm_Common = struct
          ])
     ]
 
-  let xen_platform ~trad_compat ~xs ~domid =
-    let device_id, revision =
-      try
-        xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid),
-        "2"
-      with _ -> "0001", "1"
-    in
+  let xen_platform ~trad_compat ~xs ~domid ~info =
     [ "-device"; String.concat "," (List.concat [
           [ "xen-platform"
           ; "addr=3"
           ]
         ; if trad_compat then
-            [ sprintf "device-id=0x%s" device_id
-            ; sprintf "revision=0x%s" revision
-            ; "class-id=0x0100"
-            ; "subvendor_id=0x5853"
-            ; sprintf"subsystem_id=0x%s" device_id ] else []])
+            match info.xen_platform with
+            | Some (device_id, revision) ->
+              [ sprintf "device-id=0x%04x" device_id
+              ; sprintf "revision=0x%x" revision
+              ; "class-id=0x0100"
+              ; "subvendor_id=0x5853"
+              ; sprintf"subsystem_id=0x%04x" device_id ]
+            | None -> []
+          else []
+      ])
     ]
 
   let cant_suspend_reason_path domid =
@@ -2149,7 +2149,7 @@ module Backend = struct
     end
 
     module XenPlatform: sig
-      val device: xs:Xenstore.Xs.xsh -> domid:int -> string list
+      val device: xs:Xenstore.Xs.xsh -> domid:int -> info:Dm_Common.info -> string list
     end
 
     module VGPU: sig
@@ -2176,13 +2176,13 @@ module Backend = struct
     end
 
     module XenPlatform = struct
-      let device ~xs ~domid =
+      let device ~xs ~domid ~info =
         let has_platform_device =
           try
             int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
           with _ -> true
         in
-        if has_platform_device then Dm_Common.xen_platform ~trad_compat:true ~xs ~domid
+        if has_platform_device then Dm_Common.xen_platform ~trad_compat:true ~xs ~domid ~info
         else []
     end
 
@@ -2219,7 +2219,7 @@ module Backend = struct
         in
 
         if has_nvidia_vgpu then 2
-        else if XenPlatform.device ~xs ~domid = [] then 3
+        else if XenPlatform.device ~xs ~domid ~info = [] then 3
         else
           nics
           |> List.map (fun (_, _, devid) -> devid + NIC.base_addr)
@@ -2753,7 +2753,7 @@ module Backend = struct
             ; Config.extra_qemu_args ~nic_type
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ; qmp
-            ; Config.XenPlatform.device ~xs ~domid
+            ; Config.XenPlatform.device ~xs ~domid ~info
             ] in
 
         let disks_cdrom, disks_other =
