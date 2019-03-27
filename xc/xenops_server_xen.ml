@@ -1042,15 +1042,25 @@ module VM = struct
       is_uefi;
     }
 
-  let xen_platform_of ~vm =
+  let xen_platform_of ~vm ~vmextra =
+    let open VmExtra in
     match List.assoc_opt "device_id" vm.Xenops_interface.Vm.platformdata with
     | Some device_id ->
       (* The revision is always 2 if a device_id is specified *)
       int_of_string ("0x" ^ device_id), 2
     | None ->
       (* The device_id is always 1 if it is unspecified *)
-      (* The revision is always 1 if the device_id is unspecified *)
-      1, 1
+      let device_id = 1 in
+      (* The revision is usually 1, except for certain cases which require it to
+       * be set to 2 due to historical incompatibilities (CA-313709) *)
+      let revision =
+        if vmextra.persistent.original_profile = Some Device.Profile.Qemu_trad ||
+           vmextra.persistent.version >= persistent_version_naples then
+          1
+        else
+          2
+      in
+      device_id, revision
 
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
     let k = vm.Vm.id in
@@ -1652,7 +1662,7 @@ module VM = struct
           match d.VmExtra.persistent.xen_platform with
           | None ->
             VmExtra.{persistent = { d.persistent with
-              xen_platform = Some (xen_platform_of ~vm)
+              xen_platform = Some (xen_platform_of ~vm ~vmextra:d)
             }}
           | _ -> d
         in
