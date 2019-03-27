@@ -148,6 +148,7 @@ module VmExtra = struct
     nomigrate: bool [@default false];  (* platform:nomigrate   at boot time *)
     nested_virt: bool [@default false];(* platform:nested_virt at boot time *)
     profile: Device.Profile.t option;
+    original_profile: Device.Profile.t option; (* The QEMU profile used when the VM was started *)
     suspend_memory_bytes: int64 [@default 0L];
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list [@default []];
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list [@default []];
@@ -1061,6 +1062,7 @@ module VM = struct
               Some x
             | None -> begin
               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
+               let profile = profile_of ~vm in
                let persistent =
                  VmExtra.{ default_persistent_t with
                            (* version 1 and later distinguish VMs started in Lima and later versions of xenopsd
@@ -1077,7 +1079,8 @@ module VM = struct
                                ~key:"nested-virt"
                                ~platformdata:vm.Xenops_interface.Vm.platformdata
                                ~default:false
-                         ; profile = profile_of ~vm
+                         ; profile
+                         ; original_profile = profile
                          ; pci_msitranslate = vm.Vm.pci_msitranslate
                          ; pci_power_mgmt = vm.Vm.pci_power_mgmt
                  } in
@@ -2212,14 +2215,25 @@ module VM = struct
       else
         persistent.VmExtra.profile
     in
-    let persistent = { persistent with VmExtra.profile = profile }
-      |> DB.revision_of k
+    let original_profile =
+      (* Never overwrite the original_profile, if one is present. If not present,
+       * then make it equal to the profile derived above. *)
+      match persistent.VmExtra.original_profile with
+      | None -> profile
+      | p -> p
+    in
+    let persistent = VmExtra.{ persistent with
+        profile;
+        original_profile;
+      }
+      |> DB.revision_of k (* This may update the profile, but not the original_profile *)
     in
     persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string |> fun state_new ->
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
-    let _ = DB.update vm.Vm.id (fun d -> Some VmExtra.{persistent})
+    (* Save the state *)
+    let _ = DB.update vm.Vm.id (fun _ -> Some VmExtra.{persistent})
     in ()
 
   let minimum_reboot_delay = 120.
