@@ -57,7 +57,6 @@ depends: [
   "xenctrl"
   "xml-light2"
   "yojson"
-  "zstd"
 ]
 depexts: [
   ["hwdata" "libpci-dev" "libpam-dev"] {os-distribution = "debian"}
