@@ -2173,7 +2173,17 @@ module VM = struct
         end
       | _ -> persistent
     in
-    let persistent = { persistent with VmExtra.profile = profile_of ~vm }
+    let profile =
+      (* Set the profile correctly if the incoming state does not have a profile set.
+       * This is the case if the profile is None (the field's default), while the VM does
+       * need QEMU (i.e. an HVM guest). Otherwise, keep the profile from the state.
+       * The resulting profile may be upgraded in `revision_of` below. *)
+      if persistent.VmExtra.profile = None && will_be_hvm vm then
+        Some Device.Profile.Qemu_trad
+      else
+        persistent.VmExtra.profile
+    in
+    let persistent = { persistent with VmExtra.profile = profile }
       |> DB.revision_of k
     in
     persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string |> fun state_new ->
