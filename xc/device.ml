@@ -2697,8 +2697,11 @@ module Backend = struct
                 Stdext.Xstringext.String.replace "%d" (string_of_int domid) xs_path
               else
                 xs_path
-            in Some ("file:" ^ file)
-          with _ -> info.Dm_Common.serial
+            in ["-chardev"; "file,id=serial0,append=on,path=" ^ file; "-serial"; "chardev:serial0"]
+          with _ ->
+            match info.Dm_Common.serial with
+            | None -> []
+            | Some x -> ["-serial"; x]
         in
 
         let nic_type =
@@ -2745,7 +2748,7 @@ module Backend = struct
               ]
             ; usb
             ; [ "-smp"; sprintf "%d,maxcpus=%d" info.Dm_Common.vcpus_current info.Dm_Common.vcpus]
-            ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
+            ; (serial_device)
             ; [ "-display"; "none"; "-nodefaults"]
             ; [ "-trace"; "enable=xen_platform_log"]
             ; [ "-sandbox"; "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
