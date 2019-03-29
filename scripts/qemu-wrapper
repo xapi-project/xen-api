@@ -110,7 +110,8 @@ def prepare_exec():
     core_dump_limit = enable_core_dumps()
     print "core dump limit: %d" % core_dump_limit
 
-    restrict_fsize()
+    if not file_serial:
+        restrict_fsize()
 
     flags = CLONE_NEWNS | CLONE_NEWIPC
     # serial redirection for debug may be using the network so don't
@@ -175,6 +176,8 @@ def main(argv):
 
     global network_serial
     network_serial = False
+    global file_serial
+    file_serial = False
 
     while n < len(qemu_args):
         p = qemu_args[n]
@@ -196,12 +199,18 @@ def main(argv):
 
         if p == "-serial":
             params = qemu_args[n + 1].split(',')
-            # There are other network options apart from 'tcp' but,
-            # in practice, tcp is always used for serial debug
             if params[0].startswith('tcp'):
                 print "serial: '%s'" % qemu_args[n + 1]
                 network_serial = True
+            elif params[0].startswith('file:'):
+                file_serial = True
 
+            n += 1
+            continue
+
+        if p == "-chardev":
+            if qemu_args[n + 1].startswith('file,id=serial0,'):
+                file_serial = True
             n += 1
             continue
 
