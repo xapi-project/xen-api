@@ -107,17 +107,42 @@ namespace XenAPI
         /// <param name="session"></param>
         /// <param name="timeout"></param>
         public Session(Session session, int timeout)
-            : this(timeout, session.Url)
         {
             opaque_ref = session.opaque_ref;
             APIVersion = session.APIVersion;
-            if (XmlRpcToJsonRpcInvoker != null)
-                XmlRpcToJsonRpcInvoker(this);
-            _isLocalSuperuser = session.IsLocalSuperuser;
-            _subject = session._subject;
-            _userSid = session._userSid;
-            roles = session.Roles;
-            permissions = session.Permissions;
+
+            //in the following do not copy over the ConnectionGroupName
+
+            if (session.JsonRpcClient != null &&
+                (APIVersion == API_Version.API_2_6 || APIVersion >= API_Version.API_2_8))
+            {
+                JsonRpcClient = new JsonRpcClient(session.Url)
+                {
+                    JsonRpcVersion = session.JsonRpcClient.JsonRpcVersion,
+                    Timeout = timeout,
+                    KeepAlive = session.JsonRpcClient.KeepAlive,
+                    UserAgent = session.JsonRpcClient.UserAgent,
+                    WebProxy = session.JsonRpcClient.WebProxy,
+                    ProtocolVersion = session.JsonRpcClient.ProtocolVersion,
+                    Expect100Continue = session.JsonRpcClient.Expect100Continue,
+                    AllowAutoRedirect = session.JsonRpcClient.AllowAutoRedirect,
+                    PreAuthenticate = session.JsonRpcClient.PreAuthenticate,
+                    Cookies = session.JsonRpcClient.Cookies
+                };
+            }
+            else if (session.proxy != null)
+            {
+                proxy = XmlRpcProxyGen.Create<Proxy>();
+                proxy.Url = session.Url;
+                proxy.Timeout = timeout;
+                proxy.NonStandard = session.proxy.NonStandard;
+                proxy.UseIndentation = session.proxy.UseIndentation;
+                proxy.UserAgent = session.proxy.UserAgent;
+                proxy.KeepAlive = session.proxy.KeepAlive;
+                proxy.Proxy = session.proxy.Proxy;
+            }
+
+            CopyADFromSession(session);
         }
 
         #endregion
@@ -151,6 +176,15 @@ namespace XenAPI
                 XmlRpcToJsonRpcInvoker(this);
             SetADDetails();
             SetRbacPermissions();
+        }
+
+        private void CopyADFromSession(Session session)
+        {
+            _isLocalSuperuser = session.IsLocalSuperuser;
+            _subject = session.Subject;
+            _userSid = session.UserSid;
+            roles = session.Roles;
+            permissions = session.Permissions;
         }
 
         /// <summary>
@@ -726,23 +760,9 @@ namespace XenAPI
 
         #endregion
 
-        static Session()
-        {
-            //ServicePointManager.ServerCertificateValidationCallback = ValidateServerCertificate;
-        }
-
         private static string GetUrl(string hostname, int port)
         {
             return string.Format("{0}://{1}:{2}", port == 8080 || port == 80 ? "http" : "https", hostname, port);
-        }
-
-        private static bool ValidateServerCertificate(
-              object sender,
-              X509Certificate certificate,
-              X509Chain chain,
-              SslPolicyErrors sslPolicyErrors)
-        {
-            return true;
         }
     }
 }
