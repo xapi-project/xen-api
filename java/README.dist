@@ -7,16 +7,20 @@ XenServerJava is a complete SDK for Citrix Hypervisor, exposing the Citrix
 Hypervisor API as Java classes.
 
 It is available in the CitrixHypervisor-SDK-@SDK_VERSION@.zip, which can be downloaded
-from https://www.citrix.com/downloads/citrix-hypervisor/.
+from https://www.citrix.com/downloads/citrix-hypervisor/
 
-For Citrix Hypervisor documentation see https://docs.citrix.com.
+For Citrix Hypervisor documentation, see https://docs.citrix.com/en-us/citrix-hypervisor/
+
 XenServerJava includes a class for every API class, and a method for each API
 call, so API documentation and examples written for other languages will apply
 equally well to Java. In particular, the SDK Guide and the Management API Guide
 are ideal for developers wishing to use XenServerJava.
 
 For community content, blogs, and downloads, visit
-https://xenserver.org/partners/developing-products-for-xenserver.html.
+https://www.citrix.com/community/citrix-developer/
+
+To network with other developers using Citrix Hypervisor visit
+https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 
 XenServerJava is free software. You can redistribute and modify it under the
 terms of the BSD license. See LICENSE.txt for details.
