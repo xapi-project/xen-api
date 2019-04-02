@@ -34,6 +34,7 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/unixsupport.h>
+#include <caml/threads.h>
 
 /* Set the TCP_NODELAY flag on a Unix.file_descr */
 CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value bool)
@@ -51,7 +52,12 @@ CAMLprim value stub_unixext_fsync (value fd)
 {
 	CAMLparam1(fd);
 	int c_fd = Int_val(fd);
-	if (fsync(c_fd) != 0) uerror("fsync", Nothing);
+	int rc;
+
+	caml_release_runtime_system();
+	rc = fsync(c_fd);
+	caml_acquire_runtime_system();
+	if (rc != 0) uerror("fsync", Nothing);
 	CAMLreturn(Val_unit);
 }
 	
@@ -62,8 +68,14 @@ CAMLprim value stub_unixext_blkgetsize64(value fd)
   CAMLparam1(fd);
   uint64_t size;
   int c_fd = Int_val(fd);
+  int rc;
+
+  caml_release_runtime_system();
   /* mirage-block-unix binding: */
-  if (stdext_blkgetsize(c_fd, &size)) {
+  rc = stdext_blkgetsize(c_fd, &size);
+  caml_acquire_runtime_system();
+
+  if (rc) {
     uerror("ioctl(BLKGETSIZE64)", Nothing);
   }
   CAMLreturn(caml_copy_int64(size));
@@ -319,7 +331,15 @@ CAMLprim value stub_statvfs(value filename)
   int ret;
   struct statvfs buf;
 
-  ret = statvfs(String_val(filename), &buf);
+  /* We want to release the runtime lock, so we must copy
+   * all OCaml arguments.
+   * See the manual section 20.12.2 Parallel execution of long running C code */
+  char *name = caml_stat_strdup(String_val(filename));
+
+  caml_release_runtime_system();
+  ret = statvfs(name, &buf);
+  caml_stat_free(name);
+  caml_acquire_runtime_system();
 
   if(ret == -1) uerror("statvfs", Nothing);
 
