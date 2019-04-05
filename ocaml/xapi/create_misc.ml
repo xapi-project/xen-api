@@ -166,6 +166,11 @@ let minimum x y = if x < y then x else y
 
 let (+++) = Int64.add
 
+(** [mkints n] creates a list [1; 2; .. ; n] *)
+let rec mkints = function
+  | 0 -> []
+  | n -> (mkints (n - 1) @ [n])
+
 (** Ensures that the database has all the necessary records for domain *)
 (** zero, and that the records are up-to-date. Includes the following: *)
 (**     1. The domain zero record.                                     *)
@@ -216,14 +221,19 @@ and ensure_domain_zero_console_record ~__context ~domain_zero_ref : unit =
     create_domain_zero_console_record ~__context ~domain_zero_ref ~console_records_rfb ~console_records_vt100;
 
 and ensure_domain_zero_metrics_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
-  if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then
-    begin
-      debug "Domain 0 record does not have associated metrics record. Creating now";
-      let metrics_ref = Ref.make() in
-      create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref:metrics_ref ~memory_constraints:(create_domain_zero_memory_constraints host_info)
-        ~vcpus:(count_cpus ());
-      Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
-    end
+  if not (Db.is_valid_ref __context (Db.VM.get_metrics ~__context ~self:domain_zero_ref)) then begin
+    debug "Domain 0 record does not have associated metrics record. Creating now";
+    let metrics_ref = Ref.make() in
+    create_domain_zero_metrics_record ~__context
+      ~domain_zero_metrics_ref:metrics_ref
+      ~memory_constraints:(create_domain_zero_memory_constraints host_info)
+      ~vcpus:(count_cpus ());
+    Db.VM.set_metrics ~__context ~self:domain_zero_ref ~value:metrics_ref
+  end else begin
+    debug "Updating Domain 0 metrics record";
+    update_domain_zero_metrics_record ~__context ~domain_zero_ref
+  end
+
 
 and create_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info) : unit =
   (* Determine domain 0 memory constraints. *)
@@ -307,9 +317,6 @@ and create_domain_zero_console_record ~__context ~domain_zero_ref ~console_recor
   end
 
 and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref ~memory_constraints ~vcpus : unit =
-  let rec mkints = function
-    | 0 -> []
-    | n -> (mkints (n - 1) @ [n]) in
   Db.VM_metrics.create
     ~__context
     ~ref:domain_zero_metrics_ref
@@ -348,9 +355,20 @@ and update_domain_zero_record ~__context ~domain_zero_ref (host_info: host_info)
     Db.VM.set_requires_reboot ~__context ~self:domain_zero_ref ~value:false
   end;
   let localhost = Helpers.get_localhost ~__context in
+  let cpus      = count_cpus () |> Int64.of_int in
   Db.VM.set_power_state ~__context ~self:domain_zero_ref ~value:`Running;
   Db.VM.set_domid ~__context ~self:domain_zero_ref ~value:0L;
-  Helpers.update_domain_zero_name ~__context localhost host_info.hostname
+  Helpers.update_domain_zero_name ~__context localhost host_info.hostname;
+  Db.VM.set_VCPUs_max ~__context ~self:domain_zero_ref ~value:cpus;
+  Db.VM.set_VCPUs_at_startup ~__context ~self:domain_zero_ref ~value:cpus
+
+and update_domain_zero_metrics_record ~__context ~domain_zero_ref =
+  let metrics   = Db.VM.get_metrics ~__context ~self:domain_zero_ref in
+  let cpus      = count_cpus () in
+  let cpus'     = Int64.of_int cpus in
+  Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:cpus';
+  Db.VM_metrics.set_VCPUs_utilisation ~__context ~self:metrics
+    ~value:(List.map (fun x -> Int64.of_int x, 0.) (mkints cpus))
 
 and create_domain_zero_memory_constraints (host_info: host_info) : Vm_memory_constraints.t =
   try

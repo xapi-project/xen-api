@@ -3,6 +3,7 @@
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
 import sys, os, subprocess, json, urlparse, itertools
+import os.path
 import time
 import XenAPI, inventory, xmlrpclib
 
@@ -10,6 +11,8 @@ main_dir = "/etc/xensource/static-vdis"
 
 xapi_storage_script = "/usr/libexec/xapi-storage-script"
 smapiv3_config = "device-config"
+
+MULTIPATH_FLAG = "/var/run/nonpersistent/multipath_enabled"
 
 def call_volume_plugin(name, command, args):
     cmd_args = [(xapi_storage_script + "/volume/org.xen.xapi.storage." + name + "/"
@@ -175,6 +178,7 @@ def add(session, vdi_uuid, reason):
         stat = call_volume_plugin(ty, "Volume.stat", [ sr, location ])
         data["volume-uri"] = stat["uri"][0]
         data["volume-key"] = stat["key"]
+        data["multipath"] = json.dumps(os.path.exists(MULTIPATH_FLAG))
     else:
         # SMAPIv1
         try:
@@ -286,7 +290,12 @@ def attach(vdi_uuid):
                     configuration = json.loads(read_whole_file(d + "/" + smapiv3_config))
                     vol_key = read_whole_file(d + "/volume-key")
                     vol_uri = read_whole_file(d + "/volume-uri")
+                    multipath = json.loads(read_whole_file(d + "/multipath"))
                     scheme = urlparse.urlparse(vol_uri).scheme
+                    # Set the multipath flag if required
+                    if multipath:
+                        with open(MULTIPATH_FLAG, 'a'):
+                            os.utime(MULTIPATH_FLAG, None)
                     sr = sr_attach(volume_plugin, configuration)
                     attach = call_datapath_plugin(scheme, "Datapath.attach", [ vol_uri, "0" ])
                     (name, implementation) = \

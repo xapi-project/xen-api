@@ -13,6 +13,7 @@
  *)
 
 open Stdext.Threadext
+module StringSet = Set.Make(String)
 
 (* A cache mapping PIF names to PIF structures. *)
 let pifs_cached_m : Mutex.t = Mutex.create ()
@@ -34,6 +35,8 @@ let host_memory_total_cached : Int64.t ref = ref Int64.zero
 let pvs_proxy_cached_m : Mutex.t = Mutex.create ()
 let pvs_proxy_cached : (string, int) Hashtbl.t = Hashtbl.create 100
 let pvs_proxy_tmp    : (string, int) Hashtbl.t = Hashtbl.create 100
+(* A cache for ignoring errors from files that cannot be loaded *)
+let ignore_errors = ref StringSet.empty
 
 (** [clear_cache_for_pif] removes any current cache for PIF with [pif_name],
  * which forces fresh properties for the PIF into xapi's database. *)
@@ -89,3 +92,13 @@ let get_updates ~before ~after ~f =
     ) after []
 let get_updates_map = get_updates ~f:(fun k v acc -> (k, v)::acc)
 let get_updates_values = get_updates ~f:(fun _ v acc -> v::acc)
+
+(* Helper for filename errors set *)
+let is_ignored filename =
+  StringSet.mem filename !ignore_errors
+
+let ignore_errors_from filename =
+  ignore_errors := StringSet.add filename !ignore_errors
+
+let log_errors_from filename =
+        ignore_errors := StringSet.remove filename !ignore_errors;
