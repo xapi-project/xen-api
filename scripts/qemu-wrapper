@@ -304,6 +304,7 @@ def main(argv):
         qemu_args += ["-runas", "%d.%d" % (uid, gid)]
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
+    xenstore_write("/libxl/%d/type" % domid, "HVM")
 
     print "Exec: %s %s" % (qemu_dm, " ".join(qemu_args))
 
