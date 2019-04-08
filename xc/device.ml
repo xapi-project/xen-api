@@ -219,7 +219,7 @@ module Generic = struct
 
   let is_qdisk x = Hotplug.path_written_by_hotplug_scripts x |> Astring.String.is_infix ~affix:"backend/qdisk/"
 
-  let on_backend_closed_unplug ~xs x=
+  let on_backend_closed_unplug ~xs x =
     debug "Device.on_backend_closed_unplug for %s" (string_of_device x);
     (* qemu-dp does not delete the hotplug status key *)
     backend_closed ~xs x
@@ -280,6 +280,8 @@ module Generic = struct
     safe_rm xs (frontend_ro_path_of_device ~xs x)
 
   let hard_shutdown_complete ~xs (x: device) =
+    if is_qdisk x then
+      safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x);
     if !Xenopsd.run_hotplug_scripts
     then backend_closed ~xs x
     else unplug_watch ~xs x
