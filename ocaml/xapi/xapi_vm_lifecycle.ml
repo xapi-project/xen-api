@@ -619,7 +619,15 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (Db.VM.get_attached_PCIs ~__context ~self);
     List.iter
       (fun vgpu ->
-         Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false)
+         Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
+         let keys = Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu in
+         if List.mem_assoc Xapi_gpumon.Nvidia.key keys then begin
+           warn "Found unexpected Nvidia compat metadata on vGPU %s / VM %s"
+             (Ref.string_of vgpu) (Ref.string_of self);
+           let v = List.filter (fun (k,_) -> k <> Xapi_gpumon.Nvidia.key) keys in
+           Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value:v;
+           debug "Clearing Nvidia vGPU %s compat metadata" (Ref.string_of vgpu)
+         end)
       (Db.VM.get_VGPUs ~__context ~self);
     List.iter
       (fun pci ->
