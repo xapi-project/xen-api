@@ -64,15 +64,19 @@ let get_vdi ~__context ~self =
     end
   end
 
+let m = Mutex.create ()
+
 let get_or_recreate_vdi ~__context ~self =
-  match get_vdi ~__context ~self with
-  | None ->
-    let sR = Db.PVS_cache_storage.get_SR ~__context ~self in
-    let size = Db.PVS_cache_storage.get_size ~__context ~self in
-    let vdi = create_vdi ~__context ~sR ~size in
-    Db.PVS_cache_storage.set_VDI ~__context ~self ~value:vdi;
-    vdi
-  | Some vdi -> vdi
+  Stdext.Threadext.Mutex.execute m (fun () ->
+    match get_vdi ~__context ~self with
+    | None ->
+      let sR = Db.PVS_cache_storage.get_SR ~__context ~self in
+      let size = Db.PVS_cache_storage.get_size ~__context ~self in
+      let vdi = create_vdi ~__context ~sR ~size in
+      Db.PVS_cache_storage.set_VDI ~__context ~self ~value:vdi;
+      vdi
+    | Some vdi -> vdi
+  )
 
 let destroy_vdi ~__context ~self =
   match get_vdi ~__context ~self with
