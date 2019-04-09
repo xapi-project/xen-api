@@ -74,25 +74,6 @@ let execute_vm_hook ~script_name ~id ~reason =
     )
     scripts
 
-let vm_pre_destroy ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_destroy ~reason ~id
-let vm_pre_migrate ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_migrate ~reason ~id
-let vm_post_migrate ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_post_migrate ~reason ~id
-let vm_pre_suspend ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_suspend ~reason ~id
-let vm_pre_start ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_start ~reason ~id
-let vm_pre_reboot ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_reboot ~reason ~id
-let vm_pre_resume ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_resume ~reason ~id
-let vm_post_resume ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_post_resume ~reason ~id
-let vm_post_destroy ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_post_destroy ~reason ~id
-
 type script =
   | VM_pre_destroy
   | VM_pre_migrate
