@@ -62,6 +62,8 @@ module NvidiaTest = struct
             max_x = 1920L;
             max_y = 1200L;
             file_path = "test_data/test_vgpu_subdevid.conf";
+            compatible_types_in_vm = [];
+            compatible_types_on_pgpu = [];
           });
         "test_data/test_vgpu_nosubdevid.conf",
         Nvidia_old.({
@@ -77,6 +79,8 @@ module NvidiaTest = struct
             max_x = 1920L;
             max_y = 1200L;
             file_path = "test_data/test_vgpu_nosubdevid.conf";
+            compatible_types_in_vm = [];
+            compatible_types_on_pgpu = [];
           });
       ]
     end)
@@ -131,6 +135,8 @@ module NvidiaTest = struct
               max_x = 1920L;
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
+              compatible_types_in_vm = [];
+              compatible_types_on_pgpu = [];
             })
         ];
         ("test_data/nvidia-whitelist.xml", 0x3334),
@@ -148,6 +154,8 @@ module NvidiaTest = struct
               max_x = 1920L;
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
+              compatible_types_in_vm = [];
+              compatible_types_on_pgpu = [];
             })
         ];
         ("test_data/nvidia-whitelist.xml", 0x3335),
@@ -165,6 +173,8 @@ module NvidiaTest = struct
               max_x = 2400L;
               max_y = 1600L;
               file_path = "test_data/nvidia-whitelist.xml";
+              compatible_types_in_vm = [];
+              compatible_types_on_pgpu = [];
             });
           Vendor_nvidia.({
               identifier = Identifier.({
@@ -179,6 +189,8 @@ module NvidiaTest = struct
               max_x = 1920L;
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
+              compatible_types_in_vm = [];
+              compatible_types_on_pgpu = [];
             })
         ];
         
