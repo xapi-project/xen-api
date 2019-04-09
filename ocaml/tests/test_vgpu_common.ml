@@ -32,6 +32,8 @@ let k100 = {
       vsubdev_id = 0x101e;
     });
   experimental = false;
+  compatible_types_in_vm = [];
+  compatible_types_on_pgpu = [];
 }
 
 let k140q = {
@@ -52,6 +54,8 @@ let k140q = {
       vsubdev_id = 0x1037;
     });
   experimental = false;
+  compatible_types_in_vm = [];
+  compatible_types_on_pgpu = [];
 }
 
 let k200 = {
@@ -72,6 +76,8 @@ let k200 = {
       vsubdev_id = 0x101d;
     });
   experimental = false;
+  compatible_types_in_vm = [];
+  compatible_types_on_pgpu = [];
 }
 
 let k240q = {
@@ -92,6 +98,8 @@ let k240q = {
       vsubdev_id = 0x101a;
     });
   experimental = false;
+  compatible_types_in_vm = [];
+  compatible_types_on_pgpu = [];
 }
 
 let k260q = {
@@ -112,6 +120,8 @@ let k260q = {
       vsubdev_id = 0x101b;
     });
   experimental = false;
+  compatible_types_in_vm = [];
+  compatible_types_on_pgpu = [];
 }
 
 let k1_vgpu_types = [
@@ -147,6 +157,8 @@ let gvt_g_041a = {
       fence_sz = 4L;
     });
   experimental = false;
+  compatible_types_in_vm = [];
+  compatible_types_on_pgpu = [];
 }
 
 let intel_041a_vgpu_types = [
