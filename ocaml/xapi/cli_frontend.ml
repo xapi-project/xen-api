@@ -2738,7 +2738,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     "vgpu-create",
     {
       reqd=["vm-uuid";"gpu-group-uuid"];
-      optn=["vgpu-type-uuid"]; (* "device" should be added here once we allow >1 vGPU/VM *)
+      optn=["vgpu-type-uuid"; "device"];
       help="Create a vGPU.";
       implementation=No_fd Cli_operations.vgpu_create;
       flags=[];
