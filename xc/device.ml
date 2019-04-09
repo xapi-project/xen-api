@@ -212,19 +212,21 @@ module Generic = struct
         )
       )
 
-  let unplug_watch ~xs (x: device) =
-    let path = Hotplug.path_written_by_hotplug_scripts x in
-    let qdisk = Astring.String.is_infix ~affix:"backend/qdisk/" path in
-    if not qdisk then begin
-      Watch.key_to_disappear path
-    end else begin
-      debug "unplug_watch: not waiting for qdisk %s; returning dummy watch" path;
-      Watch.{ evaluate = fun xs -> try xs.Xs.rm path with _ -> debug "dummy unplug_watch for qdisk: %s already removed" path }
-    end
-
+  let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
   let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
   let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_rw_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
   let backend_closed ~xs (x: device) = Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed)
+
+  let is_qdisk x = Hotplug.path_written_by_hotplug_scripts x |> Astring.String.is_infix ~affix:"backend/qdisk/"
+
+  let on_backend_closed_unplug ~xs x =
+    debug "Device.on_backend_closed_unplug for %s" (string_of_device x);
+    (* qemu-dp does not delete the hotplug status key *)
+    backend_closed ~xs x
+    |> Watch.map (fun _ ->
+        debug "Backend closed for %s, deleting hotplug-status" (string_of_device x);
+        (* deleting this key causes the udev rule to fire *)
+        safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x))
 
   let clean_shutdown_wait (task: Xenops_task.task_handle) ~xs ~ignore_transients (x: device) =
     debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
@@ -241,7 +243,15 @@ module Generic = struct
 
     let cancel = Device x in
     let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
-    let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
+    let unplug =
+      let qdisk = is_qdisk x in
+      debug "Device.unplug_watch %s, qdisk=%b" (string_of_device x) qdisk;
+      let backend_watch = if qdisk then [ (), on_backend_closed_unplug ~xs x] else [] in
+      let unplugged_watch = (), unplug_watch ~xs x in
+      (* we need to evaluate all watches, so use any_of *)
+      Watch.any_of (unplugged_watch :: backend_watch)
+      |> Watch.map (fun _ -> ())
+    in
     let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
     if cancellable_watch cancel [ frontend_closed; unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
     then begin
@@ -270,6 +280,8 @@ module Generic = struct
     safe_rm xs (frontend_ro_path_of_device ~xs x)
 
   let hard_shutdown_complete ~xs (x: device) =
+    if is_qdisk x then
+      safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x);
     if !Xenopsd.run_hotplug_scripts
     then backend_closed ~xs x
     else unplug_watch ~xs x
