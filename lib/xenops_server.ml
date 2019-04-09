@@ -1687,7 +1687,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let (_: unit) = perform_atomic ~subtask:(string_of_atomic atomic) ~progress_callback:(fun _ -> ()) atomic t in
 
       (* Waiting here is not essential but adds a degree of safety
-         			 * and reducess unnecessary memory copying. *)
+       * and reducess unnecessary memory copying. *)
       (try B.VM.wait_ballooning t vm with Xenopsd_error Ballooning_timeout_before_migration -> ());
 
       (* Find out the VM's current memory_limit: this will be used to allocate memory on the receiver *)

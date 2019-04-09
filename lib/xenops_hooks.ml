@@ -46,14 +46,14 @@ let reason__none = "none"
 let exitcode_log_and_continue = 1
 (* all other exit codes cause xapi to abort operation and raise XAPI_HOOK_FAILED api exception *)
 
-let list_individual_hooks ~script_name = 
+let list_individual_hooks ~script_name =
   let script_dir = hooks_dir^script_name^"/" in
-  if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false) 
+  if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false)
   then
     let scripts = Sys.readdir script_dir in
     Array.stable_sort compare scripts;
     scripts
-  else [| |]      
+  else [| |]
 
 let execute_hook ~script_name ~args ~reason =
   let args = args @ [ "-reason"; reason ] in
