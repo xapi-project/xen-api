@@ -1204,7 +1204,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     B.VIF.set_active t (VIF_DB.vm_of id) (VIF_DB.read_exn id) b;
     VIF_DB.signal id
   | VM_hook_script(id, script, reason) ->
-    Xenops_hooks.vm ~script ~reason ~id
+    let extra_args = B.VM.get_hook_args id in
+    Xenops_hooks.vm ~script ~reason ~id ~extra_args
   | VBD_plug id ->
     debug "VBD.plug %s" (VBD_DB.string_of_id id);
     B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
@@ -1662,7 +1663,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
       let module B = (val get_backend () : S) in
       B.VM.assert_can_save vm;
-      Xenops_hooks.vm ~script:Xenops_hooks.VM_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
+      let extra_args = B.VM.get_hook_args id in
+      Xenops_hooks.vm ~script:Xenops_hooks.VM_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id ~extra_args;
 
       let module Remote = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> vmm.vmm_url) end)) in
       let regexp = Re.Pcre.regexp id in

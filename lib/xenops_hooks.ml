@@ -58,8 +58,8 @@ let list_individual_hooks ~script_name =
     scripts
   else [| |]
 
-let execute_vm_hook ~script_name ~id ~reason =
-  let args = ["-vmuuid"; id; "-reason"; reason ] in
+let execute_vm_hook ~script_name ~id ~reason ~extra_args =
+  let args = ["-vmuuid"; id; "-reason"; reason ] @ extra_args in
   let scripts = list_individual_hooks ~script_name in
 
   let script_dir = hooks_dir^script_name^"/" in
