@@ -73,6 +73,10 @@ type atomic =
   | VIF_set_ipv4_configuration of Vif.id * Vif.ipv4_configuration
   | VIF_set_ipv6_configuration of Vif.id * Vif.ipv6_configuration
   | VIF_set_active of Vif.id * bool
+  (* During migration the domid of a uuid is not stable. To hide this from
+   * hooks that depend on domids, this allows the caller to provide an
+   * additonal uuid that can maintain the initial domid *)
+  | VM_hook_script_stable of (Vm.id * Xenops_hooks.script * string * Vm.id)
   | VM_hook_script of (Vm.id * Xenops_hooks.script * string)
   | VBD_plug of Vbd.id
   | VBD_epoch_begin of (Vbd.id * disk * bool)
@@ -1203,6 +1207,9 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;
     B.VIF.set_active t (VIF_DB.vm_of id) (VIF_DB.read_exn id) b;
     VIF_DB.signal id
+  | VM_hook_script_stable(id, script, reason, backend_vm_id) ->
+    let extra_args = B.VM.get_hook_args backend_vm_id in
+    Xenops_hooks.vm ~script ~reason ~id ~extra_args
   | VM_hook_script(id, script, reason) ->
     let extra_args = B.VM.get_hook_args id in
     Xenops_hooks.vm ~script ~reason ~id ~extra_args
@@ -1576,6 +1583,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VGPU_start (id, _) ->
     immediate_operation dbg (fst id) (VM_check_state (VGPU_DB.vm_of id))
 
+  | VM_hook_script_stable (id, _, _, _)
   | VM_hook_script (id, _, _)
   | VM_remove id
   | VM_set_xsdata (id, _)
@@ -1766,9 +1774,9 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            | _ -> raise (Xenopsd_error (Internal_error "Migration of a VM with more than one VGPU is not supported."))
         );
       let atomics = [
-        VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
+        VM_hook_script_stable(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend, new_src_id);
       ] @ (atomics_of_operation (VM_shutdown (new_src_id, None))) @ [
-          VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend);
+          VM_hook_script_stable(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend, new_src_id);
           VM_remove(new_src_id);
         ] in
       perform_atomics atomics t
