@@ -80,6 +80,7 @@ module VM = struct
   let run_script _ _ _ = unimplemented "VM.run_script"
   let set_domain_action_request _ _ = ()
   let get_domain_action_request _ = None
+  let get_hook_args _ = []
   let generate_state_string _ = ""
   let get_internal_state _ _ _ = ""
   let set_internal_state _ _ = ()
