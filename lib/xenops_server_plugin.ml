@@ -96,6 +96,7 @@ module type S = sig
     val run_script: Xenops_task.task_handle -> Vm.t -> string -> Rpc.t
     val set_domain_action_request: Vm.t -> domain_action_request option -> unit
     val get_domain_action_request: Vm.t -> domain_action_request option
+    val get_hook_args: Vm.id -> string list
 
     val generate_state_string: Vm.t -> string
     val get_internal_state: (string * string) list -> (string * Network.t) list -> Vm.t -> string

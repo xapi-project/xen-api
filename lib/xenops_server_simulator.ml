@@ -402,6 +402,7 @@ module VM = struct
   let run_script _ _vm _script = Rpc.Dict [("rc", Rpc.Int 0L); ("stdout", Rpc.String ""); ("stderr", Rpc.String "")]
   let set_domain_action_request _vm _request = ()
   let get_domain_action_request vm = Mutex.execute m (get_domain_action_request_nolock vm)
+  let get_hook_args (vm_uuid: Vm.id) = []
 
   let generate_state_string _vm = ""
   let get_internal_state vdi_map vif_map vm =

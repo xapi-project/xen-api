@@ -41,6 +41,9 @@ let reason__migrate_source = "source" (* passed to pre-migrate hook on source ho
 let reason__migrate_dest   = "destination" (* passed to post-migrate hook on destination host *)
 let reason__none = "none"
 
+(* Names of arguments *)
+let arg__vmdomid = "-vmdomid"
+
 (* Exit codes: *)
 (* success = 0 *)
 let exitcode_log_and_continue = 1

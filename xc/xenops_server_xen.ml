@@ -2193,6 +2193,15 @@ module VM = struct
            end
       )
 
+  (* Some hook scripts need to know the domid to avoid confusion when migrating
+   * vms, now that the behaviour concerning uuids has changed *)
+  let get_hook_args vm_uuid =
+    with_xc_and_xs (fun xc xs ->
+      match domid_of_uuid ~xc ~xs (uuid_of_string vm_uuid) with
+      | None       -> []
+      | Some domid -> [Xenops_hooks.arg__vmdomid; string_of_int domid]
+    )
+
   let get_internal_state vdi_map vif_map vm =
     let state = DB.read_exn vm.Vm.id in
     state.VmExtra.persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
