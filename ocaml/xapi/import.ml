@@ -1483,26 +1483,22 @@ let with_open_archive fd ?length f =
     if not(!retry_with_compression) then raise e;
 
     let decompress =
-      (* discern whether the file is compressed with gzip or zstd *)
-      let gzip_magic = "\x1f\x8b" in
+      (* If the file starts with the zstd magic string decompress with zstd;
+         otherwise fall back to trying gzip. *)
       let zstd_magic = "\x28\xb5\x2f\xfd" in
-      let gzip =
-        Cstruct.equal
-          (Cstruct.of_string gzip_magic)
-          (Cstruct.sub buffer 0 (String.length gzip_magic))
-      in
       let zstd =
         Cstruct.equal
           (Cstruct.of_string zstd_magic)
           (Cstruct.sub buffer 0 (String.length zstd_magic))
       in
-      if gzip then begin
-        debug "Failed to directly open the archive; trying gzip";
-        Gzip.decompress
-      end else if zstd then begin
+
+      if zstd then begin
         debug "Failed to directly open the archive; trying zstd";
         Zstd.decompress
-      end else raise e
+      end else begin
+        debug "Failed to directly open the archive; trying gzip";
+        Gzip.decompress
+      end
     in
 
     let feeder pipe_in = finally
