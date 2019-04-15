@@ -440,6 +440,7 @@ let vgpu_manual_setup_key = "vgpu_manual_setup"
 let vgpu_pci_key = "vgpu_pci_id"
 let vgpu_config_key = "vgpu_config"
 let vgpu_extra_args_key = "vgpu_extra_args"
+let vgpu_pci_prefix = "0000:0:"
 
 let igd_passthru_key = "igd_passthrough"
 
