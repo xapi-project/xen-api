@@ -1568,6 +1568,7 @@ let update_vm ~__context id =
 													id (Date.to_string update_time) (Date.to_string start_time);
 												Xapi_vm_helpers.delete_guest_metrics ~__context ~self;
 												check_guest_agent ();
+												update_pv_drivers_detected ();
 											end
 										with _ -> () (* The guest metrics didn't exist *)
 									end
