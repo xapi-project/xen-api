@@ -38,8 +38,6 @@ let usb = "usb"
 let usb_tablet = "usb_tablet"
 let parallel = "parallel"
 let vga = "vga"
-let vgpu_pci_id = Xapi_globs.vgpu_pci_key
-let vgpu_config = Xapi_globs.vgpu_config_key
 let igd_passthru_key = Xapi_globs.igd_passthru_key
 let featureset = "featureset"
 let nested_virt = "nested-virt"
@@ -78,8 +76,6 @@ let filtered_flags = [
   usb_tablet;
   parallel;
   vga;
-  vgpu_pci_id;
-  vgpu_config;
   featureset;
   nested_virt;
   vcpu_unrestricted;
