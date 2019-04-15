@@ -1877,7 +1877,7 @@ module Dm_Common = struct
   (* Waits for a daemon to signal startup by writing to a xenstore path
    * (optionally with a given value) If this doesn't happen in the timeout then
    * an exception is raised *)
-  let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val ~timeout
+  let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout
       ~cancel _ =
     let syslog_key = Printf.sprintf "%s-%d" name domid in
       let finished = ref false in
@@ -1892,10 +1892,7 @@ module Dm_Common = struct
         try
           let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
           let state = try xs.Xs.read ready_path with _ -> "" in
-          match ready_val with
-        | Some value when value = state -> finished := true
-        | Some _ -> raise (Ioemu_failed (name, (Printf.sprintf "Daemon state not running (%s)" state)))
-          | None -> finished := true
+          finished := true
         with Watch.Timeout _ ->
           begin match Forkhelpers.waitpid_nohang pid with
             | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
