@@ -960,6 +960,55 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
 
 end
 
+module SystemdDaemonMgmt(D:DAEMONPIDPATH) = struct
+  (* backward compat: for daemons running during an update *)
+  module Compat = DaemonMgmt(D)
+
+  let pidfile_path = Compat.pidfile_path
+  let pid_path = Compat.pid_path
+
+  let of_domid domid =
+    let key = Compat.syslog_key domid in
+    if Fe_systemctl.exists key then Some key
+    else None
+
+  let is_running ~xs domid =
+    match of_domid domid with
+    | None -> Compat.is_running ~xs domid
+    | Some key -> Fe_systemctl.is_active key
+
+  let alive service _ =
+    if Fe_systemctl.is_active ~service then true
+    else
+      let status = Fe_systemctl.show ~service in
+      let open Fe_systemctl in
+      error "%s: unexpected termination (Result=%s,ExecMainPID=%d,ExecMainStatus=%d,ActiveState=%s)"
+        service status.result status.exec_main_pid status.exec_main_status status.active_state;
+      false
+
+  let stop ~xs domid =
+    match of_domid domid with
+    | None -> Compat.stop ~xs domid
+    | Some service ->
+      (* xenstore cleanup is done by systemd unit file *)
+      let (_:Fe_systemctl.status) = Fe_systemctl.stop ~service in
+      ()
+
+  let start_daemon ~path ~args ~domid () =
+    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
+    let service = Compat.syslog_key domid in
+    let pidpath = D.pid_path domid in
+    let properties =
+      ("ExecStopPost", "-/usr/bin/xenstore-rm " ^ pidpath)
+      :: match Compat.pidfile_path domid with
+      | None -> []
+      | Some path -> ["ExecStopPost", "-/bin/rm -f " ^ path]
+    in
+    Fe_systemctl.start_transient ~properties ~service path args;
+    debug "Daemon started: %s" service;
+    service
+end
+
 module Qemu = DaemonMgmt(struct
     let name = "qemu-dm"
     let use_pidfile = true
@@ -970,7 +1019,7 @@ module Vgpu = DaemonMgmt(struct
     let use_pidfile = false
     let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid
 end)
-module Varstored = DaemonMgmt(struct
+module Varstored = SystemdDaemonMgmt(struct
     let name = "varstored"
     let use_pidfile = true
     let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
@@ -2939,11 +2988,10 @@ module Dm = struct
       Add.many @@ argf "save:%s" (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
     in
     let args = Fe_argv.run args |> snd |> Fe_argv.argv in
-    let pid = Varstored.start_daemon ~path ~args ~domid ~fds:[] () in
+    let service = Varstored.start_daemon ~path ~args ~domid () in
     let ready_path = Varstored.pid_path domid in
-    wait_path ~pidalive:(pid_alive pid) ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
-      ~cancel:(Cancel_utils.Varstored domid) ();
-    Forkhelpers.dontwaitpid pid
+    wait_path ~pidalive:(Varstored.alive service) ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
+      ~cancel:(Cancel_utils.Varstored domid) ()
 
   let start_vgpu ~xs task ?(restore=false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
