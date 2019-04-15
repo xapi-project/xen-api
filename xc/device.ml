@@ -865,114 +865,6 @@ module Vcpu_Common = struct
 
 end
 
-module PV_Vnc = struct
-
-  let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
-  let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
-
-  let pid ~xs domid =
-    try
-      let pid = xs.Xs.read (vnc_pid_path domid) in
-      Some (int_of_string pid)
-    with _ ->
-      None
-
-  (* Look up the commandline args for the vncterm pid; *)
-  (* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
-  let is_cmdline_valid domid pid =
-    let cmdline =
-      Printf.sprintf "/proc/%d/cmdline" pid
-      |> Unixext.string_of_file
-      |> Stdext.Xstringext.String.split '\000'
-    in
-    if (List.mem !Xc_resources.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
-    then true
-    else false
-
-  let is_vncterm_running ~xs domid =
-    match pid ~xs domid with
-    | None -> false
-    | Some p ->
-      try
-        Unix.kill p 0;
-        is_cmdline_valid domid p
-      with _ -> false
-
-  let get_vnc_port ~xs domid =
-    if not (is_vncterm_running ~xs domid)
-    then None
-    else (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
-
-  let get_tc_port ~xs domid =
-    if not (is_vncterm_running ~xs domid)
-    then None
-    else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
-
-
-  let load_args = function
-    | None -> []
-    | Some filename ->
-      if Sys.file_exists filename
-      then ["-l"; filename]
-      else []
-
-  exception Failed_to_start
-
-  let vncterm_statefile pid = sprintf "/var/xen/vncterm/%d/vncterm.statefile" pid
-
-  let get_statefile ~xs domid =
-    match pid ~xs domid with
-    | None -> None
-    | Some pid ->
-      let filename = vncterm_statefile pid in
-      if Sys.file_exists filename then
-        Some filename
-      else
-        None
-
-  let save ~xs domid =
-    match pid ~xs domid with
-    | Some pid ->
-      Unix.kill pid Sys.sigusr1;
-      let filename = vncterm_statefile pid in
-      let delay = 10. in
-      let start_time = Unix.time () in
-      (* wait at most ten seconds *)
-      while not (Sys.file_exists filename) || Unix.time () -. start_time > delay do
-        debug "Device.PV_Vnc.save: waiting for %s to appear" filename;
-        Thread.delay 1.
-      done;
-      if Unix.time () -. start_time > delay then
-        debug "Device.PV_Vnc.save: timeout while waiting for %s to appear" filename
-      else
-        debug "Device.PV_Vnc.save: %s has appeared" filename
-    | None     -> ()
-
-  let start ?statefile ~xs ?ip domid =
-    debug "In PV_Vnc.start";
-    let ip = Opt.default "127.0.0.1" ip in
-    let l = [ "-x"; sprintf "/local/domain/%d/console" domid;
-              "-T"; (* listen for raw connections *)
-              "-v"; ip ^ ":1";
-            ] @ load_args statefile in
-    (* Now add the close fds wrapper *)
-    let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.vncterm l in
-    let path = vnc_pid_path domid in
-    xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
-    Forkhelpers.dontwaitpid pid
-
-  let stop ~xs domid =
-    let open Generic in
-    match pid ~xs domid with
-    | Some pid ->
-      best_effort "killing vncterm"
-        (fun () -> Unix.kill pid Sys.sigterm);
-      best_effort "removing vncterm-pid from xenstore"
-        (fun () -> xs.Xs.rm (vnc_pid_path domid))
-    | None -> ()
-
-end
-
 module type DAEMONPIDPATH = sig
   val name : string
   val use_pidfile : bool
@@ -1083,6 +975,101 @@ module Varstored = DaemonMgmt(struct
     let use_pidfile = true
     let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
   end)
+
+module PV_Vnc = struct
+  module D = DaemonMgmt(struct
+      let name = "vncterm"
+      let use_pidfile = false
+      let pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
+  end)
+  let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
+
+  let pid ~xs domid = D.pid ~xs domid
+
+  (* Look up the commandline args for the vncterm pid; *)
+  (* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
+  let is_cmdline_valid domid pid =
+    let cmdline =
+      Printf.sprintf "/proc/%d/cmdline" pid
+      |> Unixext.string_of_file
+      |> Stdext.Xstringext.String.split '\000'
+    in
+    if (List.mem !Xc_resources.vncterm cmdline) && (List.mem (vnc_console_path domid) cmdline)
+    then true
+    else false
+
+  let is_vncterm_running ~xs domid =
+    match pid ~xs domid with
+    | None -> false
+    | Some p ->
+      D.is_running ~xs domid && is_cmdline_valid domid p
+
+  let get_vnc_port ~xs domid =
+    if not (is_vncterm_running ~xs domid)
+    then None
+    else (try Some(Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))) with _ -> None)
+
+  let get_tc_port ~xs domid =
+    if not (is_vncterm_running ~xs domid)
+    then None
+    else (try Some(int_of_string (xs.Xs.read (Generic.tc_port_path domid))) with _ -> None)
+
+
+  let load_args = function
+    | None -> []
+    | Some filename ->
+      if Sys.file_exists filename
+      then ["-l"; filename]
+      else []
+
+  exception Failed_to_start
+
+  let vncterm_statefile pid = sprintf "/var/xen/vncterm/%d/vncterm.statefile" pid
+
+  let get_statefile ~xs domid =
+    match pid ~xs domid with
+    | None -> None
+    | Some pid ->
+      let filename = vncterm_statefile pid in
+      if Sys.file_exists filename then
+        Some filename
+      else
+        None
+
+  let save ~xs domid =
+    match pid ~xs domid with
+    | Some pid ->
+      Unix.kill pid Sys.sigusr1;
+      let filename = vncterm_statefile pid in
+      let delay = 10. in
+      let start_time = Unix.time () in
+      (* wait at most ten seconds *)
+      while not (Sys.file_exists filename) || Unix.time () -. start_time > delay do
+        debug "Device.PV_Vnc.save: waiting for %s to appear" filename;
+        Thread.delay 1.
+      done;
+      if Unix.time () -. start_time > delay then
+        debug "Device.PV_Vnc.save: timeout while waiting for %s to appear" filename
+      else
+        debug "Device.PV_Vnc.save: %s has appeared" filename
+    | None     -> ()
+
+  let start ?statefile ~xs ?ip domid =
+    debug "In PV_Vnc.start";
+    let ip = Opt.default "127.0.0.1" ip in
+    let l = [ "-x"; sprintf "/local/domain/%d/console" domid;
+              "-T"; (* listen for raw connections *)
+              "-v"; ip ^ ":1";
+            ] @ load_args statefile in
+    (* Now add the close fds wrapper *)
+    let pid = D.start_daemon ~path:!Xc_resources.vncterm ~args:l ~domid () in
+    let path = D.pid_path domid in
+    xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
+    Forkhelpers.dontwaitpid pid
+
+  let stop ~xs domid =
+    D.stop ~xs domid
+end
 
 module PCI = struct
 
