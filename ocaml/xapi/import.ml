@@ -1462,11 +1462,11 @@ let assert_filename_is hdr =
 
 (** Takes an fd and a function, tries first to read the first tar block
     and checks for the existence of 'ova.xml'. If that fails then pipe
-    the lot through gzip and try again *)
+    the lot through an appropriate decompressor and try again *)
 let with_open_archive fd ?length f =
   (* Read the first header's worth into a buffer *)
   let buffer = Cstruct.create Tar_unix.Header.length in
-  let retry_with_gzip = ref true in
+  let retry_with_compression = ref true in
   try
     Tar_unix.really_read fd buffer;
 
@@ -1475,16 +1475,35 @@ let with_open_archive fd ?length f =
     assert_filename_is hdr;
 
     (* successfully opened uncompressed stream *)
-    retry_with_gzip := false;
+    retry_with_compression := false;
     let xml = read_xml hdr fd in
     Tar_unix.Archive.skip fd (Tar_unix.Header.compute_zero_padding_length hdr);
     f xml fd
   with e ->
-    if not(!retry_with_gzip) then raise e;
-    debug "Failed to directly open the archive; trying gzip";
+    if not(!retry_with_compression) then raise e;
+
+    let decompress =
+      (* If the file starts with the zstd magic string decompress with zstd;
+         otherwise fall back to trying gzip. *)
+      let zstd_magic = "\x28\xb5\x2f\xfd" in
+      let zstd =
+        Cstruct.equal
+          (Cstruct.of_string zstd_magic)
+          (Cstruct.sub buffer 0 (String.length zstd_magic))
+      in
+
+      if zstd then begin
+        debug "Failed to directly open the archive; trying zstd";
+        Zstd.decompress
+      end else begin
+        debug "Failed to directly open the archive; trying gzip";
+        Gzip.decompress
+      end
+    in
+
     let feeder pipe_in = finally
         (fun () ->
-           Gzip.decompress pipe_in
+           decompress pipe_in
              (fun compressed_in ->
                 (* Write the initial buffer *)
                 Unix.set_close_on_exec compressed_in;

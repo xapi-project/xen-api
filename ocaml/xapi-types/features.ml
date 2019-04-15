@@ -62,6 +62,7 @@ type feature =
   | USB_passthrough
   | Network_sriov
   | Corosync
+  | Zstd_export
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -113,6 +114,7 @@ let keys_of_features =
     USB_passthrough, ("restrict_usb_passthrough", Negative, "USB_passthrough");
     Network_sriov, ("restrict_network_sriov", Negative, "Network_sriov");
     Corosync, ("restrict_corosync", Negative, "Corosync");
+    Zstd_export, ("restrict_zstd_export", Negative, "Zstd_export");
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`
