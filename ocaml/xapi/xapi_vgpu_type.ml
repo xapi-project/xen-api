@@ -29,13 +29,14 @@ let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 exception Parse_error of exn
 
 module Identifier = struct
-  let version = 1
+  let version = 2
 
   type nvidia_id = {
     pdev_id : int;
     psubdev_id : int option;
     vdev_id : int;
     vsubdev_id : int;
+    type_id : string;
   }
 
   type gvt_g_id = {
@@ -64,13 +65,14 @@ module Identifier = struct
       match id with
       | Passthrough -> "passthrough"
       | Nvidia nvidia_id ->
-        Printf.sprintf "nvidia,%04x,%s,%04x,%04x"
+        Printf.sprintf "nvidia,%04x,%s,%04x,%04x,%s"
           nvidia_id.pdev_id
           (match nvidia_id.psubdev_id with
            | Some id -> Printf.sprintf "%04x" id
            | None -> "")
           nvidia_id.vdev_id
           nvidia_id.vsubdev_id
+          nvidia_id.type_id
       | GVT_g gvt_g_id ->
         Printf.sprintf "gvt-g,%04x,%Lx,%Lx,%Lx"
           gvt_g_id.pdev_id
@@ -306,11 +308,14 @@ module Nvidia_old = struct
                   (List.assoc "plugin0.num_heads" args) in
               let max_instance = Int64.of_string
                   (List.assoc "plugin0.max_instance" args) in
+              (* Define "0" here because now we are using new way to read from nvidia conf file  *)
+              let type_id = "0" in
               let identifier = Identifier.({
                   pdev_id;
                   psubdev_id;
                   vdev_id;
                   vsubdev_id;
+                  type_id;
                 }) in
               let compatible_types_in_vm = [] in
               let compatible_types_on_pgpu = [] in
@@ -625,6 +630,7 @@ module Vendor_nvidia = struct
             psubdev_id;
             vdev_id = int_of_string (get_attr "deviceId" devid);
             vsubdev_id = int_of_string (get_attr "subsystemId" devid);
+            type_id = id;
           } in
         let file_path = whitelist in
         (* Multiple vgpu support:
@@ -668,8 +674,8 @@ module Vendor_nvidia = struct
 
   let vgpu_type_of_conf pci_access vendor_name _ conf =
     let open Identifier in
-    debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
-      vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
+    debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x type_id=%s"
+      vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id conf.identifier.type_id;
     let default v =
       match v with
       | Some v -> v
