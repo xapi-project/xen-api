@@ -1874,10 +1874,20 @@ module Dm_Common = struct
   let prepend_wrapper_args domid args =
     (string_of_int domid) :: "--syslog" :: args
 
+  let pid_alive pid name =
+    match Forkhelpers.waitpid_nohang pid with
+    | 0, Unix.WEXITED 0 -> true
+    | _, Unix.WEXITED n ->
+      error "%s: unexpected exit with code: %d" name n;
+      false
+    | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+      error "%s: unexpected signal: %d" name n;
+      false
+
   (* Waits for a daemon to signal startup by writing to a xenstore path
    * (optionally with a given value) If this doesn't happen in the timeout then
    * an exception is raised *)
-  let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout
+  let wait_path ~pidalive ~task ~name ~domid ~xs ~ready_path ~timeout
       ~cancel _ =
     let syslog_key = Printf.sprintf "%s-%d" name domid in
     let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
@@ -1886,15 +1896,9 @@ module Dm_Common = struct
         let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
         ()
       with Watch.Timeout _ ->
-      match Forkhelpers.waitpid_nohang pid with
-      | 0, Unix.WEXITED 0 ->
-        raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
-      | _, Unix.WEXITED n ->
-        error "%s: unexpected exit with code: %d" name n;
-        raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-      | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-        error "%s: unexpected signal: %d" name n;
-        raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+          if pidalive name then
+            raise (Ioemu_failed (name, "Timeout reached while starting daemon"));
+          raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
     end;
     debug "Daemon initialised: %s" syslog_key
 
@@ -2937,7 +2941,7 @@ module Dm = struct
     let args = Fe_argv.run args |> snd |> Fe_argv.argv in
     let pid = Varstored.start_daemon ~path ~args ~domid ~fds:[] () in
     let ready_path = Varstored.pid_path domid in
-    wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
+    wait_path ~pidalive:(pid_alive pid) ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
       ~cancel:(Cancel_utils.Varstored domid) ();
     Forkhelpers.dontwaitpid pid
 
@@ -2960,7 +2964,7 @@ module Dm = struct
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore device in
         let vgpu_pid = Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args
             ~domid ~fds:[] () in
-        wait_path ~pid:vgpu_pid ~task ~name:"vgpu" ~domid ~xs
+        wait_path ~pidalive:(pid_alive vgpu_pid) ~task ~name:"vgpu" ~domid ~xs
           ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
           ~cancel ();
         Forkhelpers.dontwaitpid vgpu_pid
