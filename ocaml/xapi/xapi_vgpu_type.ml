@@ -395,7 +395,7 @@ module Nvidia_old = struct
         and max_resolution_x = conf.max_x
         and max_resolution_y = conf.max_y
         and size = Int64.div Constants.pgpu_default_size conf.max_instance
-        and internal_config = [Xapi_globs.vgpu_config_key, conf.file_path]
+        and internal_config = []
         and identifier = Nvidia conf.identifier
         and experimental = false
         and compatible_types_in_vm = []
@@ -531,6 +531,7 @@ module Vendor_nvidia = struct
     max_x : int64;
     max_y : int64;
     file_path : string;
+    type_id: string;
     compatible_types_in_vm : string list;
     compatible_types_on_pgpu : string list;
   }
@@ -627,6 +628,7 @@ module Vendor_nvidia = struct
             vsubdev_id = int_of_string (get_attr "subsystemId" devid);
           } in
         let file_path = whitelist in
+        let type_id = id in
         (* Multiple vgpu support:
            - Read  'multiVgpuSupported' from config, 1L indicates this type support multiple 
            - Currently always initialize 'compatible_types_on_pgpu' to itself only since we 
@@ -640,7 +642,7 @@ module Vendor_nvidia = struct
           | _ -> [], [name]
         in
         Some {identifier; framebufferlength;
-         num_heads; max_instance; max_x; max_y; file_path;
+         num_heads; max_instance; max_x; max_y; file_path;type_id;
          compatible_types_in_vm; compatible_types_on_pgpu}
       else
         None
@@ -688,7 +690,7 @@ module Vendor_nvidia = struct
       max_resolution_x = conf.max_x;
       max_resolution_y = conf.max_y;
       size = Int64.div Constants.pgpu_default_size conf.max_instance;
-      internal_config = [Xapi_globs.vgpu_config_key, conf.file_path];
+      internal_config = [Xapi_globs.vgpu_type_id, conf.type_id];
       identifier = Nvidia conf.identifier;
       experimental = false;
       compatible_types_in_vm = conf.compatible_types_in_vm;
