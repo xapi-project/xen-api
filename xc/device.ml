@@ -1880,32 +1880,22 @@ module Dm_Common = struct
   let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout
       ~cancel _ =
     let syslog_key = Printf.sprintf "%s-%d" name domid in
-      let finished = ref false in
-      let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-    let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
-    let target =
-      match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
-      | None -> raise (Ioemu_failed (name, "Timeout overflow"))
-      | Some x -> x in
-    while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
-        Xenops_task.check_cancelling task;
-        try
-          let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
-          let state = try xs.Xs.read ready_path with _ -> "" in
-          finished := true
-        with Watch.Timeout _ ->
-          begin match Forkhelpers.waitpid_nohang pid with
-            | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
-            | _, Unix.WEXITED n ->
-              error "%s: unexpected exit with code: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-            | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-              error "%s: unexpected signal: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-          end
-      done;
-      if not !finished then
-      raise (Ioemu_failed (name, "Timeout reached while starting daemon"));
+    let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+    Xenops_task.check_cancelling task;
+    begin try
+        let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
+        ()
+      with Watch.Timeout _ ->
+      match Forkhelpers.waitpid_nohang pid with
+      | 0, Unix.WEXITED 0 ->
+        raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
+      | _, Unix.WEXITED n ->
+        error "%s: unexpected exit with code: %d" name n;
+        raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+      | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+        error "%s: unexpected signal: %d" name n;
+        raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+    end;
     debug "Daemon initialised: %s" syslog_key
 
   let gimtool_m = Mutex.create ()
