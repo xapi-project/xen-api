@@ -990,6 +990,7 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
   end
   let signal_mask = SignalMask.create ()
 
+  let name = D.name
   let pid_path = D.pid_path
   let pid_path_signal domid = (pid_path domid) ^ "-signal"
 
@@ -1044,10 +1045,31 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
       | Some path ->
         best_effort (sprintf "removing %s" path)
           (fun () -> Unix.unlink path)
+
+
+  let syslog_key ~domid = Printf.sprintf "%s-%d" D.name domid
+
+  let start ~fds ~syslog_key path args =
+    let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
+    let redirect_stderr_to_stdout = true in
+    let pid = Forkhelpers.safe_close_and_exec None None None fds ~syslog_stdout ~redirect_stderr_to_stdout path args in
+    debug
+      "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
+      D.name (Forkhelpers.string_of_pidty pid);
+    pid
+
+  (* Forks a daemon and then returns the pid. *)
+  let start_daemon ~path ~args ~domid ?(fds=[]) () =
+    let syslog_key = syslog_key ~domid in
+    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
+    let pid = start ~fds ~syslog_key path args in
+    debug "Daemon started: %s" syslog_key;
+    pid
+
 end
 
 module Qemu = DaemonMgmt(struct
-    let name = "qemu"
+    let name = "qemu-dm"
     let use_pidfile = true
     let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
 end)
@@ -1865,19 +1887,6 @@ module Dm_Common = struct
   let prepend_wrapper_args domid args =
     (string_of_int domid) :: "--syslog" :: args
 
-  (* Forks a daemon and then returns the pid. *)
-  let start_daemon ~path ~args ~name ~domid ?(fds=[]) () =
-    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
-    let syslog_key = (Printf.sprintf "%s-%d" name domid) in
-    let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
-    let redirect_stderr_to_stdout = true in
-    let pid = Forkhelpers.safe_close_and_exec None None None fds ~syslog_stdout ~redirect_stderr_to_stdout path args in
-    debug
-      "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
-      name (Forkhelpers.string_of_pidty pid);
-    debug "Daemon started: %s" syslog_key;
-    pid
-
   (* Waits for a daemon to signal startup by writing to a xenstore path
    * (optionally with a given value) If this doesn't happen in the timeout then
    * an exception is raised *)
@@ -2060,8 +2069,8 @@ module Backend = struct
       (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 
-      (** [init_daemon task path args name domid xenstore ready_path ready_val timeout cancel] returns a forkhelper pid after starting the qemu daemon in dom0 *)
-      val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> ?fds:(string * Unix.file_descr) list -> 'a -> Forkhelpers.pidty
+      (** [init_daemon task path args domid xenstore ready_path ready_val timeout cancel] returns a forkhelper pid after starting the qemu daemon in dom0 *)
+      val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> ?fds:(string * Unix.file_descr) list -> 'a -> Forkhelpers.pidty
 
       (** [stop xenstore qemu_domid domid] stops a domain *)
       val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
@@ -2108,8 +2117,8 @@ module Backend = struct
 
       let stop ~xs ~qemu_domid domid = ()
 
-      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
-        raise (Ioemu_failed (name, "PV guests have no IO emulator"))
+      let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
+        raise (Ioemu_failed (Qemu.name, "PV guests have no IO emulator"))
 
       let qemu_args ~xs ~dm info restore domid = { Dm_Common.argv = []; fd_map = [] }
 
@@ -2641,9 +2650,9 @@ module Backend = struct
         if not !finished then
           raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
 
-      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
-        let pid = Dm_Common.start_daemon ~path ~args ~name ~domid ~fds () in
-        wait_event_socket ~task ~name ~domid ~timeout;
+      let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
+        let pid = Qemu.start_daemon ~path ~args ~domid ~fds () in
+        wait_event_socket ~task ~name:Qemu.name ~domid ~timeout;
         QMP_Event.add domid;
         pid
 
@@ -2890,9 +2899,9 @@ end (* Vcpu *)
 module Dm = struct
   include Dm_Common
 
-  let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) profile =
+  let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) profile =
     let module Q = (val Backend.of_profile profile) in
-    Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds ()
+    Q.Dm.init_daemon ~task ~path ~args ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds ()
 
   let get_vnc_port ~xs ~dm domid =
     let module Q = (val Backend.of_profile dm) in
@@ -2952,7 +2961,7 @@ module Dm = struct
       Add.many @@ argf "save:%s" (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
     in
     let args = Fe_argv.run args |> snd |> Fe_argv.argv in
-    let pid = start_daemon ~path ~args ~name ~domid ~fds:[] () in
+    let pid = Varstored.start_daemon ~path ~args ~domid ~fds:[] () in
     let ready_path = Varstored.pid_path domid in
     wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
       ~cancel:(Cancel_utils.Varstored domid) ();
@@ -2975,7 +2984,7 @@ module Dm = struct
         let module Q = (val Backend.of_profile profile) in
         let device = Q.Vgpu.device ~index:0 in
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore device in
-        let vgpu_pid = start_daemon ~path:!Xc_resources.vgpu ~args ~name:"vgpu"
+        let vgpu_pid = Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args
             ~domid ~fds:[] () in
         wait_path ~pid:vgpu_pid ~task ~name:"vgpu" ~domid ~xs
           ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
@@ -3052,7 +3061,7 @@ module Dm = struct
     let qemu_pid =
       finally
         (fun () -> init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv
-            ~name:"qemu-dm" ~domid ~xs ~ready_path ~ready_val:"running"
+            ~domid ~xs ~ready_path ~ready_val:"running"
             ~timeout ~cancel ~fds:args.fd_map dm)
         (fun () -> List.iter close args.fd_map) in
     match !Xenopsd.action_after_qemu_crash with
