@@ -126,7 +126,7 @@ let reserve_free_virtual_function ~__context vm pf =
   in
   get true
 
-let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
+let add_vgpus_to_vm ~__context host vm vgpus =
   (* Only support a maximum of one virtual GPU per VM for now. *)
   (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
   match vgpus with
@@ -141,23 +141,17 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
     | Some `VF ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating SR-IOV VGPUs";
-      if not vgpu_manual_setup then
-        let pgpu = allocate_vgpu_to_gpu ~__context vm host vgpu in
-        Db.PGPU.get_PCI ~__context ~self:pgpu
-        |> reserve_free_virtual_function ~__context vm
-        |> add_pcis_to_vm ~__context host vm
+      let pgpu = allocate_vgpu_to_gpu ~__context vm host vgpu in
+      Db.PGPU.get_PCI ~__context ~self:pgpu
+      |> reserve_free_virtual_function ~__context vm
+      |> add_pcis_to_vm ~__context host vm
     | None ->
       Pool_features.assert_enabled ~__context ~f:Features.VGPU;
       debug "Creating virtual VGPUs";
-      if not vgpu_manual_setup then
-        ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
+      ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
 
 
-(* The three functions below are the main entry points of this module *)
-
-let vgpu_manual_setup_of_vm vm_r =
-  List.mem_assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform &&
-  (List.assoc Xapi_globs.vgpu_manual_setup_key vm_r.API.vM_platform = "true")
+(* The two functions below are the main entry points of this module *)
 
 (* Note that this function is called from Message_forwarding.allocate_vm_to_host,
  * only on the pool master, and with the global lock held. We therefore do not
@@ -167,7 +161,7 @@ let create_vgpus ~__context host (vm, vm_r) hvm =
   let vgpus = vgpus_of_vm ~__context vm_r in
   if vgpus <> [] && not hvm then
       raise (Api_errors.Server_error (Api_errors.feature_requires_hvm, ["vGPU- and GPU-passthrough needs HVM"]));
-  add_vgpus_to_vm ~__context host vm vgpus (vgpu_manual_setup_of_vm vm_r)
+  add_vgpus_to_vm ~__context host vm vgpus
 
 (* This function is called from Xapi_xenops, after forwarding, so possibly on a slave. *)
 let list_pcis_for_passthrough ~__context ~vm =

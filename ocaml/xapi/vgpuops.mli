@@ -23,10 +23,6 @@ val create_vgpus :
   __context:Context.t ->
   (API.ref_host) ->(API.ref_VM * API.vM_t) -> bool -> unit
 
-(** Check whether a VM has the platform flag that indicates its VGPU is being
- *  set up manually. *)
-val vgpu_manual_setup_of_vm : API.vM_t -> bool
-
 (** Return a list of the GPU PCI devices which have been assigned to this VM *)
 val list_pcis_for_passthrough :
   __context:Context.t -> vm:API.ref_VM -> (int * (int * int * int * int)) list
