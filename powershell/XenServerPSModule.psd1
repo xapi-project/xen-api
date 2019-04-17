@@ -54,14 +54,14 @@ RequiredModules = @()
 NestedModules = @()
 ModuleList = @('XenServerPowerShell.dll')
 RequiredAssemblies = @('CookComputing.XmlRpcV2.dll',
-                       'Newtonsoft.Json.dll',
+                       'Newtonsoft.Json.CH.dll',
                        'XenServer.dll')
 ScriptsToProcess = @('Initialize-Environment.ps1')
 TypesToProcess = @('XenServer.types.ps1xml')
 FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
              'CookComputing.XmlRpcV2.dll',
-             'Newtonsoft.Json.dll',
+             'Newtonsoft.Json.CH.dll',
              'Initialize-Environment.ps1',
              'LICENSE.CookComputing.XmlRpcV2.txt',
              'LICENSE.Newtonsoft.Json.txt',

@@ -7,7 +7,7 @@ XenServer.NET is a complete SDK for Citrix Hypervisor, exposing the Citrix
 Hypervisor API as .NET classes. It is written in C#.
 
 It is available in the CitrixHypervisor-SDK-@SDK_VERSION@.zip, which can be downloaded
-from see https://www.citrix.com/downloads/citrix-hypervisor/
+from https://www.citrix.com/downloads/citrix-hypervisor/
 
 For Citrix Hypervisor documentation, see https://docs.citrix.com/en-us/citrix-hypervisor/
 
@@ -23,11 +23,11 @@ To network with other developers using Citrix Hypervisor visit
 https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 
 XenServer.NET is free software. You can redistribute and modify it under the
-terms of the BSD license. See LICENSE.txt for details.
+terms of the BSD 2-Clause license. See LICENSE.txt for details.
 
 This library is accompanied by pedagogical examples. These do not form
 part of this library, and are licensed for redistribution and modification
-under the BSD license.
+under the BSD 2-Clause license.
 
 
 Prerequisites
@@ -43,12 +43,13 @@ XenServer.NET is dependent upon the following libraries:
 
 - XML-RPC.NET by Charles Cook (see http://xml-rpc.net).
   XML-RPC.NET is licensed under the MIT X11 license; see
-  LICENSE.CookComputing.XmlRpcV2.txt for details. The library
+  LICENSE.CookComputing.XmlRpcV2.txt for details. A patched version of the library
   (CookComputing.XmlRpcV2.dll) is shipped with XenServer.NET.
 
 - Newtonsoft JSON.NET by James Newton-King (see https://www.newtonsoft.com/).
   JSON.NET is licensed under the MIT license; see LICENSE.Newtonsoft.Json.txt
-  for details. The library (Newtonsoft.Json.dll) is shipped with XenServer.NET.
+  for details. A patched version of the library (Newtonsoft.Json.CH.dll) is
+  shipped with XenServer.NET.
 
 
 Downloads
@@ -67,22 +68,23 @@ Getting Started
 Download and unzip the CitrixHypervisor-SDK-@SDK_VERSION@.zip.
 
 A. To use the compiled binaries in your code:
-  1.  Copy both XenServer.dll and CookComputing.XmlRpcV2.dll from the bin folder
-      into your own workspace.
-  2.  In Visual Studio, add references to both DLLs from your own program.
-      Project > Add Reference > Browse.
-  3.  You should now be ready to compile against XenServer.NET.
+  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll and Newtonsoft.Json.CH.dll
+     from the bin folder into your own workspace.
+  2. In Visual Studio, add references to all DLLs from your own program.
+     Project > Add Reference > Browse.
+  3. You should now be ready to compile against XenServer.NET.
 
 B. To build the source code:
-  1. Copy CookComputing.XmlRpcV2.dll from the bin folder into the source code
-     folder at the same level as the XenServer.csproj file.
+  1. Copy CookComputing.XmlRpcV2.dll  and Newtonsoft.Json.CH.dll from the bin
+     folder into the source code folder at the same level as the project file
+     XenServer.csproj
   2. Open the project XenServer.csproj in Visual Studio.
   3. You should now be ready to build the source code.
 
 C. To run the examples:
-  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll, and Newtonsoft.Json.dll
+  1. Copy XenServer.dll, CookComputing.XmlRpcV2.dll and Newtonsoft.Json.CH.dll
      from the bin folder into the samples folder at the same level as the
-     XenSdkSample.csproj file.
+     project file XenSdkSample.csproj.
   2. Open XenSdkSample.sln inside Visual Studio (2013 or greater).
   3. You should now be ready to compile the solution and run the examples.
      The solution project is a console application expecting the parameters
