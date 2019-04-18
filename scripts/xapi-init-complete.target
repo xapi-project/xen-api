@@ -1,0 +1,4 @@
+[Unit]
+Description=Xapi is available
+After=syslog.target
+After=time-sync.target

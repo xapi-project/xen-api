@@ -9,18 +9,10 @@
 
 [ -e /proc/xen ] || exit 0
 
-XAPI_START_TIMEOUT_SECONDS=240
+auto_poweron_pool=$(xe pool-list params=uuid other-config:auto_poweron=true --minimal 2> /dev/null)
 
-# wait for xapi to complete initialisation for a max of XAPI_START_TIMEOUT_SECONDS
-@BINDIR@/xapi-wait-init-complete ${XAPI_START_TIMEOUT_SECONDS}
-
-if [ $? -eq 0 ]; then
-
-	auto_poweron_pool=$(xe pool-list params=uuid other-config:auto_poweron=true --minimal 2> /dev/null)
-	
-	if [ $? -eq 0 ] && [ -n "$auto_poweron_pool" ]; then
-		logger "$0 auto_poweron is enabled on the pool-- this is an unsupported configuration."
-		# if xapi init completed then start vms (best effort, don't report errors)
-		xe vm-start other-config:auto_poweron=true power-state=halted --multiple >/dev/null 2>/dev/null || true
-	fi
+if [ $? -eq 0 ] && [ -n "$auto_poweron_pool" ]; then
+    logger "$0 auto_poweron is enabled on the pool-- this is an unsupported configuration."
+    # if xapi init completed then start vms (best effort, don't report errors)
+    xe vm-start other-config:auto_poweron=true power-state=halted --multiple >/dev/null 2>/dev/null || true
 fi
