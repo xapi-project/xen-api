@@ -534,6 +534,25 @@ let monitor_write_loop writers =
     ) ()
 (* Monitoring code --- END. *)
 
+module type GCLOG = sig
+  val start: unit -> Xapi_stdext_threads.Threadext.Thread.t
+end
+
+module GCLog: GCLOG = struct
+  let start () =
+    Thread.create (fun () ->
+        debug "RRD - starting GC Logging thread";
+        while true do
+          try
+            let stat = Gc.stat () in
+            info "GC live_words = %d" stat.Gc.live_words;
+            info "GC heap_words = %d" stat.Gc.heap_words;
+            info "GC free_words = %d" stat.Gc.free_words;
+            Thread.delay 180.0
+          with e -> error "RRD GC logging: %s" (Printexc.to_string e)
+        done) ()
+end
+
 (* We watch a directory for RRD files written by plugins. If a new file
  * appears, we register the plugin. If a file disappears, we un-register
  * the plugin.
@@ -742,6 +761,7 @@ let _ =
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.Exn.server Rrdd_bindings.Server.implementation);
 
   ignore @@ Discover.start (List.map writer_basename stats_to_write);
+  ignore @@ GCLog.start ();
 
   debug "Starting xenstore-watching thread ..";
   let () =
