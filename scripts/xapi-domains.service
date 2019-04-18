@@ -1,7 +1,8 @@
 [Unit]
 Description=Start/stop domains on dom0 start/shutdown
 Requires=proc-xen.mount
-After=remote-fs.target xapi.service
+Wants=xapi-init-complete.target
+After=remote-fs.target xapi-init-complete.target
 
 [Service]
 Type=oneshot
