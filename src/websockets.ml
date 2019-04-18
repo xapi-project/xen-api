@@ -34,9 +34,10 @@ module Wsprotocol (IO : Iteratees.Monad) = struct
     done;
     Buffer.contents result
 
-  let base64encode s = modify B64.encode s
+  let base64encode s = modify Base64.encode_string s
   let base64decode s =
-    let decode x = B64.decode (sanitize x) in
+    let decode x = Base64.decode_exn (sanitize x)
+    in
     modify decode s
 
   let writer = I.writer
