@@ -50,10 +50,11 @@ let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int v
  * change without issuing a new version of XenCenter. This is used to make sure that even if the user is
  * not required to upgrade, we at least warn them.
  *
- * Please consult the XenCenter maintainers before changing these numbers, because a corresponding change
- * will need to be made in XenCenter *)
-let xencenter_min_verstring = "2.12"
-let xencenter_max_verstring = "2.12"
+ * In most cases both numbers are the same as the API version. Change them to a hardcoded value if needed.
+ * Please consult the XenCenter maintainers before changing these numbers, as XenCenter may need to
+ * acquire an SDK aware of the versions specified here. *)
+let xencenter_min_verstring = Printf.sprintf "%Ld.%Ld" Datamodel.api_version_major Datamodel.api_version_minor
+let xencenter_max_verstring = Printf.sprintf "%Ld.%Ld" Datamodel.api_version_major Datamodel.api_version_minor
 
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
