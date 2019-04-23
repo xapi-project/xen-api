@@ -50,20 +50,30 @@ let get_allocated_VGPUs ~__context ~self =
 
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
   assert_VGPU_type_enabled ~__context ~self ~vgpu_type;
-  (match get_allocated_VGPUs ~__context ~self with
-   | [] -> ()
-   | resident_VGPU :: _ ->
-     let running_type =
-       Db.VGPU.get_type ~__context ~self:resident_VGPU
-     in
-     if running_type <> vgpu_type
-     then raise (Api_errors.Server_error (
-         Api_errors.vgpu_type_not_compatible_with_running_type,
-         [
-           Ref.string_of self;
-           Ref.string_of vgpu_type;
-           Ref.string_of running_type;
-         ])))
+  let allocated_vgpu_list = get_allocated_VGPUs ~__context ~self in
+  (** Now check whether the requested type is permitted *)
+  match allocated_vgpu_list with
+  | [] -> () (* Not allocated on this pgpu, does not need to check compatibility*)
+  | hd::tail -> 
+      let grant_vgpu_type_list = List.fold_left
+          (fun grant_list current_list -> Listext.List.intersect grant_list current_list) 
+          (Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self:(Db.VGPU.get_type ~__context ~self:hd))
+          (
+              List.map (fun self -> Db.VGPU.get_type ~__context ~self) tail
+              |> List.sort_uniq Pervasives.compare (* Remove the duplicated elements*)
+              |> List.map (fun self -> Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self)
+          ) in
+          if not (List.mem vgpu_type (List.map Ref.of_string (*Remove this when String-> Ref *) grant_vgpu_type_list)) then
+              let sep = ";" in
+              raise (Api_errors.Server_error (
+                  Api_errors.vgpu_type_not_compatible_with_running_type, [
+                      Ref.string_of self;
+                      Ref.string_of vgpu_type;
+                      List.map (fun self-> Db.VGPU.get_type ~__context ~self) allocated_vgpu_list 
+                      |> List.sort_uniq Pervasives.compare
+                      |> List.map (fun vgpu_ref -> Ref.string_of vgpu_ref)
+                      |> String.concat sep
+                  ]))
 
 let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
   let open Db_filter_types in

@@ -358,49 +358,16 @@ let has_non_allocated_vgpus ~__context ~self =
   |> (<>) []
 
 let assert_gpus_available ~__context ~self ~host =
-  let this = "assert_gpus_available" in
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
-  let reqd_groups =
-    List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
-  let is_pgpu_available pgpu vgpu =
+  let open Vgpuops in
+  let vgpurs = List.map (Vgpuops.vgpu_of_ref ~__context)  vgpus in
     try
-      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:pgpu ~vgpu;
-      Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~vgpu ~pgpu
-    with e ->
-      debug "%s (%s) exception: %s" this __LOC__ (Printexc.to_string e);
-      false
-  in
-  let can_run_vgpu_on host vgpu =
-    let group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
-    let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
-    let avail_pgpus =
-      List.filter
-        (fun pgpu -> is_pgpu_available pgpu vgpu)
-        pgpus
-    in
-    let hosts = List.map (fun self -> Db.PGPU.get_host ~__context ~self) avail_pgpus in
-    List.mem host hosts
-  in
-  let runnable_vgpus = List.filter (can_run_vgpu_on host) vgpus in
-  let avail_groups =
-    List.map
-      (fun self -> Db.VGPU.get_GPU_group ~__context ~self)
-      runnable_vgpus
-  in
-  let not_available = List.set_difference reqd_groups avail_groups in
-
-  List.iter
-    (fun group -> warn "Host %s does not have a pGPU from group %s available"
-        (Helpers.checknull
-           (fun () -> Db.Host.get_name_label ~__context ~self:host))
-        (Helpers.checknull
-           (fun () -> Db.GPU_group.get_name_label ~__context ~self:group)))
-    not_available;
-  if not_available <> [] then
-    raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-        Ref.string_of self;
-        Ref.string_of (List.hd not_available)
+        ignore (List.fold_left (fun pre_allocate_list vgpu -> Vgpuops.allocate_vgpu_to_gpu ~dry_run:true ~pre_allocate_list ~__context self host vgpu) [] vgpurs) 
+    with _ -> raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
+        Ref.string_of self;  
+        String.concat ";" (List.map Ref.string_of vgpus)
       ]))
+
 
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
