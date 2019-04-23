@@ -252,18 +252,23 @@ let extract_certificate_file name =
   Helpers.touch_file path;
   path
 
+let with_temp_file_contents ~contents f =
+  let filename, out = Filename.open_temp_file "xapi_uefi_certificates" "tar" in
+  Xapi_stdext_pervasives.Pervasiveext.finally (fun () ->
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () -> output_string out contents)
+      (fun () -> close_out out);
+    Unixext.with_file filename [Unix.O_RDONLY] 0 f
+  ) (fun () -> Sys.remove filename)
+
 let save_uefi_certificates_to_dir ~__context ~pool ~vm =
   let uefi_key = !Xapi_globs.varstore_dir ^ "KEK.auth" in
   if not (Sys.file_exists uefi_key) then
     if Sys.file_exists !Xapi_globs.varstore_dir && Sys.is_directory !Xapi_globs.varstore_dir then
       let contents = (Xapi_stdext_base64.Base64.decode (Db.Pool.get_uefi_certificates ~__context ~self:pool)) in
       if contents <> "" then begin
-        let filename = "xapi_uefi_certificates.tar" in
-        Unixext.write_string_to_file filename contents;
-        Unixext.with_file filename [Unix.O_RDONLY; Unix.O_CREAT] 0o755 (fun fd ->
-            Tar_unix.Archive.extract extract_certificate_file fd);
+        with_temp_file_contents ~contents (Tar_unix.Archive.extract extract_certificate_file);
         debug "UEFI tar file extracted to varstore directory";
-        Sys.remove filename
       end
 
 let start ~__context ~vm ~start_paused ~force =
