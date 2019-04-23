@@ -50,20 +50,29 @@ let get_allocated_VGPUs ~__context ~self =
 
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
   assert_VGPU_type_enabled ~__context ~self ~vgpu_type;
-  (match get_allocated_VGPUs ~__context ~self with
-   | [] -> ()
-   | resident_VGPU :: _ ->
-     let running_type =
-       Db.VGPU.get_type ~__context ~self:resident_VGPU
-     in
-     if running_type <> vgpu_type
-     then raise (Api_errors.Server_error (
-         Api_errors.vgpu_type_not_compatible_with_running_type,
-         [
-           Ref.string_of self;
-           Ref.string_of vgpu_type;
-           Ref.string_of running_type;
-         ])))
+  let allocated_vgpu_list = get_allocated_VGPUs ~__context ~self in
+  (* Theh new vGPU must compatible with all the allocated vGPUs on the pGPU,
+   * Namely, the new vGPU type must in the compatible_types_on_pgpu of all the allocated vGPUs *)
+  let compatible_with_new_vGPU_type vgpu =
+    vgpu
+    |> (fun self -> Db.VGPU.get_type ~__context ~self)
+    |> (fun self -> Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self)
+    |> List.map Ref.of_string
+    |> List.mem vgpu_type in
+
+  let compatible_on_pgpu = List.for_all compatible_with_new_vGPU_type allocated_vgpu_list in
+
+  if not compatible_on_pgpu then
+    let sep = ";" in
+    raise (Api_errors.Server_error (
+        Api_errors.vgpu_type_not_compatible_with_running_type, [
+          Ref.string_of self;
+          Ref.string_of vgpu_type;
+          List.map (fun self-> Db.VGPU.get_type ~__context ~self) allocated_vgpu_list
+          |> List.sort_uniq Pervasives.compare
+          |> List.map (fun vgpu_type_ref -> Ref.string_of vgpu_type_ref)
+          |> String.concat sep
+        ]))
 
 let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
   let open Db_filter_types in
@@ -212,9 +221,9 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
     | `nvidia ->
       Db.VGPU.get_GPU_group ~__context ~self:vgpu
       |> fun self -> Db.GPU_group.get_GPU_types ~__context ~self
-      |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
-      |> fun pgpu ->
-        assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
+                     |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
+                                          |> fun pgpu ->
+                                          assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
   in
   let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
   let _mapped, unmapped = List.partition (fun vgpu -> List.mem_assoc vgpu vgpu_map) vgpus in
