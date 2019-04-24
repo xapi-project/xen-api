@@ -27,12 +27,14 @@ module Vgpu = struct
   (* Example for nvidia:
   {
     physical_pci_address : None
-    virtual_pci_address : Some 0000:00:0a.0
+    config_file: None
+    virtual_pci_address : Some {domain; bus; device; fn}
     type_id: 45
   }
   *)
   type nvidia = {
     physical_pci_address: address option; (* unused; promoted to Vgpu.t *)
+    config_file: string option;
     virtual_pci_address: address option;
     type_id: string;
   } [@@deriving sexp, rpcty]
