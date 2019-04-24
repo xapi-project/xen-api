@@ -664,13 +664,15 @@ module MD = struct
     let virtual_pci_address = get_virtual_pci_address ~__context vgpu in
     let vgpu_type = vgpu.Db_actions.vGPU_type in
     let type_id = Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type 
-      |> List.assoc Xapi_globs.vgpu_type_id in
+                  |> List.assoc Xapi_globs.vgpu_type_id in
+    let uuid = vgpu.Db_actions.vGPU_uuid in
     let implementation =
       Nvidia {
         physical_pci_address = None; (* unused *)
         config_file = None; (* unused *)
         virtual_pci_address = Some virtual_pci_address;
         type_id  = type_id;
+        uuid;
       }
     in {
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
