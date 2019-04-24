@@ -30,6 +30,7 @@ module Vgpu = struct
     config_file: None
     virtual_pci_address : Some {domain; bus; device; fn}
     type_id: 45
+    uuid: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee
   }
   *)
   type nvidia = {
@@ -37,6 +38,7 @@ module Vgpu = struct
     config_file: string option;
     virtual_pci_address: address option;
     type_id: string;
+    uuid: string;
   } [@@deriving sexp, rpcty]
 
   type mxgpu = {
