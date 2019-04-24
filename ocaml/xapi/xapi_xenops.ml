@@ -668,7 +668,7 @@ module MD = struct
     let implementation =
       Nvidia {
         physical_pci_address = None; (* unused *)
-        config_file = "";
+        config_file = None; (* unused *)
         virtual_pci_address = Some virtual_pci_address;
         type_id  = type_id;
       }
