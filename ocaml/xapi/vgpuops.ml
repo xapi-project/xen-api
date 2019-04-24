@@ -148,7 +148,6 @@ let add_vgpus_to_vm ~__context host vm vgpus =
         ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
     ) vgpus
 
-
 (* The two functions below are the main entry points of this module *)
 
 (* Note that this function is called from Message_forwarding.allocate_vm_to_host,

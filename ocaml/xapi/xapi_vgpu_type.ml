@@ -129,9 +129,15 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
     ~size ~internal_config ~implementation ~identifier ~experimental
-    ~compatible_types_in_vm ~compatible_types_on_pgpu;
+    ~compatible_types_in_vm:[] ~compatible_types_on_pgpu:[];
   debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
     (Ref.string_of ref) vendor_name model_name;
+  if List.length compatible_types_in_vm <> 0 then
+    Db.VGPU_type.set_compatible_types_in_vm ~__context
+      ~self:ref ~value:[ref];
+  if List.length compatible_types_on_pgpu <> 0 then
+      Db.VGPU_type.set_compatible_types_on_pgpu ~__context
+        ~self:ref ~value:[ref];
   ref
 
 let find_and_update ~__context vgpu_type =
@@ -182,6 +188,26 @@ let find_and_update ~__context vgpu_type =
     end
   | _ -> fail ()
 
+(* since vgpu_type refs had been created in update, just need to get ref from vgpu_type.compatible* lists *)
+let update_compatible_lists ~__context vgpu_type vgpu_type_ref rc =
+  let get_type_from_model_name model =
+    let open Db_filter_types in
+    let expr = Eq(Field "model_name", Literal model) in
+    match Db.VGPU_type.get_internal_records_where ~__context ~expr with
+    | (_ref, _) :: _ -> _ref
+    | _ -> raise (Api_errors.Server_error(Api_errors.internal_error, ["Could not find vgpu_type according to model name" ]))
+  in
+  let compatible_types_in_vm =  List.map (fun model -> get_type_from_model_name model) vgpu_type.compatible_types_in_vm in
+  let compatible_types_on_pgpu = List.map (fun model -> get_type_from_model_name model) vgpu_type.compatible_types_on_pgpu in
+  if compatible_types_in_vm <> rc.Db_actions.vGPU_type_compatible_types_in_vm then
+    Db.VGPU_type.set_compatible_types_in_vm ~__context
+      ~self:vgpu_type_ref
+      ~value:compatible_types_in_vm;
+  if compatible_types_on_pgpu <> rc.Db_actions.vGPU_type_compatible_types_on_pgpu then
+    Db.VGPU_type.set_compatible_types_on_pgpu ~__context
+      ~self:vgpu_type_ref
+      ~value:compatible_types_on_pgpu
+
 let find_or_create ~__context vgpu_type =
   let implementation = Identifier.to_implementation vgpu_type.identifier in
   match (find_and_update ~__context vgpu_type) with
@@ -220,14 +246,8 @@ let find_or_create ~__context vgpu_type =
       Db.VGPU_type.set_experimental ~__context
         ~self:vgpu_type_ref
         ~value:vgpu_type.experimental;
-    if vgpu_type.compatible_types_in_vm <> rc.Db_actions.vGPU_type_compatible_types_in_vm then
-      Db.VGPU_type.set_compatible_types_in_vm ~__context
-        ~self:vgpu_type_ref
-        ~value:vgpu_type.compatible_types_in_vm;
-    if vgpu_type.compatible_types_on_pgpu <> rc.Db_actions.vGPU_type_compatible_types_on_pgpu then
-      Db.VGPU_type.set_compatible_types_on_pgpu ~__context
-        ~self:vgpu_type_ref
-        ~value:vgpu_type.compatible_types_on_pgpu;
+    update_compatible_lists ~__context vgpu_type vgpu_type_ref rc;
+
     vgpu_type_ref
   | None ->
     create ~__context ~vendor_name:vgpu_type.vendor_name
@@ -445,8 +465,8 @@ module Vendor_nvidia = struct
            - Currently always initialize 'compatible_types_on_pgpu' to itself only since we 
              don't support yet *)
         let multi_vgpu_supported = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
-        info "Getting multiple vGPU supported from config file: %Ld" multi_vgpu_supported;
         let name = get_attr "name" vgpu_type in
+        info "Getting multiple vGPU supported from config file: %Ld, model: %s" multi_vgpu_supported name;
         let compatible_types_in_vm, compatible_types_on_pgpu = 
           match multi_vgpu_supported with
           | 1L -> [name], [name]
