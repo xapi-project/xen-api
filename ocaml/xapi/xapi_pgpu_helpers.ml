@@ -57,7 +57,6 @@ let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
     vgpu
     |> (fun self -> Db.VGPU.get_type ~__context ~self)
     |> (fun self -> Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self)
-    |> List.map Ref.of_string
     |> List.mem vgpu_type in
 
   let compatible_on_pgpu = List.for_all compatible_with_new_vGPU_type allocated_vgpu_list in
