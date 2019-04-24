@@ -77,16 +77,17 @@ module Nvidia = struct
       let dbg   = Context.string_of_task __context in
       let vm    = Db.VGPU.get_VM ~__context ~self:vgpu in
       let domid = Db.VM.get_domid ~__context ~self:vm |> Int64.to_int in
+      let vgpu_uuid = Db.VGPU.get_uuid ~__context ~self:vgpu in
       Db.VGPU.get_resident_on ~__context ~self:vgpu
       |> (fun self -> Db.PGPU.get_PCI ~__context ~self)
       |> (fun self -> Db.PCI.get_pci_id ~__context ~self)
-      |> Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid
+      |> (fun pgpu_address -> Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid pgpu_address vgpu_uuid)
       |> (function
           | []      -> []
           | [meta]  -> [key, Stdext.Base64.encode meta]
           | _::_    -> failwith @@ Printf.sprintf
-              "%s: VM %s (dom %d) has more than one NVIDIA vGPU (%s)"
-              this (Ref.string_of vm) domid __LOC__)
+              "%s: More than one NVIDIA vGPUs are found in VM %s (dom %d) with UUID %s (%s)"
+              this (Ref.string_of vm) domid vgpu_uuid __LOC__)
     with
     | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
       let host = Helpers.get_localhost ~__context |> Ref.string_of in
