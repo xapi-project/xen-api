@@ -648,27 +648,27 @@ module MD = struct
     Xenops_interface.Pci.address_of_string pci_address
 
   let get_virtual_pci_address ~__context vgpu =
-   let device = vgpu.Db_actions.vGPU_device in
-   let virtual_pci_address  =  Xapi_globs.vgpu_pci_prefix ^ device ^".0" in
-   Xenops_interface.Pci.address_of_string virtual_pci_address
+    let open Pci in
+    let device = vgpu.Db_actions.vGPU_device in
+    {
+      domain = 0000;
+      bus = 0;
+      dev = int_of_string device;
+      fn = 0;
+    }
 
   let of_nvidia_vgpu ~__context vm vgpu =
     let open Vgpu in
     (* Get the PCI address. *)
     let physical_pci_address = get_target_pci_address ~__context vgpu in
     let virtual_pci_address = get_virtual_pci_address ~__context vgpu in
-    (* Get the vGPU type_id, since psubdev_id is option, can't decide the string format *)
     let vgpu_type = vgpu.Db_actions.vGPU_type in
-    let identifier = Db.VGPU_type.get_identifier ~__context ~self:vgpu_type in
-    let type_id =
-      try
-        Scanf.sscanf identifier "%04d,nvidia,%04x,%04x,%04x,%04x,%s" (fun _ _ _ _ _ type_id -> type_id)
-      with _ ->
-        Scanf.sscanf identifier "%04d,nvidia,%04x,,%04x,%04x,%s" (fun _ _ _ _ type_id -> type_id)
-    in
+    let type_id = Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type 
+      |> List.assoc "type_id" in
     let implementation =
       Nvidia {
         physical_pci_address = None; (* unused *)
+        config_file = "";
         virtual_pci_address = Some virtual_pci_address;
         type_id  = type_id;
       }
