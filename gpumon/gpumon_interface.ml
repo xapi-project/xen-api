@@ -30,6 +30,10 @@ type debug_info = string
 type domid = int
 [@@deriving rpcty]
 
+(** UUID of Nvidia Virtual GPU *)
+type vgpu_uuid = string
+[@@deriving rpcty]
+
 (** Reason for incompatibility *)
 type incompatibility_reason =
   | Host_driver
@@ -133,6 +137,10 @@ module RPC_API(R : RPC) = struct
         ["Domain ID of the VM in which the vGPU(s) is running."]
         domid
 
+    let vgpu_uuid_p = param ~description:
+        ["UUID of Nvidia virtual GPU."]
+        vgpu_uuid
+
     let pgpu_address_p = param ~description:
         ["PCI bus ID of the pGPU in which the VM is currently running"
         ;"in the form `domain:bus:device.function` PCI identifier."]
@@ -178,6 +186,7 @@ module RPC_API(R : RPC) = struct
         ( debug_info_p
           @-> domid_p
           @-> pgpu_address_p
+          @-> vgpu_uuid_p
           @-> returning nvidia_vgpu_metadata_list_p gpu_err
         )
 
