@@ -128,10 +128,15 @@ let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
-    ~size ~internal_config ~implementation ~identifier ~experimental
-    ~compatible_types_in_vm ~compatible_types_on_pgpu;
+    ~size ~internal_config ~implementation ~identifier ~experimental;
   debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
     (Ref.string_of ref) vendor_name model_name;
+  if List.length compatible_types_in_vm <> 0 then
+    Db.VGPU_type.set_compatible_types_in_vm ~__context
+      ~self:ref ~value:[ref];
+  if List.length compatible_types_on_pgpu <> 0 then
+      Db.VGPU_type.set_compatible_types_on_pgpu ~__context
+        ~self:ref ~value:[ref];
   ref
 
 let find_and_update ~__context vgpu_type =
@@ -220,14 +225,6 @@ let find_or_create ~__context vgpu_type =
       Db.VGPU_type.set_experimental ~__context
         ~self:vgpu_type_ref
         ~value:vgpu_type.experimental;
-    if vgpu_type.compatible_types_in_vm <> rc.Db_actions.vGPU_type_compatible_types_in_vm then
-      Db.VGPU_type.set_compatible_types_in_vm ~__context
-        ~self:vgpu_type_ref
-        ~value:vgpu_type.compatible_types_in_vm;
-    if vgpu_type.compatible_types_on_pgpu <> rc.Db_actions.vGPU_type_compatible_types_on_pgpu then
-      Db.VGPU_type.set_compatible_types_on_pgpu ~__context
-        ~self:vgpu_type_ref
-        ~value:vgpu_type.compatible_types_on_pgpu;
     vgpu_type_ref
   | None ->
     create ~__context ~vendor_name:vgpu_type.vendor_name

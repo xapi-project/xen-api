@@ -1802,7 +1802,7 @@ let vgpu_type_record rpc session_id vgpu_type =
       make_field ~name:"experimental"
         ~get:(fun () -> string_of_bool (x ()).API.vGPU_type_experimental) ();
       make_field ~name:"compatible-types-in-vm"
-        ~get:(fun () -> String.concat "; " (x ()).API.vGPU_type_compatible_types_in_vm) ();
+        ~get:(fun () -> String.concat "; " (List.map (fun p -> get_uuid_from_ref p) (x ()).API.vGPU_type_compatible_types_in_vm)) ();
     ]
   }
 
