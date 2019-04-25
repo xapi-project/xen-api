@@ -17,9 +17,32 @@ open D
 (* Mutex to prevent duplicate VGPUs being created by accident *)
 let m = Mutex.create ()
 
-(* Only allow device = "0" for now, as we support just a single vGPU per VM *)
-let valid_device device =
-  device = "0"
+(* 1. Since multiple vgpus support, only device number = 0 or specify [11,31] since demu restriction.
+   2. device = 0 will requires xapi to give a valid number
+    - First sort the device number and the trying to find the next valid from range *)
+
+let range low high =
+  let rec aux low high =
+    if low > high then [] else low :: aux (low+1) high in
+  aux low high
+
+let all_valid_devices = range 11 31
+
+let get_valid_device ~__context ~device ~vM =
+  let d = int_of_string device in
+  if d >= 11 && d <= 31 then device
+  else if d = 0 then begin
+    let all = Db.VM.get_VGPUs ~__context ~self:vM in
+    let all_devices = List.map (fun self -> Db.VGPU.get_device ~__context ~self |> int_of_string) all in
+    let sorted = List.sort compare all_devices in
+    match sorted with
+    | [] -> "11"
+    | _ ->
+      try
+        let valid = List.find (fun d -> not (List.mem d sorted)) all_valid_devices in
+        string_of_int valid
+      with Not_found -> raise (Api_errors.Server_error (Api_errors.invalid_device, [device]))
+  end else raise (Api_errors.Server_error (Api_errors.invalid_device, [device]))
 
 let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_check =
   let vgpu = Ref.make () in
@@ -28,9 +51,11 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
     raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
   if powerstate_check then
     Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
-  if not(valid_device device) then
-    raise (Api_errors.Server_error (Api_errors.invalid_device, [device]));
-
+  let device_id =
+    try
+      get_valid_device ~__context ~device ~vM
+    with e -> raise e
+  in
   (* For backwards compatibility, convert Ref.null into the passthrough type. *)
   let _type =
     if _type = Ref.null
@@ -44,13 +69,7 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
   in
 
   Stdext.Threadext.Mutex.execute m (fun () ->
-      (* Check to make sure the device is unique *)
-      let all = Db.VM.get_VGPUs ~__context ~self:vM in
-      let all_devices = List.map (fun self -> Db.VGPU.get_device ~__context ~self) all in
-      if List.mem device all_devices then
-        raise (Api_errors.Server_error (Api_errors.device_already_exists, [device]));
-
-      Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device
+      Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
         ~scheduled_to_be_resident_on:Ref.null
         ~compatibility_metadata:[]
