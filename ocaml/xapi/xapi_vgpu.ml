@@ -67,6 +67,20 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
                     (Api_errors.invalid_value, ["type"; Ref.string_of _type]))
     end
   in
+  (* during multiple vgpus creation:
+    1. Underlying vgpu_type should support multiple
+    2. _type must be listed on the all vgpu_type's compatible lists*)
+  let existing = Db.VM.get_VGPUs ~__context ~self:vM in
+  if existing <> [] then begin
+    let types = List.map (fun vgpu -> Db.VGPU.get_type ~__context ~self:vgpu) existing in
+    let is_in_compatible_lists _type vgpu_type =
+      let compatible_lists = Db.VGPU_type.get_compatible_types_in_vm ~__context ~self:vgpu_type in
+      List.mem _type compatible_lists
+    in
+    if not (List.for_all (fun vgpu_type -> is_in_compatible_lists _type vgpu_type) types) then
+      raise (Api_errors.Server_error (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type]))
+  end;
+
 
   Stdext.Threadext.Mutex.execute m (fun () ->
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
