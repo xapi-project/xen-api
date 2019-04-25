@@ -39,6 +39,7 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(SITE_DIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
+	mkdir -p $(DESTDIR)$(BINDIR)
 	$(IDATA) XenAPIPlugin.py XenAPI.py inventory.py $(DESTDIR)$(SITE_DIR)/
 	$(IEXE) echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IEXE) wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
