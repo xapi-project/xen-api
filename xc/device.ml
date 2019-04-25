@@ -212,19 +212,21 @@ module Generic = struct
         )
       )
 
-  let unplug_watch ~xs (x: device) =
-    let path = Hotplug.path_written_by_hotplug_scripts x in
-    let qdisk = Astring.String.is_infix ~affix:"backend/qdisk/" path in
-    if not qdisk then begin
-      Watch.key_to_disappear path
-    end else begin
-      debug "unplug_watch: not waiting for qdisk %s; returning dummy watch" path;
-      Watch.{ evaluate = fun xs -> try xs.Xs.rm path with _ -> debug "dummy unplug_watch for qdisk: %s already removed" path }
-    end
-
+  let unplug_watch ~xs (x: device) = Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
   let error_watch ~xs (x: device) = Watch.value_to_appear (error_path_of_device ~xs x)
   let frontend_closed ~xs (x: device) = Watch.map (fun () -> "") (Watch.value_to_become (frontend_rw_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed))
   let backend_closed ~xs (x: device) = Watch.value_to_become (backend_path_of_device ~xs x ^ "/state") (Xenbus_utils.string_of Xenbus_utils.Closed)
+
+  let is_qdisk x = Hotplug.path_written_by_hotplug_scripts x |> Astring.String.is_infix ~affix:"backend/qdisk/"
+
+  let on_backend_closed_unplug ~xs x =
+    debug "Device.on_backend_closed_unplug for %s" (string_of_device x);
+    (* qemu-dp does not delete the hotplug status key *)
+    backend_closed ~xs x
+    |> Watch.map (fun _ ->
+        debug "Backend closed for %s, deleting hotplug-status" (string_of_device x);
+        (* deleting this key causes the udev rule to fire *)
+        safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x))
 
   let clean_shutdown_wait (task: Xenops_task.task_handle) ~xs ~ignore_transients (x: device) =
     debug "Device.Generic.clean_shutdown_wait %s" (string_of_device x);
@@ -241,7 +243,15 @@ module Generic = struct
 
     let cancel = Device x in
     let frontend_closed = Watch.map (fun _ -> ()) (frontend_closed ~xs x) in
-    let unplug = Watch.map (fun _ -> ()) (unplug_watch ~xs x) in
+    let unplug =
+      let qdisk = is_qdisk x in
+      debug "Device.unplug_watch %s, qdisk=%b" (string_of_device x) qdisk;
+      let backend_watch = if qdisk then [ (), on_backend_closed_unplug ~xs x] else [] in
+      let unplugged_watch = (), unplug_watch ~xs x in
+      (* we need to evaluate all watches, so use any_of *)
+      Watch.any_of (unplugged_watch :: backend_watch)
+      |> Watch.map (fun _ -> ())
+    in
     let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
     if cancellable_watch cancel [ frontend_closed; unplug ] (if ignore_transients then [] else [ error ]) task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
     then begin
@@ -270,6 +280,8 @@ module Generic = struct
     safe_rm xs (frontend_ro_path_of_device ~xs x)
 
   let hard_shutdown_complete ~xs (x: device) =
+    if is_qdisk x then
+      safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x);
     if !Xenopsd.run_hotplug_scripts
     then backend_closed ~xs x
     else unplug_watch ~xs x
@@ -1670,6 +1682,7 @@ module Dm_Common = struct
     pci_emulations: string list;
     pci_passthrough: bool;
     video_mib : int;
+    xen_platform: (int * int) option;
     extras: (string * string option) list;
   }
 
@@ -1998,23 +2011,22 @@ module Dm_Common = struct
          ])
     ]
 
-  let xen_platform ~trad_compat ~xs ~domid =
-    let device_id, revision =
-      try
-        xs.Xs.read (sprintf "/local/domain/%d/platform/device_id" domid),
-        "2"
-      with _ -> "0001", "1"
-    in
+  let xen_platform ~trad_compat ~xs ~domid ~info =
     [ "-device"; String.concat "," (List.concat [
           [ "xen-platform"
           ; "addr=3"
           ]
         ; if trad_compat then
-            [ sprintf "device-id=0x%s" device_id
-            ; sprintf "revision=0x%s" revision
-            ; "class-id=0x0100"
-            ; "subvendor_id=0x5853"
-            ; sprintf"subsystem_id=0x%s" device_id ] else []])
+            match info.xen_platform with
+            | Some (device_id, revision) ->
+              [ sprintf "device-id=0x%04x" device_id
+              ; sprintf "revision=0x%x" revision
+              ; "class-id=0x0100"
+              ; "subvendor_id=0x5853"
+              ; sprintf"subsystem_id=0x%04x" device_id ]
+            | None -> []
+          else []
+      ])
     ]
 
   let cant_suspend_reason_path domid =
@@ -2143,7 +2155,7 @@ module Backend = struct
     end
 
     module XenPlatform: sig
-      val device: xs:Xenstore.Xs.xsh -> domid:int -> string list
+      val device: xs:Xenstore.Xs.xsh -> domid:int -> info:Dm_Common.info -> string list
     end
 
     module VGPU: sig
@@ -2170,13 +2182,13 @@ module Backend = struct
     end
 
     module XenPlatform = struct
-      let device ~xs ~domid =
+      let device ~xs ~domid ~info =
         let has_platform_device =
           try
             int_of_string (xs.Xs.read (sprintf "/local/domain/%d/vm-data/disable_pf" domid)) <> 1
           with _ -> true
         in
-        if has_platform_device then Dm_Common.xen_platform ~trad_compat:true ~xs ~domid
+        if has_platform_device then Dm_Common.xen_platform ~trad_compat:true ~xs ~domid ~info
         else []
     end
 
@@ -2213,7 +2225,7 @@ module Backend = struct
         in
 
         if has_nvidia_vgpu then 2
-        else if XenPlatform.device ~xs ~domid = [] then 3
+        else if XenPlatform.device ~xs ~domid ~info = [] then 3
         else
           nics
           |> List.map (fun (_, _, devid) -> devid + NIC.base_addr)
@@ -2691,8 +2703,11 @@ module Backend = struct
                 Stdext.Xstringext.String.replace "%d" (string_of_int domid) xs_path
               else
                 xs_path
-            in Some ("file:" ^ file)
-          with _ -> info.Dm_Common.serial
+            in ["-chardev"; "file,id=serial0,append=on,path=" ^ file; "-serial"; "chardev:serial0"]
+          with _ ->
+            match info.Dm_Common.serial with
+            | None -> []
+            | Some x -> ["-serial"; x]
         in
 
         let nic_type =
@@ -2739,7 +2754,7 @@ module Backend = struct
               ]
             ; usb
             ; [ "-smp"; sprintf "%d,maxcpus=%d" info.Dm_Common.vcpus_current info.Dm_Common.vcpus]
-            ; (serial_device |> function None -> [] | Some x -> [ "-serial"; x ])
+            ; (serial_device)
             ; [ "-display"; "none"; "-nodefaults"]
             ; [ "-trace"; "enable=xen_platform_log"]
             ; [ "-sandbox"; "on,obsolete=deny,elevateprivileges=allow,spawn=deny,resourcecontrol=deny"]
@@ -2747,7 +2762,7 @@ module Backend = struct
             ; Config.extra_qemu_args ~nic_type
             ; (info.Dm_Common.parallel |> function None -> [ "-parallel"; "null"] | Some x -> [ "-parallel"; x])
             ; qmp
-            ; Config.XenPlatform.device ~xs ~domid
+            ; Config.XenPlatform.device ~xs ~domid ~info
             ] in
 
         let disks_cdrom, disks_other =

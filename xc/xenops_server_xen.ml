@@ -131,6 +131,7 @@ module VmExtra = struct
   (* Known versions of the VM persistent metadata created by xenopsd *)
   let persistent_version_pre_lima = 0
   let persistent_version_lima     = 1
+  let persistent_version_naples   = 2
 
   (** Extra data we store per VM. The persistent data is preserved when
       the domain is suspended so it can be re-used in the following 'create'
@@ -147,12 +148,14 @@ module VmExtra = struct
     nomigrate: bool [@default false];  (* platform:nomigrate   at boot time *)
     nested_virt: bool [@default false];(* platform:nested_virt at boot time *)
     profile: Device.Profile.t option;
+    original_profile: Device.Profile.t option; (* The QEMU profile used when the VM was started *)
     suspend_memory_bytes: int64 [@default 0L];
     qemu_vbds: (Vbd.id * (int * qemu_frontend)) list [@default []];
     qemu_vifs: (Vif.id * (int * qemu_frontend)) list [@default []];
     pci_msitranslate: bool [@default false];
     pci_power_mgmt: bool [@default false];
     pv_drivers_detected: bool [@default false];
+    xen_platform: (int * int) option;  (* (device_id, revision) for QEMU *)
   } [@@deriving rpcty]
 
   let default_persistent_t = match Rpcmarshal.unmarshal typ_of_persistent_t (Rpc.Dict []) with Ok x -> x | _ -> failwith "Failed to make default_persistent_t"
@@ -1039,6 +1042,26 @@ module VM = struct
       is_uefi;
     }
 
+  let xen_platform_of ~vm ~vmextra =
+    let open VmExtra in
+    match List.assoc_opt "device_id" vm.Xenops_interface.Vm.platformdata with
+    | Some device_id ->
+      (* The revision is always 2 if a device_id is specified *)
+      int_of_string ("0x" ^ device_id), 2
+    | None ->
+      (* The device_id is always 1 if it is unspecified *)
+      let device_id = 1 in
+      (* The revision is usually 1, except for certain cases which require it to
+       * be set to 2 due to historical incompatibilities (CA-313709) *)
+      let revision =
+        if vmextra.persistent.original_profile = Some Device.Profile.Qemu_trad ||
+           vmextra.persistent.version >= persistent_version_naples then
+          1
+        else
+          2
+      in
+      device_id, revision
+
   let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
@@ -1049,11 +1072,12 @@ module VM = struct
               Some x
             | None -> begin
               debug "VM = %s; has no stored domain-level configuration, regenerating" vm.Vm.id;
+               let profile = profile_of ~vm in
                let persistent =
                  VmExtra.{ default_persistent_t with
                            (* version 1 and later distinguish VMs started in Lima and later versions of xenopsd
                               from those VMs started in pre-Lima versions that didn't have this version field *)
-                           version = VmExtra.persistent_version_lima
+                           version = VmExtra.persistent_version_naples
                          ; ty = Some vm.ty
                          ; last_start_time = Unix.gettimeofday ()
                          ; domain_config = Some (VmExtra.domain_config_of_vm vm)
@@ -1065,7 +1089,8 @@ module VM = struct
                                ~key:"nested-virt"
                                ~platformdata:vm.Xenops_interface.Vm.platformdata
                                ~default:false
-                         ; profile = profile_of ~vm
+                         ; profile
+                         ; original_profile = profile
                          ; pci_msitranslate = vm.Vm.pci_msitranslate
                          ; pci_power_mgmt = vm.Vm.pci_power_mgmt
                  } in
@@ -1362,6 +1387,7 @@ module VM = struct
       VmExtra.build_info = Some build_info;
       ty = Some ty;
       VmExtra.qemu_vbds = qemu_vbds;
+      xen_platform;
     } ->
       let make ?(boot_order="cd") ?(firmware=default_firmware) ?(serial="pty") ?(monitor="null")
           ?(nics=[]) ?(disks=[]) ?(vgpus=[])
@@ -1394,6 +1420,7 @@ module VM = struct
           disp = VNC (video, vnc_ip, true, 0, keymap);
           pci_passthrough = pci_passthrough;
           video_mib=video_mib;
+          xen_platform;
           extras = [];
         } in
       let nics = List.filter_map (fun vif ->
@@ -1603,8 +1630,7 @@ module VM = struct
 
   let build ?restore_fd task vm vbds vifs vgpus vusbs extras force = on_domain (build_domain vm vbds vifs vgpus vusbs extras force) task vm
 
-  let create_device_model_exn vbds vifs vgpus vusbs saved_state xc xs task vm di =
-    let vmextra = DB.read_exn vm.Vm.id in
+  let create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra xc xs task vm di =
     let qemu_dm = dm_of ~vm in
     let xenguest = choose_xenguest vm.Vm.platformdata in
     debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
@@ -1628,7 +1654,23 @@ module VM = struct
     with Device.Ioemu_failed (name, msg) ->
       raise (Xenopsd_error (Failed_to_start_emulator (vm.Vm.id, name, msg)))
 
-  let create_device_model task vm vbds vifs vgpus vusbs saved_state = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state) task vm
+  let create_device_model task vm vbds vifs vgpus vusbs saved_state =
+    let _ =
+      DB.update_exn vm.Vm.id (fun d ->
+        let vmextra =
+          (* Fill in the xen-platform data, if it is not yet set *)
+          match d.VmExtra.persistent.xen_platform with
+          | None ->
+            VmExtra.{persistent = { d.persistent with
+              xen_platform = Some (xen_platform_of ~vm ~vmextra:d)
+            }}
+          | _ -> d
+        in
+        let () = on_domain (create_device_model_exn vbds vifs vgpus vusbs saved_state vmextra) task vm in
+        (* Ensure that the updated vmextra is written back to the DB *)
+        Some vmextra
+      )
+    in ()
 
   let request_shutdown task vm reason ack_delay =
     let reason = shutdown_reason reason in
@@ -2151,6 +2193,15 @@ module VM = struct
            end
       )
 
+  (* Some hook scripts need to know the domid to avoid confusion when migrating
+   * vms, now that the behaviour concerning uuids has changed *)
+  let get_hook_args vm_uuid =
+    with_xc_and_xs (fun xc xs ->
+      match domid_of_uuid ~xc ~xs (uuid_of_string vm_uuid) with
+      | None       -> []
+      | Some domid -> [Xenops_hooks.arg__vmdomid; string_of_int domid]
+    )
+
   let get_internal_state vdi_map vif_map vm =
     let state = DB.read_exn vm.Vm.id in
     state.VmExtra.persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
@@ -2173,14 +2224,35 @@ module VM = struct
         end
       | _ -> persistent
     in
-    let persistent = { persistent with VmExtra.profile = profile_of ~vm }
-      |> DB.revision_of k
+    let profile =
+      (* Set the profile correctly if the incoming state does not have a profile set.
+       * This is the case if the profile is None (the field's default), while the VM does
+       * need QEMU (i.e. an HVM guest). Otherwise, keep the profile from the state.
+       * The resulting profile may be upgraded in `revision_of` below. *)
+      if persistent.VmExtra.profile = None && will_be_hvm vm then
+        Some Device.Profile.Qemu_trad
+      else
+        persistent.VmExtra.profile
+    in
+    let original_profile =
+      (* Never overwrite the original_profile, if one is present. If not present,
+       * then make it equal to the profile derived above. *)
+      match persistent.VmExtra.original_profile with
+      | None -> profile
+      | p -> p
+    in
+    let persistent = VmExtra.{ persistent with
+        profile;
+        original_profile;
+      }
+      |> DB.revision_of k (* This may update the profile, but not the original_profile *)
     in
     persistent |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string |> fun state_new ->
       debug "vm %s: persisting metadata %s" k state_new;
       (if state_new <> state then debug "vm %s: different original metadata %s" k state)
     ;
-    let _ = DB.update vm.Vm.id (fun d -> Some VmExtra.{persistent})
+    (* Save the state *)
+    let _ = DB.update vm.Vm.id (fun _ -> Some VmExtra.{persistent})
     in ()
 
   let minimum_reboot_delay = 120.

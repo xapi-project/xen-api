@@ -73,6 +73,10 @@ type atomic =
   | VIF_set_ipv4_configuration of Vif.id * Vif.ipv4_configuration
   | VIF_set_ipv6_configuration of Vif.id * Vif.ipv6_configuration
   | VIF_set_active of Vif.id * bool
+  (* During migration the domid of a uuid is not stable. To hide this from
+   * hooks that depend on domids, this allows the caller to provide an
+   * additonal uuid that can maintain the initial domid *)
+  | VM_hook_script_stable of (Vm.id * Xenops_hooks.script * string * Vm.id)
   | VM_hook_script of (Vm.id * Xenops_hooks.script * string)
   | VBD_plug of Vbd.id
   | VBD_epoch_begin of (Vbd.id * disk * bool)
@@ -1203,8 +1207,12 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     debug "VIF.set_active %s %b" (VIF_DB.string_of_id id) b;
     B.VIF.set_active t (VIF_DB.vm_of id) (VIF_DB.read_exn id) b;
     VIF_DB.signal id
+  | VM_hook_script_stable(id, script, reason, backend_vm_id) ->
+    let extra_args = B.VM.get_hook_args backend_vm_id in
+    Xenops_hooks.vm ~script ~reason ~id ~extra_args
   | VM_hook_script(id, script, reason) ->
-    Xenops_hooks.vm ~script ~reason ~id
+    let extra_args = B.VM.get_hook_args id in
+    Xenops_hooks.vm ~script ~reason ~id ~extra_args
   | VBD_plug id ->
     debug "VBD.plug %s" (VBD_DB.string_of_id id);
     B.VBD.plug t (VBD_DB.vm_of id) (VBD_DB.read_exn id);
@@ -1575,6 +1583,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VGPU_start (id, _) ->
     immediate_operation dbg (fst id) (VM_check_state (VGPU_DB.vm_of id))
 
+  | VM_hook_script_stable (id, _, _, _)
   | VM_hook_script (id, _, _)
   | VM_remove id
   | VM_set_xsdata (id, _)
@@ -1662,7 +1671,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
       let module B = (val get_backend () : S) in
       B.VM.assert_can_save vm;
-      Xenops_hooks.vm_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id;
+      let extra_args = B.VM.get_hook_args id in
+      Xenops_hooks.vm ~script:Xenops_hooks.VM_pre_migrate ~reason:Xenops_hooks.reason__migrate_source ~id ~extra_args;
 
       let module Remote = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct let rpc = Xcp_client.xml_http_rpc ~srcstr:"xenops" ~dststr:"dst_xenops" (fun () -> vmm.vmm_url) end)) in
       let regexp = Re.Pcre.regexp id in
@@ -1687,7 +1697,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let (_: unit) = perform_atomic ~subtask:(string_of_atomic atomic) ~progress_callback:(fun _ -> ()) atomic t in
 
       (* Waiting here is not essential but adds a degree of safety
-         			 * and reducess unnecessary memory copying. *)
+       * and reducess unnecessary memory copying. *)
       (try B.VM.wait_ballooning t vm with Xenopsd_error Ballooning_timeout_before_migration -> ());
 
       (* Find out the VM's current memory_limit: this will be used to allocate memory on the receiver *)
@@ -1764,9 +1774,9 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            | _ -> raise (Xenopsd_error (Internal_error "Migration of a VM with more than one VGPU is not supported."))
         );
       let atomics = [
-        VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend);
+        VM_hook_script_stable(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend, new_src_id);
       ] @ (atomics_of_operation (VM_shutdown (new_src_id, None))) @ [
-          VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend);
+          VM_hook_script_stable(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend, new_src_id);
           VM_remove(new_src_id);
         ] in
       perform_atomics atomics t

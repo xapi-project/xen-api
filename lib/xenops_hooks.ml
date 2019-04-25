@@ -41,22 +41,25 @@ let reason__migrate_source = "source" (* passed to pre-migrate hook on source ho
 let reason__migrate_dest   = "destination" (* passed to post-migrate hook on destination host *)
 let reason__none = "none"
 
+(* Names of arguments *)
+let arg__vmdomid = "-vmdomid"
+
 (* Exit codes: *)
 (* success = 0 *)
 let exitcode_log_and_continue = 1
 (* all other exit codes cause xapi to abort operation and raise XAPI_HOOK_FAILED api exception *)
 
-let list_individual_hooks ~script_name = 
+let list_individual_hooks ~script_name =
   let script_dir = hooks_dir^script_name^"/" in
-  if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false) 
+  if (try Unix.access script_dir [Unix.F_OK]; true with _ -> false)
   then
     let scripts = Sys.readdir script_dir in
     Array.stable_sort compare scripts;
     scripts
-  else [| |]      
+  else [| |]
 
-let execute_hook ~script_name ~args ~reason =
-  let args = args @ [ "-reason"; reason ] in
+let execute_vm_hook ~script_name ~id ~reason ~extra_args =
+  let args = ["-vmuuid"; id; "-reason"; reason ] @ extra_args in
   let scripts = list_individual_hooks ~script_name in
 
   let script_dir = hooks_dir^script_name^"/" in
@@ -73,28 +76,6 @@ let execute_hook ~script_name ~args ~reason =
            raise (Xenopsd_error (Errors.Hook_failed(script_name^"/"^script, reason, stdout, string_of_int i)))
     )
     scripts
-
-let execute_vm_hook ~id ~reason =
-  execute_hook ~args:[ "-vmuuid"; id ] ~reason
-
-let vm_pre_destroy ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_destroy ~reason ~id
-let vm_pre_migrate ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_migrate ~reason ~id
-let vm_post_migrate ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_post_migrate ~reason ~id
-let vm_pre_suspend ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_suspend ~reason ~id
-let vm_pre_start ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_start ~reason ~id
-let vm_pre_reboot ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_reboot ~reason ~id
-let vm_pre_resume ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_pre_resume ~reason ~id
-let vm_post_resume ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_post_resume ~reason ~id
-let vm_post_destroy ~reason ~id =
-  execute_vm_hook ~script_name:scriptname__vm_post_destroy ~reason ~id
 
 type script =
   | VM_pre_destroy
