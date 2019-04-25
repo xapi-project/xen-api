@@ -127,11 +127,9 @@ let reserve_free_virtual_function ~__context vm pf =
   get true
 
 let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
-  (* Only support a maximum of one virtual GPU per VM for now. *)
   (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
-  match vgpus with
-  | [] -> ()
-  | vgpu :: _ ->
+  List.iter (fun vgpu -> debug "Vgpus located on VM(%s) are: %s" (Ref.string_of vm) (Ref.string_of vgpu.vgpu_ref)) vgpus;
+  List.iter (fun vgpu ->
     match vgpu.requires_passthrough with
     | Some `PF ->
       debug "Creating passthrough VGPUs";
@@ -151,7 +149,7 @@ let add_vgpus_to_vm ~__context host vm vgpus vgpu_manual_setup =
       debug "Creating virtual VGPUs";
       if not vgpu_manual_setup then
         ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
-
+  ) vgpus
 
 (* The three functions below are the main entry points of this module *)
 
