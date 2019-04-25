@@ -501,6 +501,12 @@ let settable_vm_bios_string_keys =
    "system-product-name";
    "system-version";
    "system-serial-number";
+   "baseboard-manufacturer";
+   "baseboard-product-name";
+   "baseboard-version";
+   "baseboard-serial-number";
+   "baseboard-asset-tag";
+   "baseboard-location-in-chassis";
    "enclosure-asset-tag"]
 
 (** Type 11 strings that are always included *)
@@ -516,6 +522,12 @@ let generic_bios_strings =
    "system-product-name", "HVM domU";
    "system-version", "";
    "system-serial-number", "";
+   "baseboard-manufacturer", "";
+   "baseboard-product-name", "";
+   "baseboard-version", "";
+   "baseboard-serial-number", "";
+   "baseboard-asset-tag", "";
+   "baseboard-location-in-chassis", "";
    "enclosure-asset-tag", "";
    "hp-rombios", ""] @ standard_type11_strings
 

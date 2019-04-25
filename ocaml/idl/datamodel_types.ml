@@ -61,7 +61,7 @@ let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 let rel_lima = "lima"
 let rel_naples = "naples"
-let rel_oslo = "oslo"
+let rel_plymouth = "plymouth"
 
 type api_release = {
   code_name: string option;
@@ -249,7 +249,7 @@ let release_order_full = [{
      branding      = "Citrix Hypervisor 8.0";
      release_date  = Some "March 2019";
    }; {
-     code_name     = Some rel_oslo;
+     code_name     = Some rel_plymouth;
      version_major = 2;
      version_minor = 13;
      branding      = "Unreleased";
