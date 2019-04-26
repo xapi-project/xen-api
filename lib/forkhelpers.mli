@@ -39,6 +39,8 @@ type syslog_stdout_t =
   | Syslog_DefaultKey
   | Syslog_WithKey of string
 
+val default_path: string list
+
 (** [execute_command_get_output cmd args] runs [cmd args] and returns (stdout, stderr)
     	on success (exit 0). On failure this raises 
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)

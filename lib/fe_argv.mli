@@ -22,6 +22,7 @@ type 'a t      (** monad, holding current command line *)
 (** basic functions to construct a [t] value. More below *)
 val return: 'a -> 'a t
 val bind:   'a t -> ('a -> 'b t) -> 'b t
+val (>>=):   'a t -> ('a -> 'b t) -> 'b t
 
 (** turn a [t] value into something useful, containing the values
  * we are interested in. These can be accessed using [argv] and [fd_map].
