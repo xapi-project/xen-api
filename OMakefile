@@ -138,7 +138,8 @@ export
 # Ocaml #############################################################################
 OCAML_PHASE1= autogen_idl
 OCAML_PHASE2= \
-  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) 
+  $(if $(BYTE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cma) $(if $(NATIVE_ENABLED), ocaml/idl/ocaml_backend/xapi_client.cmxa) \
+  $(if $(BYTE_ENABLED), ocaml/idl/datamodel.cma) $(if $(NATIVE_ENABLED), ocaml/idl/datamodel.cmxa) 
 
 # Java ##############################################################################
 JAVA_PHASE1= XenServerConsole.jar
