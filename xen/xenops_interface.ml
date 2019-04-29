@@ -182,8 +182,9 @@ module Network = struct
     | Local of string            (** Name of a local switch *)
     | Remote of string * string  (** Vm.id * switch *)
     | Sriov of Xcp_pci.address   (** Xcp_pci.address *)
-    [@@default Local "xenbr0"]
     [@@deriving rpcty]
+
+  let default_network = Local "xenbr0"
 
   type ts = t list [@@deriving rpcty]
 end
@@ -338,7 +339,7 @@ module Vif = struct
     ; carrier: bool [@default true]
     ; mtu: int [@default 1500]
     ; rate: (int64 * int64) option [@default None]
-    ; backend: Network.t
+    ; backend: Network.t [@default Network.default_network]
     ; other_config: (string * string) list [@default []]
     ; locking_mode: locking_mode [@default default_locking_mode]
     ; extra_private_keys: (string * string) list [@default []]
