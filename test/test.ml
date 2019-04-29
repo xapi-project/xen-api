@@ -15,7 +15,6 @@
  * @group Storage
 *)
 
-open OUnit
 
 let default_path = "/var/xapi/xenopsd"
 
@@ -224,6 +223,16 @@ let rpc_of_disk_list = Rpcmarshal.marshal disk_list.Rpc.Types.ty
 let rpc_of_network_t = Rpcmarshal.marshal Network.t.Rpc.Types.ty
 let rpc_of_qos_scheduler = Rpcmarshal.marshal Vbd.qos_scheduler.Rpc.Types.ty
 
+let assert_equal (type a) ~msg ?printer (a:a) b =
+  match printer with
+  | None -> Alcotest.(check bool) msg true (a = b)
+  | Some printer ->
+    let module T = struct
+      type t = a
+      let pp ppf (v:t) = Fmt.of_to_string printer ppf v
+      let equal = (=)
+    end in
+    Alcotest.(check (module T)) msg a b
 
 let vm_assert_equal vm vm' =
   let open Vm in
@@ -756,42 +765,42 @@ let _ =
   Xcp_client.use_switch := true;
   Xenops_server.WorkerPool.start 16;
 
-  let suite = "xenops test" >:::
+  let suite = "xenops test",
               [
-                "test_query" >:: test_query;
-                "vm_test_remove_missing" >:: vm_test_remove_missing;
-                "vm_test_add_remove" >:: vm_test_add_remove;
-                "vm_test_create_destroy" >:: vm_test_create_destroy;
-                "vm_test_pause_unpause" >:: vm_test_pause_unpause;
-                "vm_test_build_pause_unpause" >:: vm_test_build_pause_unpause;
-                "vm_test_build_vcpus" >:: vm_test_build_vcpus;
-                "vm_test_add_list_remove" >:: vm_test_add_list_remove;
-                "vm_remove_running" >:: vm_remove_running;
-                "vm_test_start_shutdown" >:: vm_test_start_shutdown;
-                "vm_test_parallel_start_shutdown" >:: vm_test_parallel_start_shutdown;
-                "vm_test_consoles" >:: vm_test_consoles;
-                "vm_test_reboot" >:: vm_test_reboot;
-                "vm_test_halt" >:: vm_test_halt;
-                "vbd_test_add_remove" >:: VbdDeviceTests.add_remove;
-                "vbd_test_add_list_remove" >:: VbdDeviceTests.add_list_remove;
-                "vbd_test_add_vm_remove" >:: VbdDeviceTests.add_vm_remove;
-                "vbd_test_add_plug_unplug_remove" >:: VbdDeviceTests.add_plug_unplug_remove;
-                "vbd_test_add_plug_unplug_many_remove" >:: VbdDeviceTests.add_plug_unplug_many_remove;
-                "vbd_remove_running" >:: VbdDeviceTests.remove_running;
-                "vbd_plug_ordering_good" >:: vbd_plug_ordering_good;
-                "vif_test_add_remove" >:: VifDeviceTests.add_remove;
-                "vif_test_add_list_remove" >:: VifDeviceTests.add_list_remove;
-                "vif_test_add_vm_remove" >:: VifDeviceTests.add_vm_remove;
-                "vif_test_add_plug_unplug_remove" >:: VifDeviceTests.add_plug_unplug_remove;
-                "vif_test_add_plug_unplug_many_remove" >:: VifDeviceTests.add_plug_unplug_many_remove;
-                "vif_remove_running" >:: VifDeviceTests.remove_running;
-                "vm_test_suspend" >:: vm_test_suspend;
-                "vm_test_resume" >:: vm_test_resume;
-                "ionice_qos_scheduler" >:: ionice_qos_scheduler;
-                "ionice_output" >:: ionice_output;
-                "barrier_ordering" >:: barrier_ordering;
+                "test_query" , `Quick, test_query;
+                "vm_test_remove_missing" , `Quick, vm_test_remove_missing;
+                "vm_test_add_remove" , `Quick, vm_test_add_remove;
+                "vm_test_create_destroy" , `Quick, vm_test_create_destroy;
+                "vm_test_pause_unpause" , `Quick, vm_test_pause_unpause;
+                "vm_test_build_pause_unpause" , `Quick, vm_test_build_pause_unpause;
+                "vm_test_build_vcpus" , `Quick, vm_test_build_vcpus;
+                "vm_test_add_list_remove" , `Quick, vm_test_add_list_remove;
+                "vm_remove_running" , `Quick, vm_remove_running;
+                "vm_test_start_shutdown" , `Quick, vm_test_start_shutdown;
+                "vm_test_parallel_start_shutdown" , `Quick, vm_test_parallel_start_shutdown;
+                "vm_test_consoles" , `Quick, vm_test_consoles;
+                "vm_test_reboot" , `Quick, vm_test_reboot;
+                "vm_test_halt" , `Quick, vm_test_halt;
+                "vbd_test_add_remove" , `Quick, VbdDeviceTests.add_remove;
+                "vbd_test_add_list_remove" , `Quick, VbdDeviceTests.add_list_remove;
+                "vbd_test_add_vm_remove" , `Quick, VbdDeviceTests.add_vm_remove;
+                "vbd_test_add_plug_unplug_remove" , `Quick, VbdDeviceTests.add_plug_unplug_remove;
+                "vbd_test_add_plug_unplug_many_remove" , `Quick, VbdDeviceTests.add_plug_unplug_many_remove;
+                "vbd_remove_running" , `Quick, VbdDeviceTests.remove_running;
+                "vbd_plug_ordering_good" , `Quick, vbd_plug_ordering_good;
+                "vif_test_add_remove" , `Quick, VifDeviceTests.add_remove;
+                "vif_test_add_list_remove" , `Quick, VifDeviceTests.add_list_remove;
+                "vif_test_add_vm_remove" , `Quick, VifDeviceTests.add_vm_remove;
+                "vif_test_add_plug_unplug_remove" , `Quick, VifDeviceTests.add_plug_unplug_remove;
+                "vif_test_add_plug_unplug_many_remove" , `Quick, VifDeviceTests.add_plug_unplug_many_remove;
+                "vif_remove_running" , `Quick, VifDeviceTests.remove_running;
+                "vm_test_suspend" , `Quick, vm_test_suspend;
+                "vm_test_resume" , `Quick, vm_test_resume;
+                "ionice_qos_scheduler" , `Quick, ionice_qos_scheduler;
+                "ionice_output" , `Quick, ionice_output;
+                "barrier_ordering" , `Quick, barrier_ordering;
               ] in
 
   Debug.log_to_stdout ();
-  suite |> ounit2_of_ounit1 |> OUnit2.run_test_tt_main
+  Alcotest.run "xenops test" [suite]
 

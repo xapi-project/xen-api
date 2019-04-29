@@ -1,6 +1,6 @@
 (executable
  (name test)
- (libraries oUnit xenopsd)
+ (libraries alcotest xenopsd)
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv bisect_ppx -conditional)
  )
@@ -10,6 +10,6 @@
  (name runtest)
  (deps test.exe)
  (action
-  (run %{deps} -runner sequential -verbose true)
+  (run %{deps} --show-errors)
  )
 )
