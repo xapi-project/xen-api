@@ -647,29 +647,30 @@ module MD = struct
     let pci_address = Db.PCI.get_pci_id ~__context ~self:pci in
     Xenops_interface.Pci.address_of_string pci_address
 
+  let get_virtual_pci_address ~__context vgpu =
+    let open Pci in
+    let device = vgpu.Db_actions.vGPU_device in
+    {
+      domain = 0000;
+      bus = 0;
+      dev = int_of_string device;
+      fn = 0;
+    }
+
   let of_nvidia_vgpu ~__context vm vgpu =
     let open Vgpu in
     (* Get the PCI address. *)
     let physical_pci_address = get_target_pci_address ~__context vgpu in
-    (* Get the vGPU config. *)
+    let virtual_pci_address = get_virtual_pci_address ~__context vgpu in
     let vgpu_type = vgpu.Db_actions.vGPU_type in
-    let internal_config =
-      Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type in
-    let config_file =
-      try List.assoc Xapi_globs.vgpu_config_key internal_config
-      with Not_found -> failwith "NVIDIA vGPU config file not specified"
-    in
-    let config_file =
-      try
-        let extra_args =
-          List.assoc Xapi_globs.vgpu_extra_args_key vm.API.vM_platform in
-        Printf.sprintf "%s,%s" config_file extra_args
-      with Not_found -> config_file
-    in
+    let type_id = Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type 
+      |> List.assoc Xapi_globs.vgpu_type_id in
     let implementation =
       Nvidia {
         physical_pci_address = None; (* unused *)
-        config_file;
+        config_file = None; (* unused *)
+        virtual_pci_address = Some virtual_pci_address;
+        type_id  = type_id;
       }
     in {
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
@@ -741,44 +742,24 @@ module MD = struct
 
   let vgpus_of_vm ~__context (vmref, vm) =
     let open Vgpu in
-    if Vgpuops.vgpu_manual_setup_of_vm vm
-    && (List.mem_assoc Vm_platform.vgpu_pci_id vm.API.vM_platform)
-    && (List.mem_assoc Vm_platform.vgpu_config vm.API.vM_platform)
-    then begin
-      (* We're using the vGPU manual setup mode, so get the vGPU configuration
-         			 * from the VM platform keys. *)
-      let implementation =
-        Nvidia {
-          physical_pci_address = None; (* unused *)
-          config_file = List.assoc Vm_platform.vgpu_config vm.API.vM_platform;
-        }
-      in [{
-          id = (vm.API.vM_uuid, "0");
-          position = 0;
-          physical_pci_address =
-            Xenops_interface.Pci.address_of_string
-              (List.assoc Vm_platform.vgpu_pci_id vm.API.vM_platform);
-          implementation;
-        }]
-    end else
-      List.fold_left
-        (fun acc vgpu ->
-           let vgpu_record = Db.VGPU.get_record_internal ~__context ~self:vgpu in
-           let implementation =
-             Db.VGPU_type.get_implementation ~__context
-               ~self:vgpu_record.Db_actions.vGPU_type
-           in
-           match implementation with
-           (* Passthrough VGPUs are dealt with in pcis_of_vm. *)
-           | `passthrough -> acc
-           | `nvidia ->
-             (of_nvidia_vgpu ~__context vm vgpu_record) :: acc
-           | `gvt_g ->
-             (of_gvt_g_vgpu ~__context vm vgpu_record) :: acc
-           | `mxgpu ->
-             (of_mxgpu_vgpu ~__context vm vgpu_record) :: acc
-        )
-        [] vm.API.vM_VGPUs
+    List.fold_left
+      (fun acc vgpu ->
+          let vgpu_record = Db.VGPU.get_record_internal ~__context ~self:vgpu in
+          let implementation =
+            Db.VGPU_type.get_implementation ~__context
+              ~self:vgpu_record.Db_actions.vGPU_type
+          in
+          match implementation with
+          (* Passthrough VGPUs are dealt with in pcis_of_vm. *)
+          | `passthrough -> acc
+          | `nvidia ->
+            (of_nvidia_vgpu ~__context vm vgpu_record) :: acc
+          | `gvt_g ->
+            (of_gvt_g_vgpu ~__context vm vgpu_record) :: acc
+          | `mxgpu ->
+            (of_mxgpu_vgpu ~__context vm vgpu_record) :: acc
+      )
+      [] vm.API.vM_VGPUs
 
   let of_vusb ~__context ~vm ~pusb =
     let open Vusb in

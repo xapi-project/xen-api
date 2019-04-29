@@ -434,12 +434,8 @@ let pass_through_pif_carrier = ref false
 (* Remember the specific PCI devices needed for GPU passthrough *)
 let vgpu_pci = "vgpu_pci"
 
-(* Name for fields in VM.platform used for vGPU *)
-let vgpu_manual_setup_key = "vgpu_manual_setup"
 
-let vgpu_pci_key = "vgpu_pci_id"
-let vgpu_config_key = "vgpu_config"
-let vgpu_extra_args_key = "vgpu_extra_args"
+let vgpu_type_id = "type_id"
 
 let igd_passthru_key = "igd_passthrough"
 
