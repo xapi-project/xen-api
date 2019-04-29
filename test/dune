@@ -1,5 +1,5 @@
 (executable
- (name xenopsd_test)
+ (name test)
  (libraries oUnit xenopsd)
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv bisect_ppx -conditional)
@@ -8,8 +8,8 @@
 
 (alias
  (name runtest)
- (deps xenopsd_test.exe)
+ (deps test.exe)
  (action
-  (run %{deps})
+  (run %{deps} -runner sequential -verbose true)
  )
 )
