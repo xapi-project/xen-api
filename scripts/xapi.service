@@ -4,6 +4,8 @@ After=syslog.target forkexecd.service xcp-networkd.service message-switch.servic
 Conflicts=shutdown.target
 
 [Service]
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.1"
+Environment="MALLOC_CONF=narenas:1,tcache:false,lg_dirty_mult:22"
 Type=simple
 Restart=on-failure
 ExecStart=@LIBEXECDIR@/xapi-init start
