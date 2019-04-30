@@ -877,17 +877,175 @@ module Vcpu_Common = struct
 
 end
 
-module PV_Vnc = struct
+module type DAEMONPIDPATH = sig
+  val name : string
+  val use_pidfile : bool
+  val pid_path : int -> string
+end
 
-  let vnc_pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
-  let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
+module DaemonMgmt (D : DAEMONPIDPATH) = struct
+  module SignalMask = struct
+    module H = Hashtbl
+    type t = (int, bool) H.t
+    let create () = H.create 16
+    let set tbl key = H.replace tbl key true
+    let unset tbl key = H.remove tbl key
+    let has tbl key = H.mem tbl key
+  end
+  let signal_mask = SignalMask.create ()
+
+  let name = D.name
+  let pid_path = D.pid_path
+  let pid_path_signal domid = (pid_path domid) ^ "-signal"
+
+  let pidfile_path domid =
+    if D.use_pidfile then
+      Some (sprintf "%s/%s-%d.pid" Device_common.var_run_xen_path D.name domid)
+    else None
 
   let pid ~xs domid =
     try
-      let pid = xs.Xs.read (vnc_pid_path domid) in
-      Some (int_of_string pid)
+      match pidfile_path domid with
+      | Some path when Sys.file_exists path ->
+        let pid = path |> Unixext.string_of_file |> String.trim |> int_of_string in
+        Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
+            try
+              Unix.lockf fd Unix.F_TRLOCK 0;
+              (* we succeeded taking the lock: original process is dead.
+               * some other process might've reused its pid *)
+              None
+            with Unix.Unix_error(Unix.EAGAIN, _, _) ->
+              (* cannot obtain lock: process is alive *)
+              Some pid
+        )
+      | _ ->
+        (* backward compatibility during update installation: only has xenstore pid *)
+        let pid = xs.Xs.read (pid_path domid) in
+        Some (int_of_string pid)
     with _ ->
       None
+
+  let is_running ~xs domid =
+    match pid ~xs domid with
+    | None -> false
+    | Some p ->
+      try
+        Unix.kill p 0; (* This checks the existence of pid p *)
+        true
+      with _ -> false
+
+  let stop ~xs domid = match pid ~xs domid with
+    | None -> ()
+    | Some pid ->
+      debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" D.name D.name domid pid;
+      let open Generic in
+      best_effort (sprintf "killing %s" D.name)
+        (fun () -> really_kill pid);
+      let key = pid_path domid in
+      best_effort (sprintf "removing XS key %s" key)
+        (fun () -> xs.Xs.rm key);
+      match pidfile_path domid with
+      | None -> ()
+      | Some path ->
+        best_effort (sprintf "removing %s" path)
+          (fun () -> Unix.unlink path)
+
+
+  let syslog_key ~domid = Printf.sprintf "%s-%d" D.name domid
+
+  let start ~fds ~syslog_key path args =
+    let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
+    let redirect_stderr_to_stdout = true in
+    let pid = Forkhelpers.safe_close_and_exec None None None fds ~syslog_stdout ~redirect_stderr_to_stdout path args in
+    debug
+      "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
+      D.name (Forkhelpers.string_of_pidty pid);
+    pid
+
+  (* Forks a daemon and then returns the pid. *)
+  let start_daemon ~path ~args ~domid ?(fds=[]) () =
+    let syslog_key = syslog_key ~domid in
+    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
+    let pid = start ~fds ~syslog_key path args in
+    debug "Daemon started: %s" syslog_key;
+    pid
+
+end
+
+module SystemdDaemonMgmt(D:DAEMONPIDPATH) = struct
+  (* backward compat: for daemons running during an update *)
+  module Compat = DaemonMgmt(D)
+
+  let pidfile_path = Compat.pidfile_path
+  let pid_path = Compat.pid_path
+
+  let of_domid domid =
+    let key = Compat.syslog_key domid in
+    if Fe_systemctl.exists key then Some key
+    else None
+
+  let is_running ~xs domid =
+    match of_domid domid with
+    | None -> Compat.is_running ~xs domid
+    | Some key -> Fe_systemctl.is_active key
+
+  let alive service _ =
+    if Fe_systemctl.is_active ~service then true
+    else
+      let status = Fe_systemctl.show ~service in
+      let open Fe_systemctl in
+      error "%s: unexpected termination (Result=%s,ExecMainPID=%d,ExecMainStatus=%d,ActiveState=%s)"
+        service status.result status.exec_main_pid status.exec_main_status status.active_state;
+      false
+
+  let stop ~xs domid =
+    match of_domid domid with
+    | None -> Compat.stop ~xs domid
+    | Some service ->
+      (* xenstore cleanup is done by systemd unit file *)
+      let (_:Fe_systemctl.status) = Fe_systemctl.stop ~service in
+      ()
+
+  let start_daemon ~path ~args ~domid () =
+    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
+    let service = Compat.syslog_key domid in
+    let pidpath = D.pid_path domid in
+    let properties =
+      ("ExecStopPost", "-/usr/bin/xenstore-rm " ^ pidpath)
+      :: match Compat.pidfile_path domid with
+      | None -> []
+      | Some path -> ["ExecStopPost", "-/bin/rm -f " ^ path]
+    in
+    Fe_systemctl.start_transient ~properties ~service path args;
+    debug "Daemon started: %s" service;
+    service
+end
+
+module Qemu = DaemonMgmt(struct
+    let name = "qemu-dm"
+    let use_pidfile = true
+    let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
+end)
+module Vgpu = DaemonMgmt(struct
+    let name = "vgpu"
+    let use_pidfile = false
+    let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid
+end)
+module Varstored = SystemdDaemonMgmt(struct
+    let name = "varstored"
+    let use_pidfile = true
+    let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
+  end)
+
+module PV_Vnc = struct
+  module D = DaemonMgmt(struct
+      let name = "vncterm"
+      let use_pidfile = false
+      let pid_path domid = sprintf "/local/domain/%d/vncterm-pid" domid
+  end)
+  let vnc_console_path domid = sprintf "/local/domain/%d/console" domid
+
+  let pid ~xs domid = D.pid ~xs domid
 
   (* Look up the commandline args for the vncterm pid; *)
   (* Check that they include the vncterm binary path and the xenstore console path for the supplied domid. *)
@@ -905,10 +1063,7 @@ module PV_Vnc = struct
     match pid ~xs domid with
     | None -> false
     | Some p ->
-      try
-        Unix.kill p 0;
-        is_cmdline_valid domid p
-      with _ -> false
+      D.is_running ~xs domid && is_cmdline_valid domid p
 
   let get_vnc_port ~xs domid =
     if not (is_vncterm_running ~xs domid)
@@ -968,111 +1123,14 @@ module PV_Vnc = struct
               "-v"; ip ^ ":1";
             ] @ load_args statefile in
     (* Now add the close fds wrapper *)
-    let pid = Forkhelpers.safe_close_and_exec None None None [] !Xc_resources.vncterm l in
-    let path = vnc_pid_path domid in
+    let pid = D.start_daemon ~path:!Xc_resources.vncterm ~args:l ~domid () in
+    let path = D.pid_path domid in
     xs.Xs.write path (string_of_int (Forkhelpers.getpid pid));
     Forkhelpers.dontwaitpid pid
 
   let stop ~xs domid =
-    let open Generic in
-    match pid ~xs domid with
-    | Some pid ->
-      best_effort "killing vncterm"
-        (fun () -> Unix.kill pid Sys.sigterm);
-      best_effort "removing vncterm-pid from xenstore"
-        (fun () -> xs.Xs.rm (vnc_pid_path domid))
-    | None -> ()
-
+    D.stop ~xs domid
 end
-
-module type DAEMONPIDPATH = sig
-  val name : string
-  val use_pidfile : bool
-  val pid_path : int -> string
-end
-
-module DaemonMgmt (D : DAEMONPIDPATH) = struct
-  module SignalMask = struct
-    module H = Hashtbl
-    type t = (int, bool) H.t
-    let create () = H.create 16
-    let set tbl key = H.replace tbl key true
-    let unset tbl key = H.remove tbl key
-    let has tbl key = H.mem tbl key
-  end
-  let signal_mask = SignalMask.create ()
-
-  let pid_path = D.pid_path
-  let pid_path_signal domid = (pid_path domid) ^ "-signal"
-
-  let pidfile_path domid =
-    if D.use_pidfile then
-      Some (sprintf "%s/%s-%d.pid" Device_common.var_run_xen_path D.name domid)
-    else None
-
-  let pid ~xs domid =
-    try
-      match pidfile_path domid with
-      | Some path when Sys.file_exists path ->
-        let pid = path |> Unixext.string_of_file |> String.trim |> int_of_string in
-        Unixext.with_file path [Unix.O_RDONLY] 0 (fun fd ->
-            try
-              Unix.lockf fd Unix.F_TRLOCK 0;
-              (* we succeeded taking the lock: original process is dead.
-               * some other process might've reused its pid *)
-              None
-            with Unix.Unix_error(Unix.EAGAIN, _, _) ->
-              (* cannot obtain lock: process is alive *)
-              Some pid
-        )
-      | _ ->
-        (* backward compatibility during update installation: only has xenstore pid *)
-        let pid = xs.Xs.read (pid_path domid) in
-        Some (int_of_string pid)
-    with _ ->
-      None
-
-  let is_running ~xs domid =
-    match pid ~xs domid with
-    | None -> false
-    | Some p ->
-      try
-        Unix.kill p 0; (* This checks the existence of pid p *)
-        true
-      with _ -> false
-
-  let stop ~xs domid = match pid ~xs domid with
-    | None -> ()
-    | Some pid ->
-      debug "%s: stopping %s with SIGTERM (domid = %d pid = %d)" D.name D.name domid pid;
-      let open Generic in
-      best_effort (sprintf "killing %s" D.name)
-        (fun () -> really_kill pid);
-      let key = pid_path domid in
-      best_effort (sprintf "removing XS key %s" key)
-        (fun () -> xs.Xs.rm key);
-      match pidfile_path domid with
-      | None -> ()
-      | Some path ->
-        best_effort (sprintf "removing %s" path)
-          (fun () -> Unix.unlink path)
-end
-
-module Qemu = DaemonMgmt(struct
-    let name = "qemu"
-    let use_pidfile = true
-    let pid_path domid = sprintf "/local/domain/%d/qemu-pid" domid
-end)
-module Vgpu = DaemonMgmt(struct
-    let name = "vgpu"
-    let use_pidfile = false
-    let pid_path domid = sprintf "/local/domain/%d/vgpu-pid" domid
-end)
-module Varstored = DaemonMgmt(struct
-    let name = "varstored"
-    let use_pidfile = true
-    let pid_path domid = sprintf "/local/domain/%d/varstored-pid" domid
-  end)
 
 module PCI = struct
 
@@ -1878,54 +1936,32 @@ module Dm_Common = struct
   let prepend_wrapper_args domid args =
     (string_of_int domid) :: "--syslog" :: args
 
-  (* Forks a daemon and then returns the pid. *)
-  let start_daemon ~path ~args ~name ~domid ?(fds=[]) () =
-    debug "Starting daemon: %s with args [%s]" path (String.concat "; " args);
-    let syslog_key = (Printf.sprintf "%s-%d" name domid) in
-    let syslog_stdout = Forkhelpers.Syslog_WithKey syslog_key in
-    let redirect_stderr_to_stdout = true in
-    let pid = Forkhelpers.safe_close_and_exec None None None fds ~syslog_stdout ~redirect_stderr_to_stdout path args in
-    debug
-      "%s: should be running in the background (stdout -> syslog); (fd,pid) = %s"
-      name (Forkhelpers.string_of_pidty pid);
-    debug "Daemon started: %s" syslog_key;
-    pid
+  let pid_alive pid name =
+    match Forkhelpers.waitpid_nohang pid with
+    | 0, Unix.WEXITED 0 -> true
+    | _, Unix.WEXITED n ->
+      error "%s: unexpected exit with code: %d" name n;
+      false
+    | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
+      error "%s: unexpected signal: %d" name n;
+      false
 
   (* Waits for a daemon to signal startup by writing to a xenstore path
    * (optionally with a given value) If this doesn't happen in the timeout then
    * an exception is raised *)
-  let wait_path ~pid ~task ~name ~domid ~xs ~ready_path ?ready_val ~timeout
+  let wait_path ~pidalive ~task ~name ~domid ~xs ~ready_path ~timeout
       ~cancel _ =
     let syslog_key = Printf.sprintf "%s-%d" name domid in
-      let finished = ref false in
-      let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
-    let timeout_ns = Int64.of_float (timeout *. Mtime.s_to_ns) in
-    let target =
-      match Mtime.add_span (Mtime_clock.now ()) (Mtime.Span.of_uint64_ns timeout_ns) with
-      | None -> raise (Ioemu_failed (name, "Timeout overflow"))
-      | Some x -> x in
-    while Mtime.is_earlier (Mtime_clock.now ()) ~than:target && not !finished do
-        Xenops_task.check_cancelling task;
-        try
-          let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
-          let state = try xs.Xs.read ready_path with _ -> "" in
-          match ready_val with
-        | Some value when value = state -> finished := true
-        | Some _ -> raise (Ioemu_failed (name, (Printf.sprintf "Daemon state not running (%s)" state)))
-          | None -> finished := true
-        with Watch.Timeout _ ->
-          begin match Forkhelpers.waitpid_nohang pid with
-            | 0, Unix.WEXITED 0 -> () (* still running => keep waiting *)
-            | _, Unix.WEXITED n ->
-              error "%s: unexpected exit with code: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-            | _, (Unix.WSIGNALED n | Unix.WSTOPPED n) ->
-              error "%s: unexpected signal: %d" name n;
-              raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
-          end
-      done;
-      if not !finished then
-      raise (Ioemu_failed (name, "Timeout reached while starting daemon"));
+    let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+    Xenops_task.check_cancelling task;
+    begin try
+        let (_: bool) = cancellable_watch cancel [ watch ] [] task ~xs ~timeout () in
+        ()
+      with Watch.Timeout _ ->
+          if pidalive name then
+            raise (Ioemu_failed (name, "Timeout reached while starting daemon"));
+          raise (Ioemu_failed (name, "Daemon exited unexpectedly"))
+    end;
     debug "Daemon initialised: %s" syslog_key
 
   let gimtool_m = Mutex.create ()
@@ -2072,8 +2108,8 @@ module Backend = struct
       (** [suspend task xenstore qemu_domid xc] suspends a domain *)
       val suspend: Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> qemu_domid:int -> Xenctrl.domid -> unit
 
-      (** [init_daemon task path args name domid xenstore ready_path ready_val timeout cancel] returns a forkhelper pid after starting the qemu daemon in dom0 *)
-      val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> name:string -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> ?ready_val:string -> timeout:float -> cancel:Cancel_utils.key -> ?fds:(string * Unix.file_descr) list -> 'a -> Forkhelpers.pidty
+      (** [init_daemon task path args domid xenstore ready_path timeout cancel] returns a forkhelper pid after starting the qemu daemon in dom0 *)
+      val init_daemon: task:Xenops_task.task_handle -> path:string -> args:string list -> domid:int -> xs:Xenstore.Xs.xsh -> ready_path:Watch.path -> timeout:float -> cancel:Cancel_utils.key -> ?fds:(string * Unix.file_descr) list -> 'a -> Forkhelpers.pidty
 
       (** [stop xenstore qemu_domid domid] stops a domain *)
       val stop: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
@@ -2120,8 +2156,8 @@ module Backend = struct
 
       let stop ~xs ~qemu_domid domid = ()
 
-      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
-        raise (Ioemu_failed (name, "PV guests have no IO emulator"))
+      let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ~timeout ~cancel ?(fds=[]) _ =
+        raise (Ioemu_failed (Qemu.name, "PV guests have no IO emulator"))
 
       let qemu_args ~xs ~dm info restore domid = { Dm_Common.argv = []; fd_map = [] }
 
@@ -2653,9 +2689,9 @@ module Backend = struct
         if not !finished then
           raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
 
-      let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) _ =
-        let pid = Dm_Common.start_daemon ~path ~args ~name ~domid ~fds () in
-        wait_event_socket ~task ~name ~domid ~timeout;
+      let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ~timeout ~cancel ?(fds=[]) _ =
+        let pid = Qemu.start_daemon ~path ~args ~domid ~fds () in
+        wait_event_socket ~task ~name:Qemu.name ~domid ~timeout;
         QMP_Event.add domid;
         pid
 
@@ -2905,9 +2941,9 @@ end (* Vcpu *)
 module Dm = struct
   include Dm_Common
 
-  let init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ?(fds=[]) profile =
+  let init_daemon ~task ~path ~args ~domid ~xs ~ready_path ~timeout ~cancel ?(fds=[]) profile =
     let module Q = (val Backend.of_profile profile) in
-    Q.Dm.init_daemon ~task ~path ~args ~name ~domid ~xs ~ready_path ?ready_val ~timeout ~cancel ~fds ()
+    Q.Dm.init_daemon ~task ~path ~args ~domid ~xs ~ready_path ~timeout ~cancel ~fds ()
 
   let get_vnc_port ~xs ~dm domid =
     let module Q = (val Backend.of_profile dm) in
@@ -2967,11 +3003,10 @@ module Dm = struct
       Add.many @@ argf "save:%s" (Xenops_sandbox.Chroot.chroot_path_inside efivars_save_path)
     in
     let args = Fe_argv.run args |> snd |> Fe_argv.argv in
-    let pid = start_daemon ~path ~args ~name ~domid ~fds:[] () in
+    let service = Varstored.start_daemon ~path ~args ~domid () in
     let ready_path = Varstored.pid_path domid in
-    wait_path ~pid ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
-      ~cancel:(Cancel_utils.Varstored domid) ();
-    Forkhelpers.dontwaitpid pid
+    wait_path ~pidalive:(Varstored.alive service) ~task ~name ~domid ~xs ~ready_path ~timeout:!Xenopsd.varstored_ready_timeout
+      ~cancel:(Cancel_utils.Varstored domid) ()
 
   let start_vgpu ~xs task ?(restore=false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
@@ -2990,9 +3025,9 @@ module Dm = struct
         let module Q = (val Backend.of_profile profile) in
         let device = Q.Vgpu.device ~index:0 in
         let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore device in
-        let vgpu_pid = start_daemon ~path:!Xc_resources.vgpu ~args ~name:"vgpu"
+        let vgpu_pid = Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args
             ~domid ~fds:[] () in
-        wait_path ~pid:vgpu_pid ~task ~name:"vgpu" ~domid ~xs
+        wait_path ~pidalive:(pid_alive vgpu_pid) ~task ~name:"vgpu" ~domid ~xs
           ~ready_path:state_path ~timeout:!Xenopsd.vgpu_ready_timeout
           ~cancel ();
         Forkhelpers.dontwaitpid vgpu_pid
@@ -3067,7 +3102,7 @@ module Dm = struct
     let qemu_pid =
       finally
         (fun () -> init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv
-            ~name:"qemu-dm" ~domid ~xs ~ready_path ~ready_val:"running"
+            ~domid ~xs ~ready_path
             ~timeout ~cancel ~fds:args.fd_map dm)
         (fun () -> List.iter close args.fd_map) in
     match !Xenopsd.action_after_qemu_crash with
