@@ -38,7 +38,8 @@ module File = struct
     let fd = Unix.openfile path [Unix.O_RDONLY] 0o400 in
     if Unix.lseek fd 0 Unix.SEEK_SET <> 0 then
       failwith "lseek";
-    let mapping = Bigarray.(Array1.map_file fd char c_layout false (-1)) in
+    let mapping = Bigarray.(array1_of_genarray @@ Unix.map_file fd char
+                              c_layout false [|-1|]) in
     Unix.close fd;
     Cstruct.of_bigarray mapping
 
