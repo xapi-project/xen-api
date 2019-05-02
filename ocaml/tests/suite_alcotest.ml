@@ -50,6 +50,6 @@ let () =
     ; "Test_vm_placement", Test_vm_placement.test
     ; "Test_vm_memory_constraints", Test_vm_memory_constraints.test
     ; "Test_xapi_xenops", Test_xapi_xenops.test
-    ; "Test_network_event_loop", Test_network_event_loop.test
+    (* ; "Test_network_event_loop", Test_network_event_loop.test disabled due to CA-316165 *)
     ]
 
