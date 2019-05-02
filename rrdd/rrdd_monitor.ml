@@ -50,8 +50,8 @@ let merge_new_dss rrd dss =
  * archive the RRD. *)
 let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
   (* Here we do the synchronising between the dom0 view of the world
-   * and our Hashtbl. By the end of this execute block, the Hashtbl
-   * correctly represents the world *)
+     		 and our Hashtbl. By the end of this execute block, the Hashtbl
+     		 correctly represents the world *)
   let execute = Xapi_stdext_threads.Threadext.Mutex.execute in
   execute mutex (fun _ ->
       let out_of_date, by_how_much =
@@ -71,11 +71,11 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
               let rrd = merge_new_dss rrdi.rrd dss in
               Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid};
               (* CA-34383:
-               * Memory updates from paused domains serve no useful purpose.
-               * During a migrate such updates can also cause undesirable
-               * discontinuities in the observed value of memory_actual.
-               * Hence, we ignore changes from paused domains:
-               *)
+                 						 * Memory updates from paused domains serve no useful purpose.
+                 						 * During a migrate such updates can also cause undesirable
+                 						 * discontinuities in the observed value of memory_actual.
+                 						 * Hence, we ignore changes from paused domains:
+                 						 *)
               if not (List.mem vm_uuid paused_vms) then (
                 Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
                   (List.map (fun ds -> (ds.ds_name, (ds.ds_value, ds.ds_pdp_transform_function))) dss);

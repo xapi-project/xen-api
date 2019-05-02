@@ -135,7 +135,7 @@ module Deprecated = struct
     let pool_secret = get_pool_secret () in
     let uri = Rrdd_libs.Constants.get_host_rrd_uri in
     (* Add in "dbsync = true" to the query to make sure the master
-     * doesn't try to redirect here! *)
+       		 * doesn't try to redirect here! *)
     let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
     let request =
       Http.Request.make ~user_agent:Rrdd_libs.Constants.rrdd_user_agent
@@ -156,9 +156,9 @@ module Deprecated = struct
 
   (* DEPRECATED *)
   (* This used to be called from dbsync in two cases:
-   * 1. For the local host after a xapi restart or host restart.
-   * 2. For running VMs after a xapi restart.
-   * It is now only used to load the host's RRD after xapi restart. *)
+     	 * 1. For the local host after a xapi restart or host restart.
+     	 * 2. For running VMs after a xapi restart.
+     	 * It is now only used to load the host's RRD after xapi restart. *)
   let load_rrd (uuid : string) (timescale : int) (master_address : string option) : unit =
     try
       let rrd =
@@ -377,7 +377,7 @@ module Plugin = struct
   let header = "DATASOURCES\n"
 
   (* The function that tells the plugin what to write at the top of its output
-   * file. *)
+     	 * file. *)
   let get_header () : string = header
 
   (* The function that a plugin can use to determine which file to write to. *)
@@ -403,20 +403,20 @@ module Plugin = struct
     (* A type to represent a registered plugin. *)
 
     (* 11 October 2016
-     * This module needs a re-write when the next major addition comes
-     * along :
-     * - it would be convenient, not to pass the uid in addition to the
-     *   plugin around to facilitate error reporting
-     * - the back-off mechanism needs to be better encapsulated. In the
-     *   ideal case, we can use a wrap() function that turns a reader
-     *   that can fail into one that backs off in the presence of errors
-     *   and retries.
-     * - The error reporting could be moved out of get_payload to the
-     *   caller.
-     * - The lock-protected hash table could be made more abstract such
-     *   that locking is not spread over the module.
-     * - Can the code for backwards compatibility be expunged?
-     *)
+       		 * This module needs a re-write when the next major addition comes
+       		 * along :
+       		 * - it would be convenient, not to pass the uid in addition to the
+       		 *   plugin around to facilitate error reporting
+       		 * - the back-off mechanism needs to be better encapsulated. In the
+       		 *   ideal case, we can use a wrap() function that turns a reader
+       		 *   that can fail into one that backs off in the presence of errors
+       		 *   and retries.
+       		 * - The error reporting could be moved out of get_payload to the
+       		 *   caller.
+       		 * - The lock-protected hash table could be made more abstract such
+       		 *   that locking is not spread over the module.
+       		 * - Can the code for backwards compatibility be expunged?
+       		 *)
 
     type plugin = {
       info: P.info;
@@ -426,7 +426,7 @@ module Plugin = struct
     }
 
     (* A map storing currently registered plugins, and any data required to
-     * process the plugins. *)
+       		 * process the plugins. *)
     let registered: (P.uid, plugin) Hashtbl.t = Hashtbl.create 20
 
     (* The mutex that protects the list of registered plugins against race
@@ -488,8 +488,8 @@ module Plugin = struct
         end
 
     (* Returns the number of seconds until the next reading phase for the
-     * sampling frequency given at registration by the plugin with the specified
-     * unique ID. If the plugin is not registered, -1 is returned. *)
+       		 * sampling frequency given at registration by the plugin with the specified
+       		 * unique ID. If the plugin is not registered, -1 is returned. *)
     let next_reading (uid: P.uid) : float =
       let open Rrdd_shared in
       if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid)
@@ -503,7 +503,7 @@ module Plugin = struct
       | Rrd_interface.V2 -> Rrd_protocol_v2.protocol
 
     (* The function registers a plugin, and returns the number of seconds until
-     * the next reading phase for the specified sampling frequency. *)
+       		 * the next reading phase for the specified sampling frequency. *)
     let register (uid: P.uid)  (info: P.info)
         (protocol: Rrd_interface.plugin_protocol)
       : float =
@@ -520,7 +520,7 @@ module Plugin = struct
       next_reading uid
 
     (* The function deregisters a plugin. After this call, the framework will
-     * process its output at most once more. *)
+       		 * process its output at most once more. *)
     let deregister (uid: P.uid) : unit =
       Mutex.execute registered_m
         (fun _ ->

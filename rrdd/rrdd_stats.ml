@@ -142,7 +142,7 @@ let pidof ?(pid_dir="/var/run") program =
     let words = Astring.String.fields ~empty:false out in
     let maybe_parse_int acc i = try (int_of_string i) :: acc with Failure _ -> acc in
     List.fold_left maybe_parse_int [] words
-  with
+  with 
   | Unix.Unix_error (Unix.ENOENT, _, _)
   | Unix.Unix_error (Unix.EACCES, _, _) -> []
 
