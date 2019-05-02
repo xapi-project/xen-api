@@ -12,97 +12,75 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let json_of_ds ?(owner=Rrd.Host) ?(rshift=4) ds buf =
-  let open Ds in
-  let add_string str = 
-    for _=0 to rshift-1 do Buffer.add_char buf ' ' done; 
-    Buffer.add_string buf str in
-  let json_line_string ?(last=false) n v = add_string (Printf.sprintf "  \"%s\": \"%s\"%s\n" n v (if last then "" else ","))
-  and json_line_int64  ?(last=false) n v = add_string (Printf.sprintf "  \"%s\": \"%Ld\"%s\n" n v (if last then "" else ","))
-  and json_line_float ?(last=false) n v  = add_string (Printf.sprintf "  \"%s\": \"%.2f\"%s\n" n v (if last then "" else ","))
-  and json_line_bool  ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%b\"%s" n v (if last then "" else ",")) in
-  begin
-    add_string (Printf.sprintf "\"%s\": {\n" ds.ds_name);
-    if ds.ds_description != "" then (json_line_string "description" ds.ds_description);
-    json_line_string "owner" (match owner with | Rrd.Host -> "host" | Rrd.VM vm -> "vm " ^ vm | Rrd.SR sr -> "sr " ^ sr);
-    (match ds.ds_value with 
-     | Rrd.VT_Int64 i -> json_line_int64 "value" i; json_line_string "value_type" "int64"
-     | Rrd.VT_Float f -> json_line_float "value" f; json_line_string "value_type" "float"
-     | Rrd.VT_Unknown  -> failwith "to_json: Impossible to represent VT_Unknown type");
-    json_line_string "type" (match ds.ds_type with
-        | Rrd.Gauge -> "gauge"
-        | Rrd.Absolute -> "absolute"
-        | Rrd.Derive -> "derive");
-    json_line_bool "default" ds.ds_default;
-    json_line_string "units" ds.ds_units;
-    json_line_float "min" ds.ds_min;
-    json_line_float ~last:true "max" ds.ds_max;
+let string fmt = Printf.ksprintf (fun msg -> `String msg) fmt
 
-    add_string "},\n"; 
-    (* begin *)
-    (* 	Printf.printf "====== json_of_ds ======\n%!"; *)
-    (* 	Printf.printf "%s%!" (Buffer.contents buf); *)
-    (* 	Printf.printf "========================\n%!"; *)
-    (* end; *)
-  end
+let ds_value = function
+  | Rrd.VT_Float x ->
+    [ "value",      string "%.2f" x
+    ; "value_type", string "float"
+    ]
+  | Rrd.VT_Int64 n ->
+    [ "value",      string "%Ld" n
+    ; "value_type", string "int64"
+    ]
+  | Rrd.VT_Unknown ->
+    failwith "to_json: Impossible to represent VT_Unknown"
 
-let json_of_dss ~header timestamp (dss : (Rrd.ds_owner * Ds.ds) list) =
-  let buf = Buffer.create 100 in
-  List.iter (fun (owner, ds) -> json_of_ds ~owner ds buf) dss;
-  let dss = Buffer.contents buf in
-  let payload =
-    Printf.sprintf "{\n  \"timestamp\": %Ld,\n  \"datasources\": {\n%s\n  }\n}" timestamp
-      (if String.length dss > 0 then (String.sub dss 0 (String.length dss - 2)) else "")
-  in
-  Printf.sprintf "%s%08x\n%s\n%s\n"
-    header
-    (String.length payload)
-    (Digest.to_hex (Digest.string payload))
-    payload
+let ds_type x =
+  "type",  match x with
+  | Rrd.Gauge     -> string "gauge"
+  | Rrd.Absolute  -> string "absolute"
+  | Rrd.Derive    -> string "derive"
 
-(** Write the JSON metadata of datasource [ds] (i.e. not the value itself) to
- * buffer [buf]. [owner] is Host unless specified. *)
-let json_metadata_of_ds ?(owner=Rrd.Host) ds buf =
-  let open Ds in
-  let add_string str = Buffer.add_string buf str in
-  let json_line_string ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%s\"%s" n v (if last then "" else ","))
-  and json_line_float  ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%.2f\"%s" n v (if last then "" else ","))
-  and json_line_bool  ?(last=false) n v = add_string (Printf.sprintf "\"%s\":\"%b\"%s" n v (if last then "" else ",")) in
-  begin
-    add_string (Printf.sprintf "\"%s\":{" ds.ds_name);
-    if ds.ds_description != "" then (json_line_string "description" ds.ds_description);
-    json_line_string "owner" (match owner with
-        | Rrd.Host -> "host"
-        | Rrd.VM vm -> "vm " ^ vm
-        | Rrd.SR sr -> "sr " ^ sr);
-    json_line_string "value_type" (match ds.ds_value with
-        | Rrd.VT_Int64 _ -> "int64"
-        | Rrd.VT_Float _ -> "float"
-        | Rrd.VT_Unknown -> failwith "to_json: Impossible to represent VT_Unknown type");
-    json_line_string "type" (match ds.ds_type with
-        | Rrd.Gauge -> "gauge"
-        | Rrd.Absolute -> "absolute"
-        | Rrd.Derive -> "derive");
-    json_line_bool "default" ds.ds_default;
-    json_line_string "units" ds.ds_units;
-    json_line_float "min" ds.ds_min;
-    json_line_float ~last:true "max" ds.ds_max;
-    add_string "}"
-  end
+let ds_owner x =
+  "owner", match x with
+  | Rrd.VM vm   -> string "vm %s" vm
+  | Rrd.Host    -> string "host"
+  | Rrd.SR sr   -> string "sr %s" sr
 
-(** Return a string containing the JSON metadata of a list of (ds * ds_owner)
-  * tuples [dss]. The string will not contain the values of the datasources. *)
-let json_metadata_of_dss (dss : (Rrd.ds_owner * Ds.ds) list) =
-  let buf = Buffer.create 100 in
-  Buffer.add_string buf "{\"datasources\":{";
-  let rec add_dss = function
-    | [] -> ()
-    | (owner, ds) :: [] -> json_metadata_of_ds ~owner ds buf
-    | (owner, ds) :: rest ->
-      json_metadata_of_ds ~owner ds buf;
-      Buffer.add_char buf ',';
-      add_dss rest
-  in
-  add_dss dss;
-  Buffer.add_string buf "}}";
+let bool b    = string "%b" b (* Should use `Bool b *)
+let float x   = string "%.2f" x
+let record xs = `O xs
+
+let description = function
+  | ""  -> []
+  | str -> ["description", string "%s" str]
+
+let ds_to_json (owner, ds) =
+  ds.Ds.ds_name, record @@ List.concat
+    [ description ds.Ds.ds_description
+    ; [ ds_owner owner ]
+    ; ds_value ds.Ds.ds_value
+    ; [ ds_type ds.Ds.ds_type ]
+    ; [ "default" , bool ds.Ds.ds_default
+      ; "units"   , string "%s" ds.Ds.ds_units
+      ; "min"     , float ds.Ds.ds_min
+      ; "max"     , float ds.Ds.ds_max
+      ]
+    ]
+
+let dss_to_json ~header timestamp dss =
+  let payload = record
+      [ "timestamp", `Float (Int64.to_float timestamp)
+      ; "datasources", record @@ List.map ds_to_json dss
+      ] in
+  let buf    = Buffer.create 2048 in
+  let out    = Buffer.create 2048 in
+  let ()     = Ezjsonm.to_buffer buf payload in
+  let json   = Buffer.contents buf in
+  let digest = Digest.string json |> Digest.to_hex in
+  Buffer.add_string out @@
+  Printf.sprintf "%s%08x\n%s\n" header (Buffer.length buf) digest;
+  Buffer.add_string out json;
+  Buffer.add_char out '\n';
+  Buffer.contents out
+
+let metadata_to_json (dss: (Rrd.ds_owner * Ds.ds) list) =
+  let json = record [ "datasources", record @@ List.map ds_to_json dss ] in
+  let buf  = Buffer.create 2048 in
+  let ()   = Ezjsonm.to_buffer buf json in
   Buffer.contents buf
+
+let json_of_dss          = dss_to_json
+let json_metadata_of_dss = metadata_to_json
+
