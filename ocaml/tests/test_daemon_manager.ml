@@ -145,7 +145,7 @@ let test =
     "test_two_restarts", `Quick, test_two_restarts;
     "test_already_stopped", `Quick, test_already_stopped;
     "test_exception", `Quick, test_exception;
-    "test_threads", `Slow, test_threads;
+    (* "test_threads", `Slow, test_threads; CA-316165: Thread.delay in test *)
     "test_timeout_succeed", `Slow, test_timeout_succeed;
     "test_timeout_fail", `Slow, test_timeout_fail;
   ]
