@@ -23,6 +23,44 @@ open Threadext
 module D = Debug.Make(struct let name = "monitor_dbcalls" end)
 open D
 
+let get_host_memory_changes xc =
+  let physinfo = Xenctrl.physinfo xc in
+  let bytes_of_pages pages =
+    Memory.bytes_of_pages (Int64.of_nativeint pages)
+  in
+  let free_bytes = bytes_of_pages physinfo.Xenctrl.free_pages in
+  let total_bytes = bytes_of_pages physinfo.Xenctrl.total_pages in
+  let host_memory_changed =
+    !host_memory_free_cached <> free_bytes ||
+    !host_memory_total_cached <> total_bytes
+  in
+  if host_memory_changed then Some (free_bytes, total_bytes) else None
+
+let set_host_memory_change (free_bytes, total_bytes) =
+  Mutex.execute host_memory_m (fun _ ->
+      host_memory_free_cached := free_bytes;
+      host_memory_total_cached := total_bytes;
+    )
+
+let get_vm_memory_changes xc =
+  let domains = Xenctrl.domain_getinfolist xc 0 in
+  let process_vm dom =
+    let open Xenctrl in
+    if not dom.dying then
+      begin
+        let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.handle) in
+        let memory = Memory.bytes_of_pages (Int64.of_nativeint dom.total_memory_pages) in
+        Hashtbl.add vm_memory_tmp uuid memory
+      end
+  in
+  List.iter process_vm domains;
+  get_updates_map ~before:vm_memory_cached ~after:vm_memory_tmp
+
+let set_vm_memory_changes ?except () =
+  Mutex.execute vm_memory_cached_m (fun _ ->
+      transfer_map ?except ~source:vm_memory_tmp ~target:vm_memory_cached
+    )
+
 let get_pif_and_bond_changes () =
   (* Read fresh PIF information from networkd. *)
   let open Network_stats in
@@ -63,12 +101,28 @@ let set_bond_changes ?except () =
 (* This function updates the database for all the slowly changing properties
  * of host memory, VM memory, PIFs, and bonds.
 *)
-let pifs_update_fn () =
+let pifs_and_memory_update_fn xc =
+  let host_memory_changes = get_host_memory_changes xc in
+  let vm_memory_changes = get_vm_memory_changes xc in
   let pif_changes, bond_changes = get_pif_and_bond_changes () in
-  Server_helpers.exec_with_new_task "updating PIFs"
+  Server_helpers.exec_with_new_task "updating VM_metrics.memory_actual fields and PIFs"
     (fun __context ->
        let host = Helpers.get_localhost ~__context in
        let issues = ref [] in
+
+       let keeps = ref [] in
+       List.iter (fun (uuid, memory) ->
+           try
+             let vm = Db.VM.get_by_uuid ~__context ~uuid in
+             let vmm = Db.VM.get_metrics ~__context ~self:vm in
+             if (Db.VM.get_resident_on ~__context ~self:vm = host)
+             then Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
+             else clear_cache_for_vm uuid
+           with e ->
+             issues := e :: !issues;
+             keeps := uuid :: !keeps
+         ) vm_memory_changes;
+       set_vm_memory_changes ~except:!keeps ();
 
        let keeps = ref [] in
        List.iter (fun (bond, links_up) ->
@@ -97,6 +151,19 @@ let pifs_update_fn () =
            issues := e :: !issues
        end;
 
+       begin
+         match host_memory_changes with
+         | None -> ()
+         | Some (free, total as c) ->
+           try
+             let metrics = Db.Host.get_metrics ~__context ~self:host in
+             Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total;
+             Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free;
+             set_host_memory_change c
+           with e ->
+             issues := e :: !issues
+       end;
+
        List.iter (function
            | Db_exn.Read_missing_uuid _ -> ()
            | e -> error "pifs_and_memory_update issue: %s" (ExnHelper.string_of_exn e)
@@ -104,15 +171,15 @@ let pifs_update_fn () =
     )
 
 let monitor_dbcall_thread () =
-  while true do
-    try
-      pifs_update_fn ();
-      Monitor_mem_host.update ();
-      Monitor_mem_vms.update ();
-      Monitor_pvs_proxy.update ();
-      Thread.delay 5.
-    with e ->
-      info "monitor_dbcall_thread would have died from: %s; restarting in 30s."
-        (ExnHelper.string_of_exn e);
-      Thread.delay 30.
-  done
+  Xenctrl.with_intf (fun xc ->
+      while true do
+        try
+          pifs_and_memory_update_fn xc;
+          Monitor_pvs_proxy.update ();
+          Thread.delay 5.
+        with e ->
+          debug "monitor_dbcall_thread would have died from: %s; restarting in 30s."
+            (ExnHelper.string_of_exn e);
+          Thread.delay 30.
+      done
+    )
