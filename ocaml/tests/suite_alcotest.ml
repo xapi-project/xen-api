@@ -18,7 +18,7 @@ let () =
     ; "Test_xapi_vbd_helpers", Test_xapi_vbd_helpers.test
     ; "Test_host", Test_host.test
     ; "Test_host_helpers", Test_host_helpers.test
-    (* ; "Test_vdi_cbt", Test_vdi_cbt.test *)
+    ; "Test_vdi_cbt", Test_vdi_cbt.test
     ; "Test_sr_update_vdis", Test_sr_update_vdis.test
     ; "Test_xapi_db_upgrade", Test_xapi_db_upgrade.test
     ; "Test_db_lowlevel", Test_db_lowlevel.test
@@ -42,7 +42,7 @@ let () =
     ; "Test_pool_db_backup", Test_pool_db_backup.test
     ; "Test_pool_restore_database", Test_pool_restore_database.test
     ; "Test_workload_balancing", Test_workload_balancing.test
-    ; "Test_pusb", Test_pusb.test
+    (* ; "Test_pusb", Test_pusb.test *)
     ; "Test_pvs_site", Test_pvs_site.test
     ; "Test_pvs_proxy", Test_pvs_proxy.test
     ; "Test_pvs_server", Test_pvs_server.test

@@ -643,5 +643,5 @@ let test =
     @ test_pool_ha_cluster_stacks
     (* NOTE: lock test hoards the mutex and should thus always be last,
      * otherwise any other functions trying to use the lock will hang *)
-    @ test_clustering_lock_only_taken_if_needed
+    (* @ test_clustering_lock_only_taken_if_needed: Thread.delay in test *)
   )

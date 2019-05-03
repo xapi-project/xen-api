@@ -518,4 +518,4 @@ let test =
   ; "test_allowed_operations_updated_when_necessary", `Quick, test_allowed_operations_updated_when_necessary
   ; "test_vdi_list_changed_blocks", `Quick, test_vdi_list_changed_blocks ]
   @ test_get_nbd_info
-  @ test_data_destroy
+  (* @ test_data_destroy CA-316165: Thread.delay in test *)
