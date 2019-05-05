@@ -16,6 +16,7 @@ open OUnit
 open Test_common
 open Test_highlevel
 open Xenops_interface
+open Xcp_pci
 
 let test_vm_name = "__test_vm"
 
@@ -122,13 +123,6 @@ module HVMSerial = Generic.Make(Generic.EncapsulateState(struct
                                     ]
                                 end))
 
-let vgpu_manual_setup = Xapi_globs.vgpu_manual_setup_key, "true"
-let vgpu_pci_id = Xapi_globs.vgpu_pci_key, "0000:0a:00.0"
-let vgpu_config =
-  Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k100.conf"
-
-let vgpu_platform_data = [vgpu_manual_setup; vgpu_pci_id; vgpu_config]
-
 module VideoMode = Generic.Make(Generic.EncapsulateState(struct
                                   module Io = struct
                                     type input_t = vm_config
@@ -172,32 +166,6 @@ module VideoMode = Generic.Make(Generic.EncapsulateState(struct
                                       oc=[];
                                       platform=["igd_passthrough", "true"; "vga", "std"]
                                     }, Vm.(IGD_passthrough GVT_d);
-                                    (* We should be able to enable vGPU via the manual setup mode. *)
-                                    {oc=[]; platform=vgpu_platform_data}, Vm.Vgpu;
-                                    (* vGPU mode should override whatever's set for the "vga" key. *)
-                                    {oc=[]; platform=["vga", "cirrus"] @ vgpu_platform_data}, Vm.Vgpu;
-                                    {oc=[]; platform=["vga", "std"] @ vgpu_platform_data}, Vm.Vgpu;
-                                    (* If somehow only one of the vGPU keys is set, this shouldn't
-                                       		 * trigger vGPU mode. This should only ever happen if a user is
-                                       		 * experimenting with vgpu_manual_setup and has got things wrong. *)
-                                    {oc=[]; platform=[vgpu_manual_setup; vgpu_pci_id]}, Vm.Cirrus;
-                                    {
-                                      oc=[];
-                                      platform=["vga", "cirrus"; vgpu_manual_setup; vgpu_pci_id]
-                                    }, Vm.Cirrus;
-                                    {
-                                      oc=[];
-                                      platform=["vga", "std"; vgpu_manual_setup; vgpu_pci_id]
-                                    }, Vm.Standard_VGA;
-                                    {oc=[]; platform=[vgpu_manual_setup; vgpu_config]}, Vm.Cirrus;
-                                    {
-                                      oc=[];
-                                      platform=["vga", "cirrus"; vgpu_manual_setup; vgpu_config]
-                                    }, Vm.Cirrus;
-                                    {
-                                      oc=[];
-                                      platform=["vga", "std"; vgpu_manual_setup; vgpu_config]
-                                    }, Vm.Standard_VGA;
                                   ]
                                 end))
 
@@ -226,17 +194,13 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
                                    {oc=[]; platform=[]}, 4;
                                    (* Specifying a different amount of videoram works. *)
                                    {oc=[]; platform=["videoram", "8"]}, 8;
-                                   (* Default videoram should be 16MiB for vGPU. *)
-                                   {oc = []; platform=vgpu_platform_data}, 16;
-                                   (* Insufficient videoram values should be overridden for vGPU. *)
-                                   {oc = []; platform=vgpu_platform_data @ ["videoram", "8"]}, 16;
-                                   (* videoram values larger than the default should be allowed for vGPU. *)
-                                   {oc = []; platform=vgpu_platform_data @ ["videoram", "32"]}, 32;
                                    (* Other VGA options shouldn't affect the videoram setting. *)
                                    {oc = []; platform=["vga", "cirrus"]}, 4;
                                    {oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
                                  ]
                                end))
+
+let test_uuid = "uuiduuid-uuid-uuid-uuid-uuiduuiduuid"
 
 module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                              open Test_vgpu_common
@@ -266,7 +230,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                     in
                                                     let (_ : API.ref_VGPU) =
                                                       make_vgpu ~__context
-                                                        ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref vgpu_type in
+                                                        ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref ~uuid:test_uuid vgpu_type in
                                                     ())
                                                  pgpus_and_vgpu_types
 
@@ -297,7 +261,10 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                [
                                                  Xenops_interface.Vgpu.(Nvidia {
                                                      physical_pci_address = None;
-                                                     config_file = "/usr/share/nvidia/vgx/grid_k100.conf";
+                                                     virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                                     config_file = None;
+                                                     type_id = "type_id_1";
+                                                     uuid = test_uuid;
                                                    })
                                                ];
                                                (* One Intel vGPU. *)
@@ -317,45 +284,6 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                              ]
                                            end))
 
-module VgpuExtraArgs = Generic.Make(Generic.EncapsulateState(struct
-                                      open Test_vgpu_common
-
-                                      module Io = struct
-                                        type input_t = vm_config
-                                        type output_t = string
-
-                                        let string_of_input_t = string_of_vm_config
-                                        let string_of_output_t = Test_printers.string
-                                      end
-
-                                      module State = Test_state.XapiDb
-
-                                      let load_input __context conf =
-                                        let pgpu_ref = make_pgpu ~__context ~address:"0000:07:00.0" default_k1 in
-                                        let vm_ref = load_vm_config __context conf in
-                                        let (_ : API.ref_VGPU) =
-                                          make_vgpu ~__context ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref k100 in
-                                        ()
-
-                                      let extract_output __context _ =
-                                        let metadata = run_create_metadata ~__context in
-                                        match metadata.Metadata.vgpus with
-                                        | [{Vgpu.implementation = Vgpu.Nvidia nvidia_vgpu}] ->
-                                          nvidia_vgpu.Vgpu.config_file
-                                        | _ -> assert_failure "Incorrect vGPU configuration found"
-
-                                      let tests = [
-                                        (* No vgpu_extra_args. *)
-                                        {oc = []; platform = []}, "/usr/share/nvidia/vgx/grid_k100.conf";
-                                        (* One key-value pair in vgpu_extra_args. *)
-                                        {oc = []; platform = ["vgpu_extra_args", "foo=bar"]},
-                                        "/usr/share/nvidia/vgx/grid_k100.conf,foo=bar";
-                                        (* Two key-value pairs in vgpu_extra_args. *)
-                                        {oc = []; platform = ["vgpu_extra_args", "foo=bar,baz=123"]},
-                                        "/usr/share/nvidia/vgx/grid_k100.conf,foo=bar,baz=123";
-                                      ]
-                                    end))
-
 let test =
   "test_xenopsd_metadata" >:::
   [
@@ -363,5 +291,4 @@ let test =
     "test_videomode" >::: VideoMode.tests;
     "test_videoram" >::: VideoRam.tests;
     "test_generate_vgpu_metadata" >::: GenerateVGPUMetadata.tests;
-    "test_vgpu_extra_args" >::: VgpuExtraArgs.tests;
   ]

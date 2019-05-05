@@ -21,6 +21,7 @@ open Xapi_vgpu_type
 let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 
 module NvidiaTest = struct
+  (*
   let string_of_vgpu_conf conf =
     let open Identifier in
     let open Nvidia_old in
@@ -84,7 +85,7 @@ module NvidiaTest = struct
           });
       ]
     end)
-
+*)
   let string_of_vgpu_conf conf =
     let open Identifier in
     let open Vendor_nvidia in
@@ -135,8 +136,9 @@ module NvidiaTest = struct
               max_x = 1920L;
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
+              type_id = "11";
               compatible_types_in_vm = [];
-              compatible_types_on_pgpu = [];
+              compatible_types_on_pgpu = ["TYPE FOO1"];
             })
         ];
         ("test_data/nvidia-whitelist.xml", 0x3334),
@@ -154,8 +156,9 @@ module NvidiaTest = struct
               max_x = 1920L;
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
+              type_id = "11";
               compatible_types_in_vm = [];
-              compatible_types_on_pgpu = [];
+              compatible_types_on_pgpu = ["TYPE FOO1"];
             })
         ];
         ("test_data/nvidia-whitelist.xml", 0x3335),
@@ -173,8 +176,9 @@ module NvidiaTest = struct
               max_x = 2400L;
               max_y = 1600L;
               file_path = "test_data/nvidia-whitelist.xml";
+              type_id = "20";
               compatible_types_in_vm = [];
-              compatible_types_on_pgpu = [];
+              compatible_types_on_pgpu = ["TYPE FOO2"];
             });
           Vendor_nvidia.({
               identifier = Identifier.({
@@ -189,8 +193,9 @@ module NvidiaTest = struct
               max_x = 1920L;
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
+              type_id = "21";
               compatible_types_in_vm = [];
-              compatible_types_on_pgpu = [];
+              compatible_types_on_pgpu = ["TYPE FOO3"];
             })
         ];
         
@@ -202,18 +207,7 @@ module NvidiaTest = struct
 
   let print_nv_types () =
     skip_if skip "Generates print...";
-    try
-      let open Nvidia_old in
-      if (Sys.file_exists conf_dir
-          && Sys.is_directory conf_dir) then
-        begin
-          let vgpu_confs = read_config_dir conf_dir in
-          List.iter print_vgpu_conf vgpu_confs
-        end else
-        Printf.printf "No NVIDIA conf files found in %s\n" conf_dir
-    with e ->
-      print_string (Printf.sprintf "%s\n" (Printexc.to_string e));
-      assert false (* fail *)
+    
 end
 
 module IntelTest = struct
@@ -551,7 +545,6 @@ let test_vendor_model_lookup () =
 let test =
   "test_vgpu_type" >:::
   [
-    "nvidia_test_of_conf_file" >::: NvidiaTest.OfConfFile.tests;
     "nvidia_read_whitelist" >::: NvidiaTest.ReadWhitelist.tests;
     "nvidia_print_nv_types" >:: NvidiaTest.print_nv_types;
     "intel_read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;

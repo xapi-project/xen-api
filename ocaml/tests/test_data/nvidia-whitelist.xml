@@ -14,6 +14,7 @@
     <display width="1920" height="1200"></display>
     <moreData>0x400000</moreData>
     <evenMoreData>0x6000000</evenMoreData>
+    <multiVgpuSupported>0</multiVgpuSupported>
   </vgpuType>
   <vgpuType id="20" name="TYPE FOO2" class="NVS">
     <devId vendorId="0x10de" deviceId="0x1112" subsystemVendorId="0x10de" subsystemId="0x2223"></devId>
@@ -22,6 +23,7 @@
     <display width="2400" height="1600"></display>
     <moreData>0x400000</moreData>
     <evenMoreData>0x6000000</evenMoreData>
+    <multiVgpuSupported>0</multiVgpuSupported>
   </vgpuType>
   <vgpuType id="21" name="TYPE FOO3" class="NVS">
     <devId vendorId="0x10de" deviceId="0x1111" subsystemVendorId="0x10de" subsystemId="0x2222"></devId>
@@ -30,6 +32,7 @@
     <display width="1920" height="1200"></display>
     <moreData>0x400000</moreData>
     <evenMoreData>0x6000000</evenMoreData>
+    <multiVgpuSupported>0</multiVgpuSupported>
   </vgpuType>
   <pgpu>
     <devId vendorId="0x10de" deviceId="0x3333" subsystemVendorId="0x10de" subsystemId="0x4444"></devId>
