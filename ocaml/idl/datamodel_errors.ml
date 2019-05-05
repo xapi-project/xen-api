@@ -282,6 +282,9 @@ let _ =
     ~doc:"The VGPU is not compatible with any PGPU in the destination." ();
   error Api_errors.nvidia_tools_error ["host"]
     ~doc:"Nvidia tools error. Please ensure that the latest Nvidia tools are installed" ();
+  error Api_errors.vgpu_vm_ran_out_of_pci_slot ["VM"]
+    ~doc:"The VM has ran out of the PCI slots reserved for vGPU devices" ();
+
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();

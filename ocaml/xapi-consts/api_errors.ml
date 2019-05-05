@@ -319,6 +319,7 @@ let vgpu_type_not_compatible_with_running_type = "VGPU_TYPE_NOT_COMPATIBLE_WITH_
 let vgpu_type_not_compatible = "VGPU_TYPE_NOT_COMPATIBLE"
 let vgpu_destination_incompatible = "VGPU_DESTINATION_INCOMPATIBLE"
 let nvidia_tools_error = "NVIDIA_TOOLS_ERROR"
+let vgpu_vm_ran_out_of_pci_slot = "VGPU_VM_RUN_OUT_OF_PCI_SLOT"
 
 let import_error_generic = "IMPORT_ERROR"
 let import_error_premature_eof = "IMPORT_ERROR_PREMATURE_EOF"

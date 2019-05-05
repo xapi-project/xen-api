@@ -21,27 +21,26 @@ let m = Mutex.create ()
    2. device = 0 will requires xapi to give a valid number
     - First sort the device number and the trying to find the next valid from range *)
 
+let min_valid_vgpu_device = 11
+let max_valid_vgpu_device = 31
+
 let range low high =
   let rec aux low high =
     if low > high then [] else low :: aux (low+1) high in
   aux low high
 
-let all_valid_devices = range 11 31
+let all_valid_devices = range min_valid_vgpu_device max_valid_vgpu_device
 
-let get_valid_device ~__context ~device ~vM =
+let get_valid_device ~__context ~device ~vM ~vGPUs =
   let d = int_of_string device in
-  if d >= 11 && d <= 31 then device
+  let all_existing_devices = List.map (fun self -> Db.VGPU.get_device ~__context ~self |> int_of_string) vGPUs in
+  let device_in_use device = List.mem device all_existing_devices in
+  if d >= min_valid_vgpu_device && d <= max_valid_vgpu_device && not (device_in_use d)  then device
   else if d = 0 then begin
-    let all = Db.VM.get_VGPUs ~__context ~self:vM in
-    let all_devices = List.map (fun self -> Db.VGPU.get_device ~__context ~self |> int_of_string) all in
-    let sorted = List.sort compare all_devices in
-    match sorted with
-    | [] -> "11"
-    | _ ->
-      try
-        let valid = List.find (fun d -> not (List.mem d sorted)) all_valid_devices in
-        string_of_int valid
-      with Not_found -> raise (Api_errors.Server_error (Api_errors.invalid_device, [device]))
+    try
+      let valid = List.find (fun d -> not (device_in_use d)) all_valid_devices in
+      string_of_int valid
+    with Not_found -> raise (Api_errors.Server_error (Api_errors.vgpu_vm_ran_out_of_pci_slot, [Ref.string_of vM]))
   end else raise (Api_errors.Server_error (Api_errors.invalid_device, [device]))
 
 let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_check =
@@ -51,11 +50,6 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
     raise (Api_errors.Server_error (Api_errors.feature_restricted, []));
   if powerstate_check then
     Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vM ~expected:`Halted;
-  let device_id =
-    try
-      get_valid_device ~__context ~device ~vM
-    with e -> raise e
-  in
   (* For backwards compatibility, convert Ref.null into the passthrough type. *)
   let _type =
     if _type = Ref.null
@@ -68,26 +62,25 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
     end
   in
   (* during multiple vgpus creation:
-    1. Underlying vgpu_type should support multiple
-    2. _type must be listed on the all vgpu_type's compatible lists*)
+     1. Underlying vgpu_type should support multiple
+     2. _type must be listed on the all vgpu_type's compatible lists*)
   let existing = Db.VM.get_VGPUs ~__context ~self:vM in
-  if existing <> [] then begin
-    let types = List.map (fun vgpu -> Db.VGPU.get_type ~__context ~self:vgpu) existing in
-    let is_in_compatible_lists _type vgpu_type =
-      let compatible_lists = Db.VGPU_type.get_compatible_types_in_vm ~__context ~self:vgpu_type in
-      List.mem _type compatible_lists
-    in
-    if not (List.for_all (fun vgpu_type -> is_in_compatible_lists _type vgpu_type) types) then
-      raise (Api_errors.Server_error (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type]))
-  end;
+  let types = List.map (fun vgpu -> Db.VGPU.get_type ~__context ~self:vgpu) existing in
+  let is_in_compatible_lists _type vgpu_type =
+    let compatible_lists = Db.VGPU_type.get_compatible_types_in_vm ~__context ~self:vgpu_type in
+    List.mem _type compatible_lists
+  in
+  if not (List.for_all (is_in_compatible_lists _type) types) then
+    raise (Api_errors.Server_error (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type]));
 
 
   Stdext.Threadext.Mutex.execute m (fun () ->
+      let device_id = get_valid_device ~__context ~device ~vM ~vGPUs:existing in
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null
         ~scheduled_to_be_resident_on:Ref.null
         ~compatibility_metadata:[]
-        ;
+      ;
     );
   debug "VGPU ref='%s' created (VM = '%s', type = '%s')" (Ref.string_of vgpu) (Ref.string_of vM) (Ref.string_of _type);
   vgpu
@@ -96,7 +89,7 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_
    a new function create' that will accept extra parameters indicating the desired behaviour.
    - create may be called during VM.import(eg. VM cross pool migration with checkpoints), no need
    to constraint the power state in this case.
- *)
+*)
 let create ~__context  ~vM ~gPU_group ~device ~other_config ~_type =
   let powerstate_check = not (Db.VM.get_is_a_snapshot ~__context ~self:vM) in
   create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type ~powerstate_check

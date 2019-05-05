@@ -102,8 +102,8 @@ type vgpu_type = {
   internal_config : (string * string) list;
   identifier : Identifier.t;
   experimental : bool;
-  compatible_types_in_vm : string list;
-  compatible_types_on_pgpu : string list;
+  compatible_model_names_in_vm : string list;
+  compatible_model_names_on_pgpu : string list;
 }
 
 let passthrough_gpu = {
@@ -117,27 +117,29 @@ let passthrough_gpu = {
   internal_config = [];
   identifier = Identifier.Passthrough;
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = [];
 }
 
 let create ~__context ~vendor_name ~model_name ~framebuffer_size ~max_heads
     ~max_resolution_x ~max_resolution_y ~size ~internal_config ~implementation
-    ~identifier ~experimental ~compatible_types_in_vm ~compatible_types_on_pgpu =
+    ~identifier ~experimental ~compatible_model_names_in_vm ~compatible_model_names_on_pgpu =
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
+  (* Currently Nvidia has only one type of vGPU in the VM and on pGPU
+   * We just check the compatilbe list, if it is not empty, then it just
+   * compatible with self.
+   * We need to convert the compatible model names to the comptible Refs
+   * once Nvidia enable multiple Types, probably by two rounds to get
+   * valid Ref *)
+  let compatible_types_in_vm = if compatible_model_names_in_vm = []  then [] else [ref] in
+  let compatible_types_on_pgpu = if compatible_model_names_on_pgpu = [] then [] else [ref] in
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y
     ~size ~internal_config ~implementation ~identifier ~experimental
-    ~compatible_types_in_vm:[] ~compatible_types_on_pgpu:[];
+    ~compatible_types_in_vm ~compatible_types_on_pgpu;
   debug "VGPU_type ref='%s' created (vendor_name = '%s'; model_name = '%s')"
     (Ref.string_of ref) vendor_name model_name;
-  if List.length compatible_types_in_vm <> 0 then
-    Db.VGPU_type.set_compatible_types_in_vm ~__context
-      ~self:ref ~value:[ref];
-  if List.length compatible_types_on_pgpu <> 0 then
-      Db.VGPU_type.set_compatible_types_on_pgpu ~__context
-        ~self:ref ~value:[ref];
   ref
 
 let find_and_update ~__context vgpu_type =
@@ -188,26 +190,6 @@ let find_and_update ~__context vgpu_type =
     end
   | _ -> fail ()
 
-(* since vgpu_type refs had been created in update, just need to get ref from vgpu_type.compatible* lists *)
-let update_compatible_lists ~__context vgpu_type vgpu_type_ref rc =
-  let get_type_from_model_name model =
-    let open Db_filter_types in
-    let expr = Eq(Field "model_name", Literal model) in
-    match Db.VGPU_type.get_internal_records_where ~__context ~expr with
-    | (_ref, _) :: _ -> _ref
-    | _ -> raise (Api_errors.Server_error(Api_errors.internal_error, ["Could not find vgpu_type according to model name" ]))
-  in
-  let compatible_types_in_vm =  List.map (fun model -> get_type_from_model_name model) vgpu_type.compatible_types_in_vm in
-  let compatible_types_on_pgpu = List.map (fun model -> get_type_from_model_name model) vgpu_type.compatible_types_on_pgpu in
-  if compatible_types_in_vm <> rc.Db_actions.vGPU_type_compatible_types_in_vm then
-    Db.VGPU_type.set_compatible_types_in_vm ~__context
-      ~self:vgpu_type_ref
-      ~value:compatible_types_in_vm;
-  if compatible_types_on_pgpu <> rc.Db_actions.vGPU_type_compatible_types_on_pgpu then
-    Db.VGPU_type.set_compatible_types_on_pgpu ~__context
-      ~self:vgpu_type_ref
-      ~value:compatible_types_on_pgpu
-
 let find_or_create ~__context vgpu_type =
   let implementation = Identifier.to_implementation vgpu_type.identifier in
   match (find_and_update ~__context vgpu_type) with
@@ -246,7 +228,18 @@ let find_or_create ~__context vgpu_type =
       Db.VGPU_type.set_experimental ~__context
         ~self:vgpu_type_ref
         ~value:vgpu_type.experimental;
-    update_compatible_lists ~__context vgpu_type vgpu_type_ref rc;
+
+    let compatible_types_in_vm = if vgpu_type.compatible_model_names_in_vm = []  then [] else [vgpu_type_ref] in
+    if compatible_types_in_vm <> rc.Db_actions.vGPU_type_compatible_types_in_vm then
+      Db.VGPU_type.set_compatible_types_in_vm ~__context
+        ~self:vgpu_type_ref
+        ~value:compatible_types_in_vm;
+
+    let compatible_types_on_pgpu = if vgpu_type.compatible_model_names_on_pgpu = [] then [] else [vgpu_type_ref] in
+    if compatible_types_on_pgpu <> rc.Db_actions.vGPU_type_compatible_types_on_pgpu then
+      Db.VGPU_type.set_compatible_types_on_pgpu ~__context
+        ~self:vgpu_type_ref
+        ~value:compatible_types_on_pgpu;
 
     vgpu_type_ref
   | None ->
@@ -261,8 +254,8 @@ let find_or_create ~__context vgpu_type =
       ~implementation
       ~identifier:(Identifier.to_string vgpu_type.identifier)
       ~experimental:vgpu_type.experimental
-      ~compatible_types_in_vm:vgpu_type.compatible_types_in_vm
-      ~compatible_types_on_pgpu:vgpu_type.compatible_types_on_pgpu 
+      ~compatible_model_names_in_vm:vgpu_type.compatible_model_names_in_vm
+      ~compatible_model_names_on_pgpu:vgpu_type.compatible_model_names_on_pgpu
 
 
 module Passthrough = struct
@@ -363,8 +356,8 @@ module Vendor_nvidia = struct
     max_y : int64;
     file_path : string;
     type_id: string;
-    compatible_types_in_vm : string list;
-    compatible_types_on_pgpu : string list;
+    compatible_model_names_in_vm : string list;
+    compatible_model_names_on_pgpu : string list;
   }
 
   let vendor_id = 0x10de
@@ -467,14 +460,14 @@ module Vendor_nvidia = struct
         let multi_vgpu_supported = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
         let name = get_attr "name" vgpu_type in
         info "Getting multiple vGPU supported from config file: %Ld, model: %s" multi_vgpu_supported name;
-        let compatible_types_in_vm, compatible_types_on_pgpu = 
+        let compatible_model_names_in_vm, compatible_model_names_on_pgpu =
           match multi_vgpu_supported with
           | 1L -> [name], [name]
           | _ -> [], [name]
         in
         Some {identifier; framebufferlength;
          num_heads; max_instance; max_x; max_y; file_path;type_id;
-         compatible_types_in_vm; compatible_types_on_pgpu}
+         compatible_model_names_in_vm; compatible_model_names_on_pgpu}
       else
         None
     ) vgpu_types
@@ -524,8 +517,8 @@ module Vendor_nvidia = struct
       internal_config = [Xapi_globs.vgpu_type_id, conf.type_id];
       identifier = Nvidia conf.identifier;
       experimental = false;
-      compatible_types_in_vm = conf.compatible_types_in_vm;
-      compatible_types_on_pgpu = conf.compatible_types_on_pgpu;
+      compatible_model_names_in_vm = conf.compatible_model_names_in_vm;
+      compatible_model_names_on_pgpu = conf.compatible_model_names_on_pgpu;
     }
 end
 
@@ -627,8 +620,8 @@ module Vendor_intel = struct
         internal_config = internal_config;
         identifier = GVT_g conf.identifier;
         experimental = conf.experimental;
-        compatible_types_in_vm = [];
-        compatible_types_on_pgpu = [conf.model_name];
+        compatible_model_names_in_vm = [];
+        compatible_model_names_on_pgpu = [conf.model_name];
       }
 end
 
@@ -705,8 +698,8 @@ module Vendor_amd = struct
         internal_config = internal_config;
         identifier = MxGPU conf.identifier;
         experimental = conf.experimental;
-        compatible_types_in_vm = [];
-        compatible_types_on_pgpu = [conf.model_name];
+        compatible_model_names_in_vm = [];
+        compatible_model_names_on_pgpu = [conf.model_name];
       }
 
 end

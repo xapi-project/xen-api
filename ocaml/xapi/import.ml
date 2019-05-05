@@ -1200,8 +1200,8 @@ module VGPUType : HandlerTools = struct
                  ~implementation:value.API.vGPU_type_implementation
                  ~identifier:value.API.vGPU_type_identifier
                  ~experimental:value.API.vGPU_type_experimental
-                 ~compatible_types_in_vm:value.API.vGPU_type_compatible_types_in_vm
-                 ~compatible_types_on_pgpu:[])
+                 ~compatible_model_names_in_vm:value.API.vGPU_type_compatible_types_in_vm
+                 ~compatible_model_names_on_pgpu:[])
             vgpu_type_record
         in
         state.cleanup <- (fun __context rpc session_id -> Db.VGPU_type.destroy __context vgpu_type) :: state.cleanup;
