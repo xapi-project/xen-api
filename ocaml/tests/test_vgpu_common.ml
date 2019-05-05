@@ -23,7 +23,7 @@ let k100 = {
   max_resolution_y = 1200L;
   size = Int64.div Constants.pgpu_default_size 8L;
   internal_config = [
-    Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k100.conf"
+    Xapi_globs.vgpu_type_id, "type_id_1"
   ];
   identifier = Identifier.(Nvidia {
       pdev_id = 0x0ff2;
@@ -45,7 +45,7 @@ let k140q = {
   max_resolution_y = 1600L;
   size = Int64.div Constants.pgpu_default_size 4L;
   internal_config = [
-    Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k140q.conf"
+    Xapi_globs.vgpu_type_id, "type_id_2"
   ];
   identifier = Identifier.(Nvidia {
       pdev_id = 0x0ff2;
@@ -67,7 +67,7 @@ let k200 = {
   max_resolution_y = 1200L;
   size = Int64.div Constants.pgpu_default_size 8L;
   internal_config = [
-    Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k200.conf"
+    Xapi_globs.vgpu_type_id, "type_id_3"
   ];
   identifier = Identifier.(Nvidia {
       pdev_id = 0x11bf;
@@ -89,7 +89,7 @@ let k240q = {
   max_resolution_y = 1600L;
   size = Int64.div Constants.pgpu_default_size 4L;
   internal_config = [
-    Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k240q.conf"
+    Xapi_globs.vgpu_type_id, "type_id_4"
   ];
   identifier = Identifier.(Nvidia {
       pdev_id = 0x11bf;
@@ -111,7 +111,7 @@ let k260q = {
   max_resolution_y = 1600L;
   size = Int64.div Constants.pgpu_default_size 2L;
   internal_config = [
-    Xapi_globs.vgpu_config_key, "/usr/share/nvidia/vgx/grid_k260q.conf"
+    Xapi_globs.vgpu_type_id, "type_id_5"
   ];
   identifier = Identifier.(Nvidia {
       pdev_id = 0x11bf;
@@ -210,6 +210,7 @@ let make_vgpu ~__context
     ?(vm_ref=Ref.null)
     ?(resident_on=Ref.null)
     ?(scheduled_to_be_resident_on=Ref.null)
+    ?(uuid=Test_common.make_uuid())
     vgpu_type =
   let vgpu_type_ref = find_or_create ~__context vgpu_type in
   (* For the passthrough VGPU type, create a VM and mark it as attached to the
@@ -228,6 +229,7 @@ let make_vgpu ~__context
   Test_common.make_vgpu ~__context
     ~vM:vm_ref
     ~_type:vgpu_type_ref
+    ~uuid
     ~resident_on
     ~scheduled_to_be_resident_on ()
 
