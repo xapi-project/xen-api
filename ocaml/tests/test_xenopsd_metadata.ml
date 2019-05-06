@@ -200,7 +200,7 @@ module VideoRam = Generic.Make(Generic.EncapsulateState(struct
                                  ]
                                end))
 
-let test_uuid = "uuiduuid-uuid-uuid-uuid-uuiduuiduuid"
+let test_uuid_base = "uuiduuid-uuid-uuid-uuid-uuiduuid"
 
 module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                              open Test_vgpu_common
@@ -230,7 +230,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                     in
                                                     let (_ : API.ref_VGPU) =
                                                       make_vgpu ~__context
-                                                        ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref ~uuid:test_uuid vgpu_type in
+                                                        ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref ~uuid:(test_uuid_base^"0000") vgpu_type in
                                                     ())
                                                  pgpus_and_vgpu_types
 
@@ -264,7 +264,7 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                                      virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
                                                      config_file = None;
                                                      type_id = "type_id_1";
-                                                     uuid = test_uuid;
+                                                     uuid = test_uuid_base^"0000";
                                                    })
                                                ];
                                                (* One Intel vGPU. *)
@@ -284,6 +284,106 @@ module GenerateVGPUMetadata = Generic.Make(Generic.EncapsulateState(struct
                                              ]
                                            end))
 
+module GenerateMultiVGPUMetadata =
+  Generic.Make(
+      Generic.EncapsulateState(struct
+          open Test_vgpu_common
+          module Io = struct
+            type input_t =
+              vm_config * (Test_vgpu_common.pgpu_state * Xapi_vgpu_type.vgpu_type) list
+            type output_t = Xenops_interface.Vgpu.implementation list
+                          
+            let string_of_input_t =
+              Test_printers.(pair
+                               string_of_vm_config
+                               (list (pair Test_vgpu_common.string_of_pgpu_state string_of_vgpu_type)))
+            let string_of_output_t =
+              Test_printers.list (fun vgpu ->
+                  rpc_of Xenops_interface.Vgpu.implementation vgpu |> Rpc.to_string)
+          end
+                    
+          module State = Test_state.XapiDb
+
+          let load_input __context (vm_config, pgpus_and_vgpu_types) =
+            let vm_ref = load_vm_config __context vm_config in
+            List.iteri
+              (fun index (pgpu, vgpu_type) ->
+                let pgpu_ref = make_pgpu ~__context
+                                 ~address:(Printf.sprintf "0000:%02d:00.0" index) pgpu
+                in
+                let test_uuid = Printf.sprintf "%s%04d" test_uuid_base index in
+                let (_ : API.ref_VGPU) =
+                  make_vgpu ~__context
+                    ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref ~uuid:test_uuid vgpu_type in
+                ())
+              pgpus_and_vgpu_types
+            
+          let extract_output __context _ =
+            let metadata = run_create_metadata ~__context in
+            List.map
+              (fun vgpu -> vgpu.Xenops_interface.Vgpu.implementation)
+              metadata.Metadata.vgpus
+            
+          let tests = [
+              (* 2 NVIDIA vGPUs. *)
+              (
+                {oc = []; platform = []},
+                [default_k1, k100; default_k1, k100]
+              ),
+              [
+                Xenops_interface.Vgpu.(Nvidia {
+                                           physical_pci_address = None;
+                                           virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           config_file = None;
+                                           type_id = "type_id_1";
+                                           uuid = test_uuid_base^"0000";
+                });
+                Xenops_interface.Vgpu.(Nvidia {
+                                           physical_pci_address = None;
+                                           virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           config_file = None;
+                                           type_id = "type_id_1";
+                                           uuid = test_uuid_base^"0001";
+                })
+              ];
+              (* 4 NVIDIA vGPUs. *)
+              (
+                {oc = []; platform = []},
+                [default_k1, k100; default_k1, k100; default_k1, k100; default_k1, k100]
+              ),
+              [
+                Xenops_interface.Vgpu.(Nvidia {
+                                           physical_pci_address = None;
+                                           virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           config_file = None;
+                                           type_id = "type_id_1";
+                                           uuid = test_uuid_base^"0000";
+                });
+                Xenops_interface.Vgpu.(Nvidia {
+                                           physical_pci_address = None;
+                                           virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           config_file = None;
+                                           type_id = "type_id_1";
+                                           uuid = test_uuid_base^"0001";
+                });
+                Xenops_interface.Vgpu.(Nvidia {
+                                           physical_pci_address = None;
+                                           virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           config_file = None;
+                                           type_id = "type_id_1";
+                                           uuid = test_uuid_base^"0002";
+                });
+                Xenops_interface.Vgpu.(Nvidia {
+                                           physical_pci_address = None;
+                                           virtual_pci_address = Some {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           config_file = None;
+                                           type_id = "type_id_1";
+                                           uuid = test_uuid_base^"0003";
+                })                
+              ];
+            ]
+        end))
+
 let test =
   "test_xenopsd_metadata" >:::
   [
@@ -291,4 +391,5 @@ let test =
     "test_videomode" >::: VideoMode.tests;
     "test_videoram" >::: VideoRam.tests;
     "test_generate_vgpu_metadata" >::: GenerateVGPUMetadata.tests;
+    "test_generate_multi_vgpu_metadata" >::: GenerateMultiVGPUMetadata.tests;
   ]
