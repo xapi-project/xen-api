@@ -195,7 +195,7 @@ let varstore_rm_with_sandbox ~__context ~vm_uuid f =
   let domid = 0 in
   let chroot, socket_path = Xenops_sandbox.Varstore_guard.start dbg ~domid ~vm_uuid ~paths:[] in
   Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f chroot socket_path)
-    (fun () -> Xenops_sandbox.Varstore_guard.stop dbg ~domid)
+    (fun () -> Xenops_sandbox.Varstore_guard.stop dbg ~domid ~vm_uuid)
 
 let nvram_post_clone ~__context ~self ~uuid =
   match Db.VM.get_NVRAM ~__context ~self with
