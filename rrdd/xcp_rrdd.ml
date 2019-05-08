@@ -15,9 +15,9 @@
 (*
  * This is the entry point of the RRD daemon. It is responsible for binding
  * the daemon's interface to a file descriptor (used by RRD daemon client),
- * creating a daemon thread (that executes the monitoring code), and starting
- * the monitor_dbcalls thread, which updates the central database with
- * up-to-date performance metrics.
+ * creating a daemon thread (that executes the monitoring and file-writing code),
+ * and starting the monitor_dbcalls thread, which updates the central database
+ * with up-to-date performance metrics.
  *
  * Invariants:
  * 1) xapi depends on rrdd, and not vice-versa.
@@ -99,14 +99,10 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-open Xapi_stdext_monadic
-open Xapi_stdext_std.Listext
-open Xapi_stdext_threads.Threadext
+module Opt = Xapi_stdext_monadic.Opt
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+module Thread = Xapi_stdext_threads.Threadext.Thread
 module Hashtblext = Xapi_stdext_std.Hashtblext
-open Network_stats
-open Rrdd_shared
-open Ds
-open Rrd
 
 let uuid_of_domid domains domid =
   try
@@ -182,19 +178,16 @@ module Watcher = WatchXenstore(Meminfo)
 (* cpu related code                                  *)
 (*****************************************************)
 
-(* This function is used both for getting vcpu stats and for getting the uuids
- * of the VMs present on this host. *)
-let update_vcpus xc doms =
-  List.fold_left (fun (dss, uuid_domids, domids) dom ->
-      let domid = dom.Xenctrl.domid in
+(* This function is used for getting vcpu stats of the VMs present on this host. *)
+let dss_vcpus xc doms uuid_domids =
+  List.fold_left (fun dss (dom, (uuid, domid)) ->
       let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
-      let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
 
       let rec cpus i dss =
         if i >= maxcpus then dss else
           let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
-          cpus (i+1) ((VM uuid,
-                       ds_make
+          cpus (i+1) ((Rrd.VM uuid,
+                       Ds.ds_make
                          ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
                          ~description:(Printf.sprintf "CPU%d usage" i)
                          ~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9))
@@ -205,27 +198,27 @@ let update_vcpus xc doms =
       let dss =
         try
           let ri = Xenctrl.domain_get_runstate_info xc domid in
-          (VM uuid, ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
+          (Rrd.VM uuid, Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
              ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time0) /. 1.0e9))
              ~description:"Fraction of time that all VCPUs are running"
              ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-          (VM uuid, ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
+          (Rrd.VM uuid, Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
              ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time1) /. 1.0e9))
              ~description:"Fraction of time that all VCPUs are runnable (i.e., waiting for CPU)"
              ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-          (VM uuid, ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
+          (Rrd.VM uuid, Ds.ds_make ~name:"runstate_concurrency_hazard" ~units:"(fraction)"
              ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time2) /. 1.0e9))
              ~description:"Fraction of time that some VCPUs are running and some are runnable"
              ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-          (VM uuid, ds_make ~name:"runstate_blocked" ~units:"(fraction)"
+          (Rrd.VM uuid, Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
              ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time3) /. 1.0e9))
              ~description:"Fraction of time that all VCPUs are blocked or offline"
              ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-          (VM uuid, ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
+          (Rrd.VM uuid, Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
              ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time4) /. 1.0e9))
              ~description:"Fraction of time that some VCPUs are running, and some are blocked"
              ~ty:Rrd.Derive ~default:false ~min:0.0 ())::
-          (VM uuid, ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
+          (Rrd.VM uuid, Ds.ds_make ~name:"runstate_partial_contention" ~units:"(fraction)"
              ~value:(Rrd.VT_Float ((Int64.to_float ri.Xenctrl.time5) /. 1.0e9))
              ~description:"Fraction of time that some VCPUs are runnable and some are blocked"
              ~ty:Rrd.Derive ~default:false ~min:0.0 ())::dss
@@ -233,15 +226,14 @@ let update_vcpus xc doms =
           dss
       in
       try
-        let dss = cpus 0 dss in
-        (dss, (uuid, domid)::uuid_domids, domid::domids)
+        cpus 0 dss
       with _ ->
-        (dss, uuid_domids, domid::domids)
-    ) ([], [], []) doms
+        dss
+    ) [] (List.combine doms uuid_domids)
 
 let physcpus = ref [| |]
 
-let update_pcpus xc =
+let dss_pcpus xc =
   let len = Array.length !physcpus in
   let newinfos = if len = 0 then (
       let physinfo = Xenctrl.physinfo xc in
@@ -252,7 +244,7 @@ let update_pcpus xc =
       Xenctrl.pcpu_info xc len
     ) in
   let dss, len_newinfos = Array.fold_left (fun (acc, i) v ->
-      ((Host, ds_make
+      ((Rrd.Host, Ds.ds_make
           ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
           ~description:("Physical cpu usage for cpu "^(string_of_int i))
           ~value:(Rrd.VT_Float ((Int64.to_float v) /. 1.0e9)) ~min:0.0 ~max:1.0
@@ -260,81 +252,41 @@ let update_pcpus xc =
     ) ([], 0) newinfos in
   let sum_array = Array.fold_left (fun acc v -> Int64.add acc v) 0L newinfos in
   let avg_array = Int64.to_float sum_array /. (float_of_int len_newinfos) in
-  let avgcpu_ds = (Host, ds_make 
+  let avgcpu_ds = (Rrd.Host, Ds.ds_make
                      ~name:"cpu_avg" ~units:"(fraction)"
                      ~description:"Average physical cpu usage"
                      ~value:(Rrd.VT_Float (avg_array /. 1.0e9)) ~min:0.0 ~max:1.0
                      ~ty:Rrd.Derive ~default:true ~transform:(fun x -> 1.0 -. x) ()) in
   avgcpu_ds::dss
 
-let update_memory _xc doms =
-  List.fold_left (fun acc dom ->
-      let domid = dom.Xenctrl.domid in
-      let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
-      let memory = Int64.mul kib 1024L in
-      let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
-      let main_mem_ds = (
-        VM uuid,
-        ds_make ~name:"memory" ~description:"Memory currently allocated to VM" ~units:"B"
-          ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-      ) in
-      let memory_target_opt =
-        try
-          Mutex.execute memory_targets_m
-            (fun _ -> Some (Hashtbl.find memory_targets domid))
-        with Not_found -> None in
-      let mem_target_ds =
-        Opt.map
-          (fun memory_target -> (
-               VM uuid,
-               ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
-                 ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-             )) memory_target_opt
-      in
-      let other_ds =
-        if domid = 0 then None
-        else begin
-          try
-            let mem_free = IntMap.find domid !current_meminfofree_values in
-            Some (
-              VM uuid,
-              ds_make ~name:"memory_internal_free" ~units:"KiB"
-                ~description:"Memory used as reported by the guest agent"
-                ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-            )
-          with Not_found -> None
-        end
-      in
-      main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
-    ) [] doms
-
-let update_loadavg () =
-  Host, ds_make ~name:"loadavg" ~units:"(fraction)"
+let dss_loadavg () =
+  [(Rrd.Host, Ds.ds_make ~name:"loadavg" ~units:"(fraction)"
     ~description:"Domain0 loadavg"
     ~value:(Rrd.VT_Float (Rrdd_common.loadavg ()))
-    ~ty:Rrd.Gauge ~default:true ()
+    ~ty:Rrd.Gauge ~default:true ())]
 
 (*****************************************************)
 (* network related code                              *)
 (*****************************************************)
 
-let update_netdev doms =
+let dss_netdev doms =
+  let open Network_stats in
   let stats = Network_stats.read_stats () in
   let dss, sum_rx, sum_tx =
     List.fold_left (fun (dss, sum_rx, sum_tx) (dev, stat) ->
         if not Astring.String.(is_prefix ~affix:"vif" dev) then
           begin
             let pif_name = "pif_" ^ dev in
-            (Host, ds_make ~name:(pif_name ^ "_rx")
+            (Rrd.Host, Ds.ds_make ~name:(pif_name ^ "_rx")
                ~description:("Bytes per second received on physical interface " ^ dev) ~units:"B/s"
                ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
-            (Host, ds_make ~name:(pif_name ^ "_tx")
+            (Rrd.Host, Ds.ds_make ~name:(pif_name ^ "_tx")
                ~description:("Bytes per second sent on physical interface " ^ dev) ~units:"B/s"
                ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
-            (Host, ds_make ~name:(pif_name ^ "_rx_errors")
+            (Rrd.Host, Ds.ds_make ~name:(pif_name ^ "_rx_errors")
                ~description:("Receive errors per second on physical interface " ^ dev) ~units:"err/s"
                ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
-            (Host, ds_make ~name:(pif_name ^ "_tx_errors")
+            (Rrd.Host, Ds.ds_make ~name:(pif_name ^ "_tx_errors")
                ~description:("Transmit errors per second on physical interface " ^ dev) ~units:"err/s"
                ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
             dss,
@@ -346,43 +298,84 @@ let update_netdev doms =
              let vif_name = Printf.sprintf "vif_%d" d2 in
              (* Note: rx and tx are the wrong way round because from dom0 we see the vms backwards *)
              let uuid = uuid_of_domid doms d1 in
-             (VM uuid, ds_make ~name:(vif_name ^ "_tx") ~units:"B/s"
+             (Rrd.VM uuid, Ds.ds_make ~name:(vif_name ^ "_tx") ~units:"B/s"
                 ~description:("Bytes per second transmitted on virtual interface number '" ^ (string_of_int d2) ^ "'")
                 ~value:(Rrd.VT_Int64 stat.rx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
-             (VM uuid, ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
+             (Rrd.VM uuid, Ds.ds_make ~name:(vif_name ^ "_rx") ~units:"B/s"
                 ~description:("Bytes per second received on virtual interface number '" ^ (string_of_int d2) ^ "'")
                 ~value:(Rrd.VT_Int64 stat.tx_bytes) ~ty:Rrd.Derive ~min:0.0 ~default:true ()) ::
-             (VM uuid, ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
+             (Rrd.VM uuid, Ds.ds_make ~name:(vif_name ^ "_rx_errors") ~units:"err/s"
                 ~description:("Receive errors per second on virtual interface number '" ^ (string_of_int d2) ^ "'")
                 ~value:(Rrd.VT_Int64 stat.tx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
-             (VM uuid, ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
+             (Rrd.VM uuid, Ds.ds_make ~name:(vif_name ^ "_tx_errors") ~units:"err/s"
                 ~description:("Transmit errors per second on virtual interface number '" ^ (string_of_int d2) ^ "'")
                 ~value:(Rrd.VT_Int64 stat.rx_errors) ~ty:Rrd.Derive ~min:0.0 ~default:false ()) ::
              dss
            with _ -> dss),
           sum_rx, sum_tx
       ) ([], 0L, 0L) stats in [
-    (Host, ds_make ~name:"pif_aggr_rx"
+    (Rrd.Host, Ds.ds_make ~name:"pif_aggr_rx"
        ~description:"Bytes per second received on all physical interfaces"
        ~units:"B/s" ~value:(Rrd.VT_Int64 sum_rx) ~ty:Rrd.Derive ~min:0.0 ~default:true ());
-    (Host, ds_make ~name:"pif_aggr_tx"
+    (Rrd.Host, Ds.ds_make ~name:"pif_aggr_tx"
        ~description:"Bytes per second sent on all physical interfaces"
        ~units:"B/s" ~value:(Rrd.VT_Int64 sum_tx) ~ty:Rrd.Derive ~min:0.0 ~default:true ())
   ] @ dss
 
 (*****************************************************)
-(* generic code                                      *)
+(* memory stats                                      *)
 (*****************************************************)
-let read_mem_metrics xc =
+let dss_mem_host xc =
   let physinfo = Xenctrl.physinfo xc in
   let total_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
   and free_kib = Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages) in
   [
-    (Host, ds_make ~name:"memory_total_kib" ~description:"Total amount of memory in the host"
+    (Rrd.Host, Ds.ds_make ~name:"memory_total_kib" ~description:"Total amount of memory in the host"
        ~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
-    (Host, ds_make ~name:"memory_free_kib" ~description:"Total amount of free memory"
+    (Rrd.Host, Ds.ds_make ~name:"memory_free_kib" ~description:"Total amount of free memory"
        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
   ]
+
+let dss_mem_vms doms =
+  List.fold_left (fun acc dom ->
+      let domid = dom.Xenctrl.domid in
+      let kib = Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages) in
+      let memory = Int64.mul kib 1024L in
+      let uuid = Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle) in
+      let main_mem_ds = (
+        Rrd.VM uuid,
+        Ds.ds_make ~name:"memory" ~description:"Memory currently allocated to VM" ~units:"B"
+          ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+      ) in
+      let memory_target_opt =
+        try
+          Mutex.execute Rrdd_shared.memory_targets_m
+            (fun _ -> Some (Hashtbl.find Rrdd_shared.memory_targets domid))
+        with Not_found -> None in
+      let mem_target_ds =
+        Opt.map
+          (fun memory_target -> (
+               Rrd.VM uuid,
+               Ds.ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
+                 ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+             )) memory_target_opt
+      in
+      let other_ds =
+        if domid = 0 then None
+        else begin
+          try
+            let mem_free = IntMap.find domid !current_meminfofree_values in
+            Some (
+              Rrd.VM uuid,
+              Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
+                ~description:"Memory used as reported by the guest agent"
+                ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+            )
+          with Not_found -> None
+        end
+      in
+      main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
+    ) [] doms
 
 (**** Local cache SR stuff *)
 
@@ -398,8 +391,8 @@ let cached_cache_dss = ref []
 
 let tapdisk_cache_stats : string = Filename.concat "/opt/xensource/bin" "tapdisk-cache-stats"
 
-let read_cache_stats timestamp =
-  let cache_sr_opt = Mutex.execute cache_sr_lock (fun _ -> !cache_sr_uuid) in
+let dss_cache timestamp =
+  let cache_sr_opt = Mutex.execute Rrdd_shared.cache_sr_lock (fun _ -> !Rrdd_shared.cache_sr_uuid) in
   let do_read cache_sr =
     debug "do_read: %s %s" tapdisk_cache_stats cache_sr;
     let cache_stats_out, _err =
@@ -407,7 +400,7 @@ let read_cache_stats timestamp =
     let assoc_list =
       cache_stats_out
       |> Astring.String.cuts ~sep:"\n"
-      |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
+      |> Xapi_stdext_std.Listext.List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
     (*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
     {time = timestamp;
@@ -416,17 +409,17 @@ let read_cache_stats timestamp =
      cache_misses_raw = Int64.of_string (List.assoc "TOTAL_CACHE_MISSES" assoc_list);}
   in
   let get_dss cache_sr oldvals newvals = [
-    (Host, ds_make ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr)
+    (Rrd.Host, Ds.ds_make ~name:(Printf.sprintf "sr_%s_cache_size" cache_sr)
        ~description:"Size in bytes of the cache SR" ~units:"B"
        ~value:(Rrd.VT_Int64 newvals.cache_size_raw)
        ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-    (Host, ds_make ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr)
+    (Rrd.Host, Ds.ds_make ~name:(Printf.sprintf "sr_%s_cache_hits" cache_sr)
        ~description:"Hits per second of the cache" ~units:"hits/s"
        ~value:(Rrd.VT_Int64 (Int64.div
                                (Int64.sub newvals.cache_hits_raw oldvals.cache_hits_raw)
                                (Int64.of_float (newvals.time -. oldvals.time))))
        ~ty:Rrd.Gauge ~min:0.0 ~default:true ());
-    (Host, ds_make ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr)
+    (Rrd.Host, Ds.ds_make ~name:(Printf.sprintf "sr_%s_cache_misses" cache_sr)
        ~description:"Misses per second of the cache" ~units:"misses/s"
        ~value:(Rrd.VT_Int64 (Int64.div
                                (Int64.sub newvals.cache_misses_raw oldvals.cache_misses_raw)
@@ -463,7 +456,7 @@ let uuid_blacklist = [
   "00000000-0000-0000";
   "deadbeef-dead-beef" ]
 
-let read_all_dom0_stats xc =
+let domain_snapshot xc =
   let uuid_of_domain d =
     Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
   let domains =
@@ -473,55 +466,67 @@ let read_all_dom0_stats xc =
          let first = String.sub uuid 0 18 in
          not (List.mem first uuid_blacklist))
       (Xenctrl.domain_getinfolist xc 0) in
+  let uuid_domid_of_domain dom =
+    let domid = dom.Xenctrl.domid
+    and uuid = uuid_of_domain dom in
+    (uuid, domid), domid in
+  let uuid_domids, domids = List.split (List.map uuid_domid_of_domain domains) in
   let timestamp = Unix.gettimeofday () in
   let domain_paused d = d.Xenctrl.paused in
   let my_paused_domain_uuids =
     List.map uuid_of_domain (List.filter domain_paused domains) in
-  let vifs =
-    try update_netdev domains
-    with e ->
-      debug "Exception in update_netdev(). Defaulting value for vifs/pifs: %s"
-        (Printexc.to_string e);
-      []
-  in
-  let vcpus, uuid_domids, domids = update_vcpus xc domains in
-  Hashtblext.remove_other_keys memory_targets domids;
-  let real_stats = List.concat [
-      handle_exn "ha_stats" (fun _ -> Rrdd_ha_stats.all ()) [];
-      handle_exn "read_mem_metrics" (fun _ -> read_mem_metrics xc) [];
-      vcpus;
-      vifs;
-      handle_exn "cache_stats" (fun _ -> read_cache_stats timestamp) [];
-      handle_exn "update_pcpus" (fun _-> update_pcpus xc) [];
-      handle_exn "update_loadavg" (fun _ -> [update_loadavg ()]) [];
-      handle_exn "update_memory" (fun _ -> update_memory xc domains) []
-    ] in
-  real_stats, uuid_domids, timestamp, my_paused_domain_uuids
+  Hashtblext.remove_other_keys Rrdd_shared.memory_targets domids;
+  timestamp, domains, uuid_domids, my_paused_domain_uuids
 
-let do_monitor xc =
+let dom0_stat_generators = [
+  "ha", (fun _ _ _ _ -> Rrdd_ha_stats.all ());
+  "mem_host", (fun xc _ _ _ -> dss_mem_host xc);
+  "mem_vms", (fun _ _ domains _ -> dss_mem_vms domains);
+  "pcpus", (fun xc _ _ _ -> dss_pcpus xc);
+  "vcpus", (fun xc _ domains uuid_domids -> dss_vcpus xc domains uuid_domids);
+  "loadavg", (fun _ _ _ _ -> dss_loadavg ());
+  "netdev", (fun _ _ domains _ -> dss_netdev domains);
+  "cache", (fun _ timestamp _ _ -> dss_cache timestamp)
+]
+
+let generate_all_dom0_stats xc timestamp domains uuid_domids =
+  let handle_generator (name, generator) =
+    (name, handle_exn name (fun _ -> generator xc timestamp domains uuid_domids) []) in
+  List.map handle_generator dom0_stat_generators
+
+let write_dom0_stats writers timestamp tagged_dss =
+  let write_dss (name, writer) = match List.assoc_opt name tagged_dss with
+    | None -> debug "Could not write stats for \"%s\": no stats were associated with this name" name
+    | Some dss -> writer.Rrd_writer.write_payload {timestamp; datasources=dss}
+  in
+  List.iter write_dss writers
+
+let do_monitor_write xc writers =
   Rrdd_libs.Stats.time_this "monitor"
     (fun _ ->
-       let dom0_stats, uuid_domids, timestamp, my_paused_vms =
-         read_all_dom0_stats xc in
+       let timestamp, domains, uuid_domids, my_paused_vms = domain_snapshot xc in
+       let tagged_dom0_stats = generate_all_dom0_stats xc timestamp domains uuid_domids in
+       write_dom0_stats writers (Int64.of_float timestamp) tagged_dom0_stats;
+       let dom0_stats = List.concat (List.map snd tagged_dom0_stats) in
        let plugins_stats = Rrdd_server.Plugin.read_stats () in
        let stats = List.rev_append plugins_stats dom0_stats in
        Rrdd_stats.print_snapshot ();
        Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms
     )
 
-let monitor_loop () =
-  Debug.with_thread_named "monitor" (fun () ->
+let monitor_write_loop writers =
+  Debug.with_thread_named "monitor_write" (fun () ->
       Xenctrl.with_intf (fun xc ->
           while true
           do
             try
-              do_monitor xc;
+              do_monitor_write xc writers;
               Mutex.execute Rrdd_shared.last_loop_end_time_m (fun _ ->
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
                 );
               Thread.delay !Rrdd_shared.timeslice
             with _ ->
-              debug "Monitor thread caught an exception. Pausing for 10s, then restarting.";
+              debug "Monitor/write thread caught an exception. Pausing for 10s, then restarting.";
               log_backtrace ();
               Thread.delay 10.
           done
@@ -566,16 +571,16 @@ end
 *)
 
 module type DISCOVER = sig
-  val start: unit -> Xapi_stdext_threads.Threadext.Thread.t
+  val start: string list -> Xapi_stdext_threads.Threadext.Thread.t
 end
 
 module Discover: DISCOVER = struct
   let directory = Rrdd_server.Plugin.base_path
 
   (** [is_valid f] is true, if [f] is a filename for an RRD file.
-      	 *  Currently we only ignore *.tmp files *)
-  let is_valid file =
-    not @@ Filename.check_suffix file ".tmp"
+   *  Currently we only ignore *.tmp files *)
+  let is_valid files_to_ignore file =
+     not @@ List.mem file files_to_ignore && not @@ Filename.check_suffix file ".tmp"
 
   let events_as_string
     : Inotify.event_kind list -> string
@@ -585,10 +590,10 @@ module Discover: DISCOVER = struct
       |> String.concat ","
 
   (* [register file] is called when we found a new file in the watched
-     	 * directory. We do not verify that this is a proper RRD file.
-     	 * [file] is not a complete path but just the basename of the file.
-     	 * This corresponds to how the file is used by the Plugin module,
-     	 * *)
+   * directory. We do not verify that this is a proper RRD file.
+   * [file] is not a complete path but just the basename of the file.
+   * This corresponds to how the file is used by the Plugin module,
+   * *)
   let register file =
     info "RRD plugin %s discovered - registering it" file;
     let info  = Rrd.Five_Seconds in
@@ -597,15 +602,15 @@ module Discover: DISCOVER = struct
     |> ignore (* seconds until next reading phase *)
 
   (* [deregister file] is called when a file is removed from the watched
-     	 * directory *)
+   * directory *)
   let deregister file =
     info "RRD plugin - de-registering %s" file;
     Rrdd_server.Plugin.Local.deregister file
 
   (* Here we dispatch over all events that we receive. Note that
-     	 * [Inotify.read] blocks until an event becomes available. Hence, this
-     	 * code needs to run in its own thread. *)
-  let watch dir =
+   * [Inotify.read] blocks until an event becomes available. Hence, this
+   * code needs to run in its own thread. *)
+  let watch ignored_files dir =
     let fd          = Inotify.create () in
     let selectors   =
       [ Inotify.S_Create
@@ -613,6 +618,7 @@ module Discover: DISCOVER = struct
       ; Inotify.S_Moved_to
       ; Inotify.S_Moved_from
       ] in
+    let is_valid = is_valid ignored_files in
     let rec loop = function
       | []  -> Inotify.read fd |> loop
       | (_, [Inotify.Create], _, Some file)::es when is_valid file ->
@@ -646,18 +652,18 @@ module Discover: DISCOVER = struct
     )
 
   (* [scan] scans a directory for plugins and registers them *)
-  let scan dir =
+  let scan ignored_files dir =
     debug "RRD plugin - scanning %s" dir;
     Sys.readdir dir
     |> Array.to_list
-    |> List.filter is_valid
+    |> List.filter (is_valid ignored_files)
     |> List.iter register
 
-  let start () =
+  let start ignored_files =
     Thread.create (fun dir ->
         debug "RRD plugin - starting discovery thread";
         while true do
-          try scan dir; watch dir with e -> begin
+          try scan ignored_files dir; watch ignored_files dir with e -> begin
               error "RRD plugin discovery error: %s" (Printexc.to_string e);
               Thread.delay 10.0
             end
@@ -677,22 +683,47 @@ let doc = String.concat "\n" [
     "This service maintains a list of registered datasources (shared memory pages containing metadata and time-varying values), periodically polls the datasources and records historical data in RRD format.";
   ]
 
+(** write memory stats to the filesystem so they can be propagated to xapi *)
+let stats_to_write = [
+  "mem_host";
+  "mem_vms"
+]
+
+let writer_basename = (^) "xcp-rrdd-"
+
+let configure_writers () =
+  List.map
+    (fun name ->
+      let path = Rrdd_server.Plugin.get_path (writer_basename name) in
+      ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644);
+      let writer = snd (Rrd_writer.FileWriter.create
+        {path; shared_page_count = 1}
+        Rrd_protocol_v2.protocol
+      ) in
+      name, writer
+    )
+    stats_to_write
+
 (** we need to make sure we call exit on fatal signals to
  * make sure profiling data is dumped
-*)
-let stop signal =
+ *)
+let stop err writers signal =
   debug "caught signal %d" signal;
-  exit 1
+  List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers;
+  exit err
 
 (* Entry point. *)
 let _ =
 
   Rrdd_bindings.Rrd_daemon.bind (); (* bind PPX-generated server calls to implementation of API *)
 
+  let writers = configure_writers () in
+
   (* Prevent shutdown due to sigpipe interrupt. This protects against
-     	 * potential stunnel crashes. *)
+   * potential stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
-  Sys.set_signal Sys.sigterm (Sys.Signal_handle stop);
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1 writers));
+  Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0 writers));
 
   (* Enable the new logging library. *)
   Debug.set_facility Syslog.Local5;
@@ -713,9 +744,9 @@ let _ =
 
   debug "Starting the HTTP server ..";
   (* Eventually we should switch over to xcp_service to declare our services,
-     	   but since it doesn't support HTTP GET and PUT we keep the old code for now.
-     	   We must avoid creating the Unix domain socket twice, so we only call
-     	   Xcp_service.serve_forever if we are actually using the message-switch. *)
+   * but since it doesn't support HTTP GET and PUT we keep the old code for now.
+   * We must avoid creating the Unix domain socket twice, so we only call
+   * Xcp_service.serve_forever if we are actually using the message-switch. *)
   let (_: Thread.t) =
     Thread.create (fun () ->
         if !Xcp_client.use_switch then begin
@@ -729,7 +760,7 @@ let _ =
       ) () in
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.Exn.server Rrdd_bindings.Server.implementation);
 
-  ignore @@ Discover.start ();
+  ignore @@ Discover.start (List.map writer_basename stats_to_write);
   ignore @@ GCLog.start ();
 
   debug "Starting xenstore-watching thread ..";
@@ -744,7 +775,7 @@ let _ =
   debug "Creating monitoring loop thread ..";
   let () =
     try
-      Debug.with_thread_associated "main" monitor_loop ()
+      Debug.with_thread_associated "main" monitor_write_loop writers
     with _ ->
       error "monitoring loop thread has failed" in
 
