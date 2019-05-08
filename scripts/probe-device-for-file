@@ -4,6 +4,37 @@
 
 import os, sys
 import fsimage
+from contextlib import contextmanager
+
+# https://stackoverflow.com/a/17954769
+@contextmanager
+def stderr_redirected(to=os.devnull):
+    '''
+    import os
+
+    with stderr_redirected(to=filename):
+        print("from Python")
+        os.system("echo non-Python applications are also supported")
+    '''
+    fd = sys.stderr.fileno()
+
+    ##### assert that Python and C stdio write using the same file descriptor
+    ####assert libc.fileno(ctypes.c_void_p.in_dll(libc, "stderr")) == fd == 1
+
+    def _redirect_stderr(to):
+        sys.stderr.close() # + implicit flush()
+        os.dup2(to.fileno(), fd) # fd writes to 'to' file
+        sys.stderr = os.fdopen(fd, 'w') # Python writes to fd
+
+    with os.fdopen(os.dup(fd), 'w') as old_stderr:
+        with open(to, 'w') as file:
+            _redirect_stderr(to=file)
+        try:
+            yield # allow code to be run with the redirected stderr
+        finally:
+            _redirect_stderr(to=old_stderr) # restore stderr.
+                                            # buffering and flags such as
+                                            # CLOEXEC may be different
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -12,9 +43,11 @@ if __name__ == "__main__":
     device = sys.argv[1]
     file = sys.argv[2]
     try:
-        fs = fsimage.open(device, 0)
-        if fs.file_exists(file):
-            os._exit(0)
+        # CA-316241 - fsimage prints to stderr
+        with stderr_redirected(to="/dev/null"):
+            fs = fsimage.open(device, 0)
+            if fs.file_exists(file):
+                os._exit(0)
     except:
         pass
     os._exit(1)
