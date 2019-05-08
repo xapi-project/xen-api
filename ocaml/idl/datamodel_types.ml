@@ -92,7 +92,7 @@ let release_order_full = [{
      version_major = 1;
      version_minor = 2;
      branding      = "XenServer 4.1.1";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }; {
      code_name     = Some rel_orlando;
      version_major = 1;
@@ -104,7 +104,7 @@ let release_order_full = [{
      version_major = 1;
      version_minor = 3;
      branding      = "XenServer 5.0 Update 1";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }; {
      code_name     = None;
      version_major = 1;
@@ -158,7 +158,7 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 0;
      branding      = "XenServer 6.2 SP1 Tech-Preview";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }; {
      code_name     = Some rel_vgpu_productisation;
      version_major = 2;
