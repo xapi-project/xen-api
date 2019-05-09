@@ -336,6 +336,14 @@ let dss_mem_host xc =
        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true ~units:"KiB" ());
   ]
 
+(** estimate the space needed to serialize all the dss_mem_vms in a host.
+ * the json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes.
+ * these bytes plus some overhead make 1024 bytes an upper bound.
+ *)
+let max_supported_vms = 1024
+let bytes_per_mem_vm = 1024
+let mem_vm_writer_pages = (max_supported_vms * bytes_per_mem_vm + 4095) / 4096
+
 let dss_mem_vms doms =
   List.fold_left (fun acc dom ->
       let domid = dom.Xenctrl.domid in
@@ -683,15 +691,11 @@ let doc = String.concat "\n" [
     "This service maintains a list of registered datasources (shared memory pages containing metadata and time-varying values), periodically polls the datasources and records historical data in RRD format.";
   ]
 
-(** write memory stats to the filesystem so they can be propagated to xapi
- * The structure contains the name and the number of pages to dedicate to rrds
- * - mem_vms: ~1024 VMs supported * 1024 bytes per VM * (4096 bytes per page) = 256 pages
- *   The json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes.
- *   These bytes plus some overhead make 1024 bytes an upper bound.
- *)
+(** write memory stats to the filesystem so they can be propagated to xapi,
+ * along with the number of pages they require to be allocated *)
 let stats_to_write = [
   "mem_host", 1;
-  "mem_vms", 256
+  "mem_vms", mem_vm_writer_pages
 ]
 
 let writer_basename = (^) "xcp-rrdd-"
