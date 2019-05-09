@@ -683,21 +683,26 @@ let doc = String.concat "\n" [
     "This service maintains a list of registered datasources (shared memory pages containing metadata and time-varying values), periodically polls the datasources and records historical data in RRD format.";
   ]
 
-(** write memory stats to the filesystem so they can be propagated to xapi *)
+(** write memory stats to the filesystem so they can be propagated to xapi
+ * The structure contains the name and the number of pages to dedicate to rrds
+ * - mem_vms: ~1024 VMs supported * 1024 bytes per VM * (4096 bytes per page) = 256 pages
+ *   The json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes.
+ *   These bytes plus some overhead make 1024 bytes an upper bound.
+ *)
 let stats_to_write = [
-  "mem_host";
-  "mem_vms"
+  "mem_host", 1;
+  "mem_vms", 256
 ]
 
 let writer_basename = (^) "xcp-rrdd-"
 
 let configure_writers () =
   List.map
-    (fun name ->
+    (fun (name, n_pages) ->
       let path = Rrdd_server.Plugin.get_path (writer_basename name) in
       ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644);
       let writer = snd (Rrd_writer.FileWriter.create
-        {path; shared_page_count = 1}
+        {path; shared_page_count = n_pages}
         Rrd_protocol_v2.protocol
       ) in
       name, writer
@@ -760,7 +765,7 @@ let _ =
       ) () in
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () -> Idl.Exn.server Rrdd_bindings.Server.implementation);
 
-  ignore @@ Discover.start (List.map writer_basename stats_to_write);
+  ignore @@ Discover.start (List.map (fun (name, _) -> writer_basename name) stats_to_write);
   ignore @@ GCLog.start ();
 
   debug "Starting xenstore-watching thread ..";
