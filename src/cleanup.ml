@@ -174,6 +174,23 @@ module Runtime = struct
      handlers to stop the program.
      See https://github.com/ocsigen/lwt/issues/451 for details. *)
 
+  exception Signal of int
+
+  let exception_hook = function
+    | Signal n when n = Sys.sigterm ->
+      Printf.eprintf "SIGTERM received - exiting";
+      flush stderr;
+      exit 0
+    | Signal n when n = Sys.sigint ->
+      Printf.eprintf "SIGINT received - exiting";
+      flush stderr;
+      exit 0
+    | e ->
+      Printf.eprintf "unexpected exception %s in signal handler - exiting"
+        (Printexc.to_string e);
+      flush stderr;
+      exit 1
+
   let cleanup_resources signal =
     let cleanup () =
       Lwt_log.warning_f "Caught signal %d, cleaning up" signal >>= fun () ->
@@ -185,12 +202,12 @@ module Runtime = struct
       ignore_exn_log_error "Caught exception while cleaning up VBDs" (fun () ->
           VBD.Runtime.cleanup ()
         )
+      >>= fun () -> Lwt.fail (Signal signal)
     in
-
-    Lwt_main.run (cleanup ());
-    failwith (Printf.sprintf "Caught signal %d" signal)
+    Lwt.async cleanup
 
   let register_signal_handler () =
+    Lwt.async_exception_hook := exception_hook;
     let signals = [ Sys.sigint; Sys.sigterm ] in
     List.iter
       (fun s -> Lwt_unix.on_signal s cleanup_resources |> ignore)
