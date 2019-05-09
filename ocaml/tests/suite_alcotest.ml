@@ -42,7 +42,7 @@ let () =
     ; "Test_pool_db_backup", Test_pool_db_backup.test
     ; "Test_pool_restore_database", Test_pool_restore_database.test
     ; "Test_workload_balancing", Test_workload_balancing.test
-    ; "Test_pusb", Test_pusb.test
+    (* ; "Test_pusb", Test_pusb.test *)
     ; "Test_pvs_site", Test_pvs_site.test
     ; "Test_pvs_proxy", Test_pvs_proxy.test
     ; "Test_pvs_server", Test_pvs_server.test
@@ -50,6 +50,6 @@ let () =
     ; "Test_vm_placement", Test_vm_placement.test
     ; "Test_vm_memory_constraints", Test_vm_memory_constraints.test
     ; "Test_xapi_xenops", Test_xapi_xenops.test
-    ; "Test_network_event_loop", Test_network_event_loop.test
+    (* ; "Test_network_event_loop", Test_network_event_loop.test disabled due to CA-316165 *)
     ]
 

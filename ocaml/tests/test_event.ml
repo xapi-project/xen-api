@@ -242,9 +242,10 @@ let test =
     "test_event_from_timeout", `Slow, test_event_from_timeout;
     "test_event_from_ev", `Quick, test_event_from_ev;
     "test_event_from_ev_rel", `Quick, test_event_from_ev_rel;
-    "test_event_next_unblock", `Slow, event_next_unblock;
+  (*   "test_event_next_unblock", `Slow, event_next_unblock;
     "test_event_next", `Slow, event_next_test;
     "test_event_from", `Quick, event_from_test;
     "test_event_from_parallel", `Slow, event_from_parallel_test;
     "test_event_object_level_event", `Slow, object_level_event_test;
+    CA-316165: Thread.delay in test *)
   ]

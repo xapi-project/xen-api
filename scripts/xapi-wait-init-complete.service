@@ -1,0 +1,13 @@
+[Unit]
+Description=Wait for Xapi to complete initialisation
+Requires=xapi.service
+After=xapi.service
+Before=xapi-init-complete.target
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/xapi-wait-init-complete 240
+RemainAfterExit=yes
+
+[Install]
+WantedBy=xapi-init-complete.target
