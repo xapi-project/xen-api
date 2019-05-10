@@ -162,7 +162,6 @@ let reserve_free_virtual_function ~__context vm pf =
   get true
 
 let add_vgpus_to_vm ~__context host vm vgpus =
-  (* Only support a maximum of one virtual GPU per VM for now. *)
   (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
   debug "vGPUs allocated to VM (%s) are: %s" (Ref.string_of vm)
     (List.map (fun vgpu -> Ref.string_of vgpu.vgpu_ref) vgpus

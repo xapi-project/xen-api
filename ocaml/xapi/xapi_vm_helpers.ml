@@ -370,14 +370,8 @@ let has_non_allocated_vgpus ~__context ~self =
 let assert_gpus_available ~__context ~self ~host =
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
   let open Vgpuops in
-  let vgpurs = List.map (Vgpuops.vgpu_of_ref ~__context)  vgpus in
-  try
-    ignore (List.fold_left (fun pre_allocate_list vgpu -> Vgpuops.allocate_vgpu_to_gpu ~dry_run:true ~pre_allocate_list ~__context self host vgpu) [] vgpurs) 
-  with _ -> raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-      Ref.string_of self;
-      String.concat ";" (List.map Ref.string_of vgpus)
-    ]))
-
+  let vGPU_structs = List.map (Vgpuops.vgpu_of_ref ~__context)  vgpus in
+  ignore (List.fold_left (fun pre_allocate_list vgpu -> Vgpuops.allocate_vgpu_to_gpu ~dry_run:true ~pre_allocate_list ~__context self host vgpu) [] vGPU_structs)
 
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
