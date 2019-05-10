@@ -306,7 +306,7 @@ let set_GPU_group ~__context ~self ~value =
     )
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
-  match Xapi_pgpu_helpers.get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+  match Xapi_pgpu_helpers.get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list:[] with
   | Either.Left _ -> 0L
   | Either.Right capacity -> capacity
 

@@ -646,7 +646,7 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
 let group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type =
   let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:gpu_group in
   let can_accomodate_vgpu pgpu =
-    Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu
+    Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self:pgpu ~pre_allocate_list:[]
       ~vgpu_type > 0L
   in
   let viable_pgpus = List.filter can_accomodate_vgpu pgpus in

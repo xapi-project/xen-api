@@ -60,42 +60,13 @@ let allocate_vgpu_to_gpu ?(dry_run=false) ?(pre_allocate_list=[]) ~__context vm 
   let available_pgpus = Db.Host.get_PGPUs ~__context ~self:host in
   (* Get all pGPU from the required groups *)
   let compatible_pgpus = Db.GPU_group.get_PGPUs ~__context ~self:vgpu.gpu_group_ref in
-  let pgpus = List.intersect compatible_pgpus available_pgpus in
+  let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu.vgpu_ref in
 
-  let pgpu_can_hold_vgpu pgpu vgpu =
-    try Xapi_pgpu.assert_can_run_VGPU ~__context ~self:pgpu ~vgpu;true
-    with e -> false in
-  (* Get all pGPU that can hold the vGPU *)
-  let active_pgpus = List.filter ( fun pgpu -> pgpu_can_hold_vgpu pgpu vgpu.vgpu_ref ) pgpus in
-
-  let remaining_capacity_for_vgpu_from_pgpu vgpu pgpu =
-    let db_remaining =  Helpers.call_api_functions ~__context
-        (fun rpc session_id ->
-           Client.Client.PGPU.get_remaining_capacity ~rpc ~session_id
-             ~self:pgpu ~vgpu_type:vgpu.type_ref) in
-
-    let size_of_vgpu vgpu_ref =
-        let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu_ref in
-        Int64.to_float (Db.VGPU_type.get_size ~__context ~self:vgpu_type) in
-
-    let current_vgpu_size = size_of_vgpu vgpu.vgpu_ref in
-
-    let size_over_current_vGPU other =
-      let other_size = size_of_vgpu other in
-      other_size /. current_vgpu_size in
-
-    (* Check if any pre_allocation existed, the pre_allocation is a set of vGPU allocation that
-     * not reflected in the database, usually in the dry run mode, with following format
-     * [(v1,p1);(v2,p2);(v3,p1)...]*)
-    let virtual_allocation = List.fold_left (fun num ele ->
-        match ele with
-        |(cvgpu,cpgpu) when cpgpu = pgpu -> num +. (size_over_current_vGPU cvgpu)
-        |(_,_) -> num )
-        0. pre_allocate_list in
-    let virtual_available_allocation = Int64.of_float (ceil virtual_allocation) in
-    let result = Int64.sub db_remaining virtual_available_allocation in
-    if result < 0L then raise Api_errors.(Server_error (internal_error, ["The remaining cappacity cannot be negative"]))
-    else result in
+  (* Make a asso list as follows
+   * [(p1,capacity1);(p2,capacity2)...] *)
+  let pgpu_capacity_assoc = List.intersect compatible_pgpus available_pgpus
+                            |> List.map (fun self -> (self, Xapi_pgpu_helpers.get_remaining_capacity  ~__context ~pre_allocate_list ~self ~vgpu_type))
+                            |> List.filter (fun (_,capacity) -> capacity > 0L ) in
 
   (* Sort the pgpus in lists of equal optimality for vGPU placement based on
    * the GPU groups allocation algorithm *)
@@ -104,25 +75,16 @@ let allocate_vgpu_to_gpu ?(dry_run=false) ?(pre_allocate_list=[]) ~__context vm 
     | `depth_first -> false
     | `breadth_first -> true
   in
-  let sorted_pgpus = Helpers.sort_by_schwarzian ~descending:sort_desc
-      (fun pgpu -> remaining_capacity_for_vgpu_from_pgpu vgpu pgpu )
-      active_pgpus
-  in
-  let rec choose_pgpu = function
-    | [] -> None
-    | pgpu :: remaining ->
-      try
-        Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context
-          ~self:pgpu ~vgpu_type:vgpu.type_ref;
-        Some pgpu
-      with _ -> choose_pgpu remaining
-  in
-  match choose_pgpu sorted_pgpus with
-  | None -> fail_creation vm vgpu
-  | Some pgpu ->
+  (* Sort the pGPU list by the capacity for the target vGPU *)
+  Helpers.sort_by_schwarzian ~descending:sort_desc
+    (fun pgpu -> List.assoc pgpu pgpu_capacity_assoc )
+    (List.map (fun (pgpu,_)-> pgpu) pgpu_capacity_assoc)
+  |> function
+  | [] -> fail_creation vm vgpu
+  | hd::tail ->
     if not dry_run then
-      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu.vgpu_ref ~value:pgpu;
-    (vgpu.vgpu_ref,pgpu)::pre_allocate_list
+      Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu.vgpu_ref ~value:hd;
+    (vgpu.vgpu_ref,hd)::pre_allocate_list
 
 (* Take a PCI device and assign it, and any dependent devices, to the VM *)
 let add_pcis_to_vm ~__context host vm pci =

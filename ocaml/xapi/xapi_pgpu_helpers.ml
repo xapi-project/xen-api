@@ -91,7 +91,7 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
     raise (Api_errors.Server_error
              (Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms))
 
-let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
+let get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list  =
   try
     assert_VGPU_type_allowed ~__context ~self ~vgpu_type;
     let convert_capacity capacity =
@@ -109,14 +109,17 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
        * VM, the remaining capacity is binary. We simply return 0 if the PCI
        * device is currently passed-through to a VM, or is scheduled to be,
        * and 1 otherwise. *)
+      let pre_allocated = List.exists (fun (_,pgpu) -> pgpu = self ) pre_allocate_list in
       let pci = Db.PGPU.get_PCI ~__context ~self in
       let scheduled = List.length (get_scheduled_VGPUs ~__context ~self) > 0 in
       let attached = Db.PCI.get_attached_VMs ~__context ~self:pci <> [] in
-      convert_capacity (if scheduled || attached then 0L else 1L)
+      convert_capacity (if scheduled || attached || pre_allocated then 0L else 1L)
     else begin
       (* For virtual VGPUs, we calculate the number of times the VGPU_type's
        * size fits into the PGPU's (size - utilisation). *)
       let pgpu_size = Db.PGPU.get_size ~__context ~self in
+      let pgpu_pre_allocated_vGPUs = List.filter (fun (_,pgpu) -> pgpu = self) pre_allocate_list
+                                    |> List.map (fun (vgpu,_) -> vgpu) in
       let utilisation =
         List.fold_left
           (fun acc vgpu ->
@@ -125,24 +128,23 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
                Db.VGPU_type.get_size ~__context ~self:_type
              in
              Int64.add acc vgpu_size)
-          0L (get_allocated_VGPUs ~__context ~self)
+          0L ((get_allocated_VGPUs ~__context ~self) @ pgpu_pre_allocated_vGPUs)
       in
       let new_vgpu_size =
         Db.VGPU_type.get_size ~__context ~self:vgpu_type
       in
-      convert_capacity
-        (Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size)
+      convert_capacity (Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size)
     end
   with e ->
     Either.Left e
 
-let get_remaining_capacity ~__context ~self ~vgpu_type =
-  match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+let get_remaining_capacity ~__context ~self ~vgpu_type ~pre_allocate_list =
+  match get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list with
   | Either.Left _ -> 0L
   | Either.Right capacity -> capacity
 
 let assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type =
-  match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+  match get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list:[] with
   | Either.Left e -> raise e
   | Either.Right capacity -> ()
 
