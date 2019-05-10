@@ -1350,7 +1350,7 @@ type suspend_flag = Live | Debug
 
   let write_varstored_record task ~xs domid main_fd =
     let open Suspend_image in let open Suspend_image.M in
-    let varstored_record = Device.Dm.suspend_varstored task ~xs domid in
+    let varstored_record = Device.Dm.suspend_varstored task ~xs domid ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) in
     let varstored_rec_len = String.length varstored_record in
     debug "Writing varstored record (domid=%d length=%d)" domid varstored_rec_len;
     write_header main_fd (Varstored, Int64.of_int varstored_rec_len) >>= fun () ->

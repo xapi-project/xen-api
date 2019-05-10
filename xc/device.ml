@@ -1998,7 +1998,7 @@ module Dm_Common = struct
     let stop_varstored () =
       Varstored.stop ~xs domid;
       let dbg = Printf.sprintf "stop domid %d" domid in
-      Xenops_sandbox.Varstore_guard.stop dbg ~domid
+      Xenops_sandbox.Varstore_guard.stop dbg ~domid ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
     in
     stop_vgpu ();
     stop_varstored ();
@@ -3156,7 +3156,7 @@ module Dm = struct
 
   let restore_varstored (task: Xenops_task.task_handle) ~xs ~efivars domid =
     debug "Called Dm.restore_varstored (domid=%d)" domid;
-    let path = Xenops_sandbox.Varstore_guard.prepare ~domid efivars_resume_path in
+    let path = Xenops_sandbox.Varstore_guard.prepare ~domid ~vm_uuid:(Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid)) efivars_resume_path in
     debug "Writing EFI variables to %s (domid=%d)" path domid;
     Unixext.write_string_to_file path efivars;
     debug "Wrote EFI variables to %s (domid=%d)" path domid
