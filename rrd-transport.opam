@@ -14,6 +14,7 @@ depends: [
   "cstruct"
   "crc"
   "astring"
+  "ezjsonm"
   "xapi-idl" {>= "1.0.0"}
   "xapi-rrd" {>= "1.0.0"}
   "xen-gnt" {>= "3.0.0"}
