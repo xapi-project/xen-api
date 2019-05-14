@@ -70,7 +70,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xapi-test-utils
    stdext
    threads
-   xenctrl
    xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd
