@@ -19,6 +19,7 @@ depends: [
   "rpc" {>= "1.9.51" & < "5.0.0"} | ("rpclib" & "ppx_deriving_rpc")
   "xmlm"
   "uuidm"
+  "ezjsonm"
   "ounit" {with-test}
 ]
 synopsis: "RRD library for use with xapi"

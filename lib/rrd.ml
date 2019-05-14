@@ -692,55 +692,73 @@ let xml_to_output rrd output =
       do_rras rrd.rrd_rras output)
     output
 
+module Json = struct
 
-let json_to_string rrd =
-  let do_dss ds_list =
-    "ds:["^(String.concat "," (List.map (fun ds ->
-        "{name:\""^ds.ds_name^"\",type:\""^(match ds.ds_ty with Gauge -> "GAUGE" | Absolute -> "ABSOLUTE" | Derive -> "DERIVE")^
-        "\",minimal_heartbeat:" ^(Utils.f_to_s ds.ds_mrhb)^",min:"^(Utils.f_to_s ds.ds_min)^
-        ",max:"^(Utils.f_to_s ds.ds_max)^",last_ds:0.0,value:0.0,unknown_sec:0}") ds_list))^"]"
-  in
+  let string fmt = Printf.ksprintf (fun msg -> `String msg) fmt
+  let float x    = string "%.2f" x
+  let record xs  = `O xs
+  let array  xs  = `A xs
 
-  let do_rra_cdps cdp_list =
-    "ds:["^(String.concat "," (List.map (fun cdp ->
-        "{primary_value:0.0,secondary_value:0.0,value:"^(Utils.f_to_s cdp.cdp_value)^
-        ",unknown_datapoints:"^(Printf.sprintf "%d" cdp.cdp_unknown_pdps)^"}") cdp_list))^"]"
-  in
+  let ty = function
+    | Gauge     -> string "GAUGE"
+    | Absolute  -> string "ABSOLUTE"
+    | Derive    -> string "DERIVE"
 
-  let do_database rings =
-    if Array.length rings = 0 then "[]" else
+  let datasource ds =
+    record
+      [ "name"               , string "%s" ds.ds_name
+      ; "type"               , ty ds.ds_ty
+      ; "minimal_hearbeat"   , string "%s" (Utils.f_to_s ds.ds_mrhb)
+      ; "min"                , string "%s" (Utils.f_to_s ds.ds_min)
+      ; "max"                , string "%s" (Utils.f_to_s ds.ds_max)
+      ; "last_ds"            , float 0.0
+      ; "value"              , float 0.0
+      ; "unknown_sec"        , float 0.0
+      ]
+
+  let cdp x =
+    record
+      [ "primary_value"       , float 0.0
+      ; "secondary_value"     , float 0.0
+      ; "value"               , string "%s" (Utils.f_to_s x.cdp_value)
+      ; "unknown_datapoints"  , float @@ float_of_int @@ x.cdp_unknown_pdps
+      ]
+
+  let get rings rows row col =
+    Fring.peek rings.(col) (rows-row-1) |> Utils.f_to_s |> string "%s"
+
+  let database = function
+    | [||]  -> array []
+    | rings ->
       let rows = Fring.length rings.(0) in
       let cols = Array.length rings in
-      "["^(String.concat ","
-             (Array.to_list
-                (Array.init rows (fun row ->
-                     "["^(String.concat ","
-                            (Array.to_list
-                               (Array.init cols
-                                  (fun col ->
-                                     Utils.f_to_s
-                                       (Fring.peek rings.(col)
-                                          (rows-row-1))))))^"]"))))^"]"
-  in
+      array @@ Array.to_list @@ Array.init rows (fun row ->
+          array @@ Array.to_list @@ Array.init cols (fun col -> get rings rows row col))
 
-  let do_rras rra_list =
-    "rra:[{" ^ (String.concat "},{" (List.map (fun rra ->
-        "cf:\""^(cf_type_to_string rra.rra_cf)^
-        "\",pdp_per_row:"^(string_of_int rra.rra_pdp_cnt)^",params:{xff:"^(Utils.f_to_s rra.rra_xff)^"},cdp_prep:{"^(do_rra_cdps (Array.to_list rra.rra_cdps))^
-        "},database:"^(do_database rra.rra_data)) rra_list))^"}]"
-  in
+  let rra x =
+    record
+      [ "cf"           , string "%s" (cf_type_to_string x.rra_cf)
+      ; "pdp_per_row"  , string "%d" x.rra_pdp_cnt
+      ; "params"       , record
+          [ "xff", string "%s" (Utils.f_to_s x.rra_xff) ]
+      ; "cdp_prep"     , record
+          [ "ds" , array @@ List.map cdp @@ Array.to_list x.rra_cdps ]
+      ; "database"     , database x.rra_data
+      ]
+  let rrd x =
+    record
+      [ "version"     , string "0003"
+      ; "step"        , string "%Ld" x.timestep
+      ; "lastupdate"  , string "%s" (Utils.f_to_s x.last_updated)
+      ; "ds"          , array @@ List.map datasource @@ Array.to_list x.rrd_dss
+      ; "rra"         , array @@ List.map rra @@ Array.to_list x.rrd_rras
+      ]
+end
 
-  let b = Buffer.create 4096 in
-
-  Buffer.add_string b "{version: \"0003\",step:";
-  Buffer.add_string b (Int64.to_string rrd.timestep);
-  Buffer.add_string b ",lastupdate:";
-  Buffer.add_string b (Utils.f_to_s rrd.last_updated);
-  Buffer.add_string b ",";
-  Buffer.add_string b (do_dss (Array.to_list rrd.rrd_dss));
-  Buffer.add_string b ",";
-  Buffer.add_string b (do_rras (Array.to_list rrd.rrd_rras)^"}"); (* XXX need to split this *)
-  Buffer.contents b
+let json_to_string rrd =
+  let buf    = Buffer.create 4096 in
+  let ()     = Ezjsonm.to_buffer buf (Json.rrd rrd) in
+    Buffer.contents buf
 
 module Statefile_latency = struct
   type t = {id: string; latency: float option} [@@deriving rpc]
