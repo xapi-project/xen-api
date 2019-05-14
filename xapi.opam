@@ -54,7 +54,6 @@ depends: [
   "xapi-xenopsd"
   "xapi-idl"
   "xapi-inventory"
-  "xenctrl"
   "xml-light2"
   "yojson"
   "zstd"
