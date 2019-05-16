@@ -43,14 +43,18 @@ val assert_no_resident_VGPUs_of_type :
 val get_remaining_capacity_internal :
   __context:Context.t ->
   self:API.ref_PGPU ->
-  vgpu_type:API.ref_VGPU_type -> (exn, int64) Stdext.Either.t
+  vgpu_type:API.ref_VGPU_type ->
+  pre_allocate_list:(API.ref_VGPU * API.ref_PGPU) list ->
+  (exn, int64) Stdext.Either.t
 
 (* Return the number of VGPUs of the specified type for which capacity
  * remains on the PGPU. *)
 val get_remaining_capacity :
   __context:Context.t ->
   self:API.ref_PGPU ->
-  vgpu_type:API.ref_VGPU_type -> int64
+  vgpu_type:API.ref_VGPU_type ->
+  pre_allocate_list:(API.ref_VGPU * API.ref_PGPU) list ->
+  int64
 
 (** Check that the PGPU has capacity to run the specified VGPU. *)
 val assert_capacity_exists_for_VGPU_type :

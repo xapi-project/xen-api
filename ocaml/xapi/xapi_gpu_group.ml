@@ -120,7 +120,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
   let capacity, exceptions = List.fold_left
       (fun (capacity, exceptions) pgpu ->
          match
-           Xapi_pgpu_helpers.get_remaining_capacity_internal
+           Xapi_pgpu_helpers.get_remaining_capacity_internal ~pre_allocate_list:[]
              ~__context ~self:pgpu ~vgpu_type
          with
          | Either.Left e -> (capacity, e :: exceptions)
