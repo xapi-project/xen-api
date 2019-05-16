@@ -61,6 +61,7 @@ let rel_jura = "jura"
 let rel_kolkata = "kolkata"
 let rel_lima = "lima"
 let rel_naples = "naples"
+let rel_oslo = "oslo"
 let rel_plymouth = "plymouth"
 
 type api_release = {
@@ -91,7 +92,7 @@ let release_order_full = [{
      version_major = 1;
      version_minor = 2;
      branding      = "XenServer 4.1.1";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }; {
      code_name     = Some rel_orlando;
      version_major = 1;
@@ -103,7 +104,7 @@ let release_order_full = [{
      version_major = 1;
      version_minor = 3;
      branding      = "XenServer 5.0 Update 1";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }; {
      code_name     = None;
      version_major = 1;
@@ -157,7 +158,7 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 0;
      branding      = "XenServer 6.2 SP1 Tech-Preview";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }; {
      code_name     = Some rel_vgpu_productisation;
      version_major = 2;
@@ -249,9 +250,15 @@ let release_order_full = [{
      branding      = "Citrix Hypervisor 8.0";
      release_date  = Some "March 2019";
    }; {
-     code_name     = Some rel_plymouth;
+     code_name     = Some rel_oslo;
      version_major = 2;
      version_minor = 13;
+     branding      = "Unreleased";
+     release_date  = None;
+   }; {
+     code_name     = Some rel_plymouth;
+     version_major = 2;
+     version_minor = 14;
      branding      = "Unreleased";
      release_date  = None;
    }

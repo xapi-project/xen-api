@@ -103,7 +103,7 @@ let tech_preview_releases = [
 (* Normally xencenter_min_verstring and xencenter_max_verstring in the xapi_globs should be set to the same value,
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
-let api_version_minor = 13L
+let api_version_minor = 14L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
