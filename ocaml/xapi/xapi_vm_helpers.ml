@@ -49,7 +49,7 @@ let ensure_domain_type_is_specified ~__context ~self =
   if Db.VM.get_domain_type ~__context ~self = `unspecified then
     Db.VM.get_HVM_boot_policy ~__context ~self
     |> fun hbp -> derive_domain_type ~hVM_boot_policy:hbp
-    |> fun value -> Db.VM.set_domain_type ~__context ~self ~value
+                  |> fun value -> Db.VM.set_domain_type ~__context ~self ~value
 
 let derive_hvm_boot_policy ~domain_type =
   if domain_type = `hvm then
@@ -239,17 +239,17 @@ let validate_basic_parameters ~__context ~self ~snapshot:x =
 let assert_vm_supports_quiesce_snapshot ~__context ~self =
   let vmr = Db.VM.get_record_internal ~__context ~self in
   if List.exists ( fun vbd ->
-    try
-      let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
-      let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-      Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset"
-    with _ -> false
-  ) vmr.Db_actions.vM_VBDs then
+      try
+        let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+        let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+        Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset"
+      with _ -> false
+    ) vmr.Db_actions.vM_VBDs then
     raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [ ]));
 
   let vmgmr = Xapi_vm_lifecycle.maybe_get_guest_metrics ~__context ~ref:(vmr.Db_actions.vM_guest_metrics) in
   if not ((Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-snapshot") ||
-    (Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-quiesce")) then
+          (Xapi_vm_lifecycle.has_feature ~vmgmr ~feature:"feature-quiesce")) then
     raise (Api_errors.Server_error(Api_errors.vm_snapshot_with_quiesce_not_supported, [ Ref.string_of self ]))
 
 let assert_hardware_platform_support ~__context ~vm ~host =
@@ -357,64 +357,35 @@ let has_non_allocated_vgpus ~__context ~self =
   |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
   |> (<>) []
 
+(* This function assert the host has enough gpu resource for the VM 
+ * The detailed method as follows
+ * 1. Set the pre_allocate_list to []
+ * 2. Dry run the allocation process for the first vgpu of the remainding vGPU list of the VM
+ * 3.1 if step 2 failed, the assertion return with failure
+ * 3.2 if step 2 succeed, accumulate the allocation for current vGPU in the pre_allocate_list
+ * 4. Remove the list head from the remainding vGPU list of the VM
+ * 5. Repeat step 2-4 until fail or the remainding list is empty
+ * 6. Return success
+ * *)
 let assert_gpus_available ~__context ~self ~host =
-  let this = "assert_gpus_available" in
   let vgpus = Db.VM.get_VGPUs ~__context ~self in
-  let reqd_groups =
-    List.map (fun self -> Db.VGPU.get_GPU_group ~__context ~self) vgpus in
-  let is_pgpu_available pgpu vgpu =
-    try
-      Xapi_pgpu.assert_can_run_VGPU ~__context ~self:pgpu ~vgpu;
-      Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~vgpu ~pgpu
-    with e ->
-      debug "%s (%s) exception: %s" this __LOC__ (Printexc.to_string e);
-      false
-  in
-  let can_run_vgpu_on host vgpu =
-    let group = Db.VGPU.get_GPU_group ~__context ~self:vgpu in
-    let pgpus = Db.GPU_group.get_PGPUs ~__context ~self:group in
-    let avail_pgpus =
-      List.filter
-        (fun pgpu -> is_pgpu_available pgpu vgpu)
-        pgpus
-    in
-    let hosts = List.map (fun self -> Db.PGPU.get_host ~__context ~self) avail_pgpus in
-    List.mem host hosts
-  in
-  let runnable_vgpus = List.filter (can_run_vgpu_on host) vgpus in
-  let avail_groups =
-    List.map
-      (fun self -> Db.VGPU.get_GPU_group ~__context ~self)
-      runnable_vgpus
-  in
-  let not_available = List.set_difference reqd_groups avail_groups in
-
-  List.iter
-    (fun group -> warn "Host %s does not have a pGPU from group %s available"
-        (Helpers.checknull
-           (fun () -> Db.Host.get_name_label ~__context ~self:host))
-        (Helpers.checknull
-           (fun () -> Db.GPU_group.get_name_label ~__context ~self:group)))
-    not_available;
-  if not_available <> [] then
-    raise (Api_errors.Server_error (Api_errors.vm_requires_gpu, [
-        Ref.string_of self;
-        Ref.string_of (List.hd not_available)
-      ]))
+  let open Vgpuops in
+  let vGPU_structs = List.map (Vgpuops.vgpu_of_ref ~__context)  vgpus in
+  ignore (List.fold_left (fun pre_allocate_list vgpu -> Vgpuops.allocate_vgpu_to_gpu ~dry_run:true ~pre_allocate_list ~__context self host vgpu) [] vGPU_structs)
 
 let assert_usbs_available ~__context ~self ~host =
   Db.VM.get_VUSBs ~__context ~self
   |> List.iter (fun vusb ->
-    try
-      let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
-      let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
-      let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
-      assert (usb_host = host)
-    with _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-      [Printf.sprintf "VUSB %s is not available on Host %s"
-        (Ref.string_of vusb)
-        (Ref.string_of host)
-      ]))
+      try
+        let usb_group = Db.VUSB.get_USB_group ~__context ~self:vusb in
+        let pusb = List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group) in
+        let usb_host = Db.PUSB.get_host ~__context ~self:pusb in
+        assert (usb_host = host)
+      with _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+                                                [Printf.sprintf "VUSB %s is not available on Host %s"
+                                                   (Ref.string_of vusb)
+                                                   (Ref.string_of host)
+                                                ]))
     )
 
 (* 1.To avoid redundant checks,for each VF if it was reserved, then it's no need to check remaining capacity again.
@@ -431,9 +402,9 @@ let assert_netsriov_available ~__context ~self ~host =
           let required, pif = List.assoc network acc in
           (network,(required + 1,pif)) :: (List.remove_assoc network acc)
         with Not_found ->
-          match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host with
-          | Some pif -> (network,(1,pif)) :: acc
-          | None -> acc
+        match Xapi_network_sriov_helpers.get_local_underlying_pif ~__context ~network ~host with
+        | Some pif -> (network,(1,pif)) :: acc
+        | None -> acc
       end
     ) [] (Db.VM.get_VIFs ~__context ~self)
   in
@@ -475,9 +446,9 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
 let assert_matches_control_domain_affinity ~__context ~self ~host =
   if Db.VM.get_is_control_domain ~__context ~self then
     match Db.VM.get_affinity ~__context ~self with
-     | x when x = Ref.null || x = host -> ()
-     | _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
-             ["Cannot boot a control domain on a host different from its affinity"]))
+    | x when x = Ref.null || x = host -> ()
+    | _ -> raise (Api_errors.Server_error (Api_errors.operation_not_allowed,
+                                           ["Cannot boot a control domain on a host different from its affinity"]))
 
 let assert_enough_pcpus ~__context ~self ~host ?remote () =
   let vcpus = Db.VM.get_VCPUs_max ~__context ~self in
@@ -490,13 +461,13 @@ let assert_enough_pcpus ~__context ~self ~host ?remote () =
     let platformdata = Db.VM.get_platform ~__context ~self in
     if Vm_platform.(is_true ~key:vcpu_unrestricted ~platformdata ~default:false) then
       warn "Allowing VM %s to run on host %s, even though #vCPUs > #pCPUs (%Ld > %Ld), \
-        because platform:vcpu-unrestricted is set"
+            because platform:vcpu-unrestricted is set"
         (Ref.string_of self) (Ref.string_of host) vcpus pcpus
     else
       raise Api_errors.(Server_error (
-        host_not_enough_pcpus,
-        List.map Int64.to_string [vcpus; pcpus]
-      ))
+          host_not_enough_pcpus,
+          List.map Int64.to_string [vcpus; pcpus]
+        ))
 
 (** Checks to see if a VM can boot on a particular host, throws an error if not.
  * Criteria:
@@ -541,9 +512,9 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
   assert_usbs_available ~__context ~self ~host;
   assert_netsriov_available ~__context ~self ~host;
   begin match Helpers.domain_type ~__context ~self with
-  | `hvm | `pv_in_pvh ->
-    assert_host_supports_hvm ~__context ~self ~host
-  | `pv -> ()
+    | `hvm | `pv_in_pvh ->
+      assert_host_supports_hvm ~__context ~self ~host
+    | `pv -> ()
   end;
   if do_memory_check then
     assert_enough_memory_available ~__context ~self ~host ~snapshot;
@@ -666,8 +637,8 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
   in
   try host_has_proper_version ()
-    && (is_control_domain || host_enabled ()) (*CA-233580: allow control domains to start on a disabled host*)
-    && host_live () && host_can_run_vm () && host_evacuate_in_progress
+      && (is_control_domain || host_enabled ()) (*CA-233580: allow control domains to start on a disabled host*)
+      && host_live () && host_can_run_vm () && host_evacuate_in_progress
   with _ -> false
 
 let vm_has_vgpu ~__context ~vm  =
@@ -717,7 +688,7 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
          Db.Host.get_PGPUs ~__context ~self:host
          |> Listext.List.intersect pgpus_in_group
          |> List.fold_left ( fun count self ->
-             Int64.add count (Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self ~vgpu_type)) 0L
+             Int64.add count (Xapi_pgpu_helpers.get_remaining_capacity ~__context ~self ~vgpu_type ~pre_allocate_list:[])) 0L
       ) hosts
     |> List.map (fun g -> List.map (fun (h,_)-> h) g)
 
@@ -742,7 +713,7 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
       |> rank_hosts_by_best_vgpu ~__context vgpu
     | `Netsriov network ->
       let host_group = Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context ~network
-        |> List.map (fun g -> List.map (fun (h,_)-> h) g)
+                       |> List.map (fun g -> List.map (fun (h,_)-> h) g)
       in
       if host_group <> [] then host_group
       else raise (Api_errors.Server_error(Api_errors.network_sriov_insufficient_capacity, [Ref.string_of network]))
@@ -797,9 +768,9 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
             | ["WLB"; "0.0"; rec_id; zero_reason] ->
               filter_and_convert tl
             | ["WLB"; stars; rec_id] ->
-                let st = try float_of_string stars with Failure _ -> raise Float_of_string_failure
-                in
-                (h, st, rec_id) :: filter_and_convert tl
+              let st = try float_of_string stars with Failure _ -> raise Float_of_string_failure
+              in
+              (h, st, rec_id) :: filter_and_convert tl
             | _ -> filter_and_convert tl
           end
         | [] -> []
@@ -1101,20 +1072,20 @@ let assert_valid_bios_strings ~__context ~value =
   (* Validate size of value provided is within bios_string_limit_size and not empty *)
   (* Validate value chars are printable ASCII characters *)
   value |> List.iter (fun (k, v) ->
-    if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
-      raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Unknown key"]));
-    match String.length v with
-    | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
-    | len when len > Xapi_globs.bios_string_limit_size ->
-      let err = Printf.sprintf "%s has length more than %d characters" v Xapi_globs.bios_string_limit_size in
-      raise (Api_errors.Server_error(Api_errors.invalid_value, [k; err]))
-    | _ ->
-      String.iter
-        (fun c ->
-          if c < (Char.chr 32) || c >= (Char.chr 127) then
-            raise (Api_errors.Server_error(Api_errors.invalid_value, [k; v ^ " has non-printable ASCII characters"]))
-        ) v
-  )
+      if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
+        raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Unknown key"]));
+      match String.length v with
+      | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
+      | len when len > Xapi_globs.bios_string_limit_size ->
+        let err = Printf.sprintf "%s has length more than %d characters" v Xapi_globs.bios_string_limit_size in
+        raise (Api_errors.Server_error(Api_errors.invalid_value, [k; err]))
+      | _ ->
+        String.iter
+          (fun c ->
+             if c < (Char.chr 32) || c >= (Char.chr 127) then
+               raise (Api_errors.Server_error(Api_errors.invalid_value, [k; v ^ " has non-printable ASCII characters"]))
+          ) v
+    )
 
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)
@@ -1179,9 +1150,9 @@ let ensure_device_model_profile_present ~__context ~domain_type ~is_a_template ?
   let trad    = Vm_platform.(device_model, fallback_device_model_stage_1) in
   if is_a_template then platform
   else
-    if not needs_qemu || List.mem_assoc Vm_platform.device_model platform then
-      (* upgrade existing Device Model entry *)
-      platform |> List.map (fun entry -> if entry = trad then default else entry)
-    else (* only add device-model to an HVM VM platform if it is not already there *)
-      default :: platform
+  if not needs_qemu || List.mem_assoc Vm_platform.device_model platform then
+    (* upgrade existing Device Model entry *)
+    platform |> List.map (fun entry -> if entry = trad then default else entry)
+  else (* only add device-model to an HVM VM platform if it is not already there *)
+    default :: platform
 
