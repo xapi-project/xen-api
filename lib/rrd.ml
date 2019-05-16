@@ -711,9 +711,13 @@ module Json = struct
       ; "minimal_hearbeat"   , string "%s" (Utils.f_to_s ds.ds_mrhb)
       ; "min"                , string "%s" (Utils.f_to_s ds.ds_min)
       ; "max"                , string "%s" (Utils.f_to_s ds.ds_max)
-      ; "last_ds"            , float 0.0
-      ; "value"              , float 0.0
-      ; "unknown_sec"        , float 0.0
+      ; "last_ds",           ( match ds.ds_last with
+                             | VT_Float x -> string "%s" (Utils.f_to_s x)
+                             | VT_Int64 x -> string "%Ld" x
+                             | _          -> float 0.0
+                             )
+      ; "value"              , string "%s" (Utils.f_to_s ds.ds_value)
+      ; "unknown_sec"        , string "%d" (int_of_float ds.ds_unknown_sec)
       ]
 
   let cdp x =
