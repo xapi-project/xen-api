@@ -14,11 +14,11 @@ install: build
 	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(BINDIR)/rrd2csv
 	mkdir -p $(DESTDIR)$(MANDIR)
-	install -m 644 man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1.man
+	install -m 644 man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/rrd2csv
-	rm -f $(DESTDIR)$(MANDIR)/rrd2csv.1.man
+	rm -f $(DESTDIR)$(MANDIR)/rrd2csv.1
 
 clean:
 	dune clean
