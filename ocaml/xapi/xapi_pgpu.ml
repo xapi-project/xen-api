@@ -306,13 +306,18 @@ let set_GPU_group ~__context ~self ~value =
     )
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
-  match Xapi_pgpu_helpers.get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+  match Xapi_pgpu_helpers.get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list:[] with
   | Either.Left _ -> 0L
   | Either.Right capacity -> capacity
 
 let assert_can_run_VGPU ~__context ~self ~vgpu =
   let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
-  Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type
+  Xapi_pgpu_helpers.assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type;
+
+  (** Check whether Nvidia NVML allow the vGPU by gpumon *)
+  let nvidia_compatible = Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~vgpu ~pgpu:self in
+  if not nvidia_compatible then
+    raise (Api_errors.Server_error(Api_errors.internal_error, [ "Gpumon report pgpu is not compatible with the vgpu"; Ref.string_of self; Ref.string_of vgpu_type]))
 
 let update_dom0_access ~__context ~self ~action =
   let db_current = Db.PGPU.get_dom0_access ~__context ~self in
