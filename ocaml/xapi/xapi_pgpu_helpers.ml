@@ -50,20 +50,29 @@ let get_allocated_VGPUs ~__context ~self =
 
 let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
   assert_VGPU_type_enabled ~__context ~self ~vgpu_type;
-  (match get_allocated_VGPUs ~__context ~self with
-   | [] -> ()
-   | resident_VGPU :: _ ->
-     let running_type =
-       Db.VGPU.get_type ~__context ~self:resident_VGPU
-     in
-     if running_type <> vgpu_type
-     then raise (Api_errors.Server_error (
-         Api_errors.vgpu_type_not_compatible_with_running_type,
-         [
-           Ref.string_of self;
-           Ref.string_of vgpu_type;
-           Ref.string_of running_type;
-         ])))
+  let allocated_vgpu_list = get_allocated_VGPUs ~__context ~self in
+  (* Theh new vGPU must compatible with all the allocated vGPUs on the pGPU,
+   * Namely, the new vGPU type must in the compatible_types_on_pgpu of all the allocated vGPUs *)
+  let compatible_with_new_vGPU_type vgpu =
+    vgpu
+    |> (fun self -> Db.VGPU.get_type ~__context ~self)
+    |> (fun self -> Db.VGPU_type.get_compatible_types_on_pgpu ~__context ~self)
+    |> List.map Ref.of_string
+    |> List.mem vgpu_type in
+
+  let compatible_on_pgpu = List.for_all compatible_with_new_vGPU_type allocated_vgpu_list in
+
+  if not compatible_on_pgpu then
+    let sep = ";" in
+    raise (Api_errors.Server_error (
+        Api_errors.vgpu_type_not_compatible_with_running_type, [
+          Ref.string_of self;
+          Ref.string_of vgpu_type;
+          List.map (fun self-> Db.VGPU.get_type ~__context ~self) allocated_vgpu_list
+          |> List.sort_uniq Pervasives.compare
+          |> List.map (fun vgpu_type_ref -> Ref.string_of vgpu_type_ref)
+          |> String.concat sep
+        ]))
 
 let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
   let open Db_filter_types in
@@ -82,7 +91,7 @@ let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
     raise (Api_errors.Server_error
              (Api_errors.pgpu_in_use_by_vm, List.map Ref.string_of vms))
 
-let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
+let get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list  =
   try
     assert_VGPU_type_allowed ~__context ~self ~vgpu_type;
     let convert_capacity capacity =
@@ -100,14 +109,17 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
        * VM, the remaining capacity is binary. We simply return 0 if the PCI
        * device is currently passed-through to a VM, or is scheduled to be,
        * and 1 otherwise. *)
+      let pre_allocated = List.exists (fun (_,pgpu) -> pgpu = self ) pre_allocate_list in
       let pci = Db.PGPU.get_PCI ~__context ~self in
       let scheduled = List.length (get_scheduled_VGPUs ~__context ~self) > 0 in
       let attached = Db.PCI.get_attached_VMs ~__context ~self:pci <> [] in
-      convert_capacity (if scheduled || attached then 0L else 1L)
+      convert_capacity (if scheduled || attached || pre_allocated then 0L else 1L)
     else begin
       (* For virtual VGPUs, we calculate the number of times the VGPU_type's
        * size fits into the PGPU's (size - utilisation). *)
       let pgpu_size = Db.PGPU.get_size ~__context ~self in
+      let pgpu_pre_allocated_vGPUs = List.filter (fun (_,pgpu) -> pgpu = self) pre_allocate_list
+                                    |> List.map (fun (vgpu,_) -> vgpu) in
       let utilisation =
         List.fold_left
           (fun acc vgpu ->
@@ -116,24 +128,23 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
                Db.VGPU_type.get_size ~__context ~self:_type
              in
              Int64.add acc vgpu_size)
-          0L (get_allocated_VGPUs ~__context ~self)
+          0L ((get_allocated_VGPUs ~__context ~self) @ pgpu_pre_allocated_vGPUs)
       in
       let new_vgpu_size =
         Db.VGPU_type.get_size ~__context ~self:vgpu_type
       in
-      convert_capacity
-        (Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size)
+      convert_capacity (Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size)
     end
   with e ->
     Either.Left e
 
-let get_remaining_capacity ~__context ~self ~vgpu_type =
-  match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+let get_remaining_capacity ~__context ~self ~vgpu_type ~pre_allocate_list =
+  match get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list with
   | Either.Left _ -> 0L
   | Either.Right capacity -> capacity
 
 let assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type =
-  match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
+  match get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list:[] with
   | Either.Left e -> raise e
   | Either.Right capacity -> ()
 
@@ -212,9 +223,9 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
     | `nvidia ->
       Db.VGPU.get_GPU_group ~__context ~self:vgpu
       |> fun self -> Db.GPU_group.get_GPU_types ~__context ~self
-      |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
-      |> fun pgpu ->
-        assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
+                     |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
+                                          |> fun pgpu ->
+                                          assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~host ?remote ()
   in
   let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
   let _mapped, unmapped = List.partition (fun vgpu -> List.mem_assoc vgpu vgpu_map) vgpus in
