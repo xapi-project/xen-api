@@ -20,7 +20,6 @@ open OUnit
 let default_path = "/var/xapi/xenopsd"
 
 open Xenops_interface
-open Xenops_client
 open Xenops_utils
 
 let usage_and_exit () =

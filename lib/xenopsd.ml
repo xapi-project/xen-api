@@ -26,6 +26,7 @@ let persist = ref true
 let worker_pool_size = ref 4
 
 let run_hotplug_scripts = ref true
+let use_old_pci_add = ref false
 let hotplug_timeout = ref 300.
 let qemu_dm_ready_timeout = ref 300.
 let vgpu_ready_timeout = ref 30.
@@ -52,6 +53,7 @@ let options = [
   "worker-pool-size", Arg.Set_int worker_pool_size, (fun () -> string_of_int !worker_pool_size), "Number of threads for the worker pool";
   "database-path", Arg.String (fun x -> Xenops_utils.root := Some x), (fun () -> Xenops_utils.get_root ()), "Location to store the metadata";
   "run_hotplug_scripts", Arg.Bool (fun x -> run_hotplug_scripts := x), (fun () -> string_of_bool !run_hotplug_scripts), "True if xenopsd should execute the hotplug scripts directly";
+  "use_old_pci_add", Arg.Bool (fun x -> use_old_pci_add := x), (fun () -> string_of_bool !use_old_pci_add), "True if xenopsd should use the old pci add function";
   "hotplug_timeout", Arg.Set_float hotplug_timeout, (fun () -> string_of_float !hotplug_timeout), "Time before we assume hotplug scripts have failed";
   "qemu_dm_ready_timeout", Arg.Set_float qemu_dm_ready_timeout, (fun () -> string_of_float !qemu_dm_ready_timeout), "Time before we assume qemu has become stuck";
   "vgpu-ready-timeout", Arg.Set_float vgpu_ready_timeout, (fun () -> string_of_float !vgpu_ready_timeout), "Time before we assume vgpu has become stuck or unresponsive";

@@ -1141,13 +1141,30 @@ module PCI = struct
     driver: string;
   }
 
+  exception Domain_not_running of Xenops_interface.Pci.address * int
   exception Cannot_add of Xenops_interface.Pci.address list * exn (* devices, reason *)
-  exception Cannot_use_pci_with_no_pciback of t list
 
+  let () =
+    Printexc.register_printer (function
+        | Domain_not_running (addr, domid) ->
+          Some (Printf.sprintf "Domain_not_running(inserting pci=%s,domid=%d)"
+                  (Xenops_interface.Pci.string_of_address addr) domid)
+        | Cannot_add (devices, e) ->
+          let addrs = devices |> List.map Xenops_interface.Pci.string_of_address
+                      |> String.concat ";" in
+          Some (Printf.sprintf "Cannot_add(%s, %s)" addrs (Printexc.to_string e))
+        | Ioemu_failed(name, msg) ->
+          Some (Printf.sprintf "Ioemu_failed(%s, %s)" name msg)
+        | _ -> None)
+
+
+  (* From https://github.com/torvalds/linux/blob/v4.19/include/linux/pci.h#L76-L102 *)
   (* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
   let _proc_pci_num_resources = 7
   (* same as libxl_internal: PCI_BAR_IO *)
-  let _pci_bar_io = 0x01L
+  let _pci_bar_io = 0x01n
+  let _page_size = 4096n
+  let _xen_domctl_dev_rdm_relaxed = 1
 
   (* XXX: we don't want to use the 'xl' command here because the "interface"
      isn't considered as stable as the C API *)
@@ -1195,18 +1212,76 @@ module PCI = struct
     (* Sort into the order the devices were plugged *)
     List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
-  let add ~xs pcidevs domid =
+  let encode_bdf pci =
+    (pci.Xenops_interface.Pci.domain lsl 16)
+    lor ((pci.bus land 0xff) lsl 8)
+    lor ((pci.dev land 0x1f) lsl 3)
+    lor (pci.fn  land 0x7)
+
+  let _pci_add ~xc ~xs ~hvm domid (host, (_, guest)) =
+    let open Xenops_interface.Pci in
+    let sysfs_pci_dev = "/sys/bus/pci/devices/" in
+    let devfn = match guest with None -> None | Some g -> Some (g.dev, g.fn) in
+    let irq = (sysfs_pci_dev ^ (Pci.string_of_address host) ^ "/irq")
+              |> Unixext.string_of_file |> String.trim
+              |> int_of_string in
+    if hvm then begin
+      if (Qemu.is_running ~xs domid) then
+        begin
+          let id = Printf.sprintf "pci-pt-%02x_%02x.%01x" host.bus host.dev host.fn in
+          let _qmp_result = qmp_send_cmd domid
+              (Qmp.Device_add {driver="xen-pci-passthrough";
+                               device=Qmp.Device.PCI({id;
+                                                      devfn;
+                                                      hostaddr=string_of_address host;
+                                                      permissive=false})}) in
+          ()
+        end
+      else
+        raise (Domain_not_running (host, domid));
+    end;
+    let addresses = (sysfs_pci_dev ^ (string_of_address host) ^ "/resource")
+                    |> Unixext.string_of_file
+                    |> String.split_on_char '\n'
+    in
+    let apply_io_permission i addr =
+      if i < _proc_pci_num_resources then
+        Scanf.sscanf addr "0x%nx 0x%nx 0x%nx" @@ fun scan_start scan_end scan_flags ->
+        if scan_start <> 0n then
+          let scan_size = Nativeint.(sub scan_end scan_start |> succ) in
+          if Nativeint.(logand scan_flags _pci_bar_io > 0n) then begin
+            Xenctrl.domain_ioport_permission xc domid (Nativeint.to_int scan_start)
+              (Nativeint.to_int scan_size) true
+          end else begin
+            let scan_start = Nativeint.(shift_right_logical scan_start 12) in
+            let scan_size = Nativeint.(shift_right_logical (add _page_size scan_size |> pred) 12) in
+            Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
+          end
+    in
+    List.iteri apply_io_permission addresses;
+    if irq > 0 then begin
+      Xenctrlext.physdev_map_pirq xc domid irq
+      |> fun x -> Xenctrl.domain_irq_permission xc domid x true
+    end;
+    Xenctrlext.assign_device xc domid (encode_bdf host) _xen_domctl_dev_rdm_relaxed
+
+
+  let add ~xc ~xs ~hvm pcidevs domid =
     try
-      let current = read_pcidir ~xs domid in
-      let next_idx = List.fold_left max (-1) (List.map fst current) + 1 in
-      add_xl pcidevs domid;
-      List.iteri
-        (fun count address ->
+      if !Xenopsd.use_old_pci_add then
+        add_xl (List.map (fun (a,_) -> a) pcidevs) domid
+      else
+        List.iter (_pci_add ~xc ~xs ~hvm domid) pcidevs;
+      List.iter
+        (fun (pcidev, (dev, _)) ->
            xs.Xs.write
-             (device_model_pci_device_path xs 0 domid ^ "/dev-" ^ string_of_int (next_idx + count))
-             (Xenops_interface.Pci.string_of_address address))
+             (Printf.sprintf "%s/dev-%d" (device_model_pci_device_path xs 0 domid) dev)
+             (Pci.string_of_address pcidev))
         pcidevs
-    with exn -> raise (Cannot_add (pcidevs, exn))
+    with exn ->
+      Backtrace.is_important exn;
+      Debug.log_backtrace exn (Backtrace.get exn);
+      Backtrace.reraise exn (Cannot_add ((List.map fst pcidevs), exn))
 
   let release pcidevs domid =
     release_xl pcidevs domid
@@ -1444,9 +1519,7 @@ module PCI = struct
       )
 
   (* Return a list of PCI devices *)
-  let list ~xs domid =
-    (* replace the sort index with the default '0' -- XXX must figure out whether this matters to anyone *)
-    List.map (fun (_, y) -> (0, y)) (read_pcidir ~xs domid)
+  let list = read_pcidir
 
   (* We explicitly add a device frontend in the hotplug case so the device watch code
      can find the backend and monitor it. *)
@@ -2120,6 +2193,8 @@ module Backend = struct
 
       (** [after_suspend_image xs qemu_domid domid] hook to execute actions after the suspend image has been created *)
       val after_suspend_image: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
+
+      val pci_assign_guest: xs:Xenstore.Xs.xsh -> qemu_domid:Xenctrl.domid -> index:int -> host:Pci.address -> Pci.address option
     end
   end
 
@@ -2163,6 +2238,8 @@ module Backend = struct
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
 
+      let pci_assign_guest ~xs ~qemu_domid ~index ~host = None
+
     end (* Backend.Qemu_none.Dm *)
   end (* Backend.Qemu_none *)
 
@@ -2196,6 +2273,10 @@ module Backend = struct
 
     module VGPU: sig
       val device: index:int -> int option
+    end
+
+    module PCI: sig
+      val assign_guest: xs:Xenstore.Xs.xsh -> domid:int -> index:int -> host:Pci.address -> Pci.address option
     end
 
     val extra_qemu_args: nic_type:string -> string list
@@ -2272,6 +2353,11 @@ module Backend = struct
       let supported _ = true
     end
 
+    module PCI = struct
+      (* compat: let qemu deal with it as before *)
+      let assign_guest ~xs ~domid ~index ~host = None
+    end
+
     let name = Profile.Name.qemu_upstream_compat
     let extra_qemu_args ~nic_type =
       let mult xs ys =
@@ -2330,6 +2416,13 @@ module Backend = struct
         let open Xenops_types.Vm in function
         | Bios -> false
         | Uefi _ -> true
+    end
+
+    module PCI = struct
+      let assign_guest ~xs ~domid ~index ~host =
+        (* domain here refers to PCI segment from SBDF,
+         * and not a Xen domain *)
+        Some { Pci.domain = 0; bus = 0; dev = (8 + index); fn = 0 }
     end
 
     let name = Profile.Name.qemu_upstream_uefi
@@ -2872,6 +2965,8 @@ module Backend = struct
         (* device model not needed anymore after suspend image has been created *)
         stop ~xs ~qemu_domid domid
 
+      let pci_assign_guest ~xs ~qemu_domid ~index ~host =
+        DefaultConfig.PCI.assign_guest ~xs ~domid:qemu_domid ~index ~host
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
@@ -2968,6 +3063,11 @@ module Dm = struct
   let after_suspend_image ~xs ~dm ~qemu_domid domid =
     let module Q = (val Backend.of_profile dm) in
     Q.Dm.after_suspend_image ~xs ~qemu_domid domid
+
+
+  let pci_assign_guest ~xs ~dm ~qemu_domid ~index ~host =
+    let module Q = (val Backend.of_profile dm) in
+    Q.Dm.pci_assign_guest ~xs ~qemu_domid ~index ~host
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 

@@ -2292,9 +2292,17 @@ module PCI = struct
        to release resources/ deassign devices *)
     if not state.plugged then Some Needs_unplug else None
 
+  let get_next_pci_index ~xs domid =
+    let current = Device.PCI.list ~xs domid in
+    let max_idx = function
+      | [] -> -1
+      | x::xs -> List.fold_left max x xs
+    in
+    1 + max_idx (List.map fst current)
+
   let plug task vm pci =
     on_frontend
-      (fun xc xs frontend_domid _ ->
+      (fun xc xs frontend_domid domain_type ->
          (* Make sure the backend defaults are set *)
          let vm_t = DB.read_exn vm in
          let persistent = vm_t.VmExtra.persistent in
@@ -2310,8 +2318,13 @@ module PCI = struct
            raise (Xenopsd_error PCIBack_not_loaded);
          end;
 
+         let hvm = domain_type = Vm.Domain_HVM in
          Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
-         Device.PCI.add xs [ pci.address ] frontend_domid
+         let index = get_next_pci_index ~xs frontend_domid in
+         let guest_pci =
+           Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm)
+             ~qemu_domid:frontend_domid ~host:pci.address ~index in
+         Device.PCI.add ~xc ~xs ~hvm [ pci.address, (index, guest_pci) ] frontend_domid
       ) vm
 
   let unplug task vm pci =
