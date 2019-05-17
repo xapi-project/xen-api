@@ -602,6 +602,10 @@ let generic_bios_strings =
    "system-product-name", "HVM domU";
    "system-version", "";
    "system-serial-number", "";
+   "baseboard-manufacturer", "";
+   "baseboard-product-name", "";
+   "baseboard-version", "";
+   "baseboard-serial-number", "";
    "hp-rombios", ""] @ standard_type11_strings
 
 (** BIOS strings of the old (XS 5.5) Dell Edition *)

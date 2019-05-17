@@ -90,7 +90,10 @@ let get_host_bios_strings ~__context =
   info "Getting host BIOS strings.";
   (* named BIOS strings *)
   let dmidecode_strings = ["bios-vendor"; "bios-version"; "system-manufacturer";
-                           "system-product-name"; "system-version"; "system-serial-number"] in
+                           "system-product-name"; "system-version"; "system-serial-number";
+                           "baseboard-manufacturer"; "baseboard-product-name";
+                           "baseboard-version"; "baseboard-serial-number";
+                          ] in
   let named_strings = List.map (fun str -> str, (get_bios_string str)) dmidecode_strings in
   (* type 11 OEM strings *)
   let oem_strings = get_oem_strings () in
