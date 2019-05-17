@@ -8,18 +8,11 @@ let coverage_rewriter =
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
-  (name rrd_transport_lib)
-  (public_name rrd-transport.lib)
+  (name rrd_transport_file)
+  (public_name rrd-transport.file)
   (wrapped false)
   (libraries
-    astring
-    bigarray
-    crc
-    cstruct
-    xapi-rrd
-    threads
-    xapi-idl.rrd
-    ezjsonm
+    rrd_transport_lib
   )
   %s
 )
