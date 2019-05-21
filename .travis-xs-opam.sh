@@ -5,6 +5,7 @@ set -ex
 PACKAGE="xapi"
 PINS="xapi:. xapi-cli-protocol:. xapi-client:. xapi-consts:. xapi-database:. xapi-datamodel:. xapi-types:. xe:."
 BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
+BASE_REMOTE_BRANCH="uefi"
 DISTRO="debian-unstable"
 OCAML_VERSION="4.07"
 
