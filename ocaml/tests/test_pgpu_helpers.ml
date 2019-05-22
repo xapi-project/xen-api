@@ -40,7 +40,7 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
                                                let pgpu_ref = List.hd (Db.PGPU.get_all ~__context) in
                                                let vgpu_type_ref = find_or_create ~__context vgpu_type in
                                                Xapi_pgpu_helpers.get_remaining_capacity
-                                                 ~__context ~self:pgpu_ref ~vgpu_type:vgpu_type_ref
+                                                 ~__context ~self:pgpu_ref ~vgpu_type:vgpu_type_ref ~pre_allocate_list:[]
 
                                              let tests = [
                                                (* Test that empty PGPUs have the correct capacity for each virtual
