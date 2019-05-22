@@ -1643,7 +1643,8 @@ module VM = struct
             debug "Ignoring request for PV VNC in stubdom (would require qemu-trad)"
           | Vm.HVM { Vm.qemu_stubdom = false } ->
             (if saved_state then Device.Dm.restore else Device.Dm.start)
-              task ~xs ~dm:qemu_dm info di.Xenctrl.domid
+              task ~xs ~dm:qemu_dm info di.Xenctrl.domid;
+            Device.Serial.update_xenstore ~xs di.Xenctrl.domid
           | Vm.PV _ | Vm.PVinPVH _ -> assert false
         ) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
       match vm.Vm.ty with

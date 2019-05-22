@@ -298,6 +298,10 @@ module Backend: sig
   val init : unit -> unit
 end
 
+module Serial : sig
+  val update_xenstore: xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+end
+
 module Vusb :
 sig
   val vusb_plug : xs:Xenstore.Xs.xsh -> privileged:bool -> domid:Xenctrl.domid -> id:string -> hostbus:string -> hostport: string -> version: string-> unit
