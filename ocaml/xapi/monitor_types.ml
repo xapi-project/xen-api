@@ -25,27 +25,13 @@ type pif = {
   pif_device_id: string;
 }
 
-module Vif_device = struct
-  type t = {
-    pv: bool;
-    vif: Xenops_interface.Vif.id;
-    domid: int;
-    devid: int;
-  }
-end
-
 let vif_device_of_string x =
-  let open Vif_device in
   try
     let ty, params = Astring.String.span ~max:3 x in
     let domid, devid = Scanf.sscanf params "%d.%d" (fun x y -> x,y) in
-    let di = Xenctrl.with_intf (fun xc -> Xenctrl.domain_getinfo xc domid) in
-    let uuid = Uuid.uuid_of_int_array di.Xenctrl.handle |> Uuid.to_string in
-    let vif = (uuid, string_of_int devid) in
     match ty with
-    | "vif" -> Some { pv = true; vif = vif; domid = domid; devid = devid }
-    | "tap" -> Some { pv = false; vif = vif; domid = domid; devid = devid }
-    | _ -> failwith "bad device"
+    | "vif" -> Some (domid, devid)
+    | _ -> None
   with _ -> None
 
 let find_rrd_files prefix =

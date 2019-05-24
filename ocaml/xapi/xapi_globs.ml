@@ -567,6 +567,8 @@ let cpu_info_features_hvm_key = "features_hvm"
 (** Metrics *)
 
 let metrics_root = "/dev/shm/metrics"
+let metrics_prefix_mem_host = "xcp-rrdd-mem_host"
+let metrics_prefix_mem_vms = "xcp-rrdd-mem_vms"
 let metrics_prefix_pvs_proxy = "pvsproxy-"
 
 (** Path to trigger file for Network Reset. *)

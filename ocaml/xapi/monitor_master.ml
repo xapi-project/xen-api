@@ -91,9 +91,34 @@ let update_pifs ~__context host pifs =
             (* 1. Update corresponding VIF carrier flags *)
             if !Xapi_globs.pass_through_pif_carrier then begin
               try
+                let open Xapi_xenops_queue in
+                let dbg = Context.string_of_task __context in
+
+                let vifs_on_local_bridge network =
+                  try
+                    Db.Network.get_bridge ~__context ~self:network
+                    |> Net.Bridge.get_interfaces dbg
+                    |> List.filter_map vif_device_of_string
+                  with _ -> []
+                in
+                let set_carrier (domid, devid) =
+                  let expr = Db_filter_types.(And (
+                    Eq (Field "resident_on", Literal (Ref.string_of host)),
+                    Eq (Field "domid", Literal (string_of_int domid))
+                  )) in
+                  match Db.VM.get_refs_where ~__context ~expr with
+                  | [] -> () (* This may be a VM that is not managed by us: ignore *)
+                  | vm :: _ ->
+                    let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+                    let vif_id = (vm_uuid, string_of_int devid) in
+                    let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
+                    let module Xenopsd = (val make_client queue_name : XENOPS) in
+                    Xenopsd.VIF.set_carrier dbg vif_id carrier
+                    |> Xapi_xenops.sync __context queue_name
+                in
+
                 (* Go from physical interface -> bridge -> vif devices.
-                   					 * Do this for the physical network and any VLANs/tunnels on top of it. *)
-                let network = pifrec.API.pIF_network in
+                 * Do this for the physical network and any VLANs/tunnels on top of it. *)
                 let vlan_networks = List.map (fun vlan ->
                     let vlan_master = Db.VLAN.get_untagged_PIF ~__context ~self:vlan in
                     Db.PIF.get_network ~__context ~self:vlan_master
@@ -104,22 +129,13 @@ let update_pifs ~__context host pifs =
                     Db.PIF.get_network ~__context ~self:access_pif
                   ) pifrec.API.pIF_tunnel_transport_PIF_of
                 in
-                let bridges = List.map (fun network -> Db.Network.get_bridge ~__context ~self:network)
-                    (network :: vlan_networks @ tunnel_networks) in
-                let dbg = Context.string_of_task __context in
-                let ifs = List.flatten (List.map (fun bridge -> try Net.Bridge.get_interfaces dbg bridge with _ -> []) bridges) in
-                let open Vif_device in
-                let set_carrier vif =
-                  if vif.pv then (
-                    let open Xapi_xenops_queue in
-                    let vm_uuid = fst vif.vif in
-                    let queue_name = queue_of_vm ~__context ~self:(Db.VM.get_by_uuid ~__context ~uuid:vm_uuid) in
-                    let module Client = (val make_client queue_name : XENOPS) in
-                    Client.VIF.set_carrier dbg vif.vif carrier |> Xapi_xenops.sync __context queue_name
-                  )
-                in List.iter set_carrier (List.filter_map vif_device_of_string ifs)
+                pifrec.API.pIF_network :: vlan_networks @ tunnel_networks
+                |> List.map vifs_on_local_bridge
+                |> List.flatten
+                |> List.iter set_carrier
               with e ->
-                debug "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
+                log_backtrace ();
+                error "Failed to update VIF carrier flags for PIF: %s" (ExnHelper.string_of_exn e)
             end;
 
             (* 2. Update database *)
