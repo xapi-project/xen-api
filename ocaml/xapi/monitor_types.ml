@@ -40,6 +40,6 @@ let find_rrd_files () =
 
 let datasources_from_filename filename =
   let path = Filename.concat Xapi_globs.metrics_root filename in
-  let reader = Rrd_reader.FileReader.create path Rrd_protocol_v2.protocol in
-  let payload = reader.Rrd_reader.read_payload () in
+  let reader = Rrd_file_reader.create path Rrd_protocol_v2.protocol in
+  let payload = reader.Rrd_reader_functor.read_payload () in
   payload.Rrd_protocol.datasources

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Rrdd_plugin
 module D = Debug.Make(struct let name = "xapi_stats" end)
 
 let generate_master_stats ~__context =
@@ -148,13 +147,20 @@ let start () =
        | Some _ -> ()
        | None ->
          let reporter =
-           Reporter.start_async
-             (module D : Debug.DEBUG)
-             ~uid:"xapi-stats"
-             ~neg_shift:0.5
-             ~target:(Reporter.Local shared_page_count)
-             ~protocol:Rrd_interface.V2
-             ~dss_f:(fun () -> generate_stats ~__context ~master)
+           let reporter = Reporter.make () in
+           let (_ : Thread.t) =
+             Thread.create (fun () ->
+               Reporter_local.start_local (module D : Debug.DEBUG)
+                     ~reporter:(Some reporter)
+                     ~uid:"xapi-stats"
+                     ~neg_shift:0.5
+                     ~page_count:shared_page_count
+                     ~protocol:Rrd_interface.V2
+                     ~dss_f:(fun () -> generate_stats ~__context ~master)
+               )
+               ()
+           in
+           reporter
          in
          reporter_cache := (Some reporter))
 
