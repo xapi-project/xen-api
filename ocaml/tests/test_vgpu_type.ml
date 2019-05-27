@@ -63,8 +63,8 @@ module NvidiaTest = struct
             max_x = 1920L;
             max_y = 1200L;
             file_path = "test_data/test_vgpu_subdevid.conf";
-            compatible_types_in_vm = [];
-            compatible_types_on_pgpu = [];
+            compatible_model_names_in_vm = [];
+            compatible_model_names_on_pgpu = [];
           });
         "test_data/test_vgpu_nosubdevid.conf",
         Nvidia_old.({
@@ -80,8 +80,8 @@ module NvidiaTest = struct
             max_x = 1920L;
             max_y = 1200L;
             file_path = "test_data/test_vgpu_nosubdevid.conf";
-            compatible_types_in_vm = [];
-            compatible_types_on_pgpu = [];
+            compatible_model_names_in_vm = [];
+            compatible_model_names_on_pgpu = [];
           });
       ]
     end)
@@ -137,8 +137,8 @@ module NvidiaTest = struct
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
               type_id = "11";
-              compatible_types_in_vm = [];
-              compatible_types_on_pgpu = ["TYPE FOO1"];
+              compatible_model_names_in_vm = [];
+              compatible_model_names_on_pgpu = ["TYPE FOO1"];
             })
         ];
         ("test_data/nvidia-whitelist.xml", 0x3334),
@@ -157,8 +157,8 @@ module NvidiaTest = struct
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
               type_id = "11";
-              compatible_types_in_vm = [];
-              compatible_types_on_pgpu = ["TYPE FOO1"];
+              compatible_model_names_in_vm = [];
+              compatible_model_names_on_pgpu = ["TYPE FOO1"];
             })
         ];
         ("test_data/nvidia-whitelist.xml", 0x3335),
@@ -177,8 +177,8 @@ module NvidiaTest = struct
               max_y = 1600L;
               file_path = "test_data/nvidia-whitelist.xml";
               type_id = "20";
-              compatible_types_in_vm = [];
-              compatible_types_on_pgpu = ["TYPE FOO2"];
+              compatible_model_names_in_vm = [];
+              compatible_model_names_on_pgpu = ["TYPE FOO2"];
             });
           Vendor_nvidia.({
               identifier = Identifier.({
@@ -194,8 +194,8 @@ module NvidiaTest = struct
               max_y = 1200L;
               file_path = "test_data/nvidia-whitelist.xml";
               type_id = "21";
-              compatible_types_in_vm = [];
-              compatible_types_on_pgpu = ["TYPE FOO3"];
+              compatible_model_names_in_vm = [];
+              compatible_model_names_on_pgpu = ["TYPE FOO3"];
             })
         ];
         

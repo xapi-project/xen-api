@@ -371,7 +371,9 @@ let make_vgpu_type ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ())
     ?(max_resolution_x=0L) ?(max_resolution_y=0L) ?(size=0L)
     ?(internal_config=[]) ?(implementation=`passthrough)
     ?(identifier="") ?(experimental=false)
-    ?(compatible_types_in_vm=[]) ?(compatible_types_on_pgpu=[]) () =
+    ?(compatible_model_names_in_vm=[]) ?(compatible_model_names_on_pgpu=[]) () =
+  let compatible_types_in_vm = compatible_model_names_in_vm in
+  let compatible_types_on_pgpu = compatible_model_names_on_pgpu in
   Db.VGPU_type.create ~__context ~ref ~uuid ~vendor_name ~model_name
     ~framebuffer_size ~max_heads ~max_resolution_x ~max_resolution_y ~size
     ~internal_config ~implementation ~identifier ~experimental
