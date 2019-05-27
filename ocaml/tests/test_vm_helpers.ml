@@ -70,7 +70,7 @@ let test_gpus_available_fails_no_pgpu () =
       let group = List.hd (Db.GPU_group.get_all ~__context) in
       let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       assert_raises_api_error
-        Api_errors.vm_requires_gpu
+        Api_errors.vm_requires_vgpu
         (fun () -> assert_gpus_available ~__context ~self:vm ~host:h)
     )
 
@@ -83,7 +83,7 @@ let test_gpus_available_fails_disabled_type () =
         pgpus;
       let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       assert_raises_api_error
-        Api_errors.vm_requires_gpu
+        Api_errors.vm_requires_vgpu
         (fun () -> assert_gpus_available ~__context ~self:vm ~host:h')
     )
 
@@ -97,7 +97,7 @@ let test_gpus_available_fails_no_capacity () =
         pgpus;
       let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
       assert_raises_api_error
-        Api_errors.vm_requires_gpu
+        Api_errors.vm_requires_vgpu
         (fun () -> assert_gpus_available ~__context ~self:vm ~host:h')
     )
 
@@ -142,46 +142,63 @@ let rec assert_equivalent expected_grouping actual_grouping =
   match (expected_grouping, actual_grouping) with
   | [], [] -> ()
   | [], xx -> Alcotest.fail (Printf.sprintf "%d more groups than expected." (List.length xx))
-  | xx, [] -> Alcotest.fail (Printf.sprintf "%d less groups than expected." (List.length xx))
+  | xx, [] -> Alcotest.fail (Printf.sprintf "%d fewer groups than expected." (List.length xx))
   | e :: es, g :: gs ->
     assert_host_group_coherent g;
     assert_host_groups_equal e g;
     assert_equivalent es gs
 
-let assert_grouping ~__context gpu_group vgpu_type g =
-  let vgpu_type_ref = Xapi_vgpu_type.find_or_create ~__context vgpu_type in
-  let host_lists = group_hosts_by_best_pgpu_in_group ~__context gpu_group vgpu_type_ref in
-  assert_equivalent g host_lists
-
-let rec assert_expectations ~__context gpu_group = function
+let assert_host_groups_equal_for_vgpu g g' =
+  match g' with
   | [] -> ()
-  | (vgpu_type, expected_grouping) :: remaining ->
-    assert_grouping ~__context gpu_group vgpu_type expected_grouping;
-    assert_expectations ~__context gpu_group remaining
+  | _ ->
+    let extract_host_strings hosts =
+      List.sort String.compare (List.map Ref.string_of hosts)
+    in
+    Alcotest.(check (slist string String.compare))
+      "check host strings"
+      (extract_host_strings g) (extract_host_strings g')
 
-let check_expectations __context gpu_group ~k100_lst ~k140q_lst =
-  assert_expectations ~__context gpu_group
-    VGPU_T.[ k100,  k100_lst ; k140q, k140q_lst ]
+let rec assert_equivalent_for_vgpu expected_grouping actual_grouping =
+  match (expected_grouping, actual_grouping) with
+  | [], [] -> ()
+  | [], xx -> Alcotest.fail (Printf.sprintf "%d more groups than expected." (List.length xx))
+  | xx, [] -> Alcotest.fail (Printf.sprintf "%d fewer groups than expected." (List.length xx))
+  | e :: es, g :: gs ->
+    assert_host_groups_equal_for_vgpu e g;
+    assert_equivalent_for_vgpu es gs
 
+let assert_grouping ~__context gpu_group ~visible_hosts vgpu_type g =
+  let vgpu = VGPU_T.make_vgpu ~__context ~gPU_group:gpu_group vgpu_type in
+  let host_lists = rank_hosts_by_best_vgpu ~__context vgpu visible_hosts in
+  assert_equivalent_for_vgpu g host_lists
+
+let check_expectations ~__context gpu_group visible_hosts vgpu_type expected_grouping =
+    assert_grouping ~__context gpu_group ~visible_hosts vgpu_type expected_grouping
+  
 let test_group_hosts_bf () =
   on_pool_of_k1s VGPU_T.(fun __context h h' h'' ->
       let gpu_group = List.hd (Db.GPU_group.get_all ~__context) in
       Db.GPU_group.set_allocation_algorithm ~__context ~self:gpu_group ~value:`breadth_first;
       match Db.Host.get_PGPUs ~__context ~self:h' @ Db.Host.get_PGPUs ~__context ~self:h'' with
       | [h'_p; h''_p; h''_p'] ->
-        check_expectations __context gpu_group ~k100_lst:[ [(h',8L); (h'',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h'']; [h'] ];
+        check_expectations __context gpu_group [h'; h''] k140q [ [h'']; [h'] ];
 
         ignore (make_vgpu ~__context ~resident_on:h''_p k100);
-        check_expectations __context gpu_group ~k100_lst:[ [(h',8L); (h'',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h'']; [h'] ];
+        check_expectations __context gpu_group [h'; h''] k140q [ [h'; h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h''_p' k140q);
-        check_expectations __context gpu_group ~k100_lst:[ [(h',8L)]; [(h'',7L)] ] ~k140q_lst:[ [(h',4L)]; [(h'',3L)] ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h']; [h''] ];
+        check_expectations __context gpu_group [h''] k140q [ [h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        check_expectations __context gpu_group ~k100_lst:[ [(h',7L); (h'',7L)] ] ~k140q_lst:[ [(h'',3L)]; ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h'; h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        check_expectations __context gpu_group ~k100_lst:[ [(h'',7L)]; [(h',6L)] ] ~k140q_lst:[ [(h'',3L)]; ]
+        check_expectations __context gpu_group [h'; h''] k100 [ [h'']; [h'] ];
+
       | _ -> Alcotest.fail "Test-failure: Unexpected number of pgpus in test setup"
     )
 
@@ -191,19 +208,23 @@ let test_group_hosts_df () =
       Db.GPU_group.set_allocation_algorithm ~__context ~self:gpu_group ~value:`depth_first;
       match Db.Host.get_PGPUs ~__context ~self:h' @ Db.Host.get_PGPUs ~__context ~self:h'' with
       | [h'_p; h''_p; h''_p'] ->
-        check_expectations __context gpu_group ~k100_lst:[ [(h',8L);(h'',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h']; [h''] ];
+        check_expectations __context gpu_group [h'; h''] k140q [ [h']; [h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h''_p k100);
-        check_expectations __context gpu_group ~k100_lst:[ [(h'',7L)]; [(h',8L)] ] ~k140q_lst:[ [(h',4L);(h'',4L)] ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h']; [h''] ];
+        check_expectations __context gpu_group [h'; h''] k140q [ [h'; h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h''_p' k140q);
-        check_expectations __context gpu_group ~k100_lst:[ [(h'',7L)]; [(h',8L)] ] ~k140q_lst:[ [(h'',3L)]; [(h',4L)] ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h'']; [h'] ];
+        check_expectations __context gpu_group [h''] k140q [ [h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        check_expectations __context gpu_group ~k100_lst:[ [(h',7L);(h'',7L)] ] ~k140q_lst:[ [(h'',3L)]; ];
+        check_expectations __context gpu_group [h'; h''] k100 [ [h'; h''] ];
 
         ignore (make_vgpu ~__context ~resident_on:h'_p k100);
-        check_expectations __context gpu_group ~k100_lst:[ [(h',6L)]; [(h'',7L)] ] ~k140q_lst:[ [(h'',3L)]; ]
+        check_expectations __context gpu_group [h'; h''] k100 [ [h']; [h''] ];
+
       | _ -> Alcotest.fail "Test-failure: Unexpected number of pgpus in test setup"
     )
 
