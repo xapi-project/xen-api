@@ -32,8 +32,8 @@ let k100 = {
       vsubdev_id = 0x101e;
     });
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = ["GRID K100"];
 }
 
 let k140q = {
@@ -54,8 +54,8 @@ let k140q = {
       vsubdev_id = 0x1037;
     });
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = ["GRID K140Q"];
 }
 
 let k200 = {
@@ -76,8 +76,8 @@ let k200 = {
       vsubdev_id = 0x101d;
     });
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = ["GRID K200"];
 }
 
 let k240q = {
@@ -98,8 +98,8 @@ let k240q = {
       vsubdev_id = 0x101a;
     });
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = ["GRID K240Q"];
 }
 
 let k260q = {
@@ -120,8 +120,8 @@ let k260q = {
       vsubdev_id = 0x101b;
     });
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = ["GRID K260Q"];
 }
 
 let k1_vgpu_types = [
@@ -157,8 +157,8 @@ let gvt_g_041a = {
       fence_sz = 4L;
     });
   experimental = false;
-  compatible_types_in_vm = [];
-  compatible_types_on_pgpu = [];
+  compatible_model_names_in_vm = [];
+  compatible_model_names_on_pgpu = [];
 }
 
 let intel_041a_vgpu_types = [
@@ -208,6 +208,7 @@ let string_of_pgpu_state pgpu =
 
 let make_vgpu ~__context
     ?(vm_ref=Ref.null)
+    ?(gPU_group=Ref.null)
     ?(resident_on=Ref.null)
     ?(scheduled_to_be_resident_on=Ref.null)
     ?(uuid=Test_common.make_uuid())
@@ -230,6 +231,7 @@ let make_vgpu ~__context
     ~vM:vm_ref
     ~_type:vgpu_type_ref
     ~uuid
+    ~gPU_group
     ~resident_on
     ~scheduled_to_be_resident_on ()
 
