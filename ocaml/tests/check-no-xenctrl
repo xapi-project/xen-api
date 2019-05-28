@@ -1,0 +1,12 @@
+#!/bin/sh
+
+XC=libxenctrl
+
+ldd $1 | grep -q $XC 2>&1
+if [ $? -eq 1 ]; then
+	echo "OK: xapi does not depend on $XC";
+	exit 0
+else
+	echo "ERROR: xapi depends on $XC";
+	exit 1
+fi
