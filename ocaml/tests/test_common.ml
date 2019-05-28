@@ -358,11 +358,12 @@ let make_vgpu ~__context
     ?(resident_on=Ref.null)
     ?(scheduled_to_be_resident_on=Ref.null)
     ?(compatibility_metadata=[])
+    ?(extra_args="")
     () =
   Db.VGPU.create ~__context
     ~ref ~uuid ~vM ~gPU_group ~device ~currently_attached
     ~other_config ~_type ~resident_on ~scheduled_to_be_resident_on
-    ~compatibility_metadata
+    ~compatibility_metadata ~extra_args
     ;
   ref
 

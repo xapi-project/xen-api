@@ -277,7 +277,7 @@ let _ =
   error Api_errors.vgpu_type_not_compatible_with_running_type ["pgpu"; "type"; "running_type"]
     ~doc:"VGPU type is not compatible with one or more of the VGPU types currently running on this PGPU" ();
   error Api_errors.vgpu_type_not_compatible ["type"]
-    ~doc:"You try to create a VGPU that is not compatible with existing types on the VM." ();
+    ~doc:"You tried to create a VGPU that is not compatible with existing types on the VM." ();
   error Api_errors.vgpu_destination_incompatible ["reason"; "vgpu"; "host"]
     ~doc:"The VGPU is not compatible with any PGPU in the destination." ();
   error Api_errors.nvidia_tools_error ["host"]

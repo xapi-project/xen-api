@@ -1766,6 +1766,9 @@ let vgpu_record rpc session_id vgpu =
             "%s:(%d bytes)" k (String.length v))
           |> String.concat "; "
          ) ();
+      make_field ~name:"extra_args"
+        ~get:(fun () -> (x ()).API.vGPU_extra_args)
+        ~set:(fun v -> Client.VGPU.set_extra_args rpc session_id vgpu v) ();
     ]
   }
 

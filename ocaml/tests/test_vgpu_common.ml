@@ -212,6 +212,7 @@ let make_vgpu ~__context
     ?(resident_on=Ref.null)
     ?(scheduled_to_be_resident_on=Ref.null)
     ?(uuid=Test_common.make_uuid())
+    ?(extra_args="")
     vgpu_type =
   let vgpu_type_ref = find_or_create ~__context vgpu_type in
   (* For the passthrough VGPU type, create a VM and mark it as attached to the
@@ -233,7 +234,8 @@ let make_vgpu ~__context
     ~uuid
     ~gPU_group
     ~resident_on
-    ~scheduled_to_be_resident_on ()
+    ~scheduled_to_be_resident_on
+    ~extra_args ()
 
 let make_pgpu ~__context ?address ?(host=Ref.null) ?(gPU_group=Ref.null) pgpu =
   let pCI = Test_common.make_pci ~__context ?pci_id:address ~host ~functions:1L () in
