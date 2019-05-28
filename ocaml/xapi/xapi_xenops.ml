@@ -666,6 +666,7 @@ module MD = struct
     let type_id = Db.VGPU_type.get_internal_config ~__context ~self:vgpu_type 
                   |> List.assoc Xapi_globs.vgpu_type_id in
     let uuid = vgpu.Db_actions.vGPU_uuid in
+    let extra_args = vgpu.Db_actions.vGPU_extra_args in
     let implementation =
       Nvidia {
         physical_pci_address = None; (* unused *)
@@ -673,6 +674,7 @@ module MD = struct
         virtual_pci_address = Some virtual_pci_address;
         type_id  = type_id;
         uuid;
+        extra_args;
       }
     in {
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
