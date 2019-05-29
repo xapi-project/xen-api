@@ -1999,11 +1999,14 @@ module Dm_Common = struct
       List.map (fun x ->
           match x.implementation with
           | Nvidia _conf ->
-             Printf.sprintf "--device=%s,%s,%s,%s"
-               (Xenops_interface.Pci.string_of_address x.physical_pci_address)
-               _conf.type_id
-               (get_pci_string _conf.virtual_pci_address)
-               _conf.uuid
+            Printf.sprintf "--device=%s"
+              ([(Xenops_interface.Pci.string_of_address x.physical_pci_address);
+                _conf.type_id;
+                (get_pci_string _conf.virtual_pci_address);
+                _conf.uuid;
+                _conf.extra_args]
+               |> List.filter (fun str -> str <> "")
+               |> String.concat ",")
           | _ -> "")
         (List.sort virtual_pci_address_compare vgpus) in
     let suspend_file = sprintf demu_save_path domid in
