@@ -151,6 +151,8 @@ let exec_command req cmd s session args =
       st "secret", ["value"];
       eq "pool-enable-external-auth", ["config:pass"];
       eq "pool-disable-external-auth", ["config:pass"];
+      eq "host-enable-external-auth", ["config:pass"];
+      eq "host-disable-external-auth", ["config:pass"];
       eq "host-call-plugin", ["args:url"];
     ] in
   let rpc = Helpers.get_rpc () req s in
