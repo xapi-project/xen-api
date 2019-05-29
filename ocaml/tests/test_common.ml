@@ -170,7 +170,8 @@ let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="
     ~control_domain:Ref.null
     ~updates_requiring_reboot:[]
     ~iscsi_iqn:""
-    ~multipathing:false;
+    ~multipathing:false
+    ~uefi_certificates:"";
   ref
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
@@ -229,7 +230,7 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
     ?(current_operations=[]) ?(allowed_operations=[])
     ?(other_config=[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv])
     ?(ha_cluster_stack=(!Xapi_globs.cluster_stack_default)) ?(guest_agent_config=[]) ?(cpu_info=[])
-    ?(policy_no_vendor_device=false) ?(live_patching_disabled=false) () =
+    ?(policy_no_vendor_device=false) ?(live_patching_disabled=false) ?(uefi_certificates="") () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref
     ~uuid:(make_uuid ()) ~name_label ~name_description
@@ -239,7 +240,8 @@ let make_pool ~__context ~master ?(name_label="") ?(name_description="")
     ~gui_config ~health_check_config ~wlb_url ~wlb_username ~wlb_password ~wlb_enabled
     ~wlb_verify_cert ~redo_log_enabled ~redo_log_vdi ~vswitch_controller ~igmp_snooping_enabled
     ~current_operations ~allowed_operations
-    ~restrictions ~other_config ~ha_cluster_stack ~guest_agent_config ~cpu_info ~policy_no_vendor_device ~live_patching_disabled;
+    ~restrictions ~other_config ~ha_cluster_stack ~guest_agent_config ~cpu_info ~policy_no_vendor_device ~live_patching_disabled
+    ~uefi_certificates;
   pool_ref
 
 let default_sm_features = [

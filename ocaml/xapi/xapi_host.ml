@@ -678,6 +678,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~updates_requiring_reboot:[]
     ~iscsi_iqn:""
     ~multipathing:false
+    ~uefi_certificates:""
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
@@ -1825,6 +1826,12 @@ let mxgpu_vf_setup ~__context ~host =
 let allocate_resources_for_vm ~__context ~self ~vm ~live =
   (* Implemented entirely in Message_forwarding *)
   ()
+
+let set_uefi_certificates ~__context ~host ~value =
+  Db.Host.set_uefi_certificates ~__context ~self:host ~value;
+  let pool = Helpers.get_pool ~__context in
+  if value <> "" then
+  	Db.Pool.set_uefi_certificates ~__context ~self:pool ~value
 
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then raise Api_errors.(Server_error (invalid_value, ["value"; value]));
