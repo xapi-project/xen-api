@@ -19,7 +19,6 @@
 let default_path = "/var/xapi/xenopsd"
 
 open Xenops_interface
-open Xenops_client
 open Xenops_utils
 
 module Client = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct let rpc = Xenopsd.rpc_fn end))

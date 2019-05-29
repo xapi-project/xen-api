@@ -21,19 +21,12 @@ add)
         params=$(readlink -f $params || echo $params)
         frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
         syslog "${XENBUS_PATH}: add params=\"${params}\""
-        # We don't have PV drivers for CDROM devices, so we prevent blkback
-        # from opening the physical-device
-        xenstore-exists "${PRIVATE}/no-physical-device"
-        if [ $? -ne 0 ]; then
-          physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
-          syslog "${XENBUS_PATH}: physical-device=${physical_device}"
-          xenstore-exists "${XENBUS_PATH}/physical-device"
-          if [ $? -eq 1 ]; then
-			syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
-            xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
-          fi
-        else
-          syslog "${XENBUS_PATH}: not writing physical-device because no-physical-device is present"
+        physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
+        syslog "${XENBUS_PATH}: physical-device=${physical_device}"
+        xenstore-exists "${XENBUS_PATH}/physical-device"
+        if [ $? -eq 1 ]; then
+                syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
+                xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
         fi
         xenstore-write "${HOTPLUG}/hotplug" "online"
         xenstore-write "${HOTPLUG_STATUS}" "connected"

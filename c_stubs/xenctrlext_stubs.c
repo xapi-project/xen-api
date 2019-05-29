@@ -195,6 +195,31 @@ CAMLprim value stub_xenctrlext_domain_set_target(value xch,
 	CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xenctrlext_physdev_map_pirq(value xch,
+        value domid,
+        value irq)
+{
+    CAMLparam3(xch, domid, irq);
+    int pirq = Int_val(irq);
+    caml_enter_blocking_section();
+    int retval = xc_physdev_map_pirq(_H(xch), _D(domid), pirq, &pirq);
+    caml_leave_blocking_section();
+    if (retval)
+        failwith_xc(_H(xch));
+    CAMLreturn(Val_int(pirq));
+} /* ocaml here would be int -> int */
+
+CAMLprim value stub_xenctrlext_assign_device(value xch, value domid,
+        value machine_sbdf, value flag)
+{
+    CAMLparam4(xch, domid, machine_sbdf, flag);
+    caml_enter_blocking_section();
+    int retval = xc_assign_device(_H(xch), _D(domid), Int_val(machine_sbdf), Int_val(flag));
+    caml_leave_blocking_section();
+    if (retval)
+        failwith_xc(_H(xch));
+    CAMLreturn(Val_unit);
+}
 
 /*
 * Local variables:
