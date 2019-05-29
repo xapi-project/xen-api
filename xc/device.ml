@@ -1765,6 +1765,44 @@ module Vusb = struct
 
 end
 
+module Serial : sig
+  val update_xenstore: xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+end = struct
+  let tty_prefix     = "pty:"
+  let tty_path domid = Printf.sprintf "/local/domain/%d/serial/0/tty" domid
+  let strip n str    = String.sub str n (String.length str - n)
+
+  let is_serial0 device =
+    device.Qmp.label = "serial0"
+    && Astring.String.is_prefix tty_prefix device.Qmp.filename
+
+  let find_serial0 domid =
+    match qmp_send_cmd domid Qmp.Query_chardev with
+    | Qmp.(Char_devices devices) ->
+        List.find_opt is_serial0 devices
+    | other ->
+        warn "Unexpected QMP result for domid %d query-chardev" domid;
+        None
+
+  (** query qemu for the serial console and write it to xenstore. Only
+   *  write path for a real console, not a file or socket path.
+   *  CA-318579
+   *)
+  let update_xenstore ~xs domid =
+    if not @@ Qemu.is_running ~xs domid then begin
+      let msg = sprintf "Qemu not running for domain %d (%s)" domid __LOC__ in
+      raise (Xenopsd_error (Internal_error msg))
+    end;
+    match find_serial0 domid with
+    | Some device ->
+        let path = strip (String.length tty_prefix) device.Qmp.filename in
+        xs.Xs.write (tty_path domid) path
+    | None        -> debug "no serial device for domain %d found" domid
+    | exception e ->
+        debug "Can't probe serial0 device for domid %d: %s"
+          domid (Printexc.to_string e)
+end
+
 let can_surprise_remove ~xs (x: device) = Generic.can_surprise_remove ~xs x
 
 (** Dm_Common contains the private Dm functions that are common between the qemu profile backends. *)
