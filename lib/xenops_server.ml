@@ -1848,11 +1848,12 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         debug "VM.receive_memory restoring VM";
         (* Check if there is a separate vGPU data channel *)
         let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
-        let vgpu_ids = VGPU_DB.ids id in
+        let vgpu_start_operations = 
+          match VGPU_DB.ids id with
+          | [] -> []
+          | vgpus -> [VGPU_start (vgpus, true)] in
         perform_atomics (
-          [
-            VGPU_start (vgpu_ids, true);
-          ] @ [
+          vgpu_start_operations @ [
             VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
           ]) t;
         debug "VM.receive_memory restore complete";
