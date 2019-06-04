@@ -277,7 +277,7 @@ let _ =
   error Api_errors.vgpu_type_not_compatible_with_running_type ["pgpu"; "type"; "running_type"]
     ~doc:"The VGPU type is incompatible with one or more of the VGPU types currently running on this PGPU" ();
   error Api_errors.vgpu_type_not_compatible ["type"]
-    ~doc:"You tried to create a VGPU that is not compatible with existing types on the VM." ();
+    ~doc:"Cannot create a virtual GPU that is incompatible with the existing types on the VM." ();
   error Api_errors.vgpu_destination_incompatible ["reason"; "vgpu"; "host"]
     ~doc:"The VGPU is not compatible with any PGPU in the destination." ();
   error Api_errors.nvidia_tools_error ["host"]
@@ -291,7 +291,7 @@ let _ =
   error Api_errors.transport_pif_not_configured ["PIF"]
     ~doc:"The tunnel transport PIF has no IP configuration set." ();
   error Api_errors.is_tunnel_access_pif ["PIF"]
-    ~doc:"You tried to create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
+    ~doc:"Cannot create a VLAN or tunnel on top of a tunnel access PIF - use the underlying transport PIF instead." ();
   error Api_errors.pif_tunnel_still_exists ["PIF"]
     ~doc:"Operation cannot proceed while a tunnel exists on this interface." ();
   error Api_errors.bridge_not_available [ "bridge" ]
