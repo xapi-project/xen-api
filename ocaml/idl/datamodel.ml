@@ -4771,7 +4771,7 @@ module VGPU = struct
         uid _vgpu ~lifecycle:[Published, rel_boston, ""];
         field ~qualifier:DynamicRO ~ty:(Ref _vm) ~lifecycle:[Published, rel_boston, ""] "VM" "VM that owns the vGPU";
         field ~qualifier:DynamicRO ~ty:(Ref _gpu_group) ~lifecycle:[Published, rel_boston, ""] "GPU_group" "GPU group used by the vGPU";
-        field ~qualifier:DynamicRO ~ty:String ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VString "0")) "device" "Order in which the devices are plugged into the VM";
+        field ~qualifier:DynamicRO ~ty:String ~lifecycle:[Published, rel_boston, "Only 1 vGPU with device id 0 is supported"; Changed, rel_plymouth, "Multiple vGPUs are supported, device refers to guest PCI slot"] ~default_value:(Some (VString "0")) "device" "Guest PCI slot (a value of 0 means auto-assign to first empty slot, valid slot is in range of [11,31] for multi-VGPU purpose)";
         field ~qualifier:DynamicRO ~ty:Bool ~lifecycle:[Published, rel_boston, ""] ~default_value:(Some (VBool false)) "currently_attached" "Reflects whether the virtual device is currently connected to a physical device";
         field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_boston, ""] "other_config" "Additional configuration" ~default_value:(Some (VMap []));
         field ~qualifier:DynamicRO ~ty:(Ref _vgpu_type) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "type" "Preset type for this VGPU" ~default_value:(Some (VRef null_ref));
