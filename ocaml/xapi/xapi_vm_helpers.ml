@@ -26,7 +26,7 @@ open Pervasiveext
 
 module XenAPI = Client.Client
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_vm_helpers" end)
 open D
 open Workload_balancing
 

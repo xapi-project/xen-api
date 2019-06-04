@@ -27,7 +27,7 @@ open Client
 
 (* internal api *)
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_sr" end)
 open D
 
 (**************************************************************************************)

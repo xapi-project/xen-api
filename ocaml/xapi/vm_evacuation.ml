@@ -1,4 +1,4 @@
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="vm_evacuation" end)
 open D
 
 let estimate_evacuate_timeout ~__context ~host =

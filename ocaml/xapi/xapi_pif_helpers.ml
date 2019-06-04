@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_pif_helpers" end)
 open D
 
 (* Any given PIF should belongs only one of the following types *)

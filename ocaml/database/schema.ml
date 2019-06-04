@@ -162,7 +162,7 @@ let is_field_persistent schema tblname fldname =
 let table_names schema =
   List.map (fun t -> t.Table.name) (database schema).Database.tables
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="schema" end)
 open D
 let one_to_many tblname schema =
   (* If there is no entry in the map it means that the table has no one-to-many relationships *)

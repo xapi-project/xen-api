@@ -17,7 +17,7 @@ open Stdext
 open Xstringext
 open Printf
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_pv_driver_version" end)
 open D
 
 (** Represents the detected PV driver version *)

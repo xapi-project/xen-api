@@ -21,7 +21,7 @@ open Stdext
 open Pervasiveext
 open Threadext
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_vdi_helpers" end)
 open D
 
 let all_ops : API.vdi_operations_set =

@@ -20,7 +20,7 @@ open Listext
 open Threadext
 open Xstringext
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_vbd_helpers" end)
 open D
 
 (**************************************************************************************)

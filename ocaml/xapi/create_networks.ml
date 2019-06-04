@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="create_networks" end)
 open D
 
 let internal_management_network_name = "Host internal management network"
