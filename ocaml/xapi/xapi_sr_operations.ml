@@ -27,7 +27,7 @@ open Fun
 
 (* internal api *)
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_sr_operations" end)
 open D
 
 (**************************************************************************************)

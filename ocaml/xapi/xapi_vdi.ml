@@ -15,7 +15,7 @@
  * @group XenAPI functions
 *)
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_vdi" end)
 open D
 
 open Stdext

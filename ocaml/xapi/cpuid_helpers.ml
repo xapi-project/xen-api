@@ -17,7 +17,7 @@ open Fun
 open Listext
 open Xapi_globs
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="cpuid_helpers" end)
 open D
 
 let string_of_features features =

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_network_helpers" end)
 open D
 open Xapi_pif_helpers
 

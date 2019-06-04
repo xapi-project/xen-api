@@ -16,7 +16,7 @@
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="parse_db_conf" end)
 open D
 
 type db_connection_mode = Write_limit | No_limit

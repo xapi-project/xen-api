@@ -18,7 +18,7 @@ open Client
 open Printf
 open Threadext
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="sparse_dd_wrapper" end)
 open D
 
 type progress =

@@ -22,7 +22,7 @@ open Listext
 open Network
 
 module L = Debug.Make(struct let name="license" end)
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_pool" end)
 open D
 open Workload_balancing
 

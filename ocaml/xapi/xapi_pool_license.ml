@@ -14,7 +14,7 @@
 
 open Stdext.Listext
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_pool_license" end)
 open D
 
 (* Compare two date options, where None is always greater than (Some _) *)

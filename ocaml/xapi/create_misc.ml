@@ -25,7 +25,7 @@ open Db_filter_types
 open Network
 module XenAPI = Client.Client
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="create_misc" end)
 open D
 
 type host_info = {

@@ -14,7 +14,7 @@
 
 open Stdext.Xstringext
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_vif_helpers" end)
 open D
 
 (**************************************************************************************)

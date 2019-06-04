@@ -16,7 +16,7 @@
 open Client
 open Printf
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="sm_fs_ops" end)
 open D
 
 (** Block-attach a VDI to dom0 and run 'f' with the device name *)

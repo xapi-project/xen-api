@@ -14,7 +14,7 @@
 
 open Stdext
 open Listext
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_network_attach_helpers" end)
 open D
 
 open Db_filter_types

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D=Debug.Make(struct let name="xapi" end)
+module D=Debug.Make(struct let name="xapi_pool_helpers" end)
 open D
 
 open Client
