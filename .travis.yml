@@ -10,10 +10,9 @@ env:
         - BUILD_METHOD=xenserver-build-env
         - BUILD_METHOD=xs-opam
         - BUILD_METHOD=python-nosetests
-        - BUILD_METHOD=opam-coverage
 notifications:
     slack: citrix:BHYQZbI8m036ELU21gZil75Y
 matrix:
     fast_finish: true
     allow_failures:
-        - env: BUILD_METHOD=opam-coverage
+        - env: BUILD_METHOD=xenserver-build-env
