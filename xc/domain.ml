@@ -254,8 +254,14 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
     flags = flags;
     max_vcpus = vcpus;
     max_evtchn_port = -1;
-    max_grant_frames = 32;
-    max_maptrack_frames = 1024;
+    max_grant_frames =
+      (try
+        int_of_string (List.assoc "max_grant_frames" vm_info.platformdata)
+      with _ -> 64);
+    max_maptrack_frames =
+      (try
+        int_of_string (List.assoc "max_maptrack_frames" vm_info.platformdata)
+      with _ -> 1024);
     arch = domain_config;
   } in
 
