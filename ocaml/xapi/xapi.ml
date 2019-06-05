@@ -561,7 +561,7 @@ let check_network_reset () =
            Xapi_host.management_reconfigure ~__context ~pif;
       );
     (* Remove trigger file *)
-    Unix.unlink("/tmp/network-reset")
+    Unix.unlink(Xapi_globs.network_reset_trigger)
   with _ -> () (* TODO: catch specific exception for missing fields in reset_file and inform user *)
 
 
