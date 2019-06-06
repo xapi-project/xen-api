@@ -22,7 +22,7 @@ let message name ?(doc="") () =
 let _ =
   (* Internal *)
   error Api_errors.internal_error ["message"]
-    ~doc:"The server failed to handle your request, due to an internal error.  The given message may give details useful for debugging the problem." ();
+    ~doc:"The server failed to handle your request, due to an internal error. The given message may give details useful for debugging the problem." ();
 
   error Api_errors.message_deprecated []
     ~doc:"This message has been deprecated." ();
@@ -35,19 +35,19 @@ let _ =
   (* Generic errors *)
   (* licensed expired - copied from geneva *)
   error Api_errors.license_expired []
-    ~doc:"Your license has expired.  Please contact your support representative." ();
+    ~doc:"Your license has expired. Please contact your support representative." ();
   error Api_errors.license_processing_error []
-    ~doc:"There was an error processing your license.  Please contact your support representative." ();
+    ~doc:"There was an error processing your license. Please contact your support representative." ();
   error Api_errors.license_restriction ["feature"]
-    ~doc:"This operation is not allowed because your license lacks a needed feature.  Please contact your support representative." ();
+    ~doc:"This operation is not allowed because your license lacks a needed feature. Please contact your support representative." ();
   error Api_errors.license_cannot_downgrade_in_pool []
     ~doc:"Cannot downgrade license while in pool. Please disband the pool first, then downgrade licenses on hosts separately." ();
   error Api_errors.license_does_not_support_pooling []
-    ~doc:"This host cannot join a pool because its license does not support pooling." ();
+    ~doc:"This server cannot join a pool because its license does not support pooling." ();
   error Api_errors.license_host_pool_mismatch []
     ~doc:"Host and pool have incompatible licenses (editions)." ();
   error Api_errors.license_does_not_support_xha []
-    ~doc:"XHA cannot be enabled because this host's license does not allow it." ();
+    ~doc:"HA cannot be enabled because this server's license does not allow it." ();
 
   error Api_errors.v6d_failure []
     ~doc:"There was a problem with the license daemon (v6d)." ();
@@ -58,7 +58,7 @@ let _ =
   error Api_errors.license_checkout_error ["reason"]
     ~doc:"The license for the edition you requested is not available." ();
   error Api_errors.license_file_deprecated []
-    ~doc:"This license file is no longer accepted. Please upgrade to the new licensing system." ();
+    ~doc:"This type of license file is for previous versions of the server. Please upgrade to the new licensing system." ();
   error Api_errors.activation_while_not_free []
     ~doc:"An activation key can only be applied when the edition is set to 'free'." ();
 
@@ -66,7 +66,7 @@ let _ =
     ~doc:"The use of this feature is restricted." ();
 
   error Api_errors.cannot_contact_host ["host"]
-    ~doc:"Cannot forward messages because the host cannot be contacted.  The host may be switched off or there may be network connectivity problems." ();
+    ~doc:"Cannot forward messages because the server cannot be contacted. The server may be switched off or there may be network connectivity problems." ();
 
   error Api_errors.tls_connection_failed ["address"; "port"]
     ~doc:"Cannot contact the other host using TLS on the specified address and port" ();
@@ -81,11 +81,11 @@ let _ =
     ~doc:"The server failed to unmarshal the XMLRPC message; it was expecting one element and received something else." ();
 
   error Api_errors.message_method_unknown ["method"]
-    ~doc:"You tried to call a method that does not exist.  The method name that you used is echoed." ();
+    ~doc:"You tried to call a method that does not exist. The method name that you used is echoed." ();
   error Api_errors.message_parameter_count_mismatch ["method"; "expected"; "received"]
-    ~doc:"You tried to call a method with the incorrect number of parameters.  The fully-qualified method name that you used, and the number of received and expected parameters are returned." ();
+    ~doc:"You tried to call a method with the incorrect number of parameters. The fully-qualified method name that you used, and the number of received and expected parameters are returned." ();
   error Api_errors.value_not_supported ["field"; "value"; "reason"]
-    ~doc:"You attempted to set a value that is not supported by this implementation.  The fully-qualified field name and the value that you tried to set are returned.  Also returned is a developer-only diagnostic reason." ();
+    ~doc:"You attempted to set a value that is not supported by this implementation. The fully-qualified field name and the value that you tried to set are returned. Also returned is a developer-only diagnostic reason." ();
   error Api_errors.invalid_value ["field"; "value"]
     ~doc:"The value given is invalid" ();
   error Api_errors.field_type_error ["field"]
@@ -100,7 +100,7 @@ let _ =
     ~doc:"You have attempted a function which is not implemented" ();
   (* DB errors *)
   error Api_errors.handle_invalid ["class"; "handle"]
-    ~doc:"You gave an invalid object reference.  The object may have recently been deleted.  The class parameter gives the type of reference given, and the handle parameter echoes the bad value given." ();
+    ~doc:"You gave an invalid object reference. The object may have recently been deleted. The class parameter gives the type of reference given, and the handle parameter echoes the bad value given." ();
   error Api_errors.db_uniqueness_constraint_violation ["table";"field";"value"]
     ~doc:"You attempted an operation which would have resulted in duplicate keys in the database." ();
   error Api_errors.location_not_unique ["SR"; "location"]
@@ -112,11 +112,11 @@ let _ =
   error Api_errors.session_authentication_failed []
     ~doc:"The credentials given by the user are incorrect, so access has been denied, and you have not been issued a session handle." ();
   error Api_errors.session_invalid ["handle"]
-    ~doc:"You gave an invalid session reference.  It may have been invalidated by a server restart, or timed out.  You should get a new session handle, using one of the session.login_ calls.  This error does not invalidate the current connection.  The handle parameter echoes the bad value given." ();
+    ~doc:"You gave an invalid session reference. It may have been invalidated by a server restart, or timed out. You should get a new session handle, using one of the session.login_ calls. This error does not invalidate the current connection. The handle parameter echoes the bad value given." ();
   error Api_errors.change_password_rejected [ "msg" ]
     ~doc:"The system rejected the password change request; perhaps the new password was too short?" ();
   error Api_errors.user_is_not_local_superuser [ "msg" ]
-    ~doc:"Only the local superuser can execute this operation" ();
+    ~doc:"Only the local superuser can perform this operation." ();
 
   (* SR-IOV errors *)
   error Api_errors.network_sriov_insufficient_capacity [ "network" ]
@@ -154,7 +154,7 @@ let _ =
   error Api_errors.network_incompatible_purposes ["new_purpose"; "conflicting_purpose"]
     ~doc:"You tried to add a purpose to a network but the new purpose is not compatible with an existing purpose of the network or other networks." ();
   error Api_errors.pif_is_physical ["PIF"]
-    ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed.  The parameter echoes the PIF handle you gave." ();
+    ~doc:"You tried to destroy a PIF, but it represents an aspect of the physical host configuration, and so cannot be destroyed. The parameter echoes the PIF handle you gave." ();
   error Api_errors.pif_is_not_physical ["PIF"]
     ~doc:"You tried to perform an operation which is only available on physical PIF" ();
   error Api_errors.pif_is_vlan ["PIF"]
@@ -170,7 +170,7 @@ let _ =
   error Api_errors.pif_already_bonded [ "PIF" ]
     ~doc:"This operation cannot be performed because the pif is bonded." ();
   error Api_errors.pif_cannot_bond_cross_host []
-    ~doc:"You cannot bond interfaces across different hosts." ();
+    ~doc:"You cannot bond interfaces across different servers." ();
   error Api_errors.pif_bond_needs_more_members []
     ~doc:"A bond must consist of at least two member interfaces" ();
   error Api_errors.pif_bond_more_than_one_ip []
@@ -231,9 +231,9 @@ let _ =
     ~doc:"Cannot plug VIF" ();
 
   error Api_errors.mac_does_not_exist [ "MAC" ]
-    ~doc:"The MAC address specified doesn't exist on this host." ();
+    ~doc:"The MAC address specified does not exist on this server." ();
   error Api_errors.mac_still_exists [ "MAC" ]
-    ~doc:"The MAC address specified still exists on this host." ();
+    ~doc:"The MAC address specified still exists on this server." ();
   error Api_errors.mac_invalid [ "MAC" ]
     ~doc:"The MAC address specified is not valid." ();
   error Api_errors.duplicate_pif_device_name [ "device" ]
@@ -242,7 +242,7 @@ let _ =
     ~doc:"Could not find a network interface with the specified device name and MAC address." ();
 
   error Api_errors.vlan_tag_invalid ["VLAN"]
-    ~doc:"You tried to create a VLAN, but the tag you gave was invalid -- it must be between 0 and 4094.  The parameter echoes the VLAN tag you gave." ();
+    ~doc:"You tried to create a VLAN, but the tag you gave was invalid -- it must be between 0 and 4094. The parameter echoes the VLAN tag you gave." ();
   error Api_errors.network_contains_vif ["vifs"]
     ~doc:"The network contains active VIFs and cannot be deleted." ();
   error Api_errors.network_contains_pif ["pifs"]
@@ -275,7 +275,7 @@ let _ =
   error Api_errors.vgpu_type_not_supported ["type"; "supported_types"]
     ~doc:"VGPU type is not one of the PGPU's supported types." ();
   error Api_errors.vgpu_type_not_compatible_with_running_type ["pgpu"; "type"; "running_type"]
-    ~doc:"VGPU type is not compatible with one or more of the VGPU types currently running on this PGPU" ();
+    ~doc:"The VGPU type is incompatible with one or more of the VGPU types currently running on this PGPU" ();
   error Api_errors.vgpu_type_not_compatible ["type"]
     ~doc:"You tried to create a VGPU that is not compatible with existing types on the VM." ();
   error Api_errors.vgpu_destination_incompatible ["reason"; "vgpu"; "host"]
@@ -301,7 +301,7 @@ let _ =
 
   (* VM specific errors *)
   error Api_errors.vm_is_protected [ "vm" ]
-    ~doc:"This operation cannot be performed because the specified VM is protected by xHA" ();
+    ~doc:"This operation cannot be performed because the specified VM is protected by HA" ();
   error Api_errors.vm_no_crashdump_sr ["vm"]
     ~doc:"This VM does not have a crashdump SR specified." ();
   error Api_errors.vm_no_suspend_sr ["vm"]
@@ -313,7 +313,7 @@ let _ =
   error Api_errors.illegal_vbd_device [ "vbd"; "device" ]
     ~doc:"The specified VBD device is not recognized: please use a non-negative integer" ();
   error Api_errors.vm_not_resident_here [ "vm"; "host" ]
-    ~doc:"The specified VM is not currently resident on the specified host." ();
+    ~doc:"The specified VM is not currently resident on the specified server." ();
   error Api_errors.domain_exists [ "vm"; "domid" ]
     ~doc:"The operation could not be performed because a domain still exists for the specified VM." ();
   error Api_errors.cannot_reset_control_domain [ "vm" ]
@@ -323,7 +323,7 @@ let _ =
   error Api_errors.vm_cannot_delete_default_template ["vm"]
     ~doc:"You cannot delete the specified default template." ();
   error Api_errors.vm_bad_power_state ["vm"; "expected"; "actual"]
-    ~doc:"You attempted an operation on a VM that was not in an appropriate power state at the time; for example, you attempted to start a VM that was already running.  The parameters returned are the VM's handle, and the expected and actual VM state at the time of the call." ();
+    ~doc:"You attempted an operation on a VM that was not in an appropriate power state at the time; for example, you attempted to start a VM that was already running. The parameters returned are the VM's handle, and the expected and actual VM state at the time of the call." ();
   error Api_errors.vm_missing_pv_drivers [ "vm" ]
     ~doc:"You attempted an operation on a VM which requires PV drivers to be installed but the drivers were not detected." ();
   error Api_errors.vm_old_pv_drivers [ "vm"; "major"; "minor" ]
@@ -366,7 +366,7 @@ let _ =
   error Api_errors.vm_toomany_vcpus ["vm"]
     ~doc:"Too many VCPUs to start this VM" ();
   error Api_errors.host_not_enough_free_memory [ "needed"; "available" ]
-    ~doc:"Not enough host memory is available to perform this operation" ();
+    ~doc:"Not enough server memory is available to perform this operation." ();
   error Api_errors.host_not_enough_pcpus [ "vcpus"; "pcpus" ]
     ~doc:"The host does not have enough pCPUs to run the VM. It needs at least as many as the VM has vCPUs." ();
   error Api_errors.duplicate_vm [ "vm" ]
@@ -413,44 +413,44 @@ let _ =
   error Api_errors.host_offline [ "host" ]
     ~doc:"You attempted an operation which involves a host which could not be contacted." ();
   error Api_errors.host_disabled [ "host" ]
-    ~doc:"The specified host is disabled." ();
+    ~doc:"The specified server is disabled." ();
   error Api_errors.host_disabled_until_reboot [ "host" ]
-    ~doc:"The specified host is disabled and cannot be re-enabled until after it has rebooted." ();
+    ~doc:"The specified server is disabled and cannot be re-enabled until after it has rebooted." ();
   error Api_errors.no_hosts_available []
-    ~doc:"There were no hosts available to complete the specified operation." ();
+    ~doc:"There were no servers available to complete the specified operation." ();
   error Api_errors.host_in_emergency_mode []
     ~doc:"Cannot perform operation as the host is running in emergency mode." ();
   error Api_errors.host_cannot_destroy_self [ "host" ]
     ~doc:"The pool master host cannot be removed." ();
   error Api_errors.host_cannot_read_metrics []
-    ~doc:"The metrics of this host could not be read." ();
+    ~doc:"The metrics of this server could not be read." ();
   error Api_errors.host_in_use [ "host"; "type"; "ref" ]
     ~doc:"This operation cannot be completed as the host is in use by (at least) the object of type and ref echoed below." ();
   error Api_errors.host_not_disabled []
     ~doc:"This operation cannot be performed because the host is not disabled. Please disable the host and then try again." ();
   error Api_errors.host_not_live []
-    ~doc:"This operation cannot be completed as the host is not live." ();
+    ~doc:"This operation cannot be completed as the server is not live." ();
   error Api_errors.host_is_live [ "host" ]
-    ~doc:"This operation cannot be completed as the host is still live." ();
+    ~doc:"This operation cannot be completed because the server is still live." ();
   error Api_errors.host_power_on_mode_disabled []
-    ~doc:"This operation cannot be completed as the host power on mode is disabled." ();
+    ~doc:"This operation cannot be completed because the server power on mode is disabled." ();
 
   error Api_errors.host_its_own_slave []
     ~doc:"The host is its own slave. Please use pool-emergency-transition-to-master or pool-emergency-reset-master." ();
   error Api_errors.host_still_booting []
     ~doc:"The host toolstack is still initialising. Please wait." ();
   error Api_errors.host_has_no_management_ip []
-    ~doc:"The host failed to acquire an IP address on its management interface and therefore cannot contact the master." ();
+    ~doc:"The server failed to acquire an IP address on its management interface and therefore cannot contact the master." ();
   error Api_errors.host_name_invalid [ "reason" ]
-    ~doc:"The host name is invalid." ();
+    ~doc:"The server name is invalid." ();
   error Api_errors.host_master_cannot_talk_back [ "ip" ]
     ~doc:"The master reports that it cannot talk back to the slave on the supplied management IP address." ();
   error Api_errors.host_unknown_to_master [ "host" ]
     ~doc:"The master says the host is not known to it. Perhaps the Host was deleted from the master's database? Perhaps the slave is pointing to the wrong master?" ();
   error Api_errors.host_broken []
-    ~doc:"This host failed in the middle of an automatic failover operation and needs to retry the failover action" ();
+    ~doc:"This server failed in the middle of an automatic failover operation and needs to retry the failover action." ();
   error Api_errors.host_has_resident_vms [ "host" ]
-    ~doc:"This host cannot be forgotten because there are some user VMs still running" ();
+    ~doc:"This server cannot be forgotten because there are user VMs still running." ();
 
   error Api_errors.not_supported_during_upgrade []
     ~doc:"This operation is not supported during an upgrade." ();
@@ -458,7 +458,7 @@ let _ =
   error Api_errors.interface_has_no_ip [ "interface" ]
     ~doc:"The specified interface cannot be used because it has no IP address" ();
   error Api_errors.auth_already_enabled ["current auth_type";"current service_name"]
-    ~doc:"External authentication for this host is already enabled." ();
+    ~doc:"External authentication for this server is already enabled." ();
   error Api_errors.auth_unknown_type ["type"]
     ~doc:"Unknown type of external authentication." ();
   error Api_errors.auth_is_disabled []
@@ -489,25 +489,25 @@ let _ =
 
   (* Pool errors *)
   error Api_errors.pool_joining_host_cannot_contain_shared_SRs []
-    ~doc:"The host joining the pool cannot contain any shared storage." ();
+    ~doc:"The server joining the pool cannot contain any shared storage." ();
   error Api_errors.pool_joining_host_cannot_have_running_or_suspended_VMs []
-    ~doc:"The host joining the pool cannot have any running or suspended VMs." ();
+    ~doc:"The server joining the pool cannot have any running or suspended VMs." ();
   error Api_errors.pool_joining_host_cannot_have_running_VMs []
-    ~doc:"The host joining the pool cannot have any running VMs." ();
+    ~doc:"The server joining the pool cannot have any running VMs." ();
   error Api_errors.pool_joining_host_cannot_have_vms_with_current_operations []
     ~doc:"The host joining the pool cannot have any VMs with active tasks." ();
   error Api_errors.pool_joining_host_cannot_be_master_of_other_hosts []
-    ~doc:"The host joining the pool cannot already be a master of another pool." ();
+    ~doc:"The server joining the pool cannot already be a master of another pool." ();
   error Api_errors.pool_joining_host_connection_failed []
     ~doc:"There was an error connecting to the host while joining it in the pool." ();
   error Api_errors.pool_joining_host_service_failed []
-    ~doc:"There was an error connecting to the host. the service contacted didn't reply properly." ();
+    ~doc:"There was an error connecting to the server. The service contacted didn't reply properly." ();
   error Api_errors.pool_joining_host_must_have_physical_management_nic []
-    ~doc:"The host joining the pool must have a physical management NIC (i.e. the management NIC must not be on a VLAN or bonded PIF)." ();
+    ~doc:"The server joining the pool must have a physical management NIC (i.e. the management NIC must not be on a VLAN or bonded PIF)." ();
   error Api_errors.pool_joining_external_auth_mismatch []
     ~doc:"Cannot join pool whose external authentication configuration is different." ();
   error Api_errors.pool_joining_host_must_have_same_product_version []
-    ~doc:"The host joining the pool must have the same product version as the pool master." ();
+    ~doc:"The server joining the pool must have the same product version as the pool master." ();
   error Api_errors.pool_joining_host_must_only_have_physical_pifs []
     ~doc:"The host joining the pool must not have any bonds, VLANs or tunnels." ();
   error Api_errors.pool_joining_host_management_vlan_does_not_match ["local"; "remote"]
@@ -525,7 +525,7 @@ let _ =
   error Api_errors.pool_not_in_emergency_mode []
     ~doc:"This pool is not in emergency mode." ();
   error Api_errors.pool_auth_already_enabled ["host"]
-    ~doc:"External authentication in this pool is already enabled for at least one host." ();
+    ~doc:"External authentication is already enabled for at least one server in this pool." ();
   error Api_errors.pool_auth_enable_failed ["host";"message"]
     ~doc:"The pool failed to enable external authentication." ();
   error Api_errors.pool_auth_enable_failed_wrong_credentials ["host";"message"]
@@ -587,9 +587,9 @@ let _ =
   error Api_errors.wlb_malformed_request []
     ~doc:"WLB rejected the server's request as malformed." ();
   error Api_errors.wlb_malformed_response ["method"; "reason"; "response"]
-    ~doc:"WLB said something that the server wasn't expecting or didn't understand.  The method called on WLB, a diagnostic reason, and the response from WLB are returned." ();
+    ~doc:"WLB said something that the server wasn't expecting or didn't understand. The method called on WLB, a diagnostic reason, and the response from WLB are returned." ();
   error Api_errors.wlb_xenserver_connection_refused []
-    ~doc:"WLB reported that the server refused it a connection (even though we're connecting perfectly fine in the other direction)." ();
+    ~doc:"WLB reported that the server refused to let it connect (even though we're connecting perfectly fine in the other direction)." ();
   error Api_errors.wlb_xenserver_unknown_host []
     ~doc:"WLB reported that its configured server name for this server instance failed to resolve in DNS." ();
   error Api_errors.wlb_xenserver_timeout []
@@ -603,7 +603,7 @@ let _ =
   error Api_errors.wlb_connection_reset []
     ~doc:"The connection to the WLB server was reset." ();
   error Api_errors.wlb_url_invalid ["url"]
-    ~doc:"The WLB URL is invalid. Ensure it is in format: <ipaddress>:<port>.  The configured/given URL is returned." ();
+    ~doc:"The WLB URL is invalid. Ensure it is in format: <ipaddress>:<port>. The configured/given URL is returned." ();
 
 
   (* Api_errors specific to running VMs on multiple hosts *)
@@ -632,7 +632,7 @@ let _ =
   error Api_errors.vm_has_sriov_vif ["vm"]
     ~doc:"This operation could not be performed, because the VM has one or more SR-IOV VIFs." ();
   error Api_errors.host_cannot_attach_network [ "host"; "network" ]
-    ~doc:"Host cannot attach network (in the case of NIC bonding, this may be because attaching the network on this host would require other networks [that are currently active] to be taken down)." ();
+    ~doc:"Server cannot attach network (in the case of NIC bonding, this may be because attaching the network on this server would require other networks - that are currently active - to be taken down)." ();
   error Api_errors.vm_requires_vdi [ "vm"; "vdi" ]
     ~doc:"VM cannot be started because it requires a VDI which cannot be attached" ();
   error Api_errors.vm_has_no_suspend_vdi [ "vm" ]
@@ -652,7 +652,7 @@ let _ =
   error Api_errors.too_many_storage_migrates [ "number" ]
     ~doc:"You reached the maximal number of concurrently migrating VMs." ();
   error Api_errors.sr_does_not_support_migration [ "sr" ]
-    ~doc:"You attempted to migrate a VDI to or from an SR which doesn't support migration" ();
+    ~doc:"You attempted to migrate a VDI to or from an SR that doesn't support migration." ();
   error Api_errors.vm_failed_shutdown_ack [ "vm" ]
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_failed_suspend_ack [ "vm" ]
@@ -698,11 +698,11 @@ let _ =
   error Api_errors.sr_source_space_insufficient ["sr"]
     ~doc:"The source SR does not have sufficient temporary space available to proceed the operation." ();
   error Api_errors.pbd_exists ["sr";"host";"pbd"]
-    ~doc:"A PBD already exists connecting the SR to the host" ();
+    ~doc:"A PBD already exists connecting the SR to the server." ();
   error Api_errors.sr_has_pbd ["sr"]
     ~doc:"The SR is still connected to a host via a PBD. It cannot be destroyed or forgotten." ();
   error Api_errors.sr_has_multiple_pbds [ "PBD" ]
-    ~doc:"The SR.shared flag cannot be set to false while the SR remains connected to multiple hosts" ();
+    ~doc:"The SR.shared flag cannot be set to false while the SR remains connected to multiple servers." ();
   error Api_errors.sr_requires_upgrade [ "SR" ]
     ~doc:"The operation cannot be performed until the SR has been upgraded" ();
   error Api_errors.sr_unknown_driver [ "driver" ]
@@ -762,11 +762,11 @@ let _ =
   error Api_errors.sr_not_empty [ ]
     ~doc:"The SR operation cannot be performed because the SR is not empty." ();
   error Api_errors.sr_device_in_use [ ]
-    ~doc:"The SR operation cannot be performed because a device underlying the SR is in use by the host." ();
+    ~doc:"The SR operation cannot be performed because a device underlying the SR is in use by the server." ();
   error Api_errors.sr_not_sharable [ "sr"; "host" ]
     ~doc:"The PBD could not be plugged because the SR is in use by another host and is not marked as sharable." ();
   error Api_errors.sr_indestructible ["sr"]
-    ~doc:"The SR could not be destroyed, as the 'indestructible' flag was set on it." ();
+    ~doc:"The SR could not be destroyed because the 'indestructible' flag was set on it." ();
   error Api_errors.sr_is_cache_sr [ "host" ]
     ~doc:"The SR is currently being used as a local cache SR." ();
   error Api_errors.clustered_sr_degraded [ "sr" ]
@@ -816,14 +816,14 @@ let _ =
   error Api_errors.restore_target_missing_device [ "device" ]
     ~doc:"The restore could not be performed because a network interface is missing" ();
   error Api_errors.restore_target_mgmt_if_not_in_backup [ ]
-    ~doc:"The restore could not be performed because the host's current management interface is not in the backup. The interfaces mentioned in the backup are:" ();
+    ~doc:"The restore could not be performed because the server's current management interface is not in the backup. The interfaces mentioned in the backup are:" ();
 
   error Api_errors.cannot_find_state_partition [ ]
     ~doc:"This operation could not be performed because the state partition could not be found" ();
   error Api_errors.backup_script_failed [ "log" ]
     ~doc:"The backup could not be performed because the backup script failed." ();
   error Api_errors.restore_script_failed [ "log" ]
-    ~doc:"The restore could not be performed because the restore script failed.  Is the file corrupt?" ();
+    ~doc:"The restore could not be performed because the restore script failed. Is the file corrupt?" ();
 
 
 
@@ -835,7 +835,7 @@ let _ =
   error Api_errors.event_from_token_parse_failure [ "token" ]
     ~doc:"The event.from token could not be parsed. Valid values include: '', and a value returned from a previous event.from call." ();
   error Api_errors.session_not_registered ["handle"]
-    ~doc:"This session is not registered to receive events.  You must call event.register before event.next.  The session handle you are using is echoed." ();
+    ~doc:"This session is not registered to receive events. You must call event.register before event.next. The session handle you are using is echoed." ();
 
   error Api_errors.task_cancelled [ "task" ]
     ~doc:"The request was asynchronously cancelled." ();
@@ -850,11 +850,11 @@ let _ =
   error Api_errors.invalid_patch []
     ~doc:"The uploaded patch file is invalid" ();
   error Api_errors.invalid_patch_with_log [ "log" ]
-    ~doc:"The uploaded patch file is invalid.  See attached log for more details." ();
+    ~doc:"The uploaded patch file is invalid. See attached log for more details." ();
   error Api_errors.cannot_find_patch []
-    ~doc:"The requested update could not be found.  This can occur when you designate a new master or xe patch-clean.  Please upload the update again" ();
+    ~doc:"The requested update could not be found. This can occur when you designate a new master or xe patch-clean. Please upload the update again." ();
   error Api_errors.cannot_fetch_patch ["uuid"]
-    ~doc:"The requested update could to be obtained from the master." ();
+    ~doc:"The requested update could not be obtained from the master." ();
   error Api_errors.patch_already_exists [ "uuid" ]
     ~doc:"The uploaded patch file already exists" ();
   error Api_errors.update_already_exists [ "uuid" ]
@@ -864,11 +864,11 @@ let _ =
   error Api_errors.patch_already_applied [ "patch" ]
     ~doc:"This patch has already been applied" ();
   error Api_errors.patch_apply_failed [ "output" ]
-    ~doc:"The patch apply failed.  Please see attached output." ();
+    ~doc:"The patch apply failed. Please see attached output." ();
   error Api_errors.patch_apply_failed_backup_files_exist [ "output" ]
     ~doc:"The patch apply failed: there are backup files created while applying patch. Please remove these backup files before applying patch again." ();
   error Api_errors.patch_precheck_failed_unknown_error [ "patch"; "info" ]
-    ~doc:"The patch precheck stage failed with an unknown error.  See attached info for more details." ();
+    ~doc:"The patch precheck stage failed with an unknown error. See attached info for more details." ();
   error Api_errors.patch_precheck_failed_prerequisite_missing [ "patch"; "prerequisite_patch_uuid_list" ]
     ~doc:"The patch precheck stage failed: prerequisite patches are missing." ();
   error Api_errors.patch_precheck_failed_wrong_server_version [ "patch"; "found_version"; "required_version"]
@@ -876,14 +876,14 @@ let _ =
   error Api_errors.patch_precheck_failed_wrong_server_build [ "patch"; "found_build"; "required_build"]
     ~doc:"The patch precheck stage failed: the server is of an incorrect build." ();
   error Api_errors.patch_precheck_failed_vm_running [ "patch" ]
-    ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server.  All VMs must be suspended before the patch can be applied." ();
+    ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server. All VMs must be suspended before the patch can be applied." ();
   error Api_errors.patch_precheck_failed_out_of_space [ "patch"; "found_space"; "required_required"]
     ~doc:"The patch precheck stage failed: the server does not have enough space." ();
   error Api_errors.patch_precheck_tools_iso_mounted ["patch"]
     ~doc:"Tools ISO must be ejected from all running VMs." ();
 
   error Api_errors.cannot_find_oem_backup_partition []
-    ~doc:"The backup partition to stream the updat to cannot be found" ();
+    ~doc:"The backup partition to stream the update to cannot be found." ();
   error Api_errors.only_allowed_on_oem_edition ["command"]
     ~doc:"This command is only allowed on the OEM edition." ();
   error Api_errors.not_allowed_on_oem_edition ["command"]
@@ -929,11 +929,11 @@ let _ =
   error Api_errors.ha_failed_to_form_liveset [ ]
     ~doc:"HA could not be enabled on the Pool because a liveset could not be formed: check storage and network heartbeat paths." ();
   error Api_errors.ha_heartbeat_daemon_startup_failed [ ]
-    ~doc:"The host could not join the liveset because the HA daemon failed to start." ();
+    ~doc:"The server could not join the liveset because the HA daemon failed to start." ();
   error Api_errors.ha_host_cannot_access_statefile [ ]
-    ~doc:"The host could not join the liveset because the HA daemon could not access the heartbeat disk." ();
+    ~doc:"The server could not join the liveset because the HA daemon could not access the heartbeat disk." ();
   error Api_errors.ha_host_is_armed [ "host" ]
-    ~doc:"The operation could not be performed while the host is still armed; it must be disarmed first" ();
+    ~doc:"The operation could not be performed while the server is still armed; it must be disarmed first." ();
   error Api_errors.ha_is_enabled [ ]
     ~doc:"The operation could not be performed because HA is enabled on the Pool" ();
   error Api_errors.ha_not_enabled [ ]
@@ -943,28 +943,28 @@ let _ =
   error Api_errors.ha_disable_in_progress [ ]
     ~doc:"The operation could not be performed because HA disable is in progress" ();
   error Api_errors.ha_not_installed [ "host" ]
-    ~doc:"The operation could not be performed because the HA software is not installed on this host." ();
+    ~doc:"The operation could not be performed because the HA software is not installed on this server." ();
   error Api_errors.ha_host_cannot_see_peers [ "host"; "all"; "subset" ]
-    ~doc:"The operation failed because the HA software on the specified host could not see a subset of other hosts. Check your network connectivity."
+    ~doc:"The operation failed because the HA software on the specified server could not see a subset of other servers. Check your network connectivity."
     ();
   error Api_errors.ha_too_few_hosts [ ]
-    ~doc:"HA can only be enabled for 2 hosts or more. Note that 2 hosts requires a pre-configured quorum tiebreak script."
+    ~doc:"HA can only be enabled for 2 servers or more. Note that 2 servers requires a pre-configured quorum tiebreak script."
     ();
   error Api_errors.ha_should_be_fenced [ "host" ]
-    ~doc:"Host cannot rejoin pool because it should have fenced (it is not in the master's partition)"
+    ~doc:"Server cannot rejoin pool because it should have fenced (it is not in the master's partition)."
     ();
   error Api_errors.ha_abort_new_master [ "reason" ]
-    ~doc:"This host cannot accept the proposed new master setting at this time."
+    ~doc:"This server cannot accept the proposed new master setting at this time."
     ();
 
   error Api_errors.ha_no_plan [ ]
-    ~doc:"Cannot find a plan for placement of VMs as there are no other hosts available."
+    ~doc:"Cannot find a plan for placement of VMs as there are no other servers available."
     ();
   error Api_errors.ha_lost_statefile [ ]
-    ~doc:"This host lost access to the HA statefile."
+    ~doc:"This server lost access to the HA statefile."
     ();
   error Api_errors.ha_pool_is_enabled_but_host_is_disabled [ ]
-    ~doc:"This host cannot join the pool because the pool has HA enabled but this host has HA disabled."
+    ~doc:"This server cannot join the pool because the pool has HA enabled but this server has HA disabled."
     ();
   error Api_errors.ha_constraint_violation_sr_not_shared [ "SR" ]
     ~doc:"This operation cannot be performed because the referenced SR is not properly shared. The SR must both be marked as shared and a currently_attached PBD must exist for each host."
@@ -989,15 +989,15 @@ let _ =
     ();
 
   error Api_errors.cannot_evacuate_host ["errors"]
-    ~doc:"This host cannot be evacuated."
+    ~doc:"This server cannot be evacuated."
     ();
 
   error Api_errors.system_status_retrieval_failed ["reason"]
-    ~doc:"Retrieving system status from the host failed.  A diagnostic reason suitable for support organisations is also returned."
+    ~doc:"Retrieving system status from the host failed. A diagnostic reason suitable for support organisations is also returned."
     ();
 
   error Api_errors.system_status_must_use_tar_on_oem []
-    ~doc:"You must use tar output to retrieve system status from an OEM host." ();
+    ~doc:"You must use tar output to retrieve system status from an OEM server." ();
 
   error Api_errors.xapi_hook_failed ["hook_name"; "reason"; "stdout"; "exit_code"]
     ~doc:"3rd party xapi hook failed" ();
