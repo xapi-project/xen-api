@@ -1268,7 +1268,7 @@ module PCI = struct
 
   let add ~xc ~xs ~hvm pcidevs domid =
     try
-      if !Xenopsd.use_old_pci_add then
+      if !Xenopsd.use_old_pci_add or (not hvm) then
         add_xl (List.map (fun (a,_) -> a) pcidevs) domid
       else
         List.iter (_pci_add ~xc ~xs ~hvm domid) pcidevs;
