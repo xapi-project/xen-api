@@ -278,7 +278,7 @@ let clear_input fd =
   loop ();
   Unix.clear_nonblock fd
 
-let ip_watcher () =
+let rec ip_watcher () =
   let cmd = Network_utils.iproute2 in
   let args = ["monitor"; "address"] in
   let readme, writeme = Unix.pipe () in
@@ -299,12 +299,26 @@ let ip_watcher () =
     end;
     loop ()
   in
+  let restart_ip_watcher () = begin
+    Unix.close readme;
+    Thread.delay 5.0;
+    ip_watcher ();
+  end
+  in
   while true do
     try
       info "(Re)started IP watcher thread";
       loop ()
     with e ->
-      warn "Error in IP watcher: %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ())
+      warn "Error in IP watcher: %s\n%s" (Printexc.to_string e) (Printexc.get_backtrace ());
+      match !watcher_pid with
+      | None -> restart_ip_watcher ()
+      | Some pid ->
+        let quitted, _ = Forkhelpers.waitpid_nohang pid in
+        if quitted <> 0 then begin
+          warn "address monitoring process quitted, try to restart it";
+          restart_ip_watcher ()
+        end
   done
 
 let start () =
