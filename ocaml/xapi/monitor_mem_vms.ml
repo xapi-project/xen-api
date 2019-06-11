@@ -19,7 +19,7 @@ module Mcache = Monitor_dbcalls_cache
 module D = Debug.Make(struct let name = "monitor_mem_vms" end)
 open D
 
-let get_changes () =
+let get_changes rrd_files =
   List.iter (fun filename ->
       try
         let datasources = Monitor_types.datasources_from_filename filename in
@@ -45,7 +45,7 @@ let get_changes () =
           error "Unable to read memory usage for VM %s: %s" filename (Printexc.to_string e);
           Mcache.ignore_errors_from filename
         end
-    ) (Monitor_types.find_rrd_files Xapi_globs.metrics_prefix_mem_vms);
+    ) rrd_files;
 
   (* Check if anything has changed since our last reading. *)
   Mcache.get_updates_map ~before:Mcache.vm_memory_cached ~after:Mcache.vm_memory_tmp
@@ -55,7 +55,9 @@ let set_changes ?except () =
       Mcache.transfer_map ?except ~source:Mcache.vm_memory_tmp ~target:Mcache.vm_memory_cached
     )
 
-let update () =
+let update rrd_files =
+  let is_vm_rrd = Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_mem_vms in
+  let rrd_files = List.filter is_vm_rrd rrd_files in
   Server_helpers.exec_with_new_task "Updating VM memory usage"
     (fun __context ->
       let host = Helpers.get_localhost ~__context in
@@ -70,6 +72,6 @@ let update () =
           with e ->
             keeps := vm_uuid :: !keeps;
             error "Unable to update memory usage for VM %s: %s" vm_uuid (Printexc.to_string e);
-        ) (get_changes ()) ;
+        ) (get_changes rrd_files) ;
       set_changes ~except:!keeps ()
     )

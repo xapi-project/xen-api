@@ -106,10 +106,11 @@ let pifs_update_fn () =
 let monitor_dbcall_thread () =
   while true do
     try
+      let rrd_files = Monitor_types.find_rrd_files () in
       pifs_update_fn ();
-      Monitor_mem_host.update ();
-      Monitor_mem_vms.update ();
-      Monitor_pvs_proxy.update ();
+      Monitor_mem_host.update rrd_files;
+      Monitor_mem_vms.update rrd_files;
+      Monitor_pvs_proxy.update rrd_files;
       Thread.delay 5.
     with e ->
       info "monitor_dbcall_thread would have died from: %s; restarting in 30s."

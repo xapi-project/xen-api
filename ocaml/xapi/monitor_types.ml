@@ -34,10 +34,9 @@ let vif_device_of_string x =
     | _ -> None
   with _ -> None
 
-let find_rrd_files prefix =
+let find_rrd_files () =
   Sys.readdir Xapi_globs.metrics_root
   |> Array.to_list
-  |> List.filter (Astring.String.is_prefix ~affix:prefix)
 
 let datasources_from_filename filename =
   let path = Filename.concat Xapi_globs.metrics_root filename in
