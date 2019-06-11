@@ -19,7 +19,7 @@ module Mcache = Monitor_dbcalls_cache
 module D = Debug.Make(struct let name = "monitor_mem_host" end)
 open D
 
-let get_changes () =
+let get_changes rrd_files =
   let named_dss = List.flatten (List.map (fun filename ->
       try
         let datasources = Monitor_types.datasources_from_filename filename in
@@ -46,7 +46,7 @@ let get_changes () =
           Mcache.ignore_errors_from filename
         end;
         []
-    ) (Monitor_types.find_rrd_files Xapi_globs.metrics_prefix_mem_host)) in
+    ) rrd_files) in
 
   let free_bytes = List.assoc_opt "memory_free_kib" named_dss in
   let total_bytes = List.assoc_opt "memory_total_kib" named_dss in
@@ -65,10 +65,12 @@ let set_changes (free_bytes, total_bytes) =
       Mcache.host_memory_total_cached := total_bytes;
     )
 
-let update () =
+let update rrd_files =
+  let is_host_rrd = Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_mem_host in
+  let rrd_files = List.filter is_host_rrd rrd_files in
   Server_helpers.exec_with_new_task "Updating host memory metrics"
     (fun __context ->
-    let changes = get_changes () in
+    let changes = get_changes rrd_files in
     match changes with
     | None -> ()
     | Some (free, total as c) ->

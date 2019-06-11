@@ -31,7 +31,7 @@ open D
    * Proxy starts reporting its status and when it is attached.
    *)
 
-let get_changes () =
+let get_changes rrd_files =
   List.iter (fun filename ->
       try
         let datasources = Monitor_types.datasources_from_filename filename in
@@ -57,7 +57,7 @@ let get_changes () =
           error "Unable to read PVS-proxy status for %s: %s" filename (Printexc.to_string e);
           Mcache.ignore_errors_from filename
         end
-    ) (Monitor_types.find_rrd_files Xapi_globs.metrics_prefix_pvs_proxy);
+    ) rrd_files;
 
   (* Check if anything has changed since our last reading. *)
   Mcache.get_updates_map ~before:Mcache.pvs_proxy_cached ~after:Mcache.pvs_proxy_tmp
@@ -75,7 +75,9 @@ let pvs_proxy_status_of_int = function
   | 4 -> `incompatible_protocol_version
   | _ -> failwith "Unknown status"
 
-let update () =
+let update rrd_files =
+  let is_proxy_rrd = Astring.String.is_prefix ~affix:Xapi_globs.metrics_prefix_pvs_proxy in
+  let rrd_files = List.filter is_proxy_rrd rrd_files in
   Server_helpers.exec_with_new_task "Updating PVS-proxy status fields"
     (fun __context ->
       let keeps = ref [] in
@@ -90,6 +92,6 @@ let update () =
           with e ->
             keeps := vm_uuid :: !keeps;
             error "Unable to update PVS-proxy status for %s: %s" vm_uuid (Printexc.to_string e);
-        ) (get_changes ()) ;
+        ) (get_changes rrd_files) ;
       set_changes ~except:!keeps ()
     )
