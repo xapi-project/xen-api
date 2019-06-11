@@ -947,7 +947,12 @@ let rec atomics_of_operation = function
     ) @ (List.map (fun vusb -> VUSB_unplug vusb.Vusb.id)
            (VUSB_DB.vusbs id)
         ) @ simplify ([
-        (* At this point we have a shutdown domain (ie Needs_poweroff) *)
+        (* CA-315450: in a hard shutdown or snapshot revert,
+         * timeout=None and VM_shutdown_domain is not called. To avoid
+         * any interference, we pause the domain before destroying the
+         * device model.
+         *)
+        VM_pause id;
         VM_destroy_device_model id;
       ] @ (
           let vbds = VBD_DB.vbds id in
