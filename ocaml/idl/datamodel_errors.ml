@@ -620,7 +620,7 @@ let _ =
   error Api_errors.vm_requires_iommu ["host"]
     ~doc:"You attempted to run a VM on a host which doesn't have I/O virtualization (IOMMU/VT-d) enabled, which is needed by the VM." ();
   error Api_errors.vm_host_incompatible_version_migrate ["host"; "vm"]
-    ~doc:"You attempted to migrate a VM to a destination host which is older than the source host." ();
+    ~doc:"Cannot migrate a VM to a destination host which is older than the source host." ();
   error Api_errors.vm_host_incompatible_version ["host"; "vm"]
     ~doc:"This VM operation cannot be performed on an older-versioned host during an upgrade." ();
   error Api_errors.vm_host_incompatible_virtual_hardware_platform_version ["host"; "host_versions"; "vm"; "vm_version"]
@@ -642,17 +642,17 @@ let _ =
   error Api_errors.vm_migrate_contact_remote_service_failed []
     ~doc:"Failed to contact service on the destination host." ();
   error Api_errors.vm_has_too_many_snapshots [ "vm" ]
-    ~doc:"You attempted to migrate a VM with more than one snapshot." ();
+    ~doc:"Cannot migrate a VM with more than one snapshot." ();
   error Api_errors.vm_has_checkpoint [ "vm" ]
-    ~doc:"You attempted to migrate a VM which has a checkpoint." ();
+    ~doc:"Cannot migrate a VM which has a checkpoint." ();
   error Api_errors.vdi_needs_vm_for_migrate [ "vdi" ]
-    ~doc:"You attempted to migrate a VDI which is not attached to a running VM." ();
+    ~doc:"Cannot migrate a VDI which is not attached to a running VM." ();
   error Api_errors.mirror_failed [ "vdi" ]
     ~doc:"The VDI mirroring cannot be performed" ();
   error Api_errors.too_many_storage_migrates [ "number" ]
     ~doc:"You reached the maximal number of concurrently migrating VMs." ();
   error Api_errors.sr_does_not_support_migration [ "sr" ]
-    ~doc:"You attempted to migrate a VDI to or from an SR that doesn't support migration." ();
+    ~doc:"Cannot migrate a VDI to or from an SR that doesn't support migration." ();
   error Api_errors.vm_failed_shutdown_ack [ "vm" ]
     ~doc:"VM didn't acknowledge the need to shutdown." ();
   error Api_errors.vm_failed_suspend_ack [ "vm" ]
