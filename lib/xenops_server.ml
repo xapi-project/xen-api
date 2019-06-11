@@ -1768,7 +1768,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
              first_handshake ();
              save ();
              final_handshake ()
-           | [(_vm_id,dev_id)] ->
+           | (_vm_id,dev_id)::_ ->
              let vgpu_url = make_url "/migrate-vgpu/" (VGPU_DB.string_of_id (new_dest_id,dev_id)) in
              Open_uri.with_open_uri vgpu_url (fun vgpu_fd ->
                  do_request vgpu_fd [cookie_vgpu_migration, ""] vgpu_url;
@@ -1780,7 +1780,6 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
                  save ~vgpu_fd:(FD vgpu_fd) ();
                );
              final_handshake ()
-           | _ -> raise (Xenopsd_error (Internal_error "Migration of a VM with more than one VGPU is not supported."))
         );
       let atomics = [
         VM_hook_script_stable(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend, new_src_id);
