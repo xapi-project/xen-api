@@ -9,3 +9,12 @@ retrieved over HTTP.
 `rrdd` also implements a plugin mechanism, by which other processes can
 register additional datasources to be collected.
 
+
+# Installation
+
+The easiest way to install is via opam:
+
+    opam switch create new-env
+    opam repo remove default
+    opam repo add xs-opam https://github.com/xapi-project/xs-opam.git
+    opam install xcp-rrdd
