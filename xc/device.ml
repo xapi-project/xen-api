@@ -2192,7 +2192,10 @@ module Dm_Common = struct
               ; "subvendor_id=0x5853"
               ; sprintf"subsystem_id=0x%04x" device_id ]
             | None -> []
-          else []
+          else match info.xen_platform with
+            | Some (device_id, _) ->
+              [ sprintf "device-id=0x%04x" device_id ]
+            | None -> []
       ])
     ]
 
