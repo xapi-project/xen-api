@@ -75,15 +75,9 @@ let api =
     (Datamodel_utils.add_implicit_messages ~document_order:false
        (filter obj_filter field_filter message_filter Datamodel.all_api))
 
-let classes = objects_of_api api
+let classes = List.filter (fun x-> not (List.mem x.name ["debug"; "event"])) (objects_of_api api)
 let enums = ref TypeSet.empty
 let maps = ref TypeSet.empty
-
-let generated x =
-  not (List.mem x.name ["session"; "debug"; "event"])
-
-let proxy_generated x =
-  not (List.mem x.name ["debug"; "event"])
 
 let joined sep f l =
   let r = List.map f l in
@@ -102,17 +96,17 @@ let enum_of_wire =
 let api_members = ref []
 
 let rec main() =
-  gen_proxy CommonFunctions.XmlRpc;
-  gen_proxy CommonFunctions.JsonRpc;
-  let filtered_classes = List.filter (fun x-> generated x) classes in
-  List.iter gen_class_file filtered_classes;
+  render_file ("Proxy.mustache", "Proxy.cs") (gen_proxy CommonFunctions.XmlRpc) templdir destdir;
+  render_file ("JsonRpcClient.mustache", "JsonRpcClient.cs") (gen_proxy CommonFunctions.JsonRpc) templdir destdir;
+  classes |> List.filter (fun x-> x.name <> "session") |> List.iter gen_class_file;
   TypeSet.iter gen_enum !enums;
   gen_maps();
   gen_http_actions();
   gen_relations();
   let sorted_members = List.sort String.compare !api_members in
   let json = `O ["api_members", `A (List.map (fun x -> `O ["api_member", `String x];) sorted_members); ] in
-  render_file ("XenServer.csproj.mustache", "XenServer.csproj") json templdir destdir
+  render_file ("XenServer.csproj.mustache", "XenServer.csproj") json templdir destdir;
+  render_file ("ApiVersion.mustache", "ApiVersion.cs") json_releases templdir destdir
 
 
 (* ------------------- category: relations *)
@@ -243,11 +237,8 @@ namespace XenAPI
     | _ -> failwith "Unimplemented HTTP method"
   in
 
-  let enhanced_args args =
-    [String_query_arg "task_id"; String_query_arg "session_id"] @ args
-  in
-
   let print_one_action_core name meth uri sdkargs =
+    let enhanced_args = [String_query_arg "task_id"; String_query_arg "session_id"] @ sdkargs in
     print "
 
         public static void %s(%s, HTTP.FuncBool cancellingDelegate, int timeout_ms,
@@ -258,10 +249,10 @@ namespace XenAPI
         }"
       name
       (string1 meth)
-      (String.concat ", " (List.map decl_of_sdkarg (enhanced_args sdkargs)))
+      (String.concat ", " (List.map decl_of_sdkarg enhanced_args))
       (string2 meth)
       uri
-      (String.concat ", " (List.map use_of_sdkarg (enhanced_args sdkargs)))
+      (String.concat ", " (List.map use_of_sdkarg enhanced_args))
   in
 
   let print_one_action(name, (meth, uri, sdk, sdkargs, _, _)) =
@@ -346,6 +337,8 @@ namespace XenAPI
 
   print
     "
+        #region Constructors
+
         public %s()
         {
         }
@@ -366,6 +359,21 @@ namespace XenAPI
                (String.concat "\n            " (List.rev (get_constructor_body cnt)))
   in print_internal_ctor contents;
 
+  print "
+        /// <summary>
+        /// Creates a new %s from a Hashtable.
+        /// Note that the fields not contained in the Hashtable
+        /// will be created with their default values.
+        /// </summary>
+        /// <param name=\"table\"></param>
+        public %s(Hashtable table)
+            : this()
+        {
+            UpdateFrom(table);
+        }
+"
+    exposed_class_name exposed_class_name;
+
   print
     "
         /// <summary>
@@ -374,8 +382,10 @@ namespace XenAPI
         /// <param name=\"proxy\"></param>
         public %s(Proxy_%s proxy)
         {
-            this.UpdateFromProxy(proxy);
+            UpdateFrom(proxy);
         }
+
+        #endregion
 
         /// <summary>
         /// Updates each field of this instance with the value of
@@ -393,7 +403,7 @@ namespace XenAPI
   print
     "        }
 
-        internal void UpdateFromProxy(Proxy_%s proxy)
+        internal void UpdateFrom(Proxy_%s proxy)
         {
 "
     exposed_class_name;
@@ -416,20 +426,6 @@ namespace XenAPI
     "            return result_;
         }
 ";
-
-  print "
-        /// <summary>
-        /// Creates a new %s from a Hashtable.
-        /// Note that the fields not contained in the Hashtable
-        /// will be created with their default values.
-        /// </summary>
-        /// <param name=\"table\"></param>
-        public %s(Hashtable table) : this()
-        {
-            UpdateFrom(table);
-        }
-"
-    exposed_class_name exposed_class_name;
 
   print "
         /// <summary>
@@ -524,12 +520,17 @@ namespace XenAPI
             }
         }";
 
-  List.iter (gen_exposed_method_overloads out_chan cls) messages;
+  let gen_exposed_method_overloads cls message =
+    let generator = fun x -> gen_exposed_method cls message x in
+    gen_overloads generator message
+  in
+  let all_methods = messages |> List.map (gen_exposed_method_overloads cls) |> List.concat in
+  List.iter (print "%s") all_methods;
 
   (* Don't create duplicate get_all_records call *)
   if not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages) &&
      List.mem cls.name expose_get_all_messages_for
-  then gen_exposed_method out_chan cls (get_all_records_method cls.name) [];
+  then print "%s" (gen_exposed_method cls (get_all_records_method cls.name) []);
 
   List.iter (gen_exposed_field out_chan cls) contents;
 
@@ -630,20 +631,15 @@ and gen_to_proxy_line out_chan content =
 
   | Namespace (_, c) -> List.iter (gen_to_proxy_line out_chan) c
 
-and gen_overload message generator =
+and gen_overloads generator message =
   let methodParams = get_method_params_list message in
   match methodParams with
-  | [] -> generator []
+  | [] -> (generator []) :: []
   | _  -> let paramGroups =  gen_param_groups message methodParams in
-    List.iter generator paramGroups
+    List.map generator paramGroups
 
-and gen_exposed_method_overloads out_chan cls message =
-  let generator = fun x -> gen_exposed_method out_chan cls message x in
-  gen_overload message generator
-
-and gen_exposed_method out_chan cls msg curParams =
+and gen_exposed_method cls msg curParams =
   let classname = cls.name in
-  let print format = fprintf out_chan format in
   let proxyMsgName = proxy_msg_name classname msg in
   let exposed_ret_type = exposed_type_opt msg.msg_result in
   let paramSignature = exposed_params msg classname curParams in
@@ -655,7 +651,7 @@ and gen_exposed_method out_chan cls msg curParams =
   let deprecatedAttribute = get_deprecated_attribute msg in
   let deprecatedInfoString = (if deprecatedInfo = "" then "" else "\n        /// "^deprecatedInfo) in
   let deprecatedAttributeString = (if deprecatedAttribute = "" then "" else "\n        "^deprecatedAttribute) in
-  print "
+  let sync = sprintf "
         /// <summary>
         /// %s%s%s
         /// </summary>%s%s
@@ -673,9 +669,10 @@ and gen_exposed_method out_chan cls msg curParams =
     exposed_ret_type
     msg.msg_name paramSignature
     (json_return_opt (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams) msg.msg_result)
-    (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result);
-  if msg.msg_async then
-    print "
+    (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result)
+  in
+  let async =
+    if msg.msg_async then sprintf "
         /// <summary>
         /// %s%s%s
         /// </summary>%s%s
@@ -693,6 +690,9 @@ and gen_exposed_method out_chan cls msg curParams =
       msg.msg_name paramSignature
       proxyMsgName jsonCallParams
       proxyMsgName callParams
+    else ""
+    in
+    sync ^ async
 
 and returns_xenobject msg =
   match msg.msg_result with
@@ -780,7 +780,7 @@ and gen_save_changes_to_field out_chan exposed_class_name fr =
 
 and ctor_call classname =
   let fields = Datamodel_utils.fields_of_obj (Dm_api.get_obj_by_name api ~objname:classname) in
-  let fields2 = ctor_fields fields in
+  let fields2 = List.filter (function { DT.qualifier = (DT.StaticRO | DT.RW); _ } -> true | _ -> false) fields in
   let args = (List.map (fun fr -> "p." ^ (full_name fr)) fields2) in
   String.concat ", " ("session.opaque_ref" :: args)
 
@@ -826,153 +826,47 @@ and gen_exposed_field out_chan cls content =
 (* ------------------- category: proxy classes *)
 
 and gen_proxy protocol =
-  let output_file =
-    match protocol with
-    | CommonFunctions.XmlRpc -> "Proxy.cs"
-    | CommonFunctions.JsonRpc -> "JsonRpcClient.cs"
-  in
-  let out_chan = open_out (Filename.concat destdir output_file)
-  in
-  finally (fun () -> gen_proxy' protocol out_chan)
-    ~always:(fun () -> close_out out_chan)
-
-and gen_proxy' protocol out_chan =
-  let print format = fprintf out_chan format in
-  print "%s" Licence.bsd_two_clause;
+  let all_methods = classes |> List.map (gen_proxy_class_methods protocol) |> List.concat in
   match protocol with
-  | CommonFunctions.XmlRpc -> print "
-
-using System;
-using System.Collections;
-using System.Collections.Generic;
-
-using CookComputing.XmlRpc;
-
-
-namespace XenAPI
-{
-    public interface Proxy : IXmlRpcProxy
-    {
-        [XmlRpcMethod(\"event.get_record\")]
-        Response<Proxy_Event>
-        event_get_record(string session, string _event);
-
-        [XmlRpcMethod(\"event.get_by_uuid\")]
-        Response<string>
-        event_get_by_uuid(string session, string _uuid);
-
-        [XmlRpcMethod(\"event.get_id\")]
-        Response<string>
-        event_get_id(string session, string _event);
-
-        [XmlRpcMethod(\"event.set_id\")]
-        Response<string>
-        event_set_id(string session, string _event, string _id);
-
-        [XmlRpcMethod(\"event.register\")]
-        Response<string>
-        event_register(string session, string [] _classes);
-
-        [XmlRpcMethod(\"event.unregister\")]
-        Response<string>
-        event_unregister(string session, string [] _classes);
-
-        [XmlRpcMethod(\"event.next\")]
-        Response<Proxy_Event[]>
-        event_next(string session);
-
-        [XmlRpcMethod(\"event.from\")]
-        Response<Events>
-        event_from(string session, string [] _classes, string _token, double _timeout);
-";
-    List.iter (fun x -> if proxy_generated x then gen_proxy_for_class protocol out_chan x) classes;
-    print
-      "    }
-
-";
-    List.iter (fun x -> if proxy_generated x then gen_proxyclass out_chan x) classes;
-    print
-      "}
-"
-  | CommonFunctions.JsonRpc -> print "
-
-using System;
-using System.Collections.Generic;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Linq;
+  | CommonFunctions.XmlRpc ->
+    let rec collate_fields content =
+      match content with
+      | Field f -> [f]
+      | Namespace (_, c) -> List.map collate_fields c |> List.concat
+    in
+    let proxy_field x = `O [
+        "proxy_field_name", `String (full_name x);
+        "proxy_field_type", `String (proxy_type x.ty);
+      ] in
+    let json_class {name; contents; _} =
+      let all_fields = contents |> List.map collate_fields |> List.concat in
+      `O [
+      "proxy_class_name", `String (exposed_class_name name);
+      "proxy_class_fields", `A (List.map proxy_field all_fields);
+    ] in
+    let json_method x = `O ["proxy_method", `String x;] in
+    `O [
+      "proxy_methods", `A (List.map json_method all_methods);
+      "proxy_classes", `A (List.map json_class classes);
+    ]
+  | CommonFunctions.JsonRpc ->
+    let json_method x = `O ["client_method", `String x;] in
+    `O [ "client_methods", `A (List.map json_method all_methods);]
 
 
-namespace XenAPI
-{
-    public partial class JsonRpcClient
-    {
-        public Event event_get_record(string session, string _event)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            return Rpc<Event>(\"event.get_record\", new JArray(session, _event ?? \"\"), serializer);
-        }
+and gen_proxy_class_methods protocol {name; messages; _} =
+  let gen_message_overloads protocol name message =
+    let generator = fun params -> gen_proxy_method protocol name message params in
+    gen_overloads generator message
+  in
+  let overloads = messages |> List.map (gen_message_overloads protocol name) |> List.concat in
+  let records =
+    if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
+      gen_proxy_method protocol name (get_all_records_method name) []
+    else "" in
+  overloads @ [records]
 
-        public string event_get_by_uuid(string session, string _uuid)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            return Rpc<string>(\"event.get_by_uuid\", new JArray(session, _uuid ?? \"\"), serializer);
-        }
-
-        public long event_get_id(string session, string _event)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            return Rpc<long>(\"event.get_id\", new JArray(session, _event ?? \"\"), serializer);
-        }
-
-        public void event_set_id(string session, string _event, long _id)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            Rpc(\"event.set_id\", new JArray(session, _event ?? \"\", _id), serializer);
-        }
-
-        public void event_register(string session, string[] _classes)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            Rpc(\"event.register\", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
-        }
-
-        public void event_unregister(string session, string[] _classes)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            Rpc(\"event.unregister\", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
-        }
-
-        public EventBatch event_from(string session, string[] _classes, string _token, double _timeout)
-        {
-            var converters = new List<JsonConverter> {};
-            var serializer = CreateSerializer(converters);
-            return Rpc<EventBatch>(\"event.from\", new JArray(session, JArray.FromObject(_classes ?? new string[] {}), _token ?? \"\", _timeout), serializer);
-        }
-";
-    List.iter (fun x -> if proxy_generated x then gen_proxy_for_class protocol out_chan x) classes;
-    print "
-    }
-}
-"
-
-and gen_proxy_for_class protocol out_chan {name=classname; messages; _} =
-  List.iter (gen_proxy_method_overloads protocol out_chan classname) messages;
-  if (not (List.exists (fun msg -> String.compare msg.msg_name "get_all_records" = 0) messages)) then
-    gen_proxy_method protocol out_chan classname (get_all_records_method classname) []
-
-and gen_proxy_method_overloads protocol out_chan classname message =
-  let generator = fun x -> gen_proxy_method protocol out_chan classname message x in
-  gen_overload message generator
-
-and gen_proxy_method protocol out_chan classname message params =
-  let print format = fprintf out_chan format in
+and gen_proxy_method protocol classname message params =
   let proxy_ret_type = proxy_type_opt message.msg_result in
   let proxy_msg_name = proxy_msg_name classname message in
   let proxyParams = proxy_params ~with_types:true ~json:false message classname params in
@@ -980,18 +874,21 @@ and gen_proxy_method protocol out_chan classname message params =
   let paramsJsonNoTypes = proxy_params ~with_types:false ~json:true message classname params in
   match protocol with
   | CommonFunctions.XmlRpc ->
-    print "
+    let sync = sprintf "
         [XmlRpcMethod(\"%s.%s\")]
         Response<%s>
-        %s(%s);
-" classname message.msg_name proxy_ret_type proxy_msg_name proxyParams;
+        %s(%s);"
+      classname message.msg_name proxy_ret_type proxy_msg_name proxyParams
+    in
+    let async =
+    if message.msg_async then sprintf "
 
-    if message.msg_async then
-      print "
         [XmlRpcMethod(\"Async.%s.%s\")]
         Response<string>
-        async_%s(%s);
-" classname message.msg_name proxy_msg_name proxyParams;
+        async_%s(%s);" classname message.msg_name proxy_msg_name proxyParams
+    else ""
+    in
+    sync ^ async
 
   | CommonFunctions.JsonRpc ->
     let return_word =
@@ -1002,28 +899,30 @@ and gen_proxy_method protocol out_chan classname message params =
     let param_converters = List.map (fun x -> json_converter x.param_type) params in
     let converters = (json_converter_opt message.msg_result)::param_converters |> List.filter (fun x-> x <> "") in
     let async_converters = "new XenRefConverter<Task>()":: param_converters |> List.filter (fun x-> x <> "") in
-    print "
+    let sync = sprintf "
         public %s %s(%s)
         {
             var converters = new List<JsonConverter> {%s};
             var serializer = CreateSerializer(converters);
             %sRpc%s(\"%s.%s\", new JArray(%s), serializer);
-        }
-" (exposed_type_opt message.msg_result) proxy_msg_name paramsJsonWithTypes
+        }" (exposed_type_opt message.msg_result) proxy_msg_name paramsJsonWithTypes
       (String.concat ", " converters)
       return_word (json_deserialise_opt message.msg_result) classname message.msg_name
-      paramsJsonNoTypes;
+      paramsJsonNoTypes
+    in
+    let async = 
+      if message.msg_async then sprintf "
 
-    if message.msg_async then
-      print "
         public XenRef<Task> async_%s(%s)
         {
             var converters = new List<JsonConverter> {%s};
             var serializer = CreateSerializer(converters);
             return Rpc<XenRef<Task>>(\"Async.%s.%s\", new JArray(%s), serializer);
-        }
-" proxy_msg_name paramsJsonWithTypes (String.concat ", " async_converters)
+        }" proxy_msg_name paramsJsonWithTypes (String.concat ", " async_converters)
         classname message.msg_name paramsJsonNoTypes
+      else ""
+    in
+    sync ^ async
 
 
 and proxy_params ~with_types ~json message classname params =
@@ -1059,39 +958,6 @@ and proxy_param ~with_types ~json p =
     else
       sprintf "_%s" (String.lowercase_ascii p.param_name)
   )
-
-
-and ctor_fields fields =
-  List.filter (function { DT.qualifier = (DT.StaticRO | DT.RW); _ } -> true | _ -> false) fields
-
-
-and gen_proxyclass out_chan {name=classname; contents; _} =
-  let print format = fprintf out_chan format in
-
-  print
-    "    [XmlRpcMissingMapping(MappingAction.Ignore)]
-    public class Proxy_%s
-    {
-" (exposed_class_name classname);
-
-  List.iter (gen_proxy_field out_chan) contents;
-
-  print
-    "    }
-
-"
-
-
-and gen_proxy_field out_chan content =
-  match content with
-    Field fr ->
-    let print format = fprintf out_chan format in
-
-    print
-      "        public %s %s;
-" (proxy_type fr.ty) (full_name fr)
-
-  | Namespace (_, c) -> List.iter (gen_proxy_field out_chan) c
 
 
 (* ------------------- category: enums *)
@@ -1576,10 +1442,5 @@ and get_default_value_per_type ty thing =
   | Option x       -> if thing = [] then "" else get_default_value_per_type x thing
 
 
-
-let populate_releases ()=
-  render_file ("ApiVersion.mustache", "ApiVersion.cs") json_releases templdir destdir
-
 let _ =
-  main();
-  populate_releases()
+  main()
