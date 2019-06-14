@@ -603,13 +603,32 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
        end
     ) to_update
 
+module Throttle = struct
+  let semaphore = ref None
+  let m = Mutex.create ()
+
+  let get_semaphore () =
+    Mutex.execute m (fun () ->
+        (* overridable on startup from config file, have
+         * to delay initialization *)
+        match !semaphore with
+        | None ->
+          let result = Semaphore.create !Xapi_globs.max_active_sr_scans in
+          semaphore := Some result;
+          result
+        | Some s -> s)
+
+  let execute f = Semaphore.execute (get_semaphore ()) f
+end
+
 (* Perform a scan of this locally-attached SR *)
 let scan ~__context ~sr =
   let open Storage_access in
   let task = Context.get_task_id __context in
   let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   let sr' = Ref.string_of sr in
-  transform_storage_exn
+  Throttle.execute (fun () ->
+    transform_storage_exn
     (fun () ->
        let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
        let vs = C.SR.scan (Ref.string_of task) (Storage_interface.Sr.of_string sr_uuid) in
@@ -622,7 +641,7 @@ let scan ~__context ~sr =
        Db.SR.set_physical_utilisation ~__context ~self:sr ~value:(Int64.sub sr_info.total_space sr_info.free_space);
        Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty";
        Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered;
-    )
+    ))
 
 let set_shared ~__context ~sr ~value =
   if value then
