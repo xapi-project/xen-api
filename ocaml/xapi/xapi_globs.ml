@@ -778,6 +778,9 @@ let default_vbd3_polling_idle_threshold = ref 50
 (** The minimal time gap between attempts to call plugin on a particular VM *)
 let vm_call_plugin_interval = ref 10.
 
+(** The maximum number of SR scans allowed concurrently *)
+let max_active_sr_scans = ref 32
+
 let nowatchdog = ref false
 
 let log_getter = ref false
@@ -920,6 +923,7 @@ let xapi_globs_spec =
     "default-vbd3-polling-duration", Int default_vbd3_polling_duration;
     "default-vbd3-polling-idle-threshold", Int default_vbd3_polling_idle_threshold;
     "vm_call_plugin_interval", Float vm_call_plugin_interval;
+    "max_active_sr_scans", Int max_active_sr_scans;
   ]
 
 let options_of_xapi_globs_spec =
