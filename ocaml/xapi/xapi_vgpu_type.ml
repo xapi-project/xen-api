@@ -321,7 +321,6 @@ module Vendor = functor (V : VENDOR) -> struct
       ~is_host_display_enabled
       ~is_pci_hidden =
     let vgpu_types = make_vgpu_types ~__context ~pci in
-    info "Using new Nvidia config file";
     let passthrough_types =
       if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
       then []
