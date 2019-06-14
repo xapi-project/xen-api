@@ -1268,7 +1268,7 @@ module PCI = struct
 
   let add ~xc ~xs ~hvm pcidevs domid =
     try
-      if !Xenopsd.use_old_pci_add then
+      if !Xenopsd.use_old_pci_add or (not hvm) then
         add_xl (List.map (fun (a,_) -> a) pcidevs) domid
       else
         List.iter (_pci_add ~xc ~xs ~hvm domid) pcidevs;
@@ -1907,6 +1907,7 @@ module Dm_Common = struct
       let open Xenops_interface.Vgpu in
       match x with
       | Vgpu [{implementation = Nvidia _}] -> ["-vgpu"]
+      | Vgpu ({implementation = Nvidia _} :: _) -> ["-vgpu"]
       | Vgpu [{implementation = GVT_g gvt_g}] ->
         let base_opts = [
           "-xengt";
@@ -1982,19 +1983,38 @@ module Dm_Common = struct
     ; fd_map = []
     }
 
-  let vgpu_args_of_nvidia domid vcpus (vgpu:Xenops_interface.Vgpu.nvidia) pci restore device =
+  let vgpu_args_of_nvidia domid vcpus vgpus restore =
     let open Xenops_interface.Vgpu in
+    let virtual_pci_address_compare vgpu1 vgpu2 =
+      match vgpu1, vgpu2 with
+      |{implementation = Nvidia {virtual_pci_address = Some pci1; _}; _},
+       {implementation = Nvidia {virtual_pci_address = Some pci2; _}; _} ->
+        Pervasives.compare pci1.dev pci2.dev
+      | other1, other2 -> Pervasives.compare other1 other2
+      in
+    let get_pci_string = function
+      | None -> raise (Xenopsd_error (Internal_error (Printf.sprintf "No PCI address (%s)" __LOC__)))
+      | Some pci -> Xcp_pci.string_of_address pci in
+    let device_args =
+      List.map (fun x ->
+          match x.implementation with
+          | Nvidia _conf ->
+            Printf.sprintf "--device=%s"
+              ([(Xenops_interface.Pci.string_of_address x.physical_pci_address);
+                _conf.type_id;
+                (get_pci_string _conf.virtual_pci_address);
+                _conf.uuid;
+                _conf.extra_args]
+               |> List.filter (fun str -> str <> "")
+               |> String.concat ",")
+          | _ -> "")
+        (List.sort virtual_pci_address_compare vgpus) in
     let suspend_file = sprintf demu_save_path domid in
-    let device_opt = match device with
-      | None -> []
-      | Some d -> ["--device"; string_of_int d] in
     let base_args = [
       "--domain=" ^ (string_of_int domid);
       "--vcpus=" ^ (string_of_int vcpus);
-      "--gpu=" ^ (Xenops_interface.Pci.string_of_address pci);
-      "--config=" ^ vgpu.config_file;
       "--suspend=" ^ suspend_file;
-    ] @ device_opt in
+    ] @ device_args in
     let fd_arg = if restore then ["--resume"] else [] in
     List.concat [base_args; fd_arg]
 
@@ -3149,20 +3169,15 @@ module Dm = struct
   let start_vgpu ~xs task ?(restore=false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in
     match vgpus with
-    | [{physical_pci_address = pci; implementation = Nvidia vgpu}] ->
+    | {physical_pci_address = pci; implementation = Nvidia vgpu} :: _ ->
       (* Start DEMU and wait until it has reached the desired state *)
       let state_path = Printf.sprintf "/local/domain/%d/vgpu/state" domid in
       let cancel = Cancel_utils.Vgpu domid in
       if not (Vgpu.is_running ~xs domid) then begin
-        (* The below line does nothing if the device is already bound to the
-           			 * nvidia driver. We rely on xapi to refrain from attempting to run
-           			 * a vGPU on a device which is passed through to a guest. *)
-        debug "start_vgpu: got VGPU with physical pci address %s"
-          (Xenops_interface.Pci.string_of_address pci);
-        PCI.bind [pci] PCI.Nvidia;
+        let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
+          PCI.bind pcis PCI.Nvidia;
         let module Q = (val Backend.of_profile profile) in
-        let device = Q.Vgpu.device ~index:0 in
-        let args = vgpu_args_of_nvidia domid vcpus vgpu pci restore device in
+        let args = vgpu_args_of_nvidia domid vcpus vgpus restore in
         let vgpu_pid = Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args
             ~domid ~fds:[] () in
         wait_path ~pidalive:(pid_alive vgpu_pid) ~task ~name:"vgpu" ~domid ~xs
@@ -3283,9 +3298,9 @@ module Dm = struct
   let restore (task: Xenops_task.task_handle) ~xs ~dm ?timeout info domid =
     __start task ~xs ~dm ?timeout Restore info domid
 
-  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpu vcpus profile =
+  let restore_vgpu (task: Xenops_task.task_handle) ~xs domid vgpus vcpus profile =
     debug "Called Dm.restore_vgpu";
-    start_vgpu ~xs task ~restore:true domid [vgpu] vcpus profile
+    start_vgpu ~xs task ~restore:true domid vgpus vcpus profile
 
   let suspend_varstored (task: Xenops_task.task_handle) ~xs domid =
     debug "Called Dm.suspend_varstored (domid=%d)" domid;
