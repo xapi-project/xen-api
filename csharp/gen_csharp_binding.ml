@@ -79,10 +79,7 @@ let classes = List.filter (fun x-> not (List.mem x.name ["debug"; "event"])) (ob
 let enums = ref TypeSet.empty
 let maps = ref TypeSet.empty
 
-let joined sep f l =
-  let r = List.map f l in
-  String.concat sep
-    (List.filter (fun x -> String.compare x "" != 0) r)
+let joined sep f l = l |> List.map f |> List.filter (fun x -> x <> "") |> String.concat sep
 
 let escape_xml s = s |>
                    Astring.String.cuts ~sep:"<" ~empty:true |>
@@ -967,75 +964,21 @@ and gen_enum = function
   | Enum(name, contents) ->
     if not (List.mem name !api_members) then
       api_members := name::!api_members;
-    let out_chan = open_out (Filename.concat destdir (name ^ ".cs"))
-    in
-    finally (fun () -> gen_enum' name contents out_chan)
-      ~always:(fun () -> close_out out_chan)
+    render_file ("Enum.mustache", name ^ ".cs") (gen_enum' name contents) templdir destdir;
   | _ -> assert false
 
 
-and gen_enum' name contents out_chan =
-  let print format = fprintf out_chan format in
-
-  print "%s
-
-using Newtonsoft.Json;
-
-
-namespace XenAPI
-{
-    [JsonConverter(typeof(%sConverter))]
-    public enum %s
-    {
-        " Licence.bsd_two_clause name name;
-
-  print "%s" (joined ", " gen_enum_line contents);
-
-  if not (has_unknown_entry contents) then
-    print ", unknown";
-
-  print "
-    }
-
-    public static class %s_helper
-    {
-        public static string ToString(%s x)
-        {
-            return x.StringOf();
-        }
-    }
-
-    public static partial class EnumExt
-    {
-        public static string StringOf(this %s x)
-        {
-            switch (x)
-            {
-" name name name;
-
-  List.iter (fun (wire, _) ->
-      print "                case %s.%s:\n                    return \"%s\";\n" name (enum_of_wire wire) wire
-    ) contents;
-
-  print "                default:
-                    return \"unknown\";
-            }
-        }
-    }
-
-    internal class %sConverter : XenEnumConverter
-    {
-        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
-        {
-            writer.WriteValue(((%s)value).StringOf());
-        }
-    }
-}
-" name name
-
-
-and gen_enum_line content =
-  enum_of_wire (fst content)
+and gen_enum' name contents =
+  let members = List.filter (fun (x, _) -> x <> "unknown") contents in
+  let enum_member (x, y) = `O [
+    "enum_member", `String (enum_of_wire x);
+    "enum_member_wire", `String x;
+    "enum_member_descr", `String y;
+  ] in
+  `O [
+    "enum", `String name;
+    "enum_members", `A (List.map enum_member members);
+  ]
 
 
 and has_unknown_entry contents =
