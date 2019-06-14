@@ -1,125 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
-  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
-    <xsd:element name="root" msdata:IsDataSet="true">
-      <xsd:complexType>
-        <xsd:choice maxOccurs="unbounded">
-          <xsd:element name="metadata">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" />
-              </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string" />
-              <xsd:attribute name="type" type="xsd:string" />
-              <xsd:attribute name="mimetype" type="xsd:string" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="assembly">
-            <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string" />
-              <xsd:attribute name="name" type="xsd:string" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="data">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
-              <xsd:attribute ref="xml:space" />
-            </xsd:complexType>
-          </xsd:element>
-          <xsd:element name="resheader">
-            <xsd:complexType>
-              <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
-              </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" />
-            </xsd:complexType>
-          </xsd:element>
-        </xsd:choice>
-      </xsd:complexType>
-    </xsd:element>
-  </xsd:schema>
-  <resheader name="resmimetype">
-    <value>text/microsoft-resx</value>
-  </resheader>
-  <resheader name="version">
-    <value>2.0</value>
-  </resheader>
-  <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </resheader>
-  <data name="AUTH_ALREADY_ENABLED" xml:space="preserve">
-    <value>External authentication for this server is already enabled.</value>
-  </data>
   <data name="AUTH_DISABLE_FAILED" xml:space="preserve">
     <value>External authentication has been disabled with errors: Your AD machine account was not disabled successfully on the AD server.</value>
   </data>
@@ -152,12 +32,6 @@
   </data>
   <data name="CANNOT_CONTACT_HOST" xml:space="preserve">
     <value>Cannot forward messages because the server cannot be contacted.  The server may be switched off or there may be network connectivity problems.</value>
-  </data>
-  <data name="CANNOT_EVACUATE_HOST" xml:space="preserve">
-    <value>This server cannot be evacuated.</value>
-  </data>
-  <data name="CANNOT_FETCH_PATCH" xml:space="preserve">
-    <value>The requested update could not be obtained from the master.</value>
   </data>
   <data name="CANNOT_FIND_OEM_BACKUP_PARTITION" xml:space="preserve">
     <value>The backup partition to stream the update to cannot be found</value>
@@ -198,9 +72,6 @@
   <data name="DEVICE_DETACH_TIMEOUT" xml:space="preserve">
     <value>A timeout happened while attempting to detach a device {1} of type {0} from a VM</value>
   </data>
-  <data name="DUPLICATE_MAC_SEED" xml:space="preserve">
-    <value>This MAC seed is already in use by a VM in the pool</value>
-  </data>
   <data name="EVACUATE_NO_OTHER_HOSTS_FOR_MASTER" xml:space="preserve">
     <value>No other server available to nominate as master.  Please add or enable some other servers.</value>
   </data>
@@ -219,47 +90,20 @@
   <data name="HANDLE_INVALID" xml:space="preserve">
     <value>Object has been deleted.{0}:{1}</value>
   </data>
-  <data name="HA_ABORT_NEW_MASTER" xml:space="preserve">
-    <value>This server cannot accept the proposed new master setting at this time.</value>
-  </data>
   <data name="HA_CONSTRAINT_VIOLATION_NETWORK_NOT_SHARED" xml:space="preserve">
     <value>This operation cannot be performed because the referenced network is not properly shared. The network must either be entirely virtual or must be physically present via a currently attached PIF on every server.</value>
   </data>
   <data name="HA_CONSTRAINT_VIOLATION_SR_NOT_SHARED" xml:space="preserve">
     <value>This operation cannot be performed because the referenced SR is not properly shared. The SR must both be marked as shared and a currently attached PBD must exist for each server.</value>
   </data>
-  <data name="HA_HEARTBEAT_DAEMON_STARTUP_FAILED" xml:space="preserve">
-    <value>The server could not join the liveset because the HA daemon failed to start.</value>
-  </data>
-  <data name="HA_HOST_CANNOT_ACCESS_STATEFILE" xml:space="preserve">
-    <value>The server could not join the liveset because the HA daemon could not access the heartbeat disk.</value>
-  </data>
-  <data name="HA_HOST_CANNOT_SEE_PEERS" xml:space="preserve">
-    <value>The operation failed because the HA software on the specified server could not see a subset of other servers. Check your network connectivity.</value>
-  </data>
   <data name="HA_HOST_IS_ARMED" xml:space="preserve">
     <value>The operation could not be performed while the server is still armed; it must be disarmed first</value>
-  </data>
-  <data name="HA_LOST_STATEFILE" xml:space="preserve">
-    <value>This server lost access to the HA statefile.</value>
-  </data>
-  <data name="HA_NOT_INSTALLED" xml:space="preserve">
-    <value>The operation could not be performed because the HA software is not installed on this server.</value>
-  </data>
-  <data name="HA_NO_PLAN" xml:space="preserve">
-    <value>Cannot find a plan for placement of VMs as there are no other servers available.</value>
   </data>
   <data name="HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN" xml:space="preserve">
     <value>This operation cannot be performed because HA would no longer be guaranteed for this pool.  To perform this operation anyway, you must disable or reconfigure HA.</value>
   </data>
-  <data name="HA_POOL_IS_ENABLED_BUT_HOST_IS_DISABLED" xml:space="preserve">
-    <value>This server cannot join the pool because the pool has HA enabled but this server has HA disabled.</value>
-  </data>
   <data name="HA_SHOULD_BE_FENCED" xml:space="preserve">
     <value>Server cannot rejoin pool because it should have fenced (it is not in the master's partition)</value>
-  </data>
-  <data name="HA_TOO_FEW_HOSTS" xml:space="preserve">
-    <value>HA can only be enabled for 2 servers or more. Note that 2 servers requires a pre-configured quorum tiebreak script.</value>
   </data>
   <data name="HOSTS_NOT_HOMOGENEOUS" xml:space="preserve">
     <value>The servers in this pool are not homogeneous. {0}</value>
@@ -276,23 +120,11 @@
   <data name="HOST_CANNOT_DESTROY_SELF" xml:space="preserve">
     <value>This server cannot destroy itself.</value>
   </data>
-  <data name="HOST_CANNOT_READ_METRICS" xml:space="preserve">
-    <value>The metrics of this server could not be read.</value>
-  </data>
   <data name="HOST_CD_DRIVE_EMPTY" xml:space="preserve">
     <value>The VM could not start because the CD drive is empty.</value>
   </data>
-  <data name="HOST_DISABLED" xml:space="preserve">
-    <value>The specified server is disabled.</value>
-  </data>
   <data name="HOST_DISABLED-SHORT" xml:space="preserve">
     <value>Disabled</value>
-  </data>
-  <data name="HOST_DISABLED_UNTIL_REBOOT" xml:space="preserve">
-    <value>The specified server is disabled and cannot be re-enabled until after it has rebooted.</value>
-  </data>
-  <data name="HOST_HAS_NO_MANAGEMENT_IP" xml:space="preserve">
-    <value>The server failed to acquire an IP address on its management interface and therefore cannot contact the master.</value>
   </data>
   <data name="HOST_HAS_RESIDENT_VMS" xml:space="preserve">
     <value>This server cannot be forgotten because there are some user VMs still running</value>
@@ -306,14 +138,8 @@
   <data name="HOST_IN_USE" xml:space="preserve">
     <value>This operation cannot be completed because the server is in use.</value>
   </data>
-  <data name="HOST_IS_LIVE" xml:space="preserve">
-    <value>This operation cannot be completed because the server is still live.</value>
-  </data>
   <data name="HOST_IS_SLAVE" xml:space="preserve">
     <value>The server that you are talking to is a slave</value>
-  </data>
-  <data name="HOST_NAME_INVALID" xml:space="preserve">
-    <value>The server name is invalid.</value>
   </data>
   <data name="HOST_NOT_DISABLED" xml:space="preserve">
     <value>This server cannot be enabled as it is not disabled.</value>
@@ -327,17 +153,11 @@
   <data name="HOST_NOT_IN_RECOVERY_MODE" xml:space="preserve">
     <value>The restore could not be performed because the server is not in recovery mode</value>
   </data>
-  <data name="HOST_NOT_LIVE" xml:space="preserve">
-    <value>This operation cannot be completed as the server is not live.</value>
-  </data>
   <data name="HOST_NOT_LIVE-SHORT" xml:space="preserve">
     <value>Unreachable</value>
   </data>
   <data name="HOST_OFFLINE" xml:space="preserve">
     <value>Server could not be contacted</value>
-  </data>
-  <data name="HOST_POWER_ON_MODE_DISABLED" xml:space="preserve">
-    <value>This operation cannot be completed because the server power on mode is disabled.</value>
   </data>
   <data name="HOST_STILL_BOOTING" xml:space="preserve">
     <value>The server is still booting.</value>
@@ -369,18 +189,6 @@
   <data name="INVALID_VALUE" xml:space="preserve">
     <value>The value '{1}' is invalid for field '{0}'.</value>
   </data>
-  <data name="JOINING_HOST_CANNOT_BE_MASTER_OF_OTHER_HOSTS" xml:space="preserve">
-    <value>The server joining the pool cannot already be a master of another pool.</value>
-  </data>
-  <data name="JOINING_HOST_CANNOT_CONTAIN_SHARED_SRS" xml:space="preserve">
-    <value>The server joining the pool cannot contain any shared storage.</value>
-  </data>
-  <data name="JOINING_HOST_CANNOT_HAVE_RUNNING_OR_SUSPENDED_VMS" xml:space="preserve">
-    <value>The server joining the pool cannot have any running or suspended VMs.</value>
-  </data>
-  <data name="JOINING_HOST_CANNOT_HAVE_RUNNING_VMS" xml:space="preserve">
-    <value>The server joining the pool cannot have any running VMs.</value>
-  </data>
   <data name="JOINING_HOST_CANNOT_HAVE_VMS_WITH_CURRENT_OPERATIONS" xml:space="preserve">
     <value>Joining server cannot have VMs with any current operations</value>
   </data>
@@ -408,9 +216,6 @@
   <data name="LICENSE_EXPIRED" xml:space="preserve">
     <value>Your license has expired</value>
   </data>
-  <data name="LICENSE_FILE_DEPRECATED" xml:space="preserve">
-    <value>This type of license file is for previous versions of the server. Please upgrade to the new licensing system.</value>
-  </data>
   <data name="LICENSE_HOST_POOL_MISMATCH" xml:space="preserve">
     <value>Host and pool have incompatible licenses.</value>
   </data>
@@ -422,9 +227,6 @@
   </data>
   <data name="MAC_DOES_NOT_EXIST" xml:space="preserve">
     <value>The MAC address specified doesn't exist on this server.</value>
-  </data>
-  <data name="MAC_STILL_EXISTS" xml:space="preserve">
-    <value>The MAC address specified still exists on this server.</value>
   </data>
   <data name="MAP_DUPLICATE_KEY" xml:space="preserve">
     <value>INTERNAL ERROR: Attempted to set '{0}'.'{1}':'{3}'='{2}', but the key '{3}' was already present in map '{1}'.</value>
@@ -455,9 +257,6 @@
   </data>
   <data name="NOT_SUPPORTED_DURING_UPGRADE" xml:space="preserve">
     <value>This operation is not supported during an upgrade</value>
-  </data>
-  <data name="NO_HOSTS_AVAILABLE" xml:space="preserve">
-    <value>There were no servers available to complete the specified operation.</value>
   </data>
   <data name="OPENVSWITCH_NOT_ACTIVE" xml:space="preserve">
     <value>This operation needs the OpenVSwitch networking backend to be enabled.</value>
@@ -513,12 +312,6 @@
   <data name="PIF_ALREADY_BONDED" xml:space="preserve">
     <value>You cannot create a bond of an interface which is a member of an existing bond.</value>
   </data>
-  <data name="PIF_CANNOT_BOND_CROSS_HOST" xml:space="preserve">
-    <value>You cannot bond interfaces across different servers.</value>
-  </data>
-  <data name="PIF_DEVICE_NOT_FOUND" xml:space="preserve">
-    <value>The specified device was not found.</value>
-  </data>
   <data name="PIF_HAS_NO_NETWORK_CONFIGURATION" xml:space="preserve">
     <value>PIF has no network configuration</value>
   </data>
@@ -531,17 +324,11 @@
   <data name="PIF_VLAN_EXISTS" xml:space="preserve">
     <value>VLAN tag already in use</value>
   </data>
-  <data name="POOL_AUTH_ALREADY_ENABLED" xml:space="preserve">
-    <value>External authentication is already enabled for at least one server in this pool.</value>
-  </data>
   <data name="POOL_AUTH_DISABLE_FAILED" xml:space="preserve">
     <value>External authentication has been disabled with errors: Some AD machine accounts were not disabled successfully on the AD server. </value>
   </data>
   <data name="POOL_AUTH_DISABLE_FAILED_PERMISSION_DENIED" xml:space="preserve">
     <value>External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server as permission was denied.</value>
-  </data>
-  <data name="POOL_AUTH_DISABLE_FAILED_WRONG_CREDENTIALS" xml:space="preserve">
-    <value>External authentication has been disabled with errors: Some AD machine accounts were not disabled on the AD server due to invalid credentials.</value>
   </data>
   <data name="POOL_AUTH_ENABLE_FAILED" xml:space="preserve">
     <value>Could not enable external authentication.</value>
@@ -567,15 +354,6 @@
   <data name="POOL_JOINING_EXTERNAL_AUTH_MISMATCH" xml:space="preserve">
     <value>The external authentication configuration of the server joining the pool must match the pool's own external authentication configuration.</value>
   </data>
-  <data name="POOL_JOINING_HOST_MUST_HAVE_PHYSICAL_MANAGEMENT_NIC" xml:space="preserve">
-    <value>The server joining the pool must have a physical management NIC (i.e. the management NIC must not be on a VLAN or bonded PIF).</value>
-  </data>
-  <data name="POOL_JOINING_HOST_MUST_HAVE_SAME_PRODUCT_VERSION" xml:space="preserve">
-    <value>The server joining the pool must have the same product version as the pool master.</value>
-  </data>
-  <data name="POOL_JOINING_HOST_MUST_ONLY_HAVE_PHYSICAL_PIFS" xml:space="preserve">
-    <value>The host joining the pool must not have any bonds, VLANs or tunnels.</value>
-  </data>
   <data name="RBAC_PERMISSION_DENIED" xml:space="preserve">
     <value>Your current role is not authorized to perform this action.
 Action: {0}</value>
@@ -595,9 +373,6 @@ Authorized Roles: {1}</value>
   </data>
   <data name="RESTORE_SCRIPT_FAILED" xml:space="preserve">
     <value>The restore could not be performed because the restore script failed. Your backup file may be corrupt. See the logs for more information.</value>
-  </data>
-  <data name="RESTORE_TARGET_MGMT_IF_NOT_IN_BACKUP" xml:space="preserve">
-    <value>The restore could not be performed because the server's current management interface is not in the backup. The interfaces mentioned in the backup are:</value>
   </data>
   <data name="SESSION_AUTHENTICATION_FAILED" xml:space="preserve">
     <value>Could not authenticate session. Check your access credentials and try again.</value>
@@ -908,9 +683,6 @@ Authorized Roles: {1}</value>
   <data name="SR_BACKEND_FAILURE_97" xml:space="preserve">
     <value>The request is missing the server configuration iSCSI IQN parameter</value>
   </data>
-  <data name="SR_DEVICE_IN_USE" xml:space="preserve">
-    <value>The SR operation cannot be performed because a device underlying the SR is in use by the server.</value>
-  </data>
   <data name="SR_DOES_NOT_SUPPORT_MIGRATION" xml:space="preserve">
     <value>You attempted to migrate a VDI to or from an SR that doesn't support migration</value>
   </data>
@@ -923,9 +695,6 @@ Authorized Roles: {1}</value>
   <data name="SR_HAS_PBD" xml:space="preserve">
     <value>The SR {0} is still connected to a server by a PBD. It cannot be destroyed.</value>
   </data>
-  <data name="SR_INDESTRUCTIBLE" xml:space="preserve">
-    <value>The SR could not be destroyed because the 'indestructible' flag was set on it.</value>
-  </data>
   <data name="SR_NOT_SHARABLE" xml:space="preserve">
     <value>SR is not sharable</value>
   </data>
@@ -935,14 +704,8 @@ Authorized Roles: {1}</value>
   <data name="SR_UNKNOWN_DRIVER" xml:space="preserve">
     <value>The SR could not be connected because the driver {0} was not recognized.</value>
   </data>
-  <data name="SYSTEM_STATUS_MUST_USE_TAR_ON_OEM" xml:space="preserve">
-    <value>You must use tar output to retrieve system status from an OEM server.</value>
-  </data>
   <data name="SYSTEM_STATUS_RETRIEVAL_FAILED" xml:space="preserve">
     <value>Retrieving system status from the server failed.</value>
-  </data>
-  <data name="UNIMPLEMENTED_IN_SM_BACKEND" xml:space="preserve">
-    <value>You have attempted a function which is not implemented</value>
   </data>
   <data name="UNKNOWN_BOOTLOADER" xml:space="preserve">
     <value>The requested bootloader {1} for VM {0} is unknown</value>
@@ -976,9 +739,6 @@ Authorized Roles: {1}</value>
   </data>
   <data name="VCPUS_MAX_ALLOWED_TITLE" xml:space="preserve">
     <value>Maximum number of virtual CPUs allowed</value>
-  </data>
-  <data name="VDI_COPY_FAILED" xml:space="preserve">
-    <value>The VDI copy action has failed</value>
   </data>
   <data name="VDI_INCOMPATIBLE_TYPE" xml:space="preserve">
     <value>This operation cannot be performed because the specified virtual disk is of an incompatible type (e.g., an HA statefile cannot be attached to a VM)</value>
@@ -1052,17 +812,11 @@ Authorized Roles: {1}</value>
   <data name="VM_IS_PART_OF_AN_APPLIANCE" xml:space="preserve">
     <value>The VM cannot be recovered on its own as it is part of a VM appliance.</value>
   </data>
-  <data name="VM_IS_PROTECTED" xml:space="preserve">
-    <value>This operation cannot be performed because the specified VM is protected by HA</value>
-  </data>
   <data name="VM_IS_TEMPLATE" xml:space="preserve">
     <value>The operation attempted is not valid for templates</value>
   </data>
   <data name="VM_MIGRATE_FAILED" xml:space="preserve">
     <value>VM migration failed: {3}</value>
-  </data>
-  <data name="VM_NOT_RESIDENT_HERE" xml:space="preserve">
-    <value>The specified VM is not currently resident on the specified server.</value>
   </data>
   <data name="VM_REQUIRES_GPU" xml:space="preserve">
     <value>You attempted to run a VM on a host which doesn't have a GPU available in the GPU group needed by the VM. The VM has a virtual GPU attached to this GPU group.</value>
@@ -1096,9 +850,6 @@ Authorized Roles: {1}</value>
   </data>
   <data name="WLB_MALFORMED_RESPONSE" xml:space="preserve">
     <value>The WLB server said something that the server wasn't expecting or didn't understand.</value>
-  </data>
-  <data name="WLB_XENSERVER_CONNECTION_REFUSED" xml:space="preserve">
-    <value>WLB reported that the server refused to let it connect (even though we're connecting perfectly fine in the other direction).</value>
   </data>
   <data name="XMLRPC_GENERAL_ERROR" xml:space="preserve">
     <value>An error occurred while performing the XMLRPC request.</value>

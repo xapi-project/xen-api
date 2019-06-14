@@ -53,22 +53,17 @@ let rec friendly_names_all errors =
   Hashtbl.iter update_entries errors;
   let keys   = Hashtbl.fold get_keys friendly_names [] in
   let keys'  = List.sort String.compare keys in
-  let values = List.map get_value keys' in
-  List.combine keys' values;
+  let values = List.map (Hashtbl.find friendly_names) keys' in
+  List.combine keys' values
 
 and update_entries _ error =
   let name = error.DT.err_name in
   let desc = error.DT.err_doc in
-  if not (Hashtbl.mem friendly_names name) then
-    Hashtbl.add friendly_names name desc
-  else
-    ()
+  if Hashtbl.mem friendly_names name then ()
+  else Hashtbl.add friendly_names name desc
 
 and get_keys key _ tail =
   key :: tail
-
-and get_value key =
-  Hashtbl.find friendly_names key
 
 let rec get_node k = function
   | Xml.Element(k', _, [Xml.PCData v]) :: _ when k = k' -> v
@@ -79,7 +74,9 @@ let parse_sr_xml filename =
   let update_entry children =
     let description = get_node "description" children in
     let value = get_node "value" children in
-    Hashtbl.replace friendly_names ("SR_BACKEND_FAILURE_" ^ value) description
+    let key = "SR_BACKEND_FAILURE_" ^ value in
+    if Hashtbl.mem friendly_names key then ()
+    else Hashtbl.add friendly_names key description
   in
   let rec parse_xml = function
     | Xml.Element("SM-errorcodes", _, children) -> List.iter parse_xml children
@@ -114,8 +111,8 @@ let parse_resx filename =
 
 let _ =
   let resx_file = "FriendlyErrorNames.resx" in
-  parse_sr_xml sr_xml;
   parse_resx resx_file;
+  parse_sr_xml sr_xml;
   let errors = friendly_names_all Datamodel.errors in
   let json = `O [
       "i18n_errors", `A (List.map (fun (x, y) ->
