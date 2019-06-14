@@ -3,7 +3,7 @@
   (modules unit_tests)
   (libraries
     bigarray
-    oUnit
+    alcotest
     unix
     xapi-rrd
     xapi-rrd.unix)

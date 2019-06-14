@@ -20,7 +20,7 @@ depends: [
   "xmlm"
   "uuidm"
   "ezjsonm"
-  "ounit" {with-test}
+  "alcotest" {with-test}
 ]
 synopsis: "RRD library for use with xapi"
 description: """

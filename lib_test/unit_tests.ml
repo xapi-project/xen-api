@@ -1,16 +1,14 @@
-
-open OUnit
 open Rrd
 
 let compareish f1 f2 =
   let result = (Utils.isnan f1 && Utils.isnan f2) ||
-               (f1 = f2) || 
+               (f1 = f2) ||
                (abs_float (f1 -. f2) /. f1) < 0.001 in
   result
 
 let compareish2 f1 f2 =
   let result = (Utils.isnan f1 && Utils.isnan f2) ||
-               (f1 = f2) || 
+               (f1 = f2) ||
                (abs_float (f1 -. f2)) < 0.0001 in
   result
 
@@ -55,15 +53,13 @@ let assert_rrds_equal r1 r2 =
   assert_dss_equal r1.rrd_dss r2.rrd_dss;
   assert_rras_equal r1.rrd_rras r2.rrd_rras
 
-let test_marshal rrd =
-  "Save to disk" >:: (fun () ->
-      Rrd_unix.to_file rrd "/tmp/output.xml")
+let test_marshall rrd () =
+  Rrd_unix.to_file rrd "/tmp/output.xml"
 
-let test_unmarshal rrd =
-  "Restore from disk" >:: (fun () ->
-      Rrd_unix.to_file rrd "/tmp/output.xml";
-      let rrd' = Rrd_unix.of_file "/tmp/output.xml" in
-      assert_rrds_equal rrd rrd')
+let test_unmarshall rrd () =
+  Rrd_unix.to_file rrd "/tmp/output.xml";
+  let rrd' = Rrd_unix.of_file "/tmp/output.xml" in
+  assert_rrds_equal rrd rrd'
 
 let create_dummy_data () =
   let rra = rra_create CF_Average 100 1 0.5 in
@@ -86,16 +82,14 @@ let create_dummy_data () =
   done;
   rrd
 
-let _ =
-  let verbose = ref false in
-  Arg.parse [
-    "-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode";
-  ] (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test RRD library";
+let rrd = create_dummy_data ()
 
-  let rrd = create_dummy_data () in
+let suite = [
+  "Save to disk"     , `Quick, test_marshall rrd  ;
+  "Restore from disk", `Quick, test_unmarshall rrd;
+]
 
-  let suite = "rrd" >::: [
-      "read_write" >::: [test_marshal rrd; test_unmarshal rrd]
-    ] in
-  run_test_tt ~verbose:!verbose suite
+let () =
+  Alcotest.run "Test RRD library" [
+    "dummy_data", suite;
+  ]
