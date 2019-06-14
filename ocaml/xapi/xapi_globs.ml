@@ -446,6 +446,8 @@ let vgt_fence_sz = "vgt_fence_sz"
 
 let mxgpu_vgpus_per_pgpu = "vgpus_per_pgpu"
 
+let nvidia_compat_lookup_file = ref "/var/run/nonpersistent/xapi/nvidia_compat_lookup"
+
 let wlb_timeout = "wlb_timeout"
 let wlb_reports_timeout = "wlb_reports_timeout"
 let default_wlb_timeout = 30.0
@@ -977,6 +979,8 @@ let other_options = [
   "db_idempotent_map", Arg.Set Db_globs.idempotent_map,
   (fun () -> string_of_bool !Db_globs.idempotent_map), "True if the add_to_<map> API calls should be idempotent";
 
+  "nvidia_compat_lookup_file", Arg.Set_string nvidia_compat_lookup_file,
+  (fun () -> !nvidia_compat_lookup_file), "Path to the file with NVidia vGPU compat data for use by xenopsd";
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
