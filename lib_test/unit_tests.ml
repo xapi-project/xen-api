@@ -57,6 +57,28 @@ let assert_rrds_equal r1 r2 =
   assert_dss_equal r1.rrd_dss r2.rrd_dss;
   assert_rras_equal r1.rrd_rras r2.rrd_rras
 
+let in_range min max values =
+  let between value =
+    if not (Utils.isnan value) then begin
+      Alcotest.(check bool) (Printf.sprintf "value (%f) higher than min (%f); " value min) (min <= value) true;
+      Alcotest.(check bool) (Printf.sprintf "value (%f) lower than max (%f); " value max) (max >= value) true
+    end in
+  Alcotest.(check bool) (Printf.sprintf "min (%f) ≤ max (%f); " min max) (min <= max) true;
+  List.iter between values
+
+let fring_to_list fring =
+  Array.to_list @@ Fring.get fring
+
+(* Checks if all the values in the archives are within the limits set by the data sources
+ * Each archive (RRA) has a ring for each datasource (DS) *)
+let test_ranges rrd () =
+  let in_range_fring ds fring =
+    in_range ds.ds_min ds.ds_max (fring_to_list fring) in
+  let in_range_rra dss rra =
+    List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
+
+  List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) (Array.to_list rrd.rrd_rras)
+
 let test_marshall rrd () =
   Rrd_unix.to_file rrd "/tmp/output.xml"
 
@@ -65,7 +87,7 @@ let test_unmarshall rrd () =
   let rrd' = Rrd_unix.of_file "/tmp/output.xml" in
   assert_rrds_equal rrd rrd'
 
-let create_dummy_data () =
+let create_gauge_rrd () =
   let rra = rra_create CF_Average 100 1 0.5 in
   let rra2 = rra_create CF_Average 100 10 0.5 in
   let rra3 = rra_create CF_Average 100 100 0.5 in
@@ -86,14 +108,15 @@ let create_dummy_data () =
   done;
   rrd
 
-let rrd = create_dummy_data ()
+let gauge_rrd = create_gauge_rrd ()
 
-let suite = [
+let rrd_suite rrd = [
   "Save to disk"     , `Quick, test_marshall rrd  ;
   "Restore from disk", `Quick, test_unmarshall rrd;
+  "Values in range",   `Quick, test_ranges rrd    ;
 ]
 
 let () =
   Alcotest.run "Test RRD library" [
-    "dummy_data", suite;
+    "Gauge RRD", rrd_suite gauge_rrd;
   ]
