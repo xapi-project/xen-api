@@ -16,7 +16,7 @@ let compare_float message x y =
   Alcotest.check (float @@ tolerance x) message x y
 
 let assert_ds_equal d1 d2 =
-  assert (d1.ds_name = d2.ds_name);
+  Alcotest.(check string) __LOC__ d1.ds_name d2.ds_name;
   assert (d1.ds_ty = d2.ds_ty);
   compare_float __LOC__ d1.ds_min d2.ds_min;
   compare_float __LOC__ d1.ds_max d2.ds_max;
@@ -31,7 +31,7 @@ let assert_dss_equal d1s d2s =
 
 let assert_cdp_prep_equal c1 c2 =
   compare_float __LOC__ c1.cdp_value c2.cdp_value;
-  assert (c1.cdp_unknown_pdps = c2.cdp_unknown_pdps)
+  Alcotest.(check int) __LOC__ c1.cdp_unknown_pdps c2.cdp_unknown_pdps
 
 let assert_fring_equal f1 f2 =
   for i=0 to f1.Fring.size - 1 do
@@ -42,8 +42,8 @@ let assert_fring_equal f1 f2 =
 
 let assert_rra_equal a1 a2 =
   assert (a1.rra_cf = a2.rra_cf);
-  assert (a1.rra_row_cnt = a2.rra_row_cnt);
-  assert (a1.rra_pdp_cnt = a2.rra_pdp_cnt);
+  Alcotest.(check int) __LOC__ a1.rra_row_cnt a2.rra_row_cnt;
+  Alcotest.(check int) __LOC__ a1.rra_pdp_cnt a2.rra_pdp_cnt;
   compare_float __LOC__ a1.rra_xff a2.rra_xff;
   List.iter2 assert_cdp_prep_equal (Array.to_list a1.rra_cdps) (Array.to_list a2.rra_cdps);
   List.iter2 assert_fring_equal (Array.to_list a1.rra_data) (Array.to_list a2.rra_data)
@@ -53,7 +53,7 @@ let assert_rras_equal a1s a2s =
 
 let assert_rrds_equal r1 r2 =
   compare_float __LOC__ r1.last_updated r2.last_updated;
-  assert (r1.timestep=r2.timestep);
+  Alcotest.(check int64) __LOC__ r1.timestep r2.timestep;
   assert_dss_equal r1.rrd_dss r2.rrd_dss;
   assert_rras_equal r1.rrd_rras r2.rrd_rras
 
