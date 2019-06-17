@@ -1,26 +1,28 @@
 open Rrd
 
-let compareish f1 f2 =
-  let result = (Utils.isnan f1 && Utils.isnan f2) ||
-               (f1 = f2) ||
-               (abs_float (f1 -. f2) /. f1) < 0.001 in
-  result
+(* Default alcotest checker fails when comparing NaNs and Infinities,
+ * we need leeway to account for loss of precision during serialization. *)
+let float eps =
+  let same x y = Float.equal x y ||
+                 Float.abs (x -. y) <= eps
+  in
+  Alcotest.testable Fmt.float same
 
-let compareish2 f1 f2 =
-  let result = (Utils.isnan f1 && Utils.isnan f2) ||
-               (f1 = f2) ||
-               (abs_float (f1 -. f2)) < 0.0001 in
-  result
+(* pick between absolute or relative tolerance of a number *)
+let tolerance x =
+  max 1e-4 (abs_float x *. 1e-12)
+
+let compare_float message x y =
+  Alcotest.check (float @@ tolerance x) message x y
 
 let assert_ds_equal d1 d2 =
   assert (d1.ds_name = d2.ds_name);
-  assert (d1.ds_ty = d2.ds_ty );
-  assert (compareish d1.ds_min d2.ds_min);
-  assert (compareish d1.ds_max d2.ds_max);
-  assert (compareish d1.ds_mrhb d2.ds_mrhb);
-  (*  assert (d1.ds_last = d2.ds_last);*)
-  assert (compareish d1.ds_value d2.ds_value);
-  assert (compareish d1.ds_unknown_sec d2.ds_unknown_sec)
+  assert (d1.ds_ty = d2.ds_ty);
+  compare_float __LOC__ d1.ds_min d2.ds_min;
+  compare_float __LOC__ d1.ds_max d2.ds_max;
+  compare_float __LOC__ d1.ds_mrhb d2.ds_mrhb;
+  compare_float __LOC__ d1.ds_value d2.ds_value;
+  compare_float __LOC__ d1.ds_unknown_sec d2.ds_unknown_sec
 
 let assert_dss_equal d1s d2s =
   let d1s = Array.to_list d1s in
@@ -28,19 +30,21 @@ let assert_dss_equal d1s d2s =
   List.iter2 assert_ds_equal d1s d2s
 
 let assert_cdp_prep_equal c1 c2 =
-  assert (compareish c1.cdp_value c2.cdp_value);
+  compare_float __LOC__ c1.cdp_value c2.cdp_value;
   assert (c1.cdp_unknown_pdps = c2.cdp_unknown_pdps)
 
 let assert_fring_equal f1 f2 =
   for i=0 to f1.Fring.size - 1 do
-    assert (compareish2 (Fring.peek f1 i) (Fring.peek f2 i))
+    let peek1 = Fring.peek f1 i in
+    let peek2 = Fring.peek f2 i in
+    Alcotest.check (float @@ tolerance peek1) "FRing value" peek1 peek2;
   done
 
 let assert_rra_equal a1 a2 =
   assert (a1.rra_cf = a2.rra_cf);
   assert (a1.rra_row_cnt = a2.rra_row_cnt);
   assert (a1.rra_pdp_cnt = a2.rra_pdp_cnt);
-  assert (compareish a1.rra_xff a2.rra_xff);
+  compare_float __LOC__ a1.rra_xff a2.rra_xff;
   List.iter2 assert_cdp_prep_equal (Array.to_list a1.rra_cdps) (Array.to_list a2.rra_cdps);
   List.iter2 assert_fring_equal (Array.to_list a1.rra_data) (Array.to_list a2.rra_data)
 
@@ -48,7 +52,7 @@ let assert_rras_equal a1s a2s =
   List.iter2 assert_rra_equal (Array.to_list a1s) (Array.to_list a2s)
 
 let assert_rrds_equal r1 r2 =
-  assert (compareish r1.last_updated r2.last_updated);
+  compare_float __LOC__ r1.last_updated r2.last_updated;
   assert (r1.timestep=r2.timestep);
   assert_dss_equal r1.rrd_dss r2.rrd_dss;
   assert_rras_equal r1.rrd_rras r2.rrd_rras
