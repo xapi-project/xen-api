@@ -1,15 +1,15 @@
 language: c
-services: docker
-install:
-    - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
+sudo: required
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
 script:
-    - bash travis-build-repo.sh
-    - bash .travis-python-nosetests.sh
-sudo: true
+  - bash -ex .travis-docker.sh
+  - bash .travis-python-nosetests.sh
 env:
-    global:
-        - REPO_PACKAGE_NAME=xenopsd
-        - REPO_CONFIGURE_CMD=./configure
-        - REPO_BUILD_CMD=make
-        - REPO_TEST_CMD=true
-
+  global:
+    - PACKAGE="xapi-xenopsd"
+    - PINS="xapi-xenopsd:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
+    - OCAML_VERSION="4.07"
+  matrix:
+    - DISTRO="debian-unstable"
