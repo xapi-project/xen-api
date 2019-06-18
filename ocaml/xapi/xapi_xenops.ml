@@ -671,9 +671,9 @@ module MD = struct
       Nvidia {
         physical_pci_address = None; (* unused *)
         config_file = None; (* unused *)
-        virtual_pci_address = Some virtual_pci_address;
-        type_id  = type_id;
-        uuid;
+        virtual_pci_address;
+        type_id  = Some type_id;
+        uuid = Some uuid;
         extra_args;
       }
     in {
