@@ -37,10 +37,10 @@ module Vgpu = struct
   type nvidia = {
     physical_pci_address: address option; (* unused; promoted to Vgpu.t *)
     config_file: string option;
-    virtual_pci_address: address option;
-    type_id: string;
-    uuid: string;
-    extra_args: string; (* string is passed on as is and no structure is assumed *)
+    virtual_pci_address: address [@default {domain = 0000; bus = 0; dev = 11; fn = 0}];
+    type_id: string option;
+    uuid: string option;
+    extra_args: string [@default ""]; (* string is passed on as is and no structure is assumed *)
   } [@@deriving sexp, rpcty]
 
   type mxgpu = {
