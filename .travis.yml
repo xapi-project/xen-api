@@ -9,13 +9,8 @@ env:
   global:
     - OCAML_VERSION=4.07
     - PACKAGE=xen-api-sdk
+    - PINS="xen-api-sdk:."
     - DISTRO="debian-stable"
     - TESTS=false
     - INSTALL=false
-  matrix:
-    - BASE_REMOTE=git://github.com/xapi-project/xs-opam
-    - EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
-matrix:
-  fast_finish: true
-  allow_failures:
-    - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
