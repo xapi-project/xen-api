@@ -263,7 +263,6 @@ let process_ds_value ds value interval new_domid =
               match ds.ds_last, value with
               | VT_Int64 x, VT_Int64 y ->
                 let result = (Int64.sub y x) in
-                let result = if result < 0L then Int64.add result 0x100000000L else result in (* for wrapping 32 bit counters *)
                 Int64.to_float result
               | VT_Float x, VT_Float y -> y -. x
               | VT_Unknown, _ -> nan
