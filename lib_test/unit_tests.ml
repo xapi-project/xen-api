@@ -79,13 +79,20 @@ let test_ranges rrd () =
 
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) (Array.to_list rrd.rrd_rras)
 
+let temp_rrd () =
+  Filename.temp_file "rrd-" ".xml"
+
 let test_marshall rrd () =
-  Rrd_unix.to_file rrd "/tmp/output.xml"
+  let filename = temp_rrd () in
+  Rrd_unix.to_file rrd filename;
+  Unix.unlink filename
 
 let test_unmarshall rrd () =
-  Rrd_unix.to_file rrd "/tmp/output.xml";
-  let rrd' = Rrd_unix.of_file "/tmp/output.xml" in
-  assert_rrds_equal rrd rrd'
+  let filename = temp_rrd () in
+  Rrd_unix.to_file rrd filename;
+  let rrd' = Rrd_unix.of_file filename in
+  assert_rrds_equal rrd rrd';
+  Unix.unlink filename
 
 let create_gauge_rrd () =
   let rra = rra_create CF_Average 100 1 0.5 in
