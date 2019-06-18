@@ -237,37 +237,32 @@ let process_ds_value ds value interval new_domid =
   else
     begin
       let rate =
-        match ds.ds_ty with
-        | Absolute ->
+        match ds.ds_ty, new_domid with
+        | Absolute, _
+        | Derive, true ->
           begin
             match value with
             | VT_Int64 y -> Int64.to_float y
             | VT_Float y -> y
             | VT_Unknown -> nan
           end
-        | Gauge ->
+        | Gauge, _ ->
           begin
             match value with
             | VT_Int64 y -> (Int64.to_float y) *. interval
             | VT_Float y -> y *. interval
             | VT_Unknown -> nan
           end
-        | Derive ->
+        | Derive, false ->
           begin
-            if new_domid then
-              match value with
-              | VT_Int64 y -> Int64.to_float y
-              | VT_Float y -> y
-              | VT_Unknown -> nan
-            else
-              match ds.ds_last, value with
-              | VT_Int64 x, VT_Int64 y ->
-                let result = (Int64.sub y x) in
-                Int64.to_float result
-              | VT_Float x, VT_Float y -> y -. x
-              | VT_Unknown, _ -> nan
-              | _, VT_Unknown -> nan
-              | _ -> failwith ("Bad type updating ds: "^ds.ds_name)
+            match ds.ds_last, value with
+            | VT_Int64 x, VT_Int64 y ->
+              let result = (Int64.sub y x) in
+              Int64.to_float result
+            | VT_Float x, VT_Float y -> y -. x
+            | VT_Unknown, _ -> nan
+            | _, VT_Unknown -> nan
+            | _ -> failwith ("Bad type updating ds: "^ds.ds_name)
           end
       in
       ds.ds_last <- value;
