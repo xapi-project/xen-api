@@ -270,7 +270,7 @@ module GenerateVGPUMetadata =
               [
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 11; fn = 0;};
                                            config_file = None;
                                            type_id = Some "type_id_1";
                                            uuid = Some (uuid_with_index 0);
@@ -324,7 +324,8 @@ module GenerateMultiVGPUMetadata =
                 let test_uuid = uuid_with_index index in
                 let (_ : API.ref_VGPU) =
                   make_vgpu ~__context
-                    ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref ~uuid:test_uuid vgpu_type in
+                    ~vm_ref ~scheduled_to_be_resident_on:pgpu_ref ~uuid:test_uuid
+                    ~device:(string_of_int index) vgpu_type in
                 ())
               pgpus_and_vgpu_types
 
@@ -343,7 +344,7 @@ module GenerateMultiVGPUMetadata =
               [
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 11; fn = 0;};
                                            config_file = None;
                                            type_id = Some "type_id_1";
                                            uuid = Some (uuid_with_index 0);
@@ -351,7 +352,7 @@ module GenerateMultiVGPUMetadata =
                 });
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 12; fn = 0;};
                                            config_file = None;
                                            type_id = Some ("type_id_1");
                                            uuid = Some (uuid_with_index 1);
@@ -366,7 +367,7 @@ module GenerateMultiVGPUMetadata =
               [
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 11; fn = 0;};
                                            config_file = None;
                                            type_id = Some ("type_id_1");
                                            uuid = Some (uuid_with_index 0);
@@ -374,7 +375,7 @@ module GenerateMultiVGPUMetadata =
                 });
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 12; fn = 0;};
                                            config_file = None;
                                            type_id = Some "type_id_1";
                                            uuid = Some (uuid_with_index 1);
@@ -382,7 +383,7 @@ module GenerateMultiVGPUMetadata =
                 });
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 13; fn = 0;};
                                            config_file = None;
                                            type_id = Some "type_id_1";
                                            uuid = Some (uuid_with_index 2);
@@ -390,7 +391,7 @@ module GenerateMultiVGPUMetadata =
                 });
                 Xenops_interface.Vgpu.(Nvidia {
                                            physical_pci_address = None;
-                                           virtual_pci_address = {domain=0; bus = 0; dev = 0; fn = 0;};
+                                           virtual_pci_address = {domain=0; bus = 0; dev = 14; fn = 0;};
                                            config_file = None;
                                            type_id = Some "type_id_1";
                                            uuid = Some (uuid_with_index 3);
