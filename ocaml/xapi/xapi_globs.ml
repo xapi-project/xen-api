@@ -446,6 +446,7 @@ let vgt_fence_sz = "vgt_fence_sz"
 
 let mxgpu_vgpus_per_pgpu = "vgpus_per_pgpu"
 
+let nvidia_vgpu_first_slot_in_guest = 11
 let nvidia_compat_lookup_file = ref "/var/run/nonpersistent/xapi/nvidia_compat_lookup"
 
 let wlb_timeout = "wlb_timeout"
