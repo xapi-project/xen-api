@@ -65,6 +65,7 @@ let allocate_vgpu_to_gpu ?(dry_run=false) ?(pre_allocate_list=[]) ~__context vm 
   (* Make a asso list as follows
    * [(p1,capacity1);(p2,capacity2)...] *)
   let pgpu_capacity_assoc = List.intersect compatible_pgpus available_pgpus
+                            |> List.filter (fun pgpu -> Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~pgpu ~vgpu:vgpu.vgpu_ref) (* Filter all compatible pGPUs *)
                             |> List.map (fun self -> (self, Xapi_pgpu_helpers.get_remaining_capacity  ~__context ~pre_allocate_list ~self ~vgpu_type))
                             |> List.filter (fun (_,capacity) -> capacity > 0L ) in
 
