@@ -203,6 +203,7 @@ let checkpoint ~__context ~vm ~new_name =
            then raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, [Ref.string_of vm])) )
         sr_records ;
       (* suspend the VM *)
+      Xapi_gpumon.update_vgpu_metadata ~__context ~vm;
       Xapi_xenops.suspend ~__context ~self:vm;
     with
     | Api_errors.Server_error(_, _) as e -> raise e
