@@ -59,6 +59,7 @@ module Nvidia : sig
    *)
   val get_vgpu_compatibility_metadata
     : __context:Context.t
+    -> vm:API.ref_VM
     -> vgpu:API.ref_VGPU      (** must refer to NVIDIA vGPU *)
     -> (string * string) list
 
