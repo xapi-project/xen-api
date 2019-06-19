@@ -246,7 +246,7 @@ module Sysfs = struct
     try
       Sys.readdir ("/sys/bus/pci/drivers/" ^ driver)
       |> Array.to_list
-      |> List.filter (Re.execp (Re.Perl.compile_pat "\\d+:[a-f\\d]+:[a-f\\d]+\\.\\d+"))
+      |> List.filter (Re.execp (Re.Perl.compile_pat {|\d+:[a-f\d]+:[a-f\d]+\.\d|}))
       |> List.length
     with _ -> 0
 
