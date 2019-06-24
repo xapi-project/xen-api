@@ -50,7 +50,7 @@ let get_valid_device ~__context ~device ~vM ~vGPUs =
   else
     raise Api_errors.(Server_error (invalid_device, [device]))
 
-let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type 
+let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type
   ~powerstate_check ~compatibility_metadata =
   let vgpu = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
@@ -81,7 +81,9 @@ let create' ~__context  ~vM ~gPU_group ~device ~other_config ~_type
   if not (List.for_all (is_in_compatible_lists _type) types) then
     raise (Api_errors.Server_error (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type]));
 
-
+  debug "Creating vGPU %s with metadata: [%s]"
+    (Ref.string_of vgpu)
+    (List.map fst compatibility_metadata |> String.concat ":");
   Stdext.Threadext.Mutex.execute m (fun () ->
       let device_id = get_valid_device ~__context ~device ~vM ~vGPUs:existing in
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
