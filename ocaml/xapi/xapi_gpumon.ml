@@ -204,7 +204,9 @@ let update_vgpu_metadata ~__context ~vm =
           Nvidia.get_vgpu_compatibility_metadata ~__context ~vm ~vgpu
         else [] in
       Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value;
-      debug "writing vGPU compat metadata for vGPU %s" (Ref.string_of vgpu))
+      debug "Writing vGPU compat metadata for vGPU %s: [%s]"
+        (Ref.string_of vgpu)
+        (List.map fst value |> String.concat ":"))
 
 (** [clear_vgpu_metadata] removes compatibility metadata from all
  * vgpus of [vm]. *)
