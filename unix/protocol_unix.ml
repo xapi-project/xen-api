@@ -27,6 +27,15 @@ let with_lock m f =
     Mutex.unlock m;
     raise e
 
+let thread_forever f v =
+  let rec wrap () =
+    match f v with
+    | () -> assert false
+    | exception e ->
+      (wrap[@tailcall]) ()
+  in
+  Thread.create wrap ()
+
 module IO = struct
 
   let whoami () = Printf.sprintf "%s:%d"
@@ -178,6 +187,18 @@ let (>>|=) m f = match m with
   | `Error e -> `Error e
   | `Ok x -> f x
 
+let wrap_connect path f =
+  let conn = IO.connect path in
+  match f conn with
+  | `Ok _ as ok -> ok
+  | `Error _ as err ->
+    IO.disconnect conn;
+    err
+  | exception exn ->
+    let bt = Printexc.get_raw_backtrace () in
+    IO.disconnect conn;
+    Printexc.raise_with_backtrace exn bt
+
 module Client = struct
 
   type 'a io = 'a
@@ -233,10 +254,10 @@ module Client = struct
   let connect switch =
     let token = IO.whoami () in
     let reconnect () =
-      let requests_conn = IO.connect switch in
+      wrap_connect switch @@ fun requests_conn ->
       Connection.rpc requests_conn (In.Login token)
       >>|= fun (_: string) ->
-      let events_conn = IO.connect switch in
+      wrap_connect switch @@ fun events_conn ->
       Connection.rpc events_conn (In.Login token)
       >>|= fun (_: string) ->
       `Ok (requests_conn, events_conn) in
@@ -248,6 +269,11 @@ module Client = struct
     >>|= fun reply_queue_name ->
     let requests_m = IO.Mutex.create () in
     let t = { requests_conn; events_conn; requests_m; wakener; reply_queue_name } in
+
+    let reconnect () =
+      disconnect ~t ();
+      reconnect ()
+    in
 
     let (_ : Thread.t) =
       let rec loop from =
@@ -438,10 +464,10 @@ module Server = struct
     let open IO.IO in
     let token = IO.whoami () in
     let reconnect () =
-      let request_conn = IO.connect switch in
+      wrap_connect switch @@ fun request_conn ->
       Connection.rpc request_conn (In.Login token)
       >>|= fun (_: string) ->
-      let reply_conn = IO.connect switch in
+      wrap_connect switch @@ fun reply_conn ->
       Connection.rpc reply_conn (In.Login token)
       >>|= fun (_: string) ->
       Connection.rpc request_conn (In.Login token)
@@ -465,7 +491,10 @@ module Server = struct
       let frame = In.Transfer transfer in
       Connection.rpc request_conn frame >>= function
       | `Error _e ->
-        IO.Mutex.with_lock mutex reconnect
+        IO.Mutex.with_lock mutex (fun () ->
+            IO.disconnect request_conn;
+            IO.disconnect reply_conn;
+            reconnect ())
         >>|= fun connections ->
         loop connections from
       | `Ok raw ->

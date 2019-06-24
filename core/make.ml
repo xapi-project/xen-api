@@ -125,12 +125,24 @@ module Client = functor(M: S.BACKEND) -> struct
       f x >>|= fun () ->
       iter_s f xs
 
+  let disconnect ~t () =
+    M.disconnect t.requests_conn >>= fun () ->
+    M.disconnect t.events_conn
+
   let connect ~switch:port () =
     let token = M.whoami () in
-    let rec reconnect () =
-      M.connect port >>= fun requests_conn ->
+    let wrap_connect path f =
+      M.connect path >>= fun conn ->
+      f conn >>= function
+      | `Ok _ as ok -> return ok
+      | `Error _ as err ->
+        M.disconnect conn >>= fun () ->
+        return err
+    in
+    let reconnect () =
+      wrap_connect port @@ fun requests_conn ->
       Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
-      M.connect port >>= fun events_conn ->
+      wrap_connect port @@ fun events_conn ->
       Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
       return (`Ok (requests_conn, events_conn)) in
 
@@ -142,6 +154,8 @@ module Client = functor(M: S.BACKEND) -> struct
     Connection.rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
 
     let t = { requests_conn; events_conn; requests_m; wakener; reply_queue_name } in
+
+    let reconnect () = disconnect ~t () >>= reconnect in
 
     let (_ : unit result M.IO.t) =
       let rec loop from =
@@ -197,10 +211,6 @@ module Client = functor(M: S.BACKEND) -> struct
           loop (Some transfer.Out.next) in
       loop None in
     return (`Ok t)
-
-  let disconnect ~t () =
-    M.disconnect t.requests_conn >>= fun () ->
-    M.disconnect t.events_conn
 
   let rpc ~t ~queue ?timeout ~body:x () =
     let ivar = M.Ivar.create () in
