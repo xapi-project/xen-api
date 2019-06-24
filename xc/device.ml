@@ -1983,30 +1983,52 @@ module Dm_Common = struct
     ; fd_map = []
     }
 
+  let nvidia_compat_lookup config_file =
+    let rec find = function
+      | [] -> raise Not_found
+      | conf :: others ->
+        match String.split_on_char ' ' conf with
+        | [cf; type_id] when cf = config_file -> type_id
+        | _ -> find others
+    in
+    try
+      Unixext.string_of_file !Xenopsd.nvidia_compat_lookup_file
+      |> String.split_on_char '\n'
+      |> find
+    with e ->
+      error "nvidia_compat_lookup for %s failed with %s" config_file (Printexc.to_string e);
+      raise (Xenopsd_error (Internal_error (Printf.sprintf "NVidia vGPU compat metadata lookup failed (%s)" __LOC__)))
+
   let vgpu_args_of_nvidia domid vcpus vgpus restore =
     let open Xenops_interface.Vgpu in
     let virtual_pci_address_compare vgpu1 vgpu2 =
       match vgpu1, vgpu2 with
-      |{implementation = Nvidia {virtual_pci_address = Some pci1; _}; _},
-       {implementation = Nvidia {virtual_pci_address = Some pci2; _}; _} ->
+      |{implementation = Nvidia {virtual_pci_address = pci1; _}; _},
+       {implementation = Nvidia {virtual_pci_address = pci2; _}; _} ->
         Pervasives.compare pci1.dev pci2.dev
       | other1, other2 -> Pervasives.compare other1 other2
       in
-    let get_pci_string = function
-      | None -> raise (Xenopsd_error (Internal_error (Printf.sprintf "No PCI address (%s)" __LOC__)))
-      | Some pci -> Xcp_pci.string_of_address pci in
     let device_args =
       List.map (fun x ->
-          match x.implementation with
-          | Nvidia _conf ->
+          let make args =
             Printf.sprintf "--device=%s"
-              ([(Xenops_interface.Pci.string_of_address x.physical_pci_address);
-                _conf.type_id;
-                (get_pci_string _conf.virtual_pci_address);
-                _conf.uuid;
-                _conf.extra_args]
+              (Xcp_pci.string_of_address x.physical_pci_address :: args
                |> List.filter (fun str -> str <> "")
                |> String.concat ",")
+          in
+          match x.implementation with
+          | Nvidia {virtual_pci_address; type_id = Some type_id; uuid = Some uuid; extra_args} ->
+            make [type_id; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
+          | Nvidia {virtual_pci_address; config_file = Some config_file; extra_args} ->
+            (* Upgrade case: find the type_id that match the give config_file path. *)
+            let type_id = nvidia_compat_lookup config_file in
+            debug "NVidia vGPU config: matched config_file=%s with type_id=%s" config_file type_id;
+            (* The VGPU UUID is not available. Create a fresh one; xapi will deal with it. *)
+            let uuid = Uuidm.to_string (Uuidm.create `V4) in
+            make [type_id; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
+          | Nvidia {type_id = None; config_file = None} ->
+            (* No type_id _and_ no config_file: something is wrong *)
+            raise (Xenopsd_error (Internal_error (Printf.sprintf "NVidia vGPU metadata incomplete (%s)" __LOC__)))
           | _ -> "")
         (List.sort virtual_pci_address_compare vgpus) in
     let suspend_file = sprintf demu_save_path domid in
