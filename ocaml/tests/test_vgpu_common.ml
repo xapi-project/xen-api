@@ -209,6 +209,7 @@ let string_of_pgpu_state pgpu =
 let make_vgpu ~__context
     ?(vm_ref=Ref.null)
     ?(gPU_group=Ref.null)
+    ?(device="0")
     ?(resident_on=Ref.null)
     ?(scheduled_to_be_resident_on=Ref.null)
     ?(uuid=Test_common.make_uuid())
@@ -233,6 +234,7 @@ let make_vgpu ~__context
     ~_type:vgpu_type_ref
     ~uuid
     ~gPU_group
+    ~device
     ~resident_on
     ~scheduled_to_be_resident_on
     ~extra_args ()

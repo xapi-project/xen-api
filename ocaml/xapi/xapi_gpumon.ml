@@ -66,28 +66,28 @@ module Nvidia = struct
     | Gpumon_interface.GPU          -> "gpu"
     | Gpumon_interface.Other        -> "other"
 
-  (** [get_vgpu_metadata] relies on the assumption that there is at most
-   * one vGPU per VM. The underdyling problem is that there is no
-   * mapping between a vGPU and vgpu_instance in the NVIDIA library
-   * currently.
-  *)
-  let get_vgpu_compatibility_metadata ~__context ~vgpu =
+  let get_vgpu_compatibility_metadata ~__context ~vm ~vgpu =
     let this = "get_vgpu_compatibility_metadata" in
     try
       let dbg   = Context.string_of_task __context in
-      let vm    = Db.VGPU.get_VM ~__context ~self:vgpu in
       let domid = Db.VM.get_domid ~__context ~self:vm |> Int64.to_int in
       let vgpu_uuid = Db.VGPU.get_uuid ~__context ~self:vgpu in
-      Db.VGPU.get_resident_on ~__context ~self:vgpu
-      |> (fun self -> Db.PGPU.get_PCI ~__context ~self)
-      |> (fun self -> Db.PCI.get_pci_id ~__context ~self)
-      |> (fun pgpu_address -> Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid pgpu_address vgpu_uuid)
-      |> (function
-          | []      -> []
-          | [meta]  -> [key, Base64.encode_string meta]
-          | _::_    -> failwith @@ Printf.sprintf
-              "%s: More than one NVIDIA vGPUs are found in VM %s (dom %d) with UUID %s (%s)"
-              this (Ref.string_of vm) domid vgpu_uuid __LOC__)
+      let pgpu_address =
+        Db.VGPU.get_resident_on ~__context ~self:vgpu
+        |> (fun self -> Db.PGPU.get_PCI ~__context ~self)
+        |> (fun self -> Db.PCI.get_pci_id ~__context ~self)
+      in
+      let get uuid =
+        match Gpumon_client.Client.Nvidia.get_vgpu_metadata dbg domid pgpu_address uuid with
+        | []      -> []
+        | [meta]  -> [key, Base64.encode_string meta]
+        | _::_    -> failwith @@ Printf.sprintf
+            "%s: More than one NVIDIA vGPUs are found in VM %s (dom %d) with UUID %s (%s)"
+            this (Ref.string_of vm) domid vgpu_uuid __LOC__
+      in
+      match get vgpu_uuid with
+      | [] -> get ""  (* upgrade case: retry without VGPU UUID filtering *)
+      | x  -> x
     with
     | Gpumon_interface.(Gpumon_error NvmlInterfaceNotAvailable) ->
       let host = Helpers.get_localhost ~__context |> Ref.string_of in
@@ -201,7 +201,7 @@ let update_vgpu_metadata ~__context ~vm =
   |> List.iter (fun vgpu ->
       let value =
         if Nvidia.is_nvidia ~__context ~vgpu then
-          Nvidia.get_vgpu_compatibility_metadata ~__context ~vgpu
+          Nvidia.get_vgpu_compatibility_metadata ~__context ~vm ~vgpu
         else [] in
       Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value;
       debug "writing vGPU compat metadata for vGPU %s" (Ref.string_of vgpu))

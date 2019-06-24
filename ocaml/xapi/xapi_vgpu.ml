@@ -17,12 +17,15 @@ open D
 (* Mutex to prevent duplicate VGPUs being created by accident *)
 let m = Mutex.create ()
 
-(* 1. Since multiple vgpus support, only device number = 0 or specify [11,31] since demu restriction.
-   2. device = 0 will requires xapi to give a valid number
-    - First sort the device number and the trying to find the next valid from range *)
+(* 1. Only device numbers in the range [0,20] are allowed due to space
+      limitations on the guest PCI bus.
+   2. The guest PCI bus slot will be equal to the device number plus 11.
+   3. device = 0 is recognised as a special value to automatically pick the next
+      available device number from the allowed range.
+*)
 
-let min_valid_vgpu_device = 11
-let max_valid_vgpu_device = 31
+let min_valid_vgpu_device = 0
+let max_valid_vgpu_device = 20
 
 let range low high =
   let rec aux low high =
@@ -35,15 +38,15 @@ let get_valid_device ~__context ~device ~vM ~vGPUs =
   let d = int_of_string device in
   let all_existing_devices = List.map (fun self -> Db.VGPU.get_device ~__context ~self |> int_of_string) vGPUs in
   let device_in_use device = List.mem device all_existing_devices in
-  if device_in_use d then
-    raise Api_errors.(Server_error (device_already_exists, [device]))
-  else if d >= min_valid_vgpu_device && d <= max_valid_vgpu_device then device
-  else if d = 0 then
+  if d = 0 then
     try
       List.find (fun d -> not (device_in_use d)) all_valid_devices
       |> string_of_int
     with Not_found ->
       raise Api_errors.(Server_error (vm_pci_bus_full, [Ref.string_of vM]))
+  else if device_in_use d then
+    raise Api_errors.(Server_error (device_already_exists, [device]))
+  else if d >= min_valid_vgpu_device && d <= max_valid_vgpu_device then device
   else
     raise Api_errors.(Server_error (invalid_device, [device]))
 

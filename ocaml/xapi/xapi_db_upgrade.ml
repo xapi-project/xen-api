@@ -592,19 +592,6 @@ let upgrade_cluster_timeouts = {
         update_milliseconds Db.Cluster.get_token_timeout_coefficient Db.Cluster.set_token_timeout_coefficient;
     )
 }
-(* For XS Before Naples with single vGPU, it has 0 as its default device number,
- * For XS After Naples with multiple vGPU, the valid device number is [11,31],
- * 11 is the default device number.
- * This function upgrade the default device number *)
-let upgrade_vgpu_default_device_id = {
-  description = "Upgrade default vGPU device ID from 0 to 11";
-  version = (fun _ -> true); (* Always check and update when detected *)
-  fn = fun ~__context ->
-    let previous_default_vgpu_device , default_vgpu_device = "0", "11" in
-    Db.VGPU.get_all ~__context
-    |> List.filter (fun self -> Db.VGPU.get_device ~__context ~self = previous_default_vgpu_device)
-    |> List.iter (fun self -> Db.VGPU.set_device ~__context ~self ~value:default_vgpu_device)
-}
 
 let rules = [
   upgrade_domain_type;
@@ -631,7 +618,6 @@ let rules = [
   upgrade_vswitch_controller;
   upgrade_vm_platform_device_model;
   upgrade_cluster_timeouts;
-  upgrade_vgpu_default_device_id;
 ]
 
 (* Maybe upgrade most recent db *)

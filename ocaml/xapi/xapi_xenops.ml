@@ -653,7 +653,7 @@ module MD = struct
     {
       domain = 0000;
       bus = 0;
-      dev = int_of_string device;
+      dev = int_of_string device + Xapi_globs.nvidia_vgpu_first_slot_in_guest;
       fn = 0;
     }
 
@@ -671,9 +671,9 @@ module MD = struct
       Nvidia {
         physical_pci_address = None; (* unused *)
         config_file = None; (* unused *)
-        virtual_pci_address = Some virtual_pci_address;
-        type_id  = type_id;
-        uuid;
+        virtual_pci_address;
+        type_id  = Some type_id;
+        uuid = Some uuid;
         extra_args;
       }
     in {

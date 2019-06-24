@@ -321,7 +321,6 @@ module Vendor = functor (V : VENDOR) -> struct
       ~is_host_display_enabled
       ~is_pci_hidden =
     let vgpu_types = make_vgpu_types ~__context ~pci in
-    info "Using new Nvidia config file";
     let passthrough_types =
       if is_system_display_device && (is_host_display_enabled || not is_pci_hidden)
       then []
@@ -707,6 +706,79 @@ end
 module Nvidia = Vendor(Vendor_nvidia)
 module Intel = Vendor(Vendor_intel)
 module AMD = Vendor(Vendor_amd)
+
+module Nvidia_compat = struct
+  let conf_dir = "/usr/share/nvidia/vgx"
+
+  let of_conf_file file_path =
+    try
+      let conf = Stdext.Unixext.read_lines file_path in
+      let args = List.filter
+          (fun s -> not (String.startswith "#" s || s = "")) conf in
+      let args = List.map (String.strip String.isspace) args in
+      (* Expecting space separated key value entries *)
+      let args = List.map
+          (fun s ->
+             match (String.split ' ' s ~limit:2) with
+             | k :: [v] -> (k, v)
+             | _ -> ("", "")
+          ) args in
+      (* plugin0.pdev_id will either be just the physical device id, or of the
+       * form "device_id:subdevice_id" *)
+      let pdev_id, psubdev_id =
+        let pdev_id_data = (List.assoc "plugin0.pdev_id" args) in
+        try
+          Scanf.sscanf pdev_id_data {|"0x%x:0x%x"|}
+            (fun pdev_id psubdev_id -> pdev_id, Some psubdev_id)
+        with Scanf.Scan_failure _ ->
+          Scanf.sscanf pdev_id_data {|"0x%x"|}
+            (fun pdev_id -> pdev_id, None)
+      in
+      (* NVIDIA key is "device_id:subdevice_id", N.B. not subvendor id *)
+      (* Since old config file doesn't include multiple or compatible list, define empty list here *)
+      Scanf.sscanf (List.assoc "plugin0.vdev_id" args) {|"0x%x:0x%x"|} (fun vdev_id vsubdev_id ->
+        Identifier.(Nvidia {
+          pdev_id;
+          psubdev_id;
+          vdev_id;
+          vsubdev_id;
+        })
+      )
+    with e ->
+      raise (Parse_error e)
+
+  let read_config_dir conf_dir =
+    let rec read_configs ac = function
+      | [] -> ac
+      | conf_file::tl ->
+        try
+          read_configs ((conf_file, of_conf_file conf_file) :: ac) tl
+        with Parse_error e ->
+          error "Ignoring error parsing %s: %s\n%s\n" conf_file
+            (Printexc.to_string e) (Printexc.get_backtrace ());
+          read_configs ac tl
+    in
+    let conf_files = Array.to_list (Sys.readdir conf_dir) in
+    debug "Reading NVIDIA vGPU config files %s/{%s}"
+      conf_dir (String.concat ", " conf_files);
+    read_configs []
+      (List.map (fun conf -> Filename.concat conf_dir conf) conf_files)
+
+  let create_compat_lookup_file __context =
+    let open Db_filter_types in
+    read_config_dir conf_dir
+    |> List.map (fun (conf_file, identifier) ->
+      let identifier_string = Identifier.to_string identifier in
+      let expr = Eq (Field "identifier", Literal identifier_string) in
+      match Db.VGPU_type.get_internal_records_where ~__context ~expr with
+      | [_, rc] ->
+        let type_id = List.assoc Xapi_globs.vgpu_type_id rc.Db_actions.vGPU_type_internal_config in
+        Printf.sprintf "%s %s\n" conf_file type_id
+      | _ -> "" (* Type is not relevant: ignore *)
+    )
+    |> String.concat ""
+    |> Stdext.Unixext.write_string_to_file !Xapi_globs.nvidia_compat_lookup_file
+end
 
 let find_or_create_supported_types ~__context ~pci =
   let vendor_id =
