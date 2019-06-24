@@ -51,6 +51,27 @@ let scan_finished sr =
        Hashtbl.remove scans_in_progress sr;
        Condition.broadcast scans_in_progress_c)
 
+module Throttle() = struct
+  let semaphore = ref None
+  let m = Mutex.create ()
+
+  let get_semaphore () =
+    Mutex.execute m (fun () ->
+        (* overridable on startup from config file, have
+         * to delay initialization *)
+        match !semaphore with
+        | None ->
+          let result = Semaphore.create !Xapi_globs.max_active_sr_scans in
+          semaphore := Some result;
+          result
+        | Some s -> s)
+
+  let execute f = Semaphore.execute (get_semaphore ()) f
+end
+module AutoScanThrottle = Throttle()
+module SRScanThrottle = Throttle()
+
+
 (* Perform a single scan of an SR in a background thread. Limit to one thread per SR *)
 (* If a callback is supplied, call it once the scan is complete. *)
 let scan_one ~__context ?callback sr =
@@ -63,11 +84,12 @@ let scan_one ~__context ?callback sr =
                     finally
                       (fun () ->
                          try
-                           Helpers.call_api_functions ~__context
-                             (fun rpc session_id ->
-                                Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
-                                  (fun sr ->
-                                     Client.SR.scan rpc session_id sr) sr)
+                           AutoScanThrottle.execute (fun () ->
+                               Helpers.call_api_functions ~__context
+                                 (fun rpc session_id ->
+                                    Helpers.log_exn_continue (Printf.sprintf "scanning SR %s" (Ref.string_of sr))
+                                      (fun sr ->
+                                         Client.SR.scan rpc session_id sr) sr))
                          with e ->
                            error "Caught exception attempting an SR.scan: %s" (ExnHelper.string_of_exn e)
                       )
@@ -603,31 +625,13 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
        end
     ) to_update
 
-module Throttle = struct
-  let semaphore = ref None
-  let m = Mutex.create ()
-
-  let get_semaphore () =
-    Mutex.execute m (fun () ->
-        (* overridable on startup from config file, have
-         * to delay initialization *)
-        match !semaphore with
-        | None ->
-          let result = Semaphore.create !Xapi_globs.max_active_sr_scans in
-          semaphore := Some result;
-          result
-        | Some s -> s)
-
-  let execute f = Semaphore.execute (get_semaphore ()) f
-end
-
 (* Perform a scan of this locally-attached SR *)
 let scan ~__context ~sr =
   let open Storage_access in
   let task = Context.get_task_id __context in
   let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
   let sr' = Ref.string_of sr in
-  Throttle.execute (fun () ->
+  SRScanThrottle.execute (fun () ->
     transform_storage_exn
     (fun () ->
        let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
