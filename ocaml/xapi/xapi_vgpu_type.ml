@@ -765,19 +765,23 @@ module Nvidia_compat = struct
       (List.map (fun conf -> Filename.concat conf_dir conf) conf_files)
 
   let create_compat_lookup_file __context =
-    let open Db_filter_types in
-    read_config_dir conf_dir
-    |> List.map (fun (conf_file, identifier) ->
-      let identifier_string = Identifier.to_string identifier in
-      let expr = Eq (Field "identifier", Literal identifier_string) in
-      match Db.VGPU_type.get_internal_records_where ~__context ~expr with
-      | [_, rc] ->
-        let type_id = List.assoc Xapi_globs.vgpu_type_id rc.Db_actions.vGPU_type_internal_config in
-        Printf.sprintf "%s %s\n" conf_file type_id
-      | _ -> "" (* Type is not relevant: ignore *)
-    )
-    |> String.concat ""
-    |> Stdext.Unixext.write_string_to_file !Xapi_globs.nvidia_compat_lookup_file
+    try
+      let open Db_filter_types in
+      read_config_dir conf_dir
+      |> List.map (fun (conf_file, identifier) ->
+        let identifier_string = Identifier.to_string identifier in
+        let expr = Eq (Field "identifier", Literal identifier_string) in
+        match Db.VGPU_type.get_internal_records_where ~__context ~expr with
+        | [_, rc] ->
+          let type_id = List.assoc Xapi_globs.vgpu_type_id rc.Db_actions.vGPU_type_internal_config in
+          Printf.sprintf "%s %s\n" conf_file type_id
+        | _ -> "" (* Type is not relevant: ignore *)
+      )
+      |> String.concat ""
+      |> Stdext.Unixext.write_string_to_file !Xapi_globs.nvidia_compat_lookup_file
+    with e ->
+      error "Failed to create NVidia compat lookup file: %s\n%s\n"
+        (Printexc.to_string e) (Printexc.get_backtrace ())
 end
 
 let find_or_create_supported_types ~__context ~pci =
