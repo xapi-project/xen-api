@@ -131,7 +131,7 @@ module Client = functor(M: S.BACKEND) -> struct
 
   let connect ~switch:port () =
     let token = M.whoami () in
-    let wrap_connect path f =
+    let protect_connect path f =
       M.connect path >>= fun conn ->
       f conn >>= function
       | `Ok _ as ok -> return ok
@@ -140,9 +140,9 @@ module Client = functor(M: S.BACKEND) -> struct
         return err
     in
     let reconnect () =
-      wrap_connect port @@ fun requests_conn ->
+      protect_connect port @@ fun requests_conn ->
       Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
-      wrap_connect port @@ fun events_conn ->
+      protect_connect port @@ fun events_conn ->
       Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
       return (`Ok (requests_conn, events_conn)) in
 

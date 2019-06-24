@@ -28,13 +28,13 @@ let with_lock m f =
     raise e
 
 let thread_forever f v =
-  let rec wrap () =
+  let rec loop () =
     match f v with
-    | () -> assert false
+    | (_ : ('a, 'b) Message_switch_core.Mresult.result) -> assert false
     | exception e ->
-      (wrap[@tailcall]) ()
+      (loop[@tailcall]) ()
   in
-  Thread.create wrap ()
+  Thread.create loop ()
 
 module IO = struct
 
@@ -187,7 +187,7 @@ let (>>|=) m f = match m with
   | `Error e -> `Error e
   | `Ok x -> f x
 
-let wrap_connect path f =
+let protect_connect path f =
   let conn = IO.connect path in
   match f conn with
   | `Ok _ as ok -> ok
@@ -254,10 +254,10 @@ module Client = struct
   let connect switch =
     let token = IO.whoami () in
     let reconnect () =
-      wrap_connect switch @@ fun requests_conn ->
+      protect_connect switch @@ fun requests_conn ->
       Connection.rpc requests_conn (In.Login token)
       >>|= fun (_: string) ->
-      wrap_connect switch @@ fun events_conn ->
+      protect_connect switch @@ fun events_conn ->
       Connection.rpc events_conn (In.Login token)
       >>|= fun (_: string) ->
       `Ok (requests_conn, events_conn) in
@@ -324,7 +324,7 @@ module Client = struct
           t.requests_conn <- requests_conn;
           t.events_conn <- events_conn;
           loop from in
-      Thread.create loop None in
+      thread_forever loop None in
     `Ok t
 
   (* Maintain at most one connection per process *)
@@ -464,10 +464,10 @@ module Server = struct
     let open IO.IO in
     let token = IO.whoami () in
     let reconnect () =
-      wrap_connect switch @@ fun request_conn ->
+      protect_connect switch @@ fun request_conn ->
       Connection.rpc request_conn (In.Login token)
       >>|= fun (_: string) ->
-      wrap_connect switch @@ fun reply_conn ->
+      protect_connect switch @@ fun reply_conn ->
       Connection.rpc reply_conn (In.Login token)
       >>|= fun (_: string) ->
       Connection.rpc request_conn (In.Login token)
@@ -529,7 +529,7 @@ module Server = struct
               ) transfer.Out.messages;
             loop connections (Some transfer.Out.next)
         end in
-    let (_: Thread.t) = Thread.create (loop connections) None in
+    let (_: Thread.t) = thread_forever (loop connections) None in
     `Ok ()
 
   let shutdown ~t () =
