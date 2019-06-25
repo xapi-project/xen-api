@@ -21,6 +21,8 @@ external domain_set_timer_mode: handle -> domid -> int -> unit = "stub_xenctrlex
 external domain_send_s3resume: handle -> domid -> unit = "stub_xenctrlext_domain_send_s3resume"
 external domain_get_acpi_s_state: handle -> domid -> int = "stub_xenctrlext_domain_get_acpi_s_state"
 
+exception Unix_error of Unix.error * string
+
 type runstateinfo = {
   state : int32;
   missed_changes: int32;
@@ -42,6 +44,10 @@ external domain_set_target: handle -> domid -> domid -> unit = "stub_xenctrlext_
 external physdev_map_pirq : handle -> domid -> int -> int = "stub_xenctrlext_physdev_map_pirq"
 
 external assign_device: handle -> domid -> int -> int -> unit = "stub_xenctrlext_assign_device"
+
+external deassign_device: handle -> domid -> int -> unit = "stub_xenctrlext_deassign_device"
+
+external domid_quarantine: unit -> int = "stub_xenctrlext_domid_quarantine"
 
 type meminfo = {
   memfree: int64;

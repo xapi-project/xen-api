@@ -1641,7 +1641,7 @@ module VM = struct
               warn "QEMU stub domains are no longer implemented;\
                 QEMU will be started in the control domain";
             (if saved_state then Device.Dm.restore else Device.Dm.start)
-              task ~xs ~dm:qemu_dm info di.Xenctrl.domid;
+              task ~xc ~xs ~dm:qemu_dm info di.Xenctrl.domid;
             Device.Serial.update_xenstore ~xs di.Xenctrl.domid
           | Vm.PV _ | Vm.PVinPVH _ -> assert false
         ) (create_device_model_config vm vmextra vbds vifs vgpus vusbs);
@@ -2357,7 +2357,7 @@ module VGPU = struct
 
   let start task vm vgpus saved_state =
     on_frontend
-      (fun _ xs frontend_domid _ ->
+      (fun xc xs frontend_domid _ ->
          let vmextra = DB.read_exn vm in
          let vcpus = match vmextra.VmExtra.persistent with
            | { VmExtra.build_info = None } ->
@@ -2369,7 +2369,7 @@ module VGPU = struct
          let profile = match vmextra.VmExtra.persistent.profile with
            | None -> Device.Profile.Qemu_upstream_compat
            | Some p -> p in
-         Device.Dm.restore_vgpu task ~xs frontend_domid vgpus vcpus profile
+         Device.Dm.restore_vgpu task ~xc ~xs frontend_domid vgpus vcpus profile
       ) vm
 
   let active_path vm vgpu = Printf.sprintf "/vm/%s/devices/vgpu/%s" vm (snd vgpu.Vgpu.id)
