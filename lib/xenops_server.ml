@@ -1907,7 +1907,9 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
           (* A VM which crashes too quickly should be shutdown *)
           if run_time < 120. then begin
             warn "VM %s crashed too quickly after start (%.2f seconds); shutting down" id run_time;
-            [ Vm.Shutdown ]
+            vm.Vm.on_crash |> List.map (function
+                | Vm.Start -> Vm.Shutdown
+                | other -> other)
           end else vm.Vm.on_crash
         | Some Needs_suspend ->
           warn "VM %s has unexpectedly suspended" id;
