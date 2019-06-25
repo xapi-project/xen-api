@@ -1710,7 +1710,8 @@ let sync_tunnels ~__context ~host =
     match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:access_pif_rec with
     | Tunnel_access tunnel :: _ ->
       let transport_pif = Db.Tunnel.get_transport_PIF ~__context ~self:tunnel in
-      Db.PIF.get_network ~__context ~self:transport_pif
+      let protocol = Db.Tunnel.get_protocol ~__context ~self:tunnel in
+      ( Db.PIF.get_network ~__context ~self:transport_pif, protocol )
     | _ -> raise Api_errors.(Server_error(internal_error, [Printf.sprintf "PIF %s has no tunnel_access_PIF_of" access_pif_rec.API.pIF_uuid]))
   in
 
@@ -1725,8 +1726,8 @@ let sync_tunnels ~__context ~host =
     if existing_pif = []
     then
       begin
-        (* On the master, we find the network the tunnel transport PIF is on *)
-        let network_of_transport_pif_on_master = get_network_of_transport_pif master_pif_rec in
+        (* On the master, we find the network the tunnel transport PIF is on and its protocol *)
+        let network_of_transport_pif_on_master, protocol = get_network_of_transport_pif master_pif_rec in
         let pifs = Db.PIF.get_records_where ~__context ~expr:(And (
             Eq (Field "host", Literal (Ref.string_of host)),
             Eq (Field "network", Literal (Ref.string_of network_of_transport_pif_on_master))
@@ -1738,7 +1739,7 @@ let sync_tunnels ~__context ~host =
         | [(pif_ref,_)] ->
           (* this is the PIF on which we want as transport PIF; let's make it *)
           ignore (Xapi_tunnel.create_internal ~__context ~transport_PIF:pif_ref
-                    ~network:master_pif_rec.API.pIF_network ~host)
+                    ~network:master_pif_rec.API.pIF_network ~host ~protocol)
         | _ ->
           (* This should never happen cos we should never have more than one of _our_ pifs
              					 * on the same nework *)

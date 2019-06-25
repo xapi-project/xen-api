@@ -106,7 +106,7 @@ let tech_preview_releases = [
 (* Normally xencenter_min_verstring and xencenter_max_verstring in the xapi_globs should be set to the same value,
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
-let api_version_minor = 15L
+let api_version_minor = 16L
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
 let api_version_vendor = "XenSource"
@@ -200,6 +200,12 @@ let get_product_releases in_product_since =
     | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+let next_release =
+  { internal = get_product_releases rel_next
+  ; opensource=get_oss_releases None
+  ; internal_deprecated_since=None
+  }
 
 let stockholm_release =
   { internal = get_product_releases rel_stockholm
