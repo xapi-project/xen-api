@@ -743,7 +743,11 @@ module Dhclient = struct
       then (debug "%s is the default gateway interface" interface; ["routers"])
       else (debug "%s is NOT the default gateway interface" interface; [])
     in
-    let set_dns = if List.mem `set_dns options then ["domain-name"; "domain-name-servers"] else [] in
+    let set_dns =
+      if List.mem (`dns interface) options
+      then (debug "%s is the DNS interface" interface; ["domain-name"; "domain-name-servers"])
+      else (debug "%s is NOT the DNS interface" interface; [])
+    in
     let request = minimal @ set_gateway @ set_dns in
     Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request)
 
@@ -760,19 +764,22 @@ module Dhclient = struct
     (* This prevents the default route being set erroneously on CentOS *)
     (* Normally this wouldn't happen as we're not requesting routers, *)
     (* but some buggy DHCP servers ignore this *)
+    (* Same story for DNS! *)
     (* See CA-137892 *)
     let gw_opt = List.fold_left
         (fun l x ->
            match x with
            | `gateway y -> ["-e"; "GATEWAYDEV="^y]
            | _ -> l) [] options in
+    let dns_opt = if List.mem (`dns interface) options then [] else ["-e"; "PEERDNS=no"] in
     write_conf_file ~ipv6 interface options;
     let ipv6' = if ipv6 then ["-6"] else [] in
-    call_script ~timeout:None dhclient (ipv6' @ gw_opt @ ["-q";
-                                                          "-pf"; pid_file ~ipv6 interface;
-                                                          "-lf"; lease_file ~ipv6 interface;
-                                                          "-cf"; conf_file ~ipv6 interface;
-                                                          interface])
+    call_script ~timeout:None dhclient (ipv6' @ gw_opt @ dns_opt @
+      ["-q";
+       "-pf"; pid_file ~ipv6 interface;
+       "-lf"; lease_file ~ipv6 interface;
+       "-cf"; conf_file ~ipv6 interface;
+       interface])
 
   let stop ?(ipv6=false) interface =
     try

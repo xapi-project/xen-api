@@ -250,15 +250,7 @@ module Interface = struct
         | DHCP4 ->
           let open Xapi_stdext_monadic in
           let gateway = Opt.default [] (Opt.map (fun n -> [`gateway n]) !config.gateway_interface) in
-          let dns =
-            if !config.dns_interface = None || !config.dns_interface = Some name then begin
-              debug "%s is the DNS interface" name;
-              [`set_dns]
-            end else begin
-              debug "%s is NOT the DNS interface" name;
-              []
-            end
-          in
+          let dns = Opt.default [] (Opt.map (fun n -> [`dns n]) !config.dns_interface) in
           let options = gateway @ dns in
           Dhclient.ensure_running name options
         | Static4 addrs ->
