@@ -1150,7 +1150,7 @@ let _ =
   error Api_errors.cluster_does_not_have_one_node ["number_of_nodes"]
     ~doc:"An operation failed as it expected the cluster to have only one node but found multiple cluster_hosts." ();
   error Api_errors.no_compatible_cluster_host ["host"]
-    ~doc:"The host does not have a Cluster_host with a compatible cluster stack." ();
+    ~doc:"Clustering is not enabled on this host or pool." ();
   error Api_errors.cluster_force_destroy_failed ["cluster"]
     ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ();
   error Api_errors.cluster_stack_in_use ["cluster_stack"]
