@@ -40,6 +40,11 @@ type sampling_frequency = Five_Seconds [@@deriving rpc]
 
 (* utility *)
 
+let ( +++ ) = Int64.add
+let ( --- ) = Int64.sub
+let ( *** ) = Int64.mul
+let ( /// ) = Int64.div
+
 let cf_type_of_string s =
   match s with
   | "AVERAGE" -> CF_Average
@@ -160,7 +165,7 @@ let copy_rrd x =
 
 (** Helper function to get the start time and age of the current/last PDP *)
 let get_times time timestep =
-  let starttime = Int64.mul timestep (Int64.div (Int64.of_float time) timestep) in
+  let starttime = timestep *** ((Int64.of_float time) /// timestep) in
   let age = time -. (Int64.to_float starttime) in
   (starttime, age)
 
@@ -192,7 +197,7 @@ let do_cfs rra start_pdp_offset pdps =
 let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
   (*  debug "rra_update";*)
   let updatefn rra =
-    let start_pdp_offset = rra.rra_pdp_cnt - (Int64.to_int (Int64.rem (Int64.div proc_pdp_st rrd.timestep) (Int64.of_int rra.rra_pdp_cnt))) in
+    let start_pdp_offset = rra.rra_pdp_cnt - Int64.(to_int (rem (proc_pdp_st /// rrd.timestep) (of_int rra.rra_pdp_cnt))) in
     let rra_step_cnt = if elapsed_pdp_st < start_pdp_offset then 0 else (elapsed_pdp_st - start_pdp_offset) / rra.rra_pdp_cnt + 1 in
     do_cfs rra (min start_pdp_offset elapsed_pdp_st) pdps;
     if rra_step_cnt > 0 then
@@ -256,9 +261,7 @@ let process_ds_value ds value interval new_domid =
         | Derive, false ->
           begin
             match ds.ds_last, value with
-            | VT_Int64 x, VT_Int64 y ->
-              let result = (Int64.sub y x) in
-              Int64.to_float result
+            | VT_Int64 x, VT_Int64 y -> Int64.to_float (y --- x)
             | VT_Float x, VT_Float y -> y -. x
             | VT_Unknown, _ -> nan
             | _, VT_Unknown -> nan
@@ -280,7 +283,7 @@ let ds_update rrd timestamp values transforms new_domid =
   let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
 
   (* The number of pdps that should result from this update *)
-  let elapsed_pdp_st = Int64.to_int (Int64.div (Int64.sub occu_pdp_st proc_pdp_st) rrd.timestep) in
+  let elapsed_pdp_st = Int64.to_int ((occu_pdp_st --- proc_pdp_st) /// rrd.timestep) in
 
   (* if we're due one or more PDPs, pre_int is the amount of the
      	   current update interval that will be used in calculating them, and
@@ -317,7 +320,7 @@ let ds_update rrd timestamp values transforms new_domid =
           if interval > ds.ds_mrhb
           then nan
           else
-            let raw = ds.ds_value /. (Int64.to_float (Int64.sub occu_pdp_st proc_pdp_st) -. ds.ds_unknown_sec) in
+            let raw = ds.ds_value /. (Int64.to_float (occu_pdp_st --- proc_pdp_st) -. ds.ds_unknown_sec) in
             let raw =
               if raw < ds.ds_min
               then ds.ds_min
@@ -415,7 +418,7 @@ let rrd_create dss rras timestep inittime =
 
 let rrd_add_ds rrd now newds =
   if List.mem newds.ds_name (ds_names rrd) then rrd else
-    let npdps = Int64.div (Int64.of_float now) rrd.timestep in
+    let npdps = Int64.of_float now /// rrd.timestep in
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
      rrd_rras = Array.map (fun rra ->
@@ -452,7 +455,7 @@ let find_best_rras rrd pdp_interval cf start =
   (if List.length rras = 0 then raise No_RRA_Available);
   let (last_pdp_time, _age) = get_times rrd.last_updated rrd.timestep in
   let contains_time t rra =
-    let lasttime = Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt))) in
+    let lasttime = last_pdp_time --- rrd.timestep *** (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)) in
     (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime)
   in
   try
@@ -463,7 +466,7 @@ let find_best_rras rrd pdp_interval cf start =
     ok_rras
   with _ ->
     let rra = List.hd (List.rev rras) in
-    let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
+    let newstarttime = 1L +++ last_pdp_time --- rrd.timestep *** (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)) in
     List.filter (contains_time newstarttime) rras
 
 
