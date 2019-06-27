@@ -176,9 +176,9 @@ let do_cfs rra start_pdp_offset pdps =
     if Utils.isnan pdps.(i)
     then begin
       (* CDP is an accumulator for the average. If we've got some unknowns, we need to
-         			   renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
-         			   values we expect to have. If we have unknowns, we need to multiply the whole
-         			   thing by \frac{n_{old}}{n_{new}} *)
+         renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
+         values we expect to have. If we have unknowns, we need to multiply the whole
+         thing by \frac{n_{old}}{n_{new}} *)
       let olddiv = rra.rra_pdp_cnt - cdp.cdp_unknown_pdps in
       let newdiv = olddiv - start_pdp_offset in
       if newdiv > 0 then (
@@ -203,12 +203,12 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
     if rra_step_cnt > 0 then
       begin
         (* When writing multiple CDP values into the archive, the
-           				   first one (primary) is calculated using the values we
-           				   already had accumulated from the last update, whereas any
-           				   subsequent values (secondary) are calculated just using the
-           				   current PDP. It turns out that the secondary values are
-           				   simply the PDPs as whichever CF is used, a CDP of many
-           				   repeated values is simply the value itself. *)
+           first one (primary) is calculated using the values we
+           already had accumulated from the last update, whereas any
+           subsequent values (secondary) are calculated just using the
+           current PDP. It turns out that the secondary values are
+           simply the PDPs as whichever CF is used, a CDP of many
+           repeated values is simply the value itself. *)
         let primaries = Array.map (fun cdp ->
             if cdp.cdp_unknown_pdps <= (int_of_float (rra.rra_xff *. float_of_int rra.rra_pdp_cnt))
             then cdp.cdp_value
@@ -234,7 +234,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
 
 (* We assume that the data being given is of the form of a rate; that is,
    it's dependent on the time interval between updates. To be able to
-   deal with guage DSs, we multiply by the interval so that it cancels
+   deal with gauge DSs, we multiply by the interval so that it cancels
    the subsequent divide by interval later on *)
 let process_ds_value ds value interval new_domid =
   if interval > ds.ds_mrhb
@@ -265,7 +265,7 @@ let process_ds_value ds value interval new_domid =
             | VT_Float x, VT_Float y -> y -. x
             | VT_Unknown, _ -> nan
             | _, VT_Unknown -> nan
-            | _ -> failwith ("Bad type updating ds: "^ds.ds_name)
+            | _ -> failwith ("Bad type updating ds: " ^ ds.ds_name)
           end
       in
       ds.ds_last <- value;
@@ -286,9 +286,9 @@ let ds_update rrd timestamp values transforms new_domid =
   let elapsed_pdp_st = Int64.to_int ((occu_pdp_st --- proc_pdp_st) /// rrd.timestep) in
 
   (* if we're due one or more PDPs, pre_int is the amount of the
-     	   current update interval that will be used in calculating them, and
-     	   post_int is the amount left over
-      this step. If a PDP isn't post is what's left over *)
+     current update interval that will be used in calculating them, and
+     post_int is the amount left over
+     this step. If a PDP isn't post is what's left over *)
   let pre_int, post_int =
     if elapsed_pdp_st > 0 then
       let pre = interval -. occu_pdp_age in
@@ -302,7 +302,6 @@ let ds_update rrd timestamp values transforms new_domid =
 
   (* Calculate the values we're going to store based on the input data and the type of the DS *)
   let v2s = Array.mapi (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval new_domid) values in
-  (*  debug "Got values: %s\n" (String.concat "," (Array.to_list (Array.mapi (fun i p -> Printf.sprintf "(%s: %f)" rrd.rrd_dss.(i).ds_name p) v2s)));*)
   (* Update the PDP accumulators up until the most recent PDP *)
   Array.iteri
     (fun i value ->
