@@ -231,6 +231,7 @@ module GenerateVGPUMetadata =
           module State = Test_state.XapiDb
 
           let load_input __context (vm_config, pgpus_and_vgpu_types) =
+            Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions := [Xapi_globs.nvidia_default_host_driver_version];
             let vm_ref = load_vm_config __context vm_config in
             List.iteri
               (fun index (pgpu, vgpu_type) ->
@@ -315,6 +316,7 @@ module GenerateMultiVGPUMetadata =
           module State = Test_state.XapiDb
 
           let load_input __context (vm_config, pgpus_and_vgpu_types) =
+            Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions := [Xapi_globs.nvidia_default_host_driver_version];
             let vm_ref = load_vm_config __context vm_config in
             List.iteri
               (fun index (pgpu, vgpu_type) ->
