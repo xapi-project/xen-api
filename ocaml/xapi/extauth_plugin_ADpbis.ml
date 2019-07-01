@@ -71,6 +71,8 @@ struct
 
   let user_friendly_error_msg = "The Active Directory Plug-in could not complete the command. Additional information in the logs."
 
+  let mutex_check_availability = Locking_helpers.Named_mutex.create "IS_SERVER_AVAILABLE"
+
   open Stdext.Xstringext
 
   let splitlines s = String.split_f (fun c -> c = '\n') (String.replace "#012" "\n" s)
@@ -521,7 +523,8 @@ struct
     In addition, there are some event hooks that auth modules implement as follows:
 *)
 
-  let is_pbis_server_available max =
+  let _is_pbis_server_available max =
+    let username = "KRBTGT" in (* domain name prefix automatically added by our internal AD plugin functions *)
     let rec test i = (* let's test this many times *)
       if i > max then false (* we give up *)
       else begin (* let's test *)
@@ -563,8 +566,21 @@ struct
     in
     begin
       debug "Testing if external authentication server is accepting requests...";
+      let full_username = get_full_subject_name username in
+      begin try
+          ignore(pbis_common "/opt/pbis/bin/ad-cache" ["--delete-user"; "--name"; full_username])
+        with
+        | Not_found -> ()
+        | e ->
+          debug "Failed to remove user %s from cache: %s" full_username (ExnHelper.string_of_exn e);
+          raise e
+      end;
       test 0
     end
+
+  let is_pbis_server_available max =
+    Locking_helpers.Named_mutex.execute mutex_check_availability
+      (fun () -> _is_pbis_server_available max)
 
   (* converts from domain.com\user to user@domain.com, in case domain.com is present in the subject_name *)
   let convert_nt_to_upn_username subject_name =
