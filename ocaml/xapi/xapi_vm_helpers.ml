@@ -92,6 +92,11 @@ let set_is_a_template ~__context ~self ~value =
     (* Detach all VUSBs before set VM as a template *)
     let vusbs = Db.VM.get_VUSBs ~__context ~self in
     List.iter (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ()) vusbs;
+    (* Destroy any attached pvs proxies *)
+    Db.VM.get_VIFs ~__context ~self
+    |> List.rev_map (fun v -> Pvs_proxy_control.find_proxy_for_vif ~__context ~vif:v)
+    |> List.unbox_list
+    |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p);
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
     try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
   end;
