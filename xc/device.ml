@@ -2017,14 +2017,15 @@ module Dm_Common = struct
                |> String.concat ",")
           in
           match x.implementation with
-          | Nvidia {virtual_pci_address; type_id = Some type_id; uuid = Some uuid; extra_args} ->
-            make [type_id; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
+          (* 1. Upgrade case, migrate from a old host with old vGPU having config_path
+           * 2. Legency case, run with old Nvidia host driver *)
           | Nvidia {virtual_pci_address; config_file = Some config_file; extra_args} ->
-            (* Upgrade case: find the type_id that match the give config_file path. *)
-            let type_id = nvidia_compat_lookup config_file in
-            debug "NVidia vGPU config: matched config_file=%s with type_id=%s" config_file type_id;
             (* The VGPU UUID is not available. Create a fresh one; xapi will deal with it. *)
             let uuid = Uuidm.to_string (Uuidm.create `V4) in
+            debug "NVidia vGPU config: using config file %s and uuid %s" config_file uuid;
+            make [config_file; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
+          | Nvidia {virtual_pci_address; type_id = Some type_id; uuid = Some uuid; extra_args} ->
+            debug "NVidia vGPU config: using type id %s and uuid: %s" type_id uuid;
             make [type_id; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
           | Nvidia {type_id = None; config_file = None} ->
             (* No type_id _and_ no config_file: something is wrong *)
