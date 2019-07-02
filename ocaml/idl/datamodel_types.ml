@@ -62,7 +62,7 @@ let rel_kolkata = "kolkata"
 let rel_lima = "lima"
 let rel_naples = "naples"
 let rel_oslo = "oslo"
-let rel_plymouth = "plymouth"
+let rel_quebec = "quebec"
 
 type api_release = {
   code_name: string option;
@@ -256,7 +256,7 @@ let release_order_full = [{
      branding      = "Unreleased";
      release_date  = None;
    }; {
-     code_name     = Some rel_plymouth;
+     code_name     = Some rel_quebec;
      version_major = 2;
      version_minor = 14;
      branding      = "Unreleased";
