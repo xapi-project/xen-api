@@ -4778,7 +4778,7 @@ module VGPU = struct
         field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_vgpu_tech_preview, ""] "resident_on" "The PGPU on which this VGPU is running" ~default_value:(Some (VRef null_ref));
         field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
         field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "VGPU metadata to determine whether a VGPU can migrate between two PGPUs";
-        field ~qualifier:RW ~ty:String ~lifecycle:[Published, rel_plymouth, ""] ~default_value:(Some (VString "")) "extra_args" "Extra arguments for vGPU and passed to demu";
+        field ~qualifier:RW ~ty:String ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) "extra_args" "Extra arguments for vGPU and passed to demu";
       ]
       ()
 end
@@ -4825,8 +4825,8 @@ module VGPU_type = struct
         field ~qualifier:StaticRO ~ty:implementation ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VEnum "passthrough")) "implementation" "The internal implementation of this VGPU type";
         field ~qualifier:StaticRO ~ty:String ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VString "")) "identifier" "Key used to identify VGPU types and avoid creating duplicates - this field is used internally and not intended for interpretation by API clients";
         field ~qualifier:StaticRO ~ty:Bool ~lifecycle:[Published, rel_dundee, ""] ~default_value:(Some (VBool false)) "experimental" "Indicates whether VGPUs of this type should be considered experimental";
-        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_plymouth, ""] ~ignore_foreign_key:true ~default_value:(Some (VSet [])) "compatible_types_in_vm" "List of VGPU types which are compatible in one VM";
-        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_plymouth, ""] ~ignore_foreign_key:true ~default_value:(Some (VSet [])) ~internal_only:true "compatible_types_on_pgpu" "List of VGPU types which are compatible on one PGPU";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_quebec, ""] ~ignore_foreign_key:true ~default_value:(Some (VSet [])) "compatible_types_in_vm" "List of VGPU types which are compatible in one VM";
+        field ~qualifier:DynamicRO ~ty:(Set (Ref _vgpu_type)) ~lifecycle:[Published, rel_quebec, ""] ~ignore_foreign_key:true ~default_value:(Some (VSet [])) ~internal_only:true "compatible_types_on_pgpu" "List of VGPU types which are compatible on one PGPU";
       ]
       ()
 end
