@@ -1983,22 +1983,6 @@ module Dm_Common = struct
     ; fd_map = []
     }
 
-  let nvidia_compat_lookup config_file =
-    let rec find = function
-      | [] -> raise Not_found
-      | conf :: others ->
-        match String.split_on_char ' ' conf with
-        | [cf; type_id] when cf = config_file -> type_id
-        | _ -> find others
-    in
-    try
-      Unixext.string_of_file !Xenopsd.nvidia_compat_lookup_file
-      |> String.split_on_char '\n'
-      |> find
-    with e ->
-      error "nvidia_compat_lookup for %s failed with %s" config_file (Printexc.to_string e);
-      raise (Xenopsd_error (Internal_error (Printf.sprintf "NVidia vGPU compat metadata lookup failed (%s)" __LOC__)))
-
   let vgpu_args_of_nvidia domid vcpus vgpus restore =
     let open Xenops_interface.Vgpu in
     let virtual_pci_address_compare vgpu1 vgpu2 =
