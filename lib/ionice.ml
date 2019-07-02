@@ -37,13 +37,10 @@ let of_class_param_exn cls param =
     | "0" -> Highest
     | x -> Other (int_of_string x) in
   match cls with
-  | "idle"
-  | "3" -> Idle
-  | "realtime"
-  | "1" -> RealTime param
-  | "best-effort"
-  | "2" -> BestEffort param
-  | _ -> raise Not_found (* caught below *)
+  | "idle"        | "3" -> Idle
+  | "realtime"    | "1" -> RealTime param
+  | "best-effort" | "2" -> BestEffort param
+  | _                   -> raise Not_found (* caught below *)
 
 exception Parse_failed of string
 
@@ -51,8 +48,10 @@ let parse_result_exn s : qos_scheduler option =
   try
     match Stdext.Xstringext.String.(split_f isspace s) with
     | [ cls_colon; "prio"; param ] ->
-      let cls = String.sub cls_colon 0 (String.length cls_colon - 1) in
-      Some (of_class_param_exn cls param)
+      ( match String.sub cls_colon 0 (String.length cls_colon - 1) with
+      | "unknown" | "none" -> None
+      | cls                -> Some (of_class_param_exn cls param)
+      )
     | _ ->
       raise (Parse_failed s)
   with _ ->

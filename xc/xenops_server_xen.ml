@@ -2762,8 +2762,6 @@ module VBD = struct
       (fun xc xs ->
          try
            let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) (id_of vbd) in
-           let qos_target = get_qos xc xs vm vbd device in
-
            let backend_present =
              if Device.Vbd.media_is_ejected ~xs device
              then None
@@ -2775,7 +2773,7 @@ module VBD = struct
              Vbd.active = true;
              plugged = true;
              backend_present;
-             qos_target = qos_target
+             qos_target = get_qos xc xs vm vbd device
            }
          with
          | (Xenopsd_error (Does_not_exist(_, _)))
