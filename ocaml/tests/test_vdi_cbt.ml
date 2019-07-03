@@ -404,14 +404,14 @@ let test_data_destroy =
     let test_data_destroy_succeeds_when_unplug_starts_later () =
       let _vdi, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy = setup_test () in
       let t = bg (fun () ->
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           start_vbd_unplug ();
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           finish_vbd_unplug ();
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           destroy_vbd ()
         ) in
-      data_destroy ~timeout:0.4;
+      data_destroy ~timeout:1.0;
       Thread.join t
     in
 
@@ -419,13 +419,13 @@ let test_data_destroy =
       let _vdi, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy = setup_test () in
       let t = bg (fun () ->
           start_vbd_unplug ();
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           finish_vbd_unplug ();
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           destroy_vbd ()
         ) in
-      Thread.delay 0.02;
-      data_destroy ~timeout:0.4;
+      Thread.delay 0.1;
+      data_destroy ~timeout:1.0;
       Thread.join t
     in
 
@@ -434,39 +434,37 @@ let test_data_destroy =
       let t = bg (fun () ->
           start_vbd_unplug ();
           finish_vbd_unplug ();
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           destroy_vbd ()
         ) in
-      Thread.delay 0.02;
-      data_destroy ~timeout:0.4;
+      Thread.delay 0.1;
+      data_destroy ~timeout:1.0;
       Thread.join t
     in
 
     let test_data_destroy_times_out_when_vbd_does_not_get_unplugged_in_time () =
       let vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy = setup_test () in
       let t = bg (fun () ->
-          Thread.delay 0.05;
           start_vbd_unplug ();
           (* finish_vbd_unplug does not happen in time *)
         ) in
       Alcotest.check_raises "data_destroy should raise VDI_IN_USE after its timeout"
         Api_errors.(Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"]))
-        (fun () -> data_destroy ~timeout:0.4);
+        (fun () -> data_destroy ~timeout:1.0);
       Thread.join t
     in
 
     let test_data_destroy_times_out_when_vbd_does_not_get_destroyed_in_time () =
       let vDI, start_vbd_unplug, finish_vbd_unplug, destroy_vbd, data_destroy = setup_test () in
       let t = bg (fun () ->
-          Thread.delay 0.05;
           start_vbd_unplug ();
-          Thread.delay 0.05;
+          Thread.delay 0.2;
           finish_vbd_unplug ();
           (* destroy_vbd does not happen in time *)
         ) in
       Alcotest.check_raises "data_destroy should raise VDI_IN_USE after its timeout"
         Api_errors.(Server_error (vdi_in_use, [Ref.string_of vDI; "data_destroy"]))
-        (fun () -> data_destroy ~timeout:0.4);
+        (fun () -> data_destroy ~timeout:1.0);
       Thread.join t
     in
 
@@ -518,4 +516,4 @@ let test =
   ; "test_allowed_operations_updated_when_necessary", `Quick, test_allowed_operations_updated_when_necessary
   ; "test_vdi_list_changed_blocks", `Quick, test_vdi_list_changed_blocks ]
   @ test_get_nbd_info
-  (* @ test_data_destroy CA-316165: Thread.delay in test *)
+  @ test_data_destroy
