@@ -46,8 +46,6 @@ let feature_flags_path = ref "/etc/xenserver/features.d"
 
 let pvinpvh_xen_cmdline = ref "pv-shim"
 
-let nvidia_compat_lookup_file = ref "/var/run/nonpersistent/xapi/nvidia_compat_lookup"
-
 let options = [
   "queue", Arg.Set_string Xenops_interface.queue_name, (fun () -> !Xenops_interface.queue_name), "Listen on a specific queue";
   "sockets-path", Arg.Set_string sockets_path, (fun () -> !sockets_path), "Directory to create listening sockets";
@@ -70,7 +68,6 @@ let options = [
   "action-after-qemu-crash", Arg.String (fun x -> action_after_qemu_crash := if x="" then None else Some x), (fun () -> match !action_after_qemu_crash with None->"" | Some x->x), "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, poweroff. Otherwise, no action (default).";
   "feature-flags-path", Arg.Set_string feature_flags_path, (fun () -> !feature_flags_path), "Directory of experimental feature flags";
   "pvinpvh-xen-cmdline", Arg.Set_string pvinpvh_xen_cmdline, (fun () -> !pvinpvh_xen_cmdline), "Command line for the inner-xen for PV-in-PVH guests";
-  "nvidia-compat-lookup-file", Arg.Set_string nvidia_compat_lookup_file, (fun () -> !nvidia_compat_lookup_file), "Path to the file with NVidia vGPU compat data written by xapi";
 ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
