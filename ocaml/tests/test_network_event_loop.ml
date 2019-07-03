@@ -20,8 +20,8 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   let other_host = Test_common.make_host ~__context () in
 
   (* We have to wait for a bit for the event loop to notice the changes, without a delay the test will fail. *)
-  let delay = 0.2 in
-  let network_event_loop_wait_after_failure_seconds = 0.4 in
+  let delay = 0.5 in
+  let network_event_loop_wait_after_failure_seconds = 1.0 in
   let received_params = ref None in
 
   (* We simulate failure of the firewall update script this way *)

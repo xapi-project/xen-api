@@ -258,7 +258,7 @@ let test_clustering_lock_taken_when_needed_nested_calls () =
 
   nest_with_clustering_lock_if_needed
     ~__context
-    ~timeout:0.1
+    ~timeout:1.0
     ~type1: "type_corosync1"
     ~type2: "type_corosync2"
     ~on_deadlock: (fun () -> ())
@@ -643,5 +643,5 @@ let test =
     @ test_pool_ha_cluster_stacks
     (* NOTE: lock test hoards the mutex and should thus always be last,
      * otherwise any other functions trying to use the lock will hang *)
-    (* @ test_clustering_lock_only_taken_if_needed: Thread.delay in test *)
+    @ test_clustering_lock_only_taken_if_needed
   )
