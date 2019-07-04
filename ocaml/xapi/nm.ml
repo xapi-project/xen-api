@@ -309,6 +309,20 @@ let determine_static_routes net_rc =
   else
     []
 
+let maybe_update_master_pif_mac ~__context bond_record (bond_master_record : API.pIF_t) bond_master =
+  if bond_record.API.bond_auto_update_mac
+  then
+    (* Make sure the MAC address of the PIF Bond master matches the MAC address of the Bond's primary slave *)
+    let primary_slave_ref = bond_record.API.bond_primary_slave in
+    let primary_slave_MAC = Db.PIF.get_MAC ~__context ~self:primary_slave_ref in
+    if bond_master_record.pIF_MAC <> primary_slave_MAC
+    then begin
+      Db.PIF.set_MAC ~__context ~self:bond_master ~value:primary_slave_MAC;
+      {bond_master_record with API.pIF_MAC = primary_slave_MAC}
+      end
+    else bond_master_record
+  else bond_master_record
+
 let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
   with_local_lock (fun () ->
       let rc = Db.PIF.get_record ~__context ~self:pif in
@@ -330,12 +344,13 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
 
         (* If the PIF is a bond master, the bond slaves will now go down *)
         (* Interface-reconfigure in bridge mode requires us to set currently_attached to false here *)
-        begin match rc.API.pIF_bond_master_of with
-          | [] -> ()
+        let rc = match rc.API.pIF_bond_master_of with
+          | [] -> rc
           | bond :: _ ->
-            let slaves = Db.Bond.get_slaves ~__context ~self:bond in
-            List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) slaves
-        end;
+            let bond_record = Db.Bond.get_record ~__context ~self:bond in
+            List.iter (fun self -> Db.PIF.set_currently_attached ~__context ~self ~value:false) bond_record.API.bond_slaves;
+            maybe_update_master_pif_mac ~__context bond_record rc pif
+        in
 
         Network.transform_networkd_exn pif (fun () ->
             let persistent = is_dom0_interface rc in
