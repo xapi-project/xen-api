@@ -1310,6 +1310,7 @@ module Bond = struct
           field ~lifecycle:[Published, rel_boston, ""] ~qualifier:DynamicRO ~default_value:(Some (VEnum "balance-slb")) ~ty:mode "mode" "The algorithm used to distribute traffic among the bonded NICs";
           field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "properties" "Additional configuration properties specific to the bond mode.";
           field ~in_oss_since:None ~in_product_since:rel_tampa ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L)) "links_up" "Number of links up in this bond";
+          field ~lifecycle:[Published, rel_quebec, ""] ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool true)) "auto_update_mac" "true if the MAC was taken from the primary slave when the bond was created, and false if the client specified the MAC"
         ]
       ()
 end

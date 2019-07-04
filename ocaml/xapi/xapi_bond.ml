@@ -277,7 +277,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 
   (* Validate MAC parameter; note an empty string is OK here, since that means 'inherit MAC from
      	 * primary slave PIF' (see below) *)
-  if mAC <> "" && (not (Helpers.is_valid_MAC mAC)) then
+  let did_user_specify_MAC = mAC <> "" in
+  if did_user_specify_MAC && (not (Helpers.is_valid_MAC mAC)) then
     raise Api_errors.(Server_error (mac_invalid, [mAC]));
 
   let requirements = requirements_of_mode mode in
@@ -327,11 +328,11 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         | None, [], [] ->
           raise Api_errors.(Server_error (pif_bond_needs_more_members, []))
       in
-      let mAC =
-        if mAC <> "" then
-          mAC
+      let mAC, auto_update_mac =
+        if did_user_specify_MAC then
+          mAC, false
         else
-          Db.PIF.get_MAC ~__context ~self:primary_slave
+          Db.PIF.get_MAC ~__context ~self:primary_slave, true
       in
       let disallow_unplug = (* this is always true if one of the PIFs is a cluster_host.PIF *)
         List.fold_left (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a) false members
@@ -385,7 +386,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~ipv6_configuration_mode:`None ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
         ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null;
       Db.Bond.create ~__context ~ref:bond ~uuid:(Uuid.to_string (Uuid.make_uuid ())) ~master:master ~other_config:[]
-        ~primary_slave ~mode ~properties ~links_up:0L;
+        ~primary_slave ~mode ~properties ~links_up:0L ~auto_update_mac;
 
       (* Set the PIF.bond_slave_of fields of the members.
          		 * The value of the Bond.slaves field is dynamically computed on request. *)
