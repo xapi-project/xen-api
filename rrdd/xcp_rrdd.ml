@@ -187,12 +187,15 @@ let dss_vcpus xc doms uuid_domids =
       let rec cpus i dss =
         if i >= maxcpus then dss else
           let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
-          cpus (i+1) ((Rrd.VM uuid,
-                       Ds.ds_make
+          (* Convert from nanoseconds to seconds *)
+          let cpu_time = (Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9 in
+          let cputime_rrd = Rrd.VM uuid, Ds.ds_make
                          ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
                          ~description:(Printf.sprintf "CPU%d usage" i)
-                         ~value:(Rrd.VT_Float ((Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9))
-                         ~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0 ())::dss)
+                         ~value:(Rrd.VT_Float cpu_time)
+                         ~ty:Rrd.Derive ~default:true ~min:0.0 ~max:1.0 ()
+          in
+          cpus (i + 1) (cputime_rrd :: dss)
       in
 
       (* Runstate info is per-domain rather than per-vcpu *)
