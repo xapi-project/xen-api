@@ -55,3 +55,10 @@ val disable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
  * that PCI DB entries exist for the VF PCI devices reported by the module,
  * and that those entries have the "physical_function" field set correctly. *)
 val mxgpu_vf_setup : __context:Context.t -> unit
+
+(* For nvidia vgpu. Acts on the local host only.  Ensures that the
+ * nvidia VFs are created on localhost, that PCI DB entries exist for
+ * the VF PCI devices, and that those entries have the
+ * "physical_function" field set correctly.  If [pf] is [Ref.null], all
+ * VFs will be created. *)
+val nvidia_vf_setup : __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit
