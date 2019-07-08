@@ -819,4 +819,5 @@ let requires_passthrough ~__context ~self =
   match Db.VGPU_type.get_implementation ~__context ~self with
   | `passthrough     -> Some `PF (* Requires passthough of a physical function (entire device) *)
   | `mxgpu           -> Some `VF (* Requires passthough of a virtual function (SR-IOV) *)
+  | `nvidia_sriov    -> Some `VF (* Requires passthough of a virtual function (SR-IOV) *)
   | `nvidia | `gvt_g -> None     (* Does not require any passthrough *)
