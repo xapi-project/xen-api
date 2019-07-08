@@ -65,7 +65,7 @@ module Config_file = struct
 	let trim_trailing_ws line =
 		let re_ws = Re.compile (Re.Emacs.re "[ \t]+$") in
 		try
-			let ofs = fst (Re.get_all_ofs (Re.exec re_ws line)).(0) in
+			let ofs = fst (Re.Group.all_offset (Re.exec re_ws line)).(0) in
 			String.sub line 0 ofs
 		with Not_found ->
 			line
@@ -80,7 +80,7 @@ module Config_file = struct
 		let re = Re.compile (Re.Emacs.re "\\([^=\\ \t]+\\)[\\ \t]*=[\\ \t]*\\(.*\\)") in
 		let get (x,y) = String.sub line x (y-x) in
 		try
-			match Re.get_all_ofs (Re.exec re line) with
+			match Re.Group.all_offset (Re.exec re line) with
 			| [| _; key_ofs; v_ofs |] ->
 				(* First in array is always the full extent of all matches *)
 				Some (get key_ofs, get v_ofs)
