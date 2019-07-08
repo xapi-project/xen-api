@@ -266,7 +266,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
     Db.VGPU.get_type ~__context ~self:vgpu
     |> fun self -> Db.VGPU_type.get_implementation ~__context ~self
     |> function
-    | `nvidia ->
+    | `nvidia | `nvidia_sriov ->
       let pgpu = Db.VGPU.get_resident_on ~__context ~self:vgpu in
       Db.is_valid_ref __context pgpu &&
       (Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
