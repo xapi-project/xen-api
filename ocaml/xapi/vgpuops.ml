@@ -103,22 +103,32 @@ let add_pcis_to_vm ~__context host vm pci =
   let devs : ((int * (int * int * int * int))) list = List.rev (snd (List.fold_left (fun (i, acc) pci -> i + 1, (i, pci) :: acc) (0, []) devs)) in
   (* Update VM other_config for PCI passthrough *)
   let value = String.concat "," (List.map Pciops.to_string devs) in
-  debug "Adding PCIs to a VM with 'other config': %s" value; 
+  debug "Adding PCIs to a VM with 'other config': %s" value;
   Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
 
-let reserve_free_virtual_function ~__context vm pf =
+let reserve_free_virtual_function ~__context vm impl pf =
   let rec get retry =
     match Pciops.reserve_free_virtual_function ~__context vm pf with
     | Some vf -> vf
-    | None ->
-      if retry then begin
-        (* We may still need to load the driver... do that and try again *)
-        let pf_host = Db.PCI.get_host ~__context ~self:pf in
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.Host.mxgpu_vf_setup rpc session_id pf_host
-          );
+    | None when retry ->
+        let host = Db.PCI.get_host ~__context ~self:pf in
+        begin match impl with
+        | `mxgpu ->
+          Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+              Client.Client.Host.mxgpu_vf_setup rpc session_id host
+        | `nvidia_sriov ->
+          Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+              Client.Client.Host.nvidia_vf_setup ~rpc ~session_id ~host ~pf ~enable:true
+        | _other ->
+            let vm_ref = Ref.string_of vm in
+            let pf_ref = Ref.string_of pf in
+            let msg = Printf.sprintf
+              "Unexpected GPU implementation vm=%s pf=%s (%s)"
+              vm_ref pf_ref __LOC__ in
+            raise Api_errors.(Server_error (internal_error, [msg]))
+        end;
         get false
-      end else
+    | None ->
         (* This probably means that our capacity checking went wrong! *)
         raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
   in
@@ -140,8 +150,11 @@ let add_vgpus_to_vm ~__context host vm vgpus =
         Pool_features.assert_enabled ~__context ~f:Features.VGPU;
         debug "Creating SR-IOV VGPUs";
         let pgpu = List.assoc vgpu.vgpu_ref (allocate_vgpu_to_gpu ~__context vm host vgpu) in
+        let impl =
+          Db.VGPU.get_type ~__context ~self:vgpu.vgpu_ref
+          |> (fun self -> Db.VGPU_type.get_implementation ~__context ~self) in
         Db.PGPU.get_PCI ~__context ~self:pgpu
-        |> reserve_free_virtual_function ~__context vm
+        |> reserve_free_virtual_function ~__context vm impl
         |> add_pcis_to_vm ~__context host vm
       | None ->
         Pool_features.assert_enabled ~__context ~f:Features.VGPU;
