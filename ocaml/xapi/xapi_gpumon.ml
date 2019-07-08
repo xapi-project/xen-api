@@ -105,7 +105,7 @@ module Nvidia = struct
     match vgpu_impl ~__context vgpu with
     | `passthrough | `gvt_g | `mxgpu ->
       debug "Skipping, vGPU %s implementation for VM %s is not Nvidia" (Ref.string_of vgpu) (Ref.string_of vm)
-    | `nvidia ->
+    | `nvidia | `nvidia_sriov ->
       let local_pgpu_address =
         Db.VGPU.get_resident_on ~__context ~self:vgpu
         |> (fun self -> Db.PGPU.get_PCI ~__context ~self)
