@@ -1233,6 +1233,21 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_VM_OP
       ()
 
+  let nvidia_vf_setup = call
+      ~name:"nvidia_vf_setup"
+      ~lifecycle:[Published, rel_quebec, ""]
+      ~doc:"Ensure the nvidia VFs are created, and create PCI objects for
+      any new PCI devices (virtual functions) that the module makes visible."
+      ~params:[
+        Ref _host, "host", "The host";
+        Ref _pci, "pf", "The physical function (PF), may be Null";
+        Bool, "enable", "true enables virtual functions"
+      ]
+      ~hide_from_docs:true
+      ~pool_internal:true
+      ~allowed_roles:_R_VM_OP
+      ()
+
   let allocate_resources_for_vm = call
       ~name:"allocate_resources_for_vm"
       ~lifecycle:[Published, rel_inverness, ""]
@@ -1390,6 +1405,7 @@ let host_query_ha = call ~flags:[`Session]
         set_ssl_legacy;
         apply_guest_agent_config;
         mxgpu_vf_setup;
+        nvidia_vf_setup;
         allocate_resources_for_vm;
         set_iscsi_iqn;
         set_multipathing;
