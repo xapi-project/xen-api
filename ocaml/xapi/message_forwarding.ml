@@ -2692,6 +2692,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc ->
            Client.Host.mxgpu_vf_setup rpc session_id host)
 
+    let nvidia_vf_setup ~__context ~host ~pf ~enable =
+      info "Host.nvidia_vf_setup: host = '%s' pf = '%s' enable = %b"
+        (host_uuid ~__context host) (pci_uuid ~__context pf) enable;
+      let local_fn = Local.Host.nvidia_vf_setup ~host ~pf ~enable in
+      do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc ->
+           Client.Host.nvidia_vf_setup rpc session_id host pf enable)
+
     let allocate_resources_for_vm ~__context ~self ~vm ~live =
       info "Host.host_allocate_resources_for_vm: host = %s; VM = %s"
         (host_uuid ~__context self) (vm_uuid ~__context vm);
