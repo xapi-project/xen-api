@@ -4791,6 +4791,7 @@ module VGPU_type = struct
     Enum ("vgpu_type_implementation", [
         "passthrough", "Pass through an entire physical GPU to a guest";
         "nvidia", "vGPU using NVIDIA hardware";
+        "nvidia_sriov", "vGPU using NVIDIA hardware with SR-IOV";
         "gvt_g", "vGPU using Intel GVT-g";
         "mxgpu", "vGPU using AMD MxGPU";
       ])

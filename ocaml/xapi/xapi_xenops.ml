@@ -757,7 +757,7 @@ module MD = struct
           match implementation with
           (* Passthrough VGPUs are dealt with in pcis_of_vm. *)
           | `passthrough -> acc
-          | `nvidia ->
+          | `nvidia | `nvidia_sriov ->
             (of_nvidia_vgpu ~__context vm vgpu_record) :: acc
           | `gvt_g ->
             (of_gvt_g_vgpu ~__context vm vgpu_record) :: acc
