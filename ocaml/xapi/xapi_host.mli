@@ -310,6 +310,10 @@ val apply_guest_agent_config : __context:Context.t -> host:API.ref_host -> unit
 (* See Xapi_pgpu.mxgpu_vf_setup *)
 val mxgpu_vf_setup : __context:Context.t -> host:API.ref_host -> unit
 
+(* See Xapi_host.nvidia_vf_setup *)
+val nvidia_vf_setup : __context:Context.t -> host:API.ref_host
+  -> pf:API.ref_PCI -> enable:bool -> unit
+
 val allocate_resources_for_vm : __context:Context.t -> self:API.ref_host -> vm:API.ref_VM -> live:bool -> unit
 val set_uefi_certificates : __context:Context.t -> host:API.ref_host -> value:string -> unit
 val set_iscsi_iqn : __context:Context.t -> host:API.ref_host -> value:string -> unit

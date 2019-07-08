@@ -765,6 +765,8 @@ let disable_logging_for= ref []
 
 let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
 
+let nvidia_sriov_manage_script = ref "/usr/lib/nvidia/sriov-manage"
+
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
@@ -1057,7 +1059,8 @@ module Resources = struct
     "firewall-port-config", firewall_port_config_script, "Executed when starting/stopping xapi-clusterd to configure firewall port";
     "nbd_client_manager", nbd_client_manager_script, "Executed to safely connect to and disconnect from NBD devices using nbd-client";
     "varstore-rm", varstore_rm, "Executed to clear certain UEFI variables during clone";
-    "varstore_dir", varstore_dir, "Path to local varstored directory"
+    "varstore_dir", varstore_dir, "Path to local varstored directory";
+    "nvidia-sriov-manage", nvidia_sriov_manage_script, "Path to NVIDIA sriov-manage script"
   ]
   let essential_files = [
     "pool_config_file", pool_config_file, "Pool configuration file";
