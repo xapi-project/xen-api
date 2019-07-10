@@ -1992,31 +1992,33 @@ module Dm_Common = struct
        {implementation = Nvidia {virtual_pci_address = pci2; _}; _} ->
         Pervasives.compare pci1.dev pci2.dev
       | other1, other2 -> Pervasives.compare other1 other2
-      in
+    in
     let device_args =
-      List.map (fun x ->
-          let make args =
-            Printf.sprintf "--device=%s"
-              (Xcp_pci.string_of_address x.physical_pci_address :: args
-               |> List.filter (fun str -> str <> "")
-               |> String.concat ",")
-          in
-          match x.implementation with
+      let make addr args =
+        Printf.sprintf "--device=%s"
+          (Xcp_pci.string_of_address addr :: args
+           |> List.filter (fun str -> str <> "")
+           |> String.concat ",")
+      in
+      vgpus
+      |> List.sort virtual_pci_address_compare
+      |> List.map (fun vgpu ->
+         let addr = vgpu.physical_pci_address in
+         match vgpu.implementation with
           (* 1. Upgrade case, migrate from a old host with old vGPU having config_path
            * 2. Legency case, run with old Nvidia host driver *)
           | Nvidia {virtual_pci_address; config_file = Some config_file; extra_args} ->
             (* The VGPU UUID is not available. Create a fresh one; xapi will deal with it. *)
             let uuid = Uuidm.to_string (Uuidm.create `V4) in
             debug "NVidia vGPU config: using config file %s and uuid %s" config_file uuid;
-            make [config_file; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
+            make addr [config_file; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
           | Nvidia {virtual_pci_address; type_id = Some type_id; uuid = Some uuid; extra_args} ->
             debug "NVidia vGPU config: using type id %s and uuid: %s" type_id uuid;
-            make [type_id; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
+            make addr [type_id; Xcp_pci.string_of_address virtual_pci_address; uuid; extra_args]
           | Nvidia {type_id = None; config_file = None} ->
             (* No type_id _and_ no config_file: something is wrong *)
             raise (Xenopsd_error (Internal_error (Printf.sprintf "NVidia vGPU metadata incomplete (%s)" __LOC__)))
-          | _ -> "")
-        (List.sort virtual_pci_address_compare vgpus) in
+          | _ -> "") in
     let suspend_file = sprintf demu_save_path domid in
     let base_args = [
       "--domain=" ^ (string_of_int domid);
