@@ -220,6 +220,7 @@ module Vgpu = struct
   type t =
     { id: id [@default "", ""]
     ; position: int [@default 0]
+    ; virtual_pci_address: Pci.address option [@default None]  (* SRIOV VF *)
     ; physical_pci_address: Pci.address [@default pci_default]
     ; implementation: implementation [@default Empty] }
   [@@deriving rpcty]
