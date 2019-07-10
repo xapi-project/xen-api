@@ -216,7 +216,7 @@ module Vgpu = struct
 
   type id = string * string [@@deriving rpcty]
 
-    let pci_default = Pci.{domain= 0; bus= 0; dev= 0; fn= 0}
+  let pci_default = Pci.{domain = 0; bus = 0; dev = 0; fn = 0}
   type t =
     { id: id [@default "", ""]
     ; position: int [@default 0]
