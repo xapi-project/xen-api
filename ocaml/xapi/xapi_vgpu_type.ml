@@ -363,7 +363,18 @@ module Vendor_nvidia = struct
   let pt_when_vgpu = true
   let whitelist_file () = !Xapi_globs.nvidia_whitelist
   let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
+  
+  let get_host_driver_version () = try Scanf.sscanf (Unix.readlink !Xapi_globs.nvidia_host_driver_file) "libnvidia-vgpu.so.%s" (fun x -> x)
+    with _ -> info "Can not get the file version of %s, use the default value" !Xapi_globs.nvidia_host_driver_file; Xapi_globs.nvidia_default_host_driver_version
 
+  let host_driver_supports_multi_vgpu ~host_driver_version ~supported_versions =
+    let version = float_of_string host_driver_version in
+    List.exists (fun pattern ->
+      match String.index_opt pattern '+' with
+      | Some i -> (try float_of_string (String.sub pattern 0 i) <= version with _ -> false)
+      | None -> try (float_of_string pattern) = version with _ -> false
+    ) supported_versions
+    
   (* A type to capture the XML tree with functions for use in Xmlm.input_doc_tree *)
   type tree = E of string * (string * string) list * tree list | D of string
   let el ((_, name), attr) children = E (name, List.map (fun ((_, k), v) -> k, v) attr, children)
@@ -432,6 +443,9 @@ module Vendor_nvidia = struct
       - Find the vgpuType elements that match the vgpu type ids found above,
         and construct vgpu_conf records.
     *)
+    let host_driver_version = get_host_driver_version () in
+    let driver_supports_multiple_vgpus = host_driver_supports_multi_vgpu ~host_driver_version
+      ~supported_versions:!Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions in
     List.filter_map (fun vgpu_type ->
       let id = get_attr "id" vgpu_type in
       if List.mem_assoc id vgpu_ids then
@@ -456,12 +470,12 @@ module Vendor_nvidia = struct
            - Read  'multiVgpuSupported' from config, 1L indicates this type support multiple 
            - Currently always initialize 'compatible_types_on_pgpu' to itself only since we 
              don't support yet *)
-        let multi_vgpu_supported = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
+        let multi_vgpu_support = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
         let name = get_attr "name" vgpu_type in
-        info "Getting multiple vGPU supported from config file: %Ld, model: %s" multi_vgpu_supported name;
+        info "Getting multiple vGPU supported from config file: %Ld, model: %s" multi_vgpu_support name;
         let compatible_model_names_in_vm, compatible_model_names_on_pgpu =
-          match multi_vgpu_supported with
-          | 1L -> [name], [name]
+          match multi_vgpu_support, driver_supports_multiple_vgpus with
+          | 1L, true -> [name], [name]
           | _ -> [], [name]
         in
         Some {identifier; framebufferlength;
@@ -708,7 +722,7 @@ module Intel = Vendor(Vendor_intel)
 module AMD = Vendor(Vendor_amd)
 
 module Nvidia_compat = struct
-  let conf_dir = "/usr/share/nvidia/vgx"
+  let conf_dir = Xapi_globs.nvidia_compat_conf_dir
 
   let of_conf_file file_path =
     try
@@ -764,23 +778,26 @@ module Nvidia_compat = struct
     read_configs []
       (List.map (fun conf -> Filename.concat conf_dir conf) conf_files)
 
-  let create_compat_lookup_file __context =
+  let create_compat_config_file __context =
     try
       let open Db_filter_types in
-      read_config_dir conf_dir
-      |> List.map (fun (conf_file, identifier) ->
-        let identifier_string = Identifier.to_string identifier in
-        let expr = Eq (Field "identifier", Literal identifier_string) in
-        match Db.VGPU_type.get_internal_records_where ~__context ~expr with
-        | [_, rc] ->
-          let type_id = List.assoc Xapi_globs.vgpu_type_id rc.Db_actions.vGPU_type_internal_config in
-          Printf.sprintf "%s %s\n" conf_file type_id
-        | _ -> "" (* Type is not relevant: ignore *)
-      )
-      |> String.concat ""
-      |> Stdext.Unixext.write_string_to_file !Xapi_globs.nvidia_compat_lookup_file
+      let host_driver_version = Vendor_nvidia.get_host_driver_version () in
+      let host_driver_supports_multiple = Vendor_nvidia.host_driver_supports_multi_vgpu ~host_driver_version ~supported_versions:!Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions in
+      if not host_driver_supports_multiple then
+        read_config_dir conf_dir (* Nvidia host driver does not support multiple vGPU, create compat config file *)
+        |> List.iter (fun (conf_file, identifier) ->
+            let identifier_string = Identifier.to_string identifier in
+            let expr = Eq (Field "identifier", Literal identifier_string) in
+            match Db.VGPU_type.get_internal_records_where ~__context ~expr with
+            | [vgpu_type_ref, rc] ->
+              let updated_config = rc.Db_actions.vGPU_type_internal_config
+                |> List.remove_assoc Xapi_globs.nvidia_compat_config_file_key
+                |> (fun x -> (Xapi_globs.nvidia_compat_config_file_key, conf_file)::x) in
+              Db.VGPU_type.set_internal_config ~__context ~self:vgpu_type_ref ~value:updated_config
+            | _ -> () (* Type is not relevant: ignore *)
+          )
     with e ->
-      error "Failed to create NVidia compat lookup file: %s\n%s\n"
+      error "Failed to create NVidia compat config_file: %s\n%s\n"
         (Printexc.to_string e) (Printexc.get_backtrace ())
 end
 

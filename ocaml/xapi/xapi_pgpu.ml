@@ -211,7 +211,7 @@ let update_gpus ~__context =
          (fun (_, pgpu_rec) -> pgpu_rec.API.pGPU_GPU_group)
          (current_pgpus @ obsolete_pgpus))
   in
-  Xapi_vgpu_type.Nvidia_compat.create_compat_lookup_file __context;
+  Xapi_vgpu_type.Nvidia_compat.create_compat_config_file __context;
   Helpers.call_api_functions ~__context
     (fun rpc session_id ->
        List.iter

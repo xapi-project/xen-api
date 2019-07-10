@@ -21,72 +21,7 @@ open Xapi_vgpu_type
 let mib x = List.fold_left Int64.mul x [1024L; 1024L]
 
 module NvidiaTest = struct
-  (*
-  let string_of_vgpu_conf conf =
-    let open Identifier in
-    let open Nvidia_old in
-    Printf.sprintf "%04x %s %04x %04x %Ld"
-      conf.identifier.pdev_id
-      (match conf.identifier.psubdev_id with
-       | Some id -> Printf.sprintf "Some %04x" id
-       | None -> "None")
-      conf.identifier.vdev_id
-      conf.identifier.vsubdev_id
-      conf.framebufferlength
-
-  let print_vgpu_conf conf =
-    Printf.printf "%s\n" (string_of_vgpu_conf conf)
-
-  module OfConfFile = Generic.Make(struct
-      module Io = struct
-        type input_t = string
-        type output_t = Nvidia_old.vgpu_conf
-
-        let string_of_input_t x = x
-        let string_of_output_t = string_of_vgpu_conf
-      end
-
-      let transform = Nvidia_old.of_conf_file
-
-      let tests = [
-        "test_data/test_vgpu_subdevid.conf",
-        Nvidia_old.({
-            identifier = Identifier.({
-                pdev_id = 0x3333;
-                psubdev_id = Some 0x4444;
-                vdev_id = 0x1111;
-                vsubdev_id = 0x2222;
-              });
-            framebufferlength = 0x10000000L;
-            num_heads = 2L;
-            max_instance = 8L;
-            max_x = 1920L;
-            max_y = 1200L;
-            file_path = "test_data/test_vgpu_subdevid.conf";
-            compatible_model_names_in_vm = [];
-            compatible_model_names_on_pgpu = [];
-          });
-        "test_data/test_vgpu_nosubdevid.conf",
-        Nvidia_old.({
-            identifier = Identifier.({
-                pdev_id = 0x3333;
-                psubdev_id = None;
-                vdev_id = 0x1111;
-                vsubdev_id = 0x2222;
-              });
-            framebufferlength = 0x10000000L;
-            num_heads = 2L;
-            max_instance = 8L;
-            max_x = 1920L;
-            max_y = 1200L;
-            file_path = "test_data/test_vgpu_nosubdevid.conf";
-            compatible_model_names_in_vm = [];
-            compatible_model_names_on_pgpu = [];
-          });
-      ]
-    end)
-*)
-  let string_of_vgpu_conf conf =
+    let string_of_vgpu_conf conf =
     let open Identifier in
     let open Vendor_nvidia in
     Printf.sprintf "%04x %s %04x %04x %Ld %Ld %Ld %Ldx%Ld"
@@ -199,6 +134,33 @@ module NvidiaTest = struct
             })
         ];
         
+      ]
+    end)
+
+  module HostDriverMultipleVgpuSupport = Generic.Make(struct
+      module Io = struct
+        type input_t = (string * string list)
+        type output_t = bool
+
+        let string_of_input_t (host_driver_version, supported_driver_versions) =
+          Printf.sprintf "(%s, %s)" host_driver_version (String.concat "," supported_driver_versions)
+
+        let string_of_output_t x = string_of_bool x
+      end
+
+      let transform (host_driver_version, supported_versions) = Xapi_vgpu_type.Vendor_nvidia.host_driver_supports_multi_vgpu ~host_driver_version ~supported_versions
+
+      let tests = [
+        ("430.19",["430.19"]), true; (* Test specific version should match *)
+        ("430.19",["430.89";"430.19"]), true; (* Test specific version should match *)
+        ("430.19",["430.19";"typo_error"]), true; (* Test specific version should match *)
+        ("430.19",["430.19typo"]), false; (* Test specific version with typo should not match *)
+        ("430.19",["430.18"]), false; (* Test specific version should not match *)
+        ("430.18",["430.19"]), false; (* Test specific version should not match *)
+        ("430.400",["430.200+"]), true; (* Higher version should match *)
+        ("430.100",["430.200+"]), false; (* Higher version should match *)
+        ("100.800",["430.200+"]), false; (* Lower version should not match *)
+        ("530.400",["430.200+";"typo_error"]), true; (* One wrong format config should not affact others *)
       ]
     end)
 
@@ -546,6 +508,7 @@ let test =
   "test_vgpu_type" >:::
   [
     "nvidia_read_whitelist" >::: NvidiaTest.ReadWhitelist.tests;
+    "nvidia_host_driver_support_multiple_vgpu" >::: NvidiaTest.HostDriverMultipleVgpuSupport.tests;
     "nvidia_print_nv_types" >:: NvidiaTest.print_nv_types;
     "intel_read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;
     "intel_read_whitelist" >::: IntelTest.ReadWhitelist.tests;
