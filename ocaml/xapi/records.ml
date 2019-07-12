@@ -1743,6 +1743,8 @@ let vgpu_record rpc session_id vgpu =
   let empty_record = ToGet (fun () -> Client.VGPU.get_record rpc session_id !_ref) in
   let record = ref empty_record in
   let x () = lzy_get record in
+  let pci_record p = ref (ToGet (fun () -> Client.PCI.get_record rpc session_id p)) in
+  let xp () = lzy_get (pci_record (x ()).API.vGPU_PCI) in
   {
     setref = (fun r -> _ref := r; record := empty_record );
     setrefrec = (fun (a,b) -> _ref := a; record := Got b);
@@ -1773,6 +1775,8 @@ let vgpu_record rpc session_id vgpu =
       make_field ~name:"extra_args"
         ~get:(fun () -> (x ()).API.vGPU_extra_args)
         ~set:(fun v -> Client.VGPU.set_extra_args rpc session_id vgpu v) ();
+      make_field ~name:"pci"
+        ~get:(fun () -> try (xp ()).API.pCI_pci_id with _ -> nid) ();
     ]
   }
 
