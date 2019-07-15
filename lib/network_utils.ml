@@ -759,6 +759,12 @@ module Dhclient = struct
     let conf = generate_conf ~ipv6 interface options in
     Xapi_stdext_unix.Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
 
+  let remove_conf_file ?(ipv6=false) interface =
+    let file = conf_file ~ipv6 interface in
+    try
+      Unix.unlink file
+    with _ -> ()
+
   let start ?(ipv6=false) interface options =
     (* If we have a gateway interface, pass it to dhclient-script via -e *)
     (* This prevents the default route being set erroneously on CentOS *)
