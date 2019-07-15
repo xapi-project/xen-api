@@ -657,6 +657,18 @@ module MD = struct
       fn = 0;
     }
 
+  (** Return the virtual function (VF) for a VGPU operated in SR-IOV
+   * mode, or None otherwise
+   *)
+  let sriov_vf ~__context vgpu =
+    match vgpu.Db_actions.vGPU_PCI with
+    | pci when pci = Ref.null -> None
+    | pci when not (Db.is_valid_ref __context pci) -> None
+    | pci ->
+        Db.PCI.get_pci_id ~__context ~self:pci
+        |> fun str -> Xenops_interface.Pci.address_of_string str
+        |> fun addr -> Some addr
+
   let of_nvidia_vgpu ~__context vm vgpu =
     let open Vgpu in
     (* Get the PCI address. *)
@@ -681,6 +693,7 @@ module MD = struct
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
       position = int_of_string vgpu.Db_actions.vGPU_device;
       physical_pci_address;
+      virtual_pci_address = sriov_vf ~__context vgpu;
       implementation;
     }
 
@@ -712,6 +725,7 @@ module MD = struct
         position = int_of_string vgpu.Db_actions.vGPU_device;
         physical_pci_address;
         implementation;
+        virtual_pci_address = sriov_vf ~__context vgpu;
       }
     with
     | Not_found -> failwith "Intel GVT-g settings not specified"
@@ -740,6 +754,7 @@ module MD = struct
         position = int_of_string vgpu.Db_actions.vGPU_device;
         physical_pci_address;
         implementation;
+        virtual_pci_address = sriov_vf ~__context vgpu;
       }
     with
     | Not_found -> failwith "AMD MxGPU settings not specified"
