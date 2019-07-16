@@ -722,7 +722,17 @@ module Linux_bonding = struct
       error "Bond %s does not exist; cannot set properties" master
 end
 
-module Dhclient = struct
+module Dhclient :
+sig
+  type interface = string
+  val remove_conf_file : ?ipv6:bool -> interface -> unit
+  val is_running : ?ipv6:bool -> interface -> bool
+  val stop : ?ipv6:bool -> interface -> unit
+  val ensure_running : ?ipv6:bool -> interface -> [> `dns of string | `gateway of string ] list -> unit
+end =
+struct
+  type interface = string
+
   let pid_file ?(ipv6=false) interface =
     let ipv6' = if ipv6 then "6" else "" in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
