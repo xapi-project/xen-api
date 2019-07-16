@@ -71,8 +71,7 @@ let test_event_from_timeout () =
 let event_next_unblock () =
   let __context, session_id = event_setup_common () in
   let () = Xapi_event.register ~__context ~classes:[] in (* no events *)
-  let m = Mutex.create () in
-  let unblocked = ref false in
+  let wait_hdl = Delay.make () in
   let (_: Thread.t) = Thread.create
       (fun () ->
          begin
@@ -80,7 +79,7 @@ let event_next_unblock () =
            with e ->
              Printf.printf "background thread caught: %s (an exception is expected)" (Printexc.to_string e)
          end;
-         Mutex.execute m (fun () -> unblocked := true)
+         Delay.signal wait_hdl
       ) () in
   (* Background thread is started but it cannot simultaneously block and signal us to
      logout so a little pause in here is probably the best we can do *)
@@ -88,34 +87,35 @@ let event_next_unblock () =
   (* Logout which should cause the background thread to unblock *)
   Xapi_session.destroy_db_session __context session_id;
   (* Again we can't tell the difference between a slow and a totally blocked thread
-     so a little pause in here is also required *)
-  Thread.delay 0.5;
-  Alcotest.(check bool) "Unblocked" true (Mutex.execute m (fun () -> !unblocked))
+     so set the max wait time 10 times more, but it will ublock as early as possible *)
+  let unblocked = not (Delay.wait wait_hdl (0.5 *. 10.)) in
+  Alcotest.(check bool) "Unblocked" true unblocked
 
 let event_next_test () =
   let __context, session_id = event_setup_common () in
   let () = Xapi_event.register ~__context ~classes:[ "pool" ] in
-  let m = Mutex.create () in
-  let finished = ref false in
+  let wait_hdl = Delay.make () in
   let pool = Db.Pool.get_all ~__context |> List.hd in
   let key = "event_next_test" in
   begin try Db.Pool.remove_from_other_config __context pool key with _ -> () end;
   let (_: Thread.t) = Thread.create
       (fun () ->
-         while not (Mutex.execute m (fun () -> !finished)) do
+         let finished = ref false in
+         while not !finished do
            ignore (Xapi_event.next __context);
            let oc = Db.Pool.get_other_config __context pool in
            if List.mem_assoc key oc && (List.assoc key oc) = "1"
-           then Mutex.execute m (fun () ->
+           then begin
                Printf.printf "got expected event";
                finished := true;
-             )
+               Delay.signal wait_hdl
+           end
          done
       ) () in
   Thread.delay 1.;
   Db.Pool.add_to_other_config __context pool key "1";
-  Thread.delay 1.;
-  Alcotest.(check bool) "checking other_config" true (Mutex.execute m (fun () -> !finished))
+  let unblocked = not (Delay.wait wait_hdl (1.0 *. 10.)) in
+  Alcotest.(check bool) "checking other_config" true unblocked
 
 let wait_for_pool_key __context key =
   let token = ref "" in
@@ -130,20 +130,19 @@ let wait_for_pool_key __context key =
 
 let event_from_test () =
   let __context, session_id = event_setup_common () in
-  let m = Mutex.create () in
-  let finished = ref false in
+  let wait_hdl = Delay.make() in
   let pool = Db.Pool.get_all __context |> List.hd in
   let key = "event_from_test" in
   begin try Db.Pool.remove_from_other_config __context pool key with _ -> () end;
   let (_: Thread.t) = Thread.create
       (fun () ->
          wait_for_pool_key __context key;
-         Mutex.execute m (fun () -> finished := true)
+         Delay.signal wait_hdl
       ) () in
   Thread.delay 0.5;
   Db.Pool.add_to_other_config __context pool key "1";
-  Thread.delay 0.5;
-  Alcotest.(check bool) "event_from_test" true (Mutex.execute m (fun () -> !finished))
+  let unblocked = not (Delay.wait wait_hdl (0.5 *. 10.)) in
+  Alcotest.(check bool) "event_from_test" true unblocked
 
 let event_from_parallel_test () =
   let __context, session_id = event_setup_common () in
@@ -173,9 +172,9 @@ let event_from_parallel_test () =
 
 let object_level_event_test session_id =
   let __context, session_id = event_setup_common () in
-  let m = Mutex.create () in
   let finished = ref false in
   let failure = ref false in
+  let wait_hdl = Delay.make () in
   let vm_a = make_vm ~__context ~name_label:"vm_a" () in
   let vm_b = make_vm ~__context ~name_label:"vm_b" () in
 
@@ -190,7 +189,7 @@ let object_level_event_test session_id =
   let (_: Thread.t) = Thread.create
       (fun () ->
          let token = ref "" in
-         while not (Mutex.execute m (fun () -> !finished)) do
+         while not !finished do
            Printf.printf "Calling event.from...\n%!";
            let events = Xapi_event.from __context [ Printf.sprintf "vm/%s" (Ref.string_of vm_a) ] (!token) 10. |> parse_event_from in
            Printf.printf "Got %d events\n%!" (List.length events.events);
@@ -198,22 +197,20 @@ let object_level_event_test session_id =
              (fun event ->
                 if event.reference <> Ref.string_of vm_a then begin
                   Printf.printf "FAILURE: event on %s which we aren't watching\n%!" event.reference;
-                  Mutex.execute m
-                    (fun () ->
-                       failure := true;
-                       finished := true;
-                    )
+                  failure := true;
+                  finished := true;
                 end
              ) events.events;
            token := events.token;
            let oc = Db.VM.get_other_config __context vm_a in
            if List.mem_assoc key oc && (List.assoc key oc) = "1"
-           then Mutex.execute m (fun () ->
+           then begin
                Printf.printf "got expected event (new token = %s)\n%!" !token;
                finished := true;
-             )
+           end
            else Printf.printf "Db doesn't have expected change in...\n%!";
-         done
+         done;
+         Delay.signal wait_hdl
       ) () in
   Thread.delay 0.5;
   Printf.printf "Adding to vm_b\n%!";
@@ -223,19 +220,14 @@ let object_level_event_test session_id =
   Db.VM.remove_from_other_config __context vm_b key;
   Printf.printf "Adding to vm_a. This ought to wake up the event thread\n%!";
   Db.VM.add_to_other_config __context vm_a key "1";
-  Thread.delay 1.0;
-  Mutex.execute m
-    (fun () ->
-      if not !finished then begin
-        Printf.printf "FAILURE: Didn't get expected change in event thread\n%!";
-        failure := true;
-      end);
-  Mutex.execute m
-    (fun () ->
-       if (!failure) then begin
-         Alcotest.fail "failed to see object-level event change"
-       end
-    )
+  let blocked = Delay.wait wait_hdl (1.0 *. 10.) in
+  if blocked then begin
+    Printf.printf "FAILURE: Didn't get expected change in event thread\n%!";
+    failure := true;
+  end;
+  if (!failure) then begin
+    Alcotest.fail "failed to see object-level event change"
+  end
 
 let test =
   [
