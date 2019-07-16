@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+open Stdext
+
 let test_network_event_loop ~no_nbd_networks_at_start () =
   let __context, _ = Test_event_common.event_setup_common () in
   Context.set_test_rpc __context (Mock_rpc.rpc __context);
@@ -21,7 +23,15 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
 
   (* We have to wait for a bit for the event loop to notice the changes, without a delay the test will fail. *)
   let delay = 0.5 in
+
+  (* The max delay time just in case the system is extremely busy *)
+  let timeout = delay *. 10. in
+
+  (* handler used for delay and early notification *)
+  let wait_hdl = Threadext.Delay.make () in
+
   let network_event_loop_wait_after_failure_seconds = 1.0 in
+
   let received_params = ref None in
 
   (* We simulate failure of the firewall update script this way *)
@@ -33,7 +43,8 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
            __context
            ~update_firewall:(fun pifs ->
                if !fail_firewall_update then failwith "Failed to update firewall";
-               received_params := Some pifs
+               received_params := Some pifs;
+               Threadext.Delay.signal wait_hdl
              )
            ~wait_after_event_seconds:0.0
            ~wait_after_failure_seconds:network_event_loop_wait_after_failure_seconds
@@ -43,15 +54,15 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   let param_set = Alcotest.(slist string String.compare) in
 
   let assert_received_params msg expected =
-    Thread.delay delay;
-    match !received_params with
-    | None -> Alcotest.fail ("The update_firewall function was not called: " ^ msg)
-    | Some p -> Alcotest.(check param_set) msg expected p
+    let timed_out = Threadext.Delay.wait wait_hdl timeout in
+    match timed_out, !received_params with
+    | false, Some p -> Alcotest.(check param_set) msg expected p
+    | _  -> Alcotest.fail ("The update_firewall function was not called: " ^ msg)
   in
 
   let assert_not_called msg () =
-    Thread.delay delay;
-    Alcotest.(check (option param_set)) ("update_firewall shouldn't have been called: " ^ msg) None !received_params
+    let timed_out = Threadext.Delay.wait wait_hdl delay in
+    Alcotest.(check (pair bool (option param_set))) ("update_firewall shouldn't have been called: " ^ msg) (timed_out, None) (true, !received_params)
   in
 
   let network1 = Test_common.make_network ~__context ~bridge:"bridge1" () in

@@ -12,6 +12,7 @@
 -  GNU Lesser General Public License for more details.
   *)
 
+open Stdext
 
 let register_smapiv2_server (module S: Storage_interface.Server_impl) sr_ref =
   let module S = Storage_interface.Server(S)() in
@@ -386,13 +387,12 @@ let test_data_destroy =
       in
       let destroy_vbd () = Db.VBD.destroy ~__context ~self:vbd in
       let data_destroy ~timeout =
-        (* We need a 1-second tolerance here, otherwise the test will fail *)
-        let timebox_timeout = timeout +. 1.0 in
-        let completed = ref false in
+        (* It could return earlier normally, but this is the longest we'd wait in case of extreme situation *)
+        let timebox_timeout = timeout +. 1.0 *. 10. in
+        let wait_hdl = Threadext.Delay.make() in
         let raisedexn = ref None in
-        ignore (bg (fun () -> (try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout with e -> raisedexn := Some e); completed := true));
-        Thread.delay timebox_timeout;
-        if not !completed then
+        ignore (bg (fun () -> (try Xapi_vdi._data_destroy ~__context ~self:vDI ~timeout with e -> raisedexn := Some e); Threadext.Delay.signal wait_hdl));
+        if Threadext.Delay.wait wait_hdl timebox_timeout then
           Alcotest.fail (Printf.sprintf "data_destroy did not return in %f seconds" timebox_timeout);
         match !raisedexn with
         | None -> ()
