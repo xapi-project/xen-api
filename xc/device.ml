@@ -2003,7 +2003,9 @@ module Dm_Common = struct
       vgpus
       |> List.sort virtual_pci_address_compare
       |> List.map (fun vgpu ->
-         let addr = vgpu.physical_pci_address in
+         let addr = match vgpu.virtual_pci_address with
+         | Some pci -> pci (* pass VF in case of SRIOV *)
+         | None     -> vgpu.physical_pci_address in (* pass PF otherwise *)
          match vgpu.implementation with
           (* 1. Upgrade case, migrate from a old host with old vGPU having config_path
            * 2. Legency case, run with old Nvidia host driver *)
