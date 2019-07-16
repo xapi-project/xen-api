@@ -722,7 +722,17 @@ module Linux_bonding = struct
       error "Bond %s does not exist; cannot set properties" master
 end
 
-module Dhclient = struct
+module Dhclient :
+sig
+  type interface = string
+  val remove_conf_file : ?ipv6:bool -> interface -> unit
+  val is_running : ?ipv6:bool -> interface -> bool
+  val stop : ?ipv6:bool -> interface -> unit
+  val ensure_running : ?ipv6:bool -> interface -> [> `dns of string | `gateway of string ] list -> unit
+end =
+struct
+  type interface = string
+
   let pid_file ?(ipv6=false) interface =
     let ipv6' = if ipv6 then "6" else "" in
     Printf.sprintf "/var/run/dhclient%s-%s.pid" ipv6' interface
@@ -758,6 +768,12 @@ module Dhclient = struct
   let write_conf_file ?(ipv6=false) interface options =
     let conf = generate_conf ~ipv6 interface options in
     Xapi_stdext_unix.Unixext.write_string_to_file (conf_file ~ipv6 interface) conf
+
+  let remove_conf_file ?(ipv6=false) interface =
+    let file = conf_file ~ipv6 interface in
+    try
+      Unix.unlink file
+    with _ -> ()
 
   let start ?(ipv6=false) interface options =
     (* If we have a gateway interface, pass it to dhclient-script via -e *)

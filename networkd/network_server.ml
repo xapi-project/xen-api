@@ -74,23 +74,28 @@ let reset_state () =
   config := Network_config.read_management_conf ()
 
 let set_gateway_interface _dbg name =
-  (* Update dhclient conf for interface on changing default gateway.
-     	 * If new default gateway is not same as gateway_interface from networkd.db then
-     	 * we need to remove gateway information from gateway_interface *)
+  (* Remove dhclient conf (if any) for the old and new gateway interfaces.
+   * This ensures that dhclient gets restarted with an updated conf file when
+   * necessary. *)
   begin match !config.gateway_interface with
-    | Some gateway_iface when name <> gateway_iface ->
-      let opts =
-        match !config.dns_interface with
-        | Some dns_iface when gateway_iface = dns_iface -> [`set_dns]
-        | _ -> []
-      in
-      Dhclient.write_conf_file gateway_iface opts
+    | Some old_iface when name <> old_iface ->
+      Dhclient.remove_conf_file name;
+      Dhclient.remove_conf_file old_iface
     | _ -> ()
   end;
   debug "Setting gateway interface to %s" name;
   config := {!config with gateway_interface = Some name}
 
 let set_dns_interface _dbg name =
+  (* Remove dhclient conf (if any) for the old and new DNS interfaces.
+   * This ensures that dhclient gets restarted with an updated conf file when
+   * necessary. *)
+  begin match !config.dns_interface with
+  | Some old_iface when name <> old_iface ->
+    Dhclient.remove_conf_file name;
+    Dhclient.remove_conf_file old_iface
+    | _ -> ()
+  end;
   debug "Setting DNS interface to %s" name;
   config := {!config with dns_interface = Some name}
 
@@ -322,7 +327,7 @@ module Interface = struct
           Sysctl.set_ipv6_autoconf name false;
           Ip.flush_ip_addr ~ipv6:true name;
           Ip.set_ipv6_link_local_addr name;
-          ignore (Dhclient.start ~ipv6:true name [])
+          ignore (Dhclient.ensure_running ~ipv6:true name [])
         | Autoconf6 ->
           if Dhclient.is_running ~ipv6:true name then
             ignore (Dhclient.stop ~ipv6:true name);
@@ -566,7 +571,7 @@ module Bridge = struct
 
   (* Destroy any existing OVS bridge that isn't the "wanted bridge" and has the
    * given VLAN on it. *)
-  let destroy_existing_vlan_ovs_bridge wanted_bridge (parent, vlan) =
+  let destroy_existing_vlan_ovs_bridge dbg wanted_bridge (parent, vlan) =
     let vlan_bridges =
       let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
       if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) else []
@@ -581,6 +586,7 @@ module Bridge = struct
         if bridge <> wanted_bridge then begin
           debug "Destroying existing bridge %s" bridge;
           remove_config bridge;
+          Interface.set_ipv4_conf dbg bridge None4;
           ignore (Ovs.destroy_bridge bridge)
         end
       ) existing_bridges
@@ -595,6 +601,7 @@ module Bridge = struct
           debug "Destroying existing bridge %s" bridge;
           Interface.bring_down dbg bridge;
           remove_config bridge;
+          Interface.set_ipv4_conf dbg bridge None4;
           List.iter (fun dev ->
               Brctl.destroy_port bridge dev;
             ) ifaces_on_bridge;
@@ -654,7 +661,7 @@ module Bridge = struct
                    None)
             in
             let old_igmp_snooping = Ovs.get_mcast_snooping_enable ~name in
-            Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_ovs_bridge name) vlan;
+            Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_ovs_bridge dbg name) vlan;
             ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band ?igmp_snooping
                       vlan vlan_bug_workaround name);
             if igmp_snooping = Some true && not old_igmp_snooping then
