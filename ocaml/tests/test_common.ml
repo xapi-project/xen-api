@@ -190,8 +190,8 @@ let make_vlan ~__context ~tagged_PIF ~untagged_PIF ~tag ?(other_config=[]) () =
 
 let make_network_sriov = Xapi_network_sriov.create_internal
 
-let make_bond ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ~master ?(other_config=[]) ?(primary_slave=Ref.null) ?(mode=`activebackup) ?(properties=[]) () =
-  Db.Bond.create ~__context ~ref ~uuid ~master ~other_config ~primary_slave ~mode ~properties ~links_up:0L;
+let make_bond ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ~master ?(other_config=[]) ?(primary_slave=Ref.null) ?(mode=`activebackup) ?(properties=[]) ?(auto_update_mac=false) () =
+  Db.Bond.create ~__context ~ref ~uuid ~master ~other_config ~primary_slave ~mode ~properties ~links_up:0L ~auto_update_mac;
   ref
 
 let make_tunnel = Xapi_tunnel.create_internal

@@ -31,3 +31,6 @@ val with_local_lock : (unit -> 'a) -> 'a
 (** [is_dom0_interface pif_r] returns true if pif_r is a network interface
     	which has a dom0 endpoint *)
 val is_dom0_interface : API.pIF_t -> bool
+
+(* Internals *)
+val maybe_update_master_pif_mac : __context:Context.t -> API.bond_t -> API.pIF_t -> API.ref_PIF -> API.pIF_t
