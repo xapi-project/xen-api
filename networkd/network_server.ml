@@ -571,7 +571,7 @@ module Bridge = struct
 
   (* Destroy any existing OVS bridge that isn't the "wanted bridge" and has the
    * given VLAN on it. *)
-  let destroy_existing_vlan_ovs_bridge wanted_bridge (parent, vlan) =
+  let destroy_existing_vlan_ovs_bridge dbg wanted_bridge (parent, vlan) =
     let vlan_bridges =
       let raw = Ovs.vsctl ["--bare"; "-f"; "table"; "--"; "--columns=name"; "find"; "port"; "fake_bridge=true"; "tag=" ^ (string_of_int vlan)] in
       if raw <> "" then Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) else []
@@ -586,6 +586,7 @@ module Bridge = struct
         if bridge <> wanted_bridge then begin
           debug "Destroying existing bridge %s" bridge;
           remove_config bridge;
+          Interface.set_ipv4_conf dbg bridge None4;
           ignore (Ovs.destroy_bridge bridge)
         end
       ) existing_bridges
@@ -600,6 +601,7 @@ module Bridge = struct
           debug "Destroying existing bridge %s" bridge;
           Interface.bring_down dbg bridge;
           remove_config bridge;
+          Interface.set_ipv4_conf dbg bridge None4;
           List.iter (fun dev ->
               Brctl.destroy_port bridge dev;
             ) ifaces_on_bridge;
@@ -659,7 +661,7 @@ module Bridge = struct
                    None)
             in
             let old_igmp_snooping = Ovs.get_mcast_snooping_enable ~name in
-            Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_ovs_bridge name) vlan;
+            Xapi_stdext_monadic.Opt.iter (destroy_existing_vlan_ovs_bridge dbg name) vlan;
             ignore (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band ?igmp_snooping
                       vlan vlan_bug_workaround name);
             if igmp_snooping = Some true && not old_igmp_snooping then
