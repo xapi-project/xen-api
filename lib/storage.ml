@@ -37,31 +37,41 @@ let transform_exception f x =
 (* Used to identify this VBD to the storage layer *)
 let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 
-let epoch_begin task sr vdi persistent =
+let epoch_begin task sr vdi domid persistent =
   transform_exception
     (fun () ->
-       Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi persistent
+       Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi domid persistent
     ) ()
 
-let epoch_end task sr vdi =
+let epoch_end task sr vdi domid =
   transform_exception
     (fun () ->
-       Client.VDI.epoch_end (Xenops_task.get_dbg task) sr vdi
+       Client.VDI.epoch_end (Xenops_task.get_dbg task) sr vdi domid
     ) ()
 
-let attach_and_activate task _vm dp sr vdi read_write =
+let vm_of_domid vmdomid =
+  match vmdomid with
+  | Some domid ->
+    Storage_interface.Vm.of_string (string_of_int domid)
+  | None ->
+    (* If vm is going down the domid might have been removed from xenstore,
+     * pass empty string in this case*)
+    debug "Invalid domid, could not be converted to int, passing empty string.";
+    Storage_interface.Vm.of_string ("")
+
+let attach_and_activate ~task ~_vm ~vmdomid ~dp ~sr ~vdi ~read_write =
   let result =
-    Xenops_task.with_subtask task (Printf.sprintf "VDI.attach2 %s" dp)
-      (transform_exception (fun () -> Client.VDI.attach2 "attach_and_activate" dp sr vdi read_write)) in
+    Xenops_task.with_subtask task (Printf.sprintf "VDI.attach3 %s" dp)
+      (transform_exception (fun () -> Client.VDI.attach3 "attach_and_activate_impl" dp sr vdi vmdomid read_write)) in
 
-  Xenops_task.with_subtask task (Printf.sprintf "VDI.activate %s" dp)
-    (transform_exception (fun () -> Client.VDI.activate "attach_and_activate" dp sr vdi));
+  Xenops_task.with_subtask task (Printf.sprintf "VDI.activate3 %s" dp)
+    (transform_exception (fun () -> Client.VDI.activate3 "attach_and_activate_impl" dp sr vdi vmdomid));
   result
 
-let deactivate task dp sr vdi =
+let deactivate task dp sr vdi vmdomid =
   debug "Deactivating disk %s %s" (Sr.string_of sr) (Vdi.string_of vdi);
   Xenops_task.with_subtask task (Printf.sprintf "VDI.deactivate %s" dp)
-    (transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi))
+    (transform_exception (fun () -> Client.VDI.deactivate "deactivate" dp sr vdi vmdomid))
 
 let dp_destroy task dp =
   Xenops_task.with_subtask task (Printf.sprintf "DP.destroy %s" dp)
