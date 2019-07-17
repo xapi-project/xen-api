@@ -167,6 +167,16 @@ def connect_nbd(path, exportname):
                 _call(cmd)
                 _wait_for_nbd_device(nbd_device=nbd_device, connected=True)
                 _persist_connect_info(nbd_device, path, exportname)
+                nbd = (nbd_device[len('/dev/'):]
+                       if nbd_device.startswith('/dev/') else nbd_device)
+                with open("/sys/block/" + nbd + "/queue/scheduler", "w") as fd:
+                    fd.write("none")
+                # Set the NBD queue size to the same as the qcow2 cluster size
+                with open("/sys/block/" + nbd + "/queue/max_sectors_kb", "w") as fd:
+                    fd.write("512")
+                with open("/sys/block/" + nbd + "/queue/nr_requests", "w") as fd:
+                    fd.write("8")
+
             return nbd_device
         except NbdDeviceNotFound as exn:
             LOGGER.warn('Failed to find free nbd device: %s', exn)
