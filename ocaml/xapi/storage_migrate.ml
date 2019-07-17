@@ -29,6 +29,8 @@ open Storage_interface
 open Storage_task
 open Storage_utils
 
+let vm_of_s = Storage_interface.Vm.of_string
+
 let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = Constants.sm_uri; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 module State = struct
@@ -269,7 +271,7 @@ let tapdisk_of_attach_info (backend:Storage_interface.backend) =
 let with_activated_disk ~dbg ~sr ~vdi ~dp f =
   let attached_vdi =
     Opt.map (fun vdi ->
-        let backend = Local.VDI.attach2 dbg dp sr vdi false in
+        let backend = Local.VDI.attach2 dbg dp sr vdi (vm_of_s "") false in
         vdi, backend
       ) vdi
   in
@@ -369,7 +371,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
 
     Pervasiveext.finally (fun () ->
         debug "activating RW datapath %s on remote" remote_dp;
-        ignore(Remote.VDI.attach2 dbg remote_dp dest dest_vdi true);
+        ignore(Remote.VDI.attach2 dbg remote_dp dest dest_vdi (vm_of_s "") true);
         Remote.VDI.activate dbg remote_dp dest dest_vdi;
 
         with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
@@ -727,7 +729,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
     on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail;
     debug "Created dummy snapshot for mirror receive: %s" (string_of_vdi_info dummy);
 
-    let _ = Local.VDI.attach2 dbg leaf_dp sr leaf.vdi true in
+    let _ = Local.VDI.attach2 dbg leaf_dp sr leaf.vdi (vm_of_s "") true in
     Local.VDI.activate dbg leaf_dp sr leaf.vdi;
 
     let nearest = List.fold_left

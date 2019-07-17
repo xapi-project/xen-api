@@ -426,7 +426,7 @@ module SMAPIv1 = struct
       | Api_errors.Server_error(code, params) ->
         raise (Storage_error (Backend_error(code, params)))
 
-    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
+    let attach2 context ~dbg ~dp ~sr ~vdi ~vm ~read_write =
       try
         let backend =
           for_vdi ~dbg ~sr ~vdi "VDI.attach2"
@@ -1362,7 +1362,8 @@ let attach_and_activate ~__context ~vbd ~domid f =
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
             let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
-            let attach_info = C.VDI.attach2 dbg dp sr vdi read_write in
+            let vm = (Storage_interface.Vm.of_string (string_of_int domid)) in
+            let attach_info = C.VDI.attach2 dbg dp sr vdi vm read_write in
             C.VDI.activate dbg dp sr vdi;
             f attach_info
          )

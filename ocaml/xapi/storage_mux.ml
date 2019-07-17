@@ -212,9 +212,9 @@ module Mux = struct
     (* We need to include this to satisfy the SMAPIv2 signature *)
     let attach () ~dbg ~dp ~sr ~vdi ~read_write =
       failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
-    let attach2 () ~dbg ~dp ~sr ~vdi ~read_write =
+    let attach2 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
-      C.VDI.attach2 dbg dp sr vdi read_write
+      C.VDI.attach2 dbg dp sr vdi vm read_write
     let activate () ~dbg ~dp ~sr ~vdi =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
       C.VDI.activate dbg dp sr vdi

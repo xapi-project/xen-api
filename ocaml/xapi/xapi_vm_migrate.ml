@@ -663,7 +663,8 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far t
         let read_write = true in
         (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
            It's not necessary for copy which will take care of that itself. *)
-        ignore(SMAPI.VDI.attach2 dbg new_dp vconf.sr vconf.location read_write);
+	let vm = (Storage_interface.Vm.of_string "") in
+        ignore(SMAPI.VDI.attach2 dbg new_dp vconf.sr vconf.location vm read_write);
         SMAPI.VDI.activate dbg new_dp vconf.sr vconf.location;
         let id = Storage_migrate.State.mirror_id_of (vconf.sr,vconf.location) in (* Layering violation!! *)
         ignore(Storage_access.register_mirror __context id);

@@ -75,6 +75,8 @@ open Storage_task
 
 let s_of_sr = Storage_interface.Sr.string_of
 let s_of_vdi = Storage_interface.Vdi.string_of
+let s_of_vm = Storage_interface.Vm.string_of 
+let vm_of_s = Storage_interface.Vm.of_string 
 
 let print_debug = ref false
 let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
@@ -336,7 +338,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       let locks = locks_find sr in
       Storage_locks.with_master_lock locks f
 
-    let side_effects context dbg dp sr sr_t vdi vdi_t ops =
+    let side_effects context dbg dp sr sr_t vdi vdi_t vm ops =
       let perform_one vdi_t (op, state_on_fail) =
         try
           let vdi_t = Vdi.perform (Dp.make dp) op vdi_t in
@@ -344,7 +346,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
             | Vdi_automaton.Nothing -> vdi_t
             | Vdi_automaton.Attach ro_rw ->
               let read_write = (ro_rw = Vdi_automaton.RW) in
-              let x = Impl.VDI.attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
+              let x = Impl.VDI.attach2 context ~dbg ~dp ~sr ~vdi ~vm ~read_write in
               { vdi_t with Vdi.attach_info = Some x }
             | Vdi_automaton.Activate ->
               Impl.VDI.activate context ~dbg ~dp ~sr ~vdi; vdi_t
@@ -371,7 +373,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       in
       List.fold_left perform_one vdi_t ops
 
-    let perform_nolock context ~dbg ~dp ~sr ~vdi this_op =
+    let perform_nolock context ~dbg ~dp ~sr ~vdi ?(vm=(vm_of_s "")) this_op =
       match Host.find sr !Host.host with
       | None -> raise (Storage_error (Sr_not_attached (s_of_sr sr)))
       | Some sr_t ->
@@ -389,7 +391,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                						   superstate to superstate'. These may fail: if so we revert the
                						   datapath+VDI state to the most appropriate value. *)
             let ops = Vdi_automaton.(-) superstate superstate' in
-            side_effects context dbg dp sr sr_t vdi vdi_t ops
+            side_effects context dbg dp sr sr_t vdi vdi_t vm ops
           with e ->
             let e = match e with Vdi_automaton.No_operation(a, b) -> Storage_error (Illegal_transition(a,b)) | e -> e in
             Errors.add dp sr vdi (Printexc.to_string e);
@@ -476,20 +478,21 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                 Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~persistent
              ))
 
-    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
-      info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) read_write;
+    let attach2 context ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+      info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write;
       with_vdi sr vdi
         (fun () ->
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
              (fun () ->
-                let state = perform_nolock context ~dbg ~dp ~sr ~vdi
+                let state = perform_nolock context ~dbg ~dp ~sr ~vdi ~vm 
                     (Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)) in
                 Opt.unbox state.Vdi.attach_info
              ))
 
     let attach context ~dbg ~dp ~sr ~vdi ~read_write =
       info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) read_write;
-      let backend = attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
+      let vm = (vm_of_s "") in
+      let backend = attach2 context ~dbg ~dp ~sr ~vdi ~vm ~read_write in
       (* VDI.attach2 should be used instead, VDI.attach is only kept for
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
          However, they ignore the return value, so in practice it does not matter what
