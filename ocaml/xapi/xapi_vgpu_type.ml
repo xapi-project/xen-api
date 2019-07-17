@@ -36,6 +36,7 @@ module Identifier = struct
     psubdev_id : int option;
     vdev_id : int;
     vsubdev_id : int;
+    sriov: bool; (** true if SRIOV mode to be used *)
   }
 
   type gvt_g_id = {
@@ -86,7 +87,8 @@ module Identifier = struct
 
   let to_implementation : (t -> API.vgpu_type_implementation) = function
     | Passthrough -> `passthrough
-    | Nvidia _ -> `nvidia
+    | Nvidia {sriov = false;_} -> `nvidia
+    | Nvidia {sriov = true ;_} -> `nvidia_sriov
     | GVT_g _ -> `gvt_g
     | MxGPU _ -> `mxgpu
 end
@@ -463,6 +465,7 @@ module Vendor_nvidia = struct
             psubdev_id;
             vdev_id = int_of_string (get_attr "deviceId" devid);
             vsubdev_id = int_of_string (get_attr "subsystemId" devid);
+            sriov = false;
           } in
         let file_path = whitelist in
         let type_id = id in
@@ -756,6 +759,7 @@ module Nvidia_compat = struct
           psubdev_id;
           vdev_id;
           vsubdev_id;
+          sriov = false;
         })
       )
     with e ->
