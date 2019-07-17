@@ -30,6 +30,7 @@ let k100 = {
       psubdev_id = None;
       vdev_id = 0x0fe7;
       vsubdev_id = 0x101e;
+      sriov = false;
     });
   experimental = false;
   compatible_model_names_in_vm = [];
@@ -52,6 +53,7 @@ let k140q = {
       psubdev_id = None;
       vdev_id = 0x0ff7;
       vsubdev_id = 0x1037;
+      sriov = false;
     });
   experimental = false;
   compatible_model_names_in_vm = [];
@@ -74,6 +76,7 @@ let k200 = {
       psubdev_id = None;
       vdev_id = 0x118d;
       vsubdev_id = 0x101d;
+      sriov = false;
     });
   experimental = false;
   compatible_model_names_in_vm = [];
@@ -96,6 +99,7 @@ let k240q = {
       psubdev_id = None;
       vdev_id = 0x11b0;
       vsubdev_id = 0x101a;
+      sriov = false;
     });
   experimental = false;
   compatible_model_names_in_vm = [];
@@ -118,6 +122,7 @@ let k260q = {
       psubdev_id = None;
       vdev_id = 0x11b0;
       vsubdev_id = 0x101b;
+      sriov = false;
     });
   experimental = false;
   compatible_model_names_in_vm = [];
