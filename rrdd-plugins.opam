@@ -24,4 +24,5 @@ depends: [
   "xenctrl"
   "xenops"
   "xenstore"
+  "mtime"
 ]

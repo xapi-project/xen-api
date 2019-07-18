@@ -40,6 +40,8 @@ let vdi_to_vm_map : (string * (string * string * int)) list ref = ref []
 
 let get_vdi_to_vm_map () = !vdi_to_vm_map
 
+let vdi_to_vm_map_last_updated_counter = ref None
+
 let update_vdi_to_vm_map () =
   let create_new_vdi_to_vm_map () =
     (* We get a VM's VDI information from xenstore, /local/domain/0/backend/vbd/<domid>/<vbdid> *)
@@ -88,6 +90,7 @@ let update_vdi_to_vm_map () =
       D.error "Error while constructing VDI-to-VM map: %s" (Printexc.to_string e);
       []
   in
+  vdi_to_vm_map_last_updated_counter := Some (Mtime_clock.counter ());
   vdi_to_vm_map := create_new_vdi_to_vm_map ()
 
 let remove_vdi_from_map vdi =
@@ -249,13 +252,28 @@ let exec_tap_ctl () =
   let pid_and_minor_to_sr_and_vdi = Utils.exec_cmd (module Process.D) ~cmdstring:tap_ctl ~f:process_line in
   let minor_to_sr_and_vdi = List.map snd pid_and_minor_to_sr_and_vdi in
   begin
-    if !vdi_to_vm_map = [] then begin
-      D.debug "VDI-to-VM map is empty; updating...";
-      update_vdi_to_vm_map ()
-    end else
-      let disappeared_pids = Listext.List.set_difference !previous_map pid_and_minor_to_sr_and_vdi in
-      let unmapped_vdi_pids = List.filter (fun (_, (_, (_, vdi))) -> not (List.mem_assoc vdi !vdi_to_vm_map)) pid_and_minor_to_sr_and_vdi in
 
+      let reason_for_updating_vdi_to_vm_map =
+        let pid_vdis_to_string pids = pids |> List.map (fun (pid, (_, (_, vdi))) -> Printf.sprintf "%d (%s)" pid vdi) |> String.concat "; " in
+        let unmapped_vdi_pids = List.filter (fun (_, (_, (_, vdi))) -> not (List.mem_assoc vdi !vdi_to_vm_map)) pid_and_minor_to_sr_and_vdi in
+        let newly_discovered = List.filter (fun (_, (_, (_, new_vdi))) -> List.for_all (fun (_, (_, (_, prev_vdi))) -> new_vdi <> prev_vdi) !previous_map) unmapped_vdi_pids in
+
+        (* note that newly_discovered is a subset of unmapped_vdi_pids *)
+        if newly_discovered <> [] then
+          Some (Printf.sprintf "discovered new VDI(s): [%s]" (pid_vdis_to_string newly_discovered))
+        else if unmapped_vdi_pids <> [] then
+          match !vdi_to_vm_map_last_updated_counter with
+          | None -> Some "performing map initialization"
+          | Some c ->
+            let span_since_last_update = Mtime_clock.count c in
+            if Mtime.Span.to_min span_since_last_update > 5. then
+              Some "map was last updated over 5 minutes ago"
+            else
+              None
+        else None
+      in
+
+      let disappeared_pids = Listext.List.set_difference !previous_map pid_and_minor_to_sr_and_vdi in
       List.iter (fun (pid, (_, (_, vdi))) ->
           try
             D.info "tapdisk process %d has disappeared; removing entries for %s in VDI-to-VM map" pid vdi;
@@ -264,12 +282,12 @@ let exec_tap_ctl () =
             D.debug "no knowledge about pid %d; ignoring" pid
         ) disappeared_pids;
 
-      if unmapped_vdi_pids <> [] then begin
-        let pids_to_string pids = pids |> List.map (fun (pid, (_, (_, vdi))) -> Printf.sprintf "%d (%s)" pid vdi) |> String.concat "; " in
-        D.info "There are new tapdisk processes: [%s]; updating VDI-to-VM map..." (pids_to_string unmapped_vdi_pids);
-        (* Unfortunately the only way of identifying which VMs the new tapdisks service is to refresh the entire map *)
-        update_vdi_to_vm_map ()
-      end
+      match reason_for_updating_vdi_to_vm_map with
+      | None -> ()
+      | Some reason -> begin
+          D.info "Updating VDI-to-VM map because %s" reason;
+          update_vdi_to_vm_map ()
+        end
   end;
   previous_map := pid_and_minor_to_sr_and_vdi;
   minor_to_sr_and_vdi
