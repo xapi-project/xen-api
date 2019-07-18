@@ -77,6 +77,7 @@ module Client = functor(M: S.BACKEND) -> struct
     | `Unsuccessful_response
     | `Timeout
     | `Queue_deleted of string
+    | `Communication of exn
   ]
 
   type 'a result = ('a, [ `Message_switch of error]) Mresult.result
@@ -91,6 +92,8 @@ module Client = functor(M: S.BACKEND) -> struct
       Format.pp_print_string fmt "Timeout"
     | `Message_switch (`Queue_deleted name) ->
       Format.fprintf fmt "The queue %s has been deleted" name
+    | `Message_switch (`Communication e) ->
+      Format.fprintf fmt "There was a communication failure with message-switch: %s" (Printexc.to_string e)
 
   let error_to_msg = function
     | `Ok x -> `Ok x
@@ -291,6 +294,7 @@ module Server = functor(M: S.BACKEND) -> struct
   type error = [
     | `Failed_to_read_response
     | `Unsuccessful_response
+    | `Communication of exn
   ]
 
   type 'a result = ('a, [ `Message_switch of error]) Mresult.result
@@ -301,6 +305,8 @@ module Server = functor(M: S.BACKEND) -> struct
       Format.pp_print_string fmt "Failed to read response from the message-switch"
     | `Message_switch `Unsuccessful_response ->
       Format.pp_print_string fmt "Received an unexpected failure from the message-switch"
+    | `Message_switch (`Communication e) ->
+      Format.fprintf fmt "There was a communication failure with message-switch: %s" (Printexc.to_string e)
 
   let error_to_msg = function
     | `Ok x -> `Ok x

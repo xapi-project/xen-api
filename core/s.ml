@@ -71,6 +71,7 @@ module type SERVER = sig
   type error = [
     | `Failed_to_read_response
     | `Unsuccessful_response
+    | `Communication of exn
   ]
 
   type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
@@ -99,6 +100,7 @@ module type CLIENT = sig
     | `Unsuccessful_response
     | `Timeout
     | `Queue_deleted of string
+    | `Communication of exn
   ]
 
   type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
