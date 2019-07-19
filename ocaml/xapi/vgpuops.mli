@@ -17,8 +17,7 @@
 *)
 
 
-(** Assign a list of PCI devices to a VM for GPU passthrough, store them in
-    	other_config:vgpu_pci *)
+(** Assign a list of VGPU and/or PCI devices to a VM *)
 val create_vgpus :
   __context:Context.t ->
   (API.ref_host) ->(API.ref_VM * API.vM_t) -> bool -> unit

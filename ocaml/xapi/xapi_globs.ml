@@ -432,10 +432,6 @@ let pass_through_pif_carrier_key = "pass_through_pif_carrier"
 (* Don't pass through PIF carrier information by default *)
 let pass_through_pif_carrier = ref false
 
-(* Remember the specific PCI devices needed for GPU passthrough *)
-let vgpu_pci = "vgpu_pci"
-
-
 let vgpu_type_id = "type_id"
 
 let igd_passthru_key = "igd_passthrough"
