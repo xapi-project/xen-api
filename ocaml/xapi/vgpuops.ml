@@ -87,24 +87,17 @@ let allocate_vgpu_to_gpu ?(dry_run=false) ?(pre_allocate_list=[]) ~__context vm 
       Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu.vgpu_ref ~value:hd;
     (vgpu.vgpu_ref,hd)::pre_allocate_list
 
-(* Take a PCI device and assign it, and any dependent devices, to the VM *)
-let add_pcis_to_vm ~__context host vm pci =
+(* Take a PCI device and assign it to the VM *)
+let add_pcis_to_vm ~__context host vm vgpu pci =
+  Db.VGPU.set_PCI ~__context ~self:vgpu.vgpu_ref ~value:pci;
+
   (* Add a platform key to the VM if any of the PCIs are integrated GPUs;
    * otherwise remove the key. *)
   Db.VM.remove_from_platform ~__context
     ~self:vm ~key:Xapi_globs.igd_passthru_key;
   let (_, pci_bus, _, _) = Pciops.pcidev_of_pci ~__context pci in
   if (pci_bus = 0) && (Xapi_pci_helpers.igd_is_whitelisted ~__context pci) then
-    Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key ~value:"true";
-  (* The GPU PCI device which xapi manages may have dependencies: *)
-  let dependent_pcis = Db.PCI.get_dependencies ~__context ~self:pci in
-  let devs : (int * int * int * int) list = List.sort compare (List.map (Pciops.pcidev_of_pci ~__context) (pci :: dependent_pcis)) in
-  (* Add a hotplug ordering (see pcidevs_of_pci) *)
-  let devs : ((int * (int * int * int * int))) list = List.rev (snd (List.fold_left (fun (i, acc) pci -> i + 1, (i, pci) :: acc) (0, []) devs)) in
-  (* Update VM other_config for PCI passthrough *)
-  let value = String.concat "," (List.map Pciops.to_string devs) in
-  debug "Adding PCIs to a VM with 'other config': %s" value;
-  Db.VM.add_to_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci ~value
+    Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key ~value:"true"
 
 let reserve_free_virtual_function ~__context vm impl pf =
   let rec get retry =
@@ -135,7 +128,6 @@ let reserve_free_virtual_function ~__context vm impl pf =
   get true
 
 let add_vgpus_to_vm ~__context host vm vgpus =
-  (try Db.VM.remove_from_other_config ~__context ~self:vm ~key:Xapi_globs.vgpu_pci with _ -> ());
   debug "vGPUs allocated to VM (%s) are: %s" (Ref.string_of vm)
     (List.map (fun vgpu -> Ref.string_of vgpu.vgpu_ref) vgpus
      |> String.concat ";");
@@ -145,7 +137,7 @@ let add_vgpus_to_vm ~__context host vm vgpus =
         debug "Creating passthrough VGPUs";
         let pgpu = List.assoc vgpu.vgpu_ref (allocate_vgpu_to_gpu ~__context vm host vgpu) in
         let pci = Db.PGPU.get_PCI ~__context ~self:pgpu in
-        add_pcis_to_vm ~__context host vm pci
+        add_pcis_to_vm ~__context host vm vgpu pci
       | Some `VF ->
         Pool_features.assert_enabled ~__context ~f:Features.VGPU;
         debug "Creating SR-IOV VGPUs";
@@ -155,7 +147,7 @@ let add_vgpus_to_vm ~__context host vm vgpus =
           |> (fun self -> Db.VGPU_type.get_implementation ~__context ~self) in
         Db.PGPU.get_PCI ~__context ~self:pgpu
         |> reserve_free_virtual_function ~__context vm impl
-        |> add_pcis_to_vm ~__context host vm
+        |> add_pcis_to_vm ~__context host vm vgpu
       | None ->
         Pool_features.assert_enabled ~__context ~f:Features.VGPU;
         debug "Creating virtual VGPUs";
@@ -176,8 +168,23 @@ let create_vgpus ~__context host (vm, vm_r) hvm =
   add_vgpus_to_vm ~__context host vm vgpus
 
 (* This function is called from Xapi_xenops, after forwarding, so possibly on a slave. *)
-let list_pcis_for_passthrough ~__context ~vm =
+let list_pcis_for_passthrough ~__context ~vm : (int * (int * int * int * int)) list =
+  let pcis_of_vgpu = function
+    | vgpu when vgpu = Ref.null -> None
+    | vgpu when not (Db.is_valid_ref __context vgpu) -> None
+    | vgpu ->
+      (* The GPU PCI devices that xapi manages may have dependencies *)
+      let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
+      let dependent_pcis = Db.PCI.get_dependencies ~__context ~self:pci in
+      (pci :: dependent_pcis)
+      |> List.map (Pciops.pcidev_of_pci ~__context)
+      (* Add a hotplug ordering (see pcidevs_of_pci) *)
+      |> List.sort compare
+      |> List.mapi (fun i pci -> i, pci)
+      |> (fun devs -> Some devs)
+  in
   try
-    let value = List.assoc Xapi_globs.vgpu_pci (Db.VM.get_other_config ~__context ~self:vm) in
-    List.map Pciops.of_string (String.split ',' value)
+    Db.VM.get_VGPUs ~__context ~self:vm
+    |> List.filter_map pcis_of_vgpu
+    |> List.concat
   with _ -> []
