@@ -1403,8 +1403,14 @@ module VM = struct
           | Vgpu, vgpus -> Device.Dm.Vgpu vgpus
           | _ -> raise (Xenopsd_error (Internal_error "Invalid graphics mode"))
         in
+        let memory =
+          (* This is the same as is passed to xenguest at build time, with -mem_max_mib *)
+          (* build_info.memory_max is set to static_max_kib in build_domain_exn *)
+          let static_max_mib = Memory.mib_of_kib_used build_info.Domain.memory_max in
+          Memory.kib_of_mib (Memory.HVM.build_max_mib static_max_mib video_mib)
+        in
         let open Device.Dm in {
-          memory = build_info.Domain.memory_max;
+          memory;
           boot = boot_order;
           firmware = firmware;
           serial = Some serial;
