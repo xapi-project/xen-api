@@ -438,10 +438,11 @@ module Plugin = struct
       let skip_max  = 256 in (* about 21.3 min on 5sec cycle *)
       Mutex.execute registered_m (fun () ->
           let skips     = min (plugin.skip_init * 2) skip_max in
-          warn "setting skip-cycles-after-error for plugin %s to %d"
-            (P.string_of_uid ~uid) skips;
           plugin.skip_init <- skips;
-          plugin.skip      <- skips)
+          plugin.skip      <- skips;
+          skips)
+      |> debug "setting skip-cycles-after-error for plugin %s to %d"
+        (P.string_of_uid ~uid)
 
     (* success - set skip to 0, reset initial value *)
     let reset_skip_count uid plugin =
@@ -471,7 +472,7 @@ module Plugin = struct
       | e ->
         incr_skip_count uid plugin; (* increase skip count *)
         let log e =
-          warn "Failed to process plugin: %s (%s)"
+          info "Failed to process plugin: %s (%s)"
             (P.string_of_uid ~uid)
             (Printexc.to_string e);
           log_backtrace ()
