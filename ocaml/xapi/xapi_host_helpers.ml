@@ -228,6 +228,20 @@ let is_xen_compatible () =
       incompatible with Xen and/or libxenctrl";
     false
 
+let xen_compatible = ref None
+
+let assert_xen_compatible () =
+  let compatible =
+    match !xen_compatible with
+    | None ->
+      let x = is_xen_compatible () in
+      xen_compatible := Some x;
+      x
+    | Some x -> x
+  in
+  if not compatible then
+    raise Api_errors.(Server_error (xen_incompatible, []))
+
 let consider_enabling_host_nolock ~__context =
   debug "Xapi_host_helpers.consider_enabling_host_nolock called";
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.

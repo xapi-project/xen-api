@@ -38,7 +38,7 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
 let make_localhost ~__context ?(features=Features.all_features) () =
   let host_info = {
     Create_misc.name_label = "test host";
-    xen_verstring = "unknown";
+    xen_verstring = None;
     linux_verstring = "something";
     hostname = "localhost";
     uuid = Xapi_inventory.lookup Xapi_inventory._installation_uuid;
@@ -48,10 +48,10 @@ let make_localhost ~__context ?(features=Features.all_features) () =
     oem_build_number = None;
     machine_serial_number = None;
     machine_serial_name = None;
-    total_memory_mib = 1024L;
-    dom0_static_max = Memory.bytes_of_mib 512L;
+    total_memory_mib = Some 1024L;
+    dom0_static_max = Some (Memory.bytes_of_mib 512L);
     ssl_legacy = false;
-    cpu_info =
+    cpu_info = Some
       { cpu_count = 1
       ; socket_count = 1
       ; vendor = ""
@@ -66,8 +66,8 @@ let make_localhost ~__context ?(features=Features.all_features) () =
       ; features_hvm = [||]
       ; features_oldstyle = [||]
     };
-    hypervisor = {version = "unknown"; capabilities = ""};
-    chipset_info = {iommu = false; hvm = false}
+    hypervisor = None;
+    chipset_info = None
   } in
 
   Dbsync_slave.create_localhost ~__context host_info;

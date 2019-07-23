@@ -2378,7 +2378,8 @@ let events_from_xapi () =
     (fun __context ->
        let localhost = Helpers.get_localhost ~__context in
        let token = ref "" in
-       while true do
+       let stop = ref false in
+       while not !stop do
          try
            Helpers.call_api_functions ~__context
              (fun rpc session_id ->
@@ -2455,6 +2456,9 @@ let events_from_xapi () =
          with
          | Api_errors.Server_error(code, _) when code = Api_errors.session_invalid ->
            debug "Woken event thread: updating list of event subscriptions"
+         | Api_errors.Server_error(code, _) when code = Api_errors.xen_incompatible ->
+           warn "Stopping events-from-xapi thread due to Xen/libxenctrl incompatibility";
+           stop := true
          | e ->
            debug "Caught %s listening to events from xapi" (string_of_exn e);
            (* Start from scratch *)

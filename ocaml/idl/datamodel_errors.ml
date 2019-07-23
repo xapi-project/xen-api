@@ -1164,7 +1164,10 @@ let _ =
   error Api_errors.cluster_host_is_last ["cluster_host"]
     ~doc:"The last cluster host cannot be destroyed. Destroy the cluster instead" ();
   error Api_errors.no_cluster_hosts_reachable ["cluster"]
-    ~doc:"No other cluster host was reachable when joining" ()
+    ~doc:"No other cluster host was reachable when joining" ();
+
+  error Api_errors.xen_incompatible []
+    ~doc:"The current version of Xen or its control libraries is incompatible with the Toolstack." ()
 
 
 

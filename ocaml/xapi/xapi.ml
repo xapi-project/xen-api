@@ -915,7 +915,7 @@ let server_init() =
           "initialising storage", [ Startup.NoExnRaising ],
           (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
           (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
-          "resynchronising VM state", [], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
+          "resynchronising VM state", [ Startup.NoExnRaising ], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
           "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
           "watching networks for NBD-related changes", [Startup.OnThread], Network_event_loop.watch_networks_for_nbd_changes;
           (* CA-175353: moving VIFs between networks requires VMs to be resynced *)

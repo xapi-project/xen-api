@@ -14,7 +14,7 @@
 
 type host_info = {
   name_label : string;
-  xen_verstring : string;
+  xen_verstring : string option;
   linux_verstring : string;
   hostname : string;
   uuid : string;
@@ -24,12 +24,12 @@ type host_info = {
   oem_build_number : string option;
   machine_serial_number : string option;
   machine_serial_name : string option;
-  total_memory_mib : int64;
-  dom0_static_max : int64;
+  total_memory_mib : int64 option;
+  dom0_static_max : int64 option;
   ssl_legacy : bool;
-  cpu_info : Xenops_interface.Host.cpu_info;
-  chipset_info : Xenops_interface.Host.chipset_info;
-  hypervisor : Xenops_interface.Host.hypervisor;
+  cpu_info : Xenops_interface.Host.cpu_info option;
+  chipset_info : Xenops_interface.Host.chipset_info option;
+  hypervisor : Xenops_interface.Host.hypervisor option;
 }
 
 val read_dom0_memory_usage : unit -> int64 option

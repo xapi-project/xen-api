@@ -625,3 +625,5 @@ let invalid_cluster_stack = "INVALID_CLUSTER_STACK"
 let pif_not_attached_to_host = "PIF_NOT_ATTACHED_TO_HOST"
 let cluster_host_not_joined = "CLUSTER_HOST_NOT_JOINED"
 let no_cluster_hosts_reachable = "NO_CLUSTER_HOSTS_REACHABLE"
+
+let xen_incompatible = "XEN_INCOMPATIBLE"
