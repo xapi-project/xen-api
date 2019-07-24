@@ -556,6 +556,8 @@ module VM = struct
 
   let s3resume _ _vm = ()
 
+  let soft_reset _ _vm = ()
+
   let get_state vm = Mutex.execute m (get_state_nolock vm)
 
   let request_rdp _vm _enabled = ()

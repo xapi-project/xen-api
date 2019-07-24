@@ -21,6 +21,7 @@ type domain_action_request =
   | Needs_reboot
   | Needs_suspend
   | Needs_crashdump
+  | Needs_softreset
 [@@deriving rpcty]
 
 type device_action_request = Needs_unplug | Needs_set_qos
@@ -156,6 +157,8 @@ module type S = sig
     val s3suspend : Xenops_task.task_handle -> Vm.t -> unit
 
     val s3resume : Xenops_task.task_handle -> Vm.t -> unit
+
+    val soft_reset : Xenops_task.task_handle -> Vm.t -> unit
 
     val get_state : Vm.t -> Vm.state
 
