@@ -71,9 +71,9 @@ let rec make_vdis_and_vbds __context vmref i =
       let vdi = Xapi_vdi.pool_introduce
           ~__context ~uuid ~name_label ~name_description ~sR ~_type ~sharable ~read_only ~other_config ~location ~xenstore_data ~sm_config ~managed ~virtual_size ~physical_utilisation ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of ~cbt_enabled in
 
-      let _ =
+      let _:[`VBD] Ref.t =
         Xapi_vbd.create ~__context ~vM:vmref ~vDI:vdi ~userdevice:(string_of_int i) ~bootable:true ~mode:`RW ~_type:`Disk ~empty:false
-          ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
+          ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[] ~unpluggable:false in
       make_vdis_and_vbds __context vmref (i-1)
     end
 

@@ -60,7 +60,7 @@ let test_xapi_restart_inner () =
   let open Xenops_interface in
   let open Xapi_xenops_queue in
   let module Client = (val make_client "simulator" : XENOPS) in
-  let _ = Client.VM.list "dbg" in
+  let _ : 'a list = Client.VM.list "dbg" () in
   let (cancel,th) =
     let cancel = ref false in
     let th = Thread.create (
