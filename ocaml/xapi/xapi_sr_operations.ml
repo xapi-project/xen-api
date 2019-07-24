@@ -233,7 +233,7 @@ let sr_health_check ~__context ~self =
           let task = Client.Task.create ~rpc ~session_id
               ~label:Xapi_globs.sr_health_check_task_label ~description:(Ref.string_of self) in
           Xapi_host_helpers.update_allowed_operations_all_hosts ~__context;
-          let _ = Thread.create (fun () ->
+          let _ : Thread.t = Thread.create (fun () ->
               let rec loop () =
                 Thread.delay 30.;
                 let info = C.SR.stat dbg (Storage_interface.Sr.of_string (Db.SR.get_uuid ~__context ~self)) in
@@ -247,7 +247,7 @@ let sr_health_check ~__context ~self =
                 end
               in
               loop ()
-            )
+            ) ()
           in ()
         )
     end
