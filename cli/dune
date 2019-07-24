@@ -19,7 +19,7 @@
   (targets sparse_dd.1)
   (deps (:x sparse_dd.exe))
   (action (
-    with-stdout-to %{targets} (run %{x} --help=groff)
+    with-stdout-to %{targets} (run %{x} --help)
   ))
 )
 
