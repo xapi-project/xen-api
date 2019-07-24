@@ -589,7 +589,10 @@ module Discover: DISCOVER = struct
   (** [is_valid f] is true, if [f] is a filename for an RRD file.
    *  Currently we only ignore *.tmp files *)
   let is_valid files_to_ignore file =
-     not @@ List.mem file files_to_ignore && not @@ Filename.check_suffix file ".tmp"
+     not @@ List.mem file files_to_ignore
+     && not @@ Filename.check_suffix file ".tmp"
+     (* the tap- files are not valid RRDs and spam the logs *)
+     && not @@ Astring.String.is_prefix ~affix:"tap-" file
 
   let events_as_string
     : Inotify.event_kind list -> string
