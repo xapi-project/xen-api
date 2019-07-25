@@ -60,139 +60,139 @@ module CompareDates = Generic.MakeStateless(struct
   end)
 
 module PoolExpiryDate = Generic.MakeStateful(struct
-                                       module Io = struct
-                                         type input_t = Date.iso8601 option list
-                                         type output_t = Date.iso8601 option
+  module Io = struct
+    type input_t = Date.iso8601 option list
+    type output_t = Date.iso8601 option
 
-                                         let string_of_input_t =
-                                           Test_printers.(list (option Date.to_string))
+    let string_of_input_t =
+      Test_printers.(list (option Date.to_string))
 
-                                         let string_of_output_t = Test_printers.option Date.to_string
-                                       end
-                                       module State = Test_state.XapiDb
+    let string_of_output_t = Test_printers.option Date.to_string
+  end
+  module State = Test_state.XapiDb
 
-                                       (* Create a host in the database for each expiry date in the list. *)
-                                       let load_input __context expiry_dates =
-                                         List.iter
-                                           (fun expiry_date ->
-                                              let license_params = match expiry_date with
-                                                | None -> []
-                                                | Some date -> ["expiry", (Date.to_string date)]
-                                              in
-                                              let (_: API.ref_host) = Test_common.make_host ~__context ~edition:"edition1" ~license_params () in ())
-                                           expiry_dates
+  (* Create a host in the database for each expiry date in the list. *)
+  let load_input __context expiry_dates =
+    List.iter
+      (fun expiry_date ->
+        let license_params = match expiry_date with
+          | None -> []
+          | Some date -> ["expiry", (Date.to_string date)]
+        in
+        let (_: API.ref_host) = Test_common.make_host ~__context ~edition:"edition1" ~license_params () in ())
+      expiry_dates
 
-                                       let extract_output __context _ =
-                                         let hosts = Db.Host.get_all ~__context in
-                                         snd (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
+  let extract_output __context _ =
+    let hosts = Db.Host.get_all ~__context in
+    snd (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
 
-                                       (* Tuples of ((host expiry date) list, expected pool expiry date) *)
+  (* Tuples of ((host expiry date) list, expected pool expiry date) *)
   let tests = `QuickAndAutoDocumented [
-                                         ([None; None; Some (f2d 500.0); None], Some (f2d 500.0));
-                                         ([None; None; None; None], None);
-                                         ([Some (f2d 100.0)], Some (f2d 100.0));
-                                         ([Some (f2d 300.0); Some (f2d 150.0); Some (f2d 450.0)], Some (f2d 150.0));
-                                         ([None; Some (f2d 650.0); None; Some (f2d 350.0)], Some (f2d 350.0));
-                                       ]
+    ([None; None; Some (f2d 500.0); None], Some (f2d 500.0));
+    ([None; None; None; None], None);
+    ([Some (f2d 100.0)], Some (f2d 100.0));
+    ([Some (f2d 300.0); Some (f2d 150.0); Some (f2d 450.0)], Some (f2d 150.0));
+    ([None; Some (f2d 650.0); None; Some (f2d 350.0)], Some (f2d 350.0));
+  ]
 end)
 
 module PoolEdition = Generic.MakeStateful(struct
-                                    module Io = struct
-                                      type input_t = string list
-                                      type output_t = string
+  module Io = struct
+    type input_t = string list
+    type output_t = string
 
-                                      let string_of_input_t = Test_printers.(list string)
-                                      let string_of_output_t = Test_printers.string
+    let string_of_input_t = Test_printers.(list string)
+    let string_of_output_t = Test_printers.string
 
-                                    end
-                                    module State = Test_state.XapiDb
+  end
+  module State = Test_state.XapiDb
 
-                                    (* Create a host for each edition in the list. *)
-                                    let load_input __context editions =
-                                      List.iter
-                                        (fun edition ->
-                                           let (_: API.ref_host) = Test_common.make_host ~__context ~edition () in ())
-                                        editions
+  (* Create a host for each edition in the list. *)
+  let load_input __context editions =
+    List.iter
+      (fun edition ->
+          let (_: API.ref_host) = Test_common.make_host ~__context ~edition () in ())
+      editions
 
-                                    let extract_output __context _ =
-                                      let hosts = Db.Host.get_all ~__context in
-                                      fst (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
+  let extract_output __context _ =
+    let hosts = Db.Host.get_all ~__context in
+    fst (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
 
-                                    (* Tuples of ((host edition) list, expected pool edition) *)
+  (* Tuples of ((host edition) list, expected pool edition) *)
   let tests = `QuickAndAutoDocumented [
-                                      (["edition1"], "edition1");
-                                      (["edition1"; "edition2"; "edition1"; "edition3"], "edition1");
-                                      (["edition2"; "edition2"; "edition2"; "edition2"], "edition2");
-                                      (["edition3"; "edition3"; "edition3"], "edition3");
-                                      (["edition2"; "edition2"; "edition1"; "edition1"], "edition1");
-                                    ]
+    (["edition1"], "edition1");
+    (["edition1"; "edition2"; "edition1"; "edition3"], "edition1");
+    (["edition2"; "edition2"; "edition2"; "edition2"], "edition2");
+    (["edition3"; "edition3"; "edition3"], "edition3");
+    (["edition2"; "edition2"; "edition1"; "edition1"], "edition1");
+  ]
 end)
 
 module PoolLicenseState = Generic.MakeStateful(struct
-                                         module Io = struct
-                                           type input_t = host_license_state list
-                                           type output_t = string * string
+  module Io = struct
+    type input_t = host_license_state list
+    type output_t = string * string
 
-                                           let string_of_input_t = Test_printers.(list string_of_host_license_state)
-                                           let string_of_output_t = Test_printers.(pair string string)
-                                         end
-                                         module State = Test_state.XapiDb
+    let string_of_input_t = Test_printers.(list string_of_host_license_state)
+    let string_of_output_t = Test_printers.(pair string string)
+  end
+  module State = Test_state.XapiDb
 
-                                         (* For each (license_params, edition) pair, create a host.
-                                            	 * Also create a pool object. *)
-                                         let load_input __context hosts =
-                                           List.iter
-                                             (fun host ->
-                                                let (_: API.ref_host) =
-                                                  Test_common.make_host ~__context
-                                                    ~edition:host.edition
-                                                    ~license_params:host.license_params () in ())
-                                             hosts;
-                                           let (_: API.ref_pool) =
-                                             Test_common.make_pool ~__context
-                                               ~master:(List.hd (Db.Host.get_all ~__context)) () in ()
+  (* For each (license_params, edition) pair, create a host.
+        * Also create a pool object. *)
+  let load_input __context hosts =
+    List.iter
+      (fun host ->
+        let (_: API.ref_host) =
+          Test_common.make_host ~__context
+            ~edition:host.edition
+            ~license_params:host.license_params () in ())
+      hosts;
+    let (_: API.ref_pool) =
+      Test_common.make_pool ~__context
+        ~master:(List.hd (Db.Host.get_all ~__context)) () in ()
 
-                                         let extract_output __context _ =
-                                           let hosts = Db.Host.get_all ~__context in
-                                           let pool_edition, expiry = Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int in
-                                           let pool_expiry =
-                                             match expiry with
-                                             | None -> "never"
-                                             | Some date -> if date = Date.of_float License_check.never then "never" else Date.to_string date
-                                           in
-                                           pool_edition, pool_expiry
+  let extract_output __context _ =
+    let hosts = Db.Host.get_all ~__context in
+    let pool_edition, expiry = Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int in
+    let pool_expiry =
+      match expiry with
+      | None -> "never"
+      | Some date -> if date = Date.of_float License_check.never then "never" else Date.to_string date
+    in
+    pool_edition, pool_expiry
 
-                                         (* Tuples of (host_license_state list, expected pool license state) *)
+  (* Tuples of (host_license_state list, expected pool license state) *)
   let tests = `QuickAndAutoDocumented [
-                                           (* A pool of edition1 hosts, none of which has an expiry date. *)
-                                           [
-                                             {license_params = []; edition = "edition1"};
-                                             {license_params = []; edition = "edition1"};
-                                             {license_params = []; edition = "edition1"};
-                                           ],
-                                           ("edition1", "never");
-                                           (* A pool of edition2 hosts, of which two have expiry dates. *)
-                                           [
-                                             {license_params = []; edition = "edition2"};
-                                             {license_params = ["expiry", f2d2s 500.0]; edition = "edition2"};
-                                             {license_params = ["expiry", f2d2s 350.0]; edition = "edition2"};
-                                           ],
-                                           ("edition2", f2d2s 350.0);
-                                           (* A pool of edition2 hosts, of which none have expiry dates. *)
-                                           [
-                                             {license_params = []; edition = "edition2"};
-                                             {license_params = []; edition = "edition2"};
-                                             {license_params = []; edition = "edition2"};
-                                           ],
-                                           ("edition2", "never");
-                                           (* A pool of hosts, some edition2 (with different expiry dates) and some edition1 (no expiry). *)
-                                           [
-                                             {license_params = ["expiry", f2d2s 5000.0]; edition = "edition2"};
-                                             {license_params = []; edition = "edition1"};
-                                             {license_params = ["expiry", f2d2s 6000.0]; edition = "edition2"};
-                                           ],
-                                           ("edition1", "never");
-                                         ]
+    (* A pool of edition1 hosts, none of which has an expiry date. *)
+    [
+      {license_params = []; edition = "edition1"};
+      {license_params = []; edition = "edition1"};
+      {license_params = []; edition = "edition1"};
+    ],
+    ("edition1", "never");
+    (* A pool of edition2 hosts, of which two have expiry dates. *)
+    [
+      {license_params = []; edition = "edition2"};
+      {license_params = ["expiry", f2d2s 500.0]; edition = "edition2"};
+      {license_params = ["expiry", f2d2s 350.0]; edition = "edition2"};
+    ],
+    ("edition2", f2d2s 350.0);
+    (* A pool of edition2 hosts, of which none have expiry dates. *)
+    [
+      {license_params = []; edition = "edition2"};
+      {license_params = []; edition = "edition2"};
+      {license_params = []; edition = "edition2"};
+    ],
+    ("edition2", "never");
+    (* A pool of hosts, some edition2 (with different expiry dates) and some edition1 (no expiry). *)
+    [
+      {license_params = ["expiry", f2d2s 5000.0]; edition = "edition2"};
+      {license_params = []; edition = "edition1"};
+      {license_params = ["expiry", f2d2s 6000.0]; edition = "edition2"};
+    ],
+    ("edition1", "never");
+  ]
 end)
 
 let tests =

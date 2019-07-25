@@ -51,45 +51,45 @@ let sample_copy_state = Storage_migrate.State.Copy_state.({
   })
 
 module MapOf = Generic.MakeStateful(struct
-                              module Io = struct
-                                open Storage_migrate.State
+  module Io = struct
+    open Storage_migrate.State
 
-                                type input_t =
-                                  (string * osend operation) option *
-                                  (string * orecv operation) option *
-                                  (string * ocopy operation) option
-                                type output_t =
-                                  (string * Send_state.t) list *
-                                  (string * Receive_state.t) list *
-                                  (string * Copy_state.t) list
+    type input_t =
+      (string * osend operation) option *
+      (string * orecv operation) option *
+      (string * ocopy operation) option
+    type output_t =
+      (string * Send_state.t) list *
+      (string * Receive_state.t) list *
+      (string * Copy_state.t) list
 
-                                let string_of_input_t _ = ""
-                                let string_of_output_t _ = ""
-                              end
+    let string_of_input_t _ = ""
+    let string_of_output_t _ = ""
+  end
 
-                              module State = StorageMigrateState
+  module State = StorageMigrateState
 
-                              open Storage_migrate.State
+  open Storage_migrate.State
 
-                              let load_input () (send, recv, copy) =
-                                Opt.iter (fun (id, send) -> add id send) send;
-                                Opt.iter (fun (id, recv) -> add id recv) recv;
-                                Opt.iter (fun (id, copy) -> add id copy) copy
+  let load_input () (send, recv, copy) =
+    Opt.iter (fun (id, send) -> add id send) send;
+    Opt.iter (fun (id, recv) -> add id recv) recv;
+    Opt.iter (fun (id, copy) -> add id copy) copy
 
-                              let extract_output () _ = map_of ()
+  let extract_output () _ = map_of ()
 
   let tests = `QuickAndAutoDocumented [
-                                (* Test that operations don't appear from nowhere. *)
-                                (None, None, None),
-                                ([], [], []);
-                                (* Test that any of the single operations get persisted. *)
-                                (Some ("foo", Send_op sample_send_state), None, None),
-                                (["foo", sample_send_state], [], []);
-                                (None, Some ("bar", Recv_op sample_receive_state), None),
-                                ([], ["bar", sample_receive_state], []);
-                                (None, None, Some ("baz", Copy_op sample_copy_state)),
-                                ([], [], ["baz", sample_copy_state]);
-                              ]
+    (* Test that operations don't appear from nowhere. *)
+    (None, None, None),
+    ([], [], []);
+    (* Test that any of the single operations get persisted. *)
+    (Some ("foo", Send_op sample_send_state), None, None),
+    (["foo", sample_send_state], [], []);
+    (None, Some ("bar", Recv_op sample_receive_state), None),
+    ([], ["bar", sample_receive_state], []);
+    (None, None, Some ("baz", Copy_op sample_copy_state)),
+    ([], [], ["baz", sample_copy_state]);
+  ]
 end)
 
 let test_clear () =

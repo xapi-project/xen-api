@@ -186,7 +186,7 @@ module AssertKeys = Generic.MakeStateless(struct
       ((string * string) list) *
       ((string * string) list)
     type output_t = (exn, (string * string) list) Either.t
-             
+
     let string_of_input_t (ty, ks, value, db) = Printf.sprintf "keys=%s, input_value=%s, db_value=%s"
       (string_of_ks ks)
       (Test_printers.(assoc_list string string) value)
@@ -197,7 +197,7 @@ module AssertKeys = Generic.MakeStateless(struct
   let transform (ty, ks, value, db) =
     try Either.Right (assert_keys ty ks value db)
     with e -> Either.Left e
- 
+
     let tests = `QuickAndAutoDocumented [
       (* Tests hourly keys *)
       ("", ("", ["", ["min",(String,"")]]), ["min","30"], ["min", "0"]), Either.Right (["min","30"]);

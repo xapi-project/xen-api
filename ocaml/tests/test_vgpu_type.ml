@@ -132,7 +132,7 @@ module NvidiaTest = struct
               compatible_model_names_on_pgpu = ["TYPE FOO3"];
             })
         ];
-        
+
       ]
     end)
 
@@ -508,4 +508,4 @@ let tests = make_suite "vgpu_type" [
   "_intel_read_whitelist",  IntelTest.ReadWhitelist.tests;
   "_mxgpu_read_whitelist_line",  AMDTest.ReadWhitelistLine.tests;
   "_mxgpu_read_whitelist",  AMDTest.ReadWhitelist.tests;
-  ]
+]

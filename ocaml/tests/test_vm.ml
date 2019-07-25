@@ -81,7 +81,7 @@ module VMSetBiosStrings = Generic.MakeStateful(struct
     `QuickAndAutoDocumented ((List.map (fun settings ->
          settings, Either.Right (update_list default_settings settings)
     ) valid_settings) @
-    [
+     [
       (* Invalid BIOS string key *)
       ["xxxx", "test"],
       Either.Left Api_errors.(Server_error

@@ -205,42 +205,42 @@ module CreateSMAPIv2Features = Generic.MakeStateless(struct
 let test_sm_name_label = "__test_sm"
 
 module CreateSMObject = Generic.MakeStateful(struct
-                                       module Io = struct
-                                         type input_t = string list
-                                         type output_t = sm_object
+  module Io = struct
+    type input_t = string list
+    type output_t = sm_object
 
-                                         let string_of_input_t = Test_printers.(list string)
-                                         let string_of_output_t = string_of_sm_object
-                                       end
+    let string_of_input_t = Test_printers.(list string)
+    let string_of_output_t = string_of_sm_object
+  end
 
-                                       module State = Test_state.XapiDb
+  module State = Test_state.XapiDb
 
-                                       let load_input __context features =
-                                         Xapi_sm.create_from_query_result ~__context {
-                                           Storage_interface.driver = "";
-                                           name = test_sm_name_label;
-                                           description = "";
-                                           vendor = "";
-                                           copyright = "";
-                                           version = "";
-                                           required_api_version = "";
-                                           features = features;
-                                           configuration = [];
-                                           required_cluster_stack = [];
-                                         }
+  let load_input __context features =
+    Xapi_sm.create_from_query_result ~__context {
+      Storage_interface.driver = "";
+      name = test_sm_name_label;
+      description = "";
+      vendor = "";
+      copyright = "";
+      version = "";
+      required_api_version = "";
+      features = features;
+      configuration = [];
+      required_cluster_stack = [];
+    }
 
-                                       let extract_output __context _ =
-                                         let sm =
-                                           List.nth (Db.SM.get_by_name_label ~__context ~label:test_sm_name_label) 0
-                                         in
-                                         {
-                                           capabilities = Db.SM.get_capabilities ~__context ~self:sm;
-                                           features = Db.SM.get_features ~__context ~self:sm;
-                                         }
+  let extract_output __context _ =
+    let sm =
+      List.nth (Db.SM.get_by_name_label ~__context ~label:test_sm_name_label) 0
+    in
+    {
+      capabilities = Db.SM.get_capabilities ~__context ~self:sm;
+      features = Db.SM.get_features ~__context ~self:sm;
+    }
 
-                                       let tests =
+  let tests =
     `QuickAndAutoDocumented (List.map
-                                           (fun sequence -> (sequence.smapiv2_features, sequence.sm))
+      (fun sequence -> (sequence.smapiv2_features, sequence.sm))
       test_sequences)
 end)
 

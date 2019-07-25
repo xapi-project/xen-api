@@ -20,7 +20,7 @@ module PbisAuthErrorsCatch = Generic.MakeStateless(struct
       type output_t = Auth_signature.auth_service_error_tag
 
       let string_of_input_t = Test_printers.(list string)
-      let string_of_output_t output = 
+      let string_of_output_t output =
         match output with
         | Auth_signature.E_GENERIC           -> "E_GENERIC"
         | Auth_signature.E_LOOKUP            -> "E_LOOKUP"

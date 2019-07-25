@@ -381,138 +381,138 @@ let domain_type : API.domain_type Test_printers.printer =
   Record_util.domain_type_to_string
 
 module ResetCPUFlags = Generic.MakeStateful(struct
-                                      module Io = struct
-                                        type input_t = (string * API.domain_type) list
-                                        type output_t = string list
+  module Io = struct
+    type input_t = (string * API.domain_type) list
+    type output_t = string list
 
-                                        let string_of_input_t = Test_printers.(list (pair string domain_type))
-                                        let string_of_output_t = Test_printers.(list string)
-                                      end
-                                      module State = Test_state.XapiDb
+    let string_of_input_t = Test_printers.(list (pair string domain_type))
+    let string_of_output_t = Test_printers.(list string)
+  end
+  module State = Test_state.XapiDb
 
-                                      let features_hvm = "feedface-feedface"
-                                      let features_pv  = "deadbeef-deadbeef"
+  let features_hvm = "feedface-feedface"
+  let features_pv  = "deadbeef-deadbeef"
 
-                                      let load_input __context cases =
-                                        let cpu_info = [
-                                          "cpu_count", "1";
-                                          "socket_count", "1";
-                                          "vendor", "Abacus";
-                                          "features_pv", features_pv;
-                                          "features_hvm", features_hvm;
-                                        ] in
-                                        List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
-                                        Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
+  let load_input __context cases =
+    let cpu_info = [
+      "cpu_count", "1";
+      "socket_count", "1";
+      "vendor", "Abacus";
+      "features_pv", features_pv;
+      "features_hvm", features_hvm;
+    ] in
+    List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
+    Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
-                                        let vms = List.map
-                                            (fun (name_label, domain_type) ->
-                                               Test_common.make_vm ~__context ~name_label
-                                                 ~domain_type ())
-                                            cases in
-                                        List.iter (fun vm -> Cpuid_helpers.reset_cpu_flags ~__context ~vm) vms
+    let vms = List.map
+        (fun (name_label, domain_type) ->
+            Test_common.make_vm ~__context ~name_label
+              ~domain_type ())
+        cases in
+    List.iter (fun vm -> Cpuid_helpers.reset_cpu_flags ~__context ~vm) vms
 
-                                      let extract_output __context vms =
-                                        let get_flags (label, _) =
-                                          let self = List.hd (Db.VM.get_by_name_label ~__context ~label) in
-                                          let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self in
-                                          try List.assoc Xapi_globs.cpu_info_features_key flags
-                                          with Not_found -> ""
-                                        in List.map get_flags vms
+  let extract_output __context vms =
+    let get_flags (label, _) =
+      let self = List.hd (Db.VM.get_by_name_label ~__context ~label) in
+      let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self in
+      try List.assoc Xapi_globs.cpu_info_features_key flags
+      with Not_found -> ""
+    in List.map get_flags vms
 
 
-                                      (* Tuples of ((features_hvm * features_pv) list, (expected last_boot_CPU_flags) *)
+  (* Tuples of ((features_hvm * features_pv) list, (expected last_boot_CPU_flags) *)
   let tests = `QuickAndAutoDocumented [
-                                        (["a", `hvm], [features_hvm]);
-                                        (["a", `pv], [features_pv]);
-                                        (["a", `pv_in_pvh], [features_hvm]);
-                                        (["a", `hvm; "b", `pv; "c", `pv_in_pvh],
-                                          [features_hvm; features_pv; features_hvm]);
-                                      ]
+    (["a", `hvm], [features_hvm]);
+    (["a", `pv], [features_pv]);
+    (["a", `pv_in_pvh], [features_hvm]);
+    (["a", `hvm; "b", `pv; "c", `pv_in_pvh],
+      [features_hvm; features_pv; features_hvm]);
+  ]
 end)
 
 
 module AssertVMIsCompatible = Generic.MakeStateful(struct
-                                             module Io = struct
-                                               type input_t = string * API.domain_type * (string * string) list
-                                               type output_t = (exn, unit) Either.t
+  module Io = struct
+    type input_t = string * API.domain_type * (string * string) list
+    type output_t = (exn, unit) Either.t
 
-                                               let string_of_input_t =
-                                                 Test_printers.(tuple3 string domain_type (assoc_list string string))
-                                               let string_of_output_t = Test_printers.(either exn unit)
-                                             end
-                                             module State = Test_state.XapiDb
+    let string_of_input_t =
+      Test_printers.(tuple3 string domain_type (assoc_list string string))
+    let string_of_output_t = Test_printers.(either exn unit)
+  end
+  module State = Test_state.XapiDb
 
-                                             let features_hvm = "feedface-feedface"
-                                             let features_pv  = "deadbeef-deadbeef"
+  let features_hvm = "feedface-feedface"
+  let features_pv  = "deadbeef-deadbeef"
 
-                                             let load_input __context (name_label, domain_type, last_boot_flags) =
-                                               let cpu_info = [
-                                                 "cpu_count", "1";
-                                                 "socket_count", "1";
-                                                 "vendor", "Abacus";
-                                                 "features_pv", features_pv;
-                                                 "features_hvm", features_hvm;
-                                               ] in
-                                               List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
-                                               Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
+  let load_input __context (name_label, domain_type, last_boot_flags) =
+    let cpu_info = [
+      "cpu_count", "1";
+      "socket_count", "1";
+      "vendor", "Abacus";
+      "features_pv", features_pv;
+      "features_hvm", features_hvm;
+    ] in
+    List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
+    Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
-                                               let self = Test_common.make_vm ~__context ~name_label ~domain_type () in
-                                               Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:last_boot_flags;
-                                               Db.VM.set_power_state ~__context ~self ~value:`Running
+    let self = Test_common.make_vm ~__context ~name_label ~domain_type () in
+    Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:last_boot_flags;
+    Db.VM.set_power_state ~__context ~self ~value:`Running
 
-                                             let extract_output __context (label, _, _) =
-                                               let host = List.hd @@ Db.Host.get_all ~__context in
-                                               let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
-                                               try Either.Right (Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ())
-                                               with
-                                               (* Filter out opaquerefs which make matching this exception difficult *)
-                                               | Api_errors.Server_error (vm_incompatible_with_this_host, data) ->
-                                                 Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
-                                               | e -> Either.Left e
+  let extract_output __context (label, _, _) =
+    let host = List.hd @@ Db.Host.get_all ~__context in
+    let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
+    try Either.Right (Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ())
+    with
+    (* Filter out opaquerefs which make matching this exception difficult *)
+    | Api_errors.Server_error (vm_incompatible_with_this_host, data) ->
+      Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
+    | e -> Either.Left e
 
   let tests = `QuickAndAutoDocumented [
-                                               (* HVM *)
-                                               ("a", `hvm,
-                                                Xapi_globs.([cpu_info_vendor_key, "Abacus";
-                                                             cpu_info_features_key, features_hvm])),
-                                               Either.Right ();
+    (* HVM *)
+    ("a", `hvm,
+    Xapi_globs.([cpu_info_vendor_key, "Abacus";
+                  cpu_info_features_key, features_hvm])),
+    Either.Right ();
 
-                                               ("a", `hvm,
-                                                Xapi_globs.([cpu_info_vendor_key, "Abacus";
-                                                             cpu_info_features_key, "cafecafe-cafecafe"])),
-                                               Either.Left Api_errors.(Server_error
-                                                                         (vm_incompatible_with_this_host,
-                                                                          ["VM last booted on a CPU with features this host's CPU does not have."]));
+    ("a", `hvm,
+    Xapi_globs.([cpu_info_vendor_key, "Abacus";
+                  cpu_info_features_key, "cafecafe-cafecafe"])),
+    Either.Left Api_errors.(Server_error
+                              (vm_incompatible_with_this_host,
+                              ["VM last booted on a CPU with features this host's CPU does not have."]));
 
-                                               ("a", `hvm,
-                                                Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
-                                                             cpu_info_features_key, features_hvm])),
-                                               Either.Left Api_errors.(Server_error
-                                                                         (vm_incompatible_with_this_host,
-                                                                          ["VM last booted on a host which had a CPU from a different vendor."]));
+    ("a", `hvm,
+    Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
+                  cpu_info_features_key, features_hvm])),
+    Either.Left Api_errors.(Server_error
+                              (vm_incompatible_with_this_host,
+                              ["VM last booted on a host which had a CPU from a different vendor."]));
 
-                                               (* PV *)
-                                               ("a", `pv,
-                                                Xapi_globs.([cpu_info_vendor_key, "Abacus";
-                                                             cpu_info_features_key, features_pv])),
-                                               Either.Right ();
+    (* PV *)
+    ("a", `pv,
+    Xapi_globs.([cpu_info_vendor_key, "Abacus";
+                  cpu_info_features_key, features_pv])),
+    Either.Right ();
 
-                                               ("a", `pv,
-                                                Xapi_globs.([cpu_info_vendor_key, "Abacus";
-                                                             cpu_info_features_key, "cafecafe-cafecafe"])),
-                                               Either.Left Api_errors.(Server_error
-                                                                         (vm_incompatible_with_this_host,
-                                                                          ["VM last booted on a CPU with features this host's CPU does not have."]));
+    ("a", `pv,
+    Xapi_globs.([cpu_info_vendor_key, "Abacus";
+                  cpu_info_features_key, "cafecafe-cafecafe"])),
+    Either.Left Api_errors.(Server_error
+                              (vm_incompatible_with_this_host,
+                              ["VM last booted on a CPU with features this host's CPU does not have."]));
 
-                                               ("a", `pv,
-                                                Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
-                                                             cpu_info_features_key, features_pv])),
-                                               Either.Left Api_errors.(Server_error
-                                                                         (vm_incompatible_with_this_host,
-                                                                          ["VM last booted on a host which had a CPU from a different vendor."]));
+    ("a", `pv,
+    Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
+                  cpu_info_features_key, features_pv])),
+    Either.Left Api_errors.(Server_error
+                              (vm_incompatible_with_this_host,
+                              ["VM last booted on a host which had a CPU from a different vendor."]));
 
 
-                                             ]
+  ]
 end)
 
 let tests =

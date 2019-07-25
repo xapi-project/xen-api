@@ -122,7 +122,7 @@ module HVMSerial =
               );
             ]
         end)
-  
+
 module VideoMode =
   Generic.MakeStateful(struct
           module Io = struct
@@ -201,7 +201,7 @@ module VideoRam =
               {oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
             ]
         end)
-  
+
 let uuid_with_index index =
  Printf.sprintf "00000000-0000-0000-0000-00000000%04d" index
 
@@ -288,7 +288,7 @@ module GenerateVGPUMetadata =
               ];
             ]
         end)
-  
+
 module GenerateMultiVGPUMetadata =
   Generic.MakeStateful(struct
           open Test_vgpu_common
@@ -390,7 +390,7 @@ module GenerateMultiVGPUMetadata =
                                            type_id = Some "type_id_1";
                                            uuid = Some (uuid_with_index 3);
                                            extra_args = ""
-                })                
+                })
               ];
             ]
         end)
