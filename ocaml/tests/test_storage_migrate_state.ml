@@ -13,7 +13,6 @@
  *)
 
 open Stdext
-open OUnit
 open Test_highlevel
 
 module StorageMigrateState = struct
@@ -51,7 +50,7 @@ let sample_copy_state = Storage_migrate.State.Copy_state.({
     remote_url = "remote_url";
   })
 
-module MapOf = Generic.Make(Generic.EncapsulateState(struct
+module MapOf = Generic.MakeStateful(struct
                               module Io = struct
                                 open Storage_migrate.State
 
@@ -79,7 +78,7 @@ module MapOf = Generic.Make(Generic.EncapsulateState(struct
 
                               let extract_output () _ = map_of ()
 
-                              let tests = [
+  let tests = `QuickAndAutoDocumented [
                                 (* Test that operations don't appear from nowhere. *)
                                 (None, None, None),
                                 ([], [], []);
@@ -91,7 +90,7 @@ module MapOf = Generic.Make(Generic.EncapsulateState(struct
                                 (None, None, Some ("baz", Copy_op sample_copy_state)),
                                 ([], [], ["baz", sample_copy_state]);
                               ]
-                            end))
+end)
 
 let test_clear () =
   let open Storage_migrate.State in
@@ -101,12 +100,12 @@ let test_clear () =
   add "baz" (Copy_op sample_copy_state);
   clear ();
   let state = map_of () in
-  assert_equal ~msg:"State was not empty after clearing" state ([], [], [])
+  Alcotest.check (Alcotest_comparators.only_compare ())  "State was not empty after clearing" state ([], [], [])
 
-let test =
+let test = [ "clear", `Quick, test_clear ]
+
+let tests =
   Storage_migrate.State.persist_root := Test_common.working_area;
-  "test_storage_migrate_state" >:::
   [
-    "test_map_of" >::: MapOf.tests;
-    "test_clear" >:: test_clear;
+    "storage_migrate_state_map_of", MapOf.tests;
   ]

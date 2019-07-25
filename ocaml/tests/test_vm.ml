@@ -13,10 +13,9 @@
  *)
 
 open Stdext
-open OUnit
 open Test_highlevel
 
-module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
+module VMSetBiosStrings = Generic.MakeStateful(struct
   module Io = struct
     type input_t = (string * string) list
     type output_t = (exn, (string * string) list) Either.t
@@ -79,7 +78,7 @@ module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
   let tests =
     (* Correct value *)
     let valid_settings = combination [bios_str1; bios_str2; bios_str3; bios_str4] in
-    (List.map (fun settings ->
+    `QuickAndAutoDocumented ((List.map (fun settings ->
          settings, Either.Right (update_list default_settings settings)
     ) valid_settings) @
     [
@@ -111,12 +110,10 @@ module VMSetBiosStrings = Generic.Make (Generic.EncapsulateState (struct
       Either.Left Api_errors.(Server_error
         (invalid_value,
         ["enclosure-asset-tag"; non_printable_str2 ^ " has non-printable ASCII characters"]));
-  ]
+  ])
 
-end))
+end)
 
-let test =
-  "test_vm" >:::
-  [
-    "test_vm_set_bios_strings" >::: VMSetBiosStrings.tests;
+let tests =
+  [ "test_vm_set_bios_strings", VMSetBiosStrings.tests;
   ]

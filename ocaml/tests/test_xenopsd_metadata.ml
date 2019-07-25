@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 open Test_highlevel
 open Xenops_interface
@@ -57,8 +56,7 @@ let run_create_metadata ~__context =
 
 (* Test the behaviour of the "hvm_serial" other_config/platform key. *)
 module HVMSerial =
-  Generic.Make(
-      Generic.EncapsulateState(struct
+  Generic.MakeStateful(struct
           module Io = struct
             type input_t = vm_config
             type output_t = string option
@@ -78,7 +76,7 @@ module HVMSerial =
             | Vm.HVM {Vm.serial = serial} -> serial
             | _ -> failwith "expected HVM metadata"
 
-          let tests =
+          let tests = `QuickAndAutoDocumented
             [
               (* Should default to "pty" if nothing is set. *)
               (
@@ -123,11 +121,10 @@ module HVMSerial =
                 Some "tcp:1.2.3.4:7001"
               );
             ]
-        end))
+        end)
   
 module VideoMode =
-  Generic.Make(
-      Generic.EncapsulateState(struct
+  Generic.MakeStateful(struct
           module Io = struct
             type input_t = vm_config
             type output_t = Vm.video_card
@@ -151,7 +148,7 @@ module VideoMode =
             | Vm.HVM {Vm.video = video_mode} -> video_mode
             | _ -> failwith "expected HVM metadata"
 
-          let tests = [
+          let tests = `QuickAndAutoDocumented [
               (* Default video mode should be Cirrus. *)
               {oc=[]; platform=[]}, Vm.Cirrus;
               (* Unrecognised video mode should default to Cirrus. *)
@@ -171,11 +168,10 @@ module VideoMode =
                 platform=["igd_passthrough", "true"; "vga", "std"]
               }, Vm.(IGD_passthrough GVT_d);
             ]
-        end))
+        end)
 
 module VideoRam =
-  Generic.Make(
-      Generic.EncapsulateState(struct
+  Generic.MakeStateful(struct
           module Io = struct
             type input_t = vm_config
             type output_t = int
@@ -195,7 +191,7 @@ module VideoRam =
             | Vm.HVM {Vm.video_mib = video_mib} -> video_mib
             | _ -> failwith "expected HVM metadata"
 
-          let tests = [
+          let tests = `QuickAndAutoDocumented [
               (* Video ram defaults to 4MiB. *)
               {oc=[]; platform=[]}, 4;
               (* Specifying a different amount of videoram works. *)
@@ -204,14 +200,13 @@ module VideoRam =
               {oc = []; platform=["vga", "cirrus"]}, 4;
               {oc = []; platform=["vga", "cirrus"; "videoram", "8"]}, 8;
             ]
-        end))
+        end)
   
 let uuid_with_index index =
  Printf.sprintf "00000000-0000-0000-0000-00000000%04d" index
 
 module GenerateVGPUMetadata =
-  Generic.Make(
-      Generic.EncapsulateState(struct
+  Generic.MakeStateful(struct
           open Test_vgpu_common
 
           module Io = struct
@@ -231,7 +226,6 @@ module GenerateVGPUMetadata =
           module State = Test_state.XapiDb
 
           let load_input __context (vm_config, pgpus_and_vgpu_types) =
-            Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions := [Xapi_globs.nvidia_default_host_driver_version];
             let vm_ref = load_vm_config __context vm_config in
             List.iteri
               (fun index (pgpu, vgpu_type) ->
@@ -250,7 +244,7 @@ module GenerateVGPUMetadata =
               (fun vgpu -> vgpu.Xenops_interface.Vgpu.implementation)
               metadata.Metadata.vgpus
 
-          let tests = [
+          let tests = `QuickAndAutoDocumented [
               (* No vGPUs. *)
               (
                 {oc = []; platform = []},
@@ -293,11 +287,10 @@ module GenerateVGPUMetadata =
                 })
               ];
             ]
-        end))
+        end)
   
 module GenerateMultiVGPUMetadata =
-  Generic.Make(
-      Generic.EncapsulateState(struct
+  Generic.MakeStateful(struct
           open Test_vgpu_common
           module Io = struct
             type input_t =
@@ -316,7 +309,6 @@ module GenerateMultiVGPUMetadata =
           module State = Test_state.XapiDb
 
           let load_input __context (vm_config, pgpus_and_vgpu_types) =
-            Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions := [Xapi_globs.nvidia_default_host_driver_version];
             let vm_ref = load_vm_config __context vm_config in
             List.iteri
               (fun index (pgpu, vgpu_type) ->
@@ -337,7 +329,7 @@ module GenerateMultiVGPUMetadata =
               (fun vgpu -> vgpu.Xenops_interface.Vgpu.implementation)
               metadata.Metadata.vgpus
 
-          let tests = [
+          let tests = `QuickAndAutoDocumented [
               (* 2 NVIDIA vGPUs. *)
               (
                 {oc = []; platform = []},
@@ -401,14 +393,12 @@ module GenerateMultiVGPUMetadata =
                 })                
               ];
             ]
-        end))
+        end)
 
-let test =
-  "test_xenopsd_metadata" >:::
-  [
-    "test_hvm_serial" >::: HVMSerial.tests;
-    "test_videomode" >::: VideoMode.tests;
-    "test_videoram" >::: VideoRam.tests;
-    "test_generate_vgpu_metadata" >::: GenerateVGPUMetadata.tests;
-    "test_generate_multi_vgpu_metadata" >::: GenerateMultiVGPUMetadata.tests;
+let tests = make_suite "xenopsd_metadata" [
+    "hvm_serial", HVMSerial.tests;
+    "videomode", VideoMode.tests;
+    "videoram", VideoRam.tests;
+    "generate_vgpu_metadata", GenerateVGPUMetadata.tests;
+    "generate_multi_vgpu_metadata", GenerateMultiVGPUMetadata.tests;
   ]

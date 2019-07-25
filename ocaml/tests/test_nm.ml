@@ -1,12 +1,12 @@
 open Test_highlevel
 open Test_common
-open OUnit
 
-module MaybeUpdateMasterPifMac = Generic.Make(Generic.EncapsulateState(struct
+module MaybeUpdateMasterPifMac = Generic.MakeStateful(struct
   module Io = struct
     type input_t = (bool * string option) (* auto_update_mac, new_primary_slave_mac *)
 
     type output_t = (string * string) (* record bond master mac, db bond master mac *)
+
 
     let show_primary_slave_mac_change = function
       | None -> "primary_slave mac unchanged"
@@ -44,23 +44,33 @@ module MaybeUpdateMasterPifMac = Generic.Make(Generic.EncapsulateState(struct
     (* these mac addresses should be equal; we test them both *)
     (bond_master_record.API.pIF_MAC, Db.PIF.get_MAC ~__context ~self:bond_master)
 
-  let tests = [
-        (* primary slave mac does not change & auto_update_mac disabled *)
-        ((false, None), (original_master_mac, original_master_mac));
-
-        (* primary slave mac does not change & auto_update_mac enabled *)
-        ((true, None), (original_primary_slave_mac, original_primary_slave_mac));
-
-        (* primary slave mac does change & auto_update_mac disabled *)
-        ((false, Some a_new_mac), (original_master_mac, original_master_mac));
-
-        (* primary slave mac does change & auto_update_mac enabled *)
-        ((true, Some a_new_mac), (a_new_mac, a_new_mac));
+  let tests = `Documented [
+        (
+          "primary_slave_mac_does_not_change_and_auto_update_mac_disabled",
+          `Quick,
+          (false, None),
+          (original_master_mac, original_master_mac)
+        );
+        (
+          "primary_slave_mac_does_not_change_and_auto_update_mac_enabled",
+          `Quick,
+          (true, None),
+          (original_primary_slave_mac, original_primary_slave_mac)
+        );
+        (
+          "primary_slave_mac_does_change_and_auto_update_mac_disabled",
+          `Quick,
+          (false, Some a_new_mac),
+          (original_master_mac, original_master_mac)
+        );
+        (
+          "primary_slave_mac_does_change_and_auto_update_mac_enabled",
+          `Quick,
+          (true, Some a_new_mac),
+          (a_new_mac, a_new_mac)
+        );
         ]
   end
-))
+)
 
-let test = "test_nm" >:::
-  [
-    "test_maybe_update_master_pif_mac" >::: MaybeUpdateMasterPifMac.tests;
-  ]
+let tests = [ "test_nm_maybe_update_master_pif_mac", MaybeUpdateMasterPifMac.tests ]

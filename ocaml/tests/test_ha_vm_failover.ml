@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Stdext
 open Test_common
 open Test_highlevel
@@ -165,7 +164,8 @@ let setup ~__context {master; slaves; ha_host_failures_to_tolerate; cluster} =
   Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:ha_host_failures_to_tolerate
 
 
-module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
+module AllProtectedVms =
+  Generic.MakeStateful(struct
                                         module Io = struct
                                           type input_t = pool
                                           type output_t = string list
@@ -183,7 +183,7 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
                                           |> List.map (fun (_, vm_rec) -> vm_rec.API.vM_name_label)
                                           |> List.sort compare
 
-                                        let tests = [
+    let tests = `QuickAndAutoDocumented [
                                           (* No VMs and a single host. *)
                                           {
                                             master = {memory_total = gib 256L; name_label = "master"; vms = []};
@@ -247,9 +247,9 @@ module AllProtectedVms = Generic.Make(Generic.EncapsulateState(struct
                                           },
                                           ["vm1"];
                                         ]
-                                      end))
+  end)
 
-module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
+module PlanForNFailures = Generic.MakeStateful(struct
                                          module Io = struct
                                            open Xapi_ha_vm_failover
 
@@ -261,6 +261,7 @@ module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
                                              | Plan_exists_for_all_VMs -> "Plan_exists_for_all_VMs"
                                              | Plan_exists_excluding_non_agile_VMs -> "Plan_exists_excluding_non_agile_VMs"
                                              | No_plan_exists -> "No_plan_exists"
+
                                          end
 
                                          module State = Test_state.XapiDb
@@ -274,7 +275,7 @@ module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
 
                                          (* TODO: Add a test which causes plan_for_n_failures to return
                                             	 * Plan_exists_excluding_non_agile_VMs. *)
-                                         let tests = [
+  let tests = `QuickAndAutoDocumented [
                                            (* Two host pool with no VMs. *)
                                            (
                                              {
@@ -367,9 +368,9 @@ module PlanForNFailures = Generic.Make(Generic.EncapsulateState(struct
                                              Xapi_ha_vm_failover.No_plan_exists
                                            );
                                          ]
-                                       end))
+end)
 
-module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
+module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
                                                    module Io = struct
                                                      open Xapi_ha_vm_failover
 
@@ -414,7 +415,7 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
 
                                                    (* n.b. incoming VMs have ha_always_run = false; otherwise they will be
                                                       	 * included when computing the plan for the already-running VMs. *)
-                                                   let tests = [
+  let tests = `QuickAndAutoDocumented [
                                                      (* 2 host pool, one VM using just under half of one host's memory;
                                                         		 * test that another VM can be added. *)
                                                      (
@@ -513,9 +514,9 @@ module AssertNewVMPreservesHAPlan = Generic.Make(Generic.EncapsulateState(struct
                                                      ),
                                                      Either.Right ();
                                                    ]
-                                                 end))
+end)
 
-module ComputeMaxFailures = Generic.Make(Generic.EncapsulateState(struct
+module ComputeMaxFailures = Generic.MakeStateful(struct
                                             module Io = struct
                                               open Xapi_ha_vm_failover
 
@@ -536,7 +537,7 @@ module ComputeMaxFailures = Generic.Make(Generic.EncapsulateState(struct
                                               pool |> ignore;
                                               Int64.to_int max_hosts
          
-                                            let tests = [
+  let tests = `QuickAndAutoDocumented [
                                               (* Three host pool with no VMs. *)
                                               (
                                                 {
@@ -579,14 +580,6 @@ module ComputeMaxFailures = Generic.Make(Generic.EncapsulateState(struct
                                                 1
                                               );
                                             ]
-                                          end))
+end)
 
-let test =
-  "test_ha_vm_failover" >:::
-  [
-    "test_all_protected_vms" >::: AllProtectedVms.tests;
-    "test_plan_for_n_failures" >::: PlanForNFailures.tests;
-    "test_assert_new_vm_preserves_ha_plan" >:::
-    AssertNewVMPreservesHAPlan.tests;
-    "test_corosync_max_host_failures" >::: ComputeMaxFailures.tests;
-  ]
+let tests = [ "plan_for_n_failures", PlanForNFailures.tests]

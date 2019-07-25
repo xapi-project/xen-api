@@ -13,7 +13,6 @@
  *)
 
 open Stdext
-open OUnit
 open Test_highlevel
 
 let firmware_type_printer v =
@@ -22,7 +21,7 @@ let firmware_type_printer v =
 
 let uefi = Xenops_types.Vm.Uefi Xenops_types.Nvram_uefi_variables.default_t
 
-module SanityCheck = Generic.Make(struct
+module SanityCheck = Generic.MakeStateless(struct
     module Io = struct
       type input_t = ((string * string) list * Xenops_types.Vm.firmware_type option * bool * int64 * int64 * [ `hvm | `pv | `pv_in_pvh ])
       type output_t = (exn, (string * string) list) Either.t
@@ -52,7 +51,7 @@ module SanityCheck = Generic.Make(struct
          Either.Right (usb_defaults @ ["device-model", dm]))
       in
       let open Xenops_interface.Vm in
-      [
+      `QuickAndAutoDocumented [
         (* Check that we can filter out unknown platform flags. *)
         (([
             "nonsense", "abc";
@@ -182,8 +181,6 @@ module SanityCheck = Generic.Make(struct
       ]
   end)
 
-let test =
-  "platformdata" >:::
-  [
-    "test_platform_sanity_check" >::: SanityCheck.tests
+let tests =
+  [ "platform_data_sanity_check", SanityCheck.tests
   ]

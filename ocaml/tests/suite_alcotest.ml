@@ -6,7 +6,7 @@ let () =
   Debug.log_to_stdout ();
 
   Alcotest.run "Base suite"
-    [ "Test_valid_ref_list", Test_valid_ref_list.test
+    ([ "Test_valid_ref_list", Test_valid_ref_list.test
     ; "Test_sdn_controller", Test_sdn_controller.test
     ; "Test_pci_helpers", Test_pci_helpers.test
     ; "Test_vdi_allowed_operations", Test_vdi_allowed_operations.test
@@ -51,5 +51,26 @@ let () =
     ; "Test_vm_memory_constraints", Test_vm_memory_constraints.test
     ; "Test_xapi_xenops", Test_xapi_xenops.test
     ; "Test_network_event_loop", Test_network_event_loop.test
-    ]
-
+    ; "Test_vgpu_type", Test_vgpu_type.test
+    ; "Test_storage_migrate_state", Test_storage_migrate_state.test
+    ] @ Test_guest_agent.tests
+      @ Test_nm.tests
+      @ Test_xenopsd_metadata.tests
+      @ Test_http.tests
+      @ Test_ha_vm_failover.tests
+      @ Test_map_check.tests
+      @ Test_pool_license.tests
+      @ Test_features.tests
+      @ Test_platformdata.tests
+      @ Test_sm_features.tests
+      @ Test_vgpu_type.tests
+      @ Test_pgpu_helpers.tests
+      @ Test_storage_migrate_state.tests
+      @ Test_vm.tests
+      @ Test_cpuid_helpers.tests
+      @ Test_pool_cpuinfo.tests
+      @ Test_dbsync_master.tests
+      @ Test_pvs_cache_storage.tests
+      @ Test_extauth_plugin_ADpbis.tests
+      @ Test_helpers.tests
+      @ Test_datamodel_utils.tests);

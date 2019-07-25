@@ -14,7 +14,6 @@
 
 open Stdext
 open Fun
-open OUnit
 open Test_common
 open Test_highlevel
 
@@ -169,7 +168,7 @@ let test_sequences =
     }
   ]
 
-module ParseSMAPIv1Features = Generic.Make(struct
+module ParseSMAPIv1Features = Generic.MakeStateless(struct
     module Io = struct
       type input_t = string list
       type output_t = Smint.feature list
@@ -181,12 +180,12 @@ module ParseSMAPIv1Features = Generic.Make(struct
     let transform = Smint.parse_capability_int64_features
 
     let tests =
-      List.map
+      `QuickAndAutoDocumented (List.map
         (fun sequence -> (sequence.raw, sequence.smapiv1_features))
-        test_sequences
+        test_sequences)
   end)
 
-module CreateSMAPIv2Features = Generic.Make(struct
+module CreateSMAPIv2Features = Generic.MakeStateless(struct
     module Io = struct
       type input_t = Smint.feature list
       type output_t = string list
@@ -198,14 +197,14 @@ module CreateSMAPIv2Features = Generic.Make(struct
     let transform = List.map Smint.string_of_feature
 
     let tests =
-      List.map
+      `QuickAndAutoDocumented (List.map
         (fun sequence -> (sequence.smapiv1_features, sequence.smapiv2_features))
-        test_sequences
+        test_sequences)
   end)
 
 let test_sm_name_label = "__test_sm"
 
-module CreateSMObject = Generic.Make(Generic.EncapsulateState(struct
+module CreateSMObject = Generic.MakeStateful(struct
                                        module Io = struct
                                          type input_t = string list
                                          type output_t = sm_object
@@ -240,15 +239,14 @@ module CreateSMObject = Generic.Make(Generic.EncapsulateState(struct
                                          }
 
                                        let tests =
-                                         List.map
+    `QuickAndAutoDocumented (List.map
                                            (fun sequence -> (sequence.smapiv2_features, sequence.sm))
-                                           test_sequences
-                                     end))
+      test_sequences)
+end)
 
-let test =
-  "test_sm_features" >:::
-  [
-    "test_parse_smapiv1_features" >::: ParseSMAPIv1Features.tests;
-    "test_create_smapiv2_features" >::: CreateSMAPIv2Features.tests;
-    "test_create_sm_object" >::: CreateSMObject.tests;
+let tests =
+  List.map (fun (s, t) -> Format.sprintf "sm_features_%s" s, t)
+  [ "parse_smapiv1_features",  ParseSMAPIv1Features.tests;
+    "create_smapiv2_features",  CreateSMAPIv2Features.tests;
+    "create_sm_object", CreateSMObject.tests;
   ]

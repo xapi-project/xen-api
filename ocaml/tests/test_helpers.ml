@@ -12,14 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 open Test_highlevel
 open Stdext
 
 type pif = {device: string; management: bool; other_config: (string * string) list}
 
-module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
+module DetermineGateway = Generic.MakeStateful(struct
                                          module Io = struct
                                            (* The type of inputs to a system being tested. *)
                                            type input_t = pif list * string option
@@ -65,7 +64,7 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
                                            get_device gateway,
                                            get_device dns
 
-                                         let tests = [
+                                         let tests = `QuickAndAutoDocumented [
                                            ([
                                              {device="eth0"; management=true; other_config=[]};
                                              {device="eth1"; management=false; other_config=[]}],
@@ -108,9 +107,9 @@ module DetermineGateway = Generic.Make(Generic.EncapsulateState(struct
                                            ),
                                            (Some "eth0", Some "eth1");
                                          ]
-                                       end))
+                                       end)
 
-module PortCheckers = Generic.Make (struct
+module PortCheckers = Generic.MakeStateless (struct
     module Io = struct
       type input_t = (int * string)
       type output_t = (exn, unit) Either.t
@@ -128,7 +127,7 @@ module PortCheckers = Generic.Make (struct
       with e ->
         Left e
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (-22, "myport"),
       left (Server_error
               (value_not_supported,
@@ -154,7 +153,7 @@ module PortCheckers = Generic.Make (struct
     ]
   end)
 
-module PortRangeCheckers = Generic.Make (struct
+module PortRangeCheckers = Generic.MakeStateless (struct
     module Io = struct
       type input_t = ((int * string) * (int * string))
       type output_t = (exn, unit) Either.t
@@ -173,7 +172,7 @@ module PortRangeCheckers = Generic.Make (struct
                  ~first_port ~first_name ~last_port ~last_name)
       with e -> Left e
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ((-22, "first_port"), (1234, "last_port")),
       left (Server_error
               (value_not_supported,
@@ -197,7 +196,7 @@ module PortRangeCheckers = Generic.Make (struct
     ]
   end)
 
-module IPCheckers = Generic.Make (struct
+module IPCheckers = Generic.MakeStateless (struct
     module Io = struct
       type input_t = [`ipv4 | `ipv6] * string * string
       type output_t = (exn, unit) Either.t
@@ -219,7 +218,7 @@ module IPCheckers = Generic.Make (struct
       with e ->
         Left e
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (`ipv4, "address", "192.168.0.1"), (Right ());
       (`ipv4, "address", "255.255.255.0"), (Right ());
       (`ipv4, "address1", ""), (Left (Server_error(invalid_ip_address_specified, ["address1"])));
@@ -239,7 +238,7 @@ module IPCheckers = Generic.Make (struct
     ]
   end)
 
-module CIDRCheckers = Generic.Make (struct
+module CIDRCheckers = Generic.MakeStateless (struct
     module Io = struct
       type input_t = [`ipv4 | `ipv6] * string * string
       type output_t = (exn, unit) Either.t
@@ -261,7 +260,7 @@ module CIDRCheckers = Generic.Make (struct
       with e ->
         Left e
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (`ipv4, "address", "192.168.0.1/24"), (Right ());
       (`ipv4, "address", "255.255.255.0/32"), (Right ());
       (`ipv4, "address1", ""), (Left (Server_error(invalid_cidr_address_specified, ["address1"])));
@@ -285,12 +284,10 @@ module CIDRCheckers = Generic.Make (struct
     ]
   end)
 
-let test =
-  "test_helpers" >:::
-  [
-    "test_determine_gateway" >::: DetermineGateway.tests;
-    "test_assert_is_valid_tcp_udp_port" >::: PortCheckers.tests;
-    "test_assert_is_valid_tcp_udp_port_range" >::: PortRangeCheckers.tests;
-    "test_assert_is_valid_ip" >::: IPCheckers.tests;
-    "test_assert_is_valid_cidr" >::: CIDRCheckers.tests;
+let tests = make_suite "helpers_" [
+    "determine_gateway", DetermineGateway.tests;
+    "assert_is_valid_tcp_udp_port", PortCheckers.tests;
+    "assert_is_valid_tcp_udp_port_range", PortRangeCheckers.tests;
+    "assert_is_valid_ip", IPCheckers.tests;
+    "assert_is_valid_cidr", CIDRCheckers.tests;
   ]

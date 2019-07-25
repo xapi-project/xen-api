@@ -14,7 +14,6 @@
 
 open Stdext
 open Fun
-open OUnit
 open Test_highlevel
 
 type host_license_state = {
@@ -36,7 +35,7 @@ let f2d2s f = f |> Date.of_float |> Date.to_string
 
 let edition_to_int = ["edition1", 1; "edition2", 2; "edition3", 3]
 
-module CompareDates = Generic.Make(struct
+module CompareDates = Generic.MakeStateless(struct
     module Io = struct
       type input_t = (Date.iso8601 option * Date.iso8601 option)
       type output_t = int
@@ -50,7 +49,7 @@ module CompareDates = Generic.Make(struct
     let transform (date1, date2) = Xapi_pool_license.compare_dates date1 date2
 
     (* Tuples of ((value 1, value 2), expected result from comparing values) *)
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ((None, None), 0);
       ((None, Some (f2d 5.0)), 1);
       ((Some (f2d 10.0), Some (f2d 5.0)), 1);
@@ -60,7 +59,7 @@ module CompareDates = Generic.Make(struct
     ]
   end)
 
-module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
+module PoolExpiryDate = Generic.MakeStateful(struct
                                        module Io = struct
                                          type input_t = Date.iso8601 option list
                                          type output_t = Date.iso8601 option
@@ -88,22 +87,23 @@ module PoolExpiryDate = Generic.Make(Generic.EncapsulateState(struct
                                          snd (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
 
                                        (* Tuples of ((host expiry date) list, expected pool expiry date) *)
-                                       let tests = [
+  let tests = `QuickAndAutoDocumented [
                                          ([None; None; Some (f2d 500.0); None], Some (f2d 500.0));
                                          ([None; None; None; None], None);
                                          ([Some (f2d 100.0)], Some (f2d 100.0));
                                          ([Some (f2d 300.0); Some (f2d 150.0); Some (f2d 450.0)], Some (f2d 150.0));
                                          ([None; Some (f2d 650.0); None; Some (f2d 350.0)], Some (f2d 350.0));
                                        ]
-                                     end))
+end)
 
-module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
+module PoolEdition = Generic.MakeStateful(struct
                                     module Io = struct
                                       type input_t = string list
                                       type output_t = string
 
                                       let string_of_input_t = Test_printers.(list string)
                                       let string_of_output_t = Test_printers.string
+
                                     end
                                     module State = Test_state.XapiDb
 
@@ -119,16 +119,16 @@ module PoolEdition = Generic.Make(Generic.EncapsulateState(struct
                                       fst (Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts ~edition_to_int)
 
                                     (* Tuples of ((host edition) list, expected pool edition) *)
-                                    let tests = [
+  let tests = `QuickAndAutoDocumented [
                                       (["edition1"], "edition1");
                                       (["edition1"; "edition2"; "edition1"; "edition3"], "edition1");
                                       (["edition2"; "edition2"; "edition2"; "edition2"], "edition2");
                                       (["edition3"; "edition3"; "edition3"], "edition3");
                                       (["edition2"; "edition2"; "edition1"; "edition1"], "edition1");
                                     ]
-                                  end))
+end)
 
-module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
+module PoolLicenseState = Generic.MakeStateful(struct
                                          module Io = struct
                                            type input_t = host_license_state list
                                            type output_t = string * string
@@ -163,7 +163,7 @@ module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
                                            pool_edition, pool_expiry
 
                                          (* Tuples of (host_license_state list, expected pool license state) *)
-                                         let tests = [
+  let tests = `QuickAndAutoDocumented [
                                            (* A pool of edition1 hosts, none of which has an expiry date. *)
                                            [
                                              {license_params = []; edition = "edition1"};
@@ -193,13 +193,13 @@ module PoolLicenseState = Generic.Make(Generic.EncapsulateState(struct
                                            ],
                                            ("edition1", "never");
                                          ]
-                                       end))
+end)
 
-let test =
-  "pool_license" >:::
+let tests =
+  List.map (fun (s, t) -> Format.sprintf "pool_license_%s" s, t)
   [
-    "test_compare_dates" >::: CompareDates.tests;
-    "test_pool_expiry_date" >::: PoolExpiryDate.tests;
-    "test_pool_edition" >::: PoolEdition.tests;
-    "test_pool_license_state" >::: PoolLicenseState.tests;
+    "compare_dates", CompareDates.tests;
+    "expiry_date", PoolExpiryDate.tests;
+    "edition", PoolEdition.tests;
+    "license_state", PoolLicenseState.tests;
   ]

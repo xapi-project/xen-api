@@ -12,10 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 
-module FixCookie = Generic.Make(struct
+module FixCookie = Generic.MakeStateless(struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = (string * string) list
@@ -26,7 +25,7 @@ module FixCookie = Generic.Make(struct
 
     let transform = Xapi_services.fix_cookie
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* These cookies should be unchanged. *)
       [], [];
       ["foo", "bar"], ["foo", "bar"];
@@ -48,8 +47,5 @@ module FixCookie = Generic.Make(struct
     ]
   end)
 
-let test =
-  "test_http" >:::
-  [
-    "test_fix_cookie" >::: FixCookie.tests;
+let tests = [ "test_http_fix_cookie", FixCookie.tests
   ]

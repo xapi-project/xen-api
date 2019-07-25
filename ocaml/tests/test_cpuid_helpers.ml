@@ -13,12 +13,10 @@
  *)
 
 open Stdext
-open OUnit
 open Test_highlevel
 open Cpuid_helpers
 
-
-module StringOfFeatures = Generic.Make (struct
+module StringOfFeatures = Generic.MakeStateless (struct
     module Io = struct
       type input_t = int64 array
       type output_t = string
@@ -28,14 +26,14 @@ module StringOfFeatures = Generic.Make (struct
 
     let transform = Cpuid_helpers.string_of_features
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       [|0L; 2L; 123L|], "00000000-00000002-0000007b";
       [|0L|], "00000000";
       [||], "";
     ]
   end)
 
-module FeaturesOfString = Generic.Make (struct
+module FeaturesOfString = Generic.MakeStateless (struct
     module Io = struct
       type input_t = string
       type output_t = int64 array
@@ -45,14 +43,14 @@ module FeaturesOfString = Generic.Make (struct
 
     let transform = Cpuid_helpers.features_of_string
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       "00000000-00000002-0000007b", [|0L; 2L; 123L|];
       "00000000", [|0L|];
       "", [||];
     ]
   end)
 
-module RoundTripFeaturesToFeatures = Generic.Make (struct
+module RoundTripFeaturesToFeatures = Generic.MakeStateless (struct
     module Io = struct
       type input_t = int64 array
       type output_t = int64 array
@@ -62,15 +60,15 @@ module RoundTripFeaturesToFeatures = Generic.Make (struct
 
     let transform = fun x -> x |> Cpuid_helpers.string_of_features |> Cpuid_helpers.features_of_string
 
-    let tests = List.map (fun x -> x, x) [
+    let tests = `QuickAndAutoDocumented (List.map (fun x -> x, x) [
         [|0L; 1L; 123L|];
         [|1L|];
         [|0L|];
         [||];
-      ]
+      ])
   end)
 
-module RoundTripStringToString = Generic.Make (struct
+module RoundTripStringToString = Generic.MakeStateless(struct
     module Io = struct
       type input_t = string
       type output_t = string
@@ -80,15 +78,15 @@ module RoundTripStringToString = Generic.Make (struct
 
     let transform = fun x -> x |> Cpuid_helpers.features_of_string |> Cpuid_helpers.string_of_features
 
-    let tests = List.map (fun x -> x, x) [
+    let tests = `QuickAndAutoDocumented (List.map (fun x -> x, x) [
         "00000000-00000002-0000007b";
         "00000001";
         "00000000";
         "";
-      ]
+      ])
   end)
 
-module ParseFailure = Generic.Make (struct
+module ParseFailure = Generic.MakeStateless(struct
     module Io = struct
       type input_t = string
       type output_t = exn
@@ -103,18 +101,18 @@ module ParseFailure = Generic.Make (struct
         raise NoExceptionRaised
       with e -> e
 
-    let tests = List.map (fun x -> x, InvalidFeatureString x) [
+    let tests = `QuickAndAutoDocumented (List.map (fun x -> x, InvalidFeatureString x) [
         "foo bar baz";
         "fgfg-1234";
         "0123-foo";
         "foo-0123";
         "-1234";
         "1234-";
-      ]
+      ])
   end)
 
 
-module Extend = Generic.Make (struct
+module Extend = Generic.MakeStateless (struct
     module Io = struct
       type input_t = int64 array * int64 array
       type output_t = int64 array
@@ -124,7 +122,7 @@ module Extend = Generic.Make (struct
 
     let transform = fun (arr0, arr1) -> Cpuid_helpers.extend arr0 arr1
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ([| |], [| |]), [| |];
       ([| |], [| 0L; 2L |]), [| 0L; 2L |];
       ([| 1L |], [| |]), [| |];
@@ -136,7 +134,7 @@ module Extend = Generic.Make (struct
   end)
 
 
-module ZeroExtend = Generic.Make (struct
+module ZeroExtend = Generic.MakeStateless (struct
     module Io = struct
       type input_t = int64 array * int
       type output_t = int64 array
@@ -146,7 +144,7 @@ module ZeroExtend = Generic.Make (struct
 
     let transform = fun (arr, len) -> Cpuid_helpers.zero_extend arr len
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ([| 1L |], 2), [| 1L; 0L |];
       ([| 1L |], 1), [| 1L; |];
       ([| |], 2), [| 0L; 0L |];
@@ -159,7 +157,7 @@ module ZeroExtend = Generic.Make (struct
   end)
 
 
-module Intersect = Generic.Make (struct
+module Intersect = Generic.MakeStateless(struct
     module Io = struct
       type input_t = int64 array * int64 array
       type output_t = int64 array
@@ -169,7 +167,7 @@ module Intersect = Generic.Make (struct
 
     let transform = fun (a, b) -> Cpuid_helpers.intersect a b
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* Intersect should follow monoid laws - identity and commutativity *)
       ([| |], [| |]),            [| |];
       ([| 1L; 2L; 3L |], [| |]), [| 1L; 2L; 3L |];
@@ -202,7 +200,7 @@ module Intersect = Generic.Make (struct
   end)
 
 
-module Equality = Generic.Make (struct
+module Equality = Generic.MakeStateless (struct
     module Io = struct
       type input_t = int64 array * int64 array
       type output_t = bool
@@ -213,7 +211,7 @@ module Equality = Generic.Make (struct
     let transform = fun (a, b) ->
       Cpuid_helpers.(is_equal a b)
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ([| |], [| |]),            true;
       ([| 1L; 2L; 3L |], [| 1L; 2L; 3L |]), true;
       ([| 1L; 2L; 3L |], [| |]), false;
@@ -231,7 +229,7 @@ module Equality = Generic.Make (struct
   end)
 
 
-module Comparisons = Generic.Make (struct
+module Comparisons = Generic.MakeStateless (struct
     module Io = struct
       type input_t = int64 array * int64 array
       type output_t = (bool * bool)
@@ -242,7 +240,7 @@ module Comparisons = Generic.Make (struct
     let transform = fun (a, b) ->
       Cpuid_helpers.(is_subset a b, is_strict_subset a b)
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* The following are counterintuitive, because intersection with the empty
        * set is treated as identity, and intersection is used in is_subset.
        * Since there are no empty feature sets in reality, these are artificial
@@ -284,7 +282,7 @@ module Comparisons = Generic.Make (struct
   end)
 
 
-module Accessors = Generic.Make (struct
+module Accessors = Generic.MakeStateless (struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = string * int * int * int64 array * int64 array
@@ -300,7 +298,7 @@ module Accessors = Generic.Make (struct
       getf features_pv record,
       getf features_hvm record
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ["vendor", "Intel"; "socket_count", "1"; "cpu_count", "1";
        "features_pv", "00000001-00000002-00000003";
        "features_hvm", "0000000a-0000000b-0000000c"],
@@ -312,7 +310,7 @@ module Accessors = Generic.Make (struct
     ]
   end)
 
-module Setters = Generic.Make (struct
+module Setters = Generic.MakeStateless (struct
     module Io = struct
       type input_t = string * int * int * int64 array * int64 array
       type output_t = (string * string) list
@@ -330,7 +328,7 @@ module Setters = Generic.Make (struct
       |> setf features_hvm hvm
       |> List.sort compare
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ("Intel", 1, 1, [| 1L; 2L; 3L |], [| 0xaL; 0xbL; 0xcL |]),
       List.sort compare ["vendor", "Intel";
                          "socket_count", "1"; "cpu_count", "1";
@@ -346,7 +344,7 @@ module Setters = Generic.Make (struct
   end)
 
 
-module Modifiers = Generic.Make (struct
+module Modifiers = Generic.MakeStateless (struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = (string * string) list
@@ -364,7 +362,7 @@ module Modifiers = Generic.Make (struct
       |> setf features_hvm (getf features_hvm record)
       |> List.sort compare
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ["cpu_count", "1";
        "features_hvm", "0000000a-0000000b-0000000c";
        "features_pv", "00000001-00000002-00000003";
@@ -382,7 +380,7 @@ module Modifiers = Generic.Make (struct
 let domain_type : API.domain_type Test_printers.printer =
   Record_util.domain_type_to_string
 
-module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
+module ResetCPUFlags = Generic.MakeStateful(struct
                                       module Io = struct
                                         type input_t = (string * API.domain_type) list
                                         type output_t = string list
@@ -423,17 +421,17 @@ module ResetCPUFlags = Generic.Make(Generic.EncapsulateState(struct
 
 
                                       (* Tuples of ((features_hvm * features_pv) list, (expected last_boot_CPU_flags) *)
-                                      let tests = [
+  let tests = `QuickAndAutoDocumented [
                                         (["a", `hvm], [features_hvm]);
                                         (["a", `pv], [features_pv]);
                                         (["a", `pv_in_pvh], [features_hvm]);
                                         (["a", `hvm; "b", `pv; "c", `pv_in_pvh],
                                           [features_hvm; features_pv; features_hvm]);
                                       ]
-                                    end))
+end)
 
 
-module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
+module AssertVMIsCompatible = Generic.MakeStateful(struct
                                              module Io = struct
                                                type input_t = string * API.domain_type * (string * string) list
                                                type output_t = (exn, unit) Either.t
@@ -472,7 +470,7 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
                                                  Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
                                                | e -> Either.Left e
 
-                                             let tests = [
+  let tests = `QuickAndAutoDocumented [
                                                (* HVM *)
                                                ("a", `hvm,
                                                 Xapi_globs.([cpu_info_vendor_key, "Abacus";
@@ -515,37 +513,25 @@ module AssertVMIsCompatible = Generic.Make(Generic.EncapsulateState(struct
 
 
                                              ]
-                                           end))
+end)
 
-let test =
-  "test_cpuid_helpers" >:::
+let tests =
+  make_suite "cpuid_helpers_"
   [
-    "test_string_of_features" >::: StringOfFeatures.tests;
-    "test_features_of_string" >::: FeaturesOfString.tests;
-    "test_roundtrip_features_to_features" >:::
-    RoundTripFeaturesToFeatures.tests;
-    "test_roundtrip_string_to_features" >:::
-    RoundTripStringToString.tests;
-    "test_parse_failure" >:::
-    ParseFailure.tests;
-    "test_extend" >:::
-    Extend.tests;
-    "test_zero_extend" >:::
-    ZeroExtend.tests;
-    "test_intersect" >:::
-    Intersect.tests;
-    "test_equality" >:::
-    Equality.tests;
-    "test_comparisons" >:::
-    Comparisons.tests;
-    "test_accessors" >:::
-    Accessors.tests;
-    "test_setters" >:::
-    Setters.tests;
-    "test_modifiers" >:::
-    Modifiers.tests;
-    "test_reset_cpu_flags" >:::
-    ResetCPUFlags.tests;
+    "string_of_features", StringOfFeatures.tests;
+    "features_of_string", FeaturesOfString.tests;
+    "roundtrip_features_to_features", RoundTripFeaturesToFeatures.tests;
+    "roundtrip_string_to_features", RoundTripStringToString.tests;
+    "parse_failure", ParseFailure.tests;
+    "extend", Extend.tests;
+    "zero_extend", ZeroExtend.tests;
+    "intersect", Intersect.tests;
+    "equality", Equality.tests;
+    "comparisons", Comparisons.tests;
+    "accessors", Accessors.tests;
+    "setters", Setters.tests;
+    "modifiers", Modifiers.tests;
+    "reset_cpu_flags", ResetCPUFlags.tests;
     (*	"test_assert_vm_is_compatible" >:::
       				AssertVMIsCompatible.tests;*)
   ]

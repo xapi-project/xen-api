@@ -14,7 +14,6 @@
 
 open Stdext
 open Map_check
-open OUnit
 open Test_common
 open Test_highlevel
 
@@ -26,7 +25,7 @@ let true_fun = (fun _ -> true)
 
 let false_fun = (fun _ -> false)
 
-module AddDefaults = Generic.Make(struct
+module AddDefaults = Generic.MakeStateless(struct
     module Io = struct
       type input_t = (requirement list) * ((string * string) list)
       type output_t = (string * string) list
@@ -40,7 +39,7 @@ module AddDefaults = Generic.Make(struct
 
     let transform (requirements, old_map) = add_defaults requirements old_map
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* If default value is None, no value should be added. *)
       (
         [{key = "abc"; default_value = None; is_valid_value = true_fun}],
@@ -68,7 +67,7 @@ module AddDefaults = Generic.Make(struct
     ]
   end)
 
-module ValidateKVPair = Generic.Make(struct
+module ValidateKVPair = Generic.MakeStateless(struct
     module Io = struct
       type input_t = requirement list * string * string
       type output_t = (exn, unit) Either.t
@@ -83,7 +82,7 @@ module ValidateKVPair = Generic.Make(struct
       try Either.Right (validate_kvpair "test_field" requirements (key, value))
       with e -> Either.Left e
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* If all values are valid, the exception should not be thrown. *)
       (
         [{key = "abc"; default_value = None; is_valid_value = true_fun}],
@@ -100,7 +99,7 @@ module ValidateKVPair = Generic.Make(struct
     ]
   end)
 
-module Accessors = Generic.Make(struct
+module Accessors = Generic.MakeStateless(struct
     module Io = struct
       type input_t = string * (string * string) list
       type output_t = int
@@ -112,7 +111,7 @@ module Accessors = Generic.Make(struct
     let transform (key, map) =
       getf (field key int) map
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       ("a", ["a", "1"]), 1;
     ]
   end)
@@ -130,7 +129,7 @@ let string_of_ks ks =
   ) kss
   |> String.concat ";"
 
-module AssertAllKeys = Generic.Make(struct
+module AssertAllKeys = Generic.MakeStateless(struct
   module Io = struct
     type input_t = string *
       (string * (string * (string * (Map_check.key_type * string))list)list) *
@@ -148,7 +147,7 @@ module AssertAllKeys = Generic.Make(struct
 
   let transform (ty, ks, value, db) = assert_all_keys ty ks value db
 
-  let tests = [
+  let tests = `QuickAndAutoDocumented [
     (* Tests for hourly snapshots *)
     ("hourly", ("", ["hourly", ["min",(String,"")]]), ["min","30"], ["min", "0"]), ["min","30"];
     ("hourly", ("", ["hourly", ["min",(String,"")]]), ["hour","1";"min","0"], ["min", "0"]), ["min","0"];
@@ -180,7 +179,7 @@ module AssertAllKeys = Generic.Make(struct
   ]
 end)
 
-module AssertKeys = Generic.Make(struct
+module AssertKeys = Generic.MakeStateless(struct
   module Io = struct
     type input_t = string *
       (string * (string * (string * (Map_check.key_type * string))list)list) *
@@ -199,7 +198,7 @@ module AssertKeys = Generic.Make(struct
     try Either.Right (assert_keys ty ks value db)
     with e -> Either.Left e
  
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* Tests hourly keys *)
       ("", ("", ["", ["min",(String,"")]]), ["min","30"], ["min", "0"]), Either.Right (["min","30"]);
       ("", ("", ["", ["min",(String,"")]]), ["hour","0"], ["min", "0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":hour"; "0"])));
@@ -220,12 +219,10 @@ module AssertKeys = Generic.Make(struct
 
 end)
 
-let test =
-  "test_map_check" >:::
-  [
-    "test_add_defaults" >::: AddDefaults.tests;
-    "test_validate_kvpair" >::: ValidateKVPair.tests;
-    "test_accessors" >::: Accessors.tests;
-    "test_assert_all_keys" >::: AssertAllKeys.tests;
-    "test_assert_keys" >::: AssertKeys.tests;
+let tests = List.map (fun (s, t) -> (Format.sprintf "test_map_check_%s" s), t)
+  [ "add_defaults", AddDefaults.tests;
+    "validate_kvpair", ValidateKVPair.tests;
+    "accessors", Accessors.tests;
+    "assert_all_keys", AssertAllKeys.tests;
+    "assert_keys", AssertKeys.tests;
   ]

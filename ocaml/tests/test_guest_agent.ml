@@ -12,10 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 
-module Networks = Generic.Make (struct
+module Networks = Generic.MakeStateless (struct
     module Io = struct
       type input_t = string list
       type output_t = (string * string) list
@@ -62,7 +61,7 @@ module Networks = Generic.Make (struct
         ; Xapi_guest_agent.networks "xenserver/attr" "net-sriov-vf" (list tree)
       ]
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* basic cases *)
       [ "attr/vif/0/ipv6/0";
       ], [ "attr/vif/0/ipv6/0", "0/ipv6/0";
@@ -173,7 +172,7 @@ module Networks = Generic.Make (struct
     ]
   end)
 
-module Initial_guest_metrics = Generic.Make (struct
+module Initial_guest_metrics = Generic.MakeStateless (struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = (string * string) list
@@ -260,7 +259,7 @@ module Initial_guest_metrics = Generic.Make (struct
       guest_metrics.Xapi_guest_agent.networks
 
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* basic cases *)
       [ "attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
       ], [ "0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
@@ -412,9 +411,7 @@ module Initial_guest_metrics = Generic.Make (struct
     ]
   end)
 
-let test =
-  "test_guest_agent" >:::
-  [
-    "test_networks" >::: Networks.tests;
-    "test_get_initial_guest_metrics" >::: Initial_guest_metrics.tests;
+let tests = make_suite "guest_agent_" [
+    "networks", Networks.tests;
+    "get_initial_guest_metrics", Initial_guest_metrics.tests;
   ]

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 open Test_highlevel
 open Test_vgpu_common
@@ -37,7 +36,7 @@ module NvidiaTest = struct
       conf.max_x
       conf.max_y
 
-  module ReadWhitelist = Generic.Make(struct
+  module ReadWhitelist = Generic.MakeStateless(struct
       module Io = struct
         type input_t = (string * int) (* whitelist * device_id *)
         type output_t = Vendor_nvidia.vgpu_conf list
@@ -51,7 +50,7 @@ module NvidiaTest = struct
       let transform (whitelist, device_id) =
         Vendor_nvidia.read_whitelist ~whitelist ~device_id
 
-      let tests = [
+      let tests = `QuickAndAutoDocumented [
         ("test_data/this-file-is-not-there.xml", 0x3333),
         [];
         ("test_data/nvidia-whitelist.xml", 0x4444),
@@ -137,20 +136,19 @@ module NvidiaTest = struct
       ]
     end)
 
-  module HostDriverMultipleVgpuSupport = Generic.Make(struct
+  module HostDriverMultipleVgpuSupport = Generic.MakeStateless(struct
       module Io = struct
         type input_t = (string * string list)
         type output_t = bool
 
         let string_of_input_t (host_driver_version, supported_driver_versions) =
           Printf.sprintf "(%s, %s)" host_driver_version (String.concat "," supported_driver_versions)
-
         let string_of_output_t x = string_of_bool x
       end
 
       let transform (host_driver_version, supported_versions) = Xapi_vgpu_type.Vendor_nvidia.host_driver_supports_multi_vgpu ~host_driver_version ~supported_versions
 
-      let tests = [
+      let tests = `QuickAndAutoDocumented [
         ("430.19",["430.19"]), true; (* Test specific version should match *)
         ("430.19",["430.89";"430.19"]), true; (* Test specific version should match *)
         ("430.19",["430.19";"typo_error"]), true; (* Test specific version should match *)
@@ -163,13 +161,6 @@ module NvidiaTest = struct
         ("530.400",["430.200+";"typo_error"]), true; (* One wrong format config should not affact others *)
       ]
     end)
-
-  (* This test generates a lot of print --- set skip to false to enable *)
-  let skip = true
-
-  let print_nv_types () =
-    skip_if skip "Generates print...";
-    
 end
 
 module IntelTest = struct
@@ -184,7 +175,7 @@ module IntelTest = struct
       conf.experimental
       conf.model_name
 
-  module ReadWhitelistLine = Generic.Make(struct
+  module ReadWhitelistLine = Generic.MakeStateless(struct
       module Io = struct
         type input_t = string
         type output_t = Vendor_intel.vgpu_conf option
@@ -195,7 +186,7 @@ module IntelTest = struct
 
       let transform line = Vendor_intel.read_whitelist_line ~line
 
-      let tests = [
+      let tests = `QuickAndAutoDocumented [
         (* Test some failure cases. *)
         "", None;
         "nonsense123", None;
@@ -233,7 +224,7 @@ module IntelTest = struct
       ]
     end)
 
-  module ReadWhitelist = Generic.Make(struct
+  module ReadWhitelist = Generic.MakeStateless(struct
       module Io = struct
         type input_t = (string * int) (* whitelist * device_id *)
         type output_t = Vendor_intel.vgpu_conf list
@@ -247,7 +238,7 @@ module IntelTest = struct
       let transform (whitelist, device_id) =
         Vendor_intel.read_whitelist ~whitelist ~device_id |> List.rev
 
-      let tests = [
+      let tests = `QuickAndAutoDocumented [
         ("test_data/gvt-g-whitelist-empty", 0x1234), [];
         ("test_data/gvt-g-whitelist-missing", 0x1234), [];
         ("test_data/gvt-g-whitelist-1234", 0x1234),
@@ -314,7 +305,7 @@ module AMDTest = struct
       conf.model_name
       conf.vgpus_per_pgpu
 
-  module ReadWhitelistLine = Generic.Make(struct
+  module ReadWhitelistLine = Generic.MakeStateless(struct
       module Io = struct
         type input_t = string
         type output_t = Vendor_amd.vgpu_conf option
@@ -325,7 +316,7 @@ module AMDTest = struct
 
       let transform line = Vendor_amd.read_whitelist_line ~line
 
-      let tests = [
+      let tests = `QuickAndAutoDocumented [
         (* Test some failure cases. *)
         "", None;
         "nonsense123", None;
@@ -353,7 +344,7 @@ module AMDTest = struct
       ]
     end)
 
-  module ReadWhitelist = Generic.Make(struct
+  module ReadWhitelist = Generic.MakeStateless(struct
       module Io = struct
         type input_t = (string * int) (* whitelist * device_id *)
         type output_t = Vendor_amd.vgpu_conf list
@@ -367,7 +358,7 @@ module AMDTest = struct
       let transform (whitelist, device_id) =
         Vendor_amd.read_whitelist ~whitelist ~device_id |> List.rev
 
-      let tests = [
+      let tests = `QuickAndAutoDocumented [
         ("test_data/mxgpu-whitelist-empty", 0x1234), [];
         ("test_data/mxgpu-whitelist-missing", 0x1234), [];
         ("test_data/mxgpu-whitelist-1234", 0x1234),
@@ -412,20 +403,20 @@ let test_find_or_create () =
   let __context = make_test_database () in
   let k100_ref_1 = find_or_create ~__context k100 in
   (* Check the VGPU type created in the DB has the expected fields. *)
-  assert_equal
-    ~msg:"k100 framebuffer_size is incorrect"
+  Alcotest.check Alcotest.int64
+    "k100 framebuffer_size is incorrect"
     k100.framebuffer_size
     (Db.VGPU_type.get_framebuffer_size ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 max_heads is incorrect"
+  Alcotest.check Alcotest.int64
+    "k100 max_heads is incorrect"
     k100.max_heads
     (Db.VGPU_type.get_max_heads ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 size is incorrect"
+  Alcotest.check Alcotest.int64
+    "k100 size is incorrect"
     k100.size
     (Db.VGPU_type.get_size ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 experimental flag is incorrect"
+  Alcotest.check Alcotest.bool
+    "k100 experimental flag is incorrect"
     k100.experimental
     (Db.VGPU_type.get_experimental ~__context ~self:k100_ref_1);
   (* Simulate an update of framebuffer_size, max_heads, size and the
@@ -442,25 +433,25 @@ let test_find_or_create () =
   let k100_ref_2 = find_or_create ~__context new_k100 in
   (* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
      	 * been created. *)
-  assert_equal
-    ~msg:"New k100 type was created erroneously"
+  Alcotest.check (Alcotest_comparators.ref ())
+    "New k100 type was created erroneously"
     k100_ref_1 k100_ref_2;
   (* Make sure the existing VGPU type object in the database
      	 * has been updated. *)
-  assert_equal
-    ~msg:"k100 framebuffer_size was not updated"
+  Alcotest.check Alcotest.int64
+    "k100 framebuffer_size was not updated"
     new_k100.framebuffer_size
     (Db.VGPU_type.get_framebuffer_size ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 max_heads was not updated"
+  Alcotest.check Alcotest.int64
+    "k100 max_heads was not updated"
     new_k100.max_heads
     (Db.VGPU_type.get_max_heads ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 size was not updated"
+  Alcotest.check Alcotest.int64
+    "k100 size was not updated"
     new_k100.size
     (Db.VGPU_type.get_size ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 was not marked experimental"
+  Alcotest.check Alcotest.bool
+    "k100 was not marked experimental"
     new_k100.experimental
     (Db.VGPU_type.get_experimental ~__context ~self:k100_ref_1)
 
@@ -473,16 +464,16 @@ let test_identifier_lookup () =
       {k100 with vendor_name = test_vendor_name; model_name = test_model_name} in
   (* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
      	 * been created. *)
-  assert_equal
-    ~msg:"New k100 type was created erroneously"
+  Alcotest.check (Alcotest_comparators.ref ())
+    "New k100 type was created erroneously"
     k100_ref_1 k100_ref_2;
   (* Make sure the VGPU_type's vendor and model names have been updated. *)
-  assert_equal
-    ~msg:"k100 vendor_name was not updated"
+  Alcotest.check Alcotest.string
+    "k100 vendor_name was not updated"
     test_vendor_name
     (Db.VGPU_type.get_vendor_name ~__context ~self:k100_ref_1);
-  assert_equal
-    ~msg:"k100 model_name was not updated"
+  Alcotest.check Alcotest.string
+    "k100 model_name was not updated"
     test_model_name
     (Db.VGPU_type.get_model_name ~__context ~self:k100_ref_1)
 
@@ -495,26 +486,26 @@ let test_vendor_model_lookup () =
   let k100_ref_2 = find_or_create ~__context k100 in
   (* Make sure the new ref is the same as the old ref, i.e. no new VGPU_type has
      	 * been created. *)
-  assert_equal
-    ~msg:"New k100 type was created erroneously"
+  Alcotest.check (Alcotest_comparators.ref ())
+    "New k100 type was created erroneously"
     k100_ref_1 k100_ref_2;
   (* Make sure the identifier field has been updated. *)
-  assert_equal
-    ~msg:"k100 identifier was not updated."
+  Alcotest.check Alcotest.string
+    "k100 identifier was not updated."
     (Identifier.to_string k100.identifier)
     (Db.VGPU_type.get_identifier ~__context ~self:k100_ref_1)
 
 let test =
-  "test_vgpu_type" >:::
-  [
-    "nvidia_read_whitelist" >::: NvidiaTest.ReadWhitelist.tests;
-    "nvidia_host_driver_support_multiple_vgpu" >::: NvidiaTest.HostDriverMultipleVgpuSupport.tests;
-    "nvidia_print_nv_types" >:: NvidiaTest.print_nv_types;
-    "intel_read_whitelist_line" >::: IntelTest.ReadWhitelistLine.tests;
-    "intel_read_whitelist" >::: IntelTest.ReadWhitelist.tests;
-    "mxgpu_read_whitelist_line" >::: AMDTest.ReadWhitelistLine.tests;
-    "mxgpu_read_whitelist" >::: AMDTest.ReadWhitelist.tests;
-    "test_find_or_create" >:: test_find_or_create;
-    "test_identifier_lookup" >:: test_identifier_lookup;
-    "test_vendor_model_lookup" >:: test_vendor_model_lookup;
+  [ "find_or_create", `Quick, test_find_or_create;
+    "identifier_lookup", `Quick, test_identifier_lookup;
+    "vendor_model_lookup", `Quick, test_vendor_model_lookup;
+  ]
+
+let tests = make_suite "vgpu_type" [
+  "_nvidia_read_whitelist",  NvidiaTest.ReadWhitelist.tests;
+  "_nvidia_host_driver_support_multiple_vgpu",  NvidiaTest.HostDriverMultipleVgpuSupport.tests;
+  "_intel_read_whitelist_line",  IntelTest.ReadWhitelistLine.tests;
+  "_intel_read_whitelist",  IntelTest.ReadWhitelist.tests;
+  "_mxgpu_read_whitelist_line",  AMDTest.ReadWhitelistLine.tests;
+  "_mxgpu_read_whitelist",  AMDTest.ReadWhitelist.tests;
   ]

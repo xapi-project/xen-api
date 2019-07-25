@@ -15,7 +15,6 @@
 open API
 open Stdext
 open Fun
-open OUnit
 
 (* A directory to use for temporary files. *)
 let working_area = "/tmp/xapi-test"
@@ -23,19 +22,18 @@ let working_area = "/tmp/xapi-test"
 (** Utility functions *)
 let id (x : 'a) : 'a = x
 
-let skip str = skip_if true str
 let make_uuid () = Uuid.string_of_uuid (Uuid.make_uuid ())
 
 let assert_raises_api_error (code : string) ?(args : string list option) (f : unit -> 'a) : unit =
   try
     f ();
-    assert_failure (Printf.sprintf "Function didn't raise expected API error %s" code)
+    Alcotest.fail (Printf.sprintf "Function didn't raise expected API error %s" code)
   with Api_errors.Server_error (c, a) ->
-    assert_equal ~printer:id ~msg:"Function raised unexpected API error" code c;
+    Alcotest.check Alcotest.string "Function raised unexpected API error" code c;
     match args with
     | None -> ()
     | Some args ->
-      assert_equal ~printer:Test_printers.(list string) ~msg:"Function raised API error with unexpected args" args a
+      Alcotest.(check (list string)) "Function raised API error with unexpected args" args a
 
 let make_localhost ~__context ?(features=Features.all_features) () =
   let host_info = {

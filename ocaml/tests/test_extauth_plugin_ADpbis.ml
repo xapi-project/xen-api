@@ -12,10 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 
-module PbisAuthErrorsCatch = Generic.Make(struct
+module PbisAuthErrorsCatch = Generic.MakeStateless(struct
     module Io = struct
       type input_t = string list
       type output_t = Auth_signature.auth_service_error_tag
@@ -35,7 +34,7 @@ module PbisAuthErrorsCatch = Generic.Make(struct
 
     let transform = Extauth_plugin_ADpbis.match_error_tag
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       [], Auth_signature.E_GENERIC;
       [""; ""], Auth_signature.E_GENERIC;
       [""; "some words"], Auth_signature.E_GENERIC;
@@ -55,7 +54,7 @@ module PbisAuthErrorsCatch = Generic.Make(struct
     ]
   end)
 
-module PbisExtractSid = Generic.Make(struct
+module PbisExtractSid = Generic.MakeStateless(struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = string list
@@ -66,7 +65,7 @@ module PbisExtractSid = Generic.Make(struct
 
     let transform = Extauth_plugin_ADpbis.extract_sid_from_group_list
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       [(" ", " ")], [];
 
       [("Exception","Remote connection shutdown!")], [];
@@ -90,10 +89,9 @@ module PbisExtractSid = Generic.Make(struct
     ]
   end)
 
-let test =
-  "test_extauth_ADpbis" >:::
-  [
-    "test_pbis_auth_errors_catch" >::: PbisAuthErrorsCatch.tests;
-    "test_pbis_extract_sid" >::: PbisExtractSid.tests;
+let tests =
+  make_suite "extauth_ADpbis_" [
+    "pbis_auth_errors_catch", PbisAuthErrorsCatch.tests;
+    "pbis_extract_sid", PbisExtractSid.tests;
   ]
 

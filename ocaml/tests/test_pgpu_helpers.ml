@@ -14,13 +14,12 @@
 
 open Stdext
 open Either
-open OUnit
 open Test_common
 open Test_highlevel
 open Test_vgpu_common
 open Xapi_vgpu_type
 
-module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
+module GetRemainingCapacity = Generic.MakeStateful(struct
                                              module Io = struct
                                                type input_t = (pgpu_state * vgpu_type)
                                                type output_t = int64
@@ -42,7 +41,7 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
                                                Xapi_pgpu_helpers.get_remaining_capacity
                                                  ~__context ~self:pgpu_ref ~vgpu_type:vgpu_type_ref ~pre_allocate_list:[]
 
-                                             let tests = [
+  let tests = `QuickAndAutoDocumented [
                                                (* Test that empty PGPUs have the correct capacity for each virtual
                                                   		 * GPU type. *)
                                                (default_k1, k100), 8L;
@@ -89,10 +88,7 @@ module GetRemainingCapacity = Generic.Make(Generic.EncapsulateState(struct
                                                  k240q
                                                ), 1L;
                                              ]
-                                           end))
+end)
 
-let test =
-  "test_pgpu_helpers" >:::
-  [
-    "test_get_remaining_capacity" >::: GetRemainingCapacity.tests;
+let tests = [ "test_pgpu_helpers_get_remaining_capacity", GetRemainingCapacity.tests;
   ]
