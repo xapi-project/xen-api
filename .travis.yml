@@ -17,8 +17,5 @@ env:
     # Also, set TESTS to false to avoid running them twice.
     - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
       TEST=false \
+      OCAML_VERSION="4.07" \
       POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"
-matrix:
-  fast_finish: true
-  allow_failures:
-    - env: EXTRA_REMOTES=git://github.com/xapi-project/xs-opam
