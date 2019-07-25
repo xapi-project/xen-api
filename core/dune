@@ -1,0 +1,12 @@
+(library
+  (name ezxenstore_core)
+  (public_name ezxenstore.core)
+  (wrapped false)
+  (libraries
+    cmdliner
+    logs
+    threads
+    uuidm
+    xenstore_transport.unix
+    xenstore.unix)
+)
