@@ -320,15 +320,12 @@ let ds_update rrd timestamp values transforms new_domid =
           then nan
           else
             let raw = ds.ds_value /. (Int64.to_float (occu_pdp_st --- proc_pdp_st) -. ds.ds_unknown_sec) in
-            let raw =
-              if raw < ds.ds_min
-              then ds.ds_min
-              else if raw > ds.ds_max
-              then ds.ds_max
-              else raw
-            in
-            (* Here is where we apply the transform *)
-            transforms.(i) raw
+            (* Apply the transform after the raw value has been calculated *)
+            let raw = transforms.(i) raw in
+            (* Make sure the values are not out of bounds after all the processing *)
+            if raw < ds.ds_min || raw > ds.ds_max
+            then nan
+            else raw
         ) rrd.rrd_dss in
 
       rra_update rrd proc_pdp_st elapsed_pdp_st pdps;
