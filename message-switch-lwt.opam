@@ -13,11 +13,10 @@ build: [
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
-  "ocamlfind" {build}
   "odoc" {with-doc}
-  "message-switch-core"
-  "lwt" {>= "3.0.0"}
   "cohttp-lwt-unix"
+  "lwt" {>= "3.0.0"}
+  "message-switch-core"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """

@@ -13,10 +13,10 @@ build: [
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
-  "ocamlfind" {build}
   "odoc" {with-doc}
-  "message-switch-unix"
   "cmdliner"
+  "message-switch-unix"
+  "ppx_deriving_rpc"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """

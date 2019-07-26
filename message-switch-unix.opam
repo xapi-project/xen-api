@@ -13,9 +13,10 @@ build: [
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
-  "ocamlfind" {build}
   "odoc" {with-doc}
+  "base-threads"
   "message-switch-core"
+  "ppx_deriving_rpc"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """
