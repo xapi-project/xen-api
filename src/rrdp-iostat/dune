@@ -13,5 +13,6 @@
     xenctrl
     xenstore.unix
     inotify
+    mtime.clock.os
   )
 )
