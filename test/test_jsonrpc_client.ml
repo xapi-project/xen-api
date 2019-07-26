@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 open Xapi_stdext_monadic.Either
 
@@ -21,7 +20,7 @@ let dir = Filename.concat "test" "jsonrpc_files"
 let jsonrpc_printer : Rpc.t Test_printers.printer =
   Jsonrpc.to_string
 
-module Input_json_object = Generic.Make (struct
+module Input_json_object = Generic.MakeStateless (struct
     module Io = struct
       type input_t = string
       type output_t = (exn, Rpc.t) Xapi_stdext_monadic.Either.t
@@ -51,7 +50,7 @@ module Input_json_object = Generic.Make (struct
       close_in fin;
       response
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* A file containing exactly one JSON object. *)
       (* It has got curly braces inside strings to make it interesting. *)
       "good_call.json", Right good_call;
@@ -67,8 +66,6 @@ module Input_json_object = Generic.Make (struct
     ]
   end)
 
-let suite =
-  "jsonrpc_client" >:::
-  [
-    "input_json_object" >::: Input_json_object.tests;
+let tests =
+  [ "json_rpc_client_input_json_object", Input_json_object.tests;
   ]
