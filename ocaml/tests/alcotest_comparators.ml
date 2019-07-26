@@ -1,7 +1,6 @@
 
 (** Creates a [testable] from the given pretty-printer using the polymorphic equality function *)
-let from_to_string pp =
-  Alcotest.testable (Fmt.of_to_string pp) (=)
+let from_to_string = Test_util.alcotestable_of_pp
 
 (** A [testable] that compares values using the polymorphic equality and does not pretty-print them *)
 let only_compare () = from_to_string (fun _ -> "<no pretty-printer>")

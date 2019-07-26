@@ -12,13 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_common
 open Test_highlevel
 open Stdext
 open Either
 
-module Assert_not_already_present = Generic.Make(Generic.EncapsulateState(struct
+module Assert_not_already_present = Generic.MakeStateful(struct
                                                    module Io = struct
                                                      type input_t = string * string
                                                      type output_t = (exn, unit) Either.t
@@ -52,7 +51,7 @@ module Assert_not_already_present = Generic.Make(Generic.EncapsulateState(struct
                                                      with e ->
                                                        Left e
 
-                                                   let tests = [
+                                                   let tests = `QuickAndAutoDocumented [
                                                      ("site1", "host1"),
                                                      Left (Api_errors.(
                                                          Server_error (pvs_cache_storage_already_present,
@@ -69,9 +68,9 @@ module Assert_not_already_present = Generic.Make(Generic.EncapsulateState(struct
                                                      ("site2", "host2"),
                                                      Right ();
                                                    ]
-                                                 end))
+                                                 end)
 
-module Assert_not_in_use = Generic.Make(Generic.EncapsulateState(struct
+module Assert_not_in_use = Generic.MakeStateful(struct
                                           module Io = struct
                                             type input_t = string * string
                                             type output_t = (exn, unit) Either.t
@@ -120,7 +119,7 @@ module Assert_not_in_use = Generic.Make(Generic.EncapsulateState(struct
                                             with e ->
                                               Left e
 
-                                          let tests = [
+                                          let tests = `QuickAndAutoDocumented [
                                             ("site1", "host1"),
                                             Left (Api_errors.(
                                                 Server_error (pvs_cache_storage_is_in_use, [Ref.string_of pcs1])
@@ -135,11 +134,10 @@ module Assert_not_in_use = Generic.Make(Generic.EncapsulateState(struct
                                             ("site2", "host2"),
                                             Right ();
                                           ]
-                                        end))
+                                        end)
 
-let test =
-  "test_pvs_site" >:::
-  [
-    "test_is_already_present'" >::: Assert_not_already_present.tests;
-    "test_assert_not_in_use" >::: Assert_not_in_use.tests;
+let tests =
+  make_suite "pvs_site_" [
+    "is_already_present",  Assert_not_already_present.tests;
+    "assert_not_in_use",  Assert_not_in_use.tests;
   ]

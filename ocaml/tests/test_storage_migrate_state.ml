@@ -13,7 +13,6 @@
  *)
 
 open Stdext
-open OUnit
 open Test_highlevel
 
 module StorageMigrateState = struct
@@ -51,47 +50,47 @@ let sample_copy_state = Storage_migrate.State.Copy_state.({
     remote_url = "remote_url";
   })
 
-module MapOf = Generic.Make(Generic.EncapsulateState(struct
-                              module Io = struct
-                                open Storage_migrate.State
+module MapOf = Generic.MakeStateful(struct
+  module Io = struct
+    open Storage_migrate.State
 
-                                type input_t =
-                                  (string * osend operation) option *
-                                  (string * orecv operation) option *
-                                  (string * ocopy operation) option
-                                type output_t =
-                                  (string * Send_state.t) list *
-                                  (string * Receive_state.t) list *
-                                  (string * Copy_state.t) list
+    type input_t =
+      (string * osend operation) option *
+      (string * orecv operation) option *
+      (string * ocopy operation) option
+    type output_t =
+      (string * Send_state.t) list *
+      (string * Receive_state.t) list *
+      (string * Copy_state.t) list
 
-                                let string_of_input_t _ = ""
-                                let string_of_output_t _ = ""
-                              end
+    let string_of_input_t _ = ""
+    let string_of_output_t _ = ""
+  end
 
-                              module State = StorageMigrateState
+  module State = StorageMigrateState
 
-                              open Storage_migrate.State
+  open Storage_migrate.State
 
-                              let load_input () (send, recv, copy) =
-                                Opt.iter (fun (id, send) -> add id send) send;
-                                Opt.iter (fun (id, recv) -> add id recv) recv;
-                                Opt.iter (fun (id, copy) -> add id copy) copy
+  let load_input () (send, recv, copy) =
+    Opt.iter (fun (id, send) -> add id send) send;
+    Opt.iter (fun (id, recv) -> add id recv) recv;
+    Opt.iter (fun (id, copy) -> add id copy) copy
 
-                              let extract_output () _ = map_of ()
+  let extract_output () _ = map_of ()
 
-                              let tests = [
-                                (* Test that operations don't appear from nowhere. *)
-                                (None, None, None),
-                                ([], [], []);
-                                (* Test that any of the single operations get persisted. *)
-                                (Some ("foo", Send_op sample_send_state), None, None),
-                                (["foo", sample_send_state], [], []);
-                                (None, Some ("bar", Recv_op sample_receive_state), None),
-                                ([], ["bar", sample_receive_state], []);
-                                (None, None, Some ("baz", Copy_op sample_copy_state)),
-                                ([], [], ["baz", sample_copy_state]);
-                              ]
-                            end))
+  let tests = `QuickAndAutoDocumented [
+    (* Test that operations don't appear from nowhere. *)
+    (None, None, None),
+    ([], [], []);
+    (* Test that any of the single operations get persisted. *)
+    (Some ("foo", Send_op sample_send_state), None, None),
+    (["foo", sample_send_state], [], []);
+    (None, Some ("bar", Recv_op sample_receive_state), None),
+    ([], ["bar", sample_receive_state], []);
+    (None, None, Some ("baz", Copy_op sample_copy_state)),
+    ([], [], ["baz", sample_copy_state]);
+  ]
+end)
 
 let test_clear () =
   let open Storage_migrate.State in
@@ -101,12 +100,12 @@ let test_clear () =
   add "baz" (Copy_op sample_copy_state);
   clear ();
   let state = map_of () in
-  assert_equal ~msg:"State was not empty after clearing" state ([], [], [])
+  Alcotest.check (Alcotest_comparators.only_compare ())  "State was not empty after clearing" state ([], [], [])
 
-let test =
+let test = [ "clear", `Quick, test_clear ]
+
+let tests =
   Storage_migrate.State.persist_root := Test_common.working_area;
-  "test_storage_migrate_state" >:::
   [
-    "test_map_of" >::: MapOf.tests;
-    "test_clear" >:: test_clear;
+    "storage_migrate_state_map_of", MapOf.tests;
   ]

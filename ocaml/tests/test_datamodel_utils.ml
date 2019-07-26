@@ -14,10 +14,9 @@
 
 open Stdext
 open Fun
-open OUnit
 open Test_highlevel
 
-module HasBeenRemoved = Generic.Make(struct
+module HasBeenRemoved = Generic.MakeStateless(struct
     module Io = struct
       type input_t = Datamodel_types.lifecycle_transition list
       type output_t = bool
@@ -35,7 +34,7 @@ module HasBeenRemoved = Generic.Make(struct
 
     let transform = Datamodel_utils.has_been_removed
 
-    let tests = Datamodel_types.([
+    let tests = `QuickAndAutoDocumented Datamodel_types.([
         [], false;
         [Published, "release1", ""], false;
         [Removed, "release1", ""], true;
@@ -53,8 +52,6 @@ module HasBeenRemoved = Generic.Make(struct
       ])
   end)
 
-let test =
-  "datamodel_utils" >:::
-  [
-    "test_has_been_removed" >::: HasBeenRemoved.tests;
+let tests = [
+    "data_model_utils_test_has_been_removed", HasBeenRemoved.tests;
   ]

@@ -12,11 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 open Features
 
-module OfAssocList = Generic.Make(struct
+module OfAssocList = Generic.MakeStateless(struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = Features.feature list
@@ -30,7 +29,7 @@ module OfAssocList = Generic.Make(struct
 
     (* Xen_motion and AD are enabled unless explicitly disabled. All other features
        	   are disabled unless explitly enabled. *)
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       [],
       [Xen_motion; AD];
 
@@ -60,8 +59,6 @@ module OfAssocList = Generic.Make(struct
   end)
 
 
-let test =
-  "pool_license" >:::
-  [
-    "test_of_assoc_list" >::: OfAssocList.tests;
+let tests =
+  [ "pool_license_of_assoc_list", OfAssocList.tests;
   ]

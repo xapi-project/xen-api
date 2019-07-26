@@ -12,10 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 
-module Networks = Generic.Make (struct
+module Networks = Generic.MakeStateless (struct
     module Io = struct
       type input_t = string list
       type output_t = (string * string) list
@@ -29,7 +28,7 @@ module Networks = Generic.Make (struct
     let rec add_path_to_tree (T(root, children)) = function
       | [] -> (T(root, children))
       | node :: rest_of_path ->
-        try 
+        try
           let T(_, children_of_node) = List.find (fun (T(n, _)) -> n = node) children in
           let t = add_path_to_tree (T(node, children_of_node)) rest_of_path in
           T(root, t :: (List.filter (fun (T(n, _)) -> n <> node) children))
@@ -55,14 +54,14 @@ module Networks = Generic.Make (struct
       list_helper children nodes
 
 
-    let transform input = 
+    let transform input =
       let tree = List.fold_left construct_tree (T("", [])) input in
       List.concat [
           Xapi_guest_agent.networks "attr" "vif" (list tree)
         ; Xapi_guest_agent.networks "xenserver/attr" "net-sriov-vf" (list tree)
       ]
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* basic cases *)
       [ "attr/vif/0/ipv6/0";
       ], [ "attr/vif/0/ipv6/0", "0/ipv6/0";
@@ -173,7 +172,7 @@ module Networks = Generic.Make (struct
     ]
   end)
 
-module Initial_guest_metrics = Generic.Make (struct
+module Initial_guest_metrics = Generic.MakeStateless (struct
     module Io = struct
       type input_t = (string * string) list
       type output_t = (string * string) list
@@ -182,7 +181,7 @@ module Initial_guest_metrics = Generic.Make (struct
       let string_of_output_t = Test_printers.(assoc_list string string)
     end
 
-    type 'a mtree = 
+    type 'a mtree =
       | Lf of 'a * 'a
       | Mt of 'a * 'a mtree list
 
@@ -203,14 +202,14 @@ module Initial_guest_metrics = Generic.Make (struct
             | [] -> Lf(root, leaf_value)
             | _ -> raise (Failure "Can't add a leaf on a tree node"))
          | node :: rest_paths ->
-           try 
+           try
              let t = List.find (has_name node) children in
              (match t with
               | Lf (_, _) -> raise (Failure "Can't overwrite an existing leaf")
               | Mt (node, children_of_node) ->
                 let mt = add_leaf_to_mtree rest_paths leaf_value (Mt(node, children_of_node)) in
                 Mt(root, mt :: (List.filter (fun n -> not (has_name node n)) children)))
-           with Not_found -> 
+           with Not_found ->
              Mt(root, (add_leaf_to_mtree rest_paths leaf_value (Mt(node, []))) :: children))
 
     let construct_mtree mtree (path, leaf_value) =
@@ -236,14 +235,14 @@ module Initial_guest_metrics = Generic.Make (struct
         list_helper children paths
 
     let rec lookup_helper mtree = function
-      | [] -> 
+      | [] ->
         (match mtree with
          | Lf (_, v) -> Some v
          | Mt (_, _) -> None)
       | node :: rest_paths ->
         (match mtree with
          | Lf (l, v) -> lookup_helper (Lf(l, v)) rest_paths
-         | Mt (_, children) -> 
+         | Mt (_, children) ->
            try
              lookup_helper (List.find (has_name node) children) rest_paths
            with Not_found -> None)
@@ -254,13 +253,13 @@ module Initial_guest_metrics = Generic.Make (struct
         lookup_helper mtree paths
 
 
-    let transform input = 
+    let transform input =
       let tree = List.fold_left construct_mtree (Mt("", [])) input in
       let guest_metrics = Xapi_guest_agent.get_initial_guest_metrics (lookup tree) (list tree) in
       guest_metrics.Xapi_guest_agent.networks
 
 
-    let tests = [
+    let tests = `QuickAndAutoDocumented [
       (* basic cases *)
       [ "attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
       ], [ "0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06";
@@ -412,9 +411,7 @@ module Initial_guest_metrics = Generic.Make (struct
     ]
   end)
 
-let test =
-  "test_guest_agent" >:::
-  [
-    "test_networks" >::: Networks.tests;
-    "test_get_initial_guest_metrics" >::: Initial_guest_metrics.tests;
+let tests = make_suite "guest_agent_" [
+    "networks", Networks.tests;
+    "get_initial_guest_metrics", Initial_guest_metrics.tests;
   ]

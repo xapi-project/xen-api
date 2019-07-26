@@ -14,9 +14,9 @@
 
 open Stdext
 open Fun
-open OUnit
 open Test_highlevel
-module PoolCpuinfo = Generic.Make(Generic.EncapsulateState(struct
+
+module PoolCpuinfo = Generic.MakeStateful(struct
                                     module Io = struct
                                       type input_t = ((string * string) list * bool) list
                                       type output_t = (string * string) list
@@ -56,7 +56,7 @@ module PoolCpuinfo = Generic.Make(Generic.EncapsulateState(struct
                                       (* Sort the associaton list so the test framework's comparisons work *)
                                       List.sort compare cpu_info
 
-                                    let tests = [
+                                    let tests = `QuickAndAutoDocumented [
                                       ([cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true],
                                        cpu_info "Abacus" "1" "1" "0000000a" "0000000a");
 
@@ -90,10 +90,8 @@ module PoolCpuinfo = Generic.Make(Generic.EncapsulateState(struct
                                         ["cpu_count", "1"; "features", "ffff1111-a5a56666"; "socket_count", "1"; "vendor", "Abacus"], true],
                                        cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002");
                                     ]
-                                  end))
+                                  end)
 
-let test =
-  "pool_cpuinfo" >:::
-  [
-    "test_pool_cpuinfo" >::: PoolCpuinfo.tests;
+let tests =
+  [ "test_pool_cpuinfo", PoolCpuinfo.tests;
   ]

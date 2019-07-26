@@ -12,11 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Test_highlevel
 open Dbsync_master
 
-module CreateToolsSR = Generic.Make (Generic.EncapsulateState (struct
+module CreateToolsSR = Generic.MakeStateful(struct
   module Io = struct
     type input_t = (string * string * (string * string) list * bool) list
 
@@ -80,7 +79,7 @@ module CreateToolsSR = Generic.Make (Generic.EncapsulateState (struct
 
   (* All tests expect the outcome to be one and only one Tools SR with
    * the pre-specified name, description and other_config keys *)
-  let tests =
+  let tests = `QuickAndAutoDocumented
     [ (* No Tools SR yet *)
       ([], [(name, description, other_config)])
     ; (* An existing Tools SR *)
@@ -126,7 +125,7 @@ module CreateToolsSR = Generic.Make (Generic.EncapsulateState (struct
         ; ("Toolz 4", "Toolz ISOs 4", [(Xapi_globs.tools_sr_tag, "true")], false)]
       , [(name, description, other_config)] )
     ]
-end))
+end)
 
-let test =
-  "test_dbsync_master" >::: ["create_tools_sr" >::: CreateToolsSR.tests]
+let tests =
+  [ "dbsync_master_create_tools_sr", CreateToolsSR.tests]
