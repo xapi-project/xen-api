@@ -12,36 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module type TRANSPORT = sig
-  type id_t
-
-  type state_t
-
-  val init: id_t -> state_t
-
-  val cleanup: id_t -> state_t -> unit
-
-  val expose: state_t -> Cstruct.t
-end
-
-type interdomain_id = {
-  frontend_domid: int;
-  shared_page_refs: int list;
-}
-
-type reader = {
+type reader = Rrd_reader_functor.reader = {
   read_payload: unit -> Rrd_protocol.payload;
   cleanup: unit -> unit;
 }
 
-module Make (T: TRANSPORT) : sig
-  val create: T.id_t -> Rrd_protocol.protocol -> reader
-end
+include Rrd_file_reader
+include Rrd_page_reader
 
-module FileReader : sig
-  val create: string -> Rrd_protocol.protocol -> reader
-end
-
-module PageReader : sig
-  val create: interdomain_id -> Rrd_protocol.protocol -> reader
-end
+module FileReader = Rrd_file_reader
+module PageReader = Rrd_page_reader
