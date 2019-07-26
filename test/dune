@@ -1,9 +1,9 @@
 (executable
  (name network_test)
  (libraries
+  alcotest
   astring
   networklibs
-  oUnit
   profiling
   xapi-test-utils)
 )
