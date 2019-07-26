@@ -8,7 +8,7 @@ dev-repo: "git://github.com/xapi-project/message-switch"
 tags: [ "org:xapi-project" ]
 build: [
   ["./configure" "--bindir" "%{bin}%"]
-  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
 depends: [
   "ocaml"
