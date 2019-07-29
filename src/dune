@@ -1,6 +1,7 @@
 (executable
  (name main)
  (libraries
+	cmdliner
 	cohttp-lwt 
 	message-switch-lwt
 	rpclib-lwt 

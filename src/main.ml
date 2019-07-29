@@ -147,12 +147,30 @@ let make_message_switch_server () =
   | `Error (`Msg m) ->
     Lwt.fail_with (Printf.sprintf "Failed to listen on message-switch queue: %s" m)
 
-let () =
+let main log_level =
+  Debug.set_level log_level;
+  Debug.set_facility Syslog.Local5;
+
   let old_hook = !Lwt.async_exception_hook in
   Lwt.async_exception_hook := (fun exn ->
       D.log_backtrace ();
       D.error "Lwt caught async exception: %s" (Printexc.to_string exn);
       old_hook exn
-    );
+  );
   let () = Lwt_main.run @@ make_message_switch_server () in
   D.debug "Exiting varstored-guard"
+
+let cmd = Cmdliner.(
+  let info = Term.info "varstored-guard" ~exits:Term.default_exits in
+  let log_level =
+    let doc = "Syslog level. E.g. debug, info etc." in
+    let level_conv =
+      let parse s = try `Ok (Syslog.level_of_string s) with _ -> `Error (Format.sprintf "Unknown level: %s" s) in
+      let print ppf level = Format.pp_print_string ppf (Syslog.string_of_level level) in
+      (parse, print) in
+    Arg.(value & opt level_conv Syslog.Info & info ["log-level"] ~docv:"LEVEL" ~doc) in
+
+  let program = Term.(const main $ log_level) in
+    (program, info))
+
+let () = Cmdliner.Term.(exit @@ eval cmd)
