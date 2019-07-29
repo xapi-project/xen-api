@@ -24,8 +24,20 @@ let time f =
   (try f () with e -> warn "Caught exception while performing timed function: %s" (Printexc.to_string e));
   Unix.gettimeofday () -. start
 
-(* give xapi time to reply to API messages by means of a 10 second fuse! *)
-let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () =
+type fuse_state = { m: Mutex.t ; mutable already_lit: [`Exit | `Reboot] list }
+
+let fuses = { m = Mutex.create (); already_lit = [] }
+
+let once kind f =
+  Stdext.Threadext.Mutex.execute fuses.m (fun () ->
+      if List.mem kind fuses.already_lit then
+        debug "xapi_fuse: this fuse is already lit: no-op"
+      else begin
+        fuses.already_lit <- kind :: fuses.already_lit;
+        f ()
+      end)
+
+let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () = once `Exit @@ fun () ->
   debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally";
   let delay_so_far =
     time (fun _ -> log_and_ignore_exn Xapi_stats.stop) +.
@@ -50,7 +62,7 @@ let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () =
                  exit Xapi_globs.restart_return_code
             ) () )
 
-let light_fuse_and_reboot_after_eject() =
+let light_fuse_and_reboot_after_eject() = once `Reboot @@ fun () ->
   ignore (Thread.create
             (fun ()->
                Thread.delay !Xapi_globs.fuse_time;
@@ -59,14 +71,14 @@ let light_fuse_and_reboot_after_eject() =
                ()
             ) ())
 
-let light_fuse_and_reboot ?(fuse_length = !Xapi_globs.fuse_time) () =
+let light_fuse_and_reboot ?(fuse_length = !Xapi_globs.fuse_time) () = once `Reboot @@ fun () ->
   ignore (Thread.create
             (fun ()->
                Thread.delay fuse_length;
                ignore(Sys.command "shutdown -r now")
             ) ())
 
-let light_fuse_and_dont_restart ?(fuse_length = !Xapi_globs.fuse_time) () =
+let light_fuse_and_dont_restart ?(fuse_length = !Xapi_globs.fuse_time) () = once `Exit @@ fun () ->
   ignore (Thread.create
             (fun () ->
                debug "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save current RRDs locally";
