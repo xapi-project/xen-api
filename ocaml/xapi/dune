@@ -52,7 +52,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    pam
    pciutil
    pci
-   ezxenstore
+   ezxenstore.core
    message-switch-unix
    mtime
    mtime.clock.os
@@ -80,7 +80,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xapi-idl.memory
    xapi-idl.gpumon
    xapi-idl.updates
-   rrdd-plugin
+   rrd-transport.file
+   rrdd-plugin.local
    xapi-xenopsd
    xapi-netdev
    yojson

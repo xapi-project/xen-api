@@ -30,7 +30,7 @@ open D
 
 type host_info = {
   name_label : string;
-  xen_verstring : string;
+  xen_verstring : string option;
   linux_verstring : string;
   hostname : string;
   uuid : string;
@@ -40,12 +40,12 @@ type host_info = {
   oem_build_number : string option;
   machine_serial_number: string option;
   machine_serial_name: string option;
-  total_memory_mib: int64;
-  dom0_static_max: int64;
+  total_memory_mib: int64 option;
+  dom0_static_max: int64 option;
   ssl_legacy: bool;
-  cpu_info : Xenops_interface.Host.cpu_info;
-  chipset_info : Xenops_interface.Host.chipset_info;
-  hypervisor : Xenops_interface.Host.hypervisor;
+  cpu_info : Xenops_interface.Host.cpu_info option;
+  chipset_info : Xenops_interface.Host.chipset_info option;
+  hypervisor : Xenops_interface.Host.hypervisor option;
 }
 
 (** The format of the response looks like
@@ -116,9 +116,9 @@ let read_localhost_info ~__context =
   let open Xapi_xenops_queue in
   let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
   let dbg = Context.string_of_task __context in
-  let stat = Client.HOST.stat dbg in
-  let total_memory_mib = Client.HOST.get_total_memory_mib dbg
-  and linux_verstring =
+  let stat = try Some (Client.HOST.stat dbg) with _ -> None in
+  let total_memory_mib = try Some (Client.HOST.get_total_memory_mib dbg) with _ -> None in
+  let linux_verstring =
     let verstring = ref "" in
     let f line =
       try verstring := List.nth (String.split ' ' line) 2
@@ -128,34 +128,35 @@ let read_localhost_info ~__context =
   in
   let me = Helpers.get_localhost_uuid () in
   let lookup_inventory_nofail k = try Some (Xapi_inventory.lookup k) with _ -> None in
-  let this_host_name = Helpers.get_hostname() in
+  let this_host_name = Helpers.get_hostname () in
 
-  let dom0_static_max = match read_dom0_memory_usage () with
-    | Some x -> x
-    | None ->
+  let dom0_static_max = match read_dom0_memory_usage (), total_memory_mib with
+    | Some x, _ -> Some x
+    | None, Some total_memory_mib' ->
       info "Failed to query balloon driver, assuming target = static_max";
-      Int64.(mul total_memory_mib (mul 1024L 1024L)) in
+      Some (Int64.(mul total_memory_mib' (mul 1024L 1024L)))
+    | _ -> None
+  in
+  let open Xapi_inventory in
+  let open Xenops_interface.Host in
   {
-    name_label=this_host_name;
-    xen_verstring=stat.hypervisor.version;
-    linux_verstring=linux_verstring;
-    hostname=this_host_name;
-    uuid=me;
-    dom0_uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid;
-    oem_manufacturer = lookup_inventory_nofail Xapi_inventory._oem_manufacturer;
-    oem_model = lookup_inventory_nofail Xapi_inventory._oem_model;
-    oem_build_number = lookup_inventory_nofail Xapi_inventory._oem_build_number;
-    machine_serial_number = lookup_inventory_nofail Xapi_inventory._machine_serial_number;
-    machine_serial_name = lookup_inventory_nofail Xapi_inventory._machine_serial_name;
-    total_memory_mib = total_memory_mib;
-    dom0_static_max = dom0_static_max;
-    cpu_info = stat.cpu_info;
-    chipset_info = stat.chipset_info;
-    hypervisor = stat.hypervisor;
-    ssl_legacy = try (
-      bool_of_string (
-        Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"false")
-    ) with _ -> true;
+    name_label = this_host_name;
+    xen_verstring = Opt.map (fun s -> s.hypervisor.version) stat;
+    linux_verstring;
+    hostname = this_host_name;
+    uuid = me;
+    dom0_uuid = lookup _control_domain_uuid;
+    oem_manufacturer = lookup_inventory_nofail _oem_manufacturer;
+    oem_model = lookup_inventory_nofail _oem_model;
+    oem_build_number = lookup_inventory_nofail _oem_build_number;
+    machine_serial_number = lookup_inventory_nofail _machine_serial_number;
+    machine_serial_name = lookup_inventory_nofail _machine_serial_name;
+    total_memory_mib;
+    dom0_static_max;
+    cpu_info = Opt.map (fun s -> s.cpu_info) stat;
+    chipset_info = Opt.map (fun s -> s.chipset_info) stat;
+    hypervisor = Opt.map (fun s -> s.hypervisor) stat;
+    ssl_legacy = try bool_of_string (lookup _stunnel_legacy ~default:"false") with _ -> true;
   }
 
 (** Returns the maximum of two values. *)
@@ -481,7 +482,7 @@ let make_software_version ~__context host_info =
   v6_version @
   [
     "xapi", get_xapi_verstring ();
-    "xen", host_info.xen_verstring;
+    "xen", Opt.default "(unknown)" host_info.xen_verstring;
     "linux", host_info.linux_verstring;
     "xencenter_min", Xapi_globs.xencenter_min_verstring;
     "xencenter_max", Xapi_globs.xencenter_max_verstring;
@@ -505,72 +506,73 @@ let create_software_version ~__context host_info =
 let create_host_cpu ~__context host_info =
   let open Map_check in
   let open Cpuid_helpers in
+  match host_info.cpu_info with
+  | None -> warn "Failed to get host CPU info; not updating database"
+  | Some cpu_info ->
+    let cpu = [
+      "cpu_count", string_of_int cpu_info.cpu_count;
+      "socket_count", string_of_int cpu_info.socket_count;
+      "vendor", cpu_info.vendor;
+      "speed", cpu_info.speed;
+      "modelname", cpu_info.modelname;
+      "family", cpu_info.family;
+      "model", cpu_info.model;
+      "stepping", cpu_info.stepping;
+      "flags", cpu_info.flags;
+      (* To support VMs migrated from hosts which do not support CPU levelling v2,
+         		   set the "features" key to what it would be on such hosts. *)
+      "features", Cpuid_helpers.string_of_features cpu_info.features_oldstyle;
+      "features_pv", Cpuid_helpers.string_of_features cpu_info.features_pv;
+      "features_hvm", Cpuid_helpers.string_of_features cpu_info.features_hvm;
+    ] in
+    let host = Helpers.get_localhost ~__context in
+    let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
+    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+      (Map_check.getf Cpuid_helpers.socket_count cpu)
+      (Map_check.getf Cpuid_helpers.cpu_count cpu)
+      (Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
+      (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features);
+    Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 
-  let cpu_info = host_info.cpu_info in
-  let cpu = [
-    "cpu_count", string_of_int cpu_info.cpu_count;
-    "socket_count", string_of_int cpu_info.socket_count;
-    "vendor", cpu_info.vendor;
-    "speed", cpu_info.speed;
-    "modelname", cpu_info.modelname;
-    "family", cpu_info.family;
-    "model", cpu_info.model;
-    "stepping", cpu_info.stepping;
-    "flags", cpu_info.flags;
-    (* To support VMs migrated from hosts which do not support CPU levelling v2,
-       		   set the "features" key to what it would be on such hosts. *)
-    "features", Cpuid_helpers.string_of_features cpu_info.features_oldstyle;
-    "features_pv", Cpuid_helpers.string_of_features cpu_info.features_pv;
-    "features_hvm", Cpuid_helpers.string_of_features cpu_info.features_hvm;
-  ] in
-  let host = Helpers.get_localhost ~__context in
-  let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-  debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
-    (Map_check.getf Cpuid_helpers.socket_count cpu)
-    (Map_check.getf Cpuid_helpers.cpu_count cpu)
-    (Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
-    (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features);
-  Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
-
-  let before = getf ~default:[||] features_hvm old_cpu_info in
-  let after = cpu_info.features_hvm in
-  if not (is_equal before after) && before <> [||] then begin
-    let lost = is_strict_subset (intersect before after) before in
-    let gained = is_strict_subset (intersect before after) after in
-    info "The CPU features of this host have changed.%s%s Old features_hvm=%s."
+    let before = getf ~default:[||] features_hvm old_cpu_info in
+    let after = cpu_info.features_hvm in
+    if not (is_equal before after) && before <> [||] then begin
+      let lost = is_strict_subset (intersect before after) before in
+      let gained = is_strict_subset (intersect before after) after in
+      info "The CPU features of this host have changed.%s%s Old features_hvm=%s."
         (if lost then " Some features have gone away." else "")
         (if gained then " Some features were added." else "")
         (string_of_features before);
 
-    if not (Helpers.rolling_upgrade_in_progress ~__context) && lost then
-      let (name, priority) = Api_messages.host_cpu_features_down in
-      let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
-      let body = Printf.sprintf "The CPU features of this host have changed. Some features have gone away." in
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          ignore (XenAPI.Message.create rpc session_id name priority `Host obj_uuid body)
-        )
-  end;
+      if not (Helpers.rolling_upgrade_in_progress ~__context) && lost then
+        let (name, priority) = Api_messages.host_cpu_features_down in
+        let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+        let body = Printf.sprintf "The CPU features of this host have changed. Some features have gone away." in
+        Helpers.call_api_functions ~__context (fun rpc session_id ->
+            ignore (XenAPI.Message.create rpc session_id name priority `Host obj_uuid body)
+          )
+    end;
 
-  (* Recreate all Host_cpu objects *)
+    (* Recreate all Host_cpu objects *)
 
-  (* Not all /proc/cpuinfo files contain MHz information. *)
-  let speed = try Int64.of_float (float_of_string cpu_info.speed) with _ -> 0L in
-  let model = try Int64.of_string cpu_info.model with _ -> 0L in
-  let family = try Int64.of_string cpu_info.family with _ -> 0L in
+    (* Not all /proc/cpuinfo files contain MHz information. *)
+    let speed = try Int64.of_float (float_of_string cpu_info.speed) with _ -> 0L in
+    let model = try Int64.of_string cpu_info.model with _ -> 0L in
+    let family = try Int64.of_string cpu_info.family with _ -> 0L in
 
-  (* Recreate all Host_cpu objects *)
-  let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
-  List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
-  for i = 0 to cpu_info.cpu_count - 1
-  do
-    let uuid = Uuid.to_string (Uuid.make_uuid ())
-    and ref = Ref.make () in
-    debug "Creating CPU %d: %s" i uuid;
-    ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
-              ~vendor:cpu_info.vendor ~speed ~modelname:cpu_info.modelname
-              ~utilisation:0. ~flags:cpu_info.flags ~stepping:cpu_info.stepping ~model ~family
-              ~features:"" ~other_config:[])
-  done
+    (* Recreate all Host_cpu objects *)
+    let host_cpus = List.filter (fun (_, s) -> s.API.host_cpu_host = host) (Db.Host_cpu.get_all_records ~__context) in
+    List.iter (fun (r, _) -> Db.Host_cpu.destroy ~__context ~self:r) host_cpus;
+    for i = 0 to cpu_info.cpu_count - 1
+    do
+      let uuid = Uuid.to_string (Uuid.make_uuid ())
+      and ref = Ref.make () in
+      debug "Creating CPU %d: %s" i uuid;
+      ignore (Db.Host_cpu.create ~__context ~ref ~uuid ~host ~number:(Int64.of_int i)
+                ~vendor:cpu_info.vendor ~speed ~modelname:cpu_info.modelname
+                ~utilisation:0. ~flags:cpu_info.flags ~stepping:cpu_info.stepping ~model ~family
+                ~features:"" ~other_config:[])
+    done
 
 
 let create_pool_cpuinfo ~__context =
@@ -632,14 +634,12 @@ let create_pool_cpuinfo ~__context =
 
 
 let create_chipset_info ~__context host_info =
-  let host = Helpers.get_localhost ~__context in
-  let iommu =
-    if host_info.chipset_info.iommu then
-      "true"
-    else
-      "false" in
-  let info = ["iommu", iommu] in
-  Db.Host.set_chipset_info ~__context ~self:host ~value:info
+  match host_info.chipset_info with
+  | None -> warn "Failed to get host chipset info; not updating database"
+  | Some {iommu} ->
+    let host = Helpers.get_localhost ~__context in
+    let info = ["iommu", string_of_bool iommu] in
+    Db.Host.set_chipset_info ~__context ~self:host ~value:info
 
 let create_updates_requiring_reboot_info ~__context ~host =
   let update_uuids = try Stdext.Listext.List.setify (Stdext.Unixext.read_lines !Xapi_globs.reboot_required_hfxs) with _ -> [] in

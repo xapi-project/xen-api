@@ -204,6 +204,44 @@ let assert_startup_complete () =
     (fun () -> if not (!startup_complete) then
         raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
 
+(* Check whether the currently installed Toolstack is compatible with the
+   currently installed xenctrl library and the currently running Xen hypervisor.
+*)
+let is_xen_compatible () =
+  try
+    let _ = Forkhelpers.execute_command_get_output !Xapi_globs.list_domains [] in
+    info "The Toolstack is compatible with the current Xen and libxenctrl versions";
+    true
+  with
+  | Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED 2) ->
+    (* list_domains failed with an exception: assuming that the hypercall
+       returned -EACCES, indicating a compatibility problem. *)
+    warn "The current Xen version is incompatible with the Toolstack";
+    false
+  | Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED 127) ->
+    (* list_domains could not execute due to a missing library: assuming that
+       that a compatible version of libxenctrl is not present. *)
+    warn "The current libxenctrl version is incompatible with the Toolstack";
+    false
+  | _ ->
+    error "Unexpected error when calling list_domains; assuming the Toolstack is \
+      incompatible with Xen and/or libxenctrl";
+    false
+
+let xen_compatible = ref None
+
+let assert_xen_compatible () =
+  let compatible =
+    match !xen_compatible with
+    | None ->
+      let x = is_xen_compatible () in
+      xen_compatible := Some x;
+      x
+    | Some x -> x
+  in
+  if not compatible then
+    raise Api_errors.(Server_error (xen_incompatible, []))
+
 let consider_enabling_host_nolock ~__context =
   debug "Xapi_host_helpers.consider_enabling_host_nolock called";
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
@@ -215,7 +253,7 @@ let consider_enabling_host_nolock ~__context =
   Storage_access.resynchronise_pbds ~__context ~pbds;
   let all_pbds_ok = List.fold_left (&&) true (List.map (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds) in
 
-  if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) then begin
+  if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) && is_xen_compatible () then begin
     (* If we were in the middle of a shutdown or reboot with HA enabled but somehow we failed
        		   and xapi restarted, make sure we don't automatically re-enable ourselves. This is to avoid
        		   letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear

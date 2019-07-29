@@ -24,12 +24,16 @@ let queue_override = ref []
 let make_client queue_name =
   let module Client = Xenops_interface.XenopsAPI(Idl.Exn.GenClient(struct
       let rpc x =
-        if !Xcp_client.use_switch
-        then begin
-          if List.mem_assoc queue_name !queue_override
-          then List.assoc queue_name !queue_override x
-          else Xcp_client.json_switch_rpc queue_name x
-        end else Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string ~srcstr:"xapi" ~dststr:"xenops" Xenops_interface.default_uri x
+        if List.mem_assoc queue_name !queue_override then
+          List.assoc queue_name !queue_override x
+        else begin
+          Xapi_host_helpers.assert_xen_compatible ();
+          if !Xcp_client.use_switch then
+            Xcp_client.json_switch_rpc queue_name x
+          else
+            Xcp_client.http_rpc Xmlrpc.string_of_call Xmlrpc.response_of_string
+              ~srcstr:"xapi" ~dststr:"xenops" Xenops_interface.default_uri x
+        end
     end)) in
   (module Client: XENOPS)
 

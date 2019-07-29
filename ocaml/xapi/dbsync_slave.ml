@@ -83,13 +83,16 @@ let refresh_localhost_info ~__context info =
   debug "Updating host software_version and updates_requiring_reboot";
 
   Create_misc.create_updates_requiring_reboot_info ~__context ~host;
-  let new_info = Create_misc.read_localhost_info ~__context in
-  Create_misc.create_software_version ~__context new_info;
+  Create_misc.create_software_version ~__context info;
   Db.Host.set_API_version_major ~__context ~self:host ~value:Datamodel_common.api_version_major;
   Db.Host.set_API_version_minor ~__context ~self:host ~value:Datamodel_common.api_version_minor;
   Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
-  let caps = String.split ' ' new_info.hypervisor.capabilities in
+  let caps =
+    match info.hypervisor with
+    | None -> []
+    | Some {capabilities} -> String.split ' ' capabilities
+  in
   Db.Host.set_capabilities ~__context ~self:host ~value:caps;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context);
 
@@ -118,45 +121,48 @@ let refresh_localhost_info ~__context info =
 
 (** Record host memory properties in database *)
 let record_host_memory_properties ~__context info =
-  let self = !Xapi_globs.localhost_ref in
-  let total_memory_bytes = Memory.bytes_of_mib info.total_memory_mib in
+  match info.total_memory_mib with
+  | None -> warn "Failed to get total host memory; not updating database"
+  | Some total_memory_mib ->
+    let self = !Xapi_globs.localhost_ref in
+    let total_memory_bytes = Memory.bytes_of_mib total_memory_mib in
 
-  let metrics = Db.Host.get_metrics ~__context ~self in
-  Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
-  let boot_memory_bytes =
-    try
-      let dbg = Context.string_of_task __context in
-      Some (Memory_client.Client.get_host_initial_free_memory dbg)
-    with e ->
-      warn "Failed to get host free memory from ballooning service. This may \
-        prevent VMs from being started on this host. (%s)" (Printexc.to_string e);
-      None in
-  maybe
-    (fun boot_memory_bytes ->
-       (* Host memory overhead comes from multiple sources:         *)
-       (* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
-       (*    appears as used memory.                                *)
-       (* 2. non-obvious overhead: (e.g. low memory emergency pool) *)
-       (*    appears as free memory but can't be used in practice.  *)
-       let obvious_overhead_memory_bytes =
-         total_memory_bytes -- boot_memory_bytes in
-       let nonobvious_overhead_memory_kib =
-         try
-           Memory_client.Client.get_host_reserved_memory "dbsync"
-         with e ->
-           error "Failed to contact ballooning service: \
-                  						host memory overhead may be too small (%s)"
-             (Printexc.to_string e);
-           0L
-       in
-       let nonobvious_overhead_memory_bytes =
-         Int64.mul 1024L nonobvious_overhead_memory_kib in
-       Db.Host.set_boot_free_mem ~__context ~self
-         ~value:boot_memory_bytes;
-       Db.Host.set_memory_overhead ~__context ~self ~value:
-         (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes);
-    )
-    boot_memory_bytes
+    let metrics = Db.Host.get_metrics ~__context ~self in
+    Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total_memory_bytes;
+    let boot_memory_bytes =
+      try
+        let dbg = Context.string_of_task __context in
+        Some (Memory_client.Client.get_host_initial_free_memory dbg)
+      with e ->
+        warn "Failed to get host free memory from ballooning service. This may \
+              prevent VMs from being started on this host. (%s)" (Printexc.to_string e);
+        None in
+    maybe
+      (fun boot_memory_bytes ->
+         (* Host memory overhead comes from multiple sources:         *)
+         (* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
+         (*    appears as used memory.                                *)
+         (* 2. non-obvious overhead: (e.g. low memory emergency pool) *)
+         (*    appears as free memory but can't be used in practice.  *)
+         let obvious_overhead_memory_bytes =
+           total_memory_bytes -- boot_memory_bytes in
+         let nonobvious_overhead_memory_kib =
+           try
+             Memory_client.Client.get_host_reserved_memory "dbsync"
+           with e ->
+             error "Failed to contact ballooning service: \
+                    host memory overhead may be too small (%s)"
+               (Printexc.to_string e);
+             0L
+         in
+         let nonobvious_overhead_memory_bytes =
+           Int64.mul 1024L nonobvious_overhead_memory_kib in
+         Db.Host.set_boot_free_mem ~__context ~self
+           ~value:boot_memory_bytes;
+         Db.Host.set_memory_overhead ~__context ~self ~value:
+           (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes);
+      )
+      boot_memory_bytes
 
 (* -- used this for testing uniqueness constraints executed on slave do not kill connection.
    Committing commented out vsn of this because it might be useful again..

@@ -94,6 +94,11 @@ val assert_startup_complete : unit -> unit
 (** [assert_startup_complete ()] will raise `host_still_booting` if the startup
     sequence is not yet complete. *)
 
+val assert_xen_compatible : unit -> unit
+(** Checks whether the currently installed Toolstack is compatible with the
+    currently installed xenctrl library and the currently running Xen hypervisor.)
+    Raises XEN_INCOMPATIBLE if not, and caches the outcome of the check. *)
+
 module Host_requires_reboot : sig
   val set : unit -> unit
   (** [set ()] is used to signal the host needs a reboot. This could be, for
