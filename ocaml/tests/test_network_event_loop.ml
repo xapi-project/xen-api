@@ -22,15 +22,16 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   let other_host = Test_common.make_host ~__context () in
 
   (* We have to wait for a bit for the event loop to notice the changes, without a delay the test will fail. *)
-  let delay = 0.5 in
+  let delay = 0.2 in
 
   (* The max delay time just in case the system is extremely busy *)
-  let timeout = delay *. 10. in
+  let timeout = 10. in
 
   (* handler used for delay and early notification *)
   let wait_hdl = Threadext.Delay.make () in
+  let wait_hdl_fail = Threadext.Delay.make () in
 
-  let network_event_loop_wait_after_failure_seconds = 1.0 in
+  let network_event_loop_wait_after_failure_seconds = 0.2 in
 
   let received_params = ref None in
 
@@ -42,7 +43,10 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
          Network_event_loop._watch_networks_for_nbd_changes
            __context
            ~update_firewall:(fun pifs ->
-               if !fail_firewall_update then failwith "Failed to update firewall";
+               if !fail_firewall_update then begin
+                 Threadext.Delay.signal wait_hdl_fail;
+                 failwith "Failed to update firewall";
+               end;
                received_params := Some pifs;
                Threadext.Delay.signal wait_hdl
              )
@@ -58,6 +62,11 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
     match timed_out, !received_params with
     | false, Some p -> Alcotest.(check param_set) msg expected p
     | _  -> Alcotest.fail ("The update_firewall function was not called: " ^ msg)
+  in
+
+  let assert_update_firewall_raised () =
+    if !fail_firewall_update && Threadext.Delay.wait wait_hdl_fail timeout then
+      Alcotest.fail "The update_firewall function did not raise an exception as expected"
   in
 
   let assert_not_called msg () =
@@ -100,12 +109,12 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   let _ : _ API.Ref.t = Test_common.make_pif ~__context ~network:network2 ~host:localhost ~device:"network2_pif1" () in
   (* After [delay] seconds, the event loop should have noticed the change and
      failed after trying to update the firewall *)
-  Thread.delay delay;
-  fail_firewall_update := false;
+  assert_update_firewall_raised ();
   (* Test that we do wait for the given delay in case of failures *)
   assert_not_called "The event loop should wait for the given delay in case of failures" ();
-  (* Now wait for the event loop to reregister and continue *)
-  Thread.delay network_event_loop_wait_after_failure_seconds;
+  fail_firewall_update := false;
+  (* Now wait for the event loop to reregister and continue,
+   * this is already done by assert_received_params *)
   (* Test that transient failures in the script won't stop the event loop, and
      that we will eventually process the event we missed *)
   assert_received_params "we should have noticed the addition of network2 and its PIF after the transient failure" ["bridge1"; "bridge2"];
@@ -149,11 +158,11 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   Db.Network.destroy ~__context ~self:network2;
   (* After [delay] seconds, the event loop should have noticed the change and
      failed after trying to update the firewall *)
-  Thread.delay delay;
-  fail_firewall_update := false;
+  assert_update_firewall_raised ();
   assert_not_called "The event loop should wait for the given delay in case of failures" ();
-  (* Now wait for the event loop to reregister and continue *)
-  Thread.delay network_event_loop_wait_after_failure_seconds;
+  fail_firewall_update := false;
+  (* Now wait for the event loop to reregister and continue,
+   * this is already done by assert_received_params *)
   (* Test that transient failures in the script won't stop the event loop, and
      that we will eventually process the event we missed, and update the
      firewall with the correct list of interfaces, even if it is the empty list *)
