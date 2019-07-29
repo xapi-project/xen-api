@@ -40,6 +40,11 @@ type sampling_frequency = Five_Seconds [@@deriving rpc]
 
 (* utility *)
 
+let ( +++ ) = Int64.add
+let ( --- ) = Int64.sub
+let ( *** ) = Int64.mul
+let ( /// ) = Int64.div
+
 let cf_type_of_string s =
   match s with
   | "AVERAGE" -> CF_Average
@@ -160,7 +165,7 @@ let copy_rrd x =
 
 (** Helper function to get the start time and age of the current/last PDP *)
 let get_times time timestep =
-  let starttime = Int64.mul timestep (Int64.div (Int64.of_float time) timestep) in
+  let starttime = timestep *** ((Int64.of_float time) /// timestep) in
   let age = time -. (Int64.to_float starttime) in
   (starttime, age)
 
@@ -171,9 +176,9 @@ let do_cfs rra start_pdp_offset pdps =
     if Utils.isnan pdps.(i)
     then begin
       (* CDP is an accumulator for the average. If we've got some unknowns, we need to
-         			   renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
-         			   values we expect to have. If we have unknowns, we need to multiply the whole
-         			   thing by \frac{n_{old}}{n_{new}} *)
+         renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
+         values we expect to have. If we have unknowns, we need to multiply the whole
+         thing by \frac{n_{old}}{n_{new}} *)
       let olddiv = rra.rra_pdp_cnt - cdp.cdp_unknown_pdps in
       let newdiv = olddiv - start_pdp_offset in
       if newdiv > 0 then (
@@ -192,18 +197,18 @@ let do_cfs rra start_pdp_offset pdps =
 let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
   (*  debug "rra_update";*)
   let updatefn rra =
-    let start_pdp_offset = rra.rra_pdp_cnt - (Int64.to_int (Int64.rem (Int64.div proc_pdp_st rrd.timestep) (Int64.of_int rra.rra_pdp_cnt))) in
+    let start_pdp_offset = rra.rra_pdp_cnt - Int64.(to_int (rem (proc_pdp_st /// rrd.timestep) (of_int rra.rra_pdp_cnt))) in
     let rra_step_cnt = if elapsed_pdp_st < start_pdp_offset then 0 else (elapsed_pdp_st - start_pdp_offset) / rra.rra_pdp_cnt + 1 in
     do_cfs rra (min start_pdp_offset elapsed_pdp_st) pdps;
     if rra_step_cnt > 0 then
       begin
         (* When writing multiple CDP values into the archive, the
-           				   first one (primary) is calculated using the values we
-           				   already had accumulated from the last update, whereas any
-           				   subsequent values (secondary) are calculated just using the
-           				   current PDP. It turns out that the secondary values are
-           				   simply the PDPs as whichever CF is used, a CDP of many
-           				   repeated values is simply the value itself. *)
+           first one (primary) is calculated using the values we
+           already had accumulated from the last update, whereas any
+           subsequent values (secondary) are calculated just using the
+           current PDP. It turns out that the secondary values are
+           simply the PDPs as whichever CF is used, a CDP of many
+           repeated values is simply the value itself. *)
         let primaries = Array.map (fun cdp ->
             if cdp.cdp_unknown_pdps <= (int_of_float (rra.rra_xff *. float_of_int rra.rra_pdp_cnt))
             then cdp.cdp_value
@@ -229,7 +234,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
 
 (* We assume that the data being given is of the form of a rate; that is,
    it's dependent on the time interval between updates. To be able to
-   deal with guage DSs, we multiply by the interval so that it cancels
+   deal with gauge DSs, we multiply by the interval so that it cancels
    the subsequent divide by interval later on *)
 let process_ds_value ds value interval new_domid =
   if interval > ds.ds_mrhb
@@ -237,38 +242,30 @@ let process_ds_value ds value interval new_domid =
   else
     begin
       let rate =
-        match ds.ds_ty with
-        | Absolute ->
+        match ds.ds_ty, new_domid with
+        | Absolute, _
+        | Derive, true ->
           begin
             match value with
             | VT_Int64 y -> Int64.to_float y
             | VT_Float y -> y
             | VT_Unknown -> nan
           end
-        | Gauge ->
+        | Gauge, _ ->
           begin
             match value with
             | VT_Int64 y -> (Int64.to_float y) *. interval
             | VT_Float y -> y *. interval
             | VT_Unknown -> nan
           end
-        | Derive ->
+        | Derive, false ->
           begin
-            if new_domid then
-              match value with
-              | VT_Int64 y -> Int64.to_float y
-              | VT_Float y -> y
-              | VT_Unknown -> nan
-            else
-              match ds.ds_last, value with
-              | VT_Int64 x, VT_Int64 y ->
-                let result = (Int64.sub y x) in
-                let result = if result < 0L then Int64.add result 0x100000000L else result in (* for wrapping 32 bit counters *)
-                Int64.to_float result
-              | VT_Float x, VT_Float y -> y -. x
-              | VT_Unknown, _ -> nan
-              | _, VT_Unknown -> nan
-              | _ -> failwith ("Bad type updating ds: "^ds.ds_name)
+            match ds.ds_last, value with
+            | VT_Int64 x, VT_Int64 y -> Int64.to_float (y --- x)
+            | VT_Float x, VT_Float y -> y -. x
+            | VT_Unknown, _ -> nan
+            | _, VT_Unknown -> nan
+            | _ -> failwith ("Bad type updating ds: " ^ ds.ds_name)
           end
       in
       ds.ds_last <- value;
@@ -286,12 +283,12 @@ let ds_update rrd timestamp values transforms new_domid =
   let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
 
   (* The number of pdps that should result from this update *)
-  let elapsed_pdp_st = Int64.to_int (Int64.div (Int64.sub occu_pdp_st proc_pdp_st) rrd.timestep) in
+  let elapsed_pdp_st = Int64.to_int ((occu_pdp_st --- proc_pdp_st) /// rrd.timestep) in
 
   (* if we're due one or more PDPs, pre_int is the amount of the
-     	   current update interval that will be used in calculating them, and
-     	   post_int is the amount left over
-      this step. If a PDP isn't post is what's left over *)
+     current update interval that will be used in calculating them, and
+     post_int is the amount left over
+     this step. If a PDP isn't post is what's left over *)
   let pre_int, post_int =
     if elapsed_pdp_st > 0 then
       let pre = interval -. occu_pdp_age in
@@ -305,7 +302,6 @@ let ds_update rrd timestamp values transforms new_domid =
 
   (* Calculate the values we're going to store based on the input data and the type of the DS *)
   let v2s = Array.mapi (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval new_domid) values in
-  (*  debug "Got values: %s\n" (String.concat "," (Array.to_list (Array.mapi (fun i p -> Printf.sprintf "(%s: %f)" rrd.rrd_dss.(i).ds_name p) v2s)));*)
   (* Update the PDP accumulators up until the most recent PDP *)
   Array.iteri
     (fun i value ->
@@ -323,16 +319,13 @@ let ds_update rrd timestamp values transforms new_domid =
           if interval > ds.ds_mrhb
           then nan
           else
-            let raw = ds.ds_value /. (Int64.to_float (Int64.sub occu_pdp_st proc_pdp_st) -. ds.ds_unknown_sec) in
-            let raw =
-              if raw < ds.ds_min
-              then ds.ds_min
-              else if raw > ds.ds_max
-              then ds.ds_max
-              else raw
-            in
-            (* Here is where we apply the transform *)
-            transforms.(i) raw
+            let raw = ds.ds_value /. (Int64.to_float (occu_pdp_st --- proc_pdp_st) -. ds.ds_unknown_sec) in
+            (* Apply the transform after the raw value has been calculated *)
+            let raw = transforms.(i) raw in
+            (* Make sure the values are not out of bounds after all the processing *)
+            if raw < ds.ds_min || raw > ds.ds_max
+            then nan
+            else raw
         ) rrd.rrd_dss in
 
       rra_update rrd proc_pdp_st elapsed_pdp_st pdps;
@@ -421,7 +414,7 @@ let rrd_create dss rras timestep inittime =
 
 let rrd_add_ds rrd now newds =
   if List.mem newds.ds_name (ds_names rrd) then rrd else
-    let npdps = Int64.div (Int64.of_float now) rrd.timestep in
+    let npdps = Int64.of_float now /// rrd.timestep in
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
      rrd_rras = Array.map (fun rra ->
@@ -458,7 +451,7 @@ let find_best_rras rrd pdp_interval cf start =
   (if List.length rras = 0 then raise No_RRA_Available);
   let (last_pdp_time, _age) = get_times rrd.last_updated rrd.timestep in
   let contains_time t rra =
-    let lasttime = Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt))) in
+    let lasttime = last_pdp_time --- rrd.timestep *** (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)) in
     (rra.rra_pdp_cnt >= pdp_interval) && (t > lasttime)
   in
   try
@@ -469,7 +462,7 @@ let find_best_rras rrd pdp_interval cf start =
     ok_rras
   with _ ->
     let rra = List.hd (List.rev rras) in
-    let newstarttime = Int64.add 1L (Int64.sub last_pdp_time (Int64.mul rrd.timestep (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)))) in
+    let newstarttime = 1L +++ last_pdp_time --- rrd.timestep *** (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)) in
     List.filter (contains_time newstarttime) rras
 
 
