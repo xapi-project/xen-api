@@ -1565,6 +1565,8 @@ let before_clean_shutdown_or_reboot ~__context ~host =
         (* UNLIKELY to happen but we do our best to kill ourselves and do not return *)
         error "Error past the commit-point while cleanly shutting down host: %s" (ExnHelper.string_of_exn e);
         error "Host will self-fence via its own watchdog for safety";
+        (* make sure the lines above are written to disk by systemd *)
+        ignore(Forkhelpers.execute_command_get_output "journalctl" [ "--flush" ]);
         (* NB we don't use Xenctrl directly because in the SDK VM this is all fake... *)
         ignore(Forkhelpers.execute_command_get_output !Xapi_globs.fence [ "yesreally" ]);
         Thread.delay 60.;
