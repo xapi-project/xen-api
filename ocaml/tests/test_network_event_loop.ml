@@ -110,9 +110,9 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   (* After [delay] seconds, the event loop should have noticed the change and
      failed after trying to update the firewall *)
   assert_update_firewall_raised ();
-  fail_firewall_update := false;
   (* Test that we do wait for the given delay in case of failures *)
   assert_not_called "The event loop should wait for the given delay in case of failures" ();
+  fail_firewall_update := false;
   (* Now wait for the event loop to reregister and continue,
    * this is already done by assert_received_params *)
   (* Test that transient failures in the script won't stop the event loop, and
@@ -159,8 +159,8 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
   (* After [delay] seconds, the event loop should have noticed the change and
      failed after trying to update the firewall *)
   assert_update_firewall_raised ();
-  fail_firewall_update := false;
   assert_not_called "The event loop should wait for the given delay in case of failures" ();
+  fail_firewall_update := false;
   (* Now wait for the event loop to reregister and continue,
    * this is already done by assert_received_params *)
   (* Test that transient failures in the script won't stop the event loop, and
