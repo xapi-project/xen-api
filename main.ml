@@ -91,8 +91,10 @@ let use_syslog = ref false
 let log level fmt =
   Printf.ksprintf (fun s ->
       if !use_syslog then begin
-        (* FIXME: this is synchronous and will block other I/O *)
-        Core.Unix.Syslog.syslog ~level ~facility:Core.Unix.Syslog.Facility.DAEMON s;
+        (* FIXME: this is synchronous and will block other I/O.
+         * This should use Log_extended.Syslog, but that brings in Core's Syslog module
+         * which conflicts with ours *)
+        Syslog.log Syslog.Daemon level s;
       end else begin
         let w = Lazy.force Writer.stderr in
         Writer.write w s;
@@ -100,10 +102,10 @@ let log level fmt =
       end
     ) fmt
 
-let debug fmt = log Core.Unix.Syslog.Level.DEBUG   fmt
-let info  fmt = log Core.Unix.Syslog.Level.INFO    fmt
-let warn  fmt = log Core.Unix.Syslog.Level.WARNING fmt
-let error fmt = log Core.Unix.Syslog.Level.ERR     fmt
+let debug fmt = log Syslog.Debug   fmt
+let info  fmt = log Syslog.Info   fmt
+let warn  fmt = log Syslog.Warning fmt
+let error fmt = log Syslog.Err     fmt
 
 let pvs_version = "3.0"
 let supported_api_versions = [pvs_version; "5.0"]
