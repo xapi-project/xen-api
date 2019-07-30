@@ -519,34 +519,38 @@ let create_host_cpu ~__context host_info =
       "stepping", cpu_info.stepping;
       "flags", cpu_info.flags;
       (* To support VMs migrated from hosts which do not support CPU levelling v2,
-         		   set the "features" key to what it would be on such hosts. *)
+         set the "features" key to what it would be on such hosts. *)
       "features", Cpuid_helpers.string_of_features cpu_info.features_oldstyle;
       Xapi_globs.cpu_info_features_pv_key, Cpuid_helpers.string_of_features cpu_info.features_pv;
       Xapi_globs.cpu_info_features_hvm_key, Cpuid_helpers.string_of_features cpu_info.features_hvm;
       Xapi_globs.cpu_info_features_hvm_host_key, Cpuid_helpers.string_of_features cpu_info.features_hvm_host;
       Xapi_globs.cpu_info_features_pv_host_key, Cpuid_helpers.string_of_features cpu_info.features_pv_host;
+      "policy_pv", cpu_info.policy_pv;
+      "policy_hvm", cpu_info.policy_hvm;
     ] in
     let host = Helpers.get_localhost ~__context in
     let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s, features_hvm_host=%s, features_pv_host=%s"
+    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s, features_hvm_host=%s, features_pv_host=%s, policy_hvm=%s, policy_pv=%s"
       (Map_check.getf Cpuid_helpers.socket_count cpu)
       (Map_check.getf Cpuid_helpers.cpu_count cpu)
       (Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
       (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features)
       (Map_check.getf Cpuid_helpers.features_hvm_host cpu |> string_of_features)
       (Map_check.getf Cpuid_helpers.features_pv_host cpu |> string_of_features);
+      (Map_check.getf Cpuid_helpers.policy_pv cpu)
+      (Map_check.getf Cpuid_helpers.policy_hvm cpu);
     Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 
-    let before = getf ~default:[||] features_hvm old_cpu_info in
-    let after = cpu_info.features_hvm in
-    if not (is_equal before after) && before <> [||] then begin
-      let lost = is_strict_subset (intersect before after) before in
-      let gained = is_strict_subset (intersect before after) after in
-      info "The CPU features of this host have changed.%s%s Old features_hvm=%s."
+    let before = getf ~default:"" policy_hvm old_cpu_info in
+    let after = cpu_info.policy_hvm in
+    if not (is_equal ~__context before after) && before <> "" then begin
+      let (intersection_policy, _, _) = intersect ~__context before after in
+      let lost = is_strict_subset ~__context intersection_policy before in
+      let gained = is_strict_subset ~__context intersection_policy before in
+      info "The CPU policy of this host have changed.%s%s Old features_hvm=%s."
         (if lost then " Some features have gone away." else "")
         (if gained then " Some features were added." else "")
-        (string_of_features before);
-
+        (before);
       if not (Helpers.rolling_upgrade_in_progress ~__context) && lost then
         let (name, priority) = Api_messages.host_cpu_features_down in
         let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
@@ -596,13 +600,21 @@ let create_pool_cpuinfo ~__context =
       |> setf vendor (getf vendor host)
       |> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
       |> setf socket_count ((getf socket_count host) + (getf socket_count pool))
-      |> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
-      |> setf features_pv_host (Cpuid_helpers.intersect (getfdefault ~defaultf:features_pv features_pv_host host) (getfdefault ~defaultf:features_pv features_pv_host pool))
+      |> setf policy_pv
+        (let policy_message = (Cpuid_helpers.intersect ~__context (getf policy_pv host) (getf policy_pv pool)) in
+         match policy_message with
+           (policy, true, _) -> policy
+         | (_, false, Some message) -> failwith message
+         | _ -> failwith "Unknown policy error")
       |> fun pool' ->
            if Helpers.host_supports_hvm ~__context hostref then
-             pool'
-             |> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
-             |> setf features_hvm_host (Cpuid_helpers.intersect (getfdefault ~defaultf:features_hvm features_hvm_host host) (getfdefault ~defaultf:features_hvm features_hvm_host pool))
+             let policy_message = (Cpuid_helpers.intersect ~__context (getf policy_hvm host) (getf policy_hvm pool)) in
+             (match policy_message with
+               (policy, true, _) -> setf policy_hvm policy
+             | (_, false, Some message) -> failwith message
+             | _ -> failwith "Unknown policy error"
+             )
+               pool'
            else
              pool'
     with Not_found ->
@@ -611,32 +623,30 @@ let create_pool_cpuinfo ~__context =
       pool
   in
 
-  let zero = ["vendor", ""; "socket_count", "0"; "cpu_count", "0"; "features_pv", ""; "features_hvm", ""] in
+  let zero = ["vendor", ""; "socket_count", "0"; "cpu_count", "0"; "features_pv", ""; "features_hvm", ""; "policy_pv", ""; "policy_hvm", "";] in
   let pool_cpuinfo = List.fold_left merge zero all_host_cpus in
   let pool = Helpers.get_pool ~__context in
   let old_cpuinfo = Db.Pool.get_cpu_info ~__context ~self:pool in
-  debug "create_pool_cpuinfo: setting pool cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+  debug "create_pool_cpuinfo: setting pool cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s, policy_hvm=%s, policy_pv=%s"
     (Map_check.getf Cpuid_helpers.socket_count pool_cpuinfo)
     (Map_check.getf Cpuid_helpers.cpu_count pool_cpuinfo)
     (Map_check.getf Cpuid_helpers.features_hvm pool_cpuinfo |> string_of_features)
-    (Map_check.getf Cpuid_helpers.features_pv pool_cpuinfo |> string_of_features);
+    (Map_check.getf Cpuid_helpers.features_pv pool_cpuinfo |> string_of_features)
+    (Map_check.getf Cpuid_helpers.policy_pv pool_cpuinfo)
+    (Map_check.getf Cpuid_helpers.policy_hvm pool_cpuinfo);
   Db.Pool.set_cpu_info ~__context ~self:pool ~value:pool_cpuinfo;
 
-  let before = getf ~default:[||] features_hvm old_cpuinfo in
-  let after = getf ~default:[||] features_hvm pool_cpuinfo in
-  if not (is_equal before after) && before <> [||] then begin
-    let lost = is_strict_subset (intersect before after) before in
-    let features_msg ~msg before after =
-      let delta = diff before after in
-      if is_strict_subset (intersect before after) before then
-        Printf.sprintf " Some features %s: %s." msg (string_of_features delta)
-      else
-        ""
-    in
+  let before = getf ~default:"" policy_hvm old_cpuinfo in
+  let after = getf ~default:"" policy_hvm old_cpuinfo in
+
+  if not (is_equal ~__context before after) && before <> "" then begin
+    let (intersection_policy, _, _) = intersect ~__context before after in
+    let lost = is_strict_subset ~__context intersection_policy before in
+    let gained = is_strict_subset ~__context intersection_policy after in
     info "The pool-level CPU features have changed.%s%s Old features_hvm=%s."
-      (features_msg ~msg:"have gone away" before after)
-      (features_msg ~msg:"were added" after before)
-      (string_of_features before);
+        (if lost then " Some features have gone away." else "")
+        (if gained then " Some features were added." else "")
+        (before);
 
     if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 && lost then
       let (name, priority) = Api_messages.pool_cpu_features_down in
@@ -646,7 +656,6 @@ let create_pool_cpuinfo ~__context =
           ignore (XenAPI.Message.create rpc session_id name priority `Pool obj_uuid body)
         )
   end
-
 
 let create_chipset_info ~__context host_info =
   match host_info.chipset_info with

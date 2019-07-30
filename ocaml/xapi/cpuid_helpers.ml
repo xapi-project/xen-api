@@ -45,41 +45,27 @@ let zero_extend arr len =
   let zero_arr = Array.make len 0L in
   extend arr zero_arr
 
-let features_op2 f a b =
-  let n = max (Array.length a) (Array.length b) in
-  Array.map2 f (zero_extend a n) (zero_extend b n)
+let intersect ~__context left right =
+  let open Xapi_xenops_queue in
+  let dbg = Context.string_of_task __context in
+  let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+  Client.HOST.policy_calc_compatible dbg left right
 
-(** Calculate the intersection of two feature sets.
- *  Intersection with the empty set is treated as identity, so that intersection
- *  can be folded easily starting with an accumulator of [||].
- *  If both sets are non-empty and of differing lengths, and one set is longer
- *  than the other, the shorter one is zero-extended to match it.
- *  The returned set is the same length as the longer of the two arguments.  *)
-let intersect left right =
-  match left, right with
-  | [| |], _ -> right
-  | _, [| |] -> left
-  | _, _ -> features_op2 Int64.logand left right
+let is_equal ~__context left right =
+  let open Xapi_xenops_queue in
+  let dbg = Context.string_of_task __context in
+  let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+  Client.HOST.policy_is_equal dbg left right
 
-(** Calculate the features that are missing from [right],
-  * but present in [left] *)
-let diff left right =
-  let diff64 a b = Int64.(logand a (lognot b)) in
-  features_op2 diff64 left right
+let is_subset ~__context left right =
+  let open Xapi_xenops_queue in
+  let dbg = Context.string_of_task __context in
+  let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+  let (sub, eq, err) = Client.HOST.policy_is_compatible dbg left right in
+  is_equal ~__context sub left
 
-(** equality check that zero-extends if lengths differ *)
-let is_equal left right =
-  let len = max (Array.length left) (Array.length right) in
-  (zero_extend left len) = (zero_extend right len)
-
-(** is_subset left right returns true if left is a subset of right *)
-let is_subset left right =
-  is_equal (intersect left right) left
-
-(** is_strict_subset left right returns true if left is a strict subset of right
-    (left is a subset of right, but left and right are not equal) *)
-let is_strict_subset left right =
-  (is_subset left right) && (not (is_equal left right))
+let is_strict_subset ~__context left right =
+  (is_subset ~__context left right) && (not (is_equal ~__context left right))
 
 (** Field definitions for checked string map access *)
 let features_t        = Map_check.pickler features_of_string string_of_features
@@ -88,20 +74,23 @@ let features_pv       = Map_check.field Xapi_globs.cpu_info_features_pv_key feat
 let features_hvm      = Map_check.field Xapi_globs.cpu_info_features_hvm_key features_t
 let features_pv_host  = Map_check.field Xapi_globs.cpu_info_features_pv_host_key features_t
 let features_hvm_host = Map_check.field Xapi_globs.cpu_info_features_hvm_host_key features_t
+let policy_pv         = Map_check.(field "policy_pv" string)
+let policy_hvm        = Map_check.(field "policy_hvm" string)
 let cpu_count    = Map_check.(field "cpu_count" int)
 let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
 
 let get_flags_for_vm ~__context vm cpu_info =
-  let features_field, features_field_boot =
+  let policy_key =
     match Helpers.domain_type ~__context ~self:vm with
-    | `hvm | `pv_in_pvh -> features_hvm, features_hvm_host
-    | `pv -> features_pv, features_pv_host
+    | `hvm | `pv_in_pvh ->
+      cpu_info_policy_hvm_key
+    | `pv ->
+      cpu_info_policy_pv_key
   in
   let vendor = List.assoc cpu_info_vendor_key cpu_info in
-  let migration = Map_check.getf features_field cpu_info in
-  let onboot = Map_check.getf ~default:migration features_field_boot cpu_info in
-  (vendor, migration, onboot)
+  let policy = List.assoc policy_key cpu_info in
+  (vendor, policy)
 
 (** Upgrade a VM's feature set based on the host's one, if needed.
  *  The output will be a feature set that is the same length as the host's
@@ -110,6 +99,25 @@ let get_flags_for_vm ~__context vm cpu_info =
  *  a host that did not support "feature levelling v2". In that case, we cannot
  *  be certain about which host features it was using, so we'll extend the set
  *  with all current host features. Otherwise we'll zero-extend. *)
+
+  (** In the context of MSRs, this will take an old featureset, and return a policy *)
+let upgrade_policy ~__context ~vm vm_policy =
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client (default_xenopsd ()): XENOPS) in
+  let dbg = Context.string_of_task __context in
+  let uses_hvm_features =
+    match Helpers.domain_type ~__context ~self:vm with
+    | `hvm | `pv_in_pvh -> true
+    | `pv -> false
+  in
+  let upgraded_policy = Client.HOST.upgrade_policy dbg vm_policy uses_hvm_features in
+  if upgraded_policy <> vm_policy then begin
+    debug "VM featureset upgraded from %s to %s"
+      (vm_policy)
+      (upgraded_policy);
+  end;
+  upgraded_policy
+
 let upgrade_features ~__context ~vm host_features vm_features =
   let len = Array.length vm_features in
   let upgraded_features =
@@ -134,45 +142,44 @@ let upgrade_features ~__context ~vm host_features vm_features =
   end;
   upgraded_features
 
-let set_flags ~__context self vendor features =
-  let features = features |> snd features_t in
+let set_flags ~__context self vendor policy =
   let value = [
     cpu_info_vendor_key, vendor;
-    cpu_info_features_key, features;
+    cpu_info_policy_key, policy;
   ] in
-  debug "VM's CPU features set to: %s" features;
+  debug "VM's CPU policy set to: %s" policy;
   Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
 
 (* Reset last_boot_CPU_flags with the vendor and feature set.
  * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
 let reset_cpu_flags ~__context ~vm =
-  let pool_vendor, _, pool_features =
+  let pool_vendor, pool_policy =
     let pool = Helpers.get_pool ~__context in
     let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
     get_flags_for_vm ~__context vm pool_cpu_info
   in
-  set_flags ~__context vm pool_vendor pool_features
+  set_flags ~__context vm pool_vendor pool_policy
 
 (* Update last_boot_CPU_flags with the vendor and feature set.
  * On VM.resume or migrate, the field is kept intact, and upgraded if needed. *)
 let update_cpu_flags ~__context ~vm ~host =
-  let current_features =
+  let current_policy =
     let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-    Map_check.getf ~default:[||] features flags
+    try
+      List.assoc cpu_info_policy_key flags
+    with Not_found -> ""
   in
-  debug "VM last boot CPU features: %s" (string_of_features current_features);
+  debug "VM last boot CPU policy: %s" current_policy;
   try
-    let host_vendor, host_features, _ =
+    let host_vendor, host_policy =
       let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
       get_flags_for_vm ~__context vm host_cpu_info
     in
-    let new_features = upgrade_features ~__context ~vm
-        host_features current_features in
-    if new_features <> current_features then
-      set_flags ~__context vm host_vendor new_features
+    let new_policy = upgrade_policy ~__context ~vm current_policy in
+    if new_policy <> current_policy then
+      set_flags ~__context vm host_vendor new_policy
   with Not_found ->
-    (* pre-Dundee? *)
-    failwith "Host does not have new leveling feature keys"
+    debug "Host does not have new levelling policy keys - not upgrading VM's flags"
 
 let get_host_cpu_info ~__context ~vm ~host ?remote () =
   match remote with
@@ -183,7 +190,6 @@ let get_host_compatibility_info ~__context ~vm ~host ?remote () =
   get_host_cpu_info ~__context ~vm ~host ?remote ()
   |> get_flags_for_vm ~__context vm
 
-(* Compare the CPU on which the given VM was last booted to the CPU of the given host. *)
 let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   let fail msg =
     raise (Api_errors.Server_error(Api_errors.vm_incompatible_with_this_host,
@@ -191,7 +197,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
     try
-      let host_cpu_vendor, host_cpu_features', _ = get_host_compatibility_info ~__context ~vm ~host ?remote () in
+      let host_cpu_vendor, host_cpu_policy = get_host_compatibility_info ~__context ~vm ~host ?remote () in
       let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
       if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
@@ -200,22 +206,17 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
         if vm_cpu_vendor <> host_cpu_vendor then
           fail "VM last booted on a host which had a CPU from a different vendor."
       end;
-      if List.mem_assoc cpu_info_features_key vm_cpu_info then begin
-        (* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
-        let vm_cpu_features = Map_check.getf features vm_cpu_info in
-        debug "VM last booted on CPU with features %s; host CPUs have migration features %s"
-		(string_of_features vm_cpu_features) (string_of_features host_cpu_features');
-        let vm_cpu_features' =
-          vm_cpu_features
-          |> upgrade_features ~__context ~vm host_cpu_features'
-        in
-        if not (is_subset vm_cpu_features' host_cpu_features') then begin
-          debug "VM CPU features (%s) are not compatible with host CPU features (%s)\n" (string_of_features vm_cpu_features') (string_of_features host_cpu_features');
-          debug "Host is missing these CPU features required by the VM: %s" (string_of_features (diff vm_cpu_features' host_cpu_features'));
-          fail "VM last booted on a CPU with features this host's CPU does not have."
+      if List.mem_assoc cpu_info_policy_key vm_cpu_info then begin
+        (* Check the VM was last booted on a CPU whose policy are a subset of the policy of this host's CPU. *)
+        let vm_cpu_policy = List.assoc cpu_info_policy_key vm_cpu_info in
+        debug "VM last booted on CPU with policy %s; host CPUs have policy %s" vm_cpu_policy host_cpu_policy;
+        let vm_cpu_policy = upgrade_policy ~__context ~vm vm_cpu_policy in
+        if not (is_subset ~__context vm_cpu_policy host_cpu_policy) then begin
+          debug "VM CPU policy (%s) are not compatible with host CPU policy (%s)\n" vm_cpu_policy host_cpu_policy;
+          fail "VM last booted on a CPU with policy this host's CPU does not have."
         end
       end
     with Not_found ->
-      fail "Host does not have new leveling feature keys - not comparing VM's flags"
+      debug "Host does not have new levelling policy keys - not comparing VM's flags"
   end
 

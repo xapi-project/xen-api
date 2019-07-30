@@ -563,6 +563,10 @@ let cpu_info_features_hvm_key = "features_hvm"
 let cpu_info_features_pv_host_key = "features_pv_host"
 let cpu_info_features_hvm_host_key = "features_hvm_host"
 
+let cpu_info_policy_key = "policy"
+let cpu_info_policy_hvm_key = "policy_hvm"
+let cpu_info_policy_pv_key = "policy_pv"
+
 (** Metrics *)
 
 let metrics_root = "/dev/shm/metrics"
