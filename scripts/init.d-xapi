@@ -75,8 +75,12 @@ stop() {
 
 	# Find out if xapi has died
 	RETRIES=60
+	RETRY_SHUTDOWN_AGENT=1
 	while [ ${RETRIES} -ne 0 ]; do
-		xe host-shutdown-agent 2> /dev/null
+		if [ "${RETRY_SHUTDOWN_AGENT}" -ne 0 ]; then
+			xe host-shutdown-agent 2> /dev/null && RETRY_SHUTDOWN_AGENT=0
+		fi
+		
 		# Finish if all xapis have gone 
 		xapi_pids=$(pidof xapi)
 		if [ -z "$xapi_pids" ]; then
