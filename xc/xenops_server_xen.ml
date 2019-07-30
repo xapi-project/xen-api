@@ -26,8 +26,6 @@ open D
 
 module RRDD = Rrd_client.Client
 
-let simplified = false
-
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
 

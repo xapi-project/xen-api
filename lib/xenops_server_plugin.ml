@@ -57,7 +57,6 @@ type progress_cb = float -> unit
 
 module type S = sig
   val init: unit -> unit
-  val simplified: bool
   module HOST : sig
     val stat: unit -> Host.t
     val get_console_data: unit -> string

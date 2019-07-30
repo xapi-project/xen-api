@@ -19,8 +19,6 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops_server_simulator" end)
 open D
 
-let simplified = false
-
 module Domain = struct
   type t = {
     domid: int;
