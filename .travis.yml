@@ -10,6 +10,7 @@ script:
 env:
   global:
     - PACKAGE="xapi-xenopsd"
+    - BASE_REMOTE_BRANCH="REQ-627"
     - PINS="xapi-xenopsd:. xapi-xenopsd-xc:. xapi-xenopsd-simulator:."
   matrix:
     - PACKAGE="xapi-xenopsd-xc"
