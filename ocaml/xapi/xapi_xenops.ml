@@ -41,8 +41,8 @@ let check_power_state_is ~__context ~self ~expected =
     if actual <> expected then
       warn "Potential problem: VM %s in power state '%s' when expecting '%s'"
         (Db.VM.get_uuid ~__context ~self)
-        (Record_util.power_to_string expected)
         (Record_util.power_to_string actual)
+        (Record_util.power_to_string expected)
 
 let event_wait queue_name dbg ?from p =
   let finished = ref false in
