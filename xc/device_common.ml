@@ -342,8 +342,8 @@ let protocol_of_string = function
   | s            -> raise (Unknown_device_protocol s)
 
 
-let qemu_save_path : (_, _, _) format = "/var/lib/xen/qemu-save.%d"
-let qemu_restore_path : (_, _, _) format = "/var/lib/xen/qemu-resume.%d"
+let qemu_save_path : (_, _, _) format = "/var/run/xen/qemu-save.%d"
+let qemu_restore_path : (_, _, _) format = "/var/run/xen/qemu-resume.%d"
 
 let demu_save_path : (_, _, _) format = "/var/lib/xen/demu-save.%d"
 let demu_restore_path : (_, _, _) format = "/var/lib/xen/demu-resume.%d"
