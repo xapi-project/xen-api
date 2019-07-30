@@ -17,7 +17,6 @@ open Xenops_utils
 
 let unimplemented x = raise (Xenopsd_error (Unimplemented x))
 
-let simplified = false
 let init () = ()
 
 module HOST = struct

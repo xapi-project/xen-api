@@ -877,10 +877,6 @@ let pci_plug_order pcis =
 let vgpu_plug_order vgpus =
   List.sort (fun a b -> compare a.Vgpu.position b.Vgpu.position) vgpus
 
-let simplify f =
-  let module B = (val get_backend () : S) in
-  if B.simplified then [] else f
-
 type vgpu_fd_info = {
   vgpu_fd: Unix.file_descr;
   vgpu_channel: unit Event.channel;
@@ -889,64 +885,55 @@ let vgpu_receiver_sync : (Vm.id, vgpu_fd_info) Hashtbl.t = Hashtbl.create 10
 let vgpu_receiver_sync_m = Mutex.create ()
 
 let rec atomics_of_operation = function
-  | VM_start (id,force) ->
-    [
-      VM_hook_script(id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
-    ] @ simplify [
-      VM_create (id, None, None)
-    ] @ [
-      VM_build (id,force);
-    ] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
-           (VBD_DB.vbds id)
-        ) @ (
-      let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
-      (* keeping behaviour of vbd_plug_order: rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-      List.map (fun (ty, vbds)-> Parallel ( id, (Printf.sprintf "VBD.epoch_begin %s vm=%s" ty id),
-                                            (List.concat (List.map (fun vbd -> Opt.default [] (Opt.map
-                                                                                                 (fun x -> [ VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent) ]) vbd.Vbd.backend))
-                                                            vbds
-                                                         )))
-               )
-        [ "RW", vbds_rw; "RO", vbds_ro ]
-    ) @ simplify (
-      let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
-      [
-        (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-        Parallel ( id, (Printf.sprintf "VBD.plug RW vm=%s" id), List.map (fun vbd->VBD_plug vbd.Vbd.id) vbds_rw);
-        Parallel ( id, (Printf.sprintf "VBD.plug RO vm=%s" id), List.map (fun vbd->VBD_plug vbd.Vbd.id) vbds_ro);
+  | VM_start (id, force) ->
+    let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
+    let vifs = VIF_DB.vifs id |> vif_plug_order in
+    let vgpus = VGPU_DB.vgpus id in
+    let pcis = PCI_DB.pcis id |> pci_plug_order in
+    let vusbs = VUSB_DB.vusbs id in
+    [ [
+        VM_hook_script (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
+        VM_create (id, None, None);
+        VM_build (id, force)
       ]
-    ) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
-           (VIF_DB.vifs id)
-        ) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
-                        (VIF_DB.vifs id |> vif_plug_order)
-    ) @ simplify (List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true))
-                    (VGPU_DB.vgpus id)
-                                  ) @ simplify [
-      (* Unfortunately this has to be done after the vbd,vif
-         devices have been created since qemu reads xenstore keys
-         in preference to its own commandline. After this is
-         fixed we can consider creating qemu as a part of the
-         'build' *)
-      VM_create_device_model (id, false);
-      (* We hotplug PCI devices into HVM guests via qemu, since
-         otherwise hotunplug triggers some kind of unfixed race
-         condition causing an interrupt storm. *)
-    ] @ simplify (List.map (fun pci -> PCI_plug pci.Pci.id)
-                    (PCI_DB.pcis id |> pci_plug_order)
-
-                  (* Plug USB device into HVM guests via qemu .*)
-                 ) @ simplify (List.map (fun vusb -> VUSB_plug vusb.Vusb.id)
-                                 (VUSB_DB.vusbs id)
-                              ) @ [
+    ; List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true)) (vbds_rw @ vbds_ro)
+      (* keeping behaviour of vbd_plug_order: rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+    ; List.map (fun (ty, vbds) ->
+        Parallel (id, (Printf.sprintf "VBD.epoch_begin %s vm=%s" ty id),
+          List.filter_map (fun vbd ->
+            Opt.map (fun x -> VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)) vbd.Vbd.backend
+          ) vbds
+        )
+      ) ["RW", vbds_rw; "RO", vbds_ro]
+    ; [
+      (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+        Parallel (id, (Printf.sprintf "VBD.plug RW vm=%s" id), List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw);
+        Parallel (id, (Printf.sprintf "VBD.plug RO vm=%s" id), List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro);
+      ]
+    ; List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
+    ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
+    ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
+    ; [
+        VM_create_device_model (id, false)
+      ]
+      (* PCI and USB devices are hot-plugged into HVM guests via QEMU,
+         so the following operations occur after creating the device models *)
+    ; List.map (fun pci -> PCI_plug pci.Pci.id) pcis
+    ; List.map (fun vusb -> VUSB_plug vusb.Vusb.id) vusbs
       (* At this point the domain is considered survivable. *)
-      VM_set_domain_action_request(id, None)
-    ]
+    ; [
+        VM_set_domain_action_request (id, None)
+      ]
+    ] |> List.concat
   | VM_shutdown (id, timeout) ->
-    (Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, PowerOff, x) ]) timeout)
-    (* When shutdown vm, need to unplug vusb from vm. *)
-    ) @ (List.map (fun vusb -> VUSB_unplug vusb.Vusb.id)
-           (VUSB_DB.vusbs id)
-        ) @ simplify ([
+    let vbds = VBD_DB.vbds id in
+    let vifs = VIF_DB.vifs id in
+    let pcis = PCI_DB.pcis id in
+    let vusbs = VUSB_DB.vusbs id in
+    [ Opt.default [] (Opt.map (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout)
+      (* Before shutting down a VM, we need to unplug its VUSBs. *)
+    ; List.map (fun vusb -> VUSB_unplug vusb.Vusb.id) vusbs
+    ; [
         (* CA-315450: in a hard shutdown or snapshot revert,
          * timeout=None and VM_shutdown_domain is not called. To avoid
          * any interference, we pause the domain before destroying the
@@ -954,115 +941,106 @@ let rec atomics_of_operation = function
          *)
         VM_pause id;
         VM_destroy_device_model id;
-      ] @ (
-          let vbds = VBD_DB.vbds id in
-          [
-            Parallel ( id, (Printf.sprintf "VBD.unplug vm=%s" id), List.map (fun vbd->VBD_unplug (vbd.Vbd.id, true)) vbds);
-          ]
-        ) @ (List.map (fun vif -> VIF_unplug (vif.Vif.id, true))
-               (VIF_DB.vifs id)
-            ) @ (List.map (fun pci -> PCI_unplug pci.Pci.id)
-                   (PCI_DB.pcis id)
-                )) @ [
-      VM_destroy id
-    ]
+        Parallel (id, (Printf.sprintf "VBD.unplug vm=%s" id), List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds)
+      ]
+    ; List.map (fun vif -> VIF_unplug (vif.Vif.id, true)) vifs
+    ; List.map (fun pci -> PCI_unplug pci.Pci.id) pcis
+    ; [
+        VM_destroy id
+      ]
+    ] |> List.concat
   | VM_restore_vifs id ->
-    (List.map (fun vif -> VIF_set_active (vif.Vif.id, true))
-       (VIF_DB.vifs id)
-    ) @ simplify (List.map (fun vif -> VIF_plug vif.Vif.id)
-                    (VIF_DB.vifs id |> vif_plug_order)
-                 )
+    let vifs = VIF_DB.vifs id in
+    [ List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
+    ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
+    ] |> List.concat
   | VM_restore_devices (id, restore_vifs) ->
-    (* Note: VBD_plug does not take a "simplify" modifier, because VM_restore
-       		 * never attaches the storage, even in "simplified" backends. This is necessary when
-       		 * migrating a VM, where the storage can be attached only after the sender host
-       		 * has detached itself. *)
-    [
-    ] @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
-           (VBD_DB.vbds id)
-        ) @ (
-      let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
-      [
+    let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
+    let vgpus = VGPU_DB.vgpus id in
+    let pcis = PCI_DB.pcis id |> pci_plug_order in
+    [ List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true)) (vbds_rw @ vbds_ro)
+    ; [
         (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-        Parallel ( id, (Printf.sprintf "VBD.plug RW vm=%s" id), List.map (fun vbd->VBD_plug vbd.Vbd.id) vbds_rw);
-        Parallel ( id, (Printf.sprintf "VBD.plug RO vm=%s" id), List.map (fun vbd->VBD_plug vbd.Vbd.id) vbds_ro);
+        Parallel (id, (Printf.sprintf "VBD.plug RW vm=%s" id), List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw);
+        Parallel (id, (Printf.sprintf "VBD.plug RO vm=%s" id), List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro);
       ]
-    ) @
-    (if restore_vifs
-     then atomics_of_operation (VM_restore_vifs id)
-     else []
-    ) @ (List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true))
-           (VGPU_DB.vgpus id)
-    ) @ simplify [
-      (* Unfortunately this has to be done after the devices have been created since
-         			   qemu reads xenstore keys in preference to its own commandline. After this is
-         			   fixed we can consider creating qemu as a part of the 'build' *)
-      VM_create_device_model (id, true);
-      (* We hotplug PCI devices into HVM guests via qemu, since otherwise hotunplug triggers
-         			   some kind of unfixed race condition causing an interrupt storm. *)
-    ] @ simplify (List.map (fun pci -> PCI_plug pci.Pci.id)
-                    (PCI_DB.pcis id |> pci_plug_order)
-                 )
+    ; if restore_vifs then atomics_of_operation (VM_restore_vifs id) else []
+    ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
+    ; [
+        VM_create_device_model (id, true);
+        (* PCI and USB devices are hot-plugged into HVM guests via QEMU,
+         so the following operations occur after creating the device models *)
+      ]
+    ; List.map (fun pci -> PCI_plug pci.Pci.id) pcis
+    ] |> List.concat
   | VM_poweroff (id, timeout) ->
+    let vbds = VBD_DB.vbds id in
+    let vifs = VIF_DB.vifs id in
+    let vgpus = VGPU_DB.vgpus id in
     let reason =
-      if timeout = None
-      then Xenops_hooks.reason__hard_shutdown
-      else Xenops_hooks.reason__clean_shutdown in
-    [
-      VM_hook_script(id, Xenops_hooks.VM_pre_destroy, reason);
-    ] @ (atomics_of_operation (VM_shutdown (id, timeout))
-        ) @ (
-      let vbds = VBD_DB.vbds id in
-      [
-        Parallel ( id, (Printf.sprintf "VBD.epoch_end vm=%s" id),
-                   (List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_end (vbd.Vbd.id, x)] ) vbd.Vbd.backend))
-                                   vbds
-                                )))
+      if timeout = None then
+        Xenops_hooks.reason__hard_shutdown
+      else
+        Xenops_hooks.reason__clean_shutdown
+    in
+    [ [
+        VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)
       ]
-    ) @ (List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false))
-           (VBD_DB.vbds id)
-        ) @ (List.map (fun vif -> VIF_set_active (vif.Vif.id, false))
-               (VIF_DB.vifs id)
-               ) @ (List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, false))
-                      (VGPU_DB.vgpus id)
-                   ) @ [
-      VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason)
-    ]
+    ; atomics_of_operation (VM_shutdown (id, timeout))
+    ; [
+        Parallel (id, (Printf.sprintf "VBD.epoch_end vm=%s" id),
+          List.filter_map (fun vbd ->
+            Opt.map (fun x -> VBD_epoch_end (vbd.Vbd.id, x)) vbd.Vbd.backend
+          ) vbds)
+      ]
+    ; List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false)) vbds
+    ; List.map (fun vif -> VIF_set_active (vif.Vif.id, false)) vifs
+    ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, false)) vgpus
+    ; [
+        VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason)
+      ]
+    ] |> List.concat
   | VM_reboot (id, timeout) ->
+    let vbds = VBD_DB.vbds id in
     let reason =
-      if timeout = None
-      then Xenops_hooks.reason__hard_reboot
-      else Xenops_hooks.reason__clean_reboot in
-    (Opt.default [] (Opt.map (fun x -> [ VM_shutdown_domain(id, Reboot, x) ]) timeout)
-    ) @ [
-      VM_hook_script(id, Xenops_hooks.VM_pre_destroy, reason)
-    ] @ (atomics_of_operation (VM_shutdown (id, None))
-        ) @ (
-      let vbds = VBD_DB.vbds id in
-      [
-        Parallel ( id, (Printf.sprintf "VBD.epoch_end vm=%s" id),
-                   (List.concat (List.map (fun vbd -> Opt.default [] (Opt.map (fun x -> [ VBD_epoch_end (vbd.Vbd.id, x) ]) vbd.Vbd.backend))
-                                   vbds
-                                )))
+      if timeout = None then
+        Xenops_hooks.reason__hard_reboot
+      else
+        Xenops_hooks.reason__clean_reboot
+    in
+    [ Opt.default [] (Opt.map (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout)
+    ; [
+        VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)
       ]
-    ) @ [
-      VM_hook_script(id, Xenops_hooks.VM_post_destroy, reason);
-      VM_hook_script(id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
-    ] @ (atomics_of_operation (VM_start (id,false))
-        ) @ [
-      VM_unpause id;
-    ]
+    ; atomics_of_operation (VM_shutdown (id, None))
+    ; [
+        Parallel (id, (Printf.sprintf "VBD.epoch_end vm=%s" id),
+          List.filter_map (fun vbd ->
+            Opt.map (fun x -> VBD_epoch_end (vbd.Vbd.id, x)) vbd.Vbd.backend
+          ) vbds)
+      ]
+    ; [
+        VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason);
+        VM_hook_script (id, Xenops_hooks.VM_pre_reboot, Xenops_hooks.reason__none)
+      ]
+    ; atomics_of_operation (VM_start (id, false))
+    ; [
+        VM_unpause id;
+      ]
+    ] |> List.concat
   | VM_suspend (id, data) ->
     (* If we've got a vGPU, then save its state to the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
-    [
-      VM_hook_script(id, Xenops_hooks.VM_pre_suspend, Xenops_hooks.reason__suspend);
-      VM_save (id, [], data, vgpu_data);
-      VM_hook_script(id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend)
-    ] @ (atomics_of_operation (VM_shutdown (id, None))
-        ) @ [
-      VM_hook_script(id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend)
-    ]
+    [ [
+        VM_hook_script (id, Xenops_hooks.VM_pre_suspend, Xenops_hooks.reason__suspend);
+        VM_save (id, [], data, vgpu_data);
+        VM_hook_script (id, Xenops_hooks.VM_pre_destroy, Xenops_hooks.reason__suspend)
+      ]
+    ; atomics_of_operation (VM_shutdown (id, None))
+    ; [
+        VM_hook_script (id, Xenops_hooks.VM_post_destroy, Xenops_hooks.reason__suspend)
+      ]
+    ] |> List.concat
   | VM_resume (id, data) ->
     (* If we've got a vGPU, then save its state will be in the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
@@ -1071,19 +1049,21 @@ let rec atomics_of_operation = function
       | [] -> []
       | vgpus -> [VGPU_start (vgpus, true)]
     in
-    simplify [
-      VM_create (id, None, None);
-    ] @ [
-      VM_hook_script(id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
-    ] @ vgpu_start_operations
-    @ [
-      VM_restore (id, data, vgpu_data);
-    ] @ (atomics_of_operation (VM_restore_devices (id, true))
-        ) @ [
-      (* At this point the domain is considered survivable. *)
-      VM_set_domain_action_request(id, None);
-      VM_hook_script(id, Xenops_hooks.VM_post_resume, Xenops_hooks.reason__none);
-    ]
+    [ [
+        VM_create (id, None, None);
+        VM_hook_script (id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
+      ]
+    ; vgpu_start_operations
+    ; [
+        VM_restore (id, data, vgpu_data);
+      ]
+    ; atomics_of_operation (VM_restore_devices (id, true))
+    ; [
+        (* At this point the domain is considered survivable. *)
+        VM_set_domain_action_request (id, None);
+        VM_hook_script (id, Xenops_hooks.VM_post_resume, Xenops_hooks.reason__none);
+      ]
+    ] |> List.concat
   | VBD_hotplug id ->
     [
       VBD_set_active (id, true);
@@ -1832,7 +1812,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
         (try
            perform_atomics (
-             simplify [VM_create (id, Some memory_limit, Some final_id);] @
+             [VM_create (id, Some memory_limit, Some final_id);] @
              (* Perform as many operations as possible on the destination domain before pausing the original domain *)
              (atomics_of_operation (VM_restore_vifs id))
            ) t;
