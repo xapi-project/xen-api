@@ -15,8 +15,8 @@ depends: [
   "alcotest" {with-test}
   "lwt" {with-test}
   "rpclib" {with-test}
-  "ppx_deriving_rpc" {with-test}
-  "rpc"
+  "ppx_deriving_rpc"
+  "rpclib"
   "xmlm"
   "cmdliner"
 ]
@@ -26,7 +26,3 @@ depexts: [
   ["python"] {os-distribution = "ubuntu"}
 ]
 synopsis: "Code and documentation generator for the Xapi storage interface"
-url {
-  src:
-    "https://github.com/xapi-project/xapi-storage/archive/master/master.tar.gz"
-}
