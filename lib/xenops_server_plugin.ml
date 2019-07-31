@@ -107,7 +107,7 @@ module type S = sig
   end
   module PCI : sig
     val get_state: Vm.id -> Pci.t -> Pci.state
-    val plug: Xenops_task.task_handle -> Vm.id -> Pci.t -> unit
+    val plug: Xenops_task.task_handle -> Vm.id -> Pci.t -> bool -> unit
     val unplug: Xenops_task.task_handle -> Vm.id -> Pci.t -> unit
     val get_device_action_request: Vm.id -> Pci.t -> device_action_request option
   end

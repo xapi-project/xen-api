@@ -2289,7 +2289,11 @@ module PCI = struct
     in
     1 + max_idx (List.map fst current)
 
-  let plug task vm pci =
+  (* [plug] a [pci] device and advertise it to QEMU when [advertise] is
+   * [true]. With [advertise=false], the device is not advertised to
+   * QEMU. This is currently only the case for NVIDIA SR-IOV vGPUs
+   *)
+  let plug task vm pci advertise =
     on_frontend
       (fun xc xs frontend_domid domain_type ->
          (* Make sure the backend defaults are set *)
@@ -2316,7 +2320,7 @@ module PCI = struct
          let device = Device.PCI.{
            host = pci.address;
            guest = (index, guest_pci);
-           qmp_add = true;
+           qmp_add = advertise
          } in
          Device.PCI.add ~xc ~xs ~hvm [ device ] frontend_domid
       ) vm

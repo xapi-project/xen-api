@@ -1294,7 +1294,17 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
 
   | PCI_plug id ->
     debug "PCI.plug %s" (PCI_DB.string_of_id id);
-    B.PCI.plug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
+    let vm    = PCI_DB.vm_of id in
+    let pci   = PCI_DB.read_exn id in
+    let vgpus = VGPU_DB.vgpus vm in
+    let is_nvidia_sriov = function
+      | Vgpu.{ implementation = Nvidia(_); virtual_pci_address = Some addr; _}
+          -> addr = pci.Pci.address
+      | _ -> false
+    in
+    (* if this pci device belongs to an NVIDIA SRI-IOV vGPU, don't
+     * advertise it to QEMU *)
+    B.PCI.plug t vm pci (not @@ List.exists is_nvidia_sriov vgpus);
     PCI_DB.signal id
   | PCI_unplug id ->
     debug "PCI.unplug %s" (PCI_DB.string_of_id id);

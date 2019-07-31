@@ -419,7 +419,7 @@ module VM = struct
 end
 
 module PCI = struct
-  let plug _ (vm: Vm.id) (pci: Pci.t) = Mutex.execute m (add_pci vm pci)
+  let plug _ (vm: Vm.id) (pci: Pci.t) _ = Mutex.execute m (add_pci vm pci)
   let unplug _ vm pci = Mutex.execute m (remove_pci vm pci)
 
   let get_state vm pci = Mutex.execute m (pci_state vm pci)
