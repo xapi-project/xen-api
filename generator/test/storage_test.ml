@@ -20,7 +20,6 @@
     It also has a test to check the interoperability between the generated
     client and server. *)
 
-open Xapi_storage
 
 let base_path = "../../rpc-light/"
 
@@ -67,10 +66,10 @@ let check_response_parser =
     readfile path |> Xmlrpc.response_of_string
   in
 
-  let module R : Idl.RPCfunc = struct let rpc = file_rpc end in
+  let module R = struct let rpc = file_rpc end in
 
   let sr =
-    let module Sr = Xapi_storage.Control.Sr(Idl.GenClientExnRpc(R)) in
+    let module Sr = Xapi_storage.Control.Sr(Idl.Exn.GenClient(R)) in
 
     let attach () =
       Alcotest.(check string) "Sr.attach return value" (Sr.attach "" []) "the_storage_repository";
@@ -89,7 +88,7 @@ let check_response_parser =
   in
 
   let volume =
-    let module Volume = Xapi_storage.Control.Volume(Idl.GenClientExnRpc(R)) in
+    let module Volume = Xapi_storage.Control.Volume(Idl.Exn.GenClient(R)) in
 
     let create () =
       Alcotest.(check Cmp.volume) "Volume.create return value" test_volume (Volume.create "" "" "" "" 0L false)
@@ -115,7 +114,7 @@ let check_response_parser =
 let unimplemented _ = failwith "unimplemented"
 
 let sr_server () =
-  let module Sr = Xapi_storage.Control.Sr(Idl.GenServerExn()) in
+  let module Sr = Xapi_storage.Control.Sr(Idl.Exn.GenServer()) in
 
   Sr.attach (fun dbg configuration ->
       Alcotest.(check string) "Sr.attach dbg" "OpaqueRef:65d6b084-07f3-0985-2478-64e989653b23" dbg;
@@ -137,10 +136,10 @@ let sr_server () =
   Sr.set_name unimplemented;
   Sr.set_description unimplemented;
 
-  Idl.server Sr.implementation
+  Idl.Exn.server Sr.implementation
 
 let volume_server () =
-  let module Volume = Xapi_storage.Control.Volume(Idl.GenServerExn()) in
+  let module Volume = Xapi_storage.Control.Volume(Idl.Exn.GenServer()) in
 
   Volume.create (fun dbg sr name description size sharable ->
       Alcotest.(check string) "Volume.create dbg" "OpaqueRef:9aa50d0c-4bf8-a03e-9796-3ca65459638a" dbg;
@@ -167,7 +166,7 @@ let volume_server () =
   Volume.data_destroy unimplemented;
   Volume.list_changed_blocks unimplemented;
 
-  Idl.server Volume.implementation
+  Idl.Exn.server Volume.implementation
 
 (** Check that we successfully parse the request and
     that the content of the parsed request is correct. *)
@@ -204,10 +203,10 @@ let test_client_server =
     response
   in
   let sr =
-    let module R : Idl.RPCfunc = struct
+    let module R = struct
       let rpc = rpc sr_server
     end in
-    let module Sr = Xapi_storage.Control.Sr(Idl.GenClientExnRpc(R)) in
+    let module Sr = Xapi_storage.Control.Sr(Idl.Exn.GenClient(R)) in
 
     let attach () =
       Alcotest.(check string)
