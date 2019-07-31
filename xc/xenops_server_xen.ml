@@ -2313,8 +2313,11 @@ module PCI = struct
          let guest_pci =
            Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm) 
              ~host:pci.address ~index in
-         let device =
-           Device.PCI.{host = pci.address; guest = (index, guest_pci) } in
+         let device = Device.PCI.{
+           host = pci.address;
+           guest = (index, guest_pci);
+           qmp_add = true;
+         } in
          Device.PCI.add ~xc ~xs ~hvm [ device ] frontend_domid
       ) vm
 

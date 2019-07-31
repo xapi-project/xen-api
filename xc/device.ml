@@ -1226,14 +1226,14 @@ module PCI = struct
     lor ((pci.dev land 0x1f) lsl 3)
     lor (pci.fn  land 0x7)
 
-  let _pci_add ~xc ~xs ~hvm domid {host; guest=(_, guest_addr)} =
+  let _pci_add ~xc ~xs ~hvm domid {host; guest=(_, guest_addr); qmp_add} =
     let open Xenops_interface.Pci in
     let sysfs_pci_dev = "/sys/bus/pci/devices/" in
     let devfn = match guest_addr with None -> None | Some g -> Some (g.dev, g.fn) in
     let irq = (sysfs_pci_dev ^ (Pci.string_of_address host) ^ "/irq")
               |> Unixext.string_of_file |> String.trim
               |> int_of_string in
-    if hvm then begin
+    if hvm && qmp_add then begin
       if (Qemu.is_running ~xs domid) then
         begin
           let id = Printf.sprintf "pci-pt-%02x_%02x.%01x" host.bus host.dev host.fn in
