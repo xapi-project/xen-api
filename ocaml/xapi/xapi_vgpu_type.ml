@@ -449,11 +449,19 @@ module Vendor_nvidia = struct
     let driver_supports_multiple_vgpus = host_driver_supports_multi_vgpu ~host_driver_version
       ~supported_versions:!Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions in
     List.filter_map (fun vgpu_type ->
+      let is_sriov id =
+        try (* IDs of T4 cards *)
+          List.mem (int_of_string id)
+            [230; 231; 232; 233; 234; 225; 226;
+             227; 228; 229; 222; 252; 223; 224]
+        with Not_found | Failure _ -> false
+      in
       let id = get_attr "id" vgpu_type in
       if List.mem_assoc id vgpu_ids then
         let max_instance, psubdev_id = List.assoc id vgpu_ids in
         let framebufferlength = Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type)) in
         let num_heads = Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type)) in
+        let sriov = is_sriov id in
         let max_x, max_y =
           let display = find_one_by_name "display" vgpu_type in
           Int64.of_string (get_attr "width" display),
@@ -465,7 +473,7 @@ module Vendor_nvidia = struct
             psubdev_id;
             vdev_id = int_of_string (get_attr "deviceId" devid);
             vsubdev_id = int_of_string (get_attr "subsystemId" devid);
-            sriov = false;
+            sriov = sriov
           } in
         let file_path = whitelist in
         let type_id = id in
@@ -476,6 +484,7 @@ module Vendor_nvidia = struct
         let multi_vgpu_support = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
         let name = get_attr "name" vgpu_type in
         info "Getting multiple vGPU supported from config file: %Ld, model: %s" multi_vgpu_support name;
+        info "NVIDIA GPU name=%s id=%s sriov=%b" name id sriov;
         let compatible_model_names_in_vm, compatible_model_names_on_pgpu =
           match multi_vgpu_support, driver_supports_multiple_vgpus with
           | 1L, true -> [name], [name]
