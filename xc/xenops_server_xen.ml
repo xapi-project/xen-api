@@ -2311,8 +2311,11 @@ module PCI = struct
          Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
          let index = get_next_pci_index ~xs frontend_domid in
          let guest_pci =
-           Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm) ~host:pci.address ~index in
-         Device.PCI.add ~xc ~xs ~hvm [ pci.address, (index, guest_pci) ] frontend_domid
+           Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm) 
+             ~host:pci.address ~index in
+         let device =
+           Device.PCI.{host = pci.address; guest = (index, guest_pci) } in
+         Device.PCI.add ~xc ~xs ~hvm [ device ] frontend_domid
       ) vm
 
   let unplug task vm pci =

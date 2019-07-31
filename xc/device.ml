@@ -1142,6 +1142,13 @@ module PCI = struct
     driver: string;
   }
 
+  type index = int
+  type device' =
+    { host:   Xenops_interface.Pci.address
+    ; guest:  index * Xenops_interface.Pci.address option
+    ; qmp_add: bool (** false: don't issue Device_add command *)
+    }
+
   exception Domain_not_running of Xenops_interface.Pci.address * int
   exception Cannot_add of Xenops_interface.Pci.address list * exn (* devices, reason *)
 
@@ -1219,10 +1226,10 @@ module PCI = struct
     lor ((pci.dev land 0x1f) lsl 3)
     lor (pci.fn  land 0x7)
 
-  let _pci_add ~xc ~xs ~hvm domid (host, (_, guest)) =
+  let _pci_add ~xc ~xs ~hvm domid {host; guest=(_, guest_addr)} =
     let open Xenops_interface.Pci in
     let sysfs_pci_dev = "/sys/bus/pci/devices/" in
-    let devfn = match guest with None -> None | Some g -> Some (g.dev, g.fn) in
+    let devfn = match guest_addr with None -> None | Some g -> Some (g.dev, g.fn) in
     let irq = (sysfs_pci_dev ^ (Pci.string_of_address host) ^ "/irq")
               |> Unixext.string_of_file |> String.trim
               |> int_of_string in
@@ -1268,13 +1275,14 @@ module PCI = struct
 
 
   let add ~xc ~xs ~hvm pcidevs domid =
+    let host_addr {host; guest=_} = host in
     try
       if !Xenopsd.use_old_pci_add || (not hvm) then
-        add_xl (List.map (fun (a,_) -> a) pcidevs) domid
+        add_xl (List.map host_addr pcidevs) domid
       else
         List.iter (_pci_add ~xc ~xs ~hvm domid) pcidevs;
       List.iter
-        (fun (pcidev, (dev, _)) ->
+        (fun {host=pcidev; guest=(dev, _)} ->
            xs.Xs.write
              (Printf.sprintf "%s/dev-%d" (device_model_pci_device_path xs 0 domid) dev)
              (Pci.string_of_address pcidev))
@@ -1282,7 +1290,7 @@ module PCI = struct
     with exn ->
       Backtrace.is_important exn;
       Debug.log_backtrace exn (Backtrace.get exn);
-      Backtrace.reraise exn (Cannot_add ((List.map fst pcidevs), exn))
+      Backtrace.reraise exn (Cannot_add ((List.map host_addr pcidevs), exn))
 
   let release pcidevs domid =
     release_xl pcidevs domid
@@ -1330,6 +1338,7 @@ module PCI = struct
     | "nvidia" -> Supported Nvidia
     | "pciback" -> Supported Pciback
     | driver -> Unsupported driver
+
 
   let sysfs_devices = "/sys/bus/pci/devices"
   let sysfs_drivers = "/sys/bus/pci/drivers"

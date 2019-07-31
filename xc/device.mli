@@ -198,8 +198,14 @@ sig
     | Nvidia
     | Pciback
 
+  type index = int
+  type device' =
+    { host:   Xenops_interface.Pci.address
+    ; guest:  index * Xenops_interface.Pci.address option
+    ; qmp_add: bool (** false: don't issue Device_add command *)
+    }
 
-  val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> (Xenops_interface.Pci.address * (int * Xenops_interface.Pci.address option)) list -> Xenctrl.domid -> unit
+  val add : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> hvm:bool -> device' list -> Xenctrl.domid -> unit
   val release : address list -> Xenctrl.domid -> unit
   val reset : xs:Xenstore.Xs.xsh -> address -> unit
   val bind : address list -> supported_driver -> unit
