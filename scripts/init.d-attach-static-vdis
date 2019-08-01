@@ -10,9 +10,6 @@ STATE_DIR=/etc/xensource/static-vdis
 # Source function library.
 . /etc/init.d/functions
 
-# Needed for interface-reconfigure below
-. /etc/xensource-inventory
-
 clear_stale_state(){
 	for i in $(ls -1 ${STATE_DIR}); do
 	    # Clear the now-stale symlink to the attached disk. From this point the disk will
