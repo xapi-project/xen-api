@@ -99,10 +99,7 @@ let prepare_database_for_restore ~old_context ~new_context =
         any excess interfaces will be forgotten and need to be manually reintroduced)
 
         Additionally we require the currently configured management interface device name
-        is found in the backup so we can re-use the existing ifcfg- files in /etc/.
-        We need this because the interface-reconfigure --force-up relies on the existing
-        config files. Ideally a master startup (such as that in the restore db code) would
-        actively regenerate the config files but this is too invasive a change for CA-15164.
+        is found in the backup, to ensure that management is set up correctly.
 
         PIFs whose device name are not recognised or those belonging to (now dead)
         slaves are forgotten. *)

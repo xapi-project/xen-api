@@ -22,7 +22,6 @@ from optparse import OptionParser
 #import XenAPI
 
 pool_conf = '@ETCDIR@/pool.conf'
-interface_reconfigure = "@LIBEXECDIR@/interface-reconfigure"
 inventory_file = '@INVENTORY@'
 management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'
@@ -189,19 +188,11 @@ Type 'no' to cancel.
 	
 	# Reconfigure new management interface
 	print "Reconfiguring " + device + "..."
-	if os.access('/tmp/do-not-use-networkd', os.F_OK):
-		if_args = ' --force ' + bridge + ' rewrite --mac=x --device=' + device + ' --mode=' + options.mode
-		if options.mode == 'static':
-			if_args += ' --ip=' + options.ip + ' --netmask=' + options.netmask
-			if options.gateway != '':
-				if_args += ' --gateway=' + options.gateway
-		os.system(interface_reconfigure + if_args + ' >/dev/null 2>/dev/null')
-	else:
-		os.system('service xcp-network stop >/dev/null 2>/dev/null')
-		try:
-			os.remove('/var/lib/xcp/networkd.db')
-		except Exception as e:
-			print 'Warning: Failed to delete networkd.db.\n%s' % e
+	os.system('service xcp-network stop >/dev/null 2>/dev/null')
+	try:
+		os.remove('/var/lib/xcp/networkd.db')
+	except Exception as e:
+		print 'Warning: Failed to delete networkd.db.\n%s' % e
 
 	# Update interfaces in inventory file
 	print 'Updating inventory file...'
