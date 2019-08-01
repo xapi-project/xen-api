@@ -26,14 +26,6 @@ let network_conf = ref "/etc/xcp/network.conf"
 let config : config_t ref = ref Network_config.empty_config
 let backend_kind = ref Openvswitch
 
-let legacy_management_interface_start () =
-  try
-    ignore (call_script "/opt/xensource/libexec/legacy-management-interface" ["start"]);
-    debug "Upgrade: brought up interfaces using the old script. Xapi will sync up soon."
-  with e ->
-    debug "Error while configuring the management interface using the old script: %s\n%s"
-      (Printexc.to_string e) (Printexc.get_backtrace ())
-
 let write_config () =
   try
     Network_config.write_config !config
@@ -44,18 +36,13 @@ let read_config () =
     config := Network_config.read_config ();
     debug "Read configuration from networkd.db file."
   with Network_config.Read_error ->
-    (* No configuration file found. *)
-    (* Perhaps it is an upgrade from the pre-networkd era. If network.dbcache exists, try to configure the
-       		 * management interface using the old scripts. *)
-    if (try Unix.access (Filename.concat "/var/lib/xcp" "network.dbcache") [Unix.F_OK]; true with _ -> false) then
-      legacy_management_interface_start ()
-    else
-      (* Try to get the initial network setup from the first-boot data written by the host installer. *)
-      try
-        config := Network_config.read_management_conf ();
-        debug "Read configuration from management.conf file."
-      with Network_config.Read_error ->
-        debug "Could not interpret the configuration in management.conf"
+    (* No configuration file found. Try to get the initial network setup from
+     * the first-boot data written by the host installer. *)
+    try
+      config := Network_config.read_management_conf ();
+      debug "Read configuration from management.conf file."
+    with Network_config.Read_error ->
+      debug "Could not interpret the configuration in management.conf"
 
 let on_shutdown signal =
   let dbg = "shutdown" in
