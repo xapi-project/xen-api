@@ -26,7 +26,7 @@ module type T = sig
 
   (** Asserts for the given set of constraints [c], that
       	    [c.static_min] ≤ [c.dynamic_min] = [c.dynamic_max] = [c.static_max]. *)
-  val assert_valid_and_pinned_at_static_max : constraints:t -> unit
+  val assert_valid_and_pinned_at_static_max : constraints:t -> reason:string -> unit
 
   (** Asserts that the given set of constraints [c] is valid for the current
       	    context. *)
@@ -58,27 +58,31 @@ module Vm_memory_constraints : T = struct
   let order_constraint =
     "Memory limits must satisfy: \
      static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"
-  let equality_constraint =
-    "Memory limits must satisfy: \
-     static_min ≤ dynamic_min = dynamic_max = static_max"
+  let equality_constraint reason =
+    Printf.sprintf "Memory limits must satisfy: \
+     static_min ≤ dynamic_min = dynamic_max = static_max \
+     (%s)" reason
 
   let assert_valid ~constraints =
     if not (are_valid ~constraints)
     then raise (Api_errors.Server_error (
         Api_errors.memory_constraint_violation, [order_constraint]))
 
-  let assert_valid_and_pinned_at_static_max ~constraints =
+  let assert_valid_and_pinned_at_static_max ~constraints ~reason =
     if not (are_valid_and_pinned_at_static_max ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation, [equality_constraint]))
+        Api_errors.memory_constraint_violation, [equality_constraint reason]))
 
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-    if Pool_features.is_enabled ~__context Features.DMC
-    && not is_control_domain
-    && not (nested_virt ~__context vm)
-    then assert_valid ~constraints
-    else assert_valid_and_pinned_at_static_max ~constraints
+    if not (Pool_features.is_enabled ~__context Features.DMC) then
+      assert_valid_and_pinned_at_static_max ~constraints ~reason:"DMC disabled"
+    else if is_control_domain then
+      assert_valid_and_pinned_at_static_max ~constraints ~reason:"control domain"
+    else if nested_virt ~__context vm then
+      assert_valid_and_pinned_at_static_max ~constraints ~reason:"nested virt"
+    else
+      assert_valid ~constraints
 
   let extract ~vm_record =
     {

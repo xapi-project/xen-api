@@ -230,7 +230,7 @@ let assert_memory_constraints ~__context ~vm platformdata =
     begin
       let module C = Xapi_vm_memory_constraints.Vm_memory_constraints in
       let c = C.get ~__context ~vm_ref:vm in
-      C.assert_valid_and_pinned_at_static_max c
+      C.assert_valid_and_pinned_at_static_max ~constraints:c ~reason:"nested virt"
     end
 
 (* Note: it is important that we use the pool-internal API call, VM.atomic_set_resident_on, to set resident_on and clear
