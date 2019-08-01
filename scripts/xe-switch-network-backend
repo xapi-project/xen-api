@@ -38,17 +38,6 @@ if [ X"$curr" = Xvswitch ] ; then
     new="openvswitch"
 fi
 
-
-echo "Cleaning up old ifcfg files"
-for i in /etc/sysconfig/network-scripts/ifcfg-* ; do
-	if [ "$i" = "/etc/sysconfig/network-scripts/ifcfg-lo" ] ; then
-		continue
-	fi
-	echo " Remove... $(basename $i)"
-	rm $i
-done
-
-
 BLACKLIST=/etc/modprobe.d/blacklist-bridge.conf
 if [ "$new" = "openvswitch" ] ; then
 	# Add blacklist of bridge module so it can't be loaded.

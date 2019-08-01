@@ -47,7 +47,6 @@ install:
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
-	$(IPROG) init.d-management-interface $(DESTDIR)$(LIBEXECDIR)/legacy-management-interface
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
@@ -91,11 +90,6 @@ install:
 	$(IPROG) usb_reset.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
-	$(IPROG) interface-reconfigure $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) InterfaceReconfigure.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) InterfaceReconfigureBridge.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) InterfaceReconfigureVswitch.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) interface-visualise $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)

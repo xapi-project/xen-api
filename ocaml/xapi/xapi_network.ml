@@ -100,7 +100,7 @@ let attach_internal ?(management_interface=false) ?(force_bringup=false) ~__cont
   end
   else begin
     (* Ensure internal bridge exists and is up. external bridges will be
-           brought up by call to interface-reconfigure. *)
+       brought up through Nm.bring_pif_up. *)
     if List.length(local_pifs) = 0 then create_internal_bridge ~__context
         ~bridge:net.API.network_bridge ~uuid:net.API.network_uuid ~persist;
 
@@ -109,9 +109,7 @@ let attach_internal ?(management_interface=false) ?(force_bringup=false) ~__cont
     && (List.assoc Xapi_globs.is_guest_installer_network net.API.network_other_config = "true") then
       set_himn_ip ~__context net.API.network_bridge net.API.network_other_config;
 
-    (* Create the new PIF.
-           NB if we're doing this as part of a management-interface-reconfigure then
-           we might be just about to loose our current management interface... *)
+    (* Ensure that required PIFs are attached *)
     List.iter (fun pif ->
         let uuid = Db.PIF.get_uuid ~__context ~self:pif in
         if Db.PIF.get_managed ~__context ~self:pif then begin
