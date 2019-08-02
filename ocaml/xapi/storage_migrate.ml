@@ -29,6 +29,8 @@ open Storage_interface
 open Storage_task
 open Storage_utils
 
+let vm_of_s = Storage_interface.Vm.of_string
+
 let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = Constants.sm_uri; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
 
 module State = struct
@@ -269,7 +271,7 @@ let tapdisk_of_attach_info (backend:Storage_interface.backend) =
 let with_activated_disk ~dbg ~sr ~vdi ~dp f =
   let attached_vdi =
     Opt.map (fun vdi ->
-        let backend = Local.VDI.attach2 dbg dp sr vdi false in
+        let backend = Local.VDI.attach3 dbg dp sr vdi (vm_of_s "0") false in
         vdi, backend
       ) vdi
   in
@@ -281,7 +283,7 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
               let (_, blockdevs, files, _) = Storage_interface.implementations_of_backend backend in
               match blockdevs, files with
               | ({ path })::_, _ | _, ({ path })::_ ->
-                Local.VDI.activate dbg dp sr vdi;
+                Local.VDI.activate3 dbg dp sr vdi (vm_of_s "0");
                 path
               | [], [] ->
                 raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, ["No BlockDevice or File implementation in Datapath.attach response: " ^ (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)])))
@@ -290,9 +292,9 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
        in
        finally
          (fun () -> f path)
-         (fun () -> Opt.iter (fun vdi -> Local.VDI.deactivate dbg dp sr vdi) vdi)
+         (fun () -> Opt.iter (fun vdi -> Local.VDI.deactivate dbg dp sr vdi (vm_of_s "0")) vdi)
     )
-    (fun () -> Opt.iter (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi) attached_vdi)
+    (fun () -> Opt.iter (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi (vm_of_s "0")) attached_vdi)
 
 let perform_cleanup_actions =
   List.iter
@@ -727,8 +729,8 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
     on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail;
     debug "Created dummy snapshot for mirror receive: %s" (string_of_vdi_info dummy);
 
-    let _ = Local.VDI.attach2 dbg leaf_dp sr leaf.vdi true in
-    Local.VDI.activate dbg leaf_dp sr leaf.vdi;
+    let _ = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi (vm_of_s "0") true in
+    Local.VDI.activate3 dbg leaf_dp sr leaf.vdi (vm_of_s "0");
 
     let nearest = List.fold_left
         (fun acc content_id -> match acc with

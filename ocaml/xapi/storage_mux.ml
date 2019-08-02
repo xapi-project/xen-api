@@ -206,27 +206,33 @@ module Mux = struct
     let set_persistent () ~dbg ~sr ~vdi ~persistent =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
       C.VDI.set_persistent dbg sr vdi persistent
-    let epoch_begin () ~dbg ~sr ~vdi ~persistent =
+    let epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
-      C.VDI.epoch_begin dbg sr vdi persistent
+      C.VDI.epoch_begin dbg sr vdi vm persistent
     (* We need to include this to satisfy the SMAPIv2 signature *)
     let attach () ~dbg ~dp ~sr ~vdi ~read_write =
       failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
     let attach2 () ~dbg ~dp ~sr ~vdi ~read_write =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
       C.VDI.attach2 dbg dp sr vdi read_write
+    let attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+      let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
+      C.VDI.attach3 dbg dp sr vdi vm read_write
     let activate () ~dbg ~dp ~sr ~vdi =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
       C.VDI.activate dbg dp sr vdi
-    let deactivate () ~dbg ~dp ~sr ~vdi =
+    let activate3 () ~dbg ~dp ~sr ~vdi ~vm =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
-      C.VDI.deactivate dbg dp sr vdi
-    let detach () ~dbg ~dp ~sr ~vdi =
+      C.VDI.activate3 dbg dp sr vdi vm
+    let deactivate () ~dbg ~dp ~sr ~vdi ~vm =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
-      C.VDI.detach dbg dp sr vdi
-    let epoch_end () ~dbg ~sr ~vdi =
+      C.VDI.deactivate dbg dp sr vdi vm
+    let detach () ~dbg ~dp ~sr ~vdi ~vm =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
-      C.VDI.epoch_end dbg sr vdi
+      C.VDI.detach dbg dp sr vdi vm
+    let epoch_end () ~dbg ~sr ~vdi ~vm =
+      let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
+      C.VDI.epoch_end dbg sr vdi vm
     let get_by_name () ~dbg ~sr ~name =
       let module C = StorageAPI(Idl.Exn.GenClient(struct let rpc = of_sr sr end)) in
       C.VDI.get_by_name dbg sr name

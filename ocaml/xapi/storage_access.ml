@@ -417,7 +417,7 @@ module SMAPIv1 = struct
       per_host_key ~__context ~prefix:"read-caching-reason"
 
 
-    let epoch_begin context ~dbg ~sr ~vdi ~persistent =
+    let epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent =
       try
         for_vdi ~dbg ~sr ~vdi "VDI.epoch_begin"
           (fun device_config _type sr self ->
@@ -467,6 +467,10 @@ module SMAPIv1 = struct
       with Api_errors.Server_error(code, params) ->
         raise (Storage_error (Backend_error(code, params)))
 
+    let attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+      (*Throw away vm argument as does nothing in SMAPIv1*)
+      attach2 context ~dbg ~dp ~sr ~vdi ~read_write
+
     let attach _ =
       failwith "We'll never get here: attach is implemented in Storage_impl.Wrapper"
 
@@ -490,7 +494,10 @@ module SMAPIv1 = struct
       with Api_errors.Server_error(code, params) ->
         raise (Storage_error (Backend_error(code, params)))
 
-    let deactivate context ~dbg ~dp ~sr ~vdi =
+    let activate3 context ~dbg ~dp ~sr ~vdi ~vm =
+      activate context ~dbg ~dp ~sr ~vdi
+
+    let deactivate context ~dbg ~dp ~sr ~vdi ~vm =
       try
         for_vdi ~dbg ~sr ~vdi "VDI.deactivate"
           (fun device_config _type sr self ->
@@ -507,7 +514,7 @@ module SMAPIv1 = struct
       with Api_errors.Server_error(code, params) ->
         raise (Storage_error (Backend_error(code, params)))
 
-    let detach context ~dbg ~dp ~sr ~vdi =
+    let detach context ~dbg ~dp ~sr ~vdi ~vm =
       try
         for_vdi ~dbg ~sr ~vdi "VDI.detach"
           (fun device_config _type sr self ->
@@ -526,7 +533,7 @@ module SMAPIv1 = struct
       with Api_errors.Server_error(code, params) ->
         raise (Storage_error (Backend_error(code, params)))
 
-    let epoch_end context ~dbg ~sr ~vdi =
+    let epoch_end context ~dbg ~sr ~vdi ~vm =
       try
         for_vdi ~dbg ~sr ~vdi "VDI.epoch_end"
           (fun device_config _type sr self ->
@@ -1362,8 +1369,9 @@ let attach_and_activate ~__context ~vbd ~domid f =
        on_vdi ~__context ~vbd ~domid
          (fun rpc dbg dp sr vdi ->
             let module C = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc end)) in
-            let attach_info = C.VDI.attach2 dbg dp sr vdi read_write in
-            C.VDI.activate dbg dp sr vdi;
+            let vm = (Storage_interface.Vm.of_string (string_of_int domid)) in
+            let attach_info = C.VDI.attach3 dbg dp sr vdi vm read_write in
+            C.VDI.activate3 dbg dp sr vdi vm;
             f attach_info
          )
     )

@@ -75,6 +75,8 @@ open Storage_task
 
 let s_of_sr = Storage_interface.Sr.string_of
 let s_of_vdi = Storage_interface.Vdi.string_of
+let s_of_vm = Storage_interface.Vm.string_of 
+let vm_of_s = Storage_interface.Vm.of_string 
 
 let print_debug = ref false
 let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
@@ -336,7 +338,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       let locks = locks_find sr in
       Storage_locks.with_master_lock locks f
 
-    let side_effects context dbg dp sr sr_t vdi vdi_t ops =
+    let side_effects context dbg dp sr sr_t vdi vdi_t vm ops =
       let perform_one vdi_t (op, state_on_fail) =
         try
           let vdi_t = Vdi.perform (Dp.make dp) op vdi_t in
@@ -344,15 +346,15 @@ module Wrapper = functor(Impl: Server_impl) -> struct
             | Vdi_automaton.Nothing -> vdi_t
             | Vdi_automaton.Attach ro_rw ->
               let read_write = (ro_rw = Vdi_automaton.RW) in
-              let x = Impl.VDI.attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
+              let x = Impl.VDI.attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write in
               { vdi_t with Vdi.attach_info = Some x }
             | Vdi_automaton.Activate ->
-              Impl.VDI.activate context ~dbg ~dp ~sr ~vdi; vdi_t
+              Impl.VDI.activate3 context ~dbg ~dp ~sr ~vdi ~vm; vdi_t
             | Vdi_automaton.Deactivate ->
               Storage_migrate.pre_deactivate_hook ~dbg ~dp ~sr ~vdi;
-              Impl.VDI.deactivate context ~dbg ~dp ~sr ~vdi; vdi_t
+              Impl.VDI.deactivate context ~dbg ~dp ~sr ~vdi ~vm; vdi_t
             | Vdi_automaton.Detach ->
-              Impl.VDI.detach context ~dbg ~dp ~sr ~vdi;
+              Impl.VDI.detach context ~dbg ~dp ~sr ~vdi ~vm;
               Storage_migrate.post_detach_hook ~sr ~vdi ~dp;
               vdi_t
           in
@@ -371,7 +373,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       in
       List.fold_left perform_one vdi_t ops
 
-    let perform_nolock context ~dbg ~dp ~sr ~vdi this_op =
+    let perform_nolock context ~dbg ~dp ~sr ~vdi ~vm this_op =
       match Host.find sr !Host.host with
       | None -> raise (Storage_error (Sr_not_attached (s_of_sr sr)))
       | Some sr_t ->
@@ -389,7 +391,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
                						   superstate to superstate'. These may fail: if so we revert the
                						   datapath+VDI state to the most appropriate value. *)
             let ops = Vdi_automaton.(-) superstate superstate' in
-            side_effects context dbg dp sr sr_t vdi vdi_t ops
+            side_effects context dbg dp sr sr_t vdi vdi_t vm ops
           with e ->
             let e = match e with Vdi_automaton.No_operation(a, b) -> Storage_error (Illegal_transition(a,b)) | e -> e in
             Errors.add dp sr vdi (Printexc.to_string e);
@@ -417,7 +419,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         vdi_t'
 
     (* Attempt to remove a possibly-active datapath associated with [vdi] *)
-    let destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak =
+    let destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
       match Host.find sr !Host.host with
       | None -> raise (Storage_error (Sr_not_attached (s_of_sr sr)))
       | Some sr_t ->
@@ -428,7 +430,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
             begin
               try
                 ignore(List.fold_left (fun _ op ->
-                    perform_nolock context ~dbg ~dp ~sr ~vdi op
+                    perform_nolock context ~dbg ~dp ~sr ~vdi ~vm op
                   ) vdi_t ops)
               with e ->
                 if not allow_leak
@@ -447,7 +449,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
             end) (Sr.find vdi sr_t)
 
     (* Attempt to clear leaked datapaths associed with this vdi *)
-    let remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi which next =
+    let remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm which next =
       let dps = match Host.find sr !Host.host with
         | None -> []
         | Some sr_t ->
@@ -459,7 +461,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       let failures = List.fold_left (fun acc dp ->
           info "Attempting to destroy datapath dp:%s sr:%s vdi:%s" dp (s_of_sr sr) (s_of_vdi vdi);
           try
-            destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak:false;
+            destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak:false;
             acc
           with e -> e :: acc
         ) [] dps in
@@ -467,29 +469,36 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       | [] -> next ()
       | f :: fs -> raise f
 
-    let epoch_begin context ~dbg ~sr ~vdi ~persistent =
-      info "VDI.epoch_begin dbg:%s sr:%s vdi:%s persistent:%b" dbg (s_of_sr sr) (s_of_vdi vdi) persistent;
+    let epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent =
+      info "VDI.epoch_begin dbg:%s sr:%s vdi:%s vm:%s persistent:%b" dbg (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) persistent;
       with_vdi sr vdi
         (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
-                Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~persistent
+                Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent
              ))
 
-    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
-      info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) read_write;
+    let attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+      info "VDI.attach3 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) read_write;
       with_vdi sr vdi
         (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
-                let state = perform_nolock context ~dbg ~dp ~sr ~vdi
+                let state = perform_nolock context ~dbg ~dp ~sr ~vdi ~vm 
                     (Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)) in
                 Opt.unbox state.Vdi.attach_info
              ))
 
+    let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
+      info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) read_write;
+      (*Support calls from older XAPI during migrate operation (dom 0 attach )*)
+      let vm = (vm_of_s "0") in
+      attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write
+
     let attach context ~dbg ~dp ~sr ~vdi ~read_write =
       info "VDI.attach dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp (s_of_sr sr) (s_of_vdi vdi) read_write;
-      let backend = attach2 context ~dbg ~dp ~sr ~vdi ~read_write in
+      let vm = (vm_of_s "0") in
+      let backend = attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write in
       (* VDI.attach2 should be used instead, VDI.attach is only kept for
          backwards-compatibility, because older xapis call Remote.VDI.attach during SXM.
          However, they ignore the return value, so in practice it does not matter what
@@ -510,37 +519,44 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       | _, _, blockdev::_ -> response blockdev.Storage_interface.path
       | [], [], [] -> raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, ["No File, BlockDev, or XenDisk implementation in Datapath.attach response: " ^ (Storage_interface.(rpc_of backend) backend |> Jsonrpc.to_string)])))
 
+    let activate3 context ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.activate3 dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm);
+      with_vdi sr vdi
+        (fun () ->
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
+             (fun () ->
+                ignore(perform_nolock context ~dbg ~dp ~sr ~vdi ~vm Vdi_automaton.Activate)))
+        
+
     let activate context ~dbg ~dp ~sr ~vdi =
-      info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi);
-      with_vdi sr vdi
-        (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
-             (fun () ->
-                ignore(perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Activate)))
+      info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr) (s_of_vdi vdi);
+      (*Support calls from older XAPI during migrate operation (dom 0 attach )*)
+      let vm = (vm_of_s "0") in
+      activate3 context ~dbg ~dp ~sr ~vdi ~vm 
 
-    let deactivate context ~dbg ~dp ~sr ~vdi =
-      info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi);
+    let deactivate context ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm);
       with_vdi sr vdi
         (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
-                ignore (perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Deactivate)))
+                ignore (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm Vdi_automaton.Deactivate)))
 
-    let detach context ~dbg ~dp ~sr ~vdi =
-      info "VDI.detach dbg:%s dp:%s sr:%s vdi:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi);
+    let detach context ~dbg ~dp ~sr ~vdi ~vm =
+      info "VDI.detach dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm);
       with_vdi sr vdi
         (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
-                ignore (perform_nolock context ~dbg ~dp ~sr ~vdi Vdi_automaton.Detach)))
+                ignore (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm Vdi_automaton.Detach)))
 
-    let epoch_end context ~dbg ~sr ~vdi =
-      info "VDI.epoch_end dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi);
+    let epoch_end context ~dbg ~sr ~vdi ~vm =
+      info "VDI.epoch_end dbg:%s sr:%s vdi:%s vm:%s" dbg (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm);
       with_vdi sr vdi
         (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.leaked
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
-                Impl.VDI.epoch_end context ~dbg ~sr ~vdi
+                Impl.VDI.epoch_end context ~dbg ~sr ~vdi ~vm
              ))
 
     let create context ~dbg ~sr ~vdi_info =
@@ -583,11 +599,12 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
         )
 
-    let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi =
+    let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi  = 
       info "%s dbg:%s sr:%s vdi:%s" call_name dbg (s_of_sr sr) (s_of_vdi vdi);
       with_vdi sr vdi
         (fun () ->
-           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi Vdi.all
+           let vm = vm_of_s "" in 
+           remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.all
              (fun () ->
                 call_f context ~dbg ~sr ~vdi
              )
@@ -748,7 +765,8 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         | Some (vdi, vdi_t) -> (
             locker vdi (fun () ->
                 try
-                  VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~allow_leak;
+                  let vm = vm_of_s "" in 
+                  VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak;
                   None
                 with e -> Some e
               )
