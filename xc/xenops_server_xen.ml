@@ -326,10 +326,12 @@ module Storage = struct
   let id_of = id_of
   let epoch_begin = epoch_begin
   let epoch_end = epoch_end
+  let vm_of_domid = vm_of_domid
 
   (* We need to deal with driver domains here: *)
   let attach_and_activate ~xc ~xs task vm dp sr vdi read_write =
-    let result = attach_and_activate task vm dp sr vdi read_write in
+    let vmdomid = vm_of_domid (domid_of_uuid ~xc ~xs (uuid_of_string vm)) in
+    let result = attach_and_activate task vm vmdomid dp sr vdi read_write in
     let backend = Xenops_task.with_subtask task (Printf.sprintf "Policy.get_backend_vm %s %s %s" vm (Sr.string_of sr) (Vdi.string_of vdi))
         (transform_exception (fun () -> Client.Policy.get_backend_vm "attach_and_activate" vm sr vdi)) in
     match domid_of_uuid ~xc ~xs (uuid_of_string backend) with
@@ -1871,6 +1873,7 @@ module VM = struct
               (* Flush all outstanding disk blocks *)
 
               let devices = Device_common.list_frontends ~xs domid in
+              let vmid = Storage.vm_of_domid (Some domid )in 
               let vbds = List.filter (fun dev -> match Device_common.(dev.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
               List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
               List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
@@ -1888,7 +1891,7 @@ module VM = struct
                       | Some (Local _) -> ()
                       | Some (VDI path) ->
                         let sr, vdi = Storage.get_disk_by_name task path in
-                        Storage.deactivate task dp sr vdi
+                        Storage.deactivate task dp sr vdi vmid
                     ) vbds_chunk
                 ) (Xenops_utils.chunks 10 vbds);
               debug "VM = %s; domid = %d; Storing final memory usage" vm.Vm.id domid;
@@ -2500,17 +2503,25 @@ module VBD = struct
       with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
     with _ -> false
 
-  let epoch_begin task vm disk persistent = match disk with
-    | VDI path ->
-      let sr, vdi = Storage.get_disk_by_name task path in
-      Storage.epoch_begin task sr vdi persistent
-    | _ -> ()
+  let epoch_begin task vm disk persistent = 
+    with_xc_and_xs (fun xc xs ->
+      match disk with
+      | VDI path ->
+        let sr, vdi = Storage.get_disk_by_name task path in
+        let storage_vm = vm |> uuid_of_string |> domid_of_uuid ~xc ~xs |> Storage.vm_of_domid in
+        Storage.epoch_begin task sr vdi storage_vm persistent
+      | _ -> ()
+    )
 
-  let epoch_end task vm disk = match disk with
-    | VDI path ->
-      let sr, vdi = Storage.get_disk_by_name task path in
-      Storage.epoch_end task sr vdi
-    | _ -> ()
+  let epoch_end task vm disk =
+    with_xc_and_xs (fun xc xs ->
+      match disk with
+      | VDI path ->
+        let sr, vdi = Storage.get_disk_by_name task path in
+        let storage_vm = vm |> uuid_of_string |> domid_of_uuid ~xc ~xs |> Storage.vm_of_domid in
+        Storage.epoch_end task sr vdi storage_vm
+      | _ -> ()
+    )
 
   let _backend_kind = "backend-kind"
 
