@@ -113,6 +113,16 @@ end
 type vdi = Vdi.t
 let vdi_pp : Format.formatter -> vdi -> unit = fun ppf vdi -> Format.fprintf ppf "%s" (Vdi.string_of vdi)
 
+module Vm : WRAPPEDSTRING = struct
+  (* This is the domid. *)
+  type t = string [@@deriving rpcty]
+  let string_of x = x
+  let of_string x = x
+end
+
+type vm = Vm.t
+let vm_pp : Format.formatter -> vm -> unit = fun ppf vm -> Format.fprintf ppf "%s" (Vm.string_of vm)
+
 (** Opaque identifier used by the client to identify a particular operation *)
 type debug_info = string [@@deriving rpcty]
 
@@ -442,6 +452,7 @@ module StorageAPI (R : RPC) = struct
   let unit_p = Param.mk ~name:"unit" Types.unit
   let sr_p = Param.mk ~name:"sr" Sr.t
   let vdi_p = Param.mk ~name:"vdi" Vdi.t
+  let vm_p = Param.mk ~name:"vm" Vm.t
   let dp_p = Param.mk ~name:"dp" dp
   let device_config_p = Param.mk ~name:"device_config" ~description:
       ["Backend-specific keys to specify the storage for the SR"]
@@ -654,7 +665,7 @@ module StorageAPI (R : RPC) = struct
                This is not called over suspend/resume or migrate.
         	    If [persistent] is false, then changes to the disk will be erased when the VM shuts down. *)
     let epoch_begin =
-      declare "VDI.epoch_begin" [] (dbg_p @-> sr_p @-> vdi_p @-> persistent_p @-> returning unit_p err)
+      declare "VDI.epoch_begin" [] (dbg_p @-> sr_p @-> vdi_p @-> vm_p @-> persistent_p @-> returning unit_p err)
 
     let read_write_p = Param.mk ~name:"read_write" Types.bool
     (** [attach task dp sr vdi read_write] returns the [params] for a given
@@ -662,37 +673,55 @@ module StorageAPI (R : RPC) = struct
         		is true.
         @deprecated This function is deprecated, and is only here to keep backward
         compatibility with old xapis that call Remote.VDI.attach during SXM.
-        Use the attach2 function instead. *)
+        Use the attach3 function instead. *)
     let attach =
       let attach_info_p = Param.mk ~name:"attach_info" attach_info in
       declare "VDI.attach" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> read_write_p @-> returning attach_info_p err)
 
-    (** [attach task dp sr vdi read_write] returns the [params] for a given
+    (** [attach2 task dp sr vdi read_write] returns the [params] for a given
         		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
-        		is true *)
+        		is true. 
+        @deprecated This function is deprecated, and is only here to keep backward
+        compatibility with old xapis that call Remote.VDI.attach2 during SXM.
+        Use the attach3 function instead. *)
     let attach2 =
       let backend_p = Param.mk ~name:"backend" backend in
       declare "VDI.attach2" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> read_write_p @-> returning backend_p err)
 
+    (** [attach3 task dp sr vdi read_write] returns the [params] for a given
+        		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
+        		is true *)
+    let attach3 =
+      let backend_p = Param.mk ~name:"backend" backend in
+      declare "VDI.attach3" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> read_write_p @-> returning backend_p err)
+
     (** [activate task dp sr vdi] signals the desire to immediately use [vdi].
-        		This client must have called [attach] on the [vdi] first. *)
+        		This client must have called [attach] on the [vdi] first. 
+        @deprecated This function is deprecated, and is only here to keep backward
+        compatibility with old xapis that call Remote.VDI.activate during SXM.
+        Use the activate3 function instead. *)
     let activate =
       declare "VDI.activate" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+
+    (** [activate3 task dp sr vdi] signals the desire to immediately use [vdi].
+        		This client must have called [attach] on the [vdi] first. *)
+    let activate3 =
+      declare "VDI.activate3" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> returning unit_p err)
 
     (** [deactivate task dp sr vdi] signals that this client has stopped reading (and writing)
         		[vdi]. *)
     let deactivate =
-      declare "VDI.deactivate" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+      declare "VDI.deactivate" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> returning unit_p err)
 
     (** [detach task dp sr vdi] signals that this client no-longer needs the [attach_info]
         		to be valid. *)
     let detach =
-      declare "VDI.detach" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+      declare "VDI.detach" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> returning unit_p err)
 
     (** [epoch_end sr vdi] declares that [vdi] is about to be removed from a shutting down/rebooting VM.
                This is not called over suspend/resume or migrate. *)
     let epoch_end =
-      declare "VDI.epoch_end" [] (dbg_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+      declare "VDI.epoch_end" [] (dbg_p @-> sr_p @-> vdi_p @-> vm_p @-> returning unit_p err)
 
     (** [get_url task sr vdi] returns a URL suitable for accessing disk data directly. *)
     let get_url =
@@ -985,7 +1014,7 @@ sig
 
     val epoch_begin :
       context ->
-      dbg: debug_info -> sr: sr -> vdi: vdi -> persistent: bool -> unit
+      dbg: debug_info -> sr: sr -> vdi: vdi -> vm: vm -> persistent: bool -> unit
 
     val attach :
       context ->
@@ -997,17 +1026,25 @@ sig
       dbg: debug_info ->
       dp: dp -> sr: sr -> vdi: vdi -> read_write: bool -> backend
 
+    val attach3 :
+      context ->
+      dbg: debug_info ->
+      dp: dp -> sr: sr -> vdi: vdi -> vm: vm -> read_write: bool -> backend
+
     val activate :
       context -> dbg: debug_info -> dp: dp -> sr: sr -> vdi: vdi -> unit
 
+    val activate3 :
+      context -> dbg: debug_info -> dp: dp -> sr: sr -> vdi: vdi -> vm: vm -> unit
+
     val deactivate :
-      context -> dbg: debug_info -> dp: dp -> sr: sr -> vdi: vdi -> unit
+      context -> dbg: debug_info -> dp: dp -> sr: sr -> vdi: vdi -> vm: vm -> unit
 
     val detach :
-      context -> dbg: debug_info -> dp: dp -> sr: sr -> vdi: vdi -> unit
+      context -> dbg: debug_info -> dp: dp -> sr: sr -> vdi: vdi  -> vm: vm -> unit
 
     val epoch_end :
-      context -> dbg: debug_info -> sr: sr -> vdi: vdi -> unit
+      context -> dbg: debug_info -> sr: sr -> vdi: vdi ->  vm: vm -> unit
 
     val get_url :
       context -> dbg: debug_info -> sr: sr -> vdi: vdi -> string
@@ -1200,20 +1237,24 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.introduce () ~dbg ~sr ~uuid ~sm_config ~location);
     S.VDI.set_persistent (fun dbg sr vdi persistent ->
         Impl.VDI.set_persistent () ~dbg ~sr ~vdi ~persistent);
-    S.VDI.epoch_begin (fun dbg sr vdi persistent ->
-        Impl.VDI.epoch_begin () ~dbg ~sr ~vdi ~persistent);
+    S.VDI.epoch_begin (fun dbg sr vdi vm persistent ->
+        Impl.VDI.epoch_begin () ~dbg ~sr ~vdi ~vm ~persistent);
     S.VDI.attach (fun dbg dp sr vdi read_write ->
         Impl.VDI.attach () ~dbg ~dp ~sr ~vdi ~read_write);
     S.VDI.attach2 (fun dbg dp sr vdi read_write ->
         Impl.VDI.attach2 () ~dbg ~dp ~sr ~vdi ~read_write);
+    S.VDI.attach3 (fun dbg dp sr vdi vm read_write ->
+        Impl.VDI.attach3 () ~dbg ~dp ~sr ~vdi ~vm ~read_write);
     S.VDI.activate (fun dbg dp sr vdi ->
         Impl.VDI.activate () ~dbg ~dp ~sr ~vdi);
-    S.VDI.deactivate (fun dbg dp sr vdi ->
-        Impl.VDI.deactivate () ~dbg ~dp ~sr ~vdi);
-    S.VDI.detach (fun dbg dp sr vdi ->
-        Impl.VDI.detach () ~dbg ~dp ~sr ~vdi);
-    S.VDI.epoch_end (fun dbg sr vdi ->
-        Impl.VDI.epoch_end () ~dbg ~sr ~vdi);
+    S.VDI.activate3 (fun dbg dp sr vdi vm ->
+        Impl.VDI.activate3 () ~dbg ~dp ~sr ~vdi ~vm);
+    S.VDI.deactivate (fun dbg dp sr vdi vm ->
+        Impl.VDI.deactivate () ~dbg ~dp ~sr ~vdi ~vm);
+    S.VDI.detach (fun dbg dp sr vdi vm ->
+        Impl.VDI.detach () ~dbg ~dp ~sr ~vdi ~vm);
+    S.VDI.epoch_end (fun dbg sr vdi vm ->
+        Impl.VDI.epoch_end () ~dbg ~sr ~vdi ~vm);
     S.VDI.get_url (fun dbg sr vdi ->
         Impl.VDI.get_url () ~dbg ~sr ~vdi);
     S.VDI.similar_content (fun dbg sr vdi ->
