@@ -316,11 +316,6 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
                               }
                           ) in
 
-  (* Consider the data valid IF the data/updated key exists *)
-  let data_updated = lookup "data/updated" <> None in
-  if data_updated
-  then begin
-
     (* Only if the data is valid, cache it (CA-20353) *)
     Mutex.execute mutex (fun () -> Hashtbl.replace cache domid {pv_drivers_version; os_version; networks; other; memory; device_id; last_updated; can_use_hotplug_vbd; can_use_hotplug_vif;});
 
@@ -412,4 +407,3 @@ let all (lookup: string -> string option) (list: string -> string list) ~__conte
           Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.VM.update_allowed_operations rpc session_id self);
         end;
       end (* else debug "Ignored spurious guest agent update" *)
-  end
