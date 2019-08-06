@@ -287,6 +287,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   in
 
   let make_hvmloader_boot_record { Helpers.timeoffset = t } =
+    if bool vm.API.vM_platform false "qemu_stubdom" then
+      warn "QEMU stub domains are no longer implemented";
     {
       hap = true;
       shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
@@ -326,7 +328,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       pci_passthrough = pci_passthrough;
       boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
       qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
-      qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
+      qemu_stubdom = false; (* Obsolete: implementation removed *)
       firmware = firmware_of_vm vm;
     }
   in
@@ -902,6 +904,11 @@ module MD = struct
     let pci_msitranslate =
       if vm.API.vM_VGPUs <> [] then false else pci_msitranslate in
 
+    if List.assoc_opt "suppress-spurious-page-faults" vm.API.vM_other_config = Some "true" then
+      warn "The suppress-spurious-page-faults option used by VM %s is no longer implemented" vm.API.vM_uuid;
+    if List.mem_assoc "machine-address-size" vm.API.vM_other_config then
+      warn "The machine-address-size option used by VM %s is no longer implemented" vm.API.vM_uuid;
+
     {
       id = vm.API.vM_uuid;
       name = vm.API.vM_name_label;
@@ -910,8 +917,8 @@ module MD = struct
       platformdata = platformdata;
       bios_strings = vm.API.vM_bios_strings;
       ty = builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu;
-      suppress_spurious_page_faults = (try List.assoc "suppress-spurious-page-faults" vm.API.vM_other_config = "true" with _ -> false);
-      machine_address_size = (try Some(int_of_string (List.assoc "machine-address-size" vm.API.vM_other_config)) with _ -> None);
+      suppress_spurious_page_faults = false; (* Obsolete: no longer implemented *)
+      machine_address_size = None;           (* Obsolete: no longer implemented *)
       memory_static_max = vm.API.vM_memory_static_max;
       memory_dynamic_max = vm.API.vM_memory_dynamic_max;
       memory_dynamic_min = vm.API.vM_memory_dynamic_min;
