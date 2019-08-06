@@ -26,7 +26,7 @@ all:
 
 # requires odoc
 doc:
-	dun build @doc --profile=$(PROFILE)
+	dune build @doc --profile=$(PROFILE)
 
 gh-pages:
 	bash .docgen.sh
