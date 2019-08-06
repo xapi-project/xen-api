@@ -1,28 +1,32 @@
 
 .PHONY: build release install uninstall clean test doc reindent
 
+PROFILE=release
+
 release:
-	dune build @install -j $$(getconf _NPROCESSORS_ONLN) --profile=release
+	dune build @install  --profile=$(PROFILE)
 
 build:
-	dune build @install -j $$(getconf _NPROCESSORS_ONLN)
-
+	dune build @install
 
 install:
-	dune install --profile=release
+	dune install --profile=$(PROFILE)
 
 uninstall:
-	dune uninstall --profile=release
+	dune uninstall --profile=$(PROFILE)
 
 clean:
 	dune clean
 
 test:
-	dune runtest -j $$(getconf _NPROCESSORS_ONLN) --profile=release
+	dune runtest  --profile=$(PROFILE)
+
+all:
+	dune build @all --profile=$(PROFILE)
 
 # requires odoc
 doc:
-	dune build @doc --profile=release
+	dun build @doc --profile=$(PROFILE)
 
 gh-pages:
 	bash .docgen.sh
