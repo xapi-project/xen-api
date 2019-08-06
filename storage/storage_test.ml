@@ -54,7 +54,7 @@ let names = [
 *)
 
 let vdi_exists sr vdi =
-  let all = Client.SR.scan ~dbg ~sr in
+  let all = Client.SR.scan dbg sr in
   List.fold_left (fun acc vdi_info -> acc || (vdi_info.vdi = vdi)) false all
 
 let create sr name_label =
@@ -63,21 +63,22 @@ let create sr name_label =
       name_label = safe_prefix ^ "." ^ name_label;
       virtual_size = 1000000000L;
   } in
-  let vdi = Client.VDI.create ~dbg ~sr ~vdi_info in
+  let vdi = Client.VDI.create dbg sr vdi_info in
   assert(vdi_exists sr vdi.vdi);
   (* Check the disk has size >= the amount we requested *)
   assert(vdi.virtual_size >= vdi_info.virtual_size);
   vdi
 
 let destroy sr vdi =
-  Client.VDI.destroy ~dbg ~sr ~vdi:vdi.vdi;
+  Client.VDI.destroy dbg sr vdi.vdi;
   assert(not (vdi_exists sr vdi.vdi))
 
 let test_create_destroy sr n () = destroy sr (create sr n)
 
 let attach_detach sr vdi read_write =
-  let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
-  Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi
+  let vm = Vm.of_string "0" in
+  let _ = Client.VDI.attach dbg dbg sr vdi.vdi read_write in
+  Client.VDI.detach dbg dbg sr vdi.vdi vm
 
 let test_attach_detach sr n () =
   let vdi = create sr n in
@@ -85,10 +86,11 @@ let test_attach_detach sr n () =
   destroy sr vdi
 
 let attach_activate_deactivate_detach sr vdi read_write =
-  let _ = Client.VDI.attach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi ~read_write in
-  Client.VDI.activate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-  Client.VDI.deactivate ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi;
-  Client.VDI.detach ~dbg ~dp:dbg ~sr ~vdi:vdi.vdi
+  let vm = Vm.of_string "0" in
+  let _ = Client.VDI.attach dbg dbg sr vdi.vdi read_write in
+  Client.VDI.activate dbg dbg sr vdi.vdi;
+  Client.VDI.deactivate dbg dbg sr vdi.vdi vm;
+  Client.VDI.detach dbg dbg sr vdi.vdi vm
 
 let test_activate_deactivate sr n () =
   let vdi = create sr n in
@@ -101,8 +103,8 @@ let test_clone sr n () =
     (fun read_write ->
       (* Check whether the backend writes type=<something other than raw> *)
       let vdi = { vdi with sm_config = [] } in
-      let x = Client.VDI.clone ~dbg ~sr ~vdi_info:vdi in
-      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi;
+      let x = Client.VDI.clone dbg sr vdi in
+      Client.VDI.destroy dbg sr x.vdi;
       assert(List.mem_assoc "type" x.sm_config);
       assert(List.assoc "type" x.sm_config <> "raw");
     ) [ true; false ];
@@ -112,11 +114,11 @@ let test_clone_attach sr n () =
   let vdi = create sr n in
   List.iter
     (fun read_write ->
-      let vdis = Client.SR.scan ~dbg ~sr in
-      let x = Client.VDI.clone ~dbg ~sr ~vdi_info:vdi in
-      let vdis' = Client.SR.scan ~dbg ~sr in
+      let vdis = Client.SR.scan dbg sr in
+      let x = Client.VDI.clone dbg sr vdi in
+      let vdis' = Client.SR.scan dbg sr in
       attach_activate_deactivate_detach sr x read_write;
-      Client.VDI.destroy ~dbg ~sr ~vdi:x.vdi;
+      Client.VDI.destroy dbg sr x.vdi;
       assert ((List.length vdis + 1) = (List.length vdis'))
     ) [ true; false ];
   destroy sr vdi
@@ -124,7 +126,7 @@ let test_clone_attach sr n () =
 let test_resize sr n () =
   let vdi = create sr n in
   let new_size_request = Int64.mul 2L vdi.virtual_size in
-  let new_size_actual = Client.VDI.resize ~dbg ~sr ~vdi:vdi.vdi ~new_size:new_size_request in
+  let new_size_actual = Client.VDI.resize dbg sr vdi.vdi new_size_request in
   assert (new_size_actual >= new_size_request);
   destroy sr vdi
 
@@ -142,7 +144,7 @@ let start verbose queue sr = match queue, sr with
     Storage_interface.queue_name := queue;
     Xcp_client.use_switch := true;
 
-    let q = Client.Query.query ~dbg in
+    let q = Client.Query.query dbg in
     let features = List.map (fun s ->
       try
 	let i = String.index s '/' in
@@ -184,9 +186,13 @@ let cmd =
   let queue =
     let doc = "The queue name where the storage implementation is listening." in
     Arg.(value & pos 0 (some string) None & info [] ~doc) in
+  let sr_t =
+    let parse s = Ok (Sr.of_string s) in
+    let print fmt s = s |> Sr.string_of |> Arg.(conv_printer string) fmt in
+    Arg.conv ~docv:"SR" (parse, print) in
   let sr =
     let doc = "The attached SR." in
-    Arg.(value & pos 1 (some string) None & info [] ~doc) in
+    Arg.(value & pos 1 (some sr_t) None & info [] ~doc) in
 
   Term.(pure start $ verbose $ queue $ sr),
   Term.info "test" ~doc ~man
