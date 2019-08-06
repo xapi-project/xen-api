@@ -4,7 +4,7 @@ XAPIDOC=_build/install/default/xapi/doc
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 
-.PHONY: build clean test doc reindent install uninstall
+.PHONY: build clean test doc python reindent install uninstall
 
 build:
 	dune build @install -j $(JOBS) --profile=$(PROFILE)
@@ -29,6 +29,9 @@ doc:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
+
+python:
+	$(MAKE) -C scripts/examples/python build
 
 doc-json:
 	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
