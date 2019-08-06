@@ -1,1 +1,2 @@
-(lang dune 1.4)
+(lang dune 1.9)
+(allow_approximate_merlin)
