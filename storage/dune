@@ -71,6 +71,6 @@
 
 (alias
   (name runtest)
-  (deps (:x suite.exe))
+  (deps (:x suite.exe) storage_test.exe)
   (action (run %{x}))
 )
