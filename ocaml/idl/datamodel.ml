@@ -3751,7 +3751,7 @@ module VMSS = struct
                     [
                       "snapshot", "The snapshot is a disk snapshot";
                       "checkpoint", "The snapshot is a checkpoint";
-                      "snapshot_with_quiesce", "The snapshot is a VSS";
+                      "snapshot_with_quiesce", "Support for VSS has been removed.";
                     ])
 
   let frequency = Enum ("vmss_frequency",

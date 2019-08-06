@@ -466,15 +466,12 @@ let check_operation_error ~__context ~ref =
       check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op ~ref ~strict
     ) in
 
-  (* check if the dynamic changeable operations are still valid *)
+  (* VSS support has been removed *)
   let current_error = check current_error (fun () ->
-      if op = `snapshot_with_quiesce &&
-         (Pervasiveext.maybe_with_default true
-            (fun gm -> let other = gm.Db_actions.vM_guest_metrics_other in
-              not (List.mem_assoc "feature-quiesce" other || List.mem_assoc "feature-snapshot" other))
-            vmgmr)
-      then Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
-      else None) in
+    if op = `snapshot_with_quiesce then 
+      Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
+    else 
+      None) in
 
   (* Check for an error due to VDI caching/reset behaviour *)
   let current_error = check current_error (fun () ->
