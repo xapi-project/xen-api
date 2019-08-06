@@ -145,13 +145,13 @@ class TestXapiMessage(unittest.TestCase):
         mail_body_expected = 'The total read and write throughput of server "test_host" on storage repository "test_sr" has been 0.1 MB/s for the last 60 seconds.\nThis alarm is set to be triggered when the total throughput exceeds 51 KB/s.\n\nFor Alarm Settings, please log into your XenCenter Console and click on "Storage"->\n"Properties"->"Alerts"'
         self.common_test_good_input('ALARM', 'Host', 'sr_io_throughput_total_11111111', mail_subject_expected, mail_body_expected)
 
-        # Test HA_HOST_FAILED 
+        # Test HA_HOST_FAILED
         mail_subject_expected = '[test_pool] XenServer HA Alarm: HA failed'
         mail_body_expected = 'HA failed\n\nThis alarm is set to be triggered when a host belonging to a high availability pool fails.'
         xmlbody_str = 'HA failed'
         self.common_test_good_input('HA_HOST_FAILED', 'Host', '', mail_subject_expected, mail_body_expected, xmlbody_str)
 
-        # Test WLB_CONSULTATION_FAILED 
+        # Test WLB_CONSULTATION_FAILED
         mail_subject_expected = '[test_pool] XenServer Alarm: Attempt to consult WLB for VM "test_VM" failed'
         mail_body_expected = 'A workload balancing consultation for VM test_VM failed.\nThe operation was completed using the default algorithm instead of a workload balancing recommendation.'
         xmlbody_str = 'WLB consultation failed'
@@ -204,13 +204,13 @@ class TestXapiMessage(unittest.TestCase):
         subtitle_expected = 'sr_io_throughput_total_alert'
         self.common_test_bad_input('ALARM', 'Host', 'sr_io_throughput_total_11111111', title_expected, subtitle_expected)
 
-        # Test HA_HOST_FAILED 
+        # Test HA_HOST_FAILED
         title_expected = 'HAHostFailedETG'
         subtitle_expected = 'ha_host_failed'
         xmlbody_str = 'HA failed'
         self.common_test_bad_input('HA_HOST_FAILED', 'Host', '', title_expected, subtitle_expected, xmlbody_str)
 
-        # Test WLB_CONSULTATION_FAILED 
+        # Test WLB_CONSULTATION_FAILED
         title_expected = 'WlbConsultationFailure'
         subtitle_expected = 'wlb_consultation_failure'
         xmlbody_str = 'WLB consultation failed'

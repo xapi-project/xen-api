@@ -9,3 +9,10 @@ xapi-db.xml.generation
 
 config.mk
 
+# python packaging
+**/__pycache__/
+**/*.pyc
+scripts/examples/python/setup.py
+scripts/examples/python/XenAPI.egg-info/
+scripts/examples/python/build/
+scripts/examples/python/dist/
