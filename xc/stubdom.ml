@@ -45,7 +45,6 @@ let create ~xc ~xs domid =
   let stubdom_domid = Domain.make ~xc ~xs info 1 Domain.(X86 { emulation_flags = [] }) stubdom_uuid None in
   debug "jjd27: created stubdom with domid %d" stubdom_domid;
 
-  Domain.set_machine_address_size ~xc stubdom_domid (Some 32);
   stubdom_domid
 
 let build (task: Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid ~console_domid info xenguest domid stubdom_domid =

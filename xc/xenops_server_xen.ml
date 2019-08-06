@@ -1167,9 +1167,12 @@ module VM = struct
                 min vm.memory_dynamic_max target_bytes in
               set_initial_target ~xs domid (Int64.div initial_target 1024L);
 
-              if vm.suppress_spurious_page_faults
-              then Domain.suppress_spurious_page_faults ~xc domid;
-              Domain.set_machine_address_size ~xc domid vm.machine_address_size;
+              (* Log uses of obsolete option *)
+              if vm.suppress_spurious_page_faults then
+                warn "VM = %s; the suppress-spurious-page-faults option is no longer implemented" vm.Vm.id;
+              if vm.machine_address_size <> None then
+                warn "VM = %s; the machine-address-size option is no longer implemented" vm.Vm.id;
+
               for i = 0 to vm.vcpu_max - 1 do
                 Device.Vcpu.add ~xs ~dm:(dm_of ~vm) ~devid:i domid (i < vm.vcpus)
               done;
