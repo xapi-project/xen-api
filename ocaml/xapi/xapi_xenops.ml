@@ -287,6 +287,8 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   in
 
   let make_hvmloader_boot_record { Helpers.timeoffset = t } =
+    if bool vm.API.vM_platform false "qemu_stubdom" then
+      warn "QEMU stub domains are no longer implemented";
     {
       hap = true;
       shadow_multiplier = vm.API.vM_HVM_shadow_multiplier;
@@ -326,7 +328,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
       pci_passthrough = pci_passthrough;
       boot_order = string vm.API.vM_HVM_boot_params "cd" "order";
       qemu_disk_cmdline = bool vm.API.vM_platform false "qemu_disk_cmdline";
-      qemu_stubdom = bool vm.API.vM_platform false "qemu_stubdom";
+      qemu_stubdom = false; (* Obsolete: implementation removed *)
       firmware = firmware_of_vm vm;
     }
   in
