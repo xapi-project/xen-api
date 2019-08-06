@@ -156,17 +156,6 @@ CAMLprim value stub_xenctrlext_domain_set_timer_mode(value xch, value id, value 
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value stub_xenctrlext_domain_suppress_spurious_page_faults(value xch,
-                                                           value domid)
-{
-	CAMLparam2(xch, domid);
-
-	int retval = xc_domain_suppress_spurious_page_faults(_H(xch), _D(domid));
-	if (retval)
-		failwith_xc(_H(xch));
-	CAMLreturn(Val_unit);
-}
-
 CAMLprim value stub_xenctrlext_get_max_nr_cpus(value xch)
 {
 	CAMLparam1(xch);

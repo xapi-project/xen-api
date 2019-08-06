@@ -1524,20 +1524,6 @@ let del_irq ~xc domid irq =
   debug "VM = %s; domid = %d; irq del %#x" (Uuid.to_string uuid) domid irq;
   Xenctrl.domain_irq_permission xc domid irq false
 
-let set_machine_address_size ~xc domid width =
-  match width with
-  | Some width -> begin
-      let uuid = get_uuid ~xc domid in
-      debug "VM = %s; domid = %d; domain_set_machine_address_size %d bits" (Uuid.to_string uuid) domid width;
-      Xenctrl.domain_set_machine_address_size xc domid width
-    end
-  | None -> ()
-
-let suppress_spurious_page_faults ~xc domid =
-  let uuid = get_uuid ~xc domid in
-  debug "VM = %s; domid = %d; domain_suppress_spurious_page_faults" (Uuid.to_string uuid) domid;
-  Xenctrlext.domain_suppress_spurious_page_faults xc domid
-
 (** Sets the current memory target for a running VM, to the given value (in KiB), *)
 (** by writing the target to XenStore. The value is automatically rounded down to *)
 (** the nearest page boundary.                                                    *)

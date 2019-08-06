@@ -215,12 +215,6 @@ val add_irq: xc: Xenctrl.handle -> domid -> int -> unit
 (** Revoke a domain's access to a physical IRQ *)
 val del_irq: xc: Xenctrl.handle -> domid -> int -> unit
 
-(** Restrict a domain to a maximum machine address width *)
-val set_machine_address_size: xc: Xenctrl.handle -> domid -> int option -> unit
-
-(** Suppress spurious page faults for this domain *)
-val suppress_spurious_page_faults: xc: Xenctrl.handle -> domid -> unit
-
 val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
 
 val wait_xen_free_mem : xc:Xenctrl.handle -> ?maximum_wait_time_seconds:int -> int64 -> bool
