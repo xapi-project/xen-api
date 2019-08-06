@@ -2262,7 +2262,7 @@ module Backend = struct
       (** [after_suspend_image xs qemu_domid domid] hook to execute actions after the suspend image has been created *)
       val after_suspend_image: xs:Xenstore.Xs.xsh -> qemu_domid:int -> int -> unit
 
-      val pci_assign_guest: xs:Xenstore.Xs.xsh -> qemu_domid:Xenctrl.domid -> index:int -> host:Pci.address -> Pci.address option
+      val pci_assign_guest: xs:Xenstore.Xs.xsh -> index:int -> host:Pci.address -> Pci.address option
     end
   end
 
@@ -2306,7 +2306,7 @@ module Backend = struct
 
       let after_suspend_image ~xs ~qemu_domid domid = ()
 
-      let pci_assign_guest ~xs ~qemu_domid ~index ~host = None
+      let pci_assign_guest ~xs ~index ~host = None
 
     end (* Backend.Qemu_none.Dm *)
   end (* Backend.Qemu_none *)
@@ -2344,7 +2344,7 @@ module Backend = struct
     end
 
     module PCI: sig
-      val assign_guest: xs:Xenstore.Xs.xsh -> domid:int -> index:int -> host:Pci.address -> Pci.address option
+      val assign_guest: xs:Xenstore.Xs.xsh -> index:int -> host:Pci.address -> Pci.address option
     end
 
     val extra_qemu_args: nic_type:string -> string list
@@ -2423,7 +2423,7 @@ module Backend = struct
 
     module PCI = struct
       (* compat: let qemu deal with it as before *)
-      let assign_guest ~xs ~domid ~index ~host = None
+      let assign_guest ~xs ~index ~host = None
     end
 
     let name = Profile.Name.qemu_upstream_compat
@@ -2487,7 +2487,7 @@ module Backend = struct
     end
 
     module PCI = struct
-      let assign_guest ~xs ~domid ~index ~host =
+      let assign_guest ~xs ~index ~host =
         (* domain here refers to PCI segment from SBDF,
          * and not a Xen domain *)
         Some { Pci.domain = 0; bus = 0; dev = (8 + index); fn = 0 }
@@ -3033,8 +3033,8 @@ module Backend = struct
         (* device model not needed anymore after suspend image has been created *)
         stop ~xs ~qemu_domid domid
 
-      let pci_assign_guest ~xs ~qemu_domid ~index ~host =
-        DefaultConfig.PCI.assign_guest ~xs ~domid:qemu_domid ~index ~host
+      let pci_assign_guest ~xs ~index ~host =
+        DefaultConfig.PCI.assign_guest ~xs ~index ~host
     end (* Backend.Qemu_upstream_compat.Dm *)
   end (* Backend.Qemu_upstream *)
 
@@ -3133,9 +3133,9 @@ module Dm = struct
     Q.Dm.after_suspend_image ~xs ~qemu_domid domid
 
 
-  let pci_assign_guest ~xs ~dm ~qemu_domid ~index ~host =
+  let pci_assign_guest ~xs ~dm ~index ~host =
     let module Q = (val Backend.of_profile dm) in
-    Q.Dm.pci_assign_guest ~xs ~qemu_domid ~index ~host
+    Q.Dm.pci_assign_guest ~xs ~index ~host
 
   (* the following functions depend on the functions above that use the qemu backend Q *)
 
