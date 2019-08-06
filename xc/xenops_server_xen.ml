@@ -665,12 +665,6 @@ type backend = disk option [@@deriving rpcty]
 let _vdi_id = "vdi-id"
 let _dp_id = "dp-id"
 
-let set_stubdom ~xs domid domid' =
-  xs.Xs.write (Printf.sprintf "/local/domain/%d/stub-domid" domid) (string_of_int domid')
-
-let get_stubdom ~xs domid =
-  try Some (int_of_string (xs.Xs.read (Printf.sprintf "/local/domain/%d/stub-domid" domid))) with _ -> None
-
 module HOST = struct
   include Xenops_server_skeleton.HOST
 
@@ -1150,17 +1144,6 @@ module VM = struct
               let create_info = generate_create_info ~xc ~xs vm persistent in
               let domid = Domain.make ~xc ~xs create_info vm.vcpu_max domain_config (uuid_of_vm vm) final_id in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
-              begin match vm.Vm.ty with
-                | Vm.HVM { Vm.qemu_stubdom = true } ->
-                  Mem.with_reservation dbg Stubdom.memory_kib Stubdom.memory_kib
-                    (fun _ reservation_id ->
-                       let stubdom_domid = Stubdom.create ~xc ~xs domid in
-                       Mem.transfer_reservation_to_domain dbg stubdom_domid reservation_id;
-                       set_stubdom ~xs domid stubdom_domid;
-                    )
-                | _ ->
-                  ()
-              end;
               let initial_target =
                 let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
                 let target_bytes = target_plus_overhead_bytes --- overhead_bytes in
@@ -1263,7 +1246,7 @@ module VM = struct
 
   let destroy_device_model = on_domain_if_exists (fun xc xs task vm di ->
       let domid = di.Xenctrl.domid in
-      let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+      let qemu_domid = this_domid ~xs in
       log_exn_continue "Error stoping device-model, already dead ?"
         (fun () -> Device.Dm.stop ~xs ~qemu_domid ~dm:(dm_of ~vm) domid) ();
       log_exn_continue "Error stoping vncterm, already dead ?"
@@ -1273,13 +1256,7 @@ module VM = struct
 
   let destroy = on_domain_if_exists (fun xc xs task vm di -> finally (fun ()->
       let domid = di.Xenctrl.domid in
-      let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
-      (* We need to clean up the stubdom before the primary otherwise we deadlock *)
-      Opt.iter
-        (fun stubdom_domid ->
-           Domain.destroy task ~xc ~xs ~qemu_domid ~dm:(dm_of ~vm) stubdom_domid
-        ) (get_stubdom ~xs domid);
-
+      let qemu_domid = this_domid ~xs in
       let devices = Device_common.list_frontends ~xs domid in
       let vbds = List.filter (fun dev -> let open Device_common in match dev.frontend.kind with Vbd _ -> true | _ -> false) devices in
       let dps = List.map (fun device -> Device.Generic.get_private_key ~xs device _dp_id) vbds in
@@ -1314,11 +1291,7 @@ module VM = struct
 
   let unpause = on_domain (fun xc xs _ _ di ->
       if di.Xenctrl.total_memory_pages = 0n then raise (Xenopsd_error Domain_not_built);
-      Domain.unpause ~xc di.Xenctrl.domid;
-      Opt.iter
-        (fun stubdom_domid ->
-           Domain.unpause ~xc stubdom_domid
-        ) (get_stubdom ~xs di.Xenctrl.domid)
+      Domain.unpause ~xc di.Xenctrl.domid
     )
 
   let set_xsdata task vm xsdata = on_domain (fun xc xs _ _ di ->
@@ -1647,10 +1620,10 @@ module VM = struct
     try
       Opt.iter (fun info ->
           match vm.Vm.ty with
-          | Vm.HVM { Vm.qemu_stubdom = true } ->
-            if saved_state then failwith "Cannot resume with stubdom yet";
-            debug "Ignoring request for PV VNC in stubdom (would require qemu-trad)"
-          | Vm.HVM { Vm.qemu_stubdom = false } ->
+          | Vm.HVM { Vm.qemu_stubdom } ->
+            if qemu_stubdom then
+              warn "QEMU stub domains are no longer implemented;\
+                QEMU will be started in the control domain";
             (if saved_state then Device.Dm.restore else Device.Dm.start)
               task ~xs ~dm:qemu_dm info di.Xenctrl.domid;
             Device.Serial.update_xenstore ~xs di.Xenctrl.domid
@@ -1840,8 +1813,7 @@ module VM = struct
            | Vm.Domain_undefined -> failwith "undefined domain type: cannot save"
          in
          let domid = di.Xenctrl.domid in
-
-         let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+         let qemu_domid = this_domid ~xs in
 
          with_data ~xc ~xs task data true
            (fun fd ->
@@ -1920,7 +1892,7 @@ module VM = struct
          finally
            (fun () ->
               let domid = di.Xenctrl.domid in
-              let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs domid) in
+              let qemu_domid = this_domid ~xs in
               let k = vm.Vm.id in
               let vmextra = DB.read_exn k in
               let (build_info, timeoffset) = match vmextra.VmExtra.persistent with
@@ -2600,9 +2572,7 @@ module VBD = struct
              (* NB now the frontend position has been resolved *)
              let open Device_common in
              let device_number = dev.frontend.devid |> Device_number.of_xenstore_key in
-
-             (* If qemu is in a different domain to storage, attach disks to it *)
-             let qemu_domid = Opt.default (this_domid ~xs) (get_stubdom ~xs frontend_domid) in
+             let qemu_domid = this_domid ~xs in
              let qemu_frontend = match Device_number.spec device_number with
                | Ide, n, _ when n < 4 ->
                  let index = Device_number.to_disk_number device_number in
@@ -2976,22 +2946,7 @@ module VIF = struct
                       ~extra_xenserver_keys:static_ip_setting
                   in
                   let (_: Device_common.device) = create task frontend_domid in
-
-                  (* If qemu is in a different domain, then plug into it *)
-                  let me = this_domid ~xs in
-                  Opt.iter
-                    (fun stubdom_domid ->
-                       if vif.position < 4 && stubdom_domid <> me then begin
-                         let device = create task stubdom_domid in
-                         let q = vif.position, Device device in
-                         let _ = DB.update_exn vm (fun vm_t ->
-                             Some VmExtra.{persistent = { vm_t.persistent with
-                                 qemu_vifs = (vif.Vif.id, q) :: vm_t.persistent.qemu_vifs }
-                             }
-                           )
-                         in ()
-                       end
-                    ) (get_stubdom ~xs frontend_domid)
+                  ()
                 | Network.Sriov pci ->
                   let (_: Device_common.device) =
                     (with_common_params Device.NetSriovVf.add)

@@ -3255,7 +3255,7 @@ module Dm = struct
     (* Execute qemu-dm-wrapper, forwarding stdout to the syslog, with the key "qemu-dm-<domid>" *)
 
     let argv = (prepend_wrapper_args domid args.argv) in
-    let qemu_domid = 0 in (* See stubdom.ml for the corresponding kernel code *)
+    let qemu_domid = 0 in
     let ready_path =
       Printf.sprintf "/local/domain/%d/device-model/%d/state" qemu_domid domid in
     let cancel = Cancel_utils.Qemu (qemu_domid, domid) in
