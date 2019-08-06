@@ -1145,7 +1145,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["new-name-label"];
       optn=["new-name-description"];
-      help="Snapshot an existing VM with quiesce, using storage-level fast disk snapshot operation where available.";
+      help="Support for VSS has been removed - calling this will throw an error. Snapshot an existing VM with quiesce, using storage-level fast disk snapshot operation where available.";
       implementation=No_fd Cli_operations.vm_snapshot_with_quiesce;
       flags=[Standard; Vm_selectors];
     };
