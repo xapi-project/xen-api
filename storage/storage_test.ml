@@ -100,7 +100,7 @@ let test_activate_deactivate sr n () =
 let test_clone sr n () =
   let vdi = create sr n in
   List.iter
-    (fun read_write ->
+    (fun _read_write ->
       (* Check whether the backend writes type=<something other than raw> *)
       let vdi = { vdi with sm_config = [] } in
       let x = Client.VDI.clone dbg sr vdi in
