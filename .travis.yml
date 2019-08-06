@@ -9,4 +9,4 @@ env:
     - PACKAGE=xapi-libs-transitional
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
-    - DISTRO="debian-9-ocaml-4.07"
+    - DISTRO="debian-unstable"
