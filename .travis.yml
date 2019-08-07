@@ -7,6 +7,7 @@ env:
   global:
     - PINS="gzip:. http-svr:. pciutil:. sexpr:. sha1:. stunnel:. uuid:. xapi-compression:. xapi-libs-transitional:. xenctrlext:. xml-light2:. zstd:."
     - PACKAGE=xapi-libs-transitional
+    - OCAML_VERSION=4.07
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
   matrix:
     - DISTRO="debian-unstable"
