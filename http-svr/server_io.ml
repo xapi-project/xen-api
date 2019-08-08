@@ -63,10 +63,6 @@ let establish_server ?(signal_fds=[]) forker sockoraddr =
       begin
         try 
           Unix.set_close_on_exec s;
-          let addr' = Unix.(match caller with
-            | ADDR_UNIX path -> path
-            | ADDR_INET (addr,_port) -> string_of_inet_addr addr
-          ) in debug "CL accepting connection from %s" addr';
           ignore(forker s caller)	
         with exc -> 
           (* NB provided 'forker' is configured to make a background thread then the
