@@ -12,6 +12,8 @@ depends: [
   "ocaml" {>= "4.02.0"}
   "dune" {build}
   "astring"
+  "gzip"
+  "http-svr"
   "inotify"
   "io-page"
   "mtime"
@@ -19,10 +21,10 @@ depends: [
   "ppx_deriving_rpc"
   "rpclib"
   "systemd"
-	"ezxenstore"
+  "ezxenstore"
+  "uuid"
   "xapi-backtrace"
   "xapi-idl"
-  "xapi-libs-transitional"
   "xapi-rrd"
   "xapi-rrd-transport"
   "xapi-stdext-monadic"
