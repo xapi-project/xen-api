@@ -16,7 +16,8 @@ depends: [
   "io-page"
   "mtime"
   "ounit" {with-test}
-  "rpc"
+  "ppx_deriving_rpc"
+  "rpclib"
   "systemd"
 	"ezxenstore"
   "xapi-backtrace"
