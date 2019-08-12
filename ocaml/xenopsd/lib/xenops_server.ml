@@ -1178,6 +1178,24 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
                         }
                   )
               }
+        | Vm.PVH pv_info ->
+            Vm.PVH
+              {
+                pv_info with
+                Vm.boot=
+                  ( match pv_info.Vm.boot with
+                  | Vm.Direct _ ->
+                      pv_info.Vm.boot
+                  | Vm.Indirect pv_indirect_boot ->
+                      Vm.Indirect
+                        {
+                          pv_indirect_boot with
+                          Vm.devices=
+                            List.map (remap_vdi vdi_map)
+                              pv_indirect_boot.Vm.devices
+                        }
+                  )
+              }
         )
     }
   in
@@ -1258,7 +1276,7 @@ let import_metadata id md =
       let fs =
         let stat = B.HOST.stat () in
         ( match md.Metadata.vm.Vm.ty with
-        | HVM _ | PVinPVH _ ->
+        | HVM _ | PVinPVH _ | PVH _ ->
             Host.(stat.cpu_info.features_hvm)
         | PV _ ->
             Host.(stat.cpu_info.features_pv)

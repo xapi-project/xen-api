@@ -317,7 +317,7 @@ let validate_actions_after_crash ~__context ~self ~value =
   let fld = "VM.actions_after_crash" in
   let hvm_cannot_coredump v =
     match Helpers.domain_type ~__context ~self with
-    | `hvm | `pv_in_pvh ->
+    | `hvm | `pv_in_pvh | `pvh ->
         value_not_supported fld v
           "cannot invoke a coredump of an HVM or PV-in-PVH domain"
     | `pv ->
@@ -638,7 +638,7 @@ let assert_enough_memory_available ~__context ~self ~host ~snapshot =
   in
   let policy =
     match Helpers.check_domain_type snapshot.API.vM_domain_type with
-    | `hvm | `pv ->
+    | `hvm | `pv | `pvh ->
         Memory_check.Dynamic_min
     | `pv_in_pvh ->
         Memory_check.Static_max
@@ -752,7 +752,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
   assert_usbs_available ~__context ~self ~host ;
   assert_netsriov_available ~__context ~self ~host ;
   ( match Helpers.domain_type ~__context ~self with
-  | `hvm | `pv_in_pvh ->
+  | `hvm | `pv_in_pvh | `pvh ->
       assert_host_supports_hvm ~__context ~self ~host
   | `pv ->
       ()

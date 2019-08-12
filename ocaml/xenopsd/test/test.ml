@@ -334,11 +334,11 @@ let vm_assert_equal vm vm' =
   assert_equal ~msg:"has_vendor_device" ~printer:string_of_bool
     vm.has_vendor_device vm'.has_vendor_device ;
   let is_hvm vm =
-    match vm.ty with HVM _ -> true | PV _ | PVinPVH _ -> false
+    match vm.ty with HVM _ -> true | PV _ | PVinPVH _ | PVH _ -> false
   in
   assert_equal ~msg:"HVM-ness" ~printer:string_of_bool (is_hvm vm) (is_hvm vm') ;
   match (vm.ty, vm'.ty) with
-  | HVM _, (PV _ | PVinPVH _) | (PV _ | PVinPVH _), HVM _ ->
+  | HVM _, (PV _ | PVinPVH _ | PVH _) | (PV _ | PVinPVH _ | PVH _), HVM _ ->
       failwith "HVM-ness"
   | HVM h, HVM h' ->
       assert_equal ~msg:"HAP" ~printer:string_of_bool h.hap h'.hap ;
@@ -371,7 +371,7 @@ let vm_assert_equal vm vm' =
         h.boot_order h'.boot_order ;
       assert_equal ~msg:"qemu_disk_cmdline" ~printer:string_of_bool
         h.qemu_disk_cmdline h'.qemu_disk_cmdline
-  | (PV p | PVinPVH p), (PV p' | PVinPVH p') -> (
+  | (PV p | PVinPVH p | PVH p), (PV p' | PVinPVH p' | PVH p') -> (
       assert_equal ~msg:"framebuffer" ~printer:string_of_bool p.framebuffer
         p'.framebuffer ;
       assert_equal ~msg:"vncterm" ~printer:string_of_bool p.vncterm p'.vncterm ;

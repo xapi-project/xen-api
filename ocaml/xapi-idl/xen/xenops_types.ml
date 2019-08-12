@@ -129,7 +129,11 @@ module Vm = struct
   }
   [@@deriving rpcty, sexp]
 
-  type builder_info = HVM of hvm_info | PV of pv_info | PVinPVH of pv_info
+  type builder_info =
+    | HVM of hvm_info
+    | PV of pv_info
+    | PVinPVH of pv_info
+    | PVH of pv_info
   [@@deriving rpcty, sexp]
 
   type id = string [@@deriving rpcty, sexp]
@@ -179,6 +183,7 @@ module Vm = struct
     | Domain_HVM
     | Domain_PV
     | Domain_PVinPVH
+    | Domain_PVH
     | Domain_undefined
   [@@deriving rpcty, sexp]
 
