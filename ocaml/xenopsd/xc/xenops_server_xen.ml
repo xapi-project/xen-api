@@ -129,7 +129,7 @@ module VmExtra = struct
     match vm.ty with
     | PV _ ->
         X86 {emulation_flags= []}
-    | PVinPVH _ ->
+    | PVinPVH _ | PVH _ ->
         X86 {emulation_flags= emulation_flags_pvh}
     | HVM _ ->
         X86 {emulation_flags= emulation_flags_all}
@@ -210,7 +210,7 @@ module DB = struct
               x
           )
       }
-    
+
 
   let revision_of vm persistent = persistent |> revise_profile_qemu_trad vm
 end
@@ -1131,7 +1131,7 @@ let dm_of ~vm =
       try
         let vmextra = DB.read_exn vm in
         match VmExtra.(vmextra.persistent.profile, vmextra.persistent.ty) with
-        | None, Some (PV _ | PVinPVH _) ->
+        | None, Some (PV _ | PVinPVH _ | PVH _) ->
             Device.Profile.Qemu_none
         | None, (Some (HVM _) | None) ->
             Device.Profile.fallback
@@ -1162,7 +1162,7 @@ module VM = struct
       match persistent.ty with
       | Some (PV _) ->
           Memory.Linux.overhead_mib
-      | Some (PVinPVH _) ->
+      | Some (PVinPVH _ | PVH _ (* TODO: pvh *) ) ->
           Memory.PVinPVH.overhead_mib
       | Some (HVM _) ->
           Memory.HVM.overhead_mib
@@ -1210,6 +1210,8 @@ module VM = struct
           "pv"
       | PVinPVH _ ->
           "pv-in-pvh"
+      | PVH _ ->
+          "pvh"
     in
     xs.Xs.write (domain_type_path domid) domain_type
 
@@ -1222,6 +1224,8 @@ module VM = struct
           Domain_PV
       | "pv-in-pvh" ->
           Domain_PVinPVH
+      | "pvh" ->
+          Domain_PVH
       | x ->
           warn "domid = %d; Undefined domain type found (%s)" di.Xenctrl.domid x ;
           Domain_undefined
@@ -1251,7 +1255,7 @@ module VM = struct
           raise (Xenopsd_error No_bootable_device)
       | PV {boot= Indirect {devices= _ :: _; _}; _} ->
           Domain.BuildPV {Domain.cmdline= ""; ramdisk= None}
-      | PVinPVH _ ->
+      | PVinPVH _ | PVH _ ->
           failwith "This domain type did not exist pre-xenopsd"
     in
     let build_info =
@@ -1274,7 +1278,7 @@ module VM = struct
         last_start_time= 0.0
       ; profile= profile_of ~vm
       }
-    
+
     |> rpc_of VmExtra.persistent_t
     |> Jsonrpc.to_string
 
@@ -1282,7 +1286,9 @@ module VM = struct
 
   let generate_create_info ~xs:_ vm persistent =
     let ty = match persistent.VmExtra.ty with Some ty -> ty | None -> vm.ty in
-    let hvm = match ty with HVM _ | PVinPVH _ -> true | PV _ -> false in
+    let hvm =
+      match ty with HVM _ | PVinPVH _ | PVH _ -> true | PV _ -> false
+    in
     (* XXX add per-vcpu information to the platform data *)
     (* VCPU configuration *)
     let xcext = Xenctrlext.get_handle () in
@@ -1439,7 +1445,7 @@ module VM = struct
                     ; pci_power_mgmt= vm.Vm.pci_power_mgmt
                     ; platformdata= vm.Vm.platformdata
                     }
-                  
+
                 in
 
                 Some VmExtra.{persistent}
@@ -1520,7 +1526,7 @@ module VM = struct
                         let persistent =
                           VmExtra.
                             {persistent with domain_config= Some domain_config}
-                          
+
                         in
 
                         (domain_config, persistent)
@@ -1937,11 +1943,13 @@ module VM = struct
         match ty with
         | PV {framebuffer= false; _} ->
             None
-        | PV {framebuffer= true; _} | PVinPVH {framebuffer= true; _} ->
+        | PV {framebuffer= true; _}
+        | PVinPVH {framebuffer= true; _}
+        | PVH {framebuffer= true; _} ->
             debug
               "Ignoring request for a PV VNC console (would require qemu-trad)" ;
             None
-        | PVinPVH {framebuffer= false; _} ->
+        | PVinPVH {framebuffer= false; _} | PVH {framebuffer= false; _} ->
             None
         | HVM hvm_info ->
             let disks =
@@ -2108,7 +2116,7 @@ module VM = struct
                     ; shadow_multiplier= 1.
                     ; video_mib= 0
                     }
-                  
+
               in
 
               (make_build_info !Resources.pvinpvh_xen builder_spec_info, "")
@@ -2142,12 +2150,67 @@ module VM = struct
                         ; shadow_multiplier= 1.
                         ; video_mib= 0
                         }
-                      
+
                   in
 
                   (make_build_info !Resources.pvinpvh_xen builder_spec_info, "")
               )
+          | PVH {boot= Direct direct; _} ->
+              let builder_spec_info =
+                Domain.BuildPVH
+                  Domain.
+                    {
+                      cmdline= direct.cmdline
+                    ; modules=
+                        ( match direct.ramdisk with
+                        | Some r ->
+                            [(r, None)]
+                        | None ->
+                            []
+                        )
+                    ; shadow_multiplier= 1.
+                    ; video_mib= 0
+                    }
+
+              in
+
+              (make_build_info direct.kernel builder_spec_info, "")
+          | PVH {boot= Indirect {devices= []; _}; _} ->
+              raise (Xenopsd_error No_bootable_device)
+          | PVH {boot= Indirect ({devices= d :: _; _} as i); _} ->
+              with_disk ~xc ~xs task d false (fun dev ->
+                  let b =
+                    Bootloader.extract task ~bootloader:i.bootloader
+                      ~legacy_args:i.legacy_args ~extra_args:i.extra_args
+                      ~pv_bootloader_args:i.bootloader_args ~disk:dev
+                      ~vm:vm.Vm.id ()
+                  in
+                  kernel_to_cleanup := Some b ;
+                  let builder_spec_info =
+                    Domain.BuildPVH
+                      {
+                        Domain.cmdline= b.Bootloader.kernel_args
+                      ; modules=
+                          ( b.Bootloader.kernel_path
+                          , Some b.Bootloader.kernel_args
+                          )
+                          ::
+                          ( match b.Bootloader.initrd_path with
+                          | Some r ->
+                              [(r, None)]
+                          | None ->
+                              []
+                          )
+                      ; shadow_multiplier= 1.
+                      ; video_mib= 0
+                      }
+                  in
+                  ( make_build_info b.Bootloader.kernel_path builder_spec_info
+                  , ""
+                  )
+              )
         in
+
         Domain.build task ~xc ~xs ~store_domid ~console_domid ~timeoffset
           ~extras ~vgpus build_info
           (choose_xenguest vm.Vm.platformdata)
@@ -2170,7 +2233,7 @@ module VM = struct
                       ; ty= Some vm.ty
                       }
                   }
-                
+
           )
         in
         ()
@@ -2250,7 +2313,7 @@ module VM = struct
               (if saved_state then Device.Dm.restore else Device.Dm.start)
                 task ~xc ~xs ~dm:qemu_dm info di.Xenctrl.domid ;
               Device.Serial.update_xenstore ~xs di.Xenctrl.domid
-          | Vm.PV _ | Vm.PVinPVH _ ->
+          | Vm.PV _ | Vm.PVinPVH _ | Vm.PVH _ ->
               assert false
         )
         (create_device_model_config vm vmextra vbds vifs vgpus vusbs) ;
@@ -2278,7 +2341,7 @@ module VM = struct
                         xen_platform= Some (xen_platform_of ~vm ~vmextra:d)
                       }
                   }
-                
+
             | _ ->
                 d
           in
@@ -2303,7 +2366,7 @@ module VM = struct
               `hvm
           | Vm.Domain_PV ->
               `pv
-          | Vm.Domain_PVinPVH ->
+          | Vm.Domain_PVinPVH | Vm.Domain_PVH ->
               `pvh
           | Vm.Domain_undefined ->
               failwith "undefined domain type: cannot save"
@@ -2477,7 +2540,7 @@ module VM = struct
               `hvm
           | Vm.Domain_PV ->
               `pv
-          | Vm.Domain_PVinPVH ->
+          | Vm.Domain_PVinPVH | Vm.Domain_PVH ->
               `pvh
           | Vm.Domain_undefined ->
               failwith "undefined domain type: cannot save"
@@ -2586,7 +2649,7 @@ module VM = struct
                             suspend_memory_bytes= Memory.bytes_of_pages pages
                           }
                       }
-                    
+
               )
             in
             ()
@@ -3371,7 +3434,7 @@ module PCI = struct
         let device =
           Device.PCI.
             {host= pci.address; guest= (index, guest_pci); qmp_add= advertise}
-          
+
         in
 
         Device.PCI.add ~xc ~xs ~hvm [device] frontend_domid
@@ -3556,7 +3619,7 @@ module VBD = struct
                     ; BlockDevice {path= ""}
                     ]
                 }
-              
+
           }
       | Some (Local path) ->
           {
@@ -3570,7 +3633,7 @@ module VBD = struct
                     ; BlockDevice {path}
                     ]
                 }
-              
+
           }
       | Some (VDI path) ->
           let sr, vdi = Storage.get_disk_by_name task path in
@@ -3806,7 +3869,7 @@ module VBD = struct
                                   (vbd.Vbd.id, q) :: vm_t.persistent.qemu_vbds
                               }
                           }
-                        
+
                   )
                 in
                 ()
@@ -3918,7 +3981,7 @@ module VBD = struct
                                      persistent.qemu_vbds
                                }
                            }
-                         
+
                        ) else
                          vm_t
                    )
@@ -4391,7 +4454,7 @@ module VIF = struct
                                        vm_t.persistent.qemu_vifs
                                  }
                              }
-                           
+
                        | _, _ ->
                            vm_t
                      else
@@ -4459,7 +4522,7 @@ module VIF = struct
                                     persistent.qemu_vifs
                               }
                           }
-                        
+
                   | _, _ ->
                       Some vm_t
                 else

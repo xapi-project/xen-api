@@ -59,6 +59,8 @@ let feature_flags_path = ref "/etc/xenserver/features.d"
 
 let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
+let pvh_ovmf_cmdline = ref ""
+
 let numa_placement = ref false
 
 (* This is for debugging only *)
@@ -241,6 +243,11 @@ let options =
     , Arg.Set_string pvinpvh_xen_cmdline
     , (fun () -> !pvinpvh_xen_cmdline)
     , "Command line for the inner-xen for PV-in-PVH guests"
+    )
+  ; ( "pvh-ovmf-cmdline"
+    , Arg.Set_string pvh_ovmf_cmdline
+    , (fun () -> !pvh_ovmf_cmdline)
+    , "Command line for OVMF for PVH guests"
     )
   ; ( "numa-placement"
     , Arg.Bool (fun x -> numa_placement := x)

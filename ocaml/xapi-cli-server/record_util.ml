@@ -956,6 +956,8 @@ let domain_type_to_string = function
       "pv"
   | `pv_in_pvh ->
       "pv-in-pvh"
+  | `pvh ->
+      "pvh"
   | `unspecified ->
       "unspecified"
 
@@ -967,6 +969,8 @@ let domain_type_of_string x =
       `pv
   | "pv-in-pvh" ->
       `pv_in_pvh
+  | "pvh" ->
+      `pvh
   | s ->
       raise (Record_failure ("Invalid domain type. Got " ^ s))
 

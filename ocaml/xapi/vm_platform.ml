@@ -162,7 +162,7 @@ let sanity_check ~platformdata ~firmware ~vcpu_max ~vcpu_at_startup:_
   in
   (* Sanity check for HVM or PV-in-PVH domains with invalid VCPU configuration*)
   let check_cores_per_socket =
-    match domain_type with `hvm | `pv_in_pvh -> true | `pv -> false
+    match domain_type with `hvm | `pv_in_pvh | `pvh -> true | `pv -> false
   in
   ( match (List.assoc device_model platformdata, firmware) with
   | "qemu-trad", Xenops_types.Vm.Uefi _ ->
