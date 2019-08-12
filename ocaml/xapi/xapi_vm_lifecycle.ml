@@ -239,12 +239,6 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
   in
   Some (Api_errors.other_operation_in_progress,["VM." ^ current_ops_str; ref_str])
 
-(* Suspending, checkpointing and live-migrating are not (yet) allowed if a PCI device is passed through *)
-let check_pci ~op ~ref_str =
-  match op with
-  | `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_pci_attached, [ref_str])
-  | _ -> None
-
 let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   let is_migratable vgpu =
     try
@@ -353,6 +347,17 @@ let maybe_get_guest_metrics ~__context ~ref =
   if Db.is_valid_ref __context ref
   then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
   else None
+
+(* PCI devices that belong to NVIDIA SRIOV cards *)
+let nvidia_sriov_pcis ~__context vgpus =
+  vgpus
+  |> List.filter_map (fun vgpu -> Db.VGPU.get_type ~__context ~self:vgpu
+    |> fun typ -> Db.VGPU_type.get_implementation ~__context ~self:typ
+    |> function
+      | `nvidia_sriov ->
+          let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
+          if Db.is_valid_ref __context pci then Some pci else None
+      | _ -> None)
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -493,10 +498,16 @@ let check_operation_error ~__context ~ref =
       else None) in
 
   (* If a PCI device is passed-through, check if the operation is allowed *)
-  let current_error = check current_error (fun () ->
-      if vmr.Db_actions.vM_attached_PCIs <> []
-      then check_pci ~op ~ref_str
-      else None) in
+  let current_error = check current_error @@ fun () ->
+    let sriov_pcis = nvidia_sriov_pcis ~__context vmr.Db_actions.vM_VGPUs in
+    let is_not_sriov pci = not @@ List.mem pci sriov_pcis in
+    let pcis = vmr.Db_actions.vM_attached_PCIs in
+    match op with
+    | `suspend | `checkpoint | `pool_migrate | `migrate_send
+      when List.exists is_not_sriov pcis ->
+        Some (Api_errors.vm_has_pci_attached, [ref_str])
+    | _ -> None
+  in
 
   (* The VM has a VGPU, check if the operation is allowed*)
   let current_error = check current_error (fun () ->
