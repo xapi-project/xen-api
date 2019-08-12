@@ -206,7 +206,7 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts
           match Helpers.check_domain_type snapshot.API.vM_domain_type with
           | `hvm | `pv ->
               Memory_check.Dynamic_min
-          | `pv_in_pvh ->
+          | `pv_in_pvh | `pvh ->
               Memory_check.Static_max
         in
         (vm, total_memory_of_vm ~__context policy snapshot)
