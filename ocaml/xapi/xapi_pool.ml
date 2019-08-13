@@ -978,7 +978,9 @@ let eject ~__context ~host =
           "\nIP=" ^ pif.API.pIF_IP ^
           "\nNETMASK=" ^ pif.API.pIF_netmask ^
           "\nGATEWAY=" ^ pif.API.pIF_gateway ^
-          "\nDNS=" ^ pif.API.pIF_DNS ^ "\n"
+          (pif.API.pIF_DNS |> String.split ','
+          |> List.mapi (fun i -> Printf.sprintf "\nDNS%d=%s" (i+1))
+          |> String.concat "") ^ "\n"
         else
           "\n"
       end in
