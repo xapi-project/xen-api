@@ -13,7 +13,7 @@ depends: [
   "dune" {build}
   "base-threads"
   "fd-send-recv"
-  "rpc" {>= "1.9.51"}
+  "rpclib"
   "uuidm"
   "xapi-idl"
   "xapi-stdext-monadic"
