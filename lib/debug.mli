@@ -84,6 +84,9 @@ module type DEBUG = sig
 	(** Error function *)
 	val error : ('a, unit, string, unit) format4 -> 'a
 
+	(** Critical function *)
+	val critical : ('a, unit, string, unit) format4 -> 'a
+
 	(** Audit function *)
 	val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
 

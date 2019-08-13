@@ -263,7 +263,7 @@ module type BRAND = sig
   val name: string
 end
 
-let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err]
+let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err; Syslog.Crit]
 
 let add_to_stoplist brand level =
   Hashtbl.replace logging_disabled_for (brand, level) ()
@@ -303,6 +303,8 @@ module type DEBUG = sig
 
   val error : ('a, unit, string, unit) format4 -> 'a
 
+  val critical : ('a, unit, string, unit) format4 -> 'a
+
   val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
 
   val log_backtrace : unit -> unit
@@ -326,6 +328,7 @@ module Make = functor(Brand: BRAND) -> struct
   let warn fmt = output Syslog.Warning "warn" fmt
   let info fmt = output Syslog.Info "info" fmt
   let error fmt = output Syslog.Err "error" fmt
+  let critical fmt = output Syslog.Crit "critical" fmt
   let audit ?(raw=false) (fmt: ('a, unit, string, 'b) format4) =
     Printf.kprintf
       (fun s ->
