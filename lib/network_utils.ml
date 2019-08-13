@@ -1127,6 +1127,12 @@ module Ovs = struct
         fork_script !inject_igmp_query_script (["--no-check-snooping-toggle"; "--max-resp-time"; !igmp_query_maxresp_time] @ bvifs' @ vvifs)
       with _ -> ()
 
+    let create_port_arg ?ty name bridge =
+      let type_args = match ty with
+        | None | Some "" -> []
+        | Some s -> ["--"; "set"; "interface"; name; Printf.sprintf "type=%s" s] in
+      ["--"; "--may-exist"; "add-port"; bridge; name] @ type_args
+
     let create_bridge ?mac ?external_id ?disable_in_band ?igmp_snooping ~fail_mode vlan vlan_bug_workaround name =
       let vlan_arg = match vlan with
         | None -> []
@@ -1162,7 +1168,15 @@ module Ovs = struct
       in
       let vif_arg =
         let existing_vifs = List.filter (fun iface -> not (Sysfs.is_physical iface)) (bridge_to_interfaces name) in
-        List.flatten (List.map (fun vif -> ["--"; "--may-exist"; "add-port"; name; vif]) existing_vifs)
+        let ifaces_with_type =
+          let raw = vsctl ~log:false ["--bare"; "-f"; "table"; "--"; "--columns=name,type"; "find"; "interface"; {|type!=\"\"|}] in
+          let lines = Astring.String.cuts ~empty:false ~sep:"\n" (String.trim raw) in
+          let parse l = match Astring.String.cut ~sep:" " l with
+            | Some (k, v) -> let k' = String.trim k and v' = String.trim v in if k' = "" || v' = "" then None else Some(k', v')
+            | None -> None in 
+          Xapi_stdext_std.Listext.List.filter_map parse lines
+        in
+        List.flatten (List.map (fun vif -> create_port_arg ?ty:(List.assoc_opt vif ifaces_with_type) vif name) existing_vifs)
       in
       let del_old_arg =
         if vlan <> None then
@@ -1204,9 +1218,8 @@ module Ovs = struct
         []
 
     let create_port ?(internal=false) name bridge =
-      let type_args =
-        if internal then ["--"; "set"; "interface"; name; "type=internal"] else [] in
-      vsctl (["--"; "--may-exist"; "add-port"; bridge; name] @ type_args)
+      let ty = if internal then Some "internal" else None in
+      vsctl (create_port_arg ?ty name bridge)
 
     let destroy_port name =
       vsctl ["--"; "--with-iface"; "--if-exists"; "del-port"; name]
