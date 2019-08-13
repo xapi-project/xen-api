@@ -67,7 +67,7 @@ let read_management_conf () =
         bridge
     in
     let mac = Network_utils.Ip.get_mac device in
-    let ipv4_conf, ipv4_gateway, _dns =
+    let ipv4_conf, ipv4_gateway, dns =
       match List.assoc "MODE" args with
       | "static" ->
         let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
@@ -93,7 +93,7 @@ let read_management_conf () =
         DHCP4, None, ([], [])
     in
     let phy_interface = {default_interface with persistent_i = true} in
-    let bridge_interface = {default_interface with ipv4_conf; ipv4_gateway; persistent_i = true} in
+    let bridge_interface = {default_interface with ipv4_conf; ipv4_gateway; persistent_i = true; dns} in
     let interface_config, bridge_config =
       let primary_bridge_conf = {default_bridge with
                                  bridge_mac = Some mac;
