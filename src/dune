@@ -9,7 +9,7 @@
 	xapi-idl.varstore.deprivileged
 	xapi-idl.varstore.privileged
 	xen-api-client-lwt)
- (preprocess (pps ppx_deriving_rpc bisect_ppx -conditional)))
+ (preprocess (pps ppx_deriving_rpc)))
 
 (install
  (section sbin)
