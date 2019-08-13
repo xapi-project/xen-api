@@ -207,7 +207,7 @@ Type 'no' to cancel.
 			if options.gateway != '':
 				f.write('GATEWAY=' + options.gateway + '\n')
 			if options.dns != '':
-				f.write('DNS1=' + options.dns + '\n')
+				f.write('DNS=' + options.dns + '\n')
 	finally:
 		f.flush()
 		os.fsync(f.fileno())
