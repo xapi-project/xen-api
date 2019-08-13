@@ -10,7 +10,7 @@ run-test: [[ "dune" "runtest" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
   "dune" {build}
-  "alcotest"
+  "alcotest" {with-test}
   "astring"
   "cmdliner"
   "cohttp"
@@ -19,7 +19,7 @@ depends: [
   "message-switch-core"
   "message-switch-unix"
   "ocaml-migrate-parsetree"
-  "ounit"
+  "ounit" {with-test}
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "re"
