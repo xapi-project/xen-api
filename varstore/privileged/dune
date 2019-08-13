@@ -5,7 +5,7 @@
   (flags (:standard -w -39))
   (libraries xcp threads rpclib.core)
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc bisect_ppx -conditional)))
+  (preprocess (pps ppx_deriving_rpc)))
 
 (executable
   (name varstore_privileged_cli)
