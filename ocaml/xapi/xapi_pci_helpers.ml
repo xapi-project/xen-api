@@ -41,6 +41,32 @@ let get_driver_name address =
       debug "get_driver_name: for %s failed with %s" address (Printexc.to_string e); 
       None
 
+let address_of_dev x =
+  let open Pci.Pci_dev in
+  Printf.sprintf "%04x:%02x:%02x.%d" x.domain x.bus x.dev x.func
+
+(** [is_virtual_pci "0000:37:00.4"] is true, if this designates a
+ * virtual PCI function (VF), false otherwise. Only a VF has a "physfn"
+ * symbolic link.
+ *)
+let is_virtual_pci addr =
+  let path = Printf.sprintf "/sys/bus/pci/devices/%s/physfn" addr in
+  try
+    ignore @@ Unix.readlink path; true
+  with _ -> false
+
+(** [is_related_to x y] is true, if two non-virtual PCI devices
+ *  only differ in their function.
+ *)
+let is_related_to (x:Pci.Pci_dev.t) (y:Pci.Pci_dev.t) =
+  let open Pci.Pci_dev in
+  x.domain = y.domain
+  && x.bus = y.bus
+  && x.dev = y.dev
+  && x.func <> y.func
+  && not @@ is_virtual_pci @@ address_of_dev x
+  && not @@ is_virtual_pci @@ address_of_dev y
+
 let get_host_pcis () =
   let default ~msg v =
     match v with
@@ -54,7 +80,6 @@ let get_host_pcis () =
           let open Pci_dev in
           debug "get_host_pcis: vendor=%04x device=%04x class=%04x"
             d.vendor_id d.device_id d.device_class;
-          let address_of_dev x = Printf.sprintf "%04x:%02x:%02x.%d" x.domain x.bus x.dev x.func in
           let vendor = { id = d.vendor_id
                        ; name = lookup_vendor_name access d.vendor_id
                                 |> default ~msg:"vendor name" }
@@ -80,11 +105,7 @@ let get_host_pcis () =
                           ; name = lookup_class_name access d.device_class
                                    |> default ~msg:"class name" }
           in
-          let related_devs =
-            List.filter (fun d' ->
-                let slot x = (x.domain, x.bus, x.dev) in
-                slot d' = slot d && d' <> d
-              ) devs in
+          let related_devs = List.filter (is_related_to d) devs in
           { address;
             vendor; device; subsystem_vendor; subsystem_device; pci_class;
             related = List.map address_of_dev related_devs; driver_name; 
