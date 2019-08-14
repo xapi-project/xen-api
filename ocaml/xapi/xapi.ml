@@ -955,8 +955,8 @@ let server_init() =
 
         let maybe_wait_for_clustering_ip () =
           let host = Helpers.get_localhost ~__context in
-          match Xapi_clustering.find_cluster_host ~__context ~host with
-          | Some self -> begin
+          begin match Xapi_clustering.find_cluster_host ~__context ~host with
+          | Some self ->
               debug "Waiting forever for cluster_host to gain an IP address";
               let ip = Xapi_mgmt_iface.(wait_for_clustering_ip ~__context ~self) in
               debug "Got clustering IP %s, resyncing cluster_host %s" ip (Ref.string_of self);
@@ -964,8 +964,10 @@ let server_init() =
               debug "Attempting to re-plug remaining unplugged PBDs";
               Helpers.call_api_functions ~__context (fun rpc session_id ->
                   Create_storage.plug_unplugged_pbds __context)
-            end
           | None -> ()
+          end;
+          Helpers.call_api_functions ~__context (fun rcp session_id ->
+              ignore(Create_storage.check_for_unplugged_pbds ~__context ~alert:true))
         in
 
         Startup.run ~__context [
@@ -977,6 +979,8 @@ let server_init() =
           (* CA-290237, CA-290473: Create cluster objects after network objects and management IP initialised *)
           "Create any necessary cluster_host objects", [ Startup.NoExnRaising ],
           (fun () -> log_and_ignore_exn (fun () -> Xapi_cluster_host.create_as_necessary __context (Helpers.get_localhost ~__context)));
+          (* Here as the last attempt to plug all PBDs, we will raise alerts if any PBD fails to plug.
+             The alerting logic is called from inside, as this is executed asynchronously OnThread and could potentially take long. *)
           "wait for clustering IP if any, re-plug remaining unplugged PBDs", [ Startup.OnThread ],
           (fun () -> log_and_ignore_exn (fun () -> maybe_wait_for_clustering_ip () ));
           "considering sending a master transition alert", [ Startup.NoExnRaising; Startup.OnlyMaster ],
