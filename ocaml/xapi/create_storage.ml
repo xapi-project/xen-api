@@ -19,28 +19,19 @@ open Client
 module D=Debug.Make(struct let name="create_storage" end)
 open D
 
-let plug_all_pbds __context =
-  (* Explicitly resynchronise local PBD state *)
+(* Return PBDs tha are current unplugged, raise alert if requested *)
+let check_for_unplugged_pbds ~__context ~alert =
   let my_pbds = Helpers.get_my_pbds __context in
-  Storage_access.resynchronise_pbds ~__context ~pbds:(List.map fst my_pbds);
-  let my_pbds = Helpers.get_my_pbds __context in
-  (* We'll return true if all PBD.plugs succeed *)
-  let result = ref true in
-  List.iter
-    (fun (self, pbd_record) ->
-       try
-         if pbd_record.API.pBD_currently_attached
-         then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
-         else Xapi_pbd.plug ~__context ~self
-       with
-       | Db_exn.DBCache_NotFound(_, "PBD", _) as e ->
-           debug "Ignoring PBD/SR that got deleted before we plugged it: %s" (Printexc.to_string e)
-       | e ->
-         result := false;
-         error "Could not plug in pbd '%s': %s" pbd_record.API.pBD_uuid (Printexc.to_string e))
-    my_pbds;
-  !result
-
+  let unplugged = my_pbds |> List.filter (fun (_, pbd_record) -> not pbd_record.API.pBD_currently_attached) |> List.map fst in
+  if unplugged = [] then
+    debug "All PBDs are plugged successfully"
+  else begin
+    debug "Some PBDs are not currently plugged: %s" (String.concat ", " (List.map Ref.string_of unplugged));
+    if alert then
+      let obj_uuid = Helpers.get_localhost_uuid () in
+      Xapi_alert.add ~msg:Api_messages.pbd_plug_failed_on_server_start ~cls:`Host ~obj_uuid ~body:""
+  end;
+  unplugged
 
 let plug_unplugged_pbds __context =
   (* If the plug is to succeed for SM's requiring a cluster stack
@@ -52,9 +43,19 @@ let plug_unplugged_pbds __context =
          if pbd_record.API.pBD_currently_attached
          then debug "Not replugging PBD %s: already plugged in" (Ref.string_of self)
          else Xapi_pbd.plug ~__context ~self
-       with e -> debug "Could not plug in pbd '%s': %s" (Db.PBD.get_uuid ~__context ~self) (Printexc.to_string e))
+       with
+       | Db_exn.DBCache_NotFound(_, "PBD", _) as e ->
+           debug "Ignoring PBD/SR that got deleted before we plugged it: %s" (Printexc.to_string e)
+       | e ->
+           error "Could not plug in pbd '%s': %s" pbd_record.API.pBD_uuid (Printexc.to_string e))
     my_pbds;
   Xapi_host_helpers.consider_enabling_host ~__context
+
+let plug_all_pbds __context =
+  (* Explicitly resynchronise local PBD state *)
+  let my_pbds = Helpers.get_my_pbds __context in
+  Storage_access.resynchronise_pbds ~__context ~pbds:(List.map fst my_pbds);
+  plug_unplugged_pbds __context
 
 (* Create a PBD which connects this host to the SR, if one doesn't already exist *)
 let maybe_create_pbd rpc session_id sr device_config me =
@@ -107,13 +108,10 @@ let create_storage (me: API.ref_host) rpc session_id __context : unit =
   else
     debug "Skipping creation of PBDs for shared SRs";
 
-  let all_pbds_ok = plug_all_pbds __context in
-  if not(all_pbds_ok) then begin
-    let obj_uuid = Helpers.get_localhost_uuid () in
-    Xapi_alert.add ~msg:Api_messages.pbd_plug_failed_on_server_start ~cls:`Host ~obj_uuid ~body:"";
-  end;
-  Xapi_host_helpers.consider_enabling_host ~__context
-
+  plug_all_pbds __context;
+  let unplugged = check_for_unplugged_pbds ~__context ~alert:false in
+  if unplugged <> [] then
+    debug "%d PBDs remain unplugged, further attempts may be made later" (List.length unplugged) 
 
 let create_storage_localhost rpc session_id : unit =
   Server_helpers.exec_with_new_task "creating storage"
