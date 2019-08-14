@@ -143,7 +143,7 @@ install:
 	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)
 # example/python
 	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE_DIR)/
-	$(IDATA) examples/python/XenAPI.py $(DESTDIR)$(SITE_DIR)/
+	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE_DIR)/
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/wake-on-lan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan

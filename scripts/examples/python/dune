@@ -1,0 +1,6 @@
+(executable
+  (name setuppy_gen)
+  (libraries
+   xapi-stdext-unix
+   xapi-datamodel)
+)
