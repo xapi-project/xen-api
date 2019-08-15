@@ -9,9 +9,9 @@ type address = {
 [@@deriving sexp, rpc, rpcty]
 
 let address_of_string str =
-	Scanf.sscanf str "%04x:%02x:%02x.%02x"
+	Scanf.sscanf str "%04x:%02x:%02x.%x"
 		(fun domain bus dev fn -> {domain; bus; dev; fn})
 
 let string_of_address address =
-	Printf.sprintf "%04x:%02x:%02x.%01x"
+	Printf.sprintf "%04x:%02x:%02x.%x"
 		address.domain address.bus address.dev address.fn
