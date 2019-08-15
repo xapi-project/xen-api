@@ -11,6 +11,7 @@ necessarily correct at the time this script is called.
 
 import os
 import os.path
+import re
 import subprocess
 import sys
 import syslog
@@ -47,7 +48,7 @@ def disable(bootloader):
         next boot.
     """
     if bootloader.default == XE_SERIAL:
-        doexec([XEN_CMDLINE, "--set-xen", "console=com1"])
+        doexec([XEN_CMDLINE, "--set-xen", "console=%s" % (_get_com_port())])
     else:
         doexec([XEN_CMDLINE, "--delete-dom0", "console=tty0"])
         doexec([XEN_CMDLINE, "--delete-xen", "console"])
@@ -58,10 +59,10 @@ def enable(bootloader):
         next boot.
     """
     if bootloader.default == XE_SERIAL:
-        doexec([XEN_CMDLINE, "--set-xen", "console=com1,vga"])
+        doexec([XEN_CMDLINE, "--set-xen", "console=%s,vga" % (_get_com_port())])
     else:
         doexec([XEN_CMDLINE, "--set-xen", "console=vga"])
-        doexec([XEN_CMDLINE, "--set-dom0", "console=tty0"])
+        doexec([XEN_CMDLINE, "--set-dom0", "console=hvc0 console=tty0"])
 
 def status(_):
     """
@@ -79,6 +80,17 @@ COMMANDS = {
     'enable': enable,
     'status': status
 }
+
+def _get_com_port():
+    """
+        Determine from the current bootloader config which COM port is in use
+    """
+    (_, stdout, _) = doexec([XEN_CMDLINE, "--get-xen", "console"])
+    m = re.match("console=.*(com\d).*", stdout.readline().strip())
+    if m:
+        return m.group(1)
+    else:
+        return "com1"
 
 def usage():
     """ Display a usage string. """
