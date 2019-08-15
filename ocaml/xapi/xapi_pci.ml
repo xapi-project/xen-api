@@ -220,8 +220,10 @@ let update_pcis ~__context =
                let r, _, _, _ = List.find (fun (_, rc, _, _) -> rc.Db_actions.pCI_pci_id = address) pfs
                in r)
           with Not_found ->
-            warn "failed to update PCI dependencies for %s" (Ref.string_of pref);
-            []
+            let msg = Printf.sprintf
+              "failed to update PCI dependencies for %s (%s)"
+              (Ref.string_of pref) __LOC__ in
+            raise Api_errors.(Server_error (internal_error,[msg]))
         in
         Db.PCI.set_dependencies ~__context ~self:pref ~value:dependencies;
         update remaining
