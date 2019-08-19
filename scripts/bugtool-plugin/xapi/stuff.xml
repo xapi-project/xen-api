@@ -5,4 +5,5 @@
 <command label="diagnostic_timing_stats">@BINDIR@/xe diagnostic-timing-stats</command>
 <command label="diagnostic_db_stats">@BINDIR@/xe diagnostic-db-stats</command>
 <command label="diagnostic_net_stats">@BINDIR@/xe diagnostic-net-stats</command>
+<command label="host_data_source_list">@BINDIR@/xe host-data-source-list host=$(@BINDIR@/xe pool-list params=master --minimal)</command>
 </collect>
