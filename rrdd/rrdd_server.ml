@@ -26,7 +26,10 @@ open D
 
 let archive_sr_rrd (sr_uuid : string) : string =
   let sr_rrd = Mutex.execute mutex (fun () ->
-      try (Hashtbl.find sr_rrds sr_uuid)
+      try
+        let rrd = Hashtbl.find sr_rrds sr_uuid in
+        Hashtbl.remove sr_rrds sr_uuid;
+        rrd
       with Not_found ->
         let msg = Printf.sprintf "No RRD found for SR: %s." sr_uuid in
         raise (Rrdd_error (Archive_failed(msg)))
