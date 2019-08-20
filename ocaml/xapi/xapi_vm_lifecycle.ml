@@ -354,7 +354,9 @@ let nvidia_sriov_pcis ~__context vgpus =
   |> List.filter_map (fun vgpu -> Db.VGPU.get_type ~__context ~self:vgpu
     |> fun typ -> Db.VGPU_type.get_implementation ~__context ~self:typ
     |> function
-      | `nvidia_sriov -> Some (Db.VGPU.get_PCI ~__context ~self:vgpu)
+      | `nvidia_sriov ->
+          let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
+          if Db.is_valid_ref __context pci then Some pci else None
       | _ -> None)
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
