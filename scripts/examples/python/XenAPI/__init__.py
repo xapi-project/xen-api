@@ -1,1 +1,1 @@
-from . import XenAPI
+from .XenAPI import *
