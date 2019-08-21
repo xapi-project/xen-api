@@ -79,16 +79,20 @@ let test_ranges rrd () =
 
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) (Array.to_list rrd.rrd_rras)
 
-let temp_rrd () =
-  Filename.temp_file "rrd-" ".xml"
+let temp_rrd ~json () =
+  let extension = match json with
+    | true -> ".json"
+    | false -> ".xml"
+  in
+  Filename.temp_file "rrd-" extension
 
-let test_marshall rrd () =
-  let filename = temp_rrd () in
-  Rrd_unix.to_file rrd filename;
+let test_marshall rrd ~json () =
+  let filename = temp_rrd ~json () in
+  Rrd_unix.to_file ~json rrd filename;
   Unix.unlink filename
 
-let test_unmarshall rrd () =
-  let filename = temp_rrd () in
+let test_marshall_unmarshall rrd () =
+  let filename = temp_rrd ~json:false () in
   Rrd_unix.to_file rrd filename;
   let rrd' = Rrd_unix.of_file filename in
   assert_rrds_equal rrd rrd';
@@ -149,9 +153,11 @@ let test_ca_322008 () =
 let gauge_rrd = create_gauge_rrd ()
 
 let rrd_suite rrd = [
-  "Save to disk"     , `Quick, test_marshall rrd  ;
-  "Restore from disk", `Quick, test_unmarshall rrd;
-  "Values in range",   `Quick, test_ranges rrd    ;
+  "Save xml to disk", `Quick, test_marshall ~json:false rrd;
+  "Save json to disk", `Quick, test_marshall ~json:true rrd;
+  (* there is no json deserializer implementation *)
+  "Save and restore from disk", `Quick, test_marshall_unmarshall rrd;
+  "Values in range",       `Quick, test_ranges rrd;
 ]
 
 let regression_suite = [
