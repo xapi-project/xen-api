@@ -29,6 +29,7 @@ depends: [
   "uuidm"
   "uutf"
   "xapi-idl"
+  "xenctrl"
   "xmlm"
 ]
 synopsis: "A single-host domain/VM manager for the Xen hypervisor"
