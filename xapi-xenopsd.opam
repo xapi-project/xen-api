@@ -13,12 +13,12 @@ build: [
 depends: [
   "ocaml"
   "dune" {build}
+  "alcotest" {with-test}
   "cohttp"
   "core"
-  "ezxenstore"
   "fd-send-recv"
   "forkexec"
-  "ounit"
+  "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "re"
   "rpclib"
@@ -29,8 +29,7 @@ depends: [
   "uuidm"
   "uutf"
   "xapi-idl"
-  "xenstore"
-  "xenstore_transport"
+  "xenctrl"
   "xmlm"
 ]
 synopsis: "A single-host domain/VM manager for the Xen hypervisor"
