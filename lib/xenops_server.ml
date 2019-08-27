@@ -1426,11 +1426,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     then failwith (Printf.sprintf "%s doesn't exist" id);
     let vbds : Vbd.t list = VBD_DB.vbds id in
     let vifs : Vif.t list = VIF_DB.vifs id in
-    let extras : string list = match PCI_DB.pcis id with
-      | [] -> []
-      | pcis  ->
-        let sbdfs = List.map (fun p -> Pci.string_of_address p.Pci.address) pcis in
-        [ "-pci_passthrough"; String.concat "," sbdfs] in
+    let extras = [] in
     B.VM.restore t progress_callback (VM_DB.read_exn id) vbds vifs data vgpu_data extras
   | VM_delay (id, t) ->
     debug "VM %s: waiting for %.2f before next VM action" id t;
