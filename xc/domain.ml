@@ -695,7 +695,6 @@ let xenguest_args_base ~domid ~store_port ~store_domid ~console_port ~console_do
     "-console_domid"; string_of_int console_domid;
     "-mem_max_mib"; Int64.to_string memory.Memory.build_max_mib;
     "-mem_start_mib"; Int64.to_string memory.Memory.build_start_mib;
-    "-fork"; "true";
   ]
 
 let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
@@ -1275,7 +1274,6 @@ type suspend_flag = Live | Debug
       "-fd"; fd_uuid;
       "-mode"; mode;
       "-domid"; string_of_int domid;
-      "-fork"; "true";
     ]
     @
     ( match dm with
