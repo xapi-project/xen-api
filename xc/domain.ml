@@ -898,7 +898,6 @@ type suspend_flag = Live | Debug
       "-fd"; fd_uuid;
       "-store_port"; string_of_int store_port;
       "-console_port"; string_of_int console_port;
-      "-fork"; "true";
     ]
     @
     ( match dm with
