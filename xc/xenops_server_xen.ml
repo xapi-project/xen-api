@@ -1485,7 +1485,14 @@ module VM = struct
         with Not_found -> !Xenopsd.pvinpvh_xen_cmdline
       in
       let shim_mem =
-        let shim_mib = PVinPVH_memory_model_data.shim_mib static_max_mib in
+        let shim_mib =
+          match List.assoc_opt "shim_mib" vm.Vm.platformdata with
+          | None -> PVinPVH_memory_model_data.shim_mib static_max_mib
+          | Some n -> (
+            try Int64.of_string n with _ ->
+              warn "ignoring shim_mib=%s" n ;
+              PVinPVH_memory_model_data.shim_mib static_max_mib )
+        in
         Printf.sprintf "shim_mem=%LdM" shim_mib
       in
       String.concat " " [base; shim_mem]
