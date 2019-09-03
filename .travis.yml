@@ -13,6 +13,5 @@ env:
     - OCAML_VERSION="4.07"
     - DISTRO="debian-unstable"
   matrix:
-    - PACKAGE="xapi-xenopsd"
     - PACKAGE="xapi-xenopsd-xc"
     - PACKAGE="xapi-xenopsd-simulator"
