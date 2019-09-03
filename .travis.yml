@@ -8,8 +8,11 @@ script:
 env:
   global:
     - PACKAGE="xapi-xenopsd"
-    - PINS="xapi-xenopsd:."
+    - PINS="xapi-xenopsd:. xapi-xenopsd-xc:. xapi-xenopsd-simulator:."
     - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
     - OCAML_VERSION="4.07"
-  matrix:
     - DISTRO="debian-unstable"
+  matrix:
+    - PACKAGE="xapi-xenopsd"
+    - PACKAGE="xapi-xenopsd-xc"
+    - PACKAGE="xapi-xenopsd-simulator"
