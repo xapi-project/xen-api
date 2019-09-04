@@ -52,10 +52,12 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    pam
    pciutil
    pci
+   domain-name
    ezxenstore.core
    message-switch-unix
    mtime
    mtime.clock.os
+   rresult
    sha
    xxhash
    tar
