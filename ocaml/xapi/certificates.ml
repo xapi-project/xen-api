@@ -295,6 +295,6 @@ let get_server_certificate () =
     raise_library_corrupt()
 
 let hostnames_of_pem_cert pem =
-  Cstruct.of_string pem |>
-  X509.Encoding.Pem.Certificate.of_pem_cstruct1 |>
-  X509.hostnames
+  let open Rresult.R.Infix in
+  Cstruct.of_string pem |> X509.Certificate.decode_pem
+  >>= (fun cert -> Ok (X509.Certificate.hostnames cert))
