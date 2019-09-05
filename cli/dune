@@ -1,5 +1,5 @@
 (executable
   (name wsproxy)
   (public_name wsproxy)
-  (libraries re.str lwt lwt.unix uuidm wslib)
+  (libraries re.str logs logs.fmt logs.lwt lwt lwt.unix uuidm wslib)
 )
