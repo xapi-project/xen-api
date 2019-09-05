@@ -45,11 +45,12 @@ let start path handler =
          >>= fun (fd_sock',_) ->
          (* Background thread per connection *)
          let _ : unit Lwt.t =
-           let buffer = String.make 16384 '\000' in
+           let buffer = Bytes.make 16384 '\000' in
            with_fd fd_sock'
              ~callback:(fun fd ->
-                let iov = Lwt_unix.io_vector ~buffer ~offset:0 ~length:16384 in
-                Lwt_unix.recv_msg ~socket:fd ~io_vectors:[iov])
+                 let io_vectors = Lwt_unix.IO_vectors.create () in
+                 Lwt_unix.IO_vectors.append_bytes io_vectors buffer 0 16384;
+                 Lwt_unix.Versioned.recv_msg_2 ~socket:fd ~io_vectors)
            >>= fun (len, newfds) ->
            match newfds with
            | [] -> Logs_lwt.warn (fun m -> m "No fd to start a connection: not proxying")
@@ -59,7 +60,7 @@ let start path handler =
                ~callback:(fun fd ->
                   Logs_lwt.debug (fun m -> m "About to start connection") >>= fun () ->
                   Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
-                  let msg = String.sub buffer 0 len in
+                   let msg = Bytes.(to_string @@ sub buffer 0 len) in
                   handler fd msg)
          in loop ())
       (fun e ->
