@@ -13,7 +13,7 @@
  *)
 open Wslib
 
-let get_dir_path () = Printf.sprintf "/var/xapi/" 
+let get_dir_path () = Printf.sprintf "/var/xapi/"
 
 module LwtWsIteratee = Wslib.Websockets.Wsprotocol(Lwt)
 open Lwt.Infix
@@ -58,10 +58,10 @@ let start path handler =
              ensure_close ufds >>= fun () ->
              with_fd (Lwt_unix.of_unix_file_descr ufd)
                ~callback:(fun fd ->
-                  Logs_lwt.debug (fun m -> m "About to start connection") >>= fun () ->
-                  Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
+                   Logs_lwt.debug (fun m -> m "About to start connection") >>= fun () ->
+                   Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
                    let msg = Bytes.(to_string @@ sub buffer 0 len) in
-                  handler fd msg)
+                   handler fd msg)
          in loop ())
       (fun e ->
          Logs_lwt.err (fun m -> m "Caught exception: %s" (Printexc.to_string e)) >>= fun () ->
@@ -84,7 +84,7 @@ let proxy (fd : Lwt_unix.file_descr) addr protocol =
       Lwt.return (wsframe, wsunframe)
     | _ ->
       Logs_lwt.warn (fun m -> m "Unknown protocol, fallback to hybi10") >>= fun () ->
-      Lwt.return (wsframe, wsunframe) 
+      Lwt.return (wsframe, wsunframe)
   end >>= fun (frame,unframe) ->
   with_open_connection_fd addr ~callback:(fun localfd ->
       let session_id = Uuidm.v `V4 |> Uuidm.to_string in
@@ -121,7 +121,7 @@ let handler sock msg =
   | _ -> Logs_lwt.warn (fun m -> m "Malformed msg: not proxying")
 
 
-let _ = 
+let _ =
   Logs.set_reporter (Logs_fmt.reporter ());
   (* Enable logging for all levels *)
   Logs.set_level ~all:true (Some Logs.Debug);
