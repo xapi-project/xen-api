@@ -13,16 +13,13 @@
  *)
 open Wslib
 
-let get_dir_path () = Printf.sprintf "/var/xapi/"
-
 module LwtWsIteratee = Wslib.Websockets.Wsprotocol(Lwt)
 open Lwt.Infix
 
 let with_fd = Lwt_support.with_fd
 
-let start path handler =
-  let dir_path = get_dir_path () in
-  let fd_sock_path = Printf.sprintf "%s%s" dir_path path in
+let start handler =
+  let fd_sock_path = "/var/xapi/wsproxy" in
   Logs_lwt.info (fun m -> m "Starting wsproxy on %s" fd_sock_path) >>= fun () ->
   let fd_sock = Lwt_unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   Lwt.catch
@@ -131,5 +128,5 @@ let _ =
     let pid = Unix.getpid () in
     Lwt_io.with_file filename ~mode:Lwt_io.output (fun chan ->
         Lwt_io.fprintf chan "%d" pid) >>= fun _ ->
-    start "wsproxy" handler
+    start handler
   end
