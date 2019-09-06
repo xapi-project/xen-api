@@ -125,7 +125,6 @@ let _ =
   Logs.set_reporter (Logs_fmt.reporter ());
   (* Enable logging for all levels *)
   Logs.set_level ~all:true (Some Logs.Debug);
-  Lwt_daemon.daemonize ~stdout:`Dev_null ~stdin:`Close ~stderr:`Dev_null ();
   let filename = "/var/run/wsproxy.pid" in
   (try Unix.unlink filename with _ -> ());
   Lwt_main.run begin
