@@ -723,10 +723,22 @@ let remap_vif vif_map vif =
     else vif
 
 let remap_vgpu vgpu_pci_map vgpu =
-  match vgpu.Vgpu.id with (_,device) ->
-    if List.mem_assoc device vgpu_pci_map
-    then (debug "Remapping VGPU: %s" device; {vgpu with Vgpu.physical_pci_address = (List.assoc device vgpu_pci_map)})
-    else vgpu
+  let to_string addr = Pci.string_of_address addr in
+  let _,pf_device = vgpu.Vgpu.id in
+  let vf_device   = "vf:"^pf_device in (* see infer_vgpu_map() in xapi *)
+  let vgpu =
+    match List.assoc_opt pf_device vgpu_pci_map with
+    | None -> vgpu
+    | Some addr ->
+      debug "Remapping VGPU PF: %s -> %s" pf_device (to_string addr);
+      { vgpu with Vgpu.physical_pci_address = addr } in
+  let vgpu =
+    match List.assoc_opt vf_device vgpu_pci_map with
+    | None -> vgpu
+    | Some addr ->
+      debug "Remapping VGPU VF: %s -> %s" vf_device (to_string addr);
+      { vgpu with Vgpu.virtual_pci_address = Some addr  } in
+  vgpu
 
 let strip x =
   if x.[String.length x - 1] = '\n'
