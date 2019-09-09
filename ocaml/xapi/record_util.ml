@@ -141,7 +141,6 @@ let sr_operation_to_string: API.storage_operations -> string = function
   | `vdi_set_on_boot -> "VDI.set_on_boot"
   | `vdi_data_destroy -> "VDI.data_destroy"
   | `vdi_list_changed_blocks -> "VDI.list_changed_blocks"
-  | `vdi_forget -> "VDI.forget"
   | `pbd_create -> "PBD.create"
   | `pbd_destroy -> "PBD.destroy"
 
