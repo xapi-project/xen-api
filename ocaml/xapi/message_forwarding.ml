@@ -211,9 +211,9 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> un
 module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
   (* During certain operations that are executed on a pool slave, the slave management can reconfigure
-     	 * its management interface, we can lose connection with the slave.
-     	 * This function catches any "host cannot be contacted" exceptions during such calls and polls
-     	 * periodically to see whether the operation has completed on the slave. *)
+   * its management interface, we can lose connection with the slave.
+   * This function catches any "host cannot be contacted" exceptions during such calls and polls
+   * periodically to see whether the operation has completed on the slave. *)
   let tolerate_connection_loss fn success timeout =
     try
       fn ()
@@ -679,14 +679,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let with_vm_operation = Xapi_vm_helpers.with_vm_operation
 
     (* Nb, we're not using the snapshots returned in 'Event.from' here because
-       		 * the tasks might get deleted. The standard mechanism for dealing with
-       		 * deleted events assumes you have a full database replica locally, and
-       		 * deletions are handled by checking your valid_ref_counts table against
-       		 * your local database. In this case, we're only interested in a subset of
-       		 * events, so this mechanism doesn't work. There will only be a few outstanding
-       		 * tasks anyway, so we're safe to just iterate through the references when an
-       		 * event happens - ie, we use the event API simply to wake us up when something
-       		 * interesting has happened. *)
+     * the tasks might get deleted. The standard mechanism for dealing with
+     * deleted events assumes you have a full database replica locally, and
+     * deletions are handled by checking your valid_ref_counts table against
+     * your local database. In this case, we're only interested in a subset of
+     * events, so this mechanism doesn't work. There will only be a few outstanding
+     * tasks anyway, so we're safe to just iterate through the references when an
+     * event happens - ie, we use the event API simply to wake us up when something
+     * interesting has happened. *)
 
     let wait_for_tasks ~__context ~tasks =
       let our_task = Context.get_task_id __context in
@@ -735,7 +735,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let vbds = Db.VM.get_VBDs ~__context ~self:vm in
       let marked = ref [] in
       (* CA-26575: paper over transient VBD glitches caused by SR.lvhd_stop_the_world by throwing the
-         			   first OTHER_OPERATION_IN_PROGRESS (or whatever) we encounter and let the caller deal with it *)
+         first OTHER_OPERATION_IN_PROGRESS (or whatever) we encounter and let the caller deal with it *)
       try
         List.iter
           (fun vbd ->
@@ -791,7 +791,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () -> Helpers.with_global_lock (fun () -> unmark_vifs ~__context ~vifs ~doc ~op))
 
     (* Some VM operations have side-effects on VBD allowed_operations but don't actually
-       		   lock the VBDs themselves (eg suspend) *)
+       lock the VBDs themselves (eg suspend) *)
     let update_vbd_operations ~__context ~vm =
       Helpers.with_global_lock
         (fun () ->
@@ -839,14 +839,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         )
 
     (* Notes on memory checking/reservation logic:
-       		   When computing the hosts free memory we consider all VMs resident_on (ie running
-       		   and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
-       		   starting/resuming/migrating, whose memory has been reserved but may not all be being
-       		   used atm).
-       		   We generally call 'assert_can_boot_here' with the master forwarding lock held,
-       		   which verifies that a host has enough free memory to support the VM and then we
-       		   set 'scheduled_to_be_resident_on' which prevents concurrent competing attempts to
-       		   use the same resources from succeeding. *)
+       When computing the hosts free memory we consider all VMs resident_on (ie running
+       and consuming resources NOW) and scheduled_to_be_resident_on (ie those which are
+       starting/resuming/migrating, whose memory has been reserved but may not all be being
+       used atm).
+       We generally call 'assert_can_boot_here' with the master forwarding lock held,
+       which verifies that a host has enough free memory to support the VM and then we
+       set 'scheduled_to_be_resident_on' which prevents concurrent competing attempts to
+       use the same resources from succeeding. *)
 
     (* Reserves the resources for a VM by setting it as 'scheduled_to_be_resident_on' a host *)
     let allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op () =
@@ -889,16 +889,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         Xapi_ha_vm_failover.assert_vm_placement_preserves_ha_plan ~__context ~arriving:[host, (vm, snapshot)] ()
 
     (* README: Note on locking -- forward_to_suitable_host and reserve_memory_for_vm are only
-       		   called in a context where the current_operations field for the VM object contains the
-       		   operation we're considering. Thus the global_lock in this context is _not_ used to cover
-       		   the period where current_operations are set, but is used to ensure that (i) choose_host_for_vm
-       		   is executed under mutual exclusion with other incoming operations; and (ii) that scheduled_to_be_resident_on
-       		   (which must not change whilst someone is calling choose_host_for_vm) only executes in exclusion with
-       		   choose_host_for_vm.
-       		*)
+       called in a context where the current_operations field for the VM object contains the
+       operation we're considering. Thus the global_lock in this context is _not_ used to cover
+       the period where current_operations are set, but is used to ensure that (i) choose_host_for_vm
+       is executed under mutual exclusion with other incoming operations; and (ii) that scheduled_to_be_resident_on
+       (which must not change whilst someone is calling choose_host_for_vm) only executes in exclusion with
+       choose_host_for_vm.
+       *)
 
     (* Used by VM.start and VM.resume to choose a host with enough resource and to
-       		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
+       'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
     let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ?host_op op =
       let suitable_host = Helpers.with_global_lock
           (fun () ->
@@ -906,7 +906,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              if host <> Ref.null then host else
                let host = Xapi_vm_helpers.choose_host_for_vm ~__context ~vm ~snapshot in
                (* HA overcommit protection: we can either perform 'n' HA plans by including this in
-                  						   the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
+                  the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
                check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
                allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ();
                host) in
@@ -921,14 +921,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                 then clear_scheduled_to_be_resident_on ~__context ~vm))
 
     (* Used by VM.start_on, VM.resume_on, VM.migrate to verify a host has enough resource and to
-       		   'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
+       'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
     let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op f =
       Helpers.with_global_lock
         (fun () ->
            Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ();
            (* NB in the case of migrate although we are about to increase free memory on the sending host
-              					   we ignore this because if a failure happens while a VM is in-flight it will still be considered
-              					   on both hosts, potentially breaking the failover plan. *)
+              we ignore this because if a failure happens while a VM is in-flight it will still be considered
+              on both hosts, potentially breaking the failover plan. *)
            check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host;
            allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ());
       finally f
@@ -939,12 +939,12 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                 clear_scheduled_to_be_resident_on ~__context ~vm))
 
     (**
-       		   Used by VM.set_memory_dynamic_range to reserve enough memory for
-       		   increasing dynamic_min. Although a VM may actually be technically
-       		   outside the range [dynamic_min, dynamic_max] we still ensure that *if*
-       		   all VMs are obeying our commands and ballooning to dynamic_min if we ask
-       		   *then* the sum of the dynamic_mins will fit on the host.
-       		*)
+      Used by VM.set_memory_dynamic_range to reserve enough memory for
+      increasing dynamic_min. Although a VM may actually be technically
+      outside the range [dynamic_min, dynamic_max] we still ensure that *if*
+      all VMs are obeying our commands and ballooning to dynamic_min if we ask
+      *then* the sum of the dynamic_mins will fit on the host.
+     *)
     let reserve_memory_for_dynamic_change ~__context ~vm
         new_dynamic_min new_dynamic_max f =
       let host = Db.VM.get_resident_on ~__context ~self:vm in
@@ -1042,8 +1042,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              Local.VM.set_is_a_template ~__context ~self ~value:true)
       else Local.VM.set_is_a_template ~__context ~self ~value
     (*
-				  else raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Must use VM.provision" ]))
-				*)
+      else raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [ "Must use VM.provision" ]))
+     *)
 
     (* CA-234494: make sure that the allowed operations are updated for default templates *)
     let set_is_default_template ~__context ~vm ~value =
@@ -1068,8 +1068,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "VM.clone: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm) new_name;
       let local_fn = Local.VM.clone ~vm ~new_name in
       (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
-         			   uses the API to clone and lock the individual VDIs. We don't give any atomicity
-         			   guarantees here but we do prevent disk corruption. *)
+         uses the API to clone and lock the individual VDIs. We don't give any atomicity
+         guarantees here but we do prevent disk corruption. *)
       with_vm_operation ~__context ~self:vm ~doc:"VM.clone" ~op:`clone
         (fun () ->
            forward_to_access_srs ~local_fn ~__context ~vm
@@ -2095,7 +2095,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Host = struct
 
     (** Add to the Host's current operations, call a function and then remove from the
-        		    current operations. Ensure the allowed_operations are kept up to date. *)
+        current operations. Ensure the allowed_operations are kept up to date. *)
     let with_host_operation ~__context ~self ~doc ~op f =
       let task_id = Ref.string_of (Context.get_task_id __context) in
       (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
@@ -2120,7 +2120,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              let clustered_srs = Db.SR.get_refs_where ~__context ~expr:(Eq (Field "clustered", Literal "true")) in
              if clustered_srs <> [] then
                (* Host powerstate operations on one host may affect all other hosts if
-                  							 * a clustered SR is in use, so update all hosts' allowed operations. *)
+                * a clustered SR is in use, so update all hosts' allowed operations. *)
                Xapi_host_helpers.update_allowed_operations_all_hosts ~__context
              else
                Xapi_host_helpers.update_allowed_operations ~__context ~self
@@ -2255,8 +2255,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let management_reconfigure ~__context ~pif =
       info "Host.management_reconfigure: management PIF = '%s'" (pif_uuid ~__context pif);
       (* The management interface on the slave may change during this operation, so expect connection loss.
-         			 * Consider the operation successful if management flag was set on the PIF we're working with. Since the slave
-         			 * sets this flag after bringing up the management interface, this is a good indication of success. *)
+       * Consider the operation successful if management flag was set on the PIF we're working with. Since the slave
+       * sets this flag after bringing up the management interface, this is a good indication of success. *)
       let success () =
         if Db.PIF.get_management ~__context ~self:pif then Some () else None in
       let local_fn = Local.Host.management_reconfigure ~pif in
@@ -2795,7 +2795,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module Network = struct
 
     (* Don't forward. These are just db operations. Networks are "attached" when required by hosts that read db entries.
-       		   Bridges corresponding to networks are removed by per-host GC threads that read from db. *)
+       Bridges corresponding to networks are removed by per-host GC threads that read from db. *)
     let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags =
       info "Network.create: name_label = '%s'; bridge = '%s'; managed = '%b'" name_label bridge managed;
       Local.Network.create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge ~managed ~tags
@@ -2812,7 +2812,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "Network.destroy: network = '%s'" (network_uuid ~__context self);
       (* WARNING WARNING WARNING: directly call Network.destroy with the global lock since it does
-         			   only database operations *)
+         only database operations *)
       Helpers.with_global_lock
         (fun () ->
            Local.Network.destroy ~__context ~self)
@@ -3024,7 +3024,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
       let local_fn = Local.Bond.create ~network ~members ~mAC ~mode ~properties in
       (* The management interface on the slave may change during this operation, so expect connection loss.
-         			 * Consider the operation successful if task progress is set to 1.0. *)
+       * Consider the operation successful if task progress is set to 1.0. *)
       let task = Context.get_task_id __context in
       let success () =
         let progress = Db.Task.get_progress ~__context ~self:task in
@@ -3042,7 +3042,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       info "Bond.destroy: bond = '%s'" (bond_uuid ~__context self);
       let host = Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self) in
       (* The management interface on the slave may change during this operation, so expect connection loss.
-         			 * Consider the operation successful if task progress is set to 1.0. *)
+       * Consider the operation successful if task progress is set to 1.0. *)
       let task = Context.get_task_id __context in
       let success () =
         let progress = Db.Task.get_progress ~__context ~self:task in
@@ -3602,7 +3602,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let src_sr = Db.VDI.get_SR ~__context ~self:vdi in
       (* No need to lock the VDI because the VBD.plug will do that for us *)
       (* Try forward the request to a host which can have access to both source
-         			   and destination SR. *)
+         and destination SR. *)
       let op session_id rpc = Client.VDI.copy rpc session_id vdi sr base_vdi into_vdi in
       with_sr_andor_vdi ~__context ~vdi:(vdi, `copy) ~doc:"VDI.copy"
         (fun () ->
@@ -3920,8 +3920,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc -> Client.PBD.set_device_config rpc session_id self value)
 
     (* Mark the SR and check, if we are the 'SRmaster' that no VDI
-       		   current_operations are present (eg snapshot, clone) since these are all
-       		   done on the SR master. *)
+       current_operations are present (eg snapshot, clone) since these are all
+       done on the SR master. *)
     let with_unplug_locks ~__context ~pbd ~sr f =
       let doc = "PBD.unplug" and op = `unplug in
       Helpers.retry_with_global_lock ~__context ~doc
@@ -3955,11 +3955,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              (fun session_id rpc -> Client.PBD.plug rpc session_id self));
 
       (* We always plug the master PBD first and unplug it last. If this is the
-         			 * first PBD plugged for this SR (proxy: the PBD being plugged is for the
-         			 * master) then we should perform an initial SR scan and perform some
-         			 * asynchronous start-of-day operations in the callback.
-         			 * Note the current context contains a completed real task and we should
-         			 * not reuse it for what is effectively another call. *)
+       * first PBD plugged for this SR (proxy: the PBD being plugged is for the
+       * master) then we should perform an initial SR scan and perform some
+       * asynchronous start-of-day operations in the callback.
+       * Note the current context contains a completed real task and we should
+       * not reuse it for what is effectively another call. *)
       if is_master_pbd then
         Server_helpers.exec_with_new_task "PBD.plug initial SR scan" (fun __context ->
             let should_handle_metadata_vdis = is_shared_sr in
