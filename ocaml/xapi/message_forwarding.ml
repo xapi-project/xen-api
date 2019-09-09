@@ -3565,8 +3565,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let forget ~__context ~vdi =
       info "VDI.forget: VDI = '%s'" (vdi_uuid ~__context vdi);
-      let sR = Db.VDI.get_SR ~__context ~self:vdi in
-      with_sr_andor_vdi ~__context ~sr:(sR, `vdi_forget) ~vdi:(vdi, `forget) ~doc:"VDI.forget"
+      with_sr_andor_vdi ~__context ~vdi:(vdi, `forget) ~doc:"VDI.forget"
         (fun () ->
            Local.VDI.forget ~__context ~vdi)
 
