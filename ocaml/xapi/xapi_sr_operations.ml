@@ -36,7 +36,7 @@ open D
 open Record_util
 
 let all_ops : API.storage_operations_set =
-  [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_forget; `vdi_resize; `vdi_clone; `vdi_snapshot; `vdi_mirror;
+  [ `scan; `destroy; `forget; `plug; `unplug; `vdi_create; `vdi_destroy; `vdi_resize; `vdi_clone; `vdi_snapshot; `vdi_mirror;
     `vdi_enable_cbt; `vdi_disable_cbt; `vdi_data_destroy; `vdi_list_changed_blocks; `vdi_set_on_boot; `vdi_introduce; `update; `pbd_create; `pbd_destroy ]
 
 (* This list comes from https://github.com/xenserver/xen-api/blob/tampa-bugfix/ocaml/xapi/xapi_sr_operations.ml#L36-L38 *)
@@ -150,7 +150,7 @@ let valid_operations ~__context ?op record _ref' : table =
   in
 
   let check_parallel_ops ~__context record =
-    let safe_to_parallelise = [`plug; `vdi_forget] in
+    let safe_to_parallelise = [`plug] in
     let current_ops = List.setify (List.map snd current_ops) in
 
     (* If there are any current operations, all the non_parallelisable operations
