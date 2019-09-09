@@ -832,13 +832,41 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
                                         Vm.Indirect { pv_indirect_boot with Vm.devices =
                                                                               List.map (remap_vdi vdi_map) pv_indirect_boot.Vm.devices } } } in
 
+  let diff src dst =
+    let pf = match src.Vgpu.physical_pci_address,
+                   dst.Vgpu.physical_pci_address with
+    | src, dst when src <> dst -> [src, dst]
+    | _ -> [] in
+    let vf = match src.Vgpu.virtual_pci_address,
+                   dst.Vgpu.virtual_pci_address with
+    | Some(src), Some(dst) when src <> dst -> [src, dst]
+    | _ -> [] in
+    List.concat [pf; vf] in
+
+  let pci_map vgpus_src vgpus_dst =
+    List.map2 diff vgpus_src vgpus_dst |> List.concat in
+
+  let remap_pci pci_map pci =
+    let to_string = Pci.string_of_address in
+    match List.assoc_opt pci.Pci.address pci_map with
+    | Some addr ->
+      (* rewrite addr and id (which is constructed from addr *)
+      debug "Remapping PCI %s -> %s"
+        (to_string pci.Pci.address) (to_string addr);
+      let vm = fst pci.Pci.id in
+      let ad = Printf.sprintf "%04x:%02x:%02x.%01x"
+        addr.Pci.domain addr.Pci.bus addr.Pci.dev addr.Pci.fn in
+      { pci with Pci.id = (vm,ad); Pci.address = addr }
+    | None -> pci in
+
   let vbds = VBD_DB.vbds id in
   let vifs = List.map (fun vif -> remap_vif vif_map vif) (VIF_DB.vifs id) in
-  let pcis = PCI_DB.pcis id in
+  (* we update PCI addrs in vgpus and then apply these updates to PCIs *)
+  let vgpus' = VGPU_DB.vgpus id in
   let vgpus = List.map (remap_vgpu vgpu_pci_map) (VGPU_DB.vgpus id) in
+  let pcis = List.map (remap_pci @@ pci_map vgpus' vgpus) (PCI_DB.pcis id) in
   let vusbs = VUSB_DB.vusbs id in
   let domains = B.VM.get_internal_state vdi_map vif_map vm_t in
-
 
   (* Remap VDIs *)
   debug "Remapping normal VDIs";
