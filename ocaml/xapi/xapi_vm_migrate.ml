@@ -222,7 +222,7 @@ let detach_local_network_for_vm ~__context ~vm ~destination =
   * the pGPU is released and getting the PCI will fail.
   * *)
 let infer_vgpu_map ~__context ?remote vm =
-  let vf_device x = "vf:"^x in
+  let vf_device_of x = "vf:"^x in
   match remote with
   | None ->
     let f vgpu =
@@ -237,7 +237,7 @@ let infer_vgpu_map ~__context ?remote vm =
         |> fun self -> Db.PCI.get_pci_id ~__context ~self
         |> Xenops_interface.Pci.address_of_string in
       let pf_device = vgpu.API.vGPU_device in
-      let vf_device = vf_device pf_device in
+      let vf_device = vf_device_of pf_device in
       if vgpu.API.vGPU_PCI <> API.Ref.null then
         [ pf_device, pf ()
         ; vf_device, vf ()
@@ -262,7 +262,7 @@ let infer_vgpu_map ~__context ?remote vm =
         |> fun self -> XenAPI.PCI.get_pci_id rpc session self
         |> Xenops_interface.Pci.address_of_string in
       let pf_device = vgpu.API.vGPU_device in
-      let vf_device = vf_device pf_device in
+      let vf_device = vf_device_of pf_device in
       if vgpu.API.vGPU_PCI <> API.Ref.null then
         [ pf_device, pf ()
         ; vf_device, vf ()
