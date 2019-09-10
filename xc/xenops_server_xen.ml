@@ -1056,7 +1056,7 @@ module VM = struct
       in
       device_id, revision
 
-  let create_exn (task: Xenops_task.task_handle) memory_upper_bound vm final_id =
+  let create_exn task memory_upper_bound vm final_id no_sharept =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
         (* Ensure the DB contains something for this VM - this is to avoid a race with the *)
@@ -1142,7 +1142,8 @@ module VM = struct
                   (domain_config, persistent)
               in
               let create_info = generate_create_info ~xc ~xs vm persistent in
-              let domid = Domain.make ~xc ~xs create_info vm.vcpu_max domain_config (uuid_of_vm vm) final_id in
+              let domid = Domain.make ~xc ~xs create_info vm.vcpu_max
+                            domain_config (uuid_of_vm vm) final_id no_sharept in
               Mem.transfer_reservation_to_domain dbg domid reservation_id;
               let initial_target =
                 let target_plus_overhead_bytes = bytes_of_kib target_plus_overhead_kib in
