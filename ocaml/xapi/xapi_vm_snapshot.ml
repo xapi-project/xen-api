@@ -57,115 +57,12 @@ let is_flag_set ~xs ~flag ~domid ~vm =
       flag (Ref.string_of vm) domid (Printexc.to_string e);
     false
 
-let quiesce_enabled ~xs ~domid ~vm =
-  let aux x = is_flag_set ~xs ~domid ~vm ~flag:x in
-  aux "feature-snapshot" || aux "feature-quiesce"
-
 (* we want to compare the integer at the end of a common string, ie. strings as x="/local/..../3" *)
 (* and y="/local/.../12". The result should be x < y.                                             *)
 let compare_snapid_chunks s1 s2 =
   if String.length s1 <> String.length s2
   then String.length s1 - String.length s2
   else compare s1 s2
-
-(* wait for the VSS provider (or similar piece of software running inside the guest) to quiesce *)
-(* the applications of the VM and to call VM.snapshot. After that, the VSS provider is supposed *)
-(* to tell us if everything happened nicely.                                                    *)
-let wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name =
-  let value = Watch.value_to_appear (snapshot_path ~xs ~domid "status") in
-  match Watch.wait_for ~xs ~timeout:!Xapi_globs.snapshot_with_quiesce_timeout value with
-  | "snapshot-created" ->
-    (* Get the transportable snap ID *)
-    debug "wait_for_snapshot: getting the transportable ID";
-    let snapid = xs.Xenstore.Xs.directory (snapshot_path ~xs ~domid "snapid") in
-    let snapid = List.sort compare_snapid_chunks snapid in
-    let read_chunk x = xs.Xenstore.Xs.read (snapshot_path ~xs ~domid ("snapid/" ^ x)) in
-    let snapid = String.concat "" (List.map read_chunk snapid) in
-
-    (* Get the uuid of the snapshot VM *)
-    debug "wait_for_snapshot: getting uuid of the snapshot VM";
-    let snapshot_uuid =
-      try xs.Xenstore.Xs.read (snapshot_path ~xs ~domid "snapuuid")
-      with _ ->
-        error "The snapshot has not been correctly created; did snapwatchd create a full VM snapshot?";
-        raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ])) in
-    let snapshot_ref =
-      try Db.VM.get_by_uuid ~__context ~uuid:snapshot_uuid
-      with _ ->
-        error "The snapshot UUID provided by snapwatchd is not a valid UUID.";
-        raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm ])) in
-
-    Db.VM.set_transportable_snapshot_id ~__context ~self:snapshot_ref ~value:snapid;
-    Db.VM.set_name_label ~__context ~self:snapshot_ref ~value:new_name;
-
-    (* update the snapshot-info field *)
-    Db.VM.remove_from_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type;
-    Db.VM.add_to_snapshot_info ~__context ~self:snapshot_ref ~key:Xapi_vm_clone.disk_snapshot_type ~value:Xapi_vm_clone.quiesced;
-
-    (* Update is-vmss-snapshot field for snapshot taken from VMSS policy *)
-    if Xapi_vmss.is_vmss_snapshot ~__context then
-      Db.VM.set_is_vmss_snapshot ~__context ~self:snapshot_ref  ~value:true;
-
-    snapshot_ref
-
-  | "snapshot-error" ->
-    (* If an error was occured we get the error type and return *)
-    let error_str = xs.Xenstore.Xs.read (snapshot_path ~xs ~domid "error") in
-    let error_code () = try xs.Xenstore.Xs.read (snapshot_path ~xs ~domid "error/code") with _ -> "0" in
-    error "wait_for_snapshot: %s" error_str;
-    if List.mem error_str [
-        Api_errors.xen_vss_req_error_init_failed;
-        Api_errors.xen_vss_req_error_prov_not_loaded;
-        Api_errors.xen_vss_req_error_no_volumes_supported;
-        Api_errors.xen_vss_req_error_start_snapshot_set_failed;
-        Api_errors.xen_vss_req_error_adding_volume_to_snapset_failed;
-        Api_errors.xen_vss_req_error_preparing_writers;
-        Api_errors.xen_vss_req_error_creating_snapshot;
-        Api_errors.xen_vss_req_error_creating_snapshot_xml_string ]
-    then raise (Api_errors.Server_error (error_str, [ Ref.string_of vm; error_code () ]))
-    else raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_failed, [ Ref.string_of vm; error_str ]))
-
-  | e ->
-    failwith (Printf.sprintf "wait_for_snapshot: unexpected result (%s)" e)
-
-(* We fail if the guest does not support quiesce mode. Normally, that should be detected *)
-(* dynamically by the xapi_vm_lifecycle.update_allowed_operations call.                  *)
-let snapshot_with_quiesce ~__context ~vm ~new_name =
-  debug "snapshot_with_quiesce: begin";
-  Xapi_vmss.show_task_in_xencenter ~__context ~vm;
-  let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
-  let result = Xenstore.with_xs (fun xs ->
-      (* 1. We first check if the VM supports quiesce-mode *)
-      if quiesce_enabled ~xs ~domid ~vm
-      then begin Stdext.Pervasiveext.finally
-          (fun () ->
-             (* 2. if it the case, we can trigger a VSS snapshot *)
-             xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid);
-             xs.Xenstore.Xs.write (snapshot_path ~xs ~domid "action") "create-snapshot";
-
-             try
-               debug "Snapshot_with_quiesce: waiting for the VSS agent to proceed";
-               let value = Watch.key_to_disappear (snapshot_path ~xs ~domid "action") in
-               Watch.wait_for ~xs ~timeout:(60.) value;
-               debug "Snapshot_with_quiesce: waiting for the VSS agent to take a snapshot";
-               try wait_for_snapshot ~__context ~vm ~xs ~domid ~new_name
-               with Watch.Timeout _ ->
-                 error "time-out while waiting for VSS snapshot";
-                 raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_timeout, [ Ref.string_of vm ]))
-
-             with Watch.Timeout _ ->
-               error "VSS plugin does not respond";
-               raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_plugin_does_not_respond, [ Ref.string_of vm ])))
-
-          (fun () ->
-             xs.Xenstore.Xs.rm (snapshot_cleanup_path ~xs ~domid))
-
-      end else begin
-        error "Quiesce snapshot not supported";
-        raise (Api_errors.Server_error (Api_errors.vm_snapshot_with_quiesce_not_supported, [ Ref.string_of vm ]))
-      end) in
-  debug "snapshot_with_quiesce: end";
-  result
 
 (*************************************************************************************************)
 (* Checkpoint                                                                                    *)

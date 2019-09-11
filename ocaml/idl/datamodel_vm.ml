@@ -213,7 +213,7 @@ let power_behaviour =
   (* VM.snapshot *)
   let snapshot_with_quiesce = call
       ~name:"snapshot_with_quiesce"
-      ~in_product_since: rel_orlando
+      ~lifecycle:[ Published, rel_orlando, ""; Removed, rel_quebec, "VSS support has been removed" ]
       ~doc:"Snapshots the specified VM with quiesce, making a new VM. Snapshot automatically exploits the capabilities of the underlying storage repository in which the VM's disk images are stored (e.g. Copy on Write)."
       ~result: (Ref _vm, "The reference of the newly created VM.")
       ~params:[

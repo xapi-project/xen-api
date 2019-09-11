@@ -1093,22 +1093,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            forward_to_access_srs ~local_fn ~__context ~vm
              (fun session_id rpc -> Client.VM.snapshot rpc session_id vm new_name))
 
-    let snapshot_with_quiesce ~__context ~vm ~new_name =
-      info "VM.snapshot_with_quiesce: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm) new_name;
-      let local_fn = Local.VM.snapshot_with_quiesce ~vm ~new_name in
-      (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
-      (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
-      (* disk corruption.                                                                                          *)
-      with_vm_operation ~__context ~self: vm ~doc:"VM.snapshot_with_quiesce" ~op:`snapshot_with_quiesce
-        (fun () ->
-           let power_state = Db.VM.get_power_state ~__context ~self:vm in
-           let forward =
-             if power_state = `Running
-             then forward_vm_op
-             else forward_to_access_srs
-           in forward ~local_fn ~__context ~vm
-             (fun session_id rpc -> Client.VM.snapshot_with_quiesce rpc session_id vm new_name))
-
     let checkpoint ~__context ~vm ~new_name =
       info "VM.checkpoint: VM = '%s'; new_name=' %s'" (vm_uuid ~__context vm) new_name;
       let local_fn = Local.VM.checkpoint ~vm ~new_name in
