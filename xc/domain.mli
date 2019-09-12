@@ -45,6 +45,7 @@ type x86_arch_emulation_flags = (* Xenctrl.x86_arch_emulation_flags = *)
 | X86_EMU_IOMMU
 | X86_EMU_PIT
 | X86_EMU_USE_PIRQ
+| X86_EMU_VPCI
 
 val emulation_flags_pvh : x86_arch_emulation_flags list
 val emulation_flags_all : x86_arch_emulation_flags list

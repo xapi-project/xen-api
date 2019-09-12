@@ -41,7 +41,8 @@ type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
 | X86_EMU_VGA
 | X86_EMU_IOMMU
 | X86_EMU_PIT
-| X86_EMU_USE_PIRQ [@@deriving rpcty]
+| X86_EMU_USE_PIRQ
+| X86_EMU_VPCI [@@deriving rpcty]
 
 type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
   emulation_flags: x86_arch_emulation_flags list;
@@ -55,6 +56,9 @@ type arch_domainconfig = Xenctrl.arch_domainconfig =
 type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_HVM
   | CDF_HAP
+  | CDF_S3_INTEGRITY
+  | CDF_OOS_OFF
+  | CDF_XS_DOMAIN
 [@@deriving rpcty]
 
 let emulation_flags_all = [
