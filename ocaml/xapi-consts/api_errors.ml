@@ -318,6 +318,7 @@ let vgpu_type_not_supported = "VGPU_TYPE_NOT_SUPPORTED"
 let vgpu_type_not_compatible_with_running_type = "VGPU_TYPE_NOT_COMPATIBLE_WITH_RUNNING_TYPE"
 let vgpu_type_not_compatible = "VGPU_TYPE_NOT_COMPATIBLE"
 let vgpu_destination_incompatible = "VGPU_DESTINATION_INCOMPATIBLE"
+let vgpu_guest_driver_limit = "VGPU_GUEST_DRIVER_LIMIT"
 let nvidia_tools_error = "NVIDIA_TOOLS_ERROR"
 let vm_pci_bus_full = "VM_PCI_BUS_FULL"
 
