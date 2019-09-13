@@ -230,19 +230,35 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
 
 
 let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
+  let host_info = Xenctrl.physinfo xc in
+  let host_has_hap = Xenctrl.(List.mem CAP_HAP host_info.capabilities) in
+  debug "Host Hardware Assisted Paging is %s"
+    (if host_has_hap then "available" else "N/A");
   let flags =
     match List.assoc_opt "hap" vm_info.platformdata with
-    | Some "true"  when vm_info.hvm -> [ CDF_HVM; CDF_HAP ]
-    | Some "false" when vm_info.hvm -> [ CDF_HVM ]
+    | Some "true"  when vm_info.hvm ->
+      [ CDF_HVM; CDF_HAP ]
+    | Some "false" when vm_info.hvm ->
+      [ CDF_HVM ]
     | Some unknown ->
-      error "VM = %s; Unrecognized value platform/hap=\"%s\"." (Uuid.to_string uuid) unknown;
+      error "VM = %s; Unrecognized value platform/hap=\"%s\"."
+        (Uuid.to_string uuid) unknown;
       invalid_arg ("platform/hap=" ^ unknown)
-    | None         when vm_info.hvm && vm_info.hap -> [ CDF_HVM; CDF_HAP ]
-    | None         when vm_info.hvm -> [ CDF_HVM ]
-    | None                          -> []
+    | None         when vm_info.hvm && vm_info.hap && host_has_hap ->
+      [ CDF_HVM; CDF_HAP ]
+    | None         when vm_info.hvm ->
+      [ CDF_HVM ]
+    | None                          ->
+      []
   in
+  if List.mem CDF_HAP flags && not host_has_hap then begin
+    error "VM = %s: Hardware Assisted Paging requested, but not available"
+      (Uuid.to_string uuid);
+    invalid_arg ("Hardware assisted paging requested but not available")
+  end;
 
-  info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override" (Uuid.to_string uuid)
+  info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override"
+    (Uuid.to_string uuid)
     (if List.mem CDF_HAP flags then "enabled" else "disabled");
 
   let config = {
