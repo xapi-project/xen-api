@@ -230,27 +230,20 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
 
 
 let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
-  let flags = if vm_info.hvm then begin
-      let default_flags =
-        (if vm_info.hvm then [ CDF_HVM ] else []) @
-        (if (vm_info.hvm && vm_info.hap) then [ CDF_HAP ] else []) in
-      if (List.mem_assoc "hap" vm_info.platformdata) then begin
-        let hap = List.assoc "hap" vm_info.platformdata in
-        if hap = "false" then begin
-          info "VM = %s; Hardware Assisted Paging (HAP) disabled" (Uuid.to_string uuid);
-          [ CDF_HVM ]
-        end else if hap = "true" then begin
-          info "VM = %s; Hardware Assisted Paging (HAP) will be enabled." (Uuid.to_string uuid);
-          [ CDF_HVM; CDF_HAP ]
-        end else begin
-          warn "VM = %s; Unrecognized value platform/hap=\"%s\".  Hardware Assisted Paging will be %s." (Uuid.to_string uuid) hap (if List.mem CDF_HAP default_flags then "enabled" else "disabled");
-          default_flags
-        end
-      end else begin
-        info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override" (Uuid.to_string uuid) (if List.mem CDF_HAP default_flags then "enabled" else "disabled");
-        default_flags
-      end
-    end else [] in
+  let flags =
+    match List.assoc_opt "hap" vm_info.platformdata with
+    | Some "true"  when vm_info.hvm -> [ CDF_HVM; CDF_HAP ]
+    | Some "false" when vm_info.hvm -> [ CDF_HVM ]
+    | Some unknown ->
+      error "VM = %s; Unrecognized value platform/hap=\"%s\"." (Uuid.to_string uuid) unknown;
+      invalid_arg ("platform/hap=" ^ unknown)
+    | None         when vm_info.hvm && vm_info.hap -> [ CDF_HVM; CDF_HAP ]
+    | None         when vm_info.hvm -> [ CDF_HVM ]
+    | None                          -> []
+  in
+
+  info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override" (Uuid.to_string uuid)
+    (if List.mem CDF_HAP flags then "enabled" else "disabled");
 
   let config = {
     ssidref = vm_info.ssidref;
