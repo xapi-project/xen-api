@@ -125,6 +125,15 @@ module Nvidia = struct
       | Gpumon_interface.Compatible ->
         info "VM %s Nvidia vGPU is compatible with the destination pGPU on host %s"
           (Ref.string_of vm) (Ref.string_of dest_host)
+      | Gpumon_interface.(Incompatible reasons)
+        when List.mem Gpumon_interface.Guest_driver reasons ->
+        raise Api_errors.(Server_error (
+            vgpu_guest_driver_limit,
+            [ String.concat ", " (List.map reason_to_string reasons)
+            (* There could be multiple reasons *)
+            ; Ref.string_of vm
+            ; Ref.string_of dest_host
+            ]))
       | Gpumon_interface.(Incompatible reasons) ->
         raise Api_errors.(Server_error (
             vgpu_destination_incompatible,

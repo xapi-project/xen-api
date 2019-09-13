@@ -280,6 +280,8 @@ let _ =
     ~doc:"Cannot create a virtual GPU that is incompatible with the existing types on the VM." ();
   error Api_errors.vgpu_destination_incompatible ["reason"; "vgpu"; "host"]
     ~doc:"The VGPU is not compatible with any PGPU in the destination." ();
+  error Api_errors.vgpu_guest_driver_limit ["reason"; "vm"; "host"]
+    ~doc:"The guest driver does not support VGPU migration." ();
   error Api_errors.nvidia_tools_error ["host"]
     ~doc:"Nvidia tools error. Please ensure that the latest Nvidia tools are installed" ();
   error Api_errors.vm_pci_bus_full ["VM"]
