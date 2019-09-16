@@ -9,6 +9,8 @@ let () =
       "Test varstore privileged interfaces", Varstore_interfaces_test.Privileged.tests;
       "Test varstore deprivileged interfaces", Varstore_interfaces_test.Deprivileged.tests;
       "Test v6 interface", V6_interface_test.tests;
+
+      "Test Debug module", Debug_test.tests;
     ]
 
 

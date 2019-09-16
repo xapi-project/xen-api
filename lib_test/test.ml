@@ -8,7 +8,6 @@ let suite =
       Device_number_test.tests;
       Xen_test.tests;
       Http_test.tests;
-      Debug_test.tests;
       Syslog_test.tests;
       Scheduler_test.tests;
       Updates_test.tests;
