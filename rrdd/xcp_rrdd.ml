@@ -179,6 +179,8 @@ module Watcher = WatchXenstore(Meminfo)
 (* cpu related code                                  *)
 (*****************************************************)
 
+let xen_flag_complement = Int64.(shift_left 1L 63 |> lognot)
+
 (* This function is used for getting vcpu stats of the VMs present on this host. *)
 let dss_vcpus xc doms uuid_domids =
   List.fold_left (fun dss (dom, (uuid, domid)) ->
@@ -187,8 +189,11 @@ let dss_vcpus xc doms uuid_domids =
       let rec cpus i dss =
         if i >= maxcpus then dss else
           let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
+          (* Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE;
+           * using a mask of its complement ~(1 << 63) *)
+          let cpu_time = Int64.(to_float @@ logand vcpuinfo.Xenctrl.cputime xen_flag_complement) in
           (* Convert from nanoseconds to seconds *)
-          let cpu_time = (Int64.to_float vcpuinfo.Xenctrl.cputime) /. 1.0e9 in
+          let cpu_time = cpu_time /. 1.0e9 in
           let cputime_rrd = Rrd.VM uuid, Ds.ds_make
                          ~name:(Printf.sprintf "cpu%d" i) ~units:"(fraction)"
                          ~description:(Printf.sprintf "CPU%d usage" i)
