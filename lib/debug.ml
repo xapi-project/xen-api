@@ -66,33 +66,35 @@ let invalidate_hostname_cache () = Cache.invalidate hostname
 let get_thread_id () =
   try Thread.id (Thread.self ()) with _ -> -1
 
+module IntMap = Map.Make(struct
+  type t = int
+  let compare = Pervasives.compare
+end)
+
 module ThreadLocalTable = struct
   type 'a t = {
-    tbl: (int, 'a) Hashtbl.t;
+    mutable tbl: 'a IntMap.t;
     m: Mutex.t;
   }
 
   let make () =
-    let tbl = Hashtbl.create 37 in
+    let tbl = IntMap.empty in
     let m = Mutex.create () in
     { tbl; m }
 
   let add t v =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () -> Hashtbl.add t.tbl id v)
+    Mutex.execute t.m (fun () ->
+      t.tbl <- IntMap.add id v t.tbl)
 
   let remove t =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () -> Hashtbl.remove t.tbl id)
+    Mutex.execute t.m (fun () ->
+      t.tbl <- IntMap.remove id t.tbl)
 
   let find t =
     let id = get_thread_id () in
-    Mutex.execute t.m (fun () ->
-        try
-          Some (Hashtbl.find t.tbl id)
-        with
-        | _ -> None
-      )
+    IntMap.find_opt id t.tbl
 end
 
 let names = ThreadLocalTable.make ()
