@@ -1,5 +1,8 @@
 (* Test the Updates module *)
-open OUnit
+
+let assert_bool msg = Alcotest.(check bool) msg true
+
+let rpc = Alcotest.testable (Fmt.of_to_string Rpc.to_string) (=)
 
 (* See xen/xenops_interface.ml for a real example *)
 module TestInterface = struct
@@ -178,7 +181,7 @@ let test_dump () =
                    ]]]]
        )]
   in
-  assert_equal dumped_rpc expected_rpc
+  Alcotest.check rpc "same RPC value" dumped_rpc expected_rpc
 
 (* Test that last_id returns a token that can be passed to 'get'. This get call should
    then only return events that were added _after_ the call to 'last_id' *)
@@ -193,18 +196,17 @@ let test_last_id () =
     (List.length updates = 1 && List.exists (fun x -> x=update_c) updates)
 
 let tests =
-  "updates" >:::
   [
-    "Test no add" >:: test_noadd;
-    "Test add" >:: test_add;
-    "Test remove" >:: test_remove;
-    "Test timeout" >:: test_timeout;
-    "Test add after get" >:: test_add_after_get;
-    "Test inject barrier" >:: test_inject_barrier;
-    "Test remove barrier" >:: test_remove_barrier;
-    "Test inject barrier with rpc" >:: test_inject_barrier_rpc;
-    "Test multiple gets" >:: test_multiple_gets;
-    "Test filter" >:: test_filter;
-    "Test dump" >:: test_dump;
-    "Test last_id" >:: test_last_id;
+    "Test no add", `Quick, test_noadd;
+    "Test add", `Quick, test_add;
+    "Test remove", `Quick, test_remove;
+    "Test timeout", `Slow, test_timeout;
+    "Test add after get", `Quick, test_add_after_get;
+    "Test inject barrier", `Quick, test_inject_barrier;
+    "Test remove barrier", `Quick, test_remove_barrier;
+    "Test inject barrier with rpc", `Quick, test_inject_barrier_rpc;
+    "Test multiple gets", `Quick, test_multiple_gets;
+    "Test filter", `Quick, test_filter;
+    "Test dump", `Quick, test_dump;
+    "Test last_id", `Quick, test_last_id;
   ]

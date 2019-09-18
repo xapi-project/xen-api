@@ -1,4 +1,3 @@
-open OUnit
 
 (* Test which log levels are masked off by each threshhold level.
    Levels are ordered by severity - Err is the highest, Debug the
@@ -20,7 +19,6 @@ let test_is_masked () =
 	assert_masked ~threshold:Err     (false,  true,  true,  true)
 
 let tests =
-  "debug" >:::
-    [
-      "Test Syslog.is_masked" >:: test_is_masked; 
-    ]
+  [
+  	"Test Syslog.is_masked", `Quick, test_is_masked;
+  ]

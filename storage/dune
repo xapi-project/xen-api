@@ -51,7 +51,7 @@
   (modules storage_test)
   (libraries
     cmdliner
-    oUnit
+    alcotest
     xapi-idl
     xapi-idl.storage
   )

@@ -11,6 +11,7 @@ depends: [
   "ocaml"
   "dune" {build}
   "alcotest" {with-test}
+  "fmt" {with-test}
   "astring"
   "cmdliner"
   "cohttp"
@@ -19,7 +20,6 @@ depends: [
   "message-switch-core"
   "message-switch-unix"
   "ocaml-migrate-parsetree"
-  "ounit" {with-test}
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "re"

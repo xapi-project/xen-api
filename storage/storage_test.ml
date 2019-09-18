@@ -34,8 +34,6 @@ let _vdi_deactivate = "VDI_DEACTIVATE"
 let _vdi_clone = "VDI_CLONE"
 let _vdi_resize = "VDI_RESIZE"
 
-open OUnit
-
 (* Names which are likely to cause problems *)
 let names = [
   "simple"; (* start with an easy one *)
@@ -130,12 +128,12 @@ let test_resize sr n () =
   assert (new_size_actual >= new_size_request);
   destroy sr vdi
 
-let vdi_create_destroy      sr = "vdi_create_destroy"      >::: (List.map (fun n -> n >:: test_create_destroy sr n) names)
-let vdi_attach_detach       sr = "vdi_attach_detach"       >::: (List.map (fun n -> n >:: test_attach_detach  sr n) names)
-let vdi_activate_deactivate sr = "vdi_activate_deactivate" >::: (List.map (fun n -> n >:: test_activate_deactivate sr n) names)
-let vdi_clone               sr = "vdi_clone"               >::: (List.map (fun n -> n >:: test_clone sr n) names)
-let vdi_clone_attach        sr = "vdi_clone_attach"        >::: (List.map (fun n -> n >:: test_clone_attach sr n) names)
-let vdi_resize              sr = "vdi_resize"              >::: (List.map (fun n -> n >:: test_resize sr n) names)
+let vdi_create_destroy      sr = "vdi_create_destroy"      , (List.map (fun n -> "name " ^ n , `Quick, test_create_destroy sr n) names)
+let vdi_attach_detach       sr = "vdi_attach_detach"       , (List.map (fun n -> "name " ^ n , `Quick, test_attach_detach  sr n) names)
+let vdi_activate_deactivate sr = "vdi_activate_deactivate" , (List.map (fun n -> "name " ^ n , `Quick, test_activate_deactivate sr n) names)
+let vdi_clone               sr = "vdi_clone"               , (List.map (fun n -> "name " ^ n , `Quick, test_clone sr n) names)
+let vdi_clone_attach        sr = "vdi_clone_attach"        , (List.map (fun n -> "name " ^ n , `Quick, test_clone_attach sr n) names)
+let vdi_resize              sr = "vdi_resize"              , (List.map (fun n -> "name " ^ n , `Quick, test_resize sr n) names)
 
 open Cmdliner
 
@@ -156,7 +154,7 @@ let start verbose queue sr = match queue, sr with
       if List.fold_left (fun acc x -> acc && (List.mem_assoc x features)) true caps
       then [ suite ] else [] in
 
-    let suite = "storage" >:::
+    let suite =
       (List.concat [
         needs_capabilities [ _vdi_create; _vdi_delete ] (vdi_create_destroy sr);
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach ] (vdi_attach_detach sr);
@@ -165,8 +163,7 @@ let start verbose queue sr = match queue, sr with
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_attach; _vdi_detach; _vdi_activate; _vdi_deactivate; _vdi_clone ] (vdi_clone_attach sr);
         needs_capabilities [ _vdi_create; _vdi_delete; _vdi_resize ] (vdi_resize sr);
       ]) in
-    let (_: test_result list) = run_test_tt ~verbose suite in
-    ()
+    Alcotest.run ~and_exit:false ~argv:[|Array.get Sys.argv 0|] "storage" suite
   | _, _ ->
     Printf.fprintf stderr "Please supply both a queue name and an SR\n%!";
     ()
@@ -194,10 +191,7 @@ let cmd =
     let doc = "The attached SR." in
     Arg.(value & pos 1 (some sr_t) None & info [] ~doc) in
 
-  Term.(pure start $ verbose $ queue $ sr),
+  Term.(const start $ verbose $ queue $ sr),
   Term.info "test" ~doc ~man
 
-let () = match Term.eval cmd with
- | `Error _ -> exit 1
- | _ -> exit 0
-
+let () = Term.exit @@ Term.eval ~catch:true cmd
