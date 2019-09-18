@@ -148,9 +148,8 @@ let reset_levels () =
 
 
 let facility = ref Syslog.Daemon
-let facility_m = Mutex.create ()
-let set_facility f = Mutex.execute facility_m (fun () -> facility := f)
-let get_facility () = Mutex.execute facility_m (fun () -> !facility)
+let set_facility f = facility := f
+let get_facility () = !facility
 
 let output_log brand level priority s =
   if not(is_disabled brand level) then begin
