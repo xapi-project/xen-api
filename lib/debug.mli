@@ -31,8 +31,6 @@ val with_thread_associated : string -> ('a -> 'b) -> 'a -> 'b
 (** Do an action with a name associated with the current thread *)
 val with_thread_named : string -> ('a -> 'b) -> 'a -> 'b
 
-val get_all_debug_keys : unit -> string list
-
 module type BRAND = sig val name : string end
 
 val gettimestring : unit -> string

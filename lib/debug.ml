@@ -254,13 +254,6 @@ let with_thread_named name f x =
     ThreadLocalTable.remove names;
     raise e
 
-module StringSet = Set.Make(struct type t=string let compare=Pervasives.compare end)
-let debug_keys = ref StringSet.empty
-let get_all_debug_keys () =
-  StringSet.fold (fun key keys -> key::keys) !debug_keys []
-
-let dkmutex = Mutex.create ()
-
 module type BRAND = sig
   val name: string
 end
@@ -315,9 +308,6 @@ module type DEBUG = sig
 end
 
 module Make = functor(Brand: BRAND) -> struct
-  let _ =
-    Mutex.execute dkmutex (fun () ->
-        debug_keys := StringSet.add Brand.name !debug_keys)
 
   let output level priority (fmt: ('a, unit, string, 'b) format4) =
     Printf.kprintf
