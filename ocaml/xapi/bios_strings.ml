@@ -122,25 +122,14 @@ let get_dmidecode_strings e_type name =
   | Error msg -> warn "Command dmidecode failed for %s: %s" name msg; []
 
 (* Obtain the Type 11 OEM strings from dmidecode, and prepend with the standard ones. *)
-let get_oem_strings () =
+let get_oem_strings decode =
   let standard = Xapi_globs.standard_type11_strings in
-  try
-    let result, _ = Forkhelpers.execute_command_get_output dmidecode_prog [dmidecode_prog; "-t11"; "-q"] in
-    let n = List.length standard in
-    let rec loop index a =
-      try
-        let b = String.index_from result a ':' in
-        let c = String.index_from result b '\n' in
-        let str = "oem-" ^ (string_of_int index) in
-        let value = String.trim (remove_invisible (String.sub result (b+2) (c-b-2))) in
-        if value <> "" then
-          (str, value) :: loop (index+1) c
-        else
-          loop index c
-      with _ -> []
-    in
-    standard @ (loop (n+1) 0)
-  with _ -> standard
+  let start_index = List.length standard + 1 in
+  let values = decode "11" "oem" in
+
+  let convert i (_, value) =
+    Printf.sprintf "oem-%d" (i + start_index), remove_invisible value |> String.trim in
+  standard @ List.mapi convert values
 
 (* Get the HP-specific ROMBIOS OEM string:
  * 6 bytes from the memory starting at 0xfffea *)
@@ -167,8 +156,7 @@ let get_host_bios_strings ~__context =
                            "baseboard-version"; "baseboard-serial-number";
                            ] in
   let named_strings = List.map (fun str -> str, (get_bios_string str)) dmidecode_strings in
-  (* type 11 OEM strings *)
-  let oem_strings = get_oem_strings () in
+  let oem_strings = get_oem_strings get_dmidecode_strings in
   (* HP-specific ROMBIOS OEM string *)
   let hp_rombios = ["hp-rombios", get_hp_rombios ()] in
   named_strings @ oem_strings @ hp_rombios
