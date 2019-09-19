@@ -121,6 +121,13 @@ let get_dmidecode_strings e_type name =
   | Ok [] -> warn "No %s records found" name; []
   | Error msg -> warn "Command dmidecode failed for %s: %s" name msg; []
 
+let get_baseboard_strings decode =
+  let keys = ["baseboard-manufacturer"; "baseboard-product-name";
+              "baseboard-version"; "baseboard-serial-number"] in
+  let name = "baseboard" in
+  decode "2" name
+  |> get_strings name keys
+
 (* Obtain the Type 11 OEM strings from dmidecode, and prepend with the standard ones. *)
 let get_oem_strings decode =
   let standard = Xapi_globs.standard_type11_strings in
@@ -152,11 +159,10 @@ let get_host_bios_strings ~__context =
   (* named BIOS strings *)
   let dmidecode_strings = ["bios-vendor"; "bios-version"; "system-manufacturer";
                            "system-product-name"; "system-version"; "system-serial-number";
-                           "baseboard-manufacturer"; "baseboard-product-name";
-                           "baseboard-version"; "baseboard-serial-number";
                            ] in
   let named_strings = List.map (fun str -> str, (get_bios_string str)) dmidecode_strings in
+  let baseboard_strings = get_baseboard_strings get_dmidecode_strings in
   let oem_strings = get_oem_strings get_dmidecode_strings in
   (* HP-specific ROMBIOS OEM string *)
   let hp_rombios = ["hp-rombios", get_hp_rombios ()] in
-  named_strings @ oem_strings @ hp_rombios
+  named_strings @ baseboard_strings @ oem_strings @ hp_rombios
