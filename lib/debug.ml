@@ -24,45 +24,6 @@ module Mutex = struct
     r
 end
 
-module Cache = struct
-  type 'a t = {
-    mutable item: 'a option;
-    fn: unit -> 'a;
-    m: Mutex.t;
-  }
-
-  let make fn =
-    let item = None in
-    let m = Mutex.create () in
-    { item; fn; m }
-
-  let invalidate t =
-    Mutex.execute t.m
-      (fun () ->
-         t.item <- None;
-      )
-
-  let get t =
-    Mutex.execute t.m
-      (fun () ->
-         match t.item with
-         | Some x -> x
-         | None ->
-           let x = t.fn () in
-           t.item <- Some x;
-           x
-      )
-end
-
-let hostname = Cache.make
-    (fun () ->
-       let h = Unix.gethostname () in
-       Backtrace.set_my_name (Filename.basename(Sys.argv.(0)) ^ " @ " ^ h);
-       h
-    )
-
-let invalidate_hostname_cache () = Cache.invalidate hostname
-
 let get_thread_id () =
   try Thread.id (Thread.self ()) with _ -> -1
 
@@ -112,14 +73,13 @@ let gettimestring () =
     (int_of_float (1000.0 *. msec))
 
 let format include_time brand priority message =
-  let host = Cache.get hostname in
   let id = get_thread_id () in
   let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
   let task = match ThreadLocalTable.find tasks with Some x -> x | None -> "" in
 
-  Printf.sprintf "[%s%5s|%s|%d %s|%s|%s] %s"
+  Printf.sprintf "[%s%5s|%d %s|%s|%s] %s"
     (if include_time then gettimestring () else "")
-    priority host id name task brand message
+    priority id name task brand message
 
 let print_debug = ref false
 let log_to_stdout () = print_debug := true
