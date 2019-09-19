@@ -23,6 +23,68 @@ let remove_invisible str =
   let str = String.concat "\n" l in
   String.fold_left (fun s c -> if c >= ' ' && c <= '~' then s ^ (String.of_char c) else s) "" str
 
+(* A single record from the output of dmidecode,
+ * without its type, handle nor size.
+ * Arrays are represented by a string with values separated by eol *)
+type record = { name: string; values: (string * string) list; }
+
+(* Parser module for the output of command dmidecode -q *)
+module P = struct
+  open Angstrom
+  let is_eol =   function | '\n' -> true | _ -> false
+  let is_tab =   function | '\t' -> true | _ -> false
+  let is_space = function | ' '  -> true | _ -> false
+  let is_sep =   function | ':'  -> true | _ -> false
+
+  let space = skip is_space
+  let sep = skip is_sep
+  let tab = skip is_tab
+
+  let item = take_till is_eol <* end_of_line
+  let key = tab *> take_till is_sep <* sep
+  let array_count = space *> item
+    >>= fun str -> match int_of_string_opt str with
+    | Some n -> return (Some n)
+    | None -> fail "Couldn't parse number"
+  let value_line = tab *> tab *> item
+
+  (* Inline value example:
+   *	String 1: Dell System
+   *)
+  let inline_value =
+    lift2 (fun k v -> k, v)
+    key (* k *)
+    (space *> item) (* v *)
+
+  (* Multiple-line value examples:
+   *	Features:
+   *		Board is a hosting board
+   *		Board is replaceable
+   *
+   *	Items: 1
+   *		0x0000 (OEM-specific)
+   *)
+  let multi_value =
+    lift3 (fun k _ lines -> k, String.concat "\n" lines)
+    key (* k *)
+    ((end_of_line >>| fun _ -> None) <|> array_count) (* number of elements, ignored *)
+    (many1 value_line) (* lines *)
+
+  let record =
+    lift2 (fun name values -> {name; values})
+    (item) (* name *)
+    (many (multi_value <|> inline_value)) <* end_of_line (* values *)
+
+  let records = many record
+end
+
+let get_output_of_type e_type =
+  try
+    let output, _ = Forkhelpers.execute_command_get_output dmidecode_prog [dmidecode_prog; "-qt"; e_type] in
+    output
+  with _ ->
+    ""
+
 (* obtain the BIOS string with the given name from dmidecode *)
 let get_bios_string name =
   try
@@ -31,6 +93,33 @@ let get_bios_string name =
     if str = "" || str = "Not Specified" then ""
     else str
   with _ -> ""
+
+let get_strings name keys key_values =
+  let convert (key, value) =
+    let key = key
+      |> String.lowercase_ascii
+      |> String.map (function | ' ' -> '-' | c -> c)
+      |> Printf.sprintf "%s-%s" name in
+    let value = match value with
+      | "Not Specified" -> ""
+      | v -> remove_invisible v |> String.trim in
+    key, value in
+  let formatted_key_values = List.map convert key_values in
+  let get_value_for key =
+    let value = match List.assoc_opt key formatted_key_values with
+      | Some v -> v
+      | None -> ""
+    in
+    key, value
+  in
+  List.map get_value_for keys
+
+let get_dmidecode_strings e_type name =
+  let output = get_output_of_type e_type in
+  match Angstrom.parse_string P.records output with
+  | Ok (r :: _) -> r.values
+  | Ok [] -> warn "No %s records found" name; []
+  | Error msg -> warn "Command dmidecode failed for %s: %s" name msg; []
 
 (* Obtain the Type 11 OEM strings from dmidecode, and prepend with the standard ones. *)
 let get_oem_strings () =
