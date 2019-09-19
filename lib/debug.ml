@@ -77,7 +77,7 @@ let format include_time brand priority message =
   let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
   let task = match ThreadLocalTable.find tasks with Some x -> x | None -> "" in
 
-  Printf.sprintf "[%s%5s|%d %s|%s|%s] %s"
+  Printf.sprintf "[%s%5s||%d %s|%s|%s] %s"
     (if include_time then gettimestring () else "")
     priority id name task brand message
 
