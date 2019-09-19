@@ -16,3 +16,19 @@
 (** Obtains the BIOS strings of localhost. *)
 val get_host_bios_strings :
   __context:Context.t -> (string * string) list
+
+(** Exposed to test the module *)
+
+type record = { name : string; values : (string * string) list; }
+
+module P : sig
+    val records : record list Angstrom.t
+end
+
+val get_output_of_type : string -> string
+
+val get_baseboard_strings :
+  (string -> string -> (string * string) list) -> (string * string) list
+
+val get_oem_strings :
+  (string -> string -> (string * string) list) -> (string * string) list
