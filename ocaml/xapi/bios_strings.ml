@@ -85,15 +85,6 @@ let get_output_of_type e_type =
   with _ ->
     ""
 
-(* obtain the BIOS string with the given name from dmidecode *)
-let get_bios_string name =
-  try
-    let str, _ = Forkhelpers.execute_command_get_output dmidecode_prog [dmidecode_prog; "-s"; name] in
-    let str = String.trim (remove_invisible str) in
-    if str = "" || str = "Not Specified" then ""
-    else str
-  with _ -> ""
-
 let get_strings name keys key_values =
   let convert (key, value) =
     let key = key
@@ -120,6 +111,19 @@ let get_dmidecode_strings e_type name =
   | Ok (r :: _) -> r.values
   | Ok [] -> warn "No %s records found" name; []
   | Error msg -> warn "Command dmidecode failed for %s: %s" name msg; []
+
+let get_bios_strings decode =
+  let keys = ["bios-vendor"; "bios-version"] in
+  let name = "bios" in
+  decode "0" name
+  |> get_strings name keys
+
+let get_system_strings decode =
+  let keys = ["system-manufacturer"; "system-product-name";
+              "system-version"; "system-serial-number"] in
+  let name = "system" in
+  decode "1" name
+  |> get_strings name keys
 
 let get_baseboard_strings decode =
   let keys = ["baseboard-manufacturer"; "baseboard-product-name";
@@ -156,13 +160,10 @@ let get_hp_rombios () =
 (* Get host bios strings *)
 let get_host_bios_strings ~__context =
   info "Getting host BIOS strings.";
-  (* named BIOS strings *)
-  let dmidecode_strings = ["bios-vendor"; "bios-version"; "system-manufacturer";
-                           "system-product-name"; "system-version"; "system-serial-number";
-                           ] in
-  let named_strings = List.map (fun str -> str, (get_bios_string str)) dmidecode_strings in
+  let bios_strings = get_bios_strings get_dmidecode_strings in
+  let system_strings = get_system_strings get_dmidecode_strings in
   let baseboard_strings = get_baseboard_strings get_dmidecode_strings in
   let oem_strings = get_oem_strings get_dmidecode_strings in
   (* HP-specific ROMBIOS OEM string *)
   let hp_rombios = ["hp-rombios", get_hp_rombios ()] in
-  named_strings @ baseboard_strings @ oem_strings @ hp_rombios
+  bios_strings @ system_strings @ baseboard_strings @ oem_strings @ hp_rombios
