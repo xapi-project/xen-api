@@ -12,10 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** Debug utilities *)
-
-(** Throw away the cached hostname. The next log line will re-query the hostname *)
-val invalidate_hostname_cache: unit -> unit
+(** {2 Debug utilities} *)
 
 val init_logs : unit -> unit
 (** Register a Logs reporter to collect and report log messages from libraries
