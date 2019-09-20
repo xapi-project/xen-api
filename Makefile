@@ -21,6 +21,9 @@ clean:
 test:
 	dune runtest  --profile=$(PROFILE)
 
+test-quick:
+	dune build @runtest-quick  --profile=$(PROFILE)
+
 all:
 	dune build @all --profile=$(PROFILE)
 

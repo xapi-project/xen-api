@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open OUnit
 
 let dup_automatic x =
   let x = Xcp_channel.t_of_file_descr x in
@@ -22,9 +21,9 @@ let dup_automatic x =
 let dup_sendmsg x =
   let protos = Posix_channel.send x in
   let proto = List.find (function
-    | Xcp_channel_protocol.Unix_sendmsg(_, _, _) -> true
-    | _ -> false
-  ) protos in
+      | Xcp_channel_protocol.Unix_sendmsg(_, _, _) -> true
+      | _ -> false
+    ) protos in
   Posix_channel.receive [ proto ]
 
 let count_fds () = Array.length (Sys.readdir "/proc/self/fd")
@@ -34,17 +33,17 @@ let check_for_leak dup_function () =
   let before = count_fds () in
   let stdout2 = dup_function Unix.stdout in
   let after = count_fds () in
-  assert_equal ~printer:string_of_int (before + 1) after;
+  Alcotest.(check int) "fds" (before + 1) after;
   Unix.close stdout2;
   let after' = count_fds () in
-  assert_equal ~printer:string_of_int before after'
+  Alcotest.(check int) "fds" before after'
 
 let dup_proxy x =
   let protos = Posix_channel.send x in
   let proto = List.find (function
-    | Xcp_channel_protocol.TCP_proxy(ip, port) -> true
-    | _ -> false
-  ) protos in
+      | Xcp_channel_protocol.TCP_proxy(ip, port) -> true
+      | _ -> false
+    ) protos in
   Posix_channel.receive [ proto ]
 
 let check_for_leak_proxy () =
@@ -53,18 +52,17 @@ let check_for_leak_proxy () =
   let c = dup_proxy a in
   Thread.delay 1.0; (* background fd closing *)
   let after = count_fds () in
-  assert_equal ~printer:string_of_int (before + 2) after;
+  Alcotest.(check int) "fds" (before + 2) after;
   Unix.close c;
   Thread.delay 1.0; (* background fd closing *)
   let after' = count_fds () in
-  assert_equal ~printer:string_of_int before after'
+  Alcotest.(check int) "fds" before after'
 
 let tests =
-  "xcp-channel-test" >:::
-    [
-      "check_for_leak with automatic selection" >:: (check_for_leak dup_automatic);
-      "check_for_leak with sendmsg" >:: (check_for_leak dup_sendmsg);
-      "check_for_leak_proxy" >:: check_for_leak_proxy;
-    ]
+  [
+    "check_for_leak with automatic selection", `Quick, (check_for_leak dup_automatic);
+    "check_for_leak with sendmsg", `Quick, (check_for_leak dup_sendmsg);
+    "check_for_leak_proxy", `Quick, check_for_leak_proxy;
+  ]
 
 

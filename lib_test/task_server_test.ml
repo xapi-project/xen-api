@@ -1,4 +1,5 @@
-open OUnit
+
+let assert_bool msg = Alcotest.(check bool) msg true
 
 module TestInterface = struct
   let service_name = "test_interface"
@@ -302,18 +303,17 @@ let test_cancel_trigger () =
   assert_bool "cancel points dbg" (!dbg = 6)
 
 let tests =
-  "Task_server tests" >:::
   [
-    "Test adding a task" >:: test_add;
-    "Test removing a task" >:: test_destroy;
-    "Test run" >:: test_run;
-    "Test raise" >:: test_raise;
-    "Test cancel" >:: test_cancel;
-    "Test with_cancel" >:: test_with_cancel;
-    "Test with_cancel_failure" >:: test_with_cancel_failure;
-    "Test with_cancel 2" >:: test_with_cancel2;
-    "Test with_cancel_failure2" >:: test_with_cancel_failure2;
-    "Test subtasks" >:: test_subtasks;
-    "Test subtask failure" >:: test_subtasks_failure;
-    "Test cancel trigger" >:: test_cancel_trigger;
+    "Test adding a task", `Quick, test_add;
+    "Test removing a task", `Quick, test_destroy;
+    "Test run", `Quick, test_run;
+    "Test raise", `Quick, test_raise;
+    "Test cancel", `Quick, test_cancel;
+    "Test with_cancel", `Quick, test_with_cancel;
+    "Test with_cancel_failure", `Quick, test_with_cancel_failure;
+    "Test with_cancel 2", `Quick, test_with_cancel2;
+    "Test with_cancel_failure2", `Quick, test_with_cancel_failure2;
+    "Test subtasks", `Quick, test_subtasks;
+    "Test subtask failure", `Quick, test_subtasks_failure;
+    "Test cancel trigger", `Quick, test_cancel_trigger;
   ]

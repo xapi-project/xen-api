@@ -1,4 +1,5 @@
-open OUnit
+
+let assert_bool msg = Alcotest.(check bool) msg true
 
 let global_scheduler = Scheduler.make ()
 
@@ -104,13 +105,12 @@ let test_dump () =
   assert_bool "dump_contains_item" (List.exists (fun x -> x.Scheduler.Dump.thing = "test_dump") dump)
 
 let tests =
-  "scheduler" >:::
-    [
-      "Test Delay" >:: test_delay;
-      "Test Delay cancellation" >:: test_delay_cancel;
-      "Test One shot" >:: test_one_shot;
-      "Test One shot absolute" >:: test_one_shot_abs;
-      "Test One shot failure" >:: test_one_shot_failure;
-      "Test One shot cancellation" >:: test_one_shot_cancel;
-      "Test dump" >:: test_dump;
-    ]
+  [
+    "Test Delay", `Slow, test_delay;
+    "Test Delay cancellation", `Quick, test_delay_cancel;
+    "Test One shot", `Slow, test_one_shot;
+    "Test One shot absolute", `Slow, test_one_shot_abs;
+    "Test One shot failure", `Slow, test_one_shot_failure;
+    "Test One shot cancellation", `Slow, test_one_shot_cancel;
+    "Test dump", `Quick, test_dump;
+  ]

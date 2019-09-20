@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open OUnit
 
 let unbuffered_headers () =
   (* A miscalculation in the Cohttp_posix_io module can cause the HTTP
@@ -23,14 +22,11 @@ let unbuffered_headers () =
     header_buffer_idx = 0;
     fd = Unix.stdin; (* unused *)
   } in
-  let printer = function
-    | None -> "None"
-    | Some x -> "Some " ^ x in
-  assert_equal ~printer (Some "HTTP/200 OK") (read_line ic);
-  assert_equal ~printer (Some "Header1: Val1") (read_line ic);
-  assert_equal ~printer (Some "Header2: Val2") (read_line ic)
+  Alcotest.(check (option string)) "header line 1" (Some "HTTP/200 OK") (read_line ic);
+  Alcotest.(check (option string)) "header line 2" (Some "Header1: Val1") (read_line ic);
+  Alcotest.(check (option string)) "header line 3" (Some "Header2: Val2") (read_line ic)
 
-let tests = "http" >:::
+let tests =
   [
-    "unbuffered_headers" >:: unbuffered_headers;
+    "unbuffered_headers", `Quick, unbuffered_headers;
   ]

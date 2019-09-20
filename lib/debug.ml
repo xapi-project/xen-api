@@ -142,12 +142,6 @@ let is_disabled brand level =
     Syslog.is_masked ~threshold:!loglevel level ||
     BrandLevelPairSet.mem (brand, level) !logging_disabled_for
 
-let reset_levels () =
-  Mutex.execute loglevel_m (fun () ->
-      loglevel := default_loglevel;
-      logging_disabled_for := BrandLevelPairSet.empty
-    )
-
 
 let facility = ref Syslog.Daemon
 let set_facility f = facility := f
@@ -264,9 +258,6 @@ let all_levels = [Syslog.Debug; Syslog.Info; Syslog.Warning; Syslog.Err; Syslog.
 let add_to_stoplist brand level =
   logging_disabled_for := BrandLevelPairSet.add (brand, level) !logging_disabled_for
 
-let remove_from_stoplist brand level =
-  logging_disabled_for := BrandLevelPairSet.remove (brand, level) !logging_disabled_for
-
 let disable ?level brand =
   let levels = match level with
     | None -> all_levels
@@ -274,15 +265,6 @@ let disable ?level brand =
   in
   Mutex.execute loglevel_m (fun () ->
       List.iter (add_to_stoplist brand) levels
-    )
-
-let enable ?level brand =
-  let levels = match level with
-    | None -> all_levels
-    | Some l -> [l]
-  in
-  Mutex.execute loglevel_m (fun () ->
-      List.iter (remove_from_stoplist brand) levels
     )
 
 let set_level level =

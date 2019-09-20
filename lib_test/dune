@@ -9,11 +9,10 @@ let coverage_rewriter =
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (executables
-  (names test test_alco)
+  (names test)
   (flags (:standard -w -39))
   (libraries
     alcotest
-    oUnit
     rpclib.core
     rpclib.markdown
     threads
@@ -36,13 +35,13 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (alias
   (name runtest)
   (deps (:x test.exe) (source_tree test_data))
-  (action (run %%{x} -runner sequential))
+  (action (run %%{x}))
 )
 
 (alias
-  (name runtest)
-  (deps (:x test_alco.exe) (source_tree test_data))
-  (action (run %%{x}))
+  (name runtest-quick)
+  (deps (:x test.exe) (source_tree test_data))
+  (action (run %%{x} -q))
 )
 
 |} coverage_rewriter
