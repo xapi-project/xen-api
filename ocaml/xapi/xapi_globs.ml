@@ -894,6 +894,7 @@ let accept_sm_plugin name =
 
 let nvidia_multi_vgpu_enabled_driver_versions = ref ["430.19";"430.42";"440.00+"]
 let nvidia_default_host_driver_version = "0.0"
+let nvidia_t4_sriov = ref true
 
 let other_options = [
   gen_list_option "sm-plugins"
@@ -988,6 +989,10 @@ let other_options = [
   "nvidia_multi_vgpu_enabled_driver_versions", Arg.String (fun x -> nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x),
   (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions), "list of nvidia host driver versions with multiple vGPU supported.
   if a version end with +, it means any driver version greater or equal than that version";
+
+  "nvidia_t4_sriov", Arg.Set nvidia_t4_sriov,
+  (fun () -> string_of_bool !nvidia_t4_sriov),
+  "When true, address NVidia Tesla T4 GPUs using SR-IOV";
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
