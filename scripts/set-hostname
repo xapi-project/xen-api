@@ -12,4 +12,6 @@ HOSTNAME=$1
 # Set current hostname
 hostnamectl set-hostname "$HOSTNAME"
 
+systemctl kill -s HUP rsyslog
+
 exit 0
