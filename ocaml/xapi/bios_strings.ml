@@ -13,15 +13,11 @@
  *)
 module D = Debug.Make(struct let name="bios_strings" end)
 open D
-open Stdext.Xstringext
 
 let dmidecode_prog = "/usr/sbin/dmidecode"
 
 let remove_invisible str =
-  let l = String.split_on_char '\n' str in
-  let l = List.filter (fun s -> not (String.startswith "#" s)) l in
-  let str = String.concat "\n" l in
-  String.fold_left (fun s c -> if c >= ' ' && c <= '~' then s ^ (String.of_char c) else s) "" str
+  Astring.String.filter (fun c -> c >= ' ' && c <= '~') str
 
 (* A single record from the output of dmidecode,
  * without its type, handle nor size.
@@ -154,8 +150,9 @@ let get_hp_rombios () =
         (fun () -> Unix.close mem)
     with _ -> ()
   end;
-  let hp_rombios = Bytes.unsafe_to_string hp_rombios in
-  if String.trim (remove_invisible hp_rombios) = "COMPAQ" then "COMPAQ" else ""
+  match Bytes.unsafe_to_string hp_rombios with
+  | "COMPAQ" -> "COMPAQ"
+  | _ -> ""
 
 (* Get host bios strings *)
 let get_host_bios_strings ~__context =
