@@ -451,7 +451,7 @@ module Vendor_nvidia = struct
     List.filter_map (fun vgpu_type ->
       let is_sriov id =
         try (* IDs of T4 cards *)
-          List.mem (int_of_string id)
+          !Xapi_globs.nvidia_t4_sriov && List.mem (int_of_string id)
             [230; 231; 232; 233; 234; 225; 226;
              227; 228; 229; 222; 252; 223; 224]
         with Not_found | Failure _ -> false
