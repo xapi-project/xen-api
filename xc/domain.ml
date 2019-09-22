@@ -610,6 +610,13 @@ let get_action_request ~xs domid =
     Some (xs.Xs.read path)
   with Xs_protocol.Enoent _ -> None
 
+let maybe_ca_140252_workaround ~xc ~vcpus domid =
+  if !Xenopsd.ca_140252_workaround then
+    debug "Allocating %d I/O req evtchns in advance for device model" vcpus;
+  for i = 1 to vcpus do
+    ignore_int (Xenctrl.evtchn_alloc_unbound xc domid 0)
+  done
+
 (** create store and console channels *)
 let create_channels ~xc uuid domid =
   let store = Xenctrl.evtchn_alloc_unbound xc domid 0 in
@@ -816,6 +823,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let shadow_multiplier = hvminfo.shadow_multiplier in
       let video_mib = hvminfo.video_mib in
       let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      maybe_ca_140252_workaround ~xc ~vcpus domid;
       let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
@@ -844,6 +852,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let shadow_multiplier = pvhinfo.shadow_multiplier in
       let video_mib = pvhinfo.video_mib in
       let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
+      maybe_ca_140252_workaround ~xc ~vcpus domid;
       let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
@@ -1190,6 +1199,7 @@ type suspend_flag = Live | Debug
         let vm_stuff = [
           "rtc/timeoffset",    timeoffset;
         ] in
+        maybe_ca_140252_workaround ~xc ~vcpus domid;
         memory, vm_stuff, `hvm
       | BuildPV pvinfo ->
         let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
@@ -1201,6 +1211,7 @@ type suspend_flag = Live | Debug
         let vm_stuff = [
           "rtc/timeoffset",    timeoffset;
         ] in
+        maybe_ca_140252_workaround ~xc ~vcpus domid;
         memory, vm_stuff, `pvh
     in
     let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
