@@ -36,6 +36,7 @@ let use_upstream_qemu = ref false
 let watch_queue_length = ref 1000
 
 let default_vbd_backend_kind = ref "vbd"
+let ca_140252_workaround = ref false
 let action_after_qemu_crash = ref None
 
 let additional_ballooning_timeout = ref 120.
@@ -60,6 +61,7 @@ let options = [
   "watch_queue_length", Arg.Set_int watch_queue_length, (fun () -> string_of_int !watch_queue_length), "Maximum number of unprocessed xenstore watch events before we restart";
   "use-upstream-qemu", Arg.Bool (fun x -> use_upstream_qemu := x), (fun () -> string_of_bool !use_upstream_qemu), "True if we want to use upsteam QEMU";
   "default-vbd-backend-kind", Arg.Set_string default_vbd_backend_kind, (fun () -> !default_vbd_backend_kind), "Default backend for VBDs";
+  "ca-140252-workaround", Arg.Bool (fun x -> ca_140252_workaround := x), (fun () -> string_of_bool !ca_140252_workaround), "Workaround for evtchn misalignment for legacy PV tools";
   "additional-ballooning-timeout", Arg.Set_float additional_ballooning_timeout, (fun () -> string_of_float !additional_ballooning_timeout), "Time we allow the guests to do additional memory ballooning before live migration";
   "domain_shutdown_ack_timeout", Arg.Set_float Xenops_server.domain_shutdown_ack_timeout, (fun () -> string_of_float !Xenops_server.domain_shutdown_ack_timeout), "Time to wait for in-guest PV drivers to acknowledge a shutdown request before we conclude that the drivers have failed";
   "vif-ready-for-igmp-query-timeout", Arg.Set_int vif_ready_for_igmp_query_timeout, (fun () -> string_of_int !vif_ready_for_igmp_query_timeout), "Time before we assume vif has connected";
