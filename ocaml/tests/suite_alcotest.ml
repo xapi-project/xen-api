@@ -53,6 +53,7 @@ let () =
     ; "Test_network_event_loop", Test_network_event_loop.test
     ; "Test_vgpu_type", Test_vgpu_type.test
     ; "Test_storage_migrate_state", Test_storage_migrate_state.test
+    ; "Test_bios_strings", Test_bios_strings.test
     ] @ Test_guest_agent.tests
       @ Test_nm.tests
       @ Test_xenopsd_metadata.tests
