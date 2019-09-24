@@ -1,0 +1,27 @@
+Base Board Information
+	Manufacturer: TestA Inc.
+	Product Name: Not Specified
+	Version: A0
+	Serial Number:  .DEADBEEF
+	Asset Tag:           
+	Features:
+		Board is a hosting board
+		Board is removable
+		Board is replaceable
+		Board is hot swappable
+	Location In Chassis: Slot 00
+	Type: Server Blade
+
+Base Board Information
+	Manufacturer: TestB Inc.
+	Product Name:       
+	Version:    
+	Serial Number: FOOBAR
+	Asset Tag:           
+	Features:
+		Board is removable
+		Board is replaceable
+		Board is hot swappable
+	Location In Chassis: Slot 00
+	Type: Interconnect Board
+
