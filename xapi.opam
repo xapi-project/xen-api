@@ -19,6 +19,7 @@ depends: [
   "ctypes-foreign"
   "domain-name"
   "ezxenstore"
+  "fmt" {with-test}
   "http-svr"
   "message-switch-unix"
   "mtime"
