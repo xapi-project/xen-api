@@ -86,7 +86,7 @@ type atomic =
   | VBD_insert of Vbd.id * disk
   | VBD_set_active of Vbd.id * bool
   | VM_remove of Vm.id
-  | PCI_plug of Pci.id
+  | PCI_plug of Pci.id * bool (* use Qmp.add_device *)
   | PCI_unplug of Pci.id
   | VUSB_plug of Vusb.id
   | VUSB_unplug of Vusb.id
@@ -919,6 +919,17 @@ let is_no_sharept vgpu =
   | Some(_), Vgpu.Nvidia(_) -> true
   | _ -> false
 
+(* [is_nvidia_sriov vgpus pci] is true, if [pci] belongs to an SRIOV
+ * Nvidia vGPU in [vgpus] and false otherwise *)
+let is_nvidia_sriov vgpus pci =
+  let is_sriov = function
+  | Vgpu.{ implementation = Nvidia(_); virtual_pci_address = Some addr; _}
+      -> addr = pci.Pci.address
+  | _ -> false in
+  List.exists is_sriov vgpus
+
+let is_not_nvidia_sriov vgpus pci = not (is_nvidia_sriov vgpus pci)
+
 let rec atomics_of_operation = function
   | VM_start (id, force) ->
     let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
@@ -926,6 +937,7 @@ let rec atomics_of_operation = function
     let vgpus = VGPU_DB.vgpus id in
     let pcis = PCI_DB.pcis id |> pci_plug_order in
     let vusbs = VUSB_DB.vusbs id in
+    let pcis_sriov, pcis_other = List.partition (is_nvidia_sriov vgpus) pcis in
     let no_sharept = List.exists is_no_sharept vgpus in
     [ [
         VM_hook_script (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
@@ -949,12 +961,13 @@ let rec atomics_of_operation = function
     ; List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
     ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
     ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
+    ; List.map (fun pci -> PCI_plug(pci.Pci.id, false)) pcis_sriov
     ; [
         VM_create_device_model (id, false)
       ]
       (* PCI and USB devices are hot-plugged into HVM guests via QEMU,
          so the following operations occur after creating the device models *)
-    ; List.map (fun pci -> PCI_plug pci.Pci.id) pcis
+    ; List.map (fun pci -> PCI_plug(pci.Pci.id, true)) pcis_other
     ; List.map (fun vusb -> VUSB_plug vusb.Vusb.id) vusbs
       (* At this point the domain is considered survivable. *)
     ; [
@@ -994,6 +1007,7 @@ let rec atomics_of_operation = function
     let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
     let vgpus = VGPU_DB.vgpus id in
     let pcis = PCI_DB.pcis id |> pci_plug_order in
+    let pcis_other = List.filter (is_not_nvidia_sriov vgpus) pcis in
     [ List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, true)) (vbds_rw @ vbds_ro)
     ; [
         (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
@@ -1002,12 +1016,13 @@ let rec atomics_of_operation = function
       ]
     ; if restore_vifs then atomics_of_operation (VM_restore_vifs id) else []
     ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
+    (* Nvidia SRIOV PCI devices have been already been plugged *)
     ; [
         VM_create_device_model (id, true);
         (* PCI and USB devices are hot-plugged into HVM guests via QEMU,
          so the following operations occur after creating the device models *)
       ]
-    ; List.map (fun pci -> PCI_plug pci.Pci.id) pcis
+    ; List.map (fun pci -> PCI_plug(pci.Pci.id, true)) pcis_other
     ] |> List.concat
   | VM_poweroff (id, timeout) ->
     let vbds = VBD_DB.vbds id in
@@ -1083,7 +1098,14 @@ let rec atomics_of_operation = function
     let vgpu_start_operations = 
       match VGPU_DB.ids id with
       | [] -> []
-      | vgpus -> [VGPU_start (vgpus, true)]
+      | vgpus ->
+        let pcis   = PCI_DB.pcis id |> pci_plug_order in
+        let vgpus' = VGPU_DB.vgpus id in
+        let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
+        List.concat
+          [ List.map (fun pci -> PCI_plug(pci.Pci.id, false)) pcis_sriov
+          ; [VGPU_start (vgpus, true)]
+          ]
     in
     let vgpus = VGPU_DB.vgpus id in
     let no_sharept = List.exists is_no_sharept vgpus in
@@ -1331,19 +1353,11 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     fixup vgpus VGPU_DB.remove VGPU_DB.add (fun vgpu -> vgpu.Vgpu.id) (fun id' vgpu -> {vgpu with Vgpu.id=id'});
     fixup vusbs VUSB_DB.remove VUSB_DB.add (fun vusb -> vusb.Vusb.id) (fun id' vusb -> {vusb with Vusb.id=id'});
 
-  | PCI_plug id ->
+  | PCI_plug(id, qmp_add_device) ->
     debug "PCI.plug %s" (PCI_DB.string_of_id id);
     let vm    = PCI_DB.vm_of id in
     let pci   = PCI_DB.read_exn id in
-    let vgpus = VGPU_DB.vgpus vm in
-    let is_nvidia_sriov = function
-      | Vgpu.{ implementation = Nvidia(_); virtual_pci_address = Some addr; _}
-          -> addr = pci.Pci.address
-      | _ -> false
-    in
-    (* if this pci device belongs to an NVIDIA SRI-IOV vGPU, don't
-     * advertise it to QEMU *)
-    B.PCI.plug t vm pci (not @@ List.exists is_nvidia_sriov vgpus);
+    B.PCI.plug t vm pci qmp_add_device;
     PCI_DB.signal id
   | PCI_unplug id ->
     debug "PCI.unplug %s" (PCI_DB.string_of_id id);
@@ -1607,7 +1621,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VIF_set_ipv6_configuration (id, _) ->
     immediate_operation dbg (fst id) (VIF_check_state id)
 
-  | PCI_plug id
+  | PCI_plug (id, _)
   | PCI_unplug id ->
     immediate_operation dbg (fst id) (PCI_check_state id)
 
@@ -1880,9 +1894,17 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         (* Check if there is a separate vGPU data channel *)
         let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
         let vgpu_start_operations = 
-          match VGPU_DB.ids id with
-          | [] -> []
-          | vgpus -> [VGPU_start (vgpus, true)] in
+        match VGPU_DB.ids id with
+        | [] -> []
+        | vgpus ->
+          let pcis   = PCI_DB.pcis id |> pci_plug_order in
+          let vgpus' = VGPU_DB.vgpus id in
+          let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
+          List.concat
+            [ List.map (fun pci -> PCI_plug(pci.Pci.id, false)) pcis_sriov
+            ; [VGPU_start (vgpus, true)]
+            ]
+        in
         perform_atomics (
           vgpu_start_operations @ [
             VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
