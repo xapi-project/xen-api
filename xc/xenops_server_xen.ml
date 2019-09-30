@@ -1541,7 +1541,7 @@ module VM = struct
                            | None -> []
                           );
                 shadow_multiplier = 1.;
-                video_mib = 4;
+                video_mib = 0;
               } in
             ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
           | PVinPVH { boot = Indirect { devices = [] } } ->
@@ -1562,7 +1562,7 @@ module VM = struct
                                 | None -> []
                                );
                      shadow_multiplier = 1.;
-                     video_mib = 4;
+                     video_mib = 0;
                    } in
                  ((make_build_info !Resources.pvinpvh_xen builder_spec_info), "")
               ) in

@@ -41,7 +41,8 @@ type x86_arch_emulation_flags = Xenctrl.x86_arch_emulation_flags =
 | X86_EMU_VGA
 | X86_EMU_IOMMU
 | X86_EMU_PIT
-| X86_EMU_USE_PIRQ [@@deriving rpcty]
+| X86_EMU_USE_PIRQ
+| X86_EMU_VPCI [@@deriving rpcty]
 
 type xen_x86_arch_domainconfig = Xenctrl.xen_x86_arch_domainconfig = {
   emulation_flags: x86_arch_emulation_flags list;
@@ -55,6 +56,9 @@ type arch_domainconfig = Xenctrl.arch_domainconfig =
 type domain_create_flag = Xenctrl.domain_create_flag =
   | CDF_HVM
   | CDF_HAP
+  | CDF_S3_INTEGRITY
+  | CDF_OOS_OFF
+  | CDF_XS_DOMAIN
 [@@deriving rpcty]
 
 let emulation_flags_all = [
@@ -226,27 +230,36 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds=64) required_memory_kib : 
 
 
 let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
-  let flags = if vm_info.hvm then begin
-      let default_flags =
-        (if vm_info.hvm then [ CDF_HVM ] else []) @
-        (if (vm_info.hvm && vm_info.hap) then [ CDF_HAP ] else []) in
-      if (List.mem_assoc "hap" vm_info.platformdata) then begin
-        let hap = List.assoc "hap" vm_info.platformdata in
-        if hap = "false" then begin
-          info "VM = %s; Hardware Assisted Paging (HAP) disabled" (Uuid.to_string uuid);
-          [ CDF_HVM ]
-        end else if hap = "true" then begin
-          info "VM = %s; Hardware Assisted Paging (HAP) will be enabled." (Uuid.to_string uuid);
-          [ CDF_HVM; CDF_HAP ]
-        end else begin
-          warn "VM = %s; Unrecognized value platform/hap=\"%s\".  Hardware Assisted Paging will be %s." (Uuid.to_string uuid) hap (if List.mem CDF_HAP default_flags then "enabled" else "disabled");
-          default_flags
-        end
-      end else begin
-        info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override" (Uuid.to_string uuid) (if List.mem CDF_HAP default_flags then "enabled" else "disabled");
-        default_flags
-      end
-    end else [] in
+  let host_info = Xenctrl.physinfo xc in
+  let host_has_hap = Xenctrl.(List.mem CAP_HAP host_info.capabilities) in
+  debug "Host Hardware Assisted Paging is %s"
+    (if host_has_hap then "available" else "N/A");
+  let flags =
+    match List.assoc_opt "hap" vm_info.platformdata with
+    | Some "true"  when vm_info.hvm ->
+      [ CDF_HVM; CDF_HAP ]
+    | Some "false" when vm_info.hvm ->
+      [ CDF_HVM ]
+    | Some unknown ->
+      error "VM = %s; Unrecognized value platform/hap=\"%s\"."
+        (Uuid.to_string uuid) unknown;
+      invalid_arg ("platform/hap=" ^ unknown)
+    | None         when vm_info.hvm && vm_info.hap && host_has_hap ->
+      [ CDF_HVM; CDF_HAP ]
+    | None         when vm_info.hvm ->
+      [ CDF_HVM ]
+    | None                          ->
+      []
+  in
+  if List.mem CDF_HAP flags && not host_has_hap then begin
+    error "VM = %s: Hardware Assisted Paging requested, but not available"
+      (Uuid.to_string uuid);
+    invalid_arg ("Hardware assisted paging requested but not available")
+  end;
+
+  info "VM = %s; Hardware Assisted Paging will be %s. Use platform/hap=(true|false) to override"
+    (Uuid.to_string uuid)
+    (if List.mem CDF_HAP flags then "enabled" else "disabled");
 
   let config = {
     ssidref = vm_info.ssidref;
