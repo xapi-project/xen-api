@@ -1687,9 +1687,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             (* Intra-pool: reserve resources on the destination host, then
              * forward the call to the source. *)
             let snapshot = Db.VM.get_record ~__context ~self:vm in
-            (fun ~local_fn ~__context ~vm op ->
-               allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
-               forward_vm_op ~local_fn ~__context ~vm op)
+            let clear_migrate_op () =
+              Helpers.with_global_lock
+                (fun () ->
+                  finally_clear_host_operation ~__context ~host ~host_op:`vm_migrate ();
+                  clear_scheduled_to_be_resident_on ~__context ~vm) in
+            fun ~local_fn ~__context ~vm op ->
+              finally
+                (fun () -> allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
+                           forward_vm_op ~local_fn ~__context ~vm op)
+                clear_migrate_op;
           else
             (* Cross pool: just forward to the source host. Resources on the
              * destination will be reserved separately. *)
