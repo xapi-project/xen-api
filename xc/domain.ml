@@ -1573,9 +1573,15 @@ let move_xstree ~xs domid olduuid newuuid =
     { contents;
       subtrees = List.map (fun f -> (f, get_tree t (path @ [f]))) subtrees } in
 
+  let exists t path =
+    try let (_:string) = t.Xs.read (String.concat "/" path) in true
+    with Xs_protocol.Enoent _ -> false
+  in
+
   let mv_tree path =
     let open Xenstore in
     Xs.transaction xs (fun t ->
+        if exists t path then
         let tree = get_tree t path in
         let rec fixup write path (name,node) =
           let fixed_name = Re.replace_string regexp ~by:newuuid name in
