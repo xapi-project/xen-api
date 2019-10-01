@@ -1866,6 +1866,8 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
           Handshake.send s Handshake.Success;
           debug "VM.receive_memory: Synchronisation point 4";
         with e ->
+          Backtrace.is_important e;
+          Debug.log_backtrace e (Backtrace.get e);
           debug "Caught %s: cleaning up VM state" (Printexc.to_string e);
           perform_atomics (atomics_of_operation (VM_shutdown (id, None)) @ [
               VM_remove id

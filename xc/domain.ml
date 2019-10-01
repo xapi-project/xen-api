@@ -285,7 +285,6 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
     let dom_path = xs.Xs.getdomainpath domid in
     let xenops_dom_path = xenops_path_of_domain domid in
     let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
-    let vss_path = "/vss/" ^ (Uuid.to_string uuid) in
     let roperm = Xenbus_utils.roperm_for_guest domid in
     let rwperm = Xenbus_utils.rwperm_for_guest domid in
     let zeroperm = Xenbus_utils.rwperm_for_guest 0 in
@@ -317,12 +316,8 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid =
         t.Xst.write (Printf.sprintf "%s/domains/%d" vm_path domid) dom_path;
         t.Xst.write (Printf.sprintf "%s/domains/%d/create-time" vm_path domid) (Int64.to_string create_time);
 
-        t.Xst.rm vss_path;
-        t.Xst.mkdirperms vss_path rwperm;
-
         t.Xst.writev dom_path [
           "vm", vm_path;
-          "vss", vss_path;
           "name", name;
         ];
 
@@ -1560,7 +1555,6 @@ type node =
 let move_xstree ~xs domid olduuid newuuid =
   let search_paths = [[""; "local"; "domain"; string_of_int domid];
                       [""; "xapi"; olduuid];
-                      [""; "vss"; olduuid];
                       [""; "vm"; olduuid]] in
 
   let regexp = Re.Pcre.regexp olduuid in
@@ -1573,9 +1567,15 @@ let move_xstree ~xs domid olduuid newuuid =
     { contents;
       subtrees = List.map (fun f -> (f, get_tree t (path @ [f]))) subtrees } in
 
+  let exists t path =
+    try let (_:string) = t.Xs.read (String.concat "/" path) in true
+    with Xs_protocol.Enoent _ -> false
+  in
+
   let mv_tree path =
     let open Xenstore in
     Xs.transaction xs (fun t ->
+        if exists t path then
         let tree = get_tree t path in
         let rec fixup write path (name,node) =
           let fixed_name = Re.replace_string regexp ~by:newuuid name in
