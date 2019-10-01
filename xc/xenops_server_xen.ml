@@ -1235,7 +1235,6 @@ module VM = struct
     with_xc_and_xs
       (fun xc xs ->
          safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
-         safe_rm xs (Printf.sprintf "/vss/%s" vm.Vm.id);
       );
     (* Best-effort attempt to remove metadata - if VM has been powered off
        * then it will have already been deleted by VM.destroy *)
