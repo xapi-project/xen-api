@@ -20,7 +20,7 @@ let dmidecode_prog = "/usr/sbin/dmidecode"
 let remove_invisible str =
   let l = String.split '\n' str in
   let l = List.filter (fun s -> not (String.startswith "#" s)) l in
-  let str = String.concat "" l in
+  let str = match l with | [] -> "" | hd :: _ -> hd in
   String.fold_left (fun s c -> if c >= ' ' && c <= '~' then s ^ (String.of_char c) else s) "" str
 
 let trim str =
