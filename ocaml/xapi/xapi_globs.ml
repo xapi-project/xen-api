@@ -894,7 +894,13 @@ let accept_sm_plugin name =
 
 let nvidia_multi_vgpu_enabled_driver_versions = ref ["430.19";"430.42";"440.00+"]
 let nvidia_default_host_driver_version = "0.0"
-let nvidia_t4_sriov = ref true
+
+type nvidia_t4_sriov =
+  | Nvidia_T4_SRIOV
+  | Nvidia_LEGACY
+  | Nvidia_DEFAULT
+
+let nvidia_t4_sriov = ref Nvidia_T4_SRIOV
 
 let other_options = [
   gen_list_option "sm-plugins"
@@ -990,9 +996,18 @@ let other_options = [
   (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions), "list of nvidia host driver versions with multiple vGPU supported.
   if a version end with +, it means any driver version greater or equal than that version";
 
-  "nvidia_t4_sriov", Arg.Set nvidia_t4_sriov,
-  (fun () -> string_of_bool !nvidia_t4_sriov),
-  "When true, address NVidia Tesla T4 GPUs using SR-IOV";
+  "nvidia_t4_sriov",
+  Arg.String (function
+  | "true"  | "on"  | "1" -> nvidia_t4_sriov := Nvidia_T4_SRIOV
+  | "false" | "off" | "0" -> nvidia_t4_sriov := Nvidia_LEGACY
+  | "default" | "xml" | _ -> nvidia_t4_sriov := Nvidia_DEFAULT),
+  ( fun () -> match !nvidia_t4_sriov with
+  | Nvidia_DEFAULT  -> "default - Infer NVidia GPU addressing mode from vgpuConfig.xml"
+  | Nvidia_LEGACY   -> "false - Use legacy mode for NVidia GPU addressing"
+  | Nvidia_T4_SRIOV -> "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise"
+  ),
+  "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'.";
+
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
