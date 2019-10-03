@@ -398,10 +398,16 @@ module Vendor_nvidia = struct
     | E (_, _, [D d]) -> d
     | _ -> failwith "get_data: no data node"
 
+  type vgpu_type =
+    { max: int64
+    ; psubdev_id: int option
+    ; sriov: bool
+    }
+
   let find_supported_vgpu_types device_id pgpus =
     (*
       Input example:
-        <pgpu>
+        <pgpu hostVgpuMode="sriov">
           <devId vendorId="0x10de" deviceId="0x1BB4" subsystemVendorId="0x10de" subsystemId="0x0"></devId>
           <supportedVgpu vgpuId="72">
             <maxVgpus>16</maxVgpus>
@@ -422,10 +428,20 @@ module Vendor_nvidia = struct
           if id = 0 then None else Some id
         in
         let vgpus = find_by_name "supportedVgpu" pgpu in
+        let sriov =
+          match get_attr "hostVgpuMode" pgpu with
+          | "sriov" -> true
+          | other ->
+              warn "NVidia VGPU hostVgpuMode='%s' unrecognized" other;
+              false
+          | exception Not_found -> false
+          | exception e ->
+              warn "find_supported_vgpu_types %s (%s)" (Printexc.to_string e) __LOC__;
+              false in
         Some (List.map (fun vgpu ->
           let id = get_attr "vgpuId" vgpu in
           let max = Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu)) in
-          id, (max, psubdev_id)
+          id, {max; psubdev_id; sriov}
         ) vgpus)
       else
         None
@@ -451,17 +467,16 @@ module Vendor_nvidia = struct
     List.filter_map (fun vgpu_type ->
       let is_sriov id =
         try (* IDs of T4 cards *)
-          !Xapi_globs.nvidia_t4_sriov && List.mem (int_of_string id)
+          List.mem (int_of_string id)
             [230; 231; 232; 233; 234; 225; 226;
              227; 228; 229; 222; 252; 223; 224]
         with Not_found | Failure _ -> false
       in
       let id = get_attr "id" vgpu_type in
       if List.mem_assoc id vgpu_ids then
-        let max_instance, psubdev_id = List.assoc id vgpu_ids in
+        let {max = max_instance; psubdev_id; sriov} = List.assoc id vgpu_ids in
         let framebufferlength = Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type)) in
         let num_heads = Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type)) in
-        let sriov = is_sriov id in
         let max_x, max_y =
           let display = find_one_by_name "display" vgpu_type in
           Int64.of_string (get_attr "width" display),
@@ -473,7 +488,10 @@ module Vendor_nvidia = struct
             psubdev_id;
             vdev_id = int_of_string (get_attr "deviceId" devid);
             vsubdev_id = int_of_string (get_attr "subsystemId" devid);
-            sriov = sriov
+            sriov = match !Xapi_globs.nvidia_t4_sriov with
+              | Xapi_globs.Nvidia_DEFAULT  -> sriov (* from XML *)
+              | Xapi_globs.Nvidia_T4_SRIOV -> is_sriov id (* true if T4 card *)
+              | Xapi_globs.Nvidia_LEGACY   -> false (* don't use SRIOV *)
           } in
         let file_path = whitelist in
         let type_id = id in
