@@ -470,7 +470,7 @@ module Vendor_nvidia = struct
           List.mem (int_of_string id)
             [230; 231; 232; 233; 234; 225; 226;
              227; 228; 229; 222; 252; 223; 224]
-        with Not_found | Failure _ -> false
+        with Failure _ -> false
       in
       let id = get_attr "id" vgpu_type in
       if List.mem_assoc id vgpu_ids then
