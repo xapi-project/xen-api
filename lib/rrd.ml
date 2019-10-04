@@ -246,40 +246,31 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
    deal with gauge DSs, we multiply by the interval so that it cancels
    the subsequent divide by interval later on *)
 let process_ds_value ds value interval new_domid =
-  if interval > ds.ds_mrhb
-  then nan
-  else
-    begin
-      let rate =
-        match ds.ds_ty, new_domid with
-        | Absolute, _
-        | Derive, true ->
-          begin
-            match value with
-            | VT_Int64 y -> Int64.to_float y
-            | VT_Float y -> y
-            | VT_Unknown -> nan
-          end
-        | Gauge, _ ->
-          begin
-            match value with
-            | VT_Int64 y -> (Int64.to_float y) *. interval
-            | VT_Float y -> y *. interval
-            | VT_Unknown -> nan
-          end
-        | Derive, false ->
-          begin
-            match ds.ds_last, value with
-            | VT_Int64 x, VT_Int64 y -> Int64.to_float (y --- x)
-            | VT_Float x, VT_Float y -> y -. x
-            | VT_Unknown, _ -> nan
-            | _, VT_Unknown -> nan
-            | _ -> failwith ("Bad type updating ds: " ^ ds.ds_name)
-          end
-      in
+  if interval > ds.ds_mrhb then
+    nan
+  else (
+    let value_raw = match value with
+    | VT_Int64 y -> Int64.to_float y
+    | VT_Float y -> y
+    | VT_Unknown -> nan
+    in
+
+    let rate = match ds.ds_ty, new_domid with
+    | Absolute, _
+    | Derive, true  -> value_raw
+    | Gauge,  _     -> value_raw *. interval
+    | Derive, false ->
+      ( match ds.ds_last, value with
+      | VT_Int64 x, VT_Int64 y -> Int64.to_float (y --- x)
+      | VT_Float x, VT_Float y -> y -. x
+      | VT_Unknown, _
+      | _, VT_Unknown -> nan
+      | _ -> failwith ("Bad type updating ds: " ^ ds.ds_name)
+      )
+    in
       ds.ds_last <- value;
       rate
-    end
+  )
 
 let ds_update rrd timestamp values transforms new_domid =
   (* Interval is the time between this and the last update *)
