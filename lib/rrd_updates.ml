@@ -202,7 +202,9 @@ let create_multi prefixandrrds start interval cfopt =
   in
 
   let rras = List.flatten rras in
-  let first_rra = List.hd rras in
+  let first_rra = match rras with
+  | [] -> raise No_RRA_Available
+  | rra :: _ -> rra in
 
   let rras = List.filter (fun rra -> rra.rra_pdp_cnt=first_rra.rra_pdp_cnt && rra.rra_row_cnt = first_rra.rra_row_cnt) rras in
   (* The following timestep is that of the archive *)
