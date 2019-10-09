@@ -900,7 +900,7 @@ type nvidia_t4_sriov =
   | Nvidia_LEGACY
   | Nvidia_DEFAULT
 
-let nvidia_t4_sriov = ref Nvidia_T4_SRIOV
+let nvidia_t4_sriov = ref Nvidia_DEFAULT
 
 let other_options = [
   gen_list_option "sm-plugins"
