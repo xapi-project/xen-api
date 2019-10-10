@@ -353,6 +353,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         |false -> true
       end;
       vncterm_ip = None (*None PR-1255*);
+      pci_passthrough = List.mem_assoc "pci" vm.API.vM_other_config;
     }
   in
 
@@ -366,6 +367,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         |false -> true
       end;
       vncterm_ip = None (*None PR-1255*);
+      pci_passthrough = List.mem_assoc "pci" vm.API.vM_other_config;
     }
   in
   match Helpers.(check_domain_type vm.API.vM_domain_type, boot_method_of_vm ~__context ~vm) with
