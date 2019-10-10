@@ -241,9 +241,6 @@ let update_env __context sync_keys =
       create_localhost ~__context info;
     );
 
-  (* record who we are in xapi_globs *)
-  Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
-
   switched_sync Xapi_globs.sync_set_cache_sr (fun () ->
       try
         let cache_sr = Db.Host.get_local_cache_sr ~__context ~self:(Helpers.get_localhost ~__context) in
