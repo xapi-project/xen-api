@@ -135,6 +135,7 @@ module Vm = struct
     framebuffer_ip: string option [@default None];
     vncterm: bool [@default true];
     vncterm_ip: string option [@default None];
+    pci_passthrough: bool [@default false]
   }
   [@@deriving rpcty, sexp]
 
