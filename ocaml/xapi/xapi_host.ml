@@ -596,10 +596,24 @@ let list_methods ~__context =
 let is_slave ~__context ~host = not (Pool_role.is_master ())
 
 let ask_host_if_it_is_a_slave ~__context ~host =
-  let local_fn = is_slave ~host in
-  Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave" (fun ~__context ->
-    (Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
-      ~host (fun session_id rpc -> Client.Client.Pool.is_slave rpc session_id host)))
+  let ask_and_warn_when_slow ~__context =
+    let local_fn = is_slave ~host in
+    let timeout = 10. in
+    let task_name = Context.get_task_id __context |> Ref.string_of in
+    let ip, uuid = Db.Host.get_address ~__context ~self:host, Db.Host.get_uuid ~__context ~self:host in
+    let rec log_host_slow_to_respond timeout () =
+      D.warn "ask_host_if_it_is_a_slave: host taking a long time to respond - IP: %s; uuid: %s" ip uuid;
+      Xapi_periodic_scheduler.add_to_queue task_name Xapi_periodic_scheduler.OneShot timeout (log_host_slow_to_respond (min (2. *. timeout) 300.));
+    in
+    Xapi_periodic_scheduler.add_to_queue task_name Xapi_periodic_scheduler.OneShot timeout (log_host_slow_to_respond timeout);
+    let res = Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context ~host
+      (fun session_id rpc -> Client.Client.Pool.is_slave rpc session_id host)
+    in
+    Xapi_periodic_scheduler.remove_from_queue task_name;
+    res
+  in
+
+  Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave" ask_and_warn_when_slow
 
 let is_host_alive ~__context ~host =
   (* If the host is marked as not-live then assume we don't need to contact it to verify *)
