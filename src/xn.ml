@@ -388,6 +388,7 @@ let add' copts x () = match x with
                framebuffer_ip = Some "0.0.0.0";
                vncterm = true;
                vncterm_ip = Some "0.0.0.0";
+               pci_passthrough = false;
                boot =
                  if mem _bootloader then Indirect {
                      bootloader = find _bootloader |> string;
