@@ -56,7 +56,10 @@ module Nvidia = struct
 
   (** [is_nvidia] is true, if [vgpu] is an NVIDIA vGPU *)
   let is_nvidia ~__context ~vgpu =
-    vgpu_impl ~__context vgpu = `nvidia
+    match vgpu_impl ~__context vgpu with
+    | `nvidia       -> true
+    | `nvidia_sriov -> true
+    | _ -> false
 
   (** [reason_to_string] turns an incompatibility reason into a string
    * for reporting it in an error message *)
