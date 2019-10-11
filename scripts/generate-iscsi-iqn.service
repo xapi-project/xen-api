@@ -1,0 +1,13 @@
+[Unit]
+Description=Generate an iSCSI IQN for the local host
+Requires=xapi.service xapi-init-complete.target
+After=xapi.service xapi-init-complete.target
+ConditionPathExists=!/var/lib/misc/ran-generate-iscsi-iqn
+
+[Service]
+Type=oneshot
+ExecStart=@LIBEXECDIR@/generate-iscsi-iqn
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

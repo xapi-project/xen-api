@@ -49,10 +49,12 @@ install:
 	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
+	$(IPROG) generate-iscsi-iqn $(DESTDIR)$(LIBEXECDIR)/generate-iscsi-iqn
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
 	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
 	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IDATA) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
+	$(IDATA) generate-iscsi-iqn.service $(DESTDIR)/usr/lib/systemd/system/generate-iscsi-iqn.service
 	$(IDATA) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
 	$(IDATA) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service
 	$(IDATA) save-boot-info.service $(DESTDIR)/usr/lib/systemd/system/save-boot-info.service
@@ -73,7 +75,6 @@ install:
 	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-reset-networking $(DESTDIR)$(BINDIR)
-	$(IPROG) xe-set-iscsi-iqn $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-toolstack-restart $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-xentrace $(DESTDIR)$(BINDIR)
 	$(IPROG) xe-edit-bootloader $(DESTDIR)$(BINDIR)
