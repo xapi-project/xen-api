@@ -377,7 +377,8 @@ module Domain = struct
 
   (** Set a domain's maxmem. Don't throw an exception if the domain has been destroyed *)
   let set_maxmem_noexn cnx domid target_kib =
-    let maxmem_kib = xen_max_offset_kib (get_domain_type cnx domid) +* target_kib in
+    let offset_kib : int64 = try get_memory_offset cnx domid with _ -> 0L in
+    let maxmem_kib = xen_max_offset_kib (get_domain_type cnx domid) +* target_kib +* offset_kib in
     set_maxmem_noexn cnx domid maxmem_kib
 
   (** Return true if feature_balloon has been advertised *)
