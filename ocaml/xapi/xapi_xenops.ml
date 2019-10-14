@@ -1988,15 +1988,9 @@ let update_pci ~__context id =
 
           let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
 
-          (* Assumption: a VM can have only one vGPU *)
-          let vgpu_opt =
-            let pci_class = Db.PCI.get_class_id ~__context ~self:pci in
-            if Xapi_pci.(is_class_of_kind Display_controller @@ int_of_id pci_class)
-            then
-              match Db.VM.get_VGPUs ~__context ~self:vm with
-              | vgpu :: _ -> Some vgpu
-              | _ -> None
-            else None in
+          let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+          let eq vgpu = Db.VGPU.get_PCI ~__context ~self:vgpu = pci in
+          let vgpu_opt = List.find_opt eq vgpus in
           let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
           Opt.iter
             (fun (_, state) ->
