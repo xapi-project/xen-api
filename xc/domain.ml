@@ -105,6 +105,7 @@ type create_info = {
   bios_strings: (string * string) list;
   has_vendor_device: bool;
   is_uefi: bool;
+  pci_passthrough: bool;
 } [@@deriving rpcty]
 
 type build_hvm_info = {
@@ -270,7 +271,12 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   let config = {
     ssidref = vm_info.ssidref;
     handle = Uuid.to_string uuid;
-    flags =  CDF_IOMMU :: flags;
+    flags = begin match vm_info.pci_passthrough with
+      | true ->
+          debug "VM %s - using CDF_IOMMU" (Uuid.to_string uuid);
+          CDF_IOMMU :: flags
+      | false -> flags
+    end;
     iommu_opts = begin match no_sharept with
       | true  ->
           debug "VM %s - using IOMMU_NO_SHAREPT" (Uuid.to_string uuid);

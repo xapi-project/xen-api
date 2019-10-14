@@ -161,6 +161,7 @@ let create_vm vmid =
       framebuffer_ip = Some "0.0.0.0";
       vncterm = true;
       vncterm_ip = None;
+      pci_passthrough = false;
       Vm.boot = Indirect {
           bootloader = "pygrub";
           extra_args = "extra";

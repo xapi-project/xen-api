@@ -1024,6 +1024,12 @@ module VM = struct
       | HVM { firmware = Uefi _; _ } -> true
       | _ -> false in
 
+    let pci_passthrough =
+      match vm.ty with
+      | HVM { pci_passthrough = true } -> true
+      | PV  { pci_passthrough = true } -> true
+      | _ -> false in
+
     {
       Domain.ssidref = vm.ssidref;
       hvm = hvm;
@@ -1034,6 +1040,7 @@ module VM = struct
       bios_strings = vm.bios_strings;
       has_vendor_device = vm.has_vendor_device;
       is_uefi;
+      pci_passthrough;
     }
 
   let xen_platform_of ~vm ~vmextra =
