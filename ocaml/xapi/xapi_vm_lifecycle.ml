@@ -622,10 +622,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif))
       (Db.VM.get_VIFs ~__context ~self);
     List.iter
-      (fun pci ->
-         Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
-      (Db.VM.get_attached_PCIs ~__context ~self);
-    List.iter
       (fun vgpu ->
          Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
          let keys = Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu in
@@ -673,6 +669,11 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         Db.VGPU.set_scheduled_to_be_resident_on
           ~__context ~self:vgpu ~value:Ref.null;
         Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null);
+    (* release PCIs *)
+    List.iter
+      (fun pci ->
+         Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
+      (Db.VM.get_attached_PCIs ~__context ~self);
   end;
 
   Db.VM.set_power_state ~__context ~self ~value:state;
