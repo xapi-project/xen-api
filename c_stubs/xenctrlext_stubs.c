@@ -32,21 +32,20 @@
 #define _D(__d) ((uint32_t)Int_val(__d))
 
 /* From xenctrl_stubs */
-#define ERROR_STRLEN 1024
 static void failwith_xc(xc_interface *xch)
 {
-        static char error_str[ERROR_STRLEN];
+        static char error_str[XC_MAX_ERROR_MSG_LEN + 6];
         if (xch) {
                 const xc_error *error = xc_get_last_error(xch);
                 if (error->code == XC_ERROR_NONE)
-                        snprintf(error_str, ERROR_STRLEN, "%d: %s", errno, strerror(errno));
+                        snprintf(error_str, sizeof(error_str), "%d: %s", errno, strerror(errno));
                 else
-                        snprintf(error_str, ERROR_STRLEN, "%d: %s: %s",
+                        snprintf(error_str, sizeof(error_str), "%d: %s: %s",
                                  error->code,
                                  xc_error_code_to_desc(error->code),
                                  error->message);
         } else {
-                snprintf(error_str, ERROR_STRLEN, "Unable to open XC interface");
+                snprintf(error_str, sizeof(error_str), "Unable to open XC interface");
         }
         caml_raise_with_string(*caml_named_value("xc.error"), error_str);
 }
