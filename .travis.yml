@@ -9,7 +9,6 @@ script:
 env:
   global:
     - PACKAGE="xenops-cli"
-    - BASE_REMOTE_BRANCH="REQ-627"
     - PINS="xenops-cli:."
   matrix:
     - PACKAGE="xenops-cli"
