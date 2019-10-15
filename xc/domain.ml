@@ -651,6 +651,49 @@ let create_channels ~xc uuid domid =
   debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d" (Uuid.to_string uuid) domid store console;
   store, console
 
+let numa_hierarchy =
+  let open Xenctrlext in
+  let open Topology in
+  Lazy.from_fun (fun () ->
+      let distances = Xenctrlext.(with_xc numainfo).distances in
+      let cpu_to_node = Xenctrlext.(with_xc cputopoinfo) |> Array.map (fun t -> t.node) in
+      NUMA.v ~distances ~cpu_to_node)
+
+let numa_mutex = Mutex.create ()
+let numa_resources = ref None
+
+let numa_placement domid ~vcpus ~memory =
+  let open Xenctrlext in
+  let open Topology in
+  let hint = Mutex.execute numa_mutex (fun () ->
+      let host = Lazy.force numa_hierarchy in
+      let numa_meminfo = Xenctrlext.(with_xc numainfo).memory |> Array.to_list in
+      let nodes =
+        ListLabels.map2 (NUMA.nodes host |> List.of_seq) numa_meminfo ~f:(fun node m ->
+            NUMA.resource host node ~memory:m.memfree)
+      in
+      let vm = NUMARequest.v ~memory ~vcpus in
+      let nodea = match !numa_resources with
+        | None ->
+          let a = Array.of_list nodes in
+          numa_resources := Some a;
+          a
+        | Some a ->
+          let a = Array.map2 NUMAResource.min_memory (Array.of_list nodes) a in
+          numa_resources := Some a;
+          a
+      in
+      Softaffinity.plan host nodea vm) in
+  match hint with
+  | None ->
+    D.debug "NUMA-aware placement failed for domid %d" domid;
+  | Some (soft_affinity) ->
+    let cpua = CPUSet.to_mask soft_affinity in
+    Xenops_helpers.with_xc (fun xc ->
+        for i = 0 to vcpus - 1 do
+          Xenctrlext.vcpu_setaffinity_soft xc domid i cpua
+        done)
+
 let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in

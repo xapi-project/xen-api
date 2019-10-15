@@ -31,6 +31,7 @@ depends: [
   "xapi-idl"
   "xenctrl"
   "xmlm"
+  "fmt"
 ]
 synopsis: "A single-host domain/VM manager for the Xen hypervisor"
 description: """
