@@ -138,6 +138,32 @@ let ca_322008_rrd =
   done;
   rrd
 
+
+let ca_329043_rrd =
+  let init_time = 0. in
+
+  let rra1 = rra_create CF_Average 3 1 0.5 in
+  let rra2 = rra_create CF_Min     3 1 0.5 in
+  let rra3 = rra_create CF_Max     3 1 0.5 in
+  let ds = ds_create "derive_with_min" ~min:0. ~max:1. Derive VT_Unknown in
+
+  let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
+
+  let id = fun x -> x in
+
+  let time_value_of_i i =
+    let t = 5. *. (init_time +. float_of_int i) in
+    if i = 1 then
+      t, VT_Int64 0L
+    else
+      t, VT_Int64 Int64.(of_float t)
+  in
+  for i = 0 to 4 do
+    let t, v = time_value_of_i i in
+    ds_update rrd t [|v|] [|id|] (i = 0);
+  done;
+  rrd
+
 let test_ca_322008 () =
   let rrd = ca_322008_rrd in
 
@@ -168,5 +194,6 @@ let () =
   Alcotest.run "Test RRD library" [
     "Gauge RRD", rrd_suite gauge_rrd;
     "RRD for CA-322008", rrd_suite ca_322008_rrd;
+    "RRD for CA-329043", rrd_suite ca_329043_rrd;
     "Regressions", regression_suite;
   ]
