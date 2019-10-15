@@ -950,6 +950,7 @@ module VM = struct
       kernel = "";
       vcpus = vm.vcpu_max;
       priv = builder_spec_info;
+      has_hard_affinity = vm.scheduler_params.affinity <> []
     } in
     VmExtra.{ default_persistent_t with
               build_info = Some build_info;
@@ -1484,6 +1485,7 @@ module VM = struct
       kernel = kernel;
       vcpus = vm.vcpu_max;
       priv = priv;
+      has_hard_affinity = vm.scheduler_params.affinity <> [];
     } in
     debug "static_max_mib=%Ld" static_max_mib;
     let pvinpvh_xen_cmdline =

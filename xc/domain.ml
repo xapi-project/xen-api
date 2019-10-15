@@ -137,6 +137,7 @@ type build_info = {
   kernel: string;       (* in hvm case, point to hvmloader *)
   vcpus: int;           (* vcpus max *)
   priv: builder_spec_info;
+  has_hard_affinity: bool; [@default false]
 } [@@deriving rpcty]
 
 type domid = int
@@ -650,7 +651,7 @@ let create_channels ~xc uuid domid =
   debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d" (Uuid.to_string uuid) domid store console;
   store, console
 
-let build_pre ~xc ~xs ~vcpus ~memory domid =
+let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
@@ -834,6 +835,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
   let target_kib = info.memory_target in
   let vcpus = info.vcpus in
   let kernel = info.kernel in
+  let has_hard_affinity = info.has_hard_affinity in
   let force_arg = if force then ["--force"] else [] in
 
   assert_file_is_readable kernel;
@@ -852,7 +854,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let video_mib = hvminfo.video_mib in
       let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe_ca_140252_workaround ~xc ~vcpus domid;
-      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
           ~console_domid ~memory ~kernel ~vgpus
@@ -867,7 +869,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let video_mib = 0 in
       let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe assert_file_is_readable pvinfo.ramdisk;
-      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_pv ~domid ~store_port ~store_domid ~console_port
           ~console_domid ~memory ~kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
@@ -881,7 +883,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let video_mib = pvhinfo.video_mib in
       let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe_ca_140252_workaround ~xc ~vcpus domid;
-      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
             ~kernel ~cmdline:pvhinfo.cmdline ~modules:pvhinfo.modules
@@ -1242,7 +1244,8 @@ type suspend_flag = Live | Debug
         maybe_ca_140252_workaround ~xc ~vcpus domid;
         memory, vm_stuff, `pvh
     in
-    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus
+        ~has_hard_affinity:info.has_hard_affinity domid in
     let store_mfn, console_mfn = restore_common task ~xc ~xs ~dm ~domain_type
         ~store_port ~store_domid
         ~console_port ~console_domid
