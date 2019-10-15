@@ -209,6 +209,135 @@ CAMLprim value stub_xenctrlext_assign_device(value xch, value domid,
     CAMLreturn(Val_unit);
 }
 
+/* based on xenctrl_stubs.c */
+static int get_cpumap_len(value xch, value cpumap)
+{
+	int ml_len = Wosize_val(cpumap);
+	int xc_len = xc_get_max_cpus(_H(xch));
+
+	if (ml_len < xc_len)
+		return ml_len;
+	else
+		return xc_len;
+}
+
+CAMLprim value stub_xenctrlext_vcpu_setaffinity_soft(value xch, value domid,
+                                                     value vcpu, value cpumap)
+{
+	CAMLparam4(xch, domid, vcpu, cpumap);
+	int i, len = get_cpumap_len(xch, cpumap);
+	xc_cpumap_t c_cpumap;
+	int retval;
+
+	c_cpumap = xc_cpumap_alloc(_H(xch));
+	if (c_cpumap == NULL)
+		failwith_xc(_H(xch));
+
+	for (i=0; i<len; i++) {
+		if (Bool_val(Field(cpumap, i)))
+			c_cpumap[i/8] |= 1 << (i&7);
+	}
+	retval = xc_vcpu_setaffinity(_H(xch), _D(domid),
+				     Int_val(vcpu),
+				     NULL, c_cpumap,
+				     XEN_VCPUAFFINITY_SOFT);
+	free(c_cpumap);
+
+	if (retval < 0)
+		failwith_xc(_H(xch));
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenctrlext_numainfo(value xch)
+{
+	CAMLparam1(xch);
+	CAMLlocal5(meminfos, distances, result, info, row);
+        unsigned max_nodes = 0;
+        xc_meminfo_t *meminfo = NULL;
+        uint32_t* distance = NULL;
+        unsigned i, j;
+        int retval;
+
+        retval = xc_numainfo(_H(xch), &max_nodes, NULL, NULL);
+        if (retval < 0)
+            failwith_xc(_H(xch));
+
+        meminfo = calloc(max_nodes, sizeof(*meminfo));
+        distance = calloc(max_nodes * max_nodes, sizeof(*distance));
+        if (!meminfo || !distance) {
+            free(meminfo);
+            free(distance);
+            caml_raise_out_of_memory();
+        }
+
+        retval = xc_numainfo(_H(xch), &max_nodes, meminfo, distance);
+        if (retval < 0) {
+            free(meminfo);
+            free(distance);
+            failwith_xc(_H(xch));
+        }
+
+        meminfos = caml_alloc_tuple(max_nodes);
+        for (i=0;i<max_nodes;i++) {
+            info = caml_alloc_tuple(2);
+            Store_field(info, 0, caml_copy_int64(meminfo[i].memfree));
+            Store_field(info, 1, caml_copy_int64(meminfo[i].memsize));
+            Store_field(meminfos, i, info);
+        }
+
+        distances = caml_alloc_tuple(max_nodes);
+        for (i=0;i<max_nodes;i++) {
+            row = caml_alloc_tuple(max_nodes);
+            for(j=0;j<max_nodes;j++)
+                Store_field(row, j, Val_int(distance[i*max_nodes + j]));
+            Store_field(distances, i, row);
+        }
+
+        free(meminfo);
+        free(distance);
+
+        result = caml_alloc_tuple(2);
+        Store_field(result, 0, meminfos);
+        Store_field(result, 1, distances);
+
+	CAMLreturn(result);
+}
+
+CAMLprim value stub_xenctrlext_cputopoinfo(value xch)
+{
+	CAMLparam1(xch);
+	CAMLlocal2(topo, result);
+        xc_cputopo_t *cputopo = NULL;
+        unsigned max_cpus, i;
+        int retval;
+
+        retval = xc_cputopoinfo(_H(xch), &max_cpus, NULL);
+        if (retval < 0)
+            failwith_xc(_H(xch));
+
+        cputopo = calloc(max_cpus, sizeof(*cputopo));
+        if (!cputopo)
+            caml_raise_out_of_memory();
+
+        retval = xc_cputopoinfo(_H(xch), &max_cpus, cputopo);
+        if (retval < 0) {
+            free(cputopo);
+            failwith_xc(_H(xch));
+        }
+
+        result = caml_alloc_tuple(max_cpus);
+        for(i=0;i<max_cpus;i++) {
+            topo = caml_alloc_tuple(3);
+            Store_field(topo, 0, Val_int(cputopo[i].core));
+            Store_field(topo, 1, Val_int(cputopo[i].socket));
+            Store_field(topo, 2, Val_int(cputopo[i].node));
+            Store_field(result, i, topo);
+        }
+        free(cputopo);
+
+	CAMLreturn(result);
+}
+
 /*
 * Local variables:
 * indent-tabs-mode: t
