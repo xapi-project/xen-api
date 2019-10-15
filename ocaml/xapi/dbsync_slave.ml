@@ -242,7 +242,14 @@ let update_env __context sync_keys =
     );
 
   (* record who we are in xapi_globs *)
-  Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
+  let localhost = Helpers.get_localhost ~__context in
+  Xapi_globs.localhost_ref := localhost;
+
+  (** Normally the resident_on field would be set by the helper which creates
+      the task, but it uses this `localhost_ref` to do so, which we have only
+      just initialized above. Therefore we manually set it here *)
+  let task_ref = Context.get_task_id __context in
+  Db.Task.set_resident_on ~__context ~self:task_ref ~value:localhost;
 
   switched_sync Xapi_globs.sync_set_cache_sr (fun () ->
       try
@@ -269,7 +276,6 @@ let update_env __context sync_keys =
       Create_misc.create_host_cpu ~__context info;
     );
 
-  let localhost = Helpers.get_localhost ~__context in
 
   switched_sync Xapi_globs.sync_create_domain_zero (fun () ->
       debug "creating domain 0";
