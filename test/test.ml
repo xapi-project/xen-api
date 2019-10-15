@@ -764,6 +764,7 @@ let _ =
   Xenops_server.set_backend (Some (module Xenops_server_simulator: Xenops_server_plugin.S));
   Xcp_client.use_switch := true;
   Xenops_server.WorkerPool.start 16;
+  Printexc.record_backtrace true;
 
   let suite = "xenops test",
               [

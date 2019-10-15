@@ -673,6 +673,8 @@ let build_pre ~xc ~xs ~vcpus ~memory domid =
     debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid call_str;
     try ignore (f ())
     with e ->
+      let bt = Printexc.get_backtrace () in
+      debug "Backtrace: %s" bt;
       let err_msg =
         Printf.sprintf "Calling '%s' failed: %s" call_str (Printexc.to_string e)
       in
