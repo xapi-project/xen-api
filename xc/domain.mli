@@ -236,3 +236,5 @@ val allowed_xsdata_prefixes: string list
 val set_xsdata : xs:Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
 
 val move_xstree : xs:Xenstore.Xs.xsh -> domid -> string -> string -> unit
+
+val numa_init: unit -> unit

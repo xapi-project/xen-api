@@ -662,6 +662,17 @@ let numa_hierarchy =
 let numa_mutex = Mutex.create ()
 let numa_resources = ref None
 
+let numa_init () =
+  if !Xenopsd.numa_placement then begin
+    let host = Lazy.force numa_hierarchy in
+    let mem = Xenctrlext.(with_xc numainfo).memory in
+    D.debug "Host NUMA information: %s" (Fmt.to_to_string Topology.NUMA.pp_dump host);
+    Array.iteri (fun i m ->
+        let open Xenctrlext in
+        D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
+      ) mem
+  end
+
 let numa_placement domid ~vcpus ~memory =
   let open Xenctrlext in
   let open Topology in
@@ -747,6 +758,20 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
       Xenctrl.shadow_allocation_set xc domid shadow_mib
     );
 
+  if !Xenopsd.numa_placement then
+    log_reraise (Printf.sprintf "NUMA placement") (fun () ->
+        if has_hard_affinity then begin
+          D.debug "VM has hard affinity set, skipping NUMA optimization"
+        end else begin
+          let do_numa_placement () =
+            numa_placement domid ~vcpus ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+          in
+          if !Xenopsd.numa_placement_strict then
+            do_numa_placement ()
+          else
+            Xenops_utils.best_effort "NUMA placement" do_numa_placement
+        end
+      );
   create_channels ~xc uuid domid
 
 let resume_post ~xc ~xs domid =

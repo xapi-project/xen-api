@@ -3657,6 +3657,7 @@ let init () =
     );
 
   Device.Backend.init();
+  Domain.numa_init ();
   debug "xenstore is responding to requests";
   let () = Watcher.create_watcher_thread () in
   ()
