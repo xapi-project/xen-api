@@ -9,6 +9,17 @@
     xapi-rrd.unix)
 )
 
+(executable
+  (name crowbar_tests)
+  (modules crowbar_tests)
+  (libraries
+    bigarray
+    crowbar
+    unix
+    xapi-rrd
+    xapi-rrd.unix)
+)
+
 (alias
   (name runtest)
   (deps (:x unit_tests.exe))

@@ -23,6 +23,7 @@ depends: [
   "uuidm"
   "ezjsonm"
   "alcotest" {with-test}
+  "crowbar" {with-test}
 ]
 synopsis: "RRD library for use with xapi"
 description: """
