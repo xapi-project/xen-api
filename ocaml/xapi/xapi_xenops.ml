@@ -1968,59 +1968,58 @@ let update_vif ~__context id =
 
 let update_pci ~__context id =
   try
-    if Events_from_xenopsd.are_suppressed (fst id)
-    then debug "xenopsd event: ignoring event for PCI (VM %s migrating away)" (fst id)
-    else
-      let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
-      let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self:vm <> localhost
-      then debug "xenopsd event: ignoring event for PCI (VM %s not resident)" (fst id)
-      else
-        let previous = Xenops_cache.find_pci id in
-        let dbg = Context.string_of_task __context in
-        let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
-        let info = try Some (Client.PCI.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
-        then debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
-        else begin
-          let pcis = Db.Host.get_PCIs ~__context ~self:localhost in
-          let pcirs = List.map (fun self -> self, Db.PCI.get_record ~__context ~self) pcis in
+    let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
+    let localhost = Helpers.get_localhost ~__context in
+    if Db.VM.get_resident_on ~__context ~self:vm <> localhost then
+      debug "xenopsd event: ignoring event for PCI (VM %s not resident)" (fst id)
+    else begin
+      let previous = Xenops_cache.find_pci id in
+      let dbg = Context.string_of_task __context in
+      let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
+      let info = try Some (Client.PCI.stat dbg id) with _ -> None in
+      if Opt.map snd info = previous then
+        debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
+      else begin
+        let pcis = Db.Host.get_PCIs ~__context ~self:localhost in
+        let pcirs = List.map (fun self -> self, Db.PCI.get_record ~__context ~self) pcis in
+        let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
+        let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+        let eq vgpu = Db.VGPU.get_PCI ~__context ~self:vgpu = pci in
+        let vgpu_opt = List.find_opt eq vgpus in
+        let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
+        info |> Opt.iter begin fun (_, state) ->
+          debug "xenopsd event: Updating PCI %s.%s currently_attached <- %b"
+            (fst id) (snd id) state.Pci.plugged;
 
-          let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
+          if attached_in_db && (not state.Pci.plugged) then
+            Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm
+          else if (not attached_in_db) && state.plugged then begin
+            Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
+            Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
+          end;
 
-          let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
-          let eq vgpu = Db.VGPU.get_PCI ~__context ~self:vgpu = pci in
-          let vgpu_opt = List.find_opt eq vgpus in
-          let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
-          Opt.iter
-            (fun (_, state) ->
-               debug "xenopsd event: Updating PCI %s.%s currently_attached <- %b" (fst id) (snd id) state.Pci.plugged;
-               if attached_in_db && (not state.Pci.plugged) then
-                 Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm
-               else if (not attached_in_db) && state.plugged then begin
-                 Db.PCI.add_attached_VMs ~__context ~self:pci ~value:vm;
-                 Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
-               end;
-
-               Opt.iter
-                 (fun vgpu ->
-                    let scheduled =
-                      Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
-                    in
-                    if Db.is_valid_ref __context scheduled && state.Pci.plugged
-                    then
-                      Helpers.call_api_functions ~__context
-                        (fun rpc session_id ->
-                           XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
-                             ~self:vgpu ~value:scheduled);
-                    debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b" (fst id) (snd id) state.plugged;
-                    Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.Pci.plugged
-                 ) vgpu_opt
-            ) info;
+          if Events_from_xenopsd.are_suppressed (fst id) then
+            debug "xenopsd event: not updating VGPU/PCI (VM %s migrating away)" (fst id)
+          else begin
+            vgpu_opt |> Opt.iter begin fun vgpu ->
+            let scheduled =
+              Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu in
+            if Db.is_valid_ref __context scheduled && state.Pci.plugged then
+              Helpers.call_api_functions ~__context (fun rpc session_id ->
+                XenAPI.VGPU.atomic_set_resident_on ~rpc ~session_id
+                  ~self:vgpu ~value:scheduled);
+              debug "xenopsd event: Update VGPU %s.%s currently_attached <- %b"
+                (fst id) (snd id) state.plugged;
+              Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.Pci.plugged
+            end
+          end;
           Xenops_cache.update_pci id (Opt.map snd info);
         end
+      end
+    end
   with e ->
     error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
+
 
 let update_vgpu ~__context id =
   try
