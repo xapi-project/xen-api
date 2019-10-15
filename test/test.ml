@@ -805,5 +805,5 @@ let _ =
               ] in
 
   Debug.log_to_stdout ();
-  Alcotest.run "xenops test" [suite]
+  Alcotest.run "xenops test" [suite; Test_topology.suite]
 
