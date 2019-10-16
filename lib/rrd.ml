@@ -11,14 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(*
- * RRD module
- * This module provides a util that records data in a way that's compatable
- * with rrdtool (http://oss.oetiker.ch/rrdtool/index.en.html)
- *)
-(**
- * @group Performance Monitoring
-*)
+(** This module provides a util that records data in a way that's compatible
+    with {{: http://oss.oetiker.ch/rrdtool/index.en.html} rrdtool}. *)
+
 module Fring = Rrd_fring
 module Utils = Rrd_utils
 
@@ -98,33 +93,47 @@ type cdp_prep = {
 
 type ds = {
   ds_name : string;                  (** Name *)
-  ds_ty : ds_type;                   (** Type (as above) *)
+  ds_ty : ds_type;                   (** Type of rate the input must be processed as, see above *)
   ds_min : float;
   ds_max : float;
   ds_mrhb : float;                   (** Maximum time between updates *)
-  mutable ds_last : ds_value_type;   (** Last value *)
-  mutable ds_value: float;           (** The accumulator for the PDP value *)
+  mutable ds_last : ds_value_type;   (** Last raw value that was processed *)
+  mutable ds_value: float;           (** Current calculated rate of the PDP *)
   mutable ds_unknown_sec: float;     (** Number of seconds that are unknown in the current PDP *)
 } [@@deriving rpc]
 
 (** RRA - RRD archive
-    This is an archive that holds consolidated data points (CDPs). It
-    defines the type of consolidation that happens (average, max, min or last),
-    the number of primary data points (PDPs) that go to make a CDP, and
-    the number of CDPs to store. *)
+    This is an archive that holds consolidated data points (CDPs) belonging to
+    a single consolidation function. They are stored in rings buffers, each
+    one related to a single  different data-source. It defines the type of
+    consolidation that happens (average, max, min or last), the number of
+    primary data points (PDPs) that go to make a CDP, and the number of CDPs
+    to store.
+
+    To better visualize how the datapoints are stored:
+
+     │   Datasources   ┃                 ┃                 ┃
+     └─────────────────┨     Memory      ┃     cputime     ┃
+       Consolidators   ┃                 ┃                 ┃
+     ━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━┫
+       Average         ┃  Fring of CDPs  ┃ Fring of CDPs   ┃ ← RRA
+     ━━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━━┫
+       Max             ┃  Fring of CDPs  ┃ Fring of CDPs   ┃ ← RRA
+     ━━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━┛
+    *)
 
 type rra = {
   rra_cf : cf_type;          (** consolidation function *)
   rra_row_cnt : int;         (** number of entries to store *)
   rra_pdp_cnt : int;         (** number of pdps per cdp *)
   rra_xff : float;           (** proportion of missing pdps at which we mark the cdp as unknown *)
-  rra_data: Fring.t array;   (** stored data *)
+  rra_data: Fring.t array;   (** Stored data, one ring per datasource *)
   rra_cdps : cdp_prep array; (** scratch area for consolidated datapoint preparation *)
 
   mutable rra_updatehook : (rrd -> int -> unit) option; (** Hook that gets called when an update happens *)
 }
 
-(** The container for the DSs. Also specifies the period between pdps *)
+(** The container for the DSs and RRAs. Also specifies the period between pdps *)
 
 and rrd = {
   mutable last_updated: float;  (** Last updated time in seconds *)
@@ -416,7 +425,7 @@ let rrd_create dss rras timestep inittime =
     and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
     correctly at the moment!
 
-    now = Unix.gettimeofday ()
+    @param now = Unix.gettimeofday ()
 *)
 
 let rrd_add_ds rrd now newds =
