@@ -657,7 +657,7 @@ let numa_hierarchy =
   Lazy.from_fun (fun () ->
       let distances = Xenctrlext.(with_xc numainfo).distances in
       let cpu_to_node = Xenctrlext.(with_xc cputopoinfo) |> Array.map (fun t -> t.node) in
-      NUMA.v ~distances ~cpu_to_node)
+      NUMA.make ~distances ~cpu_to_node)
 
 let numa_mutex = Mutex.create ()
 let numa_resources = ref None
@@ -683,17 +683,14 @@ let numa_placement domid ~vcpus ~memory =
         ListLabels.map2 (NUMA.nodes host |> List.of_seq) numa_meminfo ~f:(fun node m ->
             NUMA.resource host node ~memory:m.memfree)
       in
-      let vm = NUMARequest.v ~memory ~vcpus in
+      let vm = NUMARequest.make ~memory ~vcpus in
       let nodea = match !numa_resources with
         | None ->
-          let a = Array.of_list nodes in
-          numa_resources := Some a;
-          a
+          Array.of_list nodes
         | Some a ->
-          let a = Array.map2 NUMAResource.min_memory (Array.of_list nodes) a in
-          numa_resources := Some a;
-          a
+          Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
       in
+      numa_resources := Some nodea;
       Softaffinity.plan host nodea vm) in
   match hint with
   | None ->
@@ -760,9 +757,9 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
 
   if !Xenopsd.numa_placement then
     log_reraise (Printf.sprintf "NUMA placement") (fun () ->
-        if has_hard_affinity then begin
+        if has_hard_affinity then
           D.debug "VM has hard affinity set, skipping NUMA optimization"
-        end else begin
+        else
           let do_numa_placement () =
             numa_placement domid ~vcpus ~memory:(Int64.mul memory.xen_max_mib 1048576L)
           in
@@ -770,7 +767,6 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
             do_numa_placement ()
           else
             Xenops_utils.best_effort "NUMA placement" do_numa_placement
-        end
       );
   create_channels ~xc uuid domid
 

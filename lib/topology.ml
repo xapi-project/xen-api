@@ -38,8 +38,8 @@ end
 module NUMAResource = struct
   type t = {affinity: CPUSet.t; memfree: int64}
 
-  let v ~affinity ~memfree =
-    if Int64.compare memfree 0L < 0 then
+  let make ~affinity ~memfree =
+    if memfree < 0L then
       invalid_arg
         (Printf.sprintf "NUMAResource: memory cannot be negative: %Ld" memfree) ;
     {affinity; memfree}
@@ -47,7 +47,7 @@ module NUMAResource = struct
   let empty = {affinity= CPUSet.empty; memfree= 0L}
 
   let union a b =
-    v
+    make
       ~affinity:(CPUSet.union a.affinity b.affinity)
       ~memfree:(Int64.add a.memfree b.memfree)
 
@@ -63,7 +63,7 @@ end
 module NUMARequest = struct
   type t = {memory: int64; vcpus: int}
 
-  let v ~memory ~vcpus =
+  let make ~memory ~vcpus =
     if Int64.compare memory 0L < 0 then
       invalid_arg
         (Printf.sprintf "NUMARequest: memory must be > 0: %Ld" memory) ;
@@ -76,7 +76,7 @@ module NUMARequest = struct
     && CPUSet.(cardinal available.NUMAResource.affinity >= requested.vcpus)
 
   let shrink a b =
-    v
+    make
       ~memory:(max 0L (Int64.sub a.memory b.NUMAResource.memfree))
       ~vcpus:(max 0 (a.vcpus - CPUSet.cardinal b.NUMAResource.affinity))
 
@@ -124,7 +124,7 @@ module NUMA = struct
   module NodeMap = Map.Make (struct
     type t = node
 
-    let compare (Node a) (Node b) = b - a
+    let compare (Node a) (Node b) = compare a b
   end)
 
   (* no mutation is exposed in the interface,
@@ -187,7 +187,7 @@ module NUMA = struct
 
   let pp_dump_distances = Fmt.(int |> Dump.array |> Dump.array)
 
-  let v ~distances ~cpu_to_node =
+  let make ~distances ~cpu_to_node =
     debug "Distances: %s" (Fmt.to_to_string pp_dump_distances distances) ;
     debug "CPU2Node: %s" (Fmt.to_to_string Fmt.(Dump.array int) cpu_to_node) ;
     let node_cpus = Array.map (fun _ -> CPUSet.empty) distances in
@@ -234,7 +234,7 @@ module NUMA = struct
 
   let resource t node ~memory =
     let affinity = cpuset_of_node t node in
-    NUMAResource.v ~affinity ~memfree:memory
+    NUMAResource.make ~affinity ~memfree:memory
 
   let candidates t = t.candidates
 

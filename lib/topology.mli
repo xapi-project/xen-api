@@ -32,8 +32,8 @@ module NUMAResource : sig
   type t = private {affinity: CPUSet.t; memfree: int64}
   (** A NUMA node providing CPU and memory resources *)
 
-  val v : affinity:CPUSet.t -> memfree:int64 -> t
-  (** [v ~affinity ~memfree] constructs a resource requiring
+  val make : affinity:CPUSet.t -> memfree:int64 -> t
+  (** [make ~affinity ~memfree] constructs a resource requiring
    * affinity to be non-empty and memfree to be > 0.
    * A zero request is allowed due to [shrink].
    * *)
@@ -55,8 +55,8 @@ module NUMARequest : sig
   type t = private {memory: int64; vcpus: int}
   (** A (VM) requesting resources *)
 
-  val v : memory:int64 -> vcpus:int -> t
-  (**[v ~memory ~vcpus] constructs a request.
+  val make : memory:int64 -> vcpus:int -> t
+  (**[make ~memory ~vcpus] constructs a request.
    * [memory] and [vcpus] must be strictly positive. *)
 
   val fits : t -> NUMAResource.t -> bool
@@ -83,8 +83,8 @@ module NUMA : sig
    * *)
   type node = private Node of int
 
-  val v : distances:int array array -> cpu_to_node:int array -> t
-  (** [v distances cpu_to_node] stores the topology.
+  val make : distances:int array array -> cpu_to_node:int array -> t
+  (** [make distances cpu_to_node] stores the topology.
    * [distances] is a square matrix [d] where [d.(i).(j)] is an approximation
    * to how much slower it is to access memory from node [j] when running on node [i].
    * Distances are normalized to 10, [d.(i).(i)] must equal to 10,
@@ -108,7 +108,7 @@ module NUMA : sig
    *  10 21
    *  21 10
    *
-   * A more complicated assymetric distance matrix:
+   * A more complicated distance matrix where nodes 0,1,4 are a better choice than 0,1,2:
    *  10 16 16 22 16 22 16 22
    *  16 10 22 16 16 22 22 17
    *  16 22 10 16 16 16 16 16

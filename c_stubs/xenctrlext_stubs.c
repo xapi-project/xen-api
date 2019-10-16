@@ -215,10 +215,7 @@ static int get_cpumap_len(value xch, value cpumap)
 	int ml_len = Wosize_val(cpumap);
 	int xc_len = xc_get_max_cpus(_H(xch));
 
-	if (ml_len < xc_len)
-		return ml_len;
-	else
-		return xc_len;
+	return (ml_len < xc_len ? ml_len : xc_len);
 }
 
 CAMLprim value stub_xenctrlext_vcpu_setaffinity_soft(value xch, value domid,
