@@ -366,18 +366,6 @@ let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
 let ds_names rrd =
   Array.to_list (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)
 
-(** Return the last updated values along with the names of the dss, from the ith rra *)
-let get_last_values rrd i =
-  let ds_names = Array.map (fun ds -> ds.ds_name) rrd.rrd_dss in
-  let rra_values = Array.map (fun ring -> Fring.top ring) rrd.rrd_rras.(i).rra_data in
-  let values = Array.mapi (fun i ds -> (ds,rra_values.(i))) ds_names in
-  let data = ("t",rrd.last_updated)::(Array.to_list values) in
-  data
-
-(** Return the last raw DS values as a (string * float) list *)
-let get_last_ds_values rrd =
-  Array.fold_left (fun acc ds -> (ds.ds_name, ds.ds_last)::acc) [] rrd.rrd_dss
-
 (** create an rra structure *)
 let rra_create cf row_cnt pdp_cnt xff =
   {
