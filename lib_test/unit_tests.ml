@@ -34,7 +34,7 @@ let assert_cdp_prep_equal c1 c2 =
   Alcotest.(check int) __LOC__ c1.cdp_unknown_pdps c2.cdp_unknown_pdps
 
 let assert_fring_equal f1 f2 =
-  for i=0 to f1.Fring.size - 1 do
+  for i=0 to Fring.length f1 - 1 do
     let peek1 = Fring.peek f1 i in
     let peek2 = Fring.peek f2 i in
     Alcotest.check (float @@ tolerance peek1) "FRing value" peek1 peek2;
