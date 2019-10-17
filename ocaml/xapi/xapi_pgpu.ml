@@ -362,4 +362,22 @@ let mxgpu_vf_setup ~__context =
   ignore (Forkhelpers.execute_command_get_output !Xapi_globs.modprobe_path ["gim"]);
   (* Update the gpus even if the module was present already, in case it was
    * already loaded before xapi was (re)started. *)
-  Xapi_pci.update_pcis ~__context;
+  Xapi_pci.update_pcis ~__context
+
+(* This must be run LOCALLY on the host that is about to start a VM that is
+ * going to use a vgpu backed by an nvidia pgpu. *)
+let nvidia_vf_setup ~__context ~pf ~enable =
+  let script  = !Xapi_globs.nvidia_sriov_manage_script in
+  let enable' = if enable then "-e" else "-d" in
+  if Sys.file_exists script then begin
+    let id =
+      if pf = Ref.null then "ALL" else Db.PCI.get_pci_id ~__context ~self:pf in
+      ignore (Forkhelpers.execute_command_get_output script [enable'; id]);
+    (* Update the gpus even if the VFs were present already, in case they were
+     * already created before xapi was (re)started. *)
+    Xapi_pci.update_pcis ~__context
+  end else begin
+    error "nvdia_vf_setup %s does not exist" script;
+    raise Api_errors.(Server_error
+      (internal_error, [Printf.sprintf "Can't locate %s" script]))
+  end

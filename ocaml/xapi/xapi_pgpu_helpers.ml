@@ -175,7 +175,7 @@ let assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~ho
   in
   match vgpu_impl ~__context vgpu with
   | `passthrough | `gvt_g | `mxgpu -> ()
-  | `nvidia ->
+  | `nvidia | `nvidia_sriov ->
     test_nvidia_compatibility vgpu pgpu
 
 
@@ -219,7 +219,7 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
   let test_compatibility vgpu pgpus =
     match vgpu_impl ~__context vgpu with
     | `passthrough | `gvt_g | `mxgpu -> ()
-    | `nvidia ->
+    | `nvidia | `nvidia_sriov ->
       Db.VGPU.get_GPU_group ~__context ~self:vgpu
       |> fun self -> Db.GPU_group.get_GPU_types ~__context ~self
                      |> fun pgpu_types -> get_first_suitable_pgpu pgpu_types vgpu pgpus
@@ -233,7 +233,7 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
   List.iter (fun (vgpu, gpu_group) ->
       match vgpu_impl ~__context vgpu with
       | `passthrough | `gvt_g | `mxgpu -> ()
-      | `nvidia -> begin
+      | `nvidia | `nvidia_sriov -> begin
           let pgpus = get_pgpus_of_gpu_group gpu_group in
           match pgpus with
           | [] ->

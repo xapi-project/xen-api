@@ -213,11 +213,17 @@ let update_pcis ~__context =
     let rec update = function
       | [] -> ()
       | (pref, prec, pci, _) :: remaining ->
-        let dependencies = List.map
-            (fun address ->
+        let dependencies =
+          try
+            pci.related |> List.map
+              (fun address ->
                let r, _, _, _ = List.find (fun (_, rc, _, _) -> rc.Db_actions.pCI_pci_id = address) pfs
                in r)
-            pci.related
+          with Not_found ->
+            let msg = Printf.sprintf
+              "failed to update PCI dependencies for %s (%s)"
+              (Ref.string_of pref) __LOC__ in
+            raise Api_errors.(Server_error (internal_error,[msg]))
         in
         Db.PCI.set_dependencies ~__context ~self:pref ~value:dependencies;
         update remaining

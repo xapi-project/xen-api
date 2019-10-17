@@ -56,7 +56,10 @@ module Nvidia = struct
 
   (** [is_nvidia] is true, if [vgpu] is an NVIDIA vGPU *)
   let is_nvidia ~__context ~vgpu =
-    vgpu_impl ~__context vgpu = `nvidia
+    match vgpu_impl ~__context vgpu with
+    | `nvidia       -> true
+    | `nvidia_sriov -> true
+    | _ -> false
 
   (** [reason_to_string] turns an incompatibility reason into a string
    * for reporting it in an error message *)
@@ -105,7 +108,7 @@ module Nvidia = struct
     match vgpu_impl ~__context vgpu with
     | `passthrough | `gvt_g | `mxgpu ->
       debug "Skipping, vGPU %s implementation for VM %s is not Nvidia" (Ref.string_of vgpu) (Ref.string_of vm)
-    | `nvidia ->
+    | `nvidia | `nvidia_sriov ->
       let local_pgpu_address =
         Db.VGPU.get_resident_on ~__context ~self:vgpu
         |> (fun self -> Db.PGPU.get_PCI ~__context ~self)

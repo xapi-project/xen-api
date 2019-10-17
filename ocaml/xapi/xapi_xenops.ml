@@ -353,6 +353,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         |false -> true
       end;
       vncterm_ip = None (*None PR-1255*);
+      pci_passthrough = List.mem_assoc "pci" vm.API.vM_other_config;
     }
   in
 
@@ -366,6 +367,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         |false -> true
       end;
       vncterm_ip = None (*None PR-1255*);
+      pci_passthrough = List.mem_assoc "pci" vm.API.vM_other_config;
     }
   in
   match Helpers.(check_domain_type vm.API.vM_domain_type, boot_method_of_vm ~__context ~vm) with
@@ -659,6 +661,25 @@ module MD = struct
       fn = 0;
     }
 
+  (** Return the virtual function (VF) for a VGPU operated in SR-IOV
+   * mode, or None otherwise. In particular, return None when a VGPU
+   * is passed trough completely.
+   *)
+  let sriov_vf ~__context vgpu =
+    let is_sriov () =
+      let ty = vgpu.Db_actions.vGPU_type in
+      match Db.VGPU_type.get_implementation ~__context ~self:ty with
+      | `nvidia_sriov -> true
+      | _             -> false in
+    match vgpu.Db_actions.vGPU_PCI with
+    | pci when pci = Ref.null -> None
+    | pci when not (Db.is_valid_ref __context pci) -> None
+    | _   when not @@ is_sriov () -> None
+    | pci ->
+        Db.PCI.get_pci_id ~__context ~self:pci
+        |> fun str -> Xenops_interface.Pci.address_of_string str
+        |> fun addr -> Some addr
+
   let of_nvidia_vgpu ~__context vm vgpu =
     let open Vgpu in
     (* Get the PCI address. *)
@@ -683,6 +704,7 @@ module MD = struct
       id = (vm.API.vM_uuid, vgpu.Db_actions.vGPU_device);
       position = int_of_string vgpu.Db_actions.vGPU_device;
       physical_pci_address;
+      virtual_pci_address = sriov_vf ~__context vgpu;
       implementation;
     }
 
@@ -714,6 +736,7 @@ module MD = struct
         position = int_of_string vgpu.Db_actions.vGPU_device;
         physical_pci_address;
         implementation;
+        virtual_pci_address = sriov_vf ~__context vgpu;
       }
     with
     | Not_found -> failwith "Intel GVT-g settings not specified"
@@ -742,6 +765,7 @@ module MD = struct
         position = int_of_string vgpu.Db_actions.vGPU_device;
         physical_pci_address;
         implementation;
+        virtual_pci_address = sriov_vf ~__context vgpu;
       }
     with
     | Not_found -> failwith "AMD MxGPU settings not specified"
@@ -759,7 +783,7 @@ module MD = struct
           match implementation with
           (* Passthrough VGPUs are dealt with in pcis_of_vm. *)
           | `passthrough -> acc
-          | `nvidia ->
+          | `nvidia | `nvidia_sriov ->
             (of_nvidia_vgpu ~__context vm vgpu_record) :: acc
           | `gvt_g ->
             (of_gvt_g_vgpu ~__context vm vgpu_record) :: acc
@@ -1964,15 +1988,9 @@ let update_pci ~__context id =
 
           let pci, _ = List.find (fun (_, pcir) -> pcir.API.pCI_pci_id = (snd id)) pcirs in
 
-          (* Assumption: a VM can have only one vGPU *)
-          let vgpu_opt =
-            let pci_class = Db.PCI.get_class_id ~__context ~self:pci in
-            if Xapi_pci.(is_class_of_kind Display_controller @@ int_of_id pci_class)
-            then
-              match Db.VM.get_VGPUs ~__context ~self:vm with
-              | vgpu :: _ -> Some vgpu
-              | _ -> None
-            else None in
+          let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
+          let eq vgpu = Db.VGPU.get_PCI ~__context ~self:vgpu = pci in
+          let vgpu_opt = List.find_opt eq vgpus in
           let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
           Opt.iter
             (fun (_, state) ->

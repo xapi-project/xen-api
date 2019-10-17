@@ -4780,6 +4780,11 @@ module VGPU = struct
         field ~qualifier:DynamicRO ~ty:(Ref _pgpu) ~lifecycle:[Published, rel_dundee, ""] "scheduled_to_be_resident_on" "The PGPU on which this VGPU is scheduled to run" ~default_value:(Some (VRef null_ref));
         field ~qualifier:DynamicRO ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] ~default_value:(Some (VMap [])) "compatibility_metadata" "VGPU metadata to determine whether a VGPU can migrate between two PGPUs";
         field ~qualifier:RW ~ty:String ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) "extra_args" "Extra arguments for vGPU and passed to demu";
+        field ~qualifier:DynamicRO
+          ~ty:(Ref _pci)
+          ~lifecycle:[Published, rel_quebec, ""]
+          ~default_value:(Some (VRef null_ref))
+          "PCI" "Device passed trough to VM, either as full device or SR-IOV virtual function"
       ]
       ()
 end
@@ -4791,6 +4796,7 @@ module VGPU_type = struct
     Enum ("vgpu_type_implementation", [
         "passthrough", "Pass through an entire physical GPU to a guest";
         "nvidia", "vGPU using NVIDIA hardware";
+        "nvidia_sriov", "vGPU using NVIDIA hardware with SR-IOV";
         "gvt_g", "vGPU using Intel GVT-g";
         "mxgpu", "vGPU using AMD MxGPU";
       ])

@@ -36,6 +36,7 @@ module Identifier = struct
     psubdev_id : int option;
     vdev_id : int;
     vsubdev_id : int;
+    sriov: bool; (** true if SRIOV mode to be used *)
   }
 
   type gvt_g_id = {
@@ -86,7 +87,8 @@ module Identifier = struct
 
   let to_implementation : (t -> API.vgpu_type_implementation) = function
     | Passthrough -> `passthrough
-    | Nvidia _ -> `nvidia
+    | Nvidia {sriov = false;_} -> `nvidia
+    | Nvidia {sriov = true ;_} -> `nvidia_sriov
     | GVT_g _ -> `gvt_g
     | MxGPU _ -> `mxgpu
 end
@@ -396,10 +398,16 @@ module Vendor_nvidia = struct
     | E (_, _, [D d]) -> d
     | _ -> failwith "get_data: no data node"
 
+  type vgpu_type =
+    { max: int64
+    ; psubdev_id: int option
+    ; sriov: bool
+    }
+
   let find_supported_vgpu_types device_id pgpus =
     (*
       Input example:
-        <pgpu>
+        <pgpu hostVgpuMode="sriov">
           <devId vendorId="0x10de" deviceId="0x1BB4" subsystemVendorId="0x10de" subsystemId="0x0"></devId>
           <supportedVgpu vgpuId="72">
             <maxVgpus>16</maxVgpus>
@@ -420,10 +428,20 @@ module Vendor_nvidia = struct
           if id = 0 then None else Some id
         in
         let vgpus = find_by_name "supportedVgpu" pgpu in
+        let sriov =
+          match get_attr "hostVgpuMode" pgpu with
+          | "sriov" -> true
+          | other ->
+              warn "NVidia VGPU hostVgpuMode='%s' unrecognized" other;
+              false
+          | exception Not_found -> false
+          | exception e ->
+              warn "find_supported_vgpu_types %s (%s)" (Printexc.to_string e) __LOC__;
+              false in
         Some (List.map (fun vgpu ->
           let id = get_attr "vgpuId" vgpu in
           let max = Int64.of_string (get_data (find_one_by_name "maxVgpus" vgpu)) in
-          id, (max, psubdev_id)
+          id, {max; psubdev_id; sriov}
         ) vgpus)
       else
         None
@@ -447,9 +465,16 @@ module Vendor_nvidia = struct
     let driver_supports_multiple_vgpus = host_driver_supports_multi_vgpu ~host_driver_version
       ~supported_versions:!Xapi_globs.nvidia_multi_vgpu_enabled_driver_versions in
     List.filter_map (fun vgpu_type ->
+      let is_sriov id =
+        try (* IDs of T4 cards *)
+          List.mem (int_of_string id)
+            [230; 231; 232; 233; 234; 225; 226;
+             227; 228; 229; 222; 252; 223; 224]
+        with Failure _ -> false
+      in
       let id = get_attr "id" vgpu_type in
       if List.mem_assoc id vgpu_ids then
-        let max_instance, psubdev_id = List.assoc id vgpu_ids in
+        let {max = max_instance; psubdev_id; sriov} = List.assoc id vgpu_ids in
         let framebufferlength = Int64.of_string (get_data (find_one_by_name "framebuffer" vgpu_type)) in
         let num_heads = Int64.of_string (get_data (find_one_by_name "numHeads" vgpu_type)) in
         let max_x, max_y =
@@ -463,6 +488,10 @@ module Vendor_nvidia = struct
             psubdev_id;
             vdev_id = int_of_string (get_attr "deviceId" devid);
             vsubdev_id = int_of_string (get_attr "subsystemId" devid);
+            sriov = match !Xapi_globs.nvidia_t4_sriov with
+              | Xapi_globs.Nvidia_DEFAULT  -> sriov (* from XML *)
+              | Xapi_globs.Nvidia_T4_SRIOV -> is_sriov id (* true if T4 card *)
+              | Xapi_globs.Nvidia_LEGACY   -> false (* don't use SRIOV *)
           } in
         let file_path = whitelist in
         let type_id = id in
@@ -473,6 +502,7 @@ module Vendor_nvidia = struct
         let multi_vgpu_support = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
         let name = get_attr "name" vgpu_type in
         info "Getting multiple vGPU supported from config file: %Ld, model: %s" multi_vgpu_support name;
+        info "NVIDIA GPU name=%s id=%s sriov=%b" name id sriov;
         let compatible_model_names_in_vm, compatible_model_names_on_pgpu =
           match multi_vgpu_support, driver_supports_multiple_vgpus with
           | 1L, true -> [name], [name]
@@ -756,6 +786,7 @@ module Nvidia_compat = struct
           psubdev_id;
           vdev_id;
           vsubdev_id;
+          sriov = false;
         })
       )
     with e ->
@@ -819,4 +850,5 @@ let requires_passthrough ~__context ~self =
   match Db.VGPU_type.get_implementation ~__context ~self with
   | `passthrough     -> Some `PF (* Requires passthough of a physical function (entire device) *)
   | `mxgpu           -> Some `VF (* Requires passthough of a virtual function (SR-IOV) *)
+  | `nvidia_sriov    -> Some `VF (* Requires passthough of a virtual function (SR-IOV) *)
   | `nvidia | `gvt_g -> None     (* Does not require any passthrough *)

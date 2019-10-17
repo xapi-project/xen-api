@@ -432,10 +432,6 @@ let pass_through_pif_carrier_key = "pass_through_pif_carrier"
 (* Don't pass through PIF carrier information by default *)
 let pass_through_pif_carrier = ref false
 
-(* Remember the specific PCI devices needed for GPU passthrough *)
-let vgpu_pci = "vgpu_pci"
-
-
 let vgpu_type_id = "type_id"
 
 let igd_passthru_key = "igd_passthrough"
@@ -765,6 +761,8 @@ let disable_logging_for= ref []
 
 let nvidia_whitelist = ref "/usr/share/nvidia/vgpu/vgpuConfig.xml"
 
+let nvidia_sriov_manage_script = ref "/usr/lib/nvidia/sriov-manage"
+
 let igd_passthru_vendor_whitelist = ref []
 
 let gvt_g_whitelist = ref "/etc/gvt-g-whitelist"
@@ -897,6 +895,13 @@ let accept_sm_plugin name =
 let nvidia_multi_vgpu_enabled_driver_versions = ref ["430.19";"430.42";"440.00+"]
 let nvidia_default_host_driver_version = "0.0"
 
+type nvidia_t4_sriov =
+  | Nvidia_T4_SRIOV
+  | Nvidia_LEGACY
+  | Nvidia_DEFAULT
+
+let nvidia_t4_sriov = ref Nvidia_DEFAULT
+
 let other_options = [
   gen_list_option "sm-plugins"
     "space-separated list of storage plugins to allow."
@@ -990,6 +995,19 @@ let other_options = [
   "nvidia_multi_vgpu_enabled_driver_versions", Arg.String (fun x -> nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x),
   (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions), "list of nvidia host driver versions with multiple vGPU supported.
   if a version end with +, it means any driver version greater or equal than that version";
+
+  "nvidia_t4_sriov",
+  Arg.String (function
+  | "true"  | "on"  | "1" -> nvidia_t4_sriov := Nvidia_T4_SRIOV
+  | "false" | "off" | "0" -> nvidia_t4_sriov := Nvidia_LEGACY
+  | "default" | "xml" | _ -> nvidia_t4_sriov := Nvidia_DEFAULT),
+  ( fun () -> match !nvidia_t4_sriov with
+  | Nvidia_DEFAULT  -> "default - Infer NVidia GPU addressing mode from vgpuConfig.xml"
+  | Nvidia_LEGACY   -> "false - Use legacy mode for NVidia GPU addressing"
+  | Nvidia_T4_SRIOV -> "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise"
+  ),
+  "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'.";
+
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1057,7 +1075,8 @@ module Resources = struct
     "firewall-port-config", firewall_port_config_script, "Executed when starting/stopping xapi-clusterd to configure firewall port";
     "nbd_client_manager", nbd_client_manager_script, "Executed to safely connect to and disconnect from NBD devices using nbd-client";
     "varstore-rm", varstore_rm, "Executed to clear certain UEFI variables during clone";
-    "varstore_dir", varstore_dir, "Path to local varstored directory"
+    "varstore_dir", varstore_dir, "Path to local varstored directory";
+    "nvidia-sriov-manage", nvidia_sriov_manage_script, "Path to NVIDIA sriov-manage script"
   ]
   let essential_files = [
     "pool_config_file", pool_config_file, "Pool configuration file";

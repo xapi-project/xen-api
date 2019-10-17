@@ -222,37 +222,58 @@ let detach_local_network_for_vm ~__context ~vm ~destination =
   * the pGPU is released and getting the PCI will fail.
   * *)
 let infer_vgpu_map ~__context ?remote vm =
+  let vf_device_of x = "vf:"^x in
   match remote with
   | None ->
-    let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
-    List.map (fun self ->
-        let vgpu = Db.VGPU.get_record ~__context ~self in
-        let device = vgpu.API.vGPU_device in
-        let pci () =
-          vgpu.API.vGPU_scheduled_to_be_resident_on
-          |> fun self -> Db.PGPU.get_PCI ~__context ~self
-                         |> fun self -> Db.PCI.get_pci_id ~__context ~self
-                                        |> Xenops_interface.Pci.address_of_string
-        in
-        try
-          device, pci ()
-        with e -> raise (VGPU_mapping(Printexc.to_string e))
-      ) vgpus
+    let f vgpu =
+      let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
+      let pf () =
+        vgpu.API.vGPU_scheduled_to_be_resident_on
+        |> fun self -> Db.PGPU.get_PCI ~__context ~self
+        |> fun self -> Db.PCI.get_pci_id ~__context ~self
+        |> Xenops_interface.Pci.address_of_string in
+      let vf () =
+        vgpu.API.vGPU_PCI
+        |> fun self -> Db.PCI.get_pci_id ~__context ~self
+        |> Xenops_interface.Pci.address_of_string in
+      let pf_device = vgpu.API.vGPU_device in
+      let vf_device = vf_device_of pf_device in
+      if vgpu.API.vGPU_PCI <> API.Ref.null then
+        [ pf_device, pf ()
+        ; vf_device, vf ()
+        ]
+      else
+        [ pf_device, pf () ]
+    in
+    begin try
+      Db.VM.get_VGPUs ~__context ~self:vm |> List.map f |> List.concat
+      with e -> raise (VGPU_mapping(Printexc.to_string e))
+    end
   | Some {rpc; session} ->
-    let vgpus = XenAPI.VM.get_VGPUs rpc session vm in
-    List.map (fun self ->
-        let vgpu = XenAPI.VGPU.get_record rpc session self in
-        let device = vgpu.API.vGPU_device in
-        let pci () =
-          vgpu.API.vGPU_scheduled_to_be_resident_on
-          |> fun self -> XenAPI.PGPU.get_PCI rpc session self
-                         |> fun self -> XenAPI.PCI.get_pci_id rpc session self
-                                        |> Xenops_interface.Pci.address_of_string
-        in
-        try
-          device, pci ()
-        with e -> raise (VGPU_mapping(Printexc.to_string e))
-      ) vgpus
+    let f vgpu =
+      let vgpu = XenAPI.VGPU.get_record rpc session vgpu in
+      let pf () =
+        vgpu.API.vGPU_scheduled_to_be_resident_on
+        |> fun self -> XenAPI.PGPU.get_PCI rpc session self
+        |> fun self -> XenAPI.PCI.get_pci_id rpc session self
+        |> Xenops_interface.Pci.address_of_string in
+      let vf () =
+        vgpu.API.vGPU_PCI
+        |> fun self -> XenAPI.PCI.get_pci_id rpc session self
+        |> Xenops_interface.Pci.address_of_string in
+      let pf_device = vgpu.API.vGPU_device in
+      let vf_device = vf_device_of pf_device in
+      if vgpu.API.vGPU_PCI <> API.Ref.null then
+        [ pf_device, pf ()
+        ; vf_device, vf ()
+        ]
+      else
+        [ pf_device, pf () ]
+    in
+    begin try
+      XenAPI.VM.get_VGPUs rpc session vm |> List.map f |> List.concat
+      with e -> raise (VGPU_mapping(Printexc.to_string e))
+    end
 
 let pool_migrate ~__context ~vm ~host ~options =
   Pool_features.assert_enabled ~__context ~f:Features.Xen_motion;

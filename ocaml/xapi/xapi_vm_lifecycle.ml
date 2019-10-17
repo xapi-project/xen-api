@@ -239,12 +239,6 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
   in
   Some (Api_errors.other_operation_in_progress,["VM." ^ current_ops_str; ref_str])
 
-(* Suspending, checkpointing and live-migrating are not (yet) allowed if a PCI device is passed through *)
-let check_pci ~op ~ref_str =
-  match op with
-  | `suspend | `checkpoint | `pool_migrate | `migrate_send -> Some (Api_errors.vm_has_pci_attached, [ref_str])
-  | _ -> None
-
 let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   let is_migratable vgpu =
     try
@@ -266,7 +260,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
     Db.VGPU.get_type ~__context ~self:vgpu
     |> fun self -> Db.VGPU_type.get_implementation ~__context ~self
     |> function
-    | `nvidia ->
+    | `nvidia | `nvidia_sriov ->
       let pgpu = Db.VGPU.get_resident_on ~__context ~self:vgpu in
       Db.is_valid_ref __context pgpu &&
       (Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
@@ -353,6 +347,17 @@ let maybe_get_guest_metrics ~__context ~ref =
   if Db.is_valid_ref __context ref
   then Some (Db.VM_guest_metrics.get_record_internal ~__context ~self:ref)
   else None
+
+(* PCI devices that belong to NVIDIA SRIOV cards *)
+let nvidia_sriov_pcis ~__context vgpus =
+  vgpus
+  |> List.filter_map (fun vgpu -> Db.VGPU.get_type ~__context ~self:vgpu
+    |> fun typ -> Db.VGPU_type.get_implementation ~__context ~self:typ
+    |> function
+      | `nvidia_sriov ->
+          let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
+          if Db.is_valid_ref __context pci then Some pci else None
+      | _ -> None)
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -493,10 +498,16 @@ let check_operation_error ~__context ~ref =
       else None) in
 
   (* If a PCI device is passed-through, check if the operation is allowed *)
-  let current_error = check current_error (fun () ->
-      if vmr.Db_actions.vM_attached_PCIs <> []
-      then check_pci ~op ~ref_str
-      else None) in
+  let current_error = check current_error @@ fun () ->
+    let sriov_pcis = nvidia_sriov_pcis ~__context vmr.Db_actions.vM_VGPUs in
+    let is_not_sriov pci = not @@ List.mem pci sriov_pcis in
+    let pcis = vmr.Db_actions.vM_attached_PCIs in
+    match op with
+    | `suspend | `checkpoint | `pool_migrate | `migrate_send
+      when List.exists is_not_sriov pcis ->
+        Some (Api_errors.vm_has_pci_attached, [ref_str])
+    | _ -> None
+  in
 
   (* The VM has a VGPU, check if the operation is allowed*)
   let current_error = check current_error (fun () ->
@@ -611,10 +622,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif))
       (Db.VM.get_VIFs ~__context ~self);
     List.iter
-      (fun pci ->
-         Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
-      (Db.VM.get_attached_PCIs ~__context ~self);
-    List.iter
       (fun vgpu ->
          Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:false;
          let keys = Db.VGPU.get_compatibility_metadata ~__context ~self:vgpu in
@@ -660,7 +667,13 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
     |> List.iter (fun vgpu ->
         Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null;
         Db.VGPU.set_scheduled_to_be_resident_on
-          ~__context ~self:vgpu ~value:Ref.null)
+          ~__context ~self:vgpu ~value:Ref.null;
+        Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null);
+    (* release PCIs *)
+    List.iter
+      (fun pci ->
+         Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
+      (Db.VM.get_attached_PCIs ~__context ~self);
   end;
 
   Db.VM.set_power_state ~__context ~self ~value:state;
