@@ -101,7 +101,7 @@ let test_marshall_unmarshall rrd () =
   assert_rrds_equal rrd rrd';
   Unix.unlink filename
 
-let create_gauge_rrd () =
+let gauge_rrd =
   let rra = rra_create CF_Average 100 1 0.5 in
   let rra2 = rra_create CF_Average 100 10 0.5 in
   let rra3 = rra_create CF_Average 100 100 0.5 in
@@ -142,7 +142,7 @@ let ca_322008_rrd =
   rrd
 
 
-let ca_329043_rrd =
+let ca_329043_rrd_1 =
   let init_time = 0. in
 
   let rra1 = rra_create CF_Average 3 1 0.5 in
@@ -167,6 +167,31 @@ let ca_329043_rrd =
   done;
   rrd
 
+let create_rrd values min max =
+
+    let init_time = 0. in
+    let rows = 2 in
+
+    let rra1 = rra_create CF_Average rows 1 0.5 in
+    let rra2 = rra_create CF_Min     rows 1 0.5 in
+    let rra3 = rra_create CF_Max     rows 1 0.5 in
+    let rra4 = rra_create CF_Last    rows 1 0.5 in
+    let ds1 = ds_create "derive" ~min ~max Derive VT_Unknown in
+    let ds2 = ds_create "absolute" ~min ~max Derive VT_Unknown in
+    let ds3 = ds_create "gauge" ~min ~max Derive VT_Unknown in
+
+    let rrd = rrd_create [|ds1; ds2; ds3|] [|rra1; rra2; rra3; rra4|] 5L init_time in
+
+    let id = fun x -> x in
+
+    List.iteri (fun i v ->
+      let t = 5. *. (init_time +. float_of_int i) in
+      ds_update rrd t [|VT_Int64 v|] [|id; id; id; id|] (i = 0)
+    ) values;
+    rrd
+
+let ca_329043_rrd_2 = create_rrd [-3710420213458133667L; -4382108469022348614L] (-115833951388699606673086965578224992861890232359671476890007240704.000000) (-13815257.710330)
+
 let test_ca_322008 () =
   let rrd = ca_322008_rrd in
 
@@ -179,7 +204,6 @@ let test_ca_322008 () =
     List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) @@ Array.to_list rrd.rrd_rras
 
-let gauge_rrd = create_gauge_rrd ()
 
 let rrd_suite rrd = [
   "Save xml to disk", `Quick, test_marshall ~json:false rrd;
@@ -191,12 +215,14 @@ let rrd_suite rrd = [
 
 let regression_suite = [
   "CA-322008", `Quick, test_ca_322008;
+  "CA-329043 (1)", `Quick, test_ranges ca_329043_rrd_1;
+  "CA-329043 (2)", `Quick, test_ranges ca_329043_rrd_2;
 ]
 
 let () =
   Alcotest.run "Test RRD library" [
     "Gauge RRD", rrd_suite gauge_rrd;
     "RRD for CA-322008", rrd_suite ca_322008_rrd;
-    "RRD for CA-329043", rrd_suite ca_329043_rrd;
+    "RRD for CA-329043", rrd_suite ca_329043_rrd_1;
     "Regressions", regression_suite;
   ]
