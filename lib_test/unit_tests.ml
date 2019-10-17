@@ -59,11 +59,10 @@ let assert_rrds_equal r1 r2 =
 
 let in_range min max values =
   let between value =
-    if not (Utils.isnan value) then begin
+    if not (Utils.isnan value) then (
       Alcotest.(check bool) (Printf.sprintf "value (%f) higher than min (%f); " value min) true (min <= value);
-      Alcotest.(check bool) (Printf.sprintf "value (%f) lower than max (%f); " value max) true (max >= value)
-    end in
-  Alcotest.(check bool) (Printf.sprintf "min (%f) ≤ max (%f); " min max) true (min <= max);
+      Alcotest.(check bool) (Printf.sprintf "value (%f) ≤ max (%f); " value max) true (max >= value)
+    ) in
   List.iter between values
 
 let fring_to_list fring =
@@ -76,7 +75,11 @@ let test_ranges rrd () =
     in_range ds.ds_min ds.ds_max (fring_to_list fring) in
   let in_range_rra dss rra =
     List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
+  let range_is_not_empty ds =
+    Alcotest.(check bool) (Printf.sprintf "min (%f) < max (%f); " ds.ds_min ds.ds_max) true (ds.ds_min < ds.ds_max)
+  in
 
+  Array.iter range_is_not_empty rrd.rrd_dss;
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) (Array.to_list rrd.rrd_rras)
 
 let temp_rrd ~json () =
