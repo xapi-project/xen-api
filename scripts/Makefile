@@ -50,6 +50,7 @@ install:
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IPROG) generate-iscsi-iqn $(DESTDIR)$(LIBEXECDIR)/generate-iscsi-iqn
+	$(IPROG) network-init $(DESTDIR)$(LIBEXECDIR)/network-init
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
 	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
 	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
@@ -61,6 +62,7 @@ install:
 	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
 	$(IDATA) xapi-init-complete.target $(DESTDIR)/usr/lib/systemd/system/xapi-init-complete.target
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
+	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
