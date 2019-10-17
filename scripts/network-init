@@ -1,0 +1,119 @@
+#!/bin/bash
+###
+# Prepare networking from config files in data dir
+
+set -e
+
+export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
+export XENSOURCE_INVENTORY=/etc/xensource-inventory
+export XE=/opt/xensource/bin/xe
+
+source ${XENSOURCE_INVENTORY}
+
+MANAGEMENT_CONF=${FIRSTBOOT_DATA_DIR}/management.conf
+NETWORK_CONF=${FIRSTBOOT_DATA_DIR}/network.conf
+UPGRADE="false"
+[ -r ${FIRSTBOOT_DATA_DIR}/host.conf ] && . ${FIRSTBOOT_DATA_DIR}/host.conf
+
+pif_attached() {
+    local pif=$1
+    attached=$($XE pif-list params=currently-attached uuid=$pif --minimal)
+    managed=$($XE pif-list params=managed uuid=$pif --minimal)
+    test "$attached" == "true" || test "$managed" == "false"
+}
+
+prepare_networking() {
+    [ "$UPGRADE" = true ] && return 0
+
+    $XE pif-scan host-uuid=${INSTALLATION_UUID}
+
+    if [ -e ${MANAGEMENT_CONF} ] ; then
+        source ${MANAGEMENT_CONF}
+        if PHYSICAL_PIF="$($XE pif-list host-uuid=${INSTALLATION_UUID} device=${LABEL} params=uuid --minimal)" ; then
+            if [ ! -z "${VLAN}" ] ; then
+                VLAN_NETWORK="$($XE network-create name-label='Pool-wide network associated with '${LABEL}' on VLAN'${VLAN})"
+                VLAN_PIF="$($XE vlan-create pif-uuid=${PHYSICAL_PIF} network-uuid=${VLAN_NETWORK} vlan=${VLAN})"
+                PIF="${VLAN_PIF}"
+            else
+                PIF="${PHYSICAL_PIF}"
+            fi
+            case $MODE in
+                dhcp|none)
+                    $XE pif-reconfigure-ip uuid=${PIF} mode=${MODE} || true
+                    ;;
+                static)
+                    domain=`echo $DOMAIN | tr ' ' ','`
+                    $XE pif-reconfigure-ip uuid=${PIF} mode=static IP=${IP} netmask=${NETMASK} gateway=${GATEWAY} ${DNS+DNS=$DNS} || true
+                    [ $domain ] && $XE pif-param-set uuid=${PIF} other-config:domain=$domain || true
+                    ;;
+            esac
+            case $MODEV6 in
+                dhcp|none|autoconf)
+                    $XE pif-reconfigure-ipv6 uuid=${PIF} mode=${MODEV6} || true
+                    ;;
+                static)
+                    $XE pif-reconfigure-ipv6 uuid=${PIF} mode=static IPv6=${IPv6} gateway=${IPv6_GATEWAY} || true
+                    ;;
+            esac
+            if [ "${MANAGEMENT_ADDRESS_TYPE}" = "IPv6" ] ; then
+                    $XE host-management-disable
+                    $XE pif-set-primary-address-type uuid="${PIF}" primary_address_type=${MANAGEMENT_ADDRESS_TYPE}
+            fi
+            $XE host-management-reconfigure pif-uuid="${PIF}"
+        else
+            logger "Warning: cannot configure IP settings for management PIF with name ${LABEL}"
+        fi
+
+        unset MODE IP NETMASK GATEWAY DOMAIN PIF LABEL
+
+        # we now attempt to plug all PIFs that are not already plugged:
+        for pif in $($XE pif-list params=uuid --minimal | sed 's/,/ /g'); do
+            if ! pif_attached $pif; then
+                $XE pif-plug uuid=$pif || true
+            fi
+        done
+    fi
+}
+
+rename_network_label() {
+    # In common criteria certification deployment, user must ensure:
+    # - The 1st NIC (eth0) is for Management Network
+    # - The 2nd NIC (eth1) is for Storage Network
+    # - others (ethX, X>=2) is for Guest Network
+    # This function is to rename these network labels to appropriate.
+
+    if [ "${CC_PREPARATIONS}" != "true" ]; then
+        echo "Skipped common criteria settings"
+        return
+    fi
+
+    for device in $(ls /sys/class/net | grep -E '^eth[0-9]+$')
+    do
+        device_id=$(echo ${device} | sed 's/^eth//')
+        if [ ${device_id} -eq 0 ]; then
+            name_label="Management Network"
+        elif [ ${device_id} -eq 1 ]; then
+            name_label="Storage Network"
+        elif [ ${device_id} -ge 2 ]; then
+            name_label="Guest Network $((${device_id} - 2))"
+            pif_uuid=$(${XE} pif-list device=${device} params=uuid --minimal)
+            ${XE} pif-reconfigure-ip uuid="${pif_uuid}" mode=none
+        else
+            echo "Warning: found unsupported device ${device}"
+            continue
+        fi
+
+        network_uuid=$(${XE} pif-list device=${device} params=network-uuid --minimal)
+        ${XE} network-param-set uuid=${network_uuid} name-label="${name_label}"
+        echo "Renamed network label of ${network_uuid} to ${name_label}, device: ${device}"
+    done
+}
+
+prepare_networking
+rename_network_label
+
+# Ensure changes are synced to disk
+xe pool-sync-database
+
+touch /var/lib/misc/ran-network-init
+exit 0

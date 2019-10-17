@@ -1,0 +1,13 @@
+[Unit]
+Description=Prepare networking during first boot
+Requires=xapi.service xapi-init-complete.target
+After=xapi.service xapi-init-complete.target
+ConditionPathExists=!/var/lib/misc/ran-network-init
+
+[Service]
+Type=oneshot
+ExecStart=@LIBEXECDIR@/network-init
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
