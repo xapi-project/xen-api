@@ -1,4 +1,4 @@
-(executable
+(test
   (name unit_tests)
   (modules unit_tests)
   (libraries
@@ -9,7 +9,7 @@
     xapi-rrd.unix)
 )
 
-(executable
+(test
   (name crowbar_tests)
   (modules crowbar_tests)
   (libraries
@@ -18,10 +18,4 @@
     unix
     xapi-rrd
     xapi-rrd.unix)
-)
-
-(alias
-  (name runtest)
-  (deps (:x unit_tests.exe))
-  (action (run %{x}))
 )
