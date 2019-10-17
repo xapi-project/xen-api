@@ -1,0 +1,13 @@
+[Unit]
+Description=Initialize control domain parameters
+Requires=xapi.service xapi-init-complete.target
+After=xapi.service xapi-init-complete.target
+ConditionPathExists=!/var/lib/misc/ran-control-domain-params-init
+
+[Service]
+Type=oneshot
+ExecStart=@LIBEXECDIR@/control-domain-params-init
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
