@@ -634,19 +634,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
          end)
       (Db.VM.get_VGPUs ~__context ~self);
     List.iter
-      (fun pci ->
-         (* The following should not be necessary if many-to-many relations in the DB
-          * work properly. People have reported issues that may indicate that this is
-          * not the case, but we have not yet found the root cause. Therefore, the
-          * following code is there "just to be sure".*)
-         if List.mem self (Db.PCI.get_attached_VMs ~__context ~self:pci) then
-           Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self;
-         (* Clear any PCI device reservations for this VM. *)
-         if Db.PCI.get_scheduled_to_be_attached_to ~__context ~self:pci = self then
-           Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
-      )
-      (Db.PCI.get_all ~__context);
-    List.iter
       (fun vusb ->
          Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:false;
          Xapi_vusb_helpers.clear_current_operations ~__context ~self:vusb;
@@ -674,6 +661,19 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (fun pci ->
          Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
       (Db.VM.get_attached_PCIs ~__context ~self);
+    List.iter
+      (fun pci ->
+         (* The following should not be necessary if many-to-many relations in the DB
+          * work properly. People have reported issues that may indicate that this is
+          * not the case, but we have not yet found the root cause. Therefore, the
+          * following code is there "just to be sure".*)
+         if List.mem self (Db.PCI.get_attached_VMs ~__context ~self:pci) then
+           Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self;
+         (* Clear any PCI device reservations for this VM. *)
+         if Db.PCI.get_scheduled_to_be_attached_to ~__context ~self:pci = self then
+           Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
+      )
+      (Db.PCI.get_all ~__context);
   end;
 
   Db.VM.set_power_state ~__context ~self ~value:state;
