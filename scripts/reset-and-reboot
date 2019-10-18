@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Reset and reboot the host. Called by XAPI to finish a pool.eject operation.
+# State files and the UPGRADE=true flag (if it exists) are removed so that
+# network, storage, and all one-time initialization scripts are rerun after
+# reboot.
+
+export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
+
+grep -sv '^UPGRADE=' ${FIRSTBOOT_DATA_DIR}/host.conf >/tmp/host.conf.$$
+rm -f ${FIRSTBOOT_DATA_DIR}/host.conf
+[ -s /tmp/host.conf.$$ ] && mv -f /tmp/host.conf.$$ ${FIRSTBOOT_DATA_DIR}/host.conf
+rm -f /tmp/host.conf.$$
+
+# CA-21443: restore initial management interface configuration
+if [ -d /etc/firstboot.d/data/initial-ifcfg ] ; then
+    if [ -r /etc/firstboot.d/data/initial-ifcfg/network.dbcache ] ; then
+        cp -fp /etc/firstboot.d/data/initial-ifcfg/network.dbcache /var/xen/network.dbcache
+    else
+        for f in /etc/sysconfig/network-scripts/ifcfg* ; do
+            [ -e $f -a $f != '/etc/sysconfig/network-scripts/ifcfg-lo' ] && rm -f $f
+        done
+        cp -fp /etc/firstboot.d/data/initial-ifcfg/* /etc/sysconfig/network-scripts
+    fi
+fi
+
+echo "Resetting state and rebooting"
+rm -f /var/lib/misc/ran-*
+/sbin/reboot
