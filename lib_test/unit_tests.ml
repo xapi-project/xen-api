@@ -101,6 +101,35 @@ let test_marshall_unmarshall rrd () =
   assert_rrds_equal rrd rrd';
   Unix.unlink filename
 
+let test_export rrd () =
+  let check_same_as_rras (updates : Rrd_updates.row array) (rras : Rrd.rra array) =
+    let cf_count = Array.length rras in
+    for i = 0 to cf_count - 1 do                                       (* consolidation functions *)
+      for j = 0 to Array.length rras.(0).Rrd.rra_data - 1 do           (* datasources *)
+        for k = 0 to Rrd_fring.length rras.(0).Rrd.rra_data.(0) - 1 do (* time datapoints *)
+          let update_value = updates.(k).Rrd_updates.row_data.(i + (j * cf_count)) in
+          let rra_value = Rrd_fring.peek rras.(i).Rrd.rra_data.(j) k in
+          compare_float (Printf.sprintf "CF: %d Datasource: %d datapoint: %d " i j k) update_value rra_value
+        done
+      done
+    done
+  in
+
+  let updates = Rrd_updates.(of_string @@ export  ["", rrd] 0L 5L None) in
+  check_same_as_rras updates.Rrd_updates.data rrd.rrd_rras
+
+let test_length_invariants rrd () =
+  let check_length_of_fring dss (frings: Rrd_fring.t array) =
+    Alcotest.(check int)
+      (Printf.sprintf "Number of elements in Datasource (%d) must be the same as Frings in a RRA (%d)"
+        (Array.length dss) (Array.length frings))
+      (Array.length dss) (Array.length frings)
+  in
+  let check_length dss rra =
+    check_length_of_fring dss rra.rra_data
+  in
+  Array.iter (check_length rrd.rrd_dss) rrd.rrd_rras
+
 let gauge_rrd =
   let rra = rra_create CF_Average 100 1 0.5 in
   let rra2 = rra_create CF_Average 100 10 0.5 in
@@ -133,6 +162,7 @@ let ca_322008_rrd =
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
 
   let id = fun x -> x in
+
   for i=1 to 100000 do
     let t = init_time +. float_of_int i in
     let t64 = Int64.of_float t in
@@ -172,10 +202,10 @@ let create_rrd values min max =
     let init_time = 0. in
     let rows = 2 in
 
-    let rra1 = rra_create CF_Average rows 1 0.5 in
-    let rra2 = rra_create CF_Min     rows 1 0.5 in
-    let rra3 = rra_create CF_Max     rows 1 0.5 in
-    let rra4 = rra_create CF_Last    rows 1 0.5 in
+    let rra1 = rra_create CF_Average rows 10 0.5 in
+    let rra2 = rra_create CF_Min     rows 10 0.5 in
+    let rra3 = rra_create CF_Max     rows 10 0.5 in
+    let rra4 = rra_create CF_Last    rows 10 0.5 in
     let ds1 = ds_create "derive" ~min ~max Derive VT_Unknown in
     let ds2 = ds_create "absolute" ~min ~max Derive VT_Unknown in
     let ds3 = ds_create "gauge" ~min ~max Derive VT_Unknown in
@@ -204,13 +234,13 @@ let test_ca_322008 () =
     List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) @@ Array.to_list rrd.rrd_rras
 
-
 let rrd_suite rrd = [
   "Save xml to disk", `Quick, test_marshall ~json:false rrd;
   "Save json to disk", `Quick, test_marshall ~json:true rrd;
   (* there is no json deserializer implementation *)
   "Save and restore from disk", `Quick, test_marshall_unmarshall rrd;
-  "Values in range",       `Quick, test_ranges rrd;
+  "Length invariants", `Quick, test_length_invariants rrd;
+  "Values in range", `Quick, test_ranges rrd;
 ]
 
 let regression_suite = [
