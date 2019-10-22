@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Xapi_fuse: Code to cause Xapi to commit not-completely-terminal hari-kiri *)
+(* Xapi_fuse: Code to cause Xapi to commit not-completely-terminal hara-kiri *)
 (* The watchdog catches the exit()s and restarts us *)
 
 module D = Debug.Make(struct let name="xapi_fuse" end)
