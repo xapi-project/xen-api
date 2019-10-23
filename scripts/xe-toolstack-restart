@@ -29,6 +29,16 @@ POOLCONF=`cat @ETCDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
 SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd $MPATHALERT xapi-storage-script"
 
+tmp_file=$(mktemp --suffix="xe-toolstack-restart")
+/opt/xensource/libexec/xapissl stop > $tmp_file 2>&1
+kill_stunnel_exit_code=$?
+if [[ $kill_stunnel_exit_code != 0 ]]; then
+  printf "\nFailed to kill stunnel processes! Output:\n"
+  cat $tmp_file
+  printf "\n"
+fi
+rm -f $tmp_file
+
 TO_RESTART=""
 for svc in $SERVICES ; do
 	# restart services only if systemd said they were enabled
