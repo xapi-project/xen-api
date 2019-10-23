@@ -104,7 +104,7 @@ module RX = struct
 end
 
 let handler sock msg =
-  Logs_lwt.debug (fun m -> m "Got msg: %s" msg) >>= fun () ->
+  Logs_lwt.debug (fun m -> m "Got msg: '%s'" msg) >>= fun () ->
   match Re.Str.(split @@ regexp "[:]") msg with
   | [protocol;_;path]
   | [protocol;path] when Re.Str.string_match RX.socket path 0 ->
@@ -115,7 +115,7 @@ let handler sock msg =
     let localhost = Unix.inet_addr_loopback in
     let addr = Unix.ADDR_INET(localhost, int_of_string sport) in
     proxy sock addr protocol
-  | _ -> Logs_lwt.warn (fun m -> m "Malformed msg: not proxying")
+  | _ -> Logs_lwt.warn (fun m -> m "The message '%s' is malformed: not proxying" msg)
 
 (* Reporter taken from
  * https://erratique.ch/software/logs/doc/Logs_lwt/index.html#report_ex
