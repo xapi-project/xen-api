@@ -145,8 +145,7 @@ let lwt_reporter () =
 
 let _ =
   Logs.set_reporter (lwt_reporter ());
-  (* Enable logging for all levels *)
-  Logs.set_level ~all:true (Some Logs.Debug);
+  Logs.set_level ~all:true (Some Logs.Info);
   let filename = "/var/run/wsproxy.pid" in
   (try Unix.unlink filename with _ -> ());
   Lwt_main.run begin
