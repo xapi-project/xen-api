@@ -968,7 +968,7 @@ let extauth_hook_script_name = Extauth.extauth_hook_script_name
 (* this special extauth plugin call is only used inside host.enable/disable extauth to avoid deadlock with the mutex *)
 let call_extauth_plugin_nomutex ~__context ~host ~fn ~args =
   let plugin = extauth_hook_script_name in
-  debug "Calling extauth plugin %s in host %s with event %s and params %s" plugin (Db.Host.get_name_label ~__context ~self:host) fn (List.fold_left (fun a (b,y)->a^"("^b^"="^y^"),") "" args);
+  debug "Calling extauth plugin %s in host %s with event %s" plugin (Db.Host.get_name_label ~__context ~self:host) fn;
   Xapi_plugins.call_plugin (Context.get_session_id __context) plugin fn args
 (* this is the generic extauth plugin call available to xapi users that avoids concurrency problems *)
 let call_extauth_plugin ~__context ~host ~fn ~args =

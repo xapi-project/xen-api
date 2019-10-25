@@ -1302,9 +1302,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       update_vif_operations ~__context ~vm
 
     let call_plugin ~__context ~vm ~plugin ~fn ~args =
-      let censor_kws = ["password"] in (* We could censor "username" too, but the current decision was to leave it there. *)
-      let argstrs = List.map (fun (k, v) -> Printf.sprintf "args:%s = '%s'" k (if List.exists (String.has_substr k) censor_kws then "(omitted)" else v)) args in
-      info "VM.call_plugin: VM = '%s'; plugin = '%s'; fn = '%s'; %s" (vm_uuid ~__context vm) plugin fn (String.concat "; " argstrs);
+      info "VM.call_plugin: VM = '%s'; plugin = '%s'; fn = '%s'; args = [ 'hidden' ]" (vm_uuid ~__context vm) plugin fn;
       let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
       with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin" ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately
         (fun () ->
@@ -2406,14 +2404,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.Host.create_new_blob ~__context ~host ~name ~mime_type ~public
 
     let call_plugin ~__context ~host ~plugin ~fn ~args =
-      let plugins_to_protect = [
-        "prepare_host_upgrade.py";
-      ] in
-      if List.mem plugin plugins_to_protect
-      then
-        info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s' args = [ 'hidden' ]" (host_uuid ~__context host) plugin fn
-      else
-        info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s'; args = [ %s ]" (host_uuid ~__context host) plugin fn (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) args));
+      info "Host.call_plugin host = '%s'; plugin = '%s'; fn = '%s' args = [ 'hidden' ]" (host_uuid ~__context host) plugin fn;
       let local_fn = Local.Host.call_plugin ~host ~plugin ~fn ~args in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.Host.call_plugin rpc session_id host plugin fn args)
