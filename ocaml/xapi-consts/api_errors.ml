@@ -609,7 +609,6 @@ let usb_group_contains_no_pusbs = "USB_GROUP_CONTAINS_NO_PUSBS"
 let usb_group_conflict = "USB_GROUP_CONFLICT"
 let usb_already_attached = "USB_ALREADY_ATTACHED"
 let too_many_vusbs = "TOO_MANY_VUSBS"
-let passthrough_not_enabled = "PASSTHROUGH_NOT_ENABLED"
 let pusb_vdi_conflict = "PUSB_VDI_CONFLICT"
 let vm_has_vusbs = "VM_HAS_VUSBS"
 
