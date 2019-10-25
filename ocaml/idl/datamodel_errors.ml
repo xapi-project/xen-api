@@ -305,7 +305,7 @@ let _ =
   error Api_errors.vm_is_protected [ "vm" ]
     ~doc:"This operation cannot be performed because the specified VM is protected by HA" ();
   error Api_errors.vm_no_crashdump_sr ["vm"]
-    ~doc:"This VM does not have a crashdump SR specified." ();
+    ~doc:"This VM does not have a crash dump SR specified." ();
   error Api_errors.vm_no_suspend_sr ["vm"]
     ~doc:"This VM does not have a suspend SR specified." ();
   error Api_errors.vm_memory_size_too_low ["vm"]
@@ -386,9 +386,9 @@ let _ =
   error Api_errors.xen_vss_req_error_init_failed [ "vm"; "error_code" ]
     ~doc:"Initialization of the VSS requester failed" ();
   error Api_errors.xen_vss_req_error_prov_not_loaded [ "vm"; "error_code" ]
-    ~doc:"The Vss Provider is not loaded" ();
+    ~doc:"The VSS Provider is not loaded" ();
   error Api_errors.xen_vss_req_error_no_volumes_supported [ "vm"; "error_code" ]
-    ~doc:"Could not find any volumes supported by the Vss Provider" ();
+    ~doc:"Could not find any volumes supported by the VSS Provider" ();
   error Api_errors.xen_vss_req_error_start_snapshot_set_failed [ "vm"; "error_code" ]
     ~doc:"An attempt to start a new VSS snapshot failed" ();
   error Api_errors.xen_vss_req_error_adding_volume_to_snapset_failed [ "vm"; "error_code" ]
@@ -605,7 +605,7 @@ let _ =
   error Api_errors.wlb_connection_reset []
     ~doc:"The connection to the WLB server was reset." ();
   error Api_errors.wlb_url_invalid ["url"]
-    ~doc:"The WLB URL is invalid. Ensure it is in format: <ipaddress>:<port>. The configured/given URL is returned." ();
+    ~doc:"The WLB URL is invalid. Ensure it is in the format: <ipaddress>:<port>. The configured/given URL is returned." ();
 
 
   (* Api_errors specific to running VMs on multiple hosts *)
@@ -840,7 +840,7 @@ let _ =
     ~doc:"This session is not registered to receive events. You must call event.register before event.next. The session handle you are using is echoed." ();
 
   error Api_errors.task_cancelled [ "task" ]
-    ~doc:"The request was asynchronously cancelled." ();
+    ~doc:"The request was asynchronously canceled." ();
   error Api_errors.too_many_pending_tasks [ ]
     ~doc:"The request was rejected because there are too many pending tasks on the server." ();
   error Api_errors.too_busy [ ]
@@ -870,17 +870,17 @@ let _ =
   error Api_errors.patch_apply_failed_backup_files_exist [ "output" ]
     ~doc:"The patch apply failed: there are backup files created while applying patch. Please remove these backup files before applying patch again." ();
   error Api_errors.patch_precheck_failed_unknown_error [ "patch"; "info" ]
-    ~doc:"The patch precheck stage failed with an unknown error. See attached info for more details." ();
+    ~doc:"The patch pre-check stage failed with an unknown error. See attached info for more details." ();
   error Api_errors.patch_precheck_failed_prerequisite_missing [ "patch"; "prerequisite_patch_uuid_list" ]
-    ~doc:"The patch precheck stage failed: prerequisite patches are missing." ();
+    ~doc:"The patch pre-check stage failed: prerequisite patches are missing." ();
   error Api_errors.patch_precheck_failed_wrong_server_version [ "patch"; "found_version"; "required_version"]
-    ~doc:"The patch precheck stage failed: the server is of an incorrect version." ();
+    ~doc:"The patch pre-check stage failed: the server is of an incorrect version." ();
   error Api_errors.patch_precheck_failed_wrong_server_build [ "patch"; "found_build"; "required_build"]
-    ~doc:"The patch precheck stage failed: the server is of an incorrect build." ();
+    ~doc:"The patch pre-check stage failed: the server is of an incorrect build." ();
   error Api_errors.patch_precheck_failed_vm_running [ "patch" ]
-    ~doc:"The patch precheck stage failed: there are one or more VMs still running on the server. All VMs must be suspended before the patch can be applied." ();
+    ~doc:"The patch pre-check stage failed: there are one or more VMs still running on the server. All VMs must be suspended before the patch can be applied." ();
   error Api_errors.patch_precheck_failed_out_of_space [ "patch"; "found_space"; "required_required"]
-    ~doc:"The patch precheck stage failed: the server does not have enough space." ();
+    ~doc:"The patch pre-check stage failed: the server does not have enough space." ();
   error Api_errors.patch_precheck_tools_iso_mounted ["patch"]
     ~doc:"Tools ISO must be ejected from all running VMs." ();
 
@@ -909,17 +909,17 @@ let _ =
   error Api_errors.update_already_applied_in_pool [ "update" ]
     ~doc:"This update has already been applied to all hosts in the pool." ();
   error Api_errors.update_precheck_failed_unknown_error [ "update"; "info" ]
-    ~doc:"The update precheck stage failed with an unknown error." ();
+    ~doc:"The update pre-check stage failed with an unknown error." ();
   error Api_errors.update_precheck_failed_prerequisite_missing [ "update"; "prerequisite_update" ]
-    ~doc:"The update precheck stage failed: prerequisite update(s) are missing." ();
+    ~doc:"The update pre-check stage failed: prerequisite update(s) are missing." ();
   error Api_errors.update_precheck_failed_conflict_present ["update"; "conflict_update"]
-    ~doc:"The update precheck stage failed: conflicting update(s) are present." ();
+    ~doc:"The update pre-check stage failed: conflicting update(s) are present." ();
   error Api_errors.update_precheck_failed_wrong_server_version ["update"; "installed_version"; "required_version "]
-    ~doc:"The update precheck stage failed: the server is of an incorrect version." ();
+    ~doc:"The update pre-check stage failed: the server is of an incorrect version." ();
   error Api_errors.update_precheck_failed_out_of_space ["update"; "available_space"; "required_space "]
-    ~doc:"The update precheck stage failed: the server does not have enough space." ();
+    ~doc:"The update pre-check stage failed: the server does not have enough space." ();
   error Api_errors.update_precheck_failed_gpgkey_not_imported ["update"]
-    ~doc:"The update precheck stage failed: RPM package validation requires a GPG key that is not present on the host." ();
+    ~doc:"The update pre-check stage failed: RPM package validation requires a GPG key that is not present on the host." ();
 
   (* Pool errors *)
 
@@ -1095,7 +1095,7 @@ let _ =
     ~doc:"The VM is configured in a way that prevents it from being mobile." ();
 
   error Api_errors.vm_is_using_nested_virt ["VM"]
-    ~doc:"This operation is illegal because the VM is using nested virtualisation." ();
+    ~doc:"This operation is illegal because the VM is using nested virtualization." ();
 
   (* PVS errors *)
   error Api_errors.pvs_site_contains_running_proxies ["proxies"]
@@ -1133,8 +1133,6 @@ let _ =
     ~doc:"USB_groups are currently restricted to contain no more than one VUSB." ();
   error Api_errors.usb_already_attached [ "PUSB"; "VM" ]
     ~doc:"The USB device is currently attached to a VM." ();
-  error Api_errors.passthrough_not_enabled [ "PUSB"]
-    ~doc:"The passthrough_enabled must be true before passthrough usb to vm." ();
   error Api_errors.pusb_vdi_conflict [ "PUSB"; "VDI" ]
     ~doc:"The VDI corresponding to this PUSB has existing VBDs." ();
   error Api_errors.vm_has_vusbs ["VM"]
