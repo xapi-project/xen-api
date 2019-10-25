@@ -283,13 +283,13 @@
     <value>The Tools ISO must be ejected from all running VMs in the pool.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_PREREQUISITE_MISSING" xml:space="preserve">
-    <value>The update precheck stage failed: prerequisite updates are missing.</value>
+    <value>The update pre-check stage failed: prerequisite updates are missing.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_UNKNOWN_ERROR" xml:space="preserve">
-    <value>The update precheck stage failed with an unknown error.</value>
+    <value>The update pre-check stage failed with an unknown error.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_VM_RUNNING" xml:space="preserve">
-    <value>The update precheck stage failed: there are one or more VMs still running on the server.  All VMs must be shut down or suspended before the update can be applied.</value>
+    <value>The update pre-check stage failed: there are one or more VMs still running on the server.  All VMs must be shut down or suspended before the update can be applied.</value>
   </data>
   <data name="PATCH_PRECHECK_FAILED_WRONG_SERVER_BUILD" xml:space="preserve">
     <value>The current build number ({1}) is incompatible with the update build number ({2}).</value>
@@ -660,13 +660,13 @@ Authorized Roles: {1}</value>
     <value>The attempt to discover the iSCSI target/device failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_84" xml:space="preserve">
-    <value>The iScsi target and received IQNs do not match</value>
+    <value>The iSCSI target and received IQNs do not match</value>
   </data>
   <data name="SR_BACKEND_FAILURE_85" xml:space="preserve">
     <value>The attempt to detach the iSCSI failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_86" xml:space="preserve">
-    <value>The attempt to query the iSCSi daemon failed</value>
+    <value>The attempt to query the iSCSI daemon failed</value>
   </data>
   <data name="SR_BACKEND_FAILURE_87" xml:space="preserve">
     <value>Either LUNid or LUNserial value must be provided</value>
