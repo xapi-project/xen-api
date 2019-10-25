@@ -18,7 +18,6 @@
 open Stdext
 open Pervasiveext
 open Listext
-open Xstringext
 open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol
@@ -144,16 +143,19 @@ let exec_command req cmd s session args =
   let p = try List.assoc "password" params with _ -> "" in
   (* Create a list of commands and their associated arguments which might be sensitive. *)
   let commands_and_params_to_hide =
-    let st = String.startswith in
-    let eq = (=) in
+    let starts affix = Astring.String.is_prefix ~affix in
+    let ends affix = Astring.String.is_suffix ~affix in
+    let is = (=) in
+    let always = (fun (_ : string) -> true) in
+    (* case-insensitive contains *)
+    let has substring =
+        substring |> Re.str |> Re.no_case |> Re.compile |> Re.execp in
     [
-      eq "user-password-change", ["old"; "new"];
-      st "secret", ["value"];
-      eq "pool-enable-external-auth", ["config:pass"];
-      eq "pool-disable-external-auth", ["config:pass"];
-      eq "host-enable-external-auth", ["config:pass"];
-      eq "host-disable-external-auth", ["config:pass"];
-      eq "host-call-plugin", ["args:url"];
+      is "user-password-change", [is "old"; is "new"];
+      has "secret", [is "value"; has "secret"];
+      ends "auth", [is "config:pass"];
+      is "host-call-plugin", [starts "args"];
+      always, [ has "password"; is "url"];
     ] in
   let rpc = Helpers.get_rpc () req s in
   Cli_frontend.populate_cmdtable rpc Ref.null;
@@ -163,17 +165,15 @@ let exec_command req cmd s session args =
   else
     let uninteresting =
       List.exists
-        (fun k -> String.endswith k cmd_name) uninteresting_cmd_postfixes in
+        (fun k -> Astring.String.is_suffix ~affix:k cmd_name) uninteresting_cmd_postfixes in
     let do_log = if uninteresting then debug else info in
-    let params_to_hide = List.fold_left
+    let param_filters = List.fold_left
         (fun accu (cmd_test, params) -> if cmd_test cmd_name then accu @ params else accu)
         []
         commands_and_params_to_hide
     in
     let must_censor param_name =
-      (* name contains (case-insensitive) "password" or is in list *)
-      Re.execp (Re.compile(Re.no_case(Re.str "password"))) param_name
-      || List.mem param_name params_to_hide
+      List.exists (fun filter -> filter param_name) param_filters
     in
     do_log "xe %s %s" cmd_name (String.concat " " (List.map (fun (k, v) -> let v' = if must_censor k then "(omitted)" else v in k ^ "=" ^ v') params));
     do_rpcs req s u p minimal cmd session args
@@ -209,7 +209,7 @@ let parse_session_and_args str =
   let args = List.rev (get_args 0 []) in
   try
     let line = List.hd args in
-    if String.startswith "session_id=" line
+    if Astring.String.is_prefix ~affix:"session_id=" line
     then (Some (Ref.of_string (String.sub line 11 (String.length line - 11))), List.tl args)
     else (None,args)
   with _ -> (None,args)
