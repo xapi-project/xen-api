@@ -146,11 +146,4 @@ let lwt_reporter () =
 let _ =
   Logs.set_reporter (lwt_reporter ());
   Logs.set_level ~all:true (Some Logs.Info);
-  let filename = "/var/run/wsproxy.pid" in
-  (try Unix.unlink filename with _ -> ());
-  Lwt_main.run begin
-    let pid = Unix.getpid () in
-    Lwt_io.with_file filename ~mode:Lwt_io.output (fun chan ->
-        Lwt_io.fprintf chan "%d" pid) >>= fun _ ->
-    start handler
-  end
+  Lwt_main.run (start handler)
