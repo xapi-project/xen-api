@@ -191,9 +191,13 @@ module Daemon = struct
         D.info "No clustering implementation is available";
         raise Api_errors.(Server_error (not_implemented, [ "Cluster.create" ]))
     end;
-    maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
-    maybe_call_script ~__context systemctl [ "enable"; service ];
-    maybe_call_script ~__context systemctl [ "start"; service ];
+    begin
+      try
+        maybe_call_script ~__context !Xapi_globs.firewall_port_config_script ["open"; port];
+        maybe_call_script ~__context systemctl [ "enable"; service ];
+        maybe_call_script ~__context systemctl [ "start"; service ];
+      with _ -> raise Api_errors.(Server_error (internal_error, [ Printf.sprintf "could not start %s" service ]));
+    end;
     enabled := true;
     debug "Cluster daemon: enabled & started"
 
