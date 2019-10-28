@@ -19,13 +19,8 @@ open Lwt.Infix
 let with_fd = Lwt_support.with_fd
 
 let start handler =
-  let fd_sock_path = "/var/xapi/wsproxy" in
-  Logs_lwt.info (fun m -> m "Starting wsproxy on %s" fd_sock_path) >>= fun () ->
-  let fd_sock = Lwt_unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-  Lwt.catch
-    (fun () -> Lwt_unix.unlink fd_sock_path)
-    (fun _ -> Lwt.return_unit) >>= fun () ->
-  Lwt_unix.bind fd_sock (Unix.ADDR_UNIX fd_sock_path) >>= fun () ->
+  Logs_lwt.info (fun m -> m "Starting wsproxy") >>= fun () ->
+  let fd_sock = Lwt_unix.stdin in
   let () = Lwt_unix.listen fd_sock 5 in
 
   let rec loop () =
