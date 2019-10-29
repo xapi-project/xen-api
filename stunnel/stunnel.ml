@@ -155,7 +155,7 @@ let config_file verify_cert extended_diagnosis host port legacy =
       Some x -> Printf.sprintf "TIMEOUTidle = %d" x)
     ; Printf.sprintf "connect=%s:%d" host port
     ]
-  ; if is_fips then [] else ["fips=no"]
+  ; if is_fips then ["fips=yes"] else ["fips=no"]
   ; if extended_diagnosis then ["debug=4"] else []
   ; if verify_cert then
       ["verify=2"
