@@ -111,6 +111,7 @@ type build_info = {
   kernel: string;       (* in hvm case, point to hvmloader *)
   vcpus: int;           (* vcpus max *)
   priv: builder_spec_info;
+  has_hard_affinity: bool;
 }
 val typ_of_build_info: build_info Rpc.Types.typ
 val build_info: build_info Rpc.Types.def
@@ -235,3 +236,5 @@ val allowed_xsdata_prefixes: string list
 val set_xsdata : xs:Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
 
 val move_xstree : xs:Xenstore.Xs.xsh -> domid -> string -> string -> unit
+
+val numa_init: unit -> unit

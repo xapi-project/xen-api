@@ -137,6 +137,7 @@ type build_info = {
   kernel: string;       (* in hvm case, point to hvmloader *)
   vcpus: int;           (* vcpus max *)
   priv: builder_spec_info;
+  has_hard_affinity: bool; [@default false]
 } [@@deriving rpcty]
 
 type domid = int
@@ -650,7 +651,58 @@ let create_channels ~xc uuid domid =
   debug "VM = %s; domid = %d; store evtchn = %d; console evtchn = %d" (Uuid.to_string uuid) domid store console;
   store, console
 
-let build_pre ~xc ~xs ~vcpus ~memory domid =
+let numa_hierarchy =
+  let open Xenctrlext in
+  let open Topology in
+  Lazy.from_fun (fun () ->
+      let distances = Xenctrlext.(with_xc numainfo).distances in
+      let cpu_to_node = Xenctrlext.(with_xc cputopoinfo) |> Array.map (fun t -> t.node) in
+      NUMA.make ~distances ~cpu_to_node)
+
+let numa_mutex = Mutex.create ()
+let numa_resources = ref None
+
+let numa_init () =
+  if !Xenopsd.numa_placement then begin
+    let host = Lazy.force numa_hierarchy in
+    let mem = Xenctrlext.(with_xc numainfo).memory in
+    D.debug "Host NUMA information: %s" (Fmt.to_to_string Topology.NUMA.pp_dump host);
+    Array.iteri (fun i m ->
+        let open Xenctrlext in
+        D.debug "NUMA node %d: %Ld/%Ld memory free" i m.memfree m.memsize
+      ) mem
+  end
+
+let numa_placement domid ~vcpus ~memory =
+  let open Xenctrlext in
+  let open Topology in
+  let hint = Mutex.execute numa_mutex (fun () ->
+      let host = Lazy.force numa_hierarchy in
+      let numa_meminfo = Xenctrlext.(with_xc numainfo).memory |> Array.to_list in
+      let nodes =
+        ListLabels.map2 (NUMA.nodes host |> List.of_seq) numa_meminfo ~f:(fun node m ->
+            NUMA.resource host node ~memory:m.memfree)
+      in
+      let vm = NUMARequest.make ~memory ~vcpus in
+      let nodea = match !numa_resources with
+        | None ->
+          Array.of_list nodes
+        | Some a ->
+          Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
+      in
+      numa_resources := Some nodea;
+      Softaffinity.plan host nodea vm) in
+  match hint with
+  | None ->
+    D.debug "NUMA-aware placement failed for domid %d" domid;
+  | Some (soft_affinity) ->
+    let cpua = CPUSet.to_mask soft_affinity in
+    Xenops_helpers.with_xc (fun xc ->
+        for i = 0 to vcpus - 1 do
+          Xenctrlext.vcpu_setaffinity_soft xc domid i cpua
+        done)
+
+let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
@@ -673,6 +725,8 @@ let build_pre ~xc ~xs ~vcpus ~memory domid =
     debug "VM = %s; domid = %d; %s" (Uuid.to_string uuid) domid call_str;
     try ignore (f ())
     with e ->
+      let bt = Printexc.get_backtrace () in
+      debug "Backtrace: %s" bt;
       let err_msg =
         Printf.sprintf "Calling '%s' failed: %s" call_str (Printexc.to_string e)
       in
@@ -701,6 +755,19 @@ let build_pre ~xc ~xs ~vcpus ~memory domid =
       Xenctrl.shadow_allocation_set xc domid shadow_mib
     );
 
+  if !Xenopsd.numa_placement then
+    log_reraise (Printf.sprintf "NUMA placement") (fun () ->
+        if has_hard_affinity then
+          D.debug "VM has hard affinity set, skipping NUMA optimization"
+        else
+          let do_numa_placement () =
+            numa_placement domid ~vcpus ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+          in
+          if !Xenopsd.numa_placement_strict then
+            do_numa_placement ()
+          else
+            Xenops_utils.best_effort "NUMA placement" do_numa_placement
+      );
   create_channels ~xc uuid domid
 
 let resume_post ~xc ~xs domid =
@@ -832,6 +899,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
   let target_kib = info.memory_target in
   let vcpus = info.vcpus in
   let kernel = info.kernel in
+  let has_hard_affinity = info.has_hard_affinity in
   let force_arg = if force then ["--force"] else [] in
 
   assert_file_is_readable kernel;
@@ -850,7 +918,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let video_mib = hvminfo.video_mib in
       let memory = Memory.HVM.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe_ca_140252_workaround ~xc ~vcpus domid;
-      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
           ~console_domid ~memory ~kernel ~vgpus
@@ -865,7 +933,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let video_mib = 0 in
       let memory = Memory.Linux.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe assert_file_is_readable pvinfo.ramdisk;
-      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_pv ~domid ~store_port ~store_domid ~console_port
           ~console_domid ~memory ~kernel ~cmdline:pvinfo.cmdline ~ramdisk:pvinfo.ramdisk
@@ -879,7 +947,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
       let video_mib = pvhinfo.video_mib in
       let memory = Memory.PVinPVH.full_config static_max_mib video_mib target_mib vcpus shadow_multiplier in
       maybe_ca_140252_workaround ~xc ~vcpus domid;
-      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+      let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid in
       let store_mfn, console_mfn =
         let args = xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_domid ~memory
             ~kernel ~cmdline:pvhinfo.cmdline ~modules:pvhinfo.modules
@@ -1240,7 +1308,8 @@ type suspend_flag = Live | Debug
         maybe_ca_140252_workaround ~xc ~vcpus domid;
         memory, vm_stuff, `pvh
     in
-    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus domid in
+    let store_port, console_port = build_pre ~xc ~xs ~memory ~vcpus
+        ~has_hard_affinity:info.has_hard_affinity domid in
     let store_mfn, console_mfn = restore_common task ~xc ~xs ~dm ~domain_type
         ~store_port ~store_domid
         ~console_port ~console_domid

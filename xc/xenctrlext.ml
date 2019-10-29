@@ -42,3 +42,25 @@ external domain_set_target: handle -> domid -> domid -> unit = "stub_xenctrlext_
 external physdev_map_pirq : handle -> domid -> int -> int = "stub_xenctrlext_physdev_map_pirq"
 
 external assign_device: handle -> domid -> int -> int -> unit = "stub_xenctrlext_assign_device"
+
+external vcpu_setaffinity_soft: handle -> domid -> int -> bool array -> unit = "stub_xenctrlext_vcpu_setaffinity_soft"
+
+type meminfo = {
+  memfree: int64;
+  memsize: int64;
+}
+
+type numainfo = {
+  memory: meminfo array;
+  distances: int array array
+}
+
+type cputopo = {
+  core: int;
+  socket: int;
+  node: int
+}
+
+external numainfo: handle -> numainfo = "stub_xenctrlext_numainfo"
+
+external cputopoinfo: handle -> cputopo array = "stub_xenctrlext_cputopoinfo"
