@@ -151,6 +151,27 @@ let gauge_rrd =
   done;
   rrd
 
+(* Used to generate flip_flop.xml for test_ca_325844,
+ * then gets edited manually to set min to 0 *)
+let deserialize_verify_rrd =
+  let init_time = 0. in
+
+  let rra1 = rra_create CF_Average 100 1 0.5 in
+  let rra2 = rra_create CF_Min     100 1 0.5 in
+  let rra3 = rra_create CF_Max     100 1 0.5 in
+  let ds = ds_create "flip_flop" Derive (VT_Int64 0L) in
+
+  let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
+
+  let id = fun x -> x in
+  for i=1 to 100 do
+    let t = init_time +. float_of_int i in
+    let t64 = Int64.of_float t in
+    let v = VT_Int64 Int64.(mul t64 (mul (-1L) (rem t64 2L))) in
+    ds_update rrd t [|v|] [|id|] false
+  done;
+  rrd
+
 let ca_322008_rrd =
   let init_time = 0. in
 
@@ -234,6 +255,10 @@ let test_ca_322008 () =
     List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) @@ Array.to_list rrd.rrd_rras
 
+let test_ca_325844 () =
+  let rrd = Rrd_unix.of_file (Filename.concat "test_data"  "flip_flop.xml") in
+  test_ranges rrd ()
+
 let rrd_suite rrd = [
   "Save xml to disk", `Quick, test_marshall ~json:false rrd;
   "Save json to disk", `Quick, test_marshall ~json:true rrd;
@@ -245,6 +270,7 @@ let rrd_suite rrd = [
 
 let regression_suite = [
   "CA-322008", `Quick, test_ca_322008;
+  "CA-325844", `Quick, test_ca_325844;
   "CA-329043 (1)", `Quick, test_ranges ca_329043_rrd_1;
   "CA-329043 (2)", `Quick, test_ranges ca_329043_rrd_2;
 ]
