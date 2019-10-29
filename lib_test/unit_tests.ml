@@ -34,7 +34,7 @@ let assert_cdp_prep_equal c1 c2 =
   Alcotest.(check int) __LOC__ c1.cdp_unknown_pdps c2.cdp_unknown_pdps
 
 let assert_fring_equal f1 f2 =
-  for i=0 to f1.Fring.size - 1 do
+  for i=0 to Fring.length f1 - 1 do
     let peek1 = Fring.peek f1 i in
     let peek2 = Fring.peek f2 i in
     Alcotest.check (float @@ tolerance peek1) "FRing value" peek1 peek2;
@@ -59,11 +59,10 @@ let assert_rrds_equal r1 r2 =
 
 let in_range min max values =
   let between value =
-    if not (Utils.isnan value) then begin
+    if not (Utils.isnan value) then (
       Alcotest.(check bool) (Printf.sprintf "value (%f) higher than min (%f); " value min) true (min <= value);
-      Alcotest.(check bool) (Printf.sprintf "value (%f) lower than max (%f); " value max) true (max >= value)
-    end in
-  Alcotest.(check bool) (Printf.sprintf "min (%f) ≤ max (%f); " min max) true (min <= max);
+      Alcotest.(check bool) (Printf.sprintf "value (%f) ≤ max (%f); " value max) true (max >= value)
+    ) in
   List.iter between values
 
 let fring_to_list fring =
@@ -76,7 +75,11 @@ let test_ranges rrd () =
     in_range ds.ds_min ds.ds_max (fring_to_list fring) in
   let in_range_rra dss rra =
     List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
+  let range_is_not_empty ds =
+    Alcotest.(check bool) (Printf.sprintf "min (%f) < max (%f); " ds.ds_min ds.ds_max) true (ds.ds_min < ds.ds_max)
+  in
 
+  Array.iter range_is_not_empty rrd.rrd_dss;
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) (Array.to_list rrd.rrd_rras)
 
 let temp_rrd ~json () =
@@ -98,7 +101,36 @@ let test_marshall_unmarshall rrd () =
   assert_rrds_equal rrd rrd';
   Unix.unlink filename
 
-let create_gauge_rrd () =
+let test_export rrd () =
+  let check_same_as_rras (updates : Rrd_updates.row array) (rras : Rrd.rra array) =
+    let cf_count = Array.length rras in
+    for i = 0 to cf_count - 1 do                                       (* consolidation functions *)
+      for j = 0 to Array.length rras.(0).Rrd.rra_data - 1 do           (* datasources *)
+        for k = 0 to Rrd_fring.length rras.(0).Rrd.rra_data.(0) - 1 do (* time datapoints *)
+          let update_value = updates.(k).Rrd_updates.row_data.(i + (j * cf_count)) in
+          let rra_value = Rrd_fring.peek rras.(i).Rrd.rra_data.(j) k in
+          compare_float (Printf.sprintf "CF: %d Datasource: %d datapoint: %d " i j k) update_value rra_value
+        done
+      done
+    done
+  in
+
+  let updates = Rrd_updates.(of_string @@ export  ["", rrd] 0L 5L None) in
+  check_same_as_rras updates.Rrd_updates.data rrd.rrd_rras
+
+let test_length_invariants rrd () =
+  let check_length_of_fring dss (frings: Rrd_fring.t array) =
+    Alcotest.(check int)
+      (Printf.sprintf "Number of elements in Datasource (%d) must be the same as Frings in a RRA (%d)"
+        (Array.length dss) (Array.length frings))
+      (Array.length dss) (Array.length frings)
+  in
+  let check_length dss rra =
+    check_length_of_fring dss rra.rra_data
+  in
+  Array.iter (check_length rrd.rrd_dss) rrd.rrd_rras
+
+let gauge_rrd =
   let rra = rra_create CF_Average 100 1 0.5 in
   let rra2 = rra_create CF_Average 100 10 0.5 in
   let rra3 = rra_create CF_Average 100 100 0.5 in
@@ -119,6 +151,27 @@ let create_gauge_rrd () =
   done;
   rrd
 
+(* Used to generate flip_flop.xml for test_ca_325844,
+ * then gets edited manually to set min to 0 *)
+let deserialize_verify_rrd =
+  let init_time = 0. in
+
+  let rra1 = rra_create CF_Average 100 1 0.5 in
+  let rra2 = rra_create CF_Min     100 1 0.5 in
+  let rra3 = rra_create CF_Max     100 1 0.5 in
+  let ds = ds_create "flip_flop" Derive (VT_Int64 0L) in
+
+  let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
+
+  let id = fun x -> x in
+  for i=1 to 100 do
+    let t = init_time +. float_of_int i in
+    let t64 = Int64.of_float t in
+    let v = VT_Int64 Int64.(mul t64 (mul (-1L) (rem t64 2L))) in
+    ds_update rrd t [|v|] [|id|] false
+  done;
+  rrd
+
 let ca_322008_rrd =
   let init_time = 0. in
 
@@ -130,6 +183,7 @@ let ca_322008_rrd =
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
 
   let id = fun x -> x in
+
   for i=1 to 100000 do
     let t = init_time +. float_of_int i in
     let t64 = Int64.of_float t in
@@ -137,6 +191,57 @@ let ca_322008_rrd =
     ds_update rrd t [|v|] [|id|] false
   done;
   rrd
+
+
+let ca_329043_rrd_1 =
+  let init_time = 0. in
+
+  let rra1 = rra_create CF_Average 3 1 0.5 in
+  let rra2 = rra_create CF_Min     3 1 0.5 in
+  let rra3 = rra_create CF_Max     3 1 0.5 in
+  let ds = ds_create "derive_with_min" ~min:0. ~max:1. Derive VT_Unknown in
+
+  let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
+
+  let id = fun x -> x in
+
+  let time_value_of_i i =
+    let t = 5. *. (init_time +. float_of_int i) in
+    if i = 1 then
+      t, VT_Int64 0L
+    else
+      t, VT_Int64 Int64.(of_float t)
+  in
+  for i = 0 to 4 do
+    let t, v = time_value_of_i i in
+    ds_update rrd t [|v|] [|id|] (i = 0);
+  done;
+  rrd
+
+let create_rrd values min max =
+
+    let init_time = 0. in
+    let rows = 2 in
+
+    let rra1 = rra_create CF_Average rows 10 0.5 in
+    let rra2 = rra_create CF_Min     rows 10 0.5 in
+    let rra3 = rra_create CF_Max     rows 10 0.5 in
+    let rra4 = rra_create CF_Last    rows 10 0.5 in
+    let ds1 = ds_create "derive" ~min ~max Derive VT_Unknown in
+    let ds2 = ds_create "absolute" ~min ~max Derive VT_Unknown in
+    let ds3 = ds_create "gauge" ~min ~max Derive VT_Unknown in
+
+    let rrd = rrd_create [|ds1; ds2; ds3|] [|rra1; rra2; rra3; rra4|] 5L init_time in
+
+    let id = fun x -> x in
+
+    List.iteri (fun i v ->
+      let t = 5. *. (init_time +. float_of_int i) in
+      ds_update rrd t [|VT_Int64 v|] [|id; id; id; id|] (i = 0)
+    ) values;
+    rrd
+
+let ca_329043_rrd_2 = create_rrd [-3710420213458133667L; -4382108469022348614L] (-115833951388699606673086965578224992861890232359671476890007240704.000000) (-13815257.710330)
 
 let test_ca_322008 () =
   let rrd = ca_322008_rrd in
@@ -150,23 +255,30 @@ let test_ca_322008 () =
     List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
   List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) @@ Array.to_list rrd.rrd_rras
 
-let gauge_rrd = create_gauge_rrd ()
+let test_ca_325844 () =
+  let rrd = Rrd_unix.of_file (Filename.concat "test_data"  "flip_flop.xml") in
+  test_ranges rrd ()
 
 let rrd_suite rrd = [
   "Save xml to disk", `Quick, test_marshall ~json:false rrd;
   "Save json to disk", `Quick, test_marshall ~json:true rrd;
   (* there is no json deserializer implementation *)
   "Save and restore from disk", `Quick, test_marshall_unmarshall rrd;
-  "Values in range",       `Quick, test_ranges rrd;
+  "Length invariants", `Quick, test_length_invariants rrd;
+  "Values in range", `Quick, test_ranges rrd;
 ]
 
 let regression_suite = [
   "CA-322008", `Quick, test_ca_322008;
+  "CA-325844", `Quick, test_ca_325844;
+  "CA-329043 (1)", `Quick, test_ranges ca_329043_rrd_1;
+  "CA-329043 (2)", `Quick, test_ranges ca_329043_rrd_2;
 ]
 
 let () =
   Alcotest.run "Test RRD library" [
     "Gauge RRD", rrd_suite gauge_rrd;
     "RRD for CA-322008", rrd_suite ca_322008_rrd;
+    "RRD for CA-329043", rrd_suite ca_329043_rrd_1;
     "Regressions", regression_suite;
   ]

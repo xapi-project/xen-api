@@ -60,13 +60,6 @@ let cf_type_to_string cf =
   | CF_Min -> "MIN"
   | CF_Last -> "LAST"
 
-let cf_init_value cf =
-  match cf with
-  | CF_Average -> 0.0
-  | CF_Min -> infinity
-  | CF_Max -> neg_infinity
-  | CF_Last -> nan
-
 (** The CDP preparation scratch area.
     The 'value' field should be accumulated in such a way that it always
     contains the value that will eventually be the CDP. This means that
@@ -163,6 +156,16 @@ let copy_rrd x =
     rrd_rras = Array.map copy_rra x.rrd_rras;
   }
 
+(* CA-329043: avoid producing out-of-range rates *)
+let cf_init_value cf ds =
+  let default = match cf with
+  | CF_Average -> 0.0
+  | CF_Min -> infinity
+  | CF_Max -> neg_infinity
+  | CF_Last -> nan
+  in
+  min ds.ds_max (max ds.ds_min default)
+
 (** Helper function to get the start time and age of the current/last PDP *)
 let get_times time timestep =
   let starttime = timestep *** ((Int64.of_float time) /// timestep) in
@@ -216,16 +219,22 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
         in
         let secondaries = pdps in
 
-        (* Push the primary and secondary values *)
-        Array.iteri (fun i x -> Fring.push rra.rra_data.(i) x) primaries;
-        for _=1 to min (rra_step_cnt-1) (rra.rra_row_cnt) do
-          Array.iteri (fun i x -> Fring.push rra.rra_data.(i) x) secondaries
+        let push i value =
+          Fring.push rra.rra_data.(i) value
+        in
+        Array.iteri push primaries;
+        for _ = 1 to min (rra_step_cnt-1) (rra.rra_row_cnt) do
+          Array.iteri push secondaries
         done;
 
         (* Reinitialise the CDP preparation area *)
         let new_start_pdp_offset = (elapsed_pdp_st - start_pdp_offset) mod rra.rra_pdp_cnt in
-        let cdp_init = cf_init_value rra.rra_cf in
-        Array.iter (fun cdp -> cdp.cdp_unknown_pdps <- 0; cdp.cdp_value <- cdp_init) rra.rra_cdps;
+        Array.iteri (fun i cdp ->
+          let ds = rrd.rrd_dss.(i) in
+          let cdp_init = cf_init_value rra.rra_cf ds in
+          cdp.cdp_unknown_pdps <- 0;
+          cdp.cdp_value <- cdp_init
+        ) rra.rra_cdps;
         do_cfs rra new_start_pdp_offset pdps;
         match rra.rra_updatehook with None -> () | Some f -> f rrd rra_step_cnt
       end
@@ -396,8 +405,13 @@ let rrd_create dss rras timestep inittime =
     rrd_dss=dss;
     rrd_rras=Array.map (fun rra ->
         { rra with
-          rra_data = Array.init (Array.length dss) (fun _ -> Fring.make rra.rra_row_cnt nan);
-          rra_cdps = Array.init (Array.length dss) (fun _ -> {cdp_value=0.0; cdp_unknown_pdps=0})
+          rra_data = Array.init (Array.length dss) (fun i ->
+            let ds = dss.(i) in
+            Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max);
+          rra_cdps = Array.init (Array.length dss) (fun i ->
+            let ds = dss.(i) in
+            let cdp_init = cf_init_value rra.rra_cf ds in
+            {cdp_value=cdp_init; cdp_unknown_pdps=0})
         }) rras;
   } in
   let values = Array.map (fun ds -> ds.ds_last) dss in
@@ -417,11 +431,13 @@ let rrd_add_ds rrd now newds =
     let npdps = Int64.of_float now /// rrd.timestep in
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
-     rrd_rras = Array.map (fun rra ->
+     rrd_rras = Array.mapi (fun i rra ->
+        let ds = rrd.rrd_dss.(i) in
+        let cdp_init = cf_init_value rra.rra_cf ds in
          let nunknowns = Int64.to_int (Int64.rem npdps (Int64.of_int rra.rra_pdp_cnt)) in
          { rra with
-           rra_data = Array.append rra.rra_data [| Fring.make rra.rra_row_cnt nan |];
-           rra_cdps = Array.append rra.rra_cdps [| {cdp_value=cf_init_value rra.rra_cf; cdp_unknown_pdps=nunknowns} |]; }) rrd.rrd_rras;
+           rra_data = Array.append rra.rra_data [| Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max|];
+           rra_cdps = Array.append rra.rra_cdps [| {cdp_value=cdp_init; cdp_unknown_pdps=nunknowns} |]; }) rrd.rrd_rras;
     }
 
 (** Remove the named DS from an RRD. Removes all of the data associated with it, too *)
@@ -519,7 +535,7 @@ let from_xml input =
     dss
   in
 
-  let read_rras i =
+  let read_rras dss i =
     let read_rra i =
       let read_cdp_prep i =
         let read_ds i =
@@ -544,10 +560,13 @@ let from_xml input =
         let data = read_block "database" (fun i -> Array.of_list (read_all "row" read_row i [])) i in
         let rows = Array.length data in
         let cols = try Array.length data.(0) with _ -> -1 in
-        let db = Array.init cols (fun _ -> Fring.make rows nan) in
+        let db = Array.init cols (fun i ->
+          let ds = List.nth dss i in
+          Fring.make rows nan ds.ds_min ds.ds_max) in
         for i=0 to cols-1 do
           for j=0 to rows-1 do
-            Fring.push db.(i) (float_of_string data.(j).(i))
+            let value = float_of_string data.(j).(i) in
+            Fring.push db.(i) value
           done
         done;
         db
@@ -580,9 +599,9 @@ let from_xml input =
 
   accept (`Dtd None) input;
   read_block "rrd" (fun i ->
-      let (step,last_update) = read_header i in (* ok *)
-      let dss = read_dss i in (* ok *)
-      let rras = read_rras i in
+      let (step,last_update) = read_header i in
+      let dss = read_dss i in
+      let rras = read_rras dss i in
       let rrd = {
         last_updated = float_of_string last_update;
         timestep = Int64.of_string step;
@@ -610,7 +629,7 @@ let from_xml input =
 
 let xml_to_output rrd output =
   (* We use an output channel for Xmlm-compat buffered output. Provided we flush
-     	   at the end we should be safe. *)
+     at the end we should be safe. *)
 
   let tag n fn output =
     Xmlm.output output (`El_start (("",n),[]));

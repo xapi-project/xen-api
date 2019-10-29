@@ -12,28 +12,43 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = { size: int; mutable current: int; data: (float,Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t ; }
+module BoundedFloat = Rrd_utils.BoundedFloat
 
-let make size init =
+type t = {
+  size: int;
+  mutable current: int;
+  min: float;
+  max: float;
+  data: (float, Bigarray.float32_elt, Bigarray.c_layout) Bigarray.Array1.t
+}
+
+let make size (init : float) minimum maximum =
   let ring =
-    { size = size; current = size - 1; data = Bigarray.Array1.create Bigarray.float32 Bigarray.c_layout size; }
+    { size = size
+    ; current = size - 1
+    ; min = minimum
+    ; max = maximum
+    ; data = Bigarray.Array1.create Bigarray.float32 Bigarray.c_layout size
+    }
   in
-  Bigarray.Array1.fill ring.data init;
+  let bound = BoundedFloat.of_float ~minimum ~maximum ~f:BoundedFloat.To_Nan init in
+  Bigarray.Array1.fill ring.data @@ BoundedFloat.to_float bound;
   ring
 
 let copy x =
-  let y = make x.size 0. in
+  let y = make x.size nan x.min x.max in
   Bigarray.Array1.blit x.data y.data;
   y.current <- x.current;
   y
 
 let length ring = ring.size
 
-let push ring e =
+let push ring (e : float) =
   ring.current <- ring.current + 1;
   if ring.current = ring.size then
     ring.current <- 0;
-  Bigarray.Array1.set ring.data ring.current e
+  let bound = BoundedFloat.of_float ~minimum:ring.min ~maximum:ring.max ~f:BoundedFloat.To_Nan e in
+  Bigarray.Array1.set ring.data ring.current @@ BoundedFloat.to_float bound
 
 let peek ring i =
   if i >= ring.size then
@@ -77,4 +92,3 @@ let get_nb ring nb =
   a
 
 let get ring = get_nb ring (ring.size)
-

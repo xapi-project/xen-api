@@ -1,6 +1,7 @@
-(executable
+(test
   (name unit_tests)
   (modules unit_tests)
+  (deps (source_tree test_data))
   (libraries
     bigarray
     alcotest
@@ -9,8 +10,13 @@
     xapi-rrd.unix)
 )
 
-(alias
-  (name runtest)
-  (deps (:x unit_tests.exe))
-  (action (run %{x}))
+(test
+  (name crowbar_tests)
+  (modules crowbar_tests)
+  (libraries
+    bigarray
+    crowbar
+    unix
+    xapi-rrd
+    xapi-rrd.unix)
 )
