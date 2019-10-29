@@ -9,16 +9,15 @@ tags: [
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs]
-]
-build-test: [
-  ["dune" "runtest" "-p" name]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
   "dune" {build & >= "1.4.0"}
   "base-bigarray"
   "base-unix"
-  "rpc" {>= "1.9.51" & < "5.0.0"} | ("rpclib" & "ppx_deriving_rpc")
+  "ppx_deriving_rpc"
+  "rpclib"
   "xmlm"
   "uuidm"
   "ezjsonm"
