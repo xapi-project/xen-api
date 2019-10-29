@@ -94,6 +94,8 @@ writeconffile () {
         # stunnel 4.56 fips demands sslVersion = TLSv1 (not "all" or even
         # "TLSv1.2") so we cannot use fips mode.
         writec 'fips = no'
+    else
+        writec 'fips = yes'
     fi
 cat >> $SSLCONFFILE <<EOF
 pid = ${SSLPIDFILE}
