@@ -161,7 +161,10 @@ let config_file verify_cert extended_diagnosis host port legacy =
       ["verify=2"
       ; sprintf "checkHost=%s" host
       ; sprintf "CAfile=%s" certificates_bundle_path
-      ; sprintf "CRLpath=%s" crl_path
+      ; (match Sys.readdir crl_path with
+         | [| |] -> ""
+         | _ -> sprintf "CRLpath=%s" crl_path
+         | exception _ -> "")
       ]
     else []
   ; if legacy then
