@@ -159,6 +159,7 @@ let config_file verify_cert extended_diagnosis host port legacy =
   ; if extended_diagnosis then ["debug=4"] else []
   ; if verify_cert then
       ["verify=2"
+      ; sprintf "checkHost=%s" host
       ; sprintf "CAfile=%s" certificates_bundle_path
       ; sprintf "CRLpath=%s" crl_path
       ]
