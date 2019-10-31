@@ -3239,6 +3239,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.SR.set_physical_utilisation ~__context ~self ~value
 
     let create ~__context ~host ~device_config ~physical_size ~name_label ~name_description  ~_type ~content_type ~shared ~sm_config =
+      let device_config = Xapi_secret.move_passwds_to_secrets ~__context device_config in
       info "SR.create: name label = '%s'" name_label;
       let local_fn = Local.SR.create ~host ~device_config ~physical_size ~name_label ~name_description  ~_type ~content_type ~shared ~sm_config in
       (* if shared, then ignore host parameter and do create on the master.. *)
@@ -3258,6 +3259,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let make ~__context ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config =
       info "SR.make: host = '%s'; name label = '%s'" (host_uuid ~__context host) name_label;
+      let device_config = Xapi_secret.move_passwds_to_secrets ~__context device_config in
       let local_fn = Local.SR.make ~host ~device_config ~physical_size ~name_label ~name_description ~_type ~content_type ~sm_config in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.SR.make rpc session_id host device_config physical_size name_label
@@ -3300,12 +3302,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
              (fun session_id rpc -> Client.SR.scan rpc session_id sr))
 
     let probe ~__context ~host ~device_config ~_type ~sm_config =
+      let device_config = Xapi_secret.move_passwds_to_secrets ~__context device_config in
       info "SR.probe: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.SR.probe ~host ~device_config ~_type ~sm_config in
       do_op_on ~local_fn ~__context ~host
         (fun session_id rpc -> Client.SR.probe ~rpc ~session_id ~host ~device_config ~_type ~sm_config)
 
     let probe_ext ~__context ~host ~device_config ~_type ~sm_config =
+      let device_config = Xapi_secret.move_passwds_to_secrets ~__context device_config in
       info "SR.probe_ext: host = '%s'" (host_uuid ~__context host);
       let local_fn = Local.SR.probe_ext ~host ~device_config ~_type ~sm_config in
       do_op_on ~local_fn ~__context ~host
@@ -3886,6 +3890,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* Create and destroy are just db operations, no need to forward; *)
     (* however, they can affect whether SR.destroy is allowed, so update SR.allowed_operations. *)
     let create ~__context ~host ~sR ~device_config ~other_config =
+      let device_config = Xapi_secret.move_passwds_to_secrets ~__context device_config in
       info "PBD.create: SR = '%s'; host '%s'" (sr_uuid ~__context sR) (host_uuid ~__context host);
       SR.with_sr_marked ~__context ~sr:sR ~doc:"PBD.create" ~op:`pbd_create
         (fun () -> Local.PBD.create ~__context ~host ~sR ~device_config ~other_config)
@@ -3910,6 +3915,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         k ^ "=" ^ v
 
     let set_device_config ~__context ~self ~value =
+      let value = Xapi_secret.move_passwds_to_secrets ~__context value in
       info "PBD.set_device_config: PBD = '%s'; device_config = [ %s ]"
         (pbd_uuid ~__context self) (String.concat "; " (List.map sanitize value));
       let sr = Db.PBD.get_SR ~__context ~self in

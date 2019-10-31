@@ -59,3 +59,15 @@ let duplicate_passwds ~__context strmap =
     else (k, v)
   in
   List.map possibly_duplicate strmap
+
+let move_passwds_to_secrets ~__context strmap =
+  let maybe_move (k, value) =
+    if String.endswith "password" k then
+      let new_k = k ^ "_secret" in
+      warn "Replacing deprecated %s with %s, please avoid using %s in device-config!" k new_k k;
+      let new_sr = create ~__context ~value ~other_config:[] in
+      let new_uuid = Db.Secret.get_uuid ~__context ~self:new_sr in
+      new_k, new_uuid
+    else (k, value)
+  in
+  List.rev_map maybe_move strmap
