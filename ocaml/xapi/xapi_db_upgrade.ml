@@ -492,6 +492,19 @@ let upgrade_recommendations_for_gpu_passthru = {
       ) (Db.VM.get_all ~__context)
 }
 
+let upgrade_secrets = {
+  description = "Move passwords into a Secret object";
+  version= (fun _ -> true);
+  fn = fun ~__context ->
+    Db.PBD.get_all ~__context
+    |> List.iter (fun self ->
+      let dconf = Db.PBD.get_device_config ~__context ~self in
+      let new_dconf = Xapi_secret.move_passwds_to_secrets ~__context dconf in
+      if dconf <> new_dconf then
+        Db.PBD.set_device_config ~__context ~self ~value:new_dconf
+    )
+}
+
 let rules = [
   upgrade_alert_priority;
   update_mail_min_priority;
@@ -513,6 +526,7 @@ let rules = [
   default_pv_drivers_detected_false;
   remove_restricted_pbd_keys;
   upgrade_recommendations_for_gpu_passthru;
+  upgrade_secrets;
 ]
 
 (* Maybe upgrade most recent db *)
