@@ -153,10 +153,11 @@ class UsbDevice(UsbObject):
     _CLASS = "bDeviceClass"
     _CONF_VALUE = "bConfigurationValue"
     _NUM_INTERFACES = "bNumInterfaces"
+    _USB_SPEED = "speed"
 
     _PRODUCT_DESC = [_DESC_VENDOR, _DESC_PRODUCT]
     _PRODUCT_DETAILS = [_VERSION, _ID_VENDOR, _ID_PRODUCT, _BCD_DEVICE, _SERIAL,
-                        _CLASS, _CONF_VALUE, _NUM_INTERFACES]
+                        _CLASS, _CONF_VALUE, _NUM_INTERFACES, _USB_SPEED]
     _PROPS = _PRODUCT_DESC + _PRODUCT_DETAILS
     _PROPS_NONABLE = _PRODUCT_DESC + [_SERIAL]
 
@@ -596,6 +597,8 @@ def to_pusb(device):
     pusb["product-id"] = device[UsbDevice._ID_PRODUCT]
     pusb["vendor-desc"] = device[UsbDevice._DESC_VENDOR]
     pusb["product-desc"] = device[UsbDevice._DESC_PRODUCT]
+    # XSI-490 usb passthrough requires usb speed info
+    pusb["speed"] = device[UsbDevice._USB_SPEED]
     # strip serial due to CA-268761
     pusb["serial"] = device[UsbDevice._SERIAL].strip()
 
