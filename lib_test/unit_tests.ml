@@ -243,6 +243,11 @@ let create_rrd values min max =
 
 let ca_329043_rrd_2 = create_rrd [-3710420213458133667L; -4382108469022348614L] (-115833951388699606673086965578224992861890232359671476890007240704.000000) (-13815257.710330)
 
+let ca_329813_rrd =
+  let rrd = create_rrd [0L; 5L; 10L] 0. 1. in
+  let new_ds = ds_create "new!" Derive VT_Unknown in
+  Rrd.rrd_add_ds rrd rrd.last_updated new_ds
+
 let test_ca_322008 () =
   let rrd = ca_322008_rrd in
 
@@ -273,6 +278,7 @@ let regression_suite = [
   "CA-325844", `Quick, test_ca_325844;
   "CA-329043 (1)", `Quick, test_ranges ca_329043_rrd_1;
   "CA-329043 (2)", `Quick, test_ranges ca_329043_rrd_2;
+  "CA-329813", `Quick, test_ranges ca_329813_rrd;
 ]
 
 let () =
@@ -280,5 +286,7 @@ let () =
     "Gauge RRD", rrd_suite gauge_rrd;
     "RRD for CA-322008", rrd_suite ca_322008_rrd;
     "RRD for CA-329043", rrd_suite ca_329043_rrd_1;
+    "RRD for CA-329813", rrd_suite ca_329813_rrd;
+    "RRD for CA-322008", rrd_suite ca_322008_rrd;
     "Regressions", regression_suite;
   ]
