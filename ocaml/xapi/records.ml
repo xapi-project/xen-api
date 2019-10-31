@@ -2020,6 +2020,7 @@ let pusb_record rpc session_id pusb =
         make_field ~name:"serial" ~get:(fun () -> (x ()).API.pUSB_serial) ();
         make_field ~name:"version" ~get:(fun () -> (x ()).API.pUSB_version) ();
         make_field ~name:"description" ~get:(fun () -> (x ()).API.pUSB_description) ();
+        make_field ~name:"speed" ~get:(fun () -> (x ()).API.pUSB_speed |> string_of_float) ();
         make_field ~name:"passthrough-enabled" ~get:(fun () -> string_of_bool ((x ()).API.pUSB_passthrough_enabled))
           ~set:(fun passthrough_enabled -> Client.PUSB.set_passthrough_enabled rpc session_id pusb (safe_bool_of_string "passthrough-enabled" passthrough_enabled)) ();
       ]

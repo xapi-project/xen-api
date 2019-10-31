@@ -62,6 +62,7 @@ let wlb_report_uri = "/wlb_report"                    (* ocaml/xapi/wlb_reports.
 let wlb_diagnostics_uri = "/wlb_diagnostics"          (* ocaml/xapi/wlb_reports.ml *)
 let audit_log_uri = "/audit_log"                      (* ocaml/xapi/audit.ml *)
 let get_pool_update_download_uri = "/update/"         (* ocaml/xapi/xapi_pool_update.ml *)
+let default_usb_speed = -1.
 
 let use_compression = "use_compression"
 

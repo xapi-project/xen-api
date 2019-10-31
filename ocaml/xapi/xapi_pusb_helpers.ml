@@ -27,6 +27,7 @@ module USB = struct
     serial       : string;
     version      : string;
     description  : string;
+    speed        : float;
   }
   let compare x y =
     if x.path = y.path then
@@ -64,6 +65,7 @@ let extract_local_usb_info usb =
     serial = extract_member usb "serial";
     version = extract_member usb "version";
     description = extract_member usb "description";
+    speed = extract_member usb "speed" |> float_of_string_opt |> Option.value ~default:Constants.default_usb_speed;
   }
 
 let extract_known_usb_info usb =
@@ -77,6 +79,7 @@ let extract_known_usb_info usb =
     serial = usb.API.pUSB_serial;
     version = usb.API.pUSB_version;
     description = usb.API.pUSB_description;
+    speed = usb.API.pUSB_speed;
   }
 
 let get_known_usb usbs =

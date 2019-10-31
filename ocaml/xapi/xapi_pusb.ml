@@ -20,12 +20,12 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 let create ~__context ~uSB_group ~host ~other_config ~path
-      ~vendor_id ~vendor_desc ~product_id ~product_desc ~serial ~version ~description =
+      ~vendor_id ~vendor_desc ~product_id ~product_desc ~serial ~version ~description ~speed =
   let pusb = Ref.make () and uuid = Uuid.make_uuid () in
   let host = Helpers.get_localhost ~__context in
   Db.PUSB.create ~__context ~ref:pusb ~uuid:(Uuid.to_string uuid)
     ~uSB_group ~host ~other_config ~path ~vendor_id ~vendor_desc ~product_id
-    ~product_desc ~serial ~version ~description ~passthrough_enabled:false;
+    ~product_desc ~serial ~version ~description ~passthrough_enabled:false ~speed;
   debug "PUSB ref='%s' created" (Ref.string_of pusb);
   pusb
 
@@ -47,7 +47,7 @@ let scan_start ~__context usbs =
   (* Create the newly added pusbs *)
   USBSet.iter (fun s -> let self = create ~__context ~uSB_group:(Ref.null) ~host ~other_config:[] ~path:s.USB.path ~vendor_id:s.USB.vendor_id
                    ~vendor_desc:s.USB.vendor_desc ~product_id:s.USB.product_id ~product_desc:s.USB.product_desc ~serial:s.USB.serial
-                   ~version:s.USB.version ~description:s.USB.description in
+                   ~version:s.USB.version ~description:s.USB.description ~speed:s.USB.speed in
                let group = Xapi_pusb_helpers.find_or_create ~__context self in
                Db.PUSB.set_USB_group ~__context ~self ~value:group
   ) (USBSet.diff local_usb_set known_usb_set);
