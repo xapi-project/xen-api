@@ -2467,7 +2467,14 @@ module VUSB = struct
          then info "VM = %s; USB passthrough is only supported for HVM guests" vm
          else
            let privileged = is_privileged vm in
-           Device.Vusb.vusb_plug ~xs ~privileged ~domid:frontend_domid ~id:(snd vusb.Vusb.id) ~hostbus:vusb.Vusb.hostbus ~hostport:vusb.Vusb.hostport ~version:vusb.Vusb.version
+           Device.Vusb.vusb_plug ~xs
+                                 ~privileged
+                                 ~domid:frontend_domid
+                                 ~id:(snd vusb.Vusb.id)
+                                 ~hostbus:vusb.Vusb.hostbus
+                                 ~hostport:vusb.Vusb.hostport
+                                 ~version:vusb.Vusb.version
+                                 ~speed:vusb.Vusb.speed
       ) vm
 
   let unplug task vm vusb =
