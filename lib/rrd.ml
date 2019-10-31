@@ -432,11 +432,11 @@ let rrd_add_ds rrd now newds =
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
      rrd_rras = Array.mapi (fun i rra ->
-        let ds = rrd.rrd_dss.(i) in
-        let cdp_init = cf_init_value rra.rra_cf ds in
+        let cdp_init = cf_init_value rra.rra_cf newds in
+        let fring = Fring.make rra.rra_row_cnt nan newds.ds_min newds.ds_max in
          let nunknowns = Int64.to_int (Int64.rem npdps (Int64.of_int rra.rra_pdp_cnt)) in
          { rra with
-           rra_data = Array.append rra.rra_data [| Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max|];
+           rra_data = Array.append rra.rra_data [| fring |];
            rra_cdps = Array.append rra.rra_cdps [| {cdp_value=cdp_init; cdp_unknown_pdps=nunknowns} |]; }) rrd.rrd_rras;
     }
 
