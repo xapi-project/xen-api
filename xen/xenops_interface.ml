@@ -440,6 +440,8 @@ module Host = struct
     ; features: int64 array
     ; features_pv: int64 array
     ; features_hvm: int64 array
+    ; features_pv_host: int64 array
+    ; features_hvm_host: int64 array
     ; features_oldstyle: int64 array }
   [@@deriving rpcty]
 
