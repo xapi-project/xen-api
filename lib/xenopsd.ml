@@ -32,6 +32,7 @@ let qemu_dm_ready_timeout = ref 300.
 let vgpu_ready_timeout = ref 30.
 let varstored_ready_timeout = ref 30.
 let use_upstream_qemu = ref false
+let pci_quarantine = ref true
 
 let watch_queue_length = ref 1000
 
@@ -75,6 +76,7 @@ let options = [
   "pvinpvh-xen-cmdline", Arg.Set_string pvinpvh_xen_cmdline, (fun () -> !pvinpvh_xen_cmdline), "Command line for the inner-xen for PV-in-PVH guests";
   "numa-placement", Arg.Bool (fun x -> numa_placement := x), (fun () -> string_of_bool !numa_placement), "NUMA-aware placement of VMs";
   "numa-placement-strict", Arg.Bool (fun x -> numa_placement_strict := x), (fun () -> string_of_bool !numa_placement), "Fail if NUMA-aware placement is not possible";
+  "pci-quarantine", Arg.Bool (fun b -> pci_quarantine := b), (fun () -> string_of_bool !pci_quarantine), "True if IOMMU contexts of PCI devices are needed to be placed in quarantine";
 ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
