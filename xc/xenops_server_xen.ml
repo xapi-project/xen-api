@@ -665,6 +665,22 @@ type backend = disk option [@@deriving rpcty]
 let _vdi_id = "vdi-id"
 let _dp_id = "dp-id"
 
+(* Compute the migration-safe flags *)
+let upgrade_for_migration ~xc features =
+   try
+     let msr_arch_caps = Xenctrlext.xc_get_msr_arch_caps xc in
+     let tsx_ctrl = 0x80L in
+     if Int64.(logand msr_arch_caps tsx_ctrl = tsx_ctrl) then begin
+       let cpuid_hle_rtm = (1 lsl 4) lor (1 lsl 11) |> Int64.of_int in
+       features.(5) <- Int64.(logor features.(5) cpuid_hle_rtm);
+       (* These still work, albeit slowly.
+          We might prefer to hide these from host's CPUID for pool leveling
+          and guest boot purposes, but can accept it during migration.
+        *)
+     end;
+   with Xenctrlext.Unix_error(Unix.ENOSYS, _) ->
+     debug "xc_get_msr_arch_caps: ENOSYS"
+
 module HOST = struct
   include Xenops_server_skeleton.HOST
 
@@ -749,6 +765,12 @@ module HOST = struct
          (* Set X86_FEATURE_IBS in e1c for HVM guests *)
          features_hvm.(3) <- Int64.logor features_hvm.(3) 0x400L;
 
+	 let features_hvm_host = Array.copy features_hvm in
+	 let features_pv_host = Array.copy features_pv in
+
+	 upgrade_for_migration ~xc features_hvm;
+	 upgrade_for_migration ~xc features_pv;
+
          let v = version xc in
          let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
          let xen_capabilities = version_capabilities xc in
@@ -771,6 +793,8 @@ module HOST = struct
              features_pv;
              features_hvm;
              features_oldstyle;
+             features_hvm_host;
+             features_pv_host;
            };
            hypervisor = {
              Host.version = xen_version_string;
