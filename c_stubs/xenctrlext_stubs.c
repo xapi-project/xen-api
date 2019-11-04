@@ -369,6 +369,55 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch)
 	CAMLreturn(result);
 }
 
+__attribute__((weak))
+int xc_get_cpu_policy_size(xc_interface *xch, uint32_t *nr_leaves,
+			   uint32_t *nr_msrs);
+__attribute__((weak))
+int xc_get_system_cpu_policy(xc_interface *xch, uint32_t index,
+			     uint32_t *nr_leaves, xen_cpuid_leaf_t *leaves,
+			     uint32_t *nr_msrs, xen_msr_entry_t *msrs);
+#define MSR_ARCH_CAPABILITIES 0x10a
+
+CAMLprim value stub_xenctrlext_get_msr_arch_caps(value xch) {
+	CAMLparam1(xch);
+	xen_cpuid_leaf_t *leaves;
+	xen_msr_entry_t *msrs;
+	unsigned i;
+	uint64_t val = 0;
+
+	uint32_t max_leaves = 0;
+	uint32_t max_msrs = 0;
+	if (!xc_get_cpu_policy_size || !xc_get_system_cpu_policy)
+		raise_unix_errno_msg(ENOSYS,
+				     "xc_get_{system,}_cpu_policy{,_size}");
+
+	if (xc_get_cpu_policy_size(_H(xch), &max_leaves, &max_msrs))
+		failwith_xc(_H(xch));
+	leaves = calloc(max_leaves, sizeof(xen_cpuid_leaf_t));
+	msrs = calloc(max_msrs, sizeof(xen_msr_entry_t));
+	if (!leaves || !msrs) {
+		free(leaves);
+		free(msrs);
+		caml_raise_out_of_memory();
+	}
+
+	int retval =
+	    xc_get_system_cpu_policy(_H(xch), XEN_SYSCTL_cpu_policy_host,
+				     &max_leaves, leaves, &max_msrs, msrs);
+
+	if (!retval) {
+		for (i = 0; i < max_msrs; i++) {
+			if (MSR_ARCH_CAPABILITIES == msrs[i].idx)
+				val = msrs[i].val;
+		}
+	}
+	free(msrs);
+	free(leaves);
+	if (retval)
+		failwith_xc(_H(xch));
+	CAMLreturn(caml_copy_int64(val));
+}
+
 /*
 * Local variables:
 * indent-tabs-mode: t

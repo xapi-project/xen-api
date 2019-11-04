@@ -69,3 +69,5 @@ external vcpu_setaffinity_soft: handle -> domid -> int -> bool array -> unit = "
 external numainfo: handle -> numainfo = "stub_xenctrlext_numainfo"
 
 external cputopoinfo: handle -> cputopo array = "stub_xenctrlext_cputopoinfo"
+
+external xc_get_msr_arch_caps : handle -> int64 = "stub_xenctrlext_get_msr_arch_caps"
