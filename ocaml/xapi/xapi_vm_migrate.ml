@@ -329,12 +329,33 @@ let pool_migrate ~__context ~vm ~host ~options =
         raise exn
     )
 
+(* CA-328075 after a migration of an NVidia SRIOV vGPU the VM still
+ * has the previous PCI attached. This code removes all PCI devices
+ * from the VM that don't belong to a current VGPU. This assumes that
+ * we don't have any other PCI device that could have been migrated
+ * (and therefore would have to be kept).
+ *)
+let remove_stale_pcis ~__context ~vm =
+  let vgpu_pcis =
+    Db.VM.get_VGPUs ~__context ~self:vm
+    |> List.map (fun self -> Db.VGPU.get_PCI ~__context ~self)
+    |> List.filter (fun pci -> pci <> Ref.null) in
+  let stale_pcis =
+    Db.VM.get_attached_PCIs ~__context ~self:vm
+    |> List.filter (fun pci -> not @@ List.mem pci vgpu_pcis) in
+  let remove pci =
+    debug "Removing stale PCI %s from VM %s"
+      (Ref.string_of pci) (Ref.string_of vm);
+    Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:vm in
+  List.iter remove stale_pcis
+
 let pool_migrate_complete ~__context ~vm ~host =
   let id = Db.VM.get_uuid ~__context ~self:vm in
   debug "VM.pool_migrate_complete %s" id;
   let dbg = Context.string_of_task __context in
   let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then begin
+    remove_stale_pcis ~__context ~vm;
     Cpuid_helpers.update_cpu_flags ~__context ~vm ~host;
     Xapi_xenops.set_resident_on ~__context ~self:vm;
     Xapi_xenops.add_caches id;
