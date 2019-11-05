@@ -1367,6 +1367,7 @@ module PCI = struct
   let sysfs_i915 = Filename.concat sysfs_drivers "i915"
   let sysfs_nvidia = Filename.concat sysfs_drivers "nvidia"
   let sysfs_pciback = Filename.concat sysfs_drivers "pciback"
+  let (//) = Filename.concat
 
   let get_driver devstr =
     try
@@ -1384,6 +1385,13 @@ module PCI = struct
     write_string_to_file new_slot devstr;
     write_string_to_file bind devstr
 
+  let unbind_from_pciback devstr =
+    let rm_slot = sysfs_pciback // "remove_slot" in
+    let unbind = sysfs_pciback // "unbind" in
+    debug "pci: unbinding device %s from pciback" devstr;
+    write_string_to_file unbind devstr;
+    write_string_to_file rm_slot devstr
+
   let bind_to_i915 devstr =
     debug "pci: binding device %s to i915" devstr;
     let is_loaded = Unixext.file_lines_fold (
@@ -1395,11 +1403,6 @@ module PCI = struct
     | None -> write_string_to_file (Filename.concat sysfs_i915 "bind") devstr
     | Some (Supported I915) -> ()
     | Some drv -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Fail to bind to i915, device is bound to %s" (string_of_driver drv))))
-
-  let bind_to_nvidia devstr =
-    debug "pci: binding device %s to nvidia" devstr;
-    let bind = Filename.concat sysfs_nvidia "bind" in
-    write_string_to_file bind devstr
 
   let unbind devstr driver =
     let driverstr = string_of_driver driver in
@@ -1414,8 +1417,68 @@ module PCI = struct
       Forkhelpers.execute_command_get_output !Resources.rmmod ["i915"] in ()
 
   let procfs_nvidia = "/proc/driver/nvidia/gpus"
+  let nvidia_smi    = "/usr/bin/nvidia-smi"
+  let nvidia_manage = "/usr/lib/nvidia/sriov-manage"
 
-  let nvidia_smi = "/usr/bin/nvidia-smi"
+  (** [num_vfs devstr] returns the number of PCI VFs of [devstr] or 0 if
+    * [devstr] is not an SRIOV device
+    *)
+  let num_vfs devstr =
+    let path = sysfs_devices // devstr // "sriov_numvfs" in
+    try
+      Some (Unixext.string_of_file path |> String.trim |> int_of_string)
+    with
+      | Unix.(Unix_error (ENOENT, _, _)) ->
+        debug "File %s does not exist - assuming no SRIOV devices in use" path;
+        None
+      | exn ->
+        let msg = Printf.sprintf "Can't read %s to reset Nvidia GPU %s: %s"
+          path devstr (Printexc.to_string exn) in
+        error "%s" msg;
+        raise (Xenopsd_error (Internal_error msg))
+
+  (** [vfs_of device] returns the PCI addresses of the virtual functions
+   * of PCI [device]. We find each virtual function by looking at the
+   * virtfnX symlink in [device].
+   *)
+  let vfs_of devstr =
+    let virtfn n =
+      let path = sysfs_devices // devstr // Printf.sprintf "virtfn%d" n in
+      try Some (path |> Unix.readlink |> Filename.basename)
+      with exn ->
+        debug "Can't read %s of PCI %s: %s" path devstr (Printexc.to_string exn);
+        None in
+    let seq n = List.init n (fun x -> n-1-x) in
+    match num_vfs devstr with
+    | Some n when n > 0 -> seq n |> List.filter_map virtfn
+    | _ -> []
+
+  (** [deactivate_nvidia_sriov devstr] deactivates SRIOV PCI VFs of [devstr] if
+    * necessary. This needs to be called for NVidia GPUs before using
+    * [devstr] as a pass-through GPU.
+    *)
+  let deactivate_nvidia_sriov devstr =
+    let cmd  = nvidia_manage in
+    let args = ["-d"; devstr] in
+    let has_pciback devstr = get_driver devstr = Some (Supported Pciback) in
+
+    match vfs_of devstr with
+    | [] ->
+      debug "No need to deactivate NVidia vGPUs %s (it has 0 VFs)" devstr
+    | vfs when Sys.file_exists cmd ->
+      vfs |> List.filter has_pciback |> List.iter unbind_from_pciback;
+      debug "About to deactivate NVidia vGPUs %s by calling %s" devstr cmd;
+      let out, _ = Forkhelpers.execute_command_get_output cmd args in
+      debug "Deactivating NVidia vGPUs %s yielded: '%s'" devstr (String.escaped out)
+    | _ ->
+      let msg = Printf.sprintf "Can't find %s to reset NVidia GPU %s"
+        cmd devstr in
+      raise (Xenopsd_error (Internal_error msg))
+
+  let bind_to_nvidia devstr =
+    debug "pci: binding device %s to nvidia" devstr;
+    let bind = Filename.concat sysfs_nvidia "bind" in
+    write_string_to_file bind devstr
 
   let unbind_from_nvidia devstr =
     debug "pci: attempting to lock device %s before unbinding from nvidia" devstr;
@@ -1436,6 +1499,8 @@ module PCI = struct
         then gpu_path
         else find_gpu rest
     in
+    deactivate_nvidia_sriov devstr;
+
     (* Disable persistence mode on the device before unbinding it. In future it
        	 * might be worth augmenting gpumon so that it can do this, and to enable
        	 * xapi and/or xenopsd to tell it to do so. *)
@@ -1468,6 +1533,7 @@ module PCI = struct
     let unbind_from devstr = function
       | Supported I915 -> unbind_from_i915 devstr
       | Supported Nvidia -> unbind_from_nvidia devstr
+      | Supported Pciback -> unbind_from_pciback devstr
       | driver -> unbind devstr driver
     in
     Mutex.execute bind_lock (fun () ->
