@@ -2015,7 +2015,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       Local.VM.import_convert ~__context ~_type ~username ~password ~sr ~remote_config
 
     let import ~__context ~url ~sr ~full_restore ~force =
-      info "VM.import: url = '%s' sr='%s' force='%b'" url (Ref.string_of sr) force;
+      info "VM.import: url = '%s' sr='%s' force='%b'" "(url filtered)" (Ref.string_of sr) force;
       let pbd = choose_pbd_for_sr ~consider_unplugged_pbds:false ~__context ~self:sr () in
       let host = Db.PBD.get_host ~__context ~self:pbd in
       do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
@@ -2623,7 +2623,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc -> Client.Host_crashdump.destroy rpc session_id self)
 
     let upload ~__context ~self ~url ~options =
-      info "Host_crashdump.upload: host crashdump = '%s'; url = '%s'" (host_crashdump_uuid ~__context self) url;
+      info "Host_crashdump.upload: host crashdump = '%s'; url = '%s'" (host_crashdump_uuid ~__context self) "(url filtered)";
       let local_fn = Local.Host_crashdump.upload ~self ~url ~options in
       do_op_on ~local_fn ~__context ~host:(Db.Host_crashdump.get_host ~__context ~self)
         (fun session_id rpc -> Client.Host_crashdump.upload rpc session_id self url options)
