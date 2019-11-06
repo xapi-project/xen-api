@@ -149,7 +149,7 @@ def _get_assignments(session):
     devices = {}
     for vm in vms.values():
         # Ignore VMs with no PCI passthrough config or an empty config
-        if not vm['other_config'].has_key('pci'):
+        if 'pci' not in vm['other_config']:
             continue
         if not vm['other_config']['pci']:
             continue
@@ -188,34 +188,34 @@ def _get_vm_assignments(session, vmuuid):
 
     # Parse the SR-IOV MAC config string
     macs = {}
-    if vm['other_config'].has_key('sriovmacs') and vm['other_config']['sriovmacs']:
+    if 'sriovmacs' in vm['other_config'] and vm['other_config']['sriovmacs']:
         for x in vm['other_config']['sriovmacs'].split(","):
             r = re_mac.search(x)
             if not r:
-                raise "Failed to parse MAC config '%s' for VM %s" % x, vmuuid
+                raise Exception("Failed to parse MAC config '%s' for VM %s" % (x, vmuuid))
             macs[int(r.group(1))] = r.group(2)
     
     # Parse the SR-IOV VLAN config string
     vlans = {}
-    if vm['other_config'].has_key('sriovvlans') and vm['other_config']['sriovvlans']:
+    if 'sriovvlans' in vm['other_config'] and vm['other_config']['sriovvlans']:
         for x in vm['other_config']['sriovvlans'].split(","):
             r = re_vlan.search(x)
             if not r:
-                raise "Failed to parse VLAN config '%s' for VM %s" % x, vmuuid
+                raise Exception("Failed to parse VLAN config '%s' for VM %s" % (x, vmuuid))
             vlans[int(r.group(1))] = r.group(2)
     
     # Parse the PCI config string
-    if vm['other_config'].has_key('pci') and vm['other_config']['pci']:
+    if 'pci' in vm['other_config'] and vm['other_config']['pci']:
         for x in vm['other_config']['pci'].split(","):
             r = re_pci.search(x)
             if not r:
-                raise "Failed to parse PCI config '%s' for VM %s" % x, vmuuid
+                raise Exception("Failed to parse PCI config '%s' for VM %s" % (x, vmuuid))
             vendorid, deviceid = _get_vendor_and_device_ids(r.group(2))
-            if macs.has_key(int(r.group(1))):
+            if int(r.group(1)) in macs:
                 mac = macs[int(r.group(1))]
             else:
                 mac = None
-            if vlans.has_key(int(r.group(1))):
+            if int(r.group(1)) in vlans:
                 vlan = vlans[int(r.group(1))]
             else:
                 vlan = None
@@ -283,7 +283,7 @@ def assign_free_vf(session, args):
     for vfid in assigned.keys():
         if vfid in vfs:
             del vfs[vfid]
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
     ethdev = None
@@ -292,12 +292,12 @@ def assign_free_vf(session, args):
     
     # Allow the caller to specify a the eth device from which the VF should
     # be allocated
-    if args.has_key("ethdev"):
+    if "ethdev" in args:
         ethdev = args["ethdev"]
 
     # Specify by network UUID. If this is a VLAN network then this forces the
     # specification of a VLAN tag for the VF.
-    if args.has_key("nwuuid"):
+    if "nwuuid" in args:
         nwuuid = args["nwuuid"]
         nwref = session.xenapi.network.get_by_uuid(nwuuid)
         pifrefs = session.xenapi.network.get_PIFs(nwref)
@@ -313,7 +313,7 @@ def assign_free_vf(session, args):
 
     # Specify by PIF UUID. If this is a VLAN PIF then this forces the
     # specification of a VLAN tag for the VF.
-    if args.has_key("pifuuid"):
+    if "pifuuid" in args:
         pifuuid = args["pifuuid"]
         pifref = session.xenapi.PIF.get_by_uuid(pifuuid)
 
@@ -330,7 +330,7 @@ def assign_free_vf(session, args):
     # If the caller specified a pass through index use that otherwise
     # find the first one not currently configured.
     ourassignments = _get_vm_assignments(session, vmuuid)
-    if args.has_key("index"):
+    if "index" in args:
         index = int(args["index"])
     else:
         i = 0
@@ -341,12 +341,12 @@ def assign_free_vf(session, args):
             i = i + 1
 
     # Use the user specified MAC or create a local adminstered one
-    if args.has_key("mac"):
+    if "mac" in args:
         mac = args["mac"]
     else:
         mac = _randomMAC()
 
-    if args.has_key("vlan"):
+    if "vlan" in args:
         if vlan and args["vlan"] != vlan:
             raise "Cannot override PIF VLAN %s" % (vlan)
         vlan = args["vlan"]
@@ -423,7 +423,7 @@ def assign_free_vf(session, args):
 
 def unassign_vf(session, args, genericpci=False):
     """Unassign a VF/device from a VM."""
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
 
@@ -431,12 +431,12 @@ def unassign_vf(session, args, genericpci=False):
     pciid = None
     index = None
     vfdisplay = ""
-    if args.has_key("index"):
+    if "index" in args:
         index = int(args["index"])
-    if args.has_key("pciid"):
+    if "pciid" in args:
         pciid = args["pciid"]
         vfdisplay = pciid
-    if args.has_key("ethdev") and args.has_key("vf") and not genericpci:
+    if "ethdev" in args and "vf" in args and not genericpci:
         ethdev = args["ethdev"]
         vfnum = args["vf"]
         vfdisplay = "%s VF %s" % (ethdev, vfnum)
@@ -465,7 +465,7 @@ def unassign_vf(session, args, genericpci=False):
             if current[i][0] == pciid:
                 del current[i]
     else:
-        if not current.has_key(index):
+        if index not in current:
             raise "VM %s does not have PCI passthrough index %u" % (index)
         del current[index]
 
@@ -476,9 +476,9 @@ def unassign_vf(session, args, genericpci=False):
 def assign_free_pci_device(session, args):
     """Assign a free PCI device on this host to the specified VM."""
     assigned = _get_assignments(session)
-    if not args.has_key("vendorid"):
+    if "vendorid" not in args:
         raise "No vendor ID specified, please use the 'vendorid' argument"
-    if not args.has_key("deviceid"):
+    if "deviceid" not in args:
         raise "No device ID specified, please use the 'deviceid' argument"
     # _get_devices will check syntax of the args
     vendorid = args["vendorid"]
@@ -488,14 +488,14 @@ def assign_free_pci_device(session, args):
     for pciid in assigned.keys():
         if pciid in devices:
             del devices[pciid]
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
 
     # If the caller specified a pass through index use that otherwise
     # find the first one not currently configured.
     ourassignments = _get_vm_assignments(session, vmuuid)
-    if args.has_key("index"):
+    if "index" in args:
         index = int(args["index"])
     else:
         i = 0
@@ -582,7 +582,7 @@ def show_summary(session, args):
         entry.appendChild(subentry)
         subentry.appendChild(dom.createTextNode(vfnum))
 
-        if assigned.has_key(vfid):
+        if vfid in assigned:
             vmuuid, vmnum, vendorid, deviceid, mac, vlan = assigned[vfid]
             aentry = dom.createElement("assigned")
             entry.appendChild(aentry)
@@ -609,9 +609,9 @@ def show_summary(session, args):
 
 def list_pci_devices(session, args):
     """Return a list of PCI devices of the specified vendorid:deviceid and their assignments."""
-    if not args.has_key("vendorid"):
+    if "vendorid" not in args:
         raise "No vendor ID specified, please use the 'vendorid' argument"
-    if not args.has_key("deviceid"):
+    if "deviceid" not in args:
         raise "No device ID specified, please use the 'deviceid' argument"
     # _get_devices will check syntax of the args
     vendorid = args["vendorid"]
@@ -639,7 +639,7 @@ def list_pci_devices(session, args):
         entry.appendChild(subentry)
         subentry.appendChild(dom.createTextNode(deviceid))
 
-        if assigned.has_key(pciid):
+        if pciid in assigned:
             vmuuid, vmnum, vendorid, deviceid, mac, vlan = assigned[pciid]
             aentry = dom.createElement("assigned")
             entry.appendChild(aentry)
@@ -665,7 +665,7 @@ def list_pci_devices(session, args):
 
 def get_vm(session, args):
     """Return a description of the SR-IOV config for the specified VM."""
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
     vfs = _get_vfs()
@@ -724,7 +724,7 @@ def get_vm(session, args):
     return dom.toprettyxml()
 
 def prep_for_vm(session, args):
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
     current = _get_vm_assignments(session, vmuuid)
@@ -761,7 +761,7 @@ def prep_for_vm(session, args):
 
 def unassign_all(session, args):
     """Clear all SR-IOV and PCI passthrough devices from a VM."""
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
     
@@ -772,16 +772,16 @@ def unassign_all(session, args):
 def change_vf_mac(session, args):
     """Change the MAC address for a VF already assigned to a VM."""
 
-    if not args.has_key("mac"):
+    if "mac" not in args:
         raise "Need to specify a new MAC address"
     mac = args["mac"]
 
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
 
     # Specify the VF by index
-    if not args.has_key("index"):
+    if "index" not in args:
         raise "Need to specify the VF index"
     index = int(args["index"])
 
@@ -789,7 +789,7 @@ def change_vf_mac(session, args):
     current = _get_vm_assignments(session, vmuuid)
 
     # Update the MAC
-    if not current.has_key(index):
+    if index not in current:
         raise "VF index %u not found for VM %s" % (index, vmuuid)
     c = current[index]
     current[index] = (c[0], c[1], c[2], mac, c[4])
@@ -803,18 +803,18 @@ def change_vf_vlan(session, args):
     """Change the VLAN for a VF already assigned to a VM.
     Use vlan=None to remove VLAN tagging."""
 
-    if not args.has_key("vlan"):
+    if "vlan" not in args:
         raise "Need to specify a new VLAN"
     vlan = args["vlan"]
     if vlan.lower() == "none":
         vlan = None
 
-    if not args.has_key("uuid"):
+    if "uuid" not in args:
         raise "No VM UUID specified, please use the 'uuid' argument"
     vmuuid = args["uuid"]
 
     # Specify the VF by index
-    if not args.has_key("index"):
+    if "index" not in args:
         raise "Need to specify the VF index"
     index = int(args["index"])
 
@@ -822,7 +822,7 @@ def change_vf_vlan(session, args):
     current = _get_vm_assignments(session, vmuuid)
 
     # Update the MAC
-    if not current.has_key(index):
+    if index not in current:
         raise "VF index %u not found for VM %s" % (index, vmuuid)
     c = current[index]
     current[index] = (c[0], c[1], c[2], c[3], vlan)

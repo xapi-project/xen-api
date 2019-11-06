@@ -29,6 +29,7 @@
 #
 # The "cf" CGI param specfies the row.  (All rows are returned if it's missing.)
 
+from __future__ import print_function
 import sys
 import os
 import getopt
@@ -49,16 +50,16 @@ import commands
 
 def print_debug(string):
     if debug: 
-        print >>sys.stderr, "DEBUG:", string
+        print("DEBUG:", string, file=sys.stderr)
         syslog.syslog(syslog.LOG_USER | syslog.LOG_INFO, "PERFMON(DEBUG): %s" % string)
 
 def log_err(string):
-    print >>sys.stderr, string
+    print(string, file=sys.stderr)
     syslog.syslog(syslog.LOG_USER | syslog.LOG_ERR, "PERFMON: %s" % string)
     pass
 
 def log_info(string):
-    print >>sys.stderr, string
+    print(string, file=sys.stderr)
     syslog.syslog(syslog.LOG_INFO | syslog.LOG_INFO, "PERFMON: %s" % string)
     pass
 
@@ -71,7 +72,7 @@ def debug_mem():
             name = obj.__class__.__name__
         else:
             name = type(obj)
-        if objCount.has_key(name):
+        if name in objCount:
             objCount[name] += 1
         else:
             objCount[name] = 1
@@ -124,7 +125,7 @@ class ObjectReport:
         except:
             return 0.0
     def insert_value(self, var_name, index, value):
-        if not self.vars.has_key(var_name):
+        if var_name not in self.vars:
             self.vars[var_name] = []
         self.vars[var_name].insert(index, value)
 
@@ -247,7 +248,7 @@ class RRDContentHandler(sax.ContentHandler):
         elif name == 'entry':
             (_, objtype, uuid, paramname) = self.raw_text.split(':')
             # lookup the obj_report corresponding to this uuid, or create if it does not exist
-            if not self.report.obj_reports.has_key(uuid):
+            if uuid not in self.report.obj_reports:
                 self.report.obj_reports[uuid] = ObjectReport(objtype, uuid)
             obj_report = self.report.obj_reports[uuid]
 
@@ -391,7 +392,7 @@ def get_percent_mem_usage(ignored):
         mem_in_use = memdict['MemTotal'] - memdict['MemFree'] - memdict['Buffers'] - memdict['Cached']
         swap_in_use = memdict['SwapTotal'] - memdict['SwapFree']
         return float(mem_in_use + swap_in_use) / memdict['MemTotal']
-    except Exception, e:
+    except Exception as e:
         log_err("Error %s in get_percent_mem_usage, return 0.0 instead" % e)
         return 0.0
 
@@ -402,7 +403,7 @@ def get_percent_sr_usage(mylist):
             raise Exception("Incorrect number of values to consolidate: %d (exactly 2 values)" % len(mylist))
         physical_utilisation, size = mylist[0:2]
         return float(physical_utilisation) / size
-    except Exception, e:
+    except Exception as e:
         log_err("Error %s in get_percent_sr_usage, return 0.0 instead" % e)
         return 0.0
 
@@ -420,7 +421,7 @@ class VariableConfig:
     """
     def __init__(self, xmldoc, alarm_create_callback, get_default_variable_config):
         try: name = xmldoc.getElementsByTagName('name')[0].getAttribute('value')
-        except IndexError: raise XmlConfigException, "variable missing 'name' tag"
+        except IndexError: raise XmlConfigException("variable missing 'name' tag")
         def get_value(tag): 
             try:
                 return xmldoc.getElementsByTagName(tag)[0].getAttribute('value')
@@ -441,29 +442,29 @@ class VariableConfig:
         try:
             self.rrd_regex = re.compile("^%s$" % rrd_regex)
         except:
-            raise XmlConfigException, "variable %s: regex %s does not compile" % (name, rrd_regex)
+            raise XmlConfigException("variable %s: regex %s does not compile" % (name, rrd_regex))
 
         if consolidation_fn not in supported_consolidation_functions:
-            raise XmlConfigException, "variable %s: consolidation function %s not supported" \
-                % (name, consolidation_fn)
+            raise XmlConfigException("variable %s: consolidation function %s not supported" \
+                % (name, consolidation_fn))
         self.consolidation_fn = eval(consolidation_fn)
 
         try:
             self.alarm_trigger_period = int(alarm_trigger_period)
         except:
-            raise XmlConfigException, "variable %s: alarm_trigger_period %s not an int" % \
-                (name, alarm_trigger_period)
+            raise XmlConfigException("variable %s: alarm_trigger_period %s not an int" % \
+                (name, alarm_trigger_period))
 
         try:
             self.alarm_auto_inhibit_period = int(alarm_auto_inhibit_period)
         except:
-            raise XmlConfigException, "variable %s: alarm_auto_inhibit_period %s not an int" % \
-                (name, alarm_auto_inhibit_period)
+            raise XmlConfigException("variable %s: alarm_auto_inhibit_period %s not an int" % \
+                (name, alarm_auto_inhibit_period))
         try:
             trigger_level = float(alarm_trigger_level)
         except:
-            raise XmlConfigException, "variable %s: alarm_trigger_level %s not a float" % \
-                (name, alarm_trigger_level)
+            raise XmlConfigException("variable %s: alarm_trigger_level %s not a float" % \
+                (name, alarm_trigger_level))
 
         self.alarm_priority = alarm_priority
             
@@ -557,10 +558,10 @@ class ObjectMonitor:
             # config has changed - reparse it
             try:
                 self.__parse_xmlconfig()
-            except XmlConfigException, e:
+            except XmlConfigException as e:
                 errmsg = "\n".join([ str(x) for x in e.args ])
                 log_err("%s %s config error: %s" % (self.monitortype, self.uuid, errmsg))
-            except ExpatError, e:
+            except ExpatError as e:
                 errmsg = "\n".join([ str(x) for x in e.args ])
                 log_err("%s %s XML parse error: %s" % (self.monitortype, self.uuid, errmsg))
             return True
@@ -568,7 +569,7 @@ class ObjectMonitor:
             return False # config unchanged
 
     def __update_xmlconfig(self):
-        if not all_xmlconfigs.has_key(self.uuid):
+        if self.uuid not in all_xmlconfigs:
             xmlconfig = None
         else:
             xmlconfig = all_xmlconfigs[self.uuid]
@@ -693,17 +694,17 @@ class VMMonitor(ObjectMonitor):
             elif variable_name == "fs_usage": return "_$_DUMMY__"     # match nothing
             elif variable_name == "log_fs_usage": return "_$_DUMMY__" # match nothing
             elif variable_name == "mem_usage": return "_$_DUMMY__"    # match nothing
-            else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
+            else:raise XmlConfigException("variable %s: no default rrd_regex - please specify one" % variable_name)
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
         elif config_tag == 'alarm_trigger_level': 
             if variable_name == "fs_usage": return '0.9'              # trigger when 90% full
             elif variable_name == "log_fs_usage": return '0.9'        # trigger when 90% full
             elif variable_name == "mem_usage": return '0.95'          # tigger when mem demanded is close to phy_mem
-            else: raise XmlConfigException, "variable %s: no default alarm_trigger_level - please specify one" % variable_name
+            else:raise XmlConfigException("variable %s: no default alarm_trigger_level - please specify one" % variable_name)
         elif config_tag == 'alarm_trigger_sense':       return 'high' # trigger if *above*
         elif config_tag == 'alarm_priority':             return '3'   # Service degradation level defined in PR-1455
-        else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
+        else:raise XmlConfigException("variable %s: no default available for tag %s" % (variable_name, config_tag))
 
 class SRMonitor(ObjectMonitor):
     """Object that maintains state of one SR
@@ -739,15 +740,15 @@ class SRMonitor(ObjectMonitor):
         elif config_tag == 'rrd_regex':
             if variable_name == 'physical_utilisation': return 'physical_utilisation|size'
             elif variable_name == "sr_io_throughput_total_per_host": return '_$_DUMMY__' # (these are to drive Host RRDs and so are handled by the HOSTMonitor)
-            else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
+            else:raise XmlConfigException("variable %s: no default rrd_regex - please specify one" % variable_name)
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
         elif config_tag == 'alarm_trigger_level':
             if variable_name == "physical_utilistaion": return '0.8'  # trigger when 80% full
-            else: raise XmlConfigException, "variable %s: no default alarm_trigger_level - please specify one" % variable_name
+            else:raise XmlConfigException("variable %s: no default alarm_trigger_level - please specify one" % variable_name)
         elif config_tag == 'alarm_trigger_sense':       return 'high' # trigger if *above*
         elif config_tag == 'alarm_priority':             return '3'   # Service degradation level defined in PR-1455
-        else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
+        else:raise XmlConfigException("variable %s: no default available for tag %s" % (variable_name, config_tag))
 
 class HOSTMonitor(ObjectMonitor):
     """Object that maintains state of one Host
@@ -796,14 +797,14 @@ class HOSTMonitor(ObjectMonitor):
             elif variable_name == "network_usage": return "pif_eth[0-9]+_[rt]x"
             elif variable_name == "memory_free_kib": return variable_name
             elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", variable_name): return variable_name[3:]
-            else: raise XmlConfigException, "variable %s: no default rrd_regex - please specify one" % variable_name
+            else:raise XmlConfigException("variable %s: no default rrd_regex - please specify one" % variable_name)
         elif config_tag == 'alarm_trigger_period':      return '60'   # 1 minute
         elif config_tag == 'alarm_auto_inhibit_period': return '3600' # 1 hour
         elif config_tag == 'alarm_trigger_sense':
             if variable_name == "memory_free_kib": return "low"
             else: return 'high' # trigger if *above* level
         elif config_tag == 'alarm_priority':             return '3'    # Service degradation level defined in PR-1455
-        else: raise XmlConfigException, "variable %s: no default available for tag %s" % (variable_name, config_tag)
+        else:raise XmlConfigException("variable %s: no default available for tag %s" % (variable_name, config_tag))
 
     def get_active_variables(self):
         r = self.variables + [v for v in self.secondary_variables if v.active]
@@ -844,16 +845,16 @@ class HOSTMonitor(ObjectMonitor):
         if secondary_changed:
             try:
                 self.__parse_secondary_xmlconfigs()
-            except XmlConfigException, e:
+            except XmlConfigException as e:
                 errmsg = "\n".join([ str(x) for x in e.args ])
                 log_err("%s %s secondary config error: %s" % (self.monitortype, self.uuid, errmsg))
-            except ExpatError, e:
+            except ExpatError as e:
                 errmsg = "\n".join([ str(x) for x in e.args ])
                 log_err("%s %s secondary XML parse error: %s" % (self.monitortype, self.uuid, errmsg))
 
         if main_changed or secondary_changed:
             # Calculate which secondary variables are active, i.e. not overridden by ones configured on the host rather than the SR.
-            main_names = set([v.name for v in self.variables])
+            main_names = {v.name for v in self.variables}
             for v in self.secondary_variables:
                 v.set_active(v.name not in main_names)
 
@@ -945,13 +946,13 @@ def update_all_xmlconfigs(session):
     all_xmlconfigs.update([
             (uuid, other_config['perfmon'])
             for (uuid, other_config) in all_otherconfigs.items()
-            if other_config.has_key('perfmon')
+            if 'perfmon' in other_config
             ])
 
     # Rebuild another map
     sruuids_by_hostuuid.clear()
     for (sr, rec) in all_sr_recs.items():
-        if rec['other_config'].has_key('perfmon'):
+        if 'perfmon' in rec['other_config']:
             sruuid = rec['uuid']
             # If we hadn't done SR.get_all_records we would now do SR.get_PBDs.
             host_refs = [session.xenapi.PBD.get_host(pbd) for pbd in rec['PBDs']]
@@ -960,7 +961,7 @@ def update_all_xmlconfigs(session):
                 if hu in sruuids_by_hostuuid:
                     sruuids_by_hostuuid[hu].add(sruuid)
                 else:
-                    sruuids_by_hostuuid[hu] = set([sruuid])
+                    sruuids_by_hostuuid[hu] = {sruuid}
 
 # 5 minute default interval
 interval = 300
@@ -1090,8 +1091,8 @@ def main():
             elif not host_mon:
                 host_mon = HOSTMonitor(host_uuid)
             elif host_mon.uuid != host_uuid:
-                raise PerfMonException, "host uuid in rrd_updates changed (old: %s, new %s)" % \
-                    (host_mon.uuid, host_uuid)
+                raise PerfMonException("host uuid in rrd_updates changed (old: %s, new %s)" % \
+                    (host_mon.uuid, host_uuid))
             else:
                 # check if the config has changed, e.g. by XenCenter
                 host_mon.refresh_config()
@@ -1123,7 +1124,7 @@ def main():
             for sr_mon in sr_mon_lookup.values():
                 sr_mon.process_rrd_updates(rrd_updates, session)
 
-        except socket.error, e:
+        except socket.error as e:
             if e.args[0] == 111:
                 # "Connection refused" - this happens when we try to restart session and *that* fails
                 time.sleep(2)
@@ -1132,7 +1133,7 @@ def main():
             log_err("caught socket.error: (%s) - restarting XAPI session" % " ".join([str(x) for x in e.args]))
             restart_session = True
 
-        except IOError, e:
+        except IOError as e:
             if e.args[0] == 'http error' and e.args[1] in (401, 500):
                 # Error getting rrd_updates: 401=Unauthorised, 500=Internal - start new session
                 pass 
@@ -1210,7 +1211,7 @@ if __name__ == "__main__":
         # run the main loop
         rc = main()
 
-    except UsageException, e:
+    except UsageException as e:
         # Print the usage
         log_err("usage: %s [-i <interval> -n <loops> -d -s <rrd_step> -c <config_update_period> -D <interval_percent_dither>] \\\n" \
                     "\t[--interval=<interval> --numloops=<loops> --debug \\\n" \
@@ -1229,7 +1230,7 @@ if __name__ == "__main__":
         # we caught a signal which we have already logged
         pass
 
-    except Exception, e:
+    except Exception as e:
         rc = 2
         log_err("FATAL ERROR: perfmon will exit")
         log_err("Exception is of class %s" % e.__class__)
@@ -1242,12 +1243,12 @@ if __name__ == "__main__":
             errmsg = "\n".join([ str(x) for x in e.args ])
             # print the exception args nicely
             log_err(errmsg)
-        except Exception, ignored:
+        except Exception as ignored:
             try:
                 errmsg = "\n".join([ str(x) for x in e.details ])
                 # print the exception args nicely
                 log_err(errmsg)
-            except Exception, ignored:
+            except Exception as ignored:
                 pass
 
         # now log the traceback to syslog
