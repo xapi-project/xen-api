@@ -67,7 +67,7 @@ def vdi_does_not_exist():
 # Type-checking helper functions ############################################
 
 vdi_info_types = {
-    "vdi": type(""), 
+    "vdi": type(""),
     "name_label": type(""),
     "name_description": type(""),
     "ty": type(""),
@@ -90,30 +90,30 @@ def make_vdi_info(v):
         elif t == type(True):
             v[k] = str(v[k]).lower() == "true"
         else:
-            raise BackendError
+            raise BackendError("make_vdi_info unknown type", [ str(t) ])
     return v
 
 def vdi_info(v):
     global vdi_info_types
     for k in vdi_info_types.keys():
         if k not in v:
-            raise BackendError
+            raise BackendError("vdi_info missing key", [ k, repr(v) ])
         t = vdi_info_types[k]
         if type(v[k]) != t:
-            raise BackendError
+            raise BackendError("vdi_info key has wrong type", [ k, str(t), str(type(v[k])) ])
     return v
-            
+
 def expect_none(x):
     if x != None:
-        raise BackendError
+        raise BackendError("type error", [ "None", repr(x) ])
 
 def expect_long(x):
     if type(x) != type(0):
-        raise BackendError
+        raise BackendError("type error", [ "long int", repr(x) ])
 
 def expect_string(x):
     if type(x) != type(""):
-        raise BackendError
+        raise BackendError("type error", [ "string", repr(x) ])
 
 # Well-known feature flags understood by xapi ##############################
 
@@ -156,7 +156,7 @@ class Marshall:
     def sr_destroy(self, args):
         result = self.x.sr_destroy(args["task"], args["sr"])
         expect_none(result)
-        return value(unit)     
+        return value(unit)
     def sr_scan(self, args):
         vis = self.x.sr_scan(args["task"], args["sr"])
         result = map(lambda vi: vdi_info(vi), vis)
