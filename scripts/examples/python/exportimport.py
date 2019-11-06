@@ -64,7 +64,7 @@ def exportimport(url, xapi, session, src_vdi, dst_vdi):
     print("Sending HTTP request:")
     for h in headers:
       output.send("%s\r\n" % h)
-      print("%s\r\n" % h, end=' ')
+      print("%s\r\n" % h)
     result = output.recv(1024)
     print("Received HTTP response:")
     print(result)

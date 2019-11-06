@@ -24,8 +24,8 @@ def list_paused_domains():
 
 # Given localhost's uuid and a (domid, uuid) tuple, return True if the domain
 # be somewhere else i.e. we think it may have leaked here
-def should_domain_be_somewhere_else(localhost_uuid, xxx_todo_changeme):
-    (domid, uuid) = xxx_todo_changeme
+def should_domain_be_somewhere_else(localhost_uuid, domain):
+    (domid, uuid) = domain
     try:
         x = XenAPI.xapi_local()
         x.xenapi.login_with_password("root", "", "1.0", "xen-api-scripts-monitor-unwanted-domains.py")
@@ -54,8 +54,8 @@ def log(str):
     print(str)
 
 # Destroy the given domain
-def destroy_domain(xxx_todo_changeme1):
-    (domid, uuid) = xxx_todo_changeme1
+def destroy_domain(domain):
+    (domid, uuid) = domain
     log("destroying domid %s uuid %s" % (domid, uuid))
     all = subprocess.Popen(["@OPTDIR@/debug/destroy_domain", "-domid", domid], stdout=subprocess.PIPE).communicate()[0]
 
