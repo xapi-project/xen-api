@@ -100,11 +100,11 @@ let add_pcis_to_vm ~__context host vm vgpu pci =
     Db.VM.add_to_platform ~__context ~self:vm ~key:Xapi_globs.igd_passthru_key ~value:"true"
 
 let reserve_free_virtual_function ~__context vm impl pf =
+  let host = Db.PCI.get_host ~__context ~self:pf in
   let rec get retry =
     match Pciops.reserve_free_virtual_function ~__context vm pf with
     | Some vf -> vf
     | None when retry ->
-        let host = Db.PCI.get_host ~__context ~self:pf in
         begin match impl with
         | `mxgpu ->
           Helpers.call_api_functions ~__context @@ fun rpc session_id ->
@@ -125,7 +125,17 @@ let reserve_free_virtual_function ~__context vm impl pf =
         (* This probably means that our capacity checking went wrong! *)
         raise Api_errors.(Server_error (internal_error, ["No free virtual function found"]))
   in
-  get true
+  match impl with
+  | `nvidia_sriov ->
+    (* Always call the setup function. If we are coming out of
+     * pass-through, xapi assumes the VFs are active but they are not - so
+     * activate them. The setup function itself avoids unnecessary
+     * work *)
+    Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+        Client.Client.Host.nvidia_vf_setup ~rpc ~session_id ~host ~pf
+        ~enable:true;
+    get false
+  | _ -> get true
 
 let add_vgpus_to_vm ~__context host vm vgpus =
   debug "vGPUs allocated to VM (%s) are: %s" (Ref.string_of vm)

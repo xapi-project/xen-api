@@ -366,18 +366,76 @@ let mxgpu_vf_setup ~__context =
 
 (* This must be run LOCALLY on the host that is about to start a VM that is
  * going to use a vgpu backed by an nvidia pgpu. *)
+let nvidia_vf_setup_mutex = Mutex.create ()
 let nvidia_vf_setup ~__context ~pf ~enable =
-  let script  = !Xapi_globs.nvidia_sriov_manage_script in
-  let enable' = if enable then "-e" else "-d" in
-  if Sys.file_exists script then begin
-    let id =
-      if pf = Ref.null then "ALL" else Db.PCI.get_pci_id ~__context ~self:pf in
-      ignore (Forkhelpers.execute_command_get_output script [enable'; id]);
-    (* Update the gpus even if the VFs were present already, in case they were
-     * already created before xapi was (re)started. *)
-    Xapi_pci.update_pcis ~__context
-  end else begin
-    error "nvdia_vf_setup %s does not exist" script;
-    raise Api_errors.(Server_error
-      (internal_error, [Printf.sprintf "Can't locate %s" script]))
-  end
+  let sprintf   = Printf.sprintf in
+  let fail msg  = Api_errors.(Server_error (internal_error, [msg])) in
+  let script    = !Xapi_globs.nvidia_sriov_manage_script in
+  let enable'   = if enable then "-e" else "-d" in
+  let bind_path = "/sys/bus/pci/drivers/nvidia/bind" in
+  let unbind_path pci = sprintf "/sys/bus/pci/devices/%s/driver/unbind" pci in
+  let pci       = Db.PCI.get_pci_id ~__context ~self:pf in
+
+  (** [num_vfs pci] returns the number of PCI VFs of [pci] or 0 if
+    * [pci] is not an SRIOV device
+    *)
+  let num_vfs pci =
+    let path = Printf.sprintf "/sys/bus/pci/devices/%s/sriov_numvfs" pci in
+    try
+      Some (Unixext.string_of_file path |> String.trim |> int_of_string)
+    with
+      | Unix.(Unix_error (ENOENT, _, _)) ->
+        debug "File %s does not exist - assuming no SRIOV devices in use" path;
+        None
+      | exn ->
+        let msg = Printf.sprintf "Can't read %s to activate Nvidia GPU %s: %s"
+          path pci (Printexc.to_string exn) in
+        error "%s" msg;
+        raise (fail msg) in
+
+  let write_to path pci =
+    try
+      let fn fd = Unixext.really_write fd pci 0 (String.length pci) in
+      Unixext.with_file path [ Unix.O_WRONLY ] 0o640 fn
+    with
+      e ->
+        error "failed to write to %s to re-bind PCI %s to Nvidia driver: %s"
+          path pci (Printexc.to_string e);
+        raise (fail (sprintf "Can't rebind PCI %s driver" pci)) in
+
+  let bind_to_nvidia pci =
+    match Xapi_pci_helpers.get_driver_name pci with
+    | Some "nvidia" ->
+      debug "PCI %s already bound to NVidia driver" pci;
+    | Some driver ->
+      debug "PCI %s bound to %s, rebinding to NVidia" pci driver;
+      write_to (unbind_path pci) pci;
+      write_to bind_path pci
+    | None ->
+      debug "PCI %s not bound, binding to NVidia" pci;
+      write_to bind_path pci in
+
+  let activate_vfs pci =
+    match num_vfs pci with
+    | None ->
+      let msg = sprintf "Can't determine number of VFs for PCI %s" pci in
+      raise (fail msg)
+    | Some 0 when Sys.file_exists script ->
+      debug "PCI %s has 0 VFs - calling %s" pci script;
+      let out, _ = Forkhelpers.execute_command_get_output script [enable'; pci] in
+      debug "Activating NVidia vGPUs %s yielded: '%s'" pci (String.escaped out);
+    | Some n when n > 0 ->
+      debug "PCI %s already has %n VFs - not calling %s" pci n script
+    | _ ->
+      error "nvdia_vf_setup %s does not exist" script;
+      raise (fail (sprintf "Can't locate %s" script)) in
+
+  (* Update the gpus even if the VFs were present already, in case they were
+   * already created before xapi was (re)started. *)
+  Mutex.execute nvidia_vf_setup_mutex @@ fun () -> begin
+    debug "nvidia_vf_setup_mutex - enter";
+    bind_to_nvidia pci;
+    activate_vfs pci;
+  end;
+  debug "nvidia_vf_setup_mutex - exit";
+  Xapi_pci.update_pcis ~__context
