@@ -18,6 +18,7 @@
 # a VM is installed from this template. It does not apply to templates
 # which have been created from real VMs -- they have their own disks.
 
+from __future__ import print_function
 import XenAPI
 import xml.dom.minidom
 
@@ -63,7 +64,7 @@ def parseProvisionSpec(txt):
     """Return an instance of type ProvisionSpec given XML text"""
     doc = xml.dom.minidom.parseString(txt)
     all = doc.getElementsByTagName("provision")
-    if len(all) <> 1:
+    if len(all) != 1:
         raise "Expected to find exactly one <provision> element"
     ps = ProvisionSpec()
     disks = all[0].getElementsByTagName("disk")
@@ -92,19 +93,19 @@ def setProvisionSpec(session, vm, ps):
     session.xenapi.VM.add_to_other_config(vm, "disks", txt)
 
 if __name__ == "__main__":
-    print "Unit test of provision XML spec module"
-    print "--------------------------------------"
+    print("Unit test of provision XML spec module")
+    print("--------------------------------------")
     ps = ProvisionSpec()
     ps.disks.append(Disk("0", "1024", "0000-0000", True))
     ps.disks.append(Disk("1", "2048", "1111-1111", False))
-    print "* Pretty-printing spec"
+    print("* Pretty-printing spec")
     txt = printProvisionSpec(ps)
-    print txt
-    print "* Re-parsing output"
+    print(txt)
+    print("* Re-parsing output")
     ps2 = parseProvisionSpec(txt)
-    print "* Pretty-printing spec"
+    print("* Pretty-printing spec")
     txt2 = printProvisionSpec(ps)
-    print txt2
-    if txt <> txt2:
+    print(txt2)
+    if txt != txt2:
         raise "Sanity-check failed: print(parse(print(x))) <> print(x)"
-    print "* OK: print(parse(print(x))) == print(x)"
+    print("* OK: print(parse(print(x))) == print(x)")

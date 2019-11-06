@@ -2,6 +2,7 @@
 # Copyright (c) 2005-2007 XenSource, Inc
 
 # Code ripped out of 'xgt' script for now
+from __future__ import print_function
 import commands, xmlrpclib, os, sys, httplib, socket, urllib2, signal
 
 verbose = True
@@ -38,7 +39,7 @@ def run(cmd, *args):
         try: 
             for line in out.split("\n"):
                 log("| " + line)
-        except TypeError, e:
+        except TypeError as e:
             pass
     if ret != 0:
         debug ("run - command %s failed with %d" , cmd, ret)
@@ -46,11 +47,11 @@ def run(cmd, *args):
     return out
 
 def log(fmt, *args):
-    print fmt % args
+    print(fmt % args)
 
 def debug(msg, *args):
     if verbose:
-        print msg % args
+        print(msg % args)
 
 def create_partition(lvpath):
     # 1. write a partition table:

@@ -2,6 +2,7 @@
 
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
+from __future__ import print_function
 import sys, os, subprocess, json, urlparse, itertools
 import os.path
 import time
@@ -120,7 +121,7 @@ def to_string_list(d):
         return (" " * (m - len(key))) + key + ": " + value
     l = [ left("vdi-uuid", d["vdi-uuid"]), right("reason", d["reason"]) ]
     l.append(right("delete-next-boot", d["delete-next-boot"]))
-    if d.has_key("disk"):
+    if "disk" in d:
         l.append(right("currently-attached", "True"))
         l.append(right("path", d['disk']))
     else:
@@ -170,7 +171,7 @@ def add(session, vdi_uuid, reason):
     }
 
     # If the SM supports offline attach then we use it
-    if sm["features"].has_key("VDI_ATTACH_OFFLINE"):
+    if "VDI_ATTACH_OFFLINE" in sm["features"]:
         data["volume-plugin"] = ty
         data[smapiv3_config] = json.dumps(device_config)
         sr = sr_attach(ty, device_config)
@@ -184,7 +185,7 @@ def add(session, vdi_uuid, reason):
         try:
             data["driver"] = session.xenapi.SM.get_driver_filename(sm_ref)
             data["config"] = session.xenapi.VDI.generate_config(host, vdi)
-        except XenAPI.Failure, e:
+        except XenAPI.Failure as e:
             raise Exception("Failed generating static config file: %s" % (str(e)))
 
     # Make a fresh directory in main_dir to store the configuration. Note
@@ -204,7 +205,7 @@ def delete(vdi_uuid):
             f = open(path + "/delete-next-boot", "w")
             f.close()
             # If not currently attached then zap the whole tree
-            if not(existing.has_key("disk")):
+            if not("disk" in existing):
                 os.system("/bin/rm -rf %s" % path)
     if not found:
         raise Exception("Disk configuration not found")
@@ -220,7 +221,7 @@ def doexec(args, inputtext=None):
 def call_backend_attach(driver, config):
     args = map(lambda arg: arg.encode('utf8'), [driver, config])
     xml = doexec(args)
-    if xml[0] <> 0:
+    if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
     xmlrpc = xmlrpclib.loads(xml[1])
     try:
@@ -234,7 +235,7 @@ def call_backend_detach(driver, config):
     params['command'] = 'vdi_detach_from_config'
     config = xmlrpclib.dumps(tuple([params]), params['command'])
     xml = doexec([ driver, config ])
-    if xml[0] <> 0:
+    if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
     xmlrpc = xmlrpclib.loads(xml[1])
     try:
@@ -272,7 +273,7 @@ def attach(vdi_uuid):
     for existing in list():
         if existing['vdi-uuid'] == vdi_uuid:
             found = True
-            if not(existing.has_key('path')):
+            if not('path' in existing):
                 d = main_dir + "/" + existing['id'] 
                 # Delete any old symlink
                 try:
@@ -320,7 +321,7 @@ def detach(vdi_uuid):
     found = False
     for existing in list():
         if existing['vdi-uuid'] == vdi_uuid:
-            if not (existing.has_key('disk')):
+            if not ('disk' in existing):
                 return
             found = True
             d = main_dir + "/" + existing['id']
@@ -346,12 +347,12 @@ def detach(vdi_uuid):
 
     
 def usage():
-    print "Usage:"
-    print " %s list                 -- print a list of VDIs which will be attached on host boot" % sys.argv[0]
-    print " %s add <uuid> <reason>  -- make the VDI <uuid> available on host boot" % sys.argv[0]
-    print " %s del <uuid>           -- cease making the VDI <uuid> available on host boot" % sys.argv[0]
-    print " %s attach <uuid>        -- attach the VDI immediately" % sys.argv[0]    
-    print " %s detach <uuid>        -- detach the VDI immediately" % sys.argv[0]
+    print("Usage:")
+    print(" %s list                 -- print a list of VDIs which will be attached on host boot" % sys.argv[0])
+    print(" %s add <uuid> <reason>  -- make the VDI <uuid> available on host boot" % sys.argv[0])
+    print(" %s del <uuid>           -- cease making the VDI <uuid> available on host boot" % sys.argv[0])
+    print(" %s attach <uuid>        -- attach the VDI immediately" % sys.argv[0])    
+    print(" %s detach <uuid>        -- detach the VDI immediately" % sys.argv[0])
     sys.exit(1)
     
 if  __name__ == "__main__":
@@ -361,8 +362,8 @@ if  __name__ == "__main__":
     if sys.argv[1] == "list" and len(sys.argv) == 2:
         for i in list ():
             for line in to_string_list(i):
-                print line
-            print
+                print(line)
+            print()
     elif sys.argv[1] == "add" and len(sys.argv) == 4:
         session = XenAPI.xapi_local()
         session.xenapi.login_with_password("root", "", "1.0", "xen-api-scripts-static-vdis")        
@@ -374,7 +375,7 @@ if  __name__ == "__main__":
         delete(sys.argv[2])
     elif sys.argv[1] == "attach" and len(sys.argv) == 3:
         path = attach(sys.argv[2])
-        print path
+        print(path)
     elif sys.argv[1] == "detach" and len(sys.argv) == 3:
         detach(sys.argv[2])
     else:

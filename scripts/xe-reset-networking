@@ -12,6 +12,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Lesser General Public License for more details.
 """
+from __future__ import print_function
 
 import sys
 import os
@@ -94,8 +95,8 @@ if __name__ == "__main__":
 			conf = read_management_conf()
 			device = conf['LABEL']
 		except:
-			print "Could not figure out which interface should become the management interface. \
-				Please specify one using the --device option."
+			print("Could not figure out which interface should become the management interface. \
+				Please specify one using the --device option.")
 			sys.exit(1)
 	else:
 		device = options.device
@@ -107,7 +108,7 @@ if __name__ == "__main__":
 			parser.error('"--vlan <vlanId>" and "--novlan" should not be used together')
 			sys.exit(1)
 		if not valid_vlan(options.vlan):
-			print "VLAN tag you gave was invalid, It must be between 0 and 4094"
+			print("VLAN tag you gave was invalid, It must be between 0 and 4094")
 			sys.exit(1)
 		vlan = options.vlan
 	elif not options.novlan:
@@ -162,12 +163,12 @@ Type 'yes' to continue.
 Type 'no' to cancel.
 """
 		res = raw_input(warning + '\n'.join(configuration) + confirmation)
-		if res <> 'yes':
+		if res != 'yes':
 			sys.exit(1)
 	
 	# Update master's IP, if needed and given
 	if master == False and options.address != None:
-		print "Setting master's ip (" + address + ")..."
+		print("Setting master's ip (" + address + ")...")
 		try:
 			f = open(pool_conf, 'w')
 			f.write('slave:' + address)
@@ -183,19 +184,19 @@ Type 'no' to cancel.
 		bridge = 'br' + device
 	
 	# Ensure xapi is not running
-	print "Stopping xapi..."
+	print("Stopping xapi...")
 	os.system('service xapi stop >/dev/null 2>/dev/null')
 	
 	# Reconfigure new management interface
-	print "Reconfiguring " + device + "..."
+	print("Reconfiguring " + device + "...")
 	os.system('service xcp-network stop >/dev/null 2>/dev/null')
 	try:
 		os.remove('/var/lib/xcp/networkd.db')
 	except Exception as e:
-		print 'Warning: Failed to delete networkd.db.\n%s' % e
+		print('Warning: Failed to delete networkd.db.\n%s' % e)
 
 	# Update interfaces in inventory file
-	print 'Updating inventory file...'
+	print('Updating inventory file...')
 	inventory = read_inventory()
 	if vlan != None:
 		inventory['MANAGEMENT_INTERFACE'] = 'xentemp'

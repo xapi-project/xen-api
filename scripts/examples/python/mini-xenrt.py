@@ -3,6 +3,7 @@
 # Receive multiple VMs
 # Issue parallel loops of: reboot, suspend/resume, migrate
 
+from __future__ import print_function
 import xmlrpclib
 from threading import Thread
 import time, sys
@@ -35,7 +36,7 @@ class SuspendResume(Operation):
             x = server.VM.suspend(session_id, self.vm)
             if "ErrorDescription" in x:
                 time.sleep(1)
-        if x["Status"] <> "Success":
+        if x["Status"] != "Success":
             return x
         return server.VM.resume(session_id, self.vm, False, False)
     def __str__(self):
@@ -46,7 +47,7 @@ class ShutdownStart(Operation):
         self.vm = vm
     def execute(self, server, session_id):
         x = server.VM.clean_shutdown(session_id, self.vm)
-        if x["Status"] <> "Success":
+        if x["Status"] != "Success":
             return x
         return server.VM.start(session_id, self.vm, False, False)
         #return { "Status": "bad", "ErrorDescription": "foo" }
@@ -89,11 +90,11 @@ class Worker(Thread):
             end = time.strftime(iso8601, time.gmtime(time.time ()))
 
             if result["Status"] == "Success":
-                print "SUCCESS %d %s %s %s" % (self.id, start, end, description)
+                print("SUCCESS %d %s %s %s" % (self.id, start, end, description))
                 self.num_successes = self.num_successes + 1
             else:
                 error_descr = result["ErrorDescription"]
-                print "FAILURE %d %s %s %s %s" % (self.id, start, end, error_descr[0], description)
+                print("FAILURE %d %s %s %s %s" % (self.id, start, end, error_descr[0], description))
                 self.num_failures = self.num_failures + 1
                 if stop_on_first_failure:
                     stop = True
@@ -102,10 +103,10 @@ def make_operation_list(vm):
     return [ Reboot(vm), SuspendResume(vm), LocalhostMigrate(vm) ] * 100
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 3:
-        print "Usage:"
-        print "  %s <URL> <other-config key>" % (sys.argv[0])
-        print "  -- performs parallel operations on VMs with the specified other-config key"
+    if len(sys.argv) != 3:
+        print("Usage:")
+        print("  %s <URL> <other-config key>" % (sys.argv[0]))
+        print("  -- performs parallel operations on VMs with the specified other-config key")
         sys.exit(1)
     
     x = xmlrpclib.Server(sys.argv[1])
@@ -115,7 +116,7 @@ if __name__ == "__main__":
 
     workers = []
     for vm in vms.keys():
-        if vms[vm]["other_config"].has_key(key):
+        if key in vms[vm]["other_config"]:
             allowed_ops = vms[vm]["allowed_operations"]
             for op in [ "clean_reboot", "suspend", "pool_migrate" ]:
                 if op not in allowed_ops:
@@ -130,12 +131,12 @@ if __name__ == "__main__":
     for w in workers:
         successes = successes + w.num_successes
         failures = failures + w.num_failures
-    print "Total successes = %d" % successes
-    print "Total failures = %d" % failures
+    print("Total successes = %d" % successes)
+    print("Total failures = %d" % failures)
     if failures == 0:
-        print "PASS"
+        print("PASS")
         sys.exit(0)
     else:
-        print "FAIL"
+        print("FAIL")
         sys.exit(1)
         

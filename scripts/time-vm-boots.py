@@ -19,6 +19,7 @@
 # registers for events on the VM_guest_metrics and computes the time taken for
 # the guest agent to report an IP address.
 
+from __future__ import print_function
 import XenAPI
 import sys
 import time
@@ -52,7 +53,7 @@ def dump_table(session):
     global vm_boot_times
     for vm_ref in vm_boot_times.keys():
         name = session.xenapi.VM.get_name_label(vm_ref)
-        print "%s %s" % (name, vm_boot_times[vm_ref])
+        print("%s %s" % (name, vm_boot_times[vm_ref]))
 
 
 def seen_possible_boot(session, vm_ref):
@@ -65,8 +66,8 @@ def seen_possible_boot(session, vm_ref):
         boots_seen += 1
         
         name = session.xenapi.VM.get_name_label(vm)        
-        print >>sys.stdout, "%d %s %s" % (boots_seen, name, t)
-        print >>sys.stderr, "%d %s %s" % (boots_seen, name, t)
+        print("%d %s %s" % (boots_seen, name, t), file=sys.stdout)
+        print("%d %s %s" % (boots_seen, name, t), file=sys.stderr)
         sys.stderr.flush()
 
 
@@ -96,8 +97,8 @@ def process_metrics_event(session, ref):
     other = {}
     try:
         other=session.xenapi.VM_guest_metrics.get_other(ref)
-    except Exception, e:
-        print repr(e)
+    except Exception as e:
+        print(repr(e))
         
     if "feature-shutdown" in other.keys():
         seen_possible_boot(session, vm_ref)
@@ -123,7 +124,7 @@ def watch_events_on_vm(session):
                     continue
 
     except XenAPI.Failure as e:
-        print e.details
+        print(e.details)
         sys.exit(1)
     finally:
         session.xenapi.session.logout()
@@ -131,13 +132,13 @@ def watch_events_on_vm(session):
 
 if __name__ == "__main__":
     if len(sys.argv) > 4 or len(sys.argv) < 2:
-        print """
+        print("""
 Watches all offline VMs for boots
 Usage:
     %s <url> <username> <password>
 or
     %s [http://]localhost [<username>] [<password>]
-""" % (sys.argv[0], sys.argv[0])
+""" % (sys.argv[0], sys.argv[0]))
         sys.exit(1)
 
     url = sys.argv[1]
@@ -153,7 +154,7 @@ or
     try:
         new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-timevmboots.py")
     except XenAPI.Failure as f:
-        print "Failed to acquire a session: %s" % f.details
+        print("Failed to acquire a session: %s" % f.details)
         sys.exit(1)
 
     # We start watching all Halted VMs
@@ -162,6 +163,6 @@ or
         vm_rec = all_halted_vms[vm]
         if vm_rec["power_state"] == "Halted" and not vm_rec["is_a_template"]:
             interesting_vms.append(vm)
-    print >> sys.stderr, "Watching %d offline VMs" % (len(interesting_vms))
+    print("Watching %d offline VMs" % (len(interesting_vms)), file=sys.stderr)
 
     watch_events_on_vm(new_session)

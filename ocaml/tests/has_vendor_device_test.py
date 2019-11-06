@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import xmlrpclib
 import sys
 
@@ -33,7 +34,7 @@ def create_with_vd(b):
 
 def test_with_restriction(): # OK by license column above
     # Expect this to be successful on an unlicensed host, and for the field to be 'false'
-    print "running restricted tests (license says you're not allowed the vendor device)"
+    print("running restricted tests (license says you're not allowed the vendor device)")
 
     s.pool.set_policy_no_vendor_device(sess,pool,False)
 
@@ -42,7 +43,7 @@ def test_with_restriction(): # OK by license column above
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    False      | False         | False                        | False
@@ -50,12 +51,12 @@ def test_with_restriction(): # OK by license column above
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    True       | False         | False                        | Failure
     res = create_with_vd(True)
-    print "Expecting failure: got %s" % res['Status']
+    print("Expecting failure: got %s" % res['Status'])
     assert(res['Status']=='Failure')
 
     s.pool.set_policy_no_vendor_device(sess,pool,True)
@@ -65,7 +66,7 @@ def test_with_restriction(): # OK by license column above
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    False      | False         | True                         | False
@@ -73,18 +74,18 @@ def test_with_restriction(): # OK by license column above
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    True       | False         | True                         | Failure
     res = create_with_vd(True)
-    print "Expecting failure: got %s" % res['Status']
+    print("Expecting failure: got %s" % res['Status'])
     assert(res['Status']=='Failure')
 
 
     
 def test_no_restriction():
-    print "running unrestricted tests"
+    print("running unrestricted tests")
 
 #    -          | True          | False                        | True
 #    False      | True          | False                        | False
@@ -100,7 +101,7 @@ def test_no_restriction():
     vm = res['Value']
     expected = True
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    False      | True          | False                        | False
@@ -108,7 +109,7 @@ def test_no_restriction():
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    True       | True          | False                        | True
@@ -116,7 +117,7 @@ def test_no_restriction():
     vm = res['Value']
     expected = True
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
     s.pool.set_policy_no_vendor_device(sess,pool,True)
@@ -126,7 +127,7 @@ def test_no_restriction():
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    False      | True          | True                         | False
@@ -134,7 +135,7 @@ def test_no_restriction():
     vm = res['Value']
     expected = False
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
 #    True       | True          | True                         | True
@@ -142,7 +143,7 @@ def test_no_restriction():
     vm = res['Value']
     expected = True
     found = s.VM.get_has_vendor_device(sess,vm)['Value']
-    print "Expecting has-vendor-device to be %s: got %s" % (expected,found)
+    print("Expecting has-vendor-device to be %s: got %s" % (expected,found))
     assert(expected == found)
 
     

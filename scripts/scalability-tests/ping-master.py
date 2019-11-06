@@ -2,6 +2,7 @@
 
 # Send back-to-back 'Host.get_servertime' calls to simulate the GUI's heartbeat and record latency.
 
+from __future__ import print_function
 import XenAPI, sys, time
 
 iso8601 = "%Y%m%dT%H:%M:%SZ"
@@ -15,18 +16,18 @@ def main(session):
         session.xenapi.host.get_servertime(host)
         latency = time.time() - start
         date = time.strftime(iso8601, time.gmtime(start))
-        print "%s %.2f" % (date, latency)
+        print("%s %.2f" % (date, latency))
         sys.stdout.flush()
         time.sleep(5)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 4:
-        print "Usage:"
-        print sys.argv[0], " <url> <username> <password>"
+    if len(sys.argv) != 4:
+        print("Usage:")
+        print(sys.argv[0], " <url> <username> <password>")
         sys.exit(1)
     url = sys.argv[1]
-    if url[:5] <> "https":
+    if url[:5] != "https":
         raise "Must use SSL for a realistic test"
     
     username = sys.argv[2]

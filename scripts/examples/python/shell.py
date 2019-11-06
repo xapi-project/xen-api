@@ -13,6 +13,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+from __future__ import print_function
 import atexit
 import cmd
 import pprint
@@ -62,7 +63,7 @@ class Shell(cmd.Cmd):
         pass
 
     def do_EOF(self, line):
-        print
+        print()
         sys.exit(0)
 
 def munge_types (str):
@@ -78,16 +79,16 @@ def munge_types (str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print "Usage:"
-        print sys.argv[0], " <url> <username> <password>"
+        print("Usage:")
+        print(sys.argv[0], " <url> <username> <password>")
         sys.exit(1) 
 
-    if sys.argv[1] <> "-" and len(sys.argv) < 4:
-        print "Usage:"
-        print sys.argv[0], " <url> <username> <password>"
+    if sys.argv[1] != "-" and len(sys.argv) < 4:
+        print("Usage:")
+        print(sys.argv[0], " <url> <username> <password>")
         sys.exit(1) 
 
-    if sys.argv[1] <> "-":
+    if sys.argv[1] != "-":
         url = sys.argv[1]
         username = sys.argv[2]
         password = sys.argv[3]
@@ -105,12 +106,12 @@ if __name__ == "__main__":
         cmd = sys.argv[cmdAt]
         params = [munge_types(x) for x in sys.argv[(cmdAt + 1):]]
         try:
-            print >> sys.stdout, session.xenapi_request(cmd, tuple(params))
-        except XenAPI.Failure, x:
-            print >> sys.stderr, x
+            print(session.xenapi_request(cmd, tuple(params)), file=sys.stdout)
+        except XenAPI.Failure as x:
+            print(x, file=sys.stderr)
             sys.exit(2)
-        except Exception, e:
-            print >> sys.stderr, e
+        except Exception as e:
+            print(e, file=sys.stderr)
             sys.exit(3)
         sys.exit(0)
     else:

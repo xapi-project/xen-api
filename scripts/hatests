@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import XenAPI
 import getopt
 import sys
@@ -21,31 +22,31 @@ def check(svm, ip):
     flag = True
     masterref2 = svm.xenapi.pool.get_all_records().values()[0]['master']
     if masterref2 != masterref :
-        print "From " + ip + " point of view the pool master is " + svm.xenapi.host.get_record(masterref2)["address"]
+        print("From " + ip + " point of view the pool master is " + svm.xenapi.host.get_record(masterref2)["address"])
         flag = False
     hosts2 = svm.xenapi.host.get_all_records()
     if len(hosts) != len(hosts2) :
-        print "From " + ip + " point of view the number of hosts is changed."
+        print("From " + ip + " point of view the number of hosts is changed.")
         flag = False
         for k in hosts.keys() :
-            if not hosts2.has_key(k) :
-                print "From " + ip + " point of view " + hosts[k]["address"] + " is not present any more."
+            if k not in hosts2 :
+                print("From " + ip + " point of view " + hosts[k]["address"] + " is not present any more.")
     vmrecords2 = svm.xenapi.VM.get_all_records()
     vmrunning2 = {}
     for k, v in vmrecords2.iteritems() :
         if v['power_state'] == 'Running' and int(v['domid']) == 0:
             vmrunning2[k] = v
     if len(vmrunning) != len(vmrunning2) :
-        print "From " + ip + " point of view some VMs have changed state."
+        print("From " + ip + " point of view some VMs have changed state.")
         flag = False
         for k, v in vmrunning.iteritems() :
-            if not vmrunning2.has_key(k) :
-                print "From " + ip + " point of view " + v['name_label'] + " is not online any more."
+            if k not in vmrunning2 :
+                print("From " + ip + " point of view " + v['name_label'] + " is not online any more.")
     if flag :
-        print "On %s everything is consistent." % ip
+        print("On %s everything is consistent." % ip)
 
 def help() :
-    print """
+    print("""
         Usage: hatests <options> <test>
 
         where options can be:
@@ -58,7 +59,7 @@ def help() :
             slave_hard_failure
             slave_soft_failure
             master_vif_unplug
-    """
+    """)
 
 ###### START ######
 
@@ -102,7 +103,7 @@ for k, v in vmrecords.iteritems() :
             ip = ip[1:-1]
             slaves.append((k, ip))
         except:
-            print "VM in dom" + v['domid'] + " doesn't have an IP address"
+            print("VM in dom" + v['domid'] + " doesn't have an IP address")
 
 #finding out which one is the master
 svm = XenAPI.Session("http://" +  slaves[0][1])
@@ -111,7 +112,7 @@ try :
     masterref = svm.xenapi.pool.get_all_records().values()[0]['master']
     masterrecord = svm.xenapi.host.get_record(masterref)
     masterip = masterrecord['address']
-except XenAPI.Failure, inst:
+except XenAPI.Failure as inst:
     masterip = inst.details[1]
     svm = XenAPI.Session("http://" +  masterip)
     svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
@@ -121,7 +122,7 @@ for i in slaves :
         master = i
         slaves.remove(i)
         break
-print "Master ip address is " + master[1]
+print("Master ip address is " + master[1])
 
 #getting ip -> hostref references
 hosts = {}
@@ -139,25 +140,25 @@ for k, v in vmrecords.iteritems() :
 bringup = None
 vifbringup = None
 if sys.argv[-1] == "master_hard_failure" :
-    print "Shutting down the master"
+    print("Shutting down the master")
     s.xenapi.VM.hard_shutdown(master[0])
     bringup = master[0]
 elif sys.argv[-1] == "master_soft_failure" :
-    print "Shutting down the master"
+    print("Shutting down the master")
     s.xenapi.VM.clean_shutdown(master[0])
     bringup = master[0]
 elif sys.argv[-1] == "slave_hard_failure" :
     r = random.randint(0, len(slaves) - 1)
-    print "Shutting down slave " + slaves[r][1]
+    print("Shutting down slave " + slaves[r][1])
     s.xenapi.VM.hard_shutdown(slaves[r][0])
     bringup = slaves[r][0]
 elif sys.argv[-1] == "slave_hard_failure" :
     r = random.randint(0, len(slaves) - 1)
-    print "Shutting down slave " + slaves[r][1]
+    print("Shutting down slave " + slaves[r][1])
     s.xenapi.VM.clean_shutdown(slaves[r][0])
     bringup = slaves[r][0]
 elif sys.argv[-1] == "master_vif_unplug" :
-    print "Unplugging the first found attached VIF in the master"
+    print("Unplugging the first found attached VIF in the master")
     allvifs = s.xenapi.VIF.get_all_records()
     for k, v in allvifs.iteritems() :
         if v['currently_attached'] and v['VM'] == master[0]:
@@ -166,7 +167,7 @@ elif sys.argv[-1] == "master_vif_unplug" :
             break
 
 
-print "Waiting " + str(secs) + " seconds"
+print("Waiting " + str(secs) + " seconds")
 count = 0
 while count < secs :
     time.sleep(1)
@@ -176,13 +177,13 @@ while count < secs :
 sys.stdout.write("\n")
 
 if bringup is not None :
-    print "Bringing the host up again"
+    print("Bringing the host up again")
     s.xenapi.VM.start(bringup, False, True)
 if vifbringup is not None :
-    print "Plugging the VIF back again"
+    print("Plugging the VIF back again")
     s.xenapi.VIF.plug(vifbringup)
 
-print "Waiting " + str(secs) + " seconds"
+print("Waiting " + str(secs) + " seconds")
 count = 0
 while count < secs :
     time.sleep(1)
@@ -191,20 +192,20 @@ while count < secs :
     count = count + 1
 sys.stdout.write("\n")
 
-print "Collecting logs now..."
+print("Collecting logs now...")
 try :
     fileout = open("master-" + master[1] + "-log.tar.bz2", "w")
     f = urllib.urlopen("http://root:xenroot@" + master[1] + "/system-status?host_id=" + hosts[master[1]])
     buf = f.read(50)
     if len(buf) == 0 :
-        print master[1] + " returned an empty log."
+        print(master[1] + " returned an empty log.")
     else :
-        print "Wrote master log to master-" + master[1] + "-log.tar.bz2"
+        print("Wrote master log to master-" + master[1] + "-log.tar.bz2")
     while len(buf) > 0 :
         fileout.write(buf)
         buf = f.read(50)
 except IOError:
-    print "Unable to connect to %s: network error." % master[1]
+    print("Unable to connect to %s: network error." % master[1])
 try:
     fileout.close()
     f.close()
@@ -217,14 +218,14 @@ for k, ip in slaves :
         f = urllib.urlopen("http://root:xenroot@" + ip + "/system-status?host_id=" + hosts[ip])
         buf = f.read(50)
         if len(buf) == 0 :
-            print ip + " returned an empty log."
+            print(ip + " returned an empty log.")
         else :
-            print "Wrote slave " + ip + " log to slave-" + ip + "-log.tar.bz2"
+            print("Wrote slave " + ip + " log to slave-" + ip + "-log.tar.bz2")
         while len(buf) > 0 :
             fileout.write(buf)
             buf = f.read(50)
     except IOError:
-        print "Unable to connect to %s: network error." % ip
+        print("Unable to connect to %s: network error." % ip)
     try:
         fileout.close()
         f.close()
@@ -232,28 +233,28 @@ for k, ip in slaves :
         pass
 
 #checking if everything is still OK
-print "Connecting to " + master[1] + "..."
+print("Connecting to " + master[1] + "...")
 svm = XenAPI.Session("http://" +  master[1])
 try :
     svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
     check(svm, master[1])
-except XenAPI.Failure, inst:
+except XenAPI.Failure as inst:
     if inst.details[0] == "HOST_IS_SLAVE" :
-        print master[0] + " is not master any more"
+        print(master[0] + " is not master any more")
 except IOError:
-    print "Unable to connect to %s: network error." % master[1]
+    print("Unable to connect to %s: network error." % master[1])
 
 for slave in slaves :
-    print "Connecting to " + slave[1] + "..."
+    print("Connecting to " + slave[1] + "...")
     svm = XenAPI.Session("http://" +  slave[1])
     try:
         svm.login_with_password('root', 'xenroot', '1.0', 'xen-api-scripts-hatest')
-        print "Connection succeeded! Is %s still a slave?" % slave[1]
+        print("Connection succeeded! Is %s still a slave?" % slave[1])
         check(svm, slave[1])
-    except XenAPI.Failure, inst:
+    except XenAPI.Failure as inst:
         if inst.details[0] == "HOST_IS_SLAVE" :
-            print "Connection failed because %s is still a slave." % slave[1]
+            print("Connection failed because %s is still a slave." % slave[1])
         else :
-            print "Unable to connect to %s: XenAPI failure." % slave[1]
+            print("Unable to connect to %s: XenAPI failure." % slave[1])
     except IOError:
-        print "Unable to connect to %s: network error." % slave[1]
+        print("Unable to connect to %s: network error." % slave[1])

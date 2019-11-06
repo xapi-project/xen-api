@@ -2,6 +2,7 @@
 
 # Count the number of events received from the master
 
+from __future__ import print_function
 import XenAPI, sys, time
 
 iso8601 = "%Y-%m-%dT%H:%M:%SZ"
@@ -23,21 +24,21 @@ def main(session):
             output = session.xenapi.event_from(["*"], token, call_timeout)
             events = output['events']
             token = output['token']
-            print "%s %10d 0" % (now_string, len(events))
+            print("%s %10d 0" % (now_string, len(events)))
             time.sleep(5)
 
         except KeyboardInterrupt:
             break
 
         except XenAPI.Failure as e:
-            print e.details
+            print(e.details)
             sys.exit(1)
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 4:
-        print "Usage:"
-        print sys.argv[0], " <url> <username> <password>"
+        print("Usage:")
+        print(sys.argv[0], " <url> <username> <password>")
         sys.exit(1)
 
     url = sys.argv[1]
@@ -51,7 +52,7 @@ if __name__ == "__main__":
     try:
         new_session.xenapi.login_with_password(username, password, "1.0", "xen-api-scripts-eventcount.py")
     except XenAPI.Failure as f:
-        print "Failed to acquire a session: %s" % f.details
+        print("Failed to acquire a session: %s" % f.details)
         sys.exit(1)
 
     try:

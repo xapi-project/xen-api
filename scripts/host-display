@@ -8,6 +8,7 @@ n.b. the value returned by the "status" command will be correct as of the next
 boot (assuming that the boot config is not modified further), and is not
 necessarily correct at the time this script is called.
 """
+from __future__ import print_function
 
 import os
 import os.path
@@ -96,8 +97,8 @@ def usage():
     """ Display a usage string. """
     command_names = COMMANDS.keys()
     command_names.sort()
-    print "Usage:"
-    print "    %s {%s}" % (sys.argv[0], '|'.join(command_names))
+    print("Usage:")
+    print("    %s {%s}" % (sys.argv[0], '|'.join(command_names)))
 
 def main():
     """ Program entry point. """

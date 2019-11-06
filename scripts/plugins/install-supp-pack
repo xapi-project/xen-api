@@ -23,7 +23,7 @@ class InstallFailure(PluginError):
         PluginError.__init__(self, *args)
 
 def install(session, args):
-    if not args.has_key("vdi"):
+    if "vdi" not in args:
         raise ArgumentError("Key 'vdi' missing from arguments")
     vdi=args['vdi']
     vdi_ref = None
