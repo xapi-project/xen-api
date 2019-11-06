@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 import os, sys, time, socket, traceback
 
 log_f = os.fdopen(os.dup(sys.stdout.fileno()), "aw")
@@ -19,7 +20,7 @@ def log(txt):
     if not pid:
         pid = os.getpid()
     t = time.strftime("%Y%m%dT%H:%M:%SZ", time.gmtime())
-    print >>log_f, "%s [%d] %s" % (t, pid, txt)
+    print("%s [%d] %s" % (t, pid, txt), file=log_f)
     log_f.flush()
 
 # Functions to construct SMAPI return types #################################
@@ -89,30 +90,30 @@ def make_vdi_info(v):
         elif t == type(True):
             v[k] = str(v[k]).lower() == "true"
         else:
-            raise (BackendError("make_vdi_info unknown type", [ str(t) ]))
+            raise BackendError
     return v
 
 def vdi_info(v):
     global vdi_info_types
     for k in vdi_info_types.keys():
         if k not in v:
-            raise (BackendError("vdi_info missing key", [ k, repr(v) ]))
+            raise BackendError
         t = vdi_info_types[k]
-        if type(v[k]) <> t:
-            raise (BackendError("vdi_info key has wrong type", [ k, str(t), str(type(v[k])) ]))
+        if type(v[k]) != t:
+            raise BackendError
     return v
             
 def expect_none(x):
-    if x <> None:
-        raise (BackendError("type error", [ "None", repr(x) ]))
+    if x != None:
+        raise BackendError
 
 def expect_long(x):
-    if type(x) <> type(0L):
-        raise (BackendError("type error", [ "long int", repr(x) ]))
+    if type(x) != type(0):
+        raise BackendError
 
 def expect_string(x):
-    if type(x) <> type(""):
-        raise (BackendError("type error", [ "string", repr(x) ]))
+    if type(x) != type(""):
+        raise BackendError
 
 # Well-known feature flags understood by xapi ##############################
 
@@ -211,14 +212,14 @@ class Marshall:
                 return self.vdi_deactivate(args)
             elif method == "VDI.detach":
                 return self.vdi_detach(args)
-        except BackendError, e:
+        except BackendError as e:
             log("caught %s" % e)
             traceback.print_exc()
             return value(backend_error(e.code, e.params))
-        except Vdi_does_not_exist, e:
+        except Vdi_does_not_exist as e:
             log("caught %s" %e)
             return value(vdi_does_not_exist())
-        except Exception, e:
+        except Exception as e:
             log("caught %s" % e)
             traceback.print_exc()
             return value(internal_error(str(e)))
@@ -230,8 +231,8 @@ def daemonize():
             if os.fork() > 0:
                 # parent
                 sys.exit(0)
-        except Exception, e:
-            print >>sys.stderr, "fork() failed: %s" % e
+        except Exception as e:
+            print("fork() failed: %s" % e, file=sys.stderr)
             traceback.print_exc()
             raise
     fork()
