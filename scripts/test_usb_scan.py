@@ -122,7 +122,7 @@ class TestUsbScan(unittest.TestCase):
         pusbs = usb_scan.make_pusbs_list(devices, interfaces)
 
         # pass pusbs in json to XAPI
-        self.assertItemsEqual(pusbs, moc_results)
+        self.assertEqual(sorted(pusbs), sorted(moc_results))
 
     @nottest
     def test_usb_exit(self, devices, interfaces, results,
@@ -130,7 +130,7 @@ class TestUsbScan(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             self.test_usb_common(devices, interfaces, results, path)
         if msg:
-            self.assertIn(msg, cm.exception.message)
+            self.assertIn(msg, cm.exception.code)
 
     def test_usb_dongle(self):
         devices = [
@@ -300,8 +300,7 @@ ALLOW:vid=056a pid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
         self.test_usb_config_error_common(content,
-                                          "Caught error need more than 1 "
-                                          "value to unpack")
+                                          "to unpack")
 
     def test_usb_config_error_duplicated_key(self):
         content = """# duplicated key word
@@ -369,8 +368,7 @@ aa
 ALLOW: # Otherwise allow everything else
 """
         self.test_usb_config_error_common(content,
-                                          "Caught error need more than 1 "
-                                          "value to unpack")
+                                          "to unpack")
 
     def test_usb_config_error_missing_colon(self):
         content = """# missing colon after action
@@ -378,5 +376,4 @@ ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 ALLOW # Otherwise allow everything else
 """
         self.test_usb_config_error_common(content,
-                                          "Caught error need more than 1 "
-                                          "value to unpack")
+                                          "to unpack")
