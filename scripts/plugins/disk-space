@@ -133,7 +133,7 @@ def get_reclaimable_disk_space(session, args):
         hfx_filename = ""
 
     sizes = (get_file_size(f) for f in get_hotfix_files('/var/patch')
-             if f <> hfx_filename)
+             if f != hfx_filename)
     patch_backup_size = get_directory_size('/opt/xensource/patch-backup')
     return str(sum(sizes) + patch_backup_size)
 
@@ -153,7 +153,7 @@ def cleanup_disk_space(session, args):
         for f in os.listdir('/var/patch'):
             if is_this_uuid(f):
                 f_name = os.path.join('/var/patch', f)
-                if f_name <> hfx_filename:
+                if f_name != hfx_filename:
                     try:
                         logger.info('Removing ' + f_name)
                         os.remove(f_name)

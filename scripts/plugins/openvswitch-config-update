@@ -93,7 +93,7 @@ def update(session, args):
 
     try:
         pool_fail_mode = pool['other_config']['vswitch-controller-fail-mode']
-    except KeyError, e:
+    except KeyError as e:
         pool_fail_mode = None
 
     bton = {}
@@ -157,7 +157,7 @@ def update(session, args):
         try:
             other_config = bton[bridge]['other_config']
             fail_mode = other_config['vswitch-controller-fail-mode']
-        except KeyError, e:
+        except KeyError as e:
             fail_mode = None
 
         if fail_mode not in ['secure', 'standalone']:

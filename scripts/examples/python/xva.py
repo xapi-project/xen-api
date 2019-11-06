@@ -2,6 +2,7 @@
 
 # Rewrite the VDI.sm_config:SCSIid fields in XVA metadata
 
+from __future__ import print_function
 import tarfile, xmlrpclib, optparse, StringIO, sys
 
 class Object(object):
@@ -85,19 +86,19 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     if options.input is None:
-        print "Please supply an --input <filename> argument"
+        print("Please supply an --input <filename> argument")
         parser.print_help()
         sys.exit(1)
     if options.output is None:
-        print "Please supply an --output <filename> argument"
+        print("Please supply an --output <filename> argument")
         parser.print_help()
         sys.exit(1)
     if options.oldprefix is None:
-        print "Please supply an --oldprefix <SCSIid> argument"
+        print("Please supply an --oldprefix <SCSIid> argument")
         parser.print_help()
         sys.exit(1)
     if options.newprefix is None:
-        print "Please supply a --newprefix <SCSIid> argument"
+        print("Please supply a --newprefix <SCSIid> argument")
         parser.print_help()
         sys.exit(1)
 

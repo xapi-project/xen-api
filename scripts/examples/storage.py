@@ -18,6 +18,7 @@
 
 # WARNING: this API is considered to be unstable and may be changed at-will
 
+from __future__ import print_function
 import os, sys, commands, json
 
 import smapiv2
@@ -29,9 +30,9 @@ root = "/sr/"
 # a non-zero exit code.
 def run(task, cmd):
     code, output = commands.getstatusoutput(cmd)
-    if code <> 0:
+    if code != 0:
         log("%s: %s exitted with code %d: %s" % (task, cmd, code, output))
-        raise (BackendError("command failed", [ str(code), output ]))
+        raise BackendError
     log("%s: %s" % (task, cmd))
     return output
 
@@ -42,7 +43,7 @@ class Loop:
         global root
         for line in run(task, "losetup -a").split("\n"):
             line = line.strip()
-            if line <> "":
+            if line != "":
                 bits = line.split()
                 loop = bits[0][0:-1]
                 this_path = bits[2][1:-1]
@@ -169,7 +170,7 @@ if __name__ == "__main__":
         from smapiv2 import reopenlog
         reopenlog(options.logfile)
     if not options.ip and not options.ip:
-        print >>sys.stderr, "Need an --ip-addr and --port. Use -h for help"
+        print("Need an --ip-addr and --port. Use -h for help", file=sys.stderr)
         sys.exit(1)
 
     ip = options.ip

@@ -19,7 +19,7 @@ def doexec(args, inputtext=None):
 def find_interface_broadcast_ip(interface):
     """Return the broadcast IP address of the supplied local interface"""
     (rc, stdout, stderr) = doexec( [ "ip", "address", "show", "dev", interface ] )
-    if rc <> 0:
+    if rc != 0:
         raise "Failed to find IP address of local network interface %s: %s" % (interface, stderr)
     words = stdout.split()
     try:

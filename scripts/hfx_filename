@@ -14,6 +14,7 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+from __future__ import print_function
 import sys, os, socket, urllib2, urlparse, XenAPI, traceback, xmlrpclib
 
 db_url = "/remote_db_access"
@@ -40,7 +41,7 @@ def rpc(session_id, request):
         #print "Received HTTP response:"
         #print result
         if "200 OK" not in result:
-          print >>sys.stderr, "Expected an HTTP 200, got %s" % result
+          print("Expected an HTTP 200, got %s" % result, file=sys.stderr)
           return
         id = result.find("\r\n\r\n")
         headers = result[:id]
@@ -82,6 +83,6 @@ if __name__ == "__main__":
     try:
         rf = db_get_by_uuid(session_id, "pool_patch", sys.argv[1])
         filename = read_field(session_id, "pool_patch", "filename", rf)
-        print filename
+        print(filename)
     finally:
         xapi.xenapi.logout()

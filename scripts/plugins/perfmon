@@ -17,7 +17,7 @@ def send_perfmon_cmd(cmd):
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         rc = sock.sendto(cmd, cmdsockname)
-    except socket.error, e:
+    except socket.error as e:
         err, msg = e.args
         return "ERROR_%d: %s" % (err, msg)
     except Exception:

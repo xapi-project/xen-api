@@ -10,6 +10,7 @@
 # If /etc/mail-alarm.conf does not exist the default_config string below is used and
 # the only thing that needs be set is pool:other-config:ssmtp-mailhub
 
+from __future__ import print_function
 import XenAPI
 import sys
 import os
@@ -35,7 +36,7 @@ ma_username="__dom0__mail_alarm"
 mail_language_pack_path = '/etc/xapi.d/mail-languages/'
 
 def log_err(err):
-    print >>sys.stderr, err
+    print(err, file=sys.stderr)
     syslog.syslog(syslog.LOG_USER | syslog.LOG_ERR, "%s: %s" % (sys.argv[0], err))
 
 def get_pool_name():
@@ -106,15 +107,15 @@ def get_search_replace(other_config):
     return sr
 
 def get_destination(other_config):
-    if other_config.has_key('mail-destination'):
+    if 'mail-destination' in other_config:
         return other_config['mail-destination']
 
 def get_sender(other_config):
-    if other_config.has_key('mail-sender'):
+    if 'mail-sender' in other_config:
         return other_config['mail-sender']
 
 def get_mail_language(other_config):
-    if other_config.has_key('mail-language'):
+    if 'mail-language' in other_config:
         return other_config['mail-language']
     else:
         return "en-US"
@@ -184,7 +185,7 @@ class CpuUsageAlarmETG(EmailTextGenerator):
         elif cls == 'VM':
             self.params = get_VM_params(obj_uuid)
         else:
-            raise Exception, "programmer error - this alarm should only be available for Hosts and VMs"
+            raise Exception("programmer error - this alarm should only be available for Hosts and VMs")
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -228,7 +229,7 @@ class NetworkUsageAlarmETG(EmailTextGenerator):
         elif cls == 'VM':
             self.params = get_VM_params(obj_uuid)
         else:
-            raise Exception, "programmer error - this alarm should only be available for Hosts and VMs"
+            raise Exception("programmer error - this alarm should only be available for Hosts and VMs")
         self.cls = cls
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
@@ -268,7 +269,7 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
         if alarm_trigger_period is None:
             alarm_trigger_period = 60
         if cls != 'Host':
-            raise Exception, "programmer error - this alarm should only be available for hosts"
+            raise Exception("programmer error - this alarm should only be available for hosts")
         self.params = get_host_params(obj_uuid)
         self.cls = cls
         self.value = value
@@ -307,7 +308,7 @@ class DiskUsageAlarmETG(EmailTextGenerator):
         if alarm_trigger_period is None:
             alarm_trigger_period = 60
         if cls != 'VM':
-            raise Exception, "programmer error - this alarm should only be available for VMs"
+            raise Exception("programmer error - this alarm should only be available for VMs")
         self.params = get_VM_params(obj_uuid)
         self.cls = cls
         self.value = value
@@ -344,7 +345,7 @@ class Dom0FSUsageAlarmETG(EmailTextGenerator):
         if alarm_trigger_level is None:
             alarm_trigger_level = 0.9
         if cls != 'VM':
-            raise Exception, "programmer error - this alarm should only be available for control domain VM"
+            raise Exception("programmer error - this alarm should only be available for control domain VM")
         self.params = get_VM_params(obj_uuid)
         self.cls = cls
         self.value = value
@@ -376,7 +377,7 @@ class Dom0LogFSUsageAlarmETG(EmailTextGenerator):
         if alarm_trigger_level is None:
             alarm_trigger_level = 0.9
         if cls != 'VM':
-            raise Exception, "programmer error - this alarm should only be available for control domain VM"
+            raise Exception("programmer error - this alarm should only be available for control domain VM")
         self.params = get_VM_params(obj_uuid)
         self.cls = cls
         self.value = value
@@ -408,7 +409,7 @@ class Dom0MemUsageAlarmETG(EmailTextGenerator):
         if alarm_trigger_level is None:
             alarm_trigger_level = 0.95
         if cls != 'VM':
-            raise Exception, "programmer error - this alarm should only be available for control domain VM"
+            raise Exception("programmer error - this alarm should only be available for control domain VM")
         self.params = get_VM_params(obj_uuid)
         self.cls = cls
         self.value = value
@@ -515,7 +516,7 @@ class SRIOThroughputTotalAlertETG(EmailTextGenerator):
         if cls == 'Host':
             self.params = get_host_params(obj_uuid)
         else:
-            raise Exception, "programmer error - this alarm should only be available for Hosts"
+            raise Exception("programmer error - this alarm should only be available for Hosts")
         self.value = value
         self.alarm_trigger_period = alarm_trigger_period
         self.alarm_trigger_level = alarm_trigger_level
@@ -676,10 +677,10 @@ class XapiMessage:
 def main():
     if len(sys.argv) < 2:
         log_err("Expected at least 1 argument but got none: [\"%s\"]." % (' '.join(sys.argv)))
-        raise Exception, "Insufficient arguments"
+        raise Exception("Insufficient arguments")
 
     other_config = get_pool_other_config()
-    if other_config.has_key('mail-min-priority'):
+    if 'mail-min-priority' in other_config:
         min_priority = int(other_config['mail-min-priority'])
     else:
         min_priority = 3

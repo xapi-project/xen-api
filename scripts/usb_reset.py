@@ -204,7 +204,7 @@ def setup_cgroup(domid, pid):
     cg_dir = get_cg_dir(domid)
 
     try:
-        os.mkdir(cg_dir, 0755)
+        os.mkdir(cg_dir, 0o755)
     except OSError as e:
         if e.errno != errno.EEXIST:
             log.error("Failed to create cgroup: {}".format(cg_dir))
@@ -288,7 +288,7 @@ def attach(device, domid, pid, reset_only):
     # sys_dir could already be mounted because of PCI pass-through
     if not os.path.isdir(sys_dir):
         try:
-            os.mkdir(sys_dir, 0755)
+            os.mkdir(sys_dir, 0o755)
         except OSError:
             log.error("Failed to create sys dir in chroot")
             exit(1)

@@ -4,7 +4,7 @@
 import XenAPIPlugin, time
 
 def main(session, args):
-    if args.has_key("sleep"):
+    if "sleep" in args:
         secs = int(args["sleep"])
         time.sleep(secs)
     return "args were: %s" % (repr(args))
