@@ -276,23 +276,12 @@ let sender rpc session (delay, msg, queue) =
   done
 
 let _ =
-  let open Xapi_stdext_unix in
-  let pidfile = ref "/var/run/mpathalert.pid" in
-  let daemonize = ref false in
-
   Arg.parse (Arg.align [
       "-debug", Arg.Set print_debug, " Print debug messages";
-      "-delay", Arg.Set_float delay, Printf.sprintf " Set the delay, in seconds, between 2 consecutive alerts (default is %.0f)" !delay;
-      "-daemon", Arg.Set daemonize, " Create a daemon";
-      "-pidfile", Arg.Set_string pidfile, Printf.sprintf " Set the pid file (default is %s)" !pidfile ])
+      "-delay", Arg.Set_float delay, Printf.sprintf " Set the delay, in seconds, between 2 consecutive alerts (default is %.0f)" !delay
+          ])
     (fun _ -> failwith "Invalid argument")
-    "Usage: mpathalert [-debug] [-delay time to wait between alerts] [-daemon] [-pidfile filename]";
-
-  if !daemonize then
-    Unixext.daemonize ();
-
-  Unixext.mkdir_rec (Filename.dirname !pidfile) 0o755;
-  Unixext.pidfile_write !pidfile;
+    "Usage: mpathalert [-debug] [-delay time to wait between alerts]";
 
   let rpc xml =
     let open Xmlrpc_client in
