@@ -156,7 +156,7 @@ let config_file verify_cert extended_diagnosis host port legacy =
     ; Printf.sprintf "connect=%s:%d" host port
     ]
   ; if is_fips then ["fips=yes"] else ["fips=no"]
-  ; if extended_diagnosis then ["debug=4"] else []
+  ; if extended_diagnosis then ["debug=authpriv.7"] else ["debug=authpriv.5"]
   ; if verify_cert then
       ["verify=2"
       ; sprintf "checkHost=%s" host
