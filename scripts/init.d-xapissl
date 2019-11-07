@@ -105,6 +105,7 @@ socket = l:TCP_NODELAY=1
 socket = r:SO_KEEPALIVE=1
 socket = a:SO_KEEPALIVE=1
 ${TIMEOUTSTR}
+debug = authpriv.5
 
 [xapi]
 accept = ${ACCEPT}
