@@ -496,7 +496,7 @@ let assert_enough_pcpus ~__context ~self ~host ?remote () =
 
  * XXX: we ought to lock this otherwise we may violate our constraints under load
 *)
-let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(do_memory_check=true) () =
+let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check ?(do_sr_check=true) ?(do_memory_check=true) () =
   debug "Checking whether VM %s can run on host %s" (Ref.string_of self) (Ref.string_of host);
   validate_basic_parameters ~__context ~self ~snapshot;
   assert_host_is_live ~__context ~host;
@@ -506,6 +506,8 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ?(do_sr_check=true) ?(
     assert_host_is_enabled ~__context ~host;
   (* Check the host can support the VM's required version of virtual hardware platform *)
   assert_hardware_platform_support ~__context ~vm:self ~host:(Helpers.LocalObject host);
+  if do_cpuid_check then
+    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:self ~host ();
   if do_sr_check then
     assert_can_see_SRs ~__context ~self ~host;
   assert_can_see_networks ~__context ~self ~host;
@@ -635,8 +637,7 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     let host_metrics = Db.Host.get_metrics ~__context ~self:host in
     Db.Host_metrics.get_live ~__context ~self:host_metrics in
   let host_can_run_vm () =
-    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ();
-    assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check ();
+    assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_memory_check ~do_cpuid_check:true ();
     true in
   let host_evacuate_in_progress =
     try let _ = List.find (fun s -> snd s = `evacuate) (Db.Host.get_current_operations ~__context ~self:host) in false with _ -> true
