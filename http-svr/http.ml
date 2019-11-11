@@ -441,7 +441,7 @@ module Request = struct
       (default "" (may Int64.to_string x.content_length))
       (default "" x.transfer_encoding)
       x.version
-      (kvpairs x.cookie)
+      "(value filtered)" (* cookies *)
       (default "" x.task)
       (default "" x.subtask_of)
       (default "" x.content_type)
