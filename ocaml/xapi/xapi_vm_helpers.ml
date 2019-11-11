@@ -535,7 +535,7 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   List.iter
     (fun (h, r) ->
        try
-         assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ();
+         assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ~do_cpuid_check:false ();
          Hashtbl.replace recs h r;
        with
        | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y))
@@ -619,7 +619,7 @@ let get_possible_hosts_for_vm ~__context ~vm ~snapshot =
   let host = Db.VM.get_scheduled_to_be_resident_on ~__context ~self:vm in
   if host <> Ref.null then [ host ] else
     possible_hosts ~__context ~vm
-      ~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot ()) ()
+      ~choose_fn:(assert_can_boot_here ~__context ~self:vm ~snapshot ~do_cpuid_check:false ()) ()
 
 (** Performs an expensive and comprehensive check to determine whether the
     given [guest] can run on the given [host]. Returns true if and only if the

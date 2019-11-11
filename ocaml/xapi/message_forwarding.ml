@@ -925,7 +925,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let reserve_memory_for_vm ~__context ~vm ~snapshot ~host ?host_op f =
       Helpers.with_global_lock
         (fun () ->
-           Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ();
+           Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:host ~snapshot ~do_cpuid_check:false ();
            (* NB in the case of migrate although we are about to increase free memory on the sending host
               we ignore this because if a failure happens while a VM is in-flight it will still be considered
               on both hosts, potentially breaking the failover plan. *)
@@ -3618,6 +3618,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       (* hackity hack *)
       let options = ("__internal__vm",Ref.string_of vm) :: (List.remove_assoc "__internal__vm" options) in
       let local_fn = Local.VDI.pool_migrate ~vdi ~sr ~options in
+      let force = try bool_of_string (List.assoc "force" options) with _ -> false in
 
       info "VDI.pool_migrate: VDI = '%s'; SR = '%s'; VM = '%s'"
         (vdi_uuid ~__context vdi) (sr_uuid ~__context sr) (vm_uuid ~__context vm);
@@ -3634,7 +3635,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
                let host =
                  if host <> Ref.null then host else
                    let choose_fn ~host =
-                     Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ();
+                     Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~snapshot ~host ~do_cpuid_check:(not force) ();
                      Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
                    Xapi_vm_helpers.choose_host ~__context ~vm ~choose_fn () in
                (snapshot, host) in
