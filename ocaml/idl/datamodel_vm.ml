@@ -366,6 +366,8 @@ let power_behaviour =
   let assert_can_boot_here = call
       ~name:"assert_can_boot_here"
       ~in_product_since:rel_rio
+      ~lifecycle:[ Published, rel_rio, ""
+                 ; Changed, rel_quebec, "Does additional compatibility checks when VM powerstate is not halted (e.g. CPUID). Use this before calling VM.resume or VM.pool_migrate."]
       ~doc:"Returns an error if the VM could not boot on this host for some reason"
       ~params:[
         Ref _vm, "self", "The VM";
@@ -374,9 +376,24 @@ let power_behaviour =
       ~allowed_roles:_R_READ_ONLY
       ~errs:[
         Api_errors.host_not_enough_free_memory;
+        Api_errors.host_not_enough_pcpus;
+        Api_errors.network_sriov_insufficient_capacity;
+        Api_errors.host_not_live;
+        Api_errors.host_disabled;
+        Api_errors.host_cannot_attach_network;
+        Api_errors.vm_hvm_required;
+        Api_errors.vm_requires_gpu;
+        Api_errors.vm_requires_iommu;
+        Api_errors.vm_requires_net;
         Api_errors.vm_requires_sr;
+        Api_errors.vm_requires_vgpu;
         Api_errors.vm_host_incompatible_version;
         Api_errors.vm_host_incompatible_virtual_hardware_platform_version;
+        Api_errors.invalid_value;
+        Api_errors.memory_constraint_violation;
+        Api_errors.operation_not_allowed;
+        Api_errors.value_not_supported;
+        Api_errors.vm_incompatible_with_this_host;
       ]
       ~doc_tags:[Memory]
       ()
