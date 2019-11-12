@@ -425,6 +425,22 @@ let maybe_copy_sr_rrds ~__context ~sr =
       warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
 let forget_common ~__context ~sr =
+  (* CA-325582: Since the pbds are not mounted anymore there are no more
+     metrics being reported, the current ones can be deleted. *)
+  let short_uuid = String.sub (Db.SR.get_uuid ~__context ~self:sr) 0 8 in
+  let is_sr_metric = Astring.String.is_suffix ~affix:short_uuid in
+
+  (* SR data sources are currently stored in memory as host ones.
+     Pick the ones that match the short uuid and remove them,
+     this prevents these metrics from being archived *)
+  Rrdd.query_possible_host_dss ()
+  |> List.filter_map (fun ds ->
+      if is_sr_metric ds.Data_source.name then
+        Some ds.Data_source.name
+      else
+        None)
+  |> List.iter (fun ds_name -> Rrdd.forget_host_ds ds_name);
+
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 
