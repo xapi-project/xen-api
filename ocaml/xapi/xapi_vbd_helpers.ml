@@ -274,7 +274,7 @@ let clear_current_operations ~__context ~self =
 
 
 (** Check if the device string has the right form *)
-let valid_device dev =
+let valid_device dev ~_type =
   let check_rest rest = (* checks the rest of the device name = [] is ok, or a number is ok *)
     if rest=[]
     then true
@@ -284,10 +284,13 @@ let valid_device dev =
   in
   dev = "autodetect" ||
   match String.explode dev with
-  | 's' :: 'd' :: ('a'..'p') :: rest -> check_rest rest
+  | 's' :: 'd' ::        ('a'..'p') :: rest -> check_rest rest
   | 'x' :: 'v' :: 'd' :: ('a'..'p') :: rest -> check_rest rest
-  | 'h' :: 'd' :: ('a'..'p') :: rest -> check_rest rest
-  | _ -> try let n = int_of_string dev in n >= 0 || n <16 with _ -> false
+  | 'h' :: 'd' ::        ('a'..'p') :: rest -> check_rest rest
+  | 'f' :: 'd' ::        ('a'..'b') :: rest -> check_rest rest (* QEMU only supports up to 2 floppy drives, hence fda or fdb *)
+  | _ -> match _type with
+         | `Floppy -> false
+         | _       -> try let n = int_of_string dev in n >= 0 || n <16 with _ -> false
 
 (** VBD.destroy doesn't require any interaction with xen *)
 let destroy  ~__context ~self =

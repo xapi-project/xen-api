@@ -168,7 +168,7 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
     Mutex.execute autodetect_mutex (fun () ->
         let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM ~_type in
 
-        if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
+        if not (valid_device userdevice ~_type) || (userdevice = "autodetect" && possibilities = []) then
           raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
 
         (* Resolve the "autodetect" into a fixed device name now *)
