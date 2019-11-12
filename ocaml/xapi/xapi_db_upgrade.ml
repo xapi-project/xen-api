@@ -593,6 +593,19 @@ let upgrade_cluster_timeouts = {
     )
 }
 
+let upgrade_secrets = {
+  description = "Move passwords into a Secret object";
+  version= (fun _ -> true);
+  fn = fun ~__context ->
+    Db.PBD.get_all ~__context
+    |> List.iter (fun self ->
+      let dconf = Db.PBD.get_device_config ~__context ~self in
+      let new_dconf = Xapi_secret.move_passwds_to_secrets ~__context dconf in
+      if dconf <> new_dconf then
+        Db.PBD.set_device_config ~__context ~self ~value:new_dconf
+    )
+}
+
 let rules = [
   upgrade_domain_type;
   upgrade_alert_priority;
@@ -618,6 +631,7 @@ let rules = [
   upgrade_vswitch_controller;
   upgrade_vm_platform_device_model;
   upgrade_cluster_timeouts;
+  upgrade_secrets;
 ]
 
 (* Maybe upgrade most recent db *)
