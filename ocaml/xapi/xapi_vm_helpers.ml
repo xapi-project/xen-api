@@ -915,16 +915,16 @@ let all_used_VBD_devices ~__context ~self =
 let allowed_VBD_devices ~__context ~vm ~_type =
   let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
-  let all_devices = match will_have_qemu, is_control_domain, _type with
-    | true, _, `Floppy  -> allowed_VBD_devices_HVM_floppy
-    | false, _, `Floppy -> [] (* floppy is not supported on PV *)
-    | false, true, _    -> allowed_VBD_devices_control_domain
-    | false, false, _   -> allowed_VBD_devices_PV
-    | true, _, _        -> allowed_VBD_devices_HVM
+  let supported, all_devices = match will_have_qemu, is_control_domain, _type with
+    | true,  _, `Floppy -> `Supported,           allowed_VBD_devices_HVM_floppy
+    | false, _, `Floppy -> `FloppyPVUnsupported, []
+    | false, true, _    -> `Supported,           allowed_VBD_devices_control_domain
+    | false, false, _   -> `Supported,           allowed_VBD_devices_PV
+    | true,  _, _       -> `Supported,           allowed_VBD_devices_HVM
   in
   (* Filter out those we've already got VBDs for *)
   let used_devices = all_used_VBD_devices ~__context ~self:vm in
-  List.filter (fun dev -> not (List.mem dev used_devices)) all_devices
+  supported, (List.filter (fun dev -> not (List.mem dev used_devices)) all_devices)
 
 let allowed_VIF_devices ~__context ~vm =
   let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in
