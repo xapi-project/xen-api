@@ -216,9 +216,10 @@ let enable ~__context ~self =
         name = None
       } in (* TODO: Pass these through from CLI *)
 
-      if not !Xapi_clustering.Daemon.enabled then
+      if not !Xapi_clustering.Daemon.enabled then begin
         D.debug "Cluster_host.enable: xapi-clusterd not running - attempting to start";
-        Xapi_clustering.Daemon.enable ~__context;
+        Xapi_clustering.Daemon.enable ~__context
+      end;
       let result = Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config in
       match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
       | Result.Ok () ->
