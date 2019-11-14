@@ -1179,8 +1179,16 @@ module Ovs = struct
         List.flatten (List.map (fun vif -> create_port_arg ?ty:(List.assoc_opt vif ifaces_with_type) vif name) existing_vifs)
       in
       let del_old_arg =
-        if vlan <> None then
-          (* This is to handle the case that a "real" bridge (not a "fake" VLAN bridge) already exists *)
+        let real_bridge_exists () =
+          try
+            (* `ovs-vsctl br-to-parent <name>` returns <name> if <name> is a current "real" bridge *)
+            vsctl ~log:false ["br-to-parent"; name] |> String.trim = name
+          with _ -> false
+        in
+        if vlan <> None && real_bridge_exists () then
+          (* This is to handle the case that a "real" bridge (not a "fake" VLAN bridge)
+             already exists, while we need to create a VLAN bridge with the same name.
+             The bridge will be destroyed and recreated, and the interfaces on it are put back. *)
           ["--"; "--if-exists"; "del-br"; name]
         else
           []
@@ -1204,8 +1212,20 @@ module Ovs = struct
           ["--"; "set"; "bridge"; name; "other_config:mcast-snooping-disable-flood-unregistered=" ^ (string_of_bool !mcast_snooping_disable_flood_unregistered)]
         | _ -> []
       in
-      vsctl (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
-                       vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping @ set_ipv6_igmp_snooping @ disable_flood_unregistered)
+      vsctl (
+        del_old_arg
+        @ ["--"; "--may-exist"; "add-br"; name]
+        @ vlan_arg
+        @ mac_arg
+        @ fail_mode_arg
+        @ disable_in_band_arg
+        @ external_id_arg
+        @ vif_arg
+        @ set_mac_table_size
+        @ set_igmp_snooping
+        @ set_ipv6_igmp_snooping
+        @ disable_flood_unregistered
+      )
 
     let destroy_bridge name =
       vsctl ["--"; "--if-exists"; "del-br"; name]
