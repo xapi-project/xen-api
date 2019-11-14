@@ -424,22 +424,26 @@ let maybe_copy_sr_rrds ~__context ~sr =
     with Rrd_interface.Rrdd_error(Archive_failed(msg)) ->
       warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
+let forget_common ~__context ~sr =
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  let vdis = Db.SR.get_VDIs ~__context ~self:sr in
+
+  List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
+  List.iter (fun self -> Db.VDI.destroy ~__context ~self) vdis;
+  Db.SR.destroy ~__context ~self:sr
+
 (* Remove SR record from database without attempting to remove SR from disk.
    Fail if any PBD still is attached (plugged); force the user to unplug it
    first. *)
 let forget  ~__context ~sr =
   (* NB we fail if ANY host is connected to this SR *)
   check_no_pbds_attached ~__context ~sr;
-  List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
-  let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
-  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
-  Db.SR.destroy ~__context ~self:sr
+  forget_common ~__context ~sr
 
 (** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
     PBD record on current host to determine device_config reqd by sr backend) *)
 let destroy  ~__context ~sr =
   check_no_pbds_attached ~__context ~sr;
-  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
 
   (* raise exception if the 'indestructible' flag is set in other_config *)
   let oc = Db.SR.get_other_config ~__context ~self:sr in
@@ -461,14 +465,10 @@ let destroy  ~__context ~sr =
 
   Storage_access.destroy_sr ~__context ~sr ~and_vdis:vdis_to_destroy;
 
-  (* The sr_delete may have deleted some VDI records *)
-  let vdis = Db.SR.get_VDIs ~__context ~self:sr in
   let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
   Xapi_secret.clean_out_passwds ~__context sm_cfg;
-  List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
-  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
-  Db.SR.destroy ~__context ~self:sr
+  forget_common ~__context ~sr
 
 let update ~__context ~sr =
   let open Storage_access in
