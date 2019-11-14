@@ -1204,8 +1204,20 @@ module Ovs = struct
           ["--"; "set"; "bridge"; name; "other_config:mcast-snooping-disable-flood-unregistered=" ^ (string_of_bool !mcast_snooping_disable_flood_unregistered)]
         | _ -> []
       in
-      vsctl (del_old_arg @ ["--"; "--may-exist"; "add-br"; name] @
-                       vlan_arg @ mac_arg @ fail_mode_arg @ disable_in_band_arg @ external_id_arg @ vif_arg @ set_mac_table_size @ set_igmp_snooping @ set_ipv6_igmp_snooping @ disable_flood_unregistered)
+      vsctl (
+        del_old_arg
+        @ ["--"; "--may-exist"; "add-br"; name]
+        @ vlan_arg
+        @ mac_arg
+        @ fail_mode_arg
+        @ disable_in_band_arg
+        @ external_id_arg
+        @ vif_arg
+        @ set_mac_table_size
+        @ set_igmp_snooping
+        @ set_ipv6_igmp_snooping
+        @ disable_flood_unregistered
+      )
 
     let destroy_bridge name =
       vsctl ["--"; "--if-exists"; "del-br"; name]
