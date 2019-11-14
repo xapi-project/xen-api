@@ -3111,15 +3111,21 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.SR.destroy ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.destroy" ~op:`destroy
         (fun () ->
-           forward_sr_op ~consider_unplugged_pbds:true ~local_fn ~__context ~self:sr
-             (fun session_id rpc -> Client.SR.destroy rpc session_id sr))
+          Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
+          Xapi_sr.assert_sr_not_indestructible ~__context ~sr;
+          Xapi_sr.assert_sr_not_local_cache ~__context ~sr;
 
-    (* don't forward this is just a db call *)
+          forward_sr_op ~consider_unplugged_pbds:true ~local_fn ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.destroy rpc session_id sr))
+
     let forget ~__context ~sr =
       info "SR.forget: SR = '%s'" (sr_uuid ~__context sr);
       with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget
         (fun () ->
-           Local.SR.forget ~__context ~sr)
+          Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
+
+          (* don't forward this is just a db call *)
+          Local.SR.forget ~__context ~sr)
 
     let update ~__context ~sr =
       info "SR.update: SR = '%s'" (sr_uuid ~__context sr);
