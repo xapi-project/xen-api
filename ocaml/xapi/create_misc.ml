@@ -522,16 +522,20 @@ let create_host_cpu ~__context host_info =
       (* To support VMs migrated from hosts which do not support CPU levelling v2,
          		   set the "features" key to what it would be on such hosts. *)
       "features", Cpuid_helpers.string_of_features cpu_info.features_oldstyle;
-      "features_pv", Cpuid_helpers.string_of_features cpu_info.features_pv;
-      "features_hvm", Cpuid_helpers.string_of_features cpu_info.features_hvm;
+      Xapi_globs.cpu_info_features_pv_key, Cpuid_helpers.string_of_features cpu_info.features_pv;
+      Xapi_globs.cpu_info_features_hvm_key, Cpuid_helpers.string_of_features cpu_info.features_hvm;
+      Xapi_globs.cpu_info_features_hvm_host_key, Cpuid_helpers.string_of_features cpu_info.features_hvm_host;
+      Xapi_globs.cpu_info_features_pv_host_key, Cpuid_helpers.string_of_features cpu_info.features_pv_host;
     ] in
     let host = Helpers.get_localhost ~__context in
     let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s, features_hvm_host=%s, features_pv_host=%s"
       (Map_check.getf Cpuid_helpers.socket_count cpu)
       (Map_check.getf Cpuid_helpers.cpu_count cpu)
       (Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
-      (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features);
+      (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features)
+      (Map_check.getf Cpuid_helpers.features_hvm_host cpu |> string_of_features)
+      (Map_check.getf Cpuid_helpers.features_pv_host cpu |> string_of_features);
     Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 
     let before = getf ~default:[||] features_hvm old_cpu_info in
@@ -583,16 +587,20 @@ let create_pool_cpuinfo ~__context =
       (fun (r, s) -> r, s.API.host_cpu_info)
       (Db.Host.get_all_records ~__context) in
 
+  let getfdefault ~defaultf key host =
+    let default = getf defaultf host in
+    getf ~default key host in
+
   let merge pool (hostref, host) =
     try
       pool
       |> setf vendor (getf vendor host)
       |> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
       |> setf socket_count ((getf socket_count host) + (getf socket_count pool))
-      |> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
+      |> setf features_pv (Cpuid_helpers.intersect (getfdefault ~defaultf:features_pv features_pv_host host) (getf features_pv pool))
       |> fun pool' ->
            if Helpers.host_supports_hvm ~__context hostref then
-             setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool)) pool'
+             setf features_hvm (Cpuid_helpers.intersect (getfdefault ~defaultf:features_hvm features_hvm_host host) (getf features_hvm pool)) pool'
            else
              pool'
     with Not_found ->

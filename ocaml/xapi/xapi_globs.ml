@@ -560,6 +560,8 @@ let cpu_info_vendor_key = "vendor"
 let cpu_info_features_key = "features"
 let cpu_info_features_pv_key = "features_pv"
 let cpu_info_features_hvm_key = "features_hvm"
+let cpu_info_features_pv_host_key = "features_pv_host"
+let cpu_info_features_hvm_host_key = "features_hvm_host"
 
 (** Metrics *)
 

@@ -65,6 +65,8 @@ let make_localhost ~__context ?(features=Features.all_features) () =
       ; features_pv = [||]
       ; features_hvm = [||]
       ; features_oldstyle = [||]
+      ; features_pv_host = [||]
+      ; features_hvm_host = [||]
     };
     hypervisor = None;
     chipset_info = None

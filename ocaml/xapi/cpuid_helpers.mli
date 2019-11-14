@@ -47,6 +47,8 @@ val socket_count : int Map_check.field
 val features : int64 array Map_check.field
 val features_pv : int64 array Map_check.field
 val features_hvm : int64 array Map_check.field
+val features_pv_host : int64 array Map_check.field
+val features_hvm_host : int64 array Map_check.field
 
 val get_host_cpu_info :
   __context:Context.t ->

@@ -84,10 +84,12 @@ let is_strict_subset left right =
   (is_subset left right) && (not (is_equal left right))
 
 (** Field definitions for checked string map access *)
-let features_t   = Map_check.pickler features_of_string string_of_features
-let features     = Map_check.field "features" features_t
-let features_pv  = Map_check.field "features_pv" features_t
-let features_hvm = Map_check.field "features_hvm" features_t
+let features_t        = Map_check.pickler features_of_string string_of_features
+let features          = Map_check.field Xapi_globs.cpu_info_features_key features_t
+let features_pv       = Map_check.field Xapi_globs.cpu_info_features_pv_key features_t
+let features_hvm      = Map_check.field Xapi_globs.cpu_info_features_hvm_key features_t
+let features_pv_host  = Map_check.field Xapi_globs.cpu_info_features_pv_host_key features_t
+let features_hvm_host = Map_check.field Xapi_globs.cpu_info_features_hvm_host_key features_t
 let cpu_count    = Map_check.(field "cpu_count" int)
 let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)

@@ -45,50 +45,66 @@ module PoolCpuinfo = Generic.MakeStateful(struct
                                       let pool = Helpers.get_pool ~__context in
                                       List.sort compare (Db.Pool.get_cpu_info ~__context ~self:pool)
 
-                                    let cpu_info ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv =
+                                    let cpu_info_common ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv ~features_hvm_host ~features_pv_host =
                                       let cpu_info =
                                         ["vendor", vendor;
                                          "cpu_count", cpu_count;
                                          "socket_count", socket_count;
                                          "features_hvm", features_hvm;
-                                         "features_pv", features_pv] in
+                                         "features_pv", features_pv;
+                                         "features_hvm_host", features_hvm_host;
+                                         "features_pv_host", features_pv_host;
+                                        ] in
 
                                       (* Sort the associaton list so the test framework's comparisons work *)
                                       List.sort compare cpu_info
 
+                                    let cpu_info ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv =
+                                      cpu_info_common ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv ~features_hvm_host:features_hvm ~features_pv_host:features_pv
+
+                                    let cpu_pinfo ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv =
+                                      cpu_info_common ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv ~features_hvm_host:features_hvm ~features_pv_host:features_pv
+                                      |> List.filter (fun (k, _) -> not (Astring.String.is_suffix ~affix:"host" k))
+
+
                                     let tests = `QuickAndAutoDocumented [
                                       ([cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true],
-                                       cpu_info "Abacus" "1" "1" "0000000a" "0000000a");
+                                       cpu_pinfo "Abacus" "1" "1" "0000000a" "0000000a");
 
                                       ([cpu_info "Abacus" "2" "4" "0000000a" "0000000a", true;
                                         cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true],
-                                       cpu_info "Abacus" "3" "5" "0000000a" "0000000a");
+                                       cpu_pinfo "Abacus" "3" "5" "0000000a" "0000000a");
 
                                       ([cpu_info "Abacus" "8" "2" "0000000a" "00000002", true;
                                         cpu_info "Abacus" "4" "1" "0000000f" "00000001", true],
-                                       cpu_info "Abacus" "12" "3" "0000000a" "00000000");
+                                       cpu_pinfo "Abacus" "12" "3" "0000000a" "00000000");
 
                                       ([cpu_info "Abacus" "24" "1" "ffffffff-ffffffff" "ffffffff-ffffffff", true;
                                         cpu_info "Abacus" "24" "24" "ffffffff-ffffffff" "ffffffff-ffffffff", true],
-                                       cpu_info "Abacus" "48" "25" "ffffffff-ffffffff" "ffffffff-ffffffff");
+                                       cpu_pinfo "Abacus" "48" "25" "ffffffff-ffffffff" "ffffffff-ffffffff");
 
                                       ([cpu_info "Abacus" "1" "1" "ffffffff" "ffffffff-ffffffff-ffffffff", true;
                                         cpu_info "Abacus" "1" "1" "ffffffff-ffffffff" "ffffffff-ffffffff", true],
-                                       cpu_info "Abacus" "2" "2" "ffffffff-00000000" "ffffffff-ffffffff-00000000");
+                                       cpu_pinfo "Abacus" "2" "2" "ffffffff-00000000" "ffffffff-ffffffff-00000000");
 
                                       ([cpu_info "Abacus" "10" "1" "01230123-5a5a5a5a" "00000002", true;
                                         cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true],
-                                       cpu_info "Abacus" "11" "11" "01230101-00004242" "00000002");
+                                       cpu_pinfo "Abacus" "11" "11" "01230101-00004242" "00000002");
 
                                       (* Include one host that is not HVM-capable *)
                                       ([cpu_info "Abacus" "10" "1" "00000000-00000000" "00000002", false;
                                         cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true],
-                                       cpu_info "Abacus" "11" "11" "ffff1111-a5a56666" "00000002");
+                                       cpu_pinfo "Abacus" "11" "11" "ffff1111-a5a56666" "00000002");
 
                                       (* CA-188665: Test a pool containing an old host which doesn't have the new feature keys *)
                                       ([cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true;
                                         ["cpu_count", "1"; "features", "ffff1111-a5a56666"; "socket_count", "1"; "vendor", "Abacus"], true],
-                                       cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002");
+                                       cpu_pinfo "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002");
+
+                                      (* Test that the new _host fields are used for pool leveling *)
+                                      ([cpu_info_common "Abacus" "1" "1" "deadbeef-deadbeef" "deadbeef" "01230123-5a5a5a5a" "00000002", true;
+                                        cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true],
+                                       cpu_pinfo "Abacus" "2" "2" "01230123-5a5a5a5a" "00000002");
                                     ]
                                   end)
 
