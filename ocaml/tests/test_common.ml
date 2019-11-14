@@ -35,6 +35,24 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
     | Some args ->
       Alcotest.(check (list string)) "Function raised API error with unexpected args" args a
 
+(* fields from Dundee *)
+let default_cpu_info = [
+  (* 0 - to avoid confusing test_pool_cpuinfo which creates new hosts and doesn't expect
+   * localhost to be counted *)
+  "cpu_count", "0";
+  "socket_count", "0";
+  "vendor", "Abacus";
+  "speed", "";
+  "modelname", "";
+  "family", "";
+  "model", "";
+  "stepping", "";
+  "flags", "";
+  "features", "";
+  "features_pv", "";
+  "features_hvm", "";
+]
+
 let make_localhost ~__context ?(features=Features.all_features) () =
   let host_info = {
     Create_misc.name_label = "test host";
@@ -78,6 +96,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
      	   simple thing first and just set localhost_ref instead. *)
   (* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
+  Db.Host.set_cpu_info ~__context ~self:!Xapi_globs.localhost_ref ~value:default_cpu_info;
   Db.Host.remove_from_software_version ~__context ~self:!Xapi_globs.localhost_ref ~key:"network_backend";
   Db.Host.add_to_software_version ~__context ~self:!Xapi_globs.localhost_ref ~key:"network_backend"
     ~value:(Network_interface.(string_of_kind Openvswitch));

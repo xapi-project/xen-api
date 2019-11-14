@@ -95,14 +95,15 @@ let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
 
 let get_flags_for_vm ~__context vm cpu_info =
-  let features_field =
+  let features_field, features_field_boot =
     match Helpers.domain_type ~__context ~self:vm with
-    | `hvm | `pv_in_pvh -> features_hvm
-    | `pv -> features_pv
+    | `hvm | `pv_in_pvh -> features_hvm, features_hvm_host
+    | `pv -> features_pv, features_pv_host
   in
   let vendor = List.assoc cpu_info_vendor_key cpu_info in
   let migration = Map_check.getf features_field cpu_info in
-  (vendor, migration)
+  let onboot = Map_check.getf ~default:migration features_field_boot cpu_info in
+  (vendor, migration, onboot)
 
 (** Upgrade a VM's feature set based on the host's one, if needed.
  *  The output will be a feature set that is the same length as the host's
@@ -147,7 +148,7 @@ let set_flags ~__context self vendor features =
 (* Reset last_boot_CPU_flags with the vendor and feature set.
  * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
 let reset_cpu_flags ~__context ~vm =
-  let pool_vendor, pool_features =
+  let pool_vendor, _, pool_features =
     let pool = Helpers.get_pool ~__context in
     let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
     get_flags_for_vm ~__context vm pool_cpu_info
@@ -163,7 +164,7 @@ let update_cpu_flags ~__context ~vm ~host =
   in
   debug "VM last boot CPU features: %s" (string_of_features current_features);
   try
-    let host_vendor, host_features =
+    let host_vendor, host_features, _ =
       let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
       get_flags_for_vm ~__context vm host_cpu_info
     in
@@ -172,7 +173,8 @@ let update_cpu_flags ~__context ~vm ~host =
     if new_features <> current_features then
       set_flags ~__context vm host_vendor new_features
   with Not_found ->
-    debug "Host does not have new levelling feature keys - not upgrading VM's flags"
+    (* pre-Dundee? *)
+    failwith "Host does not have new leveling feature keys"
 
 let get_host_cpu_info ~__context ~vm ~host ?remote () =
   match remote with
@@ -191,7 +193,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
     try
-      let host_cpu_vendor, host_cpu_features' = get_host_compatibility_info ~__context ~vm ~host ?remote () in
+      let host_cpu_vendor, host_cpu_features', _ = get_host_compatibility_info ~__context ~vm ~host ?remote () in
       let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
       if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
@@ -216,6 +218,6 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
         end
       end
     with Not_found ->
-      debug "Host does not have new levelling feature keys - not comparing VM's flags"
+      fail "Host does not have new leveling feature keys - not comparing VM's flags"
   end
 

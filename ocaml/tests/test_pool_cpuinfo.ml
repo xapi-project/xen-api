@@ -28,6 +28,8 @@ module PoolCpuinfo = Generic.MakeStateful(struct
 
                                     (* Create a host for each edition in the list. *)
                                     let load_input __context inputs =
+                                      (* we don't want to count localhost, use the host(s) we
+                                       * explicitly created *)
                                       List.iter
                                         (fun (cpu_info, hvm_capable) ->
                                            let host = Test_common.make_host ~__context () in
@@ -62,10 +64,7 @@ module PoolCpuinfo = Generic.MakeStateful(struct
                                     let cpu_info ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv =
                                       cpu_info_common ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv ~features_hvm_host:features_hvm ~features_pv_host:features_pv
 
-                                    let cpu_pinfo ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv =
-                                      cpu_info_common ~vendor ~cpu_count ~socket_count ~features_hvm ~features_pv ~features_hvm_host:features_hvm ~features_pv_host:features_pv
-                                      |> List.filter (fun (k, _) -> not (Astring.String.is_suffix ~affix:"host" k))
-
+                                    let cpu_pinfo = cpu_info
 
                                     let tests = `QuickAndAutoDocumented [
                                       ([cpu_info "Abacus" "1" "1" "0000000a" "0000000a", true],
@@ -96,15 +95,15 @@ module PoolCpuinfo = Generic.MakeStateful(struct
                                         cpu_info "Abacus" "1" "10" "ffff1111-a5a56666" "00004242", true],
                                        cpu_pinfo "Abacus" "11" "11" "ffff1111-a5a56666" "00000002");
 
-                                      (* CA-188665: Test a pool containing an old host which doesn't have the new feature keys *)
+                                      (* Test a Dundee host which has features_hvm, but not features_hvm_host (test for CA-188665 no longer relevant, was for pre-Dundeee) *)
                                       ([cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true;
-                                        ["cpu_count", "1"; "features", "ffff1111-a5a56666"; "socket_count", "1"; "vendor", "Abacus"], true],
-                                       cpu_pinfo "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002");
+                                        ["cpu_count", "1"; "features", "ffff1111-a5a56666"; "features_hvm", "ffff1111-a5a56666"; "features_pv", "00004242"; "socket_count", "1"; "vendor", "Abacus"], true],
+                                       cpu_pinfo "Abacus" "2" "2" "01230101-00004242" "00000002");
 
                                       (* Test that the new _host fields are used for pool leveling *)
                                       ([cpu_info_common "Abacus" "1" "1" "deadbeef-deadbeef" "deadbeef" "01230123-5a5a5a5a" "00000002", true;
                                         cpu_info "Abacus" "1" "1" "01230123-5a5a5a5a" "00000002", true],
-                                       cpu_pinfo "Abacus" "2" "2" "01230123-5a5a5a5a" "00000002");
+                                       cpu_info_common "Abacus" "2" "2" "00210023-5a081a4a" "00000002" "01230123-5a5a5a5a" "00000002");
                                     ]
                                   end)
 

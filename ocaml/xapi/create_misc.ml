@@ -597,16 +597,18 @@ let create_pool_cpuinfo ~__context =
       |> setf vendor (getf vendor host)
       |> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
       |> setf socket_count ((getf socket_count host) + (getf socket_count pool))
-      |> setf features_pv (Cpuid_helpers.intersect (getfdefault ~defaultf:features_pv features_pv_host host) (getf features_pv pool))
+      |> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
+      |> setf features_pv_host (Cpuid_helpers.intersect (getfdefault ~defaultf:features_pv features_pv_host host) (getfdefault ~defaultf:features_pv features_pv_host pool))
       |> fun pool' ->
            if Helpers.host_supports_hvm ~__context hostref then
-             setf features_hvm (Cpuid_helpers.intersect (getfdefault ~defaultf:features_hvm features_hvm_host host) (getf features_hvm pool)) pool'
+             pool'
+             |> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+             |> setf features_hvm_host (Cpuid_helpers.intersect (getfdefault ~defaultf:features_hvm features_hvm_host host) (getfdefault ~defaultf:features_hvm features_hvm_host pool))
            else
              pool'
     with Not_found ->
-      (* If the host doesn't have all the keys we expect, assume that we
-         			   are in the middle of an RPU and it has not yet been upgraded, so
-         			   it should be ignored when calculating the pool level *)
+      (* pre-Dundee? *)
+      warn "Host %s is missing required `features*` keys" (Ref.string_of hostref);
       pool
   in
 
