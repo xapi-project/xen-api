@@ -47,6 +47,10 @@ let zero_extend arr len =
   let zero_arr = Array.make len 0L in
   extend arr zero_arr
 
+let features_op2 f a b =
+  let n = max (Array.length a) (Array.length b) in
+  Array.map2 f (zero_extend a n) (zero_extend b n)
+
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
@@ -57,16 +61,13 @@ let intersect left right =
   match left, right with
   | [| |], _ -> right
   | _, [| |] -> left
-  | _, _ ->
-    let len_left = Array.length left in
-    let len_right = Array.length right in
+  | _, _ -> features_op2 Int64.logand left right
 
-    let out = Array.make (max len_left len_right) 0L in
-
-    for i = 0 to (min len_left len_right) - 1 do
-      out.(i) <- Int64.logand left.(i) right.(i)
-    done;
-    out
+(** Calculate the features that are missing from [right],
+  * but present in [left] *)
+let diff left right =
+  let diff64 a b = Int64.(logand a (lognot b)) in
+  features_op2 diff64 left right
 
 (** equality check that zero-extends if lengths differ *)
 let is_equal left right =
@@ -208,6 +209,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
         in
         if not (is_subset vm_cpu_features' host_cpu_features') then begin
           debug "VM CPU features (%s) are not compatible with host CPU features (%s)\n" (string_of_features vm_cpu_features') (string_of_features host_cpu_features');
+          debug "Host is missing these CPU features required by the VM: %s" (string_of_features (diff vm_cpu_features' host_cpu_features'));
           fail "VM last booted on a CPU with features this host's CPU does not have."
         end
       end

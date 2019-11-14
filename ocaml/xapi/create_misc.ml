@@ -617,11 +617,17 @@ let create_pool_cpuinfo ~__context =
   let after = getf ~default:[||] features_hvm pool_cpuinfo in
   if not (is_equal before after) && before <> [||] then begin
     let lost = is_strict_subset (intersect before after) before in
-    let gained = is_strict_subset (intersect before after) after in
+    let features_msg ~msg before after =
+      let delta = diff before after in
+      if is_strict_subset (intersect before after) before then
+        Printf.sprintf " Some features %s: %s." msg (string_of_features delta)
+      else
+        ""
+    in
     info "The pool-level CPU features have changed.%s%s Old features_hvm=%s."
-        (if lost then " Some features have gone away." else "")
-        (if gained then " Some features were added." else "")
-        (string_of_features before);
+      (features_msg ~msg:"have gone away" before after)
+      (features_msg ~msg:"were added" after before)
+      (string_of_features before);
 
     if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 && lost then
       let (name, priority) = Api_messages.pool_cpu_features_down in
