@@ -54,7 +54,7 @@ let flush dbconn db =
 
   let do_flush_xml db filename =
     Redo_log.flush_db_to_all_active_redo_logs db;
-    Stdext.Unixext.atomic_write_to_file filename 0o0644
+    Stdext.Unixext.atomic_write_to_file filename 0o0600
       (fun fd ->
          if not dbconn.Parse_db_conf.compress
          then Db_xml.To.fd fd db
