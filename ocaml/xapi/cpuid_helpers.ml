@@ -92,16 +92,14 @@ let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
 
 let get_flags_for_vm ~__context vm cpu_info =
-  let features_key =
+  let features_field =
     match Helpers.domain_type ~__context ~self:vm with
-    | `hvm | `pv_in_pvh ->
-      cpu_info_features_hvm_key
-    | `pv ->
-      cpu_info_features_pv_key
+    | `hvm | `pv_in_pvh -> features_hvm
+    | `pv -> features_pv
   in
   let vendor = List.assoc cpu_info_vendor_key cpu_info in
-  let features = List.assoc features_key cpu_info in
-  (vendor, features)
+  let migration = Map_check.getf features_field cpu_info in
+  (vendor, migration)
 
 (** Upgrade a VM's feature set based on the host's one, if needed.
  *  The output will be a feature set that is the same length as the host's
@@ -135,6 +133,7 @@ let upgrade_features ~__context ~vm host_features vm_features =
   upgraded_features
 
 let set_flags ~__context self vendor features =
+  let features = features |> snd features_t in
   let value = [
     cpu_info_vendor_key, vendor;
     cpu_info_features_key, features;
@@ -157,19 +156,16 @@ let reset_cpu_flags ~__context ~vm =
 let update_cpu_flags ~__context ~vm ~host =
   let current_features =
     let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-    try
-      List.assoc cpu_info_features_key flags
-    with Not_found -> ""
+    Map_check.getf ~default:[||] features flags
   in
-  debug "VM last boot CPU features: %s" current_features;
+  debug "VM last boot CPU features: %s" (string_of_features current_features);
   try
     let host_vendor, host_features =
       let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
       get_flags_for_vm ~__context vm host_cpu_info
     in
     let new_features = upgrade_features ~__context ~vm
-        (features_of_string host_features) (features_of_string current_features)
-                       |> string_of_features in
+        host_features current_features in
     if new_features <> current_features then
       set_flags ~__context vm host_vendor new_features
   with Not_found ->
@@ -192,7 +188,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
     try
-      let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~vm ~host ?remote () in
+      let host_cpu_vendor, host_cpu_features' = get_host_compatibility_info ~__context ~vm ~host ?remote () in
       let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
       if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
@@ -203,12 +199,11 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
       end;
       if List.mem_assoc cpu_info_features_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
-        let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
-        debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-        let host_cpu_features' = host_cpu_features |> features_of_string in
+        let vm_cpu_features = Map_check.getf features vm_cpu_info in
+        debug "VM last booted on CPU with features %s; host CPUs have migration features %s"
+		(string_of_features vm_cpu_features) (string_of_features host_cpu_features');
         let vm_cpu_features' =
           vm_cpu_features
-          |> features_of_string
           |> upgrade_features ~__context ~vm host_cpu_features'
         in
         if not (is_subset vm_cpu_features' host_cpu_features') then begin
