@@ -35,6 +35,24 @@ let assert_raises_api_error (code : string) ?(args : string list option) (f : un
     | Some args ->
       Alcotest.(check (list string)) "Function raised API error with unexpected args" args a
 
+(* fields from Dundee *)
+let default_cpu_info = [
+  (* 0 - to avoid confusing test_pool_cpuinfo which creates new hosts and doesn't expect
+   * localhost to be counted *)
+  "cpu_count", "0";
+  "socket_count", "0";
+  "vendor", "Abacus";
+  "speed", "";
+  "modelname", "";
+  "family", "";
+  "model", "";
+  "stepping", "";
+  "flags", "";
+  "features", "";
+  "features_pv", "";
+  "features_hvm", "";
+]
+
 let make_localhost ~__context ?(features=Features.all_features) () =
   let host_info = {
     Create_misc.name_label = "test host";
@@ -65,6 +83,8 @@ let make_localhost ~__context ?(features=Features.all_features) () =
       ; features_pv = [||]
       ; features_hvm = [||]
       ; features_oldstyle = [||]
+      ; features_pv_host = [||]
+      ; features_hvm_host = [||]
     };
     hypervisor = None;
     chipset_info = None
@@ -76,6 +96,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
      	   simple thing first and just set localhost_ref instead. *)
   (* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
   Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
+  Db.Host.set_cpu_info ~__context ~self:!Xapi_globs.localhost_ref ~value:default_cpu_info;
   Db.Host.remove_from_software_version ~__context ~self:!Xapi_globs.localhost_ref ~key:"network_backend";
   Db.Host.add_to_software_version ~__context ~self:!Xapi_globs.localhost_ref ~key:"network_backend"
     ~value:(Network_interface.(string_of_kind Openvswitch));
@@ -126,7 +147,9 @@ let make_host ~__context ?(uuid=make_uuid ()) ?(name_label="host")
     ?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")
     ?(external_auth_type="") ?(external_auth_service_name="") ?(external_auth_configuration=[])
     ?(license_params=[]) ?(edition="free") ?(license_server=[]) ?(local_cache_sr=Ref.null) ?(chipset_info=[]) ?(ssl_legacy=false) () =
-  Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy
+  let host = Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~external_auth_type ~external_auth_service_name ~external_auth_configuration ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info ~ssl_legacy in
+  Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info;
+  host
 
 let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="host")
     ?(name_description="description") ?(hostname="localhost") ?(address="127.0.0.1")

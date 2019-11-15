@@ -47,6 +47,10 @@ let zero_extend arr len =
   let zero_arr = Array.make len 0L in
   extend arr zero_arr
 
+let features_op2 f a b =
+  let n = max (Array.length a) (Array.length b) in
+  Array.map2 f (zero_extend a n) (zero_extend b n)
+
 (** Calculate the intersection of two feature sets.
  *  Intersection with the empty set is treated as identity, so that intersection
  *  can be folded easily starting with an accumulator of [||].
@@ -57,16 +61,13 @@ let intersect left right =
   match left, right with
   | [| |], _ -> right
   | _, [| |] -> left
-  | _, _ ->
-    let len_left = Array.length left in
-    let len_right = Array.length right in
+  | _, _ -> features_op2 Int64.logand left right
 
-    let out = Array.make (max len_left len_right) 0L in
-
-    for i = 0 to (min len_left len_right) - 1 do
-      out.(i) <- Int64.logand left.(i) right.(i)
-    done;
-    out
+(** Calculate the features that are missing from [right],
+  * but present in [left] *)
+let diff left right =
+  let diff64 a b = Int64.(logand a (lognot b)) in
+  features_op2 diff64 left right
 
 (** equality check that zero-extends if lengths differ *)
 let is_equal left right =
@@ -83,25 +84,26 @@ let is_strict_subset left right =
   (is_subset left right) && (not (is_equal left right))
 
 (** Field definitions for checked string map access *)
-let features_t   = Map_check.pickler features_of_string string_of_features
-let features     = Map_check.field "features" features_t
-let features_pv  = Map_check.field "features_pv" features_t
-let features_hvm = Map_check.field "features_hvm" features_t
+let features_t        = Map_check.pickler features_of_string string_of_features
+let features          = Map_check.field Xapi_globs.cpu_info_features_key features_t
+let features_pv       = Map_check.field Xapi_globs.cpu_info_features_pv_key features_t
+let features_hvm      = Map_check.field Xapi_globs.cpu_info_features_hvm_key features_t
+let features_pv_host  = Map_check.field Xapi_globs.cpu_info_features_pv_host_key features_t
+let features_hvm_host = Map_check.field Xapi_globs.cpu_info_features_hvm_host_key features_t
 let cpu_count    = Map_check.(field "cpu_count" int)
 let socket_count = Map_check.(field "socket_count" int)
 let vendor       = Map_check.(field "vendor" string)
 
 let get_flags_for_vm ~__context vm cpu_info =
-  let features_key =
+  let features_field, features_field_boot =
     match Helpers.domain_type ~__context ~self:vm with
-    | `hvm | `pv_in_pvh ->
-      cpu_info_features_hvm_key
-    | `pv ->
-      cpu_info_features_pv_key
+    | `hvm | `pv_in_pvh -> features_hvm, features_hvm_host
+    | `pv -> features_pv, features_pv_host
   in
   let vendor = List.assoc cpu_info_vendor_key cpu_info in
-  let features = List.assoc features_key cpu_info in
-  (vendor, features)
+  let migration = Map_check.getf features_field cpu_info in
+  let onboot = Map_check.getf ~default:migration features_field_boot cpu_info in
+  (vendor, migration, onboot)
 
 (** Upgrade a VM's feature set based on the host's one, if needed.
  *  The output will be a feature set that is the same length as the host's
@@ -135,6 +137,7 @@ let upgrade_features ~__context ~vm host_features vm_features =
   upgraded_features
 
 let set_flags ~__context self vendor features =
+  let features = features |> snd features_t in
   let value = [
     cpu_info_vendor_key, vendor;
     cpu_info_features_key, features;
@@ -145,7 +148,7 @@ let set_flags ~__context self vendor features =
 (* Reset last_boot_CPU_flags with the vendor and feature set.
  * On VM.start, the feature set is inherited from the pool level (PV or HVM) *)
 let reset_cpu_flags ~__context ~vm =
-  let pool_vendor, pool_features =
+  let pool_vendor, _, pool_features =
     let pool = Helpers.get_pool ~__context in
     let pool_cpu_info = Db.Pool.get_cpu_info ~__context ~self:pool in
     get_flags_for_vm ~__context vm pool_cpu_info
@@ -157,23 +160,21 @@ let reset_cpu_flags ~__context ~vm =
 let update_cpu_flags ~__context ~vm ~host =
   let current_features =
     let flags = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
-    try
-      List.assoc cpu_info_features_key flags
-    with Not_found -> ""
+    Map_check.getf ~default:[||] features flags
   in
-  debug "VM last boot CPU features: %s" current_features;
+  debug "VM last boot CPU features: %s" (string_of_features current_features);
   try
-    let host_vendor, host_features =
+    let host_vendor, host_features, _ =
       let host_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
       get_flags_for_vm ~__context vm host_cpu_info
     in
     let new_features = upgrade_features ~__context ~vm
-        (features_of_string host_features) (features_of_string current_features)
-                       |> string_of_features in
+        host_features current_features in
     if new_features <> current_features then
       set_flags ~__context vm host_vendor new_features
   with Not_found ->
-    debug "Host does not have new levelling feature keys - not upgrading VM's flags"
+    (* pre-Dundee? *)
+    failwith "Host does not have new leveling feature keys"
 
 let get_host_cpu_info ~__context ~vm ~host ?remote () =
   match remote with
@@ -192,7 +193,7 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
   in
   if Db.VM.get_power_state ~__context ~self:vm <> `Halted then begin
     try
-      let host_cpu_vendor, host_cpu_features = get_host_compatibility_info ~__context ~vm ~host ?remote () in
+      let host_cpu_vendor, host_cpu_features', _ = get_host_compatibility_info ~__context ~vm ~host ?remote () in
       let vm_cpu_info = Db.VM.get_last_boot_CPU_flags ~__context ~self:vm in
       if List.mem_assoc cpu_info_vendor_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
@@ -203,20 +204,20 @@ let assert_vm_is_compatible ~__context ~vm ~host ?remote () =
       end;
       if List.mem_assoc cpu_info_features_key vm_cpu_info then begin
         (* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
-        let vm_cpu_features = List.assoc cpu_info_features_key vm_cpu_info in
-        debug "VM last booted on CPU with features %s; host CPUs have features %s" vm_cpu_features host_cpu_features;
-        let host_cpu_features' = host_cpu_features |> features_of_string in
+        let vm_cpu_features = Map_check.getf features vm_cpu_info in
+        debug "VM last booted on CPU with features %s; host CPUs have migration features %s"
+		(string_of_features vm_cpu_features) (string_of_features host_cpu_features');
         let vm_cpu_features' =
           vm_cpu_features
-          |> features_of_string
           |> upgrade_features ~__context ~vm host_cpu_features'
         in
         if not (is_subset vm_cpu_features' host_cpu_features') then begin
           debug "VM CPU features (%s) are not compatible with host CPU features (%s)\n" (string_of_features vm_cpu_features') (string_of_features host_cpu_features');
+          debug "Host is missing these CPU features required by the VM: %s" (string_of_features (diff vm_cpu_features' host_cpu_features'));
           fail "VM last booted on a CPU with features this host's CPU does not have."
         end
       end
     with Not_found ->
-      debug "Host does not have new levelling feature keys - not comparing VM's flags"
+      fail "Host does not have new leveling feature keys - not comparing VM's flags"
   end
 

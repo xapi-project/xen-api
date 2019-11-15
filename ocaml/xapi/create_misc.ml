@@ -522,16 +522,20 @@ let create_host_cpu ~__context host_info =
       (* To support VMs migrated from hosts which do not support CPU levelling v2,
          		   set the "features" key to what it would be on such hosts. *)
       "features", Cpuid_helpers.string_of_features cpu_info.features_oldstyle;
-      "features_pv", Cpuid_helpers.string_of_features cpu_info.features_pv;
-      "features_hvm", Cpuid_helpers.string_of_features cpu_info.features_hvm;
+      Xapi_globs.cpu_info_features_pv_key, Cpuid_helpers.string_of_features cpu_info.features_pv;
+      Xapi_globs.cpu_info_features_hvm_key, Cpuid_helpers.string_of_features cpu_info.features_hvm;
+      Xapi_globs.cpu_info_features_hvm_host_key, Cpuid_helpers.string_of_features cpu_info.features_hvm_host;
+      Xapi_globs.cpu_info_features_pv_host_key, Cpuid_helpers.string_of_features cpu_info.features_pv_host;
     ] in
     let host = Helpers.get_localhost ~__context in
     let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
-    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s"
+    debug "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, cpu_count=%d, features_hvm=%s, features_pv=%s, features_hvm_host=%s, features_pv_host=%s"
       (Map_check.getf Cpuid_helpers.socket_count cpu)
       (Map_check.getf Cpuid_helpers.cpu_count cpu)
       (Map_check.getf Cpuid_helpers.features_hvm cpu |> string_of_features)
-      (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features);
+      (Map_check.getf Cpuid_helpers.features_pv cpu |> string_of_features)
+      (Map_check.getf Cpuid_helpers.features_hvm_host cpu |> string_of_features)
+      (Map_check.getf Cpuid_helpers.features_pv_host cpu |> string_of_features);
     Db.Host.set_cpu_info ~__context ~self:host ~value:cpu;
 
     let before = getf ~default:[||] features_hvm old_cpu_info in
@@ -583,6 +587,10 @@ let create_pool_cpuinfo ~__context =
       (fun (r, s) -> r, s.API.host_cpu_info)
       (Db.Host.get_all_records ~__context) in
 
+  let getfdefault ~defaultf key host =
+    let default = getf defaultf host in
+    getf ~default key host in
+
   let merge pool (hostref, host) =
     try
       pool
@@ -590,15 +598,17 @@ let create_pool_cpuinfo ~__context =
       |> setf cpu_count ((getf cpu_count host) + (getf cpu_count pool))
       |> setf socket_count ((getf socket_count host) + (getf socket_count pool))
       |> setf features_pv (Cpuid_helpers.intersect (getf features_pv host) (getf features_pv pool))
+      |> setf features_pv_host (Cpuid_helpers.intersect (getfdefault ~defaultf:features_pv features_pv_host host) (getfdefault ~defaultf:features_pv features_pv_host pool))
       |> fun pool' ->
            if Helpers.host_supports_hvm ~__context hostref then
-             setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool)) pool'
+             pool'
+             |> setf features_hvm (Cpuid_helpers.intersect (getf features_hvm host) (getf features_hvm pool))
+             |> setf features_hvm_host (Cpuid_helpers.intersect (getfdefault ~defaultf:features_hvm features_hvm_host host) (getfdefault ~defaultf:features_hvm features_hvm_host pool))
            else
              pool'
     with Not_found ->
-      (* If the host doesn't have all the keys we expect, assume that we
-         			   are in the middle of an RPU and it has not yet been upgraded, so
-         			   it should be ignored when calculating the pool level *)
+      (* pre-Dundee? *)
+      warn "Host %s is missing required `features*` keys" (Ref.string_of hostref);
       pool
   in
 
@@ -617,11 +627,17 @@ let create_pool_cpuinfo ~__context =
   let after = getf ~default:[||] features_hvm pool_cpuinfo in
   if not (is_equal before after) && before <> [||] then begin
     let lost = is_strict_subset (intersect before after) before in
-    let gained = is_strict_subset (intersect before after) after in
+    let features_msg ~msg before after =
+      let delta = diff before after in
+      if is_strict_subset (intersect before after) before then
+        Printf.sprintf " Some features %s: %s." msg (string_of_features delta)
+      else
+        ""
+    in
     info "The pool-level CPU features have changed.%s%s Old features_hvm=%s."
-        (if lost then " Some features have gone away." else "")
-        (if gained then " Some features were added." else "")
-        (string_of_features before);
+      (features_msg ~msg:"have gone away" before after)
+      (features_msg ~msg:"were added" after before)
+      (string_of_features before);
 
     if not (Helpers.rolling_upgrade_in_progress ~__context) && List.length all_host_cpus > 1 && lost then
       let (name, priority) = Api_messages.pool_cpu_features_down in

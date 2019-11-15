@@ -442,8 +442,10 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
   end
   module State = Test_state.XapiDb
 
-  let features_hvm = "feedface-feedface"
-  let features_pv  = "deadbeef-deadbeef"
+  let features_hvm_host = "feedface-feedface-feedface-feedface-feedface-00000000-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"
+  let features_pv_host  = "deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef"
+  let features_hvm = "feedface-feedface-feedface-feedface-feedface-00000810-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"
+  let features_pv  = "deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef-deadbeef"
 
   let load_input __context (name_label, domain_type, last_boot_flags) =
     let cpu_info = [
@@ -452,12 +454,17 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
       "vendor", "Abacus";
       "features_pv", features_pv;
       "features_hvm", features_hvm;
+      "features_pv_host", features_pv_host;
+      "features_hvm_host", features_hvm_host;
     ] in
     List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
+    let cpu_info = List.filter (fun (k, _) -> not (Astring.String.is_suffix ~affix:"host" k)) cpu_info in 
     Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
     let self = Test_common.make_vm ~__context ~name_label ~domain_type () in
     Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:last_boot_flags;
+    let metrics = Db.VM.get_metrics ~__context ~self in
+    Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:domain_type;
     Db.VM.set_power_state ~__context ~self ~value:`Running
 
   let extract_output __context (label, _, _) =
@@ -467,6 +474,7 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
     with
     (* Filter out opaquerefs which make matching this exception difficult *)
     | Api_errors.Server_error (vm_incompatible_with_this_host, data) ->
+      Printexc.print_backtrace stderr;
       Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
     | e -> Either.Left e
 
@@ -479,7 +487,7 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
 
     ("a", `hvm,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
-                  cpu_info_features_key, "cafecafe-cafecafe"])),
+                  cpu_info_features_key, "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"])),
     Either.Left Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a CPU with features this host's CPU does not have."]));
@@ -499,7 +507,7 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
 
     ("a", `pv,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
-                  cpu_info_features_key, "cafecafe-cafecafe"])),
+                  cpu_info_features_key, "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"])),
     Either.Left Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a CPU with features this host's CPU does not have."]));
@@ -510,8 +518,20 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
     Either.Left Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a host which had a CPU from a different vendor."]));
+ 
+    (* TAA *)
+    ("a", `hvm,
+    Xapi_globs.([cpu_info_vendor_key, "Abacus";
+                  cpu_info_features_key, "feedface-feedface-feedface-feedface-feedface-00000810-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"])),
+    Either.Right ();
 
+    ("a", `hvm,
+    Xapi_globs.([cpu_info_vendor_key, "Abacus";
+                  cpu_info_features_key, "feedface-feedface-feedface-feedface-feedface-00000811-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"])),
+    Either.Left Api_errors.(Server_error
 
+                              (vm_incompatible_with_this_host,
+                              ["VM last booted on a CPU with features this host's CPU does not have."]));
   ]
 end)
 
@@ -532,6 +552,5 @@ let tests =
     "setters", Setters.tests;
     "modifiers", Modifiers.tests;
     "reset_cpu_flags", ResetCPUFlags.tests;
-    (*	"test_assert_vm_is_compatible" >:::
-      				AssertVMIsCompatible.tests;*)
+    "test_assert_vm_is_compatible", AssertVMIsCompatible.tests;
   ]
