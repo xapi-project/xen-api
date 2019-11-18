@@ -15,8 +15,7 @@
 (* The framework requires type 'context' to be defined. *)
 type context = unit
 
-open Xapi_stdext_std.Listext
-open Xapi_stdext_threads.Threadext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Hashtblext = Xapi_stdext_std.Hashtblext
 open Rrdd_shared
 open Rrd_interface
@@ -275,18 +274,31 @@ let forget_host_ds (ds_name : string) : unit =
     )
 
 let query_possible_dss rrdi =
-  let enabled_dss = Rrd.ds_names rrdi.rrd in
-  let open Ds in
-  let open Data_source in
-  List.map (fun ds -> {
-        name = ds.ds_name;
-        description = ds.ds_description;
-        enabled = List.mem ds.ds_name enabled_dss;
-        standard = ds.ds_default;
-        min = ds.ds_min;
-        max = ds.ds_max;
-        units = ds.ds_units;
-      }) rrdi.dss
+  let module SMap = Map.Make(String) in
+  let enabled_sources = rrdi.dss
+  |> List.to_seq
+  |> Seq.map (fun ds -> ds.Ds.ds_name, ds)
+  |> SMap.of_seq
+  in
+  rrdi.rrd.Rrd.rrd_dss (* these are all data sources available to the daemon *)
+  |> Array.map (fun ds ->
+    let enabled_source = SMap.find_opt ds.Rrd.ds_name enabled_sources in
+    let description, standard, units = match enabled_source with
+    | Some source ->
+      source.Ds.ds_description, source.Ds.ds_default, source.ds_units
+    | None ->
+      "description not available", false, "unknown"
+    in
+    let open Data_source in
+    { name = ds.ds_name
+    ; description
+    ; enabled = enabled_source != None
+    ; standard
+    ; min = ds.ds_min
+    ; max = ds.ds_max
+    ; units
+    })
+  |> Array.to_list
 
 let query_possible_host_dss () : Data_source.t list =
   Mutex.execute mutex (fun () ->
