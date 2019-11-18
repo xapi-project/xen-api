@@ -1338,8 +1338,8 @@ let vbd_create printer rpc session_id params =
   let _type =
     if List.mem_assoc "type" params
     then match String.lowercase_ascii (List.assoc "type" params) with
-      | "cd" -> `CD | "disk" -> `Disk
-      | x -> failwith (Printf.sprintf "Unknown type: %s (should be \"cd\" or \"disk\"" x)
+      | "cd" -> `CD | "disk" -> `Disk | "floppy" -> `Floppy
+      | x -> failwith (Printf.sprintf {|"Unknown type: %s (should be "cd", "disk" or "floppy"|} x)
     else `Disk in
   let unpluggable = get_bool_param params ~default:true "unpluggable" in
   if _type=`Disk && empty then failwith "Empty VBDs can only be made for type=CD";
