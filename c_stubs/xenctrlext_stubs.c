@@ -369,6 +369,23 @@ CAMLprim value stub_xenctrlext_cputopoinfo(value xch)
 	CAMLreturn(result);
 }
 
+#ifndef XEN_CPUID_NO_SUBLEAF
+typedef struct xen_cpuid_leaf {
+#define XEN_CPUID_NO_SUBLEAF 0xffffffffu
+    uint32_t leaf, subleaf;
+    uint32_t a, b, c, d;
+} xen_cpuid_leaf_t;
+DEFINE_XEN_GUEST_HANDLE(xen_cpuid_leaf_t);
+
+typedef struct xen_msr_entry {
+    uint32_t idx;
+    uint32_t flags; /* Reserved MBZ. */
+    uint64_t val;
+} xen_msr_entry_t;
+DEFINE_XEN_GUEST_HANDLE(xen_msr_entry_t);
+#define XEN_SYSCTL_cpu_policy_host 1
+#endif
+
 __attribute__((weak))
 int xc_get_cpu_policy_size(xc_interface *xch, uint32_t *nr_leaves,
 			   uint32_t *nr_msrs);
