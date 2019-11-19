@@ -116,6 +116,7 @@ type atomic =
   | VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
   | VM_rename of (Vm.id * Vm.id)
   | Parallel of Vm.id * string * atomic list
+  | Best_effort of atomic
 
 [@@deriving rpcty]
 
@@ -988,7 +989,7 @@ let rec atomics_of_operation = function
          * any interference, we pause the domain before destroying the
          * device model.
          *)
-        VM_pause id;
+        Best_effort (VM_pause id);
         VM_destroy_device_model id;
         Parallel (id, (Printf.sprintf "VBD.unplug vm=%s" id), List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds)
       ]
@@ -1151,6 +1152,10 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
   let module B = (val get_backend () : S) in
   Xenops_task.check_cancelling t;
   match op with
+  | Best_effort atom ->
+    begin try perform_atomic ~progress_callback ?result atom t
+    with e -> debug "Ignoring error during best-effort operation: %s" (Printexc.to_string e)
+    end
   | Parallel (_id, description, atoms) ->
     (* parallel_id is a unused unique name prefix for a parallel worker queue *)
     let parallel_id = Printf.sprintf "Parallel:task=%s.atoms=%d.(%s)" (Xenops_task.id_of_handle t) (List.length atoms) description in
@@ -1660,6 +1665,8 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_restore (id, _, _)
   | VM_delay (id, _) ->
     immediate_operation dbg id (VM_check_state id)
+  | Best_effort op ->
+    trigger_cleanup_after_failure_atom op t
   | Parallel (_id, _description, ops) ->
     List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
   | VM_rename (id1,id2) ->
