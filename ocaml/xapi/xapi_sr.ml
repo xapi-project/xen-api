@@ -426,6 +426,8 @@ let maybe_copy_sr_rrds ~__context ~sr =
 
 (* Removes the SR and dependent objects from the database (VDIs and PBDs).
    This function is meant to be used only inside this module.
+   Also removes the associated metrics from xcp-rrdd until SR metrics are
+   correctly reported as SR ones (CA-325582)
  *)
 let _destroy ~__context ~sr =
   (* CA-325582: Since the pbds are not mounted anymore there are no more
