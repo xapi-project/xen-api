@@ -3329,31 +3329,52 @@ module Actions = struct
       )
     in ()
 
+  let xenbus_connected = Xenbus_utils.(int_of Connected) |> string_of_int
+
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
     let vm = get_uuid ~xc domid |> Uuidm.to_string in
     Opt.iter
       (function { VmExtra.persistent } ->
-         if not persistent.VmExtra.pv_drivers_detected then begin
-           (* If the new value for this device is 4 then PV drivers are present *)
-           try
-             let value = xs.Xs.read path in
-             if value = "4" (* connected *) then begin
-               let updated =
-                 DB.update vm (
-                   Opt.map (function { VmExtra.persistent } ->
-                       let persistent = { persistent with VmExtra.pv_drivers_detected = true } in
-                       debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
-                       VmExtra.{persistent}
-                     )
-                 )
-               in
-               if updated then
-                 Updates.add (Dynamic.Vm vm) internal_updates
-             end
-           with Xs_protocol.Enoent _ ->
-             warn "Watch event on %s fired but couldn't read from it" path;
-             () (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
-         end
+        try
+          let value = xs.Xs.read path in
+          let pv_drivers_detected =
+            match value = xenbus_connected, persistent.VmExtra.pv_drivers_detected with
+            | true, false ->
+              (* State "connected" (4) means that PV drivers are present for this device *)
+              debug "VM = %s; found PV driver evidence on %s (value = %s)" vm path value;
+              true
+            | false, true ->
+              (* This device is not connected, while earlier we detected PV drivers. *)
+              (* We conclude that drivers are still present if any other device is connected. *)
+              let devices = Device_common.list_frontends ~xs domid in
+              let found =
+                (* Return `true` as soon as a device in state 4 is found. *)
+                List.exists (fun device ->
+                  try
+                    xs.Xs.read (Device_common.backend_state_path_of_device ~xs device) = xenbus_connected
+                  with Xs_protocol.Enoent _ -> false
+                ) devices
+              in
+              if not found then (* No devices in state "connected" (4) *)
+                debug "VM = %s; lost PV driver evidence" vm;
+              found
+            | _ ->
+              (* No change *)
+              persistent.VmExtra.pv_drivers_detected
+          in
+          let updated =
+            DB.update vm (
+              Opt.map (function { VmExtra.persistent } ->
+                  let persistent = { persistent with VmExtra.pv_drivers_detected } in
+                  VmExtra.{persistent}
+                )
+            )
+          in
+          if updated then
+            Updates.add (Dynamic.Vm vm) internal_updates
+        with Xs_protocol.Enoent _ ->
+          warn "Watch event on %s fired but couldn't read from it" path;
+          () (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
       ) (DB.read vm)
 
   let interesting_paths_for_domain domid uuid =
