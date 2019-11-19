@@ -424,7 +424,10 @@ let maybe_copy_sr_rrds ~__context ~sr =
     with Rrd_interface.Rrdd_error(Archive_failed(msg)) ->
       warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
-let forget_common ~__context ~sr =
+(* Removes the SR and dependent objects from the database (VDIs and PBDs).
+   This function is meant to be used only inside this module.
+ *)
+let _destroy ~__context ~sr =
   (* CA-325582: Since the pbds are not mounted anymore there are no more
      metrics being reported, the current ones can be deleted. *)
   let short_uuid = String.sub (Db.SR.get_uuid ~__context ~self:sr) 0 8 in
@@ -454,7 +457,7 @@ let forget_common ~__context ~sr =
 let forget  ~__context ~sr =
   (* NB we fail if ANY host is connected to this SR *)
   check_no_pbds_attached ~__context ~sr;
-  forget_common ~__context ~sr
+  _destroy ~__context ~sr
 
 (** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
     PBD record on current host to determine device_config reqd by sr backend) *)
@@ -484,7 +487,7 @@ let destroy  ~__context ~sr =
   let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
 
   Xapi_secret.clean_out_passwds ~__context sm_cfg;
-  forget_common ~__context ~sr
+  _destroy ~__context ~sr
 
 let update ~__context ~sr =
   let open Storage_access in
