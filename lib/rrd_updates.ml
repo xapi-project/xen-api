@@ -37,24 +37,24 @@ type t = {
 
 (** Debugging only *)
 let string_of t =
-  let leg_string = 
-    Printf.sprintf "[%s]" 
-      (String.concat ";" 
+  let leg_string =
+    Printf.sprintf "[%s]"
+      (String.concat ";"
          (List.map (fun l -> Printf.sprintf "\"%s\"" l) (Array.to_list t.legend)))
   in
 
   let data_string =
-    Printf.sprintf "[|%s|]" 
-      (String.concat ";\n" 
-         (List.map (fun row -> 
-              Printf.sprintf "{time=%Ld; row_data=[|%s|]}" row.time 
-                (String.concat "; " 
-                   (List.map (fun f -> Printf.sprintf "%0.4f" f) 
-                      (Array.to_list row.row_data)))) 
-             (Array.to_list t.data))) 
+    Printf.sprintf "[|%s|]"
+      (String.concat ";\n"
+         (List.map (fun row ->
+              Printf.sprintf "{time=%Ld; row_data=[|%s|]}" row.time
+                (String.concat "; "
+                   (List.map (fun f -> Printf.sprintf "%0.4f" f)
+                      (Array.to_list row.row_data))))
+             (Array.to_list t.data)))
   in
 
-  Printf.sprintf 
+  Printf.sprintf
     "start_time:\t%Ld\nstep:\t\t%Ld\nend_time:\t%Ld\nlegend:\t\t%s\ndata:\n%s\n"
     t.start_time t.step t.end_time leg_string data_string
 
@@ -62,8 +62,8 @@ let string_of t =
 let create rra_timestep rras first_rra last_cdp_time first_cdp_time start legends =
   let rec do_data i accum =
     let time = Int64.(sub (last_cdp_time) (mul (of_int i) rra_timestep)) in
-    if (time < start) || (i >= first_rra.rra_row_cnt) 
-    then (List.rev accum) 
+    if (time < start) || (i >= first_rra.rra_row_cnt)
+    then (List.rev accum)
     else
       let extract_row rra = List.map (fun ring -> Fring.peek ring i) (Array.to_list rra.rra_data) in
       let values = List.concat (List.map extract_row rras) in
@@ -80,12 +80,12 @@ let create rra_timestep rras first_rra last_cdp_time first_cdp_time start legend
   }
 
 let xml_of t output =
-  let tag tag next () = 
-    Xmlm.output output (`El_start (("",tag),[])); 
-    List.iter (fun x -> x ()) next; 
-    Xmlm.output output (`El_end) 
+  let tag tag next () =
+    Xmlm.output output (`El_start (("",tag),[]));
+    List.iter (fun x -> x ()) next;
+    Xmlm.output output (`El_end)
   in
-  let data dat () = Xmlm.output output (`Data dat) in  
+  let data dat () = Xmlm.output output (`Data dat) in
 
   let xml_of_row row =
     let values = List.map (fun v ->
@@ -131,10 +131,10 @@ let of_xml input =
         let end_time   = get_el "end" i     |> Int64.of_string in
         let rows       = get_el "rows" i    |> int_of_string in
         let columns    = get_el "columns" i |> int_of_string in
-        let legend     = read_block "legend" 
+        let legend     = read_block "legend"
             (fun i -> read_all "entry" (get_el "entry") i []) i |> Array.of_list in
         let data       = [| |] in
-        let meta       = { start_time; step; end_time; legend; data } in 
+        let meta       = { start_time; step; end_time; legend; data } in
         (meta, rows, columns)
       ) i
   in
