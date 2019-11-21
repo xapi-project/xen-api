@@ -32,6 +32,7 @@ open Records
 let failwith str = raise (Cli_util.Cli_failure str)
 exception ExitWithError of int
 
+
 let bool_of_string param string =
   let s = String.lowercase_ascii string in
   match s with
@@ -2741,9 +2742,10 @@ let vm_migrate_sxm_params = ["remote-master"; "remote-username"; "vif"; "remote-
                              "remote-network"; "vdi"; "vgpu"]
 
 let vm_migrate printer rpc session_id params =
+  let comp2 f g a b = f (g a b) in
   (* Hack to match host-uuid and host-name for backwards compatibility *)
   let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
-  let options = List.map_assoc_with_key (string_of_bool +++ bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "copy"] params) in
+  let options = List.map_assoc_with_key (comp2 string_of_bool bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "copy"] params) in
   (* We assume the user wants to do Storage XenMotion if they supply any of the
      SXM-specific parameters, and then we use the new codepath. *)
   let use_sxm_migration =
