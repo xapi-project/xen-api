@@ -29,9 +29,10 @@ let do_upload label file url options =
     then List.assoc "http_proxy" options
     else try Unix.getenv "http_proxy" with _ -> "" in
 
+  let env = Helpers.env_with_path ["URL", url; "PROXY", proxy] in
   match with_logfile_fd label
           (fun log_fd ->
-             let pid = safe_close_and_exec None (Some log_fd) (Some log_fd) [] !Xapi_globs.upload_wrapper [file; url; proxy] in
+             let pid = safe_close_and_exec ~env None (Some log_fd) (Some log_fd) [] !Xapi_globs.upload_wrapper [file] in
              waitpid_fail_if_bad_exit pid) with
   | Success _ -> debug "Upload succeeded"
   | Failure (log, exn) ->

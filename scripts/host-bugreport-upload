@@ -6,9 +6,6 @@
 
 DEFAULT_BASE_URL="ftp://support.xensource.com/uploads/"
 
-INPUT_URL=$1
-PROXY=$2
-
 # If the user supplies a bare filename without a URI scheme,
 # we ignore it -- if they _really_ want to upload named files
 # to our support server, they can specify the URI scheme.
@@ -29,6 +26,9 @@ URL="${BASE_URL}${FILENAME}"
 export http_proxy=$PROXY
 export ftp_proxy=$PROXY
 
-logger "Uploading xen-bugtool to '$URL' (via proxy '$PROXY')"
-/usr/sbin/xen-bugtool --output=tar --outfd 1 --yestoall --silent 2>/dev/null | curl -T - $URL 2>&1
+logger "Uploading xen-bugtool"
+url_file=$(mktemp --suffix="host-bugreport-upload")
+printf 'url = "%s"' $URL > $url_file
+/usr/sbin/xen-bugtool --output=tar --outfd 1 --yestoall --silent 2>/dev/null | curl --config $url_file -T - 2>&1
 
+rm -f $url_file

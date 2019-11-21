@@ -1220,3 +1220,7 @@ let host_supports_hvm ~__context host =
   let capabilities = Db.Host.get_capabilities ~__context ~self:host in
   List.fold_left (||) false
     (List.map (fun x -> String.has_substr x "hvm") capabilities)
+
+let env_with_path env_vars =
+  Array.of_list @@
+  List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) (("PATH", String.concat ":" Forkhelpers.default_path)::env_vars)

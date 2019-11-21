@@ -7,16 +7,19 @@
 # exits with code 0 we assume the upload was successful..
 
 CRASH=$1
-URL=$2
-PROXY=$3
 
 export http_proxy=$PROXY
 export ftp_proxy=$PROXY
 
+url_file=$(mktemp --suffix="upload-wrapper")
+printf 'url = "%s"' $URL > $url_file
+
 # If it's a directory then tar it up and stream. Otherwise just send the file
 if [ -d $CRASH ];
 then
-  tar --sparse -cz $CRASH | curl -T - $URL 2>&1
+  tar --sparse -cz $CRASH | curl --config $url_file -T - 2>&1
 else
-  cat $CRASH | curl -T - $URL 2>&1
+  cat $CRASH | curl --config $url_file -T - 2>&1
 fi
+
+rm -f $url_file
