@@ -1300,3 +1300,9 @@ let stunnel_should_use_legacy () =
   try
     not (bool_of_string (Xapi_inventory.lookup "CC_PREPARATIONS" ~default:"false"))
   with _ -> true
+
+let env_with_path env_vars =
+  let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ] in
+  Array.of_list @@
+  List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) (("PATH", String.concat ":" default_path)::env_vars)
+
