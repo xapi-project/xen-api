@@ -378,7 +378,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
          write_fn datasock;
          R.debug "Finished writing database to data socket";
        with
-       | Sys_error("Connection reset by peer") ->
+       | Sys_error e when e = "Connection reset by peer" ->
          (* CA-41914: Note that if the block_device_io process internally
           * throws Timeout (or indeed any other exception), it will forcibly
           * close this connection, we'll see a Sys_error("Connection reset by
