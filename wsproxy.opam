@@ -14,9 +14,8 @@ depends: [
   "ocaml"
   "dune" {build}
   "base64" {>= "3.1.0"}
-  "fmt"
-  "logs"
   "lwt" {>= "3.0.0"}
+  "lwt_log"
   "re"
   "uuidm"
   "ounit" {with-test}
