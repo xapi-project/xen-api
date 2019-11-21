@@ -88,7 +88,8 @@ let bugreport_upload ~__context ~host ~url ~options =
     else try Unix.getenv "http_proxy" with _ -> "" in
   let cmd = Printf.sprintf "%s %s %s" !Xapi_globs.host_bugreport_upload "(url filtered)" proxy in
   try
-    let stdout, stderr = Forkhelpers.execute_command_get_output !Xapi_globs.host_bugreport_upload [ url; proxy ] in
+    let env = Helpers.env_with_path ["INPUT_URL", url; "PROXY", proxy] in
+    let stdout, stderr = Forkhelpers.execute_command_get_output ~env !Xapi_globs.host_bugreport_upload [] in
     debug "%s succeeded with stdout=[%s] stderr=[%s]" cmd stdout stderr
   with Forkhelpers.Spawn_internal_error(stderr, stdout, status) as e ->
     debug "%s failed with stdout=[%s] stderr=[%s]" cmd stdout stderr;
