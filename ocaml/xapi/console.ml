@@ -76,12 +76,26 @@ let real_proxy __context _ _ vnc_port s =
   with
     exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
+let check_wsproxy () =
+  try
+    let pid = int_of_string (Unixext.string_of_file "/var/run/wsproxy.pid") in
+    Unix.kill pid 0;
+    true
+  with _ -> false
+
+let ensure_proxy_running () =
+  if check_wsproxy () then () else begin
+    ignore(Forkhelpers.execute_command_get_output "/opt/xensource/libexec/wsproxy" []);
+    Thread.delay 1.0;
+  end
+
 let ws_proxy __context req protocol address s =
   let addr = match address with
     | Port p -> string_of_int p
     | Path p -> p
   in
 
+  ensure_proxy_running ();
   let protocol = match protocol with
     | `rfb -> "rfb"
     | `vt100 -> "vt100"
