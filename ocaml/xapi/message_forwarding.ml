@@ -2262,7 +2262,16 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.dmesg_clear rpc session_id host)
 
     let bugreport_upload ~__context ~host ~url ~options =
-      info "Host.bugreport_upload: host = '%s'; url = '%s'; options = [ %s ]" (host_uuid ~__context host) url (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) options));
+      let filtered_options =
+        let filter' ((k, _) as orig) =
+          match Astring.String.trim k with
+          | "password"   -> (k,"(password filtered)")
+          | "http_proxy" -> (k,"(proxy filtered)")
+          | _            -> orig
+        in
+        List.map filter' options
+      in
+      info "Host.bugreport_upload: host = '%s'; url = '%s'; options = [ %s ]" (host_uuid ~__context host) "(url filtered)" (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) filtered_options));
       let local_fn = Local.Host.bugreport_upload ~host ~url ~options in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Host.bugreport_upload rpc session_id host url options)
 
