@@ -59,8 +59,6 @@ install:
 	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
 	$(IDATA) xapi-init-complete.target $(DESTDIR)/usr/lib/systemd/system/xapi-init-complete.target
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
-	$(IDATA) wsproxy.service $(DESTDIR)/usr/lib/systemd/system/wsproxy.service
-	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon

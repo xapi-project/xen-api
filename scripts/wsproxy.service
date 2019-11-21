@@ -1,9 +1,0 @@
-[Unit]
-Description=Websocket proxy
-
-[Service]
-ExecStart=@LIBEXECDIR@/wsproxy
-StandardInput=socket
-
-[Install]
-WantedBy=multi-user.target

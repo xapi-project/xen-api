@@ -1,5 +1,0 @@
-[Socket]
-ListenStream=/var/xapi/wsproxy
-
-[Install]
-WantedBy=sockets.target
