@@ -29,6 +29,6 @@ URL="${BASE_URL}${FILENAME}"
 export http_proxy=$PROXY
 export ftp_proxy=$PROXY
 
-logger "Uploading xen-bugtool to '$URL' (via proxy '$PROXY')"
+logger "Uploading xen-bugtool"
 /usr/sbin/xen-bugtool --output=tar --outfd 1 --yestoall --silent 2>/dev/null | curl -T - $URL 2>&1
 
