@@ -48,6 +48,9 @@ ERROR = 'error'
 FOUND = 'found'
 REQUIRED = 'required'
 
+class EnvironmentFailure(Exception):
+    pass
+
 class PrecheckError(Exception):
     pass
 
@@ -118,9 +121,18 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     livepatch_messages = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete',
                      'PATCH_PRECHECK_LIVEPATCH_INCOMPLETE': 'ok_livepatch_incomplete',
                      'PATCH_PRECHECK_LIVEPATCH_NOT_APPLICABLE': 'ok'}
-    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
+
+    cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
+    output, _ = p.communicate()
+    for line in output.split('\n'):
+        xcp.logger.info(line)
+    if p.returncode != 0:
+        raise EnvironmentFailure("Error cleaning yum cache")
+
+    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.precheck %r returncode=%r output:', cmd, p.returncode)
