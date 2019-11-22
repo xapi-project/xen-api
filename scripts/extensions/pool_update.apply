@@ -25,6 +25,8 @@ ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
 ERROR_MESSAGE_START = 'Error: '
 ERROR_MESSAGE_END = 'You could try '
 
+class EnvironmentFailure(Exception):
+    pass
 
 class ApplyFailure(Exception):
     pass
@@ -44,9 +46,18 @@ def failure_message(code, params):
 
 
 def execute_apply(session, update_package, yum_conf_file):
-    cmd = ['yum', 'upgrade', '-y', '--noplugins', '-c', yum_conf_file, update_package]
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
+
+    cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
+    output, _ = p.communicate()
+    for line in output.split('\n'):
+        xcp.logger.info(line)
+    if p.returncode != 0:
+        raise EnvironmentFailure("Error cleaning yum cache")
+
+    cmd = ['yum', 'upgrade', '-y', '--noplugins', '-c', yum_conf_file, update_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output:', cmd, p.returncode)
