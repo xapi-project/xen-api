@@ -98,7 +98,9 @@ let set_is_a_template ~__context ~self ~value =
     |> List.unbox_list
     |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p);
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
-    try Db.VM_metrics.destroy ~__context ~self:m with _ -> ()
+    finally
+      (fun () -> Db.VM_metrics.destroy ~__context ~self:m)
+      (fun () -> Db.VM.set_metrics ~__context ~self ~value:(Ref.null))
   end;
   Db.VM.set_is_a_template ~__context ~self ~value
 
