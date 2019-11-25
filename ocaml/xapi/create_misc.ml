@@ -367,6 +367,7 @@ and update_domain_zero_metrics_record ~__context ~domain_zero_ref =
   let metrics   = Db.VM.get_metrics ~__context ~self:domain_zero_ref in
   let cpus      = count_cpus () in
   let cpus'     = Int64.of_int cpus in
+  Db.VM_metrics.set_current_domain_type ~__context ~self:metrics ~value:Xapi_globs.domain_zero_domain_type;
   Db.VM_metrics.set_VCPUs_number ~__context ~self:metrics ~value:cpus';
   Db.VM_metrics.set_VCPUs_utilisation ~__context ~self:metrics
     ~value:(List.map (fun x -> Int64.of_int x, 0.) (mkints cpus))
