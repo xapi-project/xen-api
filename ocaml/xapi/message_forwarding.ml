@@ -4473,5 +4473,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
           | _ -> find_first_live rest
       in
       find_first_live other_hosts
+
+    let resync_host ~__context ~host =
+      info "Cluster_host.resync_host host: %s" (Ref.string_of (Helpers.get_localhost ~__context));
+      Xapi_cluster_host_helpers.resync_host ~__context ~host
   end
 end

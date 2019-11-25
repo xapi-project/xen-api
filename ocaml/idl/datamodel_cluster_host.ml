@@ -91,6 +91,17 @@ let forget = call
   ~hide_from_docs:true
   ()
 
+let resync_host = call
+  ~name:"resync_host"
+  ~doc:"Enable and join the host if not already."
+  ~params:
+      [ Ref _host, "host", "the host to resync"
+      ]
+  ~lifecycle
+  ~allowed_roles:_R_POOL_OP
+  ~hide_from_docs:true
+  ()
+
 let t =
   create_obj
     ~name: _cluster_host
@@ -142,5 +153,6 @@ let t =
       ; force_destroy
       ; forget
       ; disable
+      ; resync_host
       ]
     ()

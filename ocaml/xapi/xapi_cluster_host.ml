@@ -101,39 +101,6 @@ let join_internal ~__context ~self =
         handle_error error
   )
 
-(* Enable cluster_host in client layer via clusterd *)
-let resync_host ~__context ~host =
-  match find_cluster_host ~__context ~host with
-  | None      -> () (* no clusters exist *)
-  | Some self ->    (* cluster_host and cluster exist *)
-    let body = Printf.sprintf "Unable to create cluster host on %s."
-        (Db.Host.get_name_label ~__context ~self:host) in
-    let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
-
-    call_api_function_with_alert ~__context
-      ~msg:Api_messages.cluster_host_enable_failed
-      ~cls:`Host ~obj_uuid ~body
-      ~api_func:(fun rpc session_id ->
-          (* If we have just joined, enable will prevent concurrent clustering ops *)
-          if not (Db.Cluster_host.get_joined ~__context ~self)
-          then join_internal ~__context ~self
-          else
-            if Db.Cluster_host.get_enabled ~__context ~self then begin
-              (* [enable] unconditionally invokes low-level enable operations and is idempotent.
-                 RPU reformats partition, losing service status, never re-enables clusterd *)
-              debug "Cluster_host %s is enabled, starting up xapi-clusterd" (Ref.string_of self);
-              Xapi_clustering.Daemon.enable ~__context;
-
-              (* Note that join_internal and enable both use the clustering lock *)
-              Client.Client.Cluster_host.enable rpc session_id self end
-          )
-
-(* API call split into separate functions to create in db and enable in client layer *)
-let create ~__context ~cluster ~host ~pif =
-  let cluster_host : API.ref_Cluster_host = create_internal ~__context ~cluster ~host ~pIF:pif in
-  resync_host ~__context ~host;
-  cluster_host
-
 let destroy_op ~__context ~self ~force =
   with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
@@ -229,6 +196,49 @@ let enable ~__context ~self =
         warn "Error encountered when enabling cluster_host %s" (Ref.string_of self);
         handle_error error
     )
+
+(* Enable cluster_host in client layer via clusterd *)
+let resync_localhost ~__context =
+  let host = Helpers.get_localhost ~__context in
+  match find_cluster_host ~__context ~host with
+  | None      -> () (* no clusters exist *)
+  | Some self ->    (* cluster_host and cluster exist *)
+    let body = Printf.sprintf "Unable to create cluster host on %s."
+        (Db.Host.get_name_label ~__context ~self:host) in
+    let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+
+    try
+      (* If we have just joined, enable will prevent concurrent clustering ops *)
+      if not (Db.Cluster_host.get_joined ~__context ~self)
+      then join_internal ~__context ~self
+      else
+        if Db.Cluster_host.get_enabled ~__context ~self then begin
+          (* [enable] unconditionally invokes low-level enable operations and is idempotent.
+             RPU reformats partition, losing service status, never re-enables clusterd *)
+          debug "Cluster_host %s is enabled, starting up xapi-clusterd" (Ref.string_of self);
+          Xapi_clustering.Daemon.enable ~__context;
+
+          (* Note that join_internal and enable both use the clustering lock *)
+          enable ~__context ~self
+          end
+    with err ->
+      Backtrace.is_important err;
+      let body = Printf.sprintf "Error: %s\nMessage: %s" ExnHelper.(string_of_exn err) body in
+      Xapi_alert.add ~msg:Api_messages.cluster_host_enable_failed ~cls:`Host ~obj_uuid ~body;
+      raise err
+
+let resync_host ~__context ~host =
+  let localhost = Helpers.get_localhost ~__context in
+  if not (host = localhost) then begin
+    D.error "resync_host: expected to be called with localhost %s, but got called with %s. This is a bug." (Ref.string_of localhost) (Ref.string_of host);
+  end;
+  resync_localhost ~__context
+
+(* API call split into separate functions to create in db and enable in client layer *)
+let create ~__context ~cluster ~host ~pif =
+  let cluster_host : API.ref_Cluster_host = create_internal ~__context ~cluster ~host ~pIF:pif in
+  resync_localhost ~__context;
+  cluster_host
 
 let disable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->

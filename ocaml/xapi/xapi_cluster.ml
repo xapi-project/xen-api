@@ -189,7 +189,7 @@ let pool_resync ~__context ~(self : API.ref_Cluster) =
   List.iter
     (fun host -> log_and_ignore_exn (fun () ->
            Xapi_cluster_host.create_as_necessary ~__context ~host;
-           Xapi_cluster_host.resync_host ~__context ~host;
+           Xapi_cluster_host_helpers.resync_host ~__context ~host;
            if is_clustering_disabled_on_host ~__context host
            then raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
             (* If host.clustering_enabled then resync_host should successfully

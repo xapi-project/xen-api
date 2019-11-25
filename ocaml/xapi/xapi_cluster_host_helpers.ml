@@ -99,3 +99,11 @@ let with_cluster_host_operation ~__context ~(self : [`Cluster_host] API.Ref.t) ~
          Helpers.Early_wakeup.broadcast (Datamodel_common._cluster_host, Ref.string_of self);
        with
          _ -> ())
+
+let resync_host ~__context ~host =
+  if host = Helpers.get_localhost ~__context then
+    Xapi_cluster_host.resync_host ~__context ~host
+  else
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Cluster_host.resync_host ~rpc ~session_id ~host
+    )

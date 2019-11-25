@@ -960,7 +960,7 @@ let server_init() =
               debug "Waiting forever for cluster_host to gain an IP address";
               let ip = Xapi_mgmt_iface.(wait_for_clustering_ip ~__context ~self) in
               debug "Got clustering IP %s, resyncing cluster_host %s" ip (Ref.string_of self);
-              Xapi_cluster_host.resync_host ~__context ~host;
+              Xapi_cluster_host_helpers.resync_host ~__context ~host;
               debug "Attempting to re-plug remaining unplugged PBDs";
               Helpers.call_api_functions ~__context (fun rpc session_id ->
                   Create_storage.plug_unplugged_pbds __context)
