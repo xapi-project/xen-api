@@ -1,7 +1,6 @@
 (executable
   (name list_domains)
   (public_name list_domains)
-  (package xapi-xenops-utils)
-  (flags (:standard -bin-annot))
-  (libraries xenops)
+  (package xapi-xenopsd-xc)
+  (libraries xenctrl xapi-idl.memory ezxenstore uuidm)
 )
