@@ -36,18 +36,6 @@ let fix_pif_prerequisites ~__context (self : API.ref_PIF) =
     Db.PIF.set_disallow_unplug ~__context ~self ~value:true
   end
 
-let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
-  ~(api_func : (Rpc.call -> Rpc.response) -> API.ref_session -> unit) =
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        try
-          api_func rpc session_id
-        with err ->
-          Backtrace.is_important err;
-          let body = Printf.sprintf "Error: %s\nMessage: %s" ExnHelper.(string_of_exn err) body in
-          Xapi_alert.add ~msg ~cls ~obj_uuid ~body;
-          raise err
-      )
-
 (* Create xapi db object for cluster_host, resync_host calls clusterd *)
 let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
   with_clustering_lock __LOC__ (fun () ->
@@ -198,7 +186,7 @@ let enable ~__context ~self =
     )
 
 (* Enable cluster_host in client layer via clusterd *)
-let resync_localhost ~__context =
+let resync_host ~__context =
   let host = Helpers.get_localhost ~__context in
   match find_cluster_host ~__context ~host with
   | None      -> () (* no clusters exist *)
@@ -227,17 +215,10 @@ let resync_localhost ~__context =
       Xapi_alert.add ~msg:Api_messages.cluster_host_enable_failed ~cls:`Host ~obj_uuid ~body;
       raise err
 
-let resync_host ~__context ~host =
-  let localhost = Helpers.get_localhost ~__context in
-  if not (host = localhost) then begin
-    D.error "resync_host: expected to be called with localhost %s, but got called with %s. This is a bug." (Ref.string_of localhost) (Ref.string_of host);
-  end;
-  resync_localhost ~__context
-
 (* API call split into separate functions to create in db and enable in client layer *)
 let create ~__context ~cluster ~host ~pif =
   let cluster_host : API.ref_Cluster_host = create_internal ~__context ~cluster ~host ~pIF:pif in
-  resync_localhost ~__context;
+  resync_host ~__context;
   cluster_host
 
 let disable ~__context ~self =

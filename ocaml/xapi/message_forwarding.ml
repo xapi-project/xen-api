@@ -4384,7 +4384,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let pool_resync ~__context ~self = (* iterates Cluster_host.enable and Cluster_host where necessary*)
       info "Cluster.pool_resync cluster: %s" (Ref.string_of self);
-      Local.Cluster.pool_resync ~__context ~self
+      List.iter (fun host -> log_and_ignore_exn @@ fun () ->
+        Xapi_cluster_host.create_as_necessary ~__context ~host;
+        do_op_on ~__context ~local_fn:(Xapi_cluster_host.resync_host) ~host
+          (fun session_id rpc -> Client.Cluster_host.resync_host rpc session_id);
+        if Xapi_clustering.is_clustering_disabled_on_host ~__context host then
+          raise Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
+          (* If host.clustering_enabled then resync_host should successfully
+             find or create a matching cluster_host which is also enabled *)
+      ) (Xapi_pool_helpers.get_master_slaves_list ~__context)
   end
 
   module Cluster_host = struct
@@ -4474,8 +4482,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       in
       find_first_live other_hosts
 
-    let resync_host ~__context ~host =
-      info "Cluster_host.resync_host host: %s" (Ref.string_of (Helpers.get_localhost ~__context));
-      Xapi_cluster_host_helpers.resync_host ~__context ~host
+    let resync_host ~__context =
+      info "Cluster_host.resync host host: %s" (Helpers.get_localhost ~__context |> Ref.string_of);
+      Local.Cluster_host.resync_host ~__context
   end
 end

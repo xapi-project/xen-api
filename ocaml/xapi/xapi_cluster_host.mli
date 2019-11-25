@@ -74,15 +74,15 @@ val disable_clustering : __context:Context.t -> unit
     which finds the local cluster_host [self], calls [disable ~__context self]
     and logs its actions. *)
 
-val resync_host : __context:Context.t -> host:API.ref_host -> unit
-(** [resync_host ~__context ~host] checks for the existence of a cluster_host.
-    If one exists but hasn't joined the cluster, xapi asks xapi-clusterd to add
-    the host to the cluster, otherwise it enables the cluster host.
-    If no cluster_host is found, nothing happens.
-    If a failure occurs, Xapi sends an alert to XenCenter *)
-
 val forget : __context:Context.t -> self:API.ref_Cluster_host -> unit
 (** [forget ~__context ~self] marks the cluster host as permanently removed
     from the cluster. This will only succeed if the rest of the hosts are online,
     so in the case of failure the cluster's pending_forget list will be updated.
     If you declare all your dead hosts as dead one by one the last one should succeed *)
+
+val resync_host : __context:Context.t -> unit
+(** [resync_host ~__context] checks for the existence of a cluster_host.
+    If one exists but hasn't joined the cluster, xapi asks xapi-clusterd to add
+    the host to the cluster, otherwise it enables the cluster host.
+    If no cluster_host is found, nothing happens.
+    If a failure occurs, Xapi sends an alert to XenCenter *)

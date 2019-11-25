@@ -93,13 +93,11 @@ let forget = call
 
 let resync_host = call
   ~name:"resync_host"
-  ~doc:"Enable and join the host if not already."
-  ~params:
-      [ Ref _host, "host", "the host to resync"
-      ]
+  ~doc:"Join and Enable host if not already."
+  ~params:[]
   ~lifecycle
   ~allowed_roles:_R_POOL_OP
-  ~hide_from_docs:true
+  ~hide_from_docs: true
   ()
 
 let t =
