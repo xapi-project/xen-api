@@ -49,7 +49,7 @@ let fix_cookie = function
           let get_fin () = List.rev ((String.sub s start (String.length s - start))::acc) in
           if m=1 then get_fin () else
             try
-              let first_end, all_end = Re.get_ofs (Re.exec ~pos:start re s) 0 in
+              let first_end, all_end = Re.Group.offset (Re.exec ~pos:start re s) 0 in
               extract_comps_inner all_end ((String.sub s start (first_end - start))::acc) (m-1)
             with Not_found ->
               get_fin ()
