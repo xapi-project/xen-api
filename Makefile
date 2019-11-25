@@ -29,6 +29,8 @@ install:
 	install -D _build/install/default/bin/fence.bin $(DESTDIR)/$(OPTDIR)/fence.bin
 	install -D _build/install/default/man/man1/xenopsd-xc.1 $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
 	install -D _build/install/default/bin/set-domain-uuid $(DESTDIR)/$(LIBEXECDIR)/set-domain-uuid
+	install -D _build/install/default/bin/xenops-cli $(DESTDIR)/$(SBINDIR)/xenops-cli
+	install -D _build/install/default/man/man1/xenops-cli.1 $(DESTDIR)/$(MANDIR)/man1/xenops-cli.1
 	install -D ./scripts/vif $(DESTDIR)/$(LIBEXECDIR)/vif
 	install -D ./scripts/vif-real $(DESTDIR)/$(LIBEXECDIR)/vif-real
 	install -D ./scripts/block $(DESTDIR)/$(LIBEXECDIR)/block
@@ -51,6 +53,8 @@ uninstall:
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1
 	rm -f $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/set-domain-uuid
+	rm -f $(DESTDIR)/$(SBINDIR)/xenops-cli
+	rm -f $(DESTDIR)/$(MANDIR)/man1/xenops-cli.1
 	rm -f $(DESTDIR)/$(ETCDIR)/xenopsd.conf
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/vif
 	rm -f $(DESTDIR)/$(LIBEXECDIR)/vif-real
