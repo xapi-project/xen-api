@@ -242,7 +242,7 @@ let update_env __context sync_keys =
     );
 
   (* record who we are in xapi_globs *)
-  let localhost = Helpers.get_localhost ~__context in
+  let localhost = Helpers.get_localhost_uncached ~__context in
   Xapi_globs.localhost_ref := localhost;
 
   (** Normally the resident_on field would be set by the helper which creates

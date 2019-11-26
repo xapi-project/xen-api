@@ -95,7 +95,7 @@ let make_localhost ~__context ?(features=Features.all_features) () =
      	   create_misc is giving me too many headaches right now. Do the
      	   simple thing first and just set localhost_ref instead. *)
   (* Dbsync_slave.refresh_localhost_info ~__context host_info; *)
-  Xapi_globs.localhost_ref := Helpers.get_localhost ~__context;
+  Xapi_globs.localhost_ref := Helpers.get_localhost_uncached ~__context;
   Db.Host.set_cpu_info ~__context ~self:!Xapi_globs.localhost_ref ~value:default_cpu_info;
   Db.Host.remove_from_software_version ~__context ~self:!Xapi_globs.localhost_ref ~key:"network_backend";
   Db.Host.add_to_software_version ~__context ~self:!Xapi_globs.localhost_ref ~key:"network_backend"

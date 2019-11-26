@@ -127,9 +127,15 @@ let get_management_ip_addr ~__context =
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
 
-let get_localhost ~__context : API.ref_host  =
+let get_localhost_uncached ~__context =
   let uuid = get_localhost_uuid () in
   Db.Host.get_by_uuid ~__context ~uuid
+
+let get_localhost ~__context =
+  let localhost_ref = !Xapi_globs.localhost_ref in
+  match localhost_ref = Ref.null with
+  | false -> localhost_ref
+  | true  -> get_localhost_uncached ~__context
 
 (* Determine the gateway and DNS PIFs:
  * If one of the PIFs with IP has other_config:defaultroute=true, then
