@@ -166,9 +166,13 @@ let create  ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable 
   | _ ->
 
     Mutex.execute autodetect_mutex (fun () ->
-        let possibilities = Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM ~_type in
+        let possibilities =
+          match Xapi_vm_helpers.allowed_VBD_devices ~__context ~vm:vM ~_type with
+          | `Supported,           xs -> xs
+          | `FloppyPVUnsupported, _  -> raise (Api_errors.Server_error (Api_errors.not_implemented, ["VBD of type 'floppy' is not supported on PV domain"]))
+        in
 
-        if not (valid_device userdevice) || (userdevice = "autodetect" && possibilities = []) then
+        if not (valid_device userdevice ~_type) || (userdevice = "autodetect" && possibilities = []) then
           raise (Api_errors.Server_error (Api_errors.invalid_device,[userdevice]));
 
         (* Resolve the "autodetect" into a fixed device name now *)
