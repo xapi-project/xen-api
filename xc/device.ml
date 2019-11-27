@@ -3011,9 +3011,14 @@ module Backend = struct
             ; Config.XenPlatform.device ~xs ~domid ~info
             ] in
 
-        let disks_cdrom, disks_other =
-          info.Dm_Common.disks
-          |> List.partition (function (_, _, Dm_Common.Media.Cdrom) -> true | (_, _, _) -> false)
+        let disks_cdrom, disks_floppy, disks_other =
+          let partition (cdroms, floppies, other) ((_, _, media) as next) =
+            match media with
+            | Dm_Common.Media.Cdrom  -> (next :: cdroms, floppies, other)
+            | Floppy -> (cdroms, next :: floppies, other)
+            | Disk   -> (cdroms, floppies, next :: other)
+          in
+          List.fold_left partition ([], [], []) info.Dm_Common.disks
         in
 
         let limit_emulated_disks disks =
@@ -3024,10 +3029,18 @@ module Backend = struct
             Xapi_stdext_std.Listext.List.take limit disks
           | _ -> disks
         in
-
         let disks' =
+          let qemu_floppy_args (index, path, media) =
+            ["-drive"; String.concat "," ([
+                sprintf "file=%s" path
+              ; "if=floppy"
+              ; sprintf "index=%i" index
+              ] @ Dm_Common.Media.format_of media path)
+            ]
+          in
           [ List.map (List.assoc Dm_Common.ide Config.DISK.types) disks_cdrom
           ; [Config.DISK.extra_args]
+          ; List.map qemu_floppy_args disks_floppy
           ; disks_other |> limit_emulated_disks |> List.map disk_interface ]
           |> List.concat |> List.concat
         in

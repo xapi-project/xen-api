@@ -2623,14 +2623,21 @@ module VBD = struct
              let open Device_common in
              let device_number = dev.frontend.devid |> Device_number.of_xenstore_key in
              let qemu_domid = this_domid ~xs in
-             let qemu_frontend = match Device_number.spec device_number with
-               | Ide, n, _ when n < 4 ->
+             let qemu_frontend =
+               let maybe_create_vbd_frontend () =
                  let index = Device_number.to_disk_number device_number in
                  begin match vbd.Vbd.backend with
                    | None   -> Some (index, Empty)
                    | Some _ -> Some (index, create_vbd_frontend ~xc ~xs task qemu_domid vdi)
                  end
-               | _,_,_ -> None in
+               in
+               match Device_number.spec device_number with
+               | Ide,    n, _ when 0 <= n && n < 4 -> maybe_create_vbd_frontend ()
+               | Floppy, n, _ when 0 <= n && n < 2 -> maybe_create_vbd_frontend ()
+               | Ide,    n, _                      -> D.warn "qemu_frontend: Ide supports device numbers between 0 and 3, but got: %i" n; None
+               | Floppy, n, _                      -> D.warn "qemu_frontend: Floppy supports device numbers between 0 and 1, but got: %i" n; None
+               | (Xen|Scsi), _, _                  -> None
+             in
              (* Remember what we've just done *)
              (* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
                 we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
