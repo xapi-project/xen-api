@@ -1459,8 +1459,9 @@ module VM = struct
               let path = qemu_device_of_vbd_frontend bd in
               match vbd.Vbd.ty, vbd.mode with
               | Vbd.Disk, ReadOnly -> None
-              | Vbd.Disk, _        -> Some (index, path, Device.Dm.Disk)
-              | _                  -> Some (index, path, Device.Dm.Cdrom)
+              | Vbd.Disk, _        -> Some (index, path, Device.Dm.Media.Disk)
+              | Vbd.Floppy, _      -> Some (index, path, Floppy)
+              | Vbd.CDROM, _       -> Some (index, path, Cdrom)
             else None
           ) vbds in
         let usb_enabled =

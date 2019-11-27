@@ -243,7 +243,10 @@ sig
     | VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
     | SDL of disp_intf_opt * string (* X11 display *)
 
-  type media = Disk | Cdrom
+  module Media :
+  sig
+    type t = Disk | Cdrom | Floppy
+  end
 
   type info = {
     memory: int64;
@@ -256,7 +259,7 @@ sig
     usb: usb_opt;
     parallel: string option;
     nics: (string * string * int) list;
-    disks: (int * string * media) list;
+    disks: (int * string * Media.t) list;
     acpi: bool;
     disp: disp_opt;
     pci_emulations: string list;
