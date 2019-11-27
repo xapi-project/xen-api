@@ -1863,8 +1863,26 @@ module Dm_Common = struct
     | VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
     | SDL of disp_intf_opt * string (* X11 display *)
 
-  type media = Disk | Cdrom
-  let string_of_media = function Disk -> "disk" | Cdrom -> "cdrom"
+  module Media = struct
+    type t = Disk | Cdrom | Floppy
+
+    let to_string = function
+      | Disk -> "disk"
+      | Cdrom -> "cdrom"
+      | Floppy -> "floppy"
+
+    let format_of media file =
+      match media, file with
+      | Disk, _   -> ["format=raw"]
+      | Cdrom, "" -> []
+      | Cdrom, _  -> ["format=raw"]
+      | Floppy, _ -> ["format=raw"]
+
+    let lba_of = function
+      | Disk  -> "force-lba=on"
+      | Cdrom -> "force-lba=off"
+      | Floppy -> ""
+  end
 
   type info = {
     memory: int64;
@@ -1877,7 +1895,7 @@ module Dm_Common = struct
     usb: usb_opt;
     parallel: string option;
     nics: (string * string * int) list;
-    disks: (int * string * media) list;
+    disks: (int * string * Media.t) list;
     acpi: bool;
     disp: disp_opt;
     pci_emulations: string list;
@@ -2178,18 +2196,10 @@ module Dm_Common = struct
     stop_varstored ();
     stop_qemu ()
 
-  let format_of_media (media:media) file =
-    match media, file with
-    | Disk, _   -> ["format=raw"]
-    | Cdrom, "" -> []
-    | Cdrom, _  -> ["format=raw"]
-
-  let lba_of_media = function
-    | Disk  -> "force-lba=on"
-    | Cdrom -> "force-lba=off"
 
 
-  type disk_type_args = int * string * media -> string list
+
+  type disk_type_args = int * string * Media.t -> string list
 
   let ide = "ide"
   let ide_device_of ~trad_compat (index, file, media) =
@@ -2197,10 +2207,10 @@ module Dm_Common = struct
           [ sprintf "file=%s" file
           ; "if=ide"
           ; sprintf "index=%d" index
-          ; sprintf "media=%s" (string_of_media media)
+          ; sprintf "media=%s" (Media.to_string media)
           ]
-        ; if trad_compat then [lba_of_media media] else []
-        ; format_of_media media file])
+        ; if trad_compat then [Media.lba_of media] else []
+        ; Media.format_of media file])
     ]
 
   let nvme = "nvme"
@@ -2210,8 +2220,8 @@ module Dm_Common = struct
           [ sprintf "id=%s" id
           ; "if=none"
           ; sprintf "file=%s" file
-          ; sprintf "media=%s" (string_of_media media)
-          ] @ (format_of_media media file))
+          ; sprintf "media=%s" (Media.to_string media)
+          ] @ (Media.format_of media file))
     ; "-device"; String.concat ","
         ([ "nvme-ns"
          ; sprintf "drive=%s" id
@@ -3001,9 +3011,14 @@ module Backend = struct
             ; Config.XenPlatform.device ~xs ~domid ~info
             ] in
 
-        let disks_cdrom, disks_other =
-          info.Dm_Common.disks
-          |> List.partition (function (_, _, Dm_Common.Cdrom) -> true | (_, _, _) -> false)
+        let disks_cdrom, disks_floppy, disks_other =
+          let partition (cdroms, floppies, other) ((_, _, media) as next) =
+            match media with
+            | Dm_Common.Media.Cdrom  -> (next :: cdroms, floppies, other)
+            | Floppy -> (cdroms, next :: floppies, other)
+            | Disk   -> (cdroms, floppies, next :: other)
+          in
+          List.fold_left partition ([], [], []) info.Dm_Common.disks
         in
 
         let limit_emulated_disks disks =
@@ -3014,10 +3029,18 @@ module Backend = struct
             Xapi_stdext_std.Listext.List.take limit disks
           | _ -> disks
         in
-
         let disks' =
+          let qemu_floppy_args (index, path, media) =
+            ["-drive"; String.concat "," ([
+                sprintf "file=%s" path
+              ; "if=floppy"
+              ; sprintf "index=%i" index
+              ] @ Dm_Common.Media.format_of media path)
+            ]
+          in
           [ List.map (List.assoc Dm_Common.ide Config.DISK.types) disks_cdrom
           ; [Config.DISK.extra_args]
+          ; List.map qemu_floppy_args disks_floppy
           ; disks_other |> limit_emulated_disks |> List.map disk_interface ]
           |> List.concat |> List.concat
         in
