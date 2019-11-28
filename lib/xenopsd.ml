@@ -45,7 +45,7 @@ let vif_ready_for_igmp_query_timeout = ref 120
 
 let feature_flags_path = ref "/etc/xenserver/features.d"
 
-let pvinpvh_xen_cmdline = ref "pv-shim"
+let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
 let numa_placement = ref false
 
