@@ -6,3 +6,6 @@ which allow arbitrary types of storage to be managed and connected to
 VMs as virtual disks.
 
 Please read the [generated API docs](http://xapi-project.github.io/xapi-storage).
+
+See also the example implementation in the python/examples directory
+which comprises a minimal functional SR.
