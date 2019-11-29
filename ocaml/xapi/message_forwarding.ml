@@ -30,6 +30,10 @@ open D
 module Audit = Debug.Make(struct let name="audit" end)
 let info = Audit.debug
 
+module PBDSet = Set.Make (struct
+  type t = API.ref_PBD
+  let compare = Stdlib.compare
+end)
 
 (**************************************************************************************)
 
@@ -175,25 +179,39 @@ let hosts_with_several_srs ~__context srs =
   List.filter filterfn hosts
 
 (* Given an SR, return a PBD to use for some storage operation. *)
-(* In the case of SR.destroy we need to be able to forward the SR operation when all
-   PBDs are unplugged - this is the reason for the consider_unplugged_pbds optional
-   argument below. All other SR ops only consider plugged PBDs... *)
-let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
+(* In the case of SR.destroy and forget we need to be able to forward the SR
+   operation when all PBDs are unplugged. This is the reason for the
+   consider_unplugged_pbds optional argument below. All other SR ops only
+   consider plugged PBDs. *)
+let choose_pbds_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
+  let module R = Stdlib.Result in
   let all_pbds = Db.SR.get_PBDs ~__context ~self in
-  let plugged_pbds = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds in
+  let plugged_pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) all_pbds in
   let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
-  if Helpers.is_sr_shared ~__context ~self then
-    let master = Helpers.get_master ~__context in
-    let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
-    (* shared SR operations must happen on the master *)
-    match Listext.List.intersect pbds_to_consider master_pbds with
-    | pbd :: _ -> pbd (* ok, master plugged *)
-    | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
-  else
-    match pbds_to_consider with
-    | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
-    | pdb :: _ -> pdb
+  let pbds = PBDSet.of_list pbds_to_consider in
+  let pbd_candidates =
+    if Helpers.is_sr_shared ~__context ~self then
+      let master = Helpers.get_master ~__context in
+      let master_pbds = PBDSet.of_list (Db.Host.get_PBDs ~__context ~self:master) in
+      (* Operation run on shared SRs depend on the first pbd of the list to be
+         on the master. *)
+      let sr_master_pbds, rest_pbds = PBDSet.partition (fun pbd -> PBDSet.mem pbd master_pbds) pbds in
+      if PBDSet.is_empty sr_master_pbds then
+        Error `Sr_no_pbds
+      else
+        Ok (List.rev_append (PBDSet.elements sr_master_pbds) (PBDSet.elements rest_pbds))
+    else
+      Ok pbds_to_consider
+  in
+  R.bind pbd_candidates (function
+  | []   -> Error `Sr_no_pbds
+  | pbds -> Ok pbds)
 
+let choose_pbd_for_sr ?consider_unplugged_pbds ~__context ~self () =
+  match choose_pbds_for_sr ?consider_unplugged_pbds ~__context ~self () with
+  | Ok (x::_)         -> x
+  | Ok []             -> failwith "expected 'choose_pbds_for_sr' to return a non-empty list"
+  | Error `Sr_no_pbds -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
 
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
   let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -1492,10 +1510,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
             (fun () ->
                (* We need to do a best-effort check that any suspend_VDI referenced by
-                  							the snapshot (not the current VM) is currently accessible. This is because
-                  							the revert code first clears space by deleting current VDIs before cloning
-                  							the suspend VDI: we want to minimise the probability that the operation fails
-                  							part-way through. *)
+                  the snapshot (not the current VM) is currently accessible. This is because
+                  the revert code first clears space by deleting current VDIs before cloning
+                  the suspend VDI: we want to minimise the probability that the operation fails
+                  part-way through. *)
                if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended then begin
                  let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
                  let sr = Db.VDI.get_SR ~__context ~self:suspend_VDI in
@@ -3068,6 +3086,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         try Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
         with _ -> raise Not_found in
       do_op_on ~local_fn ~__context ~host op
+
+    (* Forward SR operation to all hosts that have suitable, plugged or
+       unplugged PBDs, best effort *)
+    let forward_sr_all_op ?(consider_unplugged_pbds=false) ~local_fn ~__context ~self op =
+      match choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () with
+      | Error `Sr_no_pbds -> D.info "forward_sr_all_op: doing nothing - there are no pbds attached to SR (%s)" (Ref.string_of self)
+      | Ok pbds           -> pbds |>
+                             List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) |>
+                             List.iter (fun host ->
+                                 try
+                                   do_op_on ~local_fn ~__context ~host op
+                                 with Api_errors.Server_error (reason, _) when reason = Api_errors.host_offline ->
+                                   () (* allow an offline host to continue the operation *)
+                             )
 
     let set_virtual_allocation ~__context ~self ~value =
       Sm.assert_session_has_internal_sr_access ~__context ~sr:self;
