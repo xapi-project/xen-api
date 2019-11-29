@@ -369,12 +369,8 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
   sr_ref
 
 let assert_all_pbds_unplugged ~__context ~sr =
-  let any_pbds_attached_to_sr = Db.PBD.get_all_records ~__context
-  |> List.exists (fun (_ref, pbd) ->
-      pbd.API.pBD_SR = sr && pbd.API.pBD_currently_attached)
-  in
-
-  if any_pbds_attached_to_sr then
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  if List.exists (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds then
     raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
 
 let assert_sr_not_indestructible ~__context ~sr =
@@ -446,9 +442,32 @@ let maybe_copy_sr_rrds ~__context ~sr =
     with Rrd_interface.Rrdd_error(Archive_failed(msg)) ->
       warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
+(* CA-325582: Because inactive metrics are kept always loaded in memory and SR
+   metrics are stored as host one, we are forced to send an explicit message
+   to xcp-rrdd to get the metrics unloaded from memory whenever the SR is
+   about to be removed from the database. i.e. just before a destroy or a
+   forget. Since all pbds provided by the SR are unplugged at that time there
+   are no more metrics about the sr being created, the current ones can be
+   deleted. On top of that the metrics should have been archived to disk when
+   each PBD got unplugged. *)
+let unload_metrics_from_memory ~__context ~sr =
+  let short_uuid = String.sub (Db.SR.get_uuid ~__context ~self:sr) 0 8 in
+  let is_sr_metric = Astring.String.is_suffix ~affix:short_uuid in
+
+  (* SR data sources are currently stored in memory as host ones.
+     Pick the ones that match the short uuid and remove them,
+     this prevents these metrics from being archived *)
+  Rrdd.query_possible_host_dss ()
+  |> Listext.filter_map (fun ds ->
+      if is_sr_metric ds.Data_source.name then
+        Some ds.Data_source.name
+      else
+        None)
+  |> List.iter (fun ds_name -> Rrdd.forget_host_ds ds_name)
+
 (* Remove SR record from database without attempting to remove SR from disk.
    Assumes all PBDs created from the SR have been unplugged. *)
-let forget  ~__context ~sr =
+let really_forget ~__context ~sr =
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   let vdis = Db.SR.get_VDIs ~__context ~self:sr in
 
@@ -456,20 +475,24 @@ let forget  ~__context ~sr =
   List.iter (fun self -> Db.VDI.destroy ~__context ~self) vdis;
   Db.SR.destroy ~__context ~self:sr
 
-(** Remove SR from disk and its record from the database. This operation uses
-   the SR's associated PBD record on current host to determine device_config
-   required by SR backend. *)
+(* Hijack forget function to be able to unload metrics in slaves
+   as well as the master. The actual removal from the database
+   can be called in the master directly from the edge of the API,
+   in message_forwarding *)
+let forget ~__context ~sr =
+  unload_metrics_from_memory ~__context ~sr
+
+(* Remove SR from disk. This operation uses the SR's associated PBD record on
+   current host to determine device_config required by SR backend.
+   This function does _not_ remove the SR record from the database. *)
 let destroy  ~__context ~sr =
   let vdis_to_destroy =
     if should_manage_stats ~__context sr then [find_or_create_rrd_vdi ~__context ~sr]
     else [] in
-
   Storage_access.destroy_sr ~__context ~sr ~and_vdis:vdis_to_destroy;
 
   let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
-
-  Xapi_secret.clean_out_passwds ~__context sm_cfg;
-  forget ~__context ~sr
+  Xapi_secret.clean_out_passwds ~__context sm_cfg
 
 let update ~__context ~sr =
   let open Storage_access in
