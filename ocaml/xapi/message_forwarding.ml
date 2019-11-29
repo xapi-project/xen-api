@@ -18,7 +18,7 @@
 open Stdext
 open Threadext
 open Pervasiveext
-open Listext
+module Listext = Listext.List
 open Xstringext
 open Server_helpers
 open Client
@@ -172,7 +172,7 @@ let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
     let master = Helpers.get_master ~__context in
     let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
     (* shared SR operations must happen on the master *)
-    match Listext.List.intersect pbds_to_consider master_pbds with
+    match Listext.intersect pbds_to_consider master_pbds with
     | pbd :: _ -> pbd (* ok, master plugged *)
     | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
   else
@@ -694,7 +694,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
       let rec process token =
         TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
-        let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
+        let statuses = Listext.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
         let unfinished = List.exists (fun state -> state = `pending) statuses in
         if unfinished
         then begin
@@ -709,7 +709,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       process ""
 
     let cancel ~__context ~vm ~ops =
-      let cancelled = List.filter_map (fun (task,op) ->
+      let cancelled = Listext.filter_map (fun (task,op) ->
           if List.mem op ops then begin
             info "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
             Helpers.call_api_functions ~__context

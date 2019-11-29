@@ -20,7 +20,7 @@ open Printf
 open Stdext
 open Threadext
 open Pervasiveext
-open Listext
+module Listext = Listext.List
 open Db_filter_types
 open API
 open Client
@@ -698,12 +698,12 @@ let assert_can_host_ha_statefile ~__context ~sr =
 let assert_supports_database_replication ~__context ~sr =
   (* Check that each host has a PBD to this SR *)
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-  let connected_hosts = List.setify (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds) in
+  let connected_hosts = Listext.setify (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds) in
   let all_hosts = Db.Host.get_all ~__context in
   if List.length connected_hosts < (List.length all_hosts) then begin
     error "Cannot enable database replication to SR %s: some hosts lack a PBD: [ %s ]"
       (Ref.string_of sr)
-      (String.concat "; " (List.map Ref.string_of (List.set_difference all_hosts connected_hosts)));
+      (String.concat "; " (List.map Ref.string_of (Listext.set_difference all_hosts connected_hosts)));
     raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of sr ]))
   end;
   (* Check that each PBD is plugged in *)
