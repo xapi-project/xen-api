@@ -3283,24 +3283,39 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let destroy ~__context ~sr =
       info "SR.destroy: SR = '%s'" (sr_uuid ~__context sr);
-      let local_fn = Local.SR.destroy ~sr in
+      let local_destroy = Local.SR.destroy ~sr in
+      let local_forget = Local.SR.forget ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.destroy" ~op:`destroy
         (fun () ->
           Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
           Xapi_sr.assert_sr_not_indestructible ~__context ~sr;
           Xapi_sr.assert_sr_not_local_cache ~__context ~sr;
 
-          forward_sr_op ~consider_unplugged_pbds:true ~local_fn ~__context ~self:sr
-            (fun session_id rpc -> Client.SR.destroy rpc session_id sr))
+          forward_sr_op ~consider_unplugged_pbds:true ~local_fn:local_destroy ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.destroy rpc session_id sr);
+
+          (* forward call to unload SR metrics from memory *)
+          forward_sr_all_op ~local_fn:local_forget ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.forget rpc session_id sr);
+
+          (* don't forward this is just a db call *)
+          Xapi_sr.really_forget ~__context ~sr
+          )
 
     let forget ~__context ~sr =
       info "SR.forget: SR = '%s'" (sr_uuid ~__context sr);
+      let local_fn = Local.SR.forget ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget
         (fun () ->
           Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
 
+          (* forward call to unload SR metrics from memory *)
+          forward_sr_all_op ~local_fn ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.forget rpc session_id sr);
+
           (* don't forward this is just a db call *)
-          Local.SR.forget ~__context ~sr)
+          Xapi_sr.really_forget ~__context ~sr
+          )
 
     let update ~__context ~sr =
       info "SR.update: SR = '%s'" (sr_uuid ~__context sr);
