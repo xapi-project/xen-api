@@ -52,6 +52,21 @@ let scan_start ~__context usbs =
                Db.PUSB.set_USB_group ~__context ~self ~value:group
   ) (USBSet.diff local_usb_set known_usb_set);
 
+  let refresh_speed (self, rec') =
+    (* anything with a negative speed is considered unset.
+       in practice we expect an unset usb speed value to be -1. *)
+    if rec'.API.pUSB_speed < 0. then begin
+      match USBSet.find_first_opt (fun elt -> USB.compare elt (extract_known_usb_info rec') = 0) local_usb_set with
+      | None -> ()
+      | Some x -> Db.PUSB.set_speed ~__context ~self ~value:x.USB.speed
+    end
+  in
+
+  (* Speed was added to the usb datamodel, so we need
+     to update that field for any usbs that were plugged
+     in before that update. *)
+  List.iter refresh_speed known_pusbs_in_db;
+
   List.filter (fun (rf, rc) -> USBSet.mem (extract_known_usb_info rc) (USBSet.diff known_usb_set local_usb_set)) known_pusbs_in_db
   |> List.iter (fun (self, _) ->
                   try
