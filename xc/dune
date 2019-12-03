@@ -21,8 +21,14 @@
  )
 )
 
+(rule
+ (targets xenopsd-xc.1.gz)
+ (action
+  (run gzip %{dep:xenopsd-xc.1}))
+)
+
 (install
  (section man)
- (files xenopsd-xc.1)
+ (files xenopsd-xc.1.gz)
  (package xapi-xenopsd-xc)
 )

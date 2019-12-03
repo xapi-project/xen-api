@@ -25,8 +25,14 @@
  )
 )
 
+(rule
+ (targets xenops-cli.1.gz)
+ (action
+  (run gzip %{dep:xenops-cli.1}))
+)
+
 (install
  (section man)
- (files xenops-cli.1)
+ (files xenops-cli.1.gz)
  (package xapi-xenopsd-cli)
 )
