@@ -15,8 +15,14 @@
  )
 )
 
+(rule
+ (targets xenopsd-simulator.1.gz)
+ (action
+  (run gzip %{dep:xenopsd-simulator.1}))
+)
+
 (install
  (section man)
- (files xenopsd-simulator.1)
+ (files xenopsd-simulator.1.gz)
  (package xapi-xenopsd-simulator)
 )
