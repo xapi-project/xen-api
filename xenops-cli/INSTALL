@@ -1,0 +1,15 @@
+Build dependencies include:
+
+  * OCaml
+  * Oasis
+  * findlib
+  * cmdliner
+  * xapi-idl
+
+To build:
+
+    make
+
+To install:
+
+    make install

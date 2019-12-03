@@ -1,0 +1,27 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+homepage: "https://github.com/xapi-project/xenops-cli"
+bug-reports: "https://github.com/xapi-project/xenops-cli/issues"
+dev-repo: "git+https://github.com/xapi-project/xenops-cli.git"
+build: [
+  ["dune" "build" "-p" name]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build}
+	"cmdliner"
+	"re"
+	"rpclib"
+	"base-threads"
+	"uuidm"
+	"xapi-idl"
+]
+synopsis: "A simple command-line tool for interacting with xenopsd"
+description: """
+A simple command-line tool for interacting with xenopsd
+"""
+url {
+  src: "https://github.com/xapi-project/xenops-cli/archive/master/master.tar.gz"
+}
