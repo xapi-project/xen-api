@@ -30,6 +30,10 @@ open D
 module Audit = Debug.Make(struct let name="audit" end)
 let info = Audit.debug
 
+module PBDSet = Set.Make (struct
+  type t = API.ref_PBD
+  let compare = Pervasives.compare
+end)
 
 (**************************************************************************************)
 
@@ -169,12 +173,16 @@ let choose_pbds_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
   let all_pbds = Db.SR.get_PBDs ~__context ~self in
   let plugged_pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) all_pbds in
   let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
+  let pbds = PBDSet.of_list pbds_to_consider in
   let pbd_candidates =
     if Helpers.is_sr_shared ~__context ~self then
       let master = Helpers.get_master ~__context in
-      let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
-      (* shared SR operations must happen on the master *)
-      Listext.intersect pbds_to_consider master_pbds
+      let master_pbds = PBDSet.of_list (Db.Host.get_PBDs ~__context ~self:master) in
+      (* Operation run on shared SRs depend on the first pbd of the list to be
+         on the master. *)
+      let sr_master_pbds, rest_pbds = PBDSet.partition (fun pbd ->
+          PBDSet.mem pbd master_pbds) pbds in
+      List.rev_append (PBDSet.elements sr_master_pbds) (PBDSet.elements rest_pbds)
     else
       pbds_to_consider
   in
