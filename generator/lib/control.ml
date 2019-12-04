@@ -207,6 +207,18 @@ module Volume(R: RPC) = struct
        "extra metadata associated by [set] is not copied."]
       (dbg @-> sr @-> key @-> returning volume errors)
 
+  let copy = R.declare "copy"
+      ["[copy sr volume dest_sr] creates a new volume as a writeable copy of ";
+       "[volume] in [new_sr]. [new_sr] may be the same as [sr] and the operation ";
+       "may be rejected if the volume management plugin cannot copy a volume ";
+       "between different SRs. It is expected that this operation is accelerated ";
+       "by the implementation and is more efficient than a blockwise replication ";
+       "through the local host. This operation should only be called if the plugin ";
+       "declares the VDI_COPY feature in the query response. If the operation is ";
+       "rejected then the caller will be expected to fall back to performing a ";
+       "blockwise copy." ]
+      (dbg @-> sr @-> key @-> sr @-> returning volume errors)
+
   let destroy = R.declare "destroy"
       ["[destroy sr volume] removes [volume] from [sr]"]
       (dbg @-> sr @-> key @-> returning unit errors)
