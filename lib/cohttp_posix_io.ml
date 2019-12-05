@@ -16,7 +16,7 @@
  *)
 
 module Unbuffered_IO = struct
-  (** Use as few Unix.{read,write} calls as we can (for efficiency) without
+  (** Use as few Unix.\{read,write\} calls as we can (for efficiency) without
       explicitly buffering the stream beyond the HTTP headers. This will
       allow us to consume the headers and then pass the file descriptor
       safely to another process *)
@@ -76,7 +76,7 @@ module Unbuffered_IO = struct
 
 
   (* Raises Not_found if there's no crlf *)
-  let rec find_crlf str from = 
+  let rec find_crlf str from =
     let cr = String.index_from str from '\r' in
     let lf = String.index_from str cr '\n' in
     if lf=cr+1 then cr else find_crlf str cr
