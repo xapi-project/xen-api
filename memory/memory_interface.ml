@@ -25,54 +25,41 @@ let queue_name = Xcp_service.common_prefix ^ service_name
 let json_path = "/var/xapi/memory.json"
 let xml_path = "/var/xapi/memory"
 
-type reservation_id =
-  string [@@doc [
-  "The reservation_id is an opaque identifier associated with a block of ";
-  "memory. It is used to reserve memory for a domain before the domain has ";
-  "been created.";
-]]
+(** The reservation_id is an opaque identifier associated with a block of
+    memory. It is used to reserve memory for a domain before the domain has
+    been created. *)
+type reservation_id = string
 [@@deriving rpcty]
 
+(** Domain zero can have a different policy to that used by guest domains. *)
 type domain_zero_policy =
-  | Fixed_size of int64 [@doc ["Never balloon, use the specified fixed size"]]
-  | Auto_balloon of int64 * int64 [@doc ["Balloon between the two sizes specified"]]
-[@@doc ["Domain zero can have a different policy to that used by guest domains."]]
+  | Fixed_size of int64 (** Never balloon, use the specified fixed size *)
+  | Auto_balloon of int64 * int64 (** Balloon between the two sizes specified *)
 [@@deriving rpcty]
 
 type errors =
   | Cannot_free_this_much_memory of (int64 * int64)
-        [@doc [
-          "[Cannot_free_this_much_memory (required, free)] is reported if it is not ";
-          "possible to free [required] kib. [free] is the amount of memory currently free"]]
+    (** [Cannot_free_this_much_memory (required, free)] is reported if it is not
+        possible to free [required] kib. [free] is the amount of memory
+        currently free. *)
   | Domains_refused_to_cooperate of (int list)
-        [@doc [
-          "[Domains_refused_to_cooperate (domid list)] is reported if a set of domains do ";
-          "not respond in a timely manner to the request to balloon. The uncooperative ";
-          "domain ids are returned."]]
+    (** [Domains_refused_to_cooperate (domid list)] is reported if a set of
+        domains do not respond in a timely manner to the request to balloon.
+        The uncooperative domain ids are returned. *)
   | Unknown_reservation of (reservation_id)
-        [@doc [
-          "[Unknown_reservation (id)] is reported if a the specified reservation_id is ";
-          "unknown."
-        ]]
+    (** [Unknown_reservation (id)] is reported if a the specified
+        reservation_id is unknown. *)
   | No_reservation
-      [@doc [
-        "[No_reservation] is reported by [query_reservation_of_domain] if the domain ";
-        "does not have a reservation."
-      ]]
+    (** [No_reservation] is reported by [query_reservation_of_domain] if the
+        domain does not have a reservation. *)
   | Invalid_memory_value of (int64)
-        [@doc [
-          "[Invalid_memory_value (value)] is reported if a memory value passed is not ";
-          "valid, e.g. negative."
-        ]]
+    (** [Invalid_memory_value (value)] is reported if a memory value passed is
+        not valid, e.g. negative. *)
   | Internal_error of (string)
-        [@doc [
-          "[Internal_error (value)] is reported if an unexpected error is triggered ";
-          "by the library."
-        ]]
+    (** [Internal_error (value)] is reported if an unexpected error is
+        triggered by the library. *)
   | Unknown_error
-      [@doc [
-        "The default variant for forward compatibility."
-      ]]
+    (** The default variant for forward compatibility. *)
 [@@default Unknown_error]
 [@@deriving rpcty]
 
@@ -104,15 +91,13 @@ let err = Error.
             Some (Internal_error (Printexc.to_string exn)))
     }
 
+(** An uninterpreted string associated with the operation. *)
 type debug_info = string
-[@@doc ["An uninterpreted string associated with the operation."]]
 [@@deriving rpcty]
 
+(** An identifier to associate requests with a client. This is
+    obtained by a call to [login]. *)
 type session_id = string
-[@@doc [
-  "An identifier to associate requests with a client. This is ";
-  "obtained by a call to [login]."
-]]
 [@@deriving rpcty]
 
 type reserve_memory_range_result = reservation_id * int64

@@ -6,16 +6,16 @@ let service_name = "cluster"
 let queue_name = Xcp_service.common_prefix ^ service_name
 let json_path = "/var/xapi/cluster.json"
 
+(** An uninterpreted string associated with the operation. *)
 type debug_info = string
-[@@doc ["An uninterpreted string associated with the operation."]]
 [@@deriving rpcty]
 
+(** Name of the cluster *)
 type cluster_name = string
-[@@doc ["Name of the cluster"]]
 [@@deriving rpcty]
 
+(** An IPv4 address (a.b.c.d) *)
 type address = IPv4 of string
-[@doc ["An IPv4 address (a.b.c.d)"]]
 [@@deriving rpcty]
 let printaddr () = function | IPv4 s -> Printf.sprintf "IPv4(%s)" s
 let str_of_address address = match address with IPv4 a -> a
@@ -27,30 +27,33 @@ type start = bool [@@deriving rpcty]
 
 let string_of_nodeid = Int32.to_string
 
+(** This type describes an individual node in the cluster. It must have
+    a unique identity (an int32), and may have multiple IPv4 addresses on
+    which it can be contacted. *)
 type node = {
   addr: address;
   id: nodeid;
 }
-[@@doc
-  ["This type describes an individual node in the cluster. It must have";
-   "a unique identity (an int32), and may have multiple IPv4 addresses on";
-   "which it can be contacted."]]
 [@@deriving rpcty]
 
 type all_members = node list [@@deriving rpcty]
 
+(** This type contains all of the information required to initialise
+    the cluster. All optional params will have the recommended defaults
+    if None. *)
 type init_config = {
   local_ip : address;
   token_timeout_ms : int64 option;
   token_coefficient_ms : int64 option;
   name : string option;
 }
-[@@doc
-  ["This type contains all of the information required to initialise";
-   "the cluster. All optional params will have the recommended defaults";
-   "if None"]]
 [@@deriving rpcty]
 
+(** This type contains all of the information required to configure
+    the cluster. This includes all details required for the corosync
+    configuration as well as anything else required for pacemaker and
+    SBD. All nodes have a local copy of this and we take pains to
+    ensure it is kept in sync. *)
 type cluster_config = {
   cluster_name : string;
   enabled_members : node list;
@@ -59,16 +62,13 @@ type cluster_config = {
   cluster_token_timeout_ms : int64;
   cluster_token_coefficient_ms : int64;
 }
-[@@doc
-  ["This type contains all of the information required to configure";
-   "the cluster. This includes all details required for the corosync";
-   "configuration as well as anything else required for pacemaker and";
-   "SBD. All nodes have a local copy of this and we take pains to";
-   "ensure it is kept in sync."]]
 [@@deriving rpcty]
 
 type cluster_config_and_all_members = cluster_config * all_members [@@deriving rpcty]
 
+(** This type contains diagnostic information about the current state
+    of the cluster daemon. All state required for test purposes should
+    be in this type. *)
 type diagnostics = {
   config_valid : bool;
   live_cluster_config : cluster_config option; (* live corosync config *)
@@ -83,14 +83,10 @@ type diagnostics = {
   is_running : bool;
   startup_finished : bool;
 }
-[@@doc
- [ "This type contains diagnostic information about the current state";
-   "of the cluster daemon. All state required for test purposes should";
-   "be in this type."]]
 [@@deriving rpcty]
 
+(** This secret token is used to authenticate remote API calls on a cluster *)
 type token = string
-[@@doc ["This secret token is used to authenticate remote API calls on a cluster"]]
 [@@deriving rpcty]
 
 let token_p = Param.mk ~name:"token" token
