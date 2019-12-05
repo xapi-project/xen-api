@@ -1,14 +1,13 @@
 open Idl
 open Common
 
+(** A string representing a Xen domain on the local host. The string is
+    guaranteed to be unique per-domain but it is not guaranteed to take
+    any particular form. It may (for example) be a Xen domain id, a Xen
+    VM uuid or a Xenstore path or anything else chosen by the toolstack.
+    Implementations should not assume the string has any meaning. *)
 type domain = string
 [@@deriving rpcty]
-[@@doc [
-  "A string representing a Xen domain on the local host. The string is";
-  "guaranteed to be unique per-domain but it is not guaranteed to take";
-  "any particular form. It may (for example) be a Xen domain id, a Xen";
-  "VM uuid or a Xenstore path or anything else chosen by the toolstack.";
-  "Implementations should not assume the string has any meaning."]]
 
 type xendisk = {
   params: string; (** Put into the "params" key in xenstore *)
@@ -47,21 +46,19 @@ type implementation =
   | Nbd of nbd
 [@@deriving rpcty]
 
+(** A description of which Xen block backend to use. The toolstack needs
+    this to setup the shared memory connection to blkfront in the VM. *)
 type backend = {
-  implementations: implementation list
-      [@doc ["choice of implementation technologies"]];
+  implementations: implementation list ;
+  (** Choice of implementation technologies. *)
 }
-[@@doc [
-  "A description of which Xen block backend to use. The toolstack needs";
-  "this to setup the shared memory connection to blkfront in the VM."]]
 [@@deriving rpcty]
 
+(** True means the disk data is persistent and should be preserved when
+    the datapath is closed i.e. when a VM is shutdown or rebooted. False
+    means the data should be thrown away when the VM is shutdown or
+    rebooted. *)
 type persistent = bool
-[@@doc [
-  "True means the disk data is persistent and should be preserved when";
-  "the datapath is closed i.e. when a VM is shutdown or rebooted. False";
-  "means the data should be thrown away when the VM is shutdown or";
-  "rebooted."]]
 [@@deriving rpcty]
 
 (* Create some handy parameters for use in the function definitions below *)
@@ -151,7 +148,7 @@ module Datapath(R: RPC) = struct
 Xapi will call the functions here on VM start / shutdown /
 suspend / resume / migrate. Every function is idempotent. Every
 function takes a domain parameter which allows the implementation
-to track how many domains are currently using the volume. 
+to track how many domains are currently using the volume.
 
 Volumes must be attached via the following sequence of calls:
 
@@ -165,12 +162,12 @@ Volumes must be attached via the following sequence of calls:
    advisory. Note that this call is currently only ever called once.
    In the future the call may be made multiple times with different
    [domain] parameters if the disk is attached to multiple domains.
-   The return value from this call is the information required to 
+   The return value from this call is the information required to
    attach the disk to a VM. This call is again, not exclusive. The
    volume may be attached to more than one host concurrently.
 
 3. [activate url domain] is called to activate the datapath. This
-   must be called before the volume is to be used by the VM, and 
+   must be called before the volume is to be used by the VM, and
    it is acceptible for this to be an exclusive operation, such that
    it is an error for a volume to be activated on more than one host
    simultaneously.
@@ -184,28 +181,29 @@ end
 module Data (R : RPC) = struct
   open R
 
+  (** The primary key for referring to a long-running operation. *)
   type operation =
     | Copy of uri * uri
-                [@doc ["Copy (src,dst) represents an on-going copy operation";
-                       "from the [src] URI to the [dst] URI"]]
+    (** Copy (src,dst) represents an on-going copy operation
+        from the [src] URI to the [dst] URI. *)
     | Mirror of uri * uri
-                  [@doc ["Mirror (src,dst) represents an on-going mirror ";
-                         "operation from the [src] URI to the [dst] URI"]]
-  [@@doc ["The primary key for referring to a long-running operation"]]
+    (** Mirror (src,dst) represents an on-going mirror
+        operation from the [src] URI to the [dst] URI. *)
   [@@deriving rpcty]
 
+  (** A list of operations. *)
   type operations = operation list [@@deriving rpcty]
-  [@@doc ["A list of operations"]]
 
+  (** Status information for on-going tasks. *)
   type status = {
-    failed : bool [@doc
-        ["[failed] will be set to true if the operation has failed for some ";
-         "reason"]];
+    failed : bool ;
+    (** [failed] will be set to true if the operation has failed for some
+        reason. *)
 
-    progress : float option [@doc
-        ["[progress] will be returned for a copy operation, and ranges ";
-         "between 0 and 1"]];
-  } [@@deriving rpcty] [@@doc ["Status information for on-going tasks"]]
+    progress : float option ;
+    (** [progress] will be returned for a copy operation, and ranges
+        between 0 and 1. *)
+  } [@@deriving rpcty]
 
   let remote = Param.mk ~name:"remote" ~description:
       ["A URI which represents how to access a remote volume disk data."]

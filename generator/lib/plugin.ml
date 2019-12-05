@@ -2,39 +2,33 @@ open Rpc
 open Idl
 open Common
 
+(** Properties of this implementation. *)
 type query_result = {
-  plugin : string [@doc
-      ["plugin name, used in the XenAPI as SR.type"]];
+  plugin : string ; (** Plugin name, used in the XenAPI as SR.type. *)
 
-  name : string  [@key "name"] [@doc
-      ["short name"]];
+  name : string  [@key "name"] ; (** Short name. *)
 
-  description : string [@key "description"] [@doc
-      ["description"]];
+  description : string [@key "description"] ; (** Description. *)
 
-  vendor : string [@doc
-      ["entity (e.g. company, project, group) which produced this ";
-       "implementation"]];
+  vendor : string ;
+  (** Entity (e.g. company, project, group) which produced this
+      implementation. *)
 
-  copyright : string [@doc
-      ["copyright"]];
+  copyright : string ; (** Copyright. *)
 
-  version : string [@doc
-      ["version"]];
+  version : string ; (** Version. *)
 
-  required_api_version : string [@doc
-      ["minimum required API version"]];
+  required_api_version : string ; (** Minimum required API version. *)
 
-  features : string list [@doc
-      ["features supported by this plugin"]];
+  features : string list ; (** Features supported by this plugin. *)
 
-  configuration : (string * string) list [@doc
-      ["key/description pairs describing required device_config parameters"]];
+  configuration : (string * string) list ;
+  (** Key/description pairs describing required device_config parameters. *)
 
-  required_cluster_stack : string list [@doc
-      ["the plugin requires one of these cluster stacks to be active"]];
+  required_cluster_stack : string list ;
+  (** The plugin requires one of these cluster stacks to be active. *)
 
-} [@@deriving rpcty] [@@doc ["Properties of this implementation"]]
+} [@@deriving rpcty]
 
 type srs = string list [@@deriving rpcty]
 

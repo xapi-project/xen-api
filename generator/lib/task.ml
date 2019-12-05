@@ -6,7 +6,8 @@ open Common
 let doc l = String.concat " " l
 
 type error_t = string [@@deriving rpcty]
-type id = string [@@deriving rpcty] [@@doc ["Unique identifier for a task"]]
+(** Unique identifier for a task. *)
+type id = string [@@deriving rpcty]
 type task_list = id list [@@deriving rpcty]
 
 type async_result_t =
@@ -20,8 +21,8 @@ type completion_t = {
 } [@@deriving rpcty]
 
 type state =
-  | Pending of float [@doc [
-      "the task is in progress, with progress info from 0..1"]]
+  | Pending of float
+    (** The task is in progress, with progress info from 0..1. *)
   | Completed of completion_t
   | Failed of error_t
   [@@deriving rpcty]
