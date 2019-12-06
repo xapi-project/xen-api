@@ -32,7 +32,7 @@ end
 module StringMap = struct
   include Map.Make(struct
       type t = string
-      let compare = Pervasives.compare
+      let compare = Stdlib.compare
     end)
   let update key default f t =
     let v = try find key t with Not_found -> default in
@@ -173,7 +173,7 @@ let string_of_common_key = function
 module KeyMap = struct
   include Map.Make(struct
       type t = common_key
-      let compare = Pervasives.compare
+      let compare = Stdlib.compare
     end)
   let add_unique tblname fldname k v t =
     if mem k t
