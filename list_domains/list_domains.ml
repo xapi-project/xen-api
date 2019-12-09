@@ -32,9 +32,9 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let open Xenctrl in
   Hashtbl.add table "id" (int x.domid);
   let state = let bool ch = function true -> ch | _ -> " " in
-  (bool "D" x.dying) ^ (bool "S" x.shutdown) ^
-  (bool "P" x.paused) ^ (bool "B" x.blocked) ^
-  (bool "R" x.running) ^ (bool "H" x.hvm_guest) in
+    (bool "D" x.dying) ^ (bool "S" x.shutdown) ^
+    (bool "P" x.paused) ^ (bool "B" x.blocked) ^
+    (bool "R" x.running) ^ (bool "H" x.hvm_guest) in
   Hashtbl.add table "state" state;
   Hashtbl.add table "shutdown code" (int x.shutdown_code);
   Hashtbl.add table "tot bytes" (pages_to_string_bytes    x.total_memory_pages);
@@ -62,32 +62,32 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   Hashtbl.add table "shadow MiB"   (Opt.default "N/A" (may Int64.to_string shadow_mib  ));
   table
 
-let select table keys = 
-  List.map (fun key -> 
-	      if not(Hashtbl.mem table key) then failwith (Printf.sprintf "Failed to find key: %s" key);
-	      Hashtbl.find table key) keys
+let select table keys =
+  List.map (fun key ->
+      if not(Hashtbl.mem table key) then failwith (Printf.sprintf "Failed to find key: %s" key);
+      Hashtbl.find table key) keys
 
 let columns () =
-	let common = [ "id"; "uuid"; "state" ] in
-	let mem_mib   = [ "tot MiB"  ; "max MiB"  ; "shadow MiB"   ] in
-	let mem_bytes = [ "tot bytes"; "max bytes"; "shadow bytes" ] in
-	let mem_pages = [ "tot pages"; "max pages"; "shadow pages" ] in
-	let rest = [ "shutdown code"; "sif"; "cpu time"; "vcpus online"; "max vcpu id"; "ssidref" ] in
-	if !minimal
-	then [ "uuid" ]
-	else
-		common @ (
-			match !memory, !bytes, !pages with
-			| _   , true, true -> failwith "Too many units specified."
-			| true, _   , true -> mem_pages
-			| true, true, _    -> mem_bytes
-			| true, _   , _    -> mem_mib
-			| _                -> []
-		) @ (
-			if !all_the_rest
-			then rest
-			else []
-		)
+  let common = [ "id"; "uuid"; "state" ] in
+  let mem_mib   = [ "tot MiB"  ; "max MiB"  ; "shadow MiB"   ] in
+  let mem_bytes = [ "tot bytes"; "max bytes"; "shadow bytes" ] in
+  let mem_pages = [ "tot pages"; "max pages"; "shadow pages" ] in
+  let rest = [ "shutdown code"; "sif"; "cpu time"; "vcpus online"; "max vcpu id"; "ssidref" ] in
+  if !minimal
+  then [ "uuid" ]
+  else
+    common @ (
+      match !memory, !bytes, !pages with
+      | _   , true, true -> failwith "Too many units specified."
+      | true, _   , true -> mem_pages
+      | true, true, _    -> mem_bytes
+      | true, _   , _    -> mem_mib
+      | _                -> []
+    ) @ (
+      if !all_the_rest
+      then rest
+      else []
+    )
 
 open Table
 
@@ -97,28 +97,28 @@ let print (rows: string list list) =
   List.iter (fun line -> print_endline (String.concat " | " line)) sll
 
 let _ =
-	Arg.parse (Arg.align [
-		"-all", Arg.Unit (fun () -> memory := true; all_the_rest := true),
-			" show all available stats (needs a wide window!)";
-		"-bytes", Arg.Set bytes,
-			" use bytes for memory values";
-		"-domid", Arg.Int (fun i -> domid := Some i),
-			" show only a particular domain";
-		"-memory", Arg.Set memory,
-			" show memory statistics";
-		"-minimal", Arg.Set minimal,
-			" show only domain UUID";
-		"-pages", Arg.Set pages,
-			" use pages for memory values";
-		]) (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
-		"List domains";
-	let cols = columns () in
-	let list = match !domid with
-		| None -> Xenctrl.domain_getinfolist xc_handle 0
-		| Some d -> [Xenctrl.domain_getinfo xc_handle d]
-	in
-	let infos = List.map (fun di -> select (hashtbl_of_domaininfo di) cols) list in
-	if !minimal
-	then print (infos)
-	else print (cols :: infos)
+  Arg.parse (Arg.align [
+      "-all", Arg.Unit (fun () -> memory := true; all_the_rest := true),
+      " show all available stats (needs a wide window!)";
+      "-bytes", Arg.Set bytes,
+      " use bytes for memory values";
+      "-domid", Arg.Int (fun i -> domid := Some i),
+      " show only a particular domain";
+      "-memory", Arg.Set memory,
+      " show memory statistics";
+      "-minimal", Arg.Set minimal,
+      " show only domain UUID";
+      "-pages", Arg.Set pages,
+      " use pages for memory values";
+    ]) (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
+    "List domains";
+  let cols = columns () in
+  let list = match !domid with
+    | None -> Xenctrl.domain_getinfolist xc_handle 0
+    | Some d -> [Xenctrl.domain_getinfo xc_handle d]
+  in
+  let infos = List.map (fun di -> select (hashtbl_of_domaininfo di) cols) list in
+  if !minimal
+  then print (infos)
+  else print (cols :: infos)
 
