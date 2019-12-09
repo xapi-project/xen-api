@@ -19,6 +19,12 @@ clean:
 test:
 	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
+# e.g. $ make test-filter match=Test_cluster
+# only works with exact name of suite
+test-filter:
+	dune build ./ocaml/tests/suite_alcotest.exe --profile=$(PROFILE) && \
+	cd ./ocaml/tests && dune exec ./suite_alcotest.exe --profile=$(PROFILE) -- test '$(match)' | grep -v '[SKIP]'
+
 doc:
 	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
