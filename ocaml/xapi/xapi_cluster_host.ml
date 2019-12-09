@@ -51,6 +51,7 @@ let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
 (* Create xapi db object for cluster_host, resync_host calls clusterd *)
 let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
   with_clustering_lock __LOC__ (fun () ->
+      assert_cluster_on_pif_subnet ~__context ~cluster ~pIF;
       assert_operation_host_target_is_localhost ~__context ~host;
       assert_pif_attached_to ~host ~pIF ~__context;
       assert_cluster_host_can_be_created ~__context ~host;
