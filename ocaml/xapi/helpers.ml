@@ -1230,3 +1230,32 @@ let host_supports_hvm ~__context host =
 let env_with_path env_vars =
   Array.of_list @@
   List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) (("PATH", String.concat ":" Forkhelpers.default_path)::env_vars)
+
+let are_on_same_subnet_exn netmask ips =
+  let ensure_same_protocol ips =
+    let coerce_v4 xs = xs |> List.map (function
+      | Ipaddr.V4 x -> x
+      | V6 _        -> raise Api_errors.(Server_error (internal_error, ["expected IPv4, but got IPv6"])))
+    in
+    let coerce_v6 xs = xs |> List.map (function
+      | Ipaddr.V6 x -> x
+      | V4 _        -> raise Api_errors.(Server_error (internal_error, ["expected IPv6, but got IPv4"])))
+    in
+    match netmask with
+    | Ipaddr.V4 nm -> `Ip_v4s (nm, coerce_v4 ips)
+    | V6        nm -> `Ip_v6s (nm, coerce_v6 ips)
+  in
+  match ensure_same_protocol ips with
+  | `Ip_v4s (netmask, ip::ips) ->
+    let network_addr = Ipaddr.V4.Prefix.of_netmask netmask ip in
+    if List.for_all (fun x -> Ipaddr.V4.Prefix.mem x network_addr) ips then
+      `Same_subnet
+    else
+      `Not_same_subnet
+  | `Ip_v6s (netmask, ip::ips) ->
+    let network_addr = Ipaddr.V6.Prefix.of_netmask netmask ip in
+    if List.for_all (fun x -> Ipaddr.V6.Prefix.mem x network_addr) ips then
+      `Same_subnet
+    else
+      `Not_same_subnet
+  | `Ip_v4s (_, []) | `Ip_v6s (_, []) -> `Same_subnet

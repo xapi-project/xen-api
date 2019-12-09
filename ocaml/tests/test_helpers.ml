@@ -284,10 +284,40 @@ module CIDRCheckers = Generic.MakeStateless (struct
     ]
   end)
 
+module AreOnSameSubnetTests = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string * string list
+    type output_t = bool
+
+    let string_of_input_t (netmask, ips) = Printf.sprintf "netmask: %s; ips: %s" netmask (String.concat ";" ips)
+    let string_of_output_t = function
+    | false -> "Not_same_subnet"
+    | true -> "Same_subnet"
+  end
+
+  let transform (netmask, ips) =
+    let netmask = Ipaddr.of_string_exn netmask in
+    let ips = List.map Ipaddr.of_string_exn ips in
+    match Helpers.are_on_same_subnet_exn netmask ips with
+    | `Not_same_subnet -> false
+    | `Same_subnet     -> true
+    | `Empty_ips       -> failwith "empty_ips"
+
+  let tests = `QuickAndAutoDocumented [
+    ("255.255.255.0", ["192.0.2.0"]),                                true;
+    ("255.255.255.0", ["192.0.2.0"; "192.0.2.1"]),                   true;
+    ("255.255.255.0", ["192.0.2.0"; "192.0.2.1"; "192.0.2.214"]),    true;
+    ("255.255.255.0", ["192.0.2.0"; "192.2.0.1"]),                   false;
+    ("255.0.0.0",     ["192.0.2.0"; "192.2.0.1"; "192.123.243.97"]), true;
+    ("255.0.0.0",     ["192.0.2.0"; "192.2.0.1"; "203.0.2.0"]),      false;
+  ]
+end)
+
 let tests = make_suite "helpers_" [
     "determine_gateway", DetermineGateway.tests;
     "assert_is_valid_tcp_udp_port", PortCheckers.tests;
     "assert_is_valid_tcp_udp_port_range", PortRangeCheckers.tests;
     "assert_is_valid_ip", IPCheckers.tests;
     "assert_is_valid_cidr", CIDRCheckers.tests;
+    "test_are_on_same_subnet", AreOnSameSubnetTests.tests;
   ]
