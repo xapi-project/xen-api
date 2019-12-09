@@ -1,0 +1,12 @@
+language: c
+sudo: required
+service: docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+env:
+  global:
+    - PACKAGE=xapi-xenops
+    - PINS="xapi-xenops:. xapi-xenops-utils:. xenops:."
+    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
+    - DISTRO="debian-unstable"
+    - OCAML_VERSION="4.07"
