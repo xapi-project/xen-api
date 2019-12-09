@@ -364,7 +364,7 @@ module Configuration = struct
             end;
             (* Accepted values are "true" and "false" *)
             (* If someone deletes the multipathing other_config key, we don't do anything *)
-            let multipathing = try Some (List.assoc "multipathing" oc |> Pervasives.bool_of_string) with _ -> None in
+            let multipathing = try Some (List.assoc "multipathing" oc |> Stdlib.bool_of_string) with _ -> None in
             begin match multipathing with
               | None -> ()
               | Some multipathing when multipathing <> host_rec.API.host_multipathing ->

@@ -113,7 +113,7 @@ type foreign = (string * string * string) list
 module ForeignMap = struct
   include Map.Make(struct
       type t = string
-      let compare = Pervasives.compare
+      let compare = Stdlib.compare
     end)
 
   type t' = (string * foreign) list

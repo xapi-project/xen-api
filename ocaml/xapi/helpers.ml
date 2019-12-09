@@ -669,7 +669,7 @@ let version_of : __context:Context.t -> [`host] api_object -> int list =
     let vs = version_string_of ~__context host
     in List.map int_of_string (String.split '.' vs)
 
-(* Compares host versions, analogous to Pervasives.compare. *)
+(* Compares host versions, analogous to Stdlib.compare. *)
 let compare_host_platform_versions : __context:Context.t -> [`host] api_object -> [`host] api_object -> int =
   fun ~__context host_a host_b ->
     let version_of = version_of ~__context in

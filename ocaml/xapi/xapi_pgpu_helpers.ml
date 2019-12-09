@@ -68,7 +68,7 @@ let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
           Ref.string_of self;
           Ref.string_of vgpu_type;
           List.map (fun self-> Db.VGPU.get_type ~__context ~self) allocated_vgpu_list
-          |> List.sort_uniq Pervasives.compare
+          |> List.sort_uniq Stdlib.compare
           |> List.map (fun vgpu_type_ref -> Ref.string_of vgpu_type_ref)
           |> String.concat sep
         ]))
