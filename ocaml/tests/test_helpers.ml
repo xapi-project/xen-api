@@ -298,10 +298,7 @@ module AreOnSameSubnetTests = Generic.MakeStateless (struct
   let transform (netmask, ips) =
     let netmask = Ipaddr.of_string_exn netmask in
     let ips = List.map Ipaddr.of_string_exn ips in
-    match Helpers.are_on_same_subnet_exn netmask ips with
-    | `Not_same_subnet -> false
-    | `Same_subnet     -> true
-    | `Empty_ips       -> failwith "empty_ips"
+    Helpers.are_on_same_subnet_exn netmask ips
 
   let tests = `QuickAndAutoDocumented [
     ("255.255.255.0", ["192.0.2.0"]),                                true;
@@ -313,6 +310,25 @@ module AreOnSameSubnetTests = Generic.MakeStateless (struct
   ]
 end)
 
+module IntersectIpsTests = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string list
+    type output_t = string
+
+    let string_of_input_t ips = Printf.sprintf "ips: [%s]" (String.concat "; " ips)
+    let string_of_output_t x = x
+  end
+
+  let transform ips =
+    let ips = List.map Ipaddr.of_string_exn ips in
+    Helpers.intersect_ips_exn ips |> Ipaddr.to_string
+
+  let tests = `QuickAndAutoDocumented [
+    ["255.255.255.0"; "255.255.0.0"], "255.255.0.0";
+    ["255.64.8.1"; "192.63.4.3"; "166.64.8.1"], "128.0.0.1";
+  ]
+end)
+
 let tests = make_suite "helpers_" [
     "determine_gateway", DetermineGateway.tests;
     "assert_is_valid_tcp_udp_port", PortCheckers.tests;
@@ -320,4 +336,5 @@ let tests = make_suite "helpers_" [
     "assert_is_valid_ip", IPCheckers.tests;
     "assert_is_valid_cidr", CIDRCheckers.tests;
     "test_are_on_same_subnet", AreOnSameSubnetTests.tests;
+    "test_intersect_ips", IntersectIpsTests.tests;
   ]

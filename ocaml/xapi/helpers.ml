@@ -1231,31 +1231,39 @@ let env_with_path env_vars =
   Array.of_list @@
   List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) (("PATH", String.concat ":" Forkhelpers.default_path)::env_vars)
 
-let are_on_same_subnet_exn netmask ips =
-  let ensure_same_protocol ips =
-    let coerce_v4 xs = xs |> List.map (function
-      | Ipaddr.V4 x -> x
-      | V6 _        -> raise Api_errors.(Server_error (internal_error, ["expected IPv4, but got IPv6"])))
-    in
-    let coerce_v6 xs = xs |> List.map (function
-      | Ipaddr.V6 x -> x
-      | V4 _        -> raise Api_errors.(Server_error (internal_error, ["expected IPv6, but got IPv4"])))
-    in
-    match netmask with
-    | Ipaddr.V4 nm -> `Ip_v4s (nm, coerce_v4 ips)
-    | V6        nm -> `Ip_v6s (nm, coerce_v6 ips)
+let ensure_same_protocol (ips: Ipaddr.t list) =
+  let coerce_v4 xs = xs |> List.map (function
+    | Ipaddr.V4 x -> x
+    | V6        x -> raise Api_errors.(Server_error (internal_error, [Printf.sprintf "expected IPv4, but got an IPv6: %s" (Ipaddr.V6.to_string x)])))
   in
+  let coerce_v6 xs = xs |> List.map (function
+    | Ipaddr.V6 x -> x
+    | V4        x -> raise Api_errors.(Server_error (internal_error, [Printf.sprintf "expected IPv6, but got an IPv4: %s" (Ipaddr.V4.to_string x)])))
+  in
+  match ips with
+  | []                  -> failwith "expected at least one ip"
+  | Ipaddr.V4 ip :: ips -> `Ip_v4s (ip::coerce_v4 ips)
+  | V6        ip :: ips -> `Ip_v6s (ip::coerce_v6 ips)
+
+let intersect_ips_exn ips =
+  let and_ipv6 x y =
+    let (x_ho, x_lo) = Ipaddr.V6.to_int64 x in
+    let (y_ho, y_lo) = Ipaddr.V6.to_int64 y in
+    Ipaddr.V6.of_int64 (Int64.logand x_ho y_ho, Int64.logand x_lo y_lo)
+  in
+  let and_ipv4 x y = Int32.logand (Ipaddr.V4.to_int32 x) (Ipaddr.V4.to_int32 y) |> Ipaddr.V4.of_int32 in
   match ensure_same_protocol ips with
-  | `Ip_v4s (netmask, ip::ips) ->
+  | `Ip_v4s (ip::ips) -> Ipaddr.V4 (List.fold_left and_ipv4 ip ips)
+  | `Ip_v6s (ip::ips) -> Ipaddr.V6 (List.fold_left and_ipv6 ip ips)
+  | `Ip_v4s [] | `Ip_v6s [] -> failwith "impossible"
+
+let are_on_same_subnet_exn netmask ips =
+  match ensure_same_protocol (netmask::ips) with
+  | `Ip_v4s (netmask::ip::ips) ->
     let network_addr = Ipaddr.V4.Prefix.of_netmask netmask ip in
-    if List.for_all (fun x -> Ipaddr.V4.Prefix.mem x network_addr) ips then
-      `Same_subnet
-    else
-      `Not_same_subnet
-  | `Ip_v6s (netmask, ip::ips) ->
+    List.for_all (fun x -> Ipaddr.V4.Prefix.mem x network_addr) ips
+  | `Ip_v6s (netmask::ip::ips) ->
     let network_addr = Ipaddr.V6.Prefix.of_netmask netmask ip in
-    if List.for_all (fun x -> Ipaddr.V6.Prefix.mem x network_addr) ips then
-      `Same_subnet
-    else
-      `Not_same_subnet
-  | `Ip_v4s (_, []) | `Ip_v6s (_, []) -> `Same_subnet
+    List.for_all (fun x -> Ipaddr.V6.Prefix.mem x network_addr) ips
+  | `Ip_v4s [_] | `Ip_v6s [_] -> true
+  | `Ip_v4s []  | `Ip_v6s []  -> failwith "impossible"
