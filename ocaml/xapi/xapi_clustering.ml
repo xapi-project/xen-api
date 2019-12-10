@@ -154,24 +154,23 @@ let assert_operation_host_target_is_localhost ~__context ~host =
   if host <> Helpers.get_localhost ~__context then
     raise Api_errors.(Server_error (internal_error, [ "A clustering operation was attempted from the wrong host" ]))
 
-let assert_cluster_on_pif_subnet ~__context ~cluster ~pIF =
+(* a new member of a cluster should reside on the same network as the cluster *)
+let assert_same_subnet ~__context ~cluster ~pIF =
   let parse_ip ip_str =
     match Ipaddr.of_string ip_str with
     | Ok ip_addr       -> ip_addr
     (* this shouldn't happen because we shouldn't be storing invalid ips *)
     | Error (`Msg msg) -> raise Api_errors.(Server_error (internal_error, [Printf.sprintf "could not parse ip address (%s), msg: %s" ip_str msg]))
   in
-  let pif_ip = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) |> Cluster_interface.str_of_address in
-  let ips = get_network_internal ~__context ~self:cluster |>
-    fun self -> Db.Network.get_assigned_ips ~__context ~self |>
-    List.map snd |>
-    List.cons pif_ip |>
-    List.map parse_ip
-  in
-  let netmask = Db.PIF.get_netmask ~__context ~self:pIF |> parse_ip in
-  match Helpers.are_on_same_subnet_exn netmask ips with
-  | `Same_subnet -> ()
-  | `Not_same_subnet -> raise Api_errors.(Server_error (cluster_inconsistent_subnet, ["pif is not on same subnet as cluster"]))
+  let ip_of_pif pIF = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) |> Cluster_interface.str_of_address |> parse_ip in
+  let netmask_of_pif pIF = Db.PIF.get_netmask ~__context ~self:pIF |> parse_ip in
+
+  let network = get_network_internal ~__context ~self:cluster in
+  let pifs = Db.Network.get_PIFs ~__context ~self:network |> List.cons pIF in
+  let ips = List.map ip_of_pif pifs in
+  let netmask = List.map netmask_of_pif pifs |> Helpers.intersect_ips_exn in
+  if not (Helpers.are_on_same_subnet_exn netmask ips) then
+    raise Api_errors.(Server_error (cluster_inconsistent_subnet, ["pif is not on same subnet as cluster"]))
 
 let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self =
   let cluster = Db.Cluster_host.get_cluster ~__context ~self in
