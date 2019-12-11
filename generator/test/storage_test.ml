@@ -152,6 +152,7 @@ let volume_server () =
 
   Volume.snapshot unimplemented;
   Volume.clone unimplemented;
+  Volume.copy unimplemented;
   Volume.destroy unimplemented;
   Volume.set_name unimplemented;
   Volume.set_description unimplemented;
