@@ -274,31 +274,58 @@ let forget_host_ds (ds_name : string) : unit =
     )
 
 let query_possible_dss rrdi =
+  (* We have data sources coming from different places, so we want the union of these;
+     this happens to be the union of the rrdi.rrd (live) and rrdi.rrd.rdd_dss (archival).
+     This is straighforward, but those two sets of ds have different types,
+     hence we need to coerce them into a common type (this is why we have
+     'description not available', and 'units unknown' etc.).
+     Deciding whether a ds is enabled is also not obvious. If we have a 'live'
+     ds, then it is enabled if it exists in the set rrdi.rrd. If we have an 'archival'
+     ds, then it is enabled if it is also an enabled 'live' ds, otherwise it is
+     disabled.
+   *)
   let module SMap = Map.Make(String) in
-  let enabled_sources = rrdi.dss
-  |> List.to_seq
-  |> Seq.map (fun ds -> ds.Ds.ds_name, ds)
-  |> SMap.of_seq
+  let module SSet = Set.Make(String) in
+  let open Ds in
+  let open Data_source in
+
+  let live_sources = rrdi.dss in
+  let archival_sources = rrdi.rrd.rrd_dss |> Array.to_seq in
+
+  let name_to_live_dss =
+    let enabled_names = Rrd.ds_names rrdi.rrd |> SSet.of_list in
+    let is_live_ds_enabled ds = SSet.mem ds.ds_name enabled_names in
+    live_sources |>
+    List.to_seq |>
+    Seq.map (fun ds -> ds.ds_name,
+      { name = ds.ds_name
+      ; description = ds.ds_description
+      ; enabled = is_live_ds_enabled ds
+      ; standard = ds.ds_default
+      ; min= ds.ds_min
+      ; max = ds.ds_max
+      ; units = ds.ds_units
+      }) |>
+    SMap.of_seq
   in
-  rrdi.rrd.Rrd.rrd_dss (* these are all data sources available to the daemon *)
-  |> Array.map (fun ds ->
-    let enabled_source = SMap.find_opt ds.Rrd.ds_name enabled_sources in
-    let description, standard, units = match enabled_source with
-    | Some source ->
-      source.Ds.ds_description, source.Ds.ds_default, source.ds_units
-    | None ->
-      "description not available", false, "unknown"
-    in
-    let open Data_source in
-    { name = ds.ds_name
-    ; description
-    ; enabled = enabled_source != None
-    ; standard
-    ; min = ds.ds_min
-    ; max = ds.ds_max
-    ; units
-    })
-  |> Array.to_list
+  let name_to_disabled_dss = archival_sources |>
+    Seq.filter_map (fun ds ->
+      if SMap.mem ds.Rrd.ds_name name_to_live_dss then
+        None
+      else
+        Some (ds.ds_name, { name = ds.ds_name
+                          ; description = "description not available"
+                          ; enabled = false
+                          ; standard = false
+                          ; units = "unknown"
+                          ; min = ds.ds_min
+                          ; max = ds.ds_max
+                          }))
+  in
+  SMap.add_seq name_to_disabled_dss name_to_live_dss |>
+  SMap.to_seq |>
+  Seq.map snd |>
+  List.of_seq
 
 let query_possible_host_dss () : Data_source.t list =
   Mutex.execute mutex (fun () ->
