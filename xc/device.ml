@@ -2105,8 +2105,8 @@ module Dm_Common = struct
       match vgpu1, vgpu2 with
       |{implementation = Nvidia {virtual_pci_address = pci1; _}; _},
        {implementation = Nvidia {virtual_pci_address = pci2; _}; _} ->
-        Pervasives.compare pci1.dev pci2.dev
-      | other1, other2 -> Pervasives.compare other1 other2
+        Stdlib.compare pci1.dev pci2.dev
+      | other1, other2 -> Stdlib.compare other1 other2
     in
     let device_args =
       let make addr args =
