@@ -108,7 +108,8 @@ let test_vbd_create () =
   Alcotest.check_raises
     "VBD.create should throw VDI_INCOMPATIBLE_TYPE for a cbt_metadata VDI"
     Api_errors.(Server_error (vdi_incompatible_type, [Ref.string_of vDI; Record_util.vdi_type_to_string `cbt_metadata]))
-    (fun () -> Xapi_vbd.create ~__context ~vM ~vDI ~userdevice:"autodetect" ~bootable:true ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] |> ignore)
+    (fun () -> Xapi_vbd.create ~__context ~vM ~vDI ~userdevice:"autodetect" ~bootable:true ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+    ~device:"" ~currently_attached:false |> ignore)
 
 let test_get_nbd_info =
   let assert_same_infos =

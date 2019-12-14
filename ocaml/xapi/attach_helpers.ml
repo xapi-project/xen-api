@@ -80,7 +80,7 @@ let with_vbds rpc session_id __context vm vdis mode f =
            let vbd = Client.VBD.create ~rpc ~session_id ~vM:vm ~empty:false ~vDI:vdi
                ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true
                ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-               ~other_config:[ Xapi_globs.vbd_task_key, Ref.string_of task_id ] in
+               ~other_config:[ Xapi_globs.vbd_task_key, Ref.string_of task_id ] ~device:"" ~currently_attached:false in
            (* sanity-check *)
            if has_vbd_leaked __context vbd
            then error "Attach_helpers.with_vbds new VBD has leaked: %s" (Ref.string_of vbd);

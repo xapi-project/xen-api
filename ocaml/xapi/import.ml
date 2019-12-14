@@ -1020,7 +1020,7 @@ module VBD : HandlerTools = struct
         let vbd = log_reraise
             "failed to create VBD"
             (fun value ->
-               let vbd = Client.VBD.create_from_record rpc session_id value in
+               let vbd = Client.VBD.create_from_record rpc session_id { value with API.vBD_device = ""; API.vBD_currently_attached = false } in
                if config.full_restore then Db.VBD.set_uuid ~__context ~self:vbd ~value:value.API.vBD_uuid;
                vbd)
             vbd_record in
@@ -1115,7 +1115,7 @@ module VIF : HandlerTools = struct
         let vif = log_reraise
             "failed to create VIF"
             (fun value ->
-               let vif = Client.VIF.create_from_record rpc session_id value in
+               let vif = Client.VIF.create_from_record rpc session_id { value with API.vIF_currently_attached = false } in
                if config.full_restore then Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid;
                vif)
             vif_record in

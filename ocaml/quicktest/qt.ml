@@ -189,6 +189,8 @@ module VDI = struct
         ~qos_algorithm_type:""
         ~qos_algorithm_params:[]
         ~other_config:[]
+        ~device:""
+        ~currently_attached:false
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->

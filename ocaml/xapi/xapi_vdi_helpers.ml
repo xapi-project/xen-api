@@ -99,7 +99,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
             let vbd = Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
                 ~userdevice:"autodetect" ~bootable:false ~mode:`RW ~_type:`Disk
                 ~unpluggable:true ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-                ~other_config:[]
+                ~other_config:[] ~device:"" ~currently_attached:false
             in
             Client.VBD.plug ~rpc ~session_id ~self:vbd;
             vbd)

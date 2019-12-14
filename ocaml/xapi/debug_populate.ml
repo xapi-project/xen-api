@@ -73,7 +73,7 @@ let rec make_vdis_and_vbds __context vmref i =
 
       let _:[`VBD] Ref.t =
         Xapi_vbd.create ~__context ~vM:vmref ~vDI:vdi ~userdevice:(string_of_int i) ~bootable:true ~mode:`RW ~_type:`Disk ~empty:false
-          ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[] ~unpluggable:false in
+          ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[] ~unpluggable:false ~device:"" ~currently_attached:false in
       make_vdis_and_vbds __context vmref (i-1)
     end
 
@@ -82,7 +82,7 @@ let rec make_vifs __context vmref i =
   else
     begin
       ignore(Xapi_vif.create  ~__context ~device:(string_of_int i) ~network:(get_random nws) ~vM:vmref
-               ~mAC:"de:ad:be:ef:99:88" ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]);
+               ~mAC:"de:ad:be:ef:99:88" ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false);
       make_vifs __context vmref (i-1)
     end
 
