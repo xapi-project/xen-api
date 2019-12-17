@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
 from common import *
 
 if __name__ == "__main__":
-    if len(sys.argv) <> 2:
-        print >>sys.stderr, "Usage:"
-        print >>sys.stderr, "  %s <interface>" % sys.argv[0]
+    if len(sys.argv) != 2:
+        print("Usage:", file=sys.stderr)
+        print("  %s <interface>" % sys.argv[0], file=sys.stderr)
         sys.exit(1)
     name = sys.argv[1]
     send_to_syslog("setting up interface %s" % name)

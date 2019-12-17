@@ -13,6 +13,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 
+from __future__ import print_function
 import os
 import subprocess
 import sys
@@ -86,30 +87,30 @@ def main(argv):
     if nic:
         qemu_args = map(lambda x: x.replace("model=rtl8139", "model=%s" % nic), qemu_args)
 
-    print "qemu-dm-wrapper in python:"
-    print "Using domid: %d" % domid
-    print "Starting: %s" % qemu_dm
-    print "Arguments: %s" % " ".join(qemu_args)
-    print "everything else is from qemu-dm:"
+    print("qemu-dm-wrapper in python:")
+    print("Using domid: %d" % domid)
+    print("Starting: %s" % qemu_dm)
+    print("Arguments: %s" % " ".join(qemu_args))
+    print("everything else is from qemu-dm:")
 
     core_dump_limit = enable_core_dumps()
-    print "core dump limit: %d" % core_dump_limit
+    print("core dump limit: %d" % core_dump_limit)
 
     pid = os.getpid()
     xenstore_write("/local/domain/%d/qemu-pid" % domid, "%d" % pid)
 
     if cgroup_slice is not None:
         # Move to nominated cgroup slice
-        print "Moving to cgroup slice '%s'" % cgroup_slice
+        print("Moving to cgroup slice '%s'" % cgroup_slice)
         try:
             # Note the default slice uses /sys/fs/cgroup/cpu/tasks but
             # other.slice uses /sys/fs/cgroup/cpu/other.slice/tasks.
             f = open("/sys/fs/cgroup/cpu/%s/tasks" % cgroup_slice, 'w')
             f.write(str(pid))
             f.close()
-        except IOError, e:
-            print "Warning: writing pid to '%s' tasks file: %s" \
-                % (cgroup_slice, e)
+        except IOError as e:
+            print("Warning: writing pid to '%s' tasks file: %s" \
+                % (cgroup_slice, e))
 
     os.dup2(1, 2)
     sys.stdout.flush()
