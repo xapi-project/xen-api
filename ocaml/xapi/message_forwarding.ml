@@ -3295,16 +3295,18 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_forget = Local.SR.forget ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.destroy" ~op:`destroy
         (fun () ->
-          Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
+          let pbd_state = Xapi_sr.assert_all_pbds_unplugged ~__context ~sr in
           Xapi_sr.assert_sr_not_indestructible ~__context ~sr;
           Xapi_sr.assert_sr_not_local_cache ~__context ~sr;
 
           forward_sr_op ~consider_unplugged_pbds:true ~local_fn:local_destroy ~__context ~self:sr
             (fun session_id rpc -> Client.SR.destroy rpc session_id sr);
 
-          (* forward call to unload SR metrics from memory *)
-          forward_sr_all_op ~local_fn:local_forget ~__context ~self:sr
-            (fun session_id rpc -> Client.SR.forget rpc session_id sr);
+          match pbd_state with
+          | `No_pbds            -> (* no SR metrics to remove *) ()
+          | `All_pbds_unplugged ->
+            forward_sr_all_op ~local_fn:local_forget ~__context ~self:sr
+              (fun session_id rpc -> Client.SR.forget rpc session_id sr);
 
           (* don't forward this is just a db call *)
           Xapi_sr.really_forget ~__context ~sr
@@ -3315,13 +3317,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.SR.forget ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget
         (fun () ->
-          Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
+          match Xapi_sr.assert_all_pbds_unplugged ~__context ~sr with
+          | `No_pbds            -> (* there are no SR metrics to remove *) ()
+          | `All_pbds_unplugged -> (* unload SR metrics from memory *)
+            forward_sr_all_op ~local_fn ~__context ~self:sr
+              (fun session_id rpc -> Client.SR.forget rpc session_id sr);
 
-          (* forward call to unload SR metrics from memory *)
-          forward_sr_all_op ~local_fn ~__context ~self:sr
-            (fun session_id rpc -> Client.SR.forget rpc session_id sr);
-
-          (* don't forward this is just a db call *)
+          (* don't forward - this is just a db call *)
           Xapi_sr.really_forget ~__context ~sr
           )
 
@@ -3944,8 +3946,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let destroy ~__context ~self =
       info "PBD.destroy: PBD '%s'" (pbd_uuid ~__context self);
       let sr = Db.PBD.get_SR ~__context ~self in
+      let host = Db.PBD.get_host ~__context ~self in
       SR.with_sr_marked ~__context ~sr ~doc:"PBD.destroy" ~op:`pbd_destroy
-        (fun () -> Local.PBD.destroy ~__context ~self)
+        (fun () -> (* Forget metrics on the host which owns that SR. This is safe
+                      because on a host there is at most one pbd per sr *)
+                   do_op_on ~local_fn:(Local.SR.forget ~sr) ~__context ~host
+                     (fun session_id rpc -> Client.SR.forget rpc session_id sr);
+                   Local.PBD.destroy ~__context ~self)
 
     (* -------- Forwarding helper functions: ------------------------------------ *)
 

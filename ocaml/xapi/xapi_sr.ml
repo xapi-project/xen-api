@@ -369,13 +369,17 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
   sr_ref
 
 let assert_all_pbds_unplugged ~__context ~sr =
-  let any_pbds_attached_to_sr = Db.PBD.get_all_records ~__context
-  |> List.exists (fun (_ref, pbd) ->
-      pbd.API.pBD_SR = sr && pbd.API.pBD_currently_attached)
-  in
-
-  if any_pbds_attached_to_sr then
-    raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
+  let pbds = Db.PBD.get_all_records ~__context in
+  match pbds with
+  | []   -> `No_Pbds
+  | pbds ->
+    let any_pbds_attached_to_sr =
+      pbds |> List.exists (fun (_ref, pbd) -> pbd.API.pBD_SR = sr && pbd.API.pBD_currently_attached)
+    in
+    if any_pbds_attached_to_sr then
+      raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
+    else
+      `All_pbds_unplugged
 
 let assert_sr_not_indestructible ~__context ~sr =
   let oc = Db.SR.get_other_config ~__context ~self:sr in
