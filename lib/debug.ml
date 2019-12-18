@@ -27,10 +27,7 @@ end
 let get_thread_id () =
   try Thread.id (Thread.self ()) with _ -> -1
 
-module IntMap = Map.Make(struct
-  type t = int
-  let compare = Pervasives.compare
-end)
+module IntMap = Map.Make(Int)
 
 module ThreadLocalTable = struct
   type 'a t = {
@@ -86,7 +83,7 @@ let log_to_stdout () = print_debug := true
 
 module BrandLevelPair = struct
   type t = string * Syslog.level
-  let compare = Pervasives.compare
+  let compare = Stdlib.compare
 end
 module BrandLevelPairSet = Set.Make(BrandLevelPair)
 
