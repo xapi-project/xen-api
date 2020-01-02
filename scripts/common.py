@@ -50,12 +50,12 @@ ON_ERROR_FAIL = 2
 def run(on_error, args):
     """Execute a subprocess and, on failure, either log (ON_ERROR_LOG) or throw (ON_ERROR_FAIL)"""
     (rc, stdout, stderr) = doexec(args)
-    if rc <> 0:
+    if rc != 0:
         if on_error == ON_ERROR_FAIL:
              send_to_syslog("FATAL: %s exitted with %d: %s" % (" ".join(args), rc, stderr))
              sys.exit(1)
         send_to_syslog("%s exitted with %d: %s" % (" ".join(args), rc, stderr))
-        if on_error <> ON_ERROR_LOG:
+        if on_error != ON_ERROR_LOG:
              send_to_syslog("... and an unrecognised on_error code was used (%d)" % on_error)
 
 MODE_OPENVSWITCH = "openvswitch"
@@ -147,7 +147,7 @@ class VIF:
         return x
     def get_bridge(self):
         network = self.json["backend"]
-        if network[0] <> "Local":
+        if network[0] != "Local":
             send_to_syslog("VIF %s/%d: don't support network backend %s" % (self.vm_uuid, self.devid, repr(network)))
             return None
         return network[1]

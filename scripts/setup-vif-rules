@@ -13,6 +13,7 @@
 # GNU Lesser General Public License for more details.
 #
 
+from __future__ import print_function
 import fcntl
 import os
 import os.path
@@ -145,7 +146,7 @@ def acquire_lock(path):
             fcntl.lockf(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
             send_to_syslog("acquired lock %s" % path)
             return lock_file
-        except IOError, e:
+        except IOError as e:
             send_to_syslog("failed to acquire lock %s because '%s' - waiting 1 second" % (path, e))
             time.sleep(1)
 
@@ -316,17 +317,17 @@ def main(vif_name, domuuid, devid, network_mode, action):
         handle_vswitch(vif_name, domuuid, devid, action)
 
 def usage():
-    print "Usage:"
-    print "%s xenopsd_backend interface uuid devid action" % short_command_name
-    print ""
-    print "interface:"
-    print "    The name of the network interface connecting to the guest."
-    print "uuid:"
-    print "    The UUID of the guest."
-    print "devid:"
-    print "    The number of the network to which the interface is connected."
-    print "action: [clear|filter]"
-    print "    Specifies whether to create filtering rules for the interface, or to clear all rules associated with the interface."
+    print("Usage:")
+    print("%s xenopsd_backend interface uuid devid action" % short_command_name)
+    print("")
+    print("interface:")
+    print("    The name of the network interface connecting to the guest.")
+    print("uuid:")
+    print("    The UUID of the guest.")
+    print("devid:")
+    print("    The number of the network to which the interface is connected.")
+    print("action: [clear|filter]")
+    print("    Specifies whether to create filtering rules for the interface, or to clear all rules associated with the interface.")
 
 if __name__ == "__main__":
     if len(sys.argv) != 6:
