@@ -1809,43 +1809,67 @@ module Vusb = struct
     else
       []
 
-  let vusb_controller_plug ~xs ~domid ~driver ~driver_id =
-    if (Qemu.is_running ~xs domid)
-    && not (List.mem driver_id (qom_list ~xs ~domid))then
-      qmp_send_cmd domid Qmp.(Device_add Device.({driver; device=USB { USB.id=driver_id; params=None }})) |> ignore
 
-  let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version =
+  let vusb_plug ~xs ~privileged ~domid ~id ~hostbus ~hostport ~version ~speed =
     debug "vusb_plug: plug VUSB device %s" id;
-    let get_bus v =
-      if String.startswith "1" v then
-        "usb-bus.0"
-      else begin
-        (* Here plug usb controller according to the usb version*)
-        let usb_controller_driver = "usb-ehci" in
-        let driver_id = "ehci" in
-        vusb_controller_plug ~xs ~domid ~driver:usb_controller_driver ~driver_id;
-        Printf.sprintf "%s.0" driver_id;
-      end
+    let get_bus () =
+      let vusb_controller_plug ~driver ~driver_id =
+        (* requires Qemu.is_running *)
+        if not (List.mem driver_id (qom_list ~xs ~domid)) then
+          qmp_send_cmd domid Qmp.(Device_add Device.({driver; device=USB { USB.id=driver_id; params=None }})) |> ignore
+      in
+      let usb_bus0 = "usb-bus.0", fun () -> () in
+      let ehci0 = "ehci.0", fun () -> vusb_controller_plug ~driver:"usb-ehci" ~driver_id:"ehci" in
+      let speed_of_float x = if x <= 0. then
+                               `Unknown
+                             else if x <= 1.5 then
+                               `Low    (* v1.0 *)
+                             else if x <= 12. then
+                               `Full   (* v1.1 *)
+                             else if x <= 480. then
+                               `High   (* v2.0 *)
+                             else if x <= 5000. then
+                               `Super  (* v3.0 *)
+                             else
+                               `Unknown
+      in
+      let bus_from_speed = match speed_of_float speed with
+      | `Unknown       -> None
+      | `Low  | `Full  -> Some usb_bus0
+      | `High | `Super -> Some ehci0
+      in
+      let get_bus_from_version () =
+        let major_version = Scanf.sscanf version "%d.%d" (fun major _minor -> major) in
+        match major_version with
+        | 1 -> usb_bus0
+        | _ -> ehci0
+      in
+      match bus_from_speed with
+      | Some x -> x
+      | None ->
+        D.warn "vusb_plug: failed to get bus from usb speed: %f, for VUSB device %s. getting bus from version" speed id;
+        get_bus_from_version ()
     in
-    if Qemu.is_running ~xs domid then
-      begin
-        (* Need to reset USB device before passthrough to vm according to CP-24616.
-           Also need to do deprivileged work in usb_reset script if QEMU is deprivileged.
-        *)
-        begin match Qemu.pid ~xs domid with
-          | Some pid -> usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
-          | _ -> raise (Xenopsd_error (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid)))
-        end;
-        let cmd = Qmp.(Device_add Device.(
-                       { driver = "usb-host";
-                         device = USB {
-                           USB.id = id;
-                           params = Some USB.({bus = get_bus version; hostbus; hostport})
-                         }
+    if Qemu.is_running ~xs domid then begin
+      let bus, prepare_bus = get_bus () in
+      prepare_bus ();
+      (* Need to reset USB device before passthrough to vm according to CP-24616.
+         Also need to do deprivileged work in usb_reset script if QEMU is deprivileged.
+      *)
+      begin match Qemu.pid ~xs domid with
+        | Some pid -> usb_reset_attach ~hostbus ~hostport ~domid ~pid ~privileged
+        | _ -> raise (Xenopsd_error (Internal_error (Printf.sprintf "qemu pid does not exist for vm %d" domid)))
+      end;
+      let cmd = Qmp.(Device_add Device.(
+                     { driver = "usb-host";
+                       device = USB {
+                         USB.id = id;
+                         params = Some USB.({bus; hostbus; hostport})
                        }
-                    ))
-        in qmp_send_cmd domid cmd |> ignore
-      end
+                     }
+                  ))
+      in qmp_send_cmd domid cmd |> ignore
+    end
 
   let vusb_unplug ~xs ~privileged ~domid ~id ~hostbus ~hostport=
     debug "vusb_unplug: unplug VUSB device %s" id;
