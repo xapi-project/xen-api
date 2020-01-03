@@ -240,7 +240,7 @@ module Vusb = struct
   type id = string * string [@@deriving rpcty]
 
   type t =
-    {id: id; hostbus: string; hostport: string; version: string; path: string}
+    {id: id; hostbus: string; hostport: string; version: string; path: string; speed: float}
   [@@deriving rpcty]
 
   type state = {plugged: bool} [@@deriving rpcty]
