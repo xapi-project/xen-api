@@ -32,7 +32,8 @@ let test_scan_with_usb_add_and_remove () =
                     \"version\": \"3.00\",
                     \"vendor-id\": \"0781\",
                     \"path\": \"2-2\",
-                    \"serial\": \"4C530001131223117342\"
+                    \"serial\": \"4C530001131223117342\",
+                    \"speed\": \"480\"
                 }]"
   in
   (* add usb*)

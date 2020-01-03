@@ -801,12 +801,14 @@ module MD = struct
       let hostport = List.nth pathList 1 in
       (* Here version can be 1.10/2.00/3.00. *)
       let version = pusb.API.pUSB_version in
+      let speed = pusb.API.pUSB_speed in
       {
         id = (vm.API.vM_uuid, "vusb"^path);
         hostbus = hostbus;
         hostport = hostport;
         version = version;
         path = path;
+        speed = speed;
       }
     with
     | e ->
