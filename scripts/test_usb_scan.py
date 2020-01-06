@@ -147,6 +147,7 @@ class TestUsbScan(unittest.TestCase):
                     "version": " 1.10",
                     "idProduct": "0302",
                     "bDeviceClass": "00",
+                    "speed": "480"
                 }
             }
         ]
@@ -170,7 +171,8 @@ class TestUsbScan(unittest.TestCase):
                 "version": "1.10",
                 "vendor-id": "096e",
                 "path": "1-2",
-                "serial": ""
+                "serial": "",
+                "speed": "480"
             }
         ]
         self.test_usb_common(devices, interfaces, results)
@@ -190,6 +192,7 @@ class TestUsbScan(unittest.TestCase):
                     "version": " 1.10",
                     "idProduct": "0302",
                     "bDeviceClass": "00",
+                    "speed": "12"
                 }
             }
         ]
@@ -213,7 +216,8 @@ class TestUsbScan(unittest.TestCase):
                 "version": "1.10",
                 "vendor-id": "096e",
                 "path": "1-2.1",
-                "serial": ""
+                "serial": "",
+                "speed": "12"
             }
         ]
         self.test_usb_common(devices, interfaces, results)
