@@ -1106,22 +1106,22 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 let get_uncooperative_domains ~__context ~self = []
 
 let certificate_install ~__context ~host ~name ~cert =
-  Certificates.host_install true name cert
+  Certificates.(host_install Certificate name cert)
 
 let certificate_uninstall ~__context ~host ~name =
-  Certificates.host_uninstall true name
+  Certificates.(host_uninstall Certificate name)
 
 let certificate_list ~__context ~host =
-  Certificates.local_list true
+  Certificates.(local_list Certificate)
 
 let crl_install ~__context ~host ~name ~crl =
-  Certificates.host_install false name crl
+  Certificates.(host_install CRL name crl)
 
 let crl_uninstall ~__context ~host ~name =
-  Certificates.host_uninstall false name
+  Certificates.(host_uninstall CRL name)
 
 let crl_list ~__context ~host =
-  Certificates.local_list false
+  Certificates.(local_list CRL)
 
 let certificate_sync ~__context ~host =
   Certificates.local_sync()
