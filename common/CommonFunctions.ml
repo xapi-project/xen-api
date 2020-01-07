@@ -56,6 +56,13 @@ let with_output filename f =
   finally (fun () -> f io)
     ~always:(fun () -> close_out io)
 
+let joined sep f l = l |> List.map f |> List.filter (fun x -> x <> "") |> String.concat sep
+
+let escape_xml s = s |>
+                   Astring.String.cuts ~sep:"<" ~empty:true |>
+                   String.concat "&lt;" |>
+                   Astring.String.cuts ~sep:">" ~empty:true |>
+                   String.concat "&gt;"
 
 let rec list_distinct list =
   match list with

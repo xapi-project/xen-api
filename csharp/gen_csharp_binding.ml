@@ -79,14 +79,6 @@ let classes = List.filter (fun x-> not (List.mem x.name ["debug"; "event"])) (ob
 let enums = ref TypeSet.empty
 let maps = ref TypeSet.empty
 
-let joined sep f l = l |> List.map f |> List.filter (fun x -> x <> "") |> String.concat sep
-
-let escape_xml s = s |>
-                   Astring.String.cuts ~sep:"<" ~empty:true |>
-                   String.concat "&lt;" |>
-                   Astring.String.cuts ~sep:">" ~empty:true |>
-                   String.concat "&gt;"
-
 let enum_of_wire =
   Astring.String.map (fun x ->  match x with '-' -> '_' | _ -> x)
 

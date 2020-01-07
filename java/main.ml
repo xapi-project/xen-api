@@ -228,9 +228,9 @@ let gen_method_return_cast message =  match message.msg_result with
 
 let gen_method_return file cls message =
   if (String.lowercase_ascii cls.name) = "event" && (String.lowercase_ascii message.msg_name) = "from" then
-    fprintf file "            return Types.toEventBatch(result);\n"
+    fprintf file "        return Types.toEventBatch(result);\n"
   else
-    fprintf file "            return%s;\n" (gen_method_return_cast message)
+    fprintf file "        return%s;\n" (gen_method_return_cast message)
 
 let rec range = function
   | 0 -> []
@@ -245,41 +245,49 @@ let gen_method file cls message params async_version =
   let method_static =  if is_method_static message then "static " else "" in
   let method_name = camel_case message.msg_name in
   let paramString = get_method_params_for_signature params in
-  let default_errors = ["BadServerResponse";
-                        "XenAPIException";
-                        "XmlRpcException"] in
-  let err_string = String.concat ",\n       " (default_errors @ (List.map
-                                                                   (fun err -> "Types." ^ (exception_class_case err.err_name)) message.msg_errors)) in
+  let default_errors = [
+    ("BadServerResponse", "Thrown if the response from the server contains an invalid status.");
+    ("XenAPIException", "Thrown if the call failed.");
+    ("XmlRpcException", "Thrown if the result of an asynchronous call could not be parsed.")
+  ] in
   let publishInfo = get_published_info_message message cls in
 
   fprintf file "    /**\n";
-  fprintf file "     * %s\n" message.msg_doc;
+  fprintf file "     * %s\n" (escape_xml message.msg_doc);
   if not (publishInfo = "") then fprintf file "     * %s\n" publishInfo;
   if (get_method_deprecated message) then fprintf file "     * @deprecated\n";
   fprintf file "     *\n";
+  fprintf file "     * @param c The connection the call is made on\n";
 
   List.iter (fun x -> let paramPublishInfo = get_published_info_param message x in
               fprintf file "     * @param %s %s%s\n"
                 (camel_case x.param_name)
-                x.param_doc
+                (if x.param_doc = "" then "No description" else (escape_xml x.param_doc))
                 (if paramPublishInfo = "" then "" else " "^paramPublishInfo))
     params;
 
   if async_version then
     fprintf file "     * @return Task\n"
-  else
-    (match message.msg_result with
-     | None           -> ()
-     | Some (_, desc) -> fprintf file "     * @return %s\n" desc);
+  else begin
+    match message.msg_result with
+    | None           -> ()
+    | Some (_, "") -> fprintf file "     * @return %s\n" (get_java_type_or_void message.msg_result)
+    | Some (_, desc) -> fprintf file "     * @return %s\n" desc
+  end;
+
+  List.iter (fun x -> fprintf file "     * @throws %s %s\n" (fst x) (snd x)) default_errors;
+  List.iter (fun x -> fprintf file "     * @throws Types.%s %s\n" (exception_class_case x.err_name) x.err_doc) message.msg_errors;
 
   fprintf file "     */\n";
 
   if async_version then
     fprintf file "   %s public %sTask %sAsync(%s) throws\n" deprecated_string method_static method_name paramString
   else
-    fprintf file "   %s public %s%s %s(%s) throws\n"   deprecated_string method_static return_type method_name  paramString;
+    fprintf file "   %s public %s%s %s(%s) throws\n"   deprecated_string method_static return_type method_name paramString;
 
-  fprintf file "       %s {\n" err_string;
+  let all_errors = (List.map fst default_errors) @
+    (List.map (fun x -> "Types." ^ (exception_class_case x.err_name)) message.msg_errors) in
+  fprintf file "       %s {\n" (String.concat ",\n       " all_errors);
 
   if async_version then
     fprintf file "        String method_call = \"Async.%s.%s\";\n" message.msg_obj_name message.msg_name
@@ -316,7 +324,7 @@ let gen_method file cls message params async_version =
     fprintf file "        return Types.toTask(result);\n" )
   else (
     match message.msg_result with
-    | None   -> fprintf file "        return;\n"
+    | None   -> fprintf file ""
     | Some _ -> fprintf file "        Object result = response.get(\"Value\");\n";
       gen_method_return file cls message
   );
@@ -348,7 +356,7 @@ let gen_record_field file prefix field cls =
   let name = camel_case (String.concat "_" (List.rev (field.field_name :: prefix))) in
   let publishInfo = get_published_info_field field cls in
   fprintf file "        /**\n";
-  fprintf file "         * %s\n" field.field_description;
+  fprintf file "         * %s\n" (escape_xml field.field_description);
   if not (publishInfo = "") then fprintf file "         * %s\n" publishInfo;
   fprintf file "         */\n";
   fprintf file "        public %s %s;\n" ty name
@@ -698,7 +706,7 @@ let gen_enum file name ls =
   fprintf file "        /* This can never be reached */\n";
   fprintf file "        return \"illegal enum\";\n";
   fprintf file "        }\n";
-  fprintf file "\n    };\n\n"
+  fprintf file "\n    }\n\n"
 ;;
 
 let gen_enums file =
@@ -720,7 +728,7 @@ let gen_error file name params =
                                                  (fun field ->  "String " ^ field) fields) in
 
   fprintf file "    /**\n";
-  fprintf file "     * %s\n" params.err_doc;
+  fprintf file "     * %s\n" (escape_xml params.err_doc);
   fprintf file "     */\n";
   fprintf file "    public static class %s extends XenAPIException {\n" name;
 
@@ -728,18 +736,9 @@ let gen_error file name params =
 
   fprintf file "\n        /**\n";
   fprintf file "         * Create a new %s\n" name;
-
-  if List.length fields > 0
-  then
-    begin
-      fprintf file "         *\n";
-      List.iter
-        (fun s -> fprintf file "         * @param %s\n" s) fields
-    end;
-
   fprintf file "         */\n";
   fprintf file "        public %s(%s) {\n" name constructor_params;
-  fprintf file "            super(\"%s\");\n" params.err_doc;
+  fprintf file "            super(\"%s\");\n" (escape_xml params.err_doc);
 
   List.iter
     (fun s -> fprintf file "            this.%s = %s;\n" s s) fields;
