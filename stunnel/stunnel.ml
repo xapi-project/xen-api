@@ -168,7 +168,8 @@ let config_file verify_cert extended_diagnosis host port legacy =
       ]
     else []
   ; if legacy then
-      [ "sslVersion = all"
+      [ "sslVersionMax = TLSv1.2"
+      ; "sslVersionMin = TLSv1"
       ; "options = NO_SSLv2"
       ; "options = NO_SSLv3"
       ; "ciphers = " ^ (good_ciphers ()) ^ (match !legacy_ciphersuites with "" -> "" | s -> (":" ^ s))
