@@ -1,3 +1,4 @@
+module A = Quicktest_args
 
 (** If VDI_CREATE and VDI_DELETE are present then make sure VDIs appear and disappear correctly *)
 (** VDI_CREATE should make a fresh disk; VDI_DELETE should remove it *)
@@ -166,7 +167,7 @@ let vbd_create_helper ~rpc ~session_id ~vM ~vDI ?(userdevice="autodetect") () : 
 (** Check that snapshot works regardless which host has the VDI activated *)
 let vdi_snapshot_in_pool rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
-      let hosts = Client.Client.Host.get_all rpc session_id in
+      let localhost = Client.Client.Host.get_by_uuid ~rpc ~session_id ~uuid:Qt.localhost_uuid in
       let do_test () =
         check_vdi_snapshot rpc session_id vdi
       in
@@ -185,8 +186,7 @@ let vdi_snapshot_in_pool rpc session_id sr_info () =
              Client.Client.VBD.destroy rpc session_id vbd
           )
       in
-      List.iter test_snapshot_on hosts;
-
+      test_snapshot_on localhost;
       do_test ()
     )
 

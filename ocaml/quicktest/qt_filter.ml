@@ -116,19 +116,32 @@ module SR = struct
     ; required_sm_api_version
     }
 
-  let list_selected_srs rpc session_id =
-    Client.Client.SR.get_all rpc session_id
-    |> List.filter
-      (fun sr ->
-         Client.Client.SR.get_PBDs rpc session_id sr
-         |> List.exists
-           (fun pbd -> Client.Client.PBD.get_currently_attached rpc session_id pbd)
-      )
-    |> List.map (get_sr_info rpc session_id)
+  let list_srs_connected_to_localhost rpc session_id =
+    let is_attached = Client.Client.PBD.get_currently_attached ~rpc ~session_id in
+    let all_attached = List.for_all (fun pbd -> is_attached pbd) in
+    let does_pbd_belong_to_me pbd =
+      let pbd_host = Client.Client.PBD.get_host ~rpc ~session_id ~self:pbd in
+      let pbd_host_uuid = Client.Client.Host.get_uuid ~rpc ~session_id ~self:pbd_host in
+      pbd_host_uuid = Qt.localhost_uuid
+    in
+    let is_shared_or_local_and_my_pbds_attached sr =
+      let pbds = Client.Client.SR.get_PBDs rpc session_id sr in
+      let my_pbds = List.find_all does_pbd_belong_to_me pbds in
+      match pbds, my_pbds with
+      | [], _         -> Printf.eprintf "SR (%s) has no pbds %s\n" (Ref.string_of sr) __LOC__;
+                         false
+      | [_], [my_pbd] -> (* Local SR *) is_attached my_pbd
+      | _::_, []      -> Printf.eprintf "This host doesn't own any PBDs from shared SR (%s) %s\n" (Ref.string_of sr) __LOC__;
+                         false
+      | _::_, _::_    -> (* Shared SR *) my_pbds |> all_attached
+    in
+    Client.Client.SR.get_all rpc session_id |>
+    List.filter is_shared_or_local_and_my_pbds_attached |>
+    List.map (get_sr_info rpc session_id)
 
   let only sr () = [get_sr_info !A.rpc !session_id sr]
 
-  let all_srs = lazy (list_selected_srs !A.rpc !session_id)
+  let all_srs = lazy (list_srs_connected_to_localhost !A.rpc !session_id)
 
   let all =
     if !A.use_default_sr then begin
