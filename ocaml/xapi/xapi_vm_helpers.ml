@@ -537,9 +537,25 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
   List.iter
     (fun (h, r) ->
        try
-         assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ~do_cpuid_check:false ();
+         assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ~do_cpuid_check:true ();
          Hashtbl.replace recs h r;
        with
+       (* CPUID checks are being removed from WLB, this will become the responsibility of XAPI
+        * (and ultimately Xen/libxc). Previously WLB would've assigned a score of 0.0 and a reason
+        * of "HostCPUFeaturesIncompatible" to hosts that can't boot a VM due to CPU features missing.
+        * WLB could call assert_can_boot_here instead of doing its own CPUID checks, however that
+        * would add a lot of extra API calls (at least Number_of_hosts * Number_of_VMs).
+        * Instead do this check in XAPI itself, and override WLB's response for backwards compatibility
+        * with 0.0, and the same reason code that WLB would've used. This should keep observable behaviour
+        * identical and work both with old and new WLBs.
+        *)
+       | Api_errors.Server_error(x, _) when x=Api_errors.vm_incompatible_with_this_host ->
+         begin match r with
+         | id :: _ :: rec_id :: _ ->
+           Hashtbl.replace recs h [id; "0.0"; rec_id; "HostCPUFeaturesIncompatible"]
+         | _ ->
+           debug "Missing element of recommendation of host %s!" (Ref.string_of h);
+         end
        | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y))
     (retrieve_vm_recommendations ~__context ~vm);
   if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
