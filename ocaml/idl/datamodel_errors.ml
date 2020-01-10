@@ -1035,6 +1035,15 @@ let _ =
   error Api_errors.crl_corrupt ["name"]
     ~doc:"The specified CRL is corrupt or unreadable." ();
 
+  error Api_errors.server_certificate_key_invalid []
+    ~doc:"Provided key is not in a pem-encoded PKCS#8 format." ();
+  error Api_errors.server_certificate_key_algorithm_not_supported ["algorithm_oid"]
+    ~doc:"Provided key uses an unsupported algorithm." ();
+  error Api_errors.server_certificate_key_rsa_length_not_supported ["length"]
+    ~doc:"Provided RSA key does not have a length between 2048 and 4096." ();
+  error Api_errors.server_certificate_key_rsa_multi_not_supported []
+    ~doc:"Provided RSA key is using more than 2 primes, expecting only 2." ();
+
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." ();
   error Api_errors.vmpp_archive_more_frequent_than_backup []
