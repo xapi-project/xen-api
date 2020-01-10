@@ -305,3 +305,32 @@ let hostnames_of_pem_cert pem =
   Cstruct.of_string pem
   |> X509.Certificate.decode_pem
   >>| X509.Certificate.hostnames
+
+let validate_private_key pkcs8_private_key =
+  let ensure_key_length = function
+  | `RSA priv ->
+    let length = Nocrypto.Rsa.priv_bits priv in
+    if length < 2048 || length > 4096 then
+      Error (`Msg (server_certificate_key_rsa_length_not_supported,
+        [Int.to_string length]))
+    else
+      Ok priv
+  in
+
+  let raw_pem = Cstruct.of_string pkcs8_private_key in
+  let open Rresult in
+  X509.Private_key.decode_pem raw_pem
+  |> R.reword_error
+      (fun (`Msg err_msg) ->
+        let unknown_algorithm = "Unknown algorithm " in
+        if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
+          `Msg (server_certificate_key_rsa_multi_not_supported, [])
+        else if Astring.String.is_prefix ~affix:unknown_algorithm err_msg then
+          `Msg (server_certificate_key_algorithm_not_supported,
+            [Astring.String.with_range ~first:(String.length unknown_algorithm) err_msg])
+        else
+          `Msg (server_certificate_key_invalid, []))
+  >>= ensure_key_length
+  |> function
+    | Ok priv -> priv
+    | Error `Msg (err, msg) -> raise_server_error msg err
