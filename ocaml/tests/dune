@@ -7,8 +7,9 @@ let coverage_rewriter =
 
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
-(executables
-  (names suite_alcotest)
+(test
+  (name suite_alcotest)
+  (package xapi)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (libraries
     alcotest
@@ -17,16 +18,8 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-stdext-date
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
-)
-
-(alias
-  (name runtest)
-  (package xapi)
-  (deps
-    (:x suite_alcotest.exe)
-    (source_tree test_data)
-  )
-  (action (run %%{x}))
+  (deps (source_tree test_data))
+  (action (run %%{test} --color=always))
 )
 
 (alias
