@@ -18,7 +18,7 @@
 open Stdext
 open Threadext
 open Pervasiveext
-open Listext
+module Listext = Listext.List
 open Xstringext
 open Server_helpers
 open Client
@@ -30,6 +30,10 @@ open D
 module Audit = Debug.Make(struct let name="audit" end)
 let info = Audit.debug
 
+module PBDSet = Set.Make (struct
+  type t = API.ref_PBD
+  let compare = Stdlib.compare
+end)
 
 (**************************************************************************************)
 
@@ -161,25 +165,39 @@ let log_exn_ignore ?(doc = "performing unknown operation") f x =
 
 
 (* Given an SR, return a PBD to use for some storage operation. *)
-(* In the case of SR.destroy we need to be able to forward the SR operation when all
-   PBDs are unplugged - this is the reason for the consider_unplugged_pbds optional
-   argument below. All other SR ops only consider plugged PBDs... *)
-let choose_pbd_for_sr ?(consider_unplugged_pbds=false) ~__context ~self () =
+(* In the case of SR.destroy and forget we need to be able to forward the SR
+   operation when all PBDs are unplugged. This is the reason for the
+   consider_unplugged_pbds argument below. All other SR ops only
+   consider plugged PBDs. *)
+let choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () =
+  let module R = Stdlib.Result in
   let all_pbds = Db.SR.get_PBDs ~__context ~self in
-  let plugged_pbds = List.filter (fun pbd->Db.PBD.get_currently_attached ~__context ~self:pbd) all_pbds in
+  let plugged_pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) all_pbds in
   let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
-  if Helpers.is_sr_shared ~__context ~self then
-    let master = Helpers.get_master ~__context in
-    let master_pbds = Db.Host.get_PBDs ~__context ~self:master in
-    (* shared SR operations must happen on the master *)
-    match Listext.List.intersect pbds_to_consider master_pbds with
-    | pbd :: _ -> pbd (* ok, master plugged *)
-    | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ])) (* can't do op, master pbd not plugged *)
-  else
-    match pbds_to_consider with
-    | [] -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
-    | pdb :: _ -> pdb
+  let pbds = PBDSet.of_list pbds_to_consider in
+  let pbd_candidates =
+    if Helpers.is_sr_shared ~__context ~self then
+      let master = Helpers.get_master ~__context in
+      let master_pbds = PBDSet.of_list (Db.Host.get_PBDs ~__context ~self:master) in
+      (* Operation run on shared SRs depend on the first pbd of the list to be
+         on the master. *)
+      let sr_master_pbds, rest_pbds = PBDSet.partition (fun pbd -> PBDSet.mem pbd master_pbds) pbds in
+      if PBDSet.is_empty sr_master_pbds then
+        Error `Sr_no_pbds
+      else
+        Ok (List.rev_append (PBDSet.elements sr_master_pbds) (PBDSet.elements rest_pbds))
+    else
+      Ok pbds_to_consider
+  in
+  R.bind pbd_candidates (function
+  | []   -> Error `Sr_no_pbds
+  | pbds -> Ok pbds)
 
+let choose_pbd_for_sr ~consider_unplugged_pbds ~__context ~self () =
+  match choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () with
+  | Ok (x::_)         -> x
+  | Ok []             -> failwith "expected 'choose_pbds_for_sr' to return a non-empty list"
+  | Error `Sr_no_pbds -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
 
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
   let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -694,7 +712,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
       let rec process token =
         TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
-        let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
+        let statuses = Listext.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
         let unfinished = List.exists (fun state -> state = `pending) statuses in
         if unfinished
         then begin
@@ -709,7 +727,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       process ""
 
     let cancel ~__context ~vm ~ops =
-      let cancelled = List.filter_map (fun (task,op) ->
+      let cancelled = Listext.filter_map (fun (task,op) ->
           if List.mem op ops then begin
             info "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
             Helpers.call_api_functions ~__context
@@ -1503,14 +1521,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun () -> with_vm_operation ~__context ~self:vm ~doc:"VM.reverting" ~op:`reverting
             (fun () ->
                (* We need to do a best-effort check that any suspend_VDI referenced by
-                  							the snapshot (not the current VM) is currently accessible. This is because
-                  							the revert code first clears space by deleting current VDIs before cloning
-                  							the suspend VDI: we want to minimise the probability that the operation fails
-                  							part-way through. *)
+                  the snapshot (not the current VM) is currently accessible. This is because
+                  the revert code first clears space by deleting current VDIs before cloning
+                  the suspend VDI: we want to minimise the probability that the operation fails
+                  part-way through. *)
                if Db.VM.get_power_state ~__context ~self:snapshot = `Suspended then begin
                  let suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
                  let sr = Db.VDI.get_SR ~__context ~self:suspend_VDI in
-                 let pbd = choose_pbd_for_sr ~__context ~self:sr () in
+                 let pbd = choose_pbd_for_sr ~consider_unplugged_pbds:false ~__context ~self:sr () in
                  let host = Db.PBD.get_host ~__context ~self:pbd in
                  let metrics = Db.Host.get_metrics ~__context ~self:host in
                  let live = Db.is_valid_ref __context metrics && (Db.Host_metrics.get_live ~__context ~self:metrics) in
@@ -2063,7 +2081,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let import ~__context ~url ~sr ~full_restore ~force =
       info "VM.import: url = '%s' sr='%s' force='%b'" "(url filtered)" (Ref.string_of sr) force;
-      let pbd = choose_pbd_for_sr ~__context ~self:sr () in
+      let pbd = choose_pbd_for_sr ~consider_unplugged_pbds:false ~__context ~self:sr () in
       let host = Db.PBD.get_host ~__context ~self:pbd in
       do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force) ~__context ~host (fun session_id rpc -> Client.VM.import rpc session_id url sr full_restore force)
 
@@ -3210,8 +3228,8 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------- Forwarding helper functions: ------------------------------------ *)
 
     (* Forward SR operation to host that has a suitable plugged (or unplugged) PBD  *)
-    let forward_sr_op ?consider_unplugged_pbds ~local_fn ~__context ~self op =
-      let pbd = choose_pbd_for_sr ?consider_unplugged_pbds ~__context ~self () in
+    let forward_sr_op ?(consider_unplugged_pbds=false) ~local_fn ~__context ~self op =
+      let pbd = choose_pbd_for_sr ~consider_unplugged_pbds ~__context ~self () in
       let host = Db.PBD.get_host ~__context ~self:pbd in
       do_op_on ~local_fn ~__context ~host op
 
@@ -3225,6 +3243,20 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         try Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
         with _ -> raise Not_found in
       do_op_on ~local_fn ~__context ~host op
+
+    (* Forward SR operation to all hosts that have suitable, plugged or
+       unplugged PBDs, best effort *)
+    let forward_sr_all_op ?(consider_unplugged_pbds=false) ~local_fn ~__context ~self op =
+      match choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () with
+      | Error `Sr_no_pbds -> D.info "forward_sr_all_op: doing nothing - there are no pbds attached to SR (%s)" (Ref.string_of self)
+      | Ok pbds           -> pbds |>
+                             List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) |>
+                             List.iter (fun host ->
+                                 try
+                                   do_op_on ~local_fn ~__context ~host op
+                                 with Api_errors.Server_error (reason, _) when reason = Api_errors.host_offline ->
+                                   () (* allow an offline host to continue the operation *)
+                             )
 
     let set_virtual_allocation ~__context ~self ~value =
       Sm.assert_session_has_internal_sr_access ~__context ~sr:self;
@@ -3267,18 +3299,36 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     let destroy ~__context ~sr =
       info "SR.destroy: SR = '%s'" (sr_uuid ~__context sr);
-      let local_fn = Local.SR.destroy ~sr in
+      let local_destroy = Local.SR.destroy ~sr in
+      let local_forget = Local.SR.forget ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.destroy" ~op:`destroy
         (fun () ->
-           forward_sr_op ~consider_unplugged_pbds:true ~local_fn ~__context ~self:sr
-             (fun session_id rpc -> Client.SR.destroy rpc session_id sr))
+          Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
+          Xapi_sr.assert_sr_not_indestructible ~__context ~sr;
+          Xapi_sr.assert_sr_not_local_cache ~__context ~sr;
 
-    (* don't forward this is just a db call *)
+          forward_sr_op ~consider_unplugged_pbds:true ~local_fn:local_destroy ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.destroy rpc session_id sr);
+
+          forward_sr_all_op ~consider_unplugged_pbds:true ~local_fn:local_forget ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.forget rpc session_id sr);
+
+          (* don't forward - this is just a db call *)
+          Xapi_sr.really_forget ~__context ~sr
+        )
+
     let forget ~__context ~sr =
       info "SR.forget: SR = '%s'" (sr_uuid ~__context sr);
+      let local_fn = Local.SR.forget ~sr in
       with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget
         (fun () ->
-           Local.SR.forget ~__context ~sr)
+          Xapi_sr.assert_all_pbds_unplugged ~__context ~sr;
+          forward_sr_all_op ~consider_unplugged_pbds:true ~local_fn ~__context ~self:sr
+            (fun session_id rpc -> Client.SR.forget rpc session_id sr);
+
+          (* don't forward - this is just a db call *)
+          Xapi_sr.really_forget ~__context ~sr
+        )
 
     let update ~__context ~sr =
       info "SR.update: SR = '%s'" (sr_uuid ~__context sr);
