@@ -21,6 +21,7 @@ depends: [
   "ezxenstore"
   "fmt" {with-test}
   "http-svr"
+  "mirage-crypto-pk"
   "message-switch-unix"
   "mtime"
   "ocaml-migrate-parsetree"
