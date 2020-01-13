@@ -24,6 +24,8 @@ open Server_helpers
 open Client
 open Db_filter_types
 
+module E = Either
+
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
@@ -32,7 +34,7 @@ let info = Audit.debug
 
 module PBDSet = Set.Make (struct
   type t = API.ref_PBD
-  let compare = Stdlib.compare
+  let compare = Pervasives.compare
 end)
 
 (**************************************************************************************)
@@ -184,7 +186,6 @@ let hosts_with_several_srs ~__context srs =
    consider_unplugged_pbds argument below. All other SR ops only
    consider plugged PBDs. *)
 let choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () =
-  let module R = Stdlib.Result in
   let all_pbds = Db.SR.get_PBDs ~__context ~self in
   let plugged_pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) all_pbds in
   let pbds_to_consider = if consider_unplugged_pbds then all_pbds else plugged_pbds in
@@ -197,21 +198,21 @@ let choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () =
          on the master. *)
       let sr_master_pbds, rest_pbds = PBDSet.partition (fun pbd -> PBDSet.mem pbd master_pbds) pbds in
       if PBDSet.is_empty sr_master_pbds then
-        Error `Sr_no_pbds
+        E.Left `Sr_no_pbds
       else
-        Ok (List.rev_append (PBDSet.elements sr_master_pbds) (PBDSet.elements rest_pbds))
+        E.Right (List.rev_append (PBDSet.elements sr_master_pbds) (PBDSet.elements rest_pbds))
     else
-      Ok pbds_to_consider
+      E.Right pbds_to_consider
   in
-  R.bind pbd_candidates (function
-  | []   -> Error `Sr_no_pbds
-  | pbds -> Ok pbds)
+  E.Monad.bind pbd_candidates (function
+  | []   -> E.Left `Sr_no_pbds
+  | pbds -> E.Right pbds)
 
 let choose_pbd_for_sr ~consider_unplugged_pbds ~__context ~self () =
   match choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () with
-  | Ok (x::_)         -> x
-  | Ok []             -> failwith "expected 'choose_pbds_for_sr' to return a non-empty list"
-  | Error `Sr_no_pbds -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
+  | E.Right (x::_)     -> x
+  | E.Right []         -> failwith "expected 'choose_pbds_for_sr' to return a non-empty list"
+  | E.Left `Sr_no_pbds -> raise (Api_errors.Server_error(Api_errors.sr_no_pbds, [ Ref.string_of self ]))
 
 let loadbalance_host_operation ~__context ~hosts ~doc ~op (f: API.ref_host -> unit)  =
   let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -3091,15 +3092,15 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
        unplugged PBDs, best effort *)
     let forward_sr_all_op ?(consider_unplugged_pbds=false) ~local_fn ~__context ~self op =
       match choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () with
-      | Error `Sr_no_pbds -> D.info "forward_sr_all_op: doing nothing - there are no pbds attached to SR (%s)" (Ref.string_of self)
-      | Ok pbds           -> pbds |>
-                             List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) |>
-                             List.iter (fun host ->
-                                 try
-                                   do_op_on ~local_fn ~__context ~host op
-                                 with Api_errors.Server_error (reason, _) when reason = Api_errors.host_offline ->
-                                   () (* allow an offline host to continue the operation *)
-                             )
+      | E.Left `Sr_no_pbds -> D.info "forward_sr_all_op: doing nothing - there are no pbds attached to SR (%s)" (Ref.string_of self)
+      | E.Right pbds       -> pbds |>
+                              List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd) |>
+                              List.iter (fun host ->
+                                  try
+                                    do_op_on ~local_fn ~__context ~host op
+                                  with Api_errors.Server_error (reason, _) when reason = Api_errors.host_offline ->
+                                    () (* allow an offline host to continue the operation *)
+                              )
 
     let set_virtual_allocation ~__context ~self ~value =
       Sm.assert_session_has_internal_sr_access ~__context ~sr:self;
