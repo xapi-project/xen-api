@@ -38,6 +38,13 @@ let cli_cmd args =
   | e ->
     Alcotest.fail ("CLI failed" ^ (Printexc.to_string e))
 
+(** Look up key in /etc/xensource-inventory *)
+let inventory_lookup k =
+  Xapi_inventory.inventory_filename := "/etc/xensource-inventory";
+  Xapi_inventory.lookup k
+
+let localhost_uuid = inventory_lookup Xapi_inventory._installation_uuid
+
 module Test = struct
   let assert_raises_match exception_match fn =
     try
@@ -119,8 +126,7 @@ module VM = struct
     Client.Client.Host.get_control_domain rpc session_id host
 
   let get_dom0 rpc session_id =
-    Xapi_inventory.inventory_filename := "/etc/xensource-inventory";
-    let uuid = Xapi_inventory.lookup Xapi_inventory._control_domain_uuid in
+    let uuid = inventory_lookup Xapi_inventory._control_domain_uuid in
     Client.Client.VM.get_by_uuid ~rpc ~session_id ~uuid
 end
 
