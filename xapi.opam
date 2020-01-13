@@ -23,6 +23,7 @@ depends: [
   "http-svr"
   "message-switch-unix"
   "mtime"
+  "nocrypto"
   "ocaml-migrate-parsetree"
   "ounit"
   "pciutil"
