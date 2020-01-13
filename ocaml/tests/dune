@@ -5,6 +5,7 @@
   (libraries
     alcotest
     daily_license_check
+    nocrypto.unix
     xapi_internal
     xapi-stdext-date
   )

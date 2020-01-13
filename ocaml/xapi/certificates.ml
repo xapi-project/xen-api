@@ -21,6 +21,7 @@ module D=Debug.Make(struct let name="certificates" end)
 open D
 
 type t_trusted = Certificate | CRL
+type t_server = Leaf | Chain
 
 let c_rehash = "/usr/bin/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
@@ -334,3 +335,57 @@ let validate_private_key pkcs8_private_key =
   |> function
     | Ok priv -> priv
     | Error `Msg (err, msg) -> raise_server_error msg err
+
+let validate_certificate kind str now private_key =
+  let open Rresult in
+  let ensure_keys_match private_key certificate =
+    let public_key = X509.Certificate.public_key certificate in
+    match public_key, private_key with
+    | `RSA pub, `RSA priv when pub = Nocrypto.Rsa.pub_of_priv priv ->
+        Ok certificate
+    | _ ->
+        Error (`Msg (server_certificate_key_mismatch, []))
+  in
+
+  let ensure_validity ~time certificate =
+    let to_string = Ptime.to_rfc3339 in
+    let not_before, not_after = X509.Certificate.validity certificate in
+
+    if Ptime.is_earlier time not_before then
+      Error (`Msg (server_certificate_not_valid_yet,
+        [(to_string time); (to_string not_before)]))
+    else if Ptime.is_later time not_after then
+      Error (`Msg (server_certificate_expired,
+          [(to_string time); (to_string not_after)]))
+    else
+      Ok certificate
+  in
+
+  let ensure_sha256_signature_algorithm certificate =
+    match X509.Certificate.signature_algorithm certificate with
+    | Some (_, `SHA256) ->
+        Ok certificate
+    | _ ->
+        Error (`Msg (server_certificate_signature_not_supported, []))
+  in
+
+  let raw_pem = Cstruct.of_string str in
+  (match kind with
+  | Leaf ->
+    X509.Certificate.decode_pem raw_pem
+    |> R.reword_error
+        (fun _ ->
+          `Msg (server_certificate_invalid, []))
+    >>= ensure_keys_match private_key
+    >>= ensure_validity ~time:now
+    >>= ensure_sha256_signature_algorithm
+    >>| (fun cert -> [cert])
+  | Chain ->
+    X509.Certificate.decode_pem_multiple raw_pem
+    |> R.reword_error
+        (fun _ ->
+          `Msg (server_certificate_chain_invalid, []))
+    )
+  |> function
+    | Ok _ -> ()
+    | Error (`Msg (err, msg)) -> raise_server_error msg err
