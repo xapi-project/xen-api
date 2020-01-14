@@ -113,7 +113,7 @@ connect = 80
 cert = ${PEMFILE}
 ciphers = !SSLv2:${GOOD_CIPHERS}${EXTRA_CIPHERS}
 curve = secp384r1
-TIMEOUTclose = 0
+TIMEOUTclose = 1
 options = CIPHER_SERVER_PREFERENCE
 options = NO_SSLv2
 EOF
