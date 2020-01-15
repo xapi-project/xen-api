@@ -754,8 +754,8 @@ module XenopsAPI (R : RPC) = struct
     open TypeCombinators
 
     let pci_t_p = Param.mk ~name:"pci" Pci.t
-
     let pci_id_p = Param.mk ~name:"id" Pci.id
+    let pci_addr_p = Param.mk ~name:"pci_addr" Pci.address
 
     let add =
       declare "PCI.add" [] (debug_info_p @-> pci_t_p @-> returning pci_id_p err)
@@ -774,6 +774,10 @@ module XenopsAPI (R : RPC) = struct
       in
       declare "PCI.list" []
         (debug_info_p @-> VM.vm_id_p @-> returning stat_list_p err)
+
+    let dequarantine =
+      declare "PCI.dequarantine" ["De-quarantine PCI device into dom0"]
+        (debug_info_p @-> pci_addr_p @-> returning unit_p err)
   end
 
   module VBD = struct
