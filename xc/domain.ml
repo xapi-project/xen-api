@@ -303,6 +303,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   try
     let dom_path = xs.Xs.getdomainpath domid in
     let xenops_dom_path = xenops_path_of_domain domid in
+    let libxl_dom_path = sprintf "/libxl/%d" domid in
     let vm_path = "/vm/" ^ (Uuid.to_string uuid) in
     let roperm = Xenbus_utils.roperm_for_guest domid in
     let rwperm = Xenbus_utils.rwperm_for_guest domid in
@@ -314,9 +315,11 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
         (* Clear any existing rubbish in xenstored *)
         t.Xst.rm dom_path;
         t.Xst.rm xenops_dom_path;
+        t.Xst.rm libxl_dom_path;
 
         t.Xst.mkdirperms dom_path roperm;
         t.Xst.mkdirperms xenops_dom_path zeroperm;
+        t.Xst.mkdirperms libxl_dom_path zeroperm;
 
         (* The /vm path needs to be shared over a localhost migrate *)
         let vm_exists = try ignore(t.Xst.read vm_path); true with _ -> false in
@@ -502,6 +505,7 @@ let sysrq ~xs domid key =
 let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
   let dom_path = xs.Xs.getdomainpath domid in
   let xenops_dom_path = xenops_path_of_domain domid in
+  let libxl_dom_path = sprintf "/libxl/%d" domid in
   let uuid = get_uuid ~xc domid in
 
   (* Move this out of the way immediately *)
@@ -594,11 +598,12 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
   let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
   Opt.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
 
-  (* Delete /local/domain/<domid>, /xenops/domain/<domid>
+  (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid>
      	 * and all the backend device paths *)
   debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid dom_path;
   xs.Xs.rm dom_path;
   xs.Xs.rm xenops_dom_path;
+  xs.Xs.rm libxl_dom_path;
   debug "VM = %s; domid = %d; deleting backends" (Uuid.to_string uuid) domid;
   List.iter (fun path ->
       let backend_path = xs.Xs.getdomainpath 0 ^ path in
@@ -861,7 +866,7 @@ let correct_shadow_allocation xc domid uuid shadow_mib =
   end
 
 (* puts value in store after the domain build succeed *)
-let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
+let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid domain_type
     store_mfn store_port ents vments =
   let uuid = get_uuid ~xc domid in
   let dom_path = xs.Xs.getdomainpath domid in
@@ -881,6 +886,12 @@ let build_post ~xc ~xs ~vcpus ~static_max_mib ~target_mib domid
     let vm_path = xs.Xs.read (dom_path ^ "/vm") in
     Xs.transaction xs (fun t -> t.Xst.writev vm_path vments)
   );
+  let libxl_dom_type = match domain_type with
+    | `pv -> "PV"
+    | `hvm -> "HVM"
+    | `pvh -> "PVH"
+  in
+  xs.Xs.write (sprintf "/libxl/%d/type" domid) libxl_dom_type;
   debug "VM = %s; domid = %d; @introduceDomain" (Uuid.to_string uuid) domid;
   xs.Xs.introduce domid store_mfn store_port
 
@@ -911,7 +922,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
   (* Sanity check. *)
   assert (target_mib <= static_max_mib);
 
-  let store_mfn, store_port, console_mfn, console_port, vm_stuff =
+  let store_mfn, store_port, console_mfn, console_port, vm_stuff, domain_type =
     match info.priv with
     | BuildHVM hvminfo ->
       let shadow_multiplier = hvminfo.shadow_multiplier in
@@ -926,7 +937,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
         xenguest task xenguest_path domid uuid args
       in
       correct_shadow_allocation xc domid uuid memory.Memory.shadow_mib;
-      store_mfn, store_port, console_mfn, console_port, ["rtc/timeoffset", timeoffset]
+      store_mfn, store_port, console_mfn, console_port, ["rtc/timeoffset", timeoffset], `hvm
 
     | BuildPV pvinfo  ->
       let shadow_multiplier = Memory.Linux.shadow_multiplier_default in
@@ -940,7 +951,7 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
           @ force_arg @ extras in
         xenguest task xenguest_path domid uuid args
       in
-      store_mfn, store_port, console_mfn, console_port, []
+      store_mfn, store_port, console_mfn, console_port, [], `pv
 
     | BuildPVH pvhinfo ->
       let shadow_multiplier = pvhinfo.shadow_multiplier in
@@ -955,12 +966,12 @@ let build (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid ~t
         xenguest task xenguest_path domid uuid args
       in
       correct_shadow_allocation xc domid uuid memory.Memory.shadow_mib;
-      store_mfn, store_port, console_mfn, console_port, ["rtc/timeoffset", timeoffset]
+      store_mfn, store_port, console_mfn, console_port, ["rtc/timeoffset", timeoffset], `pvh
 
   in
   let local_stuff = console_keys console_port console_mfn in
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-    domid store_mfn store_port local_stuff vm_stuff
+    domid domain_type store_mfn store_port local_stuff vm_stuff
 
 type suspend_flag = Live | Debug
 
@@ -1318,7 +1329,7 @@ type suspend_flag = Live | Debug
     let local_stuff = console_keys console_port console_mfn in
     (* And finish domain's building *)
     build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib
-      domid store_mfn store_port local_stuff vm_stuff
+      domid domain_type store_mfn store_port local_stuff vm_stuff
 
       (*
   let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid

@@ -2998,7 +2998,6 @@ module Backend = struct
       let stop ~xs ~qemu_domid domid =
         Dm_Common.stop ~xs ~qemu_domid domid;
         QMP_Event.remove domid;
-        xs.Xs.rm (sprintf "/libxl/%d" domid);
         let rm path =
           let msg = Printf.sprintf "removing %s" path in
           Generic.best_effort msg (fun () -> Socket.Unix.rm path) in
