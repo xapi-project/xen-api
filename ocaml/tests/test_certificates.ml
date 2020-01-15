@@ -83,7 +83,7 @@ let corrupt_certificates =
     []
   ]
 
-let key_chain = List.map (fun _ -> `RSA (Nocrypto.Rsa.generate 2048)) (List.init 3 Fun.id)
+let key_chain = List.init 3 (fun _ -> `RSA (Nocrypto.Rsa.generate 2048))
 
 (* ( certificate_name, leaf_private_key, time_of_validation, error_tye,
      error_message list ) *)
@@ -162,7 +162,7 @@ let corrupt_leaf_cert_tests =
     (server_error error reason)
     (fun () -> validate_certificate Leaf cert time pkey)
   in
-  "Validation of a corrupted certificate: ", `Quick, test)
+  "Validation of a corrupted certificate", `Quick, test)
   corrupt_certificates
 
 let invalid_leaf_cert_tests =
@@ -190,14 +190,14 @@ let valid_chain_cert_tests =
     pkey, cert :: chain
   ) ((load_pkcs8 "pkey_rsa_4096"), []) key_chain in
   let chain = Cstruct.to_string (X509.Certificate.encode_pem_multiple chain) in
-  ["Validation of a supported certificate chain: ",
+  ["Validation of a supported certificate chain",
   `Quick, test_valid_cert_chain chain time pkey]
 
 let invalid_chain_cert_tests =
   List.map (fun (chain_name, pkey_name, time, error, reason) ->
     let chain = load_test_data chain_name in
     let pkey = load_pkcs8 pkey_name in
-    "Validation of an unsupported certificate chain: ",
+    "Validation of an unsupported certificate chain",
     `Quick, test_invalid_cert_chain chain (time_of_rfc3339 time) pkey error reason)
   corrupt_chain_certificates
 
