@@ -50,3 +50,7 @@ val get_system_display_device : unit -> string option
 
 (** Disable decoding for the host's display device. *)
 val disable_system_display_device : unit -> unit
+
+(** dequarantine a PCI device. This is idempotent. *)
+val dequarantine : __context:Context.t -> Xenops_interface.Pci.address -> unit
+

@@ -375,6 +375,8 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   let bind_path = "/sys/bus/pci/drivers/nvidia/bind" in
   let unbind_path pci = sprintf "/sys/bus/pci/devices/%s/driver/unbind" pci in
   let pci       = Db.PCI.get_pci_id ~__context ~self:pf in
+  let addr_of pci = Xenops_interface.Pci.address_of_string pci in
+  let dequarantine pci = Xapi_pci.dequarantine ~__context (addr_of pci) in
 
   (** [num_vfs pci] returns the number of PCI VFs of [pci] or 0 if
     * [pci] is not an SRIOV device
@@ -434,6 +436,7 @@ let nvidia_vf_setup ~__context ~pf ~enable =
    * already created before xapi was (re)started. *)
   Mutex.execute nvidia_vf_setup_mutex @@ fun () -> begin
     debug "nvidia_vf_setup_mutex - enter";
+    dequarantine pci; (* this is always safe to do *)
     bind_to_nvidia pci;
     activate_vfs pci;
   end;
