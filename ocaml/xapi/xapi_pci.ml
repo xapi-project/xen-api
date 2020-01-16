@@ -84,6 +84,16 @@ let get_phyfn_path pci_rec =
     Some (Filename.basename (Unix.readlink path))
   with _ -> None
 
+(** [dequarantine pci] calls into Xenopsd to dequarantine the pci
+ * device. This call is idempotent.
+ *)
+let dequarantine ~__context pci =
+  let open Xapi_xenops_queue in
+  let module Client = (val make_client (default_xenopsd ()) : XENOPS) in
+  let dbg = Context.string_of_task __context in
+  debug "PCI %s dequarantine" (Xenops_interface.Pci.string_of_address pci);
+  Client.PCI.dequarantine dbg pci
+
 (** Update pf and vf settings *)
 (* For virtual function record, set field `physical_function` to its PF PCI record *)
 (* For physical function record, set field `functions` to 1 plus number of its virtual functions *)
