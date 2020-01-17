@@ -3337,8 +3337,7 @@ module Dm = struct
       let cancel = Cancel_utils.Vgpu domid in
       if not (Vgpu.is_running ~xs domid) then begin
         let pcis = List.map (fun x -> x.physical_pci_address) vgpus in
-        List.iter (fun x -> ignore(PCI.dequarantine xc x)) pcis;
-          PCI.bind pcis PCI.Nvidia;
+        PCI.bind pcis PCI.Nvidia;
         let module Q = (val Backend.of_profile profile) in
         let args = vgpu_args_of_nvidia domid vcpus vgpus restore in
         let vgpu_pid = Vgpu.start_daemon ~path:!Xc_resources.vgpu ~args
@@ -3366,7 +3365,6 @@ module Dm = struct
         raise (Ioemu_failed ("vgpu", Printf.sprintf "Daemon vgpu returned error: %s" error_code))
       end
     | [{physical_pci_address = pci; implementation = GVT_g vgpu}] ->
-      ignore(PCI.dequarantine xc pci);
       PCI.bind [pci] PCI.I915
     | [{physical_pci_address = pci; implementation = MxGPU vgpu}] ->
       Mutex.execute gimtool_m (fun () ->

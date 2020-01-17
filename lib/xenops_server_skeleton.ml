@@ -90,6 +90,7 @@ module VM = struct
 end
 module PCI = struct
   let get_state _ _ = unplugged_pci
+  let dequarantine _ = ()
   let plug _ _ _ = unimplemented "PCI.plug"
   let unplug _ _ _ = unimplemented "PCI.unplug"
   let get_device_action_request _ _ = None

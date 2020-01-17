@@ -110,6 +110,7 @@ module type S = sig
     val plug: Xenops_task.task_handle -> Vm.id -> Pci.t -> bool -> unit
     val unplug: Xenops_task.task_handle -> Vm.id -> Pci.t -> unit
     val get_device_action_request: Vm.id -> Pci.t -> device_action_request option
+    val dequarantine: Pci.address -> unit
   end
   module VBD : sig
     val set_active: Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit

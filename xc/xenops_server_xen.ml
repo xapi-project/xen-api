@@ -2365,6 +2365,16 @@ module PCI = struct
      * in Domain.destroy. *)
     ()
 
+  let dequarantine (pci:Pci.address) =
+    let fail msg = raise (Xenopsd_error (Internal_error msg)) in
+    let addr = Pci.string_of_address pci in
+    with_xc_and_xs @@ fun xc _xs ->
+      match Device.PCI.dequarantine xc pci with
+      | true ->
+          debug "PCI %s dequarantine - success" addr
+      | false ->
+          error "PCI %s dequarantine - failed" addr;
+          fail @@ Printf.sprintf "PCI %s dequarantine failed" addr
 end
 
 let set_active_device path active =

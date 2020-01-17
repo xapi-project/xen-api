@@ -210,6 +210,8 @@ sig
   val reset : xs:Xenstore.Xs.xsh -> address -> unit
   val bind : address list -> supported_driver -> unit
   val list : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
+
+  val dequarantine : Xenctrl.handle ->  Xenops_interface.Pci.address -> bool
 end
 
 module Vfs :

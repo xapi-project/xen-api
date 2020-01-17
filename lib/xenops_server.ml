@@ -88,6 +88,7 @@ type atomic =
   | VM_remove of Vm.id
   | PCI_plug of Pci.id * bool (* use Qmp.add_device *)
   | PCI_unplug of Pci.id
+  | PCI_dequarantine of Pci.id
   | VUSB_plug of Vusb.id
   | VUSB_unplug of Vusb.id
   | VGPU_set_active of Vgpu.id * bool
@@ -940,7 +941,9 @@ let rec atomics_of_operation = function
     let vusbs = VUSB_DB.vusbs id in
     let pcis_sriov, pcis_other = List.partition (is_nvidia_sriov vgpus) pcis in
     let no_sharept = List.exists is_no_sharept vgpus in
-    [ [
+    [
+      List.map (fun pci -> PCI_dequarantine pci.Pci.id) pcis
+    ; [
         VM_hook_script (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
         VM_create (id, None, None, no_sharept);
         VM_build (id, force)
@@ -1096,11 +1099,11 @@ let rec atomics_of_operation = function
   | VM_resume (id, data) ->
     (* If we've got a vGPU, then save its state will be in the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
+    let pcis = PCI_DB.pcis id |> pci_plug_order in
     let vgpu_start_operations = 
       match VGPU_DB.ids id with
       | [] -> []
       | vgpus ->
-        let pcis   = PCI_DB.pcis id |> pci_plug_order in
         let vgpus' = VGPU_DB.vgpus id in
         let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
         List.concat
@@ -1111,7 +1114,8 @@ let rec atomics_of_operation = function
     let vgpus = VGPU_DB.vgpus id in
     let no_sharept = List.exists is_no_sharept vgpus in
 
-    [ [
+    [ List.map (fun pci -> PCI_dequarantine pci.Pci.id) pcis
+    ; [
         VM_create (id, None, None, no_sharept);
         VM_hook_script (id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
       ]
@@ -1370,6 +1374,12 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
       (fun () ->
          B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
       ) (fun () -> PCI_DB.signal id)
+
+  | PCI_dequarantine id ->
+    let id' = PCI_DB.string_of_id id in
+    debug "PCI.dequarantine %s" id';
+    let pci = PCI_DB.read_exn id in
+    B.PCI.(dequarantine pci.address)
   | VUSB_plug id ->
     debug "VUSB.plug %s" (VUSB_DB.string_of_id id);
     B.VUSB.plug t (VUSB_DB.vm_of id) (VUSB_DB.read_exn id);
@@ -1627,7 +1637,8 @@ and trigger_cleanup_after_failure_atom op t =
     immediate_operation dbg (fst id) (VIF_check_state id)
 
   | PCI_plug (id, _)
-  | PCI_unplug id ->
+  | PCI_unplug id
+  | PCI_dequarantine id ->
     immediate_operation dbg (fst id) (PCI_check_state id)
 
   | VUSB_plug id
@@ -1900,11 +1911,11 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         debug "VM.receive_memory restoring VM";
         (* Check if there is a separate vGPU data channel *)
         let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        let pcis = PCI_DB.pcis id |> pci_plug_order in
         let vgpu_start_operations = 
         match VGPU_DB.ids id with
         | [] -> []
         | vgpus ->
-          let pcis   = PCI_DB.pcis id |> pci_plug_order in
           let vgpus' = VGPU_DB.vgpus id in
           let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
           List.concat
@@ -1912,9 +1923,10 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
             ; [VGPU_start (vgpus, true)]
             ]
         in
-        perform_atomics (
-          vgpu_start_operations @ [
-            VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info);
+        perform_atomics (List.concat
+          [ List.map (fun pci -> PCI_dequarantine pci.Pci.id) pcis
+          ; vgpu_start_operations
+          ; [ VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info) ]
           ]) t;
         debug "VM.receive_memory restore complete";
       ) (fun ()->
@@ -2144,6 +2156,14 @@ module PCI = struct
       (fun () ->
          debug "PCI.list %s" vm;
          DB.list vm) ()
+
+  let dequarantine _ dbg (pci_addr:Pci.address) =
+    let module B = (val get_backend () : S) in
+    let f () =
+      debug "PCI.dequarantine %s" B.PCI.(string_of_address pci_addr);
+      B.PCI.dequarantine pci_addr
+    in
+    Debug.with_thread_associated dbg f ()
 end
 
 module VGPU = struct
@@ -2893,6 +2913,7 @@ let _ =
   Server.PCI.remove (PCI.remove ());
   Server.PCI.stat (PCI.stat ());
   Server.PCI.list (PCI.list ());
+  Server.PCI.dequarantine (PCI.dequarantine ());
   Server.VBD.add (VBD.add ());
   Server.VBD.remove (VBD.remove ());
   Server.VBD.stat (VBD.stat ());

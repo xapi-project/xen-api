@@ -425,6 +425,7 @@ module PCI = struct
   let get_state vm pci = Mutex.execute m (pci_state vm pci)
 
   let get_device_action_request _vm _pci = None
+  let dequarantine _ = ()
 end
 
 module VGPU = struct
