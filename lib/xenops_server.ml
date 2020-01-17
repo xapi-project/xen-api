@@ -90,7 +90,7 @@ type atomic =
   | VM_remove of Vm.id
   | PCI_plug of Pci.id * bool (* use Qmp.add_device *)
   | PCI_unplug of Pci.id
-  | PCI_dequarantine of Pci.id
+  | PCI_dequarantine of Xenops_interface.Pci.address
   | VUSB_plug of Vusb.id
   | VUSB_unplug of Vusb.id
   | VGPU_set_active of Vgpu.id * bool
@@ -935,6 +935,19 @@ let is_nvidia_sriov vgpus pci =
 
 let is_not_nvidia_sriov vgpus pci = not (is_nvidia_sriov vgpus pci)
 
+(* [must_dequarantine] identifies GPUs that need to be de-quarantined *)
+let must_dequarantine vgpu =
+  Xenops_interface.Vgpu.(match vgpu.implementation with
+  | GVT_g _ -> true
+  | Nvidia _ -> true
+  | _ -> false
+  )
+
+(* compute a list of PCI_dequarantine operations for PCI devices *)
+let dequarantine_ops vgpus =
+  vgpus |> List.filter must_dequarantine |> List.map
+    Xenops_interface.Vgpu.(fun vgpu -> PCI_dequarantine vgpu.physical_pci_address)
+
 let rec atomics_of_operation = function
   | VM_start (id, force) ->
     let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
@@ -944,8 +957,7 @@ let rec atomics_of_operation = function
     let vusbs = VUSB_DB.vusbs id in
     let pcis_sriov, pcis_other = List.partition (is_nvidia_sriov vgpus) pcis in
     let no_sharept = List.exists is_no_sharept vgpus in
-    [
-      List.map (fun pci -> PCI_dequarantine pci.Pci.id) pcis
+    [ dequarantine_ops vgpus
     ; [
         VM_hook_script (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none);
         VM_create (id, None, None, no_sharept);
@@ -1117,7 +1129,7 @@ let rec atomics_of_operation = function
     let vgpus = VGPU_DB.vgpus id in
     let no_sharept = List.exists is_no_sharept vgpus in
 
-    [ List.map (fun pci -> PCI_dequarantine pci.Pci.id) pcis
+    [ dequarantine_ops vgpus
     ; [
         VM_create (id, None, None, no_sharept);
         VM_hook_script (id, Xenops_hooks.VM_pre_resume, Xenops_hooks.reason__none);
@@ -1378,11 +1390,9 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
          B.PCI.unplug t (PCI_DB.vm_of id) (PCI_DB.read_exn id);
       ) (fun () -> PCI_DB.signal id)
 
-  | PCI_dequarantine id ->
-    let id' = PCI_DB.string_of_id id in
-    debug "PCI.dequarantine %s" id';
-    let pci = PCI_DB.read_exn id in
-    B.PCI.(dequarantine pci.address)
+  | PCI_dequarantine addr ->
+    debug "PCI.dequarantine %s" (Xenops_interface.Pci.string_of_address addr);
+    B.PCI.(dequarantine addr)
   | VUSB_plug id ->
     debug "VUSB.plug %s" (VUSB_DB.string_of_id id);
     B.VUSB.plug t (VUSB_DB.vm_of id) (VUSB_DB.read_exn id);
@@ -1640,9 +1650,9 @@ and trigger_cleanup_after_failure_atom op t =
     immediate_operation dbg (fst id) (VIF_check_state id)
 
   | PCI_plug (id, _)
-  | PCI_unplug id
-  | PCI_dequarantine id ->
+  | PCI_unplug id ->
     immediate_operation dbg (fst id) (PCI_check_state id)
+  | PCI_dequarantine addr -> ()
 
   | VUSB_plug id
   | VUSB_unplug id ->
@@ -1922,13 +1932,13 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
           let vgpus' = VGPU_DB.vgpus id in
           let pcis_sriov = List.filter (is_nvidia_sriov vgpus') pcis in
           List.concat
-            [ List.map (fun pci -> PCI_plug(pci.Pci.id, false)) pcis_sriov
+            [ dequarantine_ops vgpus'
+            ; List.map (fun pci -> PCI_plug(pci.Pci.id, false)) pcis_sriov
             ; [VGPU_start (vgpus, true)]
             ]
         in
         perform_atomics (List.concat
-          [ List.map (fun pci -> PCI_dequarantine pci.Pci.id) pcis
-          ; vgpu_start_operations
+          [ vgpu_start_operations
           ; [ VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info) ]
           ]) t;
         debug "VM.receive_memory restore complete";
