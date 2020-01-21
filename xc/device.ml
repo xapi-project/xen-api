@@ -249,9 +249,10 @@ module Generic = struct
       let qdisk = is_qdisk x in
       debug "Device.unplug_watch %s, qdisk=%b" (string_of_device x) qdisk;
       let backend_watch = if qdisk then [ (), on_backend_closed_unplug ~xs x] else [] in
+      let frontend_gone = (), frontend_rw_path_of_device ~xs x ^ "/state" |> Watch.key_to_disappear in
       let unplugged_watch = (), unplug_watch ~xs x in
       (* we need to evaluate all watches, so use any_of *)
-      Watch.any_of (unplugged_watch :: backend_watch)
+      Watch.any_of (unplugged_watch :: frontend_gone :: backend_watch)
       |> Watch.map (fun _ -> ())
     in
     let error = Watch.map (fun _ -> ()) (error_watch ~xs x) in
