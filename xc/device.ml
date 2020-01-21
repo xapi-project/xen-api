@@ -518,7 +518,7 @@ module Vbd_Common = struct
 
     (* As for add above, if the frontend is in dom0, we can wait for the frontend
        	 * to unplug as well as the backend. CA-13506 *)
-    if x.frontend.domid = 0 then Hotplug.wait_for_frontend_unplug task ~xs x
+    if x.frontend.domid = 0 && x.backend.domid=0 then Hotplug.wait_for_frontend_unplug task ~xs x
 
   let free_device ~xs hvm domid =
     let disks = List.map
@@ -631,7 +631,7 @@ module Vbd_Common = struct
        	   to wait for this condition to make the template installers work.
        	   NB if the custom hotplug script fires this implies that the xenbus state
        	   reached "connected", so we don't have to check for that first. *)
-    if device.frontend.domid = 0 then begin
+    if device.frontend.domid = 0 && device.backend.domid=0 then begin
       try
         (* CA-15605: clean up on dom0 block-attach failure *)
         Hotplug.wait_for_frontend_plug task ~xs device;
