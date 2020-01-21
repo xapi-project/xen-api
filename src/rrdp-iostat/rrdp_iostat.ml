@@ -134,7 +134,7 @@ module Iostat = struct
     let cmdstring = Printf.sprintf "/usr/bin/iostat -x %s 1 2" dev_str in (* 2 iterations; 1 second between them *)
 
     (* Iterate through each line and populate dev_values_map *)
-    let _ = Utils.exec_cmd ~cmdstring ~f:process_line in
+    let _ = Utils.exec_cmd (module Process.D) ~cmdstring ~f:process_line in
 
     (* Now read the values out of dev_values_map for devices for which we have data *)
     Listext.List.filter_map (fun dev ->
