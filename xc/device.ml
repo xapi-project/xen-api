@@ -594,6 +594,16 @@ module Vbd_Common = struct
       "params", x.params;
     ]);
 
+    let qemu_params = x.extra_backend_keys |> List.assoc_opt "qemu-params" |> Option.value ~default:"" in
+    begin match String.split_on_char ' ' qemu_params with
+    | [physical_device_path; physical_device] ->
+      List.iter (fun (k, v) -> Hashtbl.replace back_tbl k v) [
+          "physical-device", physical_device;
+          "physical-device-path", physical_device_path
+      ]
+    | _ -> ()
+    end;
+
     Opt.iter
       (fun protocol ->
          Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)

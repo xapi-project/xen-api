@@ -8,7 +8,7 @@ VM=$(xenstore-read "/local/domain/${DOMID}/vm" 2> /dev/null)
 DOMUUID=$(xenstore-read "${VM}/uuid" 2> /dev/null)
 PRIVATE=/xapi/${DOMUUID}/private/${TYPE}/${DEVID}
 HOTPLUG=/xapi/${DOMUUID}/hotplug/${DOMID}/${TYPE}/${DEVID}
-HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
+HOTPLUG_STATUS="${XENBUS_PREFIX}${XENBUS_PATH}/hotplug-status"
 
 syslog ()
 {
@@ -17,19 +17,21 @@ syslog ()
 
 case "$1" in
 add)
-        params=$(xenstore-read "${XENBUS_PATH}/params")
-        params=$(readlink -f $params || echo $params)
-        frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
-        syslog "${XENBUS_PATH}: add params=\"${params}\""
-        physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
-        syslog "${XENBUS_PATH}: physical-device=${physical_device}"
-        xenstore-exists "${XENBUS_PATH}/physical-device"
-        if [ $? -eq 1 ]; then
-                syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
-                xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
-        fi
-        xenstore-write "${HOTPLUG}/hotplug" "online"
-        xenstore-write "${HOTPLUG_STATUS}" "connected"
+	if [ "$XENBUS_PREFIX" = "" ]; then
+		params=$(xenstore-read "${XENBUS_PATH}/params")
+		params=$(readlink -f $params || echo $params)
+		frontend="/local/domain/${DOMID}/device/${TYPE}/${DEVID}"
+		syslog "${XENBUS_PATH}: add params=\"${params}\""
+		physical_device=$(/usr/bin/stat --format="%t:%T" "${params}")
+		syslog "${XENBUS_PATH}: physical-device=${physical_device}"
+		xenstore-exists "${XENBUS_PATH}/physical-device"
+		if [ $? -eq 1 ]; then
+			syslog "${XENBUS_PATH}: writing physical-device=${physical_device}"
+			xenstore-write "${XENBUS_PATH}/physical-device" "${physical_device}"
+		fi
+	fi
+	xenstore-write "${HOTPLUG}/hotplug" "online"
+	xenstore-write "${HOTPLUG_STATUS}" "connected"
 	;;
 change)
 	syslog "${XENBUS_PATH}: change"
