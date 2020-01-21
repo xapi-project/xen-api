@@ -38,7 +38,9 @@ change)
 	;;
 remove)
 	syslog "${XENBUS_PATH}: remove"
-    xenstore-rm "${HOTPLUG_STATUS}"
-	xenstore-rm "${HOTPLUG}/hotplug"
+	xenstore-exists "${HOTPLUG_STATUS}" && xenstore-rm "${HOTPLUG_STATUS}"
+	xenstore-exists "${HOTPLUG}/hotplug" && xenstore-rm "${HOTPLUG}/hotplug"
+	# so that exitcode is 0 even if above xenstore-exists has failed
+	true
 	;;
 esac
