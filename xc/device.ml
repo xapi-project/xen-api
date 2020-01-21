@@ -281,10 +281,13 @@ module Generic = struct
     safe_rm xs (frontend_rw_path_of_device ~xs x);
     safe_rm xs (frontend_ro_path_of_device ~xs x)
 
+  let run_hotplug_scripts (x: device) =
+    !Xenopsd.run_hotplug_scripts || x.backend.domid > 0
+
   let hard_shutdown_complete ~xs (x: device) =
     if is_qdisk x then
       safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x);
-    if !Xenopsd.run_hotplug_scripts
+    if run_hotplug_scripts x
     then backend_closed ~xs x
     else unplug_watch ~xs x
 
@@ -509,7 +512,7 @@ module Vbd_Common = struct
     Generic.safe_rm ~xs (backend_path_of_device ~xs x);
     Hotplug.release task ~xc ~xs x;
 
-    if !Xenopsd.run_hotplug_scripts
+    if Generic.run_hotplug_scripts x
     then Hotplug.run_hotplug_script x [ "remove" ];
 
     (* As for add above, if the frontend is in dom0, we can wait for the frontend
@@ -603,7 +606,7 @@ module Vbd_Common = struct
     device
 
   let add_wait (task: Xenops_task.task_handle) ~xc ~xs device =
-    if !Xenopsd.run_hotplug_scripts
+    if Generic.run_hotplug_scripts device
     then Hotplug.run_hotplug_script device [ "add" ];
 
     Hotplug.wait_for_plug task ~xs device;
@@ -757,7 +760,7 @@ module Vif = struct
 
     Generic.add_device ~xs device back front extra_private_keys extra_xenserver_keys;
 
-    if !Xenopsd.run_hotplug_scripts then begin
+    if Generic.run_hotplug_scripts device then begin
       (* The VIF device won't be created until the backend is
          		   in state InitWait: *)
       Hotplug.wait_for_connect task ~xs device;
@@ -783,7 +786,7 @@ module Vif = struct
   let release (task: Xenops_task.task_handle) ~xc ~xs (x: device) =
     debug "Device.Vif.release %s" (string_of_device x);
 
-    if !Xenopsd.run_hotplug_scripts then begin
+    if Generic.run_hotplug_scripts x then begin
       let tap = { x with backend = { x.backend with kind = Tap } } in
       Hotplug.run_hotplug_script x [ "remove" ];
       Hotplug.run_hotplug_script tap [ "remove" ];
