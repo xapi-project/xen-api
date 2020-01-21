@@ -105,7 +105,19 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
 
       evacuate ());
 
-  log_and_ignore_exn (fun () -> get_running_domains () |> shutdown)
+  log_and_ignore_exn (fun () -> get_running_domains () |> shutdown);
+
+  (* The driver domains shouldn't be in use at this point, so we should be able to
+   * shut them down *)
+  log_and_ignore_exn @@ fun () ->
+      get_resident_vms ~__context ~self:host |> fst
+      |> List.filter_map (fun vm ->
+          match System_domains.pbd_of_vm ~__context ~vm with
+          | None -> None (* Dom0 and unused driver domains would end up here *)
+          | Some pbd ->
+            Xapi_pbd.unplug ~__context ~self:pbd;
+            Some vm)
+      |> shutdown
 
 let ensure_no_vms ~__context ~evacuate_timeout =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
