@@ -25,8 +25,19 @@ open Pervasiveext
 open Xmlrpc_client
 open Threadext
 
-let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None; ssl=false }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
-let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = "/services/SM"; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+let with_cookie t request =
+  let cookie = [("pool_secret", t)] in
+  {request with Http.Request.cookie}
+
+let storage_url ?pool_secret url = url, pool_secret
+
+let local_url () = Http.Url.(Http { host="127.0.0.1"; auth=None; port=None;
+                                    ssl=false }, { uri = Constants.sm_uri; query_params=[] } )
+                   |> storage_url ~pool_secret:!Xapi_globs.pool_secret
+
+let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true },
+                              { uri = "/services/SM"; query_params=[] } )
+                    |> storage_url ~pool_secret:!Xapi_globs.pool_secret
 
 open Storage_interface
 open Storage_task
@@ -203,9 +214,15 @@ module State = struct
     | _ -> failwith "Bad id"
 end
 
-let rec rpc ~srcstr ~dststr url call =
+let rec rpc ~srcstr ~dststr (url, pool_secret) call =
+  let http = xmlrpc ~version:"1.0"
+    ?auth:(Http.Url.auth_of url)
+    ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url) in
+  let http = match pool_secret with
+    | Some pool_secret -> with_cookie pool_secret http
+    | None -> http in
   let result = XMLRPC_protocol.rpc ~transport:(transport_of_url url)
-      ~srcstr ~dststr ~http:(xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url)) call
+      ~srcstr ~dststr ~http call
   in
   if not result.Rpc.success then begin
     debug "Got failure: checking for redirect";
@@ -217,7 +234,7 @@ let rec rpc ~srcstr ~dststr url call =
       let newurl =
         match url with
         | (Http h, d) ->
-          (Http {h with host=ip}, d)
+          (Http {h with host=ip}, d), pool_secret
         | _ ->
           remote_url ip in
       debug "Redirecting to ip: %s" ip;
@@ -282,7 +299,7 @@ let progress_callback start len t y =
 
 let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
   let remote_url = Http.Url.of_string url in
-  let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+  let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" (storage_url remote_url) end) in
   debug "copy local=%s/%s url=%s remote=%s/%s" sr vdi url dest dest_vdi;
 
   (* Check the remote SR exists *)
@@ -415,7 +432,7 @@ let stop ~dbg ~id =
         debug "Snapshot VDI already cleaned up"
     end;
     let remote_url = Http.Url.of_string alm.State.Send_state.remote_url in
-    let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+    let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" (storage_url remote_url) end) in
     (try Remote.DATA.MIRROR.receive_cancel ~dbg ~id with _ -> ());
     State.remove_local_mirror id
   | None ->
@@ -425,7 +442,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
   debug "Mirror.start sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
   SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
   let remote_url = Http.Url.of_string url in
-  let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
+  let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" (storage_url remote_url) end) in
 
   (* Find the local VDI *)
   let vdis = Local.SR.scan ~dbg ~sr in
@@ -623,7 +640,7 @@ let killall ~dbg =
          List.iter log_and_ignore_exn
            [ (fun () -> Local.DP.destroy ~dbg ~dp:copy_state.State.Copy_state.leaf_dp ~allow_leak:true);
              (fun () -> Local.DP.destroy ~dbg ~dp:copy_state.State.Copy_state.base_dp ~allow_leak:true) ];
-         let remote_url = Http.Url.of_string copy_state.State.Copy_state.remote_url in
+         let remote_url = Http.Url.of_string copy_state.State.Copy_state.remote_url |> storage_url in
          let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
          List.iter log_and_ignore_exn
            [ (fun () -> Remote.DP.destroy ~dbg ~dp:copy_state.State.Copy_state.remote_dp ~allow_leak:true);
@@ -766,7 +783,7 @@ let post_detach_hook ~sr ~vdi ~dp =
   let id = State.mirror_id_of (sr,vdi) in
   State.find_active_local_mirror id |>
   Opt.iter (fun r ->
-      let remote_url = Http.Url.of_string r.url in
+      let remote_url = Http.Url.of_string r.url |> storage_url in
       let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
       let t = Thread.create (fun () ->
           debug "Calling receive_finalize";
@@ -808,7 +825,7 @@ let nbd_handler req s sr vdi dp =
 
 let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
   debug "copy sr:%s vdi:%s url:%s dest:%s" sr vdi url dest;
-  let remote_url = Http.Url.of_string url in
+  let remote_url = Http.Url.of_string url |> storage_url in
   let module Remote = Client(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end) in
   try
     (* Find the local VDI *)
@@ -890,7 +907,7 @@ let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
  * for snapshot_of, snapshot_time and is_a_snapshot, which we don't want to add
  * to SMAPI. *)
 let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs =
-  let remote_url = Http.Url.of_string url in
+  let remote_url = Http.Url.of_string url |> storage_url in
   let module Remote =
     Client(struct
       let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url

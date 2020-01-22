@@ -17,3 +17,4 @@ let string_of_vdi_type vdi_type =
 
 let vdi_type_of_string str =
   API.vdi_type_of_rpc (Rpc.String str)
+
