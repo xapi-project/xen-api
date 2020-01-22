@@ -295,7 +295,7 @@ let release_leq x y =
 
 (** Types of object fields. Accessor functions are generated for each field automatically according to its type and qualifiers. *)
 type ty =
-  | String | Int | Float | Bool | DateTime
+  | SecretString | String | Int | Float | Bool | DateTime
   | Enum of string * (string * string) list
   | Set of ty
   | Map of ty * ty

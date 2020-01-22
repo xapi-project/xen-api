@@ -41,7 +41,7 @@ module Types = struct
     | Set x as y -> y :: decompose x
     | Map (a, b) as y -> y :: decompose a @ decompose b
     | Option x as y -> y :: decompose x
-    | String | Int | Float | DateTime | Enum _ | Bool | Ref _ | Record _ as x -> [ x ]
+    | SecretString | String | Int | Float | DateTime | Enum _ | Bool | Ref _ | Record _ as x -> [ x ]
 
   (** All types in a list of objects (automatically decomposes) *)
   let of_objects system =

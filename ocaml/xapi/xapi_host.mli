@@ -234,7 +234,7 @@ val set_localdb_key : __context:Context.t -> host:API.ref_host -> key:string -> 
 (** {2 Secrets} *)
 
 val update_pool_secret :
-  __context:'a -> host:'b -> pool_secret:string -> unit
+  __context:'a -> host:'b -> pool_secret:SecretString.t -> unit
 
 
 (** {2 Supplemental Packs} *)

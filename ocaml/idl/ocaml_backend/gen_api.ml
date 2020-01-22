@@ -91,7 +91,7 @@ let gen_record_type ~with_module highapi tys =
           match fld.ty with
           | Option ty ->
               sprintf "(opt_map %s %s)" (rpc_of_fn ty) field
-          | String | Int | Float | Bool | DateTime | Enum _ | Set _ | Map _ | Ref _ | Record _ ->
+          | SecretString | String | Int | Float | Bool | DateTime | Enum _ | Set _ | Map _ | Ref _ | Record _ ->
             sprintf "(Some (%s %s))" (rpc_of_fn fld.ty) field
         in
         sprintf "opt_map (fun v -> (%s, v)) %s"  (rpc_field fld) value
@@ -118,7 +118,7 @@ let gen_record_type ~with_module highapi tys =
           | Option ty ->
             sprintf "(if List.mem_assoc %s x then Some (%s) else None)"
               rpc_field (get_field ty)
-          | String | Int | Float | Bool | DateTime | Enum _ | Set _ | Map _ | Ref _ | Record _ ->
+          | SecretString | String | Int | Float | Bool | DateTime | Enum _ | Set _ | Map _ | Ref _ | Record _ ->
             sprintf "(%s)" (get_field fld.ty)
         in
         sprintf "%s = %s" (field fld) value
@@ -171,6 +171,7 @@ let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
 let toposort_types highapi types =
   let rec inner result remaining =
     let rec references name = function
+      | DT.SecretString
       | DT.String
       | DT.Int
       | DT.Float

@@ -63,6 +63,7 @@ let ocaml_of_enum list =
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)
 let rec alias_of_ty ?(prefix="") = function
+  | SecretString                  -> "secretstring"
   | String                        -> "string"
   | Int                           -> "int64"
   | Float                         -> "float"
@@ -78,6 +79,7 @@ let rec alias_of_ty ?(prefix="") = function
 (** Convert an IDL type into a string containing OCaml code representing the
     type. *)
 let rec ocaml_of_ty = function
+  | SecretString -> "SecretString.t"
   | String -> "string"
   | Int -> "int64"
   | Float -> "float"

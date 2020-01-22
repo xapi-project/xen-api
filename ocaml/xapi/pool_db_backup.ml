@@ -202,8 +202,10 @@ let push_database_restore_handler (req: Http.Request.t) s _ =
     )
 
 let http_fetch_db ~master_address ~pool_secret =
-  let request = Xapi_http.http_request ~cookie:[ "pool_secret", pool_secret ]
-      Http.Get Constants.pool_xml_db_sync in
+  let request =
+    Xapi_http.http_request Http.Get Constants.pool_xml_db_sync
+    |> SecretString.with_cookie pool_secret
+  in
   let open Xmlrpc_client in
   let transport = SSL(SSL.make (), master_address, !Xapi_globs.https_port) in
   with_transport transport

@@ -49,4 +49,8 @@ let redirectable_rpc ~srcstr ~dststr ~remote_url_of_ip ~local_fn =
     end
   in rpc ~f:local_fn
 
-let remote_url ip = Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = Constants.sm_uri; query_params=["pool_secret",!Xapi_globs.pool_secret] } )
+let storage_url ?pool_secret url = url, pool_secret
+
+let remote_url ip =
+  Http.Url.(Http { host=ip; auth=None; port=None; ssl=true }, { uri = Constants.sm_uri; query_params=[] })
+  |> storage_url ~pool_secret:!Xapi_globs.pool_secret

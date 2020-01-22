@@ -44,21 +44,19 @@ open Http
 
 exception NoAuth
 
-let ref_param_of_req (req: Http.Request.t) param_name =
-  let all = Http.Request.(req.cookie @ req.query) in
-  try Some (Ref.of_string (List.assoc param_name all))
-  with Not_found -> None
+let lookup_param_of_req req param_name =
+  let open Http.Request in
+  match List.assoc_opt param_name req.cookie with
+  | Some _ as r -> r
+  | None -> List.assoc_opt param_name req.query
 
+let ref_param_of_req (req: Http.Request.t) param_name =
+  lookup_param_of_req req param_name |> Option.map Ref.of_string
+
+let _session_id = "session_id"
 
 let get_session_id (req: Request.t) =
-  let all = req.Request.cookie @ req.Request.query in
-  if List.mem_assoc "session_id" all
-  then
-    let session_id = (Ref.of_string (List.assoc "session_id" all)) in
-    session_id
-  else
-    Ref.null
-
+  ref_param_of_req req _session_id |> Option.value ~default:Ref.null
 
 let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
@@ -86,7 +84,6 @@ let rbac_audit_params_of (req: Request.t) =
 
 let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Request.t) ic =
   let http_permission = Datamodel.rbac_http_permission_prefix ^ http_action in
-  let all = req.Request.cookie @ req.Request.query in
   let subtask_of = ref_param_of_req req "subtask_of" in
   let task_id = ref_param_of_req req "task_id" in
   let rbac_raise permission msg exc =
@@ -114,47 +111,33 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
   if Context.is_unix_socket ic
   then () (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
   else
-  if List.mem_assoc "session_id" all
-  then
-    (* Session ref has been passed in - check that it's OK *)
-    begin
+    match ref_param_of_req req _session_id, SecretString.of_request req, req.Http.Request.auth with
+    | Some session_id, _, _ ->
+      (* Session ref has been passed in - check that it's OK *)
       Server_helpers.exec_with_new_task ?subtask_of "xapi_http_session_check" (fun __context ->
-          let session_id = (Ref.of_string (List.assoc "session_id" all)) in
           (try validate_session __context session_id realm;
            with _ -> raise (Http.Unauthorised realm));
           rbac_check session_id;
         );
-    end
-  else
-  if List.mem_assoc "pool_secret" all
-  then begin
-    if List.assoc "pool_secret" all = !Xapi_globs.pool_secret then
+    | None, Some pool_secret, _ when SecretString.equal pool_secret !Xapi_globs.pool_secret ->
       fn ()
-    else
+    | None, Some _, _ ->
       raise (Http.Unauthorised realm)
-  end
-  else
-    begin
-      match req.Http.Request.auth with
-      | Some (Http.Basic(username, password)) ->
-        begin
-          let session_id = try
-              Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent
-            with _ -> raise (Http.Unauthorised realm)
-          in
-          Stdext.Pervasiveext.finally
-            (fun ()-> rbac_check session_id)
-            (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
-        end
-      | Some (Http.UnknownAuth x) ->
-        raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
-      | _ -> begin
-          debug "No header credentials during http connection to %s" realm;
-          raise (Http.Unauthorised realm) end
-    end
+    | None, None, Some (Http.Basic(username, password)) ->
+      let session_id = try
+          Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent
+        with _ -> raise (Http.Unauthorised realm)
+      in
+      Stdext.Pervasiveext.finally
+        (fun ()-> rbac_check session_id)
+        (fun ()->(try Client.Session.logout inet_rpc session_id with _ -> ()))
+    | None, None, Some (Http.UnknownAuth x) ->
+      raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
+    | None, None, None -> begin
+        debug "No header credentials during http connection to %s" realm;
+        raise (Http.Unauthorised realm) end
 
 let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
-  let all = req.Request.cookie @ req.Request.query in
   let task_id = ref_param_of_req req "task_id" in
   let subtask_of = ref_param_of_req req "subtask_of" in
   let localhost = Server_helpers.exec_with_new_task "with_context" (fun __context -> Helpers.get_localhost ~__context) in
@@ -163,24 +146,20 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
       if Context.is_unix_socket s
       then Client.Session.slave_login inet_rpc localhost !Xapi_globs.pool_secret, true
       else
-      if List.mem_assoc "session_id" all
-      then Ref.of_string (List.assoc "session_id" all), false
-      else
-      if List.mem_assoc "pool_secret" all
-      then Client.Session.slave_login inet_rpc localhost (List.assoc "pool_secret" all), true
-      else begin
-        match req.Http.Request.auth with
-        | Some (Http.Basic(username, password)) ->
-          begin
-            try
+        match ref_param_of_req req _session_id, SecretString.of_request req, req.Http.Request.auth
+        with
+        | Some session_id, _, _ -> session_id, false
+        | None, Some pool_secret, _ ->
+          Client.Session.slave_login inet_rpc localhost pool_secret, true
+        | None, None, Some (Http.Basic(username, password)) ->
+          begin try
               Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent, true
             with Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
               raise (Http.Unauthorised label)
           end
-        | Some (Http.UnknownAuth x) ->
+        | None, None, Some (Http.UnknownAuth x) ->
           raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
-        | _ -> raise (Http.Unauthorised label)
-      end
+        | None, None, None -> raise (Http.Unauthorised label)
     in
     Stdext.Pervasiveext.finally
       (fun () ->

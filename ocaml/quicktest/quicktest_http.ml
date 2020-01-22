@@ -59,9 +59,10 @@ end
 module Secret_Auth_fails = struct (* {{{1 *)
 
   let invalid_pool_secret =
-    Http.Request.make ~version:"1.0" ~cookie:["pool_secret", "whatever"]
+    Http.Request.make ~version:"1.0"
       ~user_agent:"quicktest"
       Http.Get "/sync_config_files"
+    |> SecretString.with_cookie (SecretString.of_string "whatever")
 
   let invalid_basicauth =
     Http.Request.make ~version:"1.0"

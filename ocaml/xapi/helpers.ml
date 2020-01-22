@@ -318,9 +318,13 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
     Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id);
     result)
 
-let make_remote_rpc_of_url ~srcstr ~dststr url call =
+let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
   let open Xmlrpc_client in
   let http = xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url) ~query:(Http.Url.get_query_params url) (Http.Url.get_uri url) in
+  let http = match pool_secret with
+    | Some pool_secret -> SecretString.with_cookie pool_secret http
+    | None -> http
+  in
   XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr ~http call
 
 (* This one uses rpc-light *)
@@ -731,13 +735,13 @@ let pool_has_different_host_platform_versions ~__context =
 let get_pool_secret () =
   try
     Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK];
-    pool_secret := Unixext.string_of_file !Xapi_globs.pool_secret_path;
-    Db_globs.pool_secret := !pool_secret;
+    pool_secret := Unixext.string_of_file !Xapi_globs.pool_secret_path |> SecretString.of_string;
+    Db_globs.pool_secret := !pool_secret |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc;
   with _ -> (* No pool secret exists. *)
     let mk_rand_string () = Uuid.to_string (Uuid.make_uuid()) in
-    pool_secret := (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
-    Db_globs.pool_secret := !pool_secret;
-    Unixext.write_string_to_file !Xapi_globs.pool_secret_path !pool_secret
+    pool_secret := SecretString.of_string @@ (mk_rand_string()) ^ "/" ^ (mk_rand_string()) ^ "/" ^ (mk_rand_string());
+    Db_globs.pool_secret := !pool_secret |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc;
+    SecretString.write_to_file !Xapi_globs.pool_secret_path !pool_secret
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)

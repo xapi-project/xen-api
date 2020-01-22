@@ -66,7 +66,7 @@ let master_connection_retry_timeout = ref (-1.)
 
 let master_connection_default_timeout = ref 10.
 
-let pool_secret = ref ""
+let pool_secret = ref (Db_secret_string.of_string "")
 
 (* Function to execute when the database wants to be restarted *)
 let restart_fn : (unit -> unit) ref = ref (fun () -> exit 0)
