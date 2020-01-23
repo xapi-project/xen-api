@@ -437,7 +437,7 @@ and abstract_param_conv name = function
   | _ -> paramname name
 
 and abstract_member = function
-    String
+  | SecretString | String
   | Ref _ -> "string"
   | Enum _ -> "enum"
   | Int -> "int"
@@ -532,7 +532,7 @@ and abstract_result_type typ =
 
 
 and abstract_type record = function
-  | String      -> "abstract_type_string"
+  | SecretString | String -> "abstract_type_string"
   | Enum(n, _)  ->
     sprintf "%s_abstract_type_" (typename n)
   | Ref _       ->
@@ -1206,7 +1206,7 @@ and find_needed' needed message =
 
 
 and find_needed'' needed = function
-  | String
+  | SecretString | String
   | Int
   | Float
   | Bool
@@ -1238,7 +1238,7 @@ and record_free_impl prefix = function
 
 
 and free_impl val_name record = function
-  | String           -> sprintf "free(%s);" val_name
+  | SecretString | String -> sprintf "free(%s);" val_name
   | Int
   | Float
   | Bool
@@ -1274,7 +1274,7 @@ and add_enum_map_internal needed l r =
 
 
 and c_type_of_ty needed record = function
-  | String              -> "char *"
+  | SecretString|String -> "char *"
   | Int                 -> "int64_t "
   | Float               -> "double "
   | Bool                -> "bool "
@@ -1341,7 +1341,7 @@ and c_type_of_enum name =
 
 
 and initialiser_of_ty = function
-  | String
+  | SecretString | String
   | Ref _
   | Set _
   | Map _
@@ -1354,7 +1354,7 @@ and mapname l r =
 
 
 and name_of_ty = function
-  | String   -> "string"
+  | SecretString | String   -> "string"
   | Int      -> "int"
   | Float    -> "float"
   | Bool     -> "bool"

@@ -99,7 +99,7 @@ and qualified_class_name classname =
 and type_default ty =
   match ty with
   | Int         -> ""
-  | String      -> ""
+  | SecretString | String -> ""
   | Float       -> ""
   | Bool        -> ""
   | Enum _      -> ""
@@ -121,7 +121,7 @@ and exposed_type_opt = function
   | None -> "void"
 
 and exposed_type = function
-  | String                  -> "string"
+  | SecretString | String   -> "string"
   | Int                     -> "long"
   | Float                   -> "double"
   | Bool                    -> "bool"

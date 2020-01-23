@@ -649,7 +649,7 @@ and convert_from_hashtable fname ty =
   | Int                  -> sprintf "Marshalling.ParseLong(HashTable, %s)" field
   | Ref name             -> sprintf "Marshalling.ParseRef<%s>(HashTable, %s)"
                               (exposed_class_name name) field
-  | String               -> sprintf "Marshalling.ParseString(HashTable, %s)" field
+  | SecretString|String  -> sprintf "Marshalling.ParseString(HashTable, %s)" field
   | Set(String)          -> sprintf "Marshalling.ParseStringArray(HashTable, %s)" field
   | Set(Ref x)           -> sprintf "Marshalling.ParseSetRef<%s>(HashTable, %s)"
                               (exposed_class_name x) field

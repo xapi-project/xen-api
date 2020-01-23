@@ -146,7 +146,7 @@ let types = ref TypeSet.empty
 let rec get_java_type ty =
   types := TypeSet.add ty !types;
   match ty with
-  | String        -> "String"
+  | SecretString | String -> "String"
   | Int           -> "Long"
   | Float         -> "Double"
   | Bool          -> "Boolean"
@@ -166,7 +166,7 @@ let _ = (get_java_type switch_enum);;
 
 (*Helper function for get_marshall_function*)
 let rec get_marshall_function_rec = function
-  | String        -> "String"
+  | SecretString | String -> "String"
   | Int           -> "Long"
   | Float         -> "Double"
   | Bool          -> "Boolean"
@@ -388,7 +388,7 @@ and gen_record_tostring_contents file prefix = function
 
 
 let field_default = function
-  | String        -> "\"\""
+  | SecretString | String -> "\"\""
   | Int           -> "0"
   | Float         -> "0.0"
   | Bool          -> "false"
@@ -611,7 +611,7 @@ let gen_task_result_func file = function
 ;;
 
 let rec gen_marshall_body file = function
-  | String        -> fprintf file "        return (String) object;\n"
+  | SecretString | String -> fprintf file "        return (String) object;\n"
   | Int           -> fprintf file "        return Long.valueOf((String) object);\n"
   | Float         -> fprintf file "        return (Double) object;\n"
   | Bool          -> fprintf file "        return (Boolean) object;\n"

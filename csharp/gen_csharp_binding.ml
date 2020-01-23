@@ -1065,7 +1065,7 @@ and proxy_type_opt = function
 
 
 and proxy_type = function
-  | String              -> "string"
+  | SecretString|String -> "string"
   | Int                 -> "string"
   | Float               -> "double"
   | Bool                -> "bool"
@@ -1086,7 +1086,7 @@ and exposed_type_opt = function
   | None -> "void"
 
 and exposed_type = function
-  | String                  -> "string"
+  | SecretString | String   -> "string"
   | Int                     -> "long"
   | Float                   -> "double"
   | Bool                    -> "bool"
@@ -1128,7 +1128,7 @@ and convert_from_proxy_opt thing = function
 and convert_from_proxy_hashtable_value thing ty =
   match ty with
   | Int                 -> sprintf "%s == null ? 0 : long.Parse((string)%s)" thing thing
-  | String              -> sprintf "%s == null ? null : (string)%s" thing thing
+  | SecretString|String -> sprintf "%s == null ? null : (string)%s" thing thing
   | Set(String)         -> sprintf "%s == null ? new string[] {} : Array.ConvertAll<object, string>((object[])%s, Convert.ToString)" thing thing
   | _                   -> convert_from_proxy thing ty
 
@@ -1151,7 +1151,7 @@ and convert_from_hashtable fname ty =
   | Float               -> sprintf "Marshalling.ParseDouble(table, %s)" field
   | Int                 -> sprintf "Marshalling.ParseLong(table, %s)" field
   | Ref name            -> sprintf "Marshalling.ParseRef<%s>(table, %s)" (exposed_class_name name) field
-  | String              -> sprintf "Marshalling.ParseString(table, %s)" field
+  | SecretString|String -> sprintf "Marshalling.ParseString(table, %s)" field
   | Set(String)         -> sprintf "Marshalling.ParseStringArray(table, %s)" field
   | Set(Ref name)       -> sprintf "Marshalling.ParseSetRef<%s>(table, %s)" (exposed_class_name name) field
   | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(Marshalling.ParseStringArray(table, %s))" name field
@@ -1182,7 +1182,7 @@ and simple_convert_from_proxy thing ty =
   | Bool                -> sprintf "(bool)%s" thing
   | Float               -> sprintf "Convert.ToDouble(%s)" thing
   | Ref name            -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
-  | String              -> thing
+  | SecretString|String -> thing
   | Set(String)         -> sprintf "(string [])%s" thing
   | Set(Ref name)       -> sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
   | Set(Enum(name, _))  -> sprintf "Helper.StringArrayToEnumList<%s>(%s)" name thing
@@ -1210,7 +1210,7 @@ and convert_to_proxy thing ty =
   | Float
   | DateTime         -> thing
   | Ref _            -> sprintf "%s ?? \"\"" thing
-  | String           -> sprintf "%s ?? \"\"" thing
+  | SecretString | String -> sprintf "%s ?? \"\"" thing
   | Enum (name,_)    -> sprintf "%s_helper.ToString(%s)" name thing
   | Set (Ref _)      -> sprintf "%s == null ? new string[] {} : Helper.RefListToStringArray(%s)" thing thing
   | Set(String)      -> thing
@@ -1261,7 +1261,7 @@ and json_param p =
   | Float
   | Bool
   | DateTime       -> sprintf "_%s" thing
-  | String
+  | SecretString | String
   | Ref _          -> sprintf "_%s ?? \"\"" thing
   | Enum _         -> sprintf "_%s.StringOf()" thing
   | Set (Ref _) -> sprintf "_%s == null ? new JArray() : JArray.FromObject(_%s, serializer)" thing thing
@@ -1340,7 +1340,7 @@ and get_default_value_per_type ty thing =
   | Bool
   | Float          -> if thing = [] then "" else sprintf " = %s" (String.concat ", " thing)
   | Ref _          -> sprintf " = new %s(%s)" (exposed_type ty) (if thing = [] then "Helper.NullOpaqueRef" else (String.concat ", " thing))
-  | String         -> sprintf " = %s" (if thing = [] then "\"\"" else (String.concat ", " thing))
+  | SecretString | String         -> sprintf " = %s" (if thing = [] then "\"\"" else (String.concat ", " thing))
   | Enum (name,_)  -> if thing = [] then "" else sprintf " = %s.%s" name (String.concat ", " thing)
   | Set(Int)
   | Set(String)    -> sprintf " = {%s}" (String.concat ", " thing)
