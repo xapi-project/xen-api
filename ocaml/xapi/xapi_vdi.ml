@@ -299,7 +299,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
    * re-enable (and maybe alter) the relevant part of
    * test_update_allowed_operations.
   *)
-  let all_ops = 
+  let all_ops =
     Xapi_globs.pre_ely_vdi_operations
     |> List.filter (function
        | `blocked -> false (* CA-260245 *)
@@ -1059,21 +1059,26 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   hosts_with_attached_pbds |> Valid_ref_list.flat_map (fun host ->
       let ips = get_ips host in
       (* Check if empty: avoid inter-host calls and other work if so. *)
-      if ips = [] then [] else
+      if ips = [] then []
+      else
         let cert = get_server_certificate ~host in
         let port = 10809L in
-        let seek hostnames =
-          let rec _seek = function
-            | [] -> (
-              error "Found no subject DNS names in this hosts's certificate. Returning empty string as subject.";
-              ""
-            )
-            | last :: [] -> last (* Better to return a possible wildcard than nothing *)
-            | name :: xs -> if (String.contains name '*') then _seek xs else name
-          in
-            Rresult.R.bind hostnames (fun v -> Ok (_seek Domain_name.(Set.elements v |> List.map to_string)))
+        let module Host_set = X509.Certificate.Host_set in
+        let select_a_hostname = function
+          | set when set = Host_set.empty ->
+              Error (`Msg "Found no subject DNS names in this hosts's certificate.")
+          | set ->
+              let strict_or_wildcard = function
+                | `Strict, _ -> true
+                | `Wildcard, _ -> false
+              in
+              (* select the first strict hostname, or a wildcard one otherwise *)
+              let strict, wildcard = Host_set.partition strict_or_wildcard set in
+              let hosts = if Host_set.is_empty strict then wildcard else strict in
+              Ok (Host_set.min_elt hosts |> snd |> Domain_name.to_string)
         in
-        let subject = match seek (Certificates.hostnames_of_pem_cert cert) with
+        let hosts = Certificates.hostnames_of_pem_cert cert in
+        let subject = match Rresult.R.bind hosts select_a_hostname with
           | Ok hostname -> hostname
           | Error (`Msg e) ->
               error "get_nbd_info: failed to read subject from TLS certificate! Falling back to Host.hostname. Error was %s" e;
