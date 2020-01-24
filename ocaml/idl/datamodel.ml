@@ -5257,7 +5257,7 @@ module PUSB = struct
           field ~qualifier:DynamicRO ~ty:Bool ~lifecycle "passthrough_enabled" "enabled for passthrough" ~default_value:(Some (VBool false));
           field ~qualifier:RW ~ty:(Map (String,String)) ~lifecycle:[Published, rel_inverness, ""] "other_config" "additional configuration" ~default_value:(Some (VMap []));
           (* ideally we would use Float.nan here, but that makes the api generator hang *)
-          field ~qualifier:StaticRO ~ty:Float ~lifecycle:[Published, rel_quebec, ""] "speed" "USB device speed" ~default_value:(Some (VFloat Constants.default_usb_speed));
+          field ~qualifier:StaticRO ~ty:Float ~lifecycle:[Published, rel_stockholm, ""] "speed" "USB device speed" ~default_value:(Some (VFloat Constants.default_usb_speed));
         ]
       ~messages:
         [
