@@ -134,7 +134,7 @@ module Iostat = struct
     let cmdstring = Printf.sprintf "/usr/bin/iostat -x %s 1 2" dev_str in (* 2 iterations; 1 second between them *)
 
     (* Iterate through each line and populate dev_values_map *)
-    let _ = Utils.exec_cmd ~cmdstring ~f:process_line in
+    let _ = Utils.exec_cmd (module Process.D) ~cmdstring ~f:process_line in
 
     (* Now read the values out of dev_values_map for devices for which we have data *)
     Listext.List.filter_map (fun dev ->
@@ -202,21 +202,56 @@ let previous_map : (int * (int * (string * string))) list ref = ref []
 let phypath_to_sr_vdi : ((string, (string * string)) Hashtbl.t) = Hashtbl.create 20
 
 let refresh_phypath_to_sr_vdi () =
+  let iter_sr_dirs path f =
+    try
+      Sys.readdir path |> Array.iter (fun sruuid ->
+        let sr_dir = Printf.sprintf "%s/%s" path sruuid in
+        Sys.readdir sr_dir |> Array.iter (fun vdi_entry ->
+          (* in /dev/sm/phy vdi_entry __should__ be a vdiuuid
+             in /var/run/sr-mount vdi_entry might look like:
+               - "$vdiuuid.vhd",
+               - "$vdiuuid.vhdcache",
+               -  ".*" *)
+          f sruuid vdi_entry
+        )
+      )
+    with e -> D.debug "refresh_phypath_to_sr_vdi: failed searching %s. error: %s" path (Printexc.to_string e)
+  in
+
   Hashtbl.clear phypath_to_sr_vdi;
-  let phy_base = "/dev/sm/phy" in
-  try
-    let srs = Utils.list_directory_entries_unsafe phy_base in
-    List.iter (fun sruuid ->
-        let sr_dir = Printf.sprintf "%s/%s" phy_base sruuid in
-        let vdis = Utils.list_directory_entries_unsafe sr_dir in
-        List.iter (fun vdiuuid ->
-            let vdi_file = Printf.sprintf "%s/%s" sr_dir vdiuuid in
-            let phy_link = Unix.readlink vdi_file in
-            Hashtbl.replace phypath_to_sr_vdi phy_link (sruuid, vdiuuid)
-          ) vdis
-      ) srs
-  with Unix.Unix_error _ ->
-    D.debug "Could not open %s" phy_base; ()
+
+  let module StringSet = Set.Make(String) in
+  let extra_paths_to_search = ref StringSet.empty in
+
+  (* search /dev/sm/phy for sr+vdis. these vdi files will be symbolic
+     links (when testing they appear to be found in /var/run/sr-mount).
+     we:
+       1) add to the sr+vdi map the files that are symbolically linked to
+       2) make a note of where we are, so that we can search for vhdcache files *)
+  iter_sr_dirs "/dev/sm/phy" (fun sruuid vdiuuid ->
+    let vdi_file = Printf.sprintf "/dev/sm/phy/%s/%s" sruuid vdiuuid in
+    let phy_link = Unix.readlink vdi_file in
+
+    (* add vdi listed in /dev/sm/phy (the symbolic link) *)
+    Hashtbl.replace phypath_to_sr_vdi phy_link (sruuid, vdiuuid);
+
+    (* make note of dirs to search for vhdcache files (should only appear when intellicache enabled) *)
+    match Stringext.split phy_link ~on:'/' with
+    | [] | [_]      -> ()
+    | path_segments ->
+      let new_path_to_search = Listext.List.take (List.length path_segments - 2) path_segments |> String.concat "/" in
+      extra_paths_to_search := StringSet.add new_path_to_search !extra_paths_to_search
+  );
+
+  (* add any vhdcache files *)
+  !extra_paths_to_search |> StringSet.iter (fun path ->
+    iter_sr_dirs path (fun sruuid vdi_entry ->
+        let vdiuuid = try Some (Scanf.sscanf vdi_entry "%s@.vhdcache" Fun.id) with _ -> None in
+        match vdiuuid with
+        | None -> ()
+        | Some vdiuuid -> Hashtbl.replace phypath_to_sr_vdi (Printf.sprintf "%s/%s/%s" path sruuid vdi_entry) (sruuid, vdiuuid)
+    )
+  )
 
 let exec_tap_ctl () =
   let tap_ctl = "/usr/sbin/tap-ctl list" in
