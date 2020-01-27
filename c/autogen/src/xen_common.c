@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -259,7 +259,7 @@ xen_session_slave_local_login_with_password(xen_call_func call_func, void *handl
 
     call_raw(session, "session.slave_local_login_with_password", params, 2,
              &abstract_type_string, &session->session_id);
-             
+
     if (session->ok)
     {
         //assume the latest api version
@@ -340,9 +340,9 @@ bool
     abstract_value params[] =
         {
         };
-    
+
     abstract_type result_type = abstract_type_string_set;
-    
+
     *result = NULL;
     xen_call_(session, "session.get_all_subject_identifiers", params, 0, &result_type, result);
     return session->ok;
@@ -355,9 +355,9 @@ xen_session_get_all_subject_identifiers_async(xen_session *session, xen_task *re
     abstract_value params[] =
         {
         };
-    
+
     abstract_type result_type = abstract_type_string;
-    
+
     *result = NULL;
     xen_call_(session, "Async.session.get_all_subject_identifiers", params, 0, &result_type, result);
     return session->ok;
@@ -373,7 +373,7 @@ xen_session_logout_subject_identifier(xen_session *session, const char *subject_
               .u.string_val = subject_identifier }
         };
 
-    xen_call_(session, "session.logout_subject_identifier", params, 1, NULL, NULL);    
+    xen_call_(session, "session.logout_subject_identifier", params, 1, NULL, NULL);
     return session->ok;
 }
 
@@ -386,11 +386,11 @@ xen_session_logout_subject_identifier_async(xen_session *session, xen_task *resu
             { .type = &abstract_type_string,
               .u.string_val = subject_identifier }
         };
-    
+
     abstract_type result_type = abstract_type_string;
 
     *result = NULL;
-    XEN_CALL_("Async.session.logout_subject_identifier");    
+    XEN_CALL_("Async.session.logout_subject_identifier");
     return session->ok;
 }
 
@@ -494,7 +494,7 @@ static const struct_member xen_session_record_struct_members[] =
 
 const abstract_type xen_session_record_abstract_type_ =
     {
-       .typename = STRUCT,
+       .XEN_API_TYPE = STRUCT,
        .struct_size = sizeof(xen_session_record),
        .member_count =
            sizeof(xen_session_record_struct_members) / sizeof(struct_member),
@@ -531,7 +531,7 @@ xen_uuid_string_to_bytes(char *uuid, char **bytes)
     unsigned int buf[16];
 
     *bytes = NULL;
-    
+
     if (strlen(uuid) != 36)
         return false;
 
@@ -774,7 +774,7 @@ static int count_children(xmlNode *n, const char *name)
 static void destring(xen_session *s, xmlChar *name, const abstract_type *type,
                      void *value)
 {
-    switch (type->typename)
+    switch (type->XEN_API_TYPE)
     {
         case STRING:
         {
@@ -840,7 +840,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
         return;
     }
 
-    switch (result_type->typename)
+    switch (result_type->XEN_API_TYPE)
     {
     case STRING:
     {
@@ -1214,7 +1214,7 @@ static void parse_into(xen_session *s, xmlNode *value_node,
 
 static size_t size_of_member(const abstract_type *type)
 {
-    switch (type->typename)
+    switch (type->XEN_API_TYPE)
     {
     case STRING:
         return sizeof(char *);
@@ -1322,7 +1322,7 @@ static void parse_fault(xen_session *session, xmlXPathContextPtr xpathCtx)
 static void parse_failure(xen_session *session, xmlNode *node)
 {
     abstract_type error_description_type =
-        { .typename = SET,
+        { .XEN_API_TYPE = SET,
           .child = &abstract_type_string };
     arbitrary_set *error_descriptions;
 
@@ -1379,7 +1379,7 @@ static void parse_result(xen_session *session, const char *result,
     {
         parse_fault(session, xpathCtx);
 
-        xmlXPathFreeContext(xpathCtx); 
+        xmlXPathFreeContext(xpathCtx);
         xmlFreeDoc(doc);
         return;
     }
@@ -1390,7 +1390,7 @@ static void parse_result(xen_session *session, const char *result,
         parse_fault(session, xpathCtx);
 
         xmlXPathFreeObject(xpathObj);
-        xmlXPathFreeContext(xpathCtx); 
+        xmlXPathFreeContext(xpathCtx);
         xmlFreeDoc(doc);
         return;
     }
@@ -1402,7 +1402,7 @@ static void parse_result(xen_session *session, const char *result,
     if (status_code == NULL)
     {
         xmlXPathFreeObject(xpathObj);
-        xmlXPathFreeContext(xpathCtx); 
+        xmlXPathFreeContext(xpathCtx);
         xmlFreeDoc(doc);
         server_error(session, "Server response does not have a Status");
         return;
@@ -1414,8 +1414,8 @@ static void parse_result(xen_session *session, const char *result,
 
         xmlFree(status_code);
         xmlXPathFreeObject(xpathObj);
-        xmlXPathFreeContext(xpathCtx); 
-        xmlFreeDoc(doc); 
+        xmlXPathFreeContext(xpathCtx);
+        xmlFreeDoc(doc);
         return;
     }
 
@@ -1429,12 +1429,12 @@ static void parse_result(xen_session *session, const char *result,
 
 
 static void
-make_body_add_type(enum abstract_typename typename, abstract_value *v,
+make_body_add_type(enum abstract_typename XEN_API_TYPE, abstract_value *v,
                    xmlNode *params_node)
 {
     char buf[20];
     char *encoded = NULL;
-    switch (typename)
+    switch (XEN_API_TYPE)
     {
     case STRING:
       encoded = (char *)xmlEncodeEntitiesReentrant(NULL, (xmlChar*)v->u.string_val);
@@ -1455,7 +1455,7 @@ make_body_add_type(enum abstract_typename typename, abstract_value *v,
     case BOOL:
         add_param(params_node, "boolean", v->u.bool_val ? "1" : "0");
         break;
-        
+
     case VOID:
         add_param(params_node, "string", "");
         break;
@@ -1507,8 +1507,8 @@ make_body_add_type(enum abstract_typename typename, abstract_value *v,
         arbitrary_map *map_val = v->u.struct_val;
         xmlNode *param_node = add_param_struct(params_node);
         for (size_t i = 0; i < map_val->size; i++) {
-            enum abstract_typename typename_key = member[0].type->typename;
-            enum abstract_typename typename_val = member[1].type->typename;
+            enum abstract_typename typename_key = member[0].type->XEN_API_TYPE;
+            enum abstract_typename typename_val = member[1].type->XEN_API_TYPE;
             int offset_key = member[0].offset;
             int offset_val = member[1].offset;
             int struct_size = v->type->struct_size;
@@ -1565,7 +1565,7 @@ make_body(const char *method_name, abstract_value params[], int param_count)
     for (int p = 0; p < param_count; p++)
     {
         abstract_value *v = params + p;
-        make_body_add_type(v->type->typename, v, params_node);
+        make_body_add_type(v->type->XEN_API_TYPE, v, params_node);
     }
 
     xmlBufferPtr buffer = xmlBufferCreate();
@@ -1591,7 +1591,7 @@ add_struct_value(const struct abstract_type *type, void *value,
                                const char *type, const char *val),
                  const char *key, xmlNode *node)
 {
-    switch (type->typename)
+    switch (type->XEN_API_TYPE)
     {
         case REF:
         case STRING:
@@ -1683,7 +1683,7 @@ add_struct_value(const struct abstract_type *type, void *value,
         break;
 
         case DATETIME:
-        {                
+        {
             char buf[255];
             struct tm *tm = gmtime((time_t*)value);
             strftime(buf, sizeof(buf), "%Y%m%dT%H:%M:%S", tm);
@@ -1700,13 +1700,13 @@ add_struct_value(const struct abstract_type *type, void *value,
 static const char *
 get_val_as_string(const struct abstract_type *type, void *value)
 {
-    switch (type->typename)
+    switch (type->XEN_API_TYPE)
     {
         case REF:
         {
             char *buf = NULL;
             arbitrary_record_opt *val = *(arbitrary_record_opt **)value;
-            
+
             if (val != NULL)
             {
                 if (val->is_record)
@@ -1875,28 +1875,28 @@ xen_strdup_(const char *in)
 }
 
 
-const abstract_type abstract_type_string = { .typename = STRING };
-const abstract_type abstract_type_int = { .typename = INT };
-const abstract_type abstract_type_float = { .typename = FLOAT };
-const abstract_type abstract_type_bool = { .typename = BOOL };
-const abstract_type abstract_type_datetime = { .typename = DATETIME };
-const abstract_type abstract_type_ref = { .typename = REF };
+const abstract_type abstract_type_string = { .XEN_API_TYPE = STRING };
+const abstract_type abstract_type_int = { .XEN_API_TYPE = INT };
+const abstract_type abstract_type_float = { .XEN_API_TYPE = FLOAT };
+const abstract_type abstract_type_bool = { .XEN_API_TYPE = BOOL };
+const abstract_type abstract_type_datetime = { .XEN_API_TYPE = DATETIME };
+const abstract_type abstract_type_ref = { .XEN_API_TYPE = REF };
 
 const abstract_type abstract_type_string_set =
     {
-        .typename = SET,
+        .XEN_API_TYPE = SET,
         .child = &abstract_type_string
     };
 
 const abstract_type abstract_type_int_set =
   {
-    .typename = SET,
+    .XEN_API_TYPE = SET,
     .child = &abstract_type_int
   };
 
 const abstract_type abstract_type_ref_set =
     {
-        .typename = SET,
+        .XEN_API_TYPE = SET,
         .child = &abstract_type_ref
     };
 
@@ -1919,7 +1919,7 @@ static const struct struct_member string_ref_members[] =
 };
 const abstract_type abstract_type_string_ref_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_string_ref_map_contents),
         .members = string_ref_members
     };
@@ -1937,7 +1937,7 @@ static const struct struct_member string_int_members[] =
 };
 const abstract_type abstract_type_string_int_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_string_int_map_contents),
         .members = string_int_members
     };
@@ -1955,7 +1955,7 @@ static const struct struct_member string_string_members[] =
 };
 const abstract_type abstract_type_string_string_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_string_string_map_contents),
         .members = string_string_members
     };
@@ -1973,7 +1973,7 @@ static struct struct_member int_float_members[] =
 };
 const abstract_type abstract_type_int_float_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_int_float_map_contents),
         .members = int_float_members
     };
@@ -1991,7 +1991,7 @@ static struct struct_member int_int_members[] =
 };
 const abstract_type abstract_type_int_int_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_int_int_map_contents),
         .members = int_int_members
     };
@@ -2009,7 +2009,7 @@ static struct struct_member int_string_set_members[] =
 };
 const abstract_type abstract_type_int_string_set_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_int_string_set_map_contents),
         .members = int_string_set_members
     };
@@ -2025,9 +2025,9 @@ static struct struct_member string_string_set_members[] =
         .offset = offsetof(xen_string_string_set_map_contents, val)
     }
 };
-const abstract_type abstract_type_string_string_set_map = 
+const abstract_type abstract_type_string_string_set_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_string_string_set_map_contents),
         .members = string_string_set_members
     };
@@ -2043,9 +2043,9 @@ static struct struct_member string_string_string_map_members[] =
         .offset = offsetof(xen_string_string_string_map_map_contents, val)
     }
 };
-const abstract_type abstract_type_string_string_string_map_map = 
+const abstract_type abstract_type_string_string_string_map_map =
     {
-        .typename = MAP,
+        .XEN_API_TYPE = MAP,
         .struct_size = sizeof(xen_string_string_string_map_map_contents),
         .members = string_string_string_map_members
     };

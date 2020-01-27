@@ -64,8 +64,8 @@ LIBXENAPI_OBJS = $(patsubst %.c, %.o, $(wildcard src/*.c))
 
 TEST_PROGRAMS = $(patsubst %.c, %, $(wildcard test/*.c))
 
-.PHONY: all
-all: $(TEST_PROGRAMS)
+%.o: %.c %.h
+	$(CC) -o $@ $<
 
 libxenserver.so: libxenserver.so.{{API_VERSION_MAJOR}}
 	ln -sf $< $@
@@ -79,12 +79,14 @@ libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}}: $(LIBXENAPI_OBJS)
 libxenserver.a: $(LIBXENAPI_OBJS)
 	$(AR) rcs libxenserver.a $^
 
-$(TEST_PROGRAMS): test/%: test/%.o libxenserver.so
+test/%: test/%.o libxenserver.so
 	$(CC) -o $@ $< $(TEST_LDFLAGS) $(LDFLAGS)
 
+build: libxenserver.so libxenserver.a
 
-.PHONY: install
-install: all libxenserver.a
+tests: $(TEST_PROGRAMS)
+
+install: libxenserver.so libxenserver.a
 	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
 	$(INSTALL_DIR) $(DESTDIR)/lib
 	$(INSTALL_DATA) libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib
@@ -98,13 +100,13 @@ install: all libxenserver.a
 	    $(INSTALL_DATA) $$i $(DESTDIR)/include/xen/api; \
 	done
 
-
-.PHONY: clean
 clean: cleantests
 	rm -f `find -name *.o`
 	rm -f libxenserver.so*
 	rm -f libxenserver.a
 
-.PHONY: cleantests
 cleantests:
 	rm -f $(TEST_PROGRAMS)
+
+.PHONY: clean cleantests build tests install
+.DEFAULT_GOAL := tests

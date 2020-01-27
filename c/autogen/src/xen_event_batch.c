@@ -46,7 +46,7 @@ static const struct_member xen_event_batch_struct_members [] = {
 };
 
 const abstract_type xen_event_batch_abstract_type_ = {
-    .typename = STRUCT,
+    .XEN_API_TYPE = STRUCT,
     .struct_size = sizeof (xen_event_batch),
     .member_count =
     sizeof (xen_event_batch_struct_members) / sizeof (struct_member),

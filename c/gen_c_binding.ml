@@ -733,7 +733,7 @@ extern enum %s
 
 const abstract_type %s_abstract_type_ =
     {
-        .typename = ENUM,
+        .XEN_API_TYPE = ENUM,
         .enum_marshaller =
              (const char *(*)(int))&%s_to_string,
         .enum_demarshaller =
@@ -755,7 +755,7 @@ const abstract_type %s_abstract_type_ =
       print
         "const abstract_type %s_set_abstract_type_ =
     {
-        .typename = SET,
+        .XEN_API_TYPE = SET,
         .child = &%s_abstract_type_
     };
 
@@ -937,7 +937,7 @@ static const struct_member %s_struct_members[] =
 
 const abstract_type %s_abstract_type_ =
     {
-       .typename = MAP,
+       .XEN_API_TYPE = MAP,
        .struct_size = sizeof(%s_struct_members),
        .member_count =
            sizeof(%s_struct_members) / sizeof(struct_member),
@@ -1141,7 +1141,7 @@ and write_impl {name=classname; contents; messages; _} out_chan =
 
 const abstract_type %s_abstract_type_ =
     {
-       .typename = STRUCT,
+       .XEN_API_TYPE = STRUCT,
        .struct_size = sizeof(%s),
        .member_count =
            sizeof(%s_struct_members) / sizeof(struct_member),
@@ -1154,7 +1154,7 @@ const abstract_type %s_abstract_type_ =
   print
     "const abstract_type %s_set_abstract_type_ =
     {
-       .typename = SET,
+       .XEN_API_TYPE = SET,
         .child = &%s_abstract_type_
     };\n\n\n" record_tn record_tn;
 
@@ -1174,7 +1174,7 @@ const abstract_type %s_abstract_type_ =
 
 const abstract_type abstract_type_string_%s_map =
 {
-    .typename = MAP,
+    .XEN_API_TYPE = MAP,
     .struct_size = sizeof(%s_map_contents),
     .members = %s_members
 };\n\n\n" mappingName mappingName record_tn mappingName record_tn mappingName mappingName;

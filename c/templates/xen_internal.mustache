@@ -68,7 +68,7 @@ typedef struct struct_member struct_member;
 
 typedef struct abstract_type
 {
-    enum abstract_typename typename;
+    enum abstract_typename XEN_API_TYPE;
     const struct abstract_type *child;
     const char * (*enum_marshaller)(int);
     int (*enum_demarshaller)(xen_session *, const char *);
