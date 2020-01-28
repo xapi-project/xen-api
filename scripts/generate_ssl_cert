@@ -8,17 +8,17 @@ set -e
 FILE=$1
 CN=$2
 set -eu
-if [ -z "${CN}" -o -z "${FILE}" ]; then
+if [ -z "${CN}" ] || [ -z "${FILE}" ]; then
 	echo "usage: $0 <certname> <cn>"
 	exit 2
 fi
 
-if [ -e ${FILE} ]; then
+if [ -e "${FILE}" ]; then
 	echo "file already exists: cannot overwrite";
 	exit 3
 fi
 
-dnsnames=$((hostname -A; hostname -f) | sort | uniq)
+dnsnames=$( (hostname -A; hostname -f) | sort | uniq)
 
 DIR=$(mktemp -d tls-cert-generation-XXXXXXXXXX --tmpdir)
 
@@ -27,7 +27,7 @@ function cleanup {
 }
 trap cleanup ERR EXIT
 
-pushd ${DIR}
+pushd "${DIR}"
 
 # config file written so as to give the same behaviour with the
 # openssl "req" and "x509" commands (because x509 fails to include
@@ -45,11 +45,11 @@ subjectAltName = @alt_names
 [alt_names]
 @eof
 
-i=0
+i=1
 for x in $dnsnames
 do
-	let i=i+1
 	echo "DNS.${i}=${x}" >> config
+	(( i++ ))
 done
 
 openssl genrsa 2048 > privkey.rsa
@@ -66,7 +66,7 @@ openssl x509 -extfile config -req -signkey privkey.rsa -in cert.csr -outform PEM
 
 popd
 
-tmpcert="${DIR}/tmpcertcombined.pem"
+tmpcert=$(mktemp -p "${DIR}" cert-XXXXXXXXXX.pem.tmp)
 
 (cat "${DIR}/privkey.rsa" <(echo) "${DIR}/signedpubcert.pem") > "${tmpcert}"
 
