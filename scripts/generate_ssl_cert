@@ -64,14 +64,11 @@ openssl req -batch -new -key privkey.rsa -days 3650 -config config -out cert.csr
 # the extensions too, but "req" does not allow the -extfile option.)
 openssl x509 -extfile config -req -signkey privkey.rsa -in cert.csr -outform PEM -out signedpubcert.pem -days 3650
 
-openssl dhparam 512 > dh.pem
-
 popd
 
 tmpcert="${DIR}/tmpcertcombined.pem"
 
-(cat ${DIR}/privkey.rsa; echo ""; cat ${DIR}/signedpubcert.pem; \
- echo ""; cat ${DIR}/dh.pem) > "${tmpcert}"
+(cat "${DIR}/privkey.rsa" <(echo) "${DIR}/signedpubcert.pem") > "${tmpcert}"
 
 # Set up tmpcert the way we want it, then use mv to ensure that FILE
 # appears as an atomic event.
