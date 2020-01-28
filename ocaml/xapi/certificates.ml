@@ -315,7 +315,7 @@ let validate_private_key pkcs8_private_key =
       Error (`Msg (server_certificate_key_rsa_length_not_supported,
         [Int.to_string length]))
     else
-      Ok priv
+      Ok (`RSA priv)
   in
 
   let raw_pem = Cstruct.of_string pkcs8_private_key in
@@ -336,7 +336,7 @@ let validate_private_key pkcs8_private_key =
     | Ok priv -> priv
     | Error `Msg (err, msg) -> raise_server_error msg err
 
-let validate_certificate kind str now private_key =
+let validate_certificate kind pem now private_key =
   let open Rresult in
   let ensure_keys_match private_key certificate =
     let public_key = X509.Certificate.public_key certificate in
@@ -369,7 +369,7 @@ let validate_certificate kind str now private_key =
         Error (`Msg (server_certificate_signature_not_supported, []))
   in
 
-  let raw_pem = Cstruct.of_string str in
+  let raw_pem = Cstruct.of_string pem in
   (match kind with
   | Leaf ->
     X509.Certificate.decode_pem raw_pem
@@ -389,3 +389,39 @@ let validate_certificate kind str now private_key =
   |> function
     | Ok _ -> ()
     | Error (`Msg (err, msg)) -> raise_server_error msg err
+
+let install_server_certificate ?(pem_chain = None) pkcs8_private_key pem_leaf  =
+  let now = match Ptime.of_float_s (Unix.time ()) with
+    | Some time -> time
+    | None ->
+      raise_server_error
+        ["certificates: Current time cannot be represented as a datetime: \
+          it's out of bounds"] internal_error
+  in
+  let priv = validate_private_key pkcs8_private_key in
+  validate_certificate Leaf pem_leaf now priv;
+
+  let server_cert_components = match pem_chain with
+  | None ->
+    [ pkcs8_private_key; pem_leaf ]
+  | Some pem_chain ->
+    validate_certificate Chain pem_chain now priv;
+    [ pkcs8_private_key; pem_leaf; pem_chain ]
+  in
+
+  let cert_server = server_cert_components
+    |> String.concat "\n\n"
+    |> Bytes.unsafe_of_string
+  in
+  let owner_ro = 0o400 in
+  let atomic_write fd =
+    Unix.write fd cert_server 0 (Bytes.length cert_server)
+  in
+
+  try
+    Unixext.atomic_write_to_file !Xapi_globs.server_cert_path owner_ro atomic_write
+  with Unix.Unix_error(err, _, _) ->
+    raise_server_error
+    [ Printf.sprintf "certificates: could not write server certificate to \
+       disk. Reason: %s" (Unix.error_message err)]
+    internal_error
