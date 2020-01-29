@@ -800,7 +800,6 @@ and gen_exposed_field out_chan cls content =
                 if (%s)
                 {
                     _%s = value;
-                    Changed = true;
                     NotifyPropertyChanged(\"%s\");
                 }
             }
@@ -899,7 +898,7 @@ and gen_proxy_method protocol classname message params =
       return_word (json_deserialise_opt message.msg_result) classname message.msg_name
       paramsJsonNoTypes
     in
-    let async = 
+    let async =
       if message.msg_async then sprintf "
 
         public XenRef<Task> async_%s(%s)

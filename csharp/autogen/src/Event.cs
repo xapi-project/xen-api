@@ -151,8 +151,15 @@ namespace XenAPI
         private long _id;
         public long id
         {
-             get { return _id; }
-             set { if (value != _id) { _id = value; Changed = true; NotifyPropertyChanged("id"); } }
+            get { return _id; }
+            set
+            {
+                if (value != _id)
+                {
+                    _id = value;
+                    NotifyPropertyChanged("id");
+                }
+            }
         }
 
         public string timestamp;
