@@ -73,10 +73,10 @@ class Implementation(SR_skeleton):
             urllib.urlencode(configuration, True),
             None))
 
-    def detach(self, dbg, configuration):
+    def detach(self, dbg, sr):
         """
-        [attach configuration]: attaches the SR to the local host. Once an SR is
-        attached then volumes may be manipulated.
+        [detach sr]: detaches the SR, clearing up any associated resources.
+        Once the SR is detached then volumes may not be manipulated.
         """
         # No action required to detach
         pass
