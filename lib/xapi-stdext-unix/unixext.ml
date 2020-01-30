@@ -29,7 +29,7 @@ let mkdir_safe dir perm =
 let mkdir_rec dir perm =
   let rec p_mkdir dir =
     let p_name = Filename.dirname dir in
-    if p_name <> "/" && p_name <> "." 
+    if p_name <> "/" && p_name <> "."
     then p_mkdir p_name;
     mkdir_safe dir perm in
   p_mkdir dir
@@ -44,7 +44,7 @@ let pidfile_write filename =
        let pid = Unix.getpid () in
        let buf = string_of_int pid ^ "\n" in
        let len = String.length buf in
-       if Unix.write fd (Bytes.unsafe_of_string buf) 0 len <> len 
+       if Unix.write fd (Bytes.unsafe_of_string buf) 0 len <> len
        then failwith "pidfile_write failed";
     )
     (fun () -> Unix.close fd)
@@ -132,7 +132,7 @@ let readfile_line = file_lines_iter
 
 (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
     from the fd [fd] with initial value [start] *)
-let fd_blocks_fold block_size f start fd = 
+let fd_blocks_fold block_size f start fd =
   let block = Bytes.create block_size in
   let rec fold acc =
     let n = Unix.read fd block 0 block_size in
@@ -147,7 +147,7 @@ let with_directory dir f =
     (fun () -> f dh)
     (fun () -> Unix.closedir dh)
 
-let buffer_of_fd fd = 
+let buffer_of_fd fd =
   fd_blocks_fold 1024 (fun b s -> Buffer.add_bytes b s; b) (Buffer.create 1024) fd
 
 let string_of_fd fd = Buffer.contents (buffer_of_fd fd)
@@ -250,8 +250,8 @@ exception Host_not_found of string
 let open_connection_fd host port =
   let open Unix in
   let addrinfo = getaddrinfo host (string_of_int port) [AI_SOCKTYPE SOCK_STREAM] in
-  match addrinfo with 
-  | [] -> 
+  match addrinfo with
+  | [] ->
     failwith (Printf.sprintf "Couldn't resolve hostname: %s" host)
   | ai :: _ ->
     let s = socket ai.ai_family ai.ai_socktype 0 in
@@ -277,7 +277,7 @@ let open_connection_unix_fd filename =
 module CBuf = struct
   (** A circular buffer constructed from a string *)
   type t = {
-    mutable buffer: bytes; 
+    mutable buffer: bytes;
     mutable len: int;       (** bytes of valid data in [buffer] *)
     mutable start: int;     (** index of first valid byte in [buffer] *)
     mutable r_closed: bool; (** true if no more data can be read due to EOF *)
@@ -586,12 +586,12 @@ let file_descr_of_int (x: int) : Unix.file_descr = Obj.magic x
 (** Forcibly closes all open file descriptors except those explicitly passed in as arguments.
     Useful to avoid accidentally passing a file descriptor opened in another thread to a
     process being concurrently fork()ed (there's a race between open/set_close_on_exec).
-    NB this assumes that 'type Unix.file_descr = int' 
+    NB this assumes that 'type Unix.file_descr = int'
 *)
 let close_all_fds_except (fds: Unix.file_descr list) =
   (* get at the file descriptor within *)
   let fds' = List.map int_of_file_descr fds in
-  let close' (x: int) = 
+  let close' (x: int) =
     try Unix.close(file_descr_of_int x) with _ -> () in
 
   let highest_to_keep = List.fold_left max (-1) fds' in
@@ -604,15 +604,15 @@ let close_all_fds_except (fds: Unix.file_descr list) =
 
 
 (** Remove "." and ".." from paths (NB doesn't attempt to resolve symlinks) *)
-let resolve_dot_and_dotdot (path: string) : string = 
-  let of_string (x: string): string list = 
-    let rec rev_split path = 
-      let basename = Filename.basename path 
+let resolve_dot_and_dotdot (path: string) : string =
+  let of_string (x: string): string list =
+    let rec rev_split path =
+      let basename = Filename.basename path
       and dirname = Filename.dirname path in
       let rest = if Filename.dirname dirname = dirname then [] else rev_split dirname in
       basename :: rest in
-    let abs_path path = 
-      if Filename.is_relative path 
+    let abs_path path =
+      if Filename.is_relative path
       then Filename.concat "/" path (* no notion of a cwd *)
       else path in
     rev_split (abs_path x) in
@@ -620,7 +620,7 @@ let resolve_dot_and_dotdot (path: string) : string =
   let to_string (x: string list) = List.fold_left Filename.concat "/" (List.rev x) in
 
   (* Process all "." and ".." references *)
-  let rec remove_dots (n: int) (x: string list) = 
+  let rec remove_dots (n: int) (x: string list) =
     match x, n with
     | [], _ -> []
     | "." :: rest, _ -> remove_dots n rest (* throw away ".", don't count as parent for ".." *)
@@ -640,7 +640,7 @@ let seek_rel fd diff =
 (** Return the current cursor position within a file descriptor *)
 let current_cursor_pos fd =
   (* 'seek' to the current position, exploiting the return value from Unix.lseek as the new cursor position *)
-  Unix.lseek fd 0 Unix.SEEK_CUR 
+  Unix.lseek fd 0 Unix.SEEK_CUR
 
 module Fdset = struct
   type t
@@ -661,7 +661,7 @@ end
 let wait_for_path path delay timeout =
   let rec inner ttl =
     if ttl=0 then failwith "No path!";
-    try 
+    try
       ignore(Unix.stat path)
     with _ ->
       delay 0.5;
