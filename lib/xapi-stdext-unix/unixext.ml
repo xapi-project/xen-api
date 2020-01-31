@@ -156,21 +156,26 @@ let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of
 
 let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
 
-(** Opens a temp file, applies the fd to the function, when the function completes, renames the file
-    as required. *)
+(** Write a file, ensures atomicity and durability. *)
 let atomic_write_to_file fname perms f =
-  let module Filenameext = Xapi_stdext_std.Filenameext in
-  let tmp = Filenameext.temp_file_in_dir fname in
-  Unix.chmod tmp perms;
-  finally
-    (fun () ->
-       let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
-       let result = finally
-           (fun () -> f fd)
-           (fun () -> Unix.close fd) in
-       Unix.rename tmp fname; (* Nb this only happens if an exception wasn't raised in the application of f *)
-       result)
-    (fun () -> unlink_safe tmp)
+  let dir_path = Filename.dirname fname in
+  let tmp_path, tmp_chan = Filename.open_temp_file ~temp_dir:dir_path "" ".tmp" in
+  let tmp_fd = Unix.descr_of_out_channel tmp_chan in
+
+  let write_tmp_file () =
+    let result = f tmp_fd in
+    Unix.fchmod tmp_fd perms;
+    Unix.fsync tmp_fd;
+    result
+  in
+  let write_and_persist () =
+    let result = finally write_tmp_file (fun () -> Unix.close tmp_fd) in
+    Unix.rename tmp_path fname;
+    (* sync parent directory to make sure the file is persisted *)
+    Unix.(fsync (openfile dir_path [O_RDONLY] 0));
+    result
+  in
+  finally write_and_persist (fun () -> unlink_safe tmp_path)
 
 
 (** Atomically write a string to a file *)
