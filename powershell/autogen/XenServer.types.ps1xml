@@ -29,15 +29,13 @@
   OF THE POSSIBILITY OF SUCH DAMAGE.
 -->
 <Types>
-    <Type>
-        <Name>XenAPI.Session</Name>
-        <Members>
-            <ScriptProperty>
-                <Name>APIVersionString</Name>
-                <GetScriptBlock>
-                    ([string]$this.APIVersion).Replace("API_", "").Replace("_", ".")
-                </GetScriptBlock>
-            </ScriptProperty>
-        </Members>
-    </Type>
+  <Type>
+    <Name>XenAPI.Session</Name>
+    <Members>
+      <ScriptProperty>
+        <Name>APIVersionString</Name>
+        <GetScriptBlock>[XenAPI.Helper]::APIVersionString($this.APIVersion)</GetScriptBlock>
+      </ScriptProperty>
+    </Members>
+  </Type>
 </Types>

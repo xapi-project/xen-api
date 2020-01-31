@@ -52,12 +52,10 @@ namespace XenAPI
         /// </summary>
         public static IWebProxy Proxy = null;
 
-        public API_Version APIVersion = API_Version.API_1_1;
+        public API_Version APIVersion = API_Version.UNKNOWN;
 
         public object Tag;
 
-        // Filled in after successful session_login_with_password for version 1.6 or newer connections
-        private bool _isLocalSuperuser = true;
         private List<Role> roles = new List<Role>();
 
         /// <summary>
@@ -175,7 +173,7 @@ namespace XenAPI
 
         private void CopyADFromSession(Session session)
         {
-            _isLocalSuperuser = session.IsLocalSuperuser;
+            IsLocalSuperuser = session.IsLocalSuperuser;
             SessionSubject = session.SessionSubject;
             UserSid = session.UserSid;
             roles = session.Roles;
@@ -188,9 +186,12 @@ namespace XenAPI
         private void SetADDetails()
         {
             if (APIVersion < API_Version.API_1_6)
+            {
+                IsLocalSuperuser = true;
                 return;
+            }
 
-            _isLocalSuperuser = get_is_local_superuser();
+            IsLocalSuperuser = get_is_local_superuser();
             if (IsLocalSuperuser)
                 return;
 
@@ -316,11 +317,9 @@ namespace XenAPI
 
         /// <summary>
         /// Always true before API version 1.6.
+        /// Filled in after successful session_login_with_password for 1.6 or newer connections
         /// </summary>
-        public virtual bool IsLocalSuperuser
-        {
-            get { return _isLocalSuperuser; }
-        }
+        public virtual bool IsLocalSuperuser { get; private set; }
 
 #pragma warning disable 3005
         [Obsolete("Use SessionSubject instead.")]
