@@ -658,7 +658,7 @@ and gen_exposed_method cls msg curParams =
     exposed_ret_type
     msg.msg_name paramSignature
     (json_return_opt (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams) msg.msg_result)
-    (convert_from_proxy_opt (sprintf "session.proxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result)
+    (convert_from_proxy_opt (sprintf "session.XmlRpcProxy.%s(%s).parse()" proxyMsgName callParams) msg.msg_result)
   in
   let async =
     if msg.msg_async then sprintf "
@@ -670,7 +670,7 @@ and gen_exposed_method cls msg curParams =
           if (session.JsonRpcClient != null)
               return session.JsonRpcClient.async_%s(%s);
           else
-              return XenRef<Task>.Create(session.proxy.async_%s(%s).parse());
+              return XenRef<Task>.Create(session.XmlRpcProxy.async_%s(%s).parse());
         }\n"
       msg.msg_doc (if publishInfo = "" then "" else "\n        /// "^publishInfo)
       deprecatedInfoString
