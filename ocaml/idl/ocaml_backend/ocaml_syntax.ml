@@ -88,22 +88,25 @@ module Module = struct
       args = args; elements = elements }
 
   let rec items_of x =
-    let e = function
-      | Let y -> Let.items_of ~prefix:(if x.letrec then "and" else "let") y
-      | Module x -> items_of x
-      | Type x -> [ Type.item_of x ] in
-    let opening = "module " ^ x.name ^ " = " ^
-                  (if x.args = []
-                   then ""
-                   else String.concat " " (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)) ^
-                  "struct" in
-    [ Line opening;
-      Indent  (
-        List.map (fun x -> Line x) x.preamble @
-        ( if x.letrec then [ Line "let rec __unused () = ()" ] else [] ) @
-        (List.concat (List.map e x.elements))
-      );
-      Line "end" ]
+    match x.preamble, x.elements with
+    | [], [] -> [] (* if there's nothing in the module, don't bother making it *)
+    | _, _   ->
+      let e = function
+        | Let y -> Let.items_of ~prefix:(if x.letrec then "and" else "let") y
+        | Module x -> items_of x
+        | Type x -> [ Type.item_of x ] in
+      let opening = "module " ^ x.name ^ " = " ^
+                    (if x.args = []
+                     then ""
+                     else String.concat " " (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)) ^
+                    "struct" in
+      [ Line opening;
+        Indent  (
+          List.map (fun x -> Line x) x.preamble @
+          ( if x.letrec then [ Line "let rec __unused () = ()" ] else [] ) @
+          (List.concat (List.map e x.elements))
+        );
+        Line "end" ]
 
   let strings_of x = List.map string_of_item (items_of x)
 end
