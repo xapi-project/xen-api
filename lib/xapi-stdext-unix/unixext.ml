@@ -172,7 +172,8 @@ let atomic_write_to_file fname perms f =
     let result = finally write_tmp_file (fun () -> Stdlib.close_out tmp_chan) in
     Unix.rename tmp_path fname;
     (* sync parent directory to make sure the file is persisted *)
-    Unix.(fsync (openfile dir_path [O_RDONLY] 0));
+    let dir_fd = Unix.openfile dir_path [O_RDONLY] 0 in
+    finally (fun () -> Unix.fsync dir_fd) (fun () -> Unix.close dir_fd);
     result
   in
   finally write_and_persist (fun () -> unlink_safe tmp_path)
