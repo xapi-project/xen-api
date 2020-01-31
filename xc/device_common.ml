@@ -425,7 +425,7 @@ let with_qmp_connection domid f =
       Qmp_protocol.connect (qmp_libxl_path domid)
     )
   in
-  finally
+  Stdext.Pervasiveext.finally
     (fun () -> f connection)
     (fun () -> exec (fun () ->
          Qmp_protocol.close connection

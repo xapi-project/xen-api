@@ -22,6 +22,8 @@ open D
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
+let finally = Stdext.Pervasiveext.finally
+
 let domain_shutdown_ack_timeout = ref 60.
 
 type context = {
@@ -58,7 +60,7 @@ let ignore_exception msg f x =
 let filter_prefix prefix xs =
   List.filter_map
     (fun x ->
-       if String.startswith prefix x
+       if Astring.String.is_prefix ~affix:prefix x
        then Some (String.sub x (String.length prefix) (String.length x - (String.length prefix)))
        else None) xs
 
@@ -694,6 +696,7 @@ module Worker = struct
 end
 
 module WorkerPool = struct
+  module Date = Stdext.Date
 
   (* Store references to Worker.ts here *)
   let pool = ref []

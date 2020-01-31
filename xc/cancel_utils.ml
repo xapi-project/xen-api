@@ -105,7 +105,7 @@ let on_shutdown ~xs domid =
 
 let with_path ~xs key f =
   let path = cancel_path_of ~xs key in
-  finally
+  Stdext.Pervasiveext.finally
     (fun () ->
        xs.Xs.write path "";
        f ()

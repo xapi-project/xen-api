@@ -32,6 +32,8 @@ exception Cdrom
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+let finally = Stdext.Pervasiveext.finally
+
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
   (* Qemu_trad cannot be removed from here, we need to be able to unmarshal it,
@@ -1206,7 +1208,8 @@ module PCI = struct
   let read_pcidir ~xs domid =
     let path = device_model_pci_device_path xs 0 domid in
     let prefix = "dev-" in
-    let all = List.filter (String.startswith prefix) (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
+    let is_device = Astring.String.is_prefix ~affix:prefix in
+    let all = List.filter is_device (try xs.Xs.directory path with Xs_protocol.Enoent _ -> []) in
     (* The values are the PCI device (domain, bus, dev, func) strings *)
     let device_number_of_string x =
       (* remove the silly prefix *)
@@ -1318,7 +1321,7 @@ module PCI = struct
     release_xl pcidevs domid
 
   let write_string_to_file file s =
-    let fn_write_string fd = Unixext.really_write fd (Bytes.of_string s) 0 (String.length s) in
+    let fn_write_string fd = Unixext.really_write fd s 0 (String.length s) in
     Unixext.with_file file [ Unix.O_WRONLY ] 0o640 fn_write_string
 
   let do_flr device =

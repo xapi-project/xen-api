@@ -26,6 +26,8 @@ open D
 
 module RRDD = Rrd_client.Client
 
+let finally = Stdext.Pervasiveext.finally
+
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
 
@@ -3261,7 +3263,7 @@ module VIF = struct
              Xs.transaction xs (fun t ->
                  let keys = t.Xs.directory private_path in
                  List.iter (fun key ->
-                     if String.startswith pvs_proxy_key_prefix key then
+                     if Stdext.Xstringext.String.startswith pvs_proxy_key_prefix key then
                        t.Xs.rm (Printf.sprintf "%s/%s" private_path key)
                    ) keys
                )

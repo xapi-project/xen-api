@@ -25,6 +25,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+let finally = Stdext.Pervasiveext.finally
+
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
   gic_version: int;
   nr_spis: int;
@@ -146,7 +148,8 @@ let allowed_xsdata_prefixes = [ "vm-data"; "FIST" ]
 
 let filtered_xsdata =
   (* disallowed by default; allowed only if it has one of a set of prefixes *)
-  let allowed (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith (p ^ "/") x) allowed_xsdata_prefixes) in
+  let is_allowed path dir = Astring.String.is_prefix ~affix:(dir ^ "/") path in
+  let allowed (x, _) = List.fold_left (||) false (List.map (is_allowed x) allowed_xsdata_prefixes) in
   List.filter allowed
 
 exception Suspend_image_failure
@@ -1398,7 +1401,7 @@ type suspend_flag = Live | Debug
                 		   spot the progress indicator *)
         let callback txt =
           let prefix = "\\b\\b\\b\\b" in
-          if String.startswith prefix txt then
+          if Astring.String.is_prefix ~affix:prefix txt then
             let rest = String.sub txt (String.length prefix)
                 (String.length txt - (String.length prefix)) in
             match Stdext.Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
