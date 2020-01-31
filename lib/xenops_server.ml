@@ -1103,7 +1103,7 @@ let rec atomics_of_operation = function
     (* If we've got a vGPU, then save its state will be in the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
     let pcis = PCI_DB.pcis id |> pci_plug_order in
-    let vgpu_start_operations = 
+    let vgpu_start_operations =
       match VGPU_DB.ids id with
       | [] -> []
       | vgpus ->
@@ -1915,7 +1915,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         (* Check if there is a separate vGPU data channel *)
         let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
         let pcis = PCI_DB.pcis id |> pci_plug_order in
-        let vgpu_start_operations = 
+        let vgpu_start_operations =
         match VGPU_DB.ids id with
         | [] -> []
         | vgpus ->

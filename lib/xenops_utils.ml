@@ -30,7 +30,7 @@ module Unix = struct
 
   let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> file_descr_of_int
   let rpc_of_file_descr x = x |> int_of_file_descr |> Rpc.rpc_of_int
-  
+
   let typ_of_file_descr = Rpc.Types.Abstract ({
       aname = "file_descr";
       test_data = [Unix.stdout];
@@ -90,19 +90,19 @@ let ignore_bool (_: bool) = ()
 let ignore_int (_: int) = ()
 
 (* Recode an incoming string as valid UTF-8 *)
-let utf8_recode str = 
+let utf8_recode str =
   let out_encoding = `UTF_8 in
   let b = Buffer.create 1024 in
   let dst = `Buffer b in
   let src = `String str in
   let rec loop d e =
-    match Uutf.decode d with 
-    | `Uchar _ as u -> ignore (Uutf.encode e u); loop d e 
+    match Uutf.decode d with
+    | `Uchar _ as u -> ignore (Uutf.encode e u); loop d e
     | `End -> ignore (Uutf.encode e `End)
-    |`Malformed _ -> ignore (Uutf.encode e (`Uchar Uutf.u_rep)); loop d e 
+    |`Malformed _ -> ignore (Uutf.encode e (`Uchar Uutf.u_rep)); loop d e
     | `Await -> assert false
   in
-  let d = Uutf.decoder src in 
+  let d = Uutf.decoder src in
   let e = Uutf.encoder out_encoding dst in
   loop d e;
   Buffer.contents b
@@ -352,7 +352,7 @@ module TypedTable = functor(I: ITEM) -> struct
   (* The call `update k f` reads key `k` from the DB, passes the value to `f`,
      and updates the DB with the result. If the result is `None`, then the key
      will be deleted. Otherwise, its value will be modified.
-     Returns a Boolean that indicates whether the operation actually 
+     Returns a Boolean that indicates whether the operation actually
      changed what is in the DB.
      Note that `f` should never itself include an `add`, `remove` or another
      `update` or deadlock will occur! *)
@@ -447,12 +447,12 @@ let unplugged_vusb = {
   Vusb.plugged = false;
 }
 
-let remap_vdi vdi_map = function 
-  | Xenops_interface.VDI vdi -> 
-    if List.mem_assoc vdi vdi_map 
+let remap_vdi vdi_map = function
+  | Xenops_interface.VDI vdi ->
+    if List.mem_assoc vdi vdi_map
     then (debug "Remapping VDI: %s -> %s" vdi (List.assoc vdi vdi_map); VDI (List.assoc vdi vdi_map))
-    else VDI vdi 
-  | x -> x 
+    else VDI vdi
+  | x -> x
 
 let remap_vif vif_map vif =
   let open Xenops_interface in

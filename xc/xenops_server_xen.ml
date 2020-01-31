@@ -1891,7 +1891,7 @@ module VM = struct
               (* Flush all outstanding disk blocks *)
 
               let devices = Device_common.list_frontends ~xs domid in
-              let vmid = Storage.vm_of_domid (Some domid )in 
+              let vmid = Storage.vm_of_domid (Some domid )in
               let vbds = List.filter (fun dev -> match Device_common.(dev.frontend.kind) with Device_common.Vbd _ -> true | _ -> false) devices in
               List.iter (Device.Vbd.hard_shutdown_request ~xs) vbds;
               List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
@@ -2352,7 +2352,7 @@ module PCI = struct
          Device.PCI.bind [ pci.address ] Device.PCI.Pciback;
          let index = get_next_pci_index ~xs frontend_domid in
          let guest_pci =
-           Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm) 
+           Device.Dm.pci_assign_guest ~xs ~dm:(dm_of vm)
              ~host:pci.address ~index in
          let device = Device.PCI.{
            host = pci.address;
@@ -2547,7 +2547,7 @@ module VBD = struct
       with_xs (fun xs -> xs.Xs.read (active_path vm vbd)) = "1"
     with _ -> false
 
-  let epoch_begin task vm disk persistent = 
+  let epoch_begin task vm disk persistent =
     with_xc_and_xs (fun xc xs ->
       match disk with
       | VDI path ->

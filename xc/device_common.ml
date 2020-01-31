@@ -24,7 +24,7 @@ type endpoint = { domid: int; kind: kind; devid: int }
 [@@deriving rpcty]
 
 (** Represent a device as a pair of endpoints *)
-type device = { 
+type device = {
   frontend: endpoint;
   backend: endpoint
 }
@@ -60,17 +60,17 @@ let kind_of_string = function
   | x -> raise (Unknown_device_type x)
 
 let string_of_endpoint (x: endpoint) =
-  sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid  
+  sprintf "(domid=%d | kind=%s | devid=%d)" x.domid (string_of_kind x.kind) x.devid
 let block_device_of_device device =
   device.frontend.devid |> Device_number.of_xenstore_key |> Device_number.to_linux_device |> (fun x -> "/dev/" ^ x)
 
-let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) = 
+let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) =
   let p = match backend.kind with
     | NetSriovVf -> "xenserver/backend"
     | _ -> "backend"
   in
-  sprintf "%s/%s/%s/%u/%d" 
-    (xs.Xs.getdomainpath backend.domid) 
+  sprintf "%s/%s/%s/%u/%d"
+    (xs.Xs.getdomainpath backend.domid)
     p
     (string_of_kind backend.kind)
     domu backend.devid
@@ -79,7 +79,7 @@ let backend_path ~xs (backend: endpoint) (domu: Xenctrl.domid) =
 let backend_path_of_device ~xs (x: device) = backend_path ~xs x.backend x.frontend.domid
 
 (** Location of the frontend in xenstore: this is owned by the guest. *)
-let frontend_rw_path_of_device ~xs (x: device) = 
+let frontend_rw_path_of_device ~xs (x: device) =
   let p = match x.frontend.kind with
     | NetSriovVf -> "xenserver/device"
     | _ -> "device"
@@ -91,21 +91,21 @@ let frontend_rw_path_of_device ~xs (x: device) =
     x.frontend.devid
 
 (** Location of the frontend read-only path (owned by dom0 not guest) in xenstore *)
-let frontend_ro_path_of_device ~xs (x: device) = 
+let frontend_ro_path_of_device ~xs (x: device) =
   sprintf "/xenops/domain/%d/device/%s/%d"
     x.frontend.domid
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
 (** Location of the frontend error node *)
-let error_path_of_device ~xs (x: device) = 
+let error_path_of_device ~xs (x: device) =
   sprintf "%s/error/device/%s/%d/error"
     (xs.Xs.getdomainpath x.frontend.domid)
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
 (** Location of the frontend node where carrier status is inflicted *)
-let disconnect_path_of_device ~xs (x: device) = 
+let disconnect_path_of_device ~xs (x: device) =
   sprintf "%s/device/%s/%d/disconnect"
     (xs.Xs.getdomainpath x.frontend.domid)
     (string_of_kind x.frontend.kind)
@@ -135,23 +135,23 @@ let backend_error_path_of_device ~xs (x : device) =
     x.frontend.domid
 
 (** Written to by blkback/blktap when they have shutdown a device *)
-let backend_shutdown_done_path_of_device ~xs (x: device) = 
+let backend_shutdown_done_path_of_device ~xs (x: device) =
   sprintf "%s/shutdown-done" (backend_path_of_device ~xs x)
 
 (** Path to write blkback/blktap shutdown requests to *)
-let backend_shutdown_request_path_of_device ~xs (x: device) = 
+let backend_shutdown_request_path_of_device ~xs (x: device) =
   sprintf "%s/shutdown-request" (backend_path_of_device ~xs x)
 
 (** Path to write blkback/blktap pause requests to *)
-let backend_pause_request_path_of_device ~xs (x: device) = 
+let backend_pause_request_path_of_device ~xs (x: device) =
   sprintf "%s/pause" (backend_path_of_device ~xs x)
 
 (** Path to write blkback/blktap pause tokens to *)
-let backend_pause_token_path_of_device ~xs (x: device) = 
+let backend_pause_token_path_of_device ~xs (x: device) =
   sprintf "%s/pause-token" (backend_path_of_device ~xs x)
 
 (** Path to write blkback/blktap pause done responses to *)
-let backend_pause_done_path_of_device ~xs (x: device) = 
+let backend_pause_done_path_of_device ~xs (x: device) =
   sprintf "%s/pause-done" (backend_path_of_device ~xs x)
 
 let backend_state_path_of_device ~xs (x: device) =
@@ -173,7 +173,7 @@ let remove_backend_keys ~xs (x: device) subdir keys =
       List.iter (fun key -> t.Xst.rm (backend ^ "/" ^ key)) keys
     )
 
-let string_of_device (x: device) = 
+let string_of_device (x: device) =
   sprintf "frontend %s; backend %s" (string_of_endpoint x.frontend) (string_of_endpoint x.backend)
 
 (* We use this function below to switch from domid- to UUID-based private
@@ -214,7 +214,7 @@ let extra_xenserver_path_of_device ~xs (x: device) =
     (string_of_kind x.backend.kind)
     x.frontend.devid
 
-let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) = 
+let device_of_backend (backend: endpoint) (domu: Xenctrl.domid) =
   let frontend = { domid = domu;
                    kind = (match backend.kind with
                        | Tap | Vbd _ -> default_vbd_frontend_kind
@@ -227,7 +227,7 @@ let parse_kind k =
     Some (kind_of_string k)
   with Unknown_device_type _ -> None
 
-let parse_int i = 
+let parse_int i =
   try
     Some (int_of_string i)
   with _ -> None
@@ -243,8 +243,8 @@ let parse_frontend_link x =
     end
   | _ -> None
 
-let parse_backend_link x = 
-  match Stdext.Xstringext.String.split '/' x with 
+let parse_backend_link x =
+  match Stdext.Xstringext.String.split '/' x with
   | [ ""; "local"; "domain"; domid; "xenserver"; "backend"; kind; _; devid ]
   | [ ""; "local"; "domain"; domid; "backend"; kind; _; devid ] ->
     begin
@@ -316,11 +316,11 @@ let list_backends ~xs domid =
                                    ) domids)
                  ) kinds)
 
-(** Return a list of devices connecting two domains. Ignore those whose kind 
+(** Return a list of devices connecting two domains. Ignore those whose kind
     we don't recognise *)
-let list_devices_between ~xs driver_domid user_domid = 
+let list_devices_between ~xs driver_domid user_domid =
   List.filter
-    (fun d -> d.frontend.domid = user_domid) 
+    (fun d -> d.frontend.domid = user_domid)
     (list_backends ~xs driver_domid)
 
 

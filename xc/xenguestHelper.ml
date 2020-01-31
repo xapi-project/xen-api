@@ -29,11 +29,11 @@ exception Xenctrl_domain_restore_failure of int * string
 
 exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
 
-(** We do all our IO through the buffered channels but pass the 
+(** We do all our IO through the buffered channels but pass the
     underlying fds as integers to the forked helper on the commandline. *)
 type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelpers.pidty
 
-(** Fork and run a xenguest helper with particular args, leaving 'fds' open 
+(** Fork and run a xenguest helper with particular args, leaving 'fds' open
     (in addition to internal control I/O fds) *)
 let connect path domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
   debug "connect: args = [ %s ]" (String.concat " " args);
@@ -49,7 +49,7 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
   let args = [ "-controloutfd"; slave_to_server_w_uuid;
                "-controlinfd"; server_to_slave_r_uuid
              ] @ args in
-  let pid = Forkhelpers.safe_close_and_exec None None None 
+  let pid = Forkhelpers.safe_close_and_exec None None None
       ([ slave_to_server_w_uuid, slave_to_server_w;
          server_to_slave_r_uuid, server_to_slave_r ] @ fds)
       path args in
@@ -120,7 +120,7 @@ let string_of_message = function
   | Result x -> "result:" ^ (String.escaped x)
 
 let message_of_string x =
-  if not(String.contains x ':') 
+  if not(String.contains x ':')
   then failwith (Printf.sprintf "Failed to parse message from xenguesthelper [%s]" x);
   let i = String.index x ':' in
   let prefix = String.sub x 0 i
@@ -144,8 +144,8 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
   | x -> x (* Error or Result or Suspend *)
 
 (* Dump memory statistics on failure *)
-let non_debug_receive ?debug_callback cnx = 
-  let debug_memory () = 
+let non_debug_receive ?debug_callback cnx =
+  let debug_memory () =
     Xenctrl.with_intf (fun xc ->
         let open Memory in
         let open Int64 in
@@ -158,7 +158,7 @@ let non_debug_receive ?debug_callback cnx =
       ) in
   try
     match non_debug_receive ?debug_callback cnx with
-    | Error y as x -> 
+    | Error y as x ->
       error "Received: %s" y;
       debug_memory (); x
     | x -> x

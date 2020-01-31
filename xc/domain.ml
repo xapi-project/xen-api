@@ -482,7 +482,7 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.task_handle) ~timeout ~xc ~xs domid (domain_type : [`pv | `pvh | `hvm])  req =
   let di = Xenctrl.domain_getinfo xc domid in
   let uuid = get_uuid ~xc domid in
-  let expecting_ack = 
+  let expecting_ack =
     match di.Xenctrl.hvm_guest, domain_type with
     | false, _ -> true (* PV guests always acknowledge *)
     | true, `pvh -> true (* PVH guests are also always enlightened *)
@@ -541,7 +541,7 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
          ("Reset PCI device " ^ string_of_address pcidev)
          (fun () -> Device.PCI.reset ~xs pcidev) ())
     all_pci_devices;
-  
+
   (* PCI specification document says that the Function must complete the FLR within 100 ms
     https://pcisig.com/sites/default/files/specification_documents/ECN_RN_29_Aug_2013.pdf on page 7 *)
   Thread.delay 0.1;
