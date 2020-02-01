@@ -87,6 +87,10 @@ let api_members = ref []
 let rec main() =
   render_file ("Proxy.mustache", "Proxy.cs") (gen_proxy CommonFunctions.XmlRpc) templdir destdir;
   render_file ("JsonRpcClient.mustache", "JsonRpcClient.cs") (gen_proxy CommonFunctions.JsonRpc) templdir destdir;
+
+  let msgJson = `O ["message_types", `A (List.map (fun x -> `O ["message_type", `String (fst x)];) !Api_messages.msgList); ] in
+  render_file ("Message2.mustache", "Message2.cs") msgJson templdir destdir;
+
   classes |> List.filter (fun x-> x.name <> "session") |> List.iter gen_class_file;
   TypeSet.iter gen_enum !enums;
   gen_maps();
@@ -295,34 +299,6 @@ namespace XenAPI
     Licence.bsd_two_clause
     (escape_xml cls.description) (if publishedInfo = "" then "" else "\n    /// "^publishedInfo)
     exposed_class_name exposed_class_name;
-
-  (* Generate bits for Message type *)
-  if cls.name = "message" then
-    begin
-      print "
-        public enum MessageType { %s };
-
-        public MessageType Type
-        {
-            get
-            {
-                switch (this.name)
-                {"
-        (String.concat ", " ((List.map fst !Api_messages.msgList) @ ["unknown"]));
-
-      List.iter (fun x -> print "
-                    case \"%s\":
-                        return MessageType.%s;" x x) (List.map fst !Api_messages.msgList);
-
-      print
-        "
-                    default:
-                        return MessageType.unknown;
-                }
-            }
-        }
-"
-    end;
 
   print
     "
