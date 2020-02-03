@@ -1056,7 +1056,7 @@ module PV_Vnc = struct
       let cmdline =
         Printf.sprintf "/proc/%d/cmdline" pid
         |> Unixext.string_of_file
-        |> Stdext.Xstringext.String.split '\000'
+        |> Astring.String.cuts ~sep:"\000"
       in
       (List.mem !Xc_resources.vncterm cmdline) &&
       (List.mem (vnc_console_path domid) cmdline)
@@ -1399,7 +1399,9 @@ module PCI = struct
     debug "pci: binding device %s to i915" devstr;
     let is_loaded = Unixext.file_lines_fold (
         fun loaded line ->
-          loaded || match Stdext.Xstringext.String.split ' ' line with "i915" :: _ -> true | _ -> false
+          loaded || match Astring.String.cut ~sep:" " line with
+            | Some ("i915", _) -> true
+            | _ -> false
       ) false "/proc/modules" in
     if not is_loaded then ignore (Forkhelpers.execute_command_get_output !Resources.modprobe ["i915"]);
     match get_driver devstr	with
@@ -1497,8 +1499,8 @@ module PCI = struct
         (* Work around due to PCI ID formatting inconsistency. *)
         let devstr2 = String.mapi (fun i c -> if i = 7 then '.' else c) devstr in
         if false
-        || (Stdext.Xstringext.String.has_substr gpu_info devstr2)
-        || (Stdext.Xstringext.String.has_substr gpu_info devstr)
+        || (Astring.String.is_infix ~affix:devstr2 gpu_info)
+        || (Astring.String.is_infix ~affix:devstr gpu_info)
         then gpu_path
         else find_gpu rest
     in
@@ -3036,11 +3038,8 @@ module Backend = struct
         let serial_device =
           try
             let xs_path = xs.Xs.read "/local/logconsole/@" in
-            let file =
-              if Stdext.Xstringext.String.has_substr xs_path "%d" then
-                Stdext.Xstringext.String.replace "%d" (string_of_int domid) xs_path
-              else
-                xs_path
+            let domid_placeholder = Re.(compile @@ str "%d") in
+            let file = Re.replace_string domid_placeholder ~by:(string_of_int domid) xs_path
             in ["-chardev"; "file,id=serial0,append=on,path=" ^ file; "-serial"; "chardev:serial0"]
           with _ ->
             match info.Dm_Common.serial with

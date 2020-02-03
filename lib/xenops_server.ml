@@ -323,7 +323,7 @@ module VGPU_DB = struct
     end)
   let vm_of = fst
   let string_of_id (a, b) = a ^ "." ^ b
-  let id_of_string str = match Stdext.Xstringext.String.split '.' str with
+  let id_of_string str = match Astring.String.cuts ~sep:"." str with
     | [a; b] -> a, b
     | _ -> raise (Xenopsd_error (Internal_error ("String cannot be interpreted as vgpu id: "^str)))
 
@@ -2543,7 +2543,7 @@ module VM = struct
       (fun () ->
          let id, final_id =
            (* The URI is /service/xenops/memory/id *)
-           let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
+           let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in
            let id = bits |> List.rev |> List.hd in
            let final_id = match List.assoc_opt "final_id" cookies with Some x -> x | None -> id in
            debug "VM.receive_memory id = %s, final_id=%s" id final_id;
@@ -2572,8 +2572,14 @@ module VM = struct
       (fun () ->
          let vgpu_id =
            (* The URI is /service/xenops/migrate-vgpu/id *)
-           let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
-           let vgpu_id_str = bits |> List.rev |> List.hd in
+           let path = Uri.path uri in
+           let bits = Astring.String.cut ~sep:"/" ~rev:true path in
+           let vgpu_id_str = match bits with
+           | Some (_, vgpu_id_str) -> vgpu_id_str
+           | None ->
+               raise (Xenopsd_error (Internal_error
+                ("Could not retrieve vgpu id from path " ^ path)))
+           in
            let vgpu_id = VGPU_DB.id_of_string vgpu_id_str in
            debug "VM.receive_vgpu vgpu_id_str = %s" vgpu_id_str;
            vgpu_id

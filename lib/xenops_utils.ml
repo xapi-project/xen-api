@@ -479,16 +479,9 @@ let remap_vgpu vgpu_pci_map vgpu =
       { vgpu with Vgpu.virtual_pci_address = Some addr  } in
   vgpu
 
-let strip x =
-  if x.[String.length x - 1] = '\n'
-  then String.sub x 0 (String.length x - 1)
-  else x
 let get_network_backend () =
   try
-    Unixext.string_of_file !Resources.network_conf
-    |>  strip
-    |>  Stdext.Xstringext.String.split ' '
-    |>  List.hd
+    String.trim (Unixext.string_of_file !Resources.network_conf)
   with _ ->
     failwith (Printf.sprintf "Failed to read network backend from: %s" !Resources.network_conf)
 
@@ -503,11 +496,11 @@ type hypervisor =
 let detect_hypervisor () =
   if Sys.file_exists _sys_hypervisor_type then begin
 
-    let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
+    let hypervisor = String.trim (Unixext.string_of_file _sys_hypervisor_type) in
     match hypervisor with
     | "xen" ->
-      let major = strip (Unixext.string_of_file _sys_hypervisor_version_major) in
-      let minor = strip (Unixext.string_of_file _sys_hypervisor_version_minor) in
+      let major = String.trim (Unixext.string_of_file _sys_hypervisor_version_major) in
+      let minor = String.trim (Unixext.string_of_file _sys_hypervisor_version_minor) in
       Some (Xen(major, minor))
     | x -> Some (Other x)
   end else None

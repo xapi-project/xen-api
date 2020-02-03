@@ -46,7 +46,7 @@ exception Parse_failed of string
 
 let parse_result_exn s : qos_scheduler option =
   try
-    match Stdext.Xstringext.String.(split_f isspace s) with
+    match Astring.String.fields ~empty:false s with
     | [ cls_colon; "prio"; param ] ->
       ( match String.sub cls_colon 0 (String.length cls_colon - 1) with
       | "unknown" | "none" -> None

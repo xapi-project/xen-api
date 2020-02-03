@@ -843,7 +843,7 @@ let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_dom
 
 let xenguest task xenguest_path domid uuid args =
   let line = XenguestHelper.(with_connection task xenguest_path domid args [] receive_success) in
-  match Stdext.Xstringext.String.split ' ' line with
+  match Astring.String.cuts ~sep:" " line with
   | store_mfn :: console_mfn :: _ ->
     debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
     Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
@@ -1020,7 +1020,7 @@ type suspend_flag = Live | Debug
   let restore_libxc_record cnx domid uuid =
     let open Emu_manager in
     send_restore cnx Xenguest;
-    let res = receive_success cnx in
+    let res = XenguestHelper.receive_success cnx in
     match parse_result res with
     | Xenguest_result (store, console) ->
       debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd" (Uuid.to_string uuid) domid store console;
@@ -1189,7 +1189,7 @@ type suspend_flag = Live | Debug
             let rec loop results =
               try
                 debug "Waiting for response from emu-manager";
-                return (receive_success cnx) >>= fun response ->
+                return (XenguestHelper.receive_success cnx) >>= fun response ->
                 debug "Received response from emu-manager: %s" response;
                 wrap (fun () -> parse_result response) >>= fun result ->
                 let emu = emu_of_result result in
@@ -1404,7 +1404,7 @@ type suspend_flag = Live | Debug
           if Astring.String.is_prefix ~affix:prefix txt then
             let rest = String.sub txt (String.length prefix)
                 (String.length txt - (String.length prefix)) in
-            match Stdext.Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
+            match Astring.String.fields ~empty:false ~is_sep:(fun c -> c = ' ' || c = '%') rest with
             | [ percent ] -> (
                 try
                   let percent = int_of_string percent in

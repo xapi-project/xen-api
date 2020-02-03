@@ -71,10 +71,9 @@ let disconnect (_, _, r, w, pid) =
 
 let supports_feature path feat =
   let open Forkhelpers in
-  let open Stdext.Xstringext.String in
   try
     execute_command_get_output path ("-supports" :: [feat])
-    |> fst |> strip isspace |> lowercase_ascii = "true"
+    |> fst |> String.trim |> String.lowercase_ascii = "true"
   with Spawn_internal_error _ -> false
 
 let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
@@ -172,16 +171,25 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
   match non_debug_receive ~debug_callback cnx with
   | Error x ->
     (* These error strings match those in xenguest_stubs.c *)
+    let pp msg = Astring.String.concat ~sep:" " msg in
     begin
-      match Stdext.Xstringext.String.split ~limit:3 ' ' x with
-      | [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
-      | [ "xc_dom_allocate"   ; code; msg ] -> raise (Xenctrl_dom_allocate_failure    (int_of_string code, msg))
-      | [ "xc_dom_linux_build"; code; msg ] -> raise (Xenctrl_dom_linux_build_failure (int_of_string code, msg))
-      | [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
-      | [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
-      | [ "xc_domain_save"    ; code; msg ] -> raise (Xenctrl_domain_save_failure     (int_of_string code, msg))
-      | [ "xc_domain_resume"  ; code; msg ] -> raise (Xenctrl_domain_resume_failure   (int_of_string code, msg))
-      | [ "xc_domain_restore" ; code; msg ] -> raise (Xenctrl_domain_restore_failure  (int_of_string code, msg))
+      match Astring.String.cuts ~sep:" " x with
+      | "hvm_build"          :: code :: msg ->
+          raise (Domain_builder_error            ("hvm_build", int_of_string code, pp msg))
+      | "xc_dom_allocate"    :: code :: msg ->
+          raise (Xenctrl_dom_allocate_failure    (int_of_string code, pp msg))
+      | "xc_dom_linux_build" :: code :: msg ->
+          raise (Xenctrl_dom_linux_build_failure (int_of_string code, pp msg))
+      | "hvm_build_params"   :: code :: msg ->
+          raise (Domain_builder_error            ("hvm_build_params", int_of_string code, pp msg))
+      | "hvm_build_mem"      :: code :: msg ->
+          raise (Domain_builder_error            ("hvm_build_mem", int_of_string code, pp msg))
+      | "xc_domain_save"     :: code :: msg ->
+          raise (Xenctrl_domain_save_failure     (int_of_string code, pp msg))
+      | "xc_domain_resume"   :: code :: msg ->
+          raise (Xenctrl_domain_resume_failure   (int_of_string code, pp msg))
+      | "xc_domain_restore"  :: code :: msg ->
+          raise (Xenctrl_domain_restore_failure  (int_of_string code, pp msg))
       | _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
     end
   | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"

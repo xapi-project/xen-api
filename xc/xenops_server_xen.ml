@@ -3263,7 +3263,7 @@ module VIF = struct
              Xs.transaction xs (fun t ->
                  let keys = t.Xs.directory private_path in
                  List.iter (fun key ->
-                     if Stdext.Xstringext.String.startswith pvs_proxy_key_prefix key then
+                     if Astring.String.is_prefix ~affix:pvs_proxy_key_prefix key then
                        t.Xs.rm (Printf.sprintf "%s/%s" private_path key)
                    ) keys
                )
@@ -3587,7 +3587,7 @@ module Actions = struct
       RRDD.Plugin.Interdomain.deregister uid
     in
 
-    match List.filter (fun x -> x <> "") (Stdext.Xstringext.String.split '/' path) with
+    match Astring.String.cuts ~empty:false ~sep:"/" path with
     | "local" :: "domain" :: domid :: "backend" :: kind :: frontend :: devid :: key ->
       debug "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s" domid kind frontend devid;
       fire_event_on_device frontend kind devid;
@@ -3605,7 +3605,7 @@ module Actions = struct
             Printf.sprintf "/local/domain/%s/rrd/%s/protocol" domid name
           in
           let grant_refs = xs.Xs.read grant_refs_path
-                           |> Stdext.Xstringext.String.split ','
+                           |> Astring.String.cuts ~sep:","
                            |> List.map int_of_string
           in
           let protocol =
