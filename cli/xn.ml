@@ -43,7 +43,7 @@ let diagnose_error f =
         Printf.fprintf stderr "1. Start the xenopsd service; it will create the socket when it is started;\n";
         Printf.fprintf stderr "2. Override the default path using the --socket=<path> option;\n";
         exit 1;
-      | Sys_error "Is a directory" ->
+      | Unix.Unix_error(Unix.EISDIR, _, _) ->
         Printf.fprintf stderr "The path refered to a directory. I require a file.\n";
         Printf.fprintf stderr "\nPlease check the path and retry.\n";
         exit 1;
@@ -51,8 +51,6 @@ let diagnose_error f =
         Printf.fprintf stderr "I don't have any relevant diagnostic advice. Please re-read the documentation\nand if you can't resolve the problem, send an email to <xen-api@lists.xen.org>.\n";
         exit 1
     end
-
-let ( |> ) a b = b a
 
 let usage () =
   Printf.fprintf stderr "%s <command> [args] - send commands to the xenops daemon\n" Sys.argv.(0);
@@ -121,7 +119,7 @@ let success_task f id =
 let parse_source x = match List.filter (fun x -> x <> "") (Re.Str.split_delim (Re.Str.regexp "[:]") x) with
   | [ "phy"; path ] -> Some (Local path)
   | [ "sm"; path ] -> Some (VDI path)
-  | [ "file"; path ] ->
+  | [ "file"; _path ] ->
     Printf.fprintf stderr "I don't understand 'file' disk paths. Please use 'phy'.\n";
     exit 2
   | [] -> None (* empty *)
@@ -309,7 +307,7 @@ let print_vm id =
   let vm_t, _ = Client.VM.stat dbg id in
   let quote x = Printf.sprintf "'%s'" x in
   let boot = match vm_t.ty with
-    | PV { boot = boot } ->
+    | PV { boot = boot; _ } ->
       begin match boot with
         | Direct { kernel = k; cmdline = c; ramdisk = i } -> [
             _builder, quote "generic";
@@ -318,12 +316,12 @@ let print_vm id =
           ] @ (match i with
             | None -> []
             | Some x -> [ _ramdisk, x ])
-        | Indirect { bootloader = b } -> [
+        | Indirect { bootloader = b; _ } -> [
             _builder, quote "generic";
             _bootloader, quote b;
           ]
       end
-    | HVM { boot_order = b } -> [
+    | HVM { boot_order = b; _ } -> [
         _builder, quote "hvm";
         _boot, quote b
       ]
@@ -357,7 +355,7 @@ let canonicalise_filename x =
     Printf.fprintf stderr "Cannot find file: %s\n%!" x;
     exit 1
 
-let add' copts x () = match x with
+let add' _copts x () = match x with
   | None -> `Error (false, "You must supply a path to a VM metadata file.")
   | Some filename ->
     let ic = open_in filename in
@@ -508,7 +506,7 @@ let list_verbose () =
 let list_compact () =
   let open Vm in
   let line name domid mem vcpus state time =
-    Printf.sprintf "%-45s%-5s%-6s%-5s     %-8s%-s" name domid mem vcpus state time in
+    Printf.sprintf "%-45s%-5s%-6s%-5s     %-8s%s" name domid mem vcpus state time in
   let header = line "Name" "ID" "Mem" "VCPUs" "State" "Time(s)" in
   let string_of_vm (vm, state) =
     let domid = match state.Vm.power_state with
@@ -561,7 +559,7 @@ let diagnostics' () =
   `Ok ()
 
 let stat_vm _ id =
-  let vm_t, vm_stat = Client.VM.stat dbg id in
+  let _vm_t, vm_stat = Client.VM.stat dbg id in
   let kvs =
     match rpc_of Vm.state vm_stat with
     | Dict kvs ->
@@ -573,7 +571,7 @@ let stat_vm _ id =
     ) kvs;
   `Ok ()
 
-let diagnostics copts = diagnose_error diagnostics'
+let diagnostics _copts = diagnose_error diagnostics'
 
 let find_by_name x =
   let open Vm in
@@ -585,7 +583,7 @@ let find_by_name x =
     Printf.fprintf stderr "Failed to find VM: %s\n" x;
     exit 1
 
-let remove copts x =
+let remove _copts x =
   let open Vm in
   let vm, _ = find_by_name x in
   let vbds = Client.VBD.list dbg vm.id in
@@ -606,7 +604,7 @@ let need_vm f x () = match x with
 
 let remove copts x = diagnose_error (need_vm (remove copts) x)
 
-let export_metadata copts filename x =
+let export_metadata _copts filename x =
   let open Vm in
   let vm, _ = find_by_name x in
   let txt = Client.VM.export_metadata dbg vm.id in
@@ -616,7 +614,7 @@ let export_metadata copts filename x =
        output_string oc txt
     ) (fun () -> close_out oc)
 
-let export_metadata_xm copts filename x : unit =
+let export_metadata_xm _copts filename x : unit =
   let open Vm in
   let vm, _ = find_by_name x in
   let txt = print_vm vm.id in
@@ -649,7 +647,7 @@ let delay x t =
   let vm, _ = find_by_name x in
   Client.VM.delay dbg vm.Vm.id t |> wait_for_task dbg |> success_task ignore_task
 
-let import_metadata copts filename =
+let import_metadata _copts filename =
   let ic = open_in filename in
   let buf = Buffer.create 128 in
   let line = Bytes.make 128 '\000' in
@@ -679,35 +677,35 @@ let import copts metadata filename () =
 
 let import copts metadata filename = diagnose_error (import copts metadata filename)
 
-let shutdown copts timeout x =
+let shutdown _copts timeout x =
   let open Vm in
   let vm, _ = find_by_name x in
   Client.VM.shutdown dbg vm.id timeout |> wait_for_task dbg |> success_task ignore_task
 
 let shutdown copts timeout x = diagnose_error (need_vm (shutdown copts timeout) x)
 
-let pause copts x =
+let pause _copts x =
   let open Vm in
   let vm, _ = find_by_name x in
   Client.VM.pause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
 
 let pause copts x = diagnose_error (need_vm (pause copts) x)
 
-let unpause copts x =
+let unpause _copts x =
   let open Vm in
   let vm, _ = find_by_name x in
   Client.VM.unpause dbg vm.id |> wait_for_task dbg |> success_task ignore_task
 
 let unpause copts x = diagnose_error (need_vm (unpause copts) x)
 
-let reboot copts timeout x =
+let reboot _copts timeout x =
   let open Vm in
   let vm, _ = find_by_name x in
   Client.VM.reboot dbg vm.id timeout |> wait_for_task dbg |> success_task ignore_task
 
 let reboot copts timeout x = diagnose_error (need_vm (reboot copts timeout) x)
 
-let suspend copts disk x =
+let suspend _copts disk x =
   (* We don't currently know how to create a fresh disk *)
   let disk = match disk with
     | None ->
@@ -720,7 +718,7 @@ let suspend copts disk x =
 
 let suspend copts disk x = diagnose_error (need_vm (suspend copts disk) x)
 
-let resume copts disk x =
+let resume _copts disk x =
   (* We don't currently store where the suspend image is *)
   let disk = match disk with
     | None ->
@@ -772,7 +770,7 @@ let vbd_list x =
       ) vbds in
   List.iter print_endline (header :: lines)
 
-let console_list copts x =
+let console_list _copts x =
   let _, s = find_by_name x in
   Printf.fprintf stderr "json=[%s]\n%!" (Jsonrpc.to_string (rpc_of Vm.state s));
   let line protocol port =
@@ -943,23 +941,23 @@ let vncviewer port = match vncviewer_binary with
     ()
 
 
-let console_connect' copts x =
+let console_connect' _copts x =
   let _, s = find_by_name x in
   let preference a b = match a, b with
-    | { Vm.protocol = Vm.Rfb }, { Vm.protocol = Vm.Vt100 } -> 1
-    | { Vm.protocol = Vm.Vt100 }, { Vm.protocol = Vm.Rfb } -> -1
+    | { Vm.protocol = Vm.Rfb; _ }, { Vm.protocol = Vm.Vt100; _ } -> 1
+    | { Vm.protocol = Vm.Vt100; _ }, { Vm.protocol = Vm.Rfb; _ } -> -1
     | _, _ -> 0 in
   let consoles = List.sort preference s.Vm.consoles in
   let connect = function
-    | { Vm.protocol = Vm.Vt100; path = path } when path <> "" ->
+    | { Vm.protocol = Vm.Vt100; path = path; _ } when path <> "" ->
       raw_console_proxy (Unix.ADDR_UNIX path)
-    | { Vm.protocol = Vm.Vt100; port = port } when port <> 0 ->
+    | { Vm.protocol = Vm.Vt100; port = port; _ } when port <> 0 ->
       raw_console_proxy (Unix.ADDR_INET(Unix.inet_addr_of_string "127.0.0.1", port))
-    | { Vm.protocol = Vm.Rfb; path = path } when path <> "" ->
+    | { Vm.protocol = Vm.Rfb; path = path; _ } when path <> "" ->
       let port = unix_proxy path in
       vncviewer port
-    | { Vm.protocol = Vm.Rfb; port = port } when port <> 0 ->
-      vncviewer port 
+    | { Vm.protocol = Vm.Rfb; port = port; _ } when port <> 0 ->
+      vncviewer port
     | _ -> failwith "unimplemented"
   in
   List.iter connect consoles;
@@ -1021,7 +1019,7 @@ let pci_list x =
     Printf.sprintf "%-10s %-3s %-12s" id bdf in
   let header = line "id" "pos" "bdf" in
   let lines = List.map
-      (fun (pci, state) ->
+      (fun (pci, _state) ->
          let open Pci in
          let id = snd pci.id in
          let bdf =
@@ -1090,7 +1088,7 @@ let rec events_watch from =
   flush stdout;
   events_watch (Some next)
 
-let events copts =
+let events _copts =
   events_watch None
 
 let set_worker_pool_size size =
