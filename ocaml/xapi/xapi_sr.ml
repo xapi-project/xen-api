@@ -25,6 +25,10 @@ open Db_filter_types
 open API
 open Client
 
+module String = Xstringext.String
+
+module List = Listext.List
+
 (* internal api *)
 
 module D=Debug.Make(struct let name="xapi" end)
@@ -270,11 +274,29 @@ let create  ~__context ~host ~device_config ~(physical_size:int64) ~name_label ~
          pbds);
   sr_ref
 
-let check_no_pbds_attached ~__context ~sr =
-  let all_pbds_attached_to_this_sr =
-    Db.PBD.get_records_where ~__context ~expr:(And(Eq(Field "SR", Literal (Ref.string_of sr)), Eq(Field "currently_attached", Literal "true"))) in
-  if List.length all_pbds_attached_to_this_sr > 0
-  then raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
+let assert_all_pbds_unplugged ~__context ~sr =
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  if List.exists (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds then
+    raise (Api_errors.Server_error(Api_errors.sr_has_pbd, [ Ref.string_of sr ]))
+
+let assert_sr_not_indestructible ~__context ~sr =
+  let oc = Db.SR.get_other_config ~__context ~self:sr in
+
+  match List.assoc_opt "indestructible" oc with
+  | Some "true" ->
+    raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]))
+  | _ -> ()
+
+let assert_sr_not_local_cache ~__context ~sr =
+  let host_with_sr_as_cache = Db.Host.get_all ~__context
+  |> List.find_opt (fun host ->
+      sr = Db.Host.get_local_cache_sr ~__context ~self:host)
+  in
+
+  match host_with_sr_as_cache with
+  | Some host ->
+    raise (Api_errors.Server_error(Api_errors.sr_is_cache_sr, [ Ref.string_of host ]))
+  | None -> ()
 
 let find_or_create_rrd_vdi ~__context ~sr =
   let open Db_filter_types in
@@ -326,51 +348,57 @@ let maybe_copy_sr_rrds ~__context ~sr =
     with Rrd_interface.Archive_failed(msg) ->
       warn "Archiving of SR RRDs to stats VDI failed: %s" msg
 
+(* CA-325582: Because inactive metrics are kept always loaded in memory and SR
+   metrics are stored as host one, we are forced to send an explicit message
+   to xcp-rrdd to get the metrics unloaded from memory whenever the SR is
+   about to be removed from the database. i.e. just before a destroy or a
+   forget. Since all pbds provided by the SR are unplugged at that time there
+   are no more metrics about the sr being created, the current ones can be
+   deleted. On top of that the metrics should have been archived to disk when
+   each PBD got unplugged. *)
+let unload_metrics_from_memory ~__context ~sr =
+  let short_uuid = String.sub (Db.SR.get_uuid ~__context ~self:sr) 0 8 in
+  let is_sr_metric = String.endswith short_uuid in
+
+  (* SR data sources are currently stored in memory as host ones.
+     Pick the ones that match the short uuid and remove them,
+     this prevents these metrics from being archived *)
+  Rrdd.query_possible_host_dss ()
+  |> List.filter_map (fun ds ->
+      if is_sr_metric ds.Data_source.name then
+        Some ds.Data_source.name
+      else
+        None)
+  |> List.iter (fun ds_name -> Rrdd.forget_host_ds ds_name)
+
 (* Remove SR record from database without attempting to remove SR from disk.
-   Fail if any PBD still is attached (plugged); force the user to unplug it
-   first. *)
-let forget  ~__context ~sr =
-  (* NB we fail if ANY host is connected to this SR *)
-  check_no_pbds_attached ~__context ~sr;
-  List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) (Db.SR.get_PBDs ~__context ~self:sr);
-  let vdis = Db.VDI.get_refs_where ~__context ~expr:(Eq(Field "SR", Literal (Ref.string_of sr))) in
-  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
+   Assumes all PBDs created from the SR have been unplugged. *)
+let really_forget ~__context ~sr =
+  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
+  let vdis = Db.SR.get_VDIs ~__context ~self:sr in
+
+  List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
+  List.iter (fun self -> Db.VDI.destroy ~__context ~self) vdis;
   Db.SR.destroy ~__context ~self:sr
 
-(** Remove SR from disk and remove SR record from database. (This operation uses the SR's associated
-    PBD record on current host to determine device_config reqd by sr backend) *)
+(* Hijack forget function to be able to unload metrics in slaves
+   as well as the master. The actual removal from the database
+   can be called in the master directly from the edge of the API,
+   in message_forwarding *)
+let forget ~__context ~sr =
+  unload_metrics_from_memory ~__context ~sr
+
+(* Remove SR from disk. This operation uses the SR's associated PBD record on
+   current host to determine device_config required by SR backend.
+   This function does _not_ remove the SR record from the database. *)
 let destroy  ~__context ~sr =
-  check_no_pbds_attached ~__context ~sr;
-  let pbds = Db.SR.get_PBDs ~__context ~self:sr in
-
-  (* raise exception if the 'indestructible' flag is set in other_config *)
-  let oc = Db.SR.get_other_config ~__context ~self:sr in
-  if (List.mem_assoc "indestructible" oc) && (List.assoc "indestructible" oc = "true") then
-    raise (Api_errors.Server_error(Api_errors.sr_indestructible, [ Ref.string_of sr ]));
-
-  (* raise exception if SR is being used as local_cache_sr *)
-  let all_hosts = Db.Host.get_all ~__context in
-  List.iter
-    (fun host ->
-       let local_cache_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
-       if local_cache_sr = sr then
-         raise (Api_errors.Server_error(Api_errors.sr_is_cache_sr, [ Ref.string_of host ]));
-    ) all_hosts;
-
   let vdis_to_destroy =
     if should_manage_stats ~__context sr then [find_or_create_rrd_vdi ~__context ~sr]
     else [] in
-
   Storage_access.destroy_sr ~__context ~sr ~and_vdis:vdis_to_destroy;
 
-  (* The sr_delete may have deleted some VDI records *)
-  let vdis = Db.SR.get_VDIs ~__context ~self:sr in
   let sm_cfg = Db.SR.get_sm_config ~__context ~self:sr in
-
-  Xapi_secret.clean_out_passwds ~__context sm_cfg;
-  List.iter (fun self -> Xapi_pbd.destroy ~__context ~self) pbds;
-  List.iter (fun vdi ->  Db.VDI.destroy ~__context ~self:vdi) vdis;
-  Db.SR.destroy ~__context ~self:sr
+  Xapi_secret.clean_out_passwds ~__context sm_cfg
 
 let update ~__context ~sr =
   let open Storage_access in
