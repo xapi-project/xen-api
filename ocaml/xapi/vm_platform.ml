@@ -145,16 +145,22 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
   end;
   if check_cores_per_socket && (List.mem_assoc "cores-per-socket" platformdata) then
     begin
+      let cps_str = List.assoc "cores-per-socket" platformdata in
+      let vcpus = Int64.to_int(vcpu_max) in
       try
-        let cores_per_socket = int_of_string(List.assoc "cores-per-socket" platformdata) in
+        let cps = int_of_string(cps_str) in
+
         (* VCPUs_max has to be a multiple of cores per socket *)
-        if ((Int64.to_int(vcpu_max) mod cores_per_socket) <> 0) then
-          raise (Api_errors.Server_error(Api_errors.invalid_value,
-                                         ["platform:cores-per-socket";
-                                          "VCPUs_max must be a multiple of this field"]))
+        if cps < 1 || ((vcpus mod cps) <> 0) then
+          raise (Api_errors.Server_error(
+                     Api_errors.invalid_value,
+                     [Printf.sprintf "platform:cores-per-socket (value %d)" cps;
+                      Printf.sprintf "VCPUs_max (value %d) must be a multiple of cores-per-socket" vcpus]))
       with Failure msg ->
-        raise (Api_errors.Server_error(Api_errors.invalid_value, ["platform:cores-per-socket";
-                                                                  Printf.sprintf "value = %s is not a valid int" (List.assoc "cores-per-socket" platformdata)]))
+        raise (Api_errors.Server_error(
+                   Api_errors.invalid_value,
+                   [Printf.sprintf "platform:cores-per-socket (value %s)" cps_str;
+                    "Value is not a valid int"]))
     end;
   (* Add usb emulation flags.
      Make sure we don't send usb=false and usb_tablet=true,
