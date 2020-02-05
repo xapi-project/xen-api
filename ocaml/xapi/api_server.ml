@@ -100,6 +100,7 @@ module Actions = struct
   module Network_sriov = Xapi_network_sriov
   module Cluster = Xapi_cluster
   module Cluster_host = Xapi_cluster_host
+  module Certificate = Certificates
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)
