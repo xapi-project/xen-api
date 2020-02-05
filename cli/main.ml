@@ -190,17 +190,9 @@ let tar_filename_prefix =
   let doc = "Filename prefix for tar/sha disk blocks" in
   Arg.(value & opt (some string) None & info ["tar-filename-prefix"] ~doc)
 
-let ssl_legacy =
-  let doc = "For TLS, allow all protocol versions instead of just TLSv1.2" in
-  Arg.(value & flag & info ["ssl-legacy"] ~doc)
-
 let good_ciphersuites =
   let doc = "The list of ciphersuites to allow for TLS" in
   Arg.(value & opt (some string) None & info ["good-ciphersuites"] ~doc)
-
-let legacy_ciphersuites =
-  let doc = "Additional TLS ciphersuites allowed only if ssl-legacy is set" in
-  Arg.(value & opt (some string) None & info ["legacy-ciphersuites"] ~doc)
 
 let serve_cmd =
   let doc = "serve the contents of a disk" in
@@ -328,8 +320,7 @@ let stream_cmd =
       pure StreamCommon.make $ source $ relative_to $ source_format
       $ destination_format $ destination $ destination_fd $ source_protocol
       $ destination_protocol $ prezeroed $ progress $ machine
-      $ tar_filename_prefix $ ssl_legacy $ good_ciphersuites
-      $ legacy_ciphersuites)
+      $ tar_filename_prefix $ good_ciphersuites)
   in
   ( Term.(ret (pure Impl.stream $ common_options_t $ stream_args_t))
   , Term.info "stream" ~sdocs:_common_options ~doc ~man )
