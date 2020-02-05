@@ -58,7 +58,7 @@ type t = {
 let command bootloader q pv_bootloader_args image vm_uuid = 
   (* Let's not do anything fancy while parsing the pv_bootloader_args string:
      no escaping of spaces or quotes for now *)
-  let pv_bootloader_args = if pv_bootloader_args = "" then [] else Stdext.Xstringext.String.split ' ' pv_bootloader_args in
+  let pv_bootloader_args = if pv_bootloader_args = "" then [] else Astring.String.cuts ~sep:" " pv_bootloader_args in
   let q = if q then [ "-q" ] else [] in
   let vm = [ "--vm"; vm_uuid ] in
   let image = [ image ] in
@@ -125,7 +125,7 @@ let parse_output_simple x =
     try parse_line_optimistic acc l
     with Not_found -> acc
   in
-  let linelist = Stdext.Xstringext.String.split '\n' x in
+  let linelist = Astring.String.cuts ~sep:"\n" x in
   let content = List.fold_left parse_line {kernel=None; ramdisk=None; args=None} linelist in
   {
     kernel_path = (match content.kernel with
@@ -144,10 +144,10 @@ let parse_exception x =
   (* Look through the error for the prefix "RuntimeError: " - raise an exception with a message
      	 * containing the error from the end of this prefix onwards. *)
   let l = String.length runtimeError in
-  match Stdext.Xstringext.String.find_all runtimeError x with
-  | i::_ ->
+  match Astring.String.find_sub ~sub:runtimeError x with
+  | Some i ->
     raise (Error_from_bootloader (String.sub x (i+l) (String.length x - i - l)))
-  | _ -> (* no expected prefix *)
+  | None -> (* no expected prefix *)
     raise (Bad_error x)
 
 (* A layer of defence against the chance of a malicious guest grub config tricking

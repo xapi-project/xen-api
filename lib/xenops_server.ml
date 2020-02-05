@@ -22,6 +22,8 @@ open D
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
+let finally = Stdext.Pervasiveext.finally
+
 let domain_shutdown_ack_timeout = ref 60.
 
 type context = {
@@ -58,7 +60,7 @@ let ignore_exception msg f x =
 let filter_prefix prefix xs =
   List.filter_map
     (fun x ->
-       if String.startswith prefix x
+       if Astring.String.is_prefix ~affix:prefix x
        then Some (String.sub x (String.length prefix) (String.length x - (String.length prefix)))
        else None) xs
 
@@ -321,7 +323,7 @@ module VGPU_DB = struct
     end)
   let vm_of = fst
   let string_of_id (a, b) = a ^ "." ^ b
-  let id_of_string str = match Stdext.Xstringext.String.split '.' str with
+  let id_of_string str = match Astring.String.cuts ~sep:"." str with
     | [a; b] -> a, b
     | _ -> raise (Xenopsd_error (Internal_error ("String cannot be interpreted as vgpu id: "^str)))
 
@@ -694,6 +696,7 @@ module Worker = struct
 end
 
 module WorkerPool = struct
+  module Date = Stdext.Date
 
   (* Store references to Worker.ts here *)
   let pool = ref []
@@ -1100,7 +1103,7 @@ let rec atomics_of_operation = function
     (* If we've got a vGPU, then save its state will be in the same file *)
     let vgpu_data = if VGPU_DB.ids id = [] then None else Some data in
     let pcis = PCI_DB.pcis id |> pci_plug_order in
-    let vgpu_start_operations = 
+    let vgpu_start_operations =
       match VGPU_DB.ids id with
       | [] -> []
       | vgpus ->
@@ -1912,7 +1915,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         (* Check if there is a separate vGPU data channel *)
         let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
         let pcis = PCI_DB.pcis id |> pci_plug_order in
-        let vgpu_start_operations = 
+        let vgpu_start_operations =
         match VGPU_DB.ids id with
         | [] -> []
         | vgpus ->
@@ -2540,7 +2543,7 @@ module VM = struct
       (fun () ->
          let id, final_id =
            (* The URI is /service/xenops/memory/id *)
-           let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
+           let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in
            let id = bits |> List.rev |> List.hd in
            let final_id = match List.assoc_opt "final_id" cookies with Some x -> x | None -> id in
            debug "VM.receive_memory id = %s, final_id=%s" id final_id;
@@ -2569,8 +2572,14 @@ module VM = struct
       (fun () ->
          let vgpu_id =
            (* The URI is /service/xenops/migrate-vgpu/id *)
-           let bits = Stdext.Xstringext.String.split '/' (Uri.path uri) in
-           let vgpu_id_str = bits |> List.rev |> List.hd in
+           let path = Uri.path uri in
+           let bits = Astring.String.cut ~sep:"/" ~rev:true path in
+           let vgpu_id_str = match bits with
+           | Some (_, vgpu_id_str) -> vgpu_id_str
+           | None ->
+               raise (Xenopsd_error (Internal_error
+                ("Could not retrieve vgpu id from path " ^ path)))
+           in
            let vgpu_id = VGPU_DB.id_of_string vgpu_id_str in
            debug "VM.receive_vgpu vgpu_id_str = %s" vgpu_id_str;
            vgpu_id

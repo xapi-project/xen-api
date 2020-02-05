@@ -13,10 +13,11 @@
  *)
 
 open Xenops_interface
+module Unixext = Stdext.Unixext
+module Opt = Stdext.Opt
+module Mutex = Stdext.Threadext.Mutex
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
-
-let ( |> ) a b = b a
 
 module D = Debug.Make(struct let name = "xenops_utils" end)
 open D
@@ -29,7 +30,7 @@ module Unix = struct
 
   let file_descr_of_rpc x = x |> Rpc.int_of_rpc |> file_descr_of_int
   let rpc_of_file_descr x = x |> int_of_file_descr |> Rpc.rpc_of_int
-  
+
   let typ_of_file_descr = Rpc.Types.Abstract ({
       aname = "file_descr";
       test_data = [Unix.stdout];
@@ -84,289 +85,27 @@ let prefixes_of k =
       ) ([], []) k in
   List.map List.rev prefixes
 
-let finally f g =
-  try
-    let result = f () in
-    g ();
-    result
-  with e ->
-    Backtrace.is_important e;
-    (try g () with exn ->
-       debug "ignoring exception in finally() block: %s"
-         (Printexc.to_string exn));
-    raise e
-
-
 let ignore_string (_: string) = ()
 let ignore_bool (_: bool) = ()
 let ignore_int (_: int) = ()
 
 (* Recode an incoming string as valid UTF-8 *)
-let utf8_recode str = 
+let utf8_recode str =
   let out_encoding = `UTF_8 in
   let b = Buffer.create 1024 in
   let dst = `Buffer b in
   let src = `String str in
   let rec loop d e =
-    match Uutf.decode d with 
-    | `Uchar _ as u -> ignore (Uutf.encode e u); loop d e 
+    match Uutf.decode d with
+    | `Uchar _ as u -> ignore (Uutf.encode e u); loop d e
     | `End -> ignore (Uutf.encode e `End)
-    |`Malformed _ -> ignore (Uutf.encode e (`Uchar Uutf.u_rep)); loop d e 
+    |`Malformed _ -> ignore (Uutf.encode e (`Uchar Uutf.u_rep)); loop d e
     | `Await -> assert false
   in
-  let d = Uutf.decoder src in 
+  let d = Uutf.decoder src in
   let e = Uutf.encoder out_encoding dst in
   loop d e;
   Buffer.contents b
-
-module Mutex = struct
-  include Mutex
-  let execute m f =
-    Mutex.lock m;
-    finally f (fun () -> Mutex.unlock m)
-end
-module Opt = struct
-  let default x = function
-    | None -> x
-    | Some x -> x
-  let map f = function
-    | None -> None
-    | Some x -> Some (f x)
-  let join = function
-    | Some (Some a) -> Some a
-    | _ -> None
-  let iter f x = ignore (map f x)
-  let to_list = function
-    | Some x -> [x]
-    | None -> []
-  let unbox = function
-    | Some x -> x
-    | None -> raise Not_found
-end
-module List = struct
-  include List
-  let filter_map f x =
-    List.fold_left (fun acc x -> match f x with
-        | None -> acc
-        | Some x -> x :: acc) [] x
-
-end
-module String = struct
-  include String
-  let startswith prefix x =
-    String.length x >= (String.length prefix) && (String.sub x 0 (String.length prefix) = prefix)
-end
-
-module Date = struct
-  type t = string
-  let of_float x = 
-    let time = Unix.gmtime x in
-    Printf.sprintf "%04d%02d%02dT%02d:%02d:%02dZ"
-      (time.Unix.tm_year+1900)
-      (time.Unix.tm_mon+1)
-      time.Unix.tm_mday
-      time.Unix.tm_hour
-      time.Unix.tm_min
-      time.Unix.tm_sec
-  let to_string x = x
-end
-module Unixext = struct
-  (** remove a file, but doesn't raise an exception if the file is already removed *)
-  let unlink_safe file =
-    try Unix.unlink file with (* Unix.Unix_error (Unix.ENOENT, _ , _)*) _ -> ()
-
-  (** create a directory but doesn't raise an exception if the directory already exist *)
-  let mkdir_safe dir perm =
-    try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
-
-  let mkdir_rec dir perm =
-    let rec p_mkdir dir =
-      let p_name = Filename.dirname dir in
-      if p_name <> "/" && p_name <> "." 
-      then p_mkdir p_name;
-      try Unix.mkdir dir perm with Unix.Unix_error (Unix.EEXIST, _, _) -> () in
-    p_mkdir dir
-
-  (** daemonize a process *)
-  let daemonize () =
-    match Unix.fork () with
-    | 0 ->
-      if Unix.setsid () == -1 then
-        failwith "Unix.setsid failed";
-
-      begin match Unix.fork () with
-        | 0 ->
-          let nullfd = Unix.openfile "/dev/null" [ Unix.O_WRONLY ] 0 in
-          begin try
-              Unix.close Unix.stdin;
-              Unix.dup2 nullfd Unix.stdout;
-              Unix.dup2 nullfd Unix.stderr;
-            with exn -> Unix.close nullfd; raise exn
-          end;
-          Unix.close nullfd
-        | _ -> exit 0
-      end
-    | _ -> exit 0
-
-  exception Break
-
-  let lines_fold f start input =
-    let accumulator = ref start in
-    let running = ref true in
-    while !running do
-      let line =
-        try Some (input_line input)
-        with End_of_file -> None
-      in
-      match line with
-      | Some line ->
-        begin
-          try accumulator := (f !accumulator line)
-          with Break -> running := false
-        end
-      | None ->
-        running := false
-    done;
-    !accumulator
-
-  (** open a file, and make sure the close is always done *)
-  let with_input_channel file f =
-    let input = open_in file in
-    finally
-      (fun () -> f input)
-      (fun () -> close_in input)
-
-  let with_file file mode perms f =
-    let fd = Unix.openfile file mode perms in
-    let r =
-      try f fd
-      with exn -> Unix.close fd; raise exn
-    in
-    Unix.close fd;
-    r
-
-  let file_lines_fold f start file_path = with_input_channel file_path (lines_fold f start)
-
-  let file_lines_iter f = file_lines_fold (fun () line -> ignore(f line)) ()
-
-  let readfile_line = file_lines_iter
-
-  (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
-      		from the fd [fd] with initial value [start] *)
-  let fd_blocks_fold block_size f start fd = 
-    let block = Bytes.create block_size in
-    let rec fold acc =
-      let n = Unix.read fd block 0 block_size in
-      (* Consider making the interface explicitly use Substrings *)
-      let s = if n = block_size then Bytes.to_string block else Bytes.sub_string block 0 n in
-      if n = 0 then acc else fold (f acc s) in
-    fold start
-
-  let buffer_of_fd fd = 
-    fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
-
-  let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of_fd
-
-  let string_of_file file_path = Buffer.contents (buffer_of_file file_path)
-
-  (** Makes a new file in the same directory as 'otherfile' *)
-  let temp_file_in_dir otherfile =
-    let base_dir = Filename.dirname otherfile in
-    let rec keep_trying () =
-      try
-        let uuid =  Uuidm.to_string (Uuidm.create `V4) in
-        let newfile = base_dir ^ "/" ^ uuid in
-        Unix.close (Unix.openfile newfile [Unix.O_CREAT; Unix.O_TRUNC; Unix.O_EXCL] 0o600);
-        newfile
-      with
-        Unix.Unix_error (Unix.EEXIST, _, _)  -> keep_trying ()
-    in keep_trying ()
-
-
-  let atomic_write_to_file fname perms f =
-    let tmp = Stdext.Filenameext.temp_file_in_dir fname in
-    Unix.chmod tmp perms;
-    finally
-      (fun () ->
-         let fd = Unix.openfile tmp [Unix.O_WRONLY; Unix.O_CREAT] perms (* ignored since the file exists *) in
-         let result = finally
-             (fun () -> f fd)
-             (fun () -> Unix.close fd) in
-         Unix.rename tmp fname; (* Nb this only happens if an exception wasn't raised in the application of f *)
-         result)
-      (fun () -> unlink_safe tmp)
-
-  let write_string_to_file fname s =
-    atomic_write_to_file fname 0o644 (fun fd ->
-        let len = String.length s in
-        let written = Unix.write_substring fd s 0 len in
-        if written <> len then (failwith "Short write occured!"))
-
-  exception Process_still_alive
-
-  let kill_and_wait ?(signal = Sys.sigterm) ?(timeout=10.) pid =
-    let proc_entry_exists pid =
-      try Unix.access (Printf.sprintf "/proc/%d" pid) [ Unix.F_OK ]; true
-      with _ -> false
-    in
-    if pid > 0 && proc_entry_exists pid then (
-      let loop_time_waiting = 0.03 in
-      let left = ref timeout in
-      let readcmdline pid =
-        try string_of_file (Printf.sprintf "/proc/%d/cmdline" pid)
-        with _ -> ""
-      in
-      let reference = readcmdline pid and quit = ref false in
-      Unix.kill pid signal;
-
-      (* We cannot do a waitpid here, since we might not be parent of
-         			   the process, so instead we are waiting for the /proc/%d to go
-         			   away. Also we verify that the cmdline stay the same if it's still here
-         			   to prevent the very very unlikely event that the pid get reused before
-         			   we notice it's gone *)
-      while proc_entry_exists pid && not !quit && !left > 0.
-      do
-        let cmdline = readcmdline pid in
-        if cmdline = reference then (
-          (* still up, let's sleep a bit *)
-          ignore (Unix.select [] [] [] loop_time_waiting);
-          left := !left -. loop_time_waiting
-        ) else (
-          (* not the same, it's gone ! *)
-          quit := true
-        )
-      done;
-      if !left <= 0. then
-        raise Process_still_alive;
-    )
-
-  let copy_file_internal ?limit reader writer =
-    let buffer = Bytes.make 65536 '\000' in
-    let buffer_len = Int64.of_int (Bytes.length buffer) in
-    let finished = ref false in
-    let total_bytes = ref 0L in
-    let limit = ref limit in
-    while not(!finished) do
-      let requested = min (Opt.default buffer_len !limit) buffer_len in
-      let num = reader buffer 0 (Int64.to_int requested) in
-      let num64 = Int64.of_int num in
-
-      limit := Opt.map (fun x -> Int64.sub x num64) !limit;
-      ignore_int (writer buffer 0 num);
-      total_bytes := Int64.add !total_bytes num64;
-      finished := num = 0 || !limit = Some 0L;
-    done;
-    !total_bytes
-
-  let copy_file ?limit ifd ofd = copy_file_internal ?limit (Unix.read ifd) (Unix.write ofd)
-
-  let really_write fd string off n =
-    let written = ref 0 in
-    while !written < n do
-      let wr = Unix.write fd string (off + !written) (n - !written) in
-      written := wr + !written
-    done
-end
 
 let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
 
@@ -613,7 +352,7 @@ module TypedTable = functor(I: ITEM) -> struct
   (* The call `update k f` reads key `k` from the DB, passes the value to `f`,
      and updates the DB with the result. If the result is `None`, then the key
      will be deleted. Otherwise, its value will be modified.
-     Returns a Boolean that indicates whether the operation actually 
+     Returns a Boolean that indicates whether the operation actually
      changed what is in the DB.
      Note that `f` should never itself include an `add`, `remove` or another
      `update` or deadlock will occur! *)
@@ -708,12 +447,12 @@ let unplugged_vusb = {
   Vusb.plugged = false;
 }
 
-let remap_vdi vdi_map = function 
-  | Xenops_interface.VDI vdi -> 
-    if List.mem_assoc vdi vdi_map 
+let remap_vdi vdi_map = function
+  | Xenops_interface.VDI vdi ->
+    if List.mem_assoc vdi vdi_map
     then (debug "Remapping VDI: %s -> %s" vdi (List.assoc vdi vdi_map); VDI (List.assoc vdi vdi_map))
-    else VDI vdi 
-  | x -> x 
+    else VDI vdi
+  | x -> x
 
 let remap_vif vif_map vif =
   let open Xenops_interface in
@@ -740,16 +479,9 @@ let remap_vgpu vgpu_pci_map vgpu =
       { vgpu with Vgpu.virtual_pci_address = Some addr  } in
   vgpu
 
-let strip x =
-  if x.[String.length x - 1] = '\n'
-  then String.sub x 0 (String.length x - 1)
-  else x
 let get_network_backend () =
   try
-    Unixext.string_of_file !Resources.network_conf
-    |>  strip
-    |>  Stdext.Xstringext.String.split ' '
-    |>  List.hd
+    String.trim (Unixext.string_of_file !Resources.network_conf)
   with _ ->
     failwith (Printf.sprintf "Failed to read network backend from: %s" !Resources.network_conf)
 
@@ -764,11 +496,11 @@ type hypervisor =
 let detect_hypervisor () =
   if Sys.file_exists _sys_hypervisor_type then begin
 
-    let hypervisor = strip (Unixext.string_of_file _sys_hypervisor_type) in
+    let hypervisor = String.trim (Unixext.string_of_file _sys_hypervisor_type) in
     match hypervisor with
     | "xen" ->
-      let major = strip (Unixext.string_of_file _sys_hypervisor_version_major) in
-      let minor = strip (Unixext.string_of_file _sys_hypervisor_version_minor) in
+      let major = String.trim (Unixext.string_of_file _sys_hypervisor_version_major) in
+      let minor = String.trim (Unixext.string_of_file _sys_hypervisor_version_minor) in
       Some (Xen(major, minor))
     | x -> Some (Other x)
   end else None

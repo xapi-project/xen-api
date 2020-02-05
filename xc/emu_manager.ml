@@ -26,7 +26,7 @@ exception Xenctrl_domain_restore_failure of int * string
 
 exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
 
-(** We do all our IO through the buffered channels but pass the 
+(** We do all our IO through the buffered channels but pass the
     underlying fds as integers to the forked helper on the commandline. *)
 type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelpers.pidty
 
@@ -46,7 +46,7 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
   let args = [ "-controloutfd"; slave_to_server_w_uuid;
                "-controlinfd"; server_to_slave_r_uuid
              ] @ args in
-  let pid = Forkhelpers.safe_close_and_exec None None None 
+  let pid = Forkhelpers.safe_close_and_exec None None None
       ([ slave_to_server_w_uuid, slave_to_server_w;
          server_to_slave_r_uuid, server_to_slave_r ] @ fds)
       path args in
@@ -65,14 +65,6 @@ let disconnect (_, _, r, w, pid) =
   Unix.close r;
   Unix.close w;
   ignore(Forkhelpers.waitpid pid)
-
-let supports_feature path feat =
-  let open Forkhelpers in
-  let open Stdext.Xstringext.String in
-  try
-    execute_command_get_output path ("-supports" :: [feat])
-    |> fst |> strip isspace |> lowercase_ascii = "true"
-  with Spawn_internal_error _ -> false
 
 type emu = Xenguest | Vgpu
 
@@ -115,7 +107,7 @@ let string_of_message = function
   | Prepare x -> "prepare:" ^ (String.escaped x)
 
 let message_of_string x =
-  if not(String.contains x ':') 
+  if not(String.contains x ':')
   then failwith (Printf.sprintf "Failed to parse message from emu-manager [%s]" x);
   let i = String.index x ':' in
   let prefix = String.sub x 0 i
@@ -138,7 +130,7 @@ let emu_of_result = function
   | Vgpu_result -> Vgpu
 
 let parse_result res =
-  match Stdext.Xstringext.String.split ' ' res with
+  match Astring.String.cuts ~sep:" " res with
   | [emu; store; console] when emu_of_string emu = Xenguest ->
     Xenguest_result (Nativeint.of_string store, Nativeint.of_string console)
   | [emu]                 when emu_of_string emu = Vgpu ->
@@ -156,8 +148,8 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
   | x -> x (* Error or Result or Suspend *)
 
 (* Dump memory statistics on failure *)
-let non_debug_receive ?debug_callback cnx = 
-  let debug_memory () = 
+let non_debug_receive ?debug_callback cnx =
+  let debug_memory () =
     Xenctrl.with_intf (fun xc ->
         let open Memory in
         let open Int64 in
@@ -170,36 +162,13 @@ let non_debug_receive ?debug_callback cnx =
       ) in
   try
     match non_debug_receive ?debug_callback cnx with
-    | Error y as x -> 
+    | Error y as x ->
       error "Received: %s" y;
       debug_memory (); x
     | x -> x
   with e ->
     debug_memory ();
     raise e
-
-(** For the simple case where we just want the successful result, return it.
-    If we get an error message (or suspend) then throw an exception. *)
-let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
-  match non_debug_receive ~debug_callback cnx with
-  | Error x ->
-    (* These error strings match those in xenguest_stubs.c *)
-    begin
-      match Stdext.Xstringext.String.split ~limit:3 ' ' x with
-      | [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
-      | [ "xc_dom_allocate"   ; code; msg ] -> raise (Xenctrl_dom_allocate_failure    (int_of_string code, msg))
-      | [ "xc_dom_linux_build"; code; msg ] -> raise (Xenctrl_dom_linux_build_failure (int_of_string code, msg))
-      | [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
-      | [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
-      | [ "xc_domain_save"    ; code; msg ] -> raise (Xenctrl_domain_save_failure     (int_of_string code, msg))
-      | [ "xc_domain_resume"  ; code; msg ] -> raise (Xenctrl_domain_resume_failure   (int_of_string code, msg))
-      | [ "xc_domain_restore" ; code; msg ] -> raise (Xenctrl_domain_restore_failure  (int_of_string code, msg))
-      | _ -> failwith (Printf.sprintf "Error from emu-manager: " ^ x)
-    end
-  | Suspend -> failwith "emu-manager protocol failure; not expecting Suspend"
-  | Prepare _ -> failwith "emu-manager protocol failure; not expecting Prepare"
-  | Result x -> x
-  | Stdout _ | Stderr _ | Info _ -> assert false
 
 let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
   let t = connect path domid args fds in
@@ -211,7 +180,7 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
     info "Cancelling task %s; sending 'abort' to emu-manager pid: %d"
       (Xenops_task.id_of_handle task) pid;
     send_abort t in
-  finally
+  Stdext.Pervasiveext.finally
     (fun () ->
        Xenops_task.with_cancel task cancel_cb
          (fun () ->

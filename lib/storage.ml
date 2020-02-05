@@ -14,7 +14,6 @@
 
 open Xenops_interface
 open Xenops_task
-open Xenops_utils
 
 module D = Debug.Make(struct let name = service_name end)
 open D
@@ -97,10 +96,10 @@ let dp_destroy task dp =
        ))
 
 let get_disk_by_name _task path =
-  match Stdext.Xstringext.String.split ~limit:2 '/' path with
-  | [ sr; vdi ] ->
+  match Astring.String.cut ~sep:"/" path with
+  | Some (sr, vdi) ->
     info "Processing disk SR=%s VDI=%s" sr vdi;
     (Sr.of_string sr), (Vdi.of_string vdi)
-  | _ ->
+  | None ->
     error "Failed to parse VDI name %s (expected SR/VDI)" path;
     raise (Storage_interface.Storage_error (Vdi_does_not_exist path))

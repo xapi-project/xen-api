@@ -29,11 +29,11 @@ exception Xenctrl_domain_restore_failure of int * string
 
 exception Domain_builder_error of string (* function name *) * int (* error code *) * string (* message *)
 
-(** We do all our IO through the buffered channels but pass the 
+(** We do all our IO through the buffered channels but pass the
     underlying fds as integers to the forked helper on the commandline. *)
 type t = in_channel * out_channel * Unix.file_descr * Unix.file_descr * Forkhelpers.pidty
 
-(** Fork and run a xenguest helper with particular args, leaving 'fds' open 
+(** Fork and run a xenguest helper with particular args, leaving 'fds' open
     (in addition to internal control I/O fds) *)
 let connect path domid (args: string list) (fds: (string * Unix.file_descr) list) : t =
   debug "connect: args = [ %s ]" (String.concat " " args);
@@ -49,7 +49,7 @@ let connect path domid (args: string list) (fds: (string * Unix.file_descr) list
   let args = [ "-controloutfd"; slave_to_server_w_uuid;
                "-controlinfd"; server_to_slave_r_uuid
              ] @ args in
-  let pid = Forkhelpers.safe_close_and_exec None None None 
+  let pid = Forkhelpers.safe_close_and_exec None None None
       ([ slave_to_server_w_uuid, slave_to_server_w;
          server_to_slave_r_uuid, server_to_slave_r ] @ fds)
       path args in
@@ -71,10 +71,9 @@ let disconnect (_, _, r, w, pid) =
 
 let supports_feature path feat =
   let open Forkhelpers in
-  let open Stdext.Xstringext.String in
   try
     execute_command_get_output path ("-supports" :: [feat])
-    |> fst |> strip isspace |> lowercase_ascii = "true"
+    |> fst |> String.trim |> String.lowercase_ascii = "true"
   with Spawn_internal_error _ -> false
 
 let with_connection (task: Xenops_task.task_handle) path domid (args: string list) (fds: (string * Unix.file_descr) list) f =
@@ -86,7 +85,7 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
     cancelled := true;
     info "Cancelling task %s by killing xenguest subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
     try Unix.kill pid Sys.sigkill with _ -> () in
-  finally
+  Stdext.Pervasiveext.finally
     (fun () ->
        Xenops_task.with_cancel task cancel_cb
          (fun () ->
@@ -120,7 +119,7 @@ let string_of_message = function
   | Result x -> "result:" ^ (String.escaped x)
 
 let message_of_string x =
-  if not(String.contains x ':') 
+  if not(String.contains x ':')
   then failwith (Printf.sprintf "Failed to parse message from xenguesthelper [%s]" x);
   let i = String.index x ':' in
   let prefix = String.sub x 0 i
@@ -144,8 +143,8 @@ let rec non_debug_receive ?(debug_callback=(fun s -> debug "%s" s)) cnx = match 
   | x -> x (* Error or Result or Suspend *)
 
 (* Dump memory statistics on failure *)
-let non_debug_receive ?debug_callback cnx = 
-  let debug_memory () = 
+let non_debug_receive ?debug_callback cnx =
+  let debug_memory () =
     Xenctrl.with_intf (fun xc ->
         let open Memory in
         let open Int64 in
@@ -158,7 +157,7 @@ let non_debug_receive ?debug_callback cnx =
       ) in
   try
     match non_debug_receive ?debug_callback cnx with
-    | Error y as x -> 
+    | Error y as x ->
       error "Received: %s" y;
       debug_memory (); x
     | x -> x
@@ -172,16 +171,25 @@ let receive_success ?(debug_callback=(fun s -> debug "%s" s)) cnx =
   match non_debug_receive ~debug_callback cnx with
   | Error x ->
     (* These error strings match those in xenguest_stubs.c *)
+    let pp msg = Astring.String.concat ~sep:" " msg in
     begin
-      match Stdext.Xstringext.String.split ~limit:3 ' ' x with
-      | [ "hvm_build"         ; code; msg ] -> raise (Domain_builder_error       ("hvm_build", int_of_string code, msg))
-      | [ "xc_dom_allocate"   ; code; msg ] -> raise (Xenctrl_dom_allocate_failure    (int_of_string code, msg))
-      | [ "xc_dom_linux_build"; code; msg ] -> raise (Xenctrl_dom_linux_build_failure (int_of_string code, msg))
-      | [ "hvm_build_params"  ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_params", int_of_string code, msg))
-      | [ "hvm_build_mem"     ; code; msg ] -> raise (Domain_builder_error       ("hvm_build_mem", int_of_string code, msg))
-      | [ "xc_domain_save"    ; code; msg ] -> raise (Xenctrl_domain_save_failure     (int_of_string code, msg))
-      | [ "xc_domain_resume"  ; code; msg ] -> raise (Xenctrl_domain_resume_failure   (int_of_string code, msg))
-      | [ "xc_domain_restore" ; code; msg ] -> raise (Xenctrl_domain_restore_failure  (int_of_string code, msg))
+      match Astring.String.cuts ~sep:" " x with
+      | "hvm_build"          :: code :: msg ->
+          raise (Domain_builder_error            ("hvm_build", int_of_string code, pp msg))
+      | "xc_dom_allocate"    :: code :: msg ->
+          raise (Xenctrl_dom_allocate_failure    (int_of_string code, pp msg))
+      | "xc_dom_linux_build" :: code :: msg ->
+          raise (Xenctrl_dom_linux_build_failure (int_of_string code, pp msg))
+      | "hvm_build_params"   :: code :: msg ->
+          raise (Domain_builder_error            ("hvm_build_params", int_of_string code, pp msg))
+      | "hvm_build_mem"      :: code :: msg ->
+          raise (Domain_builder_error            ("hvm_build_mem", int_of_string code, pp msg))
+      | "xc_domain_save"     :: code :: msg ->
+          raise (Xenctrl_domain_save_failure     (int_of_string code, pp msg))
+      | "xc_domain_resume"   :: code :: msg ->
+          raise (Xenctrl_domain_resume_failure   (int_of_string code, pp msg))
+      | "xc_domain_restore"  :: code :: msg ->
+          raise (Xenctrl_domain_restore_failure  (int_of_string code, pp msg))
       | _ -> failwith (Printf.sprintf "Error from xenguesthelper: " ^ x)
     end
   | Suspend -> failwith "xenguesthelper protocol failure; not expecting Suspend"

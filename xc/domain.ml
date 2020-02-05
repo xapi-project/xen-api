@@ -25,6 +25,8 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
+let finally = Stdext.Pervasiveext.finally
+
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
   gic_version: int;
   nr_spis: int;
@@ -146,7 +148,8 @@ let allowed_xsdata_prefixes = [ "vm-data"; "FIST" ]
 
 let filtered_xsdata =
   (* disallowed by default; allowed only if it has one of a set of prefixes *)
-  let allowed (x, _) = List.fold_left (||) false (List.map (fun p -> String.startswith (p ^ "/") x) allowed_xsdata_prefixes) in
+  let is_allowed path dir = Astring.String.is_prefix ~affix:(dir ^ "/") path in
+  let allowed (x, _) = List.fold_left (||) false (List.map (is_allowed x) allowed_xsdata_prefixes) in
   List.filter allowed
 
 exception Suspend_image_failure
@@ -479,7 +482,7 @@ let shutdown ~xc ~xs domid req =
 let shutdown_wait_for_ack (t: Xenops_task.task_handle) ~timeout ~xc ~xs domid (domain_type : [`pv | `pvh | `hvm])  req =
   let di = Xenctrl.domain_getinfo xc domid in
   let uuid = get_uuid ~xc domid in
-  let expecting_ack = 
+  let expecting_ack =
     match di.Xenctrl.hvm_guest, domain_type with
     | false, _ -> true (* PV guests always acknowledge *)
     | true, `pvh -> true (* PVH guests are also always enlightened *)
@@ -538,7 +541,7 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
          ("Reset PCI device " ^ string_of_address pcidev)
          (fun () -> Device.PCI.reset ~xs pcidev) ())
     all_pci_devices;
-  
+
   (* PCI specification document says that the Function must complete the FLR within 100 ms
     https://pcisig.com/sites/default/files/specification_documents/ECN_RN_29_Aug_2013.pdf on page 7 *)
   Thread.delay 0.1;
@@ -840,7 +843,7 @@ let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port ~console_dom
 
 let xenguest task xenguest_path domid uuid args =
   let line = XenguestHelper.(with_connection task xenguest_path domid args [] receive_success) in
-  match Stdext.Xstringext.String.split ' ' line with
+  match Astring.String.cuts ~sep:" " line with
   | store_mfn :: console_mfn :: _ ->
     debug "VM = %s; domid = %d; store_mfn = %s; console_mfn = %s" (Uuid.to_string uuid) domid store_mfn console_mfn;
     Nativeint.of_string store_mfn, Nativeint.of_string console_mfn
@@ -1017,7 +1020,7 @@ type suspend_flag = Live | Debug
   let restore_libxc_record cnx domid uuid =
     let open Emu_manager in
     send_restore cnx Xenguest;
-    let res = receive_success cnx in
+    let res = XenguestHelper.receive_success cnx in
     match parse_result res with
     | Xenguest_result (store, console) ->
       debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd" (Uuid.to_string uuid) domid store console;
@@ -1186,7 +1189,7 @@ type suspend_flag = Live | Debug
             let rec loop results =
               try
                 debug "Waiting for response from emu-manager";
-                return (receive_success cnx) >>= fun response ->
+                return (XenguestHelper.receive_success cnx) >>= fun response ->
                 debug "Received response from emu-manager: %s" response;
                 wrap (fun () -> parse_result response) >>= fun result ->
                 let emu = emu_of_result result in
@@ -1398,10 +1401,10 @@ type suspend_flag = Live | Debug
                 		   spot the progress indicator *)
         let callback txt =
           let prefix = "\\b\\b\\b\\b" in
-          if String.startswith prefix txt then
+          if Astring.String.is_prefix ~affix:prefix txt then
             let rest = String.sub txt (String.length prefix)
                 (String.length txt - (String.length prefix)) in
-            match Stdext.Xstringext.String.split_f (fun c -> c = ' ' || c = '%') rest with
+            match Astring.String.fields ~empty:false ~is_sep:(fun c -> c = ' ' || c = '%') rest with
             | [ percent ] -> (
                 try
                   let percent = int_of_string percent in

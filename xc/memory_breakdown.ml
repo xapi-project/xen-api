@@ -13,7 +13,6 @@
  *)
 
 open Listext
-open Xstringext
 open Unixext
 open Xenstore
 
@@ -212,13 +211,13 @@ let record_new_data () =
 (** {2 Functions that transform sparse data files into padded data files} *)
 
 let sections_of_line line =
-  let line = String.strip ((=) '|') line in
-  let sections = String.split '|' line in
-  List.map (String.strip String.isspace) sections
+  let line = Astring.String.trim ~drop:((=) '|') line in
+  let sections = Astring.String.cuts ~sep:"|" line in
+  List.map String.trim sections
 
 let guest_ids_of_string guest_ids_string =
   try
-    let guest_ids = (String.split ' ' guest_ids_string) in
+    let guest_ids = (Astring.String.cuts ~sep:" " guest_ids_string) in
     if List.for_all Uuid.is_uuid guest_ids then guest_ids else []
   with _ ->
     []
@@ -268,7 +267,7 @@ let pad_value_string guest_ids_all guest_ids (value_string, default_value) =
        (pad_value_list
           (guest_ids_all)
           (guest_ids)
-          (String.split ' ' value_string)
+          (Astring.String.cuts ~sep:" " value_string)
           (default_value)))
 
 let pad_value_strings guest_ids_all guest_ids value_strings =
