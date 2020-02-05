@@ -2181,3 +2181,31 @@ let cluster_host_record rpc session_id cluster_host =
           ~get_map:(fun () -> (x ()).API.cluster_host_other_config)
           ()
       ]}
+
+let certificate_record rpc session_id certificate =
+  let _ref = ref certificate in
+  let empty_record = ToGet (fun () -> Client.Certificate.get_record rpc session_id !_ref) in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  { setref    = (fun r -> _ref := r; record:= empty_record)
+  ; setrefrec = (fun (a, b) -> _ref := a; record := Got b)
+  ; record    = x
+  ; getref    = (fun () -> !_ref)
+  ; fields =
+    [ make_field ~name:"uuid"
+      ~get:(fun () -> (x ()).API.certificate_uuid)
+      ()
+    ; make_field ~name:"host"
+      ~get:(fun () -> (x ()).API.certificate_host |> get_uuid_from_ref)
+      ()
+    ; make_field ~name:"not-before"
+      ~get:(fun () -> (x ()).API.certificate_not_before |> Date.to_string)
+      ()
+    ; make_field ~name:"not-after"
+      ~get:(fun () -> (x ()).API.certificate_not_after |> Date.to_string)
+      ()
+    ; make_field ~name:"fingerprint"
+      ~get:(fun () -> (x ()).API.certificate_fingerprint)
+      ()
+    ]
+  }

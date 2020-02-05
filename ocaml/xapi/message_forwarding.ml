@@ -4499,4 +4499,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       in
       find_first_live other_hosts
   end
+
+  module Certificate = struct end
 end
