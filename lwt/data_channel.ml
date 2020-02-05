@@ -67,7 +67,7 @@ let of_fd fd ~seekable = (if seekable then of_seekable_fd else of_unseekable_fd)
 
 let sslctx =
   Ssl.init ();
-  Ssl.create_context Ssl.SSLv23 Ssl.Client_context
+  Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context
 
 let of_ssl_fd fd =
   Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->

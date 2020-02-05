@@ -59,7 +59,7 @@ module Lwt_unix_IO = struct
 
   let sslctx =
     Ssl.init ();
-    Ssl.create_context Ssl.SSLv23 Ssl.Client_context
+    Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context
 
   let open_connection uri =
     let domain_addr_t = match Uri.host uri with
