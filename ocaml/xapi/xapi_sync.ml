@@ -40,7 +40,6 @@ let sync_host ~__context host =
            | "" -> raise (Api_errors.Server_error (Api_errors.internal_error,["Xapi_sync found no good ciphersuites in Xapi_globs."]))
            | c -> Unix.putenv "XSH_GOOD_CIPHERSUITES" c
           );
-          Unix.putenv "XSH_LEGACY_CIPHERSUITES" !Xapi_globs.ciphersuites_legacy_outbound;
 
           let output,log = Forkhelpers.execute_command_get_output
               ~env:(Unix.environment ())

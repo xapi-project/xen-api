@@ -40,14 +40,8 @@ let stunnel_m = Mutex.create ()
 
 let restart_stunnel_nomutex ~__context ~accept =
   info "Restarting stunnel (accepting connections on %s)" accept;
-  let back_compat ~__context =
-    if Stunnel.is_legacy_protocol_and_ciphersuites_allowed ()
-    then [ "back_compat_6_5" ]
-    else []
-  in
   let xapissl_args = List.concat
   [ [ "restart"; accept ]
-  ; back_compat ~__context
   ; ["permfile=" ^ !Xapi_globs.server_cert_path]
   ] in
   let (_ : Thread.t) = Thread.create (fun () ->

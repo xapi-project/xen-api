@@ -864,7 +864,6 @@ let xenopsd_queues = ref ([
 let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
 let ciphersuites_good_outbound = ref "!EXPORT:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256"
-let ciphersuites_legacy_outbound = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+DES-CBC3-SHA"
 
 let gpumon_stop_timeout = ref 10.0
 
@@ -972,9 +971,6 @@ let other_options = [
   "ciphersuites-good-outbound", Arg.String (fun s -> ciphersuites_good_outbound := if String_plain.trim s <> "" then s else ""),
   (fun () -> !ciphersuites_good_outbound),
   "Preferred set of ciphersuites for outgoing TLS connections. (This list must match, or at least contain one of, the GOOD_CIPHERS in the 'xapissl' script for starting the listening stunnel.)";
-
-  "ciphersuites-legacy-outbound", Arg.Set_string ciphersuites_legacy_outbound,
-  (fun () -> !ciphersuites_legacy_outbound), "For backwards compatibility: to be used in addition to ciphersuites-good-outbound for outgoing TLS connections";
 
   "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
   (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
