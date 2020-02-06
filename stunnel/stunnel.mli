@@ -36,7 +36,6 @@ type t = { mutable pid: pid;
            unique_id: int option;
            mutable logfile: string;
            verified: bool;
-           legacy: bool;
          }
 
 (** Connects via stunnel (optionally via an external 'fork/exec' helper) to
@@ -60,11 +59,3 @@ val diagnose_failure : t -> unit
 val test : string -> int -> unit
 
 val must_verify_cert : bool option -> bool
-
-val set_legacy_protocol_and_ciphersuites_allowed : bool -> unit
-
-val is_legacy_protocol_and_ciphersuites_allowed : unit -> bool
-
-val set_good_ciphersuites : string -> unit
-
-val set_legacy_ciphersuites : string -> unit
