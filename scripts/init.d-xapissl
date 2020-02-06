@@ -127,7 +127,8 @@ EOF
         if [ ${ANCIENT_STUNNEL} = 0 ]; then
             # stunnel does not let us specify "SSLv3 and TLSv1.2 only".
             # With multiple sslVersion entries, only the last is used.
-            writec 'sslVersion = all'
+            writec 'sslVersionMax = TLSv1.2'
+            writec 'sslVersionMin = TLSv1'
 
             # If we had v5.06 or newer we would need to allow SSLv3 with
             # writec 'options -NO_SSLv3'
