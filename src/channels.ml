@@ -153,21 +153,14 @@ let of_seekable_fd fd =
 let _ =
   Ssl.init ()
 
-let legacy_sslctx good_ciphersuites legacy_ciphersuites =
-  let ctx = Ssl.create_context Ssl.SSLv23 Ssl.Client_context in
-  Ssl.set_cipher_list ctx (good_ciphersuites ^ (match legacy_ciphersuites with "" -> "" | s -> (":" ^ s)));
-  Ssl.disable_protocols ctx [Ssl.SSLv3];
-  ctx
-
-let good_sslctx good_ciphersuites =
+let sslctx good_ciphersuites =
   let ctx = Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context in
   Ssl.set_cipher_list ctx good_ciphersuites;
   ctx
 
-let of_ssl_fd fd ssl_legacy good_ciphersuites legacy_ciphersuites =
+let of_ssl_fd fd good_ciphersuites =
   let good_ciphersuites = match good_ciphersuites with None -> failwith "good_ciphersuites not specified" | Some x -> x in
-  let legacy_ciphersuites = match legacy_ciphersuites with None -> "" | Some x -> x in
-  let sslctx = if ssl_legacy then legacy_sslctx good_ciphersuites legacy_ciphersuites else good_sslctx good_ciphersuites in
+  let sslctx = sslctx good_ciphersuites in
   Lwt_ssl.ssl_connect fd sslctx >>= fun sock ->
   let offset = ref 0L in
   let really_read buf =

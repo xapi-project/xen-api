@@ -682,7 +682,7 @@ let make_stream common source relative_to source_format destination_format =
     Raw_input.raw t
   | _, _ -> assert false
 
-let write_stream common s destination _source_protocol destination_protocol prezeroed progress tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites =
+let write_stream common s destination _source_protocol destination_protocol prezeroed progress tar_filename_prefix good_ciphersuites =
   endpoint_of_string destination >>= fun endpoint ->
   let use_ssl = match endpoint with Https _ -> true | _ -> false in
   ( match endpoint with
@@ -726,7 +726,7 @@ let write_stream common s destination _source_protocol destination_protocol prez
       >>= fun () ->
 
       let open Cohttp in
-      ( if use_ssl then Channels.of_ssl_fd sock ssl_legacy good_ciphersuites legacy_ciphersuites else Channels.of_raw_fd sock ) >>= fun c ->
+      ( if use_ssl then Channels.of_ssl_fd sock good_ciphersuites else Channels.of_raw_fd sock ) >>= fun c ->
 
       let module Request = Request.Make(Cohttp_unbuffered_io) in
       let module Response = Response.Make(Cohttp_unbuffered_io) in
@@ -811,7 +811,7 @@ let write_stream common s destination _source_protocol destination_protocol prez
 
 let stream_t common args ?(progress = no_progress_bar) () =
   make_stream common args.StreamCommon.source args.StreamCommon.relative_to args.StreamCommon.source_format args.StreamCommon.destination_format >>= fun s ->
-  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix args.StreamCommon.ssl_legacy args.StreamCommon.good_ciphersuites args.StreamCommon.legacy_ciphersuites
+  write_stream common s args.StreamCommon.destination args.StreamCommon.source_protocol args.StreamCommon.destination_protocol args.StreamCommon.prezeroed progress args.StreamCommon.tar_filename_prefix args.StreamCommon.good_ciphersuites
 
 let stream common args =
   try

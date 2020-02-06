@@ -41,12 +41,10 @@ type t = {
   progress: bool;
   machine: bool;
   tar_filename_prefix: string option;
-  ssl_legacy: bool;
   good_ciphersuites: string option;
-  legacy_ciphersuites: string option;
 }
 
-let make source relative_to source_format destination_format destination destination_fd source_protocol destination_protocol prezeroed progress machine tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites =
+let make source relative_to source_format destination_format destination destination_fd source_protocol destination_protocol prezeroed progress machine tar_filename_prefix good_ciphersuites =
   let source_protocol = protocol_of_string (require "source-protocol" source_protocol) in
   let destination_protocol = match destination_protocol with
     | None -> None
@@ -59,5 +57,5 @@ let make source relative_to source_format destination_format destination destina
     | None -> destination
     | Some fd -> "fd://" ^ (string_of_int fd) in
 
-  { source; relative_to; source_format; destination_format; destination; source_protocol; destination_protocol; prezeroed; progress; machine; tar_filename_prefix; ssl_legacy; good_ciphersuites; legacy_ciphersuites }
+  { source; relative_to; source_format; destination_format; destination; source_protocol; destination_protocol; prezeroed; progress; machine; tar_filename_prefix; good_ciphersuites; }
 
