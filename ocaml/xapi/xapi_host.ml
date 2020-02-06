@@ -685,7 +685,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~power_on_mode:""
     ~power_on_config:[]
     ~local_cache_sr
-    ~ssl_legacy
+    ~ssl_legacy:false
     ~guest_VCPUs_params:[]
     ~display:`enabled
     ~virtual_hardware_platform_versions:(if host_is_us then Xapi_globs.host_virtual_hardware_platform_versions else [0L])
