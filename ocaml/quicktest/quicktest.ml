@@ -17,8 +17,6 @@
 let () =
   Quicktest_args.parse ();
 
-  Stunnel.set_good_ciphersuites "!EXPORT:RSA+AES128-SHA256";
-
   Qt_filter.wrap
     (fun () ->
        let suite =
