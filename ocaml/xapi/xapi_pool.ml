@@ -2127,15 +2127,7 @@ let assert_mac_seeds_available ~__context ~self ~seeds =
     raise (Api_errors.Server_error
              (Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds]))
 
-let set_ssl_legacy_on_each_host ~__context ~self ~value =
-  let f ~rpc ~session_id ~host =
-    Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value
-  in
-  Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f
-
-let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
-
-let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
+let disable_ssl_legacy ~__context ~self = warn "disable_ssl_legacy: doing nothing"
 
 let set_igmp_snooping_enabled ~__context ~self ~value =
   if value then
