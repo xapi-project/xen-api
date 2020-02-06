@@ -1052,7 +1052,7 @@ let host_query_ha = call ~flags:[`Session]
 
   let set_ssl_legacy = call
       ~name:"set_ssl_legacy"
-      ~lifecycle:[Published, rel_dundee, ""]
+      ~lifecycle:[Published, rel_dundee, ""; Changed, rel_stockholm, "Legacy SSL no longer supported"]
       ~doc:"Enable/disable SSLv3 for interoperability with older server versions. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. API login sessions will remain valid."
       ~params:[
         Ref _host, "self", "The host";

@@ -968,15 +968,10 @@ let set_hostname_live ~__context ~host ~hostname =
 let m_ssl_legacy = Mutex.create ()
 
 let set_ssl_legacy ~__context ~self ~value =
-  (* Use the mutex to ensure inventory and DB are consistent. *)
-  Mutex.execute m_ssl_legacy (fun () ->
-      let old = Db.Host.get_ssl_legacy ~__context ~self in
-      if old <> value then (
-        info "set_ssl_legacy %B where old=%B" value old;
-        Db.Host.set_ssl_legacy ~__context ~self ~value;
-        set_stunnel_legacy ~__context value
-      )
-    )
+  if value then
+    raise Api_errors.(Server_error (value_not_supported, ["value"; string_of_bool value; "Legacy SSL support has been removed"]))
+  else
+    D.info "set_ssl_legacy: called with value: %b - doing nothing" value
 
 let is_in_emergency_mode ~__context =
   !Xapi_globs.slave_emergency_mode
