@@ -863,8 +863,6 @@ let xenopsd_queues = ref ([
 
 let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 
-let ciphersuites_good_outbound = ref "!EXPORT:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256"
-
 let gpumon_stop_timeout = ref 10.0
 
 let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
@@ -967,10 +965,6 @@ let other_options = [
 
   "cluster-stack-default", Arg.Set_string cluster_stack_default,
   (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
-
-  "ciphersuites-good-outbound", Arg.String (fun s -> ciphersuites_good_outbound := if String_plain.trim s <> "" then s else ""),
-  (fun () -> !ciphersuites_good_outbound),
-  "Preferred set of ciphersuites for outgoing TLS connections. (This list must match, or at least contain one of, the GOOD_CIPHERS in the 'xapissl' script for starting the listening stunnel.)";
 
   "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
   (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
