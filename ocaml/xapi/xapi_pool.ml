@@ -499,12 +499,6 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
             create_or_get_sr_on_master __context rpc session_id (my_local_cache_sr, my_local_cache_sr_rec)
           end in
 
-      (* Look up the value on the master of the pool we are about to join *)
-      let master_ssl = Client.Host.get_ssl_legacy ~rpc ~session_id ~self:(get_master rpc session_id) in
-      (* Set value in inventory (to control initial behaviour on next xapi start)
-         			 * but not in the database of the current pool (the one we're about to leave) *)
-      Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool master_ssl);
-
       debug "Creating host object on master";
       let ref = Client.Host.create ~rpc ~session_id
           ~uuid:my_uuid
@@ -524,7 +518,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
              				 * been added to the constructor. *)
           ~local_cache_sr
           ~chipset_info:host.API.host_chipset_info
-          ~ssl_legacy:master_ssl
+          ~ssl_legacy:false
       in
 
       (* Copy other-config into newly created host record: *)
