@@ -71,13 +71,8 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                         "-src"; infile;
                         "-dest"; outfile;
                         "-size"; Int64.to_string size;
-                        "-good-ciphersuites"; (match !Xapi_globs.ciphersuites_good_outbound with
-                            | "" -> raise (Api_errors.Server_error
-                                             (Api_errors.internal_error,["Vdi_copy found no good ciphersuites in Xapi_globs."]))
-                            | s -> s
-                          );
                       ] @ if prezeroed then [ "-prezeroed" ] else []
-                        @ Opt.default [] (Opt.map (fun x -> [ "-base"; x ]) base) in
+                        @ Option.value ~default:[] (Option.map (fun x -> [ "-base"; x ]) base) in
                       debug "%s %s" sparse_dd_path (String.concat " " args);
                       let pid = Forkhelpers.safe_close_and_exec None (Some pipe_write) (Some log_fd) []
                           sparse_dd_path args in
