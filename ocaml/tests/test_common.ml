@@ -66,7 +66,6 @@ let make_localhost ~__context ?(features=Features.all_features) () =
     machine_serial_name = None;
     total_memory_mib = Some 1024L;
     dom0_static_max = Some (Memory.bytes_of_mib 512L);
-    ssl_legacy = false;
     cpu_info = Some
       { cpu_count = 1
       ; socket_count = 1

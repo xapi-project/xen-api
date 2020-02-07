@@ -26,7 +26,6 @@ type host_info = {
   machine_serial_name : string option;
   total_memory_mib : int64 option;
   dom0_static_max : int64 option;
-  ssl_legacy : bool;
   cpu_info : Xenops_interface.Host.cpu_info option;
   chipset_info : Xenops_interface.Host.chipset_info option;
   hypervisor : Xenops_interface.Host.hypervisor option;
