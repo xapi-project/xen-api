@@ -965,8 +965,6 @@ let set_hostname_live ~__context ~host ~hostname =
       Helpers.update_domain_zero_name ~__context host hostname
     )
 
-let m_ssl_legacy = Mutex.create ()
-
 let set_ssl_legacy ~__context ~self ~value =
   if value then
     raise Api_errors.(Server_error (value_not_supported, ["value"; string_of_bool value; "Legacy SSL support has been removed"]))
