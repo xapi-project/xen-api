@@ -43,7 +43,7 @@ type conn = Data_channel.t
 let really_read_into c buf ofs len =
   let tmp = Cstruct.create len in
   c.Data_channel.really_read tmp >>= fun () ->
-  Cstruct.blit_to_string tmp 0 buf ofs len;
+  Cstruct.blit_to_bytes tmp 0 buf ofs len;
   return ()
 
 let read_http_headers c =
