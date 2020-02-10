@@ -60,8 +60,15 @@ let assert_can_boot_here ~__context ~self ~host =
   assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check:true ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
+  let transform_for_api = function
+    | host, Workload_balancing.(Recommendation {source; id; score}) ->
+      host, [source; (string_of_float score); id]
+    | host, Workload_balancing.(Impossible {source; id; reason}) ->
+      host, [source; "0.0"; id; reason]
+  in
   let snapshot = Db.VM.get_record ~__context ~self:vm in
-  retrieve_wlb_recommendations ~__context ~vm ~snapshot
+  List.map transform_for_api (retrieve_wlb_recommendations ~__context ~vm ~snapshot)
+
 
 let assert_agile ~__context ~self = Agility.vm_assert_agile ~__context ~self
 
