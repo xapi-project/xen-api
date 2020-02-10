@@ -438,13 +438,19 @@ let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
      	   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)
   let recs = Hashtbl.create 12 in
   List.iter
-    (fun (h, r) ->
+    (function
+      | host, (Recommendation {source; id; score} as recomm) -> (
        try
-         assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ();
-         Hashtbl.replace recs h r;
+         assert_can_boot_here ~__context ~self:vm ~host ~snapshot ();
+         Hashtbl.replace recs host recomm
        with
-       | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y))
-    (retrieve_vm_recommendations ~__context ~vm);
+       | Api_errors.Server_error(x, y) ->
+           let reason = String.concat ";" (x :: y) in
+           Hashtbl.replace recs host (Impossible {source; id; reason})
+      )
+      | host, impossible_load ->
+        Hashtbl.replace recs host impossible_load
+    )(retrieve_vm_recommendations ~__context ~vm);
   if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
   then
     raise_malformed_response' "VMGetRecommendations"
@@ -639,37 +645,27 @@ let choose_host_uses_wlb ~__context =
 let choose_host_for_vm ~__context ~vm ~snapshot =
   if choose_host_uses_wlb ~__context then
     try
-      let rec filter_and_convert recs =
-        match recs with
-        | (h, recom) :: tl ->
-          begin
-            debug "\n%s\n" (String.concat ";" recom);
-            match recom with
-            | ["WLB"; "0.0"; rec_id; zero_reason] ->
-              filter_and_convert tl
-            | ["WLB"; stars; rec_id] ->
-              (h, float_of_string stars, rec_id)
-              :: filter_and_convert tl
-            | _ -> filter_and_convert tl
-          end
-        | [] -> []
+      let possible_rec (host, recommendation) =
+        match recommendation with
+        | Recommendation {source; id; score} ->
+            Some (host, score, id)
+        | _ ->
+            None
       in
+      let cmp_descending (_, s, _) (_, s', _) =
+        Pervasives.compare s' s
+      in
+      let all_hosts = retrieve_wlb_recommendations ~__context ~vm ~snapshot
+        |> Listext.List.filter_map possible_rec
+        |> List.sort cmp_descending
+      in
+      let pp_host (host, score, reason) =
+        let hostname = Db.Host.get_name_label ~__context ~self:host in
+        Printf.sprintf "%s %f" hostname score
+      in
+      debug "Hosts sorted by priority: %s"
+        (all_hosts |> List.map pp_host |> String.concat "; ");
       begin
-        let all_hosts =
-          (List.sort
-             (fun (h, s, r) (h', s', r') ->
-                if s < s' then 1 else if s > s' then -1 else 0)
-             (filter_and_convert (retrieve_wlb_recommendations
-                                    ~__context ~vm ~snapshot))
-          )
-        in
-        debug "Hosts sorted in priority: %s"
-          (List.fold_left
-             (fun a (h,s,r) ->
-                a ^ (Printf.sprintf "%s %f,"
-                       (Db.Host.get_name_label ~__context ~self:h) s)
-             ) "" all_hosts
-          );
         match all_hosts with
         | (h,s,r)::_ ->
           debug "Wlb has recommended host %s"
@@ -713,10 +709,6 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
                     ~cls:`VM ~obj_uuid:uuid ~body:message_body)
         with _ -> ()
       end;
-      choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    | Failure "float_of_string" ->
-      debug "Star ratings from wlb could not be parsed to floats. \
-             				Using original algorithm";
       choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
     | _ ->
       debug "Encountered an unknown error when using wlb for \
