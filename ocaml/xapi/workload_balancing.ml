@@ -411,30 +411,28 @@ let retrieve_vm_recommendations ~__context ~vm =
   let handle_response inner_xml =
     let extract_data place_recommendation =
       try
-        let get_child_data tag = if is_parent_to place_recommendation tag then
-            Some (descend_and_match [tag] place_recommendation |> data_from_leaf)
-          else
-            None
+        let get_child_data tag =
+            descend_and_match [tag] place_recommendation |> data_from_leaf
         in
 
         let source = "WLB" in
-        let host_uuid = data_from_leaf
-          (descend_and_match ["HostUuid"] place_recommendation)
-        in
+        let host_uuid = get_child_data "HostUuid" in
         let host = Db.Host.get_by_uuid ~__context ~uuid:host_uuid in
-        let id = val_num (data_from_leaf
-          (descend_and_match ["RecommendationId"] place_recommendation))
-        in
-        let (>>|) o f = Opt.map f o in
+        let id = get_child_data "RecommendationId" |> val_num in
         let zero_reason = get_child_data "ZeroScoreReason" in
-        let stars = get_child_data "Stars" >>| val_num >>| float_of_string in
+        let stars = get_child_data "Stars" |> val_num |> float_of_string in
+
         let recommendation = match stars, zero_reason with
-        | Some score, _ ->
-          Recommendation {id; source; score}
-        | None, Some reason ->
+        | 0., reason ->
           Impossible {id; source; reason}
-        | None, None ->
-          Impossible {id; source; reason="Unknown"}
+        | score, "None" ->
+          Recommendation {id; source; score}
+        | score, reason ->
+          raise_malformed_response meth (Printf.sprintf
+            "Recommendation has both a non-zero score (%f) \
+             and a reason for zero (%s)"
+            score reason)
+           place_recommendation
         in
         (host, recommendation)
       with
