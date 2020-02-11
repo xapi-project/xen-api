@@ -45,6 +45,7 @@ let restart_stunnel_nomutex ~__context ~accept =
                      ; "permfile=" ^ !Xapi_globs.server_cert_path
                      ; Xcp_const.good_ciphersuites
                      ]
+  in
   let (_ : Thread.t) = Thread.create (fun () ->
       Mutex.execute management_m (fun () ->
           Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path xapissl_args
