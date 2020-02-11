@@ -37,17 +37,26 @@ let async_wire_name = "Async."
 
 let async_length = String.length async_wire_name
 
+let internal_async_wire_name = "InternalAsync."
+
+let internal_async_length = String.length internal_async_wire_name
+
 (* hardcode the wire-name messages that we want to supress the printing of in the logs to avoid log spam: *)
 let supress_printing_for_these_messages : (string,unit) Hashtbl.t =
   let tbl = Hashtbl.create 20 in
   List.iter (fun k -> Hashtbl.replace tbl k ()) ["host.tickle_heartbeat"; "session.login_with_password"; "session.logout"; "session.local_logout"; "session.slave_local_login"; "session.slave_local_login_with_password"];
   tbl
 
-let is_async x =
-  String.length x > async_length && (String.sub x 0 async_length = async_wire_name)
-
-let remove_async_prefix x =
-  String.sub x async_length (String.length x - async_length)
+(** removes Async. or InternalAsync. prefixes if they exist
+  * NB. X_y api call format does not work with Async (and didn't previously) *)
+let sync_ty_and_maybe_remove_prefix x =
+  (* expect more async calls than internal_async, so check for async first *)
+  if Astring.String.is_prefix ~affix:async_wire_name x then
+    `Async, String.sub x async_length (String.length x - async_length)
+  else if Astring.String.is_prefix ~affix:internal_async_wire_name x then
+    `InternalAsync, String.sub x internal_async_length (String.length x - internal_async_length)
+  else
+    `Sync, x
 
 let unknown_rpc_failure func =
   API.response_of_failure Api_errors.message_method_unknown [func]
@@ -58,18 +67,14 @@ let parameter_count_mismatch_failure func expected received =
 
 (** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)
 (*  FIXME: This function should not be used for external call : we should add a proper .mli file to hide it. *)
-let exec_with_context ~__context ?marshaller ?f_forward ?(called_async=false) ?(has_task=false) f =
-  (* Execute fn f in specified __context, marshalling result with "marshaller".
-     If has_task is set then __context has a real task in it that has to be completed. *)
+let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?(called_async=false) f =
+  (* Execute fn f in specified __context, marshalling result with "marshaller" *)
   let exec () =
     (* NB:
        1. If we are a slave we process the call locally assuming the locks have
        already been taken by the master
        2. If we are the master, locks are only necessary for the potentially-forwarded
        (ie side-effecting) operations and not things like the database layer *)
-
-    (* For forwarded task, we should not complete it here, the server which forward the task will complete it. However for the task forwarded by client, which param `has_task` is set with `true`, we have to complete it also. *)
-    let need_complete = has_task || (not (Context.forwarded_task __context)) in
     try
       let result =
         if not(Pool_role.is_master ())
@@ -117,44 +122,52 @@ let dispatch_exn_wrapper f =
     f()
   with exn -> let code, params = ExnHelper.error_of_exn exn in API.response_of_failure code params
 
-let do_dispatch ?session_id ?forward_op ?self called_async supports_async called_fn_name op_fn
-    marshaller_fn fd http_req label generate_task_for =
+let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name op_fn
+    marshaller fd http_req label sync_ty generate_task_for =
+  (* if the call has been forwarded to us, then they are responsible for completing the task, so we don't need to complete it *)
 
+  let called_async = sync_ty <> `Sync in
   if (called_async && (not supports_async))
   then API.response_of_fault ("No async mode for this operation (rpc: "^called_fn_name^")")
   else
     let __context = Context.of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req ~fd in
-    if called_async
-    then begin
+    let sync () =
+      let need_complete = not (Context.forwarded_task __context) in
+      exec_with_context ~__context ~need_complete ~called_async ?f_forward:forward_op ~marshaller op_fn |>
+      marshaller |>
+      Rpc.success
+    in
+    let async ~need_complete =
       (* Fork thread in which to execute async call *)
       ignore (Thread.create
-                (fun () ->
-                   exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn)
-                ());
+               (fun () -> exec_with_context ~__context ~need_complete ~called_async ?f_forward:forward_op ~marshaller op_fn) ());
       (* Return task id immediately *)
       Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
-    end else
-      let result =
-        exec_with_context ~__context ~called_async ?f_forward:forward_op ~marshaller:marshaller_fn op_fn
-      in
-      Rpc.success (marshaller_fn result)
+    in
+    match sync_ty with
+    | `Sync          -> sync ()
+    | `Async         -> let need_complete = not (Context.forwarded_task __context) in
+                        async ~need_complete
+    | `InternalAsync -> async ~need_complete:true (* regardless of forwarding, we are expected to complete the task *)
 
+(* in the following functions, it is our responsibility to complete any tasks we create *)
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name f =
   exec_with_context
     ~__context:(Context.make ?http_other_config ?quiet ?subtask_of ?session_id ?task_in_database ?task_description ?origin task_name)
+    ~need_complete:true
     (fun ~__context -> f __context)
 
 let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
   exec_with_context
     ~__context:(Context.from_forwarded_task ?http_other_config ?session_id ?origin task_id)
-    ~has_task:true
+    ~need_complete:true
     (fun ~__context -> f __context)
 
 let exec_with_subtask ~__context ?task_in_database ?task_description task_name f =
   let subtask_of = Context.get_task_id __context in
   let session_id = try Some (Context.get_session_id __context) with _ -> None in
   let new_context = Context.make ~subtask_of ?session_id ?task_in_database ?task_description task_name in
-  exec_with_context ~__context:new_context f
+  exec_with_context ~__context:new_context ~need_complete:true f
 
 let forward_extension ~__context rbac call =
   rbac __context (fun () -> Xapi_extensions.call_extension call)
