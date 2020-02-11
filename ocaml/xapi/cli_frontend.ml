@@ -360,7 +360,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["filename"];
       optn=[];
-      help="Install an SSL certificate, pool-wide.";
+      help="Install a TLS CA certificate, pool-wide.";
       implementation=With_fd Cli_operations.pool_certificate_install;
       flags=[];
     };
@@ -369,7 +369,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["name"];
       optn=[];
-      help="Uninstall an SSL certificate.";
+      help="Uninstall a pool-wide TLS CA certificate.";
       implementation=No_fd Cli_operations.pool_certificate_uninstall;
       flags=[];
     };
@@ -378,7 +378,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=[];
       optn=[];
-      help="List all installed SSL certificates.";
+      help="List the names of all installed TLS CA certificates.";
       implementation=No_fd Cli_operations.pool_certificate_list;
       flags=[];
     };
@@ -387,7 +387,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["filename"];
       optn=[];
-      help="Install an SSL certificate revocation list, pool-wide.";
+      help="Install a TLS Certificate Revocation List, pool-wide.";
       implementation=With_fd Cli_operations.pool_crl_install;
       flags=[];
     };
@@ -396,7 +396,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=["name"];
       optn=[];
-      help="Uninstall an SSL certificate revocation list.";
+      help="Uninstall a pool-wide TLS Certificate Revocation List.";
       implementation=No_fd Cli_operations.pool_crl_uninstall;
       flags=[];
     };
@@ -405,7 +405,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=[];
       optn=[];
-      help="List all installed SSL certificate revocation lists.";
+      help="List the names of all installed TLS Certificate Revocation Lists.";
       implementation=No_fd Cli_operations.pool_crl_list;
       flags=[];
     };
@@ -414,7 +414,7 @@ let rec cmdtable_data : (string*cmd_spec) list =
     {
       reqd=[];
       optn=[];
-      help="Sync SSL certificates and certificate revocation lists from master to slaves.";
+      help="Copy the TLS CA certificates and CRLs of the master to all slaves.";
       implementation=No_fd Cli_operations.pool_certificate_sync;
       flags=[];
     };
