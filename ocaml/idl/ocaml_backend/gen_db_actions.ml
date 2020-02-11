@@ -69,6 +69,9 @@ let dm_to_string tys : O.Module.t =
 *)
       | DT.Set ty -> "fun s -> set "^OU.alias_of_ty ty^" s"
       | DT.String -> "fun x -> x"
+      | DT.SecretString ->
+        (* bypass protection for storing into db *)
+        "fun x -> x |> SecretString.rpc_of_t |> Rpc.string_of_rpc"
       | DT.Record _ -> failwith "record types never stored in the database"
       | DT.Option _ -> failwith "option types never stored in the database"
     in
@@ -113,6 +116,7 @@ let string_to_dm tys : O.Module.t =
       | DT.Ref s -> "fun x -> (Ref.of_string x : "^OU.ocaml_of_ty ty^")"
       | DT.Set ty -> "fun s -> set "^OU.alias_of_ty ty^" s"
       | DT.String -> "fun x -> x"
+      | DT.SecretString -> "SecretString.of_string"
       | DT.Record _ -> failwith "record types never stored in the database"
       | DT.Option _ -> failwith "option types never stored in the database"
     in

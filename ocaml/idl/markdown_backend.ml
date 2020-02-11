@@ -68,7 +68,7 @@ let is_prim_opt_type = function
   | Some (ty,_) -> is_prim_type ty
 
 let rec of_ty_verbatim = function
-  | String -> "string"
+  | SecretString | String -> "string"
   | Int -> "int"
   | Float -> "float"
   | Bool -> "bool"

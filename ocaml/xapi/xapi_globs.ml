@@ -28,7 +28,7 @@ let restart_return_code = 123
 
 let _ = Db_globs.restart_fn := (fun () -> D.info "Executing Db_globs.restart_fn: exiting with code %d" restart_return_code; exit restart_return_code)
 
-let pool_secret = ref ""
+let pool_secret = ref (SecretString.of_string "")
 
 (* The maximum pool size is restricted to 3 hosts for the pool which does not have Pool_size feature *)
 let restricted_pool_size = 3

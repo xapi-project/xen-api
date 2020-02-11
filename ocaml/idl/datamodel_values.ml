@@ -81,7 +81,7 @@ let rec to_db v =
 let gen_empty_db_val t =
   let open Schema in
   match t with
-  | String -> Value.String ""
+  | SecretString | String -> Value.String ""
   | Int -> Value.String "0"
   | Float -> Value.String (string_of_float 0.0)
   | Bool -> Value.String "false"

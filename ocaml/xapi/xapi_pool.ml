@@ -938,7 +938,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
-  let cluster_secret = ref "" in
+  let new_pool_secret = ref (SecretString.of_string "") in
   (* If management is on a VLAN, then get the Pool master
      management network bridge before we logout the session *)
   let pool_master_bridge, mgmt_pif =
@@ -953,11 +953,11 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
 
   finally (fun () ->
       pre_join_checks ~__context ~rpc ~session_id ~force;
-      cluster_secret := Client.Pool.initial_auth rpc session_id;
+      new_pool_secret := Client.Pool.initial_auth rpc session_id;
 
       (* get pool db from new master so I have a backup ready if we failover to me *)
       begin try
-          Pool_db_backup.fetch_database_backup ~master_address ~pool_secret:!cluster_secret ~force:None
+          Pool_db_backup.fetch_database_backup ~master_address ~pool_secret:!new_pool_secret ~force:None
         with e ->
           error "Failed fetching a database backup from the master: %s" (ExnHelper.string_of_exn e)
       end;
@@ -1007,7 +1007,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
   Helpers.call_api_functions ~__context (fun my_rpc my_session_id ->
       List.iter
         (fun (host, _) ->
-           Client.Host.update_pool_secret my_rpc my_session_id host !cluster_secret;
+           Client.Host.update_pool_secret my_rpc my_session_id host !new_pool_secret;
            Client.Host.update_master my_rpc my_session_id host master_address)
         (Db.Host.get_all_records ~__context));
   Xapi_hooks.pool_join_hook ~__context

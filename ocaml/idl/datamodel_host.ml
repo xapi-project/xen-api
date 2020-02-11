@@ -650,7 +650,7 @@ let host_query_ha = call ~flags:[`Session]
       ~doc:""
       ~params:[
         Ref _host, "host", "The host";
-        String, "pool_secret", "The new pool secret" ]
+        SecretString, "pool_secret", "The new pool secret" ]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 

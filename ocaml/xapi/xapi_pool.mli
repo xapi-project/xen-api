@@ -76,7 +76,7 @@ val sync_m : Mutex.t
 val sync_database : __context:Context.t -> unit
 val designate_new_master : __context:Context.t -> host:API.ref_host -> unit
 val management_reconfigure : __context:Context.t -> network:API.ref_network -> unit
-val initial_auth : __context:'a -> string
+val initial_auth : __context:'a -> SecretString.t
 val is_slave : __context:Context.t -> host:'b -> bool
 val hello :
   __context:Context.t ->

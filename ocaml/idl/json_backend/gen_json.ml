@@ -71,7 +71,7 @@ let rec string_of_json n = function
 
 let rec string_of_ty_with_enums ty =
   match ty with
-  | String -> "string", []
+  | SecretString | String -> "string", []
   | Int -> "int", []
   | Float -> "float", []
   | Bool -> "bool", []

@@ -174,10 +174,11 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
         then raise Http_svr.Client_requested_size_over_limit;
         (* The pool_secret is added here and checked by the Xapi_http.add_handler RBAC code. *)
         let open Xmlrpc_client in
-        let request = xmlrpc
-            ~version:"1.1" ~frame:true ~keep_alive:true
-            ~length:(Int64.of_int length)
-            ~cookie:["pool_secret", !Db_globs.pool_secret] ~body:req path in
+        let request =
+          xmlrpc ~version:"1.1" ~frame:true ~keep_alive:true
+            ~length:(Int64.of_int length) ~body:req path
+          |> Db_secret_string.with_cookie !Db_globs.pool_secret
+        in
         match !my_connection with
           None -> raise Goto_handler
         | (Some stunnel_proc) ->

@@ -24,8 +24,8 @@ val login_no_password: __context:Context.t -> uname:string option -> host:[ `hos
 val destroy_db_session: __context:Context.t -> self:API.ref_session -> unit
 val revalidate_all_sessions: __context:Context.t -> unit
 val consider_touching_session: (Rpc.call -> Rpc.response) -> API.ref_session -> unit -> unit
-val slave_login: __context:Context.t -> host:[ `host ] Ref.t -> psecret:string -> [ `session ] Ref.t
-val slave_local_login: __context:Context.t -> psecret:string -> API.ref_session
+val slave_login: __context:Context.t -> host:[ `host ] Ref.t -> psecret:SecretString.t -> [ `session ] Ref.t
+val slave_local_login: __context:Context.t -> psecret:SecretString.t -> API.ref_session
 val slave_local_login_with_password: __context:Context.t -> uname:string -> pwd:string -> API.ref_session
 val login_with_password: __context:Context.t ->  uname:string ->pwd:string -> version:'a -> originator:string -> [ `session ] Ref.t
 val change_password: __context:Context.t -> old_pwd:string -> new_pwd:string -> unit

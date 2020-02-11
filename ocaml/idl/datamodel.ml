@@ -48,7 +48,7 @@ module Session = struct
       ~result:(Ref _session,"ID of newly created session")
       ~params:[
         Ref _host, "host", "Host id of slave";
-        String, "psecret", "Pool secret"
+        SecretString, "psecret", "Pool secret"
       ]
       ~in_oss_since:None
       ~in_product_since:rel_rio
@@ -63,7 +63,7 @@ module Session = struct
       ~doc:"Authenticate locally against a slave in emergency mode. Note the resulting sessions are only good for use on this host."
       ~result:(Ref _session,"ID of newly created session")
       ~params:[
-        String, "psecret", "Pool secret"
+        SecretString, "psecret", "Pool secret"
       ]
       ~in_oss_since:None
       ~secret:true

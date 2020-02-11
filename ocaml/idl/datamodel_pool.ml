@@ -118,7 +118,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_rio
       ~params:[]
-      ~result:(String, "")
+      ~result:(SecretString, "")
       ~doc:"Internal use only"
       ~hide_from_docs:true
       ~allowed_roles:_R_POOL_OP
