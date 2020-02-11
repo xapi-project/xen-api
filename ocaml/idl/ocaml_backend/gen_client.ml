@@ -156,8 +156,8 @@ let gen_module api : O.Module.t =
       ~ty:return_type
       ~body:(List.map to_rpc args @ [
           if is_ctor then ctor_record else "";
-          Printf.sprintf "rpc_wrapper rpc \"%s\" [ %s ] >>= fun x -> return (%s x)"
-            wire_name
+          Printf.sprintf "rpc_wrapper rpc %s [ %s ] >>= fun x -> return (%s x)"
+            (if sync then Printf.sprintf "\"%s\"" wire_name else Printf.sprintf {|(Printf.sprintf "%%s%s" AQ.async_qualifier)|} wire_name)
             (String.concat "; " rpc_args)
             (from_xmlrpc x.msg_result)
         ]) () in
@@ -188,14 +188,20 @@ let gen_module api : O.Module.t =
     "    | rpc -> failwith (\"Client.rpc: \" ^ Rpc.to_string rpc)";
   ]
   in
+  let postamble = [
+    {|module Async = AsyncF(struct let async_qualifier = "" end)|};
+    {|module InternalAsync = AsyncF(struct let async_qualifier = "Internal" end)|}
+  ]
+  in
   let async =
     (* Small subset of the API is async *)
     let api = client_api ~sync:false api in
     let async_objs = Dm_api.objects_of_api api in
 
     O.Module.make
-      ~name:async_module_name
-      ~elements:(List.map (fun x -> O.Module.Module (obj ~sync:false x)) async_objs) () in
+      ~name:"AsyncF"
+      ~elements:(List.map (fun x -> O.Module.Module (obj ~sync:false x)) async_objs) ()
+      ~args:["AQ: AsyncQualifier"] in
 
   let api = client_api ~sync:true api in
   let all_objs = Dm_api.objects_of_api api in
@@ -203,6 +209,7 @@ let gen_module api : O.Module.t =
   O.Module.make
     ~name:module_name
     ~preamble:preamble
+    ~postamble:postamble
     ~args:["X : IO"]
     ~elements:(O.Module.Module async ::
                List.map (fun x -> O.Module.Module (obj ~sync:true x)) all_objs) ()
