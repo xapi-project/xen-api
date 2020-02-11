@@ -35,8 +35,6 @@ let stunnel_logger = ref ignore
 
 let timeoutidle = ref None
 
-let good_ciphersuites = "!EXPORT:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256"
-
 let init_stunnel_path () =
   try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
   with Not_found ->
@@ -154,7 +152,7 @@ let config_file verify_cert extended_diagnosis host port =
       ]
     else []
   ; [ "sslVersion = TLSv1.2"
-    ; "ciphers = " ^ good_ciphersuites
+    ; "ciphers = " ^ Xcp_const.good_ciphersuites
     ]
   ; ["curve = secp384r1"]
   ; [""]
