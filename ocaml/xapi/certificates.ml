@@ -20,17 +20,17 @@ open Client
 module D=Debug.Make(struct let name="certificates" end)
 open D
 
-type t_trusted = Certificate | CRL
+type t_trusted = CA_Certificate | CRL
 type t_server = Leaf | Chain
 
 let c_rehash = "/usr/bin/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
 let pem_certificate_footer = "-----END CERTIFICATE-----"
 
-let certificate_path = "/etc/stunnel/certs"
+let ca_certificates_path = "/etc/stunnel/certs"
 
 let library_path = function
-  | Certificate -> certificate_path
+  | CA_Certificate -> ca_certificates_path
   | CRL -> Stunnel.crl_path
 
 let library_filename kind name =
@@ -42,15 +42,16 @@ let mkdir_cert_path kind =
 let rehash' path = ignore (Forkhelpers.execute_command_get_output c_rehash [ path ])
 
 let rehash () =
-  mkdir_cert_path Certificate;
+  mkdir_cert_path CA_Certificate;
   mkdir_cert_path CRL;
-  rehash' (library_path Certificate);
+  rehash' (library_path CA_Certificate);
   rehash' (library_path CRL)
 
-let update_ca_bundle () = ignore (Forkhelpers.execute_command_get_output "/opt/xensource/bin/update-ca-bundle.sh" [])
+let update_ca_bundle () =
+  ignore (Forkhelpers.execute_command_get_output "/opt/xensource/bin/update-ca-bundle.sh" [])
 
 let to_string = function
-  | Certificate -> "certificate"
+  | CA_Certificate -> "CA certificate"
   | CRL -> "CRL"
 
 let safe_char c =
@@ -85,28 +86,28 @@ let raise_server_error parameters err =
 
 let raise_name_invalid kind n =
   let err = match kind with
-  | Certificate -> certificate_name_invalid
+  | CA_Certificate -> certificate_name_invalid
   | CRL -> crl_name_invalid
   in
   raise_server_error [n] err
 
 let raise_already_exists kind n =
   let err = match kind with
-  | Certificate -> certificate_already_exists
+  | CA_Certificate -> certificate_already_exists
   | CRL -> crl_already_exists
   in
   raise_server_error [n] err
 
 let raise_does_not_exist kind n =
   let err = match kind with
-  | Certificate -> certificate_does_not_exist
+  | CA_Certificate -> certificate_does_not_exist
   | CRL -> crl_does_not_exist
   in
   raise_server_error [n] err
 
 let raise_corrupt kind n =
   let err = match kind with
-  | Certificate -> certificate_corrupt
+  | CA_Certificate -> certificate_corrupt
   | CRL -> crl_corrupt
   in
   raise_server_error [n] err
@@ -124,11 +125,11 @@ let local_list kind =
 
 let local_sync () =
   try
-    rehash()
+    rehash ()
   with e ->
     warn "Exception rehashing certificates: %s"
       (ExnHelper.string_of_exn e);
-    raise_library_corrupt()
+    raise_library_corrupt ()
 
 let cert_perms kind =
   let stat = Unix.stat (library_path kind) in
@@ -213,8 +214,8 @@ let sync_certs_crls kind list_func install_func uninstall_func
 
 let sync_certs kind ~__context master_certs host =
   match kind with
-  | Certificate ->
-    sync_certs_crls Certificate
+  | CA_Certificate ->
+    sync_certs_crls CA_Certificate
       (fun rpc session_id host ->
          Client.Host.certificate_list rpc session_id host)
       (fun rpc session_id host c cert ->
@@ -251,9 +252,9 @@ let pool_sync ~__context =
   let hosts_but_master = List.filter (fun h -> h <> master) hosts in
 
   sync_all_hosts ~__context hosts;
-  let master_certs = local_list Certificate in
+  let master_certs = local_list CA_Certificate in
   let master_crls = local_list CRL in
-  sync_certs_all_hosts Certificate ~__context master_certs hosts_but_master;
+  sync_certs_all_hosts CA_Certificate ~__context master_certs hosts_but_master;
   sync_certs_all_hosts CRL ~__context master_crls hosts_but_master
 
 let pool_install kind ~__context ~name ~cert =
@@ -292,6 +293,8 @@ and trim_cert' acc = function
   | [] ->
     []
 
+(* Extracts the server certificate from the server certificate pem file.
+   It strips the private key as well as the rest of the certificate chain. *)
 let get_server_certificate () =
   try
     String.concat "\n"

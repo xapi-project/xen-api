@@ -1106,13 +1106,13 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 let get_uncooperative_domains ~__context ~self = []
 
 let certificate_install ~__context ~host ~name ~cert =
-  Certificates.(host_install Certificate name cert)
+  Certificates.(host_install CA_Certificate name cert)
 
 let certificate_uninstall ~__context ~host ~name =
-  Certificates.(host_uninstall Certificate name)
+  Certificates.(host_uninstall CA_Certificate name)
 
 let certificate_list ~__context ~host =
-  Certificates.(local_list Certificate)
+  Certificates.(local_list CA_Certificate)
 
 let crl_install ~__context ~host ~name ~crl =
   Certificates.(host_install CRL name crl)
@@ -1124,10 +1124,10 @@ let crl_list ~__context ~host =
   Certificates.(local_list CRL)
 
 let certificate_sync ~__context ~host =
-  Certificates.local_sync()
+  Certificates.local_sync ()
 
 let get_server_certificate ~__context ~host =
-  Certificates.get_server_certificate()
+  Certificates.get_server_certificate ()
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
