@@ -878,7 +878,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_install"
-      ~doc:"Install an SSL certificate to this host."
+      ~doc:"Install a TLS CA certificate to this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "A name to give the certificate";
                String, "cert", "The certificate"]
@@ -891,7 +891,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_uninstall"
-      ~doc:"Remove an SSL certificate from this host."
+      ~doc:"Remove a TLS CA certificate from this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "The certificate name"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -903,7 +903,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_list"
-      ~doc:"List all installed SSL certificates."
+      ~doc:"List the filenames of all installed TLS CA certificates."
       ~params:[Ref _host, "host", "The host"]
       ~result:(Set(String),"All installed certificates")
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -915,7 +915,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"crl_install"
-      ~doc:"Install an SSL certificate revocation list to this host."
+      ~doc:"Install a TLS Certificate Revocation List to this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "A name to give the CRL";
                String, "crl", "The CRL"]
@@ -928,7 +928,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"crl_uninstall"
-      ~doc:"Remove an SSL certificate revocation list from this host."
+      ~doc:"Uninstall a TLS certificate revocation list from this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "The CRL name"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -940,7 +940,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"crl_list"
-      ~doc:"List all installed SSL certificate revocation lists."
+      ~doc:"List the filenames of all installed TLS Certificate Revocation Lists."
       ~params:[Ref _host, "host", "The host"]
       ~result:(Set(String),"All installed CRLs")
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -952,7 +952,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_sync"
-      ~doc:"Resync installed SSL certificates and CRLs."
+      ~doc:"Makes installed TLS CA certificates and CRLs available to all programs using OpenSSL."
       ~params:[Ref _host, "host", "The host"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
