@@ -20,6 +20,7 @@
 . /lib/lsb/init-functions
 
 ACCEPT=$2
+GOOD_CIPHERS=$4
 PEMFILE="@ETCDIR@/xapi-ssl.pem"
 SSLPIDFILE="/var/run/xapissl.pid"
 SSLCONFFILE="@ETCDIR@/xapi-ssl.conf"
@@ -65,10 +66,6 @@ writeconffile () {
     # interface is enabled or disabled.
     . /etc/xensource-inventory
 
-    # (This "good" list must match, or at least contain one of,
-    #  the ciphersuites-good-outbound list in /etc/xapi.conf.)
-    GOOD_CIPHERS='ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256'
-
     if [ -n "${STUNNEL_IDLE_TIMEOUT}" ]; then
         TIMEOUTSTR="TIMEOUTidle = ${STUNNEL_IDLE_TIMEOUT}"
     fi
@@ -92,7 +89,7 @@ debug = authpriv.5
 accept = ${ACCEPT}
 connect = 80
 cert = ${PEMFILE}
-ciphers = !SSLv2:${GOOD_CIPHERS}${EXTRA_CIPHERS}
+ciphers = ${GOOD_CIPHERS}
 curve = secp384r1
 TIMEOUTclose = 1
 options = CIPHER_SERVER_PREFERENCE
