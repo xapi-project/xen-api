@@ -1657,9 +1657,9 @@ let retrieve_wlb_recommendations ~__context =
 
 let send_test_post = Remote_requests.send_test_post
 
-let certificate_install = Certificates.(pool_install Certificate)
-let certificate_uninstall = Certificates.(pool_uninstall Certificate)
-let certificate_list ~__context = Certificates.(local_list Certificate)
+let certificate_install = Certificates.(pool_install CA_Certificate)
+let certificate_uninstall = Certificates.(pool_uninstall CA_Certificate)
+let certificate_list ~__context = Certificates.(local_list CA_Certificate)
 
 let crl_install = Certificates.(pool_install CRL)
 let crl_uninstall = Certificates.(pool_uninstall CRL)
