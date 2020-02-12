@@ -265,6 +265,7 @@ let parse_attach_result (xml : Xml.xml) =
   rethrow_parse_failures (Xml.to_string_fmt xml) (fun () ->
       let info = XMLRPC.From.structure xml in
       let params = XMLRPC.From.string (safe_assoc "params" info) in
+      let params_nbd = XMLRPC.From.string (safe_assoc "params_nbd" info) in
       let o_direct =
         try XMLRPC.From.boolean (safe_assoc "o_direct" info)
         with _ -> true
@@ -282,6 +283,7 @@ let parse_attach_result (xml : Xml.xml) =
       in
       {
         params;
+        params_nbd;
         o_direct;
         o_direct_reason;
         xenstore_data;
