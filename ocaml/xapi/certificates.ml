@@ -394,7 +394,7 @@ let validate_certificate kind pem now private_key =
     | Ok [] -> raise_server_error [] ""
     | Error (`Msg (err, msg)) -> raise_server_error msg err
 
-let install_server_certificate ?(pem_chain = None) pkcs8_private_key pem_leaf  =
+let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key =
   let now = match Ptime.of_float_s (Unix.time ()) with
     | Some time -> time
     | None ->

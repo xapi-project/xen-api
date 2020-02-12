@@ -878,7 +878,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_install"
-      ~doc:"Install a TLS CA certificate to this host."
+      ~doc:"Install a TLS CA certificate on this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "A name to give the certificate";
                String, "cert", "The certificate"]
@@ -952,9 +952,31 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_sync"
-      ~doc:"Makes installed TLS CA certificates and CRLs available to all programs using OpenSSL."
+      ~doc:"Make installed TLS CA certificates and CRLs available to all programs using OpenSSL."
       ~params:[Ref _host, "host", "The host"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
+  let install_server_certificate = call
+      ~in_oss_since:None
+      ~lifecycle:[Published, rel_stockholm, ""]
+      ~name:"install_server_certificate"
+      ~doc:"Install the TLS server certificate."
+      ~versioned_params:
+        [{ param_type=Ref _host; param_name="host"; param_doc="The host"
+         ; param_release=stockholm_release; param_default=None}
+        ;{ param_type=String; param_name="certificate"
+         ; param_doc="The server certificate, in PEM form"
+         ; param_release=stockholm_release; param_default=None}
+        ;{ param_type=String; param_name="private_key"
+         ; param_doc="The unencrypted private key used to sign the certificate, \
+                      in PKCS#8 form"
+         ; param_release=stockholm_release; param_default=None}
+        ;{ param_type=String; param_name="certificate_chain"
+         ; param_doc="The certificate chain, in PEM form"
+         ; param_release=stockholm_release; param_default=Some (VString "")}
+        ]
+      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let get_server_certificate = call
@@ -1379,6 +1401,7 @@ let host_query_ha = call ~flags:[`Session]
         crl_list;
         certificate_sync;
         get_server_certificate;
+        install_server_certificate;
         update_pool_secret;
         update_master;
         attach_static_vdis;
