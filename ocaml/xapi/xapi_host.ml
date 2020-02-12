@@ -1129,6 +1129,48 @@ let certificate_sync ~__context ~host =
 let get_server_certificate ~__context ~host =
   Certificates.get_server_certificate ()
 
+let install_server_certificate ~__context ~host ~certificate ~private_key ~certificate_chain =
+  if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
+    raise Api_errors.(Server_error (ha_is_enabled, []));
+
+  let current_server_certs = Db.Certificate.get_all_records ~__context
+  |> List.filter_map (fun (reference, record) ->
+    if record.API.certificate_host = host then
+        Some reference
+    else
+        None
+    )
+  in
+
+  let pem_chain = match certificate_chain with
+  | ""        -> None
+  | pem_chain -> Some pem_chain
+  in
+  let certificate =
+    Certificates.install_server_certificate
+      ~pem_leaf:certificate ~pkcs8_private_key:private_key ~pem_chain
+  in
+  let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+  let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+  let not_before, not_after =
+    dates_of_ptimes (X509.Certificate.validity certificate)
+  in
+  let fingerprint =
+    X509.Certificate.fingerprint Nocrypto.(`SHA256) certificate
+    |> Cstruct.to_string
+  in
+  let uuid = Uuid.(to_string (make_uuid ())) in
+  let ref = Ref.make () in
+
+  List.iter (fun self -> Db.Certificate.destroy ~__context ~self) current_server_certs;
+  Db.Certificate.create ~__context ~ref ~uuid ~host ~not_before ~not_after ~fingerprint;
+
+  let task = Context.get_task_id __context in
+  (* mark task as done *)
+  Db.Task.set_progress ~__context ~self:task ~value:1.0;
+  (* sever all connections done with stunnel *)
+  Xapi_mgmt_iface.reconfigure_stunnel ~__context
+
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
 
