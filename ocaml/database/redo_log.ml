@@ -223,7 +223,7 @@ let connect sockpath latest_response_time =
       Unix.connect s (Unix.ADDR_UNIX sockpath);
       R.debug "Connected to I/O process via socket %s" sockpath;
       s
-    with Unix.Unix_error(a,b,c) ->
+    with Unix.Unix_error(a, b, _) ->
       (* It's probably the case that the process hasn't started yet. *)
       (* See if we can afford to wait and try again *)
       Unix.close s;
@@ -320,7 +320,7 @@ let rec read_read_response sock fn_db fn_delta expected_gen_count latest_respons
     else raise (RedoLogFailure error)
   | e -> raise (CommunicationsProblem ("unrecognised read response prefix ["^e^"]"))
 
-let action_empty sock datasockpath =
+let action_empty sock _datasockpath =
   R.debug "Performing empty";
   (* Compute desired response time *)
   let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_empty in
@@ -410,7 +410,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
     else raise (RedoLogFailure error)
   | e -> raise (CommunicationsProblem ("unrecognised writedb response ["^e^"]"))
 
-let action_write_delta marker generation_count data flush_db_fn sock datasockpath =
+let action_write_delta marker generation_count data flush_db_fn sock _datasockpath =
   R.debug "Performing writedelta (generation %Ld)" generation_count;
   (* Compute desired response time *)
   let latest_response_time = get_latest_response_time !Db_globs.redo_log_max_block_time_writedelta in
@@ -632,7 +632,7 @@ let perform_action f desc sock log =
     (* Timeout: try to close the connection to the redo log. it will be re-opened when we next attempt another access *)
     R.warn "Could not %s: Timeout." desc;
     broken log
-  | Unix.Unix_error(a,b,c) ->
+  | Unix.Unix_error(a, b, _) ->
     (* problem with process I/O *)
     R.warn "Could not %s: Unix error on %s: %s" desc b (Unix.error_message a);
     broken log
@@ -764,14 +764,14 @@ let flush_db_to_all_active_redo_logs db =
 let database_callback event db =
   let to_write =
     match event with
-    | Db_cache_types.RefreshRow (tblname, objref) ->
+    | Db_cache_types.RefreshRow (_, _) ->
       None
     | Db_cache_types.WriteField (tblname, objref, fldname, oldval, newval) ->
       R.debug "WriteField(%s, %s, %s, %s, %s)" tblname objref fldname (Schema.Value.marshal oldval) (Schema.Value.marshal newval);
       if Schema.is_field_persistent (Db_cache_types.Database.schema db) tblname fldname
       then Some (WriteField(tblname, objref, fldname, Schema.Value.marshal newval))
       else None
-    | Db_cache_types.PreDelete (tblname, objref) ->
+    | Db_cache_types.PreDelete (_, _) ->
       None
     | Db_cache_types.Delete (tblname, objref, _) ->
       if Schema.is_table_persistent (Db_cache_types.Database.schema db) tblname

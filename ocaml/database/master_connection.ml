@@ -132,7 +132,7 @@ let open_secure_connection () =
       ~extended_diagnosis:true
       ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port @@ fun st_proc ->
   let fd_closed = Thread.wait_timed_read Unixfd.(!(st_proc.Stunnel.fd)) 5. in
-  let proc_quit = try Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0; false with e -> true in
+  let proc_quit = try Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0; false with _ -> true in
   if not fd_closed && not proc_quit then begin
     info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr Unixfd.(!(st_proc.Stunnel.fd)));
     my_connection := Some (Stunnel.move_out_exn st_proc);
@@ -154,7 +154,7 @@ let restart_on_connection_timeout = ref true
 
 exception Content_length_required
 
-let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interface.response =
+let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req: string) : Db_interface.response =
   let time_call_started = Unix.gettimeofday() in
   let write_ok = ref false in
   let result = ref "" in

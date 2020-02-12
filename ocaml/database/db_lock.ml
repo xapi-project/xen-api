@@ -13,9 +13,6 @@
  *)
 (* Lock shared between client/slave implementations *)
 
-module D = Debug.Make(struct let name = "db_lock" end)
-open D
-
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext
 

@@ -3,27 +3,13 @@ open Xapi_stdext_threads.Threadext
 
 module DBCacheRemoteListener = struct
   open Db_rpc_common_v1
-  open Db_action_helper
-  open Db_cache
   open Db_exn
 
   exception DBCacheListenerInvalidMessageReceived
   exception DBCacheListenerUnknownMessageName of string
 
-  module D = Debug.Make(struct let name = "db_server" end)
-  open D
-
   let ctr_mutex = Mutex.create()
   let calls_processed = ref 0
-  let total_recv_len = ref 0
-  let total_transmit_len = ref 0
-
-  (* Performance counters for debugging *)
-  let update_lengths msg resp =
-    Mutex.lock ctr_mutex;
-    total_transmit_len := (!total_transmit_len) + (String.length (Xml.to_string_fmt resp));
-    total_recv_len := (!total_recv_len) + (String.length (Xml.to_string_fmt msg));
-    Mutex.unlock ctr_mutex
 
   let success xml =
     let resp =

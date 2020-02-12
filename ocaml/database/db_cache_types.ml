@@ -361,8 +361,6 @@ let remove_from_map key t =
   Schema.Value.Pairs (List.filter (fun (k, _) -> k <> key) t)
 
 
-let id x = x
-
 let is_valid tblname objref db =
   Table.mem objref (TableSet.find tblname (Database.tableset db))
 
@@ -415,8 +413,8 @@ let set_field tblname objref fldname newval db =
     | [],[] ->
       false
     | o2m,m2m ->
-      List.exists (fun (fld,tbl,otherfld) -> fld = fldname) o2m
-      || List.exists (fun (fld,tbl,otherfld) -> fld = fldname) m2m
+      List.exists (fun (fld, _, _) -> fld = fldname) o2m
+      || List.exists (fun (fld, _, _) -> fld = fldname) m2m
   in
 
   if need_other_table_update then begin
