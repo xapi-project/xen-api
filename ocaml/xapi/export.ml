@@ -556,17 +556,27 @@ let metadata_handler (req: Request.t) s _ =
        let task_id = Ref.string_of (Context.get_task_id __context) in
        let read_fd, write_fd = Unix.pipe () in
        let export_error = ref None in
-       let writer_thread = Thread.create (fun () ->
-           (* lock all the VMs before exporting their metadata *)
-           List.iter (fun vm -> lock_vm ~__context ~vm ~task_id `metadata_export) vm_refs;
-           try
-             finally
-               (fun () -> export_metadata ~with_snapshot_metadata:export_snapshots ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs write_fd)
-               (fun () ->
-                  Unix.close write_fd;
-                  List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) vm_refs)
-           with e ->
-             export_error := Some e)
+       let writer_thread = Thread.create (
+           Debug.with_thread_named "metadata export writer thread" (fun () ->
+             try
+               (* lock all the VMs before exporting their metadata *)
+               let locked_vms = ref [] in
+               finally
+                 (fun () ->
+                   List.iter (fun vm ->
+                     lock_vm ~__context ~vm ~task_id `metadata_export;
+                     locked_vms := vm :: !locked_vms
+                   ) vm_refs;
+                   export_metadata ~with_snapshot_metadata:export_snapshots ~preserve_power_state:true ~include_vhd_parents ~__context ~vms:vm_refs write_fd
+                 )
+                 (fun () ->
+                   Unix.close write_fd;
+                   List.iter (fun vm -> unlock_vm ~__context ~vm ~task_id) !locked_vms)
+             with e ->
+               Backtrace.is_important e;
+               export_error := Some e;
+               raise e
+           ))
            ()
        in
        let tar_data = Unixext.string_of_fd read_fd in
