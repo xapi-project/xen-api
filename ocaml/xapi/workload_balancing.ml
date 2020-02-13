@@ -388,7 +388,7 @@ let perform_wlb_request ?auth ?url ?enable_log ~meth ~params
   | Some s -> s
   | None -> raise_internal_error []
 
-let val_num i =
+let float_or_raise i =
   try
     ignore (float_of_string i);
     i
@@ -414,9 +414,9 @@ let retrieve_vm_recommendations ~__context ~vm =
         let source = "WLB" in
         let host_uuid = get_child_data "HostUuid" in
         let host = Db.Host.get_by_uuid ~__context ~uuid:host_uuid in
-        let id = get_child_data "RecommendationId" |> val_num in
+        let id = get_child_data "RecommendationId" |> float_or_raise in
         let zero_reason = get_child_data "ZeroScoreReason" in
-        let stars = get_child_data "Stars" |> val_num |> float_of_string in
+        let stars = get_child_data "Stars" |> float_or_raise |> float_of_string in
 
         let recommendation = match stars, zero_reason with
         | 0., reason ->
@@ -433,7 +433,8 @@ let retrieve_vm_recommendations ~__context ~vm =
         (host, recommendation)
       with
       | Xml_parse_failure error ->
-        (* let this parse error carry on upwards,  perform_wlb_request will catch it and check the rest of the xml for an error code *)
+        (* let this parse error carry on upwards, perform_wlb_request will
+           catch it and check the rest of the xml for an error code *)
         raise (Xml_parse_failure error)
       | Db_exn.Read_missing_uuid (_,_,_)
       | Db_exn.Too_many_values (_,_,_) ->
@@ -441,20 +442,16 @@ let retrieve_vm_recommendations ~__context ~vm =
           "Invalid VM or host UUID" place_recommendation
     in
     let recs = descend_and_match ["Recommendations"] inner_xml in
-    if (is_childless recs)
-    then
-      []
-    else
-      match recs with
-      | Xml.Element ( _, _, children) ->
-        if ((List.length children) != List.length((Helpers.get_live_hosts ~__context)))
-        then
-          raise_malformed_response meth
-            "List of returned reccomendations is not equal to the number of hosts in pool"
-            inner_xml
-        else
-          List.map (fun x -> extract_data x) children
-      | _ -> assert false (*the is_childless should catch this *)
+    match recs with
+    | Xml.Element ( _, _, (_::_ as children)) ->
+      if List.length children <> List.length (Helpers.get_live_hosts ~__context)
+      then
+        raise_malformed_response meth
+          "List of returned reccomendations is not equal to the number of hosts in pool"
+          inner_xml
+      else
+        List.map (fun x -> extract_data x) children
+    | _ -> [] (* Node is a leaf node or it has 0 children *)
   in
   perform_wlb_request ~meth ~params ~handle_response ~__context ()
 
@@ -638,8 +635,8 @@ let get_opt_recommendations ~__context =
     | [] ->
       begin
         match (vm, hostfrom, hostto, reason, rec_id, opt_id) with
-        | (Some vm', _, Some hostto', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; hostto'; val_num (opt_id'); val_num (rec_id'); reason'])
-        | (None, Some hostfrom',_, Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context hostfrom'), ["WLB"; hostfrom'; val_num (opt_id'); val_num (rec_id'); reason'])
+        | (Some vm', _, Some hostto', Some reason', Some rec_id', opt_id') -> (vm', ["WLB"; hostto'; float_or_raise (opt_id'); float_or_raise (rec_id'); reason'])
+        | (None, Some hostfrom',_, Some reason', Some rec_id', opt_id') -> ( (get_dom0_vm ~__context hostfrom'), ["WLB"; hostfrom'; float_or_raise (opt_id'); float_or_raise (rec_id'); reason'])
         | _ ->
           raise_malformed_response' "GetOptimizationRecommendations"
             "Missing VmToMoveUuid, RecID, MoveToHostUuid, or Reason" "unknown"
@@ -712,8 +709,8 @@ let get_evacuation_recoms ~__context ~uuid =
     | [] ->
       begin
         match (vm, host, rec_id) with
-        | (Some vm', Some host', Some rec_id') -> (vm', ["WLB"; host'; val_num (rec_id')])
-        | (None, Some host', Some rec_id') -> ((get_dom0_vm ~__context host'), ["WLB"; host'; val_num (rec_id')])
+        | (Some vm', Some host', Some rec_id') -> (vm', ["WLB"; host'; float_or_raise (rec_id')])
+        | (None, Some host', Some rec_id') -> ((get_dom0_vm ~__context host'), ["WLB"; host'; float_or_raise (rec_id')])
         | _ ->
           raise_malformed_response' "HostGetRecommendations"
             "Missing VmUuid, RecID or HostUuid" "unknown"
