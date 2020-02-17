@@ -70,8 +70,6 @@ let of_sr sr =
        end else (Hashtbl.find plugins sr).processor
     )
 
-open Fun
-
 type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
 let multicast f = Hashtbl.fold (fun sr plugin acc -> (sr, try SMSuccess (f sr plugin.processor) with e -> SMFailure e) :: acc) plugins []
@@ -102,7 +100,7 @@ module Mux = struct
       let all = List.fold_left (fun acc (sr, result) ->
           (Printf.sprintf "For SR: %s" (s_of_sr sr) :: (string_of_sm_result (fun s -> s) result) :: acc)) [] results in
       SMSuccess (String.concat "\n" all) in
-    let m = multicast f in 
+    let m = multicast f in
     match fail_or combine m with
     | SMSuccess x -> x
     | SMFailure e -> raise e

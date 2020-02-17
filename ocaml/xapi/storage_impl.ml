@@ -69,14 +69,13 @@ open Stdext
 open Threadext
 open Pervasiveext
 open Listext
-open Fun
 open Storage_interface
 open Storage_task
 
 let s_of_sr = Storage_interface.Sr.string_of
 let s_of_vdi = Storage_interface.Vdi.string_of
-let s_of_vm = Storage_interface.Vm.string_of 
-let vm_of_s = Storage_interface.Vm.of_string 
+let s_of_vm = Storage_interface.Vm.string_of
+let vm_of_s = Storage_interface.Vm.of_string
 
 let print_debug = ref false
 let log_to_stdout prefix (fmt: ('a , unit, string, unit) format4) =
@@ -116,7 +115,7 @@ let string_of_date x = Date.to_string (Date.of_float x)
 let rpc_fns keyty valty =
   let rpc_of hashtbl =
     let v = Hashtbl.fold (fun k v acc ->
-        let keystr = 
+        let keystr =
           match Rpcmarshal.marshal keyty.Rpc.Types.ty k with
           | Rpc.String x -> x
           | _ -> failwith "Runtime error marshalling non-stringish key"
@@ -132,7 +131,7 @@ let rpc_fns keyty valty =
     | Rpc.Dict kvs ->
       let res = List.fold_left (fun hashtbl (k,v) ->
           hashtbl >>= fun h ->
-          unm keyty (Rpc.String k) >>= fun key -> 
+          unm keyty (Rpc.String k) >>= fun key ->
           unm valty v >>= fun value ->
           Hashtbl.replace h key value;
           Ok h) (Ok (Hashtbl.create (List.length kvs))) kvs in
@@ -484,7 +483,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         (fun () ->
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
-                let state = perform_nolock context ~dbg ~dp ~sr ~vdi ~vm 
+                let state = perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
                     (Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)) in
                 Opt.unbox state.Vdi.attach_info
              ))
@@ -526,13 +525,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
              (fun () ->
                 ignore(perform_nolock context ~dbg ~dp ~sr ~vdi ~vm Vdi_automaton.Activate)))
-        
+
 
     let activate context ~dbg ~dp ~sr ~vdi =
       info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr) (s_of_vdi vdi);
       (*Support calls from older XAPI during migrate operation (dom 0 attach )*)
       let vm = (vm_of_s "0") in
-      activate3 context ~dbg ~dp ~sr ~vdi ~vm 
+      activate3 context ~dbg ~dp ~sr ~vdi ~vm
 
     let deactivate context ~dbg ~dp ~sr ~vdi ~vm =
       info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm);
@@ -599,11 +598,11 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
         )
 
-    let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi  = 
+    let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi  =
       info "%s dbg:%s sr:%s vdi:%s" call_name dbg (s_of_sr sr) (s_of_vdi vdi);
       with_vdi sr vdi
         (fun () ->
-           let vm = vm_of_s "" in 
+           let vm = vm_of_s "" in
            remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.all
              (fun () ->
                 call_f context ~dbg ~sr ~vdi
@@ -736,7 +735,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
     let destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak vdi_already_locked =
       (* Every VDI in use by this session should be detached and deactivated
          This code makes the assumption that a datapath is only on 0 or 1 VDIs. However, it retains debug code (identified below) to verify this.
-         It also assumes that the VDIs associated with a datapath don't change during its execution - again it retains debug code to verify this.	
+         It also assumes that the VDIs associated with a datapath don't change during its execution - again it retains debug code to verify this.
       *)
 
       let vdis = Sr.list sr_t in
@@ -755,7 +754,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       let vdi_to_remove = match vdis_with_dp with
         | [] -> None
         | [x] -> Some x
-        | _ -> 
+        | _ ->
           raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, [Printf.sprintf "Expected 0 or 1 VDI with datapath, had %d" (List.length vdis_with_dp)])))
       in
 
@@ -765,13 +764,13 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         | Some (vdi, vdi_t) -> (
             locker vdi (fun () ->
                 try
-                  let vm = vm_of_s "" in 
+                  let vm = vm_of_s "" in
                   VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm ~allow_leak;
                   None
                 with e -> Some e
               )
           )
-      in       
+      in
 
       (* This is debug code to assert that we removed the datapath from all VDIs by looking for a situation where a VDI not known about has the datapath at this point *)
       (* Can't just check for vdis_with_dp = 0, the actual removal isn't necessarily complete at this point *)
@@ -789,7 +788,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         | Some s -> vdi = s
       in
 
-      let race_occured  =  match vdis_with_dp with 
+      let race_occured  =  match vdis_with_dp with
         | [] -> false
         | [v] -> not (matches v)
         | _ -> true
@@ -799,7 +798,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
         let message = [Printf.sprintf "Expected no new VDIs with DP after destroy_sr. VDI expected with id %s" (match vdi_ident with | None -> "(not attached)" | Some s -> s_of_vdi s)] @
                       List.map (fun(vdi, vdi_t) -> Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi)) vdis_with_dp in
         raise (Storage_interface.Storage_error (Backend_error (Api_errors.internal_error, message)))
-      );      
+      );
 
       failure
 

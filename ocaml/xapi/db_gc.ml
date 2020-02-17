@@ -17,8 +17,6 @@
 
 open API
 open Stdext
-open Fun
-open Listext
 open Threadext
 
 module D=Debug.Make(struct let name="db_gc" end)

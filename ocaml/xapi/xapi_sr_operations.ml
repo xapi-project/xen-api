@@ -15,7 +15,6 @@
  * @group XenAPI functions
 *)
 
-open Printf
 open Stdext
 open Threadext
 open Pervasiveext
@@ -23,7 +22,6 @@ module Listext = Listext.List
 open Db_filter_types
 open API
 open Client
-open Fun
 
 (* internal api *)
 

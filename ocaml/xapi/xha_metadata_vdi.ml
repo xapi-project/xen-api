@@ -19,9 +19,6 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open Client
-open Stdext
-open Listext
-open Xstringext
 
 let create ~__context ~sr =
   Helpers.call_api_functions ~__context
@@ -63,8 +60,6 @@ let deactivate_and_detach_existing ~__context =
   let vdi_uuids = List.map (fun vdi -> vdi.Static_vdis.uuid) (list_existing ()) in
   List.iter (fun vdi_uuid -> Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid:vdi_uuid) vdi_uuids ;
   List.iter (fun vdi_uuid -> Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid:vdi_uuid) vdi_uuids
-
-open Pervasiveext
 
 (** Attempt to flush the database to the metadata VDI *)
 let flush_database ~__context log =

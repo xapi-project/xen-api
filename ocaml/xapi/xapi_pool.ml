@@ -17,8 +17,6 @@ open Client
 open Db_filter_types
 open Pervasiveext
 open Threadext
-open Xstringext
-open Listext
 open Network
 
 module L = Debug.Make(struct let name="license" end)
@@ -75,11 +73,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let host = Helpers.get_localhost ~__context in
     match Xapi_clustering.find_cluster_host ~__context ~host with
       | None -> ()
-      | Some cluster_host -> 
+      | Some cluster_host ->
         if (Db.Cluster_host.get_enabled ~__context ~self:cluster_host) then begin
           error "Cannot join pool as Clustering is enabled";
           raise (Api_errors.(Server_error( clustering_enabled, [Ref.string_of cluster_host])));
-    end in 
+    end in
 
   (* CA-26975: Pool edition MUST match *)
   let assert_restrictions_match () =

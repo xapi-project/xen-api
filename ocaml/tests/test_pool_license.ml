@@ -13,7 +13,6 @@
  *)
 
 open Stdext
-open Fun
 open Test_highlevel
 
 type host_license_state = {
