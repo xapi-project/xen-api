@@ -536,40 +536,53 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check ?(do_s
   debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
-  (* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
-     	   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)
-  let recs = Hashtbl.create 12 in
-  List.iter
-    (function
-      | host, (Recommendation {source; id; score} as recomm) -> (
-       try
-         assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_cpuid_check:true ();
-         Hashtbl.replace recs host recomm
-       with
-       (* CPUID checks are being removed from WLB, this will become the responsibility of XAPI
-        * (and ultimately Xen/libxc). Previously WLB would've assigned a score of 0.0 and a reason
-        * of "HostCPUFeaturesIncompatible" to hosts that can't boot a VM due to CPU features missing.
-        * WLB could call assert_can_boot_here instead of doing its own CPUID checks, however that
-        * would add a lot of extra API calls (at least Number_of_hosts * Number_of_VMs).
-        * Instead do this check in XAPI itself, and override WLB's response for backwards compatibility
-        * with 0.0, and the same reason code that WLB would've used. This should keep observable behaviour
-        * identical and work both with old and new WLBs.
-        *)
-       | Api_errors.Server_error(x, _) when x=Api_errors.vm_incompatible_with_this_host ->
-           Hashtbl.replace recs host (Impossible {source; id; reason="HostCPUFeaturesIncompatible"})
-       | Api_errors.Server_error(x, y) ->
-           let reason = String.concat ";" (x :: y) in
-           Hashtbl.replace recs host (Impossible {source; id; reason})
+  let module HostMap = Map.Make(struct type t = API.ref_host let compare = Stdlib.compare end) in
+  let compatible_vm_or_impossible (host, recommendation) =
+    let recommendation = match recommendation with
+    | Recommendation {source; id; score} -> (
+      try
+        assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_cpuid_check:true ();
+        recommendation
+      with
+      (* CPUID checks are being removed from WLB, this will become the responsibility of XAPI
+       * (and ultimately Xen/libxc). Previously WLB would've assigned a score of 0.0 and a reason
+       * of "HostCPUFeaturesIncompatible" to hosts that can't boot a VM due to CPU features missing.
+       * WLB could call assert_can_boot_here instead of doing its own CPUID checks, however that
+       * would add a lot of extra API calls (at least Number_of_hosts * Number_of_VMs).
+       * Instead do this check in XAPI itself, and override WLB's response for backwards compatibility
+       * with 0.0, and the same reason code that WLB would've used. This should keep observable behaviour
+       * identical and work both with old and new WLBs.
+       *)
+      | Api_errors.Server_error(x, _) when x=Api_errors.vm_incompatible_with_this_host ->
+        Impossible {source; id; reason="HostCPUFeaturesIncompatible"}
+      | Api_errors.Server_error(x, y) ->
+        let reason = String.concat ";" (x :: y) in
+        Impossible {source; id; reason}
       )
-      | host, impossible_load ->
-        Hashtbl.replace recs host impossible_load
-    )(retrieve_vm_recommendations ~__context ~vm);
-  if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
-  then
-    raise_malformed_response' "VMGetRecommendations"
-      "Number of unique recommendations does not match number of potential hosts" "Unknown"
-  else
-    Hashtbl.fold (fun k v tl -> (k,v) :: tl) recs []
+    | impossible_load ->
+      impossible_load
+    in
+    host, recommendation
+  in
+  let only_for_all_live_hosts_or_raise recs =
+    (* Recommendations cannot have hosts that are not active and there must
+       at least one per active host *)
+    let live_hosts = Helpers.get_live_hosts ~__context in
+    if HostMap.cardinal recs <> List.length live_hosts then
+      raise_malformed_response' "VMGetRecommendations"
+        "VM recommendations must only target live hosts and target all of them"
+        "Unknown"
+    else ();
+    recs
+  in
+  (* Make sure a single recommendation is present per host. *)
+  retrieve_vm_recommendations ~__context ~vm
+  |> List.to_seq
+  |> HostMap.of_seq
+  |> only_for_all_live_hosts_or_raise
+  |> HostMap.to_seq
+  |> Seq.map compatible_vm_or_impossible
+  |> List.of_seq
 
 (** Returns the subset of all hosts to which the given function [choose_fn]
     can be applied without raising an exception. If the optional [vm] argument is
