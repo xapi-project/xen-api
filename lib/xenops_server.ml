@@ -1818,6 +1818,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
                  match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty (Jsonrpc.of_string msg) with
                  | Ok e ->    raise (Xenopsd_error e)
                  | Error _ -> raise (Xenopsd_error (Internal_error msg))
+                 | exception _ -> raise (Xenopsd_error (Internal_error msg))
              end;
              debug "VM.migrate: Synchronisation point 1";
            in
