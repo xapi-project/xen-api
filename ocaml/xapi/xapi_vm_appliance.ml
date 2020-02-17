@@ -13,10 +13,6 @@
  *)
 
 open Client
-open Stdext
-open Pervasiveext
-open Fun
-open Listext
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -127,11 +123,13 @@ let assert_can_be_recovered ~__context ~self ~session_to =
     vms
 
 let get_SRs_required_for_recovery ~__context ~self ~session_to =
-  let vms = Db.VM_appliance.get_VMs ~__context ~self in
-  let sr_list = List.map
-      (fun vm -> Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm ~session_to)
-      vms in
-  List.setify(List.flatten sr_list)
+  Db.VM_appliance.get_VMs ~__context ~self
+  |> List.to_seq
+  |> Seq.flat_map (fun vm ->
+      Xapi_vm_helpers.get_SRs_required_for_recovery ~__context ~self:vm ~session_to
+      |> List.to_seq)
+  |> Xapi_vm_helpers.SRSet.of_seq
+  |> Xapi_vm_helpers.SRSet.elements
 
 let recover ~__context ~self ~session_to ~force =
   Xapi_dr.assert_session_allows_dr ~session_id:session_to ~action:"VM_appliance.recover";
