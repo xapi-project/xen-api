@@ -15,9 +15,7 @@
 open Stdext
 open Listext
 open Threadext
-open Xstringext
 module XenAPI = Client.Client
-open Fun
 open Storage_interface
 
 module D=Debug.Make(struct let name="storage_access" end)
@@ -1453,7 +1451,7 @@ let refresh_local_vdi_activations ~__context =
   let hosts_of vdi_t =
     let prefix = "host_" in
     let ks = List.map fst vdi_t.API.vDI_sm_config in
-    let ks = List.filter (String.startswith prefix) ks in
+    let ks = List.filter (Astring.String.is_prefix ~affix:prefix) ks in
     let ks = List.map (fun k -> String.sub k (String.length prefix) (String.length k - (String.length prefix))) ks in
     List.map Ref.of_string ks in
 

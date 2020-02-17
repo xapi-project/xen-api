@@ -18,8 +18,6 @@
 open Stdext
 open Threadext
 open Pervasiveext
-module Listext = Listext.List
-open Xstringext
 open Server_helpers
 open Client
 open Db_filter_types
@@ -712,7 +710,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
       let rec process token =
         TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
-        let statuses = Listext.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
+        let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
         let unfinished = List.exists (fun state -> state = `pending) statuses in
         if unfinished
         then begin
@@ -727,7 +725,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       process ""
 
     let cancel ~__context ~vm ~ops =
-      let cancelled = Listext.filter_map (fun (task,op) ->
+      let cancelled = List.filter_map (fun (task,op) ->
           if List.mem op ops then begin
             info "Cancelling VM.%s for VM.hard_shutdown/reboot" (Record_util.vm_operation_to_string op);
             Helpers.call_api_functions ~__context
@@ -3960,7 +3958,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     (* -------------------------------------------------------------------------- *)
 
     let sanitize (k, v) =
-      if String.endswith "transformed" k then
+      if Astring.String.is_suffix ~affix:"transformed" k then
         k ^ "=undisclosed"
       else
         k ^ "=" ^ v

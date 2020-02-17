@@ -16,8 +16,6 @@
     not dynamic performance data. *)
 
 open Stdext
-open Fun
-open Xstringext
 open Threadext
 
 module D=Debug.Make(struct let name="xapi_guest_metrics" end)
@@ -73,7 +71,7 @@ let extend base str = Printf.sprintf "%s/%s" base str
  * attr/vif/0/ipv6/0 -> 0/ipv6/0
  * attr/vif/0/ipv6/1 -> 0/ipv6/1
  *
- * For the compatibility of XAPI clients, outputs of both protocols 
+ * For the compatibility of XAPI clients, outputs of both protocols
  * will be generated. I.E.
  * attr/eth0/ip -> 0/ip; 0/ipv4/0
  * attr/vif/0/ipv4/0 -> 0/ip; 0/ipv4/0
@@ -113,7 +111,7 @@ let networks path vif_type (list: string -> string list) =
         match prefixes with
         | [] -> None
         | prefix :: rest ->
-          if String.startswith prefix eth then
+          if Astring.String.is_prefix ~affix:prefix eth then
             let n = string_after_prefix ~prefix eth in
             Some (extend path eth, n)
           else
@@ -128,30 +126,30 @@ let networks path vif_type (list: string -> string list) =
       ) [] (list path)
   in
   let find_vifs vif_path =
-    let extract_vif acc vif_id = ((extend vif_path vif_id), vif_id) :: acc in  
+    let extract_vif acc vif_id = ((extend vif_path vif_id), vif_id) :: acc in
     List.fold_left extract_vif [] (list vif_path)
   in
-  let cmp a b = 
-    try 
-      compare (int_of_string a) (int_of_string b) 
-    with Failure _ -> 
+  let cmp a b =
+    try
+      compare (int_of_string a) (int_of_string b)
+    with Failure _ ->
       error "String (\"%s\" or \"%s\") can't be converted into an integer as index of IP" a b;
       raise (Failure "Failed to compare")
   in
-  let find_all_vif_ips vif_path vif_id = 
+  let find_all_vif_ips vif_path vif_id =
     (*  vif_path: attr/vif/0 *)
     (*  vif_id: 0 *)
-    let extract_ip_ver vif_id acc ip_ver = 
+    let extract_ip_ver vif_id acc ip_ver =
       let ip_addr_ids = list (extend vif_path ip_ver)  in
-      let extract_ip_addr vif_id ip_ver acc ip_addr_id = 
+      let extract_ip_addr vif_id ip_ver acc ip_addr_id =
         let key_left = Printf.sprintf "%s/%s/%s" vif_path ip_ver ip_addr_id in
         let key_right = Printf.sprintf "%s/%s/%s" vif_id ip_ver ip_addr_id in
         match acc with
-        | [] when ip_ver = "ipv4"  -> 
+        | [] when ip_ver = "ipv4"  ->
           [(key_left, (extend vif_id "ip")); (key_left, key_right)]
         | _ -> (key_left, key_right) :: acc
-      in  
-      try 
+      in
+      try
         (List.fold_left (extract_ip_addr vif_id ip_ver) [] (List.stable_sort cmp ip_addr_ids)) @ acc
       with Failure _ ->
         error "Failed to extract IP address for vif %s." vif_id;
