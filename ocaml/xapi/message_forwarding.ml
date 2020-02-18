@@ -2264,7 +2264,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let bugreport_upload ~__context ~host ~url ~options =
       let filtered_options =
         let filter' ((k, _) as orig) =
-          match Astring.String.trim k with
+          match String.trim k with
           | "password"   -> (k,"(password filtered)")
           | "http_proxy" -> (k,"(proxy filtered)")
           | _            -> orig
