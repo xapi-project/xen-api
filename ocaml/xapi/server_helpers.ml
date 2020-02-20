@@ -66,7 +66,6 @@ let parameter_count_mismatch_failure func expected received =
 
 
 (** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)
-(*  FIXME: This function should not be used for external call : we should add a proper .mli file to hide it. *)
 let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?(called_async=false) f =
   (* Execute fn f in specified __context, marshalling result with "marshaller" *)
   let exec () =
