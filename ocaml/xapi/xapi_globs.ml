@@ -853,8 +853,6 @@ let options_of_xapi_globs_spec =
       (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
       (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
-let xapissl_path = ref "xapissl"
-
 let xenopsd_queues = ref ([
     "org.xen.xapi.xenops.classic";
     "org.xen.xapi.xenops.simulator";
@@ -1033,7 +1031,6 @@ let host_virtual_hardware_platform_versions = [
 module Resources = struct
 
   let essential_executables = [
-    "xapissl", xapissl_path, "Script for starting the listening stunnel";
     "busybox", busybox, "Swiss army knife executable - used as DHCP server";
     "pbis-force-domain-leave-script", pbis_force_domain_leave_script, "Executed when PBIS domain-leave fails";
     "redo-log-block-device-io", Db_globs.redo_log_block_device_io, "Used by the redo log for block device I/O";
