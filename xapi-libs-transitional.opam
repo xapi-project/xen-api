@@ -12,7 +12,6 @@ depends: [
   "http-svr"
   "pciutil"
   "sexpr"
-  "sha1"
   "stunnel"
   "uuid"
   "xenctrlext"
