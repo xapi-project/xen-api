@@ -50,7 +50,6 @@ type feature =
   | Xen_motion
   | Guest_ip_setting
   | AD
-  | Ssl_legacy_switch
   | Nested_virt
   | Live_patching
   | Live_set_vcpus
@@ -102,7 +101,6 @@ let keys_of_features =
     Xen_motion, ("restrict_xen_motion", Negative, "XenMotion");
     Guest_ip_setting, ("restrict_guest_ip_setting", Negative, "GuestIP");
     AD, ("restrict_ad", Negative, "AD");
-    Ssl_legacy_switch, ("restrict_ssl_legacy_switch", Negative, "Ssl_legacy_switch");
     Nested_virt, ("restrict_nested_virt", Negative, "Nested_virt");
     Live_patching, ("restrict_live_patching", Negative, "Live_patching");
     Live_set_vcpus, ("restrict_set_vcpus_number_live", Negative, "Live_set_vcpus");

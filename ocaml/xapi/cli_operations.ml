@@ -1075,13 +1075,8 @@ let pool_set_vswitch_controller printer rpc session_id params =
   let address = List.assoc "address" params in
   Client.Pool.set_vswitch_controller ~rpc ~session_id ~address
 
-let pool_enable_ssl_legacy printer rpc session_id params =
-  let self = get_pool_with_default rpc session_id params "uuid" in
-  Client.Pool.enable_ssl_legacy ~rpc ~session_id ~self
-
 let pool_disable_ssl_legacy printer rpc session_id params =
-  let self = get_pool_with_default rpc session_id params "uuid" in
-  Client.Pool.disable_ssl_legacy ~rpc ~session_id ~self
+  warn "disable_ssl_legacy: doing nothing"
 
 let vdi_type_of_string = function
   | "system" -> `system

@@ -1052,7 +1052,7 @@ let host_query_ha = call ~flags:[`Session]
 
   let set_ssl_legacy = call
       ~name:"set_ssl_legacy"
-      ~lifecycle:[Published, rel_dundee, ""]
+      ~lifecycle:[Published, rel_dundee, ""; Changed, rel_stockholm, "Legacy SSL no longer supported"]
       ~doc:"Enable/disable SSLv3 for interoperability with older server versions. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. API login sessions will remain valid."
       ~params:[
         Ref _host, "self", "The host";
@@ -1458,7 +1458,7 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pci)) "PCIs" "List of PCI devices in the host";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_boston, ""] ~ty:(Set (Ref _pgpu)) "PGPUs" "List of physical GPUs in the host";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_inverness, ""] ~ty:(Set (Ref _pusb)) "PUSBs" "List of physical USBs in the host";
-           field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older server versions. This controls both incoming and outgoing connections. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. API login sessions will remain valid.";
+           field ~qualifier:StaticRO ~lifecycle:[Published, rel_dundee, ""; Deprecated, rel_stockholm, "Legacy SSL no longer supported"] ~ty:Bool ~default_value:(Some (VBool true)) "ssl_legacy" "Allow SSLv3 protocol and ciphersuites as used by older server versions. This controls both incoming and outgoing connections. When this is set to a different value, the host immediately restarts its SSL/TLS listening service; typically this takes less than a second but existing connections to it will be broken. API login sessions will remain valid.";
            field ~qualifier:RW ~in_product_since:rel_tampa ~default_value:(Some (VMap [])) ~ty:(Map (String, String)) "guest_VCPUs_params" "VCPUs params to apply to all resident guests";
            field ~qualifier:RW ~in_product_since:rel_cream ~default_value:(Some (VEnum "enabled")) ~ty:display "display" "indicates whether the host is configured to output its console to a physical display device";
            field ~qualifier:DynamicRO ~in_product_since:rel_cream ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set (Int)) "virtual_hardware_platform_versions" "The set of versions of the virtual hardware platform that the host can offer to its guests";

@@ -13,6 +13,8 @@
  *)
 (* Unit tests and performance tests for the binpacking module *)
 
+exception BadPlan
+
 open Binpack
 
 let time f =
@@ -42,16 +44,16 @@ let check_plan config dead_hosts plan =
   let memory_remaining = account config.hosts config.vms plan in
   (*    List.iter (fun mem -> Printf.printf "%Ld\n" mem) free; *)
   (* No host should be overcommitted: *)
-  if List.fold_left (||) false (List.map (fun x -> x < 0L) (List.map snd memory_remaining)) then failwith "bad plan";
+  if List.fold_left (||) false (List.map (fun x -> x < 0L) (List.map snd memory_remaining)) then raise BadPlan;
   (* All failed VMs should be restarted: *)
   let failed_vms = get_failed_vms config dead_hosts in
-  if List.length failed_vms > (List.length plan) then failwith "bad plan"
+  if List.length failed_vms > (List.length plan) then raise BadPlan
 
 (* Convince ourselves that a plan is always possible (call if plan_always_possible returns true)
    by searching for a counterexample.
    Returns true -- definitely OK (exhaustive search failed to find any bad plans)
    Returns false -- maybe OK (too many for exhaustive search, didn't find any bad plans)
-   Throws (Failure "bad plan") -- definitely bad
+   Throws BadPlan -- definitely bad
 *)
 let prove_plan_is_possible_via_counterexample_search (h: (int, int) Binpack.heuristic) config =
   (* If a small number of combinations then try each one. Otherwise try a bunch at random *)
@@ -107,7 +109,7 @@ let try_impossible_cases () =
     try
       check_plan config dead_hosts bad_plan;
       failwith "bad plan was not detected"
-    with (Failure "bad plan") -> ()
+    with BadPlan -> ()
   end;
   Printf.printf "OK\n";
 
@@ -126,7 +128,7 @@ let try_impossible_cases () =
         if prove_plan_is_possible_via_counterexample_search h config
         then failwith "prove_plan_is_possible_via_counterexample_search performed exhaustive search and found no counterexample"
         else Printf.printf "WARNING: failed to find a counterexample; not sure if plan is ok or not\n"
-      with Failure "bad plan" -> Printf.printf "Found a counterexample: no plan is possible\n") all_heuristics
+      with BadPlan -> Printf.printf "Found a counterexample: no plan is possible\n") all_heuristics
 
 (* Positive test -- make sure the planner succeeds in easy cases *)
 let try_possible_cases () =

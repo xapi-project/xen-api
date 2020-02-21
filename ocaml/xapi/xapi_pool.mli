@@ -191,7 +191,6 @@ val apply_edition : __context:Context.t -> self:API.ref_pool -> edition:string -
 val assert_mac_seeds_available : __context:Context.t -> self:API.ref_pool -> seeds:string list -> unit
 
 val disable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
-val enable_ssl_legacy : __context:Context.t -> self:API.ref_pool -> unit
 
 (** Set on/off for IGMP Snooping *)
 val set_igmp_snooping_enabled : __context:Context.t -> self:API.ref_pool -> value:bool -> unit

@@ -565,6 +565,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~lifecycle:[
         Published, rel_dundee, "";
+        Removed, rel_stockholm, "Legacy SSL no longer supported"
       ]
       ~params:[Ref _pool, "self", "(ignored)";]
       ~doc:"Sets ssl_legacy true on each host, pool-master last. See Host.ssl_legacy and Host.set_ssl_legacy."
@@ -576,9 +577,10 @@ open Datamodel_types
       ~in_oss_since:None
       ~lifecycle:[
         Published, rel_dundee, "";
+        Deprecated, rel_stockholm, "Legacy SSL no longer supported"
       ]
       ~params:[Ref _pool, "self", "(ignored)";]
-      ~doc:"Sets ssl_legacy true on each host, pool-master last. See Host.ssl_legacy and Host.set_ssl_legacy."
+      ~doc:"Sets ssl_legacy false on each host, pool-master last. See Host.ssl_legacy and Host.set_ssl_legacy."
       ~allowed_roles:_R_POOL_OP
       ()
 
