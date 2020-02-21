@@ -22,7 +22,6 @@
 
 open Stdext
 open Pervasiveext
-open Printf
 open Threadext
 
 module DD=Debug.Make(struct let name="xapi" end)
@@ -93,8 +92,6 @@ module XenAPI = Client
 module SMAPI = Storage_interface.StorageAPI(Idl.Exn.GenClient(struct let rpc call = Storage_migrate.rpc ~srcstr:"xapi" ~dststr:"smapiv2" (Storage_migrate.local_url ()) call end))
 
 open Storage_interface
-open Listext
-open Fun
 
 let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
   let op_supported_on_source_sr vdi ops =

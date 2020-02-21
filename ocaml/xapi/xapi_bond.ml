@@ -15,7 +15,6 @@ module D = Debug.Make(struct let name="xapi" end)
 open D
 
 open Stdext
-open Fun
 open Listext
 open Threadext
 open Db_filter_types

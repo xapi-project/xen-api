@@ -19,7 +19,6 @@ open Stdext
 open Client
 open Pervasiveext
 open Event_types
-open Fun
 
 module D = Debug.Make(struct let name="xapi" end)
 open D
@@ -101,7 +100,7 @@ let wait_for_subtask ?progress_minmax ~__context task =
 let wait_for_clone ?progress_minmax ~__context task =
   let result = wait_for_subtask ?progress_minmax ~__context task in
   try
-    result 
+    result
     |> Xmlrpc.of_string
     |> API.ref_VDI_of_rpc
   with

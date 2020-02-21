@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Fun
 open Test_highlevel
 
 module HasBeenRemoved = Generic.MakeStateless(struct

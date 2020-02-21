@@ -18,7 +18,6 @@ open Stdext
 open Xstringext
 open Listext
 open Threadext
-open Fun
 open Db_filter_types
 
 open Network

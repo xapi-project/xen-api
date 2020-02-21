@@ -21,8 +21,6 @@
 
 open Cli_util
 open Cli_cmdtable
-open Stdext
-open Xstringext
 
 module D = Debug.Make(struct let name = "cli" end)
 open D
@@ -3086,7 +3084,7 @@ let rec parse_params_2 xs =
             q::qs -> (convert_switch p,q)::parse_params_2 qs
           | _ -> failwith (Printf.sprintf "Switch %s requires a parameter\n" p)
         else
-          let list = String.split '=' p in
+          let list = String.split_on_char '=' p in
           let param_name=List.hd list in
           let rest = String.concat "=" (List.tl list) in
           (param_name,rest)::parse_params_2 ps
@@ -3166,8 +3164,8 @@ let rio_help printer minimal cmd =
     begin
       if(List.mem_assoc "all" cmd.params && List.assoc "all" cmd.params = "true") then
         let cmds = List.map fst cmds in
-        let (host_cmds,other) = List.partition (fun n -> String.startswith "host-" n) cmds in
-        let (vm_cmds,other) = List.partition (fun n -> String.startswith "vm-" n) other in
+        let (host_cmds,other) = List.partition (fun n -> Astring.String.is_prefix ~affix:"host-" n) cmds in
+        let (vm_cmds,other) = List.partition (fun n -> Astring.String.is_prefix ~affix:"vm-" n) other in
 
         let h =     "Usage: "^cmd.argv0^" <command> [-s server] [-pw passwd] [-p port] [-u user] [-pwf password-file]\n" in
         let h = h ^ "  [command specific arguments]\n\n" in

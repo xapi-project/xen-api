@@ -22,7 +22,6 @@ open Stdext
 open Xstringext
 open Pervasiveext
 open Listext
-open Fun
 
 module D=Debug.Make(struct let name="cli" end)
 open D

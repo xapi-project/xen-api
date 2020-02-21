@@ -19,7 +19,6 @@ module SMPERF=Debug.Make(struct let name="SMPERF" end)
 
 open Stdext
 open Listext
-open Fun
 open Xstringext
 open Pervasiveext
 open Xmlrpc_client

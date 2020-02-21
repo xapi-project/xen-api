@@ -16,7 +16,6 @@
 *)
 
 open Stdext
-open Xstringext
 open Xapi_vbd_helpers
 open Vbdops
 open Threadext
@@ -110,7 +109,7 @@ let unplug ~__context ~self =
     let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
     let device = Db.VBD.get_device ~__context ~self in
     let nbd_device_prefix = "nbd" in
-    let is_nbd = String.startswith nbd_device_prefix device in
+    let is_nbd = Astring.String.is_prefix ~affix:nbd_device_prefix device in
     if is_nbd then NbdClient.stop_nbd_client ~nbd_device:("/dev/" ^ device);
     Storage_access.deactivate_and_detach ~__context ~vbd:self ~domid;
     Db.VBD.set_currently_attached ~__context ~self ~value:false
@@ -273,10 +272,6 @@ let assert_ok_to_eject ~__context ~vbd =
 let eject ~__context ~vbd =
   assert_ok_to_eject ~__context ~vbd;
   Xapi_xenops.vbd_eject ~__context ~self:vbd
-
-open Threadext
-open Pervasiveext
-open Fun
 
 let pause ~__context ~self =
   let vdi = Db.VBD.get_VDI ~__context ~self in
