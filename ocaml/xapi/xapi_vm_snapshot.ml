@@ -348,13 +348,15 @@ let extended_do_not_copy = [
   "children";
 ] @ do_not_copy
 
+let domain_type_to_string = function
+  | `pv -> "pv"
+  | `hvm -> "hvm"
+
 (* Update the domain_type field if it does not match the HVM_boot_policy *)
-let ensure_domain_type_is_consistent ~__context ~vm =
-  Db.VM.get_HVM_boot_policy ~__context ~self:vm
-  |> fun p -> Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy:p
-  |> fun value ->
-    if Db.VM.get_domain_type ~__context ~self:vm <> value then
-      Db.VM.set_domain_type ~__context ~self:vm ~value
+let ensure_domain_type_is_consistent ~__context ~snap_metadata =
+  match (Stdlib.List.assoc_opt "domain_type" snap_metadata) with
+  | Some "unspecified"  | None -> ("domain_type", domain_type_to_string (Xapi_vm_helpers.derive_domain_type (List.assoc "HVM_boot_policy" snap_metadata))) :: List.remove_assoc "domain_type" snap_metadata
+  | _ -> snap_metadata
 
 (* This function has to be done on the master *)
 let revert_vm_fields ~__context ~snapshot ~vm =
@@ -369,8 +371,8 @@ let revert_vm_fields ~__context ~snapshot ~vm =
     if post_MNR
     then do_not_copy
     else extended_do_not_copy in
+  let snap_metadata = ensure_domain_type_is_consistent ~__context ~snap_metadata in
   copy_vm_fields ~__context ~metadata:snap_metadata ~dst:vm ~do_not_copy ~overrides;
-  ensure_domain_type_is_consistent ~__context ~vm;
   TaskHelper.set_progress ~__context 0.1
 
 let revert ~__context ~snapshot ~vm =
@@ -423,8 +425,8 @@ let	create_vm_from_snapshot ~__context ~snapshot =
              ~__context rpc session_id snap_record in
          begin try
              Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid;
+             let snap_metadata = ensure_domain_type_is_consistent ~__context ~snap_metadata in
              copy_vm_fields ~__context ~metadata:snap_metadata ~dst:new_vm ~do_not_copy:do_not_copy ~overrides;
-             ensure_domain_type_is_consistent ~__context ~vm:new_vm;
              List.iter (fun (snap,_) -> Db.VM.set_snapshot_of ~__context ~self:snap ~value:new_vm) snapshots;
              new_vm
            with e ->
