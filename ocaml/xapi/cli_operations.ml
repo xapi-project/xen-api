@@ -125,6 +125,14 @@ let get_client_file fd filename =
   | _ ->
     failwith "Thin CLI protocol error"
 
+let fail fd desc =
+  marshal fd (Command (PrintStderr (Printf.sprintf "Failed to read %s\n" desc)));
+  raise (ExitWithError 1)
+
+let get_file_or_fail fd desc filename =
+  match get_client_file fd filename with
+  | None -> fail fd desc
+  | Some chunks -> chunks
 
 let diagnostic_compact printer rpc session_id params =
   Gc.compact ()
@@ -801,6 +809,7 @@ let gen_cmds rpc session_id =
     ; Client.Network_sriov.(mk get_all get_all_records_where get_by_uuid network_sriov_record "network-sriov" [] ["uuid"; "physical-pif"; "logical-pif"; "requires-reboot"; "configuration-mode"] rpc session_id)
     ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
     ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"pif";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
+    ; Client.Certificate.(mk get_all get_all_records_where get_by_uuid certificate_record "certificate" [] ["uuid";"host";"fingerprint"]rpc session_id)
     ]
 
 let message_create printer rpc session_id params =
@@ -2287,6 +2296,24 @@ let host_get_server_certificate printer rpc session_id params =
                  (Cli_printer.PMsg
                     (Client.Host.get_server_certificate rpc session_id host)))
             params [])
+
+let host_install_server_certificate fd printer rpc session_id params =
+  let certificate = List.assoc "certificate" params
+  |> get_file_or_fail fd "certificate"
+  in
+  let private_key = List.assoc "private-key" params
+  |> get_file_or_fail fd "private key"
+  in
+  let certificate_chain = List.assoc_opt "certificate-chain" params
+  |> Option.map (get_file_or_fail fd "certificate chain")
+  |> Option.value ~default:""
+  in
+  ignore (do_host_op rpc session_id ~multiple:false (fun _ host ->
+      let host = host.getref () in
+      Client.Host.install_server_certificate ~rpc ~session_id ~host
+        ~certificate ~private_key ~certificate_chain
+    ) params ["certificate"; "private-key"; "certificate-chain"]
+  )
 
 let host_get_sm_diagnostics printer rpc session_id params =
   ignore (do_host_op rpc session_id ~multiple:false

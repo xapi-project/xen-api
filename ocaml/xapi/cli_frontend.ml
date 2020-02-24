@@ -2622,9 +2622,18 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
     {
       reqd=[];
       optn=[];
-      help="Get the installed server SSL certificate.";
+      help="Get the server TLS certificate of a host";
       implementation=No_fd Cli_operations.host_get_server_certificate;
       flags=[Host_selectors]
+    };
+
+    "host-server-certificate-install",
+    {
+      reqd=["certificate"; "private-key"];
+      optn=["certificate-chain"];
+      help="Install a server TLS certificate on a host";
+      implementation=With_fd Cli_operations.host_install_server_certificate;
+      flags=[ Host_selectors ];
     };
 
     "secret-create",
