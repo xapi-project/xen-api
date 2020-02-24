@@ -18,9 +18,10 @@
 open Cli_protocol
 open Cli_util
 open Cli_cmdtable
-open Stdext
-open Pervasiveext
-open Listext
+open Xapi_stdext_pervasives.Pervasiveext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext.List
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D=Debug.Make(struct let name="cli" end)
 open D
@@ -163,15 +164,20 @@ let diagnostic_timing_stats printer rpc session_id params =
 
 let diagnostic_net_stats printer rpc session_id params =
   let all = Http_svr.Server.all_stats Xapi_http.server in
-  let meth (m, _, _) =
-    not (List.mem_assoc "method" params)
-    || (String.lowercase_ascii(Http.string_of_method_t m) = String.lowercase_ascii (List.assoc "method" params)) in
-  let uri (_, u, _) =
-    not (List.mem_assoc "uri" params)
-    || (String.lowercase_ascii u = String.lowercase_ascii (List.assoc "uri" params)) in
-  let has_param x =
-    not (List.mem_assoc "params" params)
-    || (List.mem x (String.split_on_char ',' (List.assoc "params" params))) in
+  let meth (m, _, _) = match List.assoc_opt "method" params with
+    | Some m' ->
+      String.(lowercase_ascii (Http.string_of_method_t m) = lowercase_ascii m')
+    | None -> true
+  in
+  let uri (_, uri, _) = match List.assoc_opt "uri" params with
+    | Some uri' -> String.(lowercase_ascii uri = lowercase_ascii uri')
+    | None -> true
+  in
+  let has_param x = match List.assoc_opt "params" params with
+    | Some params -> List.mem x (String.split_on_char ',' params)
+    | None -> true
+  in
+
   let all = List.filter meth (List.filter uri all) in
   let rows = List.map
       (fun (m, uri, stats) ->
@@ -336,7 +342,7 @@ let log_reopen printer _ session_id params =
   ()
 
 let user_password_change _ rpc session_id params =
-  let old_pwd = List.assoc_default "old" params ""
+  let old_pwd = Listext.assoc_default "old" params ""
   (* "new" must be in params here, since it is a required parameter. *)
   and new_pwd = List.assoc "new" params in
   Client.Session.change_password rpc session_id old_pwd new_pwd
@@ -839,10 +845,10 @@ let pool_disable_binary_storage printer rpc session_id params =
 
 let pool_ha_enable printer rpc session_id params =
   let config = read_map_params "ha-config" params in
-  let uuids = if List.mem_assoc "heartbeat-sr-uuids" params then
-    String.split_on_char ',' (List.assoc "heartbeat-sr-uuids" params)
-  else
-    [] in
+  let uuids =
+    Option.fold ~none:[] ~some:(String.split_on_char ',')
+      (List.assoc_opt "heartbeat-sr-uuids" params)
+  in
   let srs = List.map (fun uuid -> Client.SR.get_by_uuid rpc session_id uuid) uuids in
   Client.Pool.enable_ha rpc session_id srs config
 let pool_ha_disable printer rpc session_id params =
@@ -1251,7 +1257,7 @@ let diagnostic_vdi_status printer rpc session_id params =
   let all_vbds = Client.VDI.get_VBDs rpc session_id vdi in
   let all_vbd_records = List.map (vbd_record rpc session_id) all_vbds in
   let active_records = List.filter (fun x -> (field_lookup (x.fields) "currently-attached").get() = "true") all_vbd_records in
-  let inactive_records = List.set_difference all_vbd_records active_records in
+  let inactive_records = Listext.set_difference all_vbd_records active_records in
   let show_vbds records =
     List.iter (fun vbd_record ->
         let fields = List.filter (fun x -> List.mem x.name [ "uuid"; "userdevice"; "device"; "empty"; "mode"; "type"; "storage-lock" ]) vbd_record.fields in
@@ -1443,7 +1449,7 @@ let sr_create fd printer rpc session_id params =
       Record_util.bytes_of_string "physical-size" (List.assoc "physical-size" params)
     with _ -> 0L in
   let _type=List.assoc "type" params in
-  let content_type = List.assoc_default "content-type" params "" in
+  let content_type = Listext.assoc_default "content-type" params "" in
   let device_config = read_map_params "device-config" params in
   (* If the device-config parameter is of the form k-filename=v, then we assume the
      	   key is 'k' and the value is stored in a file named 'v' *)
@@ -1468,7 +1474,7 @@ let sr_create fd printer rpc session_id params =
 let sr_introduce printer rpc session_id params =
   let name_label=List.assoc "name-label" params in
   let _type=List.assoc "type" params in
-  let content_type = List.assoc_default "content-type" params "" in
+  let content_type = Listext.assoc_default "content-type" params "" in
   let uuid = List.assoc "uuid" params in
   let shared = get_bool_param params "shared" in
   let sm_config = read_map_params "sm-config" params in
@@ -1609,7 +1615,7 @@ let vif_create printer rpc session_id params =
   let device = List.assoc "device" params in
   let network_uuid = List.assoc "network-uuid" params in
   let vm_uuid=List.assoc "vm-uuid" params in
-  let mac=List.assoc_default "mac" params "" in
+  let mac=Listext.assoc_default "mac" params "" in
   let mac=if mac="random" then (Record_util.random_mac_local ()) else mac in
   let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
   let network=Client.Network.get_by_uuid rpc session_id network_uuid in
@@ -1637,16 +1643,16 @@ let vif_unplug printer rpc session_id params =
 let vif_configure_ipv4 printer rpc session_id params =
   let vif = Client.VIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let mode = Record_util.vif_ipv4_configuration_mode_of_string (List.assoc "mode" params) in
-  let address = List.assoc_default "address" params "" in
-  let gateway = List.assoc_default "gateway" params "" in
+  let address = Listext.assoc_default "address" params "" in
+  let gateway = Listext.assoc_default "gateway" params "" in
   if mode = `Static && address = "" then failwith "Required parameter not found: address";
   Client.VIF.configure_ipv4 rpc session_id vif mode address gateway
 
 let vif_configure_ipv6 printer rpc session_id params =
   let vif = Client.VIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let mode = Record_util.vif_ipv6_configuration_mode_of_string (List.assoc "mode" params) in
-  let address = List.assoc_default "address" params "" in
-  let gateway = List.assoc_default "gateway" params "" in
+  let address = Listext.assoc_default "address" params "" in
+  let gateway = Listext.assoc_default "gateway" params "" in
   if mode = `Static && address = "" then failwith "Required parameter not found: address";
   Client.VIF.configure_ipv6 rpc session_id vif mode address gateway
 
@@ -1659,9 +1665,9 @@ let vif_move printer rpc session_id params =
 
 let net_create printer rpc session_id params =
   let network = List.assoc "name-label" params in
-  let descr = List.assoc_default "name-description" params "" in
+  let descr = Listext.assoc_default "name-description" params "" in
   let mtu = if List.mem_assoc "MTU" params then Int64.of_string (List.assoc "MTU" params) else 1500L in
-  let bridge = List.assoc_default "bridge" params "" in
+  let bridge = Listext.assoc_default "bridge" params "" in
   let managed = get_bool_param params ~default:true "managed" in
   let net = Client.Network.create rpc session_id network descr mtu [] bridge managed [] in
   let uuid = Client.Network.get_uuid rpc session_id net in
@@ -1678,7 +1684,7 @@ let net_attach printer rpc session_id params =
 
 let vm_create printer rpc session_id params =
   let name_label=List.assoc "name-label" params in
-  let name_description=List.assoc_default "name-description" params "" in
+  let name_description=Listext.assoc_default "name-description" params "" in
   let ( ** ) = Int64.mul in
   let mib = 1024L ** 1024L in
   let memory_max = 256L ** mib in
@@ -2762,7 +2768,7 @@ let vm_migrate printer rpc session_id params =
   let comp2 f g a b = f (g a b) in
   (* Hack to match host-uuid and host-name for backwards compatibility *)
   let params = List.map (fun (k, v) -> if (k = "host-uuid") || (k = "host-name") then ("host", v) else (k, v)) params in
-  let options = List.map_assoc_with_key (comp2 string_of_bool bool_of_string) (List.restrict_with_default "false" ["force"; "live"; "copy"] params) in
+  let options = Listext.map_assoc_with_key (comp2 string_of_bool bool_of_string) (Listext.restrict_with_default "false" ["force"; "live"; "copy"] params) in
   (* We assume the user wants to do Storage XenMotion if they supply any of the
      SXM-specific parameters, and then we use the new codepath. *)
   let use_sxm_migration =
@@ -3374,7 +3380,7 @@ let download_file_with_task fd rpc session_id filename uri query label
 
 let pool_retrieve_wlb_report fd printer rpc session_id params =
   let report = List.assoc "report" params in
-  let filename = List.assoc_default "filename" params "" in
+  let filename = Listext.assoc_default "filename" params "" in
   let other_params =
     List.filter
       (fun (k, _) -> not (List.mem k (["report"; "filename"] @ stdparams)))
@@ -3395,7 +3401,7 @@ let pool_retrieve_wlb_report fd printer rpc session_id params =
     (Printf.sprintf "WLB report: %s" report)
 
 let pool_retrieve_wlb_diagnostics fd printer rpc session_id params =
-  let filename = List.assoc_default "filename" params "" in
+  let filename = Listext.assoc_default "filename" params "" in
   download_file_with_task fd rpc session_id filename
     Constants.wlb_diagnostics_uri ""
     "WLB diagnostics download"
@@ -3467,7 +3473,7 @@ let vm_import fd printer rpc session_id params =
       let __context = Context.make "import" in
       Db_actions.DB_Action.Task.set_progress ~__context ~self:importtask ~value:(-1.0);
 
-      Pervasiveext.finally (fun () ->
+      finally (fun () ->
           begin
             let buffer = get_chunks fd in
             begin
@@ -3720,7 +3726,7 @@ let blob_put fd printer rpc session_id params =
 
 let blob_create printer rpc session_id params =
   let name = List.assoc "name" params in
-  let mime_type = List.assoc_default "mime-type" params "" in
+  let mime_type = Listext.assoc_default "mime-type" params "" in
   let public = try bool_of_string "public" (List.assoc "public" params) with _ -> false in
   if (List.mem_assoc "vm-uuid" params) then
     begin
@@ -3988,13 +3994,13 @@ let pif_reconfigure_ip printer rpc session_id params =
   let read_optional_case_insensitive key =
     let lower_case_params = List.map (fun (k,v)->(String.lowercase_ascii k,v)) params in
     let lower_case_key = String.lowercase_ascii key in
-    List.assoc_default lower_case_key lower_case_params "" in
+    Listext.assoc_default lower_case_key lower_case_params "" in
 
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let mode = Record_util.ip_configuration_mode_of_string (List.assoc "mode" params) in
   let ip = read_optional_case_insensitive "IP" in
-  let netmask = List.assoc_default "netmask" params "" in
-  let gateway = List.assoc_default "gateway" params "" in
+  let netmask = Listext.assoc_default "netmask" params "" in
+  let gateway = Listext.assoc_default "gateway" params "" in
   let dns = read_optional_case_insensitive "DNS" in
   let () = Client.PIF.reconfigure_ip rpc session_id pif mode ip netmask gateway dns in ()
 
@@ -4002,12 +4008,12 @@ let pif_reconfigure_ipv6 printer rpc session_id params =
   let read_optional_case_insensitive key =
     let lower_case_params = List.map (fun (k,v)->(String.lowercase_ascii k,v)) params in
     let lower_case_key = String.lowercase_ascii key in
-    List.assoc_default lower_case_key lower_case_params "" in
+    Listext.assoc_default lower_case_key lower_case_params "" in
 
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "uuid" params) in
   let mode = Record_util.ipv6_configuration_mode_of_string (List.assoc "mode" params) in
   let ipv6 = read_optional_case_insensitive "IPv6" in
-  let gateway = List.assoc_default "gateway" params "" in
+  let gateway = Listext.assoc_default "gateway" params "" in
   let dns = read_optional_case_insensitive "DNS" in
   let () = Client.PIF.reconfigure_ipv6 rpc session_id pif mode ipv6 gateway dns in ()
 
@@ -4033,7 +4039,7 @@ let pif_scan printer rpc session_id params =
 let pif_introduce printer rpc session_id params =
   let host_uuid = List.assoc "host-uuid" params in
   let host = Client.Host.get_by_uuid rpc session_id host_uuid in
-  let mac = List.assoc_default "mac" params "" in
+  let mac = Listext.assoc_default "mac" params "" in
   let device = List.assoc "device" params in
   let managed = get_bool_param params ~default:true "managed" in
   let pif = Client.PIF.introduce rpc session_id host mac device managed in
@@ -4054,12 +4060,12 @@ let pif_db_forget printer rpc session_id params =
 
 let bond_create printer rpc session_id params =
   let network = List.assoc "network-uuid" params in
-  let mac = List.assoc_default "mac" params "" in
+  let mac = Listext.assoc_default "mac" params "" in
   let network = Client.Network.get_by_uuid rpc session_id network in
   let pifs = List.assoc "pif-uuids" params in
   let uuids = String.split_on_char ',' pifs in
   let pifs = List.map (fun uuid -> Client.PIF.get_by_uuid rpc session_id uuid) uuids in
-  let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
+  let mode = Record_util.bond_mode_of_string (Listext.assoc_default "mode" params "") in
   let properties = read_map_params "properties" params in
   let bond = Client.Bond.create rpc session_id network pifs mac mode properties in
   let uuid = Client.Bond.get_uuid rpc session_id bond in
@@ -4073,7 +4079,7 @@ let bond_destroy printer rpc session_id params =
 let bond_set_mode printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let bond = Client.Bond.get_by_uuid rpc session_id uuid in
-  let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
+  let mode = Record_util.bond_mode_of_string (Listext.assoc_default "mode" params "") in
   Client.Bond.set_mode rpc session_id bond mode
 
 let host_disable printer rpc session_id params =
@@ -4153,7 +4159,7 @@ let host_set_power_on_mode printer rpc session_id params =
 
 let host_crash_upload printer rpc session_id params =
   let crash = Client.Host_crashdump.get_by_uuid rpc session_id (List.assoc "uuid" params) in
-  let url = List.assoc_default "url" params "" in
+  let url = Listext.assoc_default "url" params "" in
   (* pass everything else in as an option *)
   let options = List.filter (fun (k, _) -> k <> "uuid" && k <> "url") params in
   Client.Host_crashdump.upload rpc session_id crash url options
@@ -4164,7 +4170,7 @@ let host_crash_destroy printer rpc session_id params =
 
 let host_bugreport_upload printer rpc session_id params =
   let op _ host =
-    let url = List.assoc_default "url" params "" in
+    let url = Listext.assoc_default "url" params "" in
     (* pass everything else in as an option *)
     let options = List.filter (fun (k, _) -> k <> "host" && k <> "url") params in
     Client.Host.bugreport_upload rpc session_id (host.getref ()) url options
@@ -4255,7 +4261,7 @@ let host_get_system_status_capabilities printer rpc session_id params =
 
 let host_get_system_status fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
-  let entries = List.assoc_default "entries" params "" in
+  let entries = Listext.assoc_default "entries" params "" in
   let output = try List.assoc "output" params with _ -> "tar.bz2" in
   begin match output with "tar.bz2" | "tar" | "zip" -> () | _ ->
     failwith "Invalid output format. Must be 'tar', 'zip' or 'tar.bz2'" end;
@@ -4483,7 +4489,7 @@ let host_signal_networking_change printer rpc session_id params =
 
 let host_notify printer rpc session_id params =
   let ty = List.assoc "type" params in
-  let args = List.assoc_default "params" params "" in
+  let args = Listext.assoc_default "params" params "" in
   Client.Host.notify rpc session_id ty args
 
 let host_syslog_reconfigure printer rpc session_id params =
@@ -4566,8 +4572,8 @@ let subject_remove printer rpc session_id params =
   Client.Subject.destroy ~rpc ~session_id ~self:subject
 
 let subject_role_common rpc session_id params =
-  let role_uuid = List.assoc_default "role-uuid" params "" in
-  let role_name = List.assoc_default "role-name" params "" in
+  let role_uuid = Listext.assoc_default "role-uuid" params "" in
+  let role_name = Listext.assoc_default "role-name" params "" in
   if role_uuid="" && role_name=""
   then failwith "Required parameter not found: role-uuid or role-name"
   else
