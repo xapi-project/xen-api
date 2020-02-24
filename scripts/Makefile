@@ -20,6 +20,7 @@ install:
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 	mkdir -p $(DESTDIR)$(SITE_DIR)
+	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
@@ -65,6 +66,7 @@ install:
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
+	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
