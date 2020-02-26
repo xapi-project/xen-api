@@ -26,60 +26,52 @@ let test_delay_cancel () =
   let elapsed = after -. before in
   assert_bool "elapsed_time1" (elapsed < 0.4)
 
+let timed_wait_callback ~msg ?(time_min = 0.) ?(eps=0.1) ?(time_max = 60.) f =
+  let rd, wr = Unix.pipe () in
+  let finally () =
+    Unix.close rd;
+    Unix.close wr
+  in
+  Fun.protect ~finally (fun () ->
+      let before = Unix.gettimeofday () in
+      let after = ref None in
+      let callback () =
+        after := Some (Unix.gettimeofday ());
+        let (_:int) = Unix.write_substring wr " " 0 1 in
+        ()
+      in
+      f callback;
+      let ready = Thread.wait_timed_read rd time_max in
+      match ready, !after with
+      | true, None ->
+        Alcotest.fail "pipe ready to read, but after is not set"
+      | false, None ->
+        Alcotest.fail (Printf.sprintf "%s: callback not invoked within %gs" msg time_max)
+      | _, Some t ->
+        let actual_minimum = min (t -. before) time_min in
+        Alcotest.(check (float eps))
+          (Printf.sprintf "%s: callback invoked earlier than expected" msg) time_min actual_minimum)
+
+
 (* Test the injection of a one-shot function at a time in the future *)
 let test_one_shot () =
-  let after = ref None in
-  let before = Unix.gettimeofday () in
-  let _ = Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot"
-      (fun () -> after := Some (Unix.gettimeofday ())) in
-  Thread.delay 2.0;
-  let success =
-    match !after with
-    | Some x ->
-      let elapsed = x -. before in
-      elapsed > 0.99 && elapsed < 2.01
-    | None ->
-      false
-  in
-  assert_bool "one_shot_success" success
+  timed_wait_callback ~msg:"one_shot_success" ~time_min:1.0 (fun callback ->
+      ignore @@ Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot" callback)
 
 (* Test the injection of a one-shot function at an absolute time *)
 let test_one_shot_abs () =
-  let after = ref None in
-  let before = Unix.gettimeofday () in
-  let now = Scheduler.now () in
-  let _ = Scheduler.one_shot global_scheduler (Scheduler.Absolute (Int64.add 1L now)) "test_one_shot"
-      (fun () -> after := Some (Unix.gettimeofday ())) in
-  Thread.delay 2.0;
-  let success =
-    match !after with
-    | Some x ->
-      let elapsed = x -. before in
-      elapsed > 0.99 && elapsed < 2.01
-    | None ->
-      false
-  in
-  assert_bool "one_shot_success" success
+  timed_wait_callback ~msg:"one_shot_abs_success" ~time_min:1.0 (fun callback ->
+      let now = Scheduler.now () in
+      ignore @@ Scheduler.one_shot global_scheduler (Scheduler.Absolute (Int64.add 1L now)) "test_one_shot" callback)
 
 (* Tests that the scheduler still works even after a failure occurs in
    the injected function *)
 let test_one_shot_failure () =
-  let after = ref None in
-  let before = Unix.gettimeofday () in
-  let _ = Scheduler.one_shot global_scheduler (Scheduler.Delta 0) "test_one_shot"
-      (fun () -> after := failwith "Error") in
-  let _ = Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot"
-      (fun () -> after := Some (Unix.gettimeofday ())) in
-  Thread.delay 2.0;
-  let success =
-    match !after with
-    | Some x ->
-      let elapsed = x -. before in
-      elapsed > 0.99 && elapsed < 2.01
-    | None ->
-      false
-  in
-  assert_bool "one_shot_success" success
+  timed_wait_callback ~msg:"one_show_failure" ~time_min:1.0 (fun callback ->
+      let _ = Scheduler.one_shot global_scheduler (Scheduler.Delta 0) "test_one_shot"
+          (fun () -> failwith "Error") in
+      ignore @@ Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot"
+        callback)
 
 (* Checks that one-shot functions can cancelled and are then not executed *)
 let test_one_shot_cancel () =
