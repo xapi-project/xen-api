@@ -1706,8 +1706,14 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
            Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate" (fun ~__context ->
                assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
              );
-           forwarder ~local_fn ~__context ~vm
-             (fun session_id rpc -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
+
+           Helpers.try_internal_async
+             ~__context
+             "InternalAsync.VM.migrate_send"
+             (forwarder ~local_fn ~vm)
+             (fun rpc session_id -> Client.InternalAsync.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
+             (fun rpc session_id -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
+             API.ref_VM_of_rpc
         )
 
     let send_trigger ~__context ~vm ~trigger =
