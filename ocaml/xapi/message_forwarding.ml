@@ -704,25 +704,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
      * event happens - ie, we use the event API simply to wake us up when something
      * interesting has happened. *)
 
-    let wait_for_tasks ~__context ~tasks =
-      let our_task = Context.get_task_id __context in
-      let classes = List.map (fun x -> Printf.sprintf "task/%s" (Ref.string_of x)) (our_task::tasks) in
-
-      let rec process token =
-        TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
-        let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
-        let unfinished = List.exists (fun state -> state = `pending) statuses in
-        if unfinished
-        then begin
-          let from = Helpers.call_api_functions ~__context
-              (fun rpc session_id -> Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0) in
-          debug "Using events to wait for tasks: %s" (String.concat "," classes);
-          let from = Event_types.event_from_of_rpc from in
-          process from.Event_types.token
-        end else
-          ()
-      in
-      process ""
+    let wait_for_tasks = Helpers.Task.wait_for
 
     let cancel ~__context ~vm ~ops =
       let cancelled = List.filter_map (fun (task,op) ->

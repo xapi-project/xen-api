@@ -1234,3 +1234,102 @@ let host_supports_hvm ~__context host =
 let env_with_path env_vars =
   Array.of_list @@
   List.map (fun (k,v) -> Printf.sprintf "%s=%s" k v) (("PATH", String.concat ":" Forkhelpers.default_path)::env_vars)
+
+module Task : sig
+  val wait_for : __context:Context.t -> tasks:API.ref_task list -> unit
+  val to_result : __context:Context.t -> of_rpc:(Rpc.t -> 'a) -> t:API.ref_task -> 'a
+end = struct (* can't place these functions in task helpers due to circular dependencies *)
+  let wait_for_ ~__context ~tasks ~propagate_cancel cb =
+    let our_task = Context.get_task_id __context in
+    let classes = List.map (fun x -> Printf.sprintf "task/%s" (Ref.string_of x)) (our_task::tasks) in
+    let rec process token =
+      (* if we have been cancelled, also cancel the tasks we are waiting on *)
+      if propagate_cancel && TaskHelper.is_cancelling ~__context then tasks |> List.iter (fun self -> TaskHelper.cancel_this ~__context ~self);
+      TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
+      let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
+      let unfinished = List.exists (fun state -> state = `pending) statuses in
+      if unfinished
+      then begin
+        let from = call_api_functions ~__context
+            (fun rpc session_id -> Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0) in
+        debug "Using events to wait for tasks: %s" (String.concat "," classes);
+        let from = Event_types.event_from_of_rpc from in
+        cb (); (** be careful not to include logic in `cb` that could modify tasks we are waiting on indefinitely *)
+        process from.Event_types.token
+      end else
+        ()
+    in
+    process ""
+
+  let wait_for = wait_for_ ~propagate_cancel:false Stdlib.Fun.id
+
+  let wait_for_mirroring_progress ~__context ~t =
+    let our_task = Context.get_task_id __context in
+    let mirror_progress =
+      if t = our_task then Stdlib.Fun.id
+      else fun () ->
+             let new_progress = Db.Task.get_progress ~__context ~self:t in
+             let current_progress = Db.Task.get_progress ~__context ~self:our_task in
+             (* compare diff to 3dp, because tasks progress displayed to 3dp *)
+             if Float.compare 0.001 (Float.abs (new_progress -. current_progress)) >= 0 then
+               ()
+             else
+               Db.Task.set_progress ~__context ~self:our_task ~value:new_progress
+    in
+    wait_for_ ~__context ~tasks:[t] mirror_progress
+
+  let to_result ~__context ~of_rpc ~t =
+    wait_for_mirroring_progress ~__context ~propagate_cancel:true ~t;
+    let fail msg = raise Api_errors.(Server_error (internal_error, [Ref.string_of t; msg])) in
+    let res =
+      match Db.Task.get_status ~__context ~self:t with
+      | `pending                 -> fail "task shouldn't be pending - we just waited on it"
+      | `cancelled | `cancelling -> raise Api_errors.(Server_error (task_cancelled, [Ref.string_of t]))
+      | `failure                 ->
+        begin match Db.Task.get_error_info ~__context ~self:t with
+        | [] | [_]     -> fail "couldn't extract error info from task"
+        | code::params -> raise (Api_errors.Server_error (code, params))
+        end
+      | `success                 ->
+        begin match Db.Task.get_result ~__context ~self:t with
+        | "" -> fail "nothing was written to task result"
+        | s  -> try Xmlrpc.of_string s |> of_rpc
+                with e -> fail (Printf.sprintf "result wasn't placed in task's (ref = %s) result field. error: %s" (Ref.string_of t) (Printexc.to_string e))
+        end
+      in
+    res
+end
+
+(** This function wraps internal async calls such that they can be used safely with versions of the API which do not support internal async (`old_api`'s).
+  * We achieve this by simply attempting to make the internal async call, and if the response is 'unknown method', then try the old, synchronous version.
+  * Callers of this function are expected to do the necessary error handling specific to their API call, so let all other exceptions propagate up. *)
+let try_internal_async ~__context
+                      (subtask_label : string)
+                      (forwarder : __context:Context.t -> (API.ref_session -> (Rpc.call -> Rpc.response) -> 'a) -> 'a)
+                      (internal_async_fn : (Rpc.call -> Rpc.response) -> API.ref_session -> API.ref_task)
+                      (sync_fn : (Rpc.call -> Rpc.response) -> API.ref_session -> 'b)
+                      (marshaller : Rpc.t -> 'b ) : 'b =
+  (** we create a subtask which the receiver is expected to set to completed when they have finished processing
+    * we mirror the progress of this subtask in its parent task (see impl of Task.to_result) *)
+  let __parent_context = __context in
+  (** exec_with_subtask guarantees to destroy the subtask, even on failure
+      so there is no need to explicitly destroy the subtask *)
+  let res = Server_helpers.exec_with_subtask ~__context ~task_in_database:true subtask_label (fun ~__context ->
+      try
+        `internal_async_successful (
+            forwarder ~__context (fun session_id rpc ->
+              let t = internal_async_fn rpc session_id in
+              info "try_internal_async: waiting for task to complete: t = ( %s )" (Ref.string_of t);
+              Task.to_result ~__context:__parent_context ~of_rpc:marshaller ~t
+          )
+        )
+      with Api_errors.Server_error(code, params) when code=Api_errors.message_method_unknown -> `old_api
+    )
+  in
+  match res with
+  | `internal_async_successful x ->
+    info "try_internal_async: internal_async_successful";
+    x
+  | `old_api ->
+    info "try_internal_async: call was not known by destination - trying sync call instead";
+    forwarder ~__context (fun session_id rpc -> sync_fn rpc session_id)

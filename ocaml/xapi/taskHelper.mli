@@ -32,6 +32,7 @@ val set_not_cancellable : __context:Context.t -> unit
 val is_cancelling : __context:Context.t -> bool
 val raise_cancelled : __context:Context.t -> 'a
 val exn_if_cancelling : __context:Context.t -> unit
+val cancel_this: __context:Context.t -> self:API.ref_task -> unit
 val cancel : __context:Context.t -> unit
 
 val failed : __context:Context.t -> exn -> unit
