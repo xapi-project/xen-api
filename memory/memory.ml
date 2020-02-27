@@ -135,7 +135,7 @@ module PVinPVH_memory_model_data : MEMORY_MODEL_DATA = struct
   let extra_internal_mib = 1L
   let extra_external_mib = 1L
   let shim_mib static_max_mib = 23L +++ (static_max_mib /// 90L)
-  let can_start_ballooned_down = false
+  let can_start_ballooned_down = true
 end
 
 type memory_config = {
