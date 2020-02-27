@@ -737,9 +737,9 @@ module HOST = struct
          let cpu_count = p.nr_cpus in
          let socket_count = p.nr_cpus / (p.threads_per_core * p.cores_per_socket) in
 
-         let features = get_featureset xc Featureset_host in
-         let features_pv = get_featureset xc Featureset_pv in
-         let features_hvm = get_featureset xc Featureset_hvm in
+         let features = get_cpu_featureset xc Featureset_host in
+         let features_pv = get_cpu_featureset xc Featureset_pv in
+         let features_hvm = get_cpu_featureset xc Featureset_hvm in
          let features_oldstyle = oldstyle_featuremask xc in
 
          (* Compatibility with Xen 4.7 *)
