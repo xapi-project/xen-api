@@ -1121,7 +1121,7 @@ let eject ~__context ~host =
     begin
       try
         debug "Shutting down xapi-nbd";
-        ignore(Helpers.call_script "/usr/bin/systemctl" [ "stop"; "xapi-nbd" ])
+        ignore(Helpers.call_script !Xapi_globs.systemctl [ "stop"; "xapi-nbd" ])
       with e ->
         warn "Caught %s while shutting down xapi-nbd. Ignoring" (Printexc.to_string e)
     end;

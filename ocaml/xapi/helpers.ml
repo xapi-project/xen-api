@@ -1351,7 +1351,6 @@ end = struct
       * TODO: don't generate certificates in bash *)
     val generate_pem : __context:Context.t -> force:bool -> unit
   end = struct
-    let xapi_stunnel_conf = "/etc/stunnel/xapi.conf"
     let m = Mutex.create ()
     let current_accept = ref None
 
@@ -1386,7 +1385,7 @@ end = struct
         ]
       in
       let len = String.length conf_contents in
-      Stdext.Unixext.atomic_write_to_file xapi_stunnel_conf 0o0600
+      Stdext.Unixext.atomic_write_to_file !Xapi_globs.stunnel_conf 0o0600
         (fun fd -> let (_: int) = Unix.single_write_substring fd conf_contents 0 len in ())
 
     let update ~accept =
@@ -1412,13 +1411,13 @@ end = struct
               get_management_ip_addr ~__context
           in
           D.debug "Helpers.Stunnel.gen_pem_if_not_exist: writing pem file";
-          let (_: string) = call_script "/opt/xensource/libexec/generate_ssl_cert" [cert; Option.value ~default:hostname cn]
+          let (_: string) = call_script !Xapi_globs.generate_ssl_cert [cert; Option.value ~default:hostname cn]
           in ()
         end
       )
   end
 
-  let systemctl cmd = call_script "/usr/bin/systemctl" [cmd; "stunnel@xapi"]
+  let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
   let systemctl_ cmd = systemctl cmd |> ignore
 
   let is_enabled () =
