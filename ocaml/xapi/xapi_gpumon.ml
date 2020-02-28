@@ -15,25 +15,24 @@
 module D = Debug.Make(struct let name="xapi" end)
 open D
 
-let systemctl = "/usr/bin/systemctl"
 let gpumon = "xcp-rrdd-gpumon"
 
 module Gpumon = Daemon_manager.Make(struct
     let check = Daemon_manager.Function (fun () ->
         try
           ignore
-            (Forkhelpers.execute_command_get_output systemctl
+            (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
                ["is-active"; "-q"; gpumon]);
           true
         with _ -> false)
 
     let start () =
       debug "Starting %s" gpumon;
-      ignore (Forkhelpers.execute_command_get_output systemctl ["start"; gpumon])
+      ignore (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl ["start"; gpumon])
 
     let stop () =
       debug "Stopping %s" gpumon;
-      ignore (Forkhelpers.execute_command_get_output systemctl ["stop"; gpumon])
+      ignore (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl ["stop"; gpumon])
   end)
 
 let with_gpumon_stopped = Gpumon.with_daemon_stopped
