@@ -100,29 +100,9 @@ let get_management_iface_is_connected ~__context =
   Xapi_inventory.lookup Xapi_inventory._management_interface
   |> get_bridge_is_connected ~__context
 
-let get_primary_ip_addr ~__context iface primary_address_type =
-  if iface = "" then
-    None
-  else
-    try
-      let dbg = Context.string_of_task __context in
-      if Net.Interface.exists dbg iface then
-        let addrs = match primary_address_type with
-          | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
-          | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
-        in
-        let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
-        (* Filter out link-local addresses *)
-        let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
-        Some (List.hd addrs)
-      else
-        None
-    with _ -> None
-
 let get_management_ip_addr ~__context =
-  get_primary_ip_addr ~__context
-    (Xapi_inventory.lookup Xapi_inventory._management_interface)
-    (Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
+  let dbg = Context.string_of_task __context in
+  Gencertlib.Lib.get_management_ip_addr ~dbg
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
