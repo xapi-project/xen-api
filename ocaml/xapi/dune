@@ -47,6 +47,7 @@
    pci
    domain-name
    ezxenstore.core
+   gencertlib
    message-switch-unix
    mtime
    mtime.clock.os
