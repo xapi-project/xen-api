@@ -54,6 +54,19 @@ let to_string = function
   | CA_Certificate -> "CA certificate"
   | CRL -> "CRL"
 
+(** {pp_hash hash} outputs the hexadecimal representation of the {hash}
+    adding a semicolon between every octet, in uppercase.
+ *)
+let pp_hash hash =
+  let hex = Hex.(show @@ of_cstruct hash) in
+  let length = 3 * (String.length hex) / 2 - 1 in
+  let value_of i = match (i + 1) mod 3 with
+  | 0 -> ':'
+  | _ ->
+      Char.uppercase_ascii hex.[(i - (i + 1) / 3)]
+  in
+  String.init length value_of
+
 let safe_char c =
   match c with
   | 'A'..'Z'

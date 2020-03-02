@@ -1157,7 +1157,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key ~certi
   in
   let fingerprint =
     X509.Certificate.fingerprint Nocrypto.(`SHA256) certificate
-    |> Cstruct.to_string
+    |> Certificates.pp_hash
   in
   let uuid = Uuid.(to_string (make_uuid ())) in
   let ref = Ref.make () in
