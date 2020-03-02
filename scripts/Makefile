@@ -54,6 +54,7 @@ install:
 	$(IPROG) control-domain-params-init $(DESTDIR)$(LIBEXECDIR)/control-domain-params-init
 	$(IPROG) reset-and-reboot $(DESTDIR)$(LIBEXECDIR)/reset-and-reboot
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
+	$(IDATA) gencert.service $(DESTDIR)/usr/lib/systemd/system/gencert.service
 	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
 	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IDATA) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
@@ -67,6 +68,7 @@ install:
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
 	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
+	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon

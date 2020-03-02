@@ -18,17 +18,19 @@ let inventory = "/etc/xensource-inventory"
 let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert"
 
 module Lib = Gencertlib.Lib
+module D = Debug.Make(struct let name = "gencert" end)
 
 let generate_cert_or_fail ~path ~cn =
   let args = [path; cn] in
   let (stdout, stderr) = Forkhelpers.execute_command_get_output generate_ssl_cert args in
+  let (stdout, stderr) = (String.escaped stdout, String.escaped stderr) in
 
-  Printf.printf {|generate_ssl_cert stdout: "%s"|} stdout;
-  Printf.printf {|generate_ssl_cert stderr: "%s"|} stderr;
+  D.debug {|generate_ssl_cert stdout: "%s"|} stdout;
+  D.debug {|generate_ssl_cert stderr: "%s"|} stderr;
   if Sys.file_exists path then
-    Printf.printf "file exists (%s), assuming cert was created" path
+    D.info "file exists (%s), assuming cert was created" path
   else begin
-    Printf.eprintf "file doesn't exist (%s): cert was not created" path;
+    D.error "file doesn't exist (%s): cert was not created" path;
     exit 1
   end
 
@@ -50,18 +52,11 @@ let main ~dbg ~path =
   generate_cert_or_fail ~path ~cn
 
 let () =
-  let dbg = Printf.sprintf "gencert - %f" (Unix.gettimeofday ()) in
+  let program_name = Sys.argv.(0) in
+  let dbg = Printf.sprintf "%s - %f" program_name (Unix.gettimeofday ()) in (* if necessary use Unix.localtime to debug *)
+  D.debug "%s" dbg;
 
-  if Array.length Sys.argv <> 2 then begin
-    Printf.eprintf "Usage: gencert PATH";
-    exit 1
-  end;
-
-  let path = Sys.argv.(1) in
-
-  if Sys.file_exists path then begin
-      Printf.printf "file already exists at path (%s) - doing nothing" path;
-      exit 0
-    end
-  else
-    main ~dbg ~path
+  match Sys.argv with
+  | [|_; path|] when Sys.file_exists path -> D.info "file already exists at path (%s) - doing nothing" path; exit 0
+  | [|_; path|]                           -> main ~dbg ~path
+  | _                                     -> D.error "Usage: %s PATH" program_name; exit 1

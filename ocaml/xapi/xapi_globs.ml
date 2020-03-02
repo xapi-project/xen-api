@@ -691,7 +691,6 @@ let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 
 let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
-let generate_ssl_cert = ref "/opt/xensource/libexec/generate_ssl_cert"
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
@@ -1059,7 +1058,6 @@ module Resources = struct
     "fcoe-driver", fcoe_driver, "Execute during PIF unplug to get the lun devices related with the ether interface of the PIF";
     "list_domains", list_domains, "Path to the list_domains command";
     "systemctl", systemctl, "Control the systemd system and service manager";
-    "generate_ssl_cert", generate_ssl_cert, "Generate a TLS certificate file"
   ]
   let nonessential_executables = [
     "startup-script-hook", startup_script_hook, "Executed during startup";
