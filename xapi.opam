@@ -21,6 +21,7 @@ depends: [
   "ezxenstore"
   "fmt" {with-test}
   "http-svr"
+  "mirage-crypto" {with-test}
   "mirage-crypto-pk"
   "mirage-crypto-rng" {with-test}
   "message-switch-unix"
