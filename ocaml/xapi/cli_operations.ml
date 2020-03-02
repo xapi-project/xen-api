@@ -19,7 +19,6 @@ open Cli_protocol
 open Cli_util
 open Cli_cmdtable
 open Stdext
-open Xstringext
 open Pervasiveext
 open Listext
 
@@ -92,7 +91,10 @@ let waiter printer rpc session_id params task =
    also match old syntax 'device-config-key' for backwards compatability *)
 let read_map_params name params =
   let len = String.length name + 1 in (* include ':' *)
-  let filter_params = List.filter (fun (p,_) -> (String.startswith name p) && (String.length p > len)) params in
+  let filter_params =
+    List.filter (fun (p,_) ->
+      (Astring.String.is_prefix ~affix:name p) && (String.length p > len)
+    ) params in
   List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params
 let read_set_params name params = List.map fst (read_map_params name params)
 
@@ -167,7 +169,9 @@ let diagnostic_net_stats printer rpc session_id params =
   let uri (_, u, _) =
     not (List.mem_assoc "uri" params)
     || (String.lowercase_ascii u = String.lowercase_ascii (List.assoc "uri" params)) in
-  let has_param x = not(List.mem_assoc "params" params) || (List.mem x (String.split ',' (List.assoc "params" params))) in
+  let has_param x =
+    not (List.mem_assoc "params" params)
+    || (List.mem x (String.split_on_char ',' (List.assoc "params" params))) in
   let all = List.filter meth (List.filter uri all) in
   let rows = List.map
       (fun (m, uri, stats) ->
@@ -387,14 +391,16 @@ let get_field_type fieldname record =
           let mapfields = List.sort (fun a b -> compare (String.length b.name) (String.length a.name)) mapfields in
           try
             (* Find the first (longest) matching field *)
-            let field = List.find (fun field -> String.startswith (field.name^"-") fieldname) mapfields in
+            let field = List.find (fun field ->
+              Astring.String.is_prefix ~affix:(field.name^"-") fieldname) mapfields in
             Map field.name
           with
             Not_found ->
             let setfields = List.filter (fun field -> field.get_set <> None) record in
             let setfields = List.sort (fun a b -> compare (String.length b.name) (String.length a.name)) setfields in
             try
-              let field = List.find (fun field -> String.startswith (field.name^"-") fieldname) setfields in
+              let field = List.find (fun field ->
+                Astring.String.is_prefix ~affix:(field.name^"-") fieldname) setfields in
               Set field.name
             with
               _ -> failwith ("Unknown field '"^fieldname^"'")
@@ -483,7 +489,7 @@ let choose_params params defaults =
   if List.mem_assoc "params" params
   then
     let ps = List.assoc "params" params in
-    (if ps="all" then [] else String.split_f (fun c -> c = ',') ps)
+    (if ps="all" then [] else Astring.String.cuts ~sep:"," ps)
   else defaults
 
 let select_fields params records default_params =
@@ -560,7 +566,8 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters de
          (* Filter on everything on the cmd line except params=... *)
          let filter_params = List.filter (fun (p,_) -> not (List.mem p ("params"::stdparams))) params in
          (* Filter out all params beginning with "database:" *)
-         let filter_params = List.filter (fun (p,_) -> not (String.startswith "database:" p)) filter_params in
+         let filter_params = List.filter (fun (p,_) ->
+           not (Astring.String.is_prefix ~affix:"database:" p)) filter_params in
          (* Add in the default filters *)
          let filter_params = def_filters @ filter_params in
          (* Filter all the records *)
@@ -832,7 +839,10 @@ let pool_disable_binary_storage printer rpc session_id params =
 
 let pool_ha_enable printer rpc session_id params =
   let config = read_map_params "ha-config" params in
-  let uuids = if List.mem_assoc "heartbeat-sr-uuids" params then String.split ',' (List.assoc "heartbeat-sr-uuids" params) else [] in
+  let uuids = if List.mem_assoc "heartbeat-sr-uuids" params then
+    String.split_on_char ',' (List.assoc "heartbeat-sr-uuids" params)
+  else
+    [] in
   let srs = List.map (fun uuid -> Client.SR.get_by_uuid rpc session_id uuid) uuids in
   Client.Pool.enable_ha rpc session_id srs config
 let pool_ha_disable printer rpc session_id params =
@@ -853,7 +863,7 @@ let pool_ha_compute_hypothetical_max_host_failures_to_tolerate printer rpc sessi
   printer (Cli_printer.PList [ Int64.to_string n ])
 
 let pool_ha_compute_vm_failover_plan printer rpc session_id params =
-  let host_uuids = String.split ',' (List.assoc "host-uuids" params) in
+  let host_uuids = String.split_on_char ',' (List.assoc "host-uuids" params) in
   let hosts = List.map (fun uuid -> Client.Host.get_by_uuid rpc session_id uuid) host_uuids in
   (* For now select all VMs resident on the given hosts *)
   let vms = List.concat (List.map (fun host -> Client.Host.get_resident_VMs rpc session_id host) hosts) in
@@ -1004,7 +1014,9 @@ let pool_deconfigure_wlb printer rpc session_id params =
 
 let pool_send_wlb_configuration printer rpc session_id params =
   let len = String.length "config:" in
-  let filter_params = List.filter (fun (p,_) -> (String.startswith "config" p) && (String.length p > len)) params in
+  let filter_params = List.filter (fun (p,_) ->
+      (Astring.String.is_prefix ~affix:"config" p) && (String.length p > len)
+    ) params in
   let config = List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params in
   Client.Pool.send_wlb_configuration ~rpc ~session_id ~config
 
@@ -1437,7 +1449,7 @@ let sr_create fd printer rpc session_id params =
      	   key is 'k' and the value is stored in a file named 'v' *)
   let suffix = "-filename" in
   let device_config = List.map (fun (k,v) ->
-      if String.endswith suffix k then begin
+      if Astring.String.is_suffix ~affix:suffix k then begin
         let k = String.sub k 0 (String.length k - (String.length suffix)) in
         match get_client_file fd v with
         | Some v -> k,v
@@ -1569,7 +1581,9 @@ let pbd_create printer rpc session_id params =
   (* Ack! We're supposed to use the format device-config:key=value but we need to match device-config-key=value for *)
   (* backwards compatability *)
   let len = String.length "device-config:" in
-  let filter_params = List.filter (fun (p,_) -> (String.startswith "device-config" p) && (String.length p > len)) params in
+  let filter_params = List.filter (fun (p,_) ->
+      (Astring.String.is_prefix ~affix:"device-config" p) && (String.length p > len)
+    ) params in
   let device_config = List.map (fun (k,v) -> String.sub k len (String.length k - len),v) filter_params in
 
   let host = Client.Host.get_by_uuid rpc session_id host_uuid in
@@ -1838,7 +1852,7 @@ let event_wait printer rpc session_id params =
 
   let filter_params = List.map
       (fun (key, value) ->
-         if String.startswith "/=" value then begin
+         if Astring.String.is_prefix ~affix:"/=" value then begin
            let key' = key in
            let value' = String.sub value 2 (String.length value - 2) in
            `NotEquals, key', value'
@@ -1862,16 +1876,18 @@ let event_wait printer rpc session_id params =
 
 (* TASK list *)
 
-
-
 (* Convenience functions *)
+
+let quote = Re.(compile (str {|"|}))
+(* Escapes every quote character *)
+let escape_quotes = Re.replace_string quote ~by:{|\"|}
+
 let select_vms ?(include_control_vms = false) ?(include_template_vms = false) rpc session_id params ignore_params =
   (* Make sure we don't select a template or control domain by mistake *)
   let params = if not include_control_vms  then ("is-control-domain", "false") :: params else params in
   let params = if not include_template_vms then ("is-a-template"    , "false") :: params else params in
   let vm_name_or_ref = try Some (
-      (* Escape every quote character *)
-      List.assoc "vm" params |> String.replace "\"" "\\\""
+      List.assoc "vm" params |> escape_quotes
     ) with _ -> None in
   let params, where_clause = match vm_name_or_ref with
     | None -> params, "true"
@@ -1899,8 +1915,7 @@ let select_vms ?(include_control_vms = false) ?(include_template_vms = false) rp
 
 let select_hosts rpc session_id params ignore_params =
   let host_name_or_ref = try Some (
-      (* Escape every quote character *)
-      List.assoc "host" params |> Stdext.Xstringext.String.replace "\"" "\\\""
+      List.assoc "host" params |> escape_quotes
     ) with _ -> None in
   let params, where_clause = match host_name_or_ref with
     | None -> params, "true"
@@ -1913,14 +1928,15 @@ let select_hosts rpc session_id params ignore_params =
   let hosts = Client.Host.get_all_records_where rpc session_id where_clause in
   let all_recs = List.map (fun (host,host_r) -> let r = host_record rpc session_id host in r.setrefrec (host,host_r); r) hosts in
   let filter_params = List.filter (fun (p,_) ->
-      let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
+      let stem = List.hd (String.split_on_char ':' p) in
+      not (List.mem stem (stdparams @ ignore_params))
+    ) params in
   (* Filter all the records *)
   List.fold_left filter_records_on_fields all_recs filter_params
 
 let select_srs rpc session_id params ignore_params =
   let sr_name_or_ref = try Some (
-      (* Escape every quote character *)
-      List.assoc "sr" params |> Stdext.Xstringext.String.replace "\"" "\\\""
+      List.assoc "sr" params |> escape_quotes
     ) with _ -> None in
   let params, where_clause = match sr_name_or_ref with
     | None -> params, "true"
@@ -1933,7 +1949,9 @@ let select_srs rpc session_id params ignore_params =
   let srs = Client.SR.get_all_records_where rpc session_id where_clause in
   let all_recs = List.map (fun (sr,sr_r) -> let r = sr_record rpc session_id sr in r.setrefrec (sr,sr_r); r) srs in
   let filter_params = List.filter (fun (p,_) ->
-      let stem=List.hd (String.split ':' p) in not (List.mem stem (stdparams @ ignore_params))) params in
+      let stem = List.hd (String.split_on_char ':' p) in
+      not (List.mem stem (stdparams @ ignore_params))
+    ) params in
   (* Filter all the records *)
   List.fold_left filter_records_on_fields all_recs filter_params
 
@@ -2119,8 +2137,8 @@ let vm_call_plugin fd printer rpc session_id params =
   let args = read_map_params "args" params in
   (* Syntax interpretation: args:key:file=filename equals args:key=filename_content *)
   let convert ((k,v) as p) =
-    match String.split ~limit:2 ':' k with
-    | key :: "file" :: [] ->
+    match Astring.String.cut ":" k with
+    | Some (key, "file") ->
       begin
         match get_client_file fd v with
         | Some s -> (key, s)
@@ -2750,7 +2768,8 @@ let vm_migrate printer rpc session_id params =
   let use_sxm_migration =
     (* This is a safe assumption, because vm_migrate_sxm_params do not clash with
        the VM selector keys. *)
-    let is_sxm_param k = List.exists (fun p -> String.startswith p k) vm_migrate_sxm_params in
+    let is_sxm_param k = List.exists (fun p ->
+        Astring.String.is_prefix ~affix:p k) vm_migrate_sxm_params in
     List.exists (fun (k,_) -> is_sxm_param k) params
   in
   if use_sxm_migration then begin
@@ -3423,7 +3442,7 @@ let vm_import fd printer rpc session_id params =
 
     (* Special-case where the user accidentally sets filename=<path to ova.xml file> *)
     let filename =
-      if String.endswith "ova.xml" (String.lowercase_ascii filename)
+      if Astring.String.is_suffix ~affix:"ova.xml" (String.lowercase_ascii filename)
       then String.sub filename 0 (String.length filename - (String.length "ova.xml"))
       else filename in
 
@@ -4038,7 +4057,7 @@ let bond_create printer rpc session_id params =
   let mac = List.assoc_default "mac" params "" in
   let network = Client.Network.get_by_uuid rpc session_id network in
   let pifs = List.assoc "pif-uuids" params in
-  let uuids = String.split ',' pifs in
+  let uuids = String.split_on_char ',' pifs in
   let pifs = List.map (fun uuid -> Client.PIF.get_by_uuid rpc session_id uuid) uuids in
   let mode = Record_util.bond_mode_of_string (List.assoc_default "mode" params "") in
   let properties = read_map_params "properties" params in
@@ -4762,7 +4781,10 @@ let vgpu_destroy printer rpc session_id params =
 let dr_task_create printer rpc session_id params =
   let _type = List.assoc "type" params in
   let device_config = read_map_params "device-config" params in
-  let whitelist = if List.mem_assoc "sr-whitelist" params then String.split ',' (List.assoc "sr-whitelist" params) else [] in
+  let whitelist = if List.mem_assoc "sr-whitelist" params then
+    String.split_on_char ',' (List.assoc "sr-whitelist" params)
+  else
+    [] in
   let dr_task = Client.DR_task.create ~rpc ~session_id ~_type ~device_config ~whitelist in
   let uuid = Client.DR_task.get_uuid ~rpc ~session_id ~self:dr_task in
   printer (Cli_printer.PList [uuid])
@@ -4818,9 +4840,9 @@ module PVS_site = struct
 end
 module PVS_server = struct
   let introduce printer rpc session_id params =
-    let addresses  = List.assoc "addresses" params   |> String.split ',' in
-    let first_port = List.assoc "first-port" params  |> Int64.of_string in
-    let last_port  = List.assoc "last-port" params   |> Int64.of_string in
+    let addresses  = List.assoc "addresses" params  |> String.split_on_char ',' in
+    let first_port = List.assoc "first-port" params |> Int64.of_string in
+    let last_port  = List.assoc "last-port" params  |> Int64.of_string in
     let site_uuid  = List.assoc "pvs-site-uuid" params in
     let site = Client.PVS_site.get_by_uuid
         ~rpc ~session_id ~uuid:site_uuid in
