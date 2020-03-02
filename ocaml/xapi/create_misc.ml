@@ -16,10 +16,8 @@
 *)
 
 open Stdext
-open Fun
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
-open Printf
 open Db_filter
 open Db_filter_types
 open Network

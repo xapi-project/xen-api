@@ -14,15 +14,10 @@
 module Rrdd = Rrd_client.Client
 
 open Stdext
-open Fun
-open Printf
-open Xstringext
-open Pervasiveext
 open Xapi_vm_helpers
 open Client
 open Threadext
 open Xmlrpc_sexpr
-open Listext
 
 (* Notes re: VM.{start,resume}{on,}:
  * Until we support pools properly VM.start and VM.start_on both try
@@ -693,9 +688,10 @@ let copy ~__context ~vm ~new_name ~sr =
   (* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
   (* First the existence check. It's not an error to not exist at all. *)
   let sr = try ignore(Db.SR.get_uuid ~__context ~self:sr); Some sr with _ -> None in
-  maybe (fun sr -> debug "Copying disks to SR: %s" (Db.SR.get_uuid ~__context ~self:sr)) sr;
+  Option.iter (fun sr ->
+    debug "Copying disks to SR: %s" (Db.SR.get_uuid ~__context ~self:sr)) sr;
   (* Second the non-iso check. It is an error to be an iso SR *)
-  maybe (fun sr ->
+  Option.iter (fun sr ->
       if Db.SR.get_content_type ~__context ~self:sr = "iso"
       then raise (Api_errors.Server_error(Api_errors.operation_not_allowed,
                                           [ "Cannot copy a VM's disks to an ISO SR" ]))) sr;

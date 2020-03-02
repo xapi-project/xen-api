@@ -23,8 +23,6 @@ open Http
 open Importexport
 open Unixext
 open Pervasiveext
-open Threadext
-open Fun
 
 open Client
 

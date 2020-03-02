@@ -15,7 +15,6 @@ module D=Debug.Make(struct let name="pciops" end)
 open D
 
 open Stdext
-open Listext
 open Xstringext
 open Threadext
 

@@ -22,7 +22,6 @@ open Stdext
 open Xstringext
 open Threadext
 open Pervasiveext
-open Fun
 module XenAPI = Client.Client
 module Rrdd = Rrd_client.Client
 open Xenops_interface
@@ -963,7 +962,6 @@ module MD = struct
 end
 
 open Xenops_interface
-open Fun
 
 module Guest_agent_features = struct
   module Xapi = struct

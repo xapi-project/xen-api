@@ -689,6 +689,10 @@ let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 (* Path to server ssl certificate *)
 let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 
+let stunnel_conf = ref "/etc/stunnel/xapi.conf"
+
+let generate_ssl_cert = ref "/opt/xensource/libexec/generate_ssl_cert"
+
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
@@ -789,6 +793,8 @@ let fcoe_driver = ref "/opt/xensource/libexec/fcoe_driver"
 
 let list_domains = ref "/usr/bin/list_domains"
 
+let systemctl = ref "/usr/bin/systemctl"
+
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
 let sr_health_check_task_label = "SR Recovering"
@@ -852,8 +858,6 @@ let options_of_xapi_globs_spec =
       name, (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x),
       (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
       (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
-
-let xapissl_path = ref "xapissl"
 
 let xenopsd_queues = ref ([
     "org.xen.xapi.xenops.classic";
@@ -1033,7 +1037,6 @@ let host_virtual_hardware_platform_versions = [
 module Resources = struct
 
   let essential_executables = [
-    "xapissl", xapissl_path, "Script for starting the listening stunnel";
     "busybox", busybox, "Swiss army knife executable - used as DHCP server";
     "pbis-force-domain-leave-script", pbis_force_domain_leave_script, "Executed when PBIS domain-leave fails";
     "redo-log-block-device-io", Db_globs.redo_log_block_device_io, "Used by the redo log for block device I/O";
@@ -1054,7 +1057,9 @@ module Resources = struct
     "static-vdis", static_vdis, "Path to static-vdis script";
     "xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script";
     "fcoe-driver", fcoe_driver, "Execute during PIF unplug to get the lun devices related with the ether interface of the PIF";
-    "list_domains", list_domains, "Path to the list_domains command"
+    "list_domains", list_domains, "Path to the list_domains command";
+    "systemctl", systemctl, "Control the systemd system and service manager";
+    "generate_ssl_cert", generate_ssl_cert, "Generate a TLS certificate file"
   ]
   let nonessential_executables = [
     "startup-script-hook", startup_script_hook, "Executed during startup";

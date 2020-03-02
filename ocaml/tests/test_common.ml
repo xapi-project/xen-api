@@ -13,8 +13,6 @@
  *)
 
 open API
-open Stdext
-open Fun
 
 (* A directory to use for temporary files. *)
 let working_area = "/tmp/xapi-test"

@@ -13,8 +13,6 @@
  *)
 
 open Stdext
-open Fun
-open Listext
 open Xapi_globs
 
 module D=Debug.Make(struct let name="cpuid_helpers" end)

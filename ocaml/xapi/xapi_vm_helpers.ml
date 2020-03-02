@@ -16,12 +16,8 @@
 *)
 
 open Stdext
-open Xstringext
-open Printf
 open Xapi_vm_memory_constraints
 open Xapi_network_attach_helpers
-open Listext
-open Fun
 open Pervasiveext
 
 module XenAPI = Client.Client
@@ -29,6 +25,11 @@ module XenAPI = Client.Client
 module D=Debug.Make(struct let name="xapi_vm_helpers" end)
 open D
 open Workload_balancing
+
+module SRSet = Set.Make(struct
+  type t = API.ref_SR
+  let compare = Stdlib.compare
+end)
 
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
@@ -94,8 +95,8 @@ let set_is_a_template ~__context ~self ~value =
     List.iter (fun vusb -> try Db.VUSB.destroy ~__context ~self:vusb with _ -> ()) vusbs;
     (* Destroy any attached pvs proxies *)
     Db.VM.get_VIFs ~__context ~self
-    |> List.rev_map (fun v -> Pvs_proxy_control.find_proxy_for_vif ~__context ~vif:v)
-    |> List.unbox_list
+    |> List.filter_map (fun vif -> Pvs_proxy_control.find_proxy_for_vif ~__context ~vif)
+    |> List.rev
     |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p);
     (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
     finally
@@ -303,11 +304,15 @@ let assert_host_is_live ~__context ~host =
     raise (Api_errors.Server_error (Api_errors.host_not_live, []))
 
 let which_specified_SRs_not_available_on_host ~__context ~reqd_srs ~host =
-  let pbds = Db.Host.get_PBDs ~__context ~self:host in
-  (* filter for those currently_attached *)
-  let pbds = List.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds in
-  let avail_srs = List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds in
-  let not_available = List.set_difference reqd_srs avail_srs in
+  let available_srs = Db.Host.get_PBDs ~__context ~self:host
+  |> List.to_seq
+  |> Seq.filter (fun self -> Db.PBD.get_currently_attached ~__context ~self)
+  |> Seq.map (fun self -> Db.PBD.get_SR ~__context ~self)
+  |> SRSet.of_seq
+  in
+  let not_available =
+    List.filter (fun sr -> not @@ SRSet.mem sr available_srs) reqd_srs
+  in
   List.iter (fun sr -> warn "Host %s cannot see SR %s (%s)"
                 (Helpers.checknull (fun () -> Db.Host.get_name_label ~__context ~self:host))
                 (Helpers.checknull (fun () -> Db.SR.get_uuid ~__context ~self:sr))
@@ -364,7 +369,7 @@ let has_non_allocated_vgpus ~__context ~self =
   |> List.filter (fun pgpu -> not (Db.is_valid_ref __context pgpu))
   |> (<>) []
 
-(* This function assert the host has enough gpu resource for the VM 
+(* This function assert the host has enough gpu resource for the VM
  * The detailed method as follows
  * 1. Set the pre_allocate_list to []
  * 2. Dry run the allocation process for the first vgpu of the remainding vGPU list of the VM
@@ -621,14 +626,13 @@ let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves=false) () =
 (* Compute all SRs required for shutting down suspended domains *)
 let compute_required_SRs_for_shutting_down_suspended_domains ~__context ~vm =
   let all_vm_vdis =
-    List.map
+    List.filter_map
       (fun vbd->
          if Db.VBD.get_empty ~__context ~self:vbd then
            None
          else
            Some (Db.VBD.get_VDI ~__context ~self:vbd))
       (Db.VM.get_VBDs ~__context ~self:vm) in
-  let all_vm_vdis = List.unbox_list all_vm_vdis in
   List.map (fun vdi -> Db.VDI.get_SR ~self:vdi ~__context) all_vm_vdis
 
 (** Returns the subset of all hosts on which the given [vm] can boot. This
@@ -716,12 +720,12 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
       ) hosts
     |> List.map (fun g -> List.map (fun (h,_)-> h) g)
 
-(* Selects a single host from the set of all hosts on which the given [vm] can boot. 
+(* Selects a single host from the set of all hosts on which the given [vm] can boot.
    Raises [Api_errors.no_hosts_available] if no such host exists.
    1.Take Vgpu or Network SR-IOV as a group_key for group all hosts into host list list
    2.helper function's order determine the priority of resources,now vgpu has higher priority than Network SR-IOV
    3.If no key found in VM,then host_lists will be [all_hosts] *)
-let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot = 
+let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
   let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:true in
   let all_hosts = Db.Host.get_all ~__context in
   let group_key = get_group_key ~__context ~vm in
@@ -1033,10 +1037,12 @@ let list_required_vdis ~__context ~self =
 
 (* Find the SRs of all VDIs which have VBDs attached to the VM. *)
 let list_required_SRs ~__context ~self =
-  let vdis = list_required_vdis ~__context ~self in
-  let srs = List.map (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi) vdis in
-  let srs = List.filter (fun sr -> Db.SR.get_content_type ~__context ~self:sr <> "iso") srs in
-  List.setify srs
+  list_required_vdis ~__context ~self
+  |> List.to_seq
+  |> Seq.map (fun self -> Db.VDI.get_SR ~__context ~self)
+  |> Seq.filter (fun self -> Db.SR.get_content_type ~__context ~self <> "iso")
+  |> SRSet.of_seq
+  |> SRSet.elements
 
 (* Check if the database referenced by session_to *)
 (* contains the SRs required to recover the VM. *)

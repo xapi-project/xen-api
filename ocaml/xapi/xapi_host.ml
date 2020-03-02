@@ -15,9 +15,7 @@
 module Rrdd = Rrd_client.Client
 
 open Stdext
-open Fun
 open Pervasiveext
-open Xstringext
 open Listext
 open Threadext
 open Xapi_host_helpers
@@ -172,7 +170,7 @@ let signal_cdrom_event ~__context params =
       ()
   in
   try
-    match String.split ':' params with
+    match String.split_on_char ':' params with
     | ["inserted";dev] -> insert dev
     | "ejected"::_  -> ()
     | _          -> ()

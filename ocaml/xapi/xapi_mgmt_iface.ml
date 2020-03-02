@@ -29,42 +29,16 @@ let management_interface_server = ref []
 let listening_all = ref false
 let listening_localhost = ref false
 let listening_himn = ref false
-let stunnel_accept = ref None
 let management_m = Mutex.create ()
 
 let update_mh_info interface =
   let (_: string*string) = Forkhelpers.execute_command_get_output !Xapi_globs.update_mh_info_script [ interface ] in
   ()
 
-let stunnel_m = Mutex.create ()
-
-let restart_stunnel_nomutex ~__context ~accept =
-  info "Restarting stunnel (accepting connections on %s)" accept;
-  let xapissl_args = [ "restart"
-                     ; accept
-                     ; "permfile=" ^ !Xapi_globs.server_cert_path
-                     ; Xcp_const.good_ciphersuites
-                     ]
-  in
-  let (_ : Thread.t) = Thread.create (fun () ->
-      Mutex.execute management_m (fun () ->
-          Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path xapissl_args
-        )
-    ) () in
-  ()
-
 let restart_stunnel ~__context ~accept =
-  Mutex.execute stunnel_m (fun () ->
-      stunnel_accept := Some accept;
-      restart_stunnel_nomutex ~__context ~accept
-    )
-
-let reconfigure_stunnel ~__context =
-  Mutex.execute stunnel_m (fun () ->
-      match !stunnel_accept with
-      | None -> () (* We've not yet started stunnel; no action needed *)
-      | Some accept -> restart_stunnel_nomutex ~__context ~accept
-    )
+  info "Restarting stunnel (accepting connections on %s)" accept;
+  let (_: Thread.t) = Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) () in
+  ()
 
 let stop () =
   debug "Shutting down the old management interface (if any)";
