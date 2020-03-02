@@ -5,6 +5,7 @@
   (libraries
     alcotest
     daily_license_check
+    mirage-crypto
     mirage-crypto-pk
     mirage-crypto-rng.unix
     xapi_internal
