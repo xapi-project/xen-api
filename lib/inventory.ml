@@ -16,7 +16,7 @@
 open Xapi_stdext_unix
 open Xapi_stdext_threads.Threadext
 
-let inventory_filename = ref Xcp_inventory_config.default_inventory
+let inventory_filename = ref "/etc/xensource-inventory"
 
 (* Keys which must exist: *)
 let _installation_uuid = "INSTALLATION_UUID"
