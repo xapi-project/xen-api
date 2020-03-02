@@ -536,39 +536,53 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check ?(do_s
   debug "All fine, VM %s can run on host %s!" (Ref.string_of self) (Ref.string_of host)
 
 let retrieve_wlb_recommendations ~__context ~vm ~snapshot =
-  (* we have already checked the number of returned entries is correct in retrieve_vm_recommendations
-     	   But checking that there are no duplicates is also quite cheap, put them in a hash and overwrite duplicates *)
-  let recs = Hashtbl.create 12 in
-  List.iter
-    (fun (h, r) ->
-       try
-         assert_can_boot_here ~__context ~self:vm ~host:h ~snapshot ~do_cpuid_check:true ();
-         Hashtbl.replace recs h r;
-       with
-       (* CPUID checks are being removed from WLB, this will become the responsibility of XAPI
-        * (and ultimately Xen/libxc). Previously WLB would've assigned a score of 0.0 and a reason
-        * of "HostCPUFeaturesIncompatible" to hosts that can't boot a VM due to CPU features missing.
-        * WLB could call assert_can_boot_here instead of doing its own CPUID checks, however that
-        * would add a lot of extra API calls (at least Number_of_hosts * Number_of_VMs).
-        * Instead do this check in XAPI itself, and override WLB's response for backwards compatibility
-        * with 0.0, and the same reason code that WLB would've used. This should keep observable behaviour
-        * identical and work both with old and new WLBs.
-        *)
-       | Api_errors.Server_error(x, _) when x=Api_errors.vm_incompatible_with_this_host ->
-         begin match r with
-         | id :: _ :: rec_id :: _ ->
-           Hashtbl.replace recs h [id; "0.0"; rec_id; "HostCPUFeaturesIncompatible"]
-         | _ ->
-           debug "Missing element of recommendation of host %s!" (Ref.string_of h);
-         end
-       | Api_errors.Server_error(x, y) -> Hashtbl.replace recs h (x :: y))
-    (retrieve_vm_recommendations ~__context ~vm);
-  if ((Hashtbl.length recs) <> (List.length (Helpers.get_live_hosts ~__context)))
-  then
-    raise_malformed_response' "VMGetRecommendations"
-      "Number of unique recommendations does not match number of potential hosts" "Unknown"
-  else
-    Hashtbl.fold (fun k v tl -> (k,v) :: tl) recs []
+  let module HostMap = Map.Make(struct type t = API.ref_host let compare = Stdlib.compare end) in
+  let compatible_vm_or_impossible (host, recommendation) =
+    let recommendation = match recommendation with
+    | Recommendation {source; id; score} -> (
+      try
+        assert_can_boot_here ~__context ~self:vm ~host ~snapshot ~do_cpuid_check:true ();
+        recommendation
+      with
+      (* CPUID checks are being removed from WLB, this will become the responsibility of XAPI
+       * (and ultimately Xen/libxc). Previously WLB would've assigned a score of 0.0 and a reason
+       * of "HostCPUFeaturesIncompatible" to hosts that can't boot a VM due to CPU features missing.
+       * WLB could call assert_can_boot_here instead of doing its own CPUID checks, however that
+       * would add a lot of extra API calls (at least Number_of_hosts * Number_of_VMs).
+       * Instead do this check in XAPI itself, and override WLB's response for backwards compatibility
+       * with 0.0, and the same reason code that WLB would've used. This should keep observable behaviour
+       * identical and work both with old and new WLBs.
+       *)
+      | Api_errors.Server_error(x, _) when x=Api_errors.vm_incompatible_with_this_host ->
+        Impossible {source; id; reason="HostCPUFeaturesIncompatible"}
+      | Api_errors.Server_error(x, y) ->
+        let reason = String.concat ";" (x :: y) in
+        Impossible {source; id; reason}
+      )
+    | impossible_load ->
+      impossible_load
+    in
+    host, recommendation
+  in
+  let only_for_all_live_hosts_or_raise recs =
+    (* Recommendations cannot have hosts that are not active and there must
+       at least one per active host *)
+    let live_hosts = Helpers.get_live_hosts ~__context in
+    if HostMap.cardinal recs <> List.length live_hosts then
+      raise_malformed_response' "VMGetRecommendations"
+        "VM recommendations must only target live hosts and target all of them"
+        "Unknown"
+    else ();
+    recs
+  in
+  (* Make sure a single recommendation is present per host. *)
+  retrieve_vm_recommendations ~__context ~vm
+  |> List.to_seq
+  |> HostMap.of_seq
+  |> only_for_all_live_hosts_or_raise
+  |> HostMap.to_seq
+  |> Seq.map compatible_vm_or_impossible
+  |> List.of_seq
 
 (** Returns the subset of all hosts to which the given function [choose_fn]
     can be applied without raising an exception. If the optional [vm] argument is
@@ -776,49 +790,33 @@ let choose_host_uses_wlb ~__context =
       (Db.Pool.get_other_config ~__context
          ~self:(Helpers.get_pool ~__context)))
 
-
-(* This is a stub used in the pattern_matching below to silence a
- * warning in the newer ocaml compilers *)
-exception Float_of_string_failure
-
 (** Given a virtual machine, returns a host it can boot on, giving   *)
 (** priority to an affinity host if one is present. WARNING: called  *)
 (** while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
   if choose_host_uses_wlb ~__context then
     try
-      let rec filter_and_convert recs =
-        match recs with
-        | (h, recom) :: tl ->
-          begin
-            debug "\n%s\n" (String.concat ";" recom);
-            match recom with
-            | ["WLB"; "0.0"; rec_id; zero_reason] ->
-              filter_and_convert tl
-            | ["WLB"; stars; rec_id] ->
-              let st = try float_of_string stars with Failure _ -> raise Float_of_string_failure
-              in
-              (h, st, rec_id) :: filter_and_convert tl
-            | _ -> filter_and_convert tl
-          end
-        | [] -> []
+      let possible_rec (host, recommendation) =
+        match recommendation with
+        | Recommendation {source; id; score} ->
+            Some (host, score, id)
+        | _ ->
+            None
       in
+      let cmp_descending (_, s, _) (_, s', _) =
+        Float.compare s' s
+      in
+      let all_hosts = retrieve_wlb_recommendations ~__context ~vm ~snapshot
+        |> List.filter_map possible_rec
+        |> List.sort cmp_descending
+      in
+      let pp_host (host, score, reason) =
+        let hostname = Db.Host.get_name_label ~__context ~self:host in
+        Printf.sprintf "%s %f" hostname score
+      in
+      debug "Hosts sorted by priority: %s"
+        (all_hosts |> List.map pp_host |> String.concat "; ");
       begin
-        let all_hosts =
-          (List.sort
-             (fun (h, s, r) (h', s', r') ->
-                if s < s' then 1 else if s > s' then -1 else 0)
-             (filter_and_convert (retrieve_wlb_recommendations
-                                    ~__context ~vm ~snapshot))
-          )
-        in
-        debug "Hosts sorted in priority: %s"
-          (List.fold_left
-             (fun a (h,s,r) ->
-                a ^ (Printf.sprintf "%s %f,"
-                       (Db.Host.get_name_label ~__context ~self:h) s)
-             ) "" all_hosts
-          );
         match all_hosts with
         | (h,s,r)::_ ->
           debug "Wlb has recommended host %s"
@@ -862,10 +860,6 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
                     ~cls:`VM ~obj_uuid:uuid ~body:message_body)
         with _ -> ()
       end;
-      choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
-    | Float_of_string_failure ->
-      debug "Star ratings from wlb could not be parsed to floats. \
-             				Using original algorithm";
       choose_host_for_vm_no_wlb ~__context ~vm ~snapshot
     | _ ->
       debug "Encountered an unknown error when using wlb for \
