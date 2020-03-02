@@ -1229,9 +1229,6 @@ end = struct
   module Config : sig
     (** create or update stunnel config file *)
     val update : accept:string -> unit
-    (** calls `generate_ssl_cert` bash script
-      * TODO: don't generate certificates in bash *)
-    val generate_pem : __context:Context.t -> force:bool -> unit
   end = struct
     let m = Mutex.create ()
     let current_accept = ref None
@@ -1279,24 +1276,6 @@ end = struct
           rewrite_xapi_ssl_config_file ~accept
         end
       )
-
-    let generate_pem ~__context ~force =
-      Mutex.execute m (fun () ->
-        if force || not (Sys.file_exists cert) then begin
-          let hostname = Unix.gethostname () in
-          let cn =
-            if Astring.String.is_prefix ~affix:"localhost" hostname then
-              get_management_ip_addr ~__context
-            else if Astring.String.is_infix ~affix:"." hostname then
-              None
-            else
-              get_management_ip_addr ~__context
-          in
-          D.debug "Helpers.Stunnel.gen_pem_if_not_exist: writing pem file";
-          let (_: string) = call_script !Xapi_globs.generate_ssl_cert [cert; Option.value ~default:hostname cn]
-          in ()
-        end
-      )
   end
 
   let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
@@ -1324,7 +1303,7 @@ end = struct
   let restart ~__context ~accept =
     try
       Config.update ~accept;
-      Config.generate_pem ~__context ~force:false;
+      (* we do not worry about generating certificates here, because systemd will handle this for us, via the gencert service *)
       if not @@ is_enabled () then systemctl_ "enable";
       systemctl_ "restart"
     with e ->
