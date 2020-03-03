@@ -451,6 +451,10 @@ let wlb_timeout = "wlb_timeout"
 let wlb_reports_timeout = "wlb_reports_timeout"
 let default_wlb_timeout = 30.0
 let default_wlb_reports_timeout = 600.0
+(* WLB configration specify how long the host can be cooled down
+ * and the penalty for un-cooled down host*)
+let wlb_host_cool_down_time = ref 10.0
+let wlb_host_cool_down_penalty = ref 0.95
 
 (** {2 Settings relating to dynamic memory control} *)
 
@@ -845,6 +849,8 @@ let xapi_globs_spec =
     "vm_call_plugin_interval", Float vm_call_plugin_interval;
     "xapi_clusterd_port", Int xapi_clusterd_port;
     "max_active_sr_scans", Int max_active_sr_scans;
+    "wlb_host_cool_down_time", Float wlb_host_cool_down_time;
+    "wlb_host_cool_down_penalty", Float wlb_host_cool_down_penalty;
   ]
 
 let options_of_xapi_globs_spec =

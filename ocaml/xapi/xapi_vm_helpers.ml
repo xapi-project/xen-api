@@ -31,6 +31,13 @@ module SRSet = Set.Make(struct
   let compare = Stdlib.compare
 end)
 
+module Cool_down_map = Map.Make(struct
+  type t = API.ref_host
+  let compare = Stdlib.compare
+end)
+
+let cool_down_data = ref Cool_down_map.empty
+
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead vm_record
@@ -796,6 +803,15 @@ let choose_host_uses_wlb ~__context =
 let choose_host_for_vm ~__context ~vm ~snapshot =
   if choose_host_uses_wlb ~__context then
     try
+      let current_time = Unix.time() in
+      let filter_calm_down value =
+        List.filter (fun e -> current_time -. e <= !Xapi_globs.wlb_host_cool_down_time) value
+      in
+      let rec pow base = function
+        | 0 -> 1.0
+        | 1 -> base
+        | n -> base *. (pow base (n-1))
+      in
       let possible_rec (host, recommendation) =
         match recommendation with
         | Recommendation {source; id; score} ->
@@ -803,12 +819,39 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
         | _ ->
             None
       in
+      let cool_down_host (host, score, id) =
+        match Cool_down_map.find_opt host !cool_down_data with
+        | None -> (host, score, id)
+        | Some times ->
+          let penalty = List.length times |> pow !Xapi_globs.wlb_host_cool_down_penalty in
+          let penaltied_value = score *. penalty in
+          (host, (penaltied_value), id)
+      in
+      let heat_host = function
+        | Some times -> Some (current_time::times)
+        | None -> Some [current_time]
+      in
+      let print_cool_down_entry host times =
+        let time_str = times |> List.map string_of_float |> String.concat " " in
+        let hostname = Db.Host.get_name_label ~__context ~self:host in
+        let entry_str = hostname ^ " " ^ time_str ^ "\n" in
+        debug "cool_down_data entry %s" entry_str
+      in
       let cmp_descending (_, s, _) (_, s', _) =
         Float.compare s' s
       in
+      (* WLB provide recommendation basing on history data which take time to be awared by WLB
+       * In case of start multiple VMs at the same time, WLB choose the best host for the first
+       * VM, then the second VM starts, WLB does not has the first VM running data and the
+       * influence. Xapi heat and cool down the host to choose the best one.
+      *)
+      cool_down_data := Cool_down_map.map filter_calm_down !cool_down_data
+                        |> Cool_down_map.filter (fun _ v -> List.length v > 0);
+      Cool_down_map.iter print_cool_down_entry !cool_down_data;
       let all_hosts = retrieve_wlb_recommendations ~__context ~vm ~snapshot
-        |> List.filter_map possible_rec
-        |> List.sort cmp_descending
+         |> List.filter_map possible_rec
+         |> List.map cool_down_host
+         |> List.sort cmp_descending
       in
       let pp_host (host, score, reason) =
         let hostname = Db.Host.get_name_label ~__context ~self:host in
@@ -821,6 +864,7 @@ let choose_host_for_vm ~__context ~vm ~snapshot =
         | (h,s,r)::_ ->
           debug "Wlb has recommended host %s"
             (Db.Host.get_name_label ~__context ~self:h);
+          cool_down_data := Cool_down_map.update h heat_host !cool_down_data;
           let action = Db.Task.get_name_label ~__context
               ~self:(Context.get_task_id __context) in
           let oc = Db.Pool.get_other_config ~__context
