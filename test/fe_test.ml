@@ -17,7 +17,7 @@ type config = {
 }
 
 let min_fds = 7
-let max_fds = 1024 - 8 (* fe daemon has a bunch for its own use *)
+let max_fds = 1024 - 11 (* fe daemon has a bunch for its own use *)
 
 let all_combinations fds = 
   let y = {
@@ -114,12 +114,13 @@ let test_exitcode () =
   Printf.printf "\nCompleted exitcode tests\n"
 
 let master fds =
+  Printf.printf "\nPerforming timeout tests\n%!";
   test_delay ();
   test_notimeout ();
-  Printf.printf "\nCompleted timeout test\n";
+  Printf.printf "\nCompleted timeout test\n%!";
   test_exitcode ();
   let combinations = shuffle (all_combinations fds) in
-  Printf.printf "Starting %d tests\n" (List.length combinations);
+  Printf.printf "Starting %d tests\n%!" (List.length combinations);
   let i = ref 0 in
   let update_progress f x = 
     incr i;
