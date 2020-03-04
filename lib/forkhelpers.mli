@@ -107,6 +107,6 @@ type 'a result =
 val with_logfile_fd : ?delete:bool -> string -> (Unix.file_descr -> 'a) -> 'a result
 
 (** Temporary directory used for communication *)
-val temp_dir: string
+val temp_dir_server: string
 
 

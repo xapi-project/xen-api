@@ -1,12 +1,13 @@
 language: c
 services: docker
 install:
-    - wget https://raw.githubusercontent.com/xenserver/xenserver-build-env/master/utils/travis-build-repo.sh
-script: bash travis-build-repo.sh
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+  - wget https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env
+  - source xs-opam-ci.env
+script: bash -ex .travis-docker.sh
 sudo: true
 env:
-    global:
-        - REPO_PACKAGE_NAME=forkexecd
-        - REPO_CONFIGURE_CMD=true
-        - REPO_BUILD_CMD='make'
-        - REPO_TEST_CMD='make test'
+  global:
+    - PINS="forkexec:. xapi-forkexecd:."
+  jobs:
+    - PACKAGE="xapi-forkexecd"

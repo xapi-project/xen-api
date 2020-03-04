@@ -20,7 +20,7 @@ clean:
 	dune clean
 
 test:
-	dune runtest --profile=release
+	dune runtest --profile=release --no-buffer
 
 # requires odoc
 doc:
