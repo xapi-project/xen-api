@@ -299,7 +299,7 @@ let calculate_boot_time_host_free_memory () =
     Int64.mul 1024L boot_time_host_free_kib
 
 let calc_constant_boot_time_host_free_memory constant_count_min interval =
-  let tolerance = 10L in
+  let tolerance = 1048576L in
   debug "Check boot time host free memory: constant-count-min=%d check-interval=%f(seconds)" constant_count_min interval;
   let rec calc_constant last constant_count =
     let free_memory = calculate_boot_time_host_free_memory () in
