@@ -253,6 +253,10 @@ let send_host_rrd_to_master master_address =
     send_rrd ~address:master_address ~to_archive:true ~uuid:(Inventory.lookup Inventory._installation_uuid) ~rrd ()
   | None -> ()
 
+(** {add_ds rrdi ds_name} creates a new time series (rrd) in {rrdi} with the
+   name {ds_name}. The operation fails if rrdi does not contain any live
+   datasource with the name {ds_name}
+ *)
 let add_ds ~rrdi ~ds_name =
   let open Ds in
   let ds = List.find (fun ds -> ds.ds_name = ds_name) rrdi.dss in
@@ -340,6 +344,13 @@ let query_host_ds (ds_name : string) : float =
       | Some rrdi -> Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
     )
 
+(** {add_vm_ds vm_uuid domid ds_name} enables collection of the data produced
+   by the data sourced with name {ds_name} for the VM {vm_uuid} into a time
+   series (rrd).
+   Throws an exception if there are no time series related to {vm_uuid}
+   present in the host or if there is no live source for the VM with the name
+   {ds_name}.
+ *)
 let add_vm_ds (vm_uuid : string) (domid : int) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
@@ -367,6 +378,13 @@ let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
       Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average
     )
 
+(** {add_sr_ds sr_uuid domid ds_name} enables collection of the data produced
+   by the data source with name {ds_name} for the SR {sr_uuid} into a time
+   series (rrd).
+   Throws an exception if there are no time series related to {sr_uuid}
+   present in the host or if there is no live source for the SR with the name
+   {ds_name}.
+ *)
 let add_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
