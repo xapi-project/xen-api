@@ -1,4 +1,3 @@
-open Xapi_stdext_std.Listext
 open Rrdd_shared
 open Rrd
 open Ds
@@ -120,10 +119,10 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
           (*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
           log_backtrace ()
       in
-      let uuid_srs =
-        List.filter_map (fun (ty, _ds) -> match ty with SR x -> Some x | _ -> None) dss
-        |> List.setify in
-      List.iter do_sr uuid_srs;
+      List.to_seq dss
+      |> Seq.filter_map (fun (ty, _ds) -> match ty with SR x -> Some x | _ -> None)
+      |> StringSet.of_seq
+      |> StringSet.iter do_sr;
 
       let host_dss = List.filter_map (fun (ty, ds) -> match ty with | Host -> Some ds | _ -> None) dss in
       begin

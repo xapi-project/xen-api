@@ -16,7 +16,6 @@
 type context = unit
 
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
-module Hashtblext = Xapi_stdext_std.Hashtblext
 open Rrdd_shared
 open Rrd_interface
 
@@ -594,7 +593,8 @@ module Plugin = struct
     (* Read, parse, and combine metrics from all registered plugins. *)
     let read_stats () : (Rrd.ds_owner * Ds.ds) list =
       let plugins = Mutex.execute registered_m
-          (fun _ -> Hashtblext.to_list registered) in
+          (fun _ -> List.of_seq (Hashtbl.to_seq registered))
+      in
       let process_plugin acc (uid, plugin) =
         try
           let payload = get_payload ~uid plugin in
@@ -603,7 +603,7 @@ module Plugin = struct
       in
       List.iter decr_skip_count plugins;
       plugins
-      |> List.filter (fun p -> not (skip p))
+      |> List.filter (Fun.negate skip)
       |> List.fold_left process_plugin []
   end
 

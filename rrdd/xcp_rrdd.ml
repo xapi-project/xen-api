@@ -100,10 +100,8 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-module Opt = Xapi_stdext_monadic.Opt
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Thread = Xapi_stdext_threads.Threadext.Thread
-module Hashtblext = Xapi_stdext_std.Hashtblext
 
 let uuid_of_domid domains domid =
   try
@@ -370,7 +368,7 @@ let dss_mem_vms doms =
             (fun _ -> Some (Hashtbl.find Rrdd_shared.memory_targets domid))
         with Not_found -> None in
       let mem_target_ds =
-        Opt.map
+        Option.map
           (fun memory_target -> (
                Rrd.VM uuid,
                Ds.ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
@@ -391,7 +389,9 @@ let dss_mem_vms doms =
           with Not_found -> None
         end
       in
-      main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
+      List.concat [ main_mem_ds :: (Option.to_list other_ds)
+                  ; Option.to_list mem_target_ds
+                  ; acc]
     ) [] doms
 
 (**** Local cache SR stuff *)
@@ -417,7 +417,7 @@ let dss_cache timestamp =
     let assoc_list =
       cache_stats_out
       |> Astring.String.cuts ~sep:"\n"
-      |> Xapi_stdext_std.Listext.List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
+      |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
     (*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
     {time = timestamp;
@@ -473,6 +473,8 @@ let uuid_blacklist = [
   "00000000-0000-0000";
   "deadbeef-dead-beef" ]
 
+module IntSet = Set.Make(Int)
+
 let domain_snapshot xc =
   let uuid_of_domain d =
     Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
@@ -492,7 +494,12 @@ let domain_snapshot xc =
   let domain_paused d = d.Xenctrl.paused in
   let my_paused_domain_uuids =
     List.map uuid_of_domain (List.filter domain_paused domains) in
-  Hashtblext.remove_other_keys Rrdd_shared.memory_targets domids;
+
+  let domids = IntSet.of_list domids in
+  let domains_only k v =
+    Option.map (Fun.const v) (IntSet.find_opt k domids) in
+  Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets;
+
   timestamp, domains, uuid_domids, my_paused_domain_uuids
 
 let dom0_stat_generators = [
