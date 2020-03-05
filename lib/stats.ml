@@ -14,6 +14,11 @@
 (** Time activities, monitor the mean and standard deviation. Try to help understand how
     long key operations take under load. *)
 
+module D=Debug.Make(struct let name="stats" end)
+open D
+
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
   type t = { sigma_x: float;
@@ -46,20 +51,6 @@ end
    lognormal distribution than a normal one, we take care to apply the
    lognormal transformations here.
 *)
-
-module D=Debug.Make(struct let name="stats" end)
-open D
-
-module Mutex = struct
-  include Mutex
-
-  (** execute the function f with the mutex hold *)
-  let execute lock f =
-    Mutex.lock lock;
-    let r = begin try f () with exn -> Mutex.unlock lock; raise exn end; in
-    Mutex.unlock lock;
-    r
-end
 
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
 let timings_m = Mutex.create ()
