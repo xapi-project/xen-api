@@ -1065,7 +1065,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
         let port = 10809L in
         let module Host_set = X509.Certificate.Host_set in
         let select_a_hostname = function
-          | set when set = Host_set.empty ->
+          | set when Host_set.is_empty set ->
               Error (`Msg "Found no subject DNS names in this hosts's certificate.")
           | set ->
               let strict_or_wildcard = function
