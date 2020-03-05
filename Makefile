@@ -7,7 +7,7 @@ clean:
 	dune clean
 
 release:
-	jbuilder build @install  --profile=release
+	dune build @install  --profile=release
 
 install:
 	dune install --profile=release
