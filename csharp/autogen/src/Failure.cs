@@ -30,12 +30,13 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Linq;
 using System.Resources;
-using System.Collections;
+using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Xml;
-using System.Runtime.Serialization;
+using Newtonsoft.Json.Linq;
+
 
 namespace XenAPI
 {
@@ -45,35 +46,28 @@ namespace XenAPI
         public const string INTERNAL_ERROR = "INTERNAL_ERROR";
         public const string MESSAGE_PARAMETER_COUNT_MISMATCH = "MESSAGE_PARAMETER_COUNT_MISMATCH";
 
-        private static ResourceManager errorDescriptions = XenAPI.FriendlyErrorNames.ResourceManager;
+        private static ResourceManager errorDescriptions = FriendlyErrorNames.ResourceManager;
 
         private readonly List<string> errorDescription;
         private string errorText;
         private string shortError;
 
-        public List<string> ErrorDescription 
+        public List<string> ErrorDescription
         {
-            get 
-            {
-                return errorDescription;
-            }
+            get { return errorDescription; }
         }
 
         public string ShortMessage
         {
-            get
-            {
-                return shortError;
-            }
+            get { return shortError; }
         }
 
         public override string Message
         {
-            get
-            {
-                return errorText;
-            }
+            get { return errorText; }
         }
+
+        #region Constructors
 
         public Failure() : base() { }
 
@@ -81,11 +75,17 @@ namespace XenAPI
             : this(new List<string>(err))
         {}
 
+        public Failure(List<string> errDescription)
+        {
+            errorDescription = errDescription;
+            ParseExceptionMessage();
+        }
+
         public Failure(string message, Exception exception)
             : base(message, exception)
         {
-            errorDescription = new List<string>() { message };
-            Setup();
+            errorDescription = new List<string> {message};
+            ParseExceptionMessage();
         }
 
         protected Failure(SerializationInfo info, StreamingContext context)
@@ -96,95 +96,112 @@ namespace XenAPI
             shortError = info.GetString("shortError");
         }
 
-        public Failure(List<string> errDescription)
-        {
-            errorDescription = errDescription;
-            Setup();
-        }
+        #endregion
 
-        public void Setup()
+        private void ParseExceptionMessage()
         {
-            if (ErrorDescription.Count > 0)
+            if (ErrorDescription.Count <= 0)
+                return;
+
+            try
             {
+                string formatString;
                 try
                 {
-                    string formatString;
-                    try
-                    {
-                        formatString = errorDescriptions.GetString(ErrorDescription[0]);
-                    }
-                    catch
-                    {
-                        formatString = null;
-                    }
-
-                    if (formatString == null)
-                    {
-                        // If we don't have a translation, just combine all the error results from the server
-                        List<string> cleanBits = new List<string>();
-                        foreach (string s in ErrorDescription)
-                        {
-                            // Only show non-empty bits of ErrorDescription.
-                            // Also, trim the bits, since the server occasionally sends spurious newlines.
-                            if (s.Trim().Length > 0)
-                            {
-                                cleanBits.Add(s.Trim());
-                            }
-                        }
-
-                        this.errorText = string.Join(" - ", cleanBits.ToArray());
-                    }
-                    else
-                    {
-
-                        // We need a string array to pass to String.Format, and it must not contain the 0th element.
-
-                        string[] objects = new string[ErrorDescription.Count - 1];
-
-                        for (int i = 1; i < ErrorDescription.Count; i++)
-                            objects[i - 1] = ErrorDescription[i];
-
-                        this.errorText = String.Format(formatString, objects);
-                    }
+                    formatString = errorDescriptions.GetString(ErrorDescription[0]);
                 }
-                catch (Exception)
+                catch
                 {
-                    this.errorText = ErrorDescription[0];
+                    formatString = null;
                 }
 
-                try
+                if (formatString == null)
                 {
-                    shortError = errorDescriptions.GetString(ErrorDescription[0] + "-SHORT") ?? errorText;
-                }
-                catch (Exception)
-                {
-                    shortError = this.errorText;
-                }
+                    // If we don't have a translation, just combine all the error results from the server
+                    // Only show non-empty bits of ErrorDescription.
+                    // Also, trim the bits because the server occasionally sends spurious newlines.
 
-                // now try and parse CSLG failures (these have embedded xml)
-                TryParseCslg();
+                    var cleanBits = (from string s in ErrorDescription
+                        let trimmed = s.Trim()
+                        where trimmed.Length > 0
+                        select trimmed).ToArray();
+
+                    errorText = string.Join(" - ", cleanBits);
+                }
+                else
+                {
+                    // We need a string array to pass to String.Format, and it must not contain the 0th element
+                    errorText = string.Format(formatString, ErrorDescription.Skip(1));
+                }
+            }
+            catch (Exception)
+            {
+                errorText = ErrorDescription[0];
+            }
+
+            //call these before setting the shortError because they modify the errorText
+            ParseSmapiV3Failures();
+            ParseCslgFailures();
+
+            try
+            {
+                shortError = errorDescriptions.GetString(ErrorDescription[0] + "-SHORT") ?? errorText;
+            }
+            catch (Exception)
+            {
+                shortError = errorText;
             }
         }
 
         /// <summary>
-        /// Tries the parse CSLG failures. These have embedded xml. The useful part (from the user's perspective) is copied to errorText.
+        /// The ErrorDescription[2] of SmapiV3 failures contains embedded json.
+        /// This method parses it and copies the user friendly part to errorText.
         /// </summary>
-        /// <returns>A value specifying whether a CSLG error was found.</returns>
-        private bool TryParseCslg()
+        private void ParseSmapiV3Failures()
         {
-            //failure.ErrorDescription[2]:
-            //<StorageLinkServiceError>
-            //    <Fault>Host ivory has not yet been added to the service. [err=Object was not found]</Fault>
-            //    <Detail>
-            //        <errorCode>6</errorCode>
-            //        <messageId></messageId>
-            //        <defaultMessage>Host ivory has not yet been added to the service. [err=Object was not found]</defaultMessage>
-            //        <severity>2</severity>
-            //        <errorFunction>CXSSHostUtil::getHost</errorFunction>
-            //        <errorLine>113</errorLine>
-            //        <errorFile>.\\xss_util_host.cpp</errorFile>
-            //    </Detail>
-            // </StorageLinkServiceError>
+            /* Example ErrorDescription:
+             * [
+             *     "SR_BACKEND_FAILURE",
+             *     "TransportException",
+             *     "{\"error\": \"Unable to connect to iSCSI service on target\"}"
+             * ]
+             */
+
+            if (ErrorDescription.Count < 3 || string.IsNullOrEmpty(ErrorDescription[0]) || !ErrorDescription[0].StartsWith("SR_BACKEND_FAILURE"))
+                return;
+
+            try
+            {
+                var obj = JObject.Parse(ErrorDescription[2]); //will throw exception if ErrorDescription[2] is a simple string
+                errorText = (string)obj.SelectToken("error") ?? errorText;
+            }
+            catch
+            {
+                //ignore
+            }
+        }
+
+        /// <summary>
+        /// The ErrorDescription[2] of Cslg failures contains embedded xml.
+        /// This method parses it and copies the user friendly part to errorText.
+        /// </summary>
+        private void ParseCslgFailures()
+        {
+            /* ErrorDescription[2] example:
+
+            <StorageLinkServiceError>
+                <Fault>Host ivory has not yet been added to the service. [err=Object was not found]</Fault>
+                <Detail>
+                    <errorCode>6</errorCode>
+                    <messageId></messageId>
+                    <defaultMessage>Host ivory has not yet been added to the service. [err=Object was not found]</defaultMessage>
+                    <severity>2</severity>
+                    <errorFunction>CXSSHostUtil::getHost</errorFunction>
+                    <errorLine>113</errorLine>
+                    <errorFile>.\\xss_util_host.cpp</errorFile>
+                </Detail>
+            </StorageLinkServiceError>
+            */
 
             if (ErrorDescription.Count > 2 && ErrorDescription[2] != null && ErrorDescription[0] != null && ErrorDescription[0].StartsWith("SR_BACKEND_FAILURE"))
             {
@@ -200,26 +217,26 @@ namespace XenAPI
                     }
                     catch (XmlException)
                     {
-                        return false;
+                        return;
                     }
 
                     XmlNodeList nodes = doc.SelectNodes("/StorageLinkServiceError/Fault");
 
                     if (nodes != null && nodes.Count > 0 && !string.IsNullOrEmpty(nodes[0].InnerText))
                     {
-                        if (string.IsNullOrEmpty(errorText))
-                        {
-                            errorText = nodes[0].InnerText;
-                        }
-                        else
-                        {
-                            errorText = string.Format("{0} ({1})", errorText, nodes[0].InnerText);
-                        }
-                        return true;
+                        errorText = string.IsNullOrEmpty(errorText)
+                            ? nodes[0].InnerText
+                            : string.Format("{0} ({1})", errorText, nodes[0].InnerText);
                     }
                 }
             }
-            return false;
+        }
+
+        [Obsolete("This method is used internally and should not be called directly from the implementing code. "+
+                  "If you need to modify this instance's fields, construct a new instance instead.")]
+        public void Setup()
+        {
+            ParseExceptionMessage();
         }
 
         public override string ToString()
@@ -230,9 +247,7 @@ namespace XenAPI
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)
-            {
                 throw new ArgumentNullException("info");
-            }
 
             info.AddValue("errorDescription", errorDescription, typeof(List<string>));
             info.AddValue("errorText", errorText);
