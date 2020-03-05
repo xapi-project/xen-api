@@ -115,11 +115,10 @@ let uuid_of_domid domains domid =
 (*****************************************************)
 
 module XSW_Debug = Debug.Make(struct let name = "xenstore_watch" end)
-include Ez_xenstore_watch.Make(XSW_Debug)
+module Watch = Ez_xenstore_watch.Make(XSW_Debug)
 
 module Xs = struct
   module Client = Xs_client_unix.Client(Xs_transport_unix_client)
-  include Client
 
   let client = ref None
 
@@ -134,7 +133,7 @@ module Xs = struct
 end
 
 (* Map from domid to the latest seen meminfo_free value *)
-let current_meminfofree_values = ref IntMap.empty
+let current_meminfofree_values = ref Watch.IntMap.empty
 
 let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
 
@@ -145,19 +144,19 @@ module Meminfo = struct
 
   let fire_event_on_vm domid domains =
     let d = int_of_string domid in
-    if not(IntMap.mem d domains)
+    if not (Watch.IntMap.mem d domains)
     then info "Ignoring watch on shutdown domain %d" d
     else
       let path = meminfo_path d in
       try
         let client = Xs.get_client () in
-        let meminfo_free_string = Xs.immediate client (fun xs -> Xs.read xs path) in
+        let meminfo_free_string = Xs.Client.immediate client (fun xs -> Xs.Client.read xs path) in
         let meminfo_free = Int64.of_string meminfo_free_string in
         info "memfree has changed to %Ld in domain %d" meminfo_free d;
-        current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
+        current_meminfofree_values := Watch.IntMap.add d meminfo_free !current_meminfofree_values
       with Xs_protocol.Enoent _hint ->
         info "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
-        current_meminfofree_values := IntMap.remove d !current_meminfofree_values
+        current_meminfofree_values := Watch.IntMap.remove d !current_meminfofree_values
 
   let watch_fired _ _xc path domains _ =
     match List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path) with
@@ -171,7 +170,7 @@ module Meminfo = struct
   let domain_disappeared _ _ _ = ()
 end
 
-module Watcher = WatchXenstore(Meminfo)
+module Watcher = Watch.WatchXenstore(Meminfo)
 
 (*****************************************************)
 (* cpu related code                                  *)
@@ -379,7 +378,7 @@ let dss_mem_vms doms =
         if domid = 0 then None
         else begin
           try
-            let mem_free = IntMap.find domid !current_meminfofree_values in
+            let mem_free = Watch.IntMap.find domid !current_meminfofree_values in
             Some (
               Rrd.VM uuid,
               Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
