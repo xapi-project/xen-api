@@ -160,8 +160,6 @@ install:
 	$(IPROG) examples/python/xva.py $(DESTDIR)$(BINDIR)/xva-rewrite-scsiid
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
-	$(IPROG) poweron/iLOPowerON.xml $(DESTDIR)$(PLUGINDIR)/iLOPowerON.xml
-	$(IPROG) poweron/iLO.py $(DESTDIR)$(PLUGINDIR)/iLO.py
 	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
 # maillanguages

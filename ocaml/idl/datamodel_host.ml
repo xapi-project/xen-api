@@ -1040,11 +1040,12 @@ let host_query_ha = call ~flags:[`Session]
 
   let set_power_on_mode = call
       ~name:"set_power_on_mode"
+      ~lifecycle:[Changed, rel_stockholm, "Removed iLO script"]
       ~in_product_since:rel_midnight_ride
       ~doc:"Set the power-on-mode, host, user and password "
       ~params:[
         Ref _host, "self", "The host";
-        String, "power_on_mode", "power-on-mode can be empty,iLO,wake-on-lan, DRAC or other";
+        String, "power_on_mode", "power-on-mode can be empty, wake-on-lan, DRAC or other";
         Map(String, String), "power_on_config", "Power on config";
       ]
       ~allowed_roles:_R_POOL_OP
