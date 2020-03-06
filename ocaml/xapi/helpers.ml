@@ -100,29 +100,9 @@ let get_management_iface_is_connected ~__context =
   Xapi_inventory.lookup Xapi_inventory._management_interface
   |> get_bridge_is_connected ~__context
 
-let get_primary_ip_addr ~__context iface primary_address_type =
-  if iface = "" then
-    None
-  else
-    try
-      let dbg = Context.string_of_task __context in
-      if Net.Interface.exists dbg iface then
-        let addrs = match primary_address_type with
-          | `IPv4 -> Net.Interface.get_ipv4_addr dbg iface
-          | `IPv6 -> Net.Interface.get_ipv6_addr dbg iface
-        in
-        let addrs = List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs in
-        (* Filter out link-local addresses *)
-        let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
-        Some (List.hd addrs)
-      else
-        None
-    with _ -> None
-
 let get_management_ip_addr ~__context =
-  get_primary_ip_addr ~__context
-    (Xapi_inventory.lookup Xapi_inventory._management_interface)
-    (Record_util.primary_address_type_of_string (Xapi_inventory.lookup Xapi_inventory._management_address_type ~default:"ipv4"))
+  let dbg = Context.string_of_task __context in
+  Gencertlib.Lib.get_management_ip_addr ~dbg
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
@@ -1249,9 +1229,6 @@ end = struct
   module Config : sig
     (** create or update stunnel config file *)
     val update : accept:string -> unit
-    (** calls `generate_ssl_cert` bash script
-      * TODO: don't generate certificates in bash *)
-    val generate_pem : __context:Context.t -> force:bool -> unit
   end = struct
     let m = Mutex.create ()
     let current_accept = ref None
@@ -1299,24 +1276,6 @@ end = struct
           rewrite_xapi_ssl_config_file ~accept
         end
       )
-
-    let generate_pem ~__context ~force =
-      Mutex.execute m (fun () ->
-        if force || not (Sys.file_exists cert) then begin
-          let hostname = Unix.gethostname () in
-          let cn =
-            if Astring.String.is_prefix ~affix:"localhost" hostname then
-              get_management_ip_addr ~__context
-            else if Astring.String.is_infix ~affix:"." hostname then
-              None
-            else
-              get_management_ip_addr ~__context
-          in
-          D.debug "Helpers.Stunnel.gen_pem_if_not_exist: writing pem file";
-          let (_: string) = call_script !Xapi_globs.generate_ssl_cert [cert; Option.value ~default:hostname cn]
-          in ()
-        end
-      )
   end
 
   let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
@@ -1344,7 +1303,7 @@ end = struct
   let restart ~__context ~accept =
     try
       Config.update ~accept;
-      Config.generate_pem ~__context ~force:false;
+      (* we do not worry about generating certificates here, because systemd will handle this for us, via the gencert service *)
       if not @@ is_enabled () then systemctl_ "enable";
       systemctl_ "restart"
     with e ->
