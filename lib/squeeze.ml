@@ -54,8 +54,6 @@ let manage_domain_zero = ref false
 let gib = Int64.(mul 1024L (mul 1024L 1024L))
 let domain_zero_dynamic_min : int64 ref = ref gib  (* 1 GiB minimum for safety *)
 let domain_zero_dynamic_max : int64 option ref = ref None (* static max *)
-let boot_time_host_free_memory_constant_count : int ref = ref 10
-let boot_time_host_free_memory_check_interval : float ref = ref 1.0
 
 (** Per-domain data *)
 type domain = {
