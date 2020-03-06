@@ -144,7 +144,14 @@ module Sriov = struct
           Sysfs.unbind_child_vfs dev >>= fun () -> Ok 0
         )
         >>= fun numvfs ->
-        Sysfs.set_sriov_numvfs dev numvfs >>= fun _ -> Ok Sysfs_successful
+        let sysfs_numvfs = Sysfs.get_sriov_numvfs dev in
+        ( if sysfs_numvfs <> 0 then (
+            debug "%d vfs already enabled on device: %s" sysfs_numvfs dev ;
+            Ok ()
+          ) else
+            Sysfs.set_sriov_numvfs dev numvfs
+        )
+        >>= fun _ -> Ok Sysfs_successful
 
   let enable dbg name =
     Debug.with_thread_associated dbg
