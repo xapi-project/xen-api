@@ -1154,7 +1154,7 @@ let _ =
   error Api_errors.cluster_force_destroy_failed ["cluster"]
     ~doc:"Force destroy failed on a Cluster_host while force destroying the cluster." ();
   error Api_errors.cluster_stack_in_use ["cluster_stack"]
-    ~doc:"The cluster stack is already in use." ();
+    ~doc:"The cluster stack is still in use by at least one plugged PBD." ();
   error Api_errors.invalid_cluster_stack [ "cluster_stack" ]
     ~doc:"The cluster stack provided is not supported." ();
   error Api_errors.pif_not_attached_to_host [ "pif"; "host" ]
