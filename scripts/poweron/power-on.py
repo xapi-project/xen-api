@@ -40,30 +40,34 @@ def main(session, args):
     mode = session.xenapi.host.get_power_on_mode(remote_host)
     
     power_on_config = session.xenapi.host.get_power_on_config(remote_host)
-    
-    if mode == "iLO" or mode=="DRAC" :
+
+    if mode=="DRAC" :
         ip=power_on_config['power_on_ip']
         user = power_on_config['power_on_user']
         secret = power_on_config['power_on_password_secret']
         secretref=session.xenapi.secret.get_by_uuid(secret)
         password = session.xenapi.secret.get_value(secretref)
-        if mode == "iLO":
-            modu= __import__('iLO')
-            modu.iLO( ip, user, password)
-        else: 
-            modu= __import__('DRAC')
-            modu.DRAC( ip, user, password)
+        modu= __import__('DRAC')
+        modu.DRAC( ip, user, password)
         return waitForXapi(session,remote_host)
     elif mode=="wake-on-lan":
         modu= __import__('wlan')
         return modu.wake_on_lan(session, remote_host, remote_host_uuid)
     # Custom script
     elif mode!="":
-        modu= __import__(mode)
-        modu.custom(session,remote_host,power_on_config)
+        modu = None
+        try:
+            modu = __import__(mode)
+        except ModuleNotFoundError as e:
+            # iLO.py was removed as part of REQ-811, so tell user why they are receiving this error
+            if mode=="iLO":
+                syslog.syslog(syslog.LOG_ERR, "iLO script was removed")
+            raise e
+
+        modu.custom(session,remote_host, power_on_config)
         return waitForXapi(session,remote_host)
     # Disabled
-    else: 
+    else:
         raise HOST_POWER_ON_NOT_CONFIGURED()
 
 
