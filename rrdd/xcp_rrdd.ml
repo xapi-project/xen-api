@@ -100,10 +100,8 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 (* Monitoring code --- START. *)
 
-module Opt = Xapi_stdext_monadic.Opt
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Thread = Xapi_stdext_threads.Threadext.Thread
-module Hashtblext = Xapi_stdext_std.Hashtblext
 
 let uuid_of_domid domains domid =
   try
@@ -117,11 +115,10 @@ let uuid_of_domid domains domid =
 (*****************************************************)
 
 module XSW_Debug = Debug.Make(struct let name = "xenstore_watch" end)
-include Ez_xenstore_watch.Make(XSW_Debug)
+module Watch = Ez_xenstore_watch.Make(XSW_Debug)
 
 module Xs = struct
   module Client = Xs_client_unix.Client(Xs_transport_unix_client)
-  include Client
 
   let client = ref None
 
@@ -136,7 +133,7 @@ module Xs = struct
 end
 
 (* Map from domid to the latest seen meminfo_free value *)
-let current_meminfofree_values = ref IntMap.empty
+let current_meminfofree_values = ref Watch.IntMap.empty
 
 let meminfo_path domid = Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
 
@@ -147,19 +144,19 @@ module Meminfo = struct
 
   let fire_event_on_vm domid domains =
     let d = int_of_string domid in
-    if not(IntMap.mem d domains)
+    if not (Watch.IntMap.mem d domains)
     then info "Ignoring watch on shutdown domain %d" d
     else
       let path = meminfo_path d in
       try
         let client = Xs.get_client () in
-        let meminfo_free_string = Xs.immediate client (fun xs -> Xs.read xs path) in
+        let meminfo_free_string = Xs.Client.immediate client (fun xs -> Xs.Client.read xs path) in
         let meminfo_free = Int64.of_string meminfo_free_string in
         info "memfree has changed to %Ld in domain %d" meminfo_free d;
-        current_meminfofree_values := IntMap.add d meminfo_free !current_meminfofree_values
+        current_meminfofree_values := Watch.IntMap.add d meminfo_free !current_meminfofree_values
       with Xs_protocol.Enoent _hint ->
         info "Couldn't read path %s; forgetting last known memfree value for domain %d" path d;
-        current_meminfofree_values := IntMap.remove d !current_meminfofree_values
+        current_meminfofree_values := Watch.IntMap.remove d !current_meminfofree_values
 
   let watch_fired _ _xc path domains _ =
     match List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path) with
@@ -173,7 +170,7 @@ module Meminfo = struct
   let domain_disappeared _ _ _ = ()
 end
 
-module Watcher = WatchXenstore(Meminfo)
+module Watcher = Watch.WatchXenstore(Meminfo)
 
 (*****************************************************)
 (* cpu related code                                  *)
@@ -370,7 +367,7 @@ let dss_mem_vms doms =
             (fun _ -> Some (Hashtbl.find Rrdd_shared.memory_targets domid))
         with Not_found -> None in
       let mem_target_ds =
-        Opt.map
+        Option.map
           (fun memory_target -> (
                Rrd.VM uuid,
                Ds.ds_make ~name:"memory_target" ~description:"Target of VM balloon driver" ~units:"B"
@@ -381,7 +378,7 @@ let dss_mem_vms doms =
         if domid = 0 then None
         else begin
           try
-            let mem_free = IntMap.find domid !current_meminfofree_values in
+            let mem_free = Watch.IntMap.find domid !current_meminfofree_values in
             Some (
               Rrd.VM uuid,
               Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
@@ -391,7 +388,9 @@ let dss_mem_vms doms =
           with Not_found -> None
         end
       in
-      main_mem_ds :: (Opt.to_list other_ds) @ (Opt.to_list mem_target_ds) @ acc
+      List.concat [ main_mem_ds :: (Option.to_list other_ds)
+                  ; Option.to_list mem_target_ds
+                  ; acc]
     ) [] doms
 
 (**** Local cache SR stuff *)
@@ -417,7 +416,7 @@ let dss_cache timestamp =
     let assoc_list =
       cache_stats_out
       |> Astring.String.cuts ~sep:"\n"
-      |> Xapi_stdext_std.Listext.List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
+      |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
     (*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
     {time = timestamp;
@@ -473,6 +472,8 @@ let uuid_blacklist = [
   "00000000-0000-0000";
   "deadbeef-dead-beef" ]
 
+module IntSet = Set.Make(Int)
+
 let domain_snapshot xc =
   let uuid_of_domain d =
     Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
@@ -492,7 +493,12 @@ let domain_snapshot xc =
   let domain_paused d = d.Xenctrl.paused in
   let my_paused_domain_uuids =
     List.map uuid_of_domain (List.filter domain_paused domains) in
-  Hashtblext.remove_other_keys Rrdd_shared.memory_targets domids;
+
+  let domids = IntSet.of_list domids in
+  let domains_only k v =
+    Option.map (Fun.const v) (IntSet.find_opt k domids) in
+  Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets;
+
   timestamp, domains, uuid_domids, my_paused_domain_uuids
 
 let dom0_stat_generators = [

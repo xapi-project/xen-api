@@ -1,8 +1,7 @@
 module D = Debug.Make(struct let name="rrdd_http_handler" end)
 open D
 
-module Hashtblext = Xapi_stdext_std.Hashtblext
-open Xapi_stdext_threads.Threadext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Rrdd_shared
 
 (* A handler for unarchiving RRDs. Only called on pool master. *)
@@ -51,12 +50,13 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "get_sr_rrd_handler: start";
   let query = req.Http.Request.query in
   let sr_uuid = List.assoc "uuid" query in
-  let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd ( let rrdi =
-                                                            try 
-                                                              Hashtbl.find sr_rrds sr_uuid
-                                                            with Not_found -> failwith "No SR RRD available!"
-                                                          in rrdi.rrd)
-                                ) in
+  let rrd = Mutex.execute mutex (fun () ->
+    let rrdi = try
+        Hashtbl.find sr_rrds sr_uuid
+      with Not_found -> failwith "No SR RRD available!"
+    in
+    Rrd.copy_rrd rrdi.rrd)
+  in
   Http_svr.headers s (Http.http_200_ok ~version:"1.0" ~keep_alive:false ());
   Rrd_unix.to_fd rrd s
 
@@ -67,23 +67,23 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
     ~(sr_uuid : string) () =
   Mutex.execute mutex (fun () ->
       let prefixandrrds =
-        let vm_rrds = Hashtblext.to_list vm_rrds in
-        let sr_rrds = Hashtblext.to_list sr_rrds in
+        let vm_rrds = Hashtbl.to_seq vm_rrds in
+        let sr_rrds = Hashtbl.to_seq sr_rrds in
         let host_rrds =
           if is_host = "true" then
             match !host_rrd with None -> [] | Some rrdi -> [("host:" ^ (Inventory.lookup Inventory._installation_uuid) ^ ":", rrdi.rrd)]
           else [] in
         let vmsandrrds =
           if vm_uuid = "all" then vm_rrds
-          else if vm_uuid = "none" then []
-          else List.filter (fun (k, _) -> k = vm_uuid) vm_rrds in
-        let vm_rrds_altered = List.map (fun (k, v) -> "vm:" ^ k ^ ":", v.rrd) vmsandrrds in
+          else if vm_uuid = "none" then Seq.empty
+          else Seq.filter (fun (k, _) -> k = vm_uuid) vm_rrds in
+        let vm_rrds_altered = Seq.map (fun (k, v) -> "vm:" ^ k ^ ":", v.rrd) vmsandrrds in
         let srsandrrds =
           if sr_uuid = "all" then sr_rrds
-          else if sr_uuid = "none" then []
-          else List.filter (fun (k, _) -> k = sr_uuid) sr_rrds in
-        let sr_rrds_altered = List.map (fun (k, v) -> "sr:" ^ k ^ ":", v.rrd) srsandrrds in
-        host_rrds @ vm_rrds_altered @ sr_rrds_altered
+          else if sr_uuid = "none" then Seq.empty
+          else Seq.filter (fun (k, _) -> k = sr_uuid) sr_rrds in
+        let sr_rrds_altered = Seq.map (fun (k, v) -> "sr:" ^ k ^ ":", v.rrd) srsandrrds in
+        List.(concat [ host_rrds; of_seq vm_rrds_altered; of_seq sr_rrds_altered])
       in
       Rrd_updates.export ~json prefixandrrds start interval cfopt)
 

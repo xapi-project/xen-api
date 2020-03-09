@@ -15,8 +15,8 @@
 let enabled = ref false
 
 let m = Mutex.create ()
-open Xapi_stdext_monadic
-open Xapi_stdext_threads.Threadext
+
+let rrd_float x = Rrd.VT_Float x
 
 module Statefile_latency = struct
   open Rrd.Statefile_latency
@@ -26,7 +26,7 @@ module Statefile_latency = struct
   let get_one t =
     Ds.ds_make ~name:(Printf.sprintf "statefile/%s/latency" t.id) ~units:"s"
       ~description:"Turn-around time of the latest State-File access from the local host"
-      ~value:(Opt.default Rrd.VT_Unknown (Opt.map (fun x -> Rrd.VT_Float x) t.latency))
+      ~value:(Option.fold ~none:Rrd.VT_Unknown ~some:rrd_float t.latency)
       ~ty:Rrd.Gauge ~default:false ()
 
   let get_all () = List.map get_one !all
@@ -38,7 +38,7 @@ module Heartbeat_latency = struct
   let get () =
     Ds.ds_make ~name:"network/latency" ~units:"s"
       ~description:"Interval between the last two heartbeats transmitted from the local host to all Online hosts"
-      ~value:(Opt.default Rrd.VT_Unknown (Opt.map (fun x -> Rrd.VT_Float x) !raw))
+      ~value:(Option.fold ~none:Rrd.VT_Unknown ~some:rrd_float !raw)
       ~ty:Rrd.Gauge ~default:false ()
 end
 
@@ -48,12 +48,12 @@ module Xapi_latency = struct
   let get () =
     Ds.ds_make ~name:"xapi_healthcheck/latency" ~units:"s"
       ~description:"Turn-around time of the latest xapi status monitoring call on the local host"
-      ~value:(Opt.default Rrd.VT_Unknown (Opt.map (fun x -> Rrd.VT_Float x) !raw))
+      ~value:(Option.fold ~none:Rrd.VT_Unknown ~some:rrd_float !raw)
       ~ty:Rrd.Gauge ~default:false ()
 end
 
 let all () =
-  Mutex.execute m (fun _ ->
+  Xapi_stdext_threads.Threadext.Mutex.execute m (fun _ ->
       if !enabled then (
         let all =
           Statefile_latency.get_all () @
