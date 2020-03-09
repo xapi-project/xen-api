@@ -92,6 +92,9 @@ let lima_release_schema_minor_vsn = 203
 let naples_release_schema_major_vsn = 5
 let naples_release_schema_minor_vsn = 400
 
+let quebec_release_schema_major_vsn = 5
+let quebec_release_schema_minor_vsn = 504
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases = [
@@ -195,6 +198,12 @@ let get_product_releases in_product_since =
     | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+let quebec_release =
+  { internal = get_product_releases rel_quebec
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let naples_release =
   { internal = get_product_releases rel_naples
