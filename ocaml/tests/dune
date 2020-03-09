@@ -10,7 +10,12 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executables
   (names suite_alcotest)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
-  (libraries xapi_internal alcotest stdext threads)
+  (libraries
+    alcotest
+    daily_license_check
+    xapi_internal
+    xapi-stdext-date
+  )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
 )
 

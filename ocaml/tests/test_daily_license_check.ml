@@ -79,7 +79,3 @@ let test =
   List.mapi (fun i spec ->
     Printf.sprintf "Test licence checks as run daily #%d" i,
       `Quick, test_expiry spec) expiry_samples
-
-let () =
-  Alcotest.run "Daily license checks"
-  [("Daily license checks", test)]
