@@ -62,15 +62,17 @@ val buffer_of_file : string -> Buffer.t
 (** [string_of_file file] returns a string containing the contents of [file] *)
 val string_of_file : string -> string
 
-(** [atomic_write_to_file] [fname] [perms] [f] writes a file to path [fname]
+(** [atomic_write_to_file fname perms f] writes a file to path [fname]
     using the function [f] with permissions [perms]. In case of error during
     the operation the file with the path [fname] is not modified at all. *)
 val atomic_write_to_file : string -> Unix.file_perm -> (Unix.file_descr -> 'a) -> 'a
 
-(** Atomically write a string to a file *)
+(** [write_string_to_file fname contents] creates a file with path [fname]
+    with the string [contents] as its contents, atomically *)
 val write_string_to_file : string -> string -> unit
 
-(** Atomically write a bytes to a file *)
+(** [write_string_to_file fname contents] creates a file with path [fname]
+    with the buffer [contents] as its contents, atomically *)
 val write_bytes_to_file : string -> bytes -> unit
 val execv_get_output : string -> string array -> int * Unix.file_descr
 val copy_file : ?limit:int64 -> Unix.file_descr -> Unix.file_descr -> int64
