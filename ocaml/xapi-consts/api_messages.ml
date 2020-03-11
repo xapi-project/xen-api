@@ -12,13 +12,15 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(*
+(** Each message string in this file has to be unique and it can only have one
+   priority.
+
 Priority Name                  Description
 -------- --------------------- -----------------------------------------------------------------------------
-1        Data-loss imminent    Take action now or your data may be permanently lost (e.g. corrupted)
-2        Service-loss imminent Take action now or some service(s) may fail (e.g. host / VM crash)
-3        Service degraded      Take action now or some service may suffer (e.g. NIC bond degraded without HA)
-4        Service recovered     Notice that something just improved (e.g. NIC bond repaired)
+1        Critical              Take action now or your data may be permanently lost (e.g. corrupted)
+2        Major                 Take action now or some service(s) may fail (e.g. host / VM crash)
+3        Warning               Take action now or some service may suffer (e.g. NIC bond degraded without HA)
+4        Minor                 Notice that something just improved (e.g. NIC bond repaired)
 5        Informational         More day-to-day stuff (e.g. VM started, suspended, shutdown, rebooted etc)
 *)
 
@@ -139,3 +141,10 @@ let cluster_host_enable_failed = addMessage "CLUSTER_HOST_ENABLE_FAILED" 3L
 
 (* raised by external script in clustering daemon, do not delete this: it is not dead code *)
 let cluster_host_fencing = addMessage "CLUSTER_HOST_FENCING" 2L
+
+(* Certificate expiration messages *)
+let host_server_certificate_expiring = "HOST_SERVER_CERTIFICATE_EXPIRING"
+let host_server_certificate_expiring_30 = addMessage (host_server_certificate_expiring ^ "_30") 3L
+let host_server_certificate_expiring_14 = addMessage (host_server_certificate_expiring ^ "_14") 2L
+let host_server_certificate_expiring_07 = addMessage (host_server_certificate_expiring ^ "_07") 1L
+let host_server_certificate_expired = addMessage "HOST_SERVER_CERTIFICATE_EXPIRED" 1L
