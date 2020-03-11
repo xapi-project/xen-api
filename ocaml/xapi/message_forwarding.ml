@@ -2618,7 +2618,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
             certificate_chain
         );
       in
-      tolerate_connection_loss fn success 30.
+      tolerate_connection_loss fn success 30.;
+      try
+        let _, _ = Forkhelpers.execute_command_get_output !Xapi_globs.alert_certificate_check [] in
+        ()
+      with Forkhelpers.Spawn_internal_error(_ ,_ , _) ->
+        raise (Api_errors.Server_error(Api_errors.internal_error,
+          ["Generation of alerts for server certificate expiration failed."]))
 
     let attach_static_vdis ~__context ~host ~vdi_reason_map =
       info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]" (host_uuid ~__context host)
