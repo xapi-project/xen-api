@@ -1,0 +1,20 @@
+(library
+  (name certificate_check)
+  (modules certificate_check)
+  (libraries
+    xapi-client
+    xapi-stdext-date
+  )
+)
+
+(executable
+  (name certificate_check_main)
+  (public_name alert-certificate-check)
+  (package xapi)
+  (modules certificate_check_main)
+  (libraries
+    certificate_check
+    xapi-client
+    xapi-stdext-pervasives
+  )
+)
