@@ -547,6 +547,7 @@ let vusb_operation_to_string = function
 let network_sriov_configuration_mode_to_string = function
   | `sysfs -> "sysfs"
   | `modprobe -> "modprobe"
+  | `manual -> "manual"
   | `unknown -> "unknown"
 
 (* string_to_string_map_to_string *)
