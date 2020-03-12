@@ -4344,6 +4344,7 @@ module Network_sriov = struct
     [
       "sysfs", "Configure network sriov by sysfs, do not need reboot";
       "modprobe", "Configure network sriov by modprobe, need reboot";
+      "manual", "Configure network sriov manually";
       "unknown", "Unknown mode";
     ])
 
