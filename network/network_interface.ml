@@ -651,6 +651,7 @@ module Interface_API(R : RPC) = struct
       | Modprobe_successful_requires_reboot
       | Modprobe_successful
       | Sysfs_successful
+      | Manual_successful
     [@@deriving rpcty]
 
     type enable_result =
