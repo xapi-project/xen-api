@@ -15,27 +15,27 @@
 module D = Debug.Make(struct let name="xapi_ha_vm_failover" end)
 open D
 
-type task_result = (Rpc.t, exn) Result.result
+type task_result = (Rpc.t, exn) result
 
 (** [result_of_task ~__context task] returns the status of [task]
- * unless it is still pending. Exceptions are converted into [Result.Error] *)
+ * unless it is still pending. Exceptions are converted into [Error] *)
 let result_of_task ~__context self : task_result option =
   try match Db.Task.get_status ~__context ~self with
     | `pending -> None
     | `success ->
-      Some (Result.Ok (match Db.Task.get_result ~__context ~self with
+      Some (Ok (match Db.Task.get_result ~__context ~self with
           | "" -> Rpc.Null
           | s -> Xmlrpc.of_string s))
-    | `cancelled -> Some (Result.Error (Failure "Cancelled"))
-    | `cancelling -> Some (Result.Error (Failure "Cancelling"))
+    | `cancelled -> Some (Error (Failure "Cancelled"))
+    | `cancelling -> Some (Error (Failure "Cancelling"))
     | `failure ->
       Some (match Db.Task.get_error_info ~__context ~self with
-          | [] -> Result.Error (Failure "Unknown error")
-          | code :: params -> Result.Error (Api_errors.Server_error (code, params)))
+          | [] -> Error (Failure "Unknown error")
+          | code :: params -> Error (Api_errors.Server_error (code, params)))
   with e ->
     (* cannot fetch task status, maybe task got destroyed *)
     Backtrace.is_important e;
-    Some (Result.Error e)
+    Some (Error e)
 
 
 module TaskChains : sig
@@ -44,9 +44,9 @@ module TaskChains : sig
 
   val return : 'a -> 'a t
 
-  val ok : 'a -> ('a, exn) Result.result t
+  val ok : 'a -> ('a, exn) result t
 
-  val fail : exn -> ('a, exn) Result.result t
+  val fail : exn -> ('a, exn) result t
 
   val task : (unit -> API.ref_task) -> task_result t
   (**[task f] is an action that evaluates to the result of task [f ()] *)
@@ -71,8 +71,8 @@ module TaskChains : sig
 
   val parallel :
     __context:Context.t -> rpc:(Rpc.call -> Rpc.response)
-    -> session_id:API.ref_session -> ('a * ('b, exn) Result.result t) list
-    -> ('a * ('b, exn) Result.result) list
+    -> session_id:API.ref_session -> ('a * ('b, exn) result t) list
+    -> ('a * ('b, exn) result) list
   (** [parallel ~__context lst] execute actions in [lst] in parallel.
    * Returns the results from [lst], in an unspecified order, hence each item in [lst] is a tuple
    * with arbitrary data (e.g. a VM ref) as first element, and the action as second:
@@ -91,9 +91,9 @@ end = struct
 
   let return x = Completed x
 
-  let ok x = Completed (Result.Ok x)
+  let ok x = Completed (Ok x)
 
-  let fail e = Completed (Result.Error e)
+  let fail e = Completed (Error e)
 
   let wrap f = try f () with e -> Backtrace.is_important e ; fail e
 
@@ -736,20 +736,20 @@ let restart_auto_run_vms ~__context live_set n =
              | Some h -> Client.Client.Async.VM.start_on rpc session_id vm h false true
            end else failwith (Printf.sprintf "VM: %s restart attempt delayed for 120s" (Ref.string_of vm)) in
          TaskChains.task go >>= function
-         | Result.Error Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
+         | Error Api_errors.Server_error(code, params) when code = Api_errors.ha_operation_would_break_failover_plan ->
            (* This should never happen since the planning code would always allow the restart of a protected VM... *)
            error "Caught exception HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN: setting pool as overcommitted and retrying";
            ignore (mark_pool_as_overcommitted ~__context ~live_set : bool);
            begin
              TaskChains.task go >>= function
-             | Result.Ok _ -> TaskChains.ok ()
-             | Result.Error e -> error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
+             | Ok _ -> TaskChains.ok ()
+             | Error e -> error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
                TaskChains.fail e
            end
-         | Result.Error e ->
+         | Error e ->
            error "Caught exception trying to restart VM %s: %s" (Ref.string_of vm) (ExnHelper.string_of_exn e);
            TaskChains.fail e
-         | Result.Ok _ -> TaskChains.ok ()
+         | Ok _ -> TaskChains.ok ()
        in
 
        (** [ordered_map_concat f lst]
@@ -764,14 +764,14 @@ let restart_auto_run_vms ~__context live_set n =
              List.rev_append (f inner) accum) [] lst
        in
 
-       (** [map_parallel ~order_f f lst] groups objects in [lst] by order number 
+       (** [map_parallel ~order_f f lst] groups objects in [lst] by order number
            (provided by applying [order_f] to each object). For each group of objects
            it then applies [f] to them to produce an 'a TaskChain.t and then executes this
-           set of TaskChain.t values in parallel until they each of the TaskChain.t 
+           set of TaskChain.t values in parallel until they each of the TaskChain.t
            values has been executed to completion. It then begins work on the next group
-           of objects. 
+           of objects.
 
-           The return is a list of 'a Result.results
+           The return is a list of 'a result
        *)
        let map_parallel ~order_f f lst =
          lst
@@ -802,10 +802,10 @@ let restart_auto_run_vms ~__context live_set n =
        (* Perform one final restart attempt of any that weren't started. *)
        let started = map_parallel ~order_f:(fun (vminfo, _) -> order_f vminfo)
            (function
-            | (vm,_), Result.Ok () -> vm, TaskChains.ok ()
-            | (vm,_), Result.Error _ -> vm, restart_vm vm ()) started in
+            | (vm,_), Ok () -> vm, TaskChains.ok ()
+            | (vm,_), Error _ -> vm, restart_vm vm ()) started in
        (* Send an alert for any failed VMs *)
-       List.iter (fun (vm, started) -> if started <> Result.Ok () then consider_sending_failed_alert_for vm) started;
+       List.iter (fun (vm, started) -> if started <> Ok () then consider_sending_failed_alert_for vm) started;
 
        (* Forget about previously failed VMs which have gone *)
        let vms_we_know_about = List.map fst started in
@@ -827,10 +827,10 @@ let restart_auto_run_vms ~__context live_set n =
               else TaskChains.ok (Rpc.Null)) !reset_vms
        |> List.iter (fun (vm, result) ->
            match result with
-           | Result.Error e ->
+           | Error e ->
              error "Failed to restart best-effort VM %s (%s): %s"
                (Db.VM.get_uuid ~__context ~self:vm)
                (Db.VM.get_name_label ~__context ~self:vm)
                (ExnHelper.string_of_exn e)
-           | Result.Ok _ -> ())
+           | Ok _ -> ())
     )

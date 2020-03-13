@@ -59,7 +59,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
       Xapi_clustering.Daemon.enable ~__context;
       let result = Cluster_client.LocalClient.create (rpc ~__context) dbg init_config in
       match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
-      | Result.Ok cluster_token ->
+      | Ok cluster_token ->
         D.debug "Got OK from LocalClient.create";
         Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid ~cluster_token ~cluster_stack ~pending_forget:[]
           ~pool_auto_join ~token_timeout ~token_timeout_coefficient ~current_operations:[] ~allowed_operations:[] ~cluster_config:[]
@@ -70,7 +70,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout ~token_
         D.debug "Created Cluster: %s and Cluster_host: %s" (Ref.string_of cluster_ref) (Ref.string_of cluster_host_ref);
         set_ha_cluster_stack ~__context;
         cluster_ref
-      | Result.Error error ->
+      | Error error ->
         D.warn "Error occurred during Cluster.create";
         handle_error error
     )
