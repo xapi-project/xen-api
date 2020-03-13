@@ -55,23 +55,15 @@ module Vm_memory_constraints : T = struct
     let metrics = Db.VM.get_metrics ~__context ~self:vm in
     Xapi_vm_lifecycle.nested_virt ~__context vm metrics
 
-  let order_constraint =
-    "Memory limits must satisfy: \
-     static_min ≤ dynamic_min ≤ dynamic_max ≤ static_max"
-  let equality_constraint reason =
-    Printf.sprintf "Memory limits must satisfy: \
-     static_min ≤ dynamic_min = dynamic_max = static_max \
-     (%s)" reason
-
   let assert_valid ~constraints =
     if not (are_valid ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation, [order_constraint]))
+        Api_errors.memory_constraint_violation_order, []))
 
   let assert_valid_and_pinned_at_static_max ~constraints ~reason =
     if not (are_valid_and_pinned_at_static_max ~constraints)
     then raise (Api_errors.Server_error (
-        Api_errors.memory_constraint_violation, [equality_constraint reason]))
+        Api_errors.memory_constraint_violation_maxpin, [reason]))
 
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in

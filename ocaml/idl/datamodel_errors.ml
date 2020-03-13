@@ -107,6 +107,10 @@ let _ =
     ~doc:"A VDI with the specified location already exists within the SR" ();
   error Api_errors.memory_constraint_violation ["constraint"]
     ~doc:"The dynamic memory range does not satisfy the following constraint." ();
+  error Api_errors.memory_constraint_violation_order []
+    ~doc:"The dynamic memory range violates constraint static_min <= dynamic_min <= dynamic_max <= static_max." ();
+  error Api_errors.memory_constraint_violation_maxpin ["reason"]
+    ~doc:"The dynamic memory range violates constraint static_min = dynamic_min = dynamic_max = static_max." ();
 
   (* Session errors *)
   error Api_errors.session_authentication_failed []
