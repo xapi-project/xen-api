@@ -236,11 +236,11 @@ let assert_cluster_host_quorate ~__context ~self =
   let result = Cluster_client.LocalClient.diagnostics (rpc ~__context) "assert_cluster_host_quorate"
   in
   match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
-  | Result.Ok diag ->
+  | Ok diag ->
     debug "Local cluster host is quorate: %b" diag.Cluster_interface.is_quorate;
     if not diag.Cluster_interface.is_quorate then
       raise Api_errors.(Server_error (cluster_host_not_joined, [Ref.string_of self]))
-  | Result.Error error ->
+  | Error error ->
     warn "Cannot query cluster host quorate status";
     handle_error error
 

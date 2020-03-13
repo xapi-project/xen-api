@@ -91,12 +91,12 @@ let join_internal ~__context ~self =
         Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip ip_list
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
-      | Result.Ok () ->
+      | Ok () ->
         debug "Cluster join create was successful for cluster_host %s" (Ref.string_of self);
         Db.Cluster_host.set_joined ~__context ~self ~value:true;
         Db.Cluster_host.set_enabled ~__context ~self ~value:true;
         debug "Cluster_host %s joined and enabled" (Ref.string_of self)
-      | Result.Error error ->
+      | Error error ->
         warn "Error occurred when joining cluster_host %s" (Ref.string_of self);
         handle_error error
   )
@@ -147,11 +147,11 @@ let destroy_op ~__context ~self ~force =
       in
       let result = local_fn (rpc ~__context) dbg in
       match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
-      | Result.Ok () ->
+      | Ok () ->
         Db.Cluster_host.destroy ~__context ~self;
         debug "Cluster_host.%s was successful" fn_str;
         Xapi_clustering.Daemon.disable ~__context
-      | Result.Error error ->
+      | Error error ->
         warn "Error occurred during Cluster_host.%s" fn_str;
         if force then begin
           let ref_str = Ref.string_of self in
@@ -187,14 +187,14 @@ let forget ~__context ~self =
       let pending = List.map ip_of_str pending in
       let result = Cluster_client.LocalClient.declare_dead (rpc ~__context) dbg pending in
       match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
-      | Result.Ok () ->
+      | Ok () ->
         debug "Successfully forgot permanently dead hosts, setting pending forget to empty";
         Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:[];
         (* must not disable the daemon here, because we declared another unreachable node dead,
          * not the current one *)
         Db.Cluster_host.destroy ~__context ~self;
         debug "Cluster_host.forget was successful"
-      | Result.Error error ->
+      | Error error ->
         warn "Error encountered when declaring dead cluster_host %s (did you declare all dead hosts yet?)" (Ref.string_of self);
         handle_error error
     )
@@ -222,10 +222,10 @@ let enable ~__context ~self =
       end;
       let result = Cluster_client.LocalClient.enable (rpc ~__context) dbg init_config in
       match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
-      | Result.Ok () ->
+      | Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:true;
         debug "Cluster_host.enable was successful for cluster_host: %s" (Ref.string_of self)
-      | Result.Error error ->
+      | Error error ->
         warn "Error encountered when enabling cluster_host %s" (Ref.string_of self);
         handle_error error
     )
@@ -239,10 +239,10 @@ let disable ~__context ~self =
 
       let result = Cluster_client.LocalClient.disable (rpc ~__context) dbg in
       match Idl.IdM.run @@ (Cluster_client.IDL.T.get result) with
-      | Result.Ok () ->
+      | Ok () ->
         Db.Cluster_host.set_enabled ~__context ~self ~value:false;
         debug "Cluster_host.disable was successful for cluster_host: %s" (Ref.string_of self)
-      | Result.Error error ->
+      | Error error ->
         warn "Error encountered when disabling cluster_host %s" (Ref.string_of self);
         handle_error error
     )
