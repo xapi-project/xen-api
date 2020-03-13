@@ -113,10 +113,11 @@ module D=Debug.Make(struct let name="api_server" end)
 open D
 
 (** Forward a call to the master *)
-let forward req rpc =
+let forward req call is_json =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } rpc
+  let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
+  rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } call
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
@@ -159,7 +160,7 @@ let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd call =
      ((Context.is_unix_socket fd && not whitelisted) ||
       (is_himn_req req && not emergency_call))
   then
-    forward req call
+    forward req call is_json
   else
     let response = Server.dispatch_call req fd call in
     let translated =
