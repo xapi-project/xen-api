@@ -357,6 +357,15 @@ module XMLRPC = struct
   let request_to_short_string x = x.Rpc.name
 end
 
+module JSONRPC = struct
+  type response = Rpc.response
+  let response_of_string x = Jsonrpc.response_of_string x
+  let response_of_file_descr fd = Jsonrpc.response_of_in_channel (Unix.in_channel_of_descr fd)
+  type request = Rpc.call
+  let request_to_string x = Jsonrpc.string_of_call x
+  let request_to_short_string x = x.Rpc.name
+end
+
 module Protocol = functor(F: FORMAT) -> struct
   (** Take an optional content_length and task_id together with a socket
       		and return the XMLRPC response as an XML document *)
@@ -381,7 +390,5 @@ end
 
 module XML_protocol = Protocol(XML)
 module XMLRPC_protocol = Protocol(XMLRPC)
-
-
-
+module JSONRPC_protocol = Protocol(JSONRPC)
 

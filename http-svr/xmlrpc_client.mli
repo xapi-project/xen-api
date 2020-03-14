@@ -80,6 +80,16 @@ module XMLRPC_protocol : sig
   val rpc : ?srcstr:string -> ?dststr:string -> transport:transport -> http:Http.Request.t -> Rpc.call -> Rpc.response
 end
 
+module JSONRPC_protocol : sig
+  (** Functions for handling HTTP/JSONRPC *)
+
+  (** [read_response r fd] returns the response from [fd] given HTTP request [r] *)
+  val read_response : Http.Response.t -> Unix.file_descr -> Rpc.response
+
+  (** [rpc transport http call] sends [call] and returns the result *)
+  val rpc : ?srcstr:string -> ?dststr:string -> transport:transport -> http:Http.Request.t -> Rpc.call -> Rpc.response
+end
+
 module Internal : sig
   (** Internal functions should not be used by clients directly *)
 
