@@ -147,6 +147,7 @@ let gen_client highapi =
           "open Rpc";
           "module type RPC = sig val rpc: Rpc.t -> Rpc.t end";
           "module type IO = sig type 'a t val bind : 'a t -> ('a -> 'b t) -> 'b t val return : 'a -> 'a t end";
+          "module type AsyncQualifier = sig val async_qualifier : string end";
           "";
           "let server_failure code args = raise (Api_errors.Server_error (code, args))";
         ];

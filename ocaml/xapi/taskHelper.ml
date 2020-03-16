@@ -186,20 +186,21 @@ let exn_if_cancelling ~__context =
   if is_cancelling ~__context
   then raise_cancelled ~__context
 
+let cancel_this ~__context ~self =
+  assert_op_valid ~__context self;
+  let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+  if status = `pending then begin
+    Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
+    Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.of_float (Unix.time()));
+    Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled;
+    Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
+  end else
+    debug "the status of %s is %s; cannot set it to `cancelled"
+      (Ref.really_pretty_and_small self)
+      (status_to_string status)
+
 let cancel ~__context =
-  operate_on_db_task ~__context
-    (fun self ->
-       assert_op_valid ~__context self;
-       let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
-       if status = `pending then begin
-         Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1.;
-         Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.of_float (Unix.time()));
-         Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled;
-         Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
-       end else
-         debug "the status of %s is %s; cannot set it to `cancelled"
-           (Ref.really_pretty_and_small self)
-           (status_to_string status))
+  operate_on_db_task ~__context (fun self -> cancel_this ~__context ~self)
 
 let failed ~__context exn =
   let code, params = ExnHelper.error_of_exn exn in

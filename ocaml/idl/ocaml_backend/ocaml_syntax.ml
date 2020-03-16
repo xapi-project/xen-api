@@ -77,33 +77,45 @@ end
 
 module Module = struct
   type e = Let of Let.t | Module of t | Type of Type.t
-  and t = { name: string;     (** OCaml module name *)
-            preamble: string list; (** Convenient place for helper functions, opens etc *)
-            letrec: bool;     (** True for all the let bindings to be mutually recursive*)
-            args: string list; (** for functor *)
+  and t = { name: string;           (** OCaml module name *)
+            preamble: string list;  (** Convenient place for helper functions, opens etc *)
+            postamble: string list; (** Placed after all the auto-generated code *)
+            letrec: bool;           (** True for all the let bindings to be mutually recursive*)
+            args: string list;      (** for functor *)
             elements: e list }
 
-  let make ?(preamble=[]) ?(letrec=false) ?(args=[]) ~name ~elements () =
-    { name = name; preamble = preamble; letrec = letrec;
-      args = args; elements = elements }
+  let make ?(preamble=[]) ?(letrec=false) ?(args=[]) ?(postamble=[]) ~name ~elements () =
+    { name
+    ; preamble
+    ; postamble
+    ; letrec
+    ; args
+    ; elements }
 
   let rec items_of x =
-    let e = function
-      | Let y -> Let.items_of ~prefix:(if x.letrec then "and" else "let") y
-      | Module x -> items_of x
-      | Type x -> [ Type.item_of x ] in
-    let opening = "module " ^ x.name ^ " = " ^
-                  (if x.args = []
-                   then ""
-                   else String.concat " " (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)) ^
-                  "struct" in
-    [ Line opening;
-      Indent  (
-        List.map (fun x -> Line x) x.preamble @
-        ( if x.letrec then [ Line "let rec __unused () = ()" ] else [] ) @
-        (List.concat (List.map e x.elements))
-      );
-      Line "end" ]
+    match x.preamble, x.elements with
+    | [], [] -> [] (* if there's nothing in the module, don't bother making it *)
+    | _, _   ->
+      let e = function
+        | Let y -> Let.items_of ~prefix:(if x.letrec then "and" else "let") y
+        | Module x -> items_of x
+        | Type x -> [ Type.item_of x ] in
+      let opening = "module " ^ x.name ^ " = " ^
+                    (if x.args = []
+                     then ""
+                     else String.concat " " (List.map (fun x -> "functor(" ^ x ^ ") ->") x.args)) ^
+                    "struct" in
+      let indent = List.concat
+        [ List.map (fun x -> Line x) x.preamble
+        ; ( if x.letrec then [ Line "let rec __unused () = ()" ] else [] )
+        ; (List.concat (List.map e x.elements))
+        ; List.map (fun x -> Line x) x.postamble
+        ]
+      in
+      [ Line opening
+      ; Indent indent
+      ; Line "end"
+      ]
 
   let strings_of x = List.map string_of_item (items_of x)
 end
