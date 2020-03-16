@@ -161,7 +161,7 @@ let random_setup () =
 
 let register_callback_fns() =
   let fake_rpc req sock xml : Rpc.response =
-    Api_server.callback1 false req sock None xml in
+    Api_server.callback1 false req sock xml in
   Helpers.rpc_fun := Some fake_rpc;
   let set_stunnelpid task_opt pid =
     Locking_helpers.Thread_state.acquired (Locking_helpers.Process("stunnel", pid)) in

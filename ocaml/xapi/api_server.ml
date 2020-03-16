@@ -113,10 +113,11 @@ module D=Debug.Make(struct let name="api_server" end)
 open D
 
 (** Forward a call to the master *)
-let forward req body rpc =
+let forward req call is_json =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } rpc
+  let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
+  rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } call
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
@@ -143,7 +144,7 @@ let json_of_error_object ?(data=None) code message =
 
 
 (* This bit is called directly by the fake_rpc callback *)
-let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd body call =
+let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd call =
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
@@ -159,7 +160,7 @@ let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd body call =
      ((Context.is_unix_socket fd && not whitelisted) ||
       (is_himn_req req && not emergency_call))
   then
-    forward req body call
+    forward req call is_json
   else
     let response = Server.dispatch_call req fd call in
     let translated =
@@ -186,7 +187,7 @@ let callback is_json req bio _ =
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
   try
     let rpc = Xmlrpc.call_of_string body in
-    let response = callback1 is_json req fd (Some body) rpc in
+    let response = callback1 is_json req fd rpc in
     let response_str =
       if rpc.Rpc.name = "system.listMethods"
       then
@@ -215,7 +216,7 @@ let jsoncallback req bio _ =
   try
     let json_rpc_version, id, rpc = Jsonrpc.version_id_and_call_of_string body in
     let response = Jsonrpc.string_of_response ~id ~version:json_rpc_version
-        (callback1 ~json_rpc_version true req fd (Some body) rpc) in
+        (callback1 ~json_rpc_version true req fd rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
                                       "Access-Control-Allow-Origin", "*";
                                       "Access-Control-Allow-Headers", "X-Requested-With"] fd
