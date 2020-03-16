@@ -122,12 +122,18 @@ let invalid_keys_tests =
   invalid_private_keys
 
 let test_valid_cert cert time pkey () =
-  validate_certificate Leaf cert time pkey
+  let _leaf:X509.Certificate.t = validate_certificate Leaf cert time pkey in
+  ()
 
 let test_invalid_cert cert time pkey error reason () =
   Alcotest.check_raises ""
     (server_error error reason)
-    (fun () -> validate_certificate Leaf cert time pkey)
+    (fun () ->
+      let _leaf:X509.Certificate.t =
+        validate_certificate Leaf cert time pkey
+      in
+      ()
+    )
 
 let load_pkcs8 name =
   X509.Private_key.decode_pem (Cstruct.of_string (load_test_data name))
@@ -160,7 +166,12 @@ let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
   let test_cert = load_pkcs8 pkey_name >>| fun pkey ->
     let test () = Alcotest.check_raises ""
       (server_error error reason)
-      (fun () -> validate_certificate Leaf cert time pkey)
+      (fun () ->
+        let _leaf:X509.Certificate.t =
+          validate_certificate Leaf cert time pkey
+        in
+        ()
+      )
     in
     test
   in
@@ -180,12 +191,18 @@ let invalid_leaf_cert_tests =
   List.map test_invalid_leaf_cert invalid_leaf_certificates
 
 let test_valid_cert_chain chain time pkey () =
-  validate_certificate Chain chain time pkey
+  let _leaf:X509.Certificate.t = validate_certificate Chain chain time pkey in
+  ()
 
 let test_invalid_cert_chain cert time pkey error reason () =
   Alcotest.check_raises ""
     (server_error error reason)
-    (fun () -> validate_certificate Chain cert time pkey)
+    (fun () ->
+      let _leaf:X509.Certificate.t =
+        validate_certificate Chain cert time pkey
+      in
+      ()
+    )
 
 let valid_chain_cert_tests =
   let time = time_of_rfc3339 "2020-02-01T00:00:00+00:00" in
@@ -215,6 +232,23 @@ let invalid_chain_cert_tests =
     "Validation of an unsupported certificate chain", `Quick, test_cert)
   corrupt_chain_certificates
 
+let hashables =
+  [ "foobar",
+    "C3:AB:8F:F1:37:20:E8:AD:90:47:DD:39:46:6B:3C:89:74:E5:92:C2:FA:38:3D:4A:39:60:71:4C:AE:F0:C4:F2"
+  ]
+
+let pp_hash_test =
+  List.map (fun (hashable, expected) ->
+    let test_hash () =
+      let digest = Cstruct.of_string hashable
+      |> Nocrypto.Hash.digest `SHA256
+      in
+      Alcotest.(check string) "fingerprints must match" expected (Certificates.pp_hash digest)
+    in
+    Printf.sprintf {|Validation of hash printing of "%s"|} hashable,
+    `Quick, Ok test_hash)
+  hashables
+
 let load_test = function
   | name, speed, Ok test ->
       name, speed, test
@@ -224,6 +258,7 @@ let load_test = function
 
 let all_tests = valid_keys_tests @ invalid_keys_tests @
                 valid_leaf_cert_tests @ invalid_leaf_cert_tests @
-                valid_chain_cert_tests @ invalid_chain_cert_tests
+                valid_chain_cert_tests @ invalid_chain_cert_tests @
+                pp_hash_test
 
 let test = List.map load_test all_tests

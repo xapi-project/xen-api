@@ -407,7 +407,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"certificate_install"
-      ~doc:"Install an SSL certificate pool-wide."
+      ~doc:"Install a TLS CA certificate, pool-wide."
       ~params:[String, "name", "A name to give the certificate";
                String, "cert", "The certificate"]
       ~allowed_roles:_R_POOL_OP
@@ -417,7 +417,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"certificate_uninstall"
-      ~doc:"Remove an SSL certificate."
+      ~doc:"Remove a pool-wide TLS CA certificate."
       ~params:[String, "name", "The certificate name"]
       ~allowed_roles:_R_POOL_OP
       ()
@@ -426,7 +426,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"certificate_list"
-      ~doc:"List all installed SSL certificates."
+      ~doc:"List the names of all installed TLS CA certificates."
       ~result:(Set(String),"All installed certificates")
       ~allowed_roles:_R_POOL_OP
       ()
@@ -435,7 +435,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"crl_install"
-      ~doc:"Install an SSL certificate revocation list, pool-wide."
+      ~doc:"Install a TLS Certificate Revocation List, pool-wide."
       ~params:[String, "name", "A name to give the CRL";
                String, "cert", "The CRL"]
       ~allowed_roles:_R_POOL_OP
@@ -445,7 +445,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"crl_uninstall"
-      ~doc:"Remove an SSL certificate revocation list."
+      ~doc:"Remove a pool-wide TLS Certificate Revocation List."
       ~params:[String, "name", "The CRL name"]
       ~allowed_roles:_R_POOL_OP
       ()
@@ -454,8 +454,8 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"crl_list"
-      ~doc:"List all installed SSL certificate revocation lists."
-      ~result:(Set(String), "All installed CRLs")
+      ~doc:"List the names of all installed TLS Certificate Revocation Lists."
+      ~result:(Set(String), "The names of all installed CRLs")
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -463,7 +463,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"certificate_sync"
-      ~doc:"Sync SSL certificates from master to slaves."
+      ~doc:"Copy the TLS CA certificates and CRLs of the master to all slaves."
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -729,7 +729,7 @@ open Datamodel_types
          ; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "wlb_username" "Username for accessing the workload balancing host"
          ; field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password" "Password for accessing the workload balancing host"
          ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
-         ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce SSL certificate verification."
+         ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce TLS certificate verification."
          ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
          ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef null_ref)) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
          ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"

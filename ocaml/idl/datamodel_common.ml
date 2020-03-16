@@ -8,7 +8,7 @@ open Datamodel_roles
               When introducing a new release, bump the schema minor version to the next hundred
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
-let schema_minor_vsn = 504
+let schema_minor_vsn = 600
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -199,6 +199,12 @@ let get_product_releases in_product_since =
     | x::xs when code_name_of_release x = in_product_since -> "closed"::in_product_since::(List.map code_name_of_release xs)
     | x::xs -> go_through_release_order xs
   in go_through_release_order release_order
+
+let stockholm_release =
+  { internal = get_product_releases rel_stockholm
+  ; opensource = get_oss_releases None
+  ; internal_deprecated_since = None
+  }
 
 let quebec_release =
   { internal = get_product_releases rel_quebec

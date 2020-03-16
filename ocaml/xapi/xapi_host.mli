@@ -195,6 +195,22 @@ val crl_uninstall : __context:'a -> host:'b -> name:string -> unit
 val crl_list : __context:'a -> host:'b -> string list
 val certificate_sync : __context:'a -> host:'b -> unit
 val get_server_certificate : __context:'a -> host:'b -> string
+val install_server_certificate :
+  __context:Context.t ->
+  host:[ `host ] Ref.t ->
+  certificate:string ->
+  private_key:string ->
+  certificate_chain:string ->
+  unit
+(** Installs a server certificate to a host.
+    Some sanity checks are run before the installation to prevent some cases
+    of broken pools. e.g. the certificate's public key must match the private
+    key.
+    After the installation is successful all stunnel instances are restarted,
+    expect to the connection used to make this call to be dropped if it's
+    remote. This is done to refresh the server certificate used in the
+    connections. *)
+
 val detect_nonhomogeneous_external_auth_in_host :
   __context:Context.t -> host:API.ref_host -> unit
 val enable_external_auth :
