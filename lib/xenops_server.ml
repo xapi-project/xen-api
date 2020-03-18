@@ -617,7 +617,7 @@ module Worker = struct
     Mutex.execute t.m
       (fun () ->
          assert (t.state = Shutdown);
-         Opt.iter Thread.join t.t
+         Option.iter Thread.join t.t
       )
 
   let is_active t =
@@ -876,7 +876,7 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
   (* Remap VDIs *)
   debug "Remapping normal VDIs";
 
-  let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) vbds in
+  let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Option.map (remap_vdi vdi_map) vbd.Vbd.backend}) vbds in
 
   {
     Metadata.vm = vm_t;
@@ -968,7 +968,7 @@ let rec atomics_of_operation = function
     ; List.map (fun (ty, vbds) ->
         Parallel (id, (Printf.sprintf "VBD.epoch_begin %s vm=%s" ty id),
           List.filter_map (fun vbd ->
-            Opt.map (fun x -> VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)) vbd.Vbd.backend
+            Option.map (fun x -> VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)) vbd.Vbd.backend
           ) vbds
         )
       ) ["RW", vbds_rw; "RO", vbds_ro]
@@ -998,7 +998,7 @@ let rec atomics_of_operation = function
     let vifs = VIF_DB.vifs id in
     let pcis = PCI_DB.pcis id in
     let vusbs = VUSB_DB.vusbs id in
-    [ Opt.default [] (Opt.map (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout)
+    [ Option.value ~default:[] (Option.map (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout)
       (* Before shutting down a VM, we need to unplug its VUSBs. *)
     ; List.map (fun vusb -> VUSB_unplug vusb.Vusb.id) vusbs
     ; [
@@ -1060,7 +1060,7 @@ let rec atomics_of_operation = function
     ; [
         Parallel (id, (Printf.sprintf "VBD.epoch_end vm=%s" id),
           List.filter_map (fun vbd ->
-            Opt.map (fun x -> VBD_epoch_end (vbd.Vbd.id, x)) vbd.Vbd.backend
+            Option.map (fun x -> VBD_epoch_end (vbd.Vbd.id, x)) vbd.Vbd.backend
           ) vbds)
       ]
     ; List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false)) vbds
@@ -1078,7 +1078,7 @@ let rec atomics_of_operation = function
       else
         Xenops_hooks.reason__clean_reboot
     in
-    [ Opt.default [] (Opt.map (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout)
+    [ Option.value ~default:[] (Option.map (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout)
     ; [
         VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)
       ]
@@ -1086,7 +1086,7 @@ let rec atomics_of_operation = function
     ; [
         Parallel (id, (Printf.sprintf "VBD.epoch_end vm=%s" id),
           List.filter_map (fun vbd ->
-            Opt.map (fun x -> VBD_epoch_end (vbd.Vbd.id, x)) vbd.Vbd.backend
+            Option.map (fun x -> VBD_epoch_end (vbd.Vbd.id, x)) vbd.Vbd.backend
           ) vbds)
       ]
     ; [
@@ -1449,7 +1449,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     VM_DB.signal id;
     (match result with None -> () | Some r -> r := Some res)
   | VM_set_domain_action_request (id, dar) ->
-    debug "VM.set_domain_action_request %s %s" id (Opt.default "None" (Opt.map (fun x -> x |> rpc_of domain_action_request |> Jsonrpc.to_string) dar));
+    debug "VM.set_domain_action_request %s %s" id (Option.value ~default:"None" (Option.map (fun x -> x |> rpc_of domain_action_request |> Jsonrpc.to_string) dar));
     B.VM.set_domain_action_request (VM_DB.read_exn id) dar
   | VM_create_device_model (id, save_state) -> begin
       debug "VM.create_device_model %s" id;
@@ -1468,7 +1468,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     debug "VM.destroy %s" id;
     B.VM.destroy t (VM_DB.read_exn id)
   | VM_create (id, memory_upper_bound, final_id, no_sharept) ->
-    debug "VM.create %s memory_upper_bound = %s" id (Opt.default "None" (Opt.map Int64.to_string memory_upper_bound));
+    debug "VM.create %s memory_upper_bound = %s" id (Option.value ~default:"None" (Option.map Int64.to_string memory_upper_bound));
     B.VM.create t memory_upper_bound (VM_DB.read_exn id) final_id no_sharept
   | VM_build (id,force) ->
     debug "VM.build %s" id;
@@ -1924,7 +1924,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
 
         debug "VM.receive_memory restoring VM";
         (* Check if there is a separate vGPU data channel *)
-        let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
+        let vgpu_info = Hashtbl.find_opt vgpu_receiver_sync id in
         let pcis = PCI_DB.pcis id |> pci_plug_order in
         let vgpu_start_operations =
         match VGPU_DB.ids id with
@@ -1940,13 +1940,13 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
         in
         perform_atomics (List.concat
           [ vgpu_start_operations
-          ; [ VM_restore (id, FD s, Opt.map (fun x -> FD x.vgpu_fd) vgpu_info) ]
+          ; [ VM_restore (id, FD s, Option.map (fun x -> FD x.vgpu_fd) vgpu_info) ]
           ]) t;
         debug "VM.receive_memory restore complete";
       ) (fun ()->
         (* Tell the vGPU receive thread that we're done, so that it can clean up vgpu_receiver_sync id and terminate *)
-        let vgpu_info = Stdext.Opt.of_exception (fun () -> Hashtbl.find vgpu_receiver_sync id) in
-        Opt.iter (fun x -> Event.send x.vgpu_channel () |> Event.sync) vgpu_info;
+        let vgpu_info = Hashtbl.find_opt vgpu_receiver_sync id in
+        Option.iter (fun x -> Event.send x.vgpu_channel () |> Event.sync) vgpu_info;
       );
       debug "VM.receive_memory: Synchronisation point 2";
 
@@ -2026,7 +2026,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let operations_of_request = function
         | Needs_unplug -> Some (Atomic(PCI_unplug id))
         | Needs_set_qos -> None in
-      let operations = List.filter_map operations_of_request (Opt.to_list request) in
+      let operations = List.filter_map operations_of_request (Option.to_list request) in
       List.iter (fun x -> perform_exn x t) operations
     | VBD_check_state id ->
       debug "VBD.check_state %s" (VBD_DB.string_of_id id);
@@ -2042,7 +2042,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let operations_of_request = function
         | Needs_unplug -> Some (Atomic(VBD_unplug (id, true)))
         | Needs_set_qos -> Some (Atomic(VBD_set_qos id)) in
-      let operations = List.filter_map operations_of_request (Opt.to_list request) in
+      let operations = List.filter_map operations_of_request (Option.to_list request) in
       List.iter (fun x -> perform_exn x t) operations;
       (* Needed (eg) to reflect a spontaneously-ejected CD *)
       VBD_DB.signal id
@@ -2057,7 +2057,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let operations_of_request = function
         | Needs_unplug -> Some (Atomic(VIF_unplug (id, true)))
         | Needs_set_qos -> None in
-      let operations = List.filter_map operations_of_request (Opt.to_list request) in
+      let operations = List.filter_map operations_of_request (Option.to_list request) in
       List.iter (fun x -> perform_exn x t) operations
     | VUSB_check_state id ->
       debug "VUSB.check_state %s" (VUSB_DB.string_of_id id);
@@ -2073,7 +2073,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
       let operations_of_request = function
         | Needs_unplug -> Some (Atomic(VUSB_unplug id))
         | Needs_set_qos -> None in
-      let operations = List.filter_map operations_of_request (Opt.to_list request) in
+      let operations = List.filter_map operations_of_request (Option.to_list request) in
       List.iter (fun x -> perform_exn x t) operations;
       VUSB_DB.signal id
     | Atomic op ->
@@ -2564,7 +2564,7 @@ module VM = struct
          | Some transferred_fd ->
            let op = VM_receive_memory(id, final_id, memory_limit, transferred_fd) in
            let task = Some (queue_operation dbg id op) in
-           Opt.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
+           Option.iter (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore) task
          | None ->
            let headers = Cohttp.Header.of_list [
                "User-agent", "xenopsd"
@@ -2716,7 +2716,7 @@ module VM = struct
          let (_: Pci.id list) = List.map PCI.add' pcis in
          let (_: Vgpu.id list) = List.map VGPU.add' vgpus in
          let (_: Vusb.id list) = List.map VUSB.add' vusbs in
-         md.Metadata.domains |> Opt.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
+         md.Metadata.domains |> Option.iter (B.VM.set_internal_state (VM_DB.read_exn vm));
          vm
       ) ()
 end
@@ -2745,7 +2745,6 @@ module UPDATES = struct
   let get _ dbg last timeout =
     Debug.with_thread_associated dbg
       (fun () ->
-         (* debug "UPDATES.get %s %s" (Opt.default "None" (Opt.map string_of_int last)) (Opt.default "None" (Opt.map string_of_int timeout)); *)
          Updates.get dbg last timeout updates
       ) ()
 

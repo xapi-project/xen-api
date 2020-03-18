@@ -599,7 +599,7 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
 
   (* Remove our reference to the /vm/<uuid> directory *)
   let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
-  Opt.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
+  Option.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
 
   (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid>
      	 * and all the backend device paths *)

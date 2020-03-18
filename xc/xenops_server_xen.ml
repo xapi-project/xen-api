@@ -485,7 +485,7 @@ module Mem = struct
 
   (** Reserve a particular amount of memory and return a reservation id *)
   let reserve_memory_range_exn dbg min max =
-    Opt.map
+    Option.map
       (fun session_id ->
          let reservation_id, reserved_memory  =
            retry
@@ -503,11 +503,11 @@ module Mem = struct
       ) (get_session_id dbg)
 
   let reserve_memory_range dbg min max : (int64 * (string * int64)) option =
-    wrap (fun () -> reserve_memory_range_exn dbg min max) |> Opt.join
+    wrap (fun () -> reserve_memory_range_exn dbg min max) |> Option.join
 
   (** Delete a reservation given by [reservation_id] *)
   let delete_reservation_exn dbg (reservation_id, _) =
-    Opt.map
+    Option.map
       (fun session_id ->
          debug "delete_reservation %s" reservation_id;
          Client.delete_reservation dbg session_id reservation_id
@@ -519,7 +519,7 @@ module Mem = struct
   (** Reserves memory, passes the id to [f] and cleans up afterwards. If the user
       wants to keep the memory, then call [transfer_reservation_to_domain]. *)
   let with_reservation dbg min max f =
-    let amount, id = Opt.default (min, ("none", min)) (reserve_memory_range dbg min max) in
+    let amount, id = Option.value ~default:(min, ("none", min)) (reserve_memory_range dbg min max) in
     try
       f amount id
     with e ->
@@ -659,7 +659,7 @@ let device_by_id xc xs vm kind id =
     in
     try DeviceCache.get device_cache fetch_all_from_xenstore_f fetch_one_from_xenstore_f frontend_domid id
     with DeviceCache.NotFoundIn ids ->
-      debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Opt.default "None") ids));
+      debug "VM = %s; domid = %d; Device is not active: kind = %s; id = %s; active devices = [ %s ]" vm frontend_domid (Device_common.string_of_kind kind) id (String.concat ", " (List.map (Option.value ~default:"None") ids));
       raise (Xenopsd_error Device_not_connected)
 
 (* Extra keys to store in VBD backends to allow us to deactivate VDIs: *)
@@ -1031,13 +1031,13 @@ module VM = struct
       snd(List.fold_left (fun (idx, acc) mask ->
           idx + 1, ((Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask) :: acc)
         ) (0, []) masks) in
-    let weight = Opt.default [] (Opt.map
-                                   (fun (w, c) -> [
-                                        "vcpu/weight", string_of_int w;
-                                        "vcpu/cap", string_of_int c
-                                      ])
-                                   vm.scheduler_params.priority
-                                ) in
+    let weight = vm.scheduler_params.priority
+    |> Option.map (fun (w, c) ->
+        [ "vcpu/weight", string_of_int w
+        ; "vcpu/cap", string_of_int c
+        ])
+    |> Option.value ~default:[]
+    in
     let vcpus = [
       "vcpu/number", string_of_int vm.vcpu_max;
       "vcpu/current", string_of_int (match vm.ty with PVinPVH _ -> vm.vcpu_max | _ -> vm.vcpus);
@@ -1618,7 +1618,7 @@ module VM = struct
             }
           )
         in ()
-      ) (fun () -> Opt.iter Bootloader.delete !kernel_to_cleanup)
+      ) (fun () -> Option.iter Bootloader.delete !kernel_to_cleanup)
 
 
   let build_domain vm vbds vifs vgpus vusbs extras force xc xs task _ di =
@@ -1661,7 +1661,7 @@ module VM = struct
     debug "chosen qemu_dm = %s" (Device.Profile.wrapper_of qemu_dm);
     debug "chosen xenguest = %s" xenguest;
     try
-      Opt.iter (fun info ->
+      Option.iter (fun info ->
           match vm.Vm.ty with
           | Vm.HVM { Vm.qemu_stubdom } ->
             if qemu_stubdom then
@@ -2023,11 +2023,11 @@ module VM = struct
                halted_vm
            end
          | Some di ->
-           let vnc = Opt.map (function
+           let vnc = Option.map (function
                  | Device.Socket.Port port -> { Vm.protocol = Vm.Rfb; port = port; path = "" }
                  | Device.Socket.Unix path -> { Vm.protocol = Vm.Rfb; port = 0 ; path = path })
                (Device.get_vnc_port ~xs ~dm:(dm_of ~vm) di.Xenctrl.domid) in
-           let tc = Opt.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
+           let tc = Option.map (fun port -> { Vm.protocol = Vm.Vt100; port = port; path = "" })
                (Device.get_tc_port ~xs di.Xenctrl.domid) in
            let local x = Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x in
            let uncooperative = try ignore_string (xs.Xs.read (local "memory/uncooperative")); true with Xs_protocol.Enoent _ -> false in
@@ -2083,7 +2083,7 @@ module VM = struct
            {
              Vm.power_state = if di.Xenctrl.paused then Paused else Running;
              domids = [ di.Xenctrl.domid ];
-             consoles = Opt.to_list vnc @ (Opt.to_list tc);
+             consoles = Option.to_list vnc @ (Option.to_list tc);
              uncooperative_balloon_driver = uncooperative;
              guest_agent = guest_agent;
              pv_drivers_detected = begin match vme with
@@ -2636,7 +2636,7 @@ module VBD = struct
                  (fun () -> Device.Vbd.add task ~xc ~xs ~hvm:(domain_type = Vm.Domain_HVM) x frontend_domid) in
 
              (* We store away the disk so we can implement VBD.stat *)
-             Opt.iter (fun d -> xs.Xs.write (vdi_path_of_device ~xs dev) (d |> rpc_of disk |> Jsonrpc.to_string)) vbd.backend;
+             Option.iter (fun d -> xs.Xs.write (vdi_path_of_device ~xs dev) (d |> rpc_of disk |> Jsonrpc.to_string)) vbd.backend;
 
              (* NB now the frontend position has been resolved *)
              let open Device_common in
@@ -2660,7 +2660,7 @@ module VBD = struct
              (* Remember what we've just done *)
              (* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
                 we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
-             Opt.iter (fun q ->
+             Option.iter (fun q ->
                  let _ = DB.update_exn vm (fun vm_t ->
                      Some VmExtra.{persistent = { vm_t.VmExtra.persistent with
                          qemu_vbds = (vbd.Vbd.id, q) :: vm_t.persistent.qemu_vbds }
@@ -2703,7 +2703,7 @@ module VBD = struct
                | Error (`Msg m) -> raise (Xenopsd_error (Internal_error (Printf.sprintf "Failed to unmarshal VBD backend: %s" m)))
            in
 
-           Opt.iter
+           Option.iter
              (fun dev ->
                 if force && (not (Device.can_surprise_remove ~xs dev))
                 then debug
@@ -2716,14 +2716,14 @@ module VBD = struct
            (* We now have a shutdown device but an active DP: we should destroy the DP if the backend is of type VDI *)
            finally
              (fun () ->
-                Opt.iter
+                Option.iter
                   (fun dev ->
                      Xenops_task.with_subtask task (Printf.sprintf "Vbd.release %s" (id_of vbd))
                        (fun () -> Device.Vbd.release task ~xc ~xs dev);
                   ) dev;
                 (* If we have a qemu frontend, detach this too. *)
                 let _ = DB.update vm (
-                    Opt.map (fun vm_t ->
+                    Option.map (fun vm_t ->
                         let persistent = vm_t.VmExtra.persistent in
                         if List.mem_assoc vbd.Vbd.id persistent.VmExtra.qemu_vbds then begin
                           let _, qemu_vbd = List.assoc vbd.Vbd.id persistent.VmExtra.qemu_vbds in
@@ -2787,7 +2787,7 @@ module VBD = struct
   let set_qos task vm vbd =
     with_xc_and_xs
       (fun xc xs ->
-         Opt.iter (function
+         Option.iter (function
              | Ionice qos ->
                try
                  let (device: Device_common.device) = device_by_id xc xs vm (device_kind_of ~xs vbd) (id_of vbd) in
@@ -2808,7 +2808,7 @@ module VBD = struct
         (* Assume that all threads have the same QoS config, because that is how we set it above *)
         let kthread_pid = xs.Xs.read path |> int_of_string in
         let i = run !Xc_resources.ionice (Ionice.get_args kthread_pid) |> Ionice.parse_result_exn in
-        Opt.map (fun i -> Ionice i) i
+        Option.map (fun i -> Ionice i) i
       | [] -> None
     with
     | Ionice.Parse_failed x ->
@@ -3056,7 +3056,7 @@ module VIF = struct
                destroy device;
 
                DB.update vm (
-                 Opt.map (fun vm_t ->
+                 Option.map (fun vm_t ->
                      (* If we have a qemu frontend, detach this too. *)
                      if List.mem_assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs then begin
                        match (List.assoc vif.Vif.id vm_t.VmExtra.persistent.VmExtra.qemu_vifs) with
@@ -3345,7 +3345,7 @@ module Actions = struct
   (* CA-76600: the rtc/timeoffset needs to be maintained over a migrate. *)
   let store_rtc_timeoffset vm timeoffset =
     let _ = DB.update vm (
-        Opt.map (function { VmExtra.persistent } as extra ->
+        Option.map (function { VmExtra.persistent } as extra ->
           match persistent with
           | { VmExtra.ty = Some ( Vm.HVM hvm_info ) } ->
             let persistent = { persistent with VmExtra.ty = Some (Vm.HVM { hvm_info with Vm.timeoffset = timeoffset }) } in
@@ -3360,7 +3360,7 @@ module Actions = struct
 
   let maybe_update_pv_drivers_detected ~xc ~xs domid path =
     let vm = get_uuid ~xc domid |> Uuidm.to_string in
-    Opt.iter
+    Option.iter
       (function { VmExtra.persistent } ->
         try
           let value = xs.Xs.read path in
@@ -3391,7 +3391,7 @@ module Actions = struct
           in
           let updated =
             DB.update vm (
-              Opt.map (function { VmExtra.persistent } ->
+              Option.map (function { VmExtra.persistent } ->
                   let persistent = { persistent with VmExtra.pv_drivers_detected } in
                   VmExtra.{persistent}
                 )
@@ -3541,7 +3541,7 @@ module Actions = struct
           | x ->
             debug "Unknown device kind: '%s'" x;
             None in
-        Opt.iter (fun x -> Updates.add x internal_updates) update in
+        Option.iter (fun x -> Updates.add x internal_updates) update in
 
     let fire_event_on_qemu domid =
       let d = int_of_string domid in
@@ -3640,7 +3640,7 @@ module Actions = struct
       fire_event_on_vm domid
     | "vm" :: uuid :: "rtc" :: "timeoffset" :: [] ->
       let timeoffset = try Some (xs.Xs.read path) with _ -> None in
-      Opt.iter
+      Option.iter
         (fun timeoffset ->
            (* Store the rtc/timeoffset for migrate *)
            store_rtc_timeoffset uuid timeoffset;

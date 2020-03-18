@@ -467,7 +467,7 @@ is reassuringly simple:
 ```
 		if di.Xenctrl.total_memory_pages = 0n then raise (Domain_not_built);
 		Domain.unpause ~xc di.Xenctrl.domid;
-		Opt.iter
+		Option.iter
 			(fun stubdom_domid ->
 				Domain.unpause ~xc stubdom_domid
 			) (get_stubdom ~xs di.Xenctrl.domid)

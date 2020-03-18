@@ -256,7 +256,7 @@ let parse_backend_link x =
   | _ -> None
 
 let readdir ~xs d = try xs.Xs.directory d with Xs_protocol.Enoent _ -> []
-let to_list ys = List.concat (List.map Opt.to_list ys)
+let to_list ys = List.concat (List.map Option.to_list ys)
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
 (* NB: we only read data from the frontend directory. Therefore this gives

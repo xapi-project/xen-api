@@ -219,7 +219,7 @@ let release (task:Xenops_task.task_handle) ~xc ~xs (x: device) =
   let extra_xenserver_path = extra_xenserver_path_of_device xs x in
   Xs.transaction xs (fun t ->
       t.Xst.rm hotplug_path;
-      Opt.iter t.Xst.rm private_data_path;
+      Option.iter t.Xst.rm private_data_path;
       t.Xst.rm extra_xenserver_path
     )
 

@@ -22,7 +22,7 @@ open Forkhelpers
 let finally = Stdext.Pervasiveext.finally
 
 let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslogging) cmd args =
-  let stdinandpipes = Opt.map (fun str ->
+  let stdinandpipes = Option.map (fun str ->
       let (x,y) = Unix.pipe () in
       (str,x,y)) stdin in
   (* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise cancelled *)
@@ -30,7 +30,7 @@ let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslog
   finally (fun () ->
       match with_logfile_fd "execute_command_get_out" (fun out_fd ->
           with_logfile_fd "execute_command_get_err" (fun err_fd ->
-              let t = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) fds ~syslog_stdout cmd args in
+              let t = safe_close_and_exec ?env (Option.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) fds ~syslog_stdout cmd args in
               let done_waitpid = ref false in
               finally
                 (fun () ->
@@ -42,7 +42,7 @@ let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslog
                         try Unix.kill pid' Sys.sigkill with _ -> ()
                      )
                      (fun () ->
-                        Opt.iter (fun (str,_,wr) -> Unixext.really_write wr str 0 (String.length str)) stdinandpipes;
+                        Option.iter (fun (str,_,wr) -> Unixext.really_write wr str 0 (String.length str)) stdinandpipes;
                         done_waitpid := true;
                         snd (Forkhelpers.waitpid t)
                      )
@@ -66,4 +66,4 @@ let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslog
       | Success(_,Failure(_,exn))
       | Failure(_, exn) ->
         raise exn)
-    (fun () -> Opt.iter (fun (_,x,y) -> Unix.close x; Unix.close y) stdinandpipes)
+    (fun () -> Option.iter (fun (_,x,y) -> Unix.close x; Unix.close y) stdinandpipes)

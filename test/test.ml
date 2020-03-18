@@ -150,7 +150,7 @@ let vm_test_remove_missing _ =
     | Xenopsd_error Does_not_exist (_,_) -> None
     | e -> Some e
   in
-  Opt.iter raise exn
+  Option.iter raise exn
 
 let example_uuid = "c0ffeec0-ffee-c0ff-eec0-ffeec0ffeec0"
 
@@ -268,9 +268,9 @@ let vm_assert_equal vm vm' =
     assert_equal ~msg:"video_mib" ~printer:string_of_int h.video_mib h'.video_mib;
     assert_equal ~msg:"video" ~printer:(fun x -> x |> rpc_of_video_card |> Jsonrpc.to_string) h.video h'.video;
     assert_equal ~msg:"acpi" ~printer:string_of_bool h.acpi h'.acpi;
-    assert_equal ~msg:"serial" ~printer:(Opt.default "None") h.serial h'.serial;
-    assert_equal ~msg:"keymap" ~printer:(Opt.default "None") h.keymap h'.keymap;
-    assert_equal ~msg:"vnc_ip" ~printer:(Opt.default "None") h.vnc_ip h'.vnc_ip;
+    assert_equal ~msg:"serial" ~printer:(Option.value ~default:"None") h.serial h'.serial;
+    assert_equal ~msg:"keymap" ~printer:(Option.value ~default:"None") h.keymap h'.keymap;
+    assert_equal ~msg:"vnc_ip" ~printer:(Option.value ~default:"None") h.vnc_ip h'.vnc_ip;
     assert_equal ~msg:"pci_emulations" ~printer:(String.concat ";")  h.pci_emulations h'.pci_emulations;
     assert_equal ~msg:"pci_passthrough" ~printer:string_of_bool  h.pci_passthrough h'.pci_passthrough;
     assert_equal ~msg:"boot_order" ~printer:(fun x -> x) h.boot_order h'.boot_order;
@@ -278,7 +278,7 @@ let vm_assert_equal vm vm' =
   | (PV p|PVinPVH p), (PV p' | PVinPVH p') ->
     assert_equal ~msg:"framebuffer" ~printer:string_of_bool p.framebuffer p'.framebuffer;
     assert_equal ~msg:"vncterm" ~printer:string_of_bool p.vncterm p'.vncterm;
-    assert_equal ~msg:"vncterm_ip" ~printer:(Opt.default "None") p.vncterm_ip p'.vncterm_ip;
+    assert_equal ~msg:"vncterm_ip" ~printer:(Option.value ~default:"None") p.vncterm_ip p'.vncterm_ip;
     begin match p.boot, p'.boot with
       | Direct _, Indirect _
       | Indirect _, Direct _ -> failwith "pv-boot-ness"
@@ -643,7 +643,7 @@ module VbdDeviceTests = DeviceTests(struct
       let open Vbd in
       assert_equal ~msg:"id" ~printer:(fun (a, b) -> Printf.sprintf "%s.%s" a b) vbd.id vbd'.id;
       assert_equal ~msg:"mode" ~printer:(function ReadWrite -> "RW" | ReadOnly -> "RO") vbd.mode vbd'.mode;
-      assert_equal ~msg:"backend" ~printer:(fun x -> Opt.default "None" (Opt.map (fun x -> x |> rpc_of_disk |> Jsonrpc.to_string) x)) vbd.backend vbd'.backend;
+      assert_equal ~msg:"backend" ~printer:(fun x -> Option.value ~default:"None" (Option.map (fun x -> x |> rpc_of_disk |> Jsonrpc.to_string) x)) vbd.backend vbd'.backend;
       assert_equal ~msg:"unpluggable" ~printer:string_of_bool vbd.unpluggable vbd'.unpluggable;
       assert_equal ~msg:"extra_backend_keys" ~printer:sl vbd.extra_backend_keys vbd'.extra_backend_keys;
       assert_equal ~msg:"extra_private_keys" ~printer:sl vbd.extra_private_keys vbd'.extra_private_keys

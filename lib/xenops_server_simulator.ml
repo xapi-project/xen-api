@@ -63,7 +63,7 @@ let next_domid =
         next := Some (highest + 1);
         highest + 1
       | Some x -> x in
-  let incr_next () = next := Opt.map (fun x -> x + 1) !next in
+  let incr_next () = next := Option.map (fun x -> x + 1) !next in
   fun () ->
     let result = get_next () in
     incr_next ();
@@ -197,11 +197,11 @@ let add_vbd (vm: Vm.id) (vbd: Vbd.t) () =
   (* there shouldn't be any None values in here anyway *)
   let ps = List.map (fun vbd -> vbd.Vbd.position) d.Domain.vbds in
   assert (not (List.mem None ps));
-  let dns = List.map (Opt.unbox) ps in
+  let dns = List.map (Option.get) ps in
   let indices = List.map Device_number.to_disk_number dns in
   let next_index = List.fold_left max (-1) indices + 1 in
   let next_dn = Device_number.of_disk_number d.Domain.hvm next_index in
-  let this_dn = Opt.default next_dn vbd.Vbd.position in
+  let this_dn = Option.value ~default:next_dn vbd.Vbd.position in
   if List.mem this_dn dns then begin
     debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id);
     raise (Xenopsd_error (Already_exists("vbd", Device_number.to_debug_string this_dn)))
@@ -404,8 +404,8 @@ module VM = struct
 
   let generate_state_string _vm = ""
   let get_internal_state vdi_map vif_map vm =
-    let state = Opt.unbox (DB.read vm.Vm.id) in
-    let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Opt.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in
+    let state = Option.get (DB.read vm.Vm.id) in
+    let vbds = List.map (fun vbd -> {vbd with Vbd.backend = Option.map (remap_vdi vdi_map) vbd.Vbd.backend}) state.Domain.vbds in
     let vifs = List.map (fun vif -> remap_vif vif_map vif) state.Domain.vifs in
     {state with Domain.vbds = vbds; Domain.vifs = vifs} |> rpc_of Domain.t |> Jsonrpc.to_string
   let set_internal_state vm s =
