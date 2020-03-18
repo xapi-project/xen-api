@@ -14,13 +14,12 @@
 
 let project_url = "http://github.com/xapi-project/xenops-cli"
 
-open Common
 open Cmdliner
 
 (* Help sections common to all commands *)
 
 let _common_options = "COMMON OPTIONS"
-let help = [ 
+let help = [
   `S _common_options;
   `P "These options are common to all commands.";
   `S "MORE HELP";
@@ -29,16 +28,16 @@ let help = [
 ]
 
 (* Options common to all commands *)
-let common_options_t = 
-  let docs = _common_options in 
-  let debug = 
+let common_options_t =
+  let docs = _common_options in
+  let debug =
     let doc = "Give only debug output." in
     Arg.(value & flag & info ["debug"] ~docs ~doc) in
   let verb =
     let doc = "Give verbose output." in
-    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in 
-    Arg.(last & vflag_all [false] [verbose]) in 
-  let socket = 
+    let verbose = true, Arg.info ["v"; "verbose"] ~docs ~doc in
+    Arg.(last & vflag_all [false] [verbose]) in
+  let socket =
     let doc = Printf.sprintf "Specify path to the server Unix domain socket." in
     Arg.(value & opt file !Xenops_interface.default_path & info ["socket"] ~docs ~doc) in
   let queue =
@@ -79,7 +78,7 @@ let add_cmd =
     `S "DESCRIPTION";
     `P "Registers a new VM with the xenopsd service.";
   ] @ help in
-  let filename = 
+  let filename =
     let doc = Printf.sprintf "Path to the VM metadata to be registered." in
     Arg.(value & pos 0 (some file) None & info [] ~doc) in
   Term.(ret(pure Xn.add $ common_options_t $ filename)),
@@ -334,7 +333,7 @@ let cd_eject_cmd =
     let doc = "VBD id" in
     Arg.(value & pos 0 (some string) None & info [] ~doc) in
   Term.(ret (pure Xn.cd_eject $ common_options_t $ vbd)),
-  Term.info "cd-eject" ~sdocs:_common_options ~doc ~man  
+  Term.info "cd-eject" ~sdocs:_common_options ~doc ~man
 
 let stat_vm_cmd =
   let doc = "Query the runtime status of a running VM." in
@@ -348,8 +347,8 @@ let stat_vm_cmd =
   Term.(ret (pure Xn.stat_vm $ common_options_t $ vm)),
   Term.info "vm-stat" ~sdocs:_common_options ~doc ~man
 
-let default_cmd = 
-  let doc = "interact with the XCP xenopsd VM management service" in 
+let default_cmd =
+  let doc = "interact with the XCP xenopsd VM management service" in
   let man = help in
   Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
   Term.info "xenops-cli" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
@@ -361,6 +360,6 @@ let cmds = [list_cmd; create_cmd; add_cmd; remove_cmd; start_cmd; shutdown_cmd; 
 
 let _ =
   Xcp_client.use_switch := false;
-  match Term.eval_choice default_cmd cmds with 
+  match Term.eval_choice default_cmd cmds with
   | `Error _ -> exit 1
   | _ -> exit 0

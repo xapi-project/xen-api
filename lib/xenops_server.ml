@@ -1652,7 +1652,7 @@ and trigger_cleanup_after_failure_atom op t =
   | PCI_plug (id, _)
   | PCI_unplug id ->
     immediate_operation dbg (fst id) (PCI_check_state id)
-  | PCI_dequarantine addr -> ()
+  | PCI_dequarantine _ -> ()
 
   | VUSB_plug id
   | VUSB_unplug id ->
@@ -2174,7 +2174,7 @@ module PCI = struct
   let dequarantine _ dbg (pci_addr:Pci.address) =
     let module B = (val get_backend () : S) in
     let f () =
-      debug "PCI.dequarantine %s" B.PCI.(string_of_address pci_addr);
+      debug "PCI.dequarantine %s" (string_of_address pci_addr);
       B.PCI.dequarantine pci_addr
     in
     Debug.with_thread_associated dbg f ()

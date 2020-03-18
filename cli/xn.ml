@@ -173,7 +173,6 @@ let parse_pci vm_id (x, idx) = match Re.Str.split_delim (Re.Str.regexp "[,]") x 
       ) options in
     let bool_opt k opts =
       if List.mem_assoc k opts then Some (List.assoc k opts = "1") else None in
-    let open Pci in
     let open Xn_cfg_types in
     let msitranslate = bool_opt _msitranslate options in
     let power_mgmt = bool_opt _power_mgmt options in
@@ -193,18 +192,6 @@ let parse_pci vm_id (x, idx) = match Re.Str.split_delim (Re.Str.regexp "[,]") x 
   | _ ->
     Printf.fprintf stderr "Failed to parse PCI '%s'. It should be '[DDDD:]BB:VV.F[,option1[,option2]]'." x;
     exit 2
-
-let print_disk vbd =
-  let device_number = snd vbd.Vbd.id in
-  let mode = match vbd.Vbd.mode with
-    | Vbd.ReadOnly -> "r"
-    | Vbd.ReadWrite -> "w" in
-  let ty = match vbd.Vbd.ty with
-    | Vbd.CDROM -> ":cdrom"
-    | Vbd.Floppy -> ":floppy"
-    | Vbd.Disk -> "" in
-  let source = print_source vbd.Vbd.backend in
-  Printf.sprintf "%s,%s%s,%s" source device_number ty mode
 
 type disk_info = {
   id: string;
