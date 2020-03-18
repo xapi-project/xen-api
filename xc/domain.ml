@@ -602,7 +602,7 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
   Option.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
 
   (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid>
-     	 * and all the backend device paths *)
+   * and all the backend device paths *)
   debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid dom_path;
   xs.Xs.rm dom_path;
   xs.Xs.rm xenops_dom_path;
@@ -615,9 +615,9 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
   ) ["/backend"; "/xenserver/backend"];
 
   (* If all devices were properly un-hotplugged, then zap the private tree in
-     	 * xenstore.  If there was some error leave the tree for debugging / async
-     	 * cleanup.  If there are any remaining domains with the same UUID, then
-     	 * zap only the hotplug tree for the destroyed domain. *)
+   * xenstore.  If there was some error leave the tree for debugging / async
+   * cleanup.  If there are any remaining domains with the same UUID, then
+   * zap only the hotplug tree for the destroyed domain. *)
   if failed_devices = [] then begin
     if List.length other_domains < 1 then
       log_exn_rm ~xs (Device_common.get_private_path_by_uuid uuid)

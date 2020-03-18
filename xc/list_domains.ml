@@ -20,9 +20,9 @@ let bytes = ref false
 let pages = ref false
 let all_the_rest = ref false
 
-let xc_handle = Xenctrl.interface_open() 
+let xc_handle = Xenctrl.interface_open()
 
-let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t = 
+let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t =
   let table = Hashtbl.create 10 in
 
   let pages_to_string_bytes    x = Int64.to_string (Memory.bytes_of_pages    (Int64.of_nativeint (x))) in
@@ -32,8 +32,8 @@ let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t =
   let int = string_of_int and int64 = Int64.to_string and int32 = Int32.to_string in
   Hashtbl.add table "id" (int x.Xenctrl.domid);
   let state = let bool ch = function true -> ch | _ -> " " in
-    (bool "D" x.Xenctrl.dying) ^ (bool "S" x.Xenctrl.shutdown) ^ 
-    (bool "P" x.Xenctrl.paused) ^ (bool "B" x.Xenctrl.blocked) ^ 
+    (bool "D" x.Xenctrl.dying) ^ (bool "S" x.Xenctrl.shutdown) ^
+    (bool "P" x.Xenctrl.paused) ^ (bool "B" x.Xenctrl.blocked) ^
     (bool "R" x.Xenctrl.running) ^ (bool "H" x.Xenctrl.hvm_guest) in
   Hashtbl.add table "state" state;
   Hashtbl.add table "shutdown code" (int x.Xenctrl.shutdown_code);
@@ -60,8 +60,8 @@ let hashtbl_of_domaininfo (x: Xenctrl.domaininfo) : (string, string) Hashtbl.t =
   Hashtbl.add table "shadow MiB"   (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_mib  ));
   table
 
-let select table keys = 
-  List.map (fun key -> 
+let select table keys =
+  List.map (fun key ->
       if not(Hashtbl.mem table key) then failwith (Printf.sprintf "Failed to find key: %s" key);
       Hashtbl.find table key) keys
 

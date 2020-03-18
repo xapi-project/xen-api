@@ -80,35 +80,35 @@ let hotplugged ~xs (x: device) =
   try ignore(xs.Xs.read path); true with Xs_protocol.Enoent _ -> false
 
 (* The path in xenstore written to by the frontend hotplug scripts *)
-let frontend_status_node (x: device) = 
+let frontend_status_node (x: device) =
   sprintf "%s/frontend/%s/%d/hotplug" (get_private_path x.frontend.domid) (string_of_kind x.frontend.kind) x.frontend.devid
 
 (* CA-15605: node written to by tapdisk to report an error (eg opening .vhd files). *)
-let tapdisk_error_node ~xs (x: device) = 
+let tapdisk_error_node ~xs (x: device) =
   sprintf "%s/backend/%s/%d/%d/tapdisk-error" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.frontend.domid x.frontend.devid
 
 (* CA-39745: node written to by blkback to report an error (eg opening an empty CDROM drive) *)
-let blkback_error_node ~xs (x: device) = 
+let blkback_error_node ~xs (x: device) =
   sprintf "%s/error/backend/%s/%d/%d/error" (xs.Xs.getdomainpath x.backend.domid) (string_of_kind x.backend.kind) x.backend.domid x.frontend.devid
 
 (* Poll a device to see whether it is instantaneously "online" where "online" means
    "currently-attached" in the database. The event thread AND the startup code call
-   this function to resynchronise the state of the world with the database. 
+   this function to resynchronise the state of the world with the database.
    If we're called for a VIF backend we rely solely on the dom0 backend hotplug scripts.
-   If we're called for a VBD (blkback or blktap) then we first check to see if the 
+   If we're called for a VBD (blkback or blktap) then we first check to see if the
    shutdown has been requested but not completed: if so we consider the device online and
    expect the shutdown-done event to come later. If no shutdown-request node exists
-   (ie not an API-initiated hotunplug; this is start of day) then we check the state 
+   (ie not an API-initiated hotunplug; this is start of day) then we check the state
    of the backend hotplug scripts. *)
-let device_is_online ~xs (x: device) = 
-  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xs_protocol.Enoent _ -> false 
+let device_is_online ~xs (x: device) =
+  let backend_shutdown () = try ignore(xs.Xs.read (backend_shutdown_done_path_of_device ~xs x)); true with Xs_protocol.Enoent _ -> false
   and backend_request () = try ignore(xs.Xs.read (backend_shutdown_request_path_of_device ~xs x)); true with Xs_protocol.Enoent _ -> false in
 
   match x.backend.kind with
   | Pci | Vfs | Vkbd | Vfb | NetSriovVf -> assert false (* PCI backend doesn't create online node *)
   | Vif -> hotplugged ~xs x
   | ( Vbd _ | Tap ) ->
-    if backend_request () 
+    if backend_request ()
     then not(backend_shutdown ())
     else hotplugged ~xs x
 
@@ -116,7 +116,7 @@ let device_is_online ~xs (x: device) =
 let wait_for_plug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_plug: %s" (string_of_device x);
   try
-    Stats.time_this "udev backend add event" 
+    Stats.time_this "udev backend add event"
       (fun () ->
          let path = path_written_by_hotplug_scripts x in
          let error_path = error_path_written_by_hotplug_scripts x in
@@ -136,7 +136,7 @@ let wait_for_plug (task: Xenops_task.task_handle) ~xs (x: device) =
 let wait_for_unplug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_unplug: %s" (string_of_device x);
   try
-    Stats.time_this "udev backend remove event" 
+    Stats.time_this "udev backend remove event"
       (fun () ->
          let path = path_written_by_hotplug_scripts x in
          let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
@@ -154,7 +154,7 @@ let wait_for_frontend_plug (task: Xenops_task.task_handle) ~xs (x: device) =
     let tapdisk_error_watch = Watch.value_to_appear (tapdisk_error_node ~xs x) |> Watch.map (fun _ -> ()) in
     let blkback_error_watch = Watch.value_to_appear (blkback_error_node ~xs x) |> Watch.map (fun _ -> ()) in
     let cancel = Device x in
-    Stats.time_this "udev frontend add event" 
+    Stats.time_this "udev frontend add event"
       (fun () ->
          if cancellable_watch cancel [ ok_watch ] [ tapdisk_error_watch; blkback_error_watch ] task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
          then debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
@@ -174,7 +174,7 @@ let wait_for_frontend_unplug (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_frontend_unplug: %s" (string_of_device x);
   try
     let path = frontend_status_node x in
-    Stats.time_this "udev frontend remove event" 
+    Stats.time_this "udev frontend remove event"
       (fun () ->
          let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.key_to_disappear path) ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in
          ()
@@ -189,7 +189,7 @@ let wait_for_frontend_unplug (task: Xenops_task.task_handle) ~xs (x: device) =
 let wait_for_connect (task: Xenops_task.task_handle) ~xs (x: device) =
   debug "Hotplug.wait_for_connect: %s" (string_of_device x);
   try
-    Stats.time_this "device backend in state 2" 
+    Stats.time_this "device backend in state 2"
       (fun () ->
          let path = backend_state_path_of_device ~xs x in
          let (_: bool) = cancellable_watch (Device x) [ Watch.map (fun _ -> ()) (Watch.value_to_become path (Xenbus_utils.(string_of InitWait))) ] [] task ~xs ~timeout:!Xenopsd.hotplug_timeout () in

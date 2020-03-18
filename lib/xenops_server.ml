@@ -1838,7 +1838,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            in
 
            (* If we have a vGPU, kick off its migration process before
-              					 * starting the main VM migration sequence. *)
+            * starting the main VM migration sequence. *)
            match VGPU_DB.ids id with
            | [] ->
              first_handshake ();

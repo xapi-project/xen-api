@@ -48,7 +48,7 @@ let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslog
                      )
                 ) (fun () -> if not(!done_waitpid) then Forkhelpers.dontwaitpid t)
             )) with
-      | Success(out,Success(err,(status))) -> 
+      | Success(out,Success(err,(status))) ->
         begin
           match status with
           | Unix.WEXITED 0 -> (out,err)

@@ -55,7 +55,7 @@ type t = {
 }
 
 (** Helper function to generate a bootloader commandline *)
-let command bootloader q pv_bootloader_args image vm_uuid = 
+let command bootloader q pv_bootloader_args image vm_uuid =
   (* Let's not do anything fancy while parsing the pv_bootloader_args string:
      no escaping of spaces or quotes for now *)
   let pv_bootloader_args = if pv_bootloader_args = "" then [] else Astring.String.cuts ~sep:" " pv_bootloader_args in
@@ -78,7 +78,7 @@ let command bootloader q pv_bootloader_args image vm_uuid =
       vm;
       pv_bootloader_args;
       image;
-    ] in    
+    ] in
     path_of_bootloader Eliloader, List.concat args
   | None -> raise (Unknown_bootloader bootloader)
 

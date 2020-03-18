@@ -767,11 +767,11 @@ module HOST = struct
          (* Set X86_FEATURE_IBS in e1c for HVM guests *)
          features_hvm.(3) <- Int64.logor features_hvm.(3) 0x400L;
 
-	 let features_hvm_host = Array.copy features_hvm in
-	 let features_pv_host = Array.copy features_pv in
+         let features_hvm_host = Array.copy features_hvm in
+         let features_pv_host = Array.copy features_pv in
 
-	 upgrade_for_migration ~xc features_hvm;
-	 upgrade_for_migration ~xc features_pv;
+         upgrade_for_migration ~xc features_hvm;
+         upgrade_for_migration ~xc features_pv;
 
          let v = version xc in
          let xen_version_string = Printf.sprintf "%d.%d%s" v.major v.minor v.extra in
@@ -1256,7 +1256,7 @@ module VM = struct
          safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id);
       );
     (* Best-effort attempt to remove metadata - if VM has been powered off
-       * then it will have already been deleted by VM.destroy *)
+     * then it will have already been deleted by VM.destroy *)
     try DB.remove vm.Vm.id
     with Xenopsd_error (Does_not_exist("extra", _)) -> ()
 
