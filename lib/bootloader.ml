@@ -157,7 +157,7 @@ let sanity_check_path p = match p with
   | p when Filename.is_relative p ->
     raise (Bad_error ("Bootloader returned a relative path for kernel or ramdisk: "^p))
   | p ->
-    let canonical_path = Stdext.Unixext.resolve_dot_and_dotdot p in
+    let canonical_path = Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot p in
     match Filename.dirname canonical_path with
     | "/var/run/xen/pygrub" (* From pygrub, including when called by eliloader *)
     | "/var/run/xend/boot" (* From eliloader *)

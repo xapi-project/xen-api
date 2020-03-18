@@ -22,7 +22,7 @@ open D
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let domain_shutdown_ack_timeout = ref 60.
 
@@ -696,7 +696,7 @@ module Worker = struct
 end
 
 module WorkerPool = struct
-  module Date = Stdext.Date
+  module Date = Xapi_stdext_date.Date
 
   (* Store references to Worker.ts here *)
   let pool = ref []

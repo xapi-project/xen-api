@@ -91,7 +91,7 @@ let sample (name: string) (x: float) : unit =
 (** Helper function to time a specific thing *)
 let time_this (name: string) f =
   let start_time = Unix.gettimeofday () in
-  Stdext.Pervasiveext.finally f
+  Xapi_stdext_pervasives.Pervasiveext.finally f
     (fun () ->
        try
          let end_time = Unix.gettimeofday () in

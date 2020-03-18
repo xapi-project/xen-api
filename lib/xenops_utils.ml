@@ -13,9 +13,8 @@
  *)
 
 open Xenops_interface
-module Unixext = Stdext.Unixext
-module Opt = Stdext.Opt
-module Mutex = Stdext.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 

@@ -19,7 +19,7 @@ open D
 
 open Forkhelpers
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let run (task: Xenops_task.task_handle) ?env ?stdin fds ?(syslog_stdout=NoSyslogging) cmd args =
   let stdinandpipes = Option.map (fun str ->

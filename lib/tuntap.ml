@@ -4,7 +4,7 @@
 
 external _tap_open : string -> Unix.file_descr = "stub_tap_open"
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let tap_open ifname =
   try

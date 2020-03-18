@@ -29,7 +29,7 @@ let usage_and_exit () =
 
 let dbg = "test"
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let expect_exception pred f =
   let exn =

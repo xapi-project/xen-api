@@ -25,7 +25,7 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
   gic_version: int;
@@ -1534,7 +1534,7 @@ type suspend_flag = Live | Debug
       debug "Writing End_of_image footer(s)";
       progress_callback 1.;
       (* Close all streams *)
-      let fds = Stdext.Listext.List.setify (main_fd :: Opt.to_list vgpu_fd) in
+      let fds = Xapi_stdext_std.Listext.List.setify (main_fd :: Option.to_list vgpu_fd) in
       fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
     in (match res with
     | `Error e -> raise e

@@ -106,7 +106,7 @@ let handle_received_fd this_connection =
   debug "Calling recv_fd()";
   let len, _, received_fd = Fd_send_recv.recv_fd this_connection buf 0 msg_size [] in
   debug "recv_fd ok (len = %d)" len;
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        let req = Bytes.sub_string buf 0 len |> Jsonrpc.of_string |> Xenops_migrate.Forwarded_http_request.t_of_rpc in
        debug "Received request = [%s]\n%!" (req |> Xenops_migrate.Forwarded_http_request.rpc_of_t |> Jsonrpc.to_string);

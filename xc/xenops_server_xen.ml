@@ -26,7 +26,7 @@ open D
 
 module RRDD = Rrd_client.Client
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (* libxl_internal.h:DISABLE_UDEV_PATH *)
 let disable_udev_path = "libxl/disable_udev"
@@ -987,23 +987,7 @@ module VM = struct
               profile = profile_of ~vm;
     } |> rpc_of VmExtra.persistent_t |> Jsonrpc.to_string
 
-  let mkints n =
-    let rec loop a b = if a = b then [] else a :: (loop (a + 1) b) in
-    loop 0 n
-
-  (* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
-  (* ToDo: This is complicated enough to warrant a test. *)
-  (* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
-     Pro: Would mask fewer bugs.
-     Con: Less robust.
-     *)
-  let take n list =
-    let ($) f a = f a in
-    let rec helper i acc list =
-      if i <= 0 || list = []
-      then acc
-      else helper (i-1)  (List.hd list :: acc) (List.tl list)
-    in List.rev $ helper n [] list
+  let mkints n = List.init n Fun.id
 
   let generate_create_info ~xc ~xs vm persistent =
     let ty = match persistent.VmExtra.ty with | Some ty -> ty | None -> vm.ty in
@@ -1020,7 +1004,7 @@ module VM = struct
       | m :: ms ->
         (* Treat the first as the template for the rest *)
         let defaults = List.map (fun _ -> m) all_vcpus in
-        take vm.vcpu_max (m :: ms @ defaults) in
+        Xapi_stdext_std.Listext.List.take vm.vcpu_max (m :: ms @ defaults) in
     (* convert a mask into a binary string, one char per pCPU *)
     let bitmap cpus: string =
       let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
@@ -1897,7 +1881,7 @@ module VM = struct
               List.iter (Device.Vbd.hard_shutdown_wait task ~xs ~timeout:30.) vbds;
               debug "VM = %s; domid = %d; Disk backends have all been flushed" vm.Vm.id domid;
               List.iter (fun vbds_chunk ->
-                  Stdext.Threadext.thread_iter (fun device ->
+                  Xapi_stdext_threads.Threadext.thread_iter (fun device ->
                       let backend =
                         match Rpcmarshal.unmarshal typ_of_backend (Device.Generic.get_private_key ~xs device _vdi_id |> Jsonrpc.of_string) with
                         | Ok x -> x
@@ -3507,8 +3491,8 @@ module Actions = struct
       else begin
         let devices = IntMap.find domid !device_watches in
         let devices' = Device_common.list_frontends ~xs domid in
-        let old_devices = Stdext.Listext.List.set_difference devices devices' in
-        let new_devices = Stdext.Listext.List.set_difference devices' devices in
+        let old_devices = Xapi_stdext_std.Listext.List.set_difference devices devices' in
+        let new_devices = Xapi_stdext_std.Listext.List.set_difference devices' devices in
         List.iter (add_device_watch xs) new_devices;
         List.iter (remove_device_watch xs) old_devices;
       end in

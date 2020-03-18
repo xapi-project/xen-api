@@ -42,7 +42,7 @@ let check_domain0_uuid () =
   forget_client ()
 
 let make_var_run_xen () =
-  Stdext.Unixext.mkdir_rec Device_common.var_run_xen_path 0o0755
+  Xapi_stdext_unix.Unixext.mkdir_rec Device_common.var_run_xen_path 0o0755
 
 (* Start the program with the xen backend *)
 let _ =

@@ -105,7 +105,7 @@ let print_layout headers =
 module D = Debug.Make(struct let name = "suspend-image-viewer" end)
 
 let print_image path =
-  Stdext.Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
+  Xapi_stdext_unix.Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
       print_layout (parse_layout fd)
     )
 

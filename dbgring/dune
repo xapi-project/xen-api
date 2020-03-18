@@ -2,7 +2,19 @@
  (name dbgring)
  (public_name dbgring)
  (package xapi-xenopsd-xc)
- (libraries xapi-xenopsd xenctrl xenstore xenstore.unix
- xenstore_transport xenstore_transport.unix threads stdext xapi-idl.xen
- rpclib.core uutf xapi-idl rpclib.json)
+ (libraries
+   xapi-xenopsd
+   xenctrl
+   xenstore
+   xenstore.unix
+   xenstore_transport
+   xenstore_transport.unix
+   threads
+   xapi-idl.xen
+   rpclib.core
+   uutf
+   xapi-idl
+   rpclib.json
+   xapi-stdext-pervasives
+ )
 )

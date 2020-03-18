@@ -32,7 +32,7 @@ exception Cdrom
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct

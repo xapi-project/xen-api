@@ -85,7 +85,7 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
     cancelled := true;
     info "Cancelling task %s by killing xenguest subprocess pid: %d" (Xenops_task.id_of_handle task) pid;
     try Unix.kill pid Sys.sigkill with _ -> () in
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        Xenops_task.with_cancel task cancel_cb
          (fun () ->
