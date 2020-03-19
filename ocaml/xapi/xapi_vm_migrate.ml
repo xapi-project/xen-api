@@ -1255,7 +1255,7 @@ let assert_can_migrate  ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~v
       Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host:remote.dest_host ~snapshot ~do_sr_check:false ~do_cpuid_check ();
       if vif_map <> [] then
         raise (Api_errors.Server_error(Api_errors.operation_not_allowed, [
-          "VIF mapping is not allowed for intra-pool migration"; "all VIFs must be on the same network"]));
+          "VIF mapping is not allowed for intra-pool migration -all VIFs must be on the same network"]));
 
     | `cross_pool ->
       (* Prevent VMs from being migrated onto a host with a lower platform version *)
