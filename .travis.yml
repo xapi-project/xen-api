@@ -1,15 +1,14 @@
 language: c
-sudo: required
+os: linux
+dist: xenial
 services: docker
 script: bash ./.travis-$BUILD_METHOD.sh
 env:
-    matrix:
+    jobs:
         - BUILD_METHOD=xs-opam
         - BUILD_METHOD=python-nosetests
         - BUILD_METHOD=python-nosetests-3
-notifications:
-    slack: citrix:BHYQZbI8m036ELU21gZil75Y
-matrix:
+jobs:
     fast_finish: true
     allow_failures:
         - env: BUILD_METHOD=python-nosetests-3
