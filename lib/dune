@@ -1,27 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "bisect_ppx"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let runtime_coverage_enabled, coverage_dep =
-  let use_bisect_runtime =
-    match Sys.getenv "BISECT_RUNTIME" with
-    | "YES" -> true
-    | _ -> false
-    | exception Not_found -> false in
-  if use_bisect_runtime then
-    "enabled.ml", "bisect_ppx.runtime"
-  else
-    "disabled.ml", ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-
-(rule
-   (targets xcp_coverage.ml)
-   (action (copy coverage/%s %%{targets}))
-)
 
 (library
   (name xcp)
@@ -30,7 +6,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules (:standard \ scheduler task_server updates))
   (c_names syslog_stubs)
   (libraries
-    %s
     cmdliner
     cohttp
     fd-send-recv
@@ -53,7 +28,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xmlm
   )
   (wrapped false)
-  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc %s))
+  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc ))
 )
 
 (library
@@ -63,6 +38,5 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (modules updates task_server scheduler)
   (libraries xapi-idl)
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc %s))
+  (preprocess (pps ppx_deriving_rpc ))
 )
-|} runtime_coverage_enabled coverage_dep coverage_rewriter coverage_rewriter

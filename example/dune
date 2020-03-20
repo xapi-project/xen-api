@@ -1,11 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "bisect_ppx"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (executable
   (name example)
@@ -14,12 +6,11 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     rpclib.core
     xapi-idl
   )
-  (preprocess (pps ppx_deriving_rpc %s))
+  (preprocess (pps ppx_deriving_rpc ))
 )
 
 (alias
   (name runtest)
   (deps (:x example.exe))
-  (action (run %%{x}))
+  (action (run %{x}))
 )
-|} coverage_rewriter

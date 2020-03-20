@@ -1,11 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "bisect_ppx"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 
 (library
   (name xcp_rrd_interface_types)
@@ -19,7 +11,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-idl
   )
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc %s))
+  (preprocess (pps ppx_deriving_rpc ))
 )
 
 (library
@@ -35,7 +27,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-idl.rrd.interface.types
   )
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc %s))
+  (preprocess (pps ppx_deriving_rpc ))
 )
 
 (library
@@ -51,7 +43,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-idl.rrd.interface
   )
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc %s))
+  (preprocess (pps ppx_deriving_rpc ))
 )
 
 (executable
@@ -68,7 +60,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (alias
   (name runtest)
   (deps (:x rrd_cli.exe))
-  (action (run %%{x}))
+  (action (run %{x}))
 )
 
-|} coverage_rewriter coverage_rewriter coverage_rewriter
