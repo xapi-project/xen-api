@@ -6,6 +6,7 @@
   (modules (:standard \ scheduler task_server updates))
   (c_names syslog_stubs)
   (libraries
+    astring
     cmdliner
     cohttp
     fd-send-recv

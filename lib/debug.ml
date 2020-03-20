@@ -69,6 +69,11 @@ let gettimestring () =
     tm.Unix.tm_hour tm.Unix.tm_min tm.Unix.tm_sec
     (int_of_float (1000.0 *. msec))
 
+(** [escape str] efficiently escapes non-printable characters and in
+* addition the backslash character. The function is efficient in the
+* sense that it will allocate a new string only when necessary *)
+let escape = Astring.String.Ascii.escape
+
 let format include_time brand priority message =
   let id = get_thread_id () in
   let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
@@ -110,7 +115,7 @@ let output_log brand level priority s =
     if !print_debug
     then Printf.printf "%s\n%!" (format true brand priority s);
 
-    Syslog.log (get_facility ()) level msg
+    Syslog.log (get_facility ()) level (escape msg)
   end
 
 let logs_reporter =
@@ -265,7 +270,7 @@ module Make = functor(Brand: BRAND) -> struct
     Printf.kprintf
       (fun s ->
          let msg = if raw then s else format true Brand.name "audit" s in
-         Syslog.log Syslog.Local6 Syslog.Info msg;
+         Syslog.log Syslog.Local6 Syslog.Info (escape msg);
          msg
       ) fmt
 
