@@ -218,10 +218,8 @@ let ca_329043_rrd_1 =
   done;
   rrd
 
-let create_rrd values min max =
-
+let create_rrd ?(rows=2) values min max =
     let init_time = 0. in
-    let rows = 2 in
 
     let rra1 = rra_create CF_Average rows 10 0.5 in
     let rra2 = rra_create CF_Min     rows 10 0.5 in
@@ -264,6 +262,46 @@ let test_ca_325844 () =
   let rrd = Rrd_unix.of_file (Filename.concat "test_data"  "flip_flop.xml") in
   test_ranges rrd ()
 
+let suite_create_multi =
+  let module RU = Rrd_updates in
+
+  let assert_size t =
+    (** we can't to check that the number of rows is consistent,
+        since this is defined purely by the number of rows
+      * the number of columns should match the number of items in the legend -
+        each element in the legend array defines the contents for one column *)
+    let num_cols_in_legend = Array.length t.RU.legend in
+    t.RU.data |> Array.iteri (fun i r ->
+      Alcotest.(check int)
+        (Printf.sprintf "number of cols in legend must matche number of cols in row[%i]" i)
+        num_cols_in_legend
+        (Array.length r.RU.row_data)
+    )
+  in
+  let test_no_rrds () =
+    Alcotest.check_raises "should raise error" (Failure "hd") (fun () -> let _ = RU.create_multi [] 0L 1L None in ())
+  in
+  (** confusingly, rows in an rra are used to define the cols in the rrd_updates/ xml...
+    * essentially we usually expect 'rows' in each rrd to be the same (test_rows_with_same_num_cols)
+    * however, we should also handle the case where they are not (test_rows_with_different_num_cols) *)
+  let valid_rrd_tests =
+    [ "one_rrd",                      [ create_rrd ~rows:2 [0L; 5L; 10L] 0. 1.
+                                      ]
+    ; "rows_with_same_num_cols",      [ create_rrd ~rows:3 [0L; 5L; 10L] 0. 1.
+                                      ; create_rrd ~rows:3 [1L; 6L; 11L] 0. 1.
+                                      ]
+    ; "rows_with_different_num_cols", [ create_rrd ~rows:3 [0L; 5L; 10L] 0. 1.
+                                      ; create_rrd ~rows:2 [1L; 6L; 11L] 0. 1.
+                                      ]
+    ] |>
+    List.map (fun (name, rrds) ->
+      (name, `Quick, fun () -> let rrds = List.mapi (fun i rrd -> (Printf.sprintf "row[%i]" i, rrd)) rrds in
+                               RU.create_multi rrds 0L 1L None |> assert_size
+      )
+    )
+  in
+  ("no rrds", `Quick, test_no_rrds)::valid_rrd_tests
+
 let rrd_suite rrd = [
   "Save xml to disk", `Quick, test_marshall ~json:false rrd;
   "Save json to disk", `Quick, test_marshall ~json:true rrd;
@@ -288,5 +326,6 @@ let () =
     "RRD for CA-329043", rrd_suite ca_329043_rrd_1;
     "RRD for CA-329813", rrd_suite ca_329813_rrd;
     "RRD for CA-322008", rrd_suite ca_322008_rrd;
+    "CP-33354", suite_create_multi;
     "Regressions", regression_suite;
   ]
