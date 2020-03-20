@@ -958,7 +958,6 @@ let host_query_ha = call ~flags:[`Session]
       ()
 
   let install_server_certificate = call
-      ~in_oss_since:None
       ~lifecycle:[Published, rel_stockholm, ""]
       ~name:"install_server_certificate"
       ~doc:"Install the TLS server certificate."
@@ -977,6 +976,15 @@ let host_query_ha = call ~flags:[`Session]
          ; param_release=stockholm_release; param_default=Some (VString "")}
         ]
       ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let emergency_reset_server_certificate = call
+      ~flags:[`Session]
+      ~lifecycle:[Published, rel_stockholm, ""]
+      ~name:"emergency_reset_server_certificate"
+      ~doc:"Delete the current TLS server certificate and replace by a new, self-signed one. This should only be used with extreme care."
+      ~versioned_params: []
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
   let get_server_certificate = call
@@ -1402,6 +1410,7 @@ let host_query_ha = call ~flags:[`Session]
         certificate_sync;
         get_server_certificate;
         install_server_certificate;
+        emergency_reset_server_certificate;
         update_pool_secret;
         update_master;
         attach_static_vdis;

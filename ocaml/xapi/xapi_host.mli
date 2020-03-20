@@ -211,6 +211,9 @@ val install_server_certificate :
     remote. This is done to refresh the server certificate used in the
     connections. *)
 
+val emergency_reset_server_certificate :
+  __context:Context.t -> unit
+
 val detect_nonhomogeneous_external_auth_in_host :
   __context:Context.t -> host:API.ref_host -> unit
 val enable_external_auth :

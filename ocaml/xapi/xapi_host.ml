@@ -1133,14 +1133,8 @@ let install_server_certificate ~__context ~host ~certificate ~private_key ~certi
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
     raise Api_errors.(Server_error (ha_is_enabled, []));
 
-  let current_server_certs = Db.Certificate.get_all_records ~__context
-  |> List.filter_map (fun (reference, record) ->
-    if record.API.certificate_host = host then
-        Some reference
-    else
-        None
-    )
-  in
+  let expr = Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host))) in
+  let current_server_certs = Db.Certificate.get_refs_where ~__context ~expr in
 
   let pem_chain = match certificate_chain with
   | ""        -> None
@@ -1170,6 +1164,22 @@ let install_server_certificate ~__context ~host ~certificate ~private_key ~certi
   Db.Task.set_progress ~__context ~self:task ~value:1.0;
   (* sever all connections done with stunnel *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context
+
+let emergency_reset_server_certificate ~__context =
+  let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert" in
+
+  let args = [!Xapi_globs.xapissl_path; Helper_hostname.get_hostname ()] in
+  ignore @@ Forkhelpers.execute_command_get_output generate_ssl_cert args;
+
+  (* Reset stunnel to try to restablish TLS connections *)
+  Xapi_mgmt_iface.reconfigure_stunnel ~__context;
+
+  let self = Helpers.get_localhost ~__context in
+
+  (* Delete records of the server certificate in this host *)
+  let expr = Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self))) in
+  Db.Certificate.get_refs_where ~__context ~expr
+  |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =

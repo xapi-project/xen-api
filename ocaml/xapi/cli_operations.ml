@@ -809,7 +809,7 @@ let gen_cmds rpc session_id =
     ; Client.Network_sriov.(mk get_all get_all_records_where get_by_uuid network_sriov_record "network-sriov" [] ["uuid"; "physical-pif"; "logical-pif"; "requires-reboot"; "configuration-mode"] rpc session_id)
     ; Client.Cluster.(mk get_all get_all_records_where get_by_uuid cluster_record "cluster" [] ["uuid";"cluster-hosts";"cluster-token";"cluster-stack";"allowed-operations";"current-operations";"pool-auto-join";"cluster-config";"other-config"] rpc session_id)
     ; Client.Cluster_host.(mk get_all get_all_records_where get_by_uuid cluster_host_record "cluster-host" [] ["uuid";"cluster";"pif";"host";"enabled";"allowed-operations";"current-operations";"other-config"] rpc session_id)
-    ; Client.Certificate.(mk get_all get_all_records_where get_by_uuid certificate_record "certificate" [] ["uuid";"host";"fingerprint"]rpc session_id)
+    ; Client.Certificate.(mk get_all get_all_records_where get_by_uuid certificate_record "certificate" [] ["uuid";"host";"fingerprint"] rpc session_id)
     ]
 
 let message_create printer rpc session_id params =
@@ -4503,6 +4503,9 @@ let host_emergency_ha_disable printer rpc session_id params =
   let soft = get_bool_param params "soft" in
   if not force then failwith "This operation is extremely dangerous and may cause data loss. This operation must be forced (use --force).";
   Client.Host.emergency_ha_disable rpc session_id soft
+
+let host_emergency_reset_server_certificate printer rpc session_id params =
+  Client.Host.emergency_reset_server_certificate ~rpc ~session_id
 
 let host_management_reconfigure printer rpc session_id params =
   let pif = Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params) in
