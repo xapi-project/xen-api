@@ -1,11 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "(preprocess (pps bisect_ppx -conditional))"
-  | _ -> ""
-| exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executable
   (name xapi_db_process)
   (public_name xapi-db-process)
@@ -16,6 +8,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xapi-database
    xapi-idl  ;for the Debug module
   )
-  %s
 )
-|} coverage_rewriter

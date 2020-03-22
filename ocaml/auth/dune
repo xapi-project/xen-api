@@ -1,13 +1,3 @@
-(* -*- tuareg -*- *)
-
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "(preprocess (pps bisect_ppx -conditional))"
-  | _ -> ""
-| exception Not_found -> ""
-
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (library
   (name pam)
   (c_names
@@ -17,6 +7,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (c_flags -I/usr/lib64/ocaml)
   (c_library_flags -lpam)
   (wrapped false)
-  %s
 )
-|} coverage_rewriter
