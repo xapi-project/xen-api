@@ -1447,7 +1447,7 @@ let _ =
   | `Ok () -> ()
   | `Error x ->
     error "Error: %s\n%!" x;
-    Pervasives.exit 1);
+    Stdlib.exit 1);
 
   if !Xcp_service.daemon then begin
     Xcp_service.maybe_daemonize ();
