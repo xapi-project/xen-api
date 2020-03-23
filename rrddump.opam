@@ -1,0 +1,21 @@
+
+
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: ["John Else"]
+homepage: "https://github.com/xapi-project/rrddump"
+bug-reports: "https://github.com/xapi-project/rrddump/issues"
+dev-repo: "git+https://github.com/xapi-project/rrddump.git"
+tags: [
+  "org:xapi-project"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]
+depends: [
+  "xapi-rrd"
+  "xmlm"
+]
+synopsis: "Tool to dump RRD contents to XML format"
+description: """
+Tool to dump RRD contents to XML format"""
