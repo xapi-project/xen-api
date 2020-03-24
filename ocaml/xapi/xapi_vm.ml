@@ -60,9 +60,17 @@ let assert_can_boot_here ~__context ~self ~host =
   assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check:true ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
+  let compat_string_of_float f =
+    let repr = string_of_float f in
+    (* Original format has always at least one fractional decimal digit *)
+    if Astring.String.is_suffix ~affix:"." repr then
+      repr ^ "0"
+    else
+      repr
+  in
   let transform_for_api = function
     | host, Workload_balancing.(Recommendation {source; id; score}) ->
-      host, [source; (string_of_float score); id]
+      host, [source; (compat_string_of_float score); id]
     | host, Workload_balancing.(Impossible {source; id; reason}) ->
       host, [source; "0.0"; id; reason]
   in
