@@ -9,7 +9,7 @@ tags: [ "org:xapi-project" ]
 build: [
   ["./configure" "--bindir" "%{bin}%"]
   ["dune" "build" "-p" name "-j" jobs]
-  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+  ["dune" "runtest" "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
