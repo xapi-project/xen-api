@@ -1,11 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "bisect_ppx"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executable
   (name switch_main)
   (public_name message-switch)
@@ -24,6 +16,5 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     shared-block-ring
     sexplib
   )
-  (preprocess (pps ppx_sexp_conv %s))
+  (preprocess (pps ppx_sexp_conv))
 )
-|} coverage_rewriter

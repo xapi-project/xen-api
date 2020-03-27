@@ -1,11 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "(preprocess (pps bisect_ppx))"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executables
   (names
     client_unix_main
@@ -14,7 +6,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (libraries
     message-switch-unix
   )
-  %s
 )
 
 (alias
@@ -29,9 +20,6 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     lwt/link_test_main.exe
     ../switch/switch_main.exe
     ../cli/main.exe
-    basic-rpc-test.sh
   )
-  (package message-switch)
   (action (run ./basic-rpc-test.sh))
 )
-|} coverage_rewriter

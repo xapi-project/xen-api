@@ -1,11 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "(preprocess (pps bisect_ppx))"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (executables
   (names
     link_test_main
@@ -16,6 +8,4 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     cohttp-lwt-unix
     message-switch-lwt
   )
-  %s
 )
-|} coverage_rewriter
