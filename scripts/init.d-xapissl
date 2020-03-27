@@ -58,6 +58,8 @@ mgmt_ip() {
             else
                 sleep 1
             fi
+            # MANAGEMENT_INTERFACE may have changed. Re-read it.
+            . @INVENTORY@
         done
     fi
 }
