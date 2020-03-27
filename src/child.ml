@@ -98,7 +98,7 @@ let log_failure args child_pid reason =
   Fe_debug.error "%d (%s) %s" child_pid cmdline' reason
 
 let report_child_exit comms_sock args child_pid status =
-  let open Xapi_stdext_unix in
+  let module Unixext = Xapi_stdext_unix.Unixext in
   let pr = match status with
     | Unix.WEXITED n ->
       (* Unfortunately logging this was causing too much spam *)

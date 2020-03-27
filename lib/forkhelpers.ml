@@ -23,7 +23,7 @@
 
 let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ]
 
-open Xapi_stdext_pervasives.Pervasiveext
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type pidty = (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
 

@@ -1,4 +1,4 @@
-open Xapi_stdext_unix
+module Unixext = Xapi_stdext_unix.Unixext
 open Fe
 
 let open_unix_domain_sock () =
