@@ -1063,7 +1063,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
       else
         let cert = get_server_certificate ~host in
         let port = 10809L in
-        let module Host_set = X509.Certificate.Host_set in
+        let module Host_set = X509.Host.Set in
         let select_a_hostname = function
           | set when Host_set.is_empty set ->
               Error (`Msg "Found no subject DNS names in this hosts's certificate.")
