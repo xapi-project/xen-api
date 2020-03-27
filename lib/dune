@@ -8,7 +8,6 @@
     rpclib.json
     threads
     uuidm
-    xapi-stdext-monadic
     xapi-stdext-pervasives
     xapi-stdext-unix
     xapi-idl

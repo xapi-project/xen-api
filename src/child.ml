@@ -184,14 +184,13 @@ let run state comms_sock fd_sock fd_sock_path =
 
     let result = Unix.fork () in
 
-    let open Xapi_stdext_monadic in
     if result=0 then begin
       (* child *)
 
       (* Make the child's stdout go into the pipe *)
-      Opt.iter (fun out_fd -> Unix.dup2 out_fd Unix.stdout) !out_childlogging;
+      Option.iter (fun out_fd -> Unix.dup2 out_fd Unix.stdout) !out_childlogging;
       if state.redirect_stderr_to_stdout then
-        Opt.iter (fun out_fd -> Unix.dup2 out_fd Unix.stderr) !out_childlogging;
+        Option.iter (fun out_fd -> Unix.dup2 out_fd Unix.stderr) !out_childlogging;
 
       (* Now let's close everything except those fds mentioned in the ids_received list *)
       Xapi_stdext_unix.Unixext.close_all_fds_except ([Unix.stdin; Unix.stdout; Unix.stderr] @ fds);
@@ -223,9 +222,9 @@ let run state comms_sock fd_sock fd_sock_path =
       List.iter (fun fd -> Unix.close fd) fds;
 
       (* Close the end of the pipe that's only supposed to be written to by the child process. *)
-      Opt.iter Unix.close !out_childlogging;
+      Option.iter Unix.close !out_childlogging;
 
-      Opt.iter
+      Option.iter
         (fun in_fd ->
            let key = (match state.syslog_stdout.key with None -> Filename.basename name | Some key -> key) in
            (* Read from the child's stdout and write each one to syslog *)

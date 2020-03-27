@@ -7,7 +7,6 @@
     forkexec
     systemd
     uuidm
-    xapi-stdext-monadic
     xapi-stdext-unix
   )
 )

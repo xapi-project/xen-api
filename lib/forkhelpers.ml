@@ -184,16 +184,15 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?
       Unix.close fd;
       to_close := List.filter (fun x -> x <> fd) !to_close;
     end in
-  let open Xapi_stdext_monadic in
-  let stdinandpipes = Opt.map (fun str -> 
+  let stdinandpipes = Option.map (fun str ->
       let (x,y) = Unix.pipe () in
       to_close := x :: y :: !to_close;
       (str,x,y)) stdin in
   finally (fun () -> 
       match with_logfile_fd "execute_command_get_out" (fun out_fd ->
           with_logfile_fd "execute_command_get_err" (fun err_fd ->
-              let (sock,pid) = safe_close_and_exec ?env (Opt.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
-              Opt.iter (fun (str,_,wr) ->
+              let (sock,pid) = safe_close_and_exec ?env (Option.map (fun (_,fd,_) -> fd) stdinandpipes) (Some out_fd) (Some err_fd) [] ~syslog_stdout cmd args in
+              Option.iter (fun (str,_,wr) ->
                   Xapi_stdext_unix.Unixext.really_write_string wr str;
                   close wr;
                 ) stdinandpipes;

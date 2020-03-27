@@ -17,7 +17,6 @@ depends: [
   "forkexec"
   "systemd" {>= "1.2"}
   "uuidm"
-  "xapi-stdext-monadic"
   "xapi-stdext-unix"
   "xapi-stdext-range" {with-test}
 ]
