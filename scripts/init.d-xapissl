@@ -71,7 +71,7 @@ writec () {
 writeconffile () {
     # Initial boilerplate which is valid whether the management
     # interface is enabled or disabled.
-    . /etc/xensource-inventory
+    . @INVENTORY@
 
     # (This "good" list must match, or at least contain one of,
     #  the ciphersuites-good-outbound list in /etc/xapi.conf.)
