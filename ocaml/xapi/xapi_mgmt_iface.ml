@@ -30,15 +30,31 @@ let listening_all = ref false
 let listening_localhost = ref false
 let listening_himn = ref false
 let management_m = Mutex.create ()
+let stunnel_accept_m = Mutex.create ()
+let stunnel_accept = ref None
 
 let update_mh_info interface =
   let (_: string*string) = Forkhelpers.execute_command_get_output !Xapi_globs.update_mh_info_script [ interface ] in
   ()
 
-let restart_stunnel ~__context ~accept =
-  info "Restarting stunnel (accepting connections on %s)" accept;
+let _restart_stunnel_no_cache ~__context ~accept =
   let (_: Thread.t) = Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) () in
   ()
+
+let restart_stunnel ~__context ~accept =
+  info "Restarting stunnel (accepting connections on %s)" accept;
+  (* cache `accept` so client can call `reconfigure_stunnel` easily *)
+  Mutex.execute stunnel_accept_m (fun () -> stunnel_accept := Some accept);
+  _restart_stunnel_no_cache ~__context ~accept
+
+let reconfigure_stunnel ~__context =
+  let f = Mutex.execute stunnel_accept_m (fun () ->
+      match !stunnel_accept with
+      | None        -> fun () -> D.warn "reconfigure_stunnel: accept is not set, so not restarting stunnel"
+      | Some accept -> fun () -> _restart_stunnel_no_cache ~__context ~accept
+    )
+  in
+  f ()
 
 let stop () =
   debug "Shutting down the old management interface (if any)";
