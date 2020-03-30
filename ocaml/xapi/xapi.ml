@@ -881,7 +881,7 @@ let server_init() =
           "Best-effort bring up of physical and sriov NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
           "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context));
           "initialising storage", [ Startup.NoExnRaising ],
-          (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
+          (fun () -> Helpers.call_api_functions ~__context Create_storage.initialise_storage_localhost);
           (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
           "resynchronising VM state", [ Startup.NoExnRaising ], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
           "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));
