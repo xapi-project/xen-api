@@ -1,6 +1,9 @@
 .PHONY: release
 release:
-	dune build --profile=release @install
+	dune build -p varstored-guard @install
 
 check:
-	dune build --profile=release @runtest
+	dune build -p varstored-guard @runtest
+
+clean:
+	dune clean
