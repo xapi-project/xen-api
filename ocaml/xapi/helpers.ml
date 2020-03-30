@@ -1222,10 +1222,24 @@ end = struct (* can't place these functions in task helpers due to circular depe
   let wait_for_ ~__context ~tasks ~propagate_cancel cb =
     let our_task = Context.get_task_id __context in
     let classes = List.map (fun x -> Printf.sprintf "task/%s" (Ref.string_of x)) (our_task::tasks) in
+    let maybe_cancel_children () =
+      let tasks_str = Fmt.(str "%a" Dump.(list string)) (List.map Ref.short_string_of tasks) in
+      if propagate_cancel then begin
+        (* cancel the tasks we are waiting on, but not our own task *)
+        D.info "wait_for_: cancelling tasks [%s]" tasks_str;
+        List.iter (fun self -> TaskHelper.cancel_this ~__context ~self) tasks
+      end else
+        D.warn "wait_for_: not cancelling tasks [%s]" tasks_str
+    in
     let rec process token =
-      (* if we have been cancelled, also cancel the tasks we are waiting on *)
-      if propagate_cancel && TaskHelper.is_cancelling ~__context then tasks |> List.iter (fun self -> TaskHelper.cancel_this ~__context ~self);
-      TaskHelper.exn_if_cancelling ~__context; (* First check if _we_ have been cancelled *)
+      let () =
+        try
+          TaskHelper.exn_if_cancelling ~__context
+        with e -> begin
+          maybe_cancel_children ();
+          raise e
+        end
+      in
       let statuses = List.filter_map (fun task -> try Some (Db.Task.get_status ~__context ~self:task) with _ -> None) tasks in
       let unfinished = List.exists (fun state -> state = `pending) statuses in
       if unfinished
@@ -1260,7 +1274,7 @@ end = struct (* can't place these functions in task helpers due to circular depe
 
   let to_result ~__context ~of_rpc ~t =
     wait_for_mirroring_progress ~__context ~propagate_cancel:true ~t;
-    let fail msg = raise Api_errors.(Server_error (internal_error, [Ref.string_of t; msg])) in
+    let fail msg = raise Api_errors.(Server_error (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of t) msg])) in
     let res =
       match Db.Task.get_status ~__context ~self:t with
       | `pending                 -> fail "task shouldn't be pending - we just waited on it"
