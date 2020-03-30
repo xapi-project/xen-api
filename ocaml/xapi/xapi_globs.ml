@@ -183,6 +183,8 @@ let tools_sr_pbd_device_config = [
   "legacy_mode", "true"
 ]
 
+let create_tools_sr = ref false
+
 let default_template_key = "default_template"
 let base_template_name_key = "base_template_name"
 
@@ -907,7 +909,9 @@ let other_options = [
   | Nvidia_T4_SRIOV -> "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise"
   ),
   "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'.";
-
+  
+  "create-tools-sr", Arg.Set create_tools_sr,
+  (fun () -> string_of_bool !create_tools_sr), "Indicates whether to create an SR for Tools ISOs";
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -995,7 +999,6 @@ module Resources = struct
   ]
   let essential_dirs = [
     "sm-dir", sm_dir, "Directory containing SM plugins";
-    "tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
     "web-dir", web_dir, "Directory to export fileserver";
     "cluster-stack-root", cluster_stack_root, "Directory containing collections of HA tools and scripts";
     "xen-cmdline", xen_cmdline_path, "Path to xen-cmdline binary";
@@ -1009,6 +1012,7 @@ module Resources = struct
     "xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
     "xapi-extensions-root", xapi_extensions_root, "Optional directory containing XenAPI extensions";
     "static-vdis-root", Db_globs.static_vdis_dir, "Optional directory for configuring static VDIs";
+    "tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
   ]
 
   let xcp_resources =
