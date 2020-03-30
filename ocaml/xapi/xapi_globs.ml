@@ -184,17 +184,6 @@ let grant_api_access = "grant_api_access"
 (* other-config key for backwards compat. *)
 let tools_sr_tag = "xenserver_tools_sr"
 
-let tools_sr_name () = Xapi_version.product_brand () ^ " Tools"
-let tools_sr_description () = tools_sr_name () ^ " ISOs"
-
-let tools_sr_dir = ref "/opt/xensource/packages/iso"
-
-let tools_sr_pbd_device_config = [
-  "path", !tools_sr_dir; (* for ffs *)
-  "location", !tools_sr_dir; (* for legacy iso *)
-  "legacy_mode", "true"
-]
-
 let default_template_key = "default_template"
 let base_template_name_key = "base_template_name"
 
@@ -1096,7 +1085,6 @@ module Resources = struct
   ]
   let essential_dirs = [
     "sm-dir", sm_dir, "Directory containing SM plugins";
-    "tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
     "web-dir", web_dir, "Directory to export fileserver";
     "cluster-stack-root", cluster_stack_root, "Directory containing collections of HA tools and scripts";
     "xen-cmdline", xen_cmdline_path, "Path to xen-cmdline binary";
