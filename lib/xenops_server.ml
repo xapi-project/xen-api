@@ -117,7 +117,7 @@ type atomic =
   | VM_restore of (Vm.id * data * data option)
   (** takes suspend data, plus optionally vGPU state data *)
   | VM_delay of (Vm.id * float) (** used to suppress fast reboot loops *)
-  | VM_rename of (Vm.id * Vm.id)
+  | VM_rename of (Vm.id * Vm.id * rename_when)
   | Parallel of Vm.id * string * atomic list
   | Best_effort of atomic
 
@@ -1351,7 +1351,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
         List.iter (fun vusb -> VUSB_DB.remove vusb.Vusb.id) (VUSB_DB.vusbs id);
         VM_DB.remove id
     end
-  | VM_rename (id1,id2) ->
+  | VM_rename (id1, id2, when') ->
     if id1 = id2 then begin
       error "VM.rename called with the same src/dest = %s" id1;
       failwith "rename called with the same src/dest"
@@ -1363,7 +1363,7 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op: atomic) (t: Xe
     let pcis = PCI_DB.pcis id1 in
     let vgpus = VGPU_DB.vgpus id1 in
     let vusbs = VUSB_DB.vusbs id1 in
-    B.VM.rename id1 id2;
+    B.VM.rename id1 id2 when';
     let new_key (_,y) = (id2,y) in
     let fixup items rm add get_id set_id =
       List.iter (fun i -> let id = get_id i in rm id; let id' = new_key id in add id' (set_id id' i)) items
@@ -1693,7 +1693,7 @@ and trigger_cleanup_after_failure_atom op t =
     trigger_cleanup_after_failure_atom op t
   | Parallel (_id, _description, ops) ->
     List.iter (fun op->trigger_cleanup_after_failure_atom op t) ops
-  | VM_rename (id1,id2) ->
+  | VM_rename (id1, id2, _) ->
     immediate_operation dbg id1 (VM_check_state id1);
     immediate_operation dbg id2 (VM_check_state id2)
 
@@ -1832,7 +1832,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
            let save ?vgpu_fd () =
              perform_atomics [
                VM_save (id, [ Live ], FD mem_fd, vgpu_fd);
-               VM_rename (id, new_src_id)
+               VM_rename (id, new_src_id, Pre_migration)
              ] t;
              debug "VM.migrate: Synchronisation point 2"
            in
@@ -1958,7 +1958,7 @@ and perform_exn ?subtask ?result (op: operation) (t: Xenops_task.task_handle) : 
           if final_id <> id then begin
             debug "VM.receive_memory: Renaming domain";
             perform_atomics ([
-              VM_rename (id, final_id)
+              VM_rename (id, final_id, Post_migration)
               ]) t;
           end;
 
@@ -2458,7 +2458,8 @@ module VM = struct
   let add _ dbg x =
     Debug.with_thread_associated dbg (fun () -> add' x) ()
 
-  let rename _ dbg id1 id2 = queue_operation dbg id1 (Atomic(VM_rename (id1,id2)))
+  let rename _ dbg id1 id2 when' =
+    queue_operation dbg id1 (Atomic(VM_rename (id1, id2, when')))
 
   let remove _ dbg id =
     let task = queue_operation_and_wait dbg id (Atomic (VM_remove id)) in

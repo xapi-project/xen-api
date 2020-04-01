@@ -35,6 +35,11 @@ type shutdown_request =
   | Suspend
 [@@deriving rpcty]
 
+type rename_when =
+  | Pre_migration
+  | Post_migration
+[@@deriving rpcty]
+
 let rpc_of : type x. x Rpc.Types.def -> x -> Rpc.t = fun def x -> Rpcmarshal.marshal def.Rpc.Types.ty x
 
 let string_of_shutdown_request x = x |> rpc_of shutdown_request |> Jsonrpc.to_string
@@ -68,7 +73,7 @@ module type S = sig
   module VM : sig
     val add: Vm.t -> unit
     val remove: Vm.t -> unit
-    val rename: Vm.id -> Vm.id -> unit
+    val rename: Vm.id -> Vm.id -> rename_when ->  unit
     val create: Xenops_task.task_handle -> int64 option -> Vm.t -> Vm.id option -> bool (* no_sharept*) -> unit
     val build: ?restore_fd:Unix.file_descr -> Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> Vusb.t list-> string list -> bool ->  unit (* XXX cancel *)
     val create_device_model: Xenops_task.task_handle -> Vm.t -> Vbd.t list -> Vif.t list -> Vgpu.t list -> Vusb.t list -> bool -> unit

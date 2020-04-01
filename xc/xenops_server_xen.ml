@@ -1232,7 +1232,7 @@ module VM = struct
              ) (minimal_local_kvs @ minimal_vm_kvs)
       )
 
-  let rename vm vm' =
+  let rename vm vm' when' =
     with_xc_and_xs
       (fun xc xs ->
          match di_of_uuid ~xc ~xs (uuid_of_string vm) with
@@ -1241,8 +1241,15 @@ module VM = struct
             begin
               debug "Renaming domain %d from %s to %s" di.Xenctrl.domid vm vm';
               Xenctrl.domain_sethandle xc di.Xenctrl.domid vm';
-              let final_uuid_path = "/vm/" ^ vm ^ "/final-uuid" in
-              safe_rm xs final_uuid_path;
+              ( match when' with
+                | Pre_migration ->
+                  let origin_uuid_path = "/vm/" ^ vm' ^ "/origin-uuid" in
+                  debug "xenstore-write %s <- %s" origin_uuid_path vm;
+                  xs.Xs.write origin_uuid_path vm
+                | Post_migration ->
+                  let final_uuid_path = "/vm/" ^ vm ^ "/final-uuid" in
+                  safe_rm xs final_uuid_path
+              );
               debug "Moving xenstore tree";
               Domain.move_xstree xs di.Xenctrl.domid vm vm';
 
