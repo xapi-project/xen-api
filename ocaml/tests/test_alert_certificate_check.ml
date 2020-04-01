@@ -19,10 +19,13 @@ let date_of = Xapi_stdext_date.Date.of_string
 let check_time = Xapi_stdext_date.Date.to_float (date_of "20200201T02:00:00Z")
 
 let good_samples =
-  [ "20210202T02:00:00Z" ]
+  [ "20210202T02:00:00Z" (* +1 year*)
+  ; "20200302T02:00:01Z" (* +30 days, +1 second *)
+  ]
 
 let expiring_samples =
-  [ "20200301T02:00:00Z", 29, Api_messages.host_server_certificate_expiring_30
+  [ "20200302T02:00:00Z", 30, Api_messages.host_server_certificate_expiring_30
+  ; "20200301T02:00:00Z", 29, Api_messages.host_server_certificate_expiring_30
   ; "20200215T02:00:00Z", 14, Api_messages.host_server_certificate_expiring_14
   ; "20200208T02:00:00Z", 7, Api_messages.host_server_certificate_expiring_07
   ; "20200201T02:00:00Z", 0, Api_messages.host_server_certificate_expiring_07
