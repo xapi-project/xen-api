@@ -2,10 +2,9 @@ module XenAPI = Client.Client
 module Date = Xapi_stdext_date.Date
 
 let seconds_per_day = 3600. *. 24.
-let seconds_per_30_days = 30. *. seconds_per_day
 
 let days_until_expiry epoch expiry =
-  int_of_float (expiry /. seconds_per_day -. epoch /. seconds_per_day)
+  Float.(to_int (ceil (expiry /. seconds_per_day -. epoch /. seconds_per_day)))
 
 let get_certificate_attributes rpc session =
   XenAPI.Certificate.get_all_records rpc session
