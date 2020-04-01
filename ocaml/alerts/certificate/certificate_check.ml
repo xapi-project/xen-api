@@ -22,7 +22,7 @@ let generate_alert epoch (host, expiry) =
     let expired_message = "The TLS server certificate has expired." in
 
     let body msg =
-      Printf.sprintf "<message>%s</message><date>%s</date>" msg (Date.to_string expiry)
+      Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg (Date.to_string expiry)
     in
     let message, alert =
       if days < 0 then

@@ -45,13 +45,13 @@ let _format (datestring, ppf, alert) =
 
 let format_expiring (datestring, days, alert) =
   let ppf =
-    "<message>The TLS server certificate is expiring soon.</message><date>%s</date>"
+    "<body><message>The TLS server certificate is expiring soon.</message><date>%s</date></body>"
   in
   _format (datestring, ppf, alert)
 
 let format_expired datestring =
   let ppf =
-    "<message>The TLS server certificate has expired.</message><date>%s</date>"
+    "<body><message>The TLS server certificate has expired.</message><date>%s</date></body>"
   in
   _format (datestring, ppf, Api_messages.host_server_certificate_expired)
 
