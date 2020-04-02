@@ -32,7 +32,9 @@ let expiring_samples =
   ]
 
 let expired_samples =
-  [ "20200102T02:00:00Z" ]
+  [ "20200102T02:00:00Z"
+  ; "20200201T01:59:59Z"
+  ]
 
 let format_good datestring =
   ("host", date_of datestring),
