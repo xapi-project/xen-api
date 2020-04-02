@@ -14,8 +14,6 @@
 (* Copyright (C) 2007 XenSource Inc *)
 
 module D=Debug.Make(struct let name="stunnel" end)
-open D
-let trim = String.trim
 
 open Printf
 open Xapi_stdext_pervasives.Pervasiveext
@@ -36,15 +34,6 @@ let cached_stunnel_path = ref None
 let stunnel_logger = ref ignore
 
 let timeoutidle = ref None
-
-(* Use good settings by default *)
-let legacy_protocol_and_ciphersuites_allowed = ref false
-
-let is_legacy_protocol_and_ciphersuites_allowed () =
-  !legacy_protocol_and_ciphersuites_allowed
-
-let good_ciphersuites = ref (Some "!EXPORT:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256")
-let legacy_ciphersuites = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+DES-CBC3-SHA"
 
 let init_stunnel_path () =
   try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
@@ -130,14 +119,9 @@ type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int;
            unique_id: int option;
            mutable logfile: string;
            verified: bool;
-           legacy: bool;
          }
 
-let config_file verify_cert extended_diagnosis host port legacy =
-  let good_ciphers () = match !good_ciphersuites with
-    | None -> raise (Stunnel_error "good_ciphersuites is unset in the OCaml Stunnel module.")
-    | Some s -> s
-  in
+let config_file verify_cert extended_diagnosis host port =
   let is_fips =
     Inventory.inventory_filename := "/etc/xensource-inventory";
     try
@@ -167,41 +151,12 @@ let config_file verify_cert extended_diagnosis host port legacy =
          | exception _ -> "")
       ]
     else []
-  ; if legacy then
-      [ "sslVersionMax = TLSv1.2"
-      ; "sslVersionMin = TLSv1"
-      ; "options = NO_SSLv2"
-      ; "options = NO_SSLv3"
-      ; "ciphers = " ^ (good_ciphers ()) ^ (match !legacy_ciphersuites with "" -> "" | s -> (":" ^ s))
-      ]
-    else 
-      [ "sslVersion = TLSv1.2"
-      ; "ciphers = " ^ (good_ciphers ())
-      ]
-    ; ["curve = secp384r1"]
-    ; [""]
+  ; [ "sslVersion = TLSv1.2"
+    ; "ciphers = " ^ Xcp_const.good_ciphersuites
+    ]
+  ; ["curve = secp384r1"]
+  ; [""]
   ]
-
-let set_legacy_protocol_and_ciphersuites_allowed b =
-  legacy_protocol_and_ciphersuites_allowed := b;
-  info "legacy-config %B; example: %S" b
-    (match !good_ciphersuites with
-     | None -> "(Ciphersuites are not configured.)"
-     | _ -> config_file false false "dummyhost" 443 b)
-
-let set_good_ciphersuites s =
-  info "set_good_ciphersuites received %S" s;
-  if trim s <> "" then (
-    good_ciphersuites := Some s
-  ) else raise (Stunnel_error
-                  ("Stunnel.set_good_ciphersuites received a blank or empty string. Leaving it unchanged as " ^
-                   (match !good_ciphersuites with None -> "None" | Some s -> ("Some " ^ (String.escaped s)))
-                  )
-               )
-
-let set_legacy_ciphersuites s =
-  legacy_ciphersuites := s;
-  info "set_legacy_ciphersuites: %S" s
 
 let ignore_exn f x = try f x with _ -> ()
 
@@ -219,24 +174,21 @@ let rec disconnect ?(wait = true) ?(force = false) x =
       disconnect ~wait:wait ~force:force x
     | _ -> ()
   in
-  let verbose = x.legacy && not (!legacy_protocol_and_ciphersuites_allowed) in
   match x.pid with
   | FEFork fpid ->
     let pid_int = Forkhelpers.getpid fpid in
-    if verbose then info "Disconnecting FEFork %d" pid_int;
     do_disc
       (fun () ->
          (if wait then Forkhelpers.waitpid 
           else Forkhelpers.waitpid_nohang) fpid)
       pid_int
   | StdFork pid ->
-    if verbose then info "Disconnecting StdFork %d" pid;
     do_disc
       (fun () ->
          (if wait then Unix.waitpid []
           else Unix.waitpid [Unix.WNOHANG]) pid)
       pid
-  | Nopid -> if verbose then info "Disconnecting Nopid"
+  | Nopid -> ()
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
@@ -267,12 +219,10 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
     end in
   let data_out,data_in = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   (* Dereference just once to ensure we are consistent in t and config_file *)
-  let legacy = !legacy_protocol_and_ciphersuites_allowed in
   let t = 
     { pid = Nopid; fd = data_out; host = host; port = port; 
       connected_time = Unix.gettimeofday (); unique_id = unique_id; 
-      logfile = ""; verified = verify_cert;
-      legacy = legacy } in
+      logfile = ""; verified = verify_cert; } in
   let result = Forkhelpers.with_logfile_fd "stunnel"
       ~delete:(not extended_diagnosis)
       (fun logfd ->
@@ -298,7 +248,7 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
            (fun () ->
               match config_in with
               | Some fd -> begin
-                  let config = config_file verify_cert extended_diagnosis host port legacy in
+                  let config = config_file verify_cert extended_diagnosis host port in
                   (* Catch the occasional initialisation failure of stunnel: *)
                   try
                     let len = String.length config in

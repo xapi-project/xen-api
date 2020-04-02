@@ -88,17 +88,14 @@ let unlocked_gc () =
   let all_ids = Hashtbl.fold (fun k _ acc -> k :: acc) !stunnels [] in
 
   let to_gc = ref [] in
-  (* Find the ones which are too old or have unwanted legacy config *)
+  (* Find the ones which are too old *)
   let now = Unix.gettimeofday () in
   Hashtbl.iter
     (fun idx stunnel ->
        let time = Hashtbl.find !times idx in
        let idle = now -. time in
        let age = now -. stunnel.Stunnel.connected_time in
-       if stunnel.Stunnel.legacy && not (Stunnel.is_legacy_protocol_and_ciphersuites_allowed ()) then (
-         info "Expiring stunnel id %s because it is legacy-mode." (id_of_stunnel stunnel);
-         to_gc := idx :: !to_gc
-       ) else if age > max_age then begin
+       if age > max_age then begin
          debug "Expiring stunnel id %s; age (%.2f) > limit (%.2f)" (id_of_stunnel stunnel) age max_age;
          to_gc := idx :: !to_gc
        end else if idle > max_idle then begin
@@ -146,31 +143,26 @@ let gc () = Mutex.execute m unlocked_gc
 let counter = ref 0
 
 let add (x: Stunnel.t) =
-  if x.Stunnel.legacy && not (Stunnel.is_legacy_protocol_and_ciphersuites_allowed ()) then (
-    info "Legacy-protocol stunnel (id=%s) not allowed in cache: disconnecting." (id_of_stunnel x);
-    Stunnel.disconnect ~force:true x
-  ) else (
-    let now = Unix.gettimeofday () in
-    Mutex.execute m (fun () ->
-        let idx = !counter in
-        incr counter;
-        Hashtbl.add !times idx now;
-        Hashtbl.add !stunnels idx x;
-        let ep = { host = x.Stunnel.host; port = x.Stunnel.port; verified = x.Stunnel.verified } in
-        let existing =
-          if Hashtbl.mem !index ep
-          then Hashtbl.find !index ep
-          else [] in
-        Hashtbl.replace !index ep (idx :: existing);
-        debug "Adding stunnel id %s (idle %.2f) to the cache"
-          (id_of_stunnel x) 0.;
-        unlocked_gc ()
-      )
+  let now = Unix.gettimeofday () in
+  Mutex.execute m (fun () ->
+      let idx = !counter in
+      incr counter;
+      Hashtbl.add !times idx now;
+      Hashtbl.add !stunnels idx x;
+      let ep = { host = x.Stunnel.host; port = x.Stunnel.port; verified = x.Stunnel.verified } in
+      let existing =
+        if Hashtbl.mem !index ep
+        then Hashtbl.find !index ep
+        else [] in
+      Hashtbl.replace !index ep (idx :: existing);
+      debug "Adding stunnel id %s (idle %.2f) to the cache"
+        (id_of_stunnel x) 0.;
+      unlocked_gc ()
   )
 
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found. First performs a garbage-collection, which discards
-    legacy-config and expired stunnels if needed. *)
+    expired stunnels if needed. *)
 let remove host port verified =
   let ep = { host = host; port = port; verified = verified } in
   Mutex.execute m
