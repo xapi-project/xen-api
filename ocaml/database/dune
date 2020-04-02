@@ -57,21 +57,14 @@
   )
 )
 
-(test
-  (name db_cache_test)
+(tests
+  (names unit_test_marshall db_cache_test)
   (package xapi-database)
-  (modules db_cache_test)
+  (modules db_cache_test unit_test_marshall)
   (libraries
-    oUnit
+    alcotest
     xapi-database
   )
-)
-
-(test
-  (name unit_test_marshall)
-  (package xapi-database)
-  (modules unit_test_marshall)
-  (libraries xapi-database)
 )
 
 (test
@@ -79,7 +72,10 @@
   (package xapi-database)
   (modules unit_test_sql)
   (deps sql_msg_example.txt)
-  (libraries xapi-database)
+  (libraries
+    alcotest
+    xapi-database
+  )
 )
 
 (alias
