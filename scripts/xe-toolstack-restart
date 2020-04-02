@@ -33,7 +33,7 @@ SERVICES="perfmon xapi v6d xenopsd xenopsd-xc xenopsd-xenlight
   $MPATHALERT xapi-storage-script xapi-clusterd varstored-guard message-switch"
 
 tmp_file=$(mktemp --suffix="xe-toolstack-restart")
-/opt/xensource/libexec/xapissl stop > $tmp_file 2>&1
+systemctl stop stunnel@xapi > $tmp_file 2>&1
 kill_stunnel_exit_code=$?
 if [[ $kill_stunnel_exit_code != 0 ]]; then
   printf "\nFailed to kill stunnel processes! Output:\n"
