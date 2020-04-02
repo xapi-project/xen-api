@@ -4,7 +4,10 @@ module Date = Xapi_stdext_date.Date
 let seconds_per_day = 3600. *. 24.
 
 let days_until_expiry epoch expiry =
-  Float.(to_int (ceil (expiry /. seconds_per_day -. epoch /. seconds_per_day)))
+  let days = expiry /. seconds_per_day -. epoch /. seconds_per_day in
+  match Float.sign_bit days with
+  | true -> -1
+  | false -> Float.(to_int (ceil days))
 
 let get_certificate_attributes rpc session =
   XenAPI.Certificate.get_all_records rpc session
