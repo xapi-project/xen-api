@@ -45,31 +45,6 @@
 )
 
 (executable
-  (name db_cache_test)
-  (modules db_cache_test)
-  (libraries
-    oUnit
-    xapi-database
-  )
-)
-
-(executable
-  (name unit_test_marshall)
-  (modules
-    unit_test_marshall
-  )
-  (libraries
-    xapi-database
-  )
-)
-
-(executable
-  (name unit_test_sql)
-  (modules unit_test_sql)
-  (libraries xapi-database)
-)
-
-(executable
   (name database_server_main)
   (modules
     database_server_main
@@ -82,18 +57,29 @@
   )
 )
 
-(alias
-  (name runtest)
-  (deps (:x unit_test_marshall.exe))
+(test
+  (name db_cache_test)
   (package xapi-database)
-  (action (run %{x}))
+  (modules db_cache_test)
+  (libraries
+    oUnit
+    xapi-database
+  )
 )
 
-(alias
-  (name runtest)
-  (deps (:x unit_test_sql.exe) sql_msg_example.txt)
+(test
+  (name unit_test_marshall)
   (package xapi-database)
-  (action (run %{x}))
+  (modules unit_test_marshall)
+  (libraries xapi-database)
+)
+
+(test
+  (name unit_test_sql)
+  (package xapi-database)
+  (modules unit_test_sql)
+  (deps sql_msg_example.txt)
+  (libraries xapi-database)
 )
 
 (alias
@@ -101,11 +87,4 @@
   (deps (:x database_server_main.exe))
   (package xapi-database)
   (action (run %{x} --master db.xml --test))
-)
-
-(alias
-  (name runtest)
-  (deps (:x db_cache_test.exe))
-  (package xapi-database)
-  (action (run %{x}))
 )
