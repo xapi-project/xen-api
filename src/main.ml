@@ -78,11 +78,10 @@ let handle_connection fd tls_role =
     )
 
 (* TODO use the version from nbd repository *)
-let init_tls_get_server_ctx ~certfile ~ciphersuites =
+let init_tls_get_server_ctx ~certfile =
   let certfile = require_str "certfile" certfile in
-  let ciphersuites = require_str "ciphersuites" ciphersuites in
   Some (Nbd_lwt_unix.TlsServer
-    (Nbd_lwt_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile ~ciphersuites)
+    (Nbd_lwt_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile ~ciphersuites:Xcp_const.good_ciphersuites)
   )
 
 let xapi_says_use_tls () =
@@ -105,15 +104,15 @@ let xapi_says_use_tls () =
   in
   Local_xapi_session.with_session ask_xapi
 
-let main port certfile ciphersuites =
+let main port certfile _ =
   let t () =
-    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; certfile = '%s'; ciphersuites = '%s'" port certfile ciphersuites >>= fun () ->
+    Lwt_log.notice_f "Starting xapi-nbd: port = '%d'; certfile = '%s'" port certfile >>= fun () ->
     (* We keep a persistent record of the VBDs that we've created but haven't
        yet cleaned up. At startup we go through this list in case some VBDs
        got leaked after the previous run due to a crash and clean them up. *)
     Cleanup.Persistent.cleanup () >>= fun () ->
     Lwt_log.notice "Initialising TLS" >>= fun () ->
-    let tls_server_role = init_tls_get_server_ctx ~certfile ~ciphersuites in
+    let tls_server_role = init_tls_get_server_ctx ~certfile in
     let sock = Lwt_unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
     Lwt.finalize
       (fun () ->
@@ -194,16 +193,8 @@ let certfile =
   Arg.(value & opt string "" & info ["certfile"] ~doc)
 
 let ciphersuites =
-  let doc = "Set of ciphersuites for TLS (specified in the format accepted by OpenSSL, stunnel etc.)" in
-  let suites =
-    String.concat ":"
-    [ "!EXPORT"
-    ; "ECDHE-RSA-AES256-SHA384"
-    ; "ECDHE-RSA-AES256-GCM-SHA384"
-    ; "AES256-SHA256"
-    ; "AES128-SHA256"
-    ] in
-  Arg.(value & opt string suites & info ["ciphersuites"] ~doc)
+  let doc = "REMOVED (this parameter will be ignored) Set of ciphersuites for TLS (specified in the format accepted by OpenSSL, stunnel etc.)" in
+  Arg.(value & opt ((fun _ -> `Ok "unused_cipher_string"), Format.pp_print_string) "unused_cipher_string" & info ["ciphersuites"] ~doc)
 
 let cmd =
   let doc = "Expose VDIs over authenticated NBD connections" in

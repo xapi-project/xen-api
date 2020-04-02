@@ -13,5 +13,6 @@
   uuidm
   vbd_store
   xapi-inventory
-  xen-api-client-lwt)
+  xen-api-client-lwt
+  xapi-idl)
 )
