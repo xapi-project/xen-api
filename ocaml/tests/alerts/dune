@@ -1,0 +1,11 @@
+(test
+  (name test_suite)
+  (package xapi)
+  (libraries
+    alcotest
+    certificate_check
+    daily_license_check
+    xapi-stdext-date
+  )
+  (action (run %{test} --color=always))
+)
