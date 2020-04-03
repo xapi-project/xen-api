@@ -518,19 +518,30 @@ module Stats_value = struct
       }
     | Some s3 ->
       let last_s3 = last_stats_blktap3 in
-      let opt f x = match x with None -> 0L | Some x' -> f x' in
+      let opt f = Option.fold ~none:0L ~some:f in
       let open Blktap3_stats in
+      let avg_reqs_completed_last_five_secs get_reqs_completed get_total_ticks =
+        last_s3 |> Option.fold ~none:0L (* we don't have data from 5 secs ago, so give up *)
+                               ~some:(fun last_s3 ->
+                                       (* a 'tick' is the time spent waiting on reads (or writes, dep on context), in usec *)
+                                       let num_reqs_in_last_five_secs =
+                                         let now = get_reqs_completed s3 in
+                                         let last = get_reqs_completed last_s3 in
+                                         if now < last then begin
+                                           D.error "Stats_value.make: read_reqs_completed has decreased: now: %Li, last: %Li" now last;
+                                           0L
+                                         end else
+                                           now -- last
+                                       in
+                                       let num_ticks_in_last_5_secs = get_total_ticks s3 -- get_total_ticks last_s3 in
+                                       if num_reqs_in_last_five_secs = 0L then 0L else Int64.div num_ticks_in_last_5_secs num_reqs_in_last_five_secs
+                                     )
+      in
       {
         rd_bytes = Int64.mul (get_stats_read_sectors s3) 512L;
         wr_bytes = Int64.mul (get_stats_write_sectors s3) 512L;
-        rd_avg_usecs =
-          if (get_stats_read_reqs_completed s3) > 0L then
-            Int64.div (get_stats_read_total_ticks s3) (get_stats_read_reqs_completed s3)
-          else 0L;
-        wr_avg_usecs =
-          if (get_stats_write_reqs_completed s3) > 0L then
-            Int64.div (get_stats_write_total_ticks s3) (get_stats_write_reqs_completed s3)
-          else 0L;
+        rd_avg_usecs = avg_reqs_completed_last_five_secs get_stats_read_reqs_completed get_stats_read_total_ticks;
+        wr_avg_usecs = avg_reqs_completed_last_five_secs get_stats_write_reqs_completed get_stats_write_total_ticks;
         io_throughput_read_mb = (to_float (get_stats_read_sectors s3 -- (opt get_stats_read_sectors last_s3))) *. 512. /. 1048576.;
         io_throughput_write_mb = (to_float (get_stats_write_sectors s3 -- (opt get_stats_write_sectors last_s3))) *. 512. /. 1048576.;
         iops_read = get_stats_read_reqs_completed s3 -- (opt get_stats_read_reqs_completed last_s3);
