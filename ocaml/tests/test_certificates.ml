@@ -13,9 +13,9 @@ let time_of_rfc3339 date =
   | Ok (time, _, _) -> time
   | Error _ -> raise (Failure ("Date is in the wrong format: " ^ date))
 
-let valid_from = time_of_rfc3339 "2020-01-01T00:00:00+00:00"
+let valid_from = time_of_rfc3339 "2020-01-01T00:00:00Z"
 
-let valid_until = time_of_rfc3339 "2021-01-01T00:00:00+00:00"
+let valid_until = time_of_rfc3339 "2021-01-01T00:00:00Z"
 
 let host_name = X509.Distinguished_name.Relative_distinguished_name.singleton (DC "localhost")
 
@@ -39,7 +39,7 @@ let invalid_private_keys =
 let valid_leaf_certificates =
   [ "Valid, SHA256, matches key",
     "pkey_rsa_2048",
-    "2020-02-01T00:00:00+00:00",
+    "2020-02-01T00:00:00Z",
     `SHA256 ]
 
 (* ( description, leaf_private_key, expected_private_key, time_of_validation,
@@ -48,28 +48,28 @@ let invalid_leaf_certificates =
   [ "Not valid yet, SHA256, matching key",
     "pkey_rsa_2048",
     "pkey_rsa_2048",
-    "2019-01-01T00:00:00+00:00",
+    "2019-01-01T00:00:00Z",
     `SHA256,
     server_certificate_not_valid_yet,
-    [ "2019-01-01T00:00:00-00:00"; "2020-01-01T00:00:00-00:00" ]
+    [ "2019-01-01T00:00:00Z"; "2020-01-01T00:00:00Z" ]
   ; "Expired, SHA256, matching key",
     "pkey_rsa_2048",
     "pkey_rsa_2048",
-    "2022-01-01T00:00:00+00:00",
+    "2022-01-01T00:00:00Z",
     `SHA256,
     server_certificate_expired,
-    [ "2022-01-01T00:00:00-00:00"; "2021-01-01T00:00:00-00:00" ]
+    [ "2022-01-01T00:00:00Z"; "2021-01-01T00:00:00Z" ]
   ; "Valid, SHA256, keys do not match",
     "pkey_rsa_2048",
     "pkey_rsa_4096",
-    "2020-02-01T00:00:00+00:00",
+    "2020-02-01T00:00:00Z",
     `SHA256,
     server_certificate_key_mismatch,
     []
   ; "Valid, SHA1, matching keys",
     "pkey_rsa_2048",
     "pkey_rsa_2048",
-    "2020-02-01T00:00:00+00:00",
+    "2020-02-01T00:00:00Z",
     `SHA1,
     server_certificate_signature_not_supported,
     []
@@ -80,7 +80,7 @@ let invalid_leaf_certificates =
 let corrupt_certificates =
   [ "cert_bogus",
     "pkey_rsa_2048",
-    "2020-02-01T00:00:00+00:00",
+    "2020-02-01T00:00:00Z",
     server_certificate_invalid,
     []
   ]
@@ -92,7 +92,7 @@ let key_chain = List.init 3 (fun _ -> `RSA (Mirage_crypto_pk.Rsa.generate ~bits:
 let corrupt_chain_certificates =
   [ "cert_bogus",
     "pkey_rsa_2048",
-    "2020-02-01T00:00:00+00:00",
+    "2020-02-01T00:00:00Z",
     server_certificate_chain_invalid,
     []
   ]
@@ -205,7 +205,7 @@ let test_invalid_cert_chain cert time pkey error reason () =
     )
 
 let valid_chain_cert_tests =
-  let time = time_of_rfc3339 "2020-02-01T00:00:00+00:00" in
+  let time = time_of_rfc3339 "2020-02-01T00:00:00Z" in
   let test_cert =
     load_pkcs8 "pkey_rsa_4096" >>= fun pkey_root ->
     let pkey, chain = List.fold_left (fun (pkey_sign, chain_result) pkey ->

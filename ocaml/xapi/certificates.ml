@@ -364,7 +364,7 @@ let validate_certificate kind pem now private_key =
   in
 
   let ensure_validity ~time certificate =
-    let to_string = Ptime.to_rfc3339 in
+    let to_string = Ptime.to_rfc3339 ~tz_offset_s:0 in
     let not_before, not_after = X509.Certificate.validity certificate in
 
     if Ptime.is_earlier time not_before then
