@@ -129,7 +129,8 @@ let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name op_f
   if (called_async && (not supports_async))
   then API.response_of_fault ("No async mode for this operation (rpc: "^called_fn_name^")")
   else
-    let __context = Context.of_http_req ?session_id ~generate_task_for ~supports_async ~label ~http_req ~fd in
+    let internal_async_subtask = sync_ty = `InternalAsync in
+    let __context = Context.of_http_req ?session_id ~internal_async_subtask ~generate_task_for ~supports_async ~label ~http_req ~fd in
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
       exec_with_context ~__context ~need_complete ~called_async ?f_forward:forward_op ~marshaller op_fn |>

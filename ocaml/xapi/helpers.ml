@@ -1294,39 +1294,26 @@ end = struct (* can't place these functions in task helpers due to circular depe
     res
 end
 
-(** This function wraps internal async calls such that they can be used safely with versions of the API which do not support internal async (`old_api`'s).
-  * We achieve this by simply attempting to make the internal async call, and if the response is 'unknown method', then try the old, synchronous version.
-  * Callers of this function are expected to do the necessary error handling specific to their API call, so let all other exceptions propagate up. *)
 let try_internal_async ~__context
-                      (subtask_label : string)
-                      (forwarder : __context:Context.t -> (API.ref_session -> (Rpc.call -> Rpc.response) -> 'a) -> 'a)
-                      (internal_async_fn : (Rpc.call -> Rpc.response) -> API.ref_session -> API.ref_task)
-                      (sync_fn : (Rpc.call -> Rpc.response) -> API.ref_session -> 'b)
-                      (marshaller : Rpc.t -> 'b ) : 'b =
-  (** we create a subtask which the receiver is expected to set to completed when they have finished processing
-    * we mirror the progress of this subtask in its parent task (see impl of Task.to_result) *)
-  let __parent_context = __context in
-  (** exec_with_subtask guarantees to destroy the subtask, even on failure
-      so there is no need to explicitly destroy the subtask *)
-  let res = Server_helpers.exec_with_subtask ~__context ~task_in_database:true subtask_label (fun ~__context ->
-      try
-        `internal_async_successful (
-            forwarder ~__context (fun session_id rpc ->
-              let t = internal_async_fn rpc session_id in
-              info "try_internal_async: waiting for task to complete: t = ( %s )" (Ref.string_of t);
-              Task.to_result ~__context:__parent_context ~of_rpc:marshaller ~t
-          )
-        )
-      with Api_errors.Server_error(code, params) when code=Api_errors.message_method_unknown -> `old_api
-    )
+                       (marshaller : Rpc.t -> 'b)
+                       (internal_async_fn : unit -> API.ref_task)
+                       (sync_fn : unit -> 'b) : 'b =
+  let res =
+    try `internal_async_task (internal_async_fn ())
+    with Api_errors.Server_error(code, params) when code=Api_errors.message_method_unknown -> `use_old_api
   in
   match res with
-  | `internal_async_successful x ->
-    info "try_internal_async: internal_async_successful";
-    x
-  | `old_api ->
+  | `use_old_api ->
     info "try_internal_async: call was not known by destination - trying sync call instead";
-    forwarder ~__context (fun session_id rpc -> sync_fn rpc session_id)
+    sync_fn ()
+  | `internal_async_task t ->
+    let ref = Ref.string_of t in
+    finally
+      (fun () -> info "try_internal_async: waiting for task to complete: t = ( %s )" ref;
+                 Task.to_result ~__context ~of_rpc:marshaller ~t)
+      (fun () -> info "try_internal_async: destroying task: t = ( %s )" ref;
+                 TaskHelper.destroy ~__context t)
+
 (** wrapper around the stunnel@xapi systemd service.
   * there exist scripts (e.g. xe-toolstack-restart) which also manipulate
     the stunnel daemon but they do this directly (not via ocaml). *)
