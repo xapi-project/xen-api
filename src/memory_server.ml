@@ -25,6 +25,26 @@ open Xapi_stdext_unix
 module D = Debug.Make(struct let name = Memory_interface.service_name end)
 open D
 
+module Host_free_memory_event = struct
+  open Xapi_stdext_threads
+  let accesible = ref false
+  let c = Condition.create ()
+  let m = Mutex.create ()
+
+  let wait () =
+    Threadext.Mutex.execute m (fun () ->
+        while not !accesible do
+          Condition.wait c m
+        done
+      )
+
+  let set () =
+    Threadext.Mutex.execute m (fun () ->
+        accesible := true;
+        Condition.signal c
+      )
+end
+
 type context = unit
 
 (** The main body of squeezed is single-threaded, so we protect it with a mutex here. *)
@@ -278,22 +298,45 @@ let calculate_boot_time_host_free_memory () =
       pages_to_kib (Int64.of_nativeint boot_time_host_free_pages) in
     Int64.mul 1024L boot_time_host_free_kib
 
+let calc_constant_boot_time_host_free_memory constant_count interval =
+  let tolerance = 10L in
+  debug "Check boot time host free memory: constant-count=%d check-interval=%f(seconds)" constant_count interval;
+  let rec calc_constant last same_count =
+    let free_memory = calculate_boot_time_host_free_memory () in
+    debug "Calculating boot time host free memory: %Ld" free_memory;
+    let same_count = match last with
+        | Some old_free_memory when Int64.abs(Int64.sub free_memory old_free_memory) <= tolerance -> same_count + 1
+        | _ -> 1
+    in
+    if same_count >= constant_count then begin
+      debug "Boot time host free memory constant value: %Ld" free_memory;
+      free_memory
+    end else begin
+      Thread.delay interval;
+      calc_constant (Some free_memory) same_count
+    end
+  in
+  calc_constant None 0
+
 (* Read the free memory on the host and record this in the db. This is used *)
 (* as the baseline for memory calculations in the message forwarding layer. *)
 let record_boot_time_host_free_memory () =
   if not (Unixext.file_exists initial_host_free_memory_file) then begin
     try
-      let free_memory = calculate_boot_time_host_free_memory () in
+      let free_memory = calc_constant_boot_time_host_free_memory !Squeeze.boot_time_host_free_memory_constant_count !Squeeze.boot_time_host_free_memory_check_interval in
       Unixext.mkdir_rec (Filename.dirname initial_host_free_memory_file) 0o700;
       Unixext.write_string_to_file initial_host_free_memory_file
         (Int64.to_string free_memory)
     with e ->
       error "Could not record host free memory. This may prevent \
              VMs from being started on this host. (%s)" (Printexc.to_string e)
-  end
+  end;
+  debug "Boot time host free memory calculated";
+  Host_free_memory_event.set ()
 
 let get_host_initial_free_memory dbg =
   try
+    Host_free_memory_event.wait ();
     Int64.of_string (Unixext.string_of_file initial_host_free_memory_file)
   with e ->
     error "Could not read host free memory file. This may prevent \
