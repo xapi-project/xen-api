@@ -746,6 +746,7 @@ struct
     Filename.concat "/var/lib/xcp" (Printf.sprintf "dhclient%s-%s.conf" ipv6' interface)
 
   let[@warning "-27"] generate_conf ?(ipv6=false) interface options =
+    let send = "host-name = gethostname()" in
     let minimal = ["subnet-mask"; "broadcast-address"; "time-offset"; "host-name"; "nis-domain";
                    "nis-servers"; "ntp-servers"; "interface-mtu"] in
     let set_gateway =
@@ -759,7 +760,8 @@ struct
       else (debug "%s is NOT the DNS interface" interface; [])
     in
     let request = minimal @ set_gateway @ set_dns in
-    Printf.sprintf "interface \"%s\" {\n  request %s;\n}\n" interface (String.concat ", " request)
+    Printf.sprintf "interface \"%s\" {\n  send %s;\n  request %s;\n}\n"
+      interface send (String.concat ", " request)
 
   let read_conf_file ?(ipv6=false) interface =
     let file = conf_file ~ipv6 interface in
