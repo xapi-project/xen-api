@@ -27,6 +27,8 @@ let options = [
   "manage-domain-zero", Arg.Bool (fun b -> Squeeze.manage_domain_zero := b), (fun () -> string_of_bool !Squeeze.manage_domain_zero), "Manage domain zero";
   "domain-zero-dynamic-min", Arg.String (fun x -> Squeeze.domain_zero_dynamic_min := Int64.of_string x), (fun () -> Int64.to_string !Squeeze.domain_zero_dynamic_min), "Always leave domain 0 with at least this much memory";
   "domain-zero-dynamic-max", Arg.String (fun x -> Squeeze.domain_zero_dynamic_max := if x = "auto" then None else Some (Int64.of_string x)), (fun () -> match !Squeeze.domain_zero_dynamic_max with None -> "using the static-max value" | Some x -> Int64.to_string x), "Maximum memory to allow domain 0";
+  "boot-time-host-free-memory-minimal-constant-count", Arg.String (fun x -> Squeeze.boot_time_host_free_memory_constant_count_min := int_of_string x), (fun () -> Printf.sprintf "%d" !Squeeze.boot_time_host_free_memory_constant_count_min), "Boot time host memory is constant until geting this count of same result of free memory";
+  "boot-time-host-free-memory-check-interval ", Arg.String (fun x -> Squeeze.boot_time_host_free_memory_check_interval := float_of_string x), (fun () -> Printf.sprintf "%.2f" !Squeeze.boot_time_host_free_memory_check_interval), "Seconds between boot time host free memory check";
 ]
 
 
@@ -71,7 +73,7 @@ let _ =
   (* NB Initialise the xenstore connection after daemonising, otherwise
      we lose our connection *)
 
-  Memory_server.record_boot_time_host_free_memory ();
+  let _ = Thread.create Memory_server.record_boot_time_host_free_memory () in
 
   let rpc_server = Thread.create Xcp_service.serve_forever server in
 
