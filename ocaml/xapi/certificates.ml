@@ -317,8 +317,9 @@ let get_server_certificate () =
       (ExnHelper.string_of_exn e);
     raise_library_corrupt ()
 
+open Rresult
+
 let hostnames_of_pem_cert pem =
-  let open Rresult.R.Infix in
   Cstruct.of_string pem
   |> X509.Certificate.decode_pem
   >>| X509.Certificate.hostnames
@@ -335,7 +336,6 @@ let validate_private_key pkcs8_private_key =
   in
 
   let raw_pem = Cstruct.of_string pkcs8_private_key in
-  let open Rresult in
   X509.Private_key.decode_pem raw_pem
   |> R.reword_error
       (fun (`Msg err_msg) ->
@@ -348,12 +348,8 @@ let validate_private_key pkcs8_private_key =
         else
           `Msg (server_certificate_key_invalid, []))
   >>= ensure_key_length
-  |> function
-    | Ok priv -> priv
-    | Error `Msg (err, msg) -> raise_server_error msg err
 
 let validate_certificate kind pem now private_key =
-  let open Rresult in
   let ensure_keys_match private_key certificate =
     let public_key = X509.Certificate.public_key certificate in
     match public_key, private_key with
@@ -403,30 +399,22 @@ let validate_certificate kind pem now private_key =
           `Msg (server_certificate_chain_invalid, []))
     )
   |> function
-    | Ok (cert :: _)  -> cert
-    | Ok [] -> raise_server_error [] ""
-    | Error (`Msg (err, msg)) -> raise_server_error msg err
+    | Ok (cert :: _) -> Ok cert
+    | Ok [] -> Error (`Msg (internal_error, []))
+    | Error msg -> Error msg
 
 let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key =
-  let now = match Ptime.of_float_s (Unix.time ()) with
-    | Some time -> time
-    | None ->
-      raise_server_error
-        ["certificates: Current time cannot be represented as a datetime: \
-          it's out of bounds"] internal_error
-  in
-  let priv = validate_private_key pkcs8_private_key in
-  let cert = validate_certificate Leaf pem_leaf now priv in
+  let now = Ptime_clock.now () in
 
-  let server_cert_components = match pem_chain with
-  | None ->
-    [ pkcs8_private_key; pem_leaf ]
-  | Some pem_chain ->
-      let _:(X509.Certificate.t) =
-        validate_certificate Chain pem_chain now priv
-      in
-    [ pkcs8_private_key; pem_leaf; pem_chain ]
-  in
+  let result = validate_private_key pkcs8_private_key >>= fun priv ->
+  validate_certificate Leaf pem_leaf now priv >>= fun cert ->
+
+  Option.fold
+    ~none:(Ok [ pkcs8_private_key; pem_leaf ])
+    ~some:(fun pem_chain ->
+      validate_certificate Chain pem_chain now priv >>= fun _ignored ->
+      Ok [ pkcs8_private_key; pem_leaf; pem_chain ]
+    ) pem_chain >>= fun server_cert_components ->
 
   let cert_server = server_cert_components
     |> String.concat "\n\n"
@@ -437,14 +425,20 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key 
     Unix.write fd cert_server 0 (Bytes.length cert_server)
   in
 
-  (try
+  try
     let _:int =
-      Unixext.atomic_write_to_file !Xapi_globs.server_cert_path owner_ro atomic_write
+      Xapi_stdext_unix.Unixext.atomic_write_to_file
+        !Xapi_globs.server_cert_path owner_ro atomic_write
     in
-    ()
+    Ok cert
   with Unix.Unix_error(err, _, _) ->
-    raise_server_error
-    [ Printf.sprintf "certificates: could not write server certificate to \
-       disk. Reason: %s" (Unix.error_message err)]
-    internal_error);
-  cert
+    Error (`Msg (internal_error,
+      [Printf.sprintf "certificates: could not write server certificate to \
+       disk. Reason: %s" (Unix.error_message err)]))
+  >>= function
+  | Ok cert ->
+      cert
+  | Error (`Msg (err, msg)) ->
+      raise_server_error msg err
+  in
+  R.get_ok result

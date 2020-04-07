@@ -101,14 +101,19 @@ let server_error err reason =
   Server_error (err, reason)
 
 let test_valid_key key_name () =
-  let _priv = validate_private_key (load_test_data key_name) in
-  ()
+  match validate_private_key (load_test_data key_name) with
+  | Ok _ -> ()
+  | Error (`Msg (_, msg)) ->
+    Alcotest.fail @@ Format.asprintf
+      "Valid key could not be validated: %a" Fmt.(Dump.list string) msg
 
 let test_invalid_key key_name error reason () =
-  let key = load_test_data key_name in
-  Alcotest.check_raises ""
-    (server_error error reason)
-    (fun () -> let _priv = validate_private_key key in ())
+  match validate_private_key (load_test_data key_name) with
+  | Ok _ ->
+    Alcotest.fail "Invalid key was validated without errors"
+  | Error (`Msg msg) ->
+      Alcotest.(check @@ pair string @@ list string)
+        "Error must match" (error, reason) msg
 
 let valid_keys_tests =
   List.map (fun name ->
@@ -121,19 +126,20 @@ let invalid_keys_tests =
     `Quick, Ok (test_invalid_key name error reason))
   invalid_private_keys
 
-let test_valid_cert cert time pkey () =
-  let _leaf:X509.Certificate.t = validate_certificate Leaf cert time pkey in
-  ()
+let test_valid_cert ~kind cert time pkey =
+  match validate_certificate kind cert time pkey with
+  | Ok _ -> ()
+  | Error (`Msg (_, msg)) ->
+    Alcotest.fail @@ Format.asprintf
+      "Valid certificate could not be validated: %a" Fmt.(Dump.list string) msg
 
-let test_invalid_cert cert time pkey error reason () =
-  Alcotest.check_raises ""
-    (server_error error reason)
-    (fun () ->
-      let _leaf:X509.Certificate.t =
-        validate_certificate Leaf cert time pkey
-      in
-      ()
-    )
+let test_invalid_cert ~kind cert time pkey error reason =
+  match validate_certificate kind cert time pkey with
+  | Ok _ ->
+    Alcotest.fail "Invalid certificate was validated without errors"
+  | Error (`Msg msg) ->
+      Alcotest.(check @@ pair string @@ list string)
+        "Error must match" (error, reason) msg
 
 let load_pkcs8 name =
   X509.Private_key.decode_pem (Cstruct.of_string (load_test_data name))
@@ -151,11 +157,15 @@ let sign_leaf_cert host_name digest pkey_leaf =
   >>| Cstruct.to_string
 
 let valid_leaf_cert_tests =
+  let test_valid_leaf_cert cert time pkey () =
+    test_valid_cert ~kind:Leaf cert time pkey
+  in
+
   List.map (fun (name, pkey_leaf_name, time, digest) ->
     let cert_test =
       load_pkcs8 pkey_leaf_name >>= fun pkey_leaf ->
       sign_leaf_cert host_name digest pkey_leaf >>| fun cert ->
-      test_valid_cert cert (time_of_rfc3339 time) pkey_leaf
+      test_valid_leaf_cert cert (time_of_rfc3339 time) pkey_leaf
     in
     "Validation of a supported certificate: " ^ name, `Quick, cert_test)
   valid_leaf_certificates
@@ -164,25 +174,22 @@ let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
   let cert = load_test_data cert_name in
   let time = time_of_rfc3339 time in
   let test_cert = load_pkcs8 pkey_name >>| fun pkey ->
-    let test () = Alcotest.check_raises ""
-      (server_error error reason)
-      (fun () ->
-        let _leaf:X509.Certificate.t =
-          validate_certificate Leaf cert time pkey
-        in
-        ()
-      )
+    let test () = test_invalid_cert ~kind:Leaf cert time pkey error reason
     in
     test
   in
   "Validation of a corrupted certificate", `Quick, test_cert
 
 let test_invalid_leaf_cert (name, pkey_leaf_name, pkey_expected_name, time, digest, error, reason) =
+  let test_invalid_leaf_cert cert time pkey error reason () =
+    test_invalid_cert ~kind:Leaf cert time pkey error reason
+  in
+
   let test_cert =
     load_pkcs8 pkey_leaf_name >>= fun pkey_leaf ->
     load_pkcs8 pkey_expected_name >>= fun pkey_expected ->
     sign_leaf_cert host_name digest pkey_leaf >>| fun cert ->
-    test_invalid_cert cert (time_of_rfc3339 time) pkey_expected error reason
+    test_invalid_leaf_cert cert (time_of_rfc3339 time) pkey_expected error reason
   in
   "Validation of an unsupported certificate: " ^ name, `Quick, test_cert
 
@@ -191,18 +198,10 @@ let invalid_leaf_cert_tests =
   List.map test_invalid_leaf_cert invalid_leaf_certificates
 
 let test_valid_cert_chain chain time pkey () =
-  let _leaf:X509.Certificate.t = validate_certificate Chain chain time pkey in
-  ()
+  test_valid_cert ~kind:Chain chain time pkey
 
 let test_invalid_cert_chain cert time pkey error reason () =
-  Alcotest.check_raises ""
-    (server_error error reason)
-    (fun () ->
-      let _leaf:X509.Certificate.t =
-        validate_certificate Chain cert time pkey
-      in
-      ()
-    )
+  test_invalid_cert ~kind:Chain cert time pkey error reason
 
 let valid_chain_cert_tests =
   let time = time_of_rfc3339 "2020-02-01T00:00:00Z" in
