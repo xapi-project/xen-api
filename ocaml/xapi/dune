@@ -51,6 +51,7 @@
    message-switch-unix
    mtime
    mtime.clock.os
+   ptime.clock.os
    rresult
    sha
    xxhash
