@@ -374,6 +374,12 @@ Authorized Roles: {1}</value>
   <data name="RESTORE_SCRIPT_FAILED" xml:space="preserve">
     <value>The restore could not be performed because the restore script failed. Your backup file may be corrupt. See the logs for more information.</value>
   </data>
+  <data name="SERVER_CERTIFICATE_EXPIRED" xml:space="preserve">
+    <value>The provided certificate expired on {0}.</value>
+  </data>
+  <data name="SERVER_CERTIFICATE_NOT_VALID_YET" xml:space="preserve">
+    <value>The provided certificate is not valid before {0}.</value>
+  </data>
   <data name="SESSION_AUTHENTICATION_FAILED" xml:space="preserve">
     <value>Could not authenticate session. Check your access credentials and try again.</value>
   </data>

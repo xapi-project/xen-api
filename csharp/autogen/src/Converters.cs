@@ -389,7 +389,7 @@ namespace XenAPI
     {
         private static readonly string[] DateFormatsUniversal =
         {
-            "yyyyMMddTHH:mm:ssZ"
+            "yyyyMMddTHH:mm:ssZ", "yyyy-MM-ddThh:mm:ssZ"
         };
 
         private static readonly string[] DateFormatsOther =
