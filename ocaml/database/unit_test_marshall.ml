@@ -79,9 +79,7 @@ let gen_random_4string() =
 (* test marshall unmarshall is id *)
 let tm u m x =
   let s = m x in
-  print_string (Xml.to_string_fmt s);
-  print_string "\n\n";
-  (u s)=x
+  Alcotest.(check bool) (Printf.sprintf "%s" @@ Xml.to_string_fmt s) true (x = (u s))
 
 let test_gtfr_args() =
   tm
@@ -241,18 +239,8 @@ let tests =
     test_find_refs_with_filter_args, "test_find_refs_with_filter_args"
   ]
 
-(*
-let x =
-  expr_of_xml (xml_of_expr test_exp)
-
-let _ =
-  print_string (string_of_expr x)
-*)
-
-exception TestFail of string
-
-let _ =
-  List.iter
-    (fun (f,fname) ->
-       if not (f()) then raise (TestFail fname))
-    tests
+let () =
+  let to_alco (test, name) =
+    name, [name, `Quick, test]
+  in
+  Alcotest.run "Marshalling and unmarshalling database records" (List.map to_alco tests)

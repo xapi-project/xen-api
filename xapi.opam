@@ -24,7 +24,7 @@ depends: [
   "message-switch-unix"
   "mtime"
   "ocaml-migrate-parsetree"
-  "ounit"
+  "ounit" {with-test} # needed for ocaml-pci
   "pciutil"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"

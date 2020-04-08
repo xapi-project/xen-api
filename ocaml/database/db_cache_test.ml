@@ -60,11 +60,5 @@ let check_many_to_many () =
   then failwith (Printf.sprintf "check_many_to_many: foo(foo:1).foos expected () got %s" (Sexplib.Sexp.to_string (Schema.Value.sexp_of_t foo_bars)));
   ()
 
-open OUnit
-
-let _ =
-  let suite = "db_cache" >:::
-              [
-                "many to many" >:: check_many_to_many;
-              ] in
-  OUnit2.run_test_tt_main (OUnit.ounit2_of_ounit1 suite)
+let () =
+  Alcotest.run "Database cache" ["db_cache", ["many_to_many", `Quick, check_many_to_many]]

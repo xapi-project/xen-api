@@ -54,7 +54,7 @@ let test_lookup_functions () =
     test_lookup "Bridge" @@ (lookup_class_name acc 0x0680 |> default);
     test_lookup "Intel Corporation" @@ (lookup_vendor_name acc 0x8086 |> default);
     test_lookup "82371AB/EB/MB PIIX4 ACPI" @@ (lookup_device_name acc 0x8086 0x7113 |> default);
-    test_lookup "Red Hat, Inc" @@ (lookup_subsystem_vendor_name acc 0x1af4 |> default);
+    test_lookup "Red Hat, Inc." @@ (lookup_subsystem_vendor_name acc 0x1af4 |> default);
     test_lookup "Qemu virtual machine" @@ (lookup_subsystem_device_name acc 0x8086 0x7113 0x1af4 0x1100 |> default);
     test_lookup "VGA compatible controller" @@ (lookup_class_name acc 0x0300 |> default);
     test_lookup "VGA controller" @@ (lookup_progif_name acc 0x0300 0x00 |> default);
