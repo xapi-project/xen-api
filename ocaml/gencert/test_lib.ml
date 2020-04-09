@@ -97,6 +97,11 @@ let corrupt_chain_certificates =
     "2020-02-01T00:00:00Z",
     server_certificate_chain_invalid,
     []
+  ; "bogus",
+    "pkey_rsa_2048",
+    "2020-02-01T00:00:00Z",
+    server_certificate_chain_invalid,
+    []
   ]
 
 let server_error err reason =
