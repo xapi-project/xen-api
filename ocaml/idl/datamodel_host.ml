@@ -1502,5 +1502,6 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VBool false)) ~ty:Bool "multipathing" "Specifies whether multipathing is enabled";
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) ~ty:String "uefi_certificates" "The UEFI certificates allowing Secure Boot";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~ty:(Set (Ref _certificate)) "certificates" "List of certificates installed in the host";
+           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions"
          ])
       ()

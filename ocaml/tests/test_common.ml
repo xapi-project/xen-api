@@ -189,7 +189,8 @@ let make_host2 ~__context ?(ref=Ref.make ()) ?(uuid=make_uuid ()) ?(name_label="
     ~updates_requiring_reboot:[]
     ~iscsi_iqn:""
     ~multipathing:false
-    ~uefi_certificates:"";
+    ~uefi_certificates:""
+    ~editions:[];
   ref
 
 let make_pif ~__context ~network ~host ?(device="eth0") ?(mAC="C0:FF:EE:C0:FF:EE") ?(mTU=1500L)
