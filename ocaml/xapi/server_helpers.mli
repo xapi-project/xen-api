@@ -51,6 +51,6 @@ val do_dispatch : ?session_id:API.ref_session ->
                   Unix.file_descr ->
                   Http.Request.t ->
                   string ->
-                  [< `Async | `InternalAsync | `Sync > `Sync ] -> bool -> Rpc.response
+                  [< `Async | `InternalAsync | `Sync > `Sync `InternalAsync] -> bool -> Rpc.response
 
 val forward_extension : __context:'a -> ('a -> (unit -> Rpc.response) -> 'b) -> Rpc.call -> 'b

@@ -1672,44 +1672,48 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
     let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map =
       info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm);
       let local_fn = Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options in
-      let forwarder =
-        if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
+      let op session_id rpc = Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map in
+      let migration_type =
+        if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then begin
           let host = List.assoc Xapi_vm_migrate._host dest |> Ref.of_string in
-          if Db.is_valid_ref __context host then
-            (* Intra-pool: reserve resources on the destination host, then
-             * forward the call to the source. *)
+          if Db.is_valid_ref __context host then `Live_intrapool host else `Live_interpool
+        end else `Non_live
+      in
+      let forward_migrate_send () =
+        let forward_internal_async () =
+          forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
+            (** try InternalAsync.VM.migrate_send first to avoid long running idle stunnel connection
+              * fall back on Async.VM.migrate_send if slave doesn't support InternalAsync *)
+            Helpers.try_internal_async ~__context
+              API.ref_VM_of_rpc
+              (fun () -> Client.InternalAsync.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
+              (fun () -> op session_id rpc)
+          )
+        in
+        match migration_type with
+        | `Live_interpool      -> forward_internal_async () (* resources on the destination will be reserved separately *)
+        | `Non_live            ->
+            let snapshot = Db.VM.get_record ~__context ~self:vm in
+            fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)
+        | `Live_intrapool host ->
+            (* reserve resources on the destination host, then forward the call to the source. *)
             let snapshot = Db.VM.get_record ~__context ~self:vm in
             let clear_migrate_op () =
               Helpers.with_global_lock
                 (fun () ->
                   finally_clear_host_operation ~__context ~host ~host_op:`vm_migrate ();
                   clear_scheduled_to_be_resident_on ~__context ~vm) in
-            fun ~local_fn ~__context ~vm op ->
-              finally
-                (fun () -> allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
-                           forward_vm_op ~local_fn ~__context ~vm op)
-                clear_migrate_op;
-          else
-            (* Cross pool: just forward to the source host. Resources on the
-             * destination will be reserved separately. *)
-            forward_vm_op
-        else
-          let snapshot = Db.VM.get_record ~__context ~self:vm in
-          (fun ~local_fn ~__context ~vm op ->
-             fst (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~host_op:`vm_migrate op)) in
+            finally
+              (fun () -> allocate_vm_to_host ~__context ~vm ~host ~snapshot ~host_op:`vm_migrate ();
+                         forward_internal_async ())
+              clear_migrate_op;
+      in
       with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send" ~op:`migrate_send
         (fun () ->
            Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate" (fun ~__context ->
                assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map ~options
              );
-
-           Helpers.try_internal_async
-             ~__context
-             "InternalAsync.VM.migrate_send"
-             (forwarder ~local_fn ~vm)
-             (fun rpc session_id -> Client.InternalAsync.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
-             (fun rpc session_id -> Client.VM.migrate_send rpc session_id vm dest live vdi_map vif_map options vgpu_map)
-             API.ref_VM_of_rpc
+           forward_migrate_send ()
         )
 
     let send_trigger ~__context ~vm ~trigger =
