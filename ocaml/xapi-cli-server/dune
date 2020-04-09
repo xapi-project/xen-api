@@ -1,0 +1,16 @@
+(library
+  (name xapi_cli_server)
+  (public_name xapi-cli-server)
+
+  (libraries
+   tar-unix
+   xapi-idl.v6
+   xapi-idl.storage
+   xapi-datamodel
+   xapi-types
+   xapi-client
+   xapi-cli-protocol
+   stdext
+  )
+  (wrapped false)
+)

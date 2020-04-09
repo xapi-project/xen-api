@@ -63,6 +63,7 @@
    xapi-client
    xapi-datamodel
    xapi-cli-protocol
+   xapi-cli-server
    xapi-test-utils
    stdext
    threads
