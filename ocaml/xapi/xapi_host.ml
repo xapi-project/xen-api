@@ -692,6 +692,7 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address ~ex
     ~iscsi_iqn:""
     ~multipathing:false
     ~uefi_certificates:""
+    ~editions:[]
   ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.of_float (Unix.gettimeofday ()));
