@@ -96,7 +96,7 @@ let validate_certificate kind pem now private_key =
   in
 
   let raw_pem = Cstruct.of_string pem in
-  (match kind with
+  match kind with
   | Leaf ->
     X509.Certificate.decode_pem raw_pem
     |> R.reword_error
@@ -105,17 +105,12 @@ let validate_certificate kind pem now private_key =
     >>= ensure_keys_match private_key
     >>= ensure_validity ~time:now
     >>= ensure_sha256_signature_algorithm
-    >>| (fun cert -> [cert])
   | Chain ->
     X509.Certificate.decode_pem_multiple raw_pem
-    |> R.reword_error
-        (fun _ ->
-          `Msg (server_certificate_chain_invalid, []))
-    )
-  |> function
-    | Ok (cert :: _) -> Ok cert
-    | Ok [] -> Error (`Msg (internal_error, []))
-    | Error msg -> Error msg
+    |> function
+      | Ok (cert :: _) -> Ok cert
+      | _ ->
+          Error (`Msg (server_certificate_chain_invalid, []))
 
 let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key ~server_cert_path =
   let now = Ptime_clock.now () in
