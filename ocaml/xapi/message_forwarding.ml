@@ -2094,6 +2094,38 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module VM_guest_metrics = struct
   end
 
+  module Diagnostics = struct
+    let gc_compact ~__context ~session ~host =
+      info "Diagnostics.gc_compact: session = '%s' host = '%s'"
+        (Ref.string_of session) (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.gc_compact ~session ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_compact rpc session_id session host)
+
+    let gc_stats ~__context ~session ~host =
+      info "Diagnostics.gc_stats: session = '%s' host = '%s'"
+        (Ref.string_of session) (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.gc_stats ~session ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_stats rpc session_id session host)
+
+    let db_stats ~__context ~session ~host =
+      info "Diagnostics.db_stats: session = '%s' host = '%s'"
+        (Ref.string_of session) (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.db_stats ~session ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.db_stats rpc session_id session host)
+
+    let license_stats ~__context ~session ~host =
+      info "Diagnostics.license_stats: session = '%s' host = '%s'"
+        (Ref.string_of session) (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.license_stats ~session ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.license_stats rpc session_id session host)
+
+    let network_stats ~__context ~session ~host =
+      info "Diagnostics.network_stats: session = '%s' host = '%s'"
+        (Ref.string_of session) (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.network_stats ~session ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.network_stats rpc session_id session host)
+  end
+
   module Host = struct
 
     (** Add to the Host's current operations, call a function and then remove from the

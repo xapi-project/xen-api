@@ -185,6 +185,7 @@ let _network_sriov = "network_sriov"
 let _cluster = "Cluster"
 let _cluster_host = "Cluster_host"
 let _certificate = "Certificate"
+let _diagnostics = "Diagnostics"
 
 let get_oss_releases in_oss_since =
   match in_oss_since with
