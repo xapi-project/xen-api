@@ -101,6 +101,7 @@ module Actions = struct
   module Cluster = Xapi_cluster
   module Cluster_host = Xapi_cluster_host
   module Certificate = Certificates
+  module Diagnostics = Xapi_diagnostics
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)

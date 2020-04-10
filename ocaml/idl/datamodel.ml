@@ -5466,6 +5466,7 @@ let all_system =
     Datamodel_cluster.t;
     Datamodel_cluster_host.t;
     Datamodel_certificate.t;
+    Datamodel_diagnostics.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)

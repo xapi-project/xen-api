@@ -18,6 +18,7 @@
    datamodel_values
    datamodel_schema
    datamodel_certificate
+   datamodel_diagnostics
   )
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29))
   (libraries
