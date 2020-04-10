@@ -3237,7 +3237,8 @@ let host_apply_edition printer rpc session_id params =
     (fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition false)
 
 let host_all_editions printer rpc session_id params =
-  let editions = List.map V6_interface.(fun ed -> ed.title) (V6_client.get_editions "host_all_editions") in
+  let host = get_host_from_session rpc session_id in
+  let editions = Client.Host.get_editions rpc session_id host in
   printer (Cli_printer.PList editions)
 
 let host_evacuate printer rpc session_id params =
