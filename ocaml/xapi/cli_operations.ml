@@ -204,9 +204,6 @@ let diagnostic_db_stats printer rpc session_id params =
   let (n,avgtime,min,max) = Db_lock.report () in
   printer (Cli_printer.PMsg (Printf.sprintf "DB lock stats: n=%d avgtime=%f min=%f max=%f" n avgtime min max))
 
-let diagnostic_db_log printer rpc session_id params =
-  printer (Cli_printer.PMsg "Deprecated: no additional statistics available, use diagnostic-db-stats")
-
 type host_license = {
   hostname: string;
   uuid: string;
@@ -335,19 +332,6 @@ let create_owner_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd u
 (* ---------------------------------------------------------------------
    CLI Operation Implementation
    --------------------------------------------------------------------- *)
-
-(* NB: all logging is now via syslog. No manual log controls are here. *)
-let log_set_output printer _ session_id params =
-  ()
-
-let log_get_keys printer _ session_id params =
-  ()
-
-let log_get printer _ session_id params =
-  ()
-
-let log_reopen printer _ session_id params =
-  ()
 
 let user_password_change _ rpc session_id params =
   let old_pwd = Listext.assoc_default "old" params ""

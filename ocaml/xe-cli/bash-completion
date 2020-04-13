@@ -200,13 +200,6 @@ _xe()
                 return 0
                 ;;
 
-            key)
-                local keys=`${xe} log-get-keys --minimal 2>/dev/null`
-                IFS=$'\n,'
-                set_completions "$keys" "$value"
-                return 0
-                ;;
-
             level)
                 IFS=$'\n,'
                 set_completions 'debug,info,warning,error' "$value"
@@ -280,10 +273,6 @@ _xe()
 
             output)
                 case "${OLDSTYLE_WORDS[1]}" in
-                    log-set-output)
-                        IFS=$'\n,'
-                        set_completions 'file,syslog,nil' "$value"
-                        ;;
                     host-get-system-status)
                         IFS=$'\n,'
                         set_completions 'tar.bz2,zip' "$value"
