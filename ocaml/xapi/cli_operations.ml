@@ -101,19 +101,21 @@ let read_set_params name params = List.map fst (read_map_params name params)
 
 let get_chunks fd =
   let buffer = Buffer.create 10240 in
-  let rec f () =
+  let rec f bytes_read =
     match unmarshal fd with
     | Blob (Chunk len) ->
       debug "Reading a chunk of %ld bytes" len;
+      let bytes_read = bytes_read + (Int32.to_int len) in
+      if bytes_read > Constants.max_cli_upload_bytes then failwith (Printf.sprintf "Fatal error: A CLI client tried to transfer more than the maximum allowed of %dB, aborting." Constants.max_cli_upload_bytes);
       let data = Unixext.really_read_string fd (Int32.to_int len) in
       Buffer.add_string buffer data;
-      f()
+      f bytes_read
     | Blob End ->
       Buffer.contents buffer
     | _ ->
       failwith "Thin CLI protocol error"
   in
-  f()
+  f 0
 
 let get_client_file fd filename =
   marshal fd (Command (Load filename));

@@ -149,3 +149,6 @@ let minimum_token_timeout_coefficient_s = 0.65
 
 (* Maximum VHD Size *)
 let max_vhd_size = Sizes.(2040L ** gib)
+
+(* Limit the max CLI upload size to 32MiB *)
+let max_cli_upload_bytes = 33554432
