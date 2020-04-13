@@ -69,42 +69,6 @@ let srselectorsinfo = " SRs can be specified by filtering the full list of SRs \
 
 let rec cmdtable_data : (string*cmd_spec) list =
   [
-    "log-set-output",
-    {
-      reqd=["output"];
-      optn=["key";"level"];
-      help="Set all loggers to the specified output (nil, stderr, string, file:<filename>, syslog:<something>).";
-      implementation=No_fd Cli_operations.log_set_output;
-      flags=[Neverforward];
-    };
-
-    "log-get-keys",
-    {
-      reqd=[];
-      optn=[];
-      help="List the keys known by the logger.";
-      implementation=No_fd Cli_operations.log_get_keys;
-      flags=[Neverforward];
-    };
-
-    "log-reopen",
-    {
-      reqd=[];
-      optn=[];
-      help="Reopen all loggers (use this for rotating files).";
-      implementation=No_fd_local_session Cli_operations.log_reopen;
-      flags=[Neverforward];
-    };
-
-    "log-get",
-    {
-      reqd=[];
-      optn=[];
-      help="Return the log currently stored in the string logger.";
-      implementation=No_fd Cli_operations.log_get;
-      flags=[Neverforward];
-    };
-
     "blob-get",
     {
       reqd=["uuid";"filename"];
@@ -2360,14 +2324,6 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=["uri"; "method"; "params"];
       help="Print network stats.";
       implementation=No_fd Cli_operations.diagnostic_net_stats;
-      flags=[Neverforward];
-    };
-    "diagnostic-db-log",
-    {
-      reqd=[];
-      optn=[];
-      help="Start logging the database operations. Warning: once started, this cannot be stopped.";
-      implementation=No_fd Cli_operations.diagnostic_db_log;
       flags=[Neverforward];
     };
     "host-get-sm-diagnostics",
