@@ -71,6 +71,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                         "-src"; infile;
                         "-dest"; outfile;
                         "-size"; Int64.to_string size;
+                        "-good-ciphersuites"; Xcp_const.good_ciphersuites
                       ] @ if prezeroed then [ "-prezeroed" ] else []
                         @ Option.value ~default:[] (Option.map (fun x -> [ "-base"; x ]) base) in
                       debug "%s %s" sparse_dd_path (String.concat " " args);
