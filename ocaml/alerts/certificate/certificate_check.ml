@@ -45,8 +45,13 @@ let execute rpc session (host, alert) =
      this host as it needs to be refreshed *)
   let obsolete_messages = XenAPI.Message.get_all_records rpc session
   |> List.filter_map (fun (ref, record) ->
-      let prefix = Api_messages.host_server_certificate_expiring in
-      if Astring.String.is_prefix ~affix:prefix record.API.message_name
+      let expiring_or_expired name =
+        let expiring = Api_messages.host_server_certificate_expiring in
+        let expired = fst Api_messages.host_server_certificate_expired in
+        let open Astring.String in
+        is_prefix ~affix:expiring name || is_prefix ~affix:expired name
+      in
+      if expiring_or_expired record.API.message_name
            && record.API.message_obj_uuid = host_uuid then
         Some ref
       else
