@@ -39,20 +39,11 @@ let generate_alert epoch (host, expiry) =
     in
     host, Some (message, alert)
 
-let execute rpc session (host, alert) =
+let execute rpc session previous_messages (host, alert) =
   let host_uuid = XenAPI.Host.get_uuid rpc session host in
-  (* we need to remove any host_server_certificate_expiring messages affecting
-     this host as it needs to be refreshed *)
-  let obsolete_messages = XenAPI.Message.get_all_records rpc session
+  let obsolete_messages = previous_messages
   |> List.filter_map (fun (ref, record) ->
-      let expiring_or_expired name =
-        let expiring = Api_messages.host_server_certificate_expiring in
-        let expired = fst Api_messages.host_server_certificate_expired in
-        let open Astring.String in
-        is_prefix ~affix:expiring name || is_prefix ~affix:expired name
-      in
-      if expiring_or_expired record.API.message_name
-           && record.API.message_obj_uuid = host_uuid then
+      if record.API.message_obj_uuid = host_uuid then
         Some ref
       else
         None
@@ -68,10 +59,23 @@ let execute rpc session (host, alert) =
 
 let alert rpc session =
   let now = Unix.time () in
+  (* Message starting with [host_server_certificate_\{expiring,expired\}] may
+     need to be refreshed, gather them just once *)
+  let previous_messages = XenAPI.Message.get_all_records rpc session
+  |> List.filter (fun (ref, record) ->
+      let expiring_or_expired name =
+        let expiring = Api_messages.host_server_certificate_expiring in
+        let expired = fst Api_messages.host_server_certificate_expired in
+        let open Astring.String in
+        is_prefix ~affix:expiring name || is_prefix ~affix:expired name
+      in
+      expiring_or_expired record.API.message_name
+    )
+  in
   let send_alert_maybe attributes =
     attributes
     |> generate_alert now
-    |> execute rpc session
+    |> execute rpc session previous_messages
   in
   get_certificate_attributes rpc session
   |> List.iter send_alert_maybe
