@@ -886,7 +886,7 @@ let host_ha_xapi_healthcheck fd printer rpc session_id params =
     end;
     marshal fd (Command (Print "xapi is healthy."))
   with e ->
-    marshal fd (Command (PrintStderr (Printf.sprintf "Host.ha_xapi_healthcheck threw exception: %s\n" (ExnHelper.string_of_exn e))));
+    marshal fd (Command (PrintStderr (Printf.sprintf "Host.ha_xapi_healthcheck threw exception: %s\n" (Cli_util.string_of_exn e))));
     raise (ExitWithError 3)
 
 let pool_sync_database printer rpc session_id params =
@@ -1978,10 +1978,10 @@ let do_multiple op set =
       with
       | Api_errors.Server_error(code, params) as exn -> (
           match Cli_util.get_server_error code params with
-          | None           -> append_fail e (ExnHelper.string_of_exn exn)
+          | None           -> append_fail e (Cli_util.string_of_exn exn)
           | Some (msg, ps) -> append_fail e (msg ^ "\n" ^ (String.concat "\n" ps))
         ); None
-      | exn -> append_fail e (ExnHelper.string_of_exn exn); None
+      | exn -> append_fail e (Cli_util.string_of_exn exn); None
     ) set in
 
   let success = List.fold_left (fun acc e -> match e with None -> acc | Some x -> x :: acc) [] ret in

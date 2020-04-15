@@ -215,7 +215,7 @@ let parse_session_and_args str =
   with _ -> (None,args)
 
 let exception_handler s e =
-  error "Converting exception %s into a CLI response" (ExnHelper.string_of_exn e);
+  error "Converting exception %s into a CLI response" (Cli_util.string_of_exn e);
   match e with
   | Cli_operations.ExitWithError n ->
     marshal s (Command (Exit n))
@@ -249,7 +249,7 @@ let exception_handler s e =
   | Unix.Unix_error (a,b,c) ->
     Cli_util.server_error Api_errors.internal_error [ "Unix_error: " ^ (Unix.error_message a) ] s
   | exc ->
-    Cli_util.server_error Api_errors.internal_error [ ExnHelper.string_of_exn exc ] s
+    Cli_util.server_error Api_errors.internal_error [ Cli_util.string_of_exn exc ] s
 
 let handler (req:Http.Request.t) (bio: Buf_io.t) _ =
   let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in

@@ -253,3 +253,14 @@ let rec uri_of_someone rpc session_id = function
       let address = Client.Host.get_address rpc session_id h in
       "https://" ^ address
 
+
+let error_of_exn e =
+  match e with
+  | Api_errors.Server_error (e,l) ->
+    e,l
+  | e ->
+    Api_errors.internal_error, [ Printexc.to_string e ]
+
+let string_of_exn exn =
+  let e, l = error_of_exn exn in
+  Printf.sprintf "%s: [ %s ]" e (String.concat "; " l)
