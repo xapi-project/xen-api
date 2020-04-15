@@ -41,16 +41,23 @@ type capability =
   | Vdi_configure_cbt
   | Large_vdi (** Supports >2TB VDIs *)
   | Thin_provisioning
+  | Vdi_read_caching
 
 type feature = capability * int64
 
 let string_to_capability_table = [
+  "SR_CREATE",      Sr_create;
+  "SR_DELETE",      Sr_delete;
+  "SR_ATTACH",      Sr_attach;
+  "SR_DETACH",      Sr_detach;
+  "SR_SCAN",        Sr_scan;
   "SR_PROBE",       Sr_probe;
   "SR_UPDATE",      Sr_update;
   "SR_SUPPORTS_LOCAL_CACHING", Sr_supports_local_caching;
   "SR_METADATA",    Sr_metadata;
   "SR_TRIM",        Sr_trim;
   "SR_MULTIPATH",   Sr_multipath;
+  "SR_STATS",       Sr_stats;
   "VDI_CREATE",     Vdi_create;
   "VDI_DELETE",     Vdi_delete;
   "VDI_ATTACH",     Vdi_attach;
@@ -68,9 +75,9 @@ let string_to_capability_table = [
   "VDI_ATTACH_OFFLINE", Vdi_attach_offline;
   "VDI_RESET_ON_BOOT", Vdi_reset_on_boot;
   "VDI_CONFIG_CBT", Vdi_configure_cbt;
-  "SR_STATS", Sr_stats;
   "LARGE_VDI", Large_vdi;
   "THIN_PROVISIONING", Thin_provisioning;
+  "VDI_READ_CACHING", Vdi_read_caching;
 ]
 let capability_to_string_table = List.map (fun (k, v) -> v, k) string_to_capability_table
 
