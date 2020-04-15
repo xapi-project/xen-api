@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="config_file_sync" end)
 open D
 
 open Stdext.Xstringext

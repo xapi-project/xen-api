@@ -20,7 +20,7 @@ open Http
 open Stdext.Xstringext
 open Stdext.Pervasiveext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="fileserver" end)
 open D
 
 let escape uri =

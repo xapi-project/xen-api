@@ -17,7 +17,7 @@ open Stdext
 open Listext
 open Threadext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_dr" end)
 open D
 
 (* -------------------------- VDI caching ----------------------------------- *)

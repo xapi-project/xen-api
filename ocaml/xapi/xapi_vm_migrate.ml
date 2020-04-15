@@ -24,7 +24,7 @@ open Stdext
 open Pervasiveext
 open Threadext
 
-module DD=Debug.Make(struct let name="xapi" end)
+module DD=Debug.Make(struct let name="xapi_vm_migrate" end)
 open DD
 
 module SMPERF=Debug.Make(struct let name="SMPERF" end)

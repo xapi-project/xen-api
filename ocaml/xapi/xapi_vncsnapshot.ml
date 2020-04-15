@@ -15,7 +15,7 @@
 open Http
 open Forkhelpers
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vncsnapshot" end)
 open D
 
 let vncsnapshot = "/usr/bin/vncsnapshot"

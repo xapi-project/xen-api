@@ -22,7 +22,7 @@ open Server_helpers
 open Client
 open Db_filter_types
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="message_forwarding" end)
 open D
 
 module Audit = Debug.Make(struct let name="audit" end)

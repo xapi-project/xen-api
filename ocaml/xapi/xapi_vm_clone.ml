@@ -20,7 +20,7 @@ open Client
 open Pervasiveext
 open Event_types
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vm_clone" end)
 open D
 
 let delete_disks rpc session_id disks =

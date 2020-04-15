@@ -25,7 +25,7 @@ open Create_misc
 open Network
 open Workload_balancing
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_host" end)
 open D
 
 let set_emergency_mode_error code params = Xapi_globs.emergency_mode_error := Api_errors.Server_error(code, params)

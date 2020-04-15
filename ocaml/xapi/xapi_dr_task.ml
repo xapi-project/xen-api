@@ -16,7 +16,7 @@ open Client
 open Stdext
 open Xstringext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_dr_task" end)
 open D
 
 let make_task ~__context =

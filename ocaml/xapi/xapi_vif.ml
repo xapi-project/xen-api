@@ -15,7 +15,7 @@
 open Stdext
 open Listext
 open Xapi_vif_helpers
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vif" end)
 open D
 
 let assert_operation_valid ~__context ~self ~(op:API.vif_operations) =

@@ -21,7 +21,7 @@ open Pervasiveext
 open Xstringext
 open Xapi_support
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_host_crashdump" end)
 open D
 
 
