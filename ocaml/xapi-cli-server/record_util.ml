@@ -21,6 +21,30 @@ let to_str = function
   | Rpc.String x -> x
   | _ -> failwith "Invalid"
 
+let class_to_string cls =
+  match cls with
+  | `VM -> "VM"
+  | `Host -> "Host"
+  | `SR -> "SR"
+  | `Pool -> "Pool"
+  | `VMPP -> "VMPP"
+  | `VMSS -> "VMSS"
+  | `PVS_proxy -> "PVS_proxy"
+  | `VDI -> "VDI"
+  | _ -> "unknown"
+
+let string_to_class str =
+  match str with
+  | "VM" -> `VM
+  | "Host" -> `Host
+  | "SR" -> `SR
+  | "Pool" -> `Pool
+  | "VMPP" -> `VMPP
+  | "VMSS" -> `VMSS
+  | "PVS_proxy" -> `PVS_proxy
+  | "VDI" -> `VDI
+  | _ -> failwith "Bad type"
+
 let power_state_to_string state =
   match state with
     `Halted -> "Halted"
