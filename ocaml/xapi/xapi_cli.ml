@@ -45,9 +45,14 @@ let zap_cr s =
   else
     s
 
+let is_unix_socket s =
+  match Unix.getpeername s with
+  | Unix.ADDR_UNIX _ -> true
+  | Unix.ADDR_INET _ -> false
+
 let forward args s session =
   (* Reject forwarding cli commands if the request came in from a tcp socket *)
-  if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
+  if not (is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
   let open Xmlrpc_client in
   let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Xapi_globs.https_port) in
   let body =
