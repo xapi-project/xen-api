@@ -767,7 +767,7 @@ let gen_cmds rpc session_id =
     ; Client.PBD.(mk get_all get_all_records_where get_by_uuid pbd_record "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id)
     ; Client.Task.(mk get_all get_all_records_where get_by_uuid task_record "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id)
     ; Client.Subject.(mk get_all get_all_records_where get_by_uuid subject_record "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id)
-    ; Client.Role.(mk get_all (fun ~rpc ~session_id ~expr -> get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions)
+    ; Client.Role.(mk get_all (fun ~rpc ~session_id ~expr -> get_all_records_where ~rpc ~session_id ~expr:"subroles<>[]")
                      get_by_uuid role_record "role" [] ["uuid";"name";"description";"subroles"] rpc session_id)
     ; Client.VMSS.(mk get_all get_all_records_where get_by_uuid vmss_record "vmss" [] ["uuid";"name-label";"name-description";"enabled";"type";"retained-snapshots";"frequency";"schedule";"last-run-time";"VMs"] rpc session_id)
     (* ; Client.Blob.(mk get_all get_all_records_where get_by_uuid blob_record "blob" [] ["uuid";"mime-type"] rpc session_id)
