@@ -1,5 +1,6 @@
 (library
   (name xapi_stdext_date)
   (public_name xapi-stdext-date)
-  (libraries unix)
+  (libraries unix
+             ptime)
 )

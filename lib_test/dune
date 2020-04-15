@@ -2,7 +2,8 @@
   (name suite)
   (libraries
     alcotest
-    xapi_stdext_encodings)
+    xapi_stdext_encodings
+    xapi_stdext_date)
 )
 
 (alias

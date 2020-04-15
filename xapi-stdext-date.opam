@@ -12,6 +12,7 @@ depends: [
   "ocaml"
   "dune" {build}
   "base-unix"
+  "ptime"
 ]
 synopsis: "A deprecated collection of utility functions - Date module"
 description: """
