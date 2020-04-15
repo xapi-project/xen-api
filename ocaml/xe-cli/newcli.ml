@@ -127,11 +127,8 @@ let parse_port (x: string) =
 
 let parse_eql arg =
   try
-    let eq = String.index arg '=' in
-    let k = String.sub arg 0 eq in
-    let v = String.sub arg (eq+1) (String.length arg - (eq+1)) in
-    Some (k,v)
-  with _ -> None
+    Astring.String.cut ~sep:"=" arg
+  with Invalid_argument _ -> None
 
 let get_named_args args =
   List.filter_map (fun arg ->
