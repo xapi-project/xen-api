@@ -21,7 +21,6 @@ module D=Debug.Make(struct let name="certificates" end)
 open D
 
 type t_trusted = CA_Certificate | CRL
-type t_server = Leaf | Chain
 
 let c_rehash = "/usr/bin/c_rehash"
 let pem_certificate_header = "-----BEGIN CERTIFICATE-----"
@@ -317,134 +316,21 @@ let get_server_certificate () =
       (ExnHelper.string_of_exn e);
     raise_library_corrupt ()
 
+open Rresult
+
 let hostnames_of_pem_cert pem =
-  let open Rresult.R.Infix in
   Cstruct.of_string pem
   |> X509.Certificate.decode_pem
   >>| X509.Certificate.hostnames
 
-let validate_private_key pkcs8_private_key =
-  let ensure_key_length = function
-  | `RSA priv ->
-    let length = Mirage_crypto_pk.Rsa.priv_bits priv in
-    if length < 2048 || length > 4096 then
-      Error (`Msg (server_certificate_key_rsa_length_not_supported,
-        [Int.to_string length]))
-    else
-      Ok (`RSA priv)
-  in
-
-  let raw_pem = Cstruct.of_string pkcs8_private_key in
-  let open Rresult in
-  X509.Private_key.decode_pem raw_pem
-  |> R.reword_error
-      (fun (`Msg err_msg) ->
-        let unknown_algorithm = "Unknown algorithm " in
-        if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
-          `Msg (server_certificate_key_rsa_multi_not_supported, [])
-        else if Astring.String.is_prefix ~affix:unknown_algorithm err_msg then
-          `Msg (server_certificate_key_algorithm_not_supported,
-            [Astring.String.with_range ~first:(String.length unknown_algorithm) err_msg])
-        else
-          `Msg (server_certificate_key_invalid, []))
-  >>= ensure_key_length
-  |> function
-    | Ok priv -> priv
-    | Error `Msg (err, msg) -> raise_server_error msg err
-
-let validate_certificate kind pem now private_key =
-  let open Rresult in
-  let ensure_keys_match private_key certificate =
-    let public_key = X509.Certificate.public_key certificate in
-    match public_key, private_key with
-    | `RSA pub, `RSA priv when pub = Mirage_crypto_pk.Rsa.pub_of_priv priv ->
-        Ok certificate
-    | _ ->
-        Error (`Msg (server_certificate_key_mismatch, []))
-  in
-
-  let ensure_validity ~time certificate =
-    let to_string = Ptime.to_rfc3339 in
-    let not_before, not_after = X509.Certificate.validity certificate in
-
-    if Ptime.is_earlier time not_before then
-      Error (`Msg (server_certificate_not_valid_yet,
-        [(to_string time); (to_string not_before)]))
-    else if Ptime.is_later time not_after then
-      Error (`Msg (server_certificate_expired,
-          [(to_string time); (to_string not_after)]))
-    else
-      Ok certificate
-  in
-
-  let ensure_sha256_signature_algorithm certificate =
-    match X509.Certificate.signature_algorithm certificate with
-    | Some (_, `SHA256) ->
-        Ok certificate
-    | _ ->
-        Error (`Msg (server_certificate_signature_not_supported, []))
-  in
-
-  let raw_pem = Cstruct.of_string pem in
-  (match kind with
-  | Leaf ->
-    X509.Certificate.decode_pem raw_pem
-    |> R.reword_error
-        (fun _ ->
-          `Msg (server_certificate_invalid, []))
-    >>= ensure_keys_match private_key
-    >>= ensure_validity ~time:now
-    >>= ensure_sha256_signature_algorithm
-    >>| (fun cert -> [cert])
-  | Chain ->
-    X509.Certificate.decode_pem_multiple raw_pem
-    |> R.reword_error
-        (fun _ ->
-          `Msg (server_certificate_chain_invalid, []))
-    )
-  |> function
-    | Ok (cert :: _)  -> cert
-    | Ok [] -> raise_server_error [] ""
-    | Error (`Msg (err, msg)) -> raise_server_error msg err
-
 let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key =
-  let now = match Ptime.of_float_s (Unix.time ()) with
-    | Some time -> time
-    | None ->
-      raise_server_error
-        ["certificates: Current time cannot be represented as a datetime: \
-          it's out of bounds"] internal_error
+  let server_cert_path = !Xapi_globs.server_cert_path in
+  let installation =
+    Gencertlib.Lib.install_server_certificate
+      ~pem_chain ~pem_leaf ~pkcs8_private_key ~server_cert_path
   in
-  let priv = validate_private_key pkcs8_private_key in
-  let cert = validate_certificate Leaf pem_leaf now priv in
-
-  let server_cert_components = match pem_chain with
-  | None ->
-    [ pkcs8_private_key; pem_leaf ]
-  | Some pem_chain ->
-      let _:(X509.Certificate.t) =
-        validate_certificate Chain pem_chain now priv
-      in
-    [ pkcs8_private_key; pem_leaf; pem_chain ]
-  in
-
-  let cert_server = server_cert_components
-    |> String.concat "\n\n"
-    |> Bytes.unsafe_of_string
-  in
-  let owner_ro = 0o400 in
-  let atomic_write fd =
-    Unix.write fd cert_server 0 (Bytes.length cert_server)
-  in
-
-  (try
-    let _:int =
-      Unixext.atomic_write_to_file !Xapi_globs.server_cert_path owner_ro atomic_write
-    in
-    ()
-  with Unix.Unix_error(err, _, _) ->
-    raise_server_error
-    [ Printf.sprintf "certificates: could not write server certificate to \
-       disk. Reason: %s" (Unix.error_message err)]
-    internal_error);
-  cert
+  match installation with
+  | Ok cert ->
+      cert
+  | Error (`Msg (err, msg)) ->
+      raise_server_error msg err

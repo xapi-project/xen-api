@@ -19,17 +19,22 @@ let date_of = Xapi_stdext_date.Date.of_string
 let check_time = Xapi_stdext_date.Date.to_float (date_of "20200201T02:00:00Z")
 
 let good_samples =
-  [ "20210202T02:00:00Z" ]
+  [ "20210202T02:00:00Z" (* +1 year*)
+  ; "20200302T02:00:01Z" (* +30 days, +1 second *)
+  ]
 
 let expiring_samples =
-  [ "20200301T02:00:00Z", 29, Api_messages.host_server_certificate_expiring_30
+  [ "20200302T02:00:00Z", 30, Api_messages.host_server_certificate_expiring_30
+  ; "20200301T02:00:00Z", 29, Api_messages.host_server_certificate_expiring_30
   ; "20200215T02:00:00Z", 14, Api_messages.host_server_certificate_expiring_14
   ; "20200208T02:00:00Z", 7, Api_messages.host_server_certificate_expiring_07
   ; "20200201T02:00:00Z", 0, Api_messages.host_server_certificate_expiring_07
   ]
 
 let expired_samples =
-  [ "20200102T02:00:00Z" ]
+  [ "20200102T02:00:00Z"
+  ; "20200201T01:59:59Z"
+  ]
 
 let format_good datestring =
   ("host", date_of datestring),
@@ -42,13 +47,13 @@ let _format (datestring, ppf, alert) =
 
 let format_expiring (datestring, days, alert) =
   let ppf =
-    "<message>The TLS server certificate is expiring soon.</message><date>%s</date>"
+    "<body><message>The TLS server certificate is expiring soon.</message><date>%s</date></body>"
   in
   _format (datestring, ppf, alert)
 
 let format_expired datestring =
   let ppf =
-    "<message>The TLS server certificate has expired.</message><date>%s</date>"
+    "<body><message>The TLS server certificate has expired.</message><date>%s</date></body>"
   in
   _format (datestring, ppf, Api_messages.host_server_certificate_expired)
 

@@ -1151,7 +1151,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key ~certi
 let emergency_reset_server_certificate ~__context =
   let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert" in
 
-  let args = [!Xapi_globs.server_cert_path; Helper_hostname.get_hostname ()] in
+  let args = [!Xapi_globs.server_cert_path; Helper_hostname.get_hostname (); "--force"] in
   ignore @@ Forkhelpers.execute_command_get_output generate_ssl_cert args;
 
   (* Reset stunnel to try to restablish TLS connections *)

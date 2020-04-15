@@ -2,10 +2,12 @@ module XenAPI = Client.Client
 module Date = Xapi_stdext_date.Date
 
 let seconds_per_day = 3600. *. 24.
-let seconds_per_30_days = 30. *. seconds_per_day
 
 let days_until_expiry epoch expiry =
-  int_of_float (expiry /. seconds_per_day -. epoch /. seconds_per_day)
+  let days = expiry /. seconds_per_day -. epoch /. seconds_per_day in
+  match Float.sign_bit days with
+  | true -> -1
+  | false -> Float.(to_int (ceil days))
 
 let get_certificate_attributes rpc session =
   XenAPI.Certificate.get_all_records rpc session
@@ -23,7 +25,7 @@ let generate_alert epoch (host, expiry) =
     let expired_message = "The TLS server certificate has expired." in
 
     let body msg =
-      Printf.sprintf "<message>%s</message><date>%s</date>" msg (Date.to_string expiry)
+      Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg (Date.to_string expiry)
     in
     let message, alert =
       if days < 0 then
@@ -37,15 +39,11 @@ let generate_alert epoch (host, expiry) =
     in
     host, Some (message, alert)
 
-let execute rpc session (host, alert) =
+let execute rpc session previous_messages (host, alert) =
   let host_uuid = XenAPI.Host.get_uuid rpc session host in
-  (* we need to remove any host_server_certificate_expiring messages affecting
-     this host as it needs to be refreshed *)
-  let obsolete_messages = XenAPI.Message.get_all_records rpc session
+  let obsolete_messages = previous_messages
   |> List.filter_map (fun (ref, record) ->
-      let prefix = Api_messages.host_server_certificate_expiring in
-      if Astring.String.is_prefix ~affix:prefix record.API.message_name
-           && record.API.message_obj_uuid = host_uuid then
+      if record.API.message_obj_uuid = host_uuid then
         Some ref
       else
         None
@@ -61,10 +59,23 @@ let execute rpc session (host, alert) =
 
 let alert rpc session =
   let now = Unix.time () in
+  (* Message starting with [host_server_certificate_\{expiring,expired\}] may
+     need to be refreshed, gather them just once *)
+  let previous_messages = XenAPI.Message.get_all_records rpc session
+  |> List.filter (fun (ref, record) ->
+      let expiring_or_expired name =
+        let expiring = Api_messages.host_server_certificate_expiring in
+        let expired = fst Api_messages.host_server_certificate_expired in
+        let open Astring.String in
+        is_prefix ~affix:expiring name || is_prefix ~affix:expired name
+      in
+      expiring_or_expired record.API.message_name
+    )
+  in
   let send_alert_maybe attributes =
     attributes
     |> generate_alert now
-    |> execute rpc session
+    |> execute rpc session previous_messages
   in
   get_certificate_attributes rpc session
   |> List.iter send_alert_maybe
