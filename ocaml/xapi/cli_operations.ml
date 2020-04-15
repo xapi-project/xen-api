@@ -3218,10 +3218,8 @@ let with_license_server_changes printer rpc session_id params hosts f =
     end
   | Api_errors.Server_error (name, args) as e
     when name = Api_errors.invalid_edition ->
-    let editions = (V6_client.get_editions "host_apply_edition")
-                   |> List.map V6_interface.(fun ed -> ed.title)
-                   |> String.concat ", "
-    in
+    let host = get_host_from_session rpc session_id in
+    let editions = Client.Host.get_editions rpc session_id host |> String.concat ", " in
     printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
     raise e
   | e -> raise e
