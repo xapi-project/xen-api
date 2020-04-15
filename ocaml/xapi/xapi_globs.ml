@@ -689,6 +689,9 @@ let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 (* Path to server ssl certificate *)
 let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 
+let stunnel_conf = ref "/etc/stunnel/xapi.conf"
+
+
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
@@ -789,6 +792,8 @@ let fcoe_driver = ref "/opt/xensource/libexec/fcoe_driver"
 
 let list_domains = ref "/usr/bin/list_domains"
 
+let systemctl = ref "/usr/bin/systemctl"
+
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
 let sr_health_check_task_label = "SR Recovering"
@@ -853,8 +858,6 @@ let options_of_xapi_globs_spec =
       (fun () -> match ty with Float x -> string_of_float !x | Int x -> string_of_int !x),
       (Printf.sprintf "Set the value of '%s'" name)) xapi_globs_spec
 
-let xapissl_path = ref "xapissl"
-
 let xenopsd_queues = ref ([
     "org.xen.xapi.xenops.classic";
     "org.xen.xapi.xenops.simulator";
@@ -862,9 +865,6 @@ let xenopsd_queues = ref ([
   ])
 
 let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
-
-let ciphersuites_good_outbound = ref "!EXPORT:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES256-GCM-SHA384:AES256-SHA256:AES128-SHA256"
-let ciphersuites_legacy_outbound = ref "RSA+AES256-SHA:RSA+AES128-SHA:RSA+RC4-SHA:RSA+DES-CBC3-SHA"
 
 let gpumon_stop_timeout = ref 10.0
 
@@ -969,13 +969,6 @@ let other_options = [
   "cluster-stack-default", Arg.Set_string cluster_stack_default,
   (fun () -> !cluster_stack_default), "Default cluster stack (HA)";
 
-  "ciphersuites-good-outbound", Arg.String (fun s -> ciphersuites_good_outbound := if String_plain.trim s <> "" then s else ""),
-  (fun () -> !ciphersuites_good_outbound),
-  "Preferred set of ciphersuites for outgoing TLS connections. (This list must match, or at least contain one of, the GOOD_CIPHERS in the 'xapissl' script for starting the listening stunnel.)";
-
-  "ciphersuites-legacy-outbound", Arg.Set_string ciphersuites_legacy_outbound,
-  (fun () -> !ciphersuites_legacy_outbound), "For backwards compatibility: to be used in addition to ciphersuites-good-outbound for outgoing TLS connections";
-
   "gpumon_stop_timeout", Arg.Set_float gpumon_stop_timeout,
   (fun () -> string_of_float !gpumon_stop_timeout), "Time to wait after attempting to stop gpumon when launching a vGPU-enabled VM.";
 
@@ -1043,7 +1036,6 @@ let host_virtual_hardware_platform_versions = [
 module Resources = struct
 
   let essential_executables = [
-    "xapissl", xapissl_path, "Script for starting the listening stunnel";
     "busybox", busybox, "Swiss army knife executable - used as DHCP server";
     "pbis-force-domain-leave-script", pbis_force_domain_leave_script, "Executed when PBIS domain-leave fails";
     "redo-log-block-device-io", Db_globs.redo_log_block_device_io, "Used by the redo log for block device I/O";
@@ -1064,7 +1056,8 @@ module Resources = struct
     "static-vdis", static_vdis, "Path to static-vdis script";
     "xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script";
     "fcoe-driver", fcoe_driver, "Execute during PIF unplug to get the lun devices related with the ether interface of the PIF";
-    "list_domains", list_domains, "Path to the list_domains command"
+    "list_domains", list_domains, "Path to the list_domains command";
+    "systemctl", systemctl, "Control the systemd system and service manager";
   ]
   let nonessential_executables = [
     "startup-script-hook", startup_script_hook, "Executed during startup";

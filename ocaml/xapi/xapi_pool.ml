@@ -499,12 +499,6 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
             create_or_get_sr_on_master __context rpc session_id (my_local_cache_sr, my_local_cache_sr_rec)
           end in
 
-      (* Look up the value on the master of the pool we are about to join *)
-      let master_ssl = Client.Host.get_ssl_legacy ~rpc ~session_id ~self:(get_master rpc session_id) in
-      (* Set value in inventory (to control initial behaviour on next xapi start)
-         			 * but not in the database of the current pool (the one we're about to leave) *)
-      Xapi_inventory.update Xapi_inventory._stunnel_legacy (string_of_bool master_ssl);
-
       debug "Creating host object on master";
       let ref = Client.Host.create ~rpc ~session_id
           ~uuid:my_uuid
@@ -524,7 +518,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
              				 * been added to the constructor. *)
           ~local_cache_sr
           ~chipset_info:host.API.host_chipset_info
-          ~ssl_legacy:master_ssl
+          ~ssl_legacy:false
       in
 
       (* Copy other-config into newly created host record: *)
@@ -1127,7 +1121,7 @@ let eject ~__context ~host =
     begin
       try
         debug "Shutting down xapi-nbd";
-        ignore(Helpers.call_script "/usr/bin/systemctl" [ "stop"; "xapi-nbd" ])
+        ignore(Helpers.call_script !Xapi_globs.systemctl [ "stop"; "xapi-nbd" ])
       with e ->
         warn "Caught %s while shutting down xapi-nbd. Ignoring" (Printexc.to_string e)
     end;
@@ -2131,15 +2125,7 @@ let assert_mac_seeds_available ~__context ~self ~seeds =
     raise (Api_errors.Server_error
              (Api_errors.duplicate_mac_seed, [StringSet.choose problem_mac_seeds]))
 
-let set_ssl_legacy_on_each_host ~__context ~self ~value =
-  let f ~rpc ~session_id ~host =
-    Client.Host.set_ssl_legacy ~rpc ~session_id ~self:host ~value
-  in
-  Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context f
-
-let disable_ssl_legacy = set_ssl_legacy_on_each_host ~value:false
-
-let enable_ssl_legacy = set_ssl_legacy_on_each_host ~value:true
+let disable_ssl_legacy ~__context ~self = warn "disable_ssl_legacy: doing nothing"
 
 let set_igmp_snooping_enabled ~__context ~self ~value =
   if value then

@@ -20,6 +20,7 @@ install:
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 	mkdir -p $(DESTDIR)$(SITE_DIR)
+	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
@@ -46,7 +47,6 @@ install:
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCDIR)/db.conf.rio
 	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
-	$(IPROG) init.d-xapissl $(DESTDIR)$(LIBEXECDIR)/xapissl
 	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
 	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IPROG) generate-iscsi-iqn $(DESTDIR)$(LIBEXECDIR)/generate-iscsi-iqn
@@ -54,6 +54,7 @@ install:
 	$(IPROG) control-domain-params-init $(DESTDIR)$(LIBEXECDIR)/control-domain-params-init
 	$(IPROG) reset-and-reboot $(DESTDIR)$(LIBEXECDIR)/reset-and-reboot
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
+	$(IDATA) gencert.service $(DESTDIR)/usr/lib/systemd/system/gencert.service
 	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
 	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IDATA) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
@@ -66,6 +67,8 @@ install:
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
+	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
+	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
 	mkdir -p $(DESTDIR)$(ETCDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
@@ -157,8 +160,6 @@ install:
 	$(IPROG) examples/python/xva.py $(DESTDIR)$(BINDIR)/xva-rewrite-scsiid
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
-	$(IPROG) poweron/iLOPowerON.xml $(DESTDIR)$(PLUGINDIR)/iLOPowerON.xml
-	$(IPROG) poweron/iLO.py $(DESTDIR)$(PLUGINDIR)/iLO.py
 	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
 # maillanguages

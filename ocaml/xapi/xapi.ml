@@ -189,8 +189,6 @@ let init_args() =
   (* Immediately register callback functions *)
   register_callback_fns();
   Xcp_service.configure ~options:Xapi_globs.all_options ~resources:Xapi_globs.Resources.xcp_resources ();
-  Xcp_coverage.init "xapi";
-  Xcp_coverage.dispatcher_init "xapi";
   if not !Xcp_client.use_switch
   then begin
     debug "Xcp_client.use_switch=false: resetting list of xenopsds";
@@ -654,34 +652,6 @@ let set_stunnel_timeout () =
   with _ ->
     debug "Using default stunnel timeout (usually 43200)"
 
-(* Consult inventory, because to do DB lookups we must contact the
- * master, and to do that we need to start an outgoing stunnel. *)
-let set_stunnel_legacy_inv ~__context () =
-  Stunnel.set_good_ciphersuites (match !Xapi_globs.ciphersuites_good_outbound with
-      | ""  -> raise (Api_errors.Server_error (Api_errors.internal_error,["Configuration file does not specify ciphersuites-good-outbound."]))
-      | s -> s
-    );
-  Stunnel.set_legacy_ciphersuites !Xapi_globs.ciphersuites_legacy_outbound;
-  let s = Xapi_inventory.lookup Xapi_inventory._stunnel_legacy ~default:"false" in
-  let legacy = try
-      bool_of_string s
-    with e ->
-      error "Invalid inventory value for %s: expected a Boolean; found %s" Xapi_inventory._stunnel_legacy s;
-      raise e
-  in
-  Xapi_host.set_stunnel_legacy ~__context legacy
-
-(* Consult database, in case inventory was out of date due to a DB change while
- * we were shut down. *)
-let set_stunnel_legacy_db ~__context () =
-  let legacy_cur = Stunnel.is_legacy_protocol_and_ciphersuites_allowed () in
-  let localhost = Helpers.get_localhost ~__context in
-  let legacy_db = Db.Host.get_ssl_legacy ~__context ~self:localhost in
-  if legacy_db <> legacy_cur then begin
-    debug "Stunnel legacy (current) = %b,  stunnel legacy (DB) = %b, reconfig based on DB" legacy_cur legacy_db;
-    Xapi_host.set_stunnel_legacy ~__context legacy_db
-  end
-
 let server_init() =
   let print_server_starting_message() = debug "(Re)starting xapi"; debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot (Pool_role.string_of (Pool_role.get_role ())) in
   Unixext.unlink_safe "/etc/xensource/boot_time_info_updated";
@@ -786,7 +756,6 @@ let server_init() =
         Startup.run ~__context [
           "XAPI SERVER STARTING", [], print_server_starting_message;
           "Parsing inventory file", [], Xapi_inventory.read_inventory;
-          "Config (from file) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_inv ~__context;
           "Setting stunnel timeout", [], set_stunnel_timeout;
           "Initialising local database", [], init_local_database;
           "Loading DHCP leases", [], Xapi_udhcpd.init;
@@ -891,7 +860,6 @@ let server_init() =
         Startup.run ~__context [
           "Checking emergency network reset", [], check_network_reset;
           "Upgrade bonds to Boston", [Startup.NoExnRaising], Sync_networking.fix_bonds ~__context;
-          "Reconfig (from DB) for incoming/outgoing stunnel instances", [], set_stunnel_legacy_db ~__context;
           "Initialise monitor configuration", [], Monitor_master.update_configuration_from_master;
           "Initialising licensing", [], handle_licensing;
           "message_hook_thread", [ Startup.NoExnRaising ], (Xapi_message.start_message_hook_thread ~__context);

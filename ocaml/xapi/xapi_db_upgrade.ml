@@ -606,6 +606,12 @@ let upgrade_secrets = {
     )
 }
 
+let remove_legacy_ssl_support = {
+  description = "remove_legacy_ssl_support - set flag enabling legacy ssl on host to false";
+  version=(fun _ -> true);
+  fn=fun ~__context -> Db.Host.get_all ~__context |> List.iter (fun self -> Db.Host.set_ssl_legacy ~__context ~self ~value:false)
+}
+
 let rules = [
   upgrade_domain_type;
   upgrade_alert_priority;
@@ -632,6 +638,7 @@ let rules = [
   upgrade_vm_platform_device_model;
   upgrade_cluster_timeouts;
   upgrade_secrets;
+  remove_legacy_ssl_support;
 ]
 
 (* Maybe upgrade most recent db *)

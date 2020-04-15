@@ -40,7 +40,6 @@ type host_info = {
   machine_serial_name: string option;
   total_memory_mib: int64 option;
   dom0_static_max: int64 option;
-  ssl_legacy: bool;
   cpu_info : Xenops_interface.Host.cpu_info option;
   chipset_info : Xenops_interface.Host.chipset_info option;
   hypervisor : Xenops_interface.Host.hypervisor option;
@@ -154,7 +153,6 @@ let read_localhost_info ~__context =
     cpu_info = Opt.map (fun s -> s.cpu_info) stat;
     chipset_info = Opt.map (fun s -> s.chipset_info) stat;
     hypervisor = Opt.map (fun s -> s.hypervisor) stat;
-    ssl_legacy = try bool_of_string (lookup _stunnel_legacy ~default:"false") with _ -> true;
   }
 
 (** Returns the maximum of two values. *)

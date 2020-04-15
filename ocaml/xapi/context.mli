@@ -42,6 +42,7 @@ val make :
 
 val of_http_req :
   ?session_id:API.ref_session ->
+  ?internal_async_subtask:bool ->
   generate_task_for:bool ->
   supports_async:bool ->
   label:string ->

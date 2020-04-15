@@ -1,12 +1,3 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "bisect_ppx"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-
 (executables
   (names suite_alcotest)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
@@ -16,7 +7,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi_internal
     xapi-stdext-date
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv %s))
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
 
 (alias
@@ -26,7 +17,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     (:x suite_alcotest.exe)
     (source_tree test_data)
   )
-  (action (run %%{x}))
+  (action (run %{x}))
 )
 
 (alias
@@ -35,6 +26,5 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (deps
     (:x ../xapi/xapi_main.exe)
   )
-  (action (run ./check-no-xenctrl %%{x}))
+  (action (run ./check-no-xenctrl %{x}))
 )
-|} coverage_rewriter

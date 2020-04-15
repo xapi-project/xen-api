@@ -1,39 +1,31 @@
-(* -*- tuareg -*- *)
-let coverage_rewriter =
-  match Sys.getenv "BISECT_ENABLE" with
-  | "YES" -> "bisect_ppx"
-  | _ -> ""
-  | exception Not_found -> ""
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
 (rule
   (targets server.ml)
   (deps ../idl/ocaml_backend/gen_api_main.exe)
-  (action (run %%{deps} -filterinternal true -gendebug -filter closed -mode server -output %%{targets}))
+  (action (run %{deps} -filterinternal true -gendebug -filter closed -mode server -output %{targets}))
 )
 
 (rule
   (targets db_actions.ml)
   (deps ../idl/ocaml_backend/gen_api_main.exe)
-  (action (run %%{deps} -filterinternal false -filter nothing -mode db -output %%{targets}))
+  (action (run %{deps} -filterinternal false -filter nothing -mode db -output %{targets}))
 )
 
 (rule
   (targets custom_actions.ml)
   (deps ../idl/ocaml_backend/gen_api_main.exe)
-  (action (run %%{deps} -filterinternal true -filter closed -mode actions -output %%{targets}))
+  (action (run %{deps} -filterinternal true -filter closed -mode actions -output %{targets}))
 )
 
 (rule
   (targets rbac_static.ml)
   (deps ../idl/ocaml_backend/gen_api_main.exe)
-  (action (run %%{deps} -filterinternal true -filter closed -mode rbac -output %%{targets}))
+  (action (run %{deps} -filterinternal true -filter closed -mode rbac -output %{targets}))
 )
 
 (rule
   (targets rbac_static.csv)
   (deps ../idl/ocaml_backend/gen_api_main.exe)
-  (action (run %%{deps} -filterinternal true -gendebug -filter closed -mode rbac -output %%{targets}))
+  (action (run %{deps} -filterinternal true -gendebug -filter closed -mode rbac -output %{targets}))
 )
 
 (install
@@ -55,6 +47,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    pci
    domain-name
    ezxenstore.core
+   gencertlib
    message-switch-unix
    mtime
    mtime.clock.os
@@ -89,7 +82,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    yojson
    zstd
   )
-  (preprocess (pps ppx_deriving_rpc %s))
+  (preprocess (pps ppx_deriving_rpc))
 )
 
 (executable
@@ -102,4 +95,3 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
    xapi_internal
   )
 )
-|} coverage_rewriter

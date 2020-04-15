@@ -1,10 +1,5 @@
-(executable
+(test
   (name test_pci)
-  (flags (:standard -safe-string))
+  (deps dump.data)
   (libraries pci oUnit)
 )
-
-;(alias
-; ((name    runtest)
-;  (deps    (test_pci.exe dump.data))
-;  (action  (run ${<}))))

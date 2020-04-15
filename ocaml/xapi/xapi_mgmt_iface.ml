@@ -29,46 +29,32 @@ let management_interface_server = ref []
 let listening_all = ref false
 let listening_localhost = ref false
 let listening_himn = ref false
-let stunnel_accept = ref None
 let management_m = Mutex.create ()
+let stunnel_accept_m = Mutex.create ()
+let stunnel_accept = ref None
 
 let update_mh_info interface =
   let (_: string*string) = Forkhelpers.execute_command_get_output !Xapi_globs.update_mh_info_script [ interface ] in
   ()
 
-let stunnel_m = Mutex.create ()
-
-let restart_stunnel_nomutex ~__context ~accept =
-  info "Restarting stunnel (accepting connections on %s)" accept;
-  let back_compat ~__context =
-    if Stunnel.is_legacy_protocol_and_ciphersuites_allowed ()
-    then [ "back_compat_6_5" ]
-    else []
-  in
-  let xapissl_args = List.concat
-  [ [ "restart"; accept ]
-  ; back_compat ~__context
-  ; ["permfile=" ^ !Xapi_globs.server_cert_path]
-  ] in
-  let (_ : Thread.t) = Thread.create (fun () ->
-      Mutex.execute management_m (fun () ->
-          Forkhelpers.execute_command_get_output !Xapi_globs.xapissl_path xapissl_args
-        )
-    ) () in
+let _restart_stunnel_no_cache ~__context ~accept =
+  let (_: Thread.t) = Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) () in
   ()
 
 let restart_stunnel ~__context ~accept =
-  Mutex.execute stunnel_m (fun () ->
-      stunnel_accept := Some accept;
-      restart_stunnel_nomutex ~__context ~accept
-    )
+  info "Restarting stunnel (accepting connections on %s)" accept;
+  (* cache `accept` so client can call `reconfigure_stunnel` easily *)
+  Mutex.execute stunnel_accept_m (fun () -> stunnel_accept := Some accept);
+  _restart_stunnel_no_cache ~__context ~accept
 
 let reconfigure_stunnel ~__context =
-  Mutex.execute stunnel_m (fun () ->
+  let f = Mutex.execute stunnel_accept_m (fun () ->
       match !stunnel_accept with
-      | None -> () (* We've not yet started stunnel; no action needed *)
-      | Some accept -> restart_stunnel_nomutex ~__context ~accept
+      | None        -> fun () -> D.warn "reconfigure_stunnel: accept is not set, so not restarting stunnel"
+      | Some accept -> fun () -> _restart_stunnel_no_cache ~__context ~accept
     )
+  in
+  f ()
 
 let stop () =
   debug "Shutting down the old management interface (if any)";

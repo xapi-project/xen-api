@@ -4,15 +4,18 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
-build: [[ "dune" "build" "-p" name ]]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name] {with-test}
+]
 
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
+  "alcotest" {with-test}
   "gzip"
   "http-svr"
   "ocaml-migrate-parsetree"
-  "ounit"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "rpclib"

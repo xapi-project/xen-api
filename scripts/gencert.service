@@ -1,0 +1,12 @@
+[Unit]
+Description=Generate xapi ssl certificate
+Requires=xapi.service forkexecd.service xapi-init-complete.target
+After=xapi.service forkexecd.service xapi-init-complete.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
