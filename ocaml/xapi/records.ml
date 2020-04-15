@@ -203,7 +203,7 @@ let message_record rpc session_id message =
         make_field ~name:"uuid"         ~get:(fun () -> (x ()).API.message_uuid) ();
         make_field ~name:"name"         ~get:(fun () -> (x ()).API.message_name) ();
         make_field ~name:"priority"     ~get:(fun () -> Int64.to_string (x ()).API.message_priority) ();
-        make_field ~name:"class"        ~get:(fun () -> Xapi_message.class_to_string (x ()).API.message_cls) ();
+        make_field ~name:"class"        ~get:(fun () -> Record_util.class_to_string (x ()).API.message_cls) ();
         make_field ~name:"obj-uuid"     ~get:(fun () -> (x ()).API.message_obj_uuid) ();
         make_field ~name:"timestamp"    ~get:(fun () -> Date.to_string (x ()).API.message_timestamp) ();
         make_field ~name:"body"         ~get:(fun () -> (x ()).API.message_body) ();
