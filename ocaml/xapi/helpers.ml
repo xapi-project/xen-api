@@ -68,16 +68,6 @@ let call_script ?(log_successful_output=true) ?env script args =
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
 
-(** Once the server functor has been instantiated, set this reference to the appropriate
-    "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
-    the HTTP request headers it has already received together with its active file descriptor. *)
-let rpc_fun : (Http.Request.t -> Unix.file_descr -> Rpc.call -> Rpc.response) option ref = ref None
-
-let get_rpc () =
-  match !rpc_fun with
-    None -> failwith "No rpc set!"
-  | Some f -> f
-
 (* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
 (* !! FIXME(2) - this code could be shared with the CLI? *)
 let checknull f =
