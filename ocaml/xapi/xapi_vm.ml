@@ -25,7 +25,7 @@ open Xmlrpc_sexpr
  * If VM.{start,resume}_on is supplied another host reference, they will fail.
 *)
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vm" end)
 open D
 
 exception InvalidOperation of string

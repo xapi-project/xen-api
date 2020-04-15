@@ -15,7 +15,7 @@
  * @group High Availability (HA)
 *)
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xha_metadata_vdi" end)
 open D
 
 open Client

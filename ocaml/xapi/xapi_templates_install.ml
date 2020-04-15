@@ -22,7 +22,7 @@ open Forkhelpers
 open Xapi_templates
 open Attach_helpers
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_templates_install" end)
 open D
 
 let is_whitelisted script =

@@ -24,7 +24,7 @@ open Client
 open Stdext.Threadext
 open Unixext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_pool_update" end)
 open D
 (** Updates contain their own metadata in XML format. When the signature has been verified
     the update is executed with argument "info" and it emits XML like the following:

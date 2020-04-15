@@ -15,7 +15,7 @@
  * @group Host Management
 *)
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_host_patch" end)
 open D
 
 let destroy ~__context ~self =

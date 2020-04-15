@@ -16,7 +16,7 @@ open Stdext
 open Listext
 open Threadext
 open Xapi_pusb_helpers
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_pusb" end)
 open D
 
 let create ~__context ~uSB_group ~host ~other_config ~path

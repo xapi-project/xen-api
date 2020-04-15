@@ -15,7 +15,7 @@
  * @group Storage
 *)
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="static_vdis" end)
 open D
 
 open Stdext
