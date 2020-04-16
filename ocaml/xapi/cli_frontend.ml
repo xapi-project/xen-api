@@ -2316,7 +2316,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=[];
       help="Print db stats.";
       implementation=No_fd Cli_operations.diagnostic_db_stats;
-      flags=[Neverforward];
+      flags=[];
     };
     "diagnostic-net-stats",
     {

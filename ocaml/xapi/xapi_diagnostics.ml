@@ -23,8 +23,14 @@ let gc_stats ~__context ~host =
    "top_heap_words",    string_of_int stat.Gc.top_heap_words;
   ]
 
-let db_stats ~__context ~session ~host =
-  raise Api_errors.(Server_error(not_implemented, [ "db_stats" ]))
+let db_stats ~__context =
+  (* Use Printf.sprintf to keep format *)
+  let (n,avgtime,min,max) = Db_lock.report () in
+  ["n",       Printf.sprintf "%d" n;
+   "avgtime", Printf.sprintf "%f" avgtime;
+   "min",     Printf.sprintf "%f" min;
+   "max",     Printf.sprintf "%f" max;
+  ]
 
 let license_stats ~__context ~session ~host =
   raise Api_errors.(Server_error(not_implemented, [ "license_stats" ]))
