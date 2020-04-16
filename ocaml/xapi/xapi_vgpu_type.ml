@@ -294,16 +294,9 @@ module Vendor = functor (V : VENDOR) -> struct
       |> address_of_string
     in
     let whitelist = V.read_whitelist ~whitelist:(V.whitelist_file ()) ~device_id in
-    let default ~msg v =
-      match v with
-      | Some v -> v
-      | None -> debug "make_vgpu_types empty %s" msg; ""
-    in
     Pci.(with_access (fun access ->
         let vendor_name, device =
-          let vendor_name = lookup_vendor_name access V.vendor_id
-                            |> default ~msg:(Printf.sprintf "vendor %04x name" V.vendor_id)
-          in
+          let vendor_name = lookup_vendor_name access V.vendor_id in
           let device =
             List.find
               (fun device ->
@@ -365,7 +358,7 @@ module Vendor_nvidia = struct
   let pt_when_vgpu = true
   let whitelist_file () = !Xapi_globs.nvidia_whitelist
   let device_id_of_conf conf = conf.identifier.Identifier.pdev_id
-  
+
   let get_host_driver_version () = try Scanf.sscanf (Unix.readlink !Xapi_globs.nvidia_host_driver_file) "libnvidia-vgpu.so.%s" (fun x -> x)
     with _ -> info "Can not get the file version of %s, use the default value" !Xapi_globs.nvidia_host_driver_file; Xapi_globs.nvidia_default_host_driver_version
 
@@ -376,7 +369,7 @@ module Vendor_nvidia = struct
       | Some i -> (try float_of_string (String.sub pattern 0 i) <= version with _ -> false)
       | None -> try (float_of_string pattern) = version with _ -> false
     ) supported_versions
-    
+
   (* A type to capture the XML tree with functions for use in Xmlm.input_doc_tree *)
   type tree = E of string * (string * string) list * tree list | D of string
   let el ((_, name), attr) children = E (name, List.map (fun ((_, k), v) -> k, v) attr, children)
@@ -394,7 +387,7 @@ module Vendor_nvidia = struct
   let get_attr name = function
     | E (_, attr, _) -> List.assoc name attr
     | D _ -> failwith (Printf.sprintf "get_attr(%s): not an element" name)
-  let get_data = function 
+  let get_data = function
     | E (_, _, [D d]) -> d
     | _ -> failwith "get_data: no data node"
 
@@ -415,7 +408,7 @@ module Vendor_nvidia = struct
           </supportedVgpu>
           <supportedVgpu vgpuId="73">
             (...)
-      Output: 
+      Output:
       - Find the pgpus with deviceId = device_id (there's likely just one).
       - List the vgpuIds of all supportedVgpus of these pgpus with their
         maxVgpus value and the pgpu's subsystemId.
@@ -496,8 +489,8 @@ module Vendor_nvidia = struct
         let file_path = whitelist in
         let type_id = id in
         (* Multiple vgpu support:
-           - Read  'multiVgpuSupported' from config, 1L indicates this type support multiple 
-           - Currently always initialize 'compatible_types_on_pgpu' to itself only since we 
+           - Read  'multiVgpuSupported' from config, 1L indicates this type support multiple
+           - Currently always initialize 'compatible_types_on_pgpu' to itself only since we
              don't support yet *)
         let multi_vgpu_support = Int64.of_string (get_data (find_one_by_name "multiVgpuSupported" vgpu_type)) in
         let name = get_attr "name" vgpu_type in
@@ -518,7 +511,7 @@ module Vendor_nvidia = struct
   let read_whitelist ~whitelist ~device_id =
     try
       let ch = open_in whitelist in
-      let t = 
+      let t =
         finally (fun () ->
           let i = Xmlm.make_input ~strip:true (`Channel ch) in
           let _, t = Xmlm.input_doc_tree ~el ~data i in
@@ -539,15 +532,9 @@ module Vendor_nvidia = struct
     let open Identifier in
     debug "Pci.lookup_subsystem_device_name: vendor=%04x device=%04x subdev=%04x"
       vendor_id conf.identifier.vdev_id conf.identifier.vsubdev_id;
-    let default v =
-      match v with
-      | Some v -> v
-      | None -> debug "Pci.lookup_subsystem_device_name: empty string"; ""
-    in
     let model_name =
       Pci.lookup_subsystem_device_name pci_access vendor_id
         conf.identifier.vdev_id vendor_id conf.identifier.vsubdev_id
-      |> default
     in
     Some {
       vendor_name;
@@ -633,7 +620,7 @@ module Vendor_intel = struct
       /// conf.identifier.low_gm_sz
       --- 1L
     in
-    if vgpus_per_pgpu <= 0L then 
+    if vgpus_per_pgpu <= 0L then
       begin
         warn "Not enough memory for Intel VGPUs. \
               If you intend to use them, increase the GPU \
@@ -718,7 +705,7 @@ module Vendor_amd = struct
     let size_of_pgpu = (* counterpart of bar_size in gvt-g *)
       Constants.pgpu_default_size
     in
-    if conf.vgpus_per_pgpu <= 0L then 
+    if conf.vgpus_per_pgpu <= 0L then
       begin
         warn "Ignoring a config line that specifies 0 vgpus per pgpu.";
         None
