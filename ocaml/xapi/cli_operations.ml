@@ -136,9 +136,6 @@ let get_file_or_fail fd desc filename =
   | None -> fail fd desc
   | Some chunks -> chunks
 
-let diagnostic_compact printer rpc session_id params =
-  Gc.compact ()
-
 let diagnostic_gc_stats printer rpc session_id params =
   let stat = Gc.stat () in
   let table =
@@ -3983,6 +3980,13 @@ let tunnel_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let tunnel = Client.Tunnel.get_by_uuid rpc session_id uuid in
   Client.Tunnel.destroy rpc session_id tunnel
+
+let diagnostic_compact printer rpc session_id params =
+  ignore(do_host_op rpc session_id ~multiple:false
+           (fun _ host ->
+              let host=host.getref () in
+              Client.Diagnostics.gc_compact rpc session_id host
+           ) params [])
 
 module Network_sriov = struct
   let create printer rpc session_id params =

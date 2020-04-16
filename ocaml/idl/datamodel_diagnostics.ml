@@ -3,9 +3,9 @@ open Datamodel_common
 let gc_compact = call
     ~name:"gc_compact"
     ~in_product_since:Datamodel_types.rel_stockholm
-    ~doc:""
-    ~params:[Ref _session, "session", "The session to do gc_compact";
-             Ref _host, "host", "The host to do gc_compact."]
+    ~doc:"Perform a full major collection and compact the heap on a host"
+    ~hide_from_docs:true
+    ~params:[Ref _host, "host", "The host to do gc_compact."]
     ~errs:[]
     ~allowed_roles:Datamodel_roles._R_POOL_OP
     ()
