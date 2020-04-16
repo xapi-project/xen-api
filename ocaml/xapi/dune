@@ -43,7 +43,6 @@
    angstrom
    unixpwd
    pam
-   pciutil
    pci
    domain-name
    ezxenstore.core

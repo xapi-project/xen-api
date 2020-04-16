@@ -1,5 +1,0 @@
-(test
-  (name test_pci)
-  (deps dump.data)
-  (libraries pci oUnit)
-)

@@ -44,8 +44,8 @@ let get_pciids vendor device =
   let pci_ids =
     id_of_string vendor >>= fun vendor_id ->
     id_of_string device >>= fun device_id ->
-    Pci.(with_access lookup_vendor_name) vendor_id >>= fun vendor_str ->
-    Pci.(with_access lookup_device_name) vendor_id device_id >>= fun device_str ->
+    let vendor_str = Pci.(with_access lookup_vendor_name) vendor_id in
+    let device_str = Pci.(with_access lookup_device_name) vendor_id device_id in
     Some (vendor_str, device_str)
   in
   Option.value ~default:("", "") pci_ids
