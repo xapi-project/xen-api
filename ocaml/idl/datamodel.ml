@@ -235,6 +235,16 @@ module Task = struct
       ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
       ()
 
+  let set_progress = call ~flags:[`Session]
+      ~in_oss_since:None
+      ~in_product_since:rel_stockholm
+      ~name:"set_progress"
+      ~doc:"Set the task progress"
+      ~params:[Ref _task, "self", "Reference to the task object";
+               Float, "value", "Task progress value to be set"]
+      ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
+      ()
+
   (* this permission allows to destroy any task, instead of only the owned ones *)
   let extra_permission_task_destroy_any = "task.destroy/any"
 
@@ -249,7 +259,8 @@ module Task = struct
         create;
         destroy;
         cancel;
-        set_status ]
+        set_status;
+        set_progress ]
       ~contents: ([
           uid _task;
           namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
