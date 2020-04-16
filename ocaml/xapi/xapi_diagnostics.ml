@@ -1,8 +1,8 @@
 module D = Debug.Make(struct let name="xapi_diagnostics" end)
 open D
 
-let gc_compact ~__context ~session ~host =
-  raise Api_errors.(Server_error(not_implemented, [ "gc_compact" ]))
+let gc_compact ~__context ~host =
+  Gc.compact ()
 
 let gc_stats ~__context ~session ~host =
   raise Api_errors.(Server_error(not_implemented, [ "gc_stats" ]))

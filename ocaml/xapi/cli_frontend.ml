@@ -2292,7 +2292,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=[];
       help="Perform a major GC collection and heap compaction.";
       implementation=No_fd Cli_operations.diagnostic_compact;
-      flags=[Neverforward];
+      flags=[Host_selectors];
     };
     "diagnostic-gc-stats",
     {
