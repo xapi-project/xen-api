@@ -178,10 +178,6 @@ let diagnostic_net_stats printer rpc session_id params =
   let sll = List.map (List.map2 Table.right widths) rows in
   List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
 
-let diagnostic_db_stats printer rpc session_id params =
-  let (n,avgtime,min,max) = Db_lock.report () in
-  printer (Cli_printer.PMsg (Printf.sprintf "DB lock stats: n=%d avgtime=%f min=%f max=%f" n avgtime min max))
-
 type host_license = {
   hostname: string;
   uuid: string;
@@ -3974,6 +3970,17 @@ let diagnostic_gc_stats printer rpc session_id params =
                   |> fun x -> Cli_printer.PTable [x]
                 )
            ) params [])
+
+let diagnostic_db_stats printer rpc session_id params =
+  let get_string_of_assoc_list values =
+    List.map (fun (x,y) -> x ^ "=" ^ y) values
+    |> String.concat " " in
+  printer
+    (Cli_printer.PMsg
+       (Client.Diagnostics.db_stats rpc session_id
+        |> get_string_of_assoc_list
+        |> Printf.sprintf "DB lock stats: %s"
+       ))
 
 module Network_sriov = struct
   let create printer rpc session_id params =
