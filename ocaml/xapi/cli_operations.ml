@@ -3320,7 +3320,7 @@ let wait_for_task_complete rpc session_id task_id =
     Thread.delay 1.0
   done
 
-let download_file ~__context rpc session_id task fd filename uri label =
+let download_file rpc session_id task fd filename uri label =
   marshal fd (Command (HttpGet (filename, uri)));
   let response = ref (Response Wait) in
   while !response = Response Wait do response := unmarshal fd done;
@@ -3330,8 +3330,8 @@ let download_file ~__context rpc session_id task fd filename uri label =
     | Response Failed ->
       (* Need to check whether the thin cli managed to contact the server
          				   or not. If not, we need to mark the task as failed *)
-      if Client.Task.get_progress rpc session_id task < 0.0
-      then Db_actions.DB_Action.Task.set_status ~__context ~self:task ~value:`failure;
+      if Client.Task.get_progress rpc session_id task < 0.0 then
+        Client.Task.set_status rpc session_id task `failure;
       false
     | _ -> false
   in
@@ -3369,11 +3369,10 @@ let download_file_with_task fd rpc session_id filename uri query label
   (* Initially mark the task progress as -1.0. The first thing the HTTP handler does it to mark it as zero *)
   (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
   (* not our responsibility any more to mark the task as completed/failed/etc. *)
-  let __context = Context.make task_name in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:task ~value:(-1.0);
+  Client.Task.set_progress rpc session_id task (-1.0);
   finally
     (fun () ->
-       download_file ~__context rpc session_id task fd filename
+       download_file rpc session_id task fd filename
          (Printf.sprintf "%s?session_id=%s&task_id=%s%s%s" uri
             (Ref.string_of session_id)
             (Ref.string_of task)
@@ -3475,7 +3474,7 @@ let vm_import fd printer rpc session_id params =
       (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
       (* not our responsibility any more to mark the task as completed/failed/etc. *)
       let __context = Context.make "import" in
-      Db_actions.DB_Action.Task.set_progress ~__context ~self:importtask ~value:(-1.0);
+      Client.Task.set_progress rpc session_id importtask (-1.0);
 
       finally (fun () ->
           begin
@@ -3563,8 +3562,8 @@ let vm_import fd printer rpc session_id params =
                   begin
                     (* If the progress is negative, we never got to talk to the import handler, and must complete *)
                     (* the task ourselves *)
-                    if Client.Task.get_progress rpc session_id importtask < 0.0
-                    then Db_actions.DB_Action.Task.set_status ~__context ~self:importtask ~value:`failure;
+                    if Client.Task.get_progress rpc session_id importtask < 0.0 then
+                      Client.Task.set_status rpc session_id importtask `failure
                   end;
 
                 wait_for_task_complete rpc session_id importtask;
@@ -3598,8 +3597,8 @@ let vm_import fd printer rpc session_id params =
                 marshal fd (Command (Debug ("Caught exception: " ^ (Printexc.to_string e))));
                 marshal fd (Command (PrintStderr "Failed to import directory-format XVA\n"));
                 debug "Import failed with exception: %s" (Printexc.to_string e);
-                (if (Db_actions.DB_Action.Task.get_progress ~__context ~self:importtask = (-1.0))
-                 then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.Server_error(Api_errors.import_error_generic,[(Printexc.to_string e)]))
+                (if (Client.Task.get_progress rpc session_id importtask = (-1.0)) then
+                  Client.Task.set_status rpc session_id importtask `failure
                 );
                 raise (ExitWithError 2)
             end
@@ -3635,9 +3634,8 @@ let blob_get fd printer rpc session_id params =
   let blob_uuid = List.assoc "uuid" params in
   let blob_ref = Client.Blob.get_by_uuid rpc session_id blob_uuid in
   let filename = List.assoc "filename" params in
-  let __context = Context.make "import" in
   let blobtask = Client.Task.create rpc session_id (Printf.sprintf "Obtaining blob, ref=%s" (Ref.string_of blob_ref)) "" in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:blobtask ~value:(-1.0);
+  Client.Task.set_progress rpc session_id blobtask (-1.0);
 
   let bloburi = Printf.sprintf "%s?session_id=%s&task_id=%s&ref=%s"
       (Constants.blob_uri) (Ref.string_of session_id) (Ref.string_of blobtask) (Ref.string_of blob_ref)
@@ -3650,8 +3648,8 @@ let blob_get fd printer rpc session_id params =
        let ok = match !response with
          | Response OK -> true
          | Response Failed ->
-           if Client.Task.get_progress rpc session_id blobtask < 0.0
-           then Db_actions.DB_Action.Task.set_status ~__context ~self:blobtask ~value:`failure;
+           if Client.Task.get_progress rpc session_id blobtask < 0.0 then
+             Client.Task.set_status rpc session_id blobtask `failure;
            false
          | _ -> false
        in
@@ -3684,9 +3682,8 @@ let blob_put fd printer rpc session_id params =
   let blob_uuid = List.assoc "uuid" params in
   let blob_ref = Client.Blob.get_by_uuid rpc session_id blob_uuid in
   let filename = List.assoc "filename" params in
-  let __context = Context.make "import" in
   let blobtask = Client.Task.create rpc session_id (Printf.sprintf "Blob PUT, ref=%s" (Ref.string_of blob_ref)) "" in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:blobtask ~value:(-1.0);
+  Client.Task.set_progress rpc session_id blobtask (-1.0);
 
   let bloburi = Printf.sprintf "%s?session_id=%s&task_id=%s&ref=%s"
       (Constants.blob_uri) (Ref.string_of session_id) (Ref.string_of blobtask) (Ref.string_of blob_ref)
@@ -3699,8 +3696,8 @@ let blob_put fd printer rpc session_id params =
        let ok = match !response with
          | Response OK -> true
          | Response Failed ->
-           if Client.Task.get_progress rpc session_id blobtask < 0.0
-           then Db_actions.DB_Action.Task.set_status ~__context ~self:blobtask ~value:`failure;
+           if Client.Task.get_progress rpc session_id blobtask < 0.0 then
+             Client.Task.set_status rpc session_id blobtask `failure;
            false
          | _ -> false
        in
@@ -3796,13 +3793,12 @@ let export_common fd printer rpc session_id params filename num ?task_uuid compr
   (* Initially mark the task progress as -1.0. The first thing the export handler does it to mark it as zero *)
   (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
   (* not our responsibility any more to mark the task as completed/failed/etc. *)
-  let __context = Context.make "export" in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:exporttask ~value:(-1.0);
+  Client.Task.set_progress rpc session_id exporttask (-1.0);
 
   finally
     (fun () ->
        let f = if !num > 1 then filename ^ (string_of_int !num) else filename in
-       download_file ~__context rpc session_id exporttask fd f
+       download_file rpc session_id exporttask fd f
          (Printf.sprintf
             "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b"
             (if vm_metadata_only then Constants.export_metadata_uri else Constants.export_uri)
