@@ -28,7 +28,6 @@ depends: [
   "mtime"
   "ocaml-migrate-parsetree"
   "ounit" {with-test} # needed for ocaml-pci
-  "pciutil"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "rpclib"
