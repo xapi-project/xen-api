@@ -2402,11 +2402,11 @@ let vm_install_real printer rpc session_id template name description params =
       match get_default_sr_uuid rpc session_id with
       | Some uuid -> uuid
       | None ->
-        match Xapi_templates.get_template_record rpc session_id template
-        with
-        | None | Some {Xapi_templates.disks = []} -> Ref.string_of Ref.null
-        | _ -> failwith "Failed to find a valid default SR for the \
-                         Pool. Please provide an sr-name-label or sr-uuid parameter." in
+        let other_config = Client.VM.get_other_config rpc session_id template in
+        if List.mem_assoc "disks" other_config then
+          failwith "Failed to find a valid default SR for the \
+                    Pool. Please provide an sr-name-label or sr-uuid parameter."
+        else "" in
 
   let new_vm =
     match sr_ref with
