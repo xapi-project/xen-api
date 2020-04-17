@@ -178,11 +178,6 @@ let ref_convert x =
   | Some ir ->
     ir.Ref_index.uuid^(match ir.Ref_index.name_label with None->"" | Some x -> " ("^x^")")
 
-let is_valid_ref session_id ref =
-  Server_helpers.exec_with_new_task
-    ~session_id "Checking validity of reference"
-    (fun __context -> Db.is_valid_ref __context ref)
-
 (* Marshal an API-style server-error *)
 let get_server_error code params =
   try
