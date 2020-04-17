@@ -2100,11 +2100,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Diagnostics.gc_compact ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_compact rpc session_id host)
 
-    let gc_stats ~__context ~session ~host =
-      info "Diagnostics.gc_stats: session = '%s' host = '%s'"
-        (Ref.string_of session) (host_uuid ~__context host);
-      let local_fn = Local.Diagnostics.gc_stats ~session ~host in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_stats rpc session_id session host)
+    let gc_stats ~__context ~host =
+      info "Diagnostics.gc_stats: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.gc_stats ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_stats rpc session_id host)
 
     let db_stats ~__context ~session ~host =
       info "Diagnostics.db_stats: session = '%s' host = '%s'"

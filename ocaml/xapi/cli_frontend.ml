@@ -2300,7 +2300,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=[];
       help="Print GC stats.";
       implementation=No_fd Cli_operations.diagnostic_gc_stats;
-      flags=[Neverforward];
+      flags=[Host_selectors];
     };
     "diagnostic-timing-stats",
     {
