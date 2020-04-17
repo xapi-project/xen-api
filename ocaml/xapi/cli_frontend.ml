@@ -2324,7 +2324,7 @@ add a mapping of 'path' -> '/tmp', the command line should contain the argument 
       optn=["uri"; "method"; "params"];
       help="Print network stats.";
       implementation=No_fd Cli_operations.diagnostic_net_stats;
-      flags=[Neverforward];
+      flags=[Host_selectors];
     };
     "host-get-sm-diagnostics",
     {

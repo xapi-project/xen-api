@@ -35,12 +35,13 @@ let db_stats = call
 let network_stats = call
     ~name:"network_stats"
     ~in_product_since:Datamodel_types.rel_stockholm
-    ~doc:""
-    ~params:[Ref _session, "session", "The session to do netowrk_stats";
-             Ref _host, "host", "The host to do network_stats."]
+    ~doc:"Get network stats of a host"
+    ~hide_from_docs:true
+    ~params:[Ref _host, "host", "The host from which to obtain network stats";
+             Map(String, String), "params", "The params to filter and format the output"]
     ~errs:[]
     ~allowed_roles:Datamodel_roles._R_POOL_OP
-    ~result:(Map(String, String), "")
+    ~result:(Set(Set(String)), "Collection of network stats")
     ()
 
 let license_stats = call

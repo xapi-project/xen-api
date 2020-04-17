@@ -2115,11 +2115,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let local_fn = Local.Diagnostics.license_stats ~session ~host in
       do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.license_stats rpc session_id session host)
 
-    let network_stats ~__context ~session ~host =
-      info "Diagnostics.network_stats: session = '%s' host = '%s'"
-        (Ref.string_of session) (host_uuid ~__context host);
-      let local_fn = Local.Diagnostics.network_stats ~session ~host in
-      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.network_stats rpc session_id session host)
+    let network_stats ~__context ~host ~params =
+      info "Diagnostics.network_stats: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.network_stats ~host ~params in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.network_stats rpc session_id host params)
   end
 
   module Host = struct

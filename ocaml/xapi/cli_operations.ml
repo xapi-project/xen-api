@@ -148,36 +148,6 @@ let diagnostic_timing_stats printer rpc session_id params =
 
   printer (Cli_printer.PTable all)
 
-let diagnostic_net_stats printer rpc session_id params =
-  let all = Http_svr.Server.all_stats Xapi_http.server in
-  let meth (m, _, _) = match List.assoc_opt "method" params with
-    | Some m' ->
-      String.(lowercase_ascii (Http.string_of_method_t m) = lowercase_ascii m')
-    | None -> true
-  in
-  let uri (_, uri, _) = match List.assoc_opt "uri" params with
-    | Some uri' -> String.(lowercase_ascii uri = lowercase_ascii uri')
-    | None -> true
-  in
-  let has_param x = match List.assoc_opt "params" params with
-    | Some params -> List.mem x (String.split_on_char ',' params)
-    | None -> true
-  in
-
-  let all = List.filter meth (List.filter uri all) in
-  let rows = List.map
-      (fun (m, uri, stats) ->
-         let m' = if has_param "method" then [ Http.string_of_method_t m ] else [] in
-         let uri' = if has_param "uri" then [ uri ] else [] in
-         let requests' = if has_param "requests" then [ string_of_int stats.Http_svr.Stats.n_requests ] else [] in
-         let connections' = if has_param "connections" then [ string_of_int stats.Http_svr.Stats.n_connections ] else [] in
-         let framed' = if has_param "framed" then [ string_of_int stats.Http_svr.Stats.n_framed ] else [] in
-         m' @ uri' @ requests' @ connections' @ framed'
-      ) all in
-  let widths = Table.compute_col_widths rows in
-  let sll = List.map (List.map2 Table.right widths) rows in
-  List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
-
 type host_license = {
   hostname: string;
   uuid: string;
@@ -3981,6 +3951,16 @@ let diagnostic_db_stats printer rpc session_id params =
         |> get_string_of_assoc_list
         |> Printf.sprintf "DB lock stats: %s"
        ))
+
+let diagnostic_net_stats printer rpc session_id params =
+  ignore(do_host_op rpc session_id ~multiple:false
+           (fun _ host ->
+              let host = host.getref() in
+              let rows = Client.Diagnostics.network_stats rpc session_id host params in
+              let widths = Table.compute_col_widths rows in
+              let sll = List.map (List.map2 Table.right widths) rows in
+              List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
+           ) params [])
 
 module Network_sriov = struct
   let create printer rpc session_id params =
