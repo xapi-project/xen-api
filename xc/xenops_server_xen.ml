@@ -1241,6 +1241,8 @@ module VM = struct
 
       ( match when' with
         | Pre_migration ->
+          (* Write the key to the destination, if it's written on the origin
+             subtree the value will get overwritten by [Domain.move_xstree] *)
           let origin_uuid_path = Printf.sprintf "/vm/%s/origin-uuid" new_name in
           debug "xenstore-write %s <- %s" origin_uuid_path old_name;
           xs.Xs.write origin_uuid_path old_name

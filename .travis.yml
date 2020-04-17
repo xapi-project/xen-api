@@ -1,6 +1,8 @@
 language: c
-sudo: required
-service: docker
+os: linux
+dist: xenial
+services:
+  - docker
 install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
 script:
   - wget https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env
@@ -11,6 +13,6 @@ env:
   global:
     - PACKAGE="xapi-xenopsd"
     - PINS="xapi-xenopsd:. xapi-xenopsd-xc:. xapi-xenopsd-simulator:."
-  matrix:
+  jobs:
     - PACKAGE="xapi-xenopsd-xc"
     - PACKAGE="xapi-xenopsd-simulator"
