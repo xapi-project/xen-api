@@ -2922,9 +2922,9 @@ let suspend ~__context ~self =
        in
        let suspend_SR = Helpers.choose_suspend_sr ~__context ~vm:self in
        let sm_config = [
-         Xapi_globs._sm_vm_hint, id;
+         Constants._sm_vm_hint, id;
          (* Fully inflate the VDI if the SR supports thin provisioning *)
-         Xapi_globs._sm_initial_allocation, (Int64.to_string space_needed);
+         Constants._sm_initial_allocation, (Int64.to_string space_needed);
        ] in
        Helpers.call_api_functions ~__context
          (fun rpc session_id ->

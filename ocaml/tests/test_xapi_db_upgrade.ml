@@ -82,7 +82,7 @@ let upgrade_bios () =
   in
   check "OEM_MANUFACTURER=Dell" Xapi_globs.old_dell_bios_strings;
   check "OEM_MANUFACTURER=HP" Xapi_globs.old_hp_bios_strings;
-  check "" Xapi_globs.generic_bios_strings;
+  check "" Constants.generic_bios_strings;
   Xapi_stdext_unix.Unixext.unlink_safe "/var/tmp/.previousInventory"
 
 let update_snapshots () =

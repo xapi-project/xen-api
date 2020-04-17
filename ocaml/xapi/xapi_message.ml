@@ -674,7 +674,7 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
   let request = Xapi_http.http_request ~subtask_of ~query ~body
       Http.Put Constants.message_put_uri in
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), remote_address, !Constants.https_port) in
   with_transport transport
     (with_http request
        (fun (rsp, fd) ->

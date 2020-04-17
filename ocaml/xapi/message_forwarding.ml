@@ -50,7 +50,7 @@ end)
 let remote_rpc_no_retry context hostname (task_opt: API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ?task_id:(may Ref.string_of task_opt) (),
-                      hostname, !Xapi_globs.https_port) in
+                      hostname, !Constants.https_port) in
   let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.0" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
@@ -58,7 +58,7 @@ let remote_rpc_no_retry context hostname (task_opt: API.ref_task option) xml =
 let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true ?task_id:(may Ref.string_of task_opt) (),
-                      hostname, !Xapi_globs.https_port) in
+                      hostname, !Constants.https_port) in
   let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.1" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 

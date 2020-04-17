@@ -121,7 +121,7 @@ let make __context rpc session_id srid (vms, vdis) =
         (* make VBDs *)
         List.iter (fun vbd ->
             let vdi = List.assoc vbd.vdi (List.combine vdis vdi_refs) in
-            let vbd_ref = Client.VBD.create ~rpc ~session_id ~vM:vm_ref ~vDI:vdi ~other_config:[Xapi_globs.owner_key,""]
+            let vbd_ref = Client.VBD.create ~rpc ~session_id ~vM:vm_ref ~vDI:vdi ~other_config:[Constants.owner_key,""]
                 ~userdevice:vbd.device ~bootable:(vbd.funct = Root) ~mode:vbd.mode
                 ~_type:`Disk
                 ~empty:false

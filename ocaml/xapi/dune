@@ -58,7 +58,6 @@
    tar-unix
    xapi-tapctl
    x509
-   xapi_version
    xapi-types
    xapi-client
    xapi-datamodel

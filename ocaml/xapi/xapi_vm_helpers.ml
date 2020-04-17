@@ -1128,7 +1128,7 @@ let consider_generic_bios_strings ~__context ~vm =
   let bios_strings = Db.VM.get_bios_strings ~__context ~self:vm in
   if bios_strings = [] then begin
     info "The VM's BIOS strings were not yet filled in. The VM is now made BIOS-generic.";
-    Db.VM.set_bios_strings ~__context ~self:vm ~value:Xapi_globs.generic_bios_strings
+    Db.VM.set_bios_strings ~__context ~self:vm ~value:Constants.generic_bios_strings
   end
 
 (* Windows VM Generation ID *)

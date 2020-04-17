@@ -48,7 +48,7 @@ let with_setup rpc session_id sr vm_template f =
       ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:cd ~userdevice:"2" ~bootable:false
                ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:true ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
       ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi ~userdevice:"3" ~bootable:false
-               ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Xapi_globs.owner_key,""]
+               ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Constants.owner_key,""]
                ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
       f vm
     )

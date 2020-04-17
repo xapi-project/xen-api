@@ -578,7 +578,7 @@ let metadata_handler (req: Request.t) s _ =
 
            let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
                          [ Http.Hdr.task_id ^ ": " ^ task_id;
-                           "Server: "^Xapi_globs.xapi_user_agent;
+                           "Server: "^Constants.xapi_user_agent;
                            content_type;
                            "Content-Length: "^(string_of_int content_length);
                            "Content-Disposition: attachment; filename=\"export.xva\""] in
@@ -679,7 +679,7 @@ let handler (req: Request.t) s _ =
                     List.mem_assoc "preserve_power_state" all && bool_of_string (List.assoc "preserve_power_state" all) in
                   let headers = Http.http_200_ok ~keep_alive:false ~version:"1.0" () @
                                 [ Http.Hdr.task_id ^ ": " ^ task_id;
-                                  "Server: "^Xapi_globs.xapi_user_agent;
+                                  "Server: "^Constants.xapi_user_agent;
                                   content_type;
                                   "Content-Disposition: attachment; filename=\"export.xva\""] in
 

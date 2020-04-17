@@ -54,7 +54,7 @@ let forward args s session =
   (* Reject forwarding cli commands if the request came in from a tcp socket *)
   if not (is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Constants.https_port) in
   let body =
     let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
     String.concat "\r\n" args in
@@ -268,7 +268,7 @@ let exception_handler s e =
     Cli_util.server_error Api_errors.internal_error [ Cli_util.string_of_exn exc ] s
 
 let handler (req:Http.Request.t) (bio: Buf_io.t) _ =
-  let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in
+  let str = Http_svr.read_body ~limit:Constants.http_limit_max_cli_size req bio in
   let s = Buf_io.fd_of bio in
   (* Tell the client the server version *)
   marshal_protocol s;
