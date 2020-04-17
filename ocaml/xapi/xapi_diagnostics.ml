@@ -35,6 +35,28 @@ let db_stats ~__context =
 let license_stats ~__context ~session ~host =
   raise Api_errors.(Server_error(not_implemented, [ "license_stats" ]))
 
-let network_stats ~__context ~session ~host =
-  raise Api_errors.(Server_error(not_implemented, [ "network_stats" ]))
-
+let network_stats ~__context ~host ~params =
+  let meth (m, _, _) =
+    not (List.mem_assoc "method" params)
+    || (String.lowercase_ascii(Http.string_of_method_t m) =
+        String.lowercase_ascii (List.assoc "method" params)) in
+  let uri (_, u, _) =
+    not (List.mem_assoc "uri" params)
+    || (String.lowercase_ascii u =
+        String.lowercase_ascii (List.assoc "uri" params)) in
+  let has_param x =
+    not (List.mem_assoc "params" params)
+    || (List.mem x (String.split_on_char ',' (List.assoc "params" params))) in
+  Http_svr.Server.all_stats Xapi_http.server
+  |> List.filter meth
+  |> List.filter uri
+  |> List.map
+    (fun (m, uri, stats) ->
+       List.concat
+         [if has_param "method" then [Http.string_of_method_t m] else [];
+          if has_param "uri" then [uri] else [];
+          if has_param "requests" then [string_of_int stats.Http_svr.Stats.n_requests] else [];
+          if has_param "connections" then [string_of_int stats.Http_svr.Stats.n_connections] else [];
+          if has_param "framed" then [string_of_int stats.Http_svr.Stats.n_framed] else [];
+         ]
+    )
