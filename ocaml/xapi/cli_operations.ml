@@ -2416,12 +2416,13 @@ let vm_install_real printer rpc session_id template name description params =
 
   let suspend_sr_ref = match sr_ref with
     | Some sr ->
-      if Cli_util.is_valid_ref session_id sr then
+      begin try
         (* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
-        sr
-      else
-        (* Template is a snapshot - copy the suspend_SR from the template *)
-        Client.VM.get_suspend_SR rpc session_id template
+        ignore(Client.SR.get_uuid rpc session_id sr); sr
+        with _ ->
+          (* Template is a snapshot - copy the suspend_SR from the template *)
+          Client.VM.get_suspend_SR rpc session_id template
+      end
     | None ->
       (* Not a snapshot and no sr-uuid or sr-name-label specified - copy the suspend_SR from the template *)
       Client.VM.get_suspend_SR rpc session_id template in
@@ -4372,16 +4373,15 @@ let update_upload fd printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let make_command task_id =
     let prefix = uri_of_someone rpc session_id Master in
-    let pools = Client.Pool.get_all rpc session_id in
     let sr =
       if List.mem_assoc "sr-uuid" params
       then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
       else begin
-        let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools) in
-        if Cli_util.is_valid_ref session_id sr then sr
-        else failwith "No sr-uuid parameter was given, and the pool's default SR \
-                       is unspecified or invalid. Please explicitly specify the SR to use \
-                       in the sr-uuid parameter, or set the pool's default SR."
+        match get_default_sr_uuid rpc session_id with
+        | Some uuid ->  Client.SR.get_by_uuid rpc session_id uuid
+        | None -> failwith "No sr-uuid parameter was given, and the pool's default SR \
+                            is unspecified or invalid. Please explicitly specify the SR to use \
+                            in the sr-uuid parameter, or set the pool's default SR."
       end
     in
     let uri = Printf.sprintf "%s%s?session_id=%s&sr_id=%s&task_id=%s"
