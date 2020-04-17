@@ -5,7 +5,7 @@ let gc_compact = call
     ~in_product_since:Datamodel_types.rel_stockholm
     ~doc:"Perform a full major collection and compact the heap on a host"
     ~hide_from_docs:true
-    ~params:[Ref _host, "host", "The host to do gc_compact."]
+    ~params:[Ref _host, "host", "The host to perform GC"]
     ~errs:[]
     ~allowed_roles:Datamodel_roles._R_POOL_OP
     ()
@@ -13,9 +13,9 @@ let gc_compact = call
 let gc_stats = call
     ~name:"gc_stats"
     ~in_product_since:Datamodel_types.rel_stockholm
-    ~doc:""
-    ~params:[Ref _session, "session", "The session to do gc_stats";
-             Ref _host, "host", "The host to do gc_stats."]
+    ~doc:"Get GC stats of a host"
+    ~hide_from_docs:true
+    ~params:[Ref _host, "host", "The host to get GC stats"]
     ~errs:[]
     ~allowed_roles:Datamodel_roles._R_POOL_OP
     ~result:(Map(String, String), "")

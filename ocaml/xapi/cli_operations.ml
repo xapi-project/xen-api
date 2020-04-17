@@ -136,27 +136,6 @@ let get_file_or_fail fd desc filename =
   | None -> fail fd desc
   | Some chunks -> chunks
 
-let diagnostic_gc_stats printer rpc session_id params =
-  let stat = Gc.stat () in
-  let table =
-    ["minor_words",string_of_float stat.Gc.minor_words;
-     "promoted_words",string_of_float stat.Gc.promoted_words;
-     "major_words",string_of_float stat.Gc.major_words;
-     "minor_collections",string_of_int stat.Gc.minor_collections;
-     "major_collections",string_of_int stat.Gc.major_collections;
-     "heap_words",string_of_int stat.Gc.heap_words;
-     "heap_chunks",string_of_int stat.Gc.heap_chunks;
-     "live_words",string_of_int stat.Gc.live_words;
-     "live_blocks",string_of_int stat.Gc.live_blocks;
-     "free_words",string_of_int stat.Gc.free_words;
-     "free_blocks",string_of_int stat.Gc.free_blocks;
-     "largest_free",string_of_int stat.Gc.largest_free;
-     "fragments",string_of_int stat.Gc.fragments;
-     "compactions",string_of_int stat.Gc.compactions;
-     "top_heap_words",string_of_int stat.Gc.top_heap_words;
-    ] in
-  printer (Cli_printer.PTable [table])
-
 let diagnostic_timing_stats printer rpc session_id params =
   let table_of_host host =
     [ "host-uuid", Client.Host.get_uuid rpc session_id host;
@@ -3982,6 +3961,17 @@ let diagnostic_compact printer rpc session_id params =
            (fun _ host ->
               let host=host.getref () in
               Client.Diagnostics.gc_compact rpc session_id host
+           ) params [])
+
+let diagnostic_gc_stats printer rpc session_id params =
+  ignore(do_host_op rpc session_id ~multiple:false
+           (fun _ host ->
+              let host=host.getref () in
+              printer
+                (
+                  Client.Diagnostics.gc_stats rpc session_id host
+                  |> fun x -> Cli_printer.PTable [x]
+                )
            ) params [])
 
 module Network_sriov = struct
