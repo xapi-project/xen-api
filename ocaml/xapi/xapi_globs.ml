@@ -35,11 +35,6 @@ let restricted_pool_size = 3
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
 
-(* xapi version *)
-let version_major = Xapi_version.xapi_version_major
-let version_minor = Xapi_version.xapi_version_minor
-let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
-
 (* client min/max version range *)
 (* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
  * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
@@ -59,12 +54,6 @@ let xencenter_max_verstring = Printf.sprintf "%Ld.%Ld" Datamodel.api_version_maj
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
 let packs_dir = ref (Filename.concat "/etc/xensource" "installed-repos")
-
-let default_cleartext_port = 80
-let default_ssl_port = 443
-
-let http_port = default_cleartext_port
-let https_port = ref default_ssl_port
 
 let unix_domain_socket = Filename.concat "/var/lib/xcp" "xapi"
 let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
@@ -167,7 +156,6 @@ let host_console_textport = 9500L
 
 let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 
-let owner_key = "owner" (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
 let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
 let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
@@ -241,11 +229,6 @@ let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 
 (* Indicates whether we should allow run-script inside VM *)
 let pool_allow_guest_agent_run_script = "allow_guest_agent_run_script"
-
-(* Names of storage parameters *)
-let _sm_vm_hint = "vmhint"
-let _sm_epoch_hint = "epochhint"
-let _sm_initial_allocation = "initial_allocation"
 
 let i18n_key = "i18n-key"
 let i18n_original_value_prefix = "i18n-original-value-"
@@ -334,10 +317,6 @@ let hosts_which_are_shutting_down : API.ref_host list ref = ref []
 let hosts_which_are_shutting_down_m = Mutex.create ()
 
 let xha_timeout = "timeout"
-
-(* Note the following constant has an equivalent in the db layer *)
-let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
-let http_limit_max_cli_size = 200 * 1024 (* 200K *)
 
 let message_limit=10000
 
@@ -507,28 +486,6 @@ let settable_vm_bios_string_keys =
    "baseboard-location-in-chassis";
    "enclosure-asset-tag"]
 
-(** Type 11 strings that are always included *)
-let standard_type11_strings =
-  ["oem-1", "Xen";
-   "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
-
-(** Generic BIOS strings *)
-let generic_bios_strings =
-  ["bios-vendor", "Xen";
-   "bios-version", "";
-   "system-manufacturer", "Xen";
-   "system-product-name", "HVM domU";
-   "system-version", "";
-   "system-serial-number", "";
-   "baseboard-manufacturer", "";
-   "baseboard-product-name", "";
-   "baseboard-version", "";
-   "baseboard-serial-number", "";
-   "baseboard-asset-tag", "";
-   "baseboard-location-in-chassis", "";
-   "enclosure-asset-tag", "";
-   "hp-rombios", ""] @ standard_type11_strings
-
 (** BIOS strings of the old (XS 5.5) Dell Edition *)
 let old_dell_bios_strings =
   ["bios-vendor", "Dell Inc.";
@@ -631,12 +588,6 @@ let host_heartbeat_interval = ref 30.
 
 (* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
 let host_assumed_dead_interval = ref 600.0
-
-(* the time taken to wait before restarting in a different mode for pool eject/join operations *)
-let fuse_time = ref 10.
-
-(* the time taken to wait before restarting after restoring db backup *)
-let db_restore_fuse_time = ref 30.
 
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *)
@@ -828,8 +779,8 @@ let xapi_globs_spec =
     "snapshot_with_quiesce_timeout", Float snapshot_with_quiesce_timeout;
     "host_heartbeat_interval", Float host_heartbeat_interval;
     "host_assumed_dead_interval", Float host_assumed_dead_interval;
-    "fuse_time", Float fuse_time;
-    "db_restore_fuse_time", Float db_restore_fuse_time;
+    "fuse_time", Float Constants.fuse_time;
+    "db_restore_fuse_time", Float Constants.db_restore_fuse_time;
     "inactive_session_timeout", Float inactive_session_timeout;
     "pending_task_timeout", Float pending_task_timeout;
     "completed_task_timeout", Float completed_task_timeout;

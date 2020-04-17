@@ -262,7 +262,7 @@ let make_rpc ~__context rpc : Rpc.response =
   let transport =
     if Pool_role.is_master ()
     then Unix(Xapi_globs.unix_domain_socket)
-    else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
+    else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Constants.https_port) in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
@@ -282,7 +282,7 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
     let transport =
       if Pool_role.is_master ()
       then Unix(Xapi_globs.unix_domain_socket)
-      else SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) (), Pool_role.get_master_address (), !Xapi_globs.https_port)
+      else SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) (), Pool_role.get_master_address (), !Constants.https_port)
     in
     let result = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc in
     Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id);
@@ -300,7 +300,7 @@ let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
 (* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), remote_address, !Constants.https_port) in
   let http = xmlrpc ~version:"1.0" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
@@ -359,7 +359,7 @@ let call_api_functions ~__context f =
 
 let call_emergency_mode_functions hostname f =
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), hostname, !Constants.https_port) in
   let http = xmlrpc ~version:"1.0" "/" in
   let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in

@@ -406,7 +406,7 @@ let create_root_user ~__context =
   if all = [] then Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
 let get_xapi_verstring () =
-  Printf.sprintf "%d.%d" Xapi_globs.version_major Xapi_globs.version_minor
+  Printf.sprintf "%d.%d" Constants.version_major Constants.version_minor
 
 (** Create assoc list of Supplemental-Pack information.
  *  The package information is taking from the [XS-REPOSITORY] XML file in the package

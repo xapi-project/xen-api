@@ -113,7 +113,7 @@ let create_disk rpc session_id vm sm_config disk =
   let vbd_ref = Client.VBD.create ~rpc ~session_id
       ~vM:vm ~vDI:vdi ~userdevice:disk.device ~bootable:disk.bootable ~mode:`RW ~_type:`Disk
       ~unpluggable:(disk._type <> `system)
-      ~empty:false ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[Xapi_globs.owner_key,""] in
+      ~empty:false ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[Constants.owner_key,""] in
   let device=Client.VBD.get_userdevice ~rpc ~session_id ~self:vbd_ref in
   Client.VDI.set_name_label ~rpc ~session_id ~self:vdi ~value:device;
   vbd_ref
@@ -126,7 +126,7 @@ let pre_install rpc session_id vm =
   (* driver params for each call - vmhint and epochhint for netapp *)
   let vmuuid = Client.VM.get_uuid rpc session_id vm in
   let sm_config =
-    [ Xapi_globs._sm_vm_hint, vmuuid ] in
+    [ Constants._sm_vm_hint, vmuuid ] in
   match get_template_record rpc session_id vm with
   | Some { disks = disks; post_install_script = script } ->
     let vbds = List.map (create_disk rpc session_id vm sm_config) disks in

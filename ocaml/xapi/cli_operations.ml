@@ -270,7 +270,7 @@ let create_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd unplugg
   create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams []
 
 let create_owner_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams =
-  create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams [Xapi_globs.owner_key,""]
+  create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams [Constants.owner_key,""]
 
 
 (* ---------------------------------------------------------------------
@@ -858,7 +858,7 @@ let pool_join printer rpc session_id params =
         ~master_address:(List.assoc "master-address" params)
         ~master_username:(List.assoc "master-username" params)
         ~master_password:(List.assoc "master-password" params);
-    printer (Cli_printer.PList ["Host agent will restart and attempt to join pool in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+    printer (Cli_printer.PList ["Host agent will restart and attempt to join pool in "^(string_of_float !Constants.fuse_time)^" seconds..."])
   with
   | Api_errors.Server_error(code, params) when code=Api_errors.pool_joining_host_connection_failed ->
     printer (Cli_printer.PList ["Host cannot contact destination host: connection refused.";
@@ -872,7 +872,7 @@ let pool_eject fd printer rpc session_id params =
 
   let go () =
     Client.Pool.eject ~rpc ~session_id ~host;
-    printer (Cli_printer.PList ["Specified host will attempt to restart as a master of a new pool in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."]) in
+    printer (Cli_printer.PList ["Specified host will attempt to restart as a master of a new pool in "^(string_of_float !Constants.fuse_time)^" seconds..."]) in
 
   if force
   then go ()
@@ -928,13 +928,13 @@ let pool_eject fd printer rpc session_id params =
 let pool_emergency_reset_master printer rpc session_id params =
   let master_address = List.assoc "master-address" params in
   Client.Pool.emergency_reset_master ~rpc ~session_id ~master_address;
-  printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+  printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_float !Constants.fuse_time)^" seconds..."])
 
 let pool_emergency_transition_to_master printer rpc session_id params =
   let force = get_bool_param params "force" in
   if not (Pool_role.is_master ()) || force then begin
     Client.Pool.emergency_transition_to_master ~rpc ~session_id;
-    printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+    printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Constants.fuse_time)^" seconds..."])
   end
   else
     printer (Cli_printer.PList ["Host agent is already master. Use '--force' to execute the operation anyway."])
@@ -2551,7 +2551,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
                                    let vdi = Client.VBD.get_VDI rpc session_id vbd in
                                    (* Double-check the VDI actually exists *)
                                    ignore(Client.VDI.get_uuid rpc session_id vdi);
-                                   if List.mem_assoc Xapi_globs.owner_key other_config
+                                   if List.mem_assoc Constants.owner_key other_config
                                    then [ vdi ] else [ ]
                                  with _ -> []) vbds) in
     let suspend_VDI =
@@ -2744,7 +2744,7 @@ let vm_migrate printer rpc session_id params =
       XMLRPC_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
     let username = List.assoc "remote-username" params in
     let password = List.assoc "remote-password" params in
-    let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" Xapi_globs.xapi_user_agent in
+    let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" Constants.xapi_user_agent in
     finally
       (fun () ->
          let host, host_record =
@@ -2938,7 +2938,7 @@ let vm_disk_add printer rpc session_id params =
   let op vm =
     let vm=vm.getref() in
     let vmuuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
-    let sm_config = [ Xapi_globs._sm_vm_hint, vmuuid ] in
+    let sm_config = [ Constants._sm_vm_hint, vmuuid ] in
     let vdi = Client.VDI.create ~rpc ~session_id ~name_label:vdi_name ~name_description:vdi_name ~sR:sr ~virtual_size:vdi_size ~_type:`user ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
     try
       let _ =
@@ -3502,7 +3502,7 @@ let vm_import fd printer rpc session_id params =
                 in
 
                 let open Xmlrpc_client in
-                let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of (Context.get_task_id __context)) (), address, !Xapi_globs.https_port) in
+                let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of (Context.get_task_id __context)) (), address, !Constants.https_port) in
                 let stream_ok = with_transport transport (with_http request writer) in
                 if not stream_ok then
                   begin
@@ -3799,7 +3799,7 @@ let vm_is_bios_customized printer rpc session_id params =
     let bios_strings = Client.VM.get_bios_strings rpc session_id (vm.getref ()) in
     if List.length bios_strings = 0 then
       printer (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
-    else if bios_strings = Xapi_globs.generic_bios_strings then
+    else if bios_strings = Constants.generic_bios_strings then
       printer (Cli_printer.PMsg "This VM is BIOS-generic.")
     else
       printer (Cli_printer.PMsg "This VM is BIOS-customized.")
@@ -4208,7 +4208,7 @@ let pool_restore_db fd printer rpc session_id params =
   ignore(track_http_operation fd rpc session_id make_command "restore database");
   if dry_run
   then printer (Cli_printer.PList [ "Dry-run backup restore successful" ])
-  else printer (Cli_printer.PList ["Host will reboot with restored database in "^(string_of_float !Xapi_globs.db_restore_fuse_time)^" seconds..."])
+  else printer (Cli_printer.PList ["Host will reboot with restored database in "^(string_of_float !Constants.db_restore_fuse_time)^" seconds..."])
 
 
 let pool_enable_external_auth printer rpc session_id params =

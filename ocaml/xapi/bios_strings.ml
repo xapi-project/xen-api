@@ -130,7 +130,7 @@ let get_baseboard_strings decode =
 
 (* Obtain the Type 11 OEM strings from dmidecode, and prepend with the standard ones. *)
 let get_oem_strings decode =
-  let standard = Xapi_globs.standard_type11_strings in
+  let standard = Constants.standard_type11_strings in
   let start_index = List.length standard + 1 in
   let values = decode "11" "oem" in
 

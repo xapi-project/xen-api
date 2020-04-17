@@ -234,7 +234,7 @@ let upgrade_bios_strings = {
     | None ->
       info "Upgrade from retail edition.";
       debug "Using generic BIOS strings";
-      update_vms Xapi_globs.generic_bios_strings
+      update_vms Constants.generic_bios_strings
 }
 
 let update_snapshots = {

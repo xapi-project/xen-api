@@ -2,4 +2,5 @@
   (name xapi_consts)
   (public_name xapi-consts)
   (wrapped false)
+  (libraries xapi_version)
 )

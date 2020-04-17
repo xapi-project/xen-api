@@ -37,7 +37,7 @@ let once kind f =
         f ()
       end)
 
-let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () = once `Exit @@ fun () ->
+let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () = once `Exit @@ fun () ->
   debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally";
   let delay_so_far =
     time (fun _ -> log_and_ignore_exn Xapi_stats.stop) +.
@@ -65,20 +65,20 @@ let light_fuse_and_run ?(fuse_length = !Xapi_globs.fuse_time) () = once `Exit @@
 let light_fuse_and_reboot_after_eject() = once `Reboot @@ fun () ->
   ignore (Thread.create
             (fun ()->
-               Thread.delay !Xapi_globs.fuse_time;
+               Thread.delay !Constants.fuse_time;
                (* this activates firstboot script and reboots the host *)
                ignore (Forkhelpers.execute_command_get_output "/opt/xensource/libexec/reset-and-reboot" []);
                ()
             ) ())
 
-let light_fuse_and_reboot ?(fuse_length = !Xapi_globs.fuse_time) () = once `Reboot @@ fun () ->
+let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () = once `Reboot @@ fun () ->
   ignore (Thread.create
             (fun ()->
                Thread.delay fuse_length;
                ignore(Sys.command "shutdown -r now")
             ) ())
 
-let light_fuse_and_dont_restart ?(fuse_length = !Xapi_globs.fuse_time) () = once `Exit @@ fun () ->
+let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () = once `Exit @@ fun () ->
   ignore (Thread.create
             (fun () ->
                debug "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save current RRDs locally";

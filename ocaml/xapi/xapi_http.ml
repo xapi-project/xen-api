@@ -27,7 +27,7 @@ let validate_session __context session_id realm =
    the unix domain socket because we don't want to accidentally bypass the authentication *)
 let inet_rpc xml =
   let version = "1.1" and path = "/" in
-  let http = 80 and https = !Xapi_globs.https_port in
+  let http = 80 and https = !Constants.https_port in
   (* Bypass SSL for localhost, this works even if the management interface
      is disabled. *)
   let open Xmlrpc_client in
@@ -125,7 +125,7 @@ let assert_credentials_ok realm ?(http_action=realm) ?(fn=Rbac.nofn) (req: Reque
       raise (Http.Unauthorised realm)
     | None, None, Some (Http.Basic(username, password)) ->
       let session_id = try
-          Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent
+          Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Constants.xapi_user_agent
         with _ -> raise (Http.Unauthorised realm)
       in
       Stdext.Pervasiveext.finally
@@ -153,7 +153,7 @@ let with_context ?(dummy=false) label (req: Request.t) (s: Unix.file_descr) f =
           Client.Session.slave_login inet_rpc localhost pool_secret, true
         | None, None, Some (Http.Basic(username, password)) ->
           begin try
-              Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent, true
+              Client.Session.login_with_password inet_rpc username password Datamodel_common.api_version_string Constants.xapi_user_agent, true
             with Api_errors.Server_error(code, params) when code = Api_errors.session_authentication_failed ->
               raise (Http.Unauthorised label)
           end
@@ -198,7 +198,7 @@ let server =
   Http_svr.Server.enable_fastpath server;
   server
 
-let http_request = Http.Request.make ~user_agent:Xapi_globs.xapi_user_agent
+let http_request = Http.Request.make ~user_agent:Constants.xapi_user_agent
 
 let bind inetaddr =
   let description = match inetaddr with
