@@ -1232,30 +1232,29 @@ module VM = struct
              ) (minimal_local_kvs @ minimal_vm_kvs)
       )
 
-  let rename vm vm' when' =
-    with_xc_and_xs
-      (fun xc xs ->
-         match di_of_uuid ~xc ~xs (uuid_of_string vm) with
-         | None -> ()
-         | Some di ->
-            begin
-              debug "Renaming domain %d from %s to %s" di.Xenctrl.domid vm vm';
-              Xenctrl.domain_sethandle xc di.Xenctrl.domid vm';
-              ( match when' with
-                | Pre_migration ->
-                  let origin_uuid_path = "/vm/" ^ vm' ^ "/origin-uuid" in
-                  debug "xenstore-write %s <- %s" origin_uuid_path vm;
-                  xs.Xs.write origin_uuid_path vm
-                | Post_migration ->
-                  let final_uuid_path = "/vm/" ^ vm ^ "/final-uuid" in
-                  safe_rm xs final_uuid_path
-              );
-              debug "Moving xenstore tree";
-              Domain.move_xstree xs di.Xenctrl.domid vm vm';
+  let rename old_name new_name when' =
+    with_xc_and_xs @@ fun xc xs ->
 
-              DB.rename vm vm'
-            end
-      )
+    let rename_domain di =
+      debug "Renaming domain %d from %s to %s" di.Xenctrl.domid old_name new_name;
+      Xenctrl.domain_sethandle xc di.Xenctrl.domid new_name;
+
+      ( match when' with
+        | Pre_migration ->
+          let origin_uuid_path = Printf.sprintf "/vm/%s/origin-uuid" new_name in
+          debug "xenstore-write %s <- %s" origin_uuid_path old_name;
+          xs.Xs.write origin_uuid_path old_name
+        | Post_migration ->
+          let final_uuid_path = Printf.sprintf "/vm/%s/final-uuid" old_name in
+          safe_rm xs final_uuid_path
+      );
+
+      debug "Moving xenstore tree";
+      Domain.move_xstree xs di.Xenctrl.domid old_name new_name;
+
+      DB.rename old_name new_name
+    in
+    Option.iter rename_domain (di_of_uuid ~xc ~xs (uuid_of_string old_name))
 
   let remove vm =
     with_xc_and_xs
