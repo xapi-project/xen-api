@@ -48,8 +48,7 @@ let license_stats = call
     ~name:"license_stats"
     ~in_product_since:Datamodel_types.rel_stockholm
     ~doc:""
-    ~params:[Ref _session, "session", "The session to do license_stats";
-             Ref _host, "host", "The host to do license_stats."]
+    ~params:[Ref _host, "host", "The host from which to obtain license stats"]
     ~errs:[]
     ~allowed_roles:Datamodel_roles._R_POOL_OP
     ~result:(Map(String, String), "")
