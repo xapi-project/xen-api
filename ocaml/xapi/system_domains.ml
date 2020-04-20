@@ -49,7 +49,7 @@ let set_is_system_domain ~__context ~self ~value =
 let set_is_control_domain ~__context ~self ~value =
   Helpers.log_exn_continue (Printf.sprintf "set_is_control_domain self = %s" (Ref.string_of self))
     (fun () ->
-      Db.VM.set_is_control_domain~__context ~self ~value
+       Db.VM.set_is_control_domain ~__context ~self ~value
     ) ()
 
 (** If a VM is a driver domain then it hosts backends for either disk or network
