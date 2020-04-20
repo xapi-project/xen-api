@@ -156,6 +156,7 @@ let load_pkcs8 name =
 let sign_cert host_name ~pkey_sign digest pkey_leaf =
   let csr = X509.Signing_request.create [host_name] ~digest pkey_leaf in
   X509.Signing_request.sign csr ~valid_from ~valid_until ~digest ~hash_whitelist:[digest] pkey_sign [host_name]
+  |> Rresult.R.error_to_msg ~pp_error:X509.Validation.pp_signature_error
 
 let sign_leaf_cert host_name digest pkey_leaf =
   load_pkcs8 "pkey_rsa_4096" >>= fun pkey_sign ->
