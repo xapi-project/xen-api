@@ -3953,6 +3953,8 @@ let diagnostic_db_stats printer rpc session_id params =
        ))
 
 let diagnostic_net_stats printer rpc session_id params =
+  let args_pass_to_api = ["method";"uri";"params";"requests";"connections";"framed"] in
+  let params = List.filter (fun (k,v) -> List.mem k args_pass_to_api) params in
   ignore(do_host_op rpc session_id ~multiple:false
            (fun _ host ->
               let host = host.getref() in
