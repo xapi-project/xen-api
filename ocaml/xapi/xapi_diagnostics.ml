@@ -32,7 +32,7 @@ let db_stats ~__context =
    "max",     Printf.sprintf "%f" max;
   ]
 
-let license_stats ~__context ~session ~host =
+let license_stats ~__context ~host =
   raise Api_errors.(Server_error(not_implemented, [ "license_stats" ]))
 
 let network_stats ~__context ~host ~params =
