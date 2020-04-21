@@ -1,10 +1,9 @@
 module D = Debug.Make(struct let name="vpx" end)
 open D
 
-type serverType = XenServer | ESXServer | VirtualCenter | HyperVServer
 type jobState = Created | Queued | Running | Completed | Aborted | UserAborted
 type serviceCred = { username:string; password:string}
-type serverInfo = {serverType:serverType; hostname:string; cred:serviceCred}
+type serverInfo = {serverType:Vpx_types.t; hostname:string; cred:serviceCred}
 type importInfo = { sRuuid:string }
 type jobInfo = {source:serverInfo; sourceVmUUID:string; sourceVmName:string; importInfo:importInfo}
 type dateTime = Stdext.Date.iso8601
@@ -53,35 +52,21 @@ let get_bool_dict dict key structname =
   | Rpc.Bool v -> v
   | x -> rpc_type_error x structname "Bool(bool)"
 
-let string_of_serverType = function
-  | XenServer -> "XenServer"
-  | ESXServer -> "ESXServer"
-  | VirtualCenter -> "VirtualCenter"
-  | HyperVServer -> "HyperVServer"
-
-let serverType_of_string = function
-  | "default"
-  | "XenServer" -> XenServer
-  | "ESXServer" -> ESXServer
-  | "VirtualCenter" -> VirtualCenter
-  | "HyperVServer" -> HyperVServer
-  | x -> raise (Api_errors.Server_error (Api_errors.invalid_value, [x]))
-
 let serverType_of_rpc x =
   match x with
   | Rpc.Int n -> (match (Int64.to_int n) with
-      | 0 -> XenServer
-      | 1 -> ESXServer
-      | 2 -> VirtualCenter
-      | 3 -> HyperVServer
+      | 0 -> Vpx_types.XenServer
+      | 1 -> Vpx_types.ESXServer
+      | 2 -> Vpx_types.VirtualCenter
+      | 3 -> Vpx_types.HyperVServer
       | _ -> rpc_type_error x "ServerType" "Int(int64)")
   | y -> rpc_type_error y "ServerType" "Int(int64)"
 
 let rpc_of_serverType = function
-  | XenServer -> Rpc.rpc_of_int 0
-  | ESXServer -> Rpc.rpc_of_int 1
-  | VirtualCenter -> Rpc.rpc_of_int 2
-  | HyperVServer -> Rpc.rpc_of_int 3
+  | Vpx_types.XenServer -> Rpc.rpc_of_int 0
+  | Vpx_types.ESXServer -> Rpc.rpc_of_int 1
+  | Vpx_types.VirtualCenter -> Rpc.rpc_of_int 2
+  | Vpx_types.HyperVServer -> Rpc.rpc_of_int 3
 
 let string_of_jobState = function
   | Created -> "Created"

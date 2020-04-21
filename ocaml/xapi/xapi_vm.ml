@@ -1255,7 +1255,7 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   debug "import_convert sr-uuid:%s" sr_uuid;
   let importInfo = { Vpx.sRuuid = sr_uuid } in
   let vmware_serverinfo = {
-    serverType = serverType_of_string _type;
+    serverType = Vpx_types.of_string _type;
     hostname = (List.assoc "hostname" remote_config);
     cred = {username = (List.assoc "username" remote_config); password = (List.assoc "password" remote_config)}} in
   let jobInfo = {source = vmware_serverinfo; sourceVmUUID = "";
