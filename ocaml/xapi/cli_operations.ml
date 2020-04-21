@@ -3380,7 +3380,7 @@ let vm_import fd printer rpc session_id params =
     marshal fd (Command (PrintStderr "Invalid arguments. The 'url' and 'filename' parameters should not both be specified.\n"));
     raise (ExitWithError 1)
   end;
-  if (Vpx.serverType_of_string _type) <> Vpx.XenServer then begin
+  if (Vpx_types.of_string _type) <> Vpx_types.XenServer then begin
     let username = List.assoc "host-username" params in
     let password = List.assoc "host-password" params in
     let remote_config = read_map_params "remote-config" params in
