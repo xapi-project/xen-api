@@ -74,7 +74,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type ?vdi_locatio
   Server_helpers.exec_with_new_task "sm_exec"
     (fun __context ->
        (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
-       Opt.iter (fun sr ->
+       Option.iter (fun sr ->
            if Db.is_valid_ref __context (Db.SR.get_introduced_by ~__context ~self:sr) then
              if not(List.mem cmd ["sr_attach"; "sr_detach"; "vdi_attach"; "vdi_detach"; "vdi_activate"; "vdi_deactivate"; "sr_probe"; "sr_scan"; "sr_content_type"]) then
                raise (Storage_interface.Storage_error (Backend_error(Api_errors.operation_not_allowed,

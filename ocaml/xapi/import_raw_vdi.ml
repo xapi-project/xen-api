@@ -27,7 +27,7 @@ open Pervasiveext
 open Client
 
 let fail_task_in_request (req: Request.t) (s: Unix.file_descr) e =
-  ignore(Xapi_http.ref_param_of_req req "task_id"|> Stdext.Opt.map (fun task_id -> TaskHelper.failed ~__context:(Context.from_forwarded_task task_id) e));
+  ignore(Xapi_http.ref_param_of_req req "task_id"|> Option.map (fun task_id -> TaskHelper.failed ~__context:(Context.from_forwarded_task task_id) e));
   Http_svr.headers s (Http.http_400_badrequest ())
 
 exception HandleError of exn * (string list) (* Exception to put into the task * headers to return to the client *)

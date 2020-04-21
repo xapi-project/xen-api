@@ -96,14 +96,14 @@ let scan_one ~__context ?callback sr =
                       (fun () ->
                          scan_finished sr;
                          debug "Scan of SR %s complete." sr_uuid;
-                         Opt.iter (fun f ->
+                         Option.iter (fun f ->
                              debug "Starting callback for SR %s." sr_uuid;
                              f ();
                              debug "Callback for SR %s finished." sr_uuid) callback)
                   )) ())
   else
     (* If a callback was supplied but a scan is already in progress, call the callback once the scan is complete. *)
-    Opt.iter (fun f ->
+    Option.iter (fun f ->
         ignore (Thread.create
                   (fun () ->
                      debug "Tried to scan SR %s but scan already in progress - waiting for scan to complete." sr_uuid;
@@ -289,7 +289,7 @@ let probe_ext =
     API.{
       probe_result_configuration = configuration;
       probe_result_complete = complete;
-      probe_result_sr = Xapi_stdext_monadic.Opt.map to_xenapi_sr_stat sr;
+      probe_result_sr = Option.map to_xenapi_sr_stat sr;
       probe_result_extra_info = extra_info
     }
   in

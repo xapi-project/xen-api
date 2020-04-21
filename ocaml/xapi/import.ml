@@ -693,12 +693,12 @@ module VDI : HandlerTools = struct
             vdi_records
             |> List.filter (fun (_, vdir) -> vdir.API.vDI_location = location && vdir.API.vDI_SR = sr)
             |> choose_one
-            |> Opt.map fst in
+            |> Option.map fst in
           let find_by_uuid uuid =
             vdi_records
             |> List.filter (fun (_, vdir) -> vdir.API.vDI_uuid = uuid)
             |> choose_one
-            |> Opt.map fst in
+            |> Option.map fst in
           let _scsiid = "SCSIid" in
           let scsiid_of vdi_record =
             if List.mem_assoc _scsiid vdi_record.API.vDI_sm_config
@@ -727,7 +727,7 @@ module VDI : HandlerTools = struct
                 | None ->
                   begin match find_by_scsiid destination with
                     | Some (rf, rc) ->
-                      info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Opt.default "None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Opt.default "None" (scsiid_of rc));
+                      info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Option.value ~default:"None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Option.value ~default:"None" (scsiid_of rc));
                       Some rf
                     | None -> None
                   end
@@ -738,7 +738,7 @@ module VDI : HandlerTools = struct
                | Some x ->
                  begin match find_by_scsiid x with
                    | Some (rf, rc) ->
-                     info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Opt.default "None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Opt.default "None" (scsiid_of rc));
+                     info "VDI %s (SCSIid %s) mapped to %s (SCSIid %s) by user" vdi_record.API.vDI_uuid (Option.value ~default:"None" (scsiid_of vdi_record)) rc.API.vDI_uuid (Option.value ~default:"None" (scsiid_of rc));
                      Some rf
                    | None -> None
                  end
@@ -1471,7 +1471,7 @@ let with_open_archive fd ?length f =
     Tar_unix.really_read fd buffer;
 
     (* we assume the first block is not all zeroes *)
-    let hdr = Opt.unbox (Tar_unix.Header.unmarshal buffer) in
+    let hdr = Option.get (Tar_unix.Header.unmarshal buffer) in
     assert_filename_is hdr;
 
     (* successfully opened uncompressed stream *)
@@ -1509,7 +1509,7 @@ let with_open_archive fd ?length f =
                 Unix.set_close_on_exec compressed_in;
                 debug "Writing initial buffer";
                 Tar_unix.really_write compressed_in buffer;
-                let limit = (Opt.map
+                let limit = (Option.map
                                (fun x -> Int64.sub x (Int64.of_int Tar_unix.Header.length)) length) in
                 let n = Unixext.copy_file ?limit fd compressed_in in
                 debug "Written a total of %d + %Ld bytes" Tar_unix.Header.length n))

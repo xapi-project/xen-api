@@ -270,7 +270,7 @@ let tapdisk_of_attach_info (backend:Storage_interface.backend) =
 
 let with_activated_disk ~dbg ~sr ~vdi ~dp f =
   let attached_vdi =
-    Opt.map (fun vdi ->
+    Option.map (fun vdi ->
         let backend = Local.VDI.attach3 dbg dp sr vdi (vm_of_s "0") false in
         vdi, backend
       ) vdi
@@ -278,7 +278,7 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
   finally
     (fun () ->
        let path =
-         Opt.map
+         Option.map
            (fun (vdi, backend) ->
               let (_, blockdevs, files, _) = Storage_interface.implementations_of_backend backend in
               match blockdevs, files with
@@ -292,9 +292,9 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
        in
        finally
          (fun () -> f path)
-         (fun () -> Opt.iter (fun vdi -> Local.VDI.deactivate dbg dp sr vdi (vm_of_s "0")) vdi)
+         (fun () -> Option.iter (fun vdi -> Local.VDI.deactivate dbg dp sr vdi (vm_of_s "0")) vdi)
     )
-    (fun () -> Opt.iter (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi (vm_of_s "0")) attached_vdi)
+    (fun () -> Option.iter (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi (vm_of_s "0")) attached_vdi)
 
 let perform_cleanup_actions =
   List.iter
@@ -378,7 +378,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
           (fun base_path ->
              with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp
                (fun src ->
-                  let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Opt.unbox src)
+                  let dd = Sparse_dd_wrapper.start ~progress_cb:(progress_callback 0.05 0.9 task) ?base:base_path true (Option.get src)
                       dest_vdi_url remote_vdi.virtual_size in
                   Storage_task.with_cancel task
                     (fun () -> Sparse_dd_wrapper.cancel dd)
@@ -740,8 +740,8 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
              with Not_found -> None) None similar in
 
     debug "Nearest VDI: content_id=%s vdi=%s"
-      (Opt.default "None" (Opt.map (fun x -> x.content_id) nearest))
-      (Opt.default "None" (Opt.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
+      (Option.value ~default:"None" (Option.map (fun x -> x.content_id) nearest))
+      (Option.value ~default:"None" (Option.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
 
     let parent = match nearest with
       | Some vdi ->
@@ -769,7 +769,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
         parent_vdi=parent.vdi;
         remote_vdi=vdi_info.vdi}));
 
-    let nearest_content_id = Opt.map (fun x -> x.content_id) nearest in
+    let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
 
     Mirror.Vhd_mirror {
       Mirror.mirror_vdi = leaf;
@@ -783,12 +783,12 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
 
 let receive_finalize ~dbg ~id =
   let recv_state = State.find_active_receive_mirror id in
-  let open State.Receive_state in Opt.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state;
+  let open State.Receive_state in Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state;
   State.remove_receive_mirror id
 
 let receive_cancel ~dbg ~id =
   let receive_state = State.find_active_receive_mirror id in
-  let open State.Receive_state in Opt.iter (fun r ->
+  let open State.Receive_state in Option.iter (fun r ->
       log_and_ignore_exn (fun () -> Local.DP.destroy dbg r.leaf_dp false);
       List.iter (fun v ->
           log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr v)
@@ -805,7 +805,7 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
   let start = Mtime_clock.counter () in
   let get_delta () = Mtime_clock.count start |> Mtime.Span.to_s in
   State.find_active_local_mirror id |>
-  Opt.iter (fun s ->
+  Option.iter (fun s ->
       try
         (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
            					   until the number of outstanding requests has gone to zero, then check the
@@ -843,7 +843,7 @@ let post_detach_hook ~sr ~vdi ~dp =
   let open State.Send_state in
   let id = State.mirror_id_of (sr,vdi) in
   State.find_active_local_mirror id |>
-  Opt.iter (fun r ->
+  Option.iter (fun r ->
       let remote_url = Http.Url.of_string r.url |> storage_url in
       let module Remote = StorageAPI(Idl.Exn.GenClient(struct let rpc = rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url end)) in
       let t = Thread.create (fun () ->
@@ -854,7 +854,7 @@ let post_detach_hook ~sr ~vdi ~dp =
           State.remove_local_mirror id;
           debug "Removed active local mirror: %s" id
         ) () in
-      Opt.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog;
+      Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog;
       debug "Created thread %d to call receive finalize and dp destroy" (Thread.id t))
 
 let nbd_handler req s sr vdi dp =
@@ -911,8 +911,8 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
                with Not_found -> None) None similars in
 
       debug "Nearest VDI: content_id=%s vdi=%s"
-        (Opt.default "None" (Opt.map (fun x -> x.content_id) nearest))
-        (Opt.default "None" (Opt.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
+        (Option.value ~default:"None" (Option.map (fun x -> x.content_id) nearest))
+        (Option.value ~default:"None" (Option.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
       let remote_base = match nearest with
         | Some vdi ->
           debug "Cloning VDI";

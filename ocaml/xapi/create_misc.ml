@@ -101,7 +101,7 @@ let count_cpus () =
 let read_dom0_memory_usage () =
   try
     let map = Balloon.parse_proc_xen_balloon () in
-    let lookup = fun x -> Opt.unbox (List.assoc x map) in
+    let lookup = fun x -> Option.get (List.assoc x map) in
     let keys = [Balloon._low_mem_balloon; Balloon._high_mem_balloon; Balloon._current_allocation] in
     let values = List.map lookup keys in
     let result = List.fold_left Int64.add 0L values in
@@ -138,7 +138,7 @@ let read_localhost_info ~__context =
   let open Xenops_interface.Host in
   {
     name_label = this_host_name;
-    xen_verstring = Opt.map (fun s -> s.hypervisor.version) stat;
+    xen_verstring = Option.map (fun s -> s.hypervisor.version) stat;
     linux_verstring;
     hostname = this_host_name;
     uuid = me;
@@ -150,9 +150,9 @@ let read_localhost_info ~__context =
     machine_serial_name = lookup_inventory_nofail _machine_serial_name;
     total_memory_mib;
     dom0_static_max;
-    cpu_info = Opt.map (fun s -> s.cpu_info) stat;
-    chipset_info = Opt.map (fun s -> s.chipset_info) stat;
-    hypervisor = Opt.map (fun s -> s.hypervisor) stat;
+    cpu_info = Option.map (fun s -> s.cpu_info) stat;
+    chipset_info = Option.map (fun s -> s.chipset_info) stat;
+    hypervisor = Option.map (fun s -> s.hypervisor) stat;
   }
 
 (** Returns the maximum of two values. *)
@@ -479,7 +479,7 @@ let make_software_version ~__context host_info =
   v6_version @
   [
     "xapi", get_xapi_verstring ();
-    "xen", Opt.default "(unknown)" host_info.xen_verstring;
+    "xen", Option.value ~default:"(unknown)" host_info.xen_verstring;
     "linux", host_info.linux_verstring;
     "xencenter_min", Xapi_globs.xencenter_min_verstring;
     "xencenter_max", Xapi_globs.xencenter_max_verstring;

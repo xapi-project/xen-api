@@ -100,7 +100,7 @@ module Thread_state = struct
       ) snapshot in
     let resources_of_ts ts =
       List.map fst ts.acquired_resources @
-      (Opt.default [] (Opt.map (fun (r, _) -> [ r ]) ts.waiting_for)) in
+      (Option.value ~default:[] (Option.map (fun (r, _) -> [ r ]) ts.waiting_for)) in
     let all_resources =
       List.setify
         (IntMap.fold (fun _ ts acc -> resources_of_ts ts @ acc ) snapshot [] ) in

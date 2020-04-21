@@ -311,10 +311,10 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let my_compatibility_info = compatibility_info my_software_version in
     if master_compatibility_info <> my_compatibility_info then begin
       debug "master PLATFORM_VERSION = %s, master compatibility name = %s; my PLATFORM_VERSION = %s, my compatibility name = %s; "
-        (Opt.default "Unknown" (fst master_compatibility_info))
-        (Opt.default "Unknown" (snd master_compatibility_info))
-        (Opt.default "Unknown" (fst my_compatibility_info))
-        (Opt.default "Unknown" (snd my_compatibility_info));
+        (Option.value ~default:"Unknown" (fst master_compatibility_info))
+        (Option.value ~default:"Unknown" (snd master_compatibility_info))
+        (Option.value ~default:"Unknown" (fst my_compatibility_info))
+        (Option.value ~default:"Unknown" (snd my_compatibility_info));
       raise (Api_errors.Server_error(Api_errors.pool_hosts_not_compatible, []))
     end in
 
@@ -1099,7 +1099,7 @@ let eject ~__context ~host =
     (* unplug all my PBDs; will deliberately fail if any unplugs fail *)
     unplug_pbds ~__context host;
 
-    Xapi_clustering.find_cluster_host ~__context ~host |> Xapi_stdext_monadic.Opt.iter (fun cluster_host ->
+    Xapi_clustering.find_cluster_host ~__context ~host |> Option.iter (fun cluster_host ->
         debug "Pool.eject: leaving cluster";
         (* PBDs need to be unplugged first for this to succeed *)
         Helpers.call_api_functions ~__context (fun rpc session_id ->

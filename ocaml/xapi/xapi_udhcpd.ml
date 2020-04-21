@@ -160,7 +160,7 @@ let write_config_nolock ~__context ip_router =
 
 let restart_nolock () =
   let pid = try Unixext.pidfile_read !Xapi_globs.udhcpd_pidfile with _ -> None in
-  Opt.iter Unixext.kill_and_wait pid;
+  Option.iter Unixext.kill_and_wait pid;
   let (_: string * string) = execute_command_get_output !Xapi_globs.busybox [ "udhcpd"; !Xapi_globs.udhcpd_conf ] in
   let start = Mtime_clock.counter () in
   let rec wait_for_pid n =
@@ -234,7 +234,7 @@ let maybe_add_lease ~__context vif =
 let get_ip ~__context vif =
   let vif = Ref.string_of vif in
   Mutex.execute mutex (fun () ->
-      Opt.map (fun l -> l.ip) (find_lease_nolock vif)
+      Option.map (fun l -> l.ip) (find_lease_nolock vif)
     )
 
 let init () =

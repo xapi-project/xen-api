@@ -250,7 +250,7 @@ let assert_vm_supports_quiesce_snapshot ~__context ~self =
       try
         let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
         let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-        Xapi_vm_lifecycle.assoc_opt "on_boot" sm_config = Some "reset"
+        List.assoc_opt "on_boot" sm_config = Some "reset"
       with _ -> false
     ) vmr.Db_actions.vM_VBDs then
     raise (Api_errors.Server_error(Api_errors.vdi_on_boot_mode_incompatible_with_operation, [ ]));
