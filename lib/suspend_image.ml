@@ -45,7 +45,7 @@ module Xenops_record = struct
   } [@@deriving sexp]
 
   let make ?vm_str ?xs_subtree () =
-    let time = Stdext.Date.(to_string (of_float (Unix.time ()))) in
+    let time = Xapi_stdext_date.Date.(to_string (of_float (Unix.time ()))) in
     let word_size = Sys.word_size in
     { word_size; time; vm_str; xs_subtree }
 
@@ -155,9 +155,9 @@ type 'a thread_status = Running | Thread_failure of exn | Success of 'a
 let with_conversion_script task name hvm fd f =
   let module D = Debug.Make(struct let name = "suspend_image_conversion" end) in
   let open D in
-  let open Stdext in
-  let open Pervasiveext in
-  let open Threadext in
+  let module Mutex = Xapi_stdext_threads.Threadext.Mutex in
+  let module Unixext = Xapi_stdext_unix.Unixext in
+  let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
   check_conversion_script () >>= fun () ->
   let (pipe_r, pipe_w) = Unix.pipe () in
   let fd_uuid = Uuidm.(to_string (create `V4))

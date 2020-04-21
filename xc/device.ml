@@ -32,7 +32,7 @@ exception Cdrom
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (** Definition of available qemu profiles, used by the qemu backend implementations *)
 module Profile = struct
@@ -605,7 +605,7 @@ module Vbd_Common = struct
     | _ -> ()
     end;
 
-    Opt.iter
+    Option.iter
       (fun protocol ->
          Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
       ) x.protocol;
@@ -657,7 +657,7 @@ module Vbd_Common = struct
             debug "Temporary failure to allocte a device number; retrying";
             Thread.delay 0.1
           end else raise e (* permanent failure *)
-      done; Opt.unbox !result in
+      done; Option.get !result in
     add_wait task ~xc ~xs device
 
   let qemu_media_change ~xs device _type params =
@@ -1134,7 +1134,7 @@ module PV_Vnc = struct
 
   let start ?statefile ~xs ?ip domid =
     debug "In PV_Vnc.start";
-    let ip = Opt.default "127.0.0.1" ip in
+    let ip = Option.value ~default:"127.0.0.1" ip in
     let l = [ "-x"; sprintf "/local/domain/%d/console" domid;
               "-T"; (* listen for raw connections *)
               "-v"; ip ^ ":1";
@@ -2084,7 +2084,7 @@ module Dm_Common = struct
     in
     let videoram_opt = ["-videoram"; string_of_int info.video_mib] in
     let vnc_opts_of ip_addr_opt auto port keymap ~domid =
-      let ip_addr = Opt.default "127.0.0.1" ip_addr_opt in
+      let ip_addr = Option.value ~default:"127.0.0.1" ip_addr_opt in
       let unused_opt, vnc_arg = match domid with
         | None when auto -> ["-vncunused"], Printf.sprintf "%s:1"  ip_addr
         | None           -> [], Printf.sprintf "%s:%d" ip_addr port

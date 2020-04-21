@@ -19,7 +19,7 @@ let bytes = ref false
 let pages = ref false
 let all_the_rest = ref false
 
-let xc_handle = Xenctrl.interface_open() 
+let xc_handle = Xenctrl.interface_open()
 
 let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let table = Hashtbl.create 10 in
@@ -53,13 +53,11 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
   let shadow_mib =
     try Some (Int64.of_int (Xenctrl.shadow_allocation_get xc_handle x.domid))
     with _ -> None in
-  let open Xapi_stdext_pervasives.Pervasiveext in
-  let open Xapi_stdext_monadic in
-  let shadow_bytes = may Memory.bytes_of_mib shadow_mib in
-  let shadow_pages = may Memory.pages_of_mib shadow_mib in
-  Hashtbl.add table "shadow bytes" (Opt.default "N/A" (may Int64.to_string shadow_bytes));
-  Hashtbl.add table "shadow pages" (Opt.default "N/A" (may Int64.to_string shadow_pages));
-  Hashtbl.add table "shadow MiB"   (Opt.default "N/A" (may Int64.to_string shadow_mib  ));
+  let shadow_bytes = Option.map Memory.bytes_of_mib shadow_mib in
+  let shadow_pages = Option.map Memory.pages_of_mib shadow_mib in
+  Hashtbl.add table "shadow bytes" (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_bytes));
+  Hashtbl.add table "shadow pages" (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_pages));
+  Hashtbl.add table "shadow MiB"   (Option.value ~default:"N/A" (Option.map Int64.to_string shadow_mib  ));
   table
 
 let select table keys =

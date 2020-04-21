@@ -25,7 +25,7 @@ let open_ring0 () =
 
 let open_ringU domid mfn =
   let xc = Xenctrl.interface_open () in
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () -> Xenctrl.map_foreign_range xc domid (Xenmmap.getpagesize()) mfn)
     (fun () -> Xenctrl.interface_close xc)
 

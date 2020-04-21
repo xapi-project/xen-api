@@ -13,9 +13,8 @@
  *)
 
 open Xenops_interface
-module Unixext = Stdext.Unixext
-module Opt = Stdext.Opt
-module Mutex = Stdext.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
 let rpc_of ty x = Rpcmarshal.marshal ty.Rpc.Types.ty x
 
@@ -107,7 +106,7 @@ let utf8_recode str =
   loop d e;
   Buffer.contents b
 
-let dropnone x = List.filter_map (Opt.map (fun x -> x)) x
+let dropnone x = List.filter_map (Option.map Fun.id) x
 
 module FileFS = struct
   (** A directory tree containiign files, each of which contain strings *)
@@ -308,7 +307,7 @@ module TypedTable = functor(I: ITEM) -> struct
   let read (k: I.key) =
     let module FS = (val get_fs_backend () : FS) in
     let path = get_path k in
-    Opt.map (fun x -> match Rpcmarshal.unmarshal t.Rpc.Types.ty x with | Ok x -> x | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal '%s': %s" I.namespace m)) (FS.read path)
+    Option.map (fun x -> match Rpcmarshal.unmarshal t.Rpc.Types.ty x with | Ok x -> x | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal '%s': %s" I.namespace m)) (FS.read path)
 
   let read_exn (k: I.key) = match read k with
     | Some x -> x

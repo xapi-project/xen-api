@@ -25,7 +25,7 @@ open Xenops_task
 module D = Debug.Make(struct let name = "xenops" end)
 open D
 
-let finally = Stdext.Pervasiveext.finally
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type xen_arm_arch_domainconfig = Xenctrl.xen_arm_arch_domainconfig = {
   gic_version: int;
@@ -599,10 +599,10 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
 
   (* Remove our reference to the /vm/<uuid> directory *)
   let vm_path = try Some (xs.Xs.read (dom_path ^ "/vm")) with _ -> None in
-  Opt.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
+  Option.iter (fun vm_path -> log_exn_rm ~xs (vm_path ^ "/domains/" ^ (string_of_int domid))) vm_path;
 
   (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid>
-     	 * and all the backend device paths *)
+   * and all the backend device paths *)
   debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid dom_path;
   xs.Xs.rm dom_path;
   xs.Xs.rm xenops_dom_path;
@@ -615,9 +615,9 @@ let destroy (task: Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
   ) ["/backend"; "/xenserver/backend"];
 
   (* If all devices were properly un-hotplugged, then zap the private tree in
-     	 * xenstore.  If there was some error leave the tree for debugging / async
-     	 * cleanup.  If there are any remaining domains with the same UUID, then
-     	 * zap only the hotplug tree for the destroyed domain. *)
+   * xenstore.  If there was some error leave the tree for debugging / async
+   * cleanup.  If there are any remaining domains with the same UUID, then
+   * zap only the hotplug tree for the destroyed domain. *)
   if failed_devices = [] then begin
     if List.length other_domains < 1 then
       log_exn_rm ~xs (Device_common.get_private_path_by_uuid uuid)
@@ -1534,7 +1534,7 @@ type suspend_flag = Live | Debug
       debug "Writing End_of_image footer(s)";
       progress_callback 1.;
       (* Close all streams *)
-      let fds = Stdext.Listext.List.setify (main_fd :: Opt.to_list vgpu_fd) in
+      let fds = Xapi_stdext_std.Listext.List.setify (main_fd :: Option.to_list vgpu_fd) in
       fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
     in (match res with
     | `Error e -> raise e

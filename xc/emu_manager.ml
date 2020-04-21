@@ -180,7 +180,7 @@ let with_connection (task: Xenops_task.task_handle) path domid (args: string lis
     info "Cancelling task %s; sending 'abort' to emu-manager pid: %d"
       (Xenops_task.id_of_handle task) pid;
     send_abort t in
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
        Xenops_task.with_cancel task cancel_cb
          (fun () ->
