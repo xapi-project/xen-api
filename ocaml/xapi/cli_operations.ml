@@ -3442,7 +3442,7 @@ let vm_import fd printer rpc session_id params =
                 let address = Client.Host.get_address rpc session_id host in
                 (* Although it's inefficient use a loopback HTTP connection *)
                 debug "address is: %s" address;
-                let request = Xapi_http.http_request
+                let request = Http.Request.make ~user_agent:Constants.xapi_user_agent
                     ~cookie:(["session_id", Ref.string_of session_id;
                               "task_id", Ref.string_of importtask] @
                              (if sr <> Ref.null then [ "sr_id", Ref.string_of sr ] else []))
