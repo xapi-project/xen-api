@@ -47,7 +47,8 @@ let network_stats = call
 let license_stats = call
     ~name:"license_stats"
     ~in_product_since:Datamodel_types.rel_stockholm
-    ~doc:""
+    ~doc:"Get the license stats of the pool"
+    ~hide_from_docs:true
     ~params:[Ref _host, "host", "The host from which to obtain license stats"]
     ~errs:[]
     ~allowed_roles:Datamodel_roles._R_POOL_OP
@@ -65,4 +66,5 @@ let t =
       network_stats;
       license_stats
     ]
-    ~contents:[ uid _diagnostics]()
+    ~contents:[]
+    ()
