@@ -37,7 +37,7 @@ module VMSetBiosStrings = Generic.MakeStateful(struct
       Either.Right (Db.VM.get_bios_strings ~__context ~self)
     with e -> Either.Left e
 
-  let big_str = String.make (Xapi_globs.bios_string_limit_size + 1) 'x'
+  let big_str = String.make (Constants.bios_string_limit_size + 1) 'x'
   let non_printable_str1 = Printf.sprintf "xyz%c" (Char.chr 31)
   let non_printable_str2 = Printf.sprintf "xyz%c" (Char.chr 127)
   let bios_str1 = ["bios-vendor", "Test"; "bios-version", "Test Inc. A08"]
@@ -98,7 +98,7 @@ module VMSetBiosStrings = Generic.MakeStateful(struct
       ["enclosure-asset-tag", big_str],
       Either.Left Api_errors.(Server_error
         (invalid_value,
-        ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Xapi_globs.bios_string_limit_size)]));
+        ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Constants.bios_string_limit_size)]));
 
       (* Value having non printable ascii characters *)
       ["enclosure-asset-tag", non_printable_str1],

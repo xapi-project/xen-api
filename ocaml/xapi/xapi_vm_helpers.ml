@@ -1096,12 +1096,12 @@ let assert_valid_bios_strings ~__context ~value =
   (* Validate size of value provided is within bios_string_limit_size and not empty *)
   (* Validate value chars are printable ASCII characters *)
   value |> List.iter (fun (k, v) ->
-      if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
+      if not (List.mem k Constants.settable_vm_bios_string_keys) then
         raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Unknown key"]));
       match String.length v with
       | 0 -> raise (Api_errors.Server_error(Api_errors.invalid_value, [k; "Value provided is empty"]))
-      | len when len > Xapi_globs.bios_string_limit_size ->
-        let err = Printf.sprintf "%s has length more than %d characters" v Xapi_globs.bios_string_limit_size in
+      | len when len > Constants.bios_string_limit_size ->
+        let err = Printf.sprintf "%s has length more than %d characters" v Constants.bios_string_limit_size in
         raise (Api_errors.Server_error(Api_errors.invalid_value, [k; err]))
       | _ ->
         String.iter
