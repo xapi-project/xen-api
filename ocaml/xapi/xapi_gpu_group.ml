@@ -123,15 +123,15 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type =
            Xapi_pgpu_helpers.get_remaining_capacity_internal ~pre_allocate_list:[]
              ~__context ~self:pgpu ~vgpu_type
          with
-         | Either.Left e -> (capacity, e :: exceptions)
-         | Either.Right n -> (Int64.add n capacity, exceptions))
+         | Error e -> (capacity, e :: exceptions)
+         | Ok n -> (Int64.add n capacity, exceptions))
       (0L, []) pgpus
   in
   if capacity > 0L
-  then Either.Right capacity
-  else Either.Left (choose_exception exceptions)
+  then Ok capacity
+  else Error (choose_exception exceptions)
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
   match get_remaining_capacity_internal ~__context ~self ~vgpu_type with
-  | Either.Left e -> 0L
-  | Either.Right capacity -> capacity
+  | Error e -> 0L
+  | Ok capacity -> capacity

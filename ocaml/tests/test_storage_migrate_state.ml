@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Test_highlevel
 
 module StorageMigrateState = struct
@@ -72,9 +71,9 @@ module MapOf = Generic.MakeStateful(struct
   open Storage_migrate.State
 
   let load_input () (send, recv, copy) =
-    Opt.iter (fun (id, send) -> add id send) send;
-    Opt.iter (fun (id, recv) -> add id recv) recv;
-    Opt.iter (fun (id, copy) -> add id copy) copy
+    Option.iter (fun (id, send) -> add id send) send;
+    Option.iter (fun (id, recv) -> add id recv) recv;
+    Option.iter (fun (id, copy) -> add id copy) copy
 
   let extract_output () _ = map_of ()
 

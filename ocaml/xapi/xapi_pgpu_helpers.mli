@@ -45,7 +45,7 @@ val get_remaining_capacity_internal :
   self:API.ref_PGPU ->
   vgpu_type:API.ref_VGPU_type ->
   pre_allocate_list:(API.ref_VGPU * API.ref_PGPU) list ->
-  (exn, int64) Stdext.Either.t
+  (int64, exn) result
 
 (* Return the number of VGPUs of the specified type for which capacity
  * remains on the PGPU. *)
@@ -63,7 +63,7 @@ val assert_capacity_exists_for_VGPU_type :
   vgpu_type:API.ref_VGPU_type -> unit
 
 (** Check that the PGPU selected is compatible with the VM VGPU.
- *  Currently checks only nvml compatibility if Nvidia VGPUs 
+ *  Currently checks only nvml compatibility if Nvidia VGPUs
  *  are detected. *)
 val assert_destination_pgpu_is_compatible_with_vm :
   __context:Context.t ->
@@ -74,9 +74,9 @@ val assert_destination_pgpu_is_compatible_with_vm :
   ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [<`session] Ref.t -> unit -> unit
 
 (** Check that the host has a PGPU compatible with the VM VGPU.
- *  Currently checks only nvml compatibility if Nvidia VGPUs 
+ *  Currently checks only nvml compatibility if Nvidia VGPUs
  *  are detected. *)
-val assert_destination_has_pgpu_compatible_with_vm : 
+val assert_destination_has_pgpu_compatible_with_vm :
   __context:Context.t ->
   vm:API.ref_VM ->
   vgpu_map:(API.ref_VGPU * API.ref_GPU_group) list ->

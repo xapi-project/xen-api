@@ -14,11 +14,10 @@
 
 open Test_common
 open Event_types
-open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let event_setup_common = Test_event_common.event_setup_common
-  
+
 let test_event_from_ev () =
   (* Test that creating an object generates an event for that object *)
   let __context, session_id = event_setup_common () in

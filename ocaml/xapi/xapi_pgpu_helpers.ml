@@ -14,7 +14,6 @@
 module D=Debug.Make(struct let name="xapi_pgpu_helpers" end)
 open D
 
-open Xapi_stdext_monadic
 open Xapi_stdext_std
 
 let assert_VGPU_type_supported ~__context ~self ~vgpu_type =
@@ -95,8 +94,8 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_li
     assert_VGPU_type_allowed ~__context ~self ~vgpu_type;
     let convert_capacity capacity =
       if capacity > 0L
-      then Either.Right capacity
-      else Either.Left
+      then Ok capacity
+      else Error
           (Api_errors.Server_error
              (Api_errors.pgpu_insufficient_capacity_for_vgpu, [
                  Ref.string_of self;
@@ -135,21 +134,21 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_li
       convert_capacity (Int64.div (Int64.sub pgpu_size utilisation) new_vgpu_size)
     end
   with e ->
-    Either.Left e
+    Error e
 
 let get_remaining_capacity ~__context ~self ~vgpu_type ~pre_allocate_list =
   match get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list with
-  | Either.Left _ -> 0L
-  | Either.Right capacity -> capacity
+  | Error _ -> 0L
+  | Ok capacity -> capacity
 
 let assert_capacity_exists_for_VGPU_type ~__context ~self ~vgpu_type =
   match get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list:[] with
-  | Either.Left e -> raise e
-  | Either.Right capacity -> ()
+  | Error e -> raise e
+  | Ok capacity -> ()
 
 
 (* extract vgpu implementation *)
-let vgpu_impl ~__context vgpu = 
+let vgpu_impl ~__context vgpu =
   vgpu
   |> (fun self -> Db.VGPU.get_type ~__context ~self)
   |> (fun self -> Db.VGPU_type.get_implementation ~__context ~self)
@@ -162,12 +161,12 @@ let assert_destination_pgpu_is_compatible_with_vm ~__context ~vm ~vgpu ~pgpu ~ho
     | None -> Db.PGPU.get_compatibility_metadata ~__context ~self:pgpu
     | Some (rpc, session_id) ->XenAPI.PGPU.get_compatibility_metadata rpc session_id pgpu
   in
-  let test_nvidia_compatibility vgpu pgpu = 
+  let test_nvidia_compatibility vgpu pgpu =
     let pgpu_metadata =
       try
         get_compatibility_metadata pgpu
         |> List.assoc Xapi_gpumon.Nvidia.key
-      with Not_found -> 
+      with Not_found ->
         debug "Key %s is missing from the compatibility_metadata for pgpu %s on the host %s." Xapi_gpumon.Nvidia.key (Ref.string_of pgpu) (Ref.string_of host);
         raise Api_errors.(Server_error (nvidia_tools_error, [Ref.string_of host]))
     in
@@ -247,6 +246,6 @@ let assert_destination_has_pgpu_compatible_with_vm ~__context ~vm ~vgpu_map ~hos
 
   (* Check that there is a potential pgpu candidate for each of the other vgpus *)
   let pgpus = get_pgpus_of_host host in
-  List.iter (fun vgpu -> 
+  List.iter (fun vgpu ->
       test_compatibility vgpu pgpus
     ) unmapped

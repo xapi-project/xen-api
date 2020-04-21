@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Test_common
 
 module D=Debug.Make(struct let name="test_xapi_xenops" end)

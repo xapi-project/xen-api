@@ -36,8 +36,7 @@ module Networks = Generic.MakeStateless (struct
           T(root, (add_path_to_tree (T(node, [])) rest_of_path) :: children)
 
     let construct_tree tree path =
-      let open Stdext.Xstringext in
-      let nodes = String.split_f (fun s -> s = '/') path in
+      let nodes = Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path in
       add_path_to_tree tree nodes
 
     let rec list_helper children = function
@@ -49,8 +48,7 @@ module Networks = Generic.MakeStateless (struct
         with Not_found -> []
 
     let list (T(root, children)) path =
-      let open Stdext.Xstringext in
-      let nodes = String.split_f (fun s -> s = '/') path in
+      let nodes = Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path in
       list_helper children nodes
 
 
@@ -213,8 +211,7 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
              Mt(root, (add_leaf_to_mtree rest_paths leaf_value (Mt(node, []))) :: children))
 
     let construct_mtree mtree (path, leaf_value) =
-      let open Stdext.Xstringext in
-      let nodes = String.split_f (fun s -> s = '/') path in
+      let nodes = Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path in
       add_leaf_to_mtree nodes leaf_value mtree
 
     let rec list_helper children = function
@@ -230,9 +227,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
       match mtree with
       | Lf (_, _) -> []
       | Mt (_, children) ->
-        let open Stdext.Xstringext in
-        let paths = String.split_f (fun s -> s = '/') path in
-        list_helper children paths
+        let nodes = Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path in
+        list_helper children nodes
 
     let rec lookup_helper mtree = function
       | [] ->
@@ -248,9 +244,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
            with Not_found -> None)
 
     let lookup mtree path =
-        let open Stdext.Xstringext in
-        let paths = String.split_f (fun s -> s = '/') path in
-        lookup_helper mtree paths
+        let nodes = Xapi_stdext_std.Xstringext.String.split_f (fun s -> s = '/') path in
+        lookup_helper mtree nodes
 
 
     let transform input =

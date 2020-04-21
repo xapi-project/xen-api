@@ -40,7 +40,7 @@ val get_remaining_capacity_internal :
   __context:Context.t ->
   self: [ `GPU_group ] Ref.t ->
   vgpu_type:[ `VGPU_type ] Ref.t ->
-  (exn, int64) Stdext.Either.t
+  (int64, exn) result
 
 val get_remaining_capacity :
   __context:Context.t ->
