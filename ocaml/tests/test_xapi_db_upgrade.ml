@@ -80,8 +80,8 @@ let upgrade_bios () =
       vm_r.API.vM_bios_strings
       bios_strings
   in
-  check "OEM_MANUFACTURER=Dell" Xapi_globs.old_dell_bios_strings;
-  check "OEM_MANUFACTURER=HP" Xapi_globs.old_hp_bios_strings;
+  check "OEM_MANUFACTURER=Dell" Constants.old_dell_bios_strings;
+  check "OEM_MANUFACTURER=HP" Constants.old_hp_bios_strings;
   check "" Constants.generic_bios_strings;
   Xapi_stdext_unix.Unixext.unlink_safe "/var/tmp/.previousInventory"
 

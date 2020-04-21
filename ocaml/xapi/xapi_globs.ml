@@ -466,51 +466,6 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
-(** {2 BIOS strings} *)
-(* bios_string length is limited to 512 characters *)
-let bios_string_limit_size = 512
-
-(** List of user-settable VM BIOS strings keys *)
-let settable_vm_bios_string_keys =
-  ["bios-vendor";
-   "bios-version";
-   "system-manufacturer";
-   "system-product-name";
-   "system-version";
-   "system-serial-number";
-   "baseboard-manufacturer";
-   "baseboard-product-name";
-   "baseboard-version";
-   "baseboard-serial-number";
-   "baseboard-asset-tag";
-   "baseboard-location-in-chassis";
-   "enclosure-asset-tag"]
-
-(** BIOS strings of the old (XS 5.5) Dell Edition *)
-let old_dell_bios_strings =
-  ["bios-vendor", "Dell Inc.";
-   "bios-version", "1.9.9";
-   "system-manufacturer", "Dell Inc.";
-   "system-product-name", "PowerEdge";
-   "system-version", "";
-   "system-serial-number", "3.3.1";
-   "oem-1", "Dell System";
-   "oem-2", "5[0000]";
-   "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-   "hp-rombios", ""]
-
-(** BIOS strings of the old (XS 5.5) HP Edition *)
-let old_hp_bios_strings =
-  ["bios-vendor", "Xen";
-   "bios-version", "3.3.1";
-   "system-manufacturer", "HP";
-   "system-product-name", "ProLiant Virtual Platform";
-   "system-version", "3.3.1";
-   "system-serial-number", "e30aecc3-e587-5a95-9537-7c306759bced";
-   "oem-1", "Xen";
-   "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-   "hp-rombios", "COMPAQ"]
-
 (** {2 CPUID feature masking} *)
 
 let cpu_info_vendor_key = "vendor"

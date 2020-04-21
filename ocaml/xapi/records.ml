@@ -1036,8 +1036,8 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_bios_strings)
         ~get_map:(fun () -> (x ()).API.vM_bios_strings)
         ~set_map:(fun x ->
-          List.iter (fun (k, v) -> if not (List.mem k Xapi_globs.settable_vm_bios_string_keys) then
-            raise (Record_util.Record_failure ("Unknown key '"^k^"': expecting " ^ (String.concat ", " Xapi_globs.settable_vm_bios_string_keys)))) x;
+          List.iter (fun (k, v) -> if not (List.mem k Constants.settable_vm_bios_string_keys) then
+            raise (Record_util.Record_failure ("Unknown key '"^k^"': expecting " ^ (String.concat ", " Constants.settable_vm_bios_string_keys)))) x;
           Client.VM.set_bios_strings rpc session_id vm x) ();
     ]}
 
