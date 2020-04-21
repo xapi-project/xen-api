@@ -9,7 +9,6 @@
     xapi_internal
     xapi-consts
     xapi-stdext-date
-    xapi-stdext-monadic
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
