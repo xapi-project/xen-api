@@ -227,11 +227,10 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
     vdis
     |> List.map (fun self -> (self, Db.VDI.get_record ~__context ~self))
     |> List.filter (fun (_, record) -> record.API.vDI_on_boot = `reset)
-    |> Listext.List.filter_map (fun (reference, record) ->
-        Opt.of_exception (fun () ->
-            reference,
-            List.assoc Vm_platform.timeoffset
-              record.API.vDI_other_config)) in
+    |> List.filter_map (fun (reference, record) ->
+          Option.map (fun offset -> reference, offset)
+            (List.assoc_opt Vm_platform.timeoffset record.API.vDI_other_config))
+  in
   match vdis_with_timeoffset_to_be_reset_on_boot with
   | [] ->
     timeoffset
@@ -337,7 +336,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
         debug "kernel %s is not in the whitelist: ignoring" k;
         ""
       end in
-    let initrd = Opt.map (fun x ->
+    let initrd = Option.map (fun x ->
         if is_boot_file_whitelisted x then x else begin
           debug "initrd %s is not in the whitelist: ignoring" k;
           ""
@@ -588,7 +587,7 @@ module MD = struct
       ]
     in
     let pvs_proxy =
-      Opt.map
+      Option.map
         (of_pvs_proxy ~__context vif)
         (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif:vif_ref)
     in
@@ -1202,32 +1201,32 @@ module Xenops_cache = struct
       )
 
   let update_vbd id info =
-    let existing = Opt.default empty (find (fst id)) in
+    let existing = Option.value ~default:empty (find (fst id)) in
     let vbds' = List.filter (fun (vbd_id, _) -> vbd_id <> id) existing.vbds in
-    update (fst id) { existing with vbds = Opt.default vbds' (Opt.map (fun info -> (id, info) :: vbds') info) }
+    update (fst id) { existing with vbds = Option.value ~default:vbds' (Option.map (fun info -> (id, info) :: vbds') info) }
 
   let update_vif id info =
-    let existing = Opt.default empty (find (fst id)) in
+    let existing = Option.value ~default:empty (find (fst id)) in
     let vifs' = List.filter (fun (vif_id, _) -> vif_id <> id) existing.vifs in
-    update (fst id) { existing with vifs = Opt.default vifs' (Opt.map (fun info -> (id, info) :: vifs') info) }
+    update (fst id) { existing with vifs = Option.value ~default:vifs' (Option.map (fun info -> (id, info) :: vifs') info) }
 
   let update_pci id info =
-    let existing = Opt.default empty (find (fst id)) in
+    let existing = Option.value ~default:empty (find (fst id)) in
     let pcis' = List.filter (fun (pci_id, _) -> pci_id <> id) existing.pcis in
-    update (fst id) { existing with pcis = Opt.default pcis' (Opt.map (fun info -> (id, info) :: pcis') info) }
+    update (fst id) { existing with pcis = Option.value ~default:pcis' (Option.map (fun info -> (id, info) :: pcis') info) }
 
   let update_vgpu id info =
-    let existing = Opt.default empty (find (fst id)) in
+    let existing = Option.value ~default:empty (find (fst id)) in
     let vgpus' = List.filter (fun (vgpu_id, _) -> vgpu_id <> id) existing.vgpus in
-    update (fst id) { existing with vgpus = Opt.default vgpus' (Opt.map (fun info -> (id, info) :: vgpus') info) }
+    update (fst id) { existing with vgpus = Option.value ~default:vgpus' (Option.map (fun info -> (id, info) :: vgpus') info) }
 
   let update_vusb id info =
-    let existing = Opt.default empty (find (fst id)) in
+    let existing = Option.value ~default:empty (find (fst id)) in
     let vusbs' = List.filter (fun (vusb_id, _) -> vusb_id <> id) existing.vusbs in
-    update (fst id) { existing with vusbs = Opt.default vusbs' (Opt.map (fun info -> (id, info) :: vusbs') info) }
+    update (fst id) { existing with vusbs = Option.value ~default:vusbs' (Option.map (fun info -> (id, info) :: vusbs') info) }
 
   let update_vm id info =
-    let existing = Opt.default empty (find id) in
+    let existing = Option.value ~default:empty (find id) in
     update id { existing with vm = info }
 
   let list () =
@@ -1408,7 +1407,7 @@ module Events_from_xenopsd = struct
              Hashtbl.remove active id;
              Some t
         ) in
-    Opt.iter
+    Option.iter
       (fun t ->
          Mutex.execute t.m
            (fun () ->
@@ -1459,15 +1458,15 @@ let update_vm ~__context id =
         let dbg = Context.string_of_task __context in
         let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS) in
         let info = try Some (Client.VM.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        if Option.map snd info = previous
         then debug "xenopsd event: ignoring event for VM %s: metadata has not changed" id
         else begin
           debug "xenopsd event: processing event for VM %s" id;
           if info = None then debug "xenopsd event: VM state missing: assuming VM has shut down";
           let should_update_allowed_operations = ref false in
           let different f =
-            let a = Opt.map (fun x -> f (snd x)) info in
-            let b = Opt.map f previous in
+            let a = Option.map (fun x -> f (snd x)) info in
+            let b = Option.map f previous in
             a <> b in
           (* Helpers to create and update guest metrics when needed *)
           let lookup state key =
@@ -1486,7 +1485,7 @@ let update_vm ~__context id =
           let create_guest_metrics_if_needed () =
             let gm = Db.VM.get_guest_metrics ~__context ~self in
             if gm = Ref.null then
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    List.iter
                      (fun domid ->
@@ -1506,9 +1505,9 @@ let update_vm ~__context id =
                      ) state.domids
                 ) info in
           let check_guest_agent () =
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
-                 Opt.iter (fun oldstate ->
+                 Option.iter (fun oldstate ->
                      let old_ga = oldstate.Vm.guest_agent in
                      let new_ga = state.Vm.guest_agent in
 
@@ -1539,7 +1538,7 @@ let update_vm ~__context id =
              does fail then we may end up permanently out-of-sync until either a
              process restart or an event is generated. We may wish to periodically
              inject artificial events IF there has been an event sync failure? *)
-          let power_state = xenapi_of_xenops_power_state (Opt.map (fun x -> (snd x).Vm.power_state) info) in
+          let power_state = xenapi_of_xenops_power_state (Option.map (fun x -> (snd x).Vm.power_state) info) in
 
           (* We preserve the current_domain_type of suspended VMs like we preserve
              the currently_attached fields for VBDs/VIFs etc - it's important to know
@@ -1547,7 +1546,7 @@ let update_vm ~__context id =
              We do this before updating the power_state to maintain the invariant that
              any VM that's not `Halted cannot have an unspecified current_domain_type *)
           if different (fun x -> x.domain_type) && (power_state <> `Suspended) then begin
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  let update domain_type =
@@ -1607,7 +1606,7 @@ let update_vm ~__context id =
               debug "Will update VM.allowed_operations because domid has changed.";
               should_update_allowed_operations := true;
               debug "xenopsd event: Updating VM %s domid" id;
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    match state.Vm.domids with
                    | value :: _ ->
@@ -1615,7 +1614,7 @@ let update_vm ~__context id =
                    | [] -> () (* happens when the VM is shutdown *)
                 ) info;
               (* If this is a storage domain, attempt to plug the PBD *)
-              Opt.iter (fun pbd ->
+              Option.iter (fun pbd ->
                   let (_: Thread.t) = Thread.create (fun () ->
                       (* Don't block the database update thread *)
                       Xapi_pbd.plug ~__context ~self:pbd
@@ -1629,7 +1628,7 @@ let update_vm ~__context id =
           if different (fun x -> x.consoles) then begin
             try
               debug "xenopsd event: Updating VM %s consoles" id;
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    let localhost = Helpers.get_localhost ~__context in
                    let address = Db.Host.get_address ~__context ~self:localhost in
@@ -1673,7 +1672,7 @@ let update_vm ~__context id =
           end;
           if different (fun x -> x.memory_target) then begin
             try
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    debug "xenopsd event: Updating VM %s memory_target <- %Ld" id state.Vm.memory_target;
                    Db.VM.set_memory_target ~__context ~self ~value:state.memory_target
@@ -1683,7 +1682,7 @@ let update_vm ~__context id =
           end;
           if different (fun x -> x.rtc_timeoffset) then begin
             try
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    if state.Vm.rtc_timeoffset <> "" then begin
                      debug "xenopsd event: Updating VM %s platform:timeoffset <- %s" id state.rtc_timeoffset;
@@ -1695,7 +1694,7 @@ let update_vm ~__context id =
               error "Caught %s: while updating VM %s rtc/timeoffset" (Printexc.to_string e) id
           end;
           if different (fun x -> x.hvm) then begin
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  debug "xenopsd event: Updating VM %s hvm <- %s"
@@ -1706,7 +1705,7 @@ let update_vm ~__context id =
               info
           end;
           if different (fun x -> x.nomigrate) then begin
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  debug "xenopsd event: Updating VM %s nomigrate <- %s"
@@ -1717,7 +1716,7 @@ let update_vm ~__context id =
               info
           end;
           if different (fun x -> x.nested_virt) then begin
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
                  let metrics = Db.VM.get_metrics ~__context ~self in
                  debug "xenopsd event: Updating VM %s nested_virt <- %s"
@@ -1728,7 +1727,7 @@ let update_vm ~__context id =
               info
           end;
           let update_pv_drivers_detected () =
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
                  try
                    let gm = Db.VM.get_guest_metrics ~__context ~self in
@@ -1741,7 +1740,7 @@ let update_vm ~__context id =
           (* Chack last_start_time before updating anything in the guest metrics *)
           if different (fun x -> x.last_start_time) then begin
             try
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    debug "xenopsd event: Updating VM %s last_start_time <- %s" id (Date.to_string (Date.of_float state.Vm.last_start_time));
                    let metrics = Db.VM.get_metrics ~__context ~self in
@@ -1761,7 +1760,7 @@ let update_vm ~__context id =
             with e ->
               error "Caught %s: while updating VM %s last_start_time" (Printexc.to_string e) id
           end;
-          Opt.iter
+          Option.iter
             (fun (_, state) ->
                List.iter
                  (fun domid ->
@@ -1791,7 +1790,7 @@ let update_vm ~__context id =
                  ) state.Vm.domids;
             ) info;
           if different (fun x -> x.Vm.vcpu_target) then begin
-            Opt.iter
+            Option.iter
               (fun (_, state) ->
                  try
                    debug "xenopsd event: Updating VM %s vcpu_target <- %d" id state.Vm.vcpu_target;
@@ -1803,7 +1802,7 @@ let update_vm ~__context id =
           end;
           if different (fun x -> x.shadow_multiplier_target) then begin
             try
-              Opt.iter
+              Option.iter
                 (fun (_, state) ->
                    debug "xenopsd event: Updating VM %s shadow_multiplier <- %.2f" id state.Vm.shadow_multiplier_target;
                    if state.Vm.power_state <> Halted && state.Vm.shadow_multiplier_target >= 0.0 then
@@ -1812,7 +1811,7 @@ let update_vm ~__context id =
             with e ->
               error "Caught %s: while updating VM %s HVM_shadow_multiplier" (Printexc.to_string e) id
           end;
-          Xenops_cache.update_vm id (Opt.map snd info);
+          Xenops_cache.update_vm id (Option.map snd info);
           if !should_update_allowed_operations then
             Helpers.call_api_functions ~__context
               (fun rpc session_id -> XenAPI.VM.update_allowed_operations ~rpc ~session_id ~self);
@@ -1834,7 +1833,7 @@ let update_vbd ~__context (id: (string * string)) =
         let dbg = Context.string_of_task __context in
         let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
         let info = try Some(Client.VBD.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        if Option.map snd info = previous
         then debug "xenopsd event: ignoring event for VBD %s.%s: metadata has not changed" (fst id) (snd id)
         else begin
           let vbds = Db.VM.get_VBDs ~__context ~self:vm in
@@ -1849,9 +1848,9 @@ let update_vbd ~__context (id: (string * string)) =
             | _ -> None in
           debug "VM %s VBD userdevices = [ %s ]" (fst id) (String.concat "; " (List.map (fun (_,r) -> r.API.vBD_userdevice) vbdrs));
           let vbd, vbd_r = List.find (fun (_, vbdr) -> vbdr.API.vBD_userdevice = linux_device ||
-                                                       (Opt.is_some disk_number && vbdr.API.vBD_userdevice = Opt.unbox disk_number)) vbdrs in
+                                                       (Option.is_some disk_number && vbdr.API.vBD_userdevice = Option.get disk_number)) vbdrs in
           debug "VBD %s.%s matched device %s" (fst id) (snd id) vbd_r.API.vBD_userdevice;
-          Opt.iter
+          Option.iter
             (fun (vb, state) ->
                let currently_attached = state.Vbd.plugged || state.Vbd.active in
                debug "xenopsd event: Updating VBD %s.%s device <- %s; currently_attached <- %b" (fst id) (snd id) linux_device currently_attached;
@@ -1860,7 +1859,7 @@ let update_vbd ~__context (id: (string * string)) =
                if state.Vbd.plugged then begin
                  match state.Vbd.backend_present with
                  | Some (VDI x) ->
-                   Opt.iter
+                   Option.iter
                      (fun (vdi, _) ->
                         debug "VBD %s.%s backend_present = %s" (fst id) (snd id) x;
                         Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi;
@@ -1881,7 +1880,7 @@ let update_vbd ~__context (id: (string * string)) =
                  (try Client.VBD.remove dbg id with e -> debug "VBD.remove failed: %s" (Printexc.to_string e))
                end
             ) info;
-          Xenops_cache.update_vbd id (Opt.map snd info);
+          Xenops_cache.update_vbd id (Option.map snd info);
           Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd;
           if not (Db.VBD.get_empty ~__context ~self:vbd) then
             let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
@@ -1904,13 +1903,13 @@ let update_vif ~__context id =
         let dbg = Context.string_of_task __context in
         let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
         let info = try Some (Client.VIF.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        if Option.map snd info = previous
         then debug "xenopsd event: ignoring event for VIF %s.%s: metadata has not changed" (fst id) (snd id)
         else begin
           let vifs = Db.VM.get_VIFs ~__context ~self:vm in
           let vifrs = List.map (fun self -> self, Db.VIF.get_record ~__context ~self) vifs in
           let vif, vifr = List.find (fun (_, vifr) -> vifr.API.vIF_device = (snd id)) vifrs in
-          Opt.iter
+          Option.iter
             (fun (vf, state) ->
                if not (state.Vif.plugged || state.Vif.active) then begin
                  (try
@@ -1960,7 +1959,7 @@ let update_vif ~__context id =
                debug "xenopsd event: Updating VIF %s.%s currently_attached <- %b" (fst id) (snd id) (state.plugged || state.active);
                Db.VIF.set_currently_attached ~__context ~self:vif ~value:(state.plugged || state.active)
             ) info;
-          Xenops_cache.update_vif id (Opt.map snd info);
+          Xenops_cache.update_vif id (Option.map snd info);
           Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
         end
   with e ->
@@ -1980,7 +1979,7 @@ let update_pci ~__context id =
         let dbg = Context.string_of_task __context in
         let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
         let info = try Some (Client.PCI.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        if Option.map snd info = previous
         then debug "xenopsd event: ignoring event for PCI %s.%s: metadata has not changed" (fst id) (snd id)
         else begin
           let pcis = Db.Host.get_PCIs ~__context ~self:localhost in
@@ -1992,7 +1991,7 @@ let update_pci ~__context id =
           let eq vgpu = Db.VGPU.get_PCI ~__context ~self:vgpu = pci in
           let vgpu_opt = List.find_opt eq vgpus in
           let attached_in_db = List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci) in
-          Opt.iter
+          Option.iter
             (fun (_, state) ->
                debug "xenopsd event: Updating PCI %s.%s currently_attached <- %b" (fst id) (snd id) state.Pci.plugged;
                if attached_in_db && (not state.Pci.plugged) then
@@ -2002,7 +2001,7 @@ let update_pci ~__context id =
                  Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci ~value:Ref.null
                end;
 
-               Opt.iter
+               Option.iter
                  (fun vgpu ->
                     let scheduled =
                       Db.VGPU.get_scheduled_to_be_resident_on ~__context ~self:vgpu
@@ -2017,7 +2016,7 @@ let update_pci ~__context id =
                     Db.VGPU.set_currently_attached ~__context ~self:vgpu ~value:state.Pci.plugged
                  ) vgpu_opt
             ) info;
-          Xenops_cache.update_pci id (Opt.map snd info);
+          Xenops_cache.update_pci id (Option.map snd info);
         end
   with e ->
     error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
@@ -2038,7 +2037,7 @@ let update_vgpu ~__context id =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VGPU.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        if Option.map snd info = previous
         then debug "xenopsd event: ignoring event for VGPU %s.%s: metadata has not changed" (fst id) (snd id)
         else begin
           let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
@@ -2056,7 +2055,7 @@ let update_vgpu ~__context id =
            * passthrough case, the VM will have a PCI device, and update_pci
            * will set VGPU.{resident_on;currently_attached}. *)
           if Xapi_vgpu_type.requires_passthrough ~__context ~self:vgpu_record.API.vGPU_type = None then
-            Opt.iter
+            Option.iter
               (fun (xenopsd_vgpu, state) ->
                  if state.Vgpu.plugged then begin
                    let scheduled =
@@ -2077,7 +2076,7 @@ let update_vgpu ~__context id =
                    try Client.VGPU.remove dbg id
                    with e -> debug "VGPU.remove failed: %s" (Printexc.to_string e)
                  end) info;
-          Xenops_cache.update_vgpu id (Opt.map snd info)
+          Xenops_cache.update_vgpu id (Option.map snd info)
         end
   with e ->
     error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
@@ -2096,7 +2095,7 @@ let update_vusb ~__context (id: (string * string)) =
         let dbg = Context.string_of_task __context in
         let module Client = (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS) in
         let info = try Some(Client.VUSB.stat dbg id) with _ -> None in
-        if Opt.map snd info = previous
+        if Option.map snd info = previous
         then debug "xenopsd event: ignoring event for VUSB %s.%s: metadata has not changed" (fst id) (snd id)
         else begin
           let pusb, pusb_r =
@@ -2109,13 +2108,13 @@ let update_vusb ~__context (id: (string * string)) =
           let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
           let vusb = Helpers.get_first_vusb ~__context usb_group in
 
-          Opt.iter
+          Option.iter
             (fun (ub, state) ->
                debug "xenopsd event: Updating USB %s.%s; plugged <- %b" (fst id) (snd id)  state.Vusb.plugged;
                let currently_attached = state.Vusb.plugged in
                Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:currently_attached;
             ) info;
-          Xenops_cache.update_vusb id (Opt.map snd info);
+          Xenops_cache.update_vusb id (Option.map snd info);
           Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
         end
   with e ->
@@ -2935,7 +2934,7 @@ let suspend ~__context ~self =
                 ~sR:suspend_SR ~virtual_size:space_needed
                 ~sharable:false ~read_only:false ~_type:`suspend
                 ~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
-            let d = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+            let d = disk_of_vdi ~__context ~self:vdi |> Option.get in
             Db.VM.set_suspend_VDI ~__context ~self ~value:vdi;
             try
               let dbg = Context.string_of_task __context in
@@ -2977,7 +2976,7 @@ let resume ~__context ~self ~start_paused ~force =
          Xapi_vm_lifecycle.force_state_reset ~__context ~self ~value:`Halted;
          raise Api_errors.(Server_error(vm_has_no_suspend_vdi, ["VM"; Ref.string_of self]))
        end;
-       let d = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+       let d = disk_of_vdi ~__context ~self:vdi |> Option.get in
        let module Client = (val make_client queue_name : XENOPS) in
        (* NB we don't set resident_on because we don't want to
           			   modify the VM.power_state, {VBD,VIF}.currently_attached in the
@@ -3119,7 +3118,7 @@ let vbd_insert_hvm ~__context ~self ~vdi =
     (fun () ->
        assert_resident_on ~__context ~self:vm;
        let vbd = md_of_vbd ~__context ~self in
-       let d = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
+       let d = disk_of_vdi ~__context ~self:vdi |> Option.get in
        info "xenops: VBD.insert %s.%s %s" (fst vbd.Vbd.id) (snd vbd.Vbd.id) (d |> rpc_of disk |> Jsonrpc.to_string);
        let dbg = Context.string_of_task __context in
        let module Client = (val make_client queue_name : XENOPS) in

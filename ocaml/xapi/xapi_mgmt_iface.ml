@@ -125,7 +125,7 @@ let run ~__context ~mgmt_enabled =
           start ~__context ~addr:"127.0.0.1" ();
           listening_localhost := true
         end;
-        Opt.iter (fun addr ->
+        Option.iter (fun addr ->
             if not !listening_himn then begin
               start ~__context ~addr ();
               listening_himn := true

@@ -15,16 +15,12 @@
  * @group Virtual-Machine Management
 *)
 
-open Stdext
-open Listext
-
 module D = Debug.Make(struct let name="xapi_vm_lifecycle" end)
 open D
 
 module Rrdd = Rrd_client.Client
 
-let assoc_opt key assocs = Opt.of_exception (fun () -> List.assoc key assocs)
-let bool_of_assoc key assocs = match assoc_opt key assocs with
+let bool_of_assoc key assocs = match List.assoc_opt key assocs with
   | Some v -> v = "1" || String.lowercase_ascii v = "true"
   | _ -> false
 
@@ -382,8 +378,8 @@ let check_operation_error ~__context ~ref =
 
   (* Check if the operation has been explicitly blocked by the/a user *)
   let current_error = check current_error (fun () ->
-      Opt.map (fun v -> Api_errors.operation_blocked, [ref_str; v])
-        (assoc_opt op vmr.Db_actions.vM_blocked_operations)) in
+      Option.map (fun v -> Api_errors.operation_blocked, [ref_str; v])
+        (List.assoc_opt op vmr.Db_actions.vM_blocked_operations)) in
 
   (* Always check the power state constraint of the operation first *)
   let current_error = check current_error (fun () ->
@@ -473,9 +469,9 @@ let check_operation_error ~__context ~ref =
 
   (* VSS support has been removed *)
   let current_error = check current_error (fun () ->
-    if op = `snapshot_with_quiesce then 
+    if op = `snapshot_with_quiesce then
       Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ ref_str ])
-    else 
+    else
       None) in
 
   (* Check for an error due to VDI caching/reset behaviour *)
@@ -483,7 +479,7 @@ let check_operation_error ~__context ~ref =
       let vdis_reset_and_caching = List.filter_map (fun vdi ->
           try
             let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-            Some ((assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
+            Some ((List.assoc_opt "on_boot" sm_config = Some "reset"), (bool_of_assoc "caching" sm_config))
           with _ -> None) vdis in
       if op = `checkpoint || op = `snapshot || op = `suspend || op = `snapshot_with_quiesce
       then (* If any vdi exists with on_boot=reset, then disallow checkpoint, snapshot, suspend *)
@@ -585,7 +581,7 @@ let update_allowed_operations ~__context ~self =
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
   let allowed =
     if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_vm_operations
+    then Xapi_stdext_std.Listext.List.intersect allowed Xapi_globs.rpu_allowed_vm_operations
     else allowed
   in
   Db.VM.set_allowed_operations ~__context ~self ~value:allowed;
@@ -595,12 +591,12 @@ let update_allowed_operations ~__context ~self =
     Xapi_vm_appliance_lifecycle.update_allowed_operations ~__context ~self:appliance
 
 let checkpoint_in_progress ~__context ~vm =
-  Listext.List.setify (List.map snd (Db.VM.get_current_operations ~__context ~self:vm))
+  Xapi_stdext_std.Listext.List.setify (List.map snd (Db.VM.get_current_operations ~__context ~self:vm))
   |> List.mem `checkpoint
 
 (** 1. Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc.  Current-operations won't be
-    cleaned 
+    cleaned
     2. Called on update VM when the power state changes *)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Halted then begin
@@ -617,7 +613,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
          Db.VIF.set_reserved ~__context ~self:vif ~value:false;
          Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null;
          Xapi_vif_helpers.clear_current_operations ~__context ~self:vif;
-         Opt.iter
+         Option.iter
            (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
            (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif))
       (Db.VM.get_VIFs ~__context ~self);

@@ -313,7 +313,7 @@ module Monitor = struct
                 raise e in
             debug "Liveset: %s" (Xha_interface.LiveSetInformation.to_summary_string liveset);
             (* All hosts: Feed the current latency values into the per-host RRDs (if available) *)
-            Opt.iter
+            Option.iter
               (fun local ->
                  (* Assume all values are ms *)
                  let statefile = float_of_int (local.Xha_interface.LiveSetInformation.RawStatus.statefile_latency) /. 1000. in
@@ -325,7 +325,7 @@ module Monitor = struct
 
             (* All hosts: create alerts from per-host warnings (if available) *)
             debug "Processing warnings";
-            Opt.iter
+            Option.iter
               (fun warning ->
                  warning_statefile_lost warning.Xha_interface.LiveSetInformation.Warning.statefile_lost;
                  warning_heartbeat_approaching_timeout warning.Xha_interface.LiveSetInformation.Warning.heartbeat_approaching_timeout;

@@ -180,7 +180,7 @@ module DaemonConfiguration = struct
     }
 
   let int_parameter (name, param) =
-    Opt.default [] (Opt.map (fun x -> [ xml_leaf_element name (string_of_int x) ]) param)
+    Option.value ~default:[] (Option.map (fun x -> [ xml_leaf_element name (string_of_int x) ]) param)
 
   (** Converts the given HA daemon configuration *)
   (** into an XML element tree.                  *)

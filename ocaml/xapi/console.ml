@@ -58,7 +58,7 @@ let address_of_console __context console : address option =
         None
     end
   in
-  debug "VM %s console port: %s" (Ref.string_of vm) (Opt.default "None" (Opt.map (fun x -> "Some " ^ (string_of_address x)) address_option));
+  debug "VM %s console port: %s" (Ref.string_of vm) (Option.value ~default:"None" (Option.map (fun x -> "Some " ^ (string_of_address x)) address_option));
   address_option
 
 let real_proxy __context _ _ vnc_port s =
@@ -114,7 +114,7 @@ let ws_proxy __context req protocol address s =
 
   (* Ensure we always close the socket *)
   Pervasiveext.finally (fun () ->
-      let upgrade_successful = Opt.map (fun sock ->
+      let upgrade_successful = Option.map (fun sock ->
           try
             let result = (sock,Some (Ws_helpers.upgrade req s)) in
             result
@@ -122,7 +122,7 @@ let ws_proxy __context req protocol address s =
             (sock,None)) sock
       in
 
-      Opt.iter (function
+      Option.iter (function
           | (sock,Some ty) -> begin
               let wsprotocol = match ty with
                 | Ws_helpers.Hixie76 -> "hixie76"
@@ -135,7 +135,7 @@ let ws_proxy __context req protocol address s =
               Http_svr.headers s (Http.http_501_method_not_implemented ())
             end) upgrade_successful)
     (fun () ->
-       Opt.iter (fun sock -> Unix.close sock) sock)
+       Option.iter (fun sock -> Unix.close sock) sock)
 
 
 

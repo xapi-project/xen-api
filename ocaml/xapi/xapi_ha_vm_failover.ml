@@ -231,7 +231,7 @@ let string_of_configuration_change ~__context (x: configuration_change) =
     (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Ref.short_string_of vm_ref) vm_t.API.vM_name_label) x.old_vms_leaving))
     (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Ref.short_string_of vm_ref) vm_t.API.vM_name_label) x.old_vms_arriving))
     (String.concat "; " (List.map string_of_host x.hosts_to_disable))
-    (Stdext.Opt.default "no change" (Stdext.Opt.map string_of_int x.num_failures))
+    (Option.value ~default:"no change" (Option.map string_of_int x.num_failures))
     (String.concat "; " (List.map Ref.short_string_of x.new_vms_to_protect))
 
 (* Deterministic function which chooses a single host to 'pin' a non-agile VM to. Note we don't consider only live hosts:
@@ -283,7 +283,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
      	   will use their new memory_static_max: so we always use a live 'VM.get_record' and not a 'last_booted_record' *)
 
   (* Allow the num_failures to be overriden *)
-  let (num_failures: int) = Stdext.Opt.default num_failures change.num_failures in
+  let (num_failures: int) = Option.value ~default:num_failures change.num_failures in
 
   (* All the VMs to protect; these VMs may or may not be currently running anywhere: they will be offline when a host has
      	   failed and possibly initially during the enable-ha transient. *)

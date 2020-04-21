@@ -60,7 +60,7 @@ let find_vdi ~__context sr vdi =
 let find_content ~__context ?sr name =
   (* PR-1255: the backend should do this for us *)
   let open Db_filter_types in
-  let expr = Opt.default True (Opt.map (fun sr -> Eq(Field "SR", Literal (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) )))) sr) in
+  let expr = Option.value ~default:True (Option.map (fun sr -> Eq(Field "SR", Literal (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) )))) sr) in
   let all = Db.VDI.get_records_where ~__context ~expr in
   List.find
     (fun (_, vdi_rec) ->
@@ -842,7 +842,7 @@ module SMAPIv1 = struct
       (* peer_ip/session_ref/vdi_ref *)
       Server_helpers.exec_with_new_task "VDI.get_url" ~subtask_of:(Ref.of_string dbg)
         (fun __context ->
-           let ip = Helpers.get_management_ip_addr ~__context |> Opt.unbox in
+           let ip = Helpers.get_management_ip_addr ~__context |> Option.get in
            let rpc = Helpers.make_rpc ~__context in
            let localhost = Helpers.get_localhost ~__context in
            (* XXX: leaked *)
@@ -1346,7 +1346,7 @@ let reset ~__context ~vm =
   let dbg = Context.get_task_id __context in
   transform_storage_exn
     (fun () ->
-       Opt.iter
+       Option.iter
          (fun pbd ->
             let sr_uuid = Db.SR.get_uuid ~__context ~self:(Db.PBD.get_SR ~__context ~self:pbd) in
             let sr = Storage_interface.Sr.of_string sr_uuid in

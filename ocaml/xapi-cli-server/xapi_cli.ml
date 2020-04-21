@@ -56,7 +56,7 @@ let forward args s session =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Constants.https_port) in
   let body =
-    let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
+    let args = Option.value ~default:[] (Option.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
     String.concat "\r\n" args in
   let user_agent = Printf.sprintf "xapi/%s" Datamodel_common.api_version_string in
   let request = Http.Request.make ~version:"1.0" ~user_agent ~body

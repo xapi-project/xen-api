@@ -189,7 +189,7 @@ module Vdi = struct
     set_dp_state dp state' t
 
   let to_string_list x =
-    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Opt.default "None" (Opt.map (fun x -> "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)) x.attach_info)) in
+    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Option.value ~default:"None" (Option.map (fun x -> "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)) x.attach_info)) in
     let of_dp (dp, state) = Printf.sprintf "DP: %s: %s%s" dp (Vdi_automaton.string_of_state state) (if List.mem dp x.leaked then "  ** LEAKED" else "") in
     title :: (List.map indent (List.map of_dp x.dps))
 end
@@ -376,7 +376,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       match Host.find sr !Host.host with
       | None -> raise (Storage_error (Sr_not_attached (s_of_sr sr)))
       | Some sr_t ->
-        let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
+        let vdi_t = Option.value ~default:(Vdi.empty ()) (Sr.find vdi sr_t) in
         let vdi_t' =
           try
             (* Compute the overall state ('superstate') of the VDI *)
@@ -422,7 +422,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
       match Host.find sr !Host.host with
       | None -> raise (Storage_error (Sr_not_attached (s_of_sr sr)))
       | Some sr_t ->
-        Opt.iter (fun vdi_t ->
+        Option.iter (fun vdi_t ->
             let current_state = Vdi.get_dp_state dp vdi_t in
             let desired_state = Vdi_automaton.Detached in
             let ops = List.map fst (Vdi_automaton.(-) current_state desired_state) in
@@ -485,7 +485,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
              (fun () ->
                 let state = perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
                     (Vdi_automaton.Attach (if read_write then Vdi_automaton.RW else Vdi_automaton.RO)) in
-                Opt.unbox state.Vdi.attach_info
+                Option.get state.Vdi.attach_info
              ))
 
     let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
@@ -847,7 +847,7 @@ module Wrapper = functor(Impl: Server_impl) -> struct
            match Host.find sr !Host.host with
            | None -> raise (Storage_error (Sr_not_attached (s_of_sr sr)))
            | Some sr_t ->
-             let vdi_t = Opt.default (Vdi.empty ()) (Sr.find vdi sr_t) in
+             let vdi_t = Option.value ~default:(Vdi.empty ()) (Sr.find vdi sr_t) in
              {
                superstate = Vdi.superstate vdi_t;
                dps = List.map (fun dp -> dp, Vdi.get_dp_state dp vdi_t) (Vdi.dps vdi_t)

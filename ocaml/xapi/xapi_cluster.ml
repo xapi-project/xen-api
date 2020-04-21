@@ -86,7 +86,7 @@ let destroy ~__context ~self =
       let n = List.length cluster_hosts in
       raise Api_errors.(Server_error(cluster_does_not_have_one_node, [string_of_int n]))
   in
-  Xapi_stdext_monadic.Opt.iter (fun ch ->
+  Option.iter (fun ch ->
     assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack ~__context ~self:ch;
     Xapi_cluster_host.force_destroy ~__context ~self:ch
   ) cluster_host;

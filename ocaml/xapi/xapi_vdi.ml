@@ -18,8 +18,7 @@
 module D=Debug.Make(struct let name="xapi_vdi" end)
 open D
 
-open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 
 (**************************************************************************************)
@@ -313,7 +312,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
   in
   let allowed =
     if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect allowed Xapi_globs.rpu_allowed_vdi_operations
+    then Xapi_stdext_std.Listext.List.intersect allowed Xapi_globs.rpu_allowed_vdi_operations
     else allowed
   in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
@@ -602,7 +601,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
         in
         Xapi_stdext_std.Listext.List.safe_hd snapshots_from_newest_to_oldest
       in
-      Xapi_stdext_monadic.Opt.map
+      Option.map
         (fun snapshot ->
            let vdi = API.vDI_t_of_rpc snapshot in
            vdi.API.vDI_VBDs)
@@ -626,12 +625,12 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
       Mtime.(add_span start timeout)
     in
     (* It is safe to unbox this because the timeout should not cause an overflow *)
-    Xapi_stdext_monadic.Opt.unbox maybe_finish
+    Option.get maybe_finish
   in
 
   let token, initial_vbds = next_token_and_vbds ~token:"" ~timeout in
   (* When we use an empty token, we always get back the whole VDI record *)
-  let initial_vbds = Xapi_stdext_monadic.Opt.unbox initial_vbds in
+  let initial_vbds = Option.get initial_vbds in
 
   let rec loop ~token ~remaining_vbds =
     let now = Mtime_clock.now () in
@@ -640,7 +639,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
       let remaining = Mtime.(span now finish |> Span.to_s) in
       debug "wait_for_vbds_to_be_unplugged_and_destroyed: remaining: %f seconds until timeout" remaining;
       let token, most_recent_vbds = next_token_and_vbds ~token ~timeout:remaining in
-      let remaining_vbds = Xapi_stdext_monadic.Opt.default remaining_vbds most_recent_vbds in
+      let remaining_vbds = Option.value ~default:remaining_vbds most_recent_vbds in
       loop ~token ~remaining_vbds
     end
     else remaining_vbds

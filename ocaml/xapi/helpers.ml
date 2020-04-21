@@ -246,8 +246,8 @@ let update_pif_addresses ~__context =
       )
     ) in
   let gateway_if, dns_if = determine_gateway_and_dns_ifs ~__context () in
-  Opt.iter (fun (pif, bridge) -> set_gateway ~__context ~pif ~bridge) gateway_if;
-  Opt.iter (fun (pif, bridge) -> set_DNS ~__context ~pif ~bridge) dns_if;
+  Option.iter (fun (pif, bridge) -> set_gateway ~__context ~pif ~bridge) gateway_if;
+  Option.iter (fun (pif, bridge) -> set_DNS ~__context ~pif ~bridge) dns_if;
   List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
 

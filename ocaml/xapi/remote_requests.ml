@@ -114,7 +114,7 @@ let handle_request req =
   with
   | exn ->
     if req.enable_log then
-      warn "Exception handling remote request %s: %s" (Opt.default "" req.request.Http.Request.body)
+      warn "Exception handling remote request %s: %s" (Option.value ~default:"" req.request.Http.Request.body)
         (ExnHelper.string_of_exn exn);
     signal_result req (Exception exn)
 

@@ -426,7 +426,7 @@ let inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map ~vif_map ~vgpu_
       let vdi = vdi_record.local_vdi_reference in
       Db.VDI.remove_from_other_config ~__context ~self:vdi
         ~key:Constants.storage_migrate_vdi_map_key;
-      Opt.iter (fun remote_vdi_reference ->
+      Option.iter (fun remote_vdi_reference ->
           Db.VDI.add_to_other_config ~__context ~self:vdi
             ~key:Constants.storage_migrate_vdi_map_key
             ~value:(Ref.string_of remote_vdi_reference))

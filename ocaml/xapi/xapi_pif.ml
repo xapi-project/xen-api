@@ -52,7 +52,7 @@ let refresh_internal ~__context ~self =
      	 *)
   let maybe_update_database
       field_name db_value set_field get_value print_value =
-    Opt.iter
+    Option.iter
       (fun value ->
          if value <> db_value
          then begin
@@ -62,7 +62,7 @@ let refresh_internal ~__context ~self =
              (print_value value);
            set_field ~__context ~self ~value
          end)
-      (Opt.of_exception (fun () -> get_value ())) in
+      (try Some (get_value ()) with _ -> None) in
 
   if pif.API.pIF_physical then
     maybe_update_database "MAC"

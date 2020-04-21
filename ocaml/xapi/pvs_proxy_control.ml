@@ -310,11 +310,11 @@ let find_proxy_for_vif ~__context ~vif =
 
 (* Called on VM start *)
 let maybe_start_proxy_for_vif ~__context ~vif =
-  Opt.iter
+  Option.iter
     (fun p -> start_proxy ~__context vif p |> ignore)
     (find_proxy_for_vif ~__context ~vif)
 
 let maybe_stop_proxy_for_vif ~__context ~vif =
-  Opt.iter
+  Option.iter
     (stop_proxy ~__context vif)
     (find_proxy_for_vif ~__context ~vif)

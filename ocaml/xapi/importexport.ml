@@ -74,7 +74,7 @@ let version_of_rpc = function
 (** An exported VM has a header record: *)
 type header = {
   version: version;
-  objects: obj list 
+  objects: obj list
 } [@@deriving rpc]
 
 exception Version_mismatch of string
@@ -240,7 +240,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
                with_transport (Unix Xapi_globs.unix_domain_socket)
                  (with_http get
                    (fun (r, ifd) ->
-                     debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
+                     debug "Content-length: %s" (Option.value ~default:"None" (Option.map Int64.to_string r.Http.Response.content_length));
                      let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
                      debug "Connecting to %s:%d" remote_address !Constants.https_port;
                      (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection

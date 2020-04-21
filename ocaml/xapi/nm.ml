@@ -355,8 +355,8 @@ let bring_pif_up ~__context ?(management_interface=false) (pif: API.ref_PIF) =
             let persistent = is_dom0_interface rc in
             let gateway_if, dns_if = Helpers.determine_gateway_and_dns_ifs ~__context
                 ?management_interface:(if management_interface then Some pif else None) () in
-            Opt.iter (fun (_, name) -> Net.set_gateway_interface dbg name) gateway_if;
-            Opt.iter (fun (_, name) -> Net.set_dns_interface dbg name) dns_if;
+            Option.iter (fun (_, name) -> Net.set_gateway_interface dbg name) gateway_if;
+            Option.iter (fun (_, name) -> Net.set_dns_interface dbg name) dns_if;
 
             (* Setup network infrastructure *)
             let cleanup, bridge_config, interface_config = create_bridges ~__context rc net_rc in
