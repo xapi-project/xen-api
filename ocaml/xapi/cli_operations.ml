@@ -1413,6 +1413,11 @@ let sr_introduce printer rpc session_id params =
   let _ = Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:"" ~_type ~content_type ~shared ~sm_config in
   printer (Cli_printer.PList [uuid])
 
+
+type probe_result =
+  | Raw of string (* SMAPIv1 adapters return arbitrary data *)
+[@@deriving rpcty]
+
 let sr_probe printer rpc session_id params =
   let host = parse_host_uuid rpc session_id params in
   let _type = List.assoc "type" params in
@@ -1421,10 +1426,8 @@ let sr_probe printer rpc session_id params =
   let txt = Client.SR.probe ~rpc ~session_id ~host ~_type ~device_config ~sm_config in
   try
     (* If it's the new format, try to print it more nicely *)
-    let open Storage_interface in
     match Rpcmarshal.unmarshal probe_result.Rpc.Types.ty (Xmlrpc.of_string txt) with
     | Ok (Raw x) -> printer (Cli_printer.PList [ x ])
-    | Ok (Probe x) -> failwith "Not implemented, this return type is for probe_ext"
     | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal probe result: %s" m)
   with _ ->
     printer (Cli_printer.PList [txt])
