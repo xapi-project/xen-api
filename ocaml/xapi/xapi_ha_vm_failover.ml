@@ -423,7 +423,7 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set ?(change=no_con
   non_agile_restart_plan @ agile_restart_plan, config, vms_not_restarted, not_agile_vms <> []
 
 (** Returned by the plan_for_n_failures function *)
-type result =
+type plan_status =
   | Plan_exists_for_all_VMs
   | Plan_exists_excluding_non_agile_VMs
   | No_plan_exists

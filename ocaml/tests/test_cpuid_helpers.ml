@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Test_highlevel
 open Cpuid_helpers
 
@@ -431,14 +430,16 @@ module ResetCPUFlags = Generic.MakeStateful(struct
 end)
 
 
+let string_of_unit_result = Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+
 module AssertVMIsCompatible = Generic.MakeStateful(struct
   module Io = struct
     type input_t = string * API.domain_type * (string * string) list
-    type output_t = (exn, unit) Either.t
+    type output_t = (unit, exn) result
 
     let string_of_input_t =
       Test_printers.(tuple3 string domain_type (assoc_list string string))
-    let string_of_output_t = Test_printers.(either exn unit)
+    let string_of_output_t = string_of_unit_result
   end
   module State = Test_state.XapiDb
 
@@ -458,7 +459,7 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
       "features_hvm_host", features_hvm_host;
     ] in
     List.iter (fun self -> Db.Host.set_cpu_info ~__context ~self ~value:cpu_info) (Db.Host.get_all ~__context);
-    let cpu_info = List.filter (fun (k, _) -> not (Astring.String.is_suffix ~affix:"host" k)) cpu_info in 
+    let cpu_info = List.filter (fun (k, _) -> not (Astring.String.is_suffix ~affix:"host" k)) cpu_info in
     Db.Pool.set_cpu_info ~__context ~self:(Db.Pool.get_all ~__context |> List.hd) ~value:cpu_info;
 
     let self = Test_common.make_vm ~__context ~name_label ~domain_type () in
@@ -470,32 +471,35 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
   let extract_output __context (label, _, _) =
     let host = List.hd @@ Db.Host.get_all ~__context in
     let vm = List.hd (Db.VM.get_by_name_label ~__context ~label) in
-    try Either.Right (Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ())
+    try Ok (Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host ())
     with
     (* Filter out opaquerefs which make matching this exception difficult *)
     | Api_errors.Server_error (vm_incompatible_with_this_host, data) ->
       Printexc.print_backtrace stderr;
-      Either.Left (Api_errors.Server_error (vm_incompatible_with_this_host, List.filter (fun s -> not @@ Xstringext.String.startswith "OpaqueRef:" s) data))
-    | e -> Either.Left e
+      Error (Api_errors.Server_error (vm_incompatible_with_this_host,
+        List.filter (fun s ->
+          not @@ Astring.String.is_prefix ~affix:"OpaqueRef:" s
+        ) data))
+    | e -> Error e
 
   let tests = `QuickAndAutoDocumented [
     (* HVM *)
     ("a", `hvm,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
                   cpu_info_features_key, features_hvm])),
-    Either.Right ();
+    Ok ();
 
     ("a", `hvm,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
                   cpu_info_features_key, "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"])),
-    Either.Left Api_errors.(Server_error
+    Error Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a CPU with features this host's CPU does not have."]));
 
     ("a", `hvm,
     Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
                   cpu_info_features_key, features_hvm])),
-    Either.Left Api_errors.(Server_error
+    Error Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a host which had a CPU from a different vendor."]));
 
@@ -503,32 +507,32 @@ module AssertVMIsCompatible = Generic.MakeStateful(struct
     ("a", `pv,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
                   cpu_info_features_key, features_pv])),
-    Either.Right ();
+    Ok ();
 
     ("a", `pv,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
                   cpu_info_features_key, "cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe-cafecafe"])),
-    Either.Left Api_errors.(Server_error
+    Error Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a CPU with features this host's CPU does not have."]));
 
     ("a", `pv,
     Xapi_globs.([cpu_info_vendor_key, "Napier's Bones";
                   cpu_info_features_key, features_pv])),
-    Either.Left Api_errors.(Server_error
+    Error Api_errors.(Server_error
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a host which had a CPU from a different vendor."]));
- 
+
     (* TAA *)
     ("a", `hvm,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
                   cpu_info_features_key, "feedface-feedface-feedface-feedface-feedface-00000810-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"])),
-    Either.Right ();
+    Ok ();
 
     ("a", `hvm,
     Xapi_globs.([cpu_info_vendor_key, "Abacus";
                   cpu_info_features_key, "feedface-feedface-feedface-feedface-feedface-00000811-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface-feedface"])),
-    Either.Left Api_errors.(Server_error
+    Error Api_errors.(Server_error
 
                               (vm_incompatible_with_this_host,
                               ["VM last booted on a CPU with features this host's CPU does not have."]));

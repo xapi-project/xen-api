@@ -11,7 +11,7 @@ build: [
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
-  "alcotest" {with-test}
+  "alcotest" # needed to generate the quicktest binary
   "angstrom"
   "base64"
   "cdrom"
@@ -56,7 +56,7 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xapi-tapctl"
-  "xapi-test-utils"
+  "xapi-test-utils" {with-test}
   "xapi-types"
   "xapi-xenopsd"
   "xapi-idl"

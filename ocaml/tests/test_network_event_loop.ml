@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
+module Threadext = Xapi_stdext_threads.Threadext
 
 let test_network_event_loop ~no_nbd_networks_at_start () =
   let __context, _ = Test_event_common.event_setup_common () in

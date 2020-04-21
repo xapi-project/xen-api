@@ -13,7 +13,6 @@
  *)
 
 module T = Test_common
-open Stdext.Unixext
 
 let test_sdn_controller_introduce_ok () =
   let protocol = `ssl in

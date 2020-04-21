@@ -185,7 +185,7 @@ let test_xapi_restart_inner () =
     raise e
 
 let test_xapi_restart () =
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () -> match Backtrace.with_backtraces test_xapi_restart_inner with `Ok x -> x | `Error (e,_b) -> raise e)
     unsetup_simulator
 

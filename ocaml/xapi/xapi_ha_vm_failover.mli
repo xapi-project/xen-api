@@ -24,7 +24,7 @@ val restart_auto_run_vms : __context:Context.t -> API.ref_host list -> int -> un
 val compute_evacuation_plan : __context:Context.t -> int -> API.ref_host list -> (API.ref_VM * API.vM_t) list -> (API.ref_VM * API.ref_host) list
 
 (** Abstract result of the background HA planning function *)
-type result =
+type plan_status =
   | Plan_exists_for_all_VMs             (** All protected VMs could be restarted *)
   | Plan_exists_excluding_non_agile_VMs (** Excluding 'trivial' failures due to non-agile VMs, all protected VMs could be restarted *)
   | No_plan_exists                      (** Not all protected VMs could be restarted *)
@@ -45,7 +45,7 @@ val no_configuration_change : configuration_change
 val update_pool_status : __context:Context.t -> ?live_set:API.ref_host list -> unit -> bool
 
 (** Consider all possible failures of 'n' hosts *)
-val plan_for_n_failures : __context:Context.t -> all_protected_vms:((API.ref_VM * API.vM_t) list) -> ?live_set:API.ref_host list -> ?change:configuration_change -> int -> result
+val plan_for_n_failures : __context:Context.t -> all_protected_vms:((API.ref_VM * API.vM_t) list) -> ?live_set:API.ref_host list -> ?change:configuration_change -> int -> plan_status
 
 (** Compute the maximum plan size we can currently find *)
 val compute_max_host_failures_to_tolerate : __context:Context.t -> ?live_set:API.ref_host list -> ?protected_vms:((API.ref_VM * API.vM_t) list) -> unit -> int64

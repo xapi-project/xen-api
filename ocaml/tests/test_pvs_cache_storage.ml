@@ -14,16 +14,16 @@
 
 open Test_common
 open Test_highlevel
-open Stdext
-open Either
+
+let string_of_unit_result = Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
 
 module Assert_not_already_present = Generic.MakeStateful(struct
                                                    module Io = struct
                                                      type input_t = string * string
-                                                     type output_t = (exn, unit) Either.t
+                                                     type output_t = (unit, exn) result
 
                                                      let string_of_input_t = Test_printers.(pair string string)
-                                                     let string_of_output_t = Test_printers.(either exn unit)
+                                                     let string_of_output_t = string_of_unit_result
                                                    end
                                                    module State = Test_state.XapiDb
 
@@ -47,36 +47,36 @@ module Assert_not_already_present = Generic.MakeStateful(struct
                                                      let site' = List.hd (Db.PVS_site.get_by_name_label ~__context ~label:site) in
                                                      let host' = List.hd (Db.Host.get_by_name_label ~__context ~label:host) in
                                                      try
-                                                       Right (Xapi_pvs_cache_storage.assert_not_already_present ~__context site' host')
+                                                       Ok (Xapi_pvs_cache_storage.assert_not_already_present ~__context site' host')
                                                      with e ->
-                                                       Left e
+                                                       Error e
 
                                                    let tests = `QuickAndAutoDocumented [
                                                      ("site1", "host1"),
-                                                     Left (Api_errors.(
+                                                     Error (Api_errors.(
                                                          Server_error (pvs_cache_storage_already_present,
                                                                        [Ref.string_of site1; Ref.string_of host1]
                                                                       )
                                                        ));
 
                                                      ("site1", "host2"),
-                                                     Right ();
+                                                     Ok ();
 
                                                      ("site2", "host1"),
-                                                     Right ();
+                                                     Ok ();
 
                                                      ("site2", "host2"),
-                                                     Right ();
+                                                     Ok ();
                                                    ]
                                                  end)
 
 module Assert_not_in_use = Generic.MakeStateful(struct
                                           module Io = struct
                                             type input_t = string * string
-                                            type output_t = (exn, unit) Either.t
+                                            type output_t = (unit, exn) result
 
                                             let string_of_input_t = Test_printers.(pair string string)
-                                            let string_of_output_t = Test_printers.(either exn unit)
+                                            let string_of_output_t = string_of_unit_result
                                           end
                                           module State = Test_state.XapiDb
 
@@ -115,24 +115,24 @@ module Assert_not_in_use = Generic.MakeStateful(struct
                                               |> List.hd
                                             in
                                             try
-                                              Right (Xapi_pvs_cache_storage.assert_not_in_use ~__context pcs)
+                                              Ok (Xapi_pvs_cache_storage.assert_not_in_use ~__context pcs)
                                             with e ->
-                                              Left e
+                                              Error e
 
                                           let tests = `QuickAndAutoDocumented [
                                             ("site1", "host1"),
-                                            Left (Api_errors.(
+                                            Error (Api_errors.(
                                                 Server_error (pvs_cache_storage_is_in_use, [Ref.string_of pcs1])
                                               ));
 
                                             ("site1", "host2"),
-                                            Right ();
+                                            Ok ();
 
                                             ("site2", "host1"),
-                                            Right ();
+                                            Ok ();
 
                                             ("site2", "host2"),
-                                            Right ();
+                                            Ok ();
                                           ]
                                         end)
 

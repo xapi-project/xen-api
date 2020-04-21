@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Either
 open Test_common
 open Test_highlevel
 open Test_vgpu_common

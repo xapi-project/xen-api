@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Test_common
 open Test_highlevel
 
@@ -254,7 +253,7 @@ module PlanForNFailures = Generic.MakeStateful(struct
     open Xapi_ha_vm_failover
 
     type input_t = pool
-    type output_t = result
+    type output_t = plan_status
 
     let string_of_input_t = string_of_pool
     let string_of_output_t = function
@@ -370,15 +369,17 @@ module PlanForNFailures = Generic.MakeStateful(struct
   ]
 end)
 
+let string_of_unit_result = Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+
 module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
   module Io = struct
     open Xapi_ha_vm_failover
 
     type input_t = (pool * vm)
-    type output_t = (exn, unit) Either.t
+    type output_t = (unit, exn) result
 
     let string_of_input_t = Test_printers.pair string_of_pool string_of_vm
-    let string_of_output_t = Test_printers.(either Printexc.to_string unit)
+    let string_of_output_t = string_of_unit_result
   end
 
   module State = Test_state.XapiDb
@@ -409,9 +410,9 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
     in
     let vm_ref =
       load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
-    try Either.Right
+    try Ok
           (Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_ref)
-    with e -> Either.Left e
+    with e -> Error e
 
   (* n.b. incoming VMs have ha_always_run = false; otherwise they will be
         * included when computing the plan for the already-running VMs. *)
@@ -442,7 +443,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
       name_label = "vm2";
       }
     ),
-    Either.Right ();
+    Ok ();
     (* 2 host pool, two VMs using almost all of one host's memory;
             * test that another VM cannot be added. *)
     (
@@ -473,7 +474,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
       name_label = "vm2";
       }
     ),
-    Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
+    Error (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
     (* 2 host pool which is already overcommitted. Attempting to add another VM
             * should not throw an exception. *)
     (
@@ -512,7 +513,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
       name_label = "vm2";
       }
     ),
-    Either.Right ();
+    Ok ();
   ]
 end)
 

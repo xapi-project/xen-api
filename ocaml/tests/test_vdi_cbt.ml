@@ -12,7 +12,7 @@
 -  GNU Lesser General Public License for more details.
   *)
 
-open Stdext
+module Threadext = Xapi_stdext_threads.Threadext
 
 let register_smapiv2_server (module S: Storage_interface.Server_impl) sr_ref =
   let module S = Storage_interface.Server(S)() in
@@ -21,7 +21,7 @@ let register_smapiv2_server (module S: Storage_interface.Server_impl) sr_ref =
   Storage_mux.register sr_ref rpc "" dummy_query_result
 
 let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone () =
-  let default = Xapi_stdext_monadic.Opt.default in
+  let default def = Option.value ~default:def in
   (module struct
     include (Storage_skeleton: module type of Storage_skeleton with module VDI := Storage_skeleton.VDI)
     module VDI = struct

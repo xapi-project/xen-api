@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Map_check
 open Test_common
 open Test_highlevel
@@ -20,6 +19,11 @@ open Test_highlevel
 let string_of_requirement requirement =
   Printf.sprintf "{key = \"%s\"; default_value = \"%s\"}"
     requirement.key (Test_printers.(option string) requirement.default_value)
+
+let string_of_unit_result = Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+
+let pp_list_assoc fmt_fst fmt_snd =
+  Fmt.(Dump.list @@ pair ~sep:(any "=") fmt_fst fmt_snd)
 
 let true_fun = (fun _ -> true)
 
@@ -70,17 +74,17 @@ module AddDefaults = Generic.MakeStateless(struct
 module ValidateKVPair = Generic.MakeStateless(struct
     module Io = struct
       type input_t = requirement list * string * string
-      type output_t = (exn, unit) Either.t
+      type output_t = (unit, exn) result
 
       let string_of_input_t (requirements, key, value) =
         Printf.sprintf "%s, %s, %s"
           ((Test_printers.list string_of_requirement) requirements) key value
-      let string_of_output_t = Test_printers.(either exn unit)
+      let string_of_output_t = string_of_unit_result
     end
 
     let transform (requirements, key, value) =
-      try Either.Right (validate_kvpair "test_field" requirements (key, value))
-      with e -> Either.Left e
+      try Ok (validate_kvpair "test_field" requirements (key, value))
+      with e -> Error e
 
     let tests = `QuickAndAutoDocumented [
       (* If all values are valid, the exception should not be thrown. *)
@@ -88,13 +92,13 @@ module ValidateKVPair = Generic.MakeStateless(struct
         [{key = "abc"; default_value = None; is_valid_value = true_fun}],
         "abc", "def"
       ),
-      Either.Right ();
+      Ok ();
       (* If there is no valid value, the exception should always be thrown. *)
       (
         [{key = "abc"; default_value = None; is_valid_value = false_fun}],
         "abc", "def"
       ),
-      Either.Left (Api_errors.(Server_error
+      Error (Api_errors.(Server_error
                                  (invalid_value, ["test_field"; "abc = def"])));
     ]
   end)
@@ -185,36 +189,37 @@ module AssertKeys = Generic.MakeStateless(struct
       (string * (string * (string * (Map_check.key_type * string))list)list) *
       ((string * string) list) *
       ((string * string) list)
-    type output_t = (exn, (string * string) list) Either.t
+    type output_t = ((string * string) list, exn) result
 
     let string_of_input_t (ty, ks, value, db) = Printf.sprintf "keys=%s, input_value=%s, db_value=%s"
       (string_of_ks ks)
       (Test_printers.(assoc_list string string) value)
       (Test_printers.(assoc_list string string) db)
-    let string_of_output_t = Test_printers.(either exn (assoc_list string string))
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:(pp_list_assoc string string) ~error:exn))
   end
 
   let transform (ty, ks, value, db) =
-    try Either.Right (assert_keys ty ks value db)
-    with e -> Either.Left e
+    try Ok (assert_keys ty ks value db)
+    with e -> Error e
 
     let tests = `QuickAndAutoDocumented [
       (* Tests hourly keys *)
-      ("", ("", ["", ["min",(String,"")]]), ["min","30"], ["min", "0"]), Either.Right (["min","30"]);
-      ("", ("", ["", ["min",(String,"")]]), ["hour","0"], ["min", "0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":hour"; "0"])));
-      ("", ("", ["", ["min",(String,"")]]), ["day","Monday"], ["min", "0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":day"; "Monday"])));
+      ("", ("", ["", ["min",(String,"")]]), ["min","30"], ["min", "0"]), Ok (["min","30"]);
+      ("", ("", ["", ["min",(String,"")]]), ["hour","0"], ["min", "0"]), Error (Api_errors.(Server_error (invalid_value, [":hour"; "0"])));
+      ("", ("", ["", ["min",(String,"")]]), ["day","Monday"], ["min", "0"]), Error (Api_errors.(Server_error (invalid_value, [":day"; "Monday"])));
 
       (* Tests daily keys *)
-      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["hour","10";"min","30"], ["hour","0";"min","0"]), Either.Right (["hour","10";"min","30"]);
-      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["hour","10"], ["hour","0";"min","0"]), Either.Right (["hour","10";"min","0"]);
-      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["min","30"], ["hour","0";"min","0"]), Either.Right (["hour","0";"min","30"]);
-      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["day","Monday"], ["hour","0";"min","0"]), Either.Left (Api_errors.(Server_error (invalid_value, [":day"; "Monday"])));
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["hour","10";"min","30"], ["hour","0";"min","0"]), Ok (["hour","10";"min","30"]);
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["hour","10"], ["hour","0";"min","0"]), Ok (["hour","10";"min","0"]);
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["min","30"], ["hour","0";"min","0"]), Ok (["hour","0";"min","30"]);
+      ("", ("", ["", ["hour",(String,"");"min",(String,"")]]), ["day","Monday"], ["hour","0";"min","0"]), Error (Api_errors.(Server_error (invalid_value, [":day"; "Monday"])));
 
       (* Tests weekly keys *)
-      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday";"hour","10";"min","30"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Wednesday";"hour","10";"min","30"]);
-      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Wednesday";"hour","0";"min","0"]);
-      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["hour","10"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Monday";"hour","10";"min","0"]);
-      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["min","30"], ["day","Monday";"hour","0";"min","0"]), Either.Right (["day","Monday";"hour","0";"min","30"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday";"hour","10";"min","30"], ["day","Monday";"hour","0";"min","0"]), Ok (["day","Wednesday";"hour","10";"min","30"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["day","Wednesday"], ["day","Monday";"hour","0";"min","0"]), Ok (["day","Wednesday";"hour","0";"min","0"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["hour","10"], ["day","Monday";"hour","0";"min","0"]), Ok (["day","Monday";"hour","10";"min","0"]);
+      ("", ("", ["", ["day",(String,"");"hour",(String,"");"min",(String,"")]]), ["min","30"], ["day","Monday";"hour","0";"min","0"]), Ok (["day","Monday";"hour","0";"min","30"]);
     ]
 
 end)

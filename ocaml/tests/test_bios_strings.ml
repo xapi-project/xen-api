@@ -2,7 +2,7 @@
  *)
 open Bios_strings
 
-let load_test_data file = Stdext.Unixext.string_of_file @@ "test_data/" ^ file
+let load_test_data file = Xapi_stdext_unix.Unixext.string_of_file @@ "test_data/" ^ file
 
 let baseboard_two_string = load_test_data "bios_baseboard_two.dmidecode"
 

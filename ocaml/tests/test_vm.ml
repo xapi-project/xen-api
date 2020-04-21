@@ -12,16 +12,20 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Test_highlevel
 
 module VMSetBiosStrings = Generic.MakeStateful(struct
   module Io = struct
     type input_t = (string * string) list
-    type output_t = (exn, (string * string) list) Either.t
-    let string_of_input_t = fun x -> Printf.sprintf "%s"
-      (String.concat "; " (List.map (fun (k,v) -> k ^ "=" ^ v) x))
-    let string_of_output_t = Test_printers.(either exn (assoc_list string string))
+    type output_t = ((string * string) list, exn) result
+
+    let pp_list_assoc fmt_fst fmt_snd =
+       Fmt.(Dump.list @@ pair ~sep:(any "=") fmt_fst fmt_snd)
+
+    let string_of_input_t  =
+      Fmt.(str "%a" (pp_list_assoc string string))
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:(pp_list_assoc string string) ~error:exn))
   end
   module State = Test_state.XapiDb
 
@@ -31,11 +35,11 @@ module VMSetBiosStrings = Generic.MakeStateful(struct
     ignore (Test_common.make_vm ~__context ~name_label ())
 
   let extract_output __context value =
-    let self = List.hd (Db.VM.get_by_name_label ~__context ~label:name_label) in
     try
+      let self = List.hd (Db.VM.get_by_name_label ~__context ~label:name_label) in
       Xapi_vm.set_bios_strings ~__context ~self ~value;
-      Either.Right (Db.VM.get_bios_strings ~__context ~self)
-    with e -> Either.Left e
+      Ok (Db.VM.get_bios_strings ~__context ~self)
+    with e -> Error e
 
   let big_str = String.make (Constants.bios_string_limit_size + 1) 'x'
   let non_printable_str1 = Printf.sprintf "xyz%c" (Char.chr 31)
@@ -78,39 +82,37 @@ module VMSetBiosStrings = Generic.MakeStateful(struct
   let tests =
     (* Correct value *)
     let valid_settings = combination [bios_str1; bios_str2; bios_str3; bios_str4] in
-    `QuickAndAutoDocumented ((List.map (fun settings ->
-         settings, Either.Right (update_list default_settings settings)
-    ) valid_settings) @
-     [
-      (* Invalid BIOS string key *)
-      ["xxxx", "test"],
-      Either.Left Api_errors.(Server_error
-        (invalid_value,
-        ["xxxx"; "Unknown key"]));
-
-      (* Empty value *)
-      ["enclosure-asset-tag", ""],
-      Either.Left Api_errors.(Server_error
-        (invalid_value,
-        ["enclosure-asset-tag"; "Value provided is empty"]));
-
-      (* Value having more than 512 charactors *)
-      ["enclosure-asset-tag", big_str],
-      Either.Left Api_errors.(Server_error
-        (invalid_value,
-        ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Constants.bios_string_limit_size)]));
-
-      (* Value having non printable ascii characters *)
-      ["enclosure-asset-tag", non_printable_str1],
-      Either.Left Api_errors.(Server_error
-        (invalid_value,
-        ["enclosure-asset-tag"; non_printable_str1 ^ " has non-printable ASCII characters"]));
-
-      ["enclosure-asset-tag", non_printable_str2],
-      Either.Left Api_errors.(Server_error
-        (invalid_value,
-        ["enclosure-asset-tag"; non_printable_str2 ^ " has non-printable ASCII characters"]));
-  ])
+    let tests = List.concat
+      [ (List.map (fun settings ->
+          settings, Ok (update_list default_settings settings)
+        ) valid_settings)
+      ; [ (* Invalid BIOS string key *)
+          ["xxxx", "test"],
+          Error Api_errors.(Server_error
+            (invalid_value, ["xxxx"; "Unknown key"]))
+        ; (* Empty value *)
+          ["enclosure-asset-tag", ""],
+          Error Api_errors.(Server_error
+            (invalid_value,
+             ["enclosure-asset-tag"; "Value provided is empty"]))
+        ; (* Value having more than 512 charactors *)
+          ["enclosure-asset-tag", big_str],
+          Error Api_errors.(Server_error
+            (invalid_value,
+             ["enclosure-asset-tag"; (Printf.sprintf "%s has length more than %d characters" big_str Constants.bios_string_limit_size)]))
+        ; (* Value having non printable ascii characters *)
+          ["enclosure-asset-tag", non_printable_str1],
+          Error Api_errors.(Server_error
+            (invalid_value,
+            ["enclosure-asset-tag"; non_printable_str1 ^ " has non-printable ASCII characters"]))
+        ; ["enclosure-asset-tag", non_printable_str2],
+          Error Api_errors.(Server_error
+            (invalid_value,
+            ["enclosure-asset-tag"; non_printable_str2 ^ " has non-printable ASCII characters"]));
+          ]
+      ]
+    in
+    `QuickAndAutoDocumented tests
 
 end)
 

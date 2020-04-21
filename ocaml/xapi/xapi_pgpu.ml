@@ -14,9 +14,9 @@
 module D=Debug.Make(struct let name="xapi_pgpu" end)
 open D
 
-open Stdext
-open Listext
-open Threadext
+module Listext = Xapi_stdext_std.Listext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
 
 let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
   List.map
@@ -203,10 +203,10 @@ let update_gpus ~__context =
       find_or_create (pgpu :: cur) remaining_pcis
   in
   let current_pgpus = find_or_create [] pcis in
-  let obsolete_pgpus = List.set_difference existing_pgpus current_pgpus in
+  let obsolete_pgpus = Listext.List.set_difference existing_pgpus current_pgpus in
   List.iter (fun (self, _) -> Db.PGPU.destroy ~__context ~self) obsolete_pgpus;
   (* Update the supported/enabled VGPU types on any affected GPU groups. *)
-  let groups_to_update = List.setify
+  let groups_to_update = Listext.List.setify
       (List.map
          (fun (_, pgpu_rec) -> pgpu_rec.API.pGPU_GPU_group)
          (current_pgpus @ obsolete_pgpus))
@@ -249,8 +249,8 @@ let remove_enabled_VGPU_types ~__context ~self ~value =
 let set_enabled_VGPU_types ~__context ~self ~value =
   Mutex.execute pgpu_m (fun () ->
       let current_types = Db.PGPU.get_enabled_VGPU_types ~__context ~self in
-      let to_enable = List.set_difference value current_types
-      and to_disable = List.set_difference current_types value in
+      let to_enable = Listext.List.set_difference value current_types
+      and to_disable = Listext.List.set_difference current_types value in
       List.iter (fun vgpu_type ->
           Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self ~vgpu_type)
         to_enable;
@@ -308,8 +308,8 @@ let set_GPU_group ~__context ~self ~value =
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
   match Xapi_pgpu_helpers.get_remaining_capacity_internal ~__context ~self ~vgpu_type ~pre_allocate_list:[] with
-  | Either.Left _ -> 0L
-  | Either.Right capacity -> capacity
+  | Error _ -> 0L
+  | Ok capacity -> capacity
 
 let assert_can_run_VGPU ~__context ~self ~vgpu =
   let vgpu_type = Db.VGPU.get_type ~__context ~self:vgpu in
