@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_monadic
 open Xapi_stdext_unix
 
 let name_label = "name__label"
@@ -110,7 +109,11 @@ module Tests = functor(Client: Db_interface.DB_ACCESS) -> struct
         try Some (Client.read_field t tblname name_label real_ref)
         with _ -> None in
       if name_label' <> real_name_label
-      then failwith (Printf.sprintf "check_ref_index %s key %s: ref_index name_label = %s; db has %s" tblname key (Opt.default "None" name_label') (Opt.default "None" real_name_label))
+      then failwith (Printf.sprintf
+          "check_ref_index %s key %s: ref_index name_label = %s; db has %s"
+          tblname key
+          (Option.value ~default:"None" name_label')
+          (Option.value ~default:"None" real_name_label))
 
 
   open Xapi_stdext_pervasives

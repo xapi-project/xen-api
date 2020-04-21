@@ -14,7 +14,6 @@
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_std.Xstringext
-open Xapi_stdext_monadic
 open Xapi_stdext_unix
 
 module R = Debug.Make(struct let name = "redo_log" end)
@@ -103,7 +102,7 @@ let cannot_connect_fn log =
   if !(log.currently_accessible) then begin
     R.debug "Signalling unable to access redo log";
     Event.sync (Event.send redo_log_events (log.name, false));
-    Opt.iter (fun callback -> callback false) log.state_change_callback
+    Option.iter (fun callback -> callback false) log.state_change_callback
   end;
   log.currently_accessible := false
 
@@ -111,7 +110,7 @@ let can_connect_fn log =
   if not !(log.currently_accessible) then begin
     R.debug "Signalling redo log is healthy";
     Event.sync (Event.send redo_log_events (log.name, true));
-    Opt.iter (fun callback -> callback true) log.state_change_callback
+    Option.iter (fun callback -> callback true) log.state_change_callback
   end;
   log.currently_accessible := true
 
@@ -784,7 +783,7 @@ let database_callback event db =
       else None
   in
 
-  Opt.iter (fun entry ->
+  Option.iter (fun entry ->
       with_active_redo_logs (fun log ->
           write_delta (Db_cache_types.Manifest.generation (Db_cache_types.Database.manifest db)) entry
             (fun () ->

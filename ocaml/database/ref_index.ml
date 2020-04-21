@@ -16,7 +16,6 @@
    on a slave -- so don't ever call them on slaves! :) *)
 
 open Db_cache_types
-open Xapi_stdext_monadic
 
 type indexrec = {
   name_label:string option;
@@ -24,7 +23,7 @@ type indexrec = {
   _ref:string
 }
 let string_of (x: indexrec) =
-  Printf.sprintf "%s%s" x.uuid (Opt.default "" (Opt.map (fun name -> Printf.sprintf " (%s)" name) x.name_label))
+  Printf.sprintf "%s%s" x.uuid (Option.value ~default:"" (Option.map (fun name -> Printf.sprintf " (%s)" name) x.name_label))
 
 let lookup key =
   let t = Db_backend.make () in
@@ -35,6 +34,4 @@ let lookup key =
       uuid = Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row);
       _ref = Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row);
     } in
-  Opt.map r (Database.lookup_key key db)
-
-
+  Option.map r (Database.lookup_key key db)
