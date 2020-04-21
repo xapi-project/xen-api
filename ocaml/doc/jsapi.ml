@@ -12,9 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Xstringext
-open Pervasiveext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+module Unixext = Xapi_stdext_unix.Unixext
 open Datamodel
 open Datamodel_types
 
@@ -39,12 +39,12 @@ let generate_files api_dir =
     let name = obj.name in
     let s = Jsonrpc.to_string (rpc_of_obj obj) in
     let fname = name ^ ".json" in
-    Stdext.Unixext.write_string_to_file (Filename.concat api_dir fname) ("clsdoc = " ^ s);
+    Unixext.write_string_to_file (Filename.concat api_dir fname) ("clsdoc = " ^ s);
     name
   in
   let names = List.map create_json objs in
   let class_list = String.concat ", " (List.map (fun s -> "'" ^ s ^ "'") names) in
-  Stdext.Unixext.write_string_to_file (Filename.concat api_dir "index.json") ("classes = [" ^ class_list ^ "]");
+  Unixext.write_string_to_file (Filename.concat api_dir "index.json") ("classes = [" ^ class_list ^ "]");
 
 
   let changes_in_release rel =
@@ -85,11 +85,11 @@ let generate_files api_dir =
     in
     let release_info = String.concat ", " (List.map search_obj objs) in
     let fname = (code_name_of_release rel) ^ ".json" in
-    Stdext.Unixext.write_string_to_file (Filename.concat api_dir fname) ("release_info = [" ^ release_info ^ "]")
+    Unixext.write_string_to_file (Filename.concat api_dir fname) ("release_info = [" ^ release_info ^ "]")
   in
   List.iter changes_in_release release_order;
   let release_list = String.concat ", " (List.map (fun s -> "'" ^ (code_name_of_release s) ^ "'") release_order) in
-  Stdext.Unixext.write_string_to_file (Filename.concat api_dir "releases.json") ("releases = [" ^ release_list ^ "]")
+  Unixext.write_string_to_file (Filename.concat api_dir "releases.json") ("releases = [" ^ release_list ^ "]")
 
 let json_releases =
   let json_of_rel x = `O [
@@ -102,7 +102,7 @@ let json_releases =
   `O [ "releases", `A (List.map json_of_rel release_order) ]
 
 let render_template template_file json output_file =
-  let templ =  Stdext.Unixext.string_of_file template_file |> Mustache.of_string in
+  let templ =  Unixext.string_of_file template_file |> Mustache.of_string in
   let rendered = Mustache.render templ json in
   let out_chan = open_out output_file in
   finally (fun () -> output_string out_chan rendered)
@@ -113,7 +113,7 @@ let _ =
   parse_args ();
 
   let api_dir = Filename.concat !destdir "api" in
-  Stdext.Unixext.mkdir_rec api_dir 0o755;
+  Unixext.mkdir_rec api_dir 0o755;
 
   generate_files api_dir;
 
