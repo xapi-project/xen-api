@@ -14,7 +14,7 @@
 open Stdext.Pervasiveext
 open Client
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="attach_helpers" end)
 open D
 
 let timeout = 300. (* 5 minutes, should never take this long *)

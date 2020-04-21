@@ -16,7 +16,7 @@ open Stdext
 open Pervasiveext
 open Threadext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_mgmt_iface" end)
 open D
 
 (** Keep track of the management interface server thread *)

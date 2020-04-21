@@ -21,7 +21,7 @@ open Pervasiveext
 open Forkhelpers
 open Helpers
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_host_backup" end)
 open D
 
 let host_backup_handler_core ~__context s =

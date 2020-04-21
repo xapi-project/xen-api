@@ -19,7 +19,7 @@ open Stdext
 open Threadext
 open Client
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_pool_transition" end)
 open D
 
 (** Execute scripts in the "master-scripts" dir when changing role from master

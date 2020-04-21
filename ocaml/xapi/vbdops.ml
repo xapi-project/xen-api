@@ -15,7 +15,7 @@
  * @group Storage
 *)
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="vbdops" end)
 open D
 
 module L = Debug.Make(struct let name="license" end)

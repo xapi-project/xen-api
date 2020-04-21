@@ -2,9 +2,17 @@
   (name gencertlib)
   (wrapped true)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
-  (modules (:standard \ gencert))
-  (libraries xapi-inventory
-             xapi-idl.network)
+  (modules lib)
+  (libraries
+    mirage-crypto-pk
+    mirage-crypto-rng.unix
+    ptime
+    ptime.clock.os
+    rresult
+    x509
+    xapi-consts
+    xapi-inventory
+    xapi-idl.network)
 )
 (executable
   (name gencert)
@@ -16,3 +24,25 @@
              forkexec
              xapi-idl)
 )
+
+(test
+  (name test_lib)
+  (package xapi)
+  (modules test_lib)
+  (libraries
+    alcotest
+    cstruct
+    fmt
+    gencertlib
+    mirage-crypto
+    mirage-crypto-pk
+    mirage-crypto-rng.unix
+    rresult
+    x509
+    xapi-consts
+    xapi-stdext-unix
+  )
+  (deps (source_tree test_data))
+  (action (run %{test} --color=always))
+)
+

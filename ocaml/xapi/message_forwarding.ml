@@ -22,7 +22,7 @@ open Server_helpers
 open Client
 open Db_filter_types
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="message_forwarding" end)
 open D
 
 module Audit = Debug.Make(struct let name="audit" end)
@@ -2582,6 +2582,42 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc ->
            Client.Host.get_server_certificate rpc session_id host)
 
+    let install_server_certificate ~__context ~host ~certificate ~private_key ~certificate_chain =
+      let task = Context.get_task_id __context in
+      let local_fn =
+        Local.Host.install_server_certificate
+          ~host
+          ~certificate
+          ~private_key
+          ~certificate_chain
+      in
+      let success () =
+        let progress = Db.Task.get_progress ~__context ~self:task in
+        if progress = 1. then Some () else None
+      in
+
+      let fn () = do_op_on ~local_fn ~__context ~host
+        (fun session_id rpc ->
+          Client.Host.install_server_certificate
+            rpc
+            session_id
+            host
+            certificate
+            private_key
+            certificate_chain
+        );
+      in
+      tolerate_connection_loss fn success 30.;
+      try
+        let _, _ = Forkhelpers.execute_command_get_output !Xapi_globs.alert_certificate_check [] in
+        ()
+      with Forkhelpers.Spawn_internal_error(_ ,_ , _) ->
+        raise (Api_errors.Server_error(Api_errors.internal_error,
+          ["Generation of alerts for server certificate expiration failed."]))
+
+    let emergency_reset_server_certificate ~__context =
+      Local.Host.emergency_reset_server_certificate ~__context
+
     let attach_static_vdis ~__context ~host ~vdi_reason_map =
       info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]" (host_uuid ~__context host)
         (String.concat "; " (List.map (fun (a, b) ->  Ref.string_of a ^ "/" ^ b) vdi_reason_map));
@@ -4499,4 +4535,6 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       in
       find_first_live other_hosts
   end
+
+  module Certificate = struct end
 end

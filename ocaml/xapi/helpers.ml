@@ -1257,23 +1257,36 @@ end = struct (* can't place these functions in task helpers due to circular depe
 
   let wait_for = wait_for_ ~propagate_cancel:false Stdlib.Fun.id
 
-  let wait_for_mirroring_progress ~__context ~t =
+  let wait_for_mirror ~__context ~t =
+    (** Whilst we wait for task [t], mirror some of its properties in our task *)
     let our_task = Context.get_task_id __context in
-    let mirror_progress =
+    let mirror =
       if t = our_task then Stdlib.Fun.id
-      else fun () ->
-             let new_progress = Db.Task.get_progress ~__context ~self:t in
-             let current_progress = Db.Task.get_progress ~__context ~self:our_task in
-             (* compare diff to 3dp, because tasks progress displayed to 3dp *)
-             if Float.compare 0.001 (Float.abs (new_progress -. current_progress)) >= 0 then
-               ()
-             else
-               Db.Task.set_progress ~__context ~self:our_task ~value:new_progress
+      else begin
+        let mirror_progress () =
+          let new_progress = Db.Task.get_progress ~__context ~self:t in
+          let current_progress = Db.Task.get_progress ~__context ~self:our_task in
+          (* compare diff to 3dp, because tasks progress displayed to 3dp *)
+          if Float.compare 0.001 (Float.abs (new_progress -. current_progress)) >= 0 then
+            ()
+          else
+            Db.Task.set_progress ~__context ~self:our_task ~value:new_progress
+        in
+        let mirror_other_config () =
+          let new_other_config = Db.Task.get_other_config ~__context ~self:t in
+          let current_other_config = Db.Task.get_other_config ~__context ~self:our_task in
+          if new_other_config = current_other_config then
+            ()
+          else
+            Db.Task.set_other_config ~__context ~self:our_task ~value:new_other_config
+        in
+        fun () -> mirror_progress (); mirror_other_config ()
+      end
     in
-    wait_for_ ~__context ~tasks:[t] mirror_progress
+    wait_for_ ~__context ~tasks:[t] mirror
 
   let to_result ~__context ~of_rpc ~t =
-    wait_for_mirroring_progress ~__context ~propagate_cancel:true ~t;
+    wait_for_mirror ~__context ~propagate_cancel:true ~t;
     let fail msg = raise Api_errors.(Server_error (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of t) msg])) in
     let res =
       match Db.Task.get_status ~__context ~self:t with

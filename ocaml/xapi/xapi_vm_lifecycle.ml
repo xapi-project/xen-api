@@ -18,7 +18,7 @@
 open Stdext
 open Listext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vm_lifecycle" end)
 open D
 
 module Rrdd = Rrd_client.Client

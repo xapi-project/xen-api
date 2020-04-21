@@ -25,7 +25,7 @@ open Create_misc
 open Network
 open Workload_balancing
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_host" end)
 open D
 
 let set_emergency_mode_error code params = Xapi_globs.emergency_mode_error := Api_errors.Server_error(code, params)
@@ -1089,28 +1089,80 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 let get_uncooperative_domains ~__context ~self = []
 
 let certificate_install ~__context ~host ~name ~cert =
-  Certificates.host_install true name cert
+  Certificates.(host_install CA_Certificate name cert)
 
 let certificate_uninstall ~__context ~host ~name =
-  Certificates.host_uninstall true name
+  Certificates.(host_uninstall CA_Certificate name)
 
 let certificate_list ~__context ~host =
-  Certificates.local_list true
+  Certificates.(local_list CA_Certificate)
 
 let crl_install ~__context ~host ~name ~crl =
-  Certificates.host_install false name crl
+  Certificates.(host_install CRL name crl)
 
 let crl_uninstall ~__context ~host ~name =
-  Certificates.host_uninstall false name
+  Certificates.(host_uninstall CRL name)
 
 let crl_list ~__context ~host =
-  Certificates.local_list false
+  Certificates.(local_list CRL)
 
 let certificate_sync ~__context ~host =
-  Certificates.local_sync()
+  Certificates.local_sync ()
 
 let get_server_certificate ~__context ~host =
-  Certificates.get_server_certificate()
+  Certificates.get_server_certificate ()
+
+let install_server_certificate ~__context ~host ~certificate ~private_key ~certificate_chain =
+  if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
+    raise Api_errors.(Server_error (ha_is_enabled, []));
+
+  let expr = Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host))) in
+  let current_server_certs = Db.Certificate.get_refs_where ~__context ~expr in
+
+  let pem_chain = match certificate_chain with
+  | ""        -> None
+  | pem_chain -> Some pem_chain
+  in
+  let certificate =
+    Certificates.install_server_certificate
+      ~pem_leaf:certificate ~pkcs8_private_key:private_key ~pem_chain
+  in
+  let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+  let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+  let not_before, not_after =
+    dates_of_ptimes (X509.Certificate.validity certificate)
+  in
+  let fingerprint =
+    X509.Certificate.fingerprint Mirage_crypto_pk.(`SHA256) certificate
+    |> Certificates.pp_hash
+  in
+  let uuid = Uuid.(to_string (make_uuid ())) in
+  let ref = Ref.make () in
+
+  List.iter (fun self -> Db.Certificate.destroy ~__context ~self) current_server_certs;
+  Db.Certificate.create ~__context ~ref ~uuid ~host ~not_before ~not_after ~fingerprint;
+
+  let task = Context.get_task_id __context in
+  (* mark task as done *)
+  Db.Task.set_progress ~__context ~self:task ~value:1.0;
+  (* sever all connections done with stunnel *)
+  Xapi_mgmt_iface.reconfigure_stunnel ~__context
+
+let emergency_reset_server_certificate ~__context =
+  let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert" in
+
+  let args = [!Xapi_globs.server_cert_path; Helper_hostname.get_hostname (); "--force"] in
+  ignore @@ Forkhelpers.execute_command_get_output generate_ssl_cert args;
+
+  (* Reset stunnel to try to restablish TLS connections *)
+  Xapi_mgmt_iface.reconfigure_stunnel ~__context;
+
+  let self = Helpers.get_localhost ~__context in
+
+  (* Delete records of the server certificate in this host *)
+  let expr = Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self))) in
+  Db.Certificate.get_refs_where ~__context ~expr
+  |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =

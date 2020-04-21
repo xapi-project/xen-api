@@ -14,7 +14,7 @@
 
 open Network
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_sdn_controller" end)
 open D
 
 let db_introduce ~__context ~protocol ~address ~port =

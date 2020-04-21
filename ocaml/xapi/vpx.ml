@@ -1,4 +1,4 @@
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="vpx" end)
 open D
 
 type serverType = XenServer | ESXServer | VirtualCenter | HyperVServer

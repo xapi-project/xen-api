@@ -14,7 +14,7 @@
 
 open Client
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vm_appliance" end)
 open D
 
 module Int64Map = Map.Make(struct type t = int64 let compare = compare end)

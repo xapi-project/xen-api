@@ -796,6 +796,8 @@ let systemctl = ref "/usr/bin/systemctl"
 
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
+let alert_certificate_check = ref "alert-certificate-check"
+
 let sr_health_check_task_label = "SR Recovering"
 
 let domain_zero_domain_type = `pv
@@ -1058,6 +1060,7 @@ module Resources = struct
     "fcoe-driver", fcoe_driver, "Execute during PIF unplug to get the lun devices related with the ether interface of the PIF";
     "list_domains", list_domains, "Path to the list_domains command";
     "systemctl", systemctl, "Control the systemd system and service manager";
+    "alert-certificate-check", alert_certificate_check, "Path to alert-certificate-check, which generates alerts on about-to-expire server certificates."
   ]
   let nonessential_executables = [
     "startup-script-hook", startup_script_hook, "Executed during startup";

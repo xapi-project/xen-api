@@ -14,7 +14,7 @@
 open Http
 open Forkhelpers
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_logs_download" end)
 open D
 
 let logs_download_handler (req: Request.t) s _ =

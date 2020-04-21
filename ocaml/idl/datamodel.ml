@@ -5465,6 +5465,7 @@ let all_system =
     VUSB.t;
     Datamodel_cluster.t;
     Datamodel_cluster_host.t;
+    Datamodel_certificate.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -5561,6 +5562,8 @@ let all_relations =
     (_feature, "host"), (_host, "features");
     (_network_sriov, "physical_PIF"), (_pif, "sriov_physical_PIF_of");
     (_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of");
+
+    (_certificate, "host"), (_host, "certificates");
   ]
 
 (** the full api specified here *)
@@ -5586,6 +5589,7 @@ let emergency_calls =
     (Datamodel_host.t,Datamodel_host.get_system_status_capabilities);
     (Datamodel_host.t,Datamodel_host.is_in_emergency_mode);
     (Datamodel_host.t,Datamodel_host.shutdown_agent);
+    (Datamodel_host.t,Datamodel_host.emergency_reset_server_certificate);
   ]
 
 (** Whitelist of calls that will not get forwarded from the slave to master via the unix domain socket *)
@@ -5659,6 +5663,7 @@ let expose_get_all_messages_for = [
   _vusb;
   _cluster;
   _cluster_host;
+  _certificate;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

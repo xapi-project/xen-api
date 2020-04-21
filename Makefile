@@ -69,6 +69,8 @@ install: build doc
 	scripts/install.sh 755 _build/install/default/bin/mpathalert $(DESTDIR)$(OPTDIR)/bin/mpathalert
 # ocaml/license
 	scripts/install.sh 755 _build/install/default/bin/daily-license-check $(DESTDIR)$(LIBEXECDIR)/daily-license-check
+# ocaml/alerts/certificate
+	scripts/install.sh 755 _build/install/default/bin/alert-certificate-check $(DESTDIR)$(LIBEXECDIR)/alert-certificate-check
 # ocaml/events
 	scripts/install.sh 755 _build/install/default/bin/event_listen $(DESTDIR)$(OPTDIR)/debug/event_listen
 # ocaml/db_process

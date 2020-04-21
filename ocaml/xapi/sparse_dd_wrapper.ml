@@ -66,14 +66,17 @@ let dd_internal progress_cb base prezeroed infile outfile size =
        try match Forkhelpers.with_logfile_fd "sparse_dd"
                    (fun log_fd ->
                       let sparse_dd_path = !Xapi_globs.sparse_dd in
-                      let args = [
-                        "-machine";
-                        "-src"; infile;
-                        "-dest"; outfile;
-                        "-size"; Int64.to_string size;
-                        "-good-ciphersuites"; Xcp_const.good_ciphersuites
-                      ] @ if prezeroed then [ "-prezeroed" ] else []
-                        @ Option.value ~default:[] (Option.map (fun x -> [ "-base"; x ]) base) in
+                      let args =
+                        List.concat
+                          [ [ "-machine";
+                              "-src";  infile;
+                              "-dest"; outfile;
+                              "-size"; Int64.to_string size;
+                              "-good-ciphersuites"; Xcp_const.good_ciphersuites; ]
+                          ; (if prezeroed then [ "-prezeroed" ] else [])
+                          ; (match base with None -> [] | Some x -> [ "-base"; x ])
+                          ]
+                      in
                       debug "%s %s" sparse_dd_path (String.concat " " args);
                       let pid = Forkhelpers.safe_close_and_exec None (Some pipe_write) (Some log_fd) []
                           sparse_dd_path args in

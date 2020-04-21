@@ -14,7 +14,7 @@
 
 open Stdext
 open Threadext
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_vusb" end)
 open D
 
 let m = Mutex.create ()

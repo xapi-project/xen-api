@@ -17,7 +17,7 @@
 
 open Stdext
 
-module D = Debug.Make(struct let name="xapi" end)
+module D = Debug.Make(struct let name="xapi_fist" end)
 open D
 
 (** {2 (Fill in title!)} *)
