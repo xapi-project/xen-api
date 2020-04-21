@@ -3957,11 +3957,11 @@ let diagnostic_db_stats printer rpc session_id params =
 
 let diagnostic_net_stats printer rpc session_id params =
   let args_pass_to_api = ["method";"uri";"params";"requests";"connections";"framed"] in
-  let params = List.filter (fun (k,v) -> List.mem k args_pass_to_api) params in
+  let xapi_params = List.filter (fun (k,v) -> List.mem k args_pass_to_api) params in
   ignore(do_host_op rpc session_id ~multiple:false
            (fun _ host ->
               let host = host.getref() in
-              let rows = Client.Diagnostics.network_stats rpc session_id host params in
+              let rows = Client.Diagnostics.network_stats rpc session_id host xapi_params in
               let widths = Table.compute_col_widths rows in
               let sll = List.map (List.map2 Table.right widths) rows in
               List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
