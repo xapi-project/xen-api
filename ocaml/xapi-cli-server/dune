@@ -3,8 +3,6 @@
 
   (libraries
    tar-unix
-   xapi-idl.v6
-   xapi-idl.storage
    xapi-datamodel
    xapi-types
    xapi-client
@@ -12,5 +10,6 @@
    stdext
    xapi_aux
   )
+  (preprocess (pps ppx_deriving_rpc))
   (wrapped false)
 )
