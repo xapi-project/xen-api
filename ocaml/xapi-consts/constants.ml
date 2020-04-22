@@ -244,3 +244,6 @@ let http_limit_max_cli_size = 200 * 1024 (* 200K *)
 let version_major = Xapi_version.xapi_version_major
 let version_minor = Xapi_version.xapi_version_minor
 let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
+
+(* Path to the pool configuration file. *)
+let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")

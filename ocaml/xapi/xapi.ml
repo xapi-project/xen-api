@@ -220,7 +220,7 @@ let check_no_other_masters() =
                begin
                  try
                    (* now become a slave of the new master we found... *)
-                   Pool_role.set_role (Pool_role.Slave master_address);
+                   Xapi_pool_transition.set_role (Pool_role.Slave master_address);
                  with
                    e -> (error "Could not transition to slave '%s': xapi will abort completely and not start" (Printexc.to_string e); exit 1)
                end;

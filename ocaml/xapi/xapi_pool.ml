@@ -1208,7 +1208,7 @@ let eject ~__context ~host =
         List.iter (fun x -> Db.VM.destroy ~__context ~self:(fst x)) control_domains_to_destroy;
       with _ -> () end;
     debug "Pool.eject: setting our role to be master";
-    Pool_role.set_role Pool_role.Master;
+    Xapi_pool_transition.set_role Pool_role.Master;
     debug "Pool.eject: forgetting pool secret";
     Unixext.unlink_safe !Xapi_globs.pool_secret_path; (* forget current pool secret *)
     (* delete backup databases and any temporary restore databases *)

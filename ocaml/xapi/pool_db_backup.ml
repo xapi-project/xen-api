@@ -191,7 +191,7 @@ let push_database_restore_handler (req: Http.Request.t) s _ =
            Unixext.unlink_safe tmp_xml_file;
            if not(dry_run) then begin
              (* We will restart as a master *)
-             Pool_role.set_role Pool_role.Master;
+             Xapi_pool_transition.set_role Pool_role.Master;
 
              (* now restart *)
              debug "xapi has received new database via xml; will reboot and use that db...";
