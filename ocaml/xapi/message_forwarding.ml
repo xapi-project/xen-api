@@ -3465,9 +3465,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
         (fun session_id rpc ->
            Client.SR.forget_data_source_archives rpc session_id sr data_source)
     
-    let get_attached_live_hosts ~__context ~sr =
-      info "SR.get_attached_live_hosts: SR = '%s'" (sr_uuid ~__context sr);
-      Local.SR.get_attached_live_hosts ~__context ~sr
+    let get_live_hosts ~__context ~sr =
+      info "SR.get_live_hosts: SR = '%s'" (sr_uuid ~__context sr);
+      Local.SR.get_live_hosts ~__context ~sr
 
   end
   module VDI = struct

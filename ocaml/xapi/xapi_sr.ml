@@ -850,15 +850,7 @@ let query_data_source ~__context ~sr ~data_source = Rrdd.query_sr_ds (Db.SR.get_
 
 let forget_data_source_archives ~__context ~sr ~data_source = Rrdd.forget_sr_ds (Db.SR.get_uuid ~__context ~self:sr) data_source
 
-let get_attached_live_hosts ~__context ~sr =
-  (* Host is taken as on SR if any PBD of the host is on the SR *)
-  let is_host_on_sr host sr =
-    Db.SR.get_PBDs ~__context ~self:sr
-    |> Listext.intersect (Db.Host.get_PBDs ~__context ~self:host)
-    |> (fun x -> x != []) in
-  let is_host_alive host = try Db.Host.get_metrics ~__context ~self:host
-                               |> (fun self -> Db.Host_metrics.get_live ~__context ~self) with _ -> false in
-  Db.Host.get_all_records ~__context
-  |> List.map (fun (x,y) -> x)
-  |> List.filter (fun host -> is_host_on_sr host sr)
-  |> List.filter (fun host -> is_host_alive host)
+let get_live_hosts ~__context ~sr =
+  let choose_fn ~host =
+    Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
+  Xapi_vm_helpers.possible_hosts ~__context ~choose_fn ()
