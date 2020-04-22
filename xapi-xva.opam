@@ -9,14 +9,6 @@ build: [[ "dune" "build" "-p" name ]]
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
-  "xapi-consts"
-  "xapi-types"
-  "xapi-datamodel"
-  "xapi-stdext-std"
-  "xapi-stdext-unix"
-  "xapi-cli-protocol"
-  "xapi-public"
-  "xapi-xva"
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """
