@@ -605,6 +605,7 @@ let handler (req: Request.t) s _ =
 
   Xapi_http.assert_credentials_ok "VM.export" ~http_action:"get_export" req s;
 
+  let open Compression_algorithms in
   let compression_algorithm =
     if List.mem_assoc Constants.use_compression req.Request.query
     then
