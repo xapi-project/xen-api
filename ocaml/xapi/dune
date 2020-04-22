@@ -64,6 +64,7 @@
    xapi-cli-protocol
    xapi-cli-server
    xapi-public
+   xapi-xva
    xapi-test-utils
    stdext
    threads

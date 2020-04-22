@@ -10,6 +10,7 @@
    xapi-types
    xapi-client
    xapi-cli-protocol
+   xapi-xva
    stdext
    xapi-public
   )
