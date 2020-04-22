@@ -1393,7 +1393,13 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
              Published, rel_rio, "PCI bus path for pass-through devices";
              Deprecated, rel_boston, "Field was never used"]
              "PCI_bus" "PCI bus path for pass-through devices";
-           field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:["pci", _R_POOL_ADMIN; ("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
+           field  ~ty:(Map(String, String)) "other_config" "additional configuration"
+             ~map_keys_roles:[ "pci", _R_POOL_ADMIN
+                             ; "storage_driver_domain", _R_POOL_ADMIN
+                             ; "is_system_domain", _R_POOL_ADMIN
+                             ; "folder", _R_VM_OP
+                             ; "XenCenter.CustomFields.*", _R_VM_OP
+                             ];
            field ~qualifier:DynamicRO ~ty:Int "domid" "domain ID (if available, -1 otherwise)";
            field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch" "Domain architecture (if available, null string otherwise)";
            field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "last_boot_CPU_flags" "describes the CPU flags on which the VM was last booted";
