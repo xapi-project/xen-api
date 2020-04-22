@@ -44,17 +44,6 @@ let network_stats = call
     ~result:(Set(Set(String)), "Collection of network stats")
     ()
 
-let license_stats = call
-    ~name:"license_stats"
-    ~in_product_since:Datamodel_types.rel_stockholm
-    ~doc:"Get the license stats of the pool"
-    ~hide_from_docs:true
-    ~params:[Ref _host, "host", "The host from which to obtain license stats"]
-    ~errs:[]
-    ~allowed_roles:Datamodel_roles._R_POOL_OP
-    ~result:(Map(String, String), "")
-    ()
-
 let t =
   create_obj ~in_db:false ~in_product_since:Datamodel_types.rel_stockholm ~in_oss_since:None ~internal_deprecated_since:None ~persist:PersistNothing ~gen_constructor_destructor:false ~name:_diagnostics ~descr:"A set of functions for diagnostic purpose" ~gen_events:false
     ~doccomments:[]
@@ -64,7 +53,6 @@ let t =
       gc_stats;
       db_stats;
       network_stats;
-      license_stats
     ]
     ~contents:[]
     ()

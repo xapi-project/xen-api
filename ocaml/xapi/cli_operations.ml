@@ -148,100 +148,6 @@ let diagnostic_timing_stats printer rpc session_id params =
 
   printer (Cli_printer.PTable all)
 
-type host_license = {
-  hostname: string;
-  uuid: string;
-  rstr: Features.feature list;
-  edition: string;
-  edition_short: string;
-  expiry: float;
-}
-let host_license_of_r host_r editions =
-  let params = host_r.API.host_license_params in
-  let rstr = Features.of_assoc_list params in
-  let expiry =
-    if List.mem_assoc "expiry" params then
-      Date.to_float (Date.of_string (List.assoc "expiry" params))
-    else
-      0.
-  in
-  let edition_str = host_r.API.host_edition in
-  let unavailable_edition_str = "N/A" in
-  let edition_short =
-    editions
-    |> List.filter_map
-      V6_interface.(fun ed -> if ed.title = edition_str
-                     then Some ed.code
-                     else None)
-    |> (function
-        | a::_ -> a
-        | _ -> unavailable_edition_str
-      ) in
-  {
-    hostname = host_r.API.host_hostname;
-    uuid = host_r.API.host_uuid;
-    rstr = rstr;
-    edition = edition_str;
-    edition_short = edition_short;
-    expiry = expiry;
-  }
-
-let diagnostic_license_status printer rpc session_id params =
-  let hosts = Client.Host.get_all_records rpc session_id in
-  let heading = [ "Hostname"; "UUID"; "Features"; "Code"; "Free"; "Expiry"; "Days left" ] in
-  let editions = V6_client.get_editions "diagnostic_license_status" in
-
-  let valid, invalid = List.partition (fun (_, host_r) -> try ignore(host_license_of_r host_r editions); true with _ -> false) hosts in
-  let host_licenses = List.map (fun (_, host_r) -> host_license_of_r host_r editions) valid in
-  (* Sort licenses into nearest-expiry first then free *)
-  let host_licenses = List.sort (fun a b ->
-      let a_expiry = a.expiry and b_expiry = b.expiry in
-      let a_free = a.edition = "free"
-      and b_free = b.edition = "free" in
-      if a_expiry < b_expiry then -1
-      else
-      if a_expiry > b_expiry then 1
-      else
-      if a_free && not b_free then -1
-      else
-      if not a_free && b_free then 1
-      else 0) host_licenses in
-  let now = Unix.gettimeofday () in
-  let hosts = List.map (fun h -> [ h.hostname;
-                                   String.sub h.uuid 0 8;
-                                   Features.to_compact_string h.rstr;
-                                   h.edition_short;
-                                   string_of_bool (h.edition = "free");
-                                   Date.to_string (Date.of_float h.expiry);
-                                   Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
-                                 ]) host_licenses in
-  let invalid_hosts = List.map (fun (_, host_r) -> [ host_r.API.host_hostname;
-                                                     String.sub host_r.API.host_uuid 0 8;
-                                                     "-"; "-"; "-"; "-"; "-" ]) invalid in
-  let __context = Context.make "diagnostic_license_status" in
-  let pool = Helpers.get_pool ~__context in
-  let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
-  let pool_free = List.fold_left (||) false (List.map (fun h -> h.edition = "free") host_licenses) in
-  let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
-  let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; string_of_bool pool_free; "-"; "-" ] in
-  let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
-
-  (* Compute the required column widths *)
-  let rec transpose x =
-    if List.filter (fun x -> x <> []) x = []
-    then []
-    else
-      let heads = List.map List.hd x in
-      let tails = List.map List.tl x in
-      heads :: (transpose tails) in
-  let map f x = List.map (List.map f) x in
-  let column_sizes = List.map (List.fold_left max 0) (transpose (map String.length table)) in
-
-  List.iter
-    (fun row ->
-       printer (Cli_printer.PMsg (String.concat " " (List.map (fun (data, len) -> data ^ (String.make (len - String.length data) ' ')) (List.combine row column_sizes))))
-    ) table
-
 let get_hosts_by_name_or_id rpc session_id name =
   let hosts = Client.Host.get_all_records_where rpc session_id "true" in
   let allrecs = List.map (fun (host,host_r) -> let r = host_record rpc session_id host in r.setrefrec (host,host_r); r) hosts in
@@ -3966,6 +3872,78 @@ let diagnostic_net_stats printer rpc session_id params =
               let sll = List.map (List.map2 Table.right widths) rows in
               List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
            ) params [])
+
+type host_license = {
+  hostname: string;
+  uuid: string;
+  rstr: Features.feature list;
+  edition: string;
+  expiry: float;
+}
+
+let license_of_host rpc session_id host =
+  let params = Client.Host.get_license_params rpc session_id host in
+  let edition = Client.Host.get_edition rpc session_id host in
+  let hostname = Client.Host.get_hostname rpc session_id host in
+  let uuid = Client.Host.get_uuid rpc session_id host in
+  let rstr = Features.of_assoc_list params in
+  let expiry =
+    if List.mem_assoc "expiry" params then
+      Date.to_float (Date.of_string (List.assoc "expiry" params))
+    else
+      0.
+  in
+  {
+    hostname; uuid;rstr; edition; expiry;
+  }
+
+let diagnostic_license_status printer rpc session_id params =
+  let hosts = Client.Host.get_all_records rpc session_id in
+  let heading = [ "Hostname"; "UUID"; "Features"; "Edition"; "Expiry"; "Days left" ] in
+  let valid, invalid = List.partition (fun (host,_) ->
+      try ignore(license_of_host rpc session_id host); true with _ -> false) hosts in
+  let host_licenses = List.map (fun (host,_) -> license_of_host rpc session_id host) valid
+                      (* Sort licenses into nearest-expiry first *)
+                      |> List.sort (fun a b -> compare a.expiry b.expiry) in
+  let now = Unix.gettimeofday () in
+  let hosts = List.map (fun h -> [ h.hostname;
+                                   String.sub h.uuid 0 8;
+                                   Features.to_compact_string h.rstr;
+                                   h.edition;
+                                   Date.to_string (Date.of_float h.expiry);
+                                   Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
+                                 ]) host_licenses in
+  let invalid_hosts = List.map (fun (host,_) ->
+      [Client.Host.get_hostname rpc session_id host;
+       Client.Host.get_uuid rpc session_id host |> (fun x -> String.sub x 0 8);
+       "-"; "-"; "-"; "-" ]) invalid in
+  let pool_features = Client.Pool.get_all_records rpc session_id
+                      |> List.hd
+                      |> (fun (pool,_) -> Client.Pool.get_restrictions rpc session_id pool)
+                      |> Features.of_assoc_list in
+  let divider = [ "-"; "-"; "-"; "-"; "-"; "-" ] in
+  let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; "-"; "-" ] in
+  let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
+
+  (* Compute the required column widths *)
+  let rec transpose x =
+    if List.filter (fun x -> x <> []) x = []
+    then []
+    else
+      let heads = List.map List.hd x in
+      let tails = List.map List.tl x in
+      heads :: (transpose tails) in
+  let map f x = List.map (List.map f) x in
+  let column_sizes = List.map (List.fold_left max 0) (transpose (map String.length table)) in
+
+  List.iter
+    (fun row ->
+       List.combine row column_sizes
+       |> List.map (fun (data, len) -> data ^ (String.make (len - String.length data) ' '))
+       |> String.concat " "
+       |> (fun x -> Cli_printer.PMsg x)
+       |> printer
+    ) table
 
 module Network_sriov = struct
   let create printer rpc session_id params =
