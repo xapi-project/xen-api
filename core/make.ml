@@ -37,7 +37,7 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
       if Cohttp.Response.status response <> `OK then begin
         Printf.fprintf stderr "Server sent: %s\n%!" (Cohttp.Code.string_of_status (Cohttp.Response.status response));
         (* Response.write (fun _ _ -> return ()) response Lwt_io.stderr >>= fun () -> *)
-        return (`Error (`Message_switch `Unsuccessful_response))
+        return (Error (`Message_switch `Unsuccessful_response))
       end else begin
         let reader = Response.make_body_reader response ic in
         let results = Buffer.create 128 in
@@ -45,20 +45,20 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
           Response.read_body_chunk reader >>= function
           | Cohttp.Transfer.Final_chunk x ->
             Buffer.add_string results x;
-            return (`Ok (Buffer.contents results))
+            return (Ok (Buffer.contents results))
           | Cohttp.Transfer.Chunk x ->
             Buffer.add_string results x;
             read ()
           | Cohttp.Transfer.Done ->
-            return (`Ok (Buffer.contents results)) in
+            return (Ok (Buffer.contents results)) in
         read ()
       end
     | `Invalid s ->
       Printf.fprintf stderr "Invalid response: '%s'\n%!" s;
-      return (`Error (`Message_switch `Failed_to_read_response))
+      return (Error (`Message_switch `Failed_to_read_response))
     | `Eof ->
       Printf.fprintf stderr "Empty response\n%!";
-      return (`Error (`Message_switch `Failed_to_read_response))
+      return (Error (`Message_switch `Failed_to_read_response))
 end
 
 module Client = functor(M: S.BACKEND) -> struct
@@ -71,7 +71,7 @@ module Client = functor(M: S.BACKEND) -> struct
     | `Communication of exn
   ]
 
-  type 'a result = ('a, [ `Message_switch of error]) Mresult.result
+  type 'a result = ('a, [ `Message_switch of error]) Stdlib.Result.t
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
@@ -87,13 +87,13 @@ module Client = functor(M: S.BACKEND) -> struct
       Format.fprintf fmt "There was a communication failure with message-switch: %s" (Printexc.to_string e)
 
   let error_to_msg = function
-    | `Ok x -> `Ok x
-    | `Error y ->
+    | Ok x -> Ok x
+    | Error y ->
       let b = Buffer.create 16 in
       let fmt = Format.formatter_of_buffer b in
       pp_error fmt y;
       Format.pp_print_flush fmt ();
-      `Error (`Msg (Buffer.contents b))
+      Error (`Msg (Buffer.contents b))
 
   module Connection = Connection(M.IO)
 
@@ -110,11 +110,11 @@ module Client = functor(M: S.BACKEND) -> struct
   }
 
   let ( >>|= ) m f = m >>= function
-    | `Ok x -> f x
-    | `Error y -> return (`Error y)
+    | Ok x -> f x
+    | Error y -> return (Error y)
 
   let rec iter_s f = function
-    | [] -> return (`Ok ())
+    | [] -> return (Ok ())
     | x :: xs ->
       f x >>|= fun () ->
       iter_s f xs
@@ -128,8 +128,8 @@ module Client = functor(M: S.BACKEND) -> struct
     let protect_connect path f =
       M.connect path >>= fun conn ->
       f conn >>= function
-      | `Ok _ as ok -> return ok
-      | `Error _ as err ->
+      | Ok _ as ok -> return ok
+      | Error _ as err ->
         M.disconnect conn >>= fun () ->
         return err
     in
@@ -138,7 +138,7 @@ module Client = functor(M: S.BACKEND) -> struct
       Connection.rpc requests_conn (In.Login token) >>|= fun (_: string) ->
       protect_connect port @@ fun events_conn ->
       Connection.rpc events_conn (In.Login token) >>|= fun (_: string) ->
-      return (`Ok (requests_conn, events_conn)) in
+      return (Ok (requests_conn, events_conn)) in
 
     reconnect () >>|= fun (requests_conn, events_conn) ->
 
@@ -160,16 +160,16 @@ module Client = functor(M: S.BACKEND) -> struct
         } in
         let frame = In.Transfer transfer in
         Connection.rpc events_conn frame >>= function
-        | `Error _ ->
+        | Error _ ->
           M.Mutex.with_lock requests_m (fun () ->
             reconnect ()
             >>|= fun (requests_conn, events_conn) ->
             t.requests_conn <- requests_conn;
             t.events_conn <- events_conn;
-            return (`Ok ())
+            return (Ok ())
           ) >>|= fun () ->
           loop from
-        | `Ok raw ->
+        | Ok raw ->
         let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
         match transfer.Out.messages with
         | [] -> loop from
@@ -182,10 +182,10 @@ module Client = functor(M: S.BACKEND) -> struct
                      if Hashtbl.mem wakener j then begin
                        let rec loop events_conn =
                          Connection.rpc events_conn (In.Ack i) >>= function
-                         | `Ok (_: string) ->
-                           M.Ivar.fill (Hashtbl.find wakener j) (`Ok m);
-                           return (`Ok ())
-                         | `Error _ ->
+                         | Ok (_: string) ->
+                           M.Ivar.fill (Hashtbl.find wakener j) (Ok m);
+                           return (Ok ())
+                         | Error _ ->
                            reconnect ()
                            >>|= fun (requests_conn, events_conn) ->
                            t.requests_conn <- requests_conn;
@@ -197,20 +197,20 @@ module Client = functor(M: S.BACKEND) -> struct
                        Hashtbl.iter (fun k _v ->
                          Printf.printf "  have wakener id %s, %Ld\n%!" (fst k) (snd k)
                        ) wakener;
-                       return (`Ok ())
+                       return (Ok ())
                      end
-                   | Message.Request _ -> return (`Ok ())
+                   | Message.Request _ -> return (Ok ())
                  )
             ) transfer.Out.messages >>|= fun () ->
           loop (Some transfer.Out.next) in
       loop None in
-    return (`Ok t)
+    return (Ok t)
 
   let rpc ~t ~queue ?timeout ~body:x () =
     let ivar = M.Ivar.create () in
 
     let timer = Option.map (fun timeout ->
-        M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error (`Message_switch `Timeout)))
+        M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (Error (`Message_switch `Timeout)))
       ) timeout in
 
     let msg = In.Send(queue, {
@@ -223,19 +223,19 @@ module Client = functor(M: S.BACKEND) -> struct
            Connection.rpc t.requests_conn (In.CreatePersistent queue)
            >>|= fun (_: string) ->
            Connection.rpc t.requests_conn msg >>= function
-           | `Error e -> return (`Error e)
-           | `Ok id ->
+           | Error e -> return (Error e)
+           | Ok id ->
              begin match message_id_opt_of_rpc (Jsonrpc.of_string id) with
              | None ->
-               return (`Error (`Message_switch (`Queue_deleted queue)))
+               return (Error (`Message_switch (`Queue_deleted queue)))
              | Some mid ->
                Hashtbl.add t.wakener mid ivar;
-               return (`Ok mid)
+               return (Ok mid)
              end
         ) >>= function
-        | `Ok mid -> return (`Ok mid)
-        | `Error (`Message_switch (`Queue_deleted name)) -> return (`Error (`Message_switch (`Queue_deleted name)))
-        | `Error _ ->
+        | Ok mid -> return (Ok mid)
+        | Error (`Message_switch (`Queue_deleted name)) -> return (Error (`Message_switch (`Queue_deleted name)))
+        | Error _ ->
           (* we expect the event thread to reconnect for us *)
           let ivar' = M.Ivar.create () in
           (* XXX: we don't respect the timeout value here *)
@@ -246,31 +246,31 @@ module Client = functor(M: S.BACKEND) -> struct
     M.Ivar.read ivar >>|= fun x ->
     Hashtbl.remove t.wakener mid;
     Option.iter M.Clock.cancel timer;
-    return (`Ok x.Message.payload)
+    return (Ok x.Message.payload)
 
   let list ~t ~prefix ?(filter=`All) () =
     Connection.rpc t.requests_conn (In.List (prefix, filter)) >>|= fun result ->
-    return (`Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
+    return (Ok (Out.string_list_of_rpc (Jsonrpc.of_string result)))
 
   let diagnostics ~t () =
     Connection.rpc t.requests_conn In.Diagnostics >>|= fun result ->
-    return (`Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result)))
+    return (Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result)))
 
   let trace ~t ?(from=0L) ?(timeout=0.) () =
     Connection.rpc t.requests_conn (In.Trace(from, timeout)) >>|= fun result ->
-    return (`Ok (Out.trace_of_rpc (Jsonrpc.of_string result)))
+    return (Ok (Out.trace_of_rpc (Jsonrpc.of_string result)))
 
   let ack ~t ~message:(name, id) () =
     Connection.rpc t.requests_conn (In.Ack (name, id)) >>|= fun _ ->
-    return (`Ok ())
+    return (Ok ())
 
   let destroy ~t ~queue:queue_name () =
     Connection.rpc t.requests_conn (In.Destroy queue_name) >>|= fun _result ->
-    return (`Ok ())
+    return (Ok ())
 
   let shutdown ~t () =
     Connection.rpc t.requests_conn In.Shutdown >>|= fun _result ->
-    return (`Ok ())
+    return (Ok ())
 end
 
 
@@ -288,7 +288,7 @@ module Server = functor(M: S.BACKEND) -> struct
     | `Communication of exn
   ]
 
-  type 'a result = ('a, [ `Message_switch of error]) Mresult.result
+  type 'a result = ('a, [ `Message_switch of error]) Stdlib.Result.t
 
   let pp_error fmt = function
     | `Message_switch (`Msg x) -> Format.pp_print_string fmt x
@@ -300,13 +300,13 @@ module Server = functor(M: S.BACKEND) -> struct
       Format.fprintf fmt "There was a communication failure with message-switch: %s" (Printexc.to_string e)
 
   let error_to_msg = function
-    | `Ok x -> `Ok x
-    | `Error y ->
+    | Ok x -> Ok x
+    | Error y ->
       let b = Buffer.create 16 in
       let fmt = Format.formatter_of_buffer b in
       pp_error fmt y;
       Format.pp_print_flush fmt ();
-      `Error (`Msg (Buffer.contents b))
+      Error (`Msg (Buffer.contents b))
 
   type t = {
     request_shutdown: unit M.Ivar.t;
@@ -318,8 +318,8 @@ module Server = functor(M: S.BACKEND) -> struct
     M.Ivar.read t.on_shutdown
 
   let ( >>|= ) m f = m >>= function
-    | `Ok x -> f x
-    | `Error y -> return (`Error y)
+    | Ok x -> f x
+    | Error y -> return (Error y)
 
   let listen ~process ~switch:port ~queue:name () =
     let token = Printf.sprintf "%d" (Unix.getpid ()) in
@@ -342,14 +342,14 @@ module Server = functor(M: S.BACKEND) -> struct
       any [ map (fun _ -> ()) message; M.Ivar.read request_shutdown ] >>= fun () ->
       if is_determined (M.Ivar.read request_shutdown) then begin
         M.Ivar.fill on_shutdown ();
-        return (`Ok ())
+        return (Ok ())
       end else begin
         message >>= function
-        | `Error _e ->
+        | Error _e ->
           M.connect port >>= fun c ->
           Connection.rpc c (In.Login token) >>|= fun (_: string) ->
           loop c from
-        | `Ok raw ->
+        | Ok raw ->
           let transfer = Out.transfer_of_rpc (Jsonrpc.of_string raw) in
           begin match transfer.Out.messages with
             | [] -> loop c from
@@ -374,7 +374,7 @@ module Server = functor(M: S.BACKEND) -> struct
           end
       end in
     let _ = loop c None in
-    return (`Ok t)
+    return (Ok t)
 end
 
 

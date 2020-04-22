@@ -15,7 +15,7 @@
  *)
 
 module Connection(IO: Cohttp.S.IO) : sig
-  val rpc: (IO.ic * IO.oc) -> Protocol.In.t -> [ `Ok of string | `Error of [ `Message_switch of [ `Failed_to_read_response | `Unsuccessful_response | `Communication of exn] ] ] IO.t
+  val rpc: (IO.ic * IO.oc) -> Protocol.In.t -> (string, [ `Message_switch of [ `Failed_to_read_response | `Unsuccessful_response | `Communication of exn] ] ) result  IO.t
 end
 
 module Server(M: S.BACKEND) : S.SERVER

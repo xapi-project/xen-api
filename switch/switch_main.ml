@@ -61,11 +61,8 @@ module Config = struct
     Term.(pure make $ path $ pidfile $ configfile $ statedir)
 end
 
-(* Let's try to adopt the conventions of Rresult.R *)
-let get_ok = function | Result.Ok x -> x | Result.Error _ -> failwith "Expecting OK, got Error"
-
 module Lwt_result = struct
-  let (>>=) m f = m >>= fun x -> f (get_ok x)
+  let (>>=) m f = m >>= fun x -> f (Stdlib.Result.get_ok x)
 end
 
 

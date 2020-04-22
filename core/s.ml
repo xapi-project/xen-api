@@ -74,10 +74,10 @@ module type SERVER = sig
     | `Communication of exn
   ]
 
-  type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
+  type 'a result = ('a, [ `Message_switch of error ]) Stdlib.Result.t
 
   val pp_error : Format.formatter -> [ `Message_switch of error ] -> unit
-  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Mresult.result
+  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Stdlib.Result.t
 
   type t
   (** A listening server *)
@@ -103,10 +103,10 @@ module type CLIENT = sig
     | `Communication of exn
   ]
 
-  type 'a result = ('a, [ `Message_switch of error ]) Mresult.result
+  type 'a result = ('a, [ `Message_switch of error ]) Stdlib.Result.t
 
   val pp_error : Format.formatter -> [ `Message_switch of error ] -> unit
-  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Mresult.result
+  val error_to_msg : 'a result -> ('a, [ `Msg of string ]) Stdlib.Result.t
 
   val connect: switch:string -> unit -> t result io
   (** [connect switch] connects to a named switch *)

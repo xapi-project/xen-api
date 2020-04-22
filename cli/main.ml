@@ -20,13 +20,13 @@ open Message_switch_unix.Protocol_unix
 let project_url = "http://github.com/djs55/message_switch"
 
 let (>>|=) m f = match m with
-  | `Error e ->
+  | Error e ->
     let b = Buffer.create 16 in
     let fmt = Format.formatter_of_buffer b in
     Client.pp_error fmt e;
     Format.pp_print_flush fmt ();
     `Error (false, (Buffer.contents b))
-  | `Ok x -> f x
+  | Ok x -> f x
 
 open Cmdliner
 
@@ -203,7 +203,7 @@ let diagnostics common_opts =
       print_endline "Temporary queues containing replies:";
       List.iter queue to_show
     end;
-    `Ok ()
+  `Ok ()
 
 let list common_opts prefix all =
   Client.connect ~switch:common_opts.Common.path ()
@@ -316,8 +316,8 @@ let tail common_opts follow =
   let finished = ref false in
   while not(!finished) do
     match Client.trace ~t:c ~from:!from ~timeout () with
-    | `Error _ -> failwith "Trace failed"
-    | `Ok trace ->
+    | Error _ -> failwith "Trace failed"
+    | Ok trace ->
       let endpoint = function
         | None -> "-"
         | Some x -> x in

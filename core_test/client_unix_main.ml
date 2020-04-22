@@ -25,8 +25,8 @@ let timeout = ref None
 let shutdown = "shutdown"
 
 let (>>|=) m f = match m with
-  | `Ok x -> f x
-  | `Error y ->
+  | Ok x -> f x
+  | Error y ->
     let b = Buffer.create 16 in
     let fmt = Format.formatter_of_buffer b in
     Client.pp_error fmt y;
