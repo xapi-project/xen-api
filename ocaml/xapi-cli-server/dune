@@ -11,6 +11,7 @@
    xapi-client
    xapi-cli-protocol
    stdext
+   xapi-public
   )
   (wrapped false)
 )

@@ -1,0 +1,10 @@
+(library
+ (name xapi_public)
+ (public_name xapi-public)
+
+ (libraries
+   xapi-types
+   stdext
+ )
+ (wrapped false)
+)

@@ -17,13 +17,13 @@ type t =
   | Slave of string (** IP address *)
   | Broken
 
+val with_pool_role_lock: (unit -> unit) -> unit
+
 (** Returns a printable version ot [t] *)
 val string_of: t -> string
 
 (** Returns the role of this node *)
 val get_role: unit -> t
-(** Reset the role on disk, takes effect on next server restart only! *)
-val set_role: t -> unit
 
 (** Returns true if this node is a master *)
 val is_master: unit -> bool

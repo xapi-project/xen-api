@@ -586,9 +586,6 @@ let nowatchdog = ref false
 
 let log_getter = ref false
 
-(* Path to the pool configuration file. *)
-let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
-
 (* Path to the pool secret file. *)
 let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 
@@ -983,7 +980,7 @@ module Resources = struct
     "nvidia-sriov-manage", nvidia_sriov_manage_script, "Path to NVIDIA sriov-manage script"
   ]
   let essential_files = [
-    "pool_config_file", pool_config_file, "Pool configuration file";
+    "pool_config_file", Constants.pool_config_file, "Pool configuration file";
     "db-config-file", Db_globs.db_conf_path, "Database configuration file";
     "udhcpd-skel", udhcpd_skel, "Skeleton config for udhcp";
   ]
