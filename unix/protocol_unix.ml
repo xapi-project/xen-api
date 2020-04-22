@@ -175,15 +175,6 @@ end
 
 module Connection = Message_switch_core.Make.Connection(IO)
 
-module Opt = struct
-  let iter f = function
-    | None -> ()
-    | Some x -> f x
-  let map f = function
-    | None -> None
-    | Some x -> Some (f x)
-end
-
 let (>>|=) m f = match m with
   | `Error e -> `Error e
   | `Ok x -> f x
@@ -353,7 +344,7 @@ module Client = struct
 
   let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
     let t = IO.Ivar.create () in
-    let timer = Opt.map (fun timeout ->
+    let timer = Option.map (fun timeout ->
         IO.Clock.run_after timeout (fun () -> IO.Ivar.fill t (`Error (`Message_switch `Timeout)))
       ) timeout in
 
@@ -387,7 +378,7 @@ module Client = struct
     match IO.Ivar.read t with
     | `Ok response ->
       (* release resources *)
-      Opt.iter IO.Clock.cancel timer;
+      Option.iter IO.Clock.cancel timer;
       IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id);
       `Ok response.Message.payload
     | `Error e -> `Error e

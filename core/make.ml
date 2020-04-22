@@ -61,15 +61,6 @@ module Connection = functor(IO: Cohttp.S.IO) -> struct
       return (`Error (`Message_switch `Failed_to_read_response))
 end
 
-module Opt = struct
-  let iter f = function
-    | None -> ()
-    | Some x -> f x
-  let map f = function
-    | None -> None
-    | Some x -> Some (f x)
-end
-
 module Client = functor(M: S.BACKEND) -> struct
 
   type error = [
@@ -218,7 +209,7 @@ module Client = functor(M: S.BACKEND) -> struct
   let rpc ~t ~queue ?timeout ~body:x () =
     let ivar = M.Ivar.create () in
 
-    let timer = Opt.map (fun timeout ->
+    let timer = Option.map (fun timeout ->
         M.Clock.run_after timeout (fun () -> M.Ivar.fill ivar (`Error (`Message_switch `Timeout)))
       ) timeout in
 
@@ -254,7 +245,7 @@ module Client = functor(M: S.BACKEND) -> struct
     loop () >>|= fun mid ->
     M.Ivar.read ivar >>|= fun x ->
     Hashtbl.remove t.wakener mid;
-    Opt.iter M.Clock.cancel timer;
+    Option.iter M.Clock.cancel timer;
     return (`Ok x.Message.payload)
 
   let list ~t ~prefix ?(filter=`All) () =

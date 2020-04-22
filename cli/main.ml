@@ -233,12 +233,6 @@ let destroy common_opts name = match name with
     >>|= fun _ ->
     `Ok ()
 
-module Opt = struct
-  let iter f = function
-    | None -> ()
-    | Some x -> f x
-end
-
 let summarise_payload m =
   try
     let call = Jsonrpc.call_of_string m in
@@ -289,11 +283,11 @@ let mscgen common_opts =
       Printf.printf "%s %s %s [ label = \"%s\" ] ;\n" (quote queue) arrow (quote connection) body in
     match e.Event.message with
     | Event.Message(_, { Message.kind = Message.Response _ ; _}) ->
-      (* Opt.iter (to_arrow "<<" e.Event.queue) e.Event.output; *)
-      Opt.iter (from_arrow "<<" e.Event.queue) e.Event.input
+      (* Option.iter (to_arrow "<<" e.Event.queue) e.Event.output; *)
+      Option.iter (from_arrow "<<" e.Event.queue) e.Event.input
     | Event.Message(_, { Message.kind = Message.Request _ ; _}) ->
-      Opt.iter (from_arrow "=>" e.Event.queue) e.Event.output;
-      Opt.iter (to_arrow "=>" e.Event.queue) e.Event.input;
+      Option.iter (from_arrow "=>" e.Event.queue) e.Event.output;
+      Option.iter (to_arrow "=>" e.Event.queue) e.Event.input;
     | Event.Ack _ -> () in
   Printf.printf "msc {\n";
   Printf.printf "%s;\n" (String.concat "," (List.map quote (StringSet.((elements (union(union inputs outputs) queues))))));
