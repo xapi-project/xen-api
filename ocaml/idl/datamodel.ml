@@ -2103,15 +2103,14 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let get_attached_live_hosts = call
+  let get_live_hosts = call
       ~in_oss_since:None
-      ~name:"get_attached_live_hosts"
+      ~name:"get_live_hosts"
       ~in_product_since:rel_stockholm
-      ~doc:"Get all the hosts attached to this SR. A host is taken as attached to this SR if any PBD of
-      the host is attached to this SR"
+      ~doc:"Get all live hosts attached to this SR"
       ~params:[Ref _sr, "sr", "The SR from which to query attached hosts"]
       ~allowed_roles:_R_POOL_OP
-      ~result:(Set(Ref _host), "a list of hosts attached to this SR")
+      ~result:(Set(Ref _host), "A collection of live hosts attached to this SR")
       ()
 
   (** A storage repository. Note we overide default create/destroy methods with our own here... *)
@@ -2134,7 +2133,7 @@ module SR = struct
                   record_data_source;
                   query_data_source;
                   forget_data_source_archives;
-                  get_attached_live_hosts;
+                  get_live_hosts;
 
                 ]
       ~contents:

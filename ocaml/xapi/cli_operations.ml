@@ -3328,7 +3328,6 @@ let vm_import fd printer rpc session_id params =
       (* Initially mark the task progress as -1.0. The first thing the import handler does it to mark it as zero *)
       (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
       (* not our responsibility any more to mark the task as completed/failed/etc. *)
-      let __context = Context.make "import" in
       Client.Task.set_progress rpc session_id importtask (-1.0);
 
       finally (fun () ->
@@ -3341,13 +3340,13 @@ let vm_import fd printer rpc session_id params =
                 let vm = List.hd vm in
                 let disks = List.sort compare (List.map (fun x -> x.Xva.device) vm.Xva.vbds) in
                 let address =
-                  if sr<>Ref.null then
-                    Client.SR.get_attached_live_hosts rpc session_id sr
-                    |> (fun hosts -> if List.length hosts != 0 then hosts else
+                  match sr <> Ref.null with
+                  | true -> Client.SR.get_live_hosts rpc session_id sr
+                    |> (fun hosts -> if hosts <> [] then hosts else
                            raise (Api_errors.Server_error (Api_errors.host_not_live, [])))
                     |> (fun hosts -> List.nth hosts (List.length hosts |> Random.int))
                     |> (fun host -> Client.Host.get_address rpc session_id host)
-                  else "127.0.0.1"
+                  | false -> "127.0.0.1"
                 in
                 (* Although it's inefficient use a loopback HTTP connection *)
                 debug "address is: %s" address;
