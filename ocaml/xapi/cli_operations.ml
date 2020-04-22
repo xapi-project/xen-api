@@ -3340,16 +3340,15 @@ let vm_import fd printer rpc session_id params =
                 (* Only import the first VM *)
                 let vm = List.hd vm in
                 let disks = List.sort compare (List.map (fun x -> x.Xva.device) vm.Xva.vbds) in
-                let host =
+                let address =
                   if sr<>Ref.null then
                     Client.SR.get_attached_live_hosts rpc session_id sr
                     |> (fun hosts -> if List.length hosts != 0 then hosts else
                            raise (Api_errors.Server_error (Api_errors.host_not_live, [])))
                     |> (fun hosts -> List.nth hosts (List.length hosts |> Random.int))
-
-                  else Helpers.get_localhost __context
+                    |> (fun host -> Client.Host.get_address rpc session_id host)
+                  else "127.0.0.1"
                 in
-                let address = Client.Host.get_address rpc session_id host in
                 (* Although it's inefficient use a loopback HTTP connection *)
                 debug "address is: %s" address;
                 let request = Http.Request.make ~user_agent:Constants.xapi_user_agent
@@ -3415,7 +3414,7 @@ let vm_import fd printer rpc session_id params =
                 in
 
                 let open Xmlrpc_client in
-                let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of (Context.get_task_id __context)) (), address, !Constants.https_port) in
+                let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of importtask) (), address, !Constants.https_port) in
                 let stream_ok = with_transport transport (with_http request writer) in
                 if not stream_ok then
                   begin
