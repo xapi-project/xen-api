@@ -479,10 +479,31 @@ let domain_snapshot xc =
     let uuid = Uuid.(to_string (uuid_of_int_array (dom.Xenctrl.handle))) in
     let domid = dom.Xenctrl.domid in
     let start = String.sub uuid 0 18 in
+
+    (* Actively hide migrating VM uuids, these are temporary and xenops
+       writes the original and the final uuid to xenstore *)
+    let uuid_from_key key =
+      let path = Printf.sprintf "/vm/%s/%s" uuid key in
+      try
+        Xenstore.(with_xs (fun xs -> xs.read path))
+      with Xs_protocol.Enoent _hint ->
+        info "Couldn't read path %s; falling back to actual uuid" path;
+        uuid
+    in
+    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
+
     if List.mem start uuid_blacklist then
       None
     else
-      Some (dom, uuid, domid)
+      let key =
+        if Astring.String.is_suffix ~affix:"000000000000" uuid then
+          Some "origin-uuid"
+        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
+          Some "final-uuid"
+        else
+          None
+      in
+      Some (dom, stable_uuid key, domid)
   in
 
   let domains =
