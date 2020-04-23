@@ -1,6 +1,5 @@
 (library
   (name xapi_cli_server)
-  (public_name xapi-cli-server)
 
   (libraries
    tar-unix
@@ -11,7 +10,7 @@
    xapi-client
    xapi-cli-protocol
    stdext
-   xapi-public
+   xapi_aux
   )
   (wrapped false)
 )

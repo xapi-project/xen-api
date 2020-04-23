@@ -1,6 +1,5 @@
 (library
- (name xapi_public)
- (public_name xapi-public)
+ (name xapi_aux)
 
  (libraries
    xapi-types

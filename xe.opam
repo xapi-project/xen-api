@@ -14,7 +14,6 @@ depends: [
   "xapi-cli-protocol"
   "xapi-consts"
   "xapi-datamodel"
-  "xapi-public"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-unix"

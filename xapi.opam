@@ -49,7 +49,6 @@ depends: [
   "xapi-consts"
   "xapi-database"
   "xapi-datamodel"
-  "xapi-public"
   "xapi-stdext-date"
   "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
