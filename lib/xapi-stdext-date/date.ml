@@ -50,8 +50,8 @@ type iso8601 =
 
 let to_string = function
   | Legacy x -> x
-  | UTC t    -> Ptime.to_rfc3339 ~tz_offset_s:0 (* to ensure Z printed, rather than +00:00 *)
-                                 t
+  | UTC t    -> Ptime.to_rfc3339 ~tz_offset_s:0 (* to ensure Z printed, rather than +00:00 *) t |>
+                Astring.String.filter (fun char -> char <> '-')
 
 let of_float x =
   let time = Unix.gmtime x in
