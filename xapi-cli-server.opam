@@ -16,7 +16,6 @@ depends: [
   "xapi-stdext-unix"
   "xapi-cli-protocol"
   "xapi-public"
-  "xapi-xva"
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """
