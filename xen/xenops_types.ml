@@ -17,14 +17,14 @@ end
 
 module Vgpu = struct
   type gvt_g = {
-    physical_pci_address: address option; (* unused; promoted to Vgpu.t *)
+    physical_pci_address: address option; (** unused; promoted to Vgpu.t *)
     low_gm_sz: int64;
     high_gm_sz: int64;
     fence_sz: int64;
     monitor_config_file: string option;
   } [@@deriving sexp, rpcty]
 
-  (* Example for nvidia:
+  (** Example for nvidia:
   {
     physical_pci_address : None
     config_file: None
@@ -35,16 +35,16 @@ module Vgpu = struct
   }
   *)
   type nvidia = {
-    physical_pci_address: address option; (* unused; promoted to Vgpu.t *)
+    physical_pci_address: address option; (** unused; promoted to Vgpu.t *)
     config_file: string option;
     virtual_pci_address: address [@default {domain = 0000; bus = 0; dev = 11; fn = 0}];
     type_id: string option;
     uuid: string option;
-    extra_args: string [@default ""]; (* string is passed on as is and no structure is assumed *)
+    extra_args: string [@default ""]; (** string is passed on as is and no structure is assumed *)
   } [@@deriving sexp, rpcty]
 
   type mxgpu = {
-    physical_function: address option; (* unused; promoted to Vgpu.t *)
+    physical_function: address option; (** unused; promoted to Vgpu.t *)
     vgpus_per_pgpu: int64;
     framebufferbytes: int64;
   } [@@deriving sexp, rpcty]
@@ -155,8 +155,8 @@ module Vm = struct
   [@@deriving rpcty, sexp]
 
   type scheduler_params = {
-    priority: (int * int) option; (* weight, cap *)
-    affinity: int list list (* vcpu -> pcpu list *)
+    priority: (int * int) option; (** weight, cap *)
+    affinity: int list list (** vcpu -> pcpu list *)
   } [@@deriving rpcty, sexp]
 
   type t = {
@@ -172,8 +172,8 @@ module Vm = struct
     memory_static_max: int64;
     memory_dynamic_max: int64;
     memory_dynamic_min: int64;
-    vcpu_max: int; (* boot-time maximum *)
-    vcpus: int;    (* ideal number to use *)
+    vcpu_max: int; (** boot-time maximum *)
+    vcpus: int;    (** ideal number to use *)
     scheduler_params: scheduler_params;
     on_crash: action list;
     on_shutdown: action list;
@@ -208,8 +208,8 @@ module Vm = struct
     memory_target: int64;
     memory_actual: int64;
     memory_limit: int64;
-    vcpu_target: int; (* actual number of vcpus *)
-    shadow_multiplier_target: float; (* actual setting *)
+    vcpu_target: int; (** actual number of vcpus *)
+    shadow_multiplier_target: float; (** actual setting *)
     rtc_timeoffset: string;
     uncooperative_balloon_driver: bool;
     guest_agent: (string * string) list;
@@ -217,8 +217,8 @@ module Vm = struct
     pv_drivers_detected: bool;
     last_start_time: float;
     hvm: bool;
-    nomigrate: bool; (* true: VM must not migrate *)
-    nested_virt: bool; (* true: VM uses nested virtualisation *)
+    nomigrate: bool; (** true means VM must not migrate *)
+    nested_virt: bool; (** true means VM uses nested virtualisation *)
     domain_type: domain_type;
   } [@@deriving rpcty, sexp]
 

@@ -20,7 +20,8 @@ let unbuffered_headers () =
   let ic = {
     header_buffer = Some "HTTP/200 OK\r\nHeader1: Val1\r\nHeader2: Val2\r\n\r\n";
     header_buffer_idx = 0;
-    fd = Unix.stdin; (* unused *)
+    (* unused *)
+    fd = Unix.stdin;
   } in
   Alcotest.(check (option string)) "header line 1" (Some "HTTP/200 OK") (read_line ic);
   Alcotest.(check (option string)) "header line 2" (Some "Header1: Val1") (read_line ic);

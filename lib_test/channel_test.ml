@@ -50,11 +50,13 @@ let check_for_leak_proxy () =
   let a, b = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let before = count_fds () in
   let c = dup_proxy a in
-  Thread.delay 1.0; (* background fd closing *)
+  (* background fd closing *)
+  Thread.delay 1.0;
   let after = count_fds () in
   Alcotest.(check int) "fds" (before + 2) after;
   Unix.close c;
-  Thread.delay 1.0; (* background fd closing *)
+  (* background fd closing *)
+  Thread.delay 1.0;
   let after' = count_fds () in
   Alcotest.(check int) "fds" before after'
 

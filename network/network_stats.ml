@@ -29,12 +29,12 @@ let checksum_bytes = 32
 let length_bytes = 8
 
 type iface_stats = {
-  tx_bytes: int64;  (* bytes emitted *)
-  tx_pkts: int64;   (* packets emitted *)
-  tx_errors: int64; (* error emitted *)
-  rx_bytes: int64;  (* bytes received *)
-  rx_pkts: int64;   (* packets received *)
-  rx_errors: int64; (* error received *)
+  tx_bytes: int64;  (** bytes emitted *)
+  tx_pkts: int64;   (** packets emitted *)
+  tx_errors: int64; (** error emitted *)
+  rx_bytes: int64;  (** bytes received *)
+  rx_pkts: int64;   (** packets received *)
+  rx_errors: int64; (** error received *)
   carrier: bool;
   speed: int;
   duplex: duplex;
@@ -85,16 +85,16 @@ module File_helpers = struct
 
   (** [fd_blocks_fold block_size f start fd] folds [f] over blocks (strings)
       from the fd [fd] with initial value [start] *)
-  let fd_blocks_fold block_size f start fd = 
+  let fd_blocks_fold block_size f start fd =
     let block = Bytes.create block_size in
-    let rec fold acc = 
+    let rec fold acc =
       let n = Unix.read fd block 0 block_size in
       (* Consider making the interface explicitly use Substrings *)
       let s = if n = block_size then (Bytes.to_string block) else Bytes.sub_string block 0 n in
       if n = 0 then acc else fold (f acc s) in
     fold start
 
-  let buffer_of_fd fd = 
+  let buffer_of_fd fd =
     fd_blocks_fold 1024 (fun b s -> Buffer.add_string b s; b) (Buffer.create 1024) fd
 
   let buffer_of_file file_path = with_file file_path [ Unix.O_RDONLY ] 0 buffer_of_fd

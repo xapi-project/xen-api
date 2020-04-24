@@ -84,29 +84,32 @@ let mib_of_pages_used   value = divide_rounding_up value pages_per_mib
 
 (* === Domain memory breakdown ======================================================= *)
 
-(*           ╤  ╔══════════╗                                              ╤            *)
-(*           │  ║ shadow   ║                                              │            *)
-(*           │  ╠══════════╣                                              │            *)
-(*  overhead │  ║ extra    ║                                              │            *)
-(*           │  ║ external ║                                              │            *)
-(*           │  ╠══════════╣                                   ╤          │            *)
-(*           │  ║ extra    ║                                   │          │            *)
-(*           │  ║ internal ║                                   │          │            *)
-(*           │  ╠══════════╣  ╤    ╤                 ╤         │          │ footprint  *)
-(*           │  ║ shim     ║  │    │                 │         │          │            *)
-(*           ╪  ╠══════════╣  ╧    ╧        ╤        │         │ xen      │            *)
-(*           │  ║ video    ║                │        │ actual  │ maximum  │            *)
-(*           │  ╠══════════╣  ╤    ╤        │        │ /       │          │            *)
-(*           │  ║          ║  │    │ build  │ target │ total   │          │            *)
-(*           │  ║ guest    ║  │    │ start  │        │         │          │            *)
-(*    static │  ║          ║  │    │        │        │         │          │            *)
-(*   maximum │  ╟──────────╢  │    ╧        ╧        ╧         ╧          ╧            *)
-(*           │  ║          ║  │                                                        *)
-(*           │  ║          ║  │                                                        *)
-(*           │  ║ balloon  ║  │ build                                                  *)
-(*           │  ║          ║  │ maximum                                                *)
-(*           │  ║          ║  │                                                        *)
-(*           ╧  ╚══════════╝  ╧                                                        *)
+(*
+             ╤  ╔══════════╗                                              ╤
+             │  ║ shadow   ║                                              │
+             │  ╠══════════╣                                              │
+    overhead │  ║ extra    ║                                              │
+             │  ║ external ║                                              │
+             │  ╠══════════╣                                   ╤          │
+             │  ║ extra    ║                                   │          │
+             │  ║ internal ║                                   │          │
+             │  ╠══════════╣  ╤    ╤                 ╤         │          │ footprint
+             │  ║ shim     ║  │    │                 │         │          │
+             ╪  ╠══════════╣  ╧    ╧        ╤        │         │ xen      │
+             │  ║ video    ║                │        │ actual  │ maximum  │
+             │  ╠══════════╣  ╤    ╤        │        │ /       │          │
+             │  ║          ║  │    │ build  │ target │ total   │          │
+             │  ║ guest    ║  │    │ start  │        │         │          │
+      static │  ║          ║  │    │        │        │         │          │
+     maximum │  ╟──────────╢  │    ╧        ╧        ╧         ╧          ╧
+             │  ║          ║  │
+             │  ║          ║  │
+             │  ║ balloon  ║  │ build
+             │  ║          ║  │ maximum
+             │  ║          ║  │
+             ╧  ╚══════════╝  ╧
+ *)
+  [@@ocamlformat "wrap-comments=false"]
 
 (* === Domain memory breakdown: HVM guests =========================================== *)
 

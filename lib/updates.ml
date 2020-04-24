@@ -26,13 +26,13 @@ module Updates = functor(Interface : INTERFACE) -> struct
 
     (* Type for inner snapshot that we create when injecting a barrier *)
     type barrier = {
-      bar_id: int;    (* This int is a token from outside. *)
-      map_s: int M.t;    (* Snapshot of main map *)
-      event_id: id    (* Snapshot of "next" from when barrier was injected *)
+      bar_id: int;    (** This int is a token from outside. *)
+      map_s: int M.t;    (** Snapshot of main map *)
+      event_id: id    (** Snapshot of "next" from when barrier was injected *)
     }
 
     type t = {
-      map: int M.t; (* Events with incrementing ids from "next" *)
+      map: int M.t; (** Events with incrementing ids from "next" *)
       barriers: barrier list;
       next: id
     }

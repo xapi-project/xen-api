@@ -36,7 +36,8 @@ let _vdi_resize = "VDI_RESIZE"
 
 (* Names which are likely to cause problems *)
 let names = [
-  "simple"; (* start with an easy one *)
+  (* start with an easy one *)
+  "simple";
   "";
   ".";
   "..";

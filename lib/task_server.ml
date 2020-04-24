@@ -68,24 +68,24 @@ module Task = functor (Interface : INTERFACE) -> struct
 
   module SMap = Map.Make(struct type t = string let compare = compare end)
 
-  (* Tasks are stored in an id -> t map *)
+  (** Tasks are stored in an id -> t map *)
   type id = string
 
-  (* A task is associated with every running operation *)
+  (** A task is associated with every running operation *)
   type task_handle = {
     tasks : tasks;
-    id: id;                                        (* unique task id *)
-    ctime: float;                                  (* created timestamp *)
-    dbg: string;                                   (* token sent by client *)
-    mutable state: Interface.Task.state;           (* current completion state *)
-    mutable subtasks: (string * Interface.Task.state) list; (* one level of "subtasks" *)
-    f: task_handle -> Interface.Task.async_result option;    (* body of the function *)
-    tm: Mutex.t;                                   (* protects cancelling state: *)
-    mutable cancelling: bool;                      (* set by cancel *)
-    mutable cancel: (unit -> unit) list;           (* attempt to cancel [f] *)
-    mutable cancel_points_seen: int;               (* incremented every time we pass a cancellation point *)
-    test_cancel_at: int option;                    (* index of the cancel point to trigger *)
-    mutable backtrace: Backtrace.t;                (* on error, a backtrace *)
+    id: id;                                        (** unique task id *)
+    ctime: float;                                  (** created timestamp *)
+    dbg: string;                                   (** token sent by client *)
+    mutable state: Interface.Task.state;           (** current completion state *)
+    mutable subtasks: (string * Interface.Task.state) list; (** one level of "subtasks" *)
+    f: task_handle -> Interface.Task.async_result option;    (** body of the function *)
+    tm: Mutex.t;                                   (** protects cancelling state *)
+    mutable cancelling: bool;                      (** set by cancel *)
+    mutable cancel: (unit -> unit) list;           (** attempt to cancel [f] *)
+    mutable cancel_points_seen: int;               (** incremented every time we pass a cancellation point *)
+    test_cancel_at: int option;                    (** index of the cancel point to trigger *)
+    mutable backtrace: Backtrace.t;                (** on error, a backtrace *)
     mutable cancellable: bool;
   }
 
@@ -140,7 +140,8 @@ module Task = functor (Interface : INTERFACE) -> struct
       cancel_points_seen = 0;
       test_cancel_at = (match tasks.test_cancel_trigger with
           | Some (dbg', n) when dbg = dbg' ->
-            clear_cancel_trigger tasks; (* one shot *)
+            (* one shot *)
+            clear_cancel_trigger tasks;
             Some n
           | _ -> None);
       backtrace = Backtrace.empty;
