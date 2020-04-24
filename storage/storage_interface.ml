@@ -668,6 +668,7 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.epoch_begin" [] (dbg_p @-> sr_p @-> vdi_p @-> vm_p @-> persistent_p @-> returning unit_p err)
 
     let read_write_p = Param.mk ~name:"read_write" Types.bool
+
     (** [attach task dp sr vdi read_write] returns the [params] for a given
         		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
         		is true.
@@ -680,7 +681,7 @@ module StorageAPI (R : RPC) = struct
 
     (** [attach2 task dp sr vdi read_write] returns the [params] for a given
         		[vdi] in [sr] which can be written to if (but not necessarily only if) [read_write]
-        		is true. 
+        		is true.
         @deprecated This function is deprecated, and is only here to keep backward
         compatibility with old xapis that call Remote.VDI.attach2 during SXM.
         Use the attach3 function instead. *)
@@ -696,7 +697,7 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.attach3" [] (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> vm_p @-> read_write_p @-> returning backend_p err)
 
     (** [activate task dp sr vdi] signals the desire to immediately use [vdi].
-        		This client must have called [attach] on the [vdi] first. 
+        		This client must have called [attach] on the [vdi] first.
         @deprecated This function is deprecated, and is only here to keep backward
         compatibility with old xapis that call Remote.VDI.activate during SXM.
         Use the activate3 function instead. *)
