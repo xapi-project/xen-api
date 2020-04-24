@@ -229,15 +229,21 @@ let run_hotplug_script device args =
     | Vbd _ -> !Xc_resources.vbd_script
     | Vif | Tap -> !Xc_resources.vif_script
     | _ -> failwith (Printf.sprintf "don't know how to run a hotplug script for: %s" kind) in
-  let env = Array.concat [ Unix.environment (); [|
+  let backend_prefix = match device.backend.domid with
+    | 0 -> ""
+    | id -> Printf.sprintf "/local/domain/%d/" id
+  in
+  let extra_env = [|
       "script=" ^ script;
       "XENBUS_TYPE=" ^ kind;
       "XENBUS_PATH=" ^ (Printf.sprintf "backend/%s/%d/%d" kind device.frontend.domid device.frontend.devid);
       "XENBUS_BASE_PATH=backend";
+      "XENBUS_PREFIX=" ^ backend_prefix;
       "INTERFACE=" ^ (Printf.sprintf "%s%d.%d" kind device.frontend.domid device.frontend.devid);
-    |] ] in
+    |] in
+  let env = Array.concat [ Unix.environment (); extra_env ] in
   try
-    debug "Running hotplug script %s %s" script (String.concat " " args);
+    debug "Running hotplug script %s %s (%s)" script (String.concat " " args) (Array.to_list extra_env |> String.concat " ");
     let stdout, stderr = Forkhelpers.execute_command_get_output ~env script args in
     debug "Got %s %s" stdout stderr;
     ()
