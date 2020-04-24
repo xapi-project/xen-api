@@ -13,4 +13,4 @@
  *)
 
 (* if this type-checks then the storage_skeleton is complete *)
-module Test = Storage_interface.Server(Storage_skeleton)
+module Test = Storage_interface.Server (Storage_skeleton)

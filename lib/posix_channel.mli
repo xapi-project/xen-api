@@ -12,10 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val send: Unix.file_descr -> Xcp_channel_protocol.t list
-(** [send fd] attempts to send the channel represented by [fd] to a
-    remote process. Note the file descriptor remains open in the
-    original process and should still be closed normally.  *)
+val send : Unix.file_descr -> Xcp_channel_protocol.t list
+(** [send fd] attempts to send the channel represented by [fd] to a remote
+    process. Note the file descriptor remains open in the original process and
+    should still be closed normally. *)
 
-val receive: Xcp_channel_protocol.t list -> Unix.file_descr
+val receive : Xcp_channel_protocol.t list -> Unix.file_descr
 (** [receive protocols] receives a channel from a remote. *)

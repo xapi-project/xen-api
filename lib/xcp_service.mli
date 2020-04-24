@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val common_prefix: string
+val common_prefix : string
 
 type opt = string * Arg.spec * (unit -> string) * string
 
@@ -21,44 +21,45 @@ module Config_file : sig
 end
 
 type res = {
-	name: string;
-	description: string;
-	essential: bool;
-	path: string ref;
-	perms: Unix.access_permission list;
+    name: string
+  ; description: string
+  ; essential: bool
+  ; path: string ref
+  ; perms: Unix.access_permission list
 }
 
-val configure: ?options:opt list -> ?resources:res list -> unit -> unit
+val configure : ?options:opt list -> ?resources:res list -> unit -> unit
 
-type ('a, 'b) error = [
-  | `Ok of 'a
-  | `Error of 'b
-]
+type ('a, 'b) error = [`Ok of 'a | `Error of 'b]
 
-val configure2:
-  name:string ->
-  version:string ->
-  doc:string ->
-  ?options:opt list -> ?resources:res list -> unit ->
-  (unit, string) error
+val configure2 :
+     name:string
+  -> version:string
+  -> doc:string
+  -> ?options:opt list
+  -> ?resources:res list
+  -> unit
+  -> (unit, string) error
 (** More advanced service configuration with manpage generation *)
 
 type server
 
-val make_socket_server: string -> (Unix.file_descr -> unit) -> server
+val make_socket_server : string -> (Unix.file_descr -> unit) -> server
 
-val make: path:string ->
-	queue_name:string ->
-	?raw_fn: (Unix.file_descr -> unit) ->
-	rpc_fn: (Rpc.call -> Rpc.response) ->
-	unit ->
-	server
+val make :
+     path:string
+  -> queue_name:string
+  -> ?raw_fn:(Unix.file_descr -> unit)
+  -> rpc_fn:(Rpc.call -> Rpc.response)
+  -> unit
+  -> server
 
-val serve_forever: server -> unit
+val serve_forever : server -> unit
 
-val daemon: bool ref
-val loglevel: unit -> Syslog.level
+val daemon : bool ref
 
-val daemonize: ?start_fn:(unit -> unit) -> unit -> unit
+val loglevel : unit -> Syslog.level
 
-val maybe_daemonize: ?start_fn:(unit -> unit) -> unit -> unit
+val daemonize : ?start_fn:(unit -> unit) -> unit -> unit
+
+val maybe_daemonize : ?start_fn:(unit -> unit) -> unit -> unit

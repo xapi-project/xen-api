@@ -34,6 +34,10 @@ doc:
 gh-pages:
 	bash .docgen.sh
 
+# requires ocamlformat
+format:
+	dune build @fmt --auto-promote
+
 reindent:
 	git ls-files '*.ml' '*.mli' | xargs ocp-indent --syntax cstruct -i
 

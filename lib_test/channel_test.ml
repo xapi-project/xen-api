@@ -20,11 +20,13 @@ let dup_automatic x =
 
 let dup_sendmsg x =
   let protos = Posix_channel.send x in
-  let proto = List.find (function
-      | Xcp_channel_protocol.Unix_sendmsg(_, _, _) -> true
-      | _ -> false
-    ) protos in
-  Posix_channel.receive [ proto ]
+  let proto =
+    List.find
+      (function
+        | Xcp_channel_protocol.Unix_sendmsg (_, _, _) -> true | _ -> false)
+      protos
+  in
+  Posix_channel.receive [proto]
 
 let count_fds () = Array.length (Sys.readdir "/proc/self/fd")
 
@@ -33,38 +35,40 @@ let check_for_leak dup_function () =
   let before = count_fds () in
   let stdout2 = dup_function Unix.stdout in
   let after = count_fds () in
-  Alcotest.(check int) "fds" (before + 1) after;
-  Unix.close stdout2;
+  Alcotest.(check int) "fds" (before + 1) after ;
+  Unix.close stdout2 ;
   let after' = count_fds () in
   Alcotest.(check int) "fds" before after'
 
 let dup_proxy x =
   let protos = Posix_channel.send x in
-  let proto = List.find (function
-      | Xcp_channel_protocol.TCP_proxy(ip, port) -> true
-      | _ -> false
-    ) protos in
-  Posix_channel.receive [ proto ]
+  let proto =
+    List.find
+      (function
+        | Xcp_channel_protocol.TCP_proxy (ip, port) -> true | _ -> false)
+      protos
+  in
+  Posix_channel.receive [proto]
 
 let check_for_leak_proxy () =
   let a, b = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let before = count_fds () in
   let c = dup_proxy a in
   (* background fd closing *)
-  Thread.delay 1.0;
+  Thread.delay 1.0 ;
   let after = count_fds () in
-  Alcotest.(check int) "fds" (before + 2) after;
-  Unix.close c;
+  Alcotest.(check int) "fds" (before + 2) after ;
+  Unix.close c ;
   (* background fd closing *)
-  Thread.delay 1.0;
+  Thread.delay 1.0 ;
   let after' = count_fds () in
   Alcotest.(check int) "fds" before after'
 
 let tests =
   [
-    "check_for_leak with automatic selection", `Quick, (check_for_leak dup_automatic);
-    "check_for_leak with sendmsg", `Quick, (check_for_leak dup_sendmsg);
-    "check_for_leak_proxy", `Quick, check_for_leak_proxy;
+    ( "check_for_leak with automatic selection"
+    , `Quick
+    , check_for_leak dup_automatic )
+  ; ("check_for_leak with sendmsg", `Quick, check_for_leak dup_sendmsg)
+  ; ("check_for_leak_proxy", `Quick, check_for_leak_proxy)
   ]
-
-

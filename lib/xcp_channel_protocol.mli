@@ -13,10 +13,10 @@
  *)
 
 type t =
-  | TCP_proxy of string * int             (** IP, port *)
-  | V4V_proxy of int * int                (** domid, port *)
-  | Unix_sendmsg of int * string * string (** domid, path, token *)
+  | TCP_proxy of string * int  (** IP, port *)
+  | V4V_proxy of int * int  (** domid, port *)
+  | Unix_sendmsg of int * string * string  (** domid, path, token *)
 
-val rpc_of_t: t -> Rpc.t
-val t_of_rpc: Rpc.t -> t
+val rpc_of_t : t -> Rpc.t
 
+val t_of_rpc : Rpc.t -> t

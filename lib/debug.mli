@@ -20,15 +20,17 @@ val init_logs : unit -> unit
 
 (** {2 Associate a task to the current actions} *)
 
-(** Do an action with a task name associated with the current thread *)
 val with_thread_associated : string -> ('a -> 'b) -> 'a -> 'b
+(** Do an action with a task name associated with the current thread *)
 
 (** {2 Associate a name to the current thread} *)
 
-(** Do an action with a name associated with the current thread *)
 val with_thread_named : string -> ('a -> 'b) -> 'a -> 'b
+(** Do an action with a name associated with the current thread *)
 
-module type BRAND = sig val name : string end
+module type BRAND = sig
+  val name : string
+end
 
 val gettimestring : unit -> string
 (** The current time of day in a format suitable for logging *)
@@ -37,13 +39,13 @@ val set_facility : Syslog.facility -> unit
 (** Set the syslog facility that will be used by this program. *)
 
 val disable : ?level:Syslog.level -> string -> unit
-(** [disable brand] Suppress all log output from the given [brand]. Specifying a [level] disables
- *  only this log level, otherwise all levels for the given [brand] are disabled.
- *  This function is idempotent. *)
+(** [disable brand] Suppress all log output from the given [brand]. Specifying a
+    [level] disables * only this log level, otherwise all levels for the given
+    [brand] are disabled. * This function is idempotent. *)
 
 val set_level : Syslog.level -> unit
-(** [set_level level] Disable all log output below [level].
- *  This function is idempotent. *)
+(** [set_level level] Disable all log output below [level]. * This function is
+    idempotent. *)
 
 val disabled_modules : unit -> (string * Syslog.level) list
 (** List describing which modules have logging currently disabled *)
@@ -51,31 +53,31 @@ val disabled_modules : unit -> (string * Syslog.level) list
 val log_to_stdout : unit -> unit
 (** [log_to_stdout ()] will echo all log output to stdout (not the default) *)
 
-val log_backtrace: exn -> Backtrace.t -> unit
+val log_backtrace : exn -> Backtrace.t -> unit
 (** Write the backtrace associated with [exn] to the log *)
 
 module type DEBUG = sig
-	(** Debug function *)
-	val debug : ('a, unit, string, unit) format4 -> 'a
+  val debug : ('a, unit, string, unit) format4 -> 'a
+  (** Debug function *)
 
-	(** Warn function *)
-	val warn : ('a, unit, string, unit) format4 -> 'a
+  val warn : ('a, unit, string, unit) format4 -> 'a
+  (** Warn function *)
 
-	(** Info function *)
-	val info : ('a, unit, string, unit) format4 -> 'a
+  val info : ('a, unit, string, unit) format4 -> 'a
+  (** Info function *)
 
-	(** Error function *)
-	val error : ('a, unit, string, unit) format4 -> 'a
+  val error : ('a, unit, string, unit) format4 -> 'a
+  (** Error function *)
 
-	(** Critical function *)
-	val critical : ('a, unit, string, unit) format4 -> 'a
+  val critical : ('a, unit, string, unit) format4 -> 'a
+  (** Critical function *)
 
-	(** Audit function *)
-	val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
+  val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
+  (** Audit function *)
 
-	val log_backtrace : unit -> unit
+  val log_backtrace : unit -> unit
 
-	val log_and_ignore_exn : (unit -> unit) -> unit
+  val log_and_ignore_exn : (unit -> unit) -> unit
 end
 
 module Make : functor (Brand : BRAND) -> DEBUG
@@ -83,5 +85,5 @@ module Make : functor (Brand : BRAND) -> DEBUG
 (** {3 Utility functions for the test code} *)
 
 val is_disabled : string -> Syslog.level -> bool
-(** [is_disabled brand level] returns [true] if logging for [brand] at [level] is disabled,
- *  otherwise returns [false]. *)
+(** [is_disabled brand level] returns [true] if logging for [brand] at [level]
+    is disabled, * otherwise returns [false]. *)

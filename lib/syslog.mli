@@ -13,8 +13,9 @@
  *)
 
 type level = Emerg | Alert | Crit | Err | Warning | Notice | Info | Debug
+
 type facility =
-    Auth
+  | Auth
   | Authpriv
   | Cron
   | Daemon
@@ -36,19 +37,21 @@ type facility =
   | Uucp
 
 external log : facility -> level -> string -> unit = "stub_syslog"
+
 external close : unit -> unit = "stub_closelog"
 
 val facility_of_string : string -> facility
-(** [facility_of_string facility] Return the Syslog facility corresponding to [facility].
-    Raises [Unknown_facility facility] if facility is unrecognized. *)
+(** [facility_of_string facility] Return the Syslog facility corresponding to
+    [facility]. Raises [Unknown_facility facility] if facility is unrecognized. *)
 
 val level_of_string : string -> level
 (** [level_of_string level] Return the Syslog level corresponding to [level].
     Raises [Unknown_level level] if level is unrecognized. *)
 
 val string_of_level : level -> string
-(** [string_of_level level] Return the string corresponding to the Syslog level [level] *)
+(** [string_of_level level] Return the string corresponding to the Syslog level
+    [level] *)
 
 val is_masked : threshold:level -> level -> bool
-(** [is_masked ~threshold level] Return true if [level] is below [threshold] and should therefore
-    not be logged. *)
+(** [is_masked ~threshold level] Return true if [level] is below [threshold] and
+    should therefore not be logged. *)

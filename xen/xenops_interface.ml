@@ -18,9 +18,7 @@
 open Rpc
 open Idl
 
-module D = Debug.Make (struct
-  let name = "xenops_interface"
-end)
+module D = Debug.Make (struct let name = "xenops_interface" end)
 
 open D
 
@@ -29,42 +27,49 @@ type rpc_t = Rpc.t
 let typ_of_rpc_t =
   let open Types in
   Abstract
-    { aname= "Rpc.t"
+    {
+      aname= "Rpc.t"
     ; test_data= [Null]
     ; rpc_of= (fun x -> x)
-    ; of_rpc= (fun x -> Ok x) }
+    ; of_rpc= (fun x -> Ok x)
+    }
 
 module TypeCombinators = struct
-  let option ?name ?(description= []) d =
+  let option ?name ?(description = []) d =
     let open Rpc.Types in
     let name =
       match name with Some n -> n | None -> Printf.sprintf "%s option" d.name
     in
     {name; description; ty= Option d.ty}
 
-  let list ?name ?(description= []) d =
+  let list ?name ?(description = []) d =
     let open Rpc.Types in
     let name =
       match name with
-      | Some n -> n
-      | None -> Printf.sprintf "list of %ss" d.name
+      | Some n ->
+          n
+      | None ->
+          Printf.sprintf "list of %ss" d.name
     in
     {name; description; ty= List d.ty}
 
-  let pair ?name ?(description= []) (p1, p2) =
+  let pair ?name ?(description = []) (p1, p2) =
     let open Rpc.Types in
     let name =
       match name with
-      | Some n -> n
-      | None -> Printf.sprintf "pair of %s and %s" p1.name p2.name
+      | Some n ->
+          n
+      | None ->
+          Printf.sprintf "pair of %s and %s" p1.name p2.name
     in
     {name; description; ty= Tuple (p1.ty, p2.ty)}
 
-  let triple ?name ?(description= []) (p1, p2, p3) =
+  let triple ?name ?(description = []) (p1, p2, p3) =
     let open Rpc.Types in
     let name =
       match name with
-      | Some n -> n
+      | Some n ->
+          n
       | None ->
           Printf.sprintf "triple of %s, %s and %s" p1.name p2.name p3.name
     in
@@ -125,7 +130,8 @@ module Errors = struct
     | Failed_to_start_emulator of (string * string * string)
     | Ballooning_timeout_before_migration
     | Internal_error of string
-    | Unknown_error [@@default Unknown_error] [@@deriving rpcty]
+    | Unknown_error
+  [@@default Unknown_error] [@@deriving rpcty]
 end
 
 exception Xenopsd_error of Errors.error
@@ -138,39 +144,41 @@ let () =
   in
   let printer = function
     | Xenopsd_error e ->
-        Some
-          (sprintf "Xenops_interface.Xenopsd_error(%s)" (string_of_error e))
-    | _ -> None
+        Some (sprintf "Xenops_interface.Xenopsd_error(%s)" (string_of_error e))
+    | _ ->
+        None
   in
   Printexc.register_printer printer
 
 let err =
   let open Error in
-  { def= Errors.error
+  {
+    def= Errors.error
   ; raiser=
       (fun e ->
         let exn = Xenopsd_error e in
         error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-        raise exn )
+        raise exn)
   ; matcher=
       (function
-        | Xenopsd_error e as exn ->
-            error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-            Some e
-        | exn ->
-            error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
-            Some (Internal_error (Printexc.to_string exn))) }
+      | Xenopsd_error e as exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
+          Some e
+      | exn ->
+          error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
+          Some (Internal_error (Printexc.to_string exn)))
+  }
 
 type debug_info = string [@@deriving rpcty]
 
 module Query = struct
-  type t =
-    { name: string
+  type t = {
+      name: string
     ; vendor: string
     ; version: string
     ; features: string list
-    ; instance_id: string
-    (* Unique to this invocation of xenopsd *) }
+    ; instance_id: string (* Unique to this invocation of xenopsd *)
+  }
   [@@deriving rpcty]
 end
 
@@ -179,10 +187,10 @@ type disk_list = disk list
 (* XXX: this code shouldn't care about the vswitch/bridge difference *)
 module Network = struct
   type t =
-    | Local of string            (** Name of a local switch *)
+    | Local of string  (** Name of a local switch *)
     | Remote of string * string  (** Vm.id * switch *)
-    | Sriov of Xcp_pci.address   (** Xcp_pci.address *)
-    [@@deriving rpcty]
+    | Sriov of Xcp_pci.address  (** Xcp_pci.address *)
+  [@@deriving rpcty]
 
   let default_network = Local "xenbr0"
 
@@ -194,12 +202,13 @@ module Pci = struct
 
   type id = string * string [@@deriving rpcty]
 
-  type t =
-    { id: id
+  type t = {
+      id: id
     ; position: int
     ; address: address
     ; msitranslate: bool option
-    ; power_mgmt: bool option }
+    ; power_mgmt: bool option
+  }
   [@@deriving rpcty]
 
   type state = {plugged: bool} [@@deriving rpcty]
@@ -212,17 +221,20 @@ module Vgpu = struct
     | GVT_g of gvt_g
     | Nvidia of nvidia
     | MxGPU of mxgpu
-    | Empty [@@default Empty] [@@deriving rpcty]
+    | Empty
+  [@@default Empty] [@@deriving rpcty]
 
   type id = string * string [@@deriving rpcty]
 
-  let pci_default = Pci.{domain = 0; bus = 0; dev = 0; fn = 0}
-  type t =
-    { id: id [@default "", ""]
+  let pci_default = Pci.{domain= 0; bus= 0; dev= 0; fn= 0}
+
+  type t = {
+      id: id [@default "", ""]
     ; position: int [@default 0]
-    ; virtual_pci_address: Pci.address option [@default None]  (* SRIOV VF *)
+    ; virtual_pci_address: Pci.address option [@default None] (* SRIOV VF *)
     ; physical_pci_address: Pci.address [@default pci_default]
-    ; implementation: implementation [@default Empty] }
+    ; implementation: implementation [@default Empty]
+  }
   [@@deriving rpcty]
 
   let upgrade_pci_info x =
@@ -230,25 +242,31 @@ module Vgpu = struct
     | {implementation= GVT_g {physical_pci_address= Some address; _}; _}
     | {implementation= Nvidia {physical_pci_address= Some address; _}; _}
     | {implementation= MxGPU {physical_function= Some address; _}; _} ->
-      {x with physical_pci_address= address}
-    | _ -> x
+        {x with physical_pci_address= address}
+    | _ ->
+        x
 
-  type state = {active: bool; plugged: bool; emulator_pid: int option} [@@deriving rpcty]
+  type state = {active: bool; plugged: bool; emulator_pid: int option}
+  [@@deriving rpcty]
 end
 
 module Vusb = struct
   type id = string * string [@@deriving rpcty]
 
-  type t =
-    {id: id; hostbus: string; hostport: string; version: string; path: string; speed: float}
+  type t = {
+      id: id
+    ; hostbus: string
+    ; hostport: string
+    ; version: string
+    ; path: string
+    ; speed: float
+  }
   [@@deriving rpcty]
 
   type state = {plugged: bool} [@@deriving rpcty]
 end
 
-module Vm = struct
-  include Xenops_types.Vm
-end
+module Vm = struct include Xenops_types.Vm end
 
 module Vbd = struct
   type mode = ReadOnly | ReadWrite [@@deriving rpcty]
@@ -267,8 +285,8 @@ module Vbd = struct
 
   type qos = Ionice of qos_scheduler [@@deriving rpcty]
 
-  type t =
-    { id: id [@default "", ""]
+  type t = {
+      id: id [@default "", ""]
     ; position: Device_number.t option [@default None]
     ; mode: mode [@default ReadWrite]
     ; backend: disk option [@default None]
@@ -277,14 +295,16 @@ module Vbd = struct
     ; extra_backend_keys: (string * string) list [@default []]
     ; extra_private_keys: (string * string) list [@default []]
     ; qos: qos option [@default None]
-    ; persistent: bool [@default true] }
+    ; persistent: bool [@default true]
+  }
   [@@deriving rpcty]
 
-  type state =
-    { active: bool
+  type state = {
+      active: bool
     ; plugged: bool
     ; qos_target: qos option
-    ; backend_present: disk option }
+    ; backend_present: disk option
+  }
   [@@deriving rpcty]
 end
 
@@ -333,8 +353,8 @@ module Vif = struct
     type t = site * server list * interface [@@deriving rpcty]
   end
 
-  type t =
-    { id: id [@default "", ""]
+  type t = {
+      id: id [@default "", ""]
     ; position: int [@default 0]
     ; mac: string [@default "fe:ff:ff:ff:ff:ff"]
     ; carrier: bool [@default true]
@@ -345,32 +365,35 @@ module Vif = struct
     ; locking_mode: locking_mode [@default default_locking_mode]
     ; extra_private_keys: (string * string) list [@default []]
     ; ipv4_configuration: ipv4_configuration
-           [@default default_ipv4_configuration]
+          [@default default_ipv4_configuration]
     ; ipv6_configuration: ipv6_configuration
-           [@default default_ipv6_configuration]
+          [@default default_ipv6_configuration]
     ; pvs_proxy: PVS_proxy.t option [@default None]
-    ; vlan: int64 option [@default None] }
+    ; vlan: int64 option [@default None]
+  }
   [@@deriving rpcty]
 
-  type state =
-    { active: bool
+  type state = {
+      active: bool
     ; plugged: bool
     ; kthread_pid: int
     ; media_present: bool
     ; device: string option
-    ; pvs_rules_active: bool }
+    ; pvs_rules_active: bool
+  }
   [@@deriving rpcty]
 end
 
 module Metadata = struct
-  type t =
-    { vm: Vm.t
+  type t = {
+      vm: Vm.t
     ; vbds: Vbd.t list [@default []]
     ; vifs: Vif.t list [@default []]
     ; pcis: Pci.t list [@default []]
     ; vgpus: Vgpu.t list [@default []]
     ; vusbs: Vusb.t list [@default []]
-    ; domains: string option [@default None] }
+    ; domains: string option [@default None]
+  }
   [@@deriving rpcty]
 end
 
@@ -385,16 +408,17 @@ module Task = struct
   type state = Pending of float | Completed of completion_t | Failed of rpc_t
   [@@deriving rpcty]
 
-  type t =
-    { id: id
+  type t = {
+      id: id
     ; dbg: string
     ; ctime: float
     ; state: state
     ; subtasks: (string * state) list
     ; debug_info: (string * string) list
-    ; backtrace: string (* An s-expression encoded Backtrace.t *)
-    ; cancellable: bool
-    }
+    ; backtrace: string
+    ; (* An s-expression encoded Backtrace.t *)
+      cancellable: bool
+  }
   [@@deriving rpcty]
 
   type t_list = t list [@@deriving rpcty]
@@ -427,8 +451,8 @@ module Dynamic = struct
 end
 
 module Host = struct
-  type cpu_info =
-    { cpu_count: int
+  type cpu_info = {
+      cpu_count: int
     ; socket_count: int
     ; vendor: string
     ; speed: string
@@ -442,21 +466,26 @@ module Host = struct
     ; features_hvm: int64 array
     ; features_pv_host: int64 array
     ; features_hvm_host: int64 array
-    ; features_oldstyle: int64 array }
+    ; features_oldstyle: int64 array
+  }
   [@@deriving rpcty]
 
   type chipset_info = {iommu: bool; hvm: bool} [@@deriving rpcty]
 
   type hypervisor = {version: string; capabilities: string} [@@deriving rpcty]
 
-  type t =
-    { cpu_info: cpu_info
+  type t = {
+      cpu_info: cpu_info
     ; hypervisor: hypervisor
-    ; chipset_info: chipset_info }
+    ; chipset_info: chipset_info
+  }
   [@@deriving rpcty]
 
-  type guest_agent_feature =
-    {name: string; licensed: bool; parameters: (string * string) list}
+  type guest_agent_feature = {
+      name: string
+    ; licensed: bool
+    ; parameters: (string * string) list
+  }
   [@@deriving rpcty]
 
   type guest_agent_feature_list = guest_agent_feature list [@@deriving rpcty]
@@ -467,10 +496,12 @@ module XenopsAPI (R : RPC) = struct
 
   let description =
     let open Interface in
-    { name= "Xen"
+    {
+      name= "Xen"
     ; namespace= None
     ; description= ["This interface is used by xapi to talk to xenopsd"]
-    ; version= (1, 0, 0) }
+    ; version= (1, 0, 0)
+    }
 
   let implementation = implement description
 
@@ -490,12 +521,11 @@ module XenopsAPI (R : RPC) = struct
   let get_diagnostics =
     let result_p = Param.mk Rpc.Types.string in
     declare "get_diagnostics"
-          ["Get diagnostics information from the backend"]
+      ["Get diagnostics information from the backend"]
       (debug_info_p @-> unit_p @-> returning result_p err)
 
   module TASK = struct
-    let task_id_p =
-      Param.mk ~description:["Task identifier"] ~name:"id" Task.id
+    let task_id_p = Param.mk ~description:["Task identifier"] ~name:"id" Task.id
 
     let task_t_p =
       Param.mk ~description:["The state of the task"] ~name:"task" Task.t
@@ -505,7 +535,8 @@ module XenopsAPI (R : RPC) = struct
         Task.t_list
 
     let stat =
-      declare "Task.stat" ["Get the state of the task"]
+      declare "Task.stat"
+        ["Get the state of the task"]
         (debug_info_p @-> task_id_p @-> returning task_t_p err)
 
     let cancel =
@@ -517,14 +548,14 @@ module XenopsAPI (R : RPC) = struct
         (debug_info_p @-> task_id_p @-> returning unit_p err)
 
     let list =
-      declare "Task.list" ["List all the current tasks"]
+      declare "Task.list"
+        ["List all the current tasks"]
         (debug_info_p @-> returning task_list_p err)
   end
 
   module HOST = struct
     let host_t_p =
-      Param.mk ~description:["The state of the host"] ~name:"host"
-        Host.t
+      Param.mk ~description:["The state of the host"] ~name:"host" Host.t
 
     let console_data_p =
       Param.mk ~description:["The console data"] ~name:"console_data"
@@ -538,8 +569,9 @@ module XenopsAPI (R : RPC) = struct
       Param.mk ~description:["The debug keys"] ~name:"debug_keys" Types.string
 
     let pool_size_p =
-      Param.mk ~description:["The size of the worker pool"] ~name:"pool_size"
-        Types.int
+      Param.mk
+        ~description:["The size of the worker pool"]
+        ~name:"pool_size" Types.int
 
     let feature_list_p =
       Param.mk ~description:["The list of features"] ~name:"features"
@@ -548,19 +580,23 @@ module XenopsAPI (R : RPC) = struct
     type cpu_features_array = int64 array [@@deriving rpcty]
 
     let cpu_features_array_p =
-      Param.mk ~description:["An array containing the raw CPU feature flags"]
+      Param.mk
+        ~description:["An array containing the raw CPU feature flags"]
         ~name:"features_array" cpu_features_array
 
     let stat =
-      declare "HOST.stat" ["Get the state of the host"]
+      declare "HOST.stat"
+        ["Get the state of the host"]
         (debug_info_p @-> returning host_t_p err)
 
     let get_console_data =
-      declare "HOST.get_console_data" ["Get the console data of the host"]
+      declare "HOST.get_console_data"
+        ["Get the console data of the host"]
         (debug_info_p @-> returning console_data_p err)
 
     let get_total_memory_mib =
-      declare "HOST.get_total_memory_mib" ["Get the total memory of the host"]
+      declare "HOST.get_total_memory_mib"
+        ["Get the total memory of the host"]
         (debug_info_p @-> returning memory_p err)
 
     let send_debug_keys =
@@ -578,8 +614,11 @@ module XenopsAPI (R : RPC) = struct
     let upgrade_cpu_features =
       let is_hvm_p = Param.mk ~name:"is_hvm" Types.bool in
       declare "HOST.upgrade_cpu_features" []
-        ( debug_info_p @-> cpu_features_array_p @-> is_hvm_p
-        @-> returning cpu_features_array_p err )
+        (debug_info_p
+        @-> cpu_features_array_p
+        @-> is_hvm_p
+        @-> returning cpu_features_array_p err
+        )
   end
 
   module VM = struct
@@ -605,15 +644,18 @@ module XenopsAPI (R : RPC) = struct
 
     let migrate =
       let vdimap =
-        Param.mk ~name:"vdi_map" ~description:["Map of src VDI -> dest VDI"]
+        Param.mk ~name:"vdi_map"
+          ~description:["Map of src VDI -> dest VDI"]
           (list (pair (Types.string, Types.string)))
       in
       let vifmap =
-        Param.mk ~name:"vif_map" ~description:["Map of src VIF -> dest network"]
+        Param.mk ~name:"vif_map"
+          ~description:["Map of src VIF -> dest network"]
           (list (pair (Types.string, Network.t)))
       in
       let pcimap =
-        Param.mk ~name:"pci_map" ~description:["Map of src PCI -> dest PCI"]
+        Param.mk ~name:"pci_map"
+          ~description:["Map of src PCI -> dest PCI"]
           (list (pair (Types.string, Pci.address)))
       in
       let xenops_url =
@@ -622,8 +664,14 @@ module XenopsAPI (R : RPC) = struct
           Types.string
       in
       declare "VM.migrate" []
-        ( debug_info_p @-> vm_id_p @-> vdimap @-> vifmap @-> pcimap
-        @-> xenops_url @-> returning task_id_p err )
+        (debug_info_p
+        @-> vm_id_p
+        @-> vdimap
+        @-> vifmap
+        @-> pcimap
+        @-> xenops_url
+        @-> returning task_id_p err
+        )
 
     let create =
       declare "VM.create" []
@@ -658,34 +706,46 @@ module XenopsAPI (R : RPC) = struct
 
     let run_script =
       declare "VM.run_script" []
-        ( debug_info_p @-> vm_id_p
+        (debug_info_p
+        @-> vm_id_p
         @-> Param.mk ~name:"script" Types.string
-        @-> returning task_id_p err )
+        @-> returning task_id_p err
+        )
 
     let set_xsdata =
       declare "VM.set_xsdata" []
-        ( debug_info_p @-> vm_id_p
+        (debug_info_p
+        @-> vm_id_p
         @-> Param.mk ~name:"xsdata" (list (pair (Types.string, Types.string)))
-        @-> returning task_id_p err )
+        @-> returning task_id_p err
+        )
 
     let set_vcpus =
       declare "VM.set_vcpus" []
-        ( debug_info_p @-> vm_id_p
+        (debug_info_p
+        @-> vm_id_p
         @-> Param.mk ~name:"vcpus" Types.int
-        @-> returning task_id_p err )
+        @-> returning task_id_p err
+        )
 
     let set_shadow_multiplier =
       declare "VM.set_shadow_multiplier" []
-        ( debug_info_p @-> vm_id_p
+        (debug_info_p
+        @-> vm_id_p
         @-> Param.mk ~name:"multiplier" Types.float
-        @-> returning task_id_p err )
+        @-> returning task_id_p err
+        )
 
     let set_memory_dynamic_range =
       let min_p = Param.mk ~name:"minimum" Types.int64 in
       let max_p = Param.mk ~name:"maximum" Types.int64 in
       declare "VM.set_memory_dynamic_range" []
-        ( debug_info_p @-> vm_id_p @-> min_p @-> max_p
-        @-> returning task_id_p err )
+        (debug_info_p
+        @-> vm_id_p
+        @-> min_p
+        @-> max_p
+        @-> returning task_id_p err
+        )
 
     let stat =
       let stat_p = Param.mk (pair (Vm.t, Vm.state)) in
@@ -702,9 +762,11 @@ module XenopsAPI (R : RPC) = struct
 
     let delay =
       declare "VM.delay" []
-        ( debug_info_p @-> vm_id_p
+        (debug_info_p
+        @-> vm_id_p
         @-> Param.mk ~name:"delay" Types.float
-        @-> returning task_id_p err )
+        @-> returning task_id_p err
+        )
 
     let start =
       let paused_p = Param.mk ~name:"paused" Types.bool in
@@ -745,16 +807,19 @@ module XenopsAPI (R : RPC) = struct
 
     let import_metadata =
       declare "VM.import_metadata" []
-        ( debug_info_p
+        (debug_info_p
         @-> Param.mk ~name:"metadata" Types.string
-        @-> returning vm_id_p err )
+        @-> returning vm_id_p err
+        )
   end
 
   module PCI = struct
     open TypeCombinators
 
     let pci_t_p = Param.mk ~name:"pci" Pci.t
+
     let pci_id_p = Param.mk ~name:"id" Pci.id
+
     let pci_addr_p = Param.mk ~name:"pci_addr" Pci.address
 
     let add =
@@ -776,7 +841,8 @@ module XenopsAPI (R : RPC) = struct
         (debug_info_p @-> VM.vm_id_p @-> returning stat_list_p err)
 
     let dequarantine =
-      declare "PCI.dequarantine" ["De-quarantine PCI device into dom0"]
+      declare "PCI.dequarantine"
+        ["De-quarantine PCI device into dom0"]
         (debug_info_p @-> pci_addr_p @-> returning unit_p err)
   end
 
@@ -913,8 +979,11 @@ module XenopsAPI (R : RPC) = struct
     let set_locking_mode =
       let locking_mode_p = Param.mk ~name:"locking_mode" Vif.locking_mode in
       declare "VIF.set_locking_mode" []
-        ( debug_info_p @-> vif_id_p @-> locking_mode_p
-        @-> returning task_id_p err )
+        (debug_info_p
+        @-> vif_id_p
+        @-> locking_mode_p
+        @-> returning task_id_p err
+        )
 
     let set_ipv4_configuration =
       let config_p =
@@ -1002,10 +1071,11 @@ module XenopsAPI (R : RPC) = struct
 
     let trigger =
       declare "DEBUG.trigger" []
-        ( debug_info_p
+        (debug_info_p
         @-> Param.mk ~name:"cmd" Types.string
         @-> Param.mk ~name:"args" (list Types.string)
-        @-> returning unit_p err )
+        @-> returning unit_p err
+        )
 
     let shutdown =
       declare "DEBUG.shutdown" []

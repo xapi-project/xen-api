@@ -16,12 +16,15 @@ open Memory_interface
 open Xcp_client
 
 let json_url () = "file:" ^ json_path
+
 let xml_url () = "file:" ^ xml_path
 
 let rpc call =
-		if !use_switch
-		then json_switch_rpc queue_name call
-		else xml_http_rpc ~srcstr:"xenops" ~dststr:"squeezed" xml_url call
+  if !use_switch then
+    json_switch_rpc queue_name call
+  else
+    xml_http_rpc ~srcstr:"xenops" ~dststr:"squeezed" xml_url call
 
-module Client = Memory_interface.API(Idl.Exn.GenClient(struct let rpc=rpc end))
-
+module Client = Memory_interface.API (Idl.Exn.GenClient (struct
+  let rpc = rpc
+end))

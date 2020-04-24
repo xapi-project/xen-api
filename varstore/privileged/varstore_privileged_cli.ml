@@ -13,6 +13,7 @@
  *)
 
 open Varstore_privileged_interface
+
 module Cmds = RPC_API (Cmdlinergen.Gen ())
 
 let version_str description =
@@ -21,23 +22,29 @@ let version_str description =
 
 let default_cmd =
   let doc =
-    String.concat
-      " "
-      [ "A CLI for the deprivileged socket spawning API."
+    String.concat " "
+      [
+        "A CLI for the deprivileged socket spawning API."
       ; "This allows scripting of the varstored deprivileging daemon"
       ; "for testing and debugging. This tool is not intended to be used"
-      ; "as an end user tool" ]
+      ; "as an end user tool"
+      ]
   in
   ( Cmdliner.Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ()))
-  , Cmdliner.Term.info "varstore_cli" ~version:(version_str Cmds.description) ~doc )
+  , Cmdliner.Term.info "varstore_cli"
+      ~version:(version_str Cmds.description)
+      ~doc )
 
 let cli () =
   match
-    Cmdliner.Term.eval_choice
-      default_cmd
-      (List.map (fun t -> t Varstore_privileged_client.rpc) (Cmds.implementation ()))
+    Cmdliner.Term.eval_choice default_cmd
+      (List.map
+         (fun t -> t Varstore_privileged_client.rpc)
+         (Cmds.implementation ()))
   with
-  | `Ok f -> f ()
-  | _ -> ()
+  | `Ok f ->
+      f ()
+  | _ ->
+      ()
 
 let _ = cli ()

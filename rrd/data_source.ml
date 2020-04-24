@@ -13,21 +13,23 @@
  *)
 
 type t = {
-	name : string;
-	description : string;
-	enabled : bool;
-	standard : bool;
-	min : float;
-	max : float;
-	units : string
-} [@@deriving rpcty]
+    name: string
+  ; description: string
+  ; enabled: bool
+  ; standard: bool
+  ; min: float
+  ; max: float
+  ; units: string
+}
+[@@deriving rpcty]
 
-let to_key_value_map ds = [
-	"name_label", ds.name;
-	"name_description", ds.description;
-	"enabled", string_of_bool ds.enabled;
-	"standard", string_of_bool ds.standard;
-	"min", string_of_float ds.min;
-	"max", string_of_float ds.max;
-	"units", ds.units;
-]
+let to_key_value_map ds =
+  [
+    ("name_label", ds.name)
+  ; ("name_description", ds.description)
+  ; ("enabled", string_of_bool ds.enabled)
+  ; ("standard", string_of_bool ds.standard)
+  ; ("min", string_of_float ds.min)
+  ; ("max", string_of_float ds.max)
+  ; ("units", ds.units)
+  ]

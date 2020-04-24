@@ -15,26 +15,23 @@
 let retry_econnrefused f =
   let rec loop () =
     let result =
-      try
-        Some (f ())
-      with Unix.Unix_error((Unix.ECONNREFUSED | Unix.ENOENT), _, _) ->
-        Thread.delay 1.;
-        None in
-    match result with
-    | Some x -> x
-    | None -> loop () in
+      try Some (f ())
+      with Unix.Unix_error ((Unix.ECONNREFUSED | Unix.ENOENT), _, _) ->
+        Thread.delay 1. ; None
+    in
+    match result with Some x -> x | None -> loop ()
+  in
   loop ()
 
 let rpc call =
-  retry_econnrefused
-    (fun () ->
-       if !Xcp_client.use_switch
-       then Xcp_client.json_switch_rpc !Network_interface.queue_name call
-       else Xcp_client.xml_http_rpc
-           ~srcstr:(Xcp_client.get_user_agent ())
-           ~dststr:"network"
-           Network_interface.uri
-           call
-    )
+  retry_econnrefused (fun () ->
+      if !Xcp_client.use_switch then
+        Xcp_client.json_switch_rpc !Network_interface.queue_name call
+      else
+        Xcp_client.xml_http_rpc
+          ~srcstr:(Xcp_client.get_user_agent ())
+          ~dststr:"network" Network_interface.uri call)
 
-module Client = Network_interface.Interface_API(Idl.Exn.GenClient(struct let rpc=rpc end))
+module Client = Network_interface.Interface_API (Idl.Exn.GenClient (struct
+  let rpc = rpc
+end))
