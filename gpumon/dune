@@ -1,31 +1,26 @@
-
 (library
-  (name xapi_gpumon)
-  (public_name xapi-idl.gpumon)
-  (flags (:standard -w -39-33))
-  (modules (:standard \ gpumon_cli ))
-  (libraries
-    rpclib.core
-    threads
-    xapi-idl
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name xapi_gpumon)
+ (public_name xapi-idl.gpumon)
+ (flags (:standard -w -39-33))
+ (modules (:standard \ gpumon_cli))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (executable
-  (name gpumon_cli)
-  (modules gpumon_cli)
-  (libraries
-    cmdliner
-    rpclib.cmdliner
-    rpclib.markdown
-    xapi-idl.gpumon
-  )
-)
+ (name gpumon_cli)
+ (modules gpumon_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.markdown
+   xapi-idl.gpumon))
 
-(alias
-  (name runtest)
-  (deps (:x gpumon_cli.exe))
-  (action (run %{x}))
-)
+(rule
+ (alias runtest)
+ (deps (:x gpumon_cli.exe))
+ (action (run %{x})))

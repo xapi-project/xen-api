@@ -1,65 +1,59 @@
+(library
+ (name xcp_rrd_interface_types)
+ (public_name xapi-idl.rrd.interface.types)
+ (modules data_source)
+ (flags (:standard -w -39))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl
+   xapi-rrd
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (library
-  (name xcp_rrd_interface_types)
-  (public_name xapi-idl.rrd.interface.types)
-  (modules data_source)
-  (flags (:standard -w -39))
-  (libraries
-    rpclib.core
-    xapi-rrd
-    threads
-    xapi-idl
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name xcp_rrd_interface)
+ (public_name xapi-idl.rrd.interface)
+ (modules rrd_interface)
+ (flags (:standard -w -39))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl
+   xapi-idl.rrd.interface.types
+   xapi-rrd
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (library
-  (name xcp_rrd_interface)
-  (public_name xapi-idl.rrd.interface)
-  (modules rrd_interface)
-  (flags (:standard -w -39))
-  (libraries
-    rpclib.core
-    xapi-rrd
-    threads
-    xapi-idl
-    xapi-idl.rrd.interface.types
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
-
-(library
-  (name xcp_rrd)
-  (public_name xapi-idl.rrd)
-  (modules (:standard \ data_source rrd_interface rrd_cli))
-  (flags (:standard -w -39))
-  (libraries
-    rpclib.core
-    xapi-rrd
-    threads
-    xapi-idl
-    xapi-idl.rrd.interface
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name xcp_rrd)
+ (public_name xapi-idl.rrd)
+ (modules (:standard \ data_source rrd_interface rrd_cli))
+ (flags (:standard -w -39))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl
+   xapi-idl.rrd.interface
+   xapi-rrd
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (executable
-  (name rrd_cli)
-  (modules rrd_cli)
-  (libraries
-    cmdliner
-    rpclib.cmdliner
-    rpclib.markdown
-    xapi-idl.rrd
-  )
-)
+ (name rrd_cli)
+ (modules rrd_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.markdown
+   xapi-idl.rrd
+ ))
 
-(alias
-  (name runtest)
-  (deps (:x rrd_cli.exe))
-  (action (run %{x}))
-)
+(rule
+ (alias runtest)
+ (deps (:x rrd_cli.exe))
+ (action (run %{x})))
 

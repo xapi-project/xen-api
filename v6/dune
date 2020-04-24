@@ -1,32 +1,27 @@
-
 (library
-  (name xcp_v6)
-  (public_name xapi-idl.v6)
-  (flags (:standard -w -39))
-  (modules (:standard \ v6_cli ))
-  (libraries
-    rpclib.core
-    threads
-    xapi-idl
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name xcp_v6)
+ (public_name xapi-idl.v6)
+ (flags (:standard -w -39))
+ (modules (:standard \ v6_cli))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (executable
-  (name v6_cli)
-  (modules v6_cli)
-  (libraries
-    cmdliner
-    rpclib.cmdliner
-    rpclib.markdown
-    xapi-idl.v6
-  )
-)
+ (name v6_cli)
+ (modules v6_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.markdown
+   xapi-idl.v6
+ ))
 
-(alias
-  (name runtest)
-  (deps (:x v6_cli.exe))
-  (action (run %{x}))
-)
-
+(rule
+ (alias runtest)
+ (deps (:x v6_cli.exe))
+ (action (run %{x})))

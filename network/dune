@@ -1,32 +1,27 @@
-
 (library
-  (name xcp_network)
-  (public_name xapi-idl.network)
-  (flags (:standard -w -39-33))
-  (modules (:standard \ network_cli))
-  (libraries
-    rpclib.core
-    threads
-    xapi-idl
-  )
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name xcp_network)
+ (public_name xapi-idl.network)
+ (flags (:standard -w -39-33))
+ (modules (:standard \ network_cli))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (executable
-  (name network_cli)
-  (modules network_cli)
-  (libraries
-    cmdliner
-    rpclib.cmdliner
-    rpclib.markdown
-    xapi-idl.network
-  )
-)
+ (name network_cli)
+ (modules network_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.markdown
+   xapi-idl.network
+ ))
 
-(alias
-  (name runtest)
-  (deps (:x network_cli.exe))
-  (action (run %{x}))
-)
-
+(rule
+ (alias runtest)
+ (deps (:x network_cli.exe))
+ (action (run %{x})))

@@ -1,22 +1,28 @@
 (library
-  (name xapi_idl_varstore_deprivileged)
-  (public_name xapi-idl.varstore.deprivileged)
-  (modules (:standard \ varstore_deprivileged_cli))
-  (flags (:standard -w -39))
-  (libraries xcp threads rpclib.core xapi-idl.xen)
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc)))
+ (name xapi_idl_varstore_deprivileged)
+ (public_name xapi-idl.varstore.deprivileged)
+ (modules (:standard \ varstore_deprivileged_cli))
+ (flags (:standard -w -39))
+ (libraries
+   rpclib.core
+   threads
+   xapi-idl.xen
+   xcp
+ )
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))
 
 (executable
-  (name varstore_deprivileged_cli)
-  (modules varstore_deprivileged_cli)
-  (libraries
-    cmdliner
-    rpclib.cmdliner
-    rpclib.markdown
-    xapi-idl.varstore.deprivileged))
+ (name varstore_deprivileged_cli)
+ (modules varstore_deprivileged_cli)
+ (libraries
+   cmdliner
+   rpclib.cmdliner
+   rpclib.markdown
+   xapi-idl.varstore.deprivileged
+ ))
 
-(alias
- (name   runtest)
- (deps   varstore_deprivileged_cli.exe)
+(rule
+ (alias runtest)
+ (deps varstore_deprivileged_cli.exe)
  (action (run %{deps})))

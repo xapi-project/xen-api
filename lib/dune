@@ -1,43 +1,43 @@
+(library
+ (name xcp)
+ (public_name xapi-idl)
+ (flags (:standard -w -39 -warn-error -3))
+ (modules (:standard \ scheduler task_server updates))
+ (foreign_stubs
+   (language c)
+   (names syslog_stubs))
+ (libraries
+   astring
+   cmdliner
+   cohttp
+   fd-send-recv
+   logs
+   message-switch-core
+   message-switch-unix 
+   ppx_sexp_conv.runtime-lib
+   re
+   rpclib.core
+   rpclib.json
+   rpclib.xml
+   sexplib
+   threads
+   unix
+   uri
+   xapi-backtrace
+   xapi-stdext-monadic
+   xapi-stdext-pervasives
+   xapi-stdext-threads
+   xapi-inventory
+   xmlm
+ )
+ (wrapped false)
+ (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
 
 (library
-  (name xcp)
-  (public_name xapi-idl)
-  (flags (:standard -w -39 -warn-error -3))
-  (modules (:standard \ scheduler task_server updates))
-  (c_names syslog_stubs)
-  (libraries
-    astring
-    cmdliner
-    cohttp
-    fd-send-recv
-    logs
-    message-switch-core
-    message-switch-unix
-    ppx_sexp_conv.runtime-lib
-    re
-    rpclib.core
-    rpclib.xml
-    sexplib
-    threads
-    unix
-    uri
-    xapi-backtrace
-    xapi-stdext-monadic
-    xapi-stdext-pervasives
-    xapi-stdext-threads
-    xapi-inventory
-    xmlm
-  )
-  (wrapped false)
-  (preprocess (pps ppx_sexp_conv ppx_deriving_rpc ))
-)
-
-(library
-  (name xcp_updates)
-  (public_name xapi-idl.updates)
-  (flags (:standard -w -39))
-  (modules updates task_server scheduler)
-  (libraries xapi-idl)
-  (wrapped false)
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name xcp_updates)
+ (public_name xapi-idl.updates)
+ (flags (:standard -w -39))
+ (modules updates task_server scheduler)
+ (libraries xapi-idl)
+ (wrapped false)
+ (preprocess (pps ppx_deriving_rpc)))

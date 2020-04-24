@@ -1,37 +1,23 @@
-
-(executables
-  (names test)
-  (flags (:standard -w -39))
-  (libraries
-    alcotest
-    rpclib.core
-    rpclib.markdown
-    threads
-    xapi-idl
-    xapi-idl.cluster
-    xapi-idl.rrd
-    xapi-idl.memory
-    xapi-idl.updates
-    xapi-idl.network
-    xapi-idl.gpumon
-    xapi-idl.storage
-    xapi-idl.varstore.privileged
-    xapi-idl.varstore.deprivileged
-    xapi-idl.v6
-    xapi-idl.xen
-  )
-  (preprocess (pps ppx_deriving_rpc ))
-)
-
-(alias
-  (name runtest)
-  (deps (:x test.exe) (source_tree test_data))
-  (action (run %{x}))
-)
-
-(alias
-  (name runtest-quick)
-  (deps (:x test.exe) (source_tree test_data))
-  (action (run %{x} -q))
-)
-
+(test
+ (name test)
+ (deps (source_tree test_data))
+ (flags (:standard -w -39))
+ (libraries
+   alcotest
+   rpclib.core
+   rpclib.markdown
+   threads
+   xapi-idl
+   xapi-idl.cluster
+   xapi-idl.rrd
+   xapi-idl.memory
+   xapi-idl.updates
+   xapi-idl.network
+   xapi-idl.gpumon
+   xapi-idl.storage
+   xapi-idl.varstore.privileged
+   xapi-idl.varstore.deprivileged
+   xapi-idl.v6
+   xapi-idl.xen
+ )
+ (preprocess (pps ppx_deriving_rpc)))

@@ -1,16 +1,13 @@
-
 (executable
-  (name example)
-  (flags (:standard -w -39))
-  (libraries
-    rpclib.core
-    xapi-idl
-  )
-  (preprocess (pps ppx_deriving_rpc ))
-)
+ (name example)
+ (flags (:standard -w -39))
+ (libraries
+   rpclib.core
+   xapi-idl
+ )
+ (preprocess (pps ppx_deriving_rpc)))
 
-(alias
-  (name runtest)
-  (deps (:x example.exe))
-  (action (run %{x}))
-)
+(rule
+ (alias runtest)
+ (deps (:x example.exe))
+ (action (run %{x})))
