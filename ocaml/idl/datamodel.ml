@@ -2110,6 +2110,7 @@ module SR = struct
       ~doc:"Get all live hosts attached to this SR"
       ~params:[Ref _sr, "sr", "The SR from which to query attached hosts"]
       ~allowed_roles:_R_POOL_OP
+      ~hide_from_docs:true
       ~result:(Set(Ref _host), "A collection of live hosts attached to this SR")
       ()
 

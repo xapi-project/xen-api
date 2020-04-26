@@ -3342,10 +3342,10 @@ let vm_import fd printer rpc session_id params =
                 let address =
                   match sr <> Ref.null with
                   | true -> Client.SR.get_live_hosts rpc session_id sr
-                    |> (fun hosts -> if hosts <> [] then hosts else
-                           raise (Api_errors.Server_error (Api_errors.host_not_live, [])))
-                    |> (fun hosts -> List.nth hosts (List.length hosts |> Random.int))
-                    |> (fun host -> Client.Host.get_address rpc session_id host)
+                            |> (fun hosts -> if hosts <> [] then hosts else
+                                   raise (Api_errors.Server_error (Api_errors.host_not_live, [])))
+                            |> (fun hosts -> List.nth hosts (List.length hosts |> Random.int))
+                            |> (fun host -> Client.Host.get_address rpc session_id host)
                   | false -> "127.0.0.1"
                 in
                 (* Although it's inefficient use a loopback HTTP connection *)
