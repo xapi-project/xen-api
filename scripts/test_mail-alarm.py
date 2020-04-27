@@ -10,6 +10,7 @@ import unittest
 import mock
 from nose.tools import nottest
 
+
 sys.path.append('./scripts/examples/python')
 sys.modules['xcp'] = mock.Mock()
 
@@ -70,8 +71,11 @@ class TestXapiMessage(unittest.TestCase):
         # Emulate functions with Mock
         mock_setup(mailalarm)
 
+        session = mock.Mock()
+
+
         tst_xml = get_alarm_xml(xmlalarm_str, xmlcls_str, xmlname_str, xmlbody_str)
-        obj_XapiMessage = mailalarm.XapiMessage(tst_xml, 'en-US')
+        obj_XapiMessage = mailalarm.XapiMessage(tst_xml, 'en-US', session)
         self.assertIsInstance(obj_XapiMessage, mailalarm.XapiMessage)
 
         mail_subject = obj_XapiMessage.generate_email_subject()
@@ -88,8 +92,10 @@ class TestXapiMessage(unittest.TestCase):
         # Emulate functions with Mock
         mock_setup(mailalarm)
 
+        session = mock.Mock()
+
         tst_xml = get_alarm_xml(xmlalarm_str, xmlcls_str, xmlname_str, xmlbody_str)
-        obj_XapiMessage = mailalarm.XapiMessage(tst_xml, 'en-USzzz')
+        obj_XapiMessage = mailalarm.XapiMessage(tst_xml, 'en-USzzz', session)
         self.assertIsInstance(obj_XapiMessage, mailalarm.XapiMessage)
 
         mail_subject = obj_XapiMessage.generate_email_subject()
