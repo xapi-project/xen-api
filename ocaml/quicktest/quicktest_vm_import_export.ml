@@ -23,7 +23,7 @@ let vm_uninstall rpc session_id vm =
   let uuid = Client.Client.VM.get_uuid rpc session_id vm in
   ignore(Qt.cli_cmd [ "vm-uninstall"; "uuid=" ^ uuid; "--force" ])
 
-(** Set up export test: create a small VM with a selection of CDs, empty drives, "iso" Disks etc *)
+(** Set up export test: create a small VM with a selection of VBDs *)
 let with_setup rpc session_id sr vm_template f =
   print_endline "Setting up test VM";
   let uuid = Client.Client.VM.get_uuid rpc session_id vm_template in
@@ -31,23 +31,12 @@ let with_setup rpc session_id sr vm_template f =
   Qt.VM.with_new rpc session_id ~template:vm_template
     (fun vm ->
       print_endline (Printf.sprintf "Installed new VM");
-      let cd =
-        let tools_iso_filter = "field \"is_tools_iso\"=\"true\"" in
-        match Client.Client.VDI.get_all_records_where rpc session_id tools_iso_filter with
-        | (vdi, _)::_ -> vdi
-        | [] ->
-          Alcotest.fail "setup_export_test_vm: Failed to find tools ISO VDI";
-      in
       print_endline (Printf.sprintf "Using SR: %s" (name_of_sr rpc session_id sr));
       let vdi = Client.Client.VDI.create rpc session_id "small"
           "description" sr 4194304L `user false false [] [] [] [] in
-      ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:cd ~userdevice:"0" ~bootable:false
-               ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
-      ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:cd ~userdevice:"1" ~bootable:false
-               ~mode:`RO ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
-      ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:cd ~userdevice:"2" ~bootable:false
+      ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:Ref.null ~userdevice:"0" ~bootable:false
                ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:true ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
-      ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi ~userdevice:"3" ~bootable:false
+      ignore(Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi ~userdevice:"1" ~bootable:false
                ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[Constants.owner_key,""]
                ~qos_algorithm_type:"" ~qos_algorithm_params:[]);
       f vm
@@ -81,7 +70,7 @@ let import_export_test rpc session_id sr_info vm_template () =
                 if all.API.vBD_empty <> orig_vbd.API.vBD_empty
                 then Alcotest.fail (Printf.sprintf "Device %s varies in emptiness" all.API.vBD_userdevice);
                 match all.API.vBD_userdevice with
-                | "0" | "1" | "2" ->
+                | "0" ->
                   (* VDI should be the same *)
                   if all.API.vBD_VDI <> orig_vbd.API.vBD_VDI
                   then Alcotest.fail
@@ -90,7 +79,7 @@ let import_export_test rpc session_id sr_info vm_template () =
                          (Client.Client.VDI.get_uuid rpc session_id orig_vbd.API.vBD_VDI)
                          (Client.Client.VDI.get_uuid rpc session_id all.API.vBD_VDI)
                       )
-                | "3" ->
+                | "1" ->
                   (* VDI should be different *)
                   if all.API.vBD_VDI = orig_vbd.API.vBD_VDI
                   then Alcotest.fail (Printf.sprintf "Device %s should not vary in VDIness" all.API.vBD_userdevice)
