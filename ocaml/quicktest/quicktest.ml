@@ -27,7 +27,6 @@ let () =
          ; "copy", Quicktest_vdi_copy.tests ()
          ; "SR tests", Quicktest_sr.tests ()
          ; "Quicktest_vdi", Quicktest_vdi.tests ()
-         ; "Quicktest_iso_sr", Quicktest_iso_sr.tests ()
          ; "Quicktest_async_calls", Quicktest_async_calls.tests ()
          ; "Quicktest_vm_import_export", Quicktest_vm_import_export.tests ()
          ; "Quicktest_vm_lifecycle", Quicktest_vm_lifecycle.tests ()
