@@ -14,7 +14,8 @@
 
 module Rrdd = Rrd_client.Client
 
-module Date = Xapi_stdext_date.Date
+open Stdext
+open Listext
 open Monitor_types
 open Db_filter_types
 open Network
@@ -36,19 +37,10 @@ let update_configuration_from_master () =
     )
 
 let get_pciids vendor device =
-  let id_of_string id =
-    int_of_string_opt ("0x" ^ id)
-  in
-  let (>>=) = Option.bind in
   (* FIXME : put a lazy cache *)
-  let pci_ids =
-    id_of_string vendor >>= fun vendor_id ->
-    id_of_string device >>= fun device_id ->
-    let vendor_str = Pci.(with_access lookup_vendor_name) vendor_id in
-    let device_str = Pci.(with_access lookup_device_name) vendor_id device_id in
-    Some (vendor_str, device_str)
-  in
-  Option.value ~default:("", "") pci_ids
+  let v, d = Pciutil.parse vendor device in
+  (match v with None -> "" | Some x -> x),
+  (match d with None -> "" | Some x -> x)
 
 let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
     ~pcibuspath pmr =
