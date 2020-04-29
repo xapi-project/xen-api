@@ -475,31 +475,56 @@ let uuid_blacklist = [
 module IntSet = Set.Make(Int)
 
 let domain_snapshot xc =
-  let uuid_of_domain d =
-    Uuid.to_string (Uuid.uuid_of_int_array (d.Xenctrl.handle)) in
+  let metadata_of_domain dom =
+    let uuid = Uuid.(to_string (uuid_of_int_array (dom.Xenctrl.handle))) in
+    let domid = dom.Xenctrl.domid in
+    let start = String.sub uuid 0 18 in
+
+    (* Actively hide migrating VM uuids, these are temporary and xenops
+       writes the original and the final uuid to xenstore *)
+    let uuid_from_key key =
+      let path = Printf.sprintf "/vm/%s/%s" uuid key in
+      try
+        Xenstore.(with_xs (fun xs -> xs.read path))
+      with Xs_protocol.Enoent _hint ->
+        info "Couldn't read path %s; falling back to actual uuid" path;
+        uuid
+    in
+    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
+
+    if List.mem start uuid_blacklist then
+      None
+    else
+      let key =
+        if Astring.String.is_suffix ~affix:"000000000000" uuid then
+          Some "origin-uuid"
+        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
+          Some "final-uuid"
+        else
+          None
+      in
+      Some (dom, stable_uuid key, domid)
+  in
+
   let domains =
-    List.filter
-      (fun d ->
-         let uuid = uuid_of_domain d in
-         let first = String.sub uuid 0 18 in
-         not (List.mem first uuid_blacklist))
-      (Xenctrl.domain_getinfolist xc 0) in
-  let uuid_domid_of_domain dom =
-    let domid = dom.Xenctrl.domid
-    and uuid = uuid_of_domain dom in
-    (uuid, domid), domid in
-  let uuid_domids, domids = List.split (List.map uuid_domid_of_domain domains) in
+    Xenctrl.domain_getinfolist xc 0
+    |> List.filter_map metadata_of_domain
+  in
+  let doms = List.map (fun (d, _, _) -> d) domains in
+  let dom_uuids = List.map (fun (d, u, _) -> d, u) domains in
+  let uuid_domids = List.map (fun (_, u, i) -> u, i) domains in
+  let domids = List.map (fun (_, _, i) -> i) domains in
+
   let timestamp = Unix.gettimeofday () in
-  let domain_paused d = d.Xenctrl.paused in
-  let my_paused_domain_uuids =
-    List.map uuid_of_domain (List.filter domain_paused domains) in
+  let domain_paused (d, uuid) = if d.Xenctrl.paused then None else Some uuid in
+  let paused_uuids = List.filter_map domain_paused dom_uuids in
 
   let domids = IntSet.of_list domids in
   let domains_only k v =
     Option.map (Fun.const v) (IntSet.find_opt k domids) in
   Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets;
 
-  timestamp, domains, uuid_domids, my_paused_domain_uuids
+  timestamp, doms, uuid_domids, paused_uuids
 
 let dom0_stat_generators = [
   "ha", (fun _ _ _ _ -> Rrdd_ha_stats.all ());
