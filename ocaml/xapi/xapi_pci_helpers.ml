@@ -88,6 +88,11 @@ let is_related_to cache (x:Pci.Pci_dev.t) (y:Pci.Pci_dev.t) =
   && not @@ PCIcache.is_virtual cache @@ address_of_dev y
 
 let get_host_pcis () =
+  let default ~msg v =
+    match v with
+    | Some v -> v
+    | None -> debug "get_host_pcis: empty %s" msg; ""
+  in
   let open Pci in
   with_access (fun access ->
       let devs = get_devices access in
@@ -98,31 +103,33 @@ let get_host_pcis () =
             d.vendor_id d.device_id d.device_class;
           let vendor = { id = d.vendor_id
                        ; name = lookup_vendor_name access d.vendor_id
-                       }
+                                |> default ~msg:"vendor name" }
           in
           let device = { id = d.device_id
                        ; name = lookup_device_name access d.vendor_id d.device_id
-                       }
+                                |> default ~msg:"device name" }
           in
           let address = address_of_dev d in
           let driver_name = get_driver_name address in
           let (subsystem_vendor, subsystem_device) = match d.subsystem_id with
             | None -> None, None
             | Some (sv_id, sd_id) ->
-              let sv_name = lookup_subsystem_vendor_name access sv_id in
-              let sd_name =
-                lookup_subsystem_device_name access d.vendor_id d.device_id sv_id sd_id
+              let sv_name = lookup_subsystem_vendor_name access sv_id
+                            |> default ~msg:"subsystem vendor name"
+              in
+              let sd_name = lookup_subsystem_device_name access d.vendor_id d.device_id sv_id sd_id
+                            |> default ~msg:"susbsytem device name"
               in
               Some { id = sv_id; name = sv_name }, Some { id = sd_id; name = sd_name }
           in
           let pci_class = { id = d.device_class
                           ; name = lookup_class_name access d.device_class
-                          }
+                                   |> default ~msg:"class name" }
           in
           let related_devs = List.filter (is_related_to cache d) devs in
           { address;
             vendor; device; subsystem_vendor; subsystem_device; pci_class;
-            related = List.map address_of_dev related_devs; driver_name;
+            related = List.map address_of_dev related_devs; driver_name; 
           }
         ) devs
     )

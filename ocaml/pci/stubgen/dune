@@ -1,0 +1,23 @@
+(executables
+  (names ffi_stubgen ffi_types_stubgen)
+  (flags (:standard -safe-string))
+  (libraries
+    pci_bindings
+    ctypes.stubs
+    ctypes
+  )
+)
+
+(rule
+  (targets ffi_ml_types_stubgen.c)
+  (deps ./ffi_types_stubgen.exe)
+  (action (with-stdout-to %{targets} (bash "./%{deps}")))
+)
+
+(rule
+  (targets ffi_ml_types_stubgen.exe)
+  (deps ./ffi_ml_types_stubgen.c)
+  (action (bash "\
+%{cc} %{deps} -I `dirname %{lib:ctypes:ctypes_cstubs_internals.h}` \
+  -I %{ocaml_where} -o %{targets}"))
+)
