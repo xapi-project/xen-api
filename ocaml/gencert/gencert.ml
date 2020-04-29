@@ -34,12 +34,26 @@ let generate_cert_or_fail ~path ~cn =
     exit 1
   end
 
+(* Try to get the FQDN, use the hostname if none are available *)
+let full_hostname () =
+  let hostname = Unix.gethostname () in
+  let fqdns = Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
+  |> List.filter_map (fun addrinfo ->
+      match addrinfo.Unix.ai_canonname with
+      | "" -> None
+      | name -> Some name
+      )
+  in
+  match fqdns with
+  | fqdn :: _ -> fqdn
+  | [] -> hostname
+
 let main ~dbg ~path =
   let init_inventory () =
     Inventory.inventory_filename := inventory
   in
   init_inventory ();
-  let hostname = Unix.gethostname () in
+  let hostname = full_hostname () in
   let cn =
     if Astring.String.is_prefix ~affix:"localhost" hostname then
       Lib.get_management_ip_addr ~dbg
