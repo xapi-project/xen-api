@@ -13,7 +13,7 @@ tags: [
 ]
 
 build: [
-  ["dune" "build" "-p" name]
+  ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
@@ -23,7 +23,7 @@ depends: [
   "cohttp" {>= "0.22.0"}
   "re"
   "rpclib"
-  "rrd"
+  "xapi-rrd"
   "uri"
   "uuidm"
   "xapi-client"
