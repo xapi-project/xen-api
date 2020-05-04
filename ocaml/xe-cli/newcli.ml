@@ -35,7 +35,6 @@ let xeusessl = ref true
 let xedebug = ref false
 let xedebugonfail = ref false
 
-let stunnel_processes = ref []
 let debug_channel = ref None
 let debug_file = ref None
 
@@ -228,33 +227,62 @@ let parse_args =
       end in
     args_rest @ extras_rest @ rcs_rest @ !reserve_args
 
-let open_tcp_ssl server =
+let exit_status = ref 1
+
+let with_open_tcp_ssl server f =
   let port = get_xapiport true in
   debug "Connecting via stunnel to [%s] port [%d]\n%!" server port;
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
-  let x = Stunnel.connect ~use_fork_exec_helper:false
-      ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
-      ~extended_diagnosis:(!debug_file <> None) server port in
-  stunnel_processes := x :: !stunnel_processes;
-  Unix.in_channel_of_descr x.Stunnel.fd, Unix.out_channel_of_descr x.Stunnel.fd
+  let open Safe_resources in
+  Stunnel.with_connect ~use_fork_exec_helper:false
+    ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
+    ~extended_diagnosis:(!debug_file <> None) server port @@ fun x ->
+  Pervasiveext.finally (fun () -> Unixfd.with_channels x.Stunnel.fd f)
+    (fun () ->
+       if Sys.file_exists x.Stunnel.logfile then
+         begin
+           if !exit_status <> 0 then
+             (debug "\nStunnel diagnosis:\n\n";
+              try Stunnel.diagnose_failure x
+              with e -> debug "%s\n" (Printexc.to_string e));
+           try Unix.unlink x.Stunnel.logfile with _ -> ()
+         end;
+       Stunnel.disconnect ~wait:false ~force:true x
+    )
 
-let open_tcp server =
+let with_open_tcp server f =
   if !xeusessl && not(is_localhost server) then (* never use SSL on-host *)
-    open_tcp_ssl server
+    with_open_tcp_ssl server f
   else (
     let host = Unix.gethostbyname server in
     let addr = host.Unix.h_addr_list.(0) in
-    Unix.open_connection (Unix.ADDR_INET (addr,get_xapiport false))
+    let open Safe_resources in
+    Unixfd.with_open_connection ~loc:__LOC__ (Unix.ADDR_INET (addr,get_xapiport false))
+    @@ fun ufd -> Unixfd.with_channels ufd f
   )
 
-let open_channels () =
-  if is_localhost !xapiserver then (
-    try
-      Unix.open_connection (Unix.ADDR_UNIX (Filename.concat "/var/lib/xcp" "xapi"))
-    with _ ->
-      open_tcp !xapiserver
-  ) else
-    open_tcp !xapiserver
+let with_open_channels f =
+  let wrap chs =
+    try Ok (f chs)
+    with e ->
+      Backtrace.is_important e;
+      Error e
+  in
+  let result =
+    if is_localhost !xapiserver then (
+      try
+        let open Safe_resources in
+        Unixfd.with_open_connection (Unix.ADDR_UNIX (Filename.concat "/var/lib/xcp" "xapi"))
+          ~loc:__LOC__ @@ fun chs ->
+        Unixfd.with_channels chs wrap
+      with _ ->
+        with_open_tcp !xapiserver wrap
+    ) else
+      with_open_tcp !xapiserver wrap
+  in
+  match result with
+  | Ok r -> r
+  | Error e -> raise e
 
 let http_response_code x = match String.split ' ' x with
   | _ :: code :: _ -> int_of_string code
@@ -466,7 +494,7 @@ let main_loop ifd ofd permitted_filenames =
       let delay = ref 0.1 in
       let rec keep_connection () =
         try
-          let ic, oc = open_tcp server in
+          with_open_tcp server @@ fun (ic, oc) ->
           delay := 0.1;
           Pervasiveext.finally
             (fun () -> connection ic oc)
@@ -504,7 +532,7 @@ let main_loop ifd ofd permitted_filenames =
               then Printf.sprintf "\r\nContent-length: %Ld" stats.Unix.LargeFile.st_size
               else "" in
             let file_ch = open_in_bin filename in
-            let ic, oc = open_tcp server in
+            with_open_tcp server @@ fun (ic, oc) ->
             debug "PUTting to path [%s]\n%!" path;
             Printf.fprintf oc "PUT %s HTTP/1.0%s\r\n\r\n" path content_length;
             flush oc;
@@ -543,7 +571,7 @@ let main_loop ifd ofd permitted_filenames =
           let rec doit url =
             let (server,path) = parse_url url in
             debug "Opening connection to server '%s' path '%s'\n%!" server path;
-            let ic, oc = open_tcp server in
+            with_open_tcp server @@ fun (ic, oc) ->
             Printf.fprintf oc "GET %s HTTP/1.0\r\n\r\n" path;
             flush oc;
             (* Get the result header immediately *)
@@ -599,7 +627,6 @@ let main_loop ifd ofd permitted_filenames =
   match !exit_code with Some c -> c | _ -> assert false
 
 let main () =
-  let exit_status = ref 1 in
   let _ =  try
       Sys.set_signal Sys.sigpipe Sys.Signal_ignore;
       Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 1));
@@ -618,7 +645,7 @@ let main () =
 
       if List.length args < 1 then raise Usage else
         begin
-          let ic, oc = open_channels () in
+          with_open_channels @@ fun (ic, oc) ->
           Printf.fprintf oc "POST /cli HTTP/1.0\r\n";
           let args = args @ [("username="^ !xapiuname);("password="^ !xapipword)] in
           let args = String.concat "\n" args in
@@ -669,16 +696,6 @@ let main () =
       error "Client Side error: %s.\n" e
     | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in
-  List.iter (fun p ->
-      if Sys.file_exists p.Stunnel.logfile then
-        begin
-          if !exit_status <> 0 then
-            (debug "\nStunnel diagnosis:\n\n";
-             try Stunnel.diagnose_failure p
-             with e -> debug "%s\n" (Printexc.to_string e));
-          try Unix.unlink p.Stunnel.logfile with _ -> ()
-        end;
-      Stunnel.disconnect ~wait:false ~force:true p) !stunnel_processes;
   begin match !debug_file, !debug_channel with
     | Some f, Some ch -> begin
         close_out ch;

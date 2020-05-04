@@ -61,12 +61,13 @@ let proxy (ain: Unix.file_descr) (aout: Unix.file_descr) (bin: Unix.file_descr) 
     (try Unix.close aout with _ -> ());
     (try Unix.close bout with _ -> ())
 
-let open_tcp_ssl server =
+let with_open_tcp_ssl server f =
   let port = 443 in
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
-  let x = Stunnel.connect ~use_fork_exec_helper:false
-      ~write_to_log:(fun _ -> ()) server port in
-  x.Stunnel.fd
+  let open Safe_resources in
+  Stunnel.with_connect ~use_fork_exec_helper:false
+      ~write_to_log:(fun _ -> ()) server port @@ fun x ->
+  f Unixfd.(!(x.Stunnel.fd))
 
 let _ =
   let host = Sys.argv.(1) in
@@ -74,6 +75,6 @@ let _ =
   let session = try Sys.getenv "XSH_SESSION" with _ -> failwith "Session not provided" in
   let args = List.map (fun arg -> "&arg="^arg) (List.tl (List.tl (List.tl (Array.to_list Sys.argv)))) in
   let req = Printf.sprintf "CONNECT /remotecmd?session_id=%s&cmd=%s%s http/1.0\r\n\r\n" session cmd (String.concat "" args) in
-  let fd = open_tcp_ssl host in
+  with_open_tcp_ssl host @@ fun fd ->
   Unix.write_substring fd req 0 (String.length req) |> ignore;
   proxy Unix.stdin Unix.stdout fd (Unix.dup fd)
