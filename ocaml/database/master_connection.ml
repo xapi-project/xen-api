@@ -19,6 +19,7 @@
 *)
 
 open Xapi_stdext_threads.Threadext
+open Safe_resources
 
 type db_record = (string * string) list * (string * (string list)) list
 module D = Debug.Make(struct let name = "master_connection" end)
@@ -53,20 +54,20 @@ let force_connection_reset () =
        		   combination, we pop out (remove) its links until Not_found is raised.
        		   Here, we have two such combinations, i.e. verify_cert=true/false, as
        		   host and port are fixed values. *)
-    let purge_stunnels verify_cert =
-      try
-        while true do
-          let st = Stunnel_cache.remove host port verify_cert in
-          try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
-        done
-      with Not_found -> () in
+    let rec purge_stunnels verify_cert =
+      match
+        Stunnel_cache.with_remove host port verify_cert @@ fun st ->
+        try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
+      with None -> () (* not found in cache: stop *)
+         | Some () -> purge_stunnels verify_cert
+    in
     purge_stunnels true; purge_stunnels false;
     info "force_connection_reset: all cached connections to the master have been purged";
   end;
   match !my_connection with
   | None -> ()
   | Some st_proc ->
-    (info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr st_proc.Stunnel.fd);
+    (info "stunnel reset pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr Unixfd.(!(st_proc.Stunnel.fd)));
      Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm)
 
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
@@ -127,14 +128,14 @@ let on_database_connection_established = ref (fun () -> ())
 let open_secure_connection () =
   let host = (!get_master_address) () in
   let port = !Db_globs.https_port in
-  let st_proc = Stunnel.connect ~use_fork_exec_helper:true
+  Stunnel.with_connect ~use_fork_exec_helper:true
       ~extended_diagnosis:true
-      ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port in
-  let fd_closed = Thread.wait_timed_read st_proc.Stunnel.fd 5. in
+      ~write_to_log:(fun x -> debug "stunnel: %s\n" x) host port @@ fun st_proc ->
+  let fd_closed = Thread.wait_timed_read Unixfd.(!(st_proc.Stunnel.fd)) 5. in
   let proc_quit = try Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0; false with e -> true in
   if not fd_closed && not proc_quit then begin
-    info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr st_proc.Stunnel.fd);
-    my_connection := Some st_proc;
+    info "stunnel connected pid=%d fd=%d" (Stunnel.getpid st_proc.Stunnel.pid) (Xapi_stdext_unix.Unixext.int_of_file_descr Unixfd.(!(st_proc.Stunnel.fd)));
+    my_connection := Some (Stunnel.move_out_exn st_proc);
     !on_database_connection_established ()
   end else begin
     info "stunnel disconnected fd_closed=%s proc_quit=%s" (string_of_bool fd_closed) (string_of_bool proc_quit);
@@ -191,11 +192,11 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req: string) : Db_interfac
                   let res = match response.Http.Response.content_length with
                     | None -> raise Content_length_required
                     | Some l ->
-                      Xapi_stdext_unix.Unixext.really_read_string fd (Int64.to_int l)
+                      Xapi_stdext_unix.Unixext.really_read_string Unixfd.(!fd) (Int64.to_int l)
                   in
                   write_ok := true;
                   result := res (* yippeee! return and exit from while loop *)
-                ) fd
+                ) Unixfd.(!fd)
             )
       with
       | Http_svr.Client_requested_size_over_limit ->
