@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** * @group Xenops *)
+(** @group Xenops *)
+
 open Xapi_stdext_monadic
 
 open Xapi_stdext_pervasives.Pervasiveext

@@ -65,7 +65,7 @@ let test_examples =
   tests
 
 (* NB we always understand the deprecated linux/xenstore devices even if we
- * don't generate them ourselves *)
+   don't generate them ourselves *)
 let test_deprecated =
   let tests =
     List.map

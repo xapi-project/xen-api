@@ -44,10 +44,11 @@ module RPC_API (R : RPC) = struct
 
   let int64_p = Param.mk Types.int64
 
-  (* The APIs here should be wire-compatible with the ones in XAPI,
-   * but ignore the parameters that varstored is not allowed to override,
-   * e.g. the VM ref or session id.
-   * The parameters cannot be named *)
+  (* The APIs here should be wire-compatible with the ones in XAPI, but ignore
+     the parameters that varstored is not allowed to override, e.g. the VM ref
+     or session id.
+
+     The parameters cannot be named *)
 
   let session_login =
     declare "session.login_with_password"

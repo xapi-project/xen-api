@@ -212,7 +212,7 @@ functor
       type dump = {
           updates: u list
         ; barriers: (int * int * u list) list
-              (* In barriers, first int is token id of barrier; * second int is
+              (* In barriers, first int is token id of barrier; second int is
                  event id of snapshot (from "next") *)
       }
       [@@deriving rpc]

@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** * @group Storage *)
+(** @group Storage *)
 
 (** An automaton representing the VDI state machine *)
 

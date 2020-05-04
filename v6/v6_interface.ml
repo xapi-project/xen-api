@@ -72,7 +72,7 @@ type string_pair_lst = (string * string) list [@@deriving rpcty]
 (** Wrapper for specific errors in managing features *)
 type errors =
   | Invalid_edition of string
-      (** Thrown by apply_edition on receiving unfamiliar edition. * Note:
+      (** Thrown by apply_edition on receiving unfamiliar edition. Note:
           get_editions returns list of all valid editions *)
   | License_expired
       (** Thrown by license_check when expiry date matches or precedes current

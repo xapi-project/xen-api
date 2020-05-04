@@ -53,13 +53,13 @@ type interdomain_uid = {
 }
 [@@deriving rpcty]
 
-(* Note: for types such as rrd_req, which alias
- * user-defined types, it is usually not enough
- * to add [@@deriving rpcty] to derive RPC types,
- * and rpc functions must be declared in the definition.
- * However, types such as Rrd.sampling_frequency have
- * already been defined as RPC types in their original declarations
- * so we are able to derive these type aliases like so *)
+(* Note: for types such as rrd_req, which alias user-defined types, it is
+   usually not enough to add [@@deriving rpcty] to derive RPC types, and rpc
+   functions must be declared in the definition.
+
+   However, types such as Rrd.sampling_frequency have already been defined as
+   RPC types in their original declarations so we are able to derive these
+   type aliases like so *)
 
 type rrd_freq = Rrd.sampling_frequency = Five_Seconds [@@deriving rpcty]
 

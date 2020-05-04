@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** * @group Storage *)
+(** @group Storage *)
+
 open Rpc
 
 open Idl
@@ -665,10 +666,10 @@ module StorageAPI (R : RPC) = struct
         @-> returning unit_p err
         )
 
-    (** [update_snapshot_info_dest sr vdi dest src_vdi snapshot_pairs] * updates
-        the fields is_a_snapshot, snapshot_time and snapshot_of for a * list of
-        snapshots on a local SR. Typically, vdi will be a mirror of * src_vdi,
-        and for each item in snapshot_pairs the first will be a copy * of the
+    (** [update_snapshot_info_dest sr vdi dest src_vdi snapshot_pairs] updates
+        the fields is_a_snapshot, snapshot_time and snapshot_of for a list of
+        snapshots on a local SR. Typically, vdi will be a mirror of src_vdi,
+        and for each item in snapshot_pairs the first will be a copy of the
         second. *)
     let update_snapshot_info_dest =
       let src_vdi_p = Param.mk ~name:"src_vdi" vdi_info in

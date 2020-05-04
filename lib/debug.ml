@@ -60,9 +60,9 @@ let gettimestring () =
     tm.Unix.tm_sec
     (int_of_float (1000.0 *. msec))
 
-(** [escape str] efficiently escapes non-printable characters and in
-* addition the backslash character. The function is efficient in the
-* sense that it will allocate a new string only when necessary *)
+(** [escape str] efficiently escapes non-printable characters and in addition
+    the backslash character. The function is efficient in the sense that it will
+    allocate a new string only when necessary *)
 let escape = Astring.String.Ascii.escape
 
 let format include_time brand priority message =

@@ -1,4 +1,4 @@
-(** This module sets up the env variable for bisect_ppx which describes * where
+(** This module sets up the env variable for bisect_ppx which describes where
     log files are written. *)
 
 module D = Debug.Make (struct let name = "coverage" end)
@@ -123,7 +123,7 @@ module Dispatcher = struct
     ()
 end
 
-(** [init name] sets up coverage profiling for binary [name]. You could * use
+(** [init name] sets up coverage profiling for binary [name]. You could use
     [Sys.argv.(0)] for [name]. *)
 let init name =
   D.info "About to initialize coverage runtime" ;

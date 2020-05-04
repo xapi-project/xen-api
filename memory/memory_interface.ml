@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** * @group Memory *)
+(** @group Memory *)
+
 open Rpc
 
 open Idl

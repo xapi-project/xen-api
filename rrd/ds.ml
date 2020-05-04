@@ -11,7 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
-(** Data source * @group Performance Monitoring *)
+(** Data source
+
+   @group Performance Monitoring *)
 
 (** This is used both for updating the DSs and for creating them *)
 type ds = {
