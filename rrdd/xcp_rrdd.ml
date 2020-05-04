@@ -516,7 +516,7 @@ let domain_snapshot xc =
   let domids = List.map (fun (_, _, i) -> i) domains in
 
   let timestamp = Unix.gettimeofday () in
-  let domain_paused (d, uuid) = if d.Xenctrl.paused then None else Some uuid in
+  let domain_paused (d, uuid) = if d.Xenctrl.paused then Some uuid else None in
   let paused_uuids = List.filter_map domain_paused dom_uuids in
 
   let domids = IntSet.of_list domids in
