@@ -344,16 +344,22 @@ let call_api_functions_internal ~__context f =
   finally
     (fun () -> f rpc session_id)
     (fun () ->
-       (* debug "remote client call finished; logging out"; *)
        if !require_explicit_logout
-       then
+       then (
+         debug "Helpers.call_api_functions: explicit log out";
          try Client.Client.Session.logout rpc session_id
          with e ->
            debug "Helpers.call_api_functions failed to logout: %s (ignoring)" (Printexc.to_string e))
+       else
+        debug "Helpers.call_api_functions: no need to explicitly log out"
+    )
+
 
 let call_api_functions ~__context f =
   match Context.get_test_rpc __context with
-  | Some rpc -> f rpc (Ref.of_string "fake_session")
+  | Some rpc -> ( debug "helpers.ml:call_api_functions fake_session";
+                  f rpc (Ref.of_string "fake_session")
+                )
   | None ->
     call_api_functions_internal ~__context f
 
