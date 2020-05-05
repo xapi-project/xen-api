@@ -1,7 +1,6 @@
 (** Module for parsing and accessing the legacy quicktest command line arguments *)
 
 let xe_path = ref "/opt/xensource/bin/xe"
-let iso_path = ref "/opt/xensource/packages/iso"
 let use_default_sr = ref false
 
 let use_colour = ref true
@@ -35,7 +34,6 @@ let rpc = ref rpc_unix_domain
 let parse () =
   Arg.parse [
     "-xe-path", Arg.String (fun x -> xe_path := x), "Path to xe command line executable";
-    "-iso-sr-path", Arg.String (fun x -> iso_path := x), "Path to ISO SR";
     "-default-sr", Arg.Unit (fun () -> use_default_sr := true), "Only run SR tests on the pool's default SR";
     "-nocolour", Arg.Clear use_colour, "Don't use colour in the output" ]
     (fun x -> match !host, !username, !password with

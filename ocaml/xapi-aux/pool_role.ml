@@ -32,12 +32,15 @@ let role = ref None
 let role_unit_tests = ref false
 let role_m = Mutex.create ()
 
+let with_pool_role_lock f =
+  Mutex.execute role_m f
+
 let set_pool_role_for_test () =
-  Mutex.execute role_m (fun _ -> role := Some Master;
+  with_pool_role_lock (fun _ -> role := Some Master;
                          role_unit_tests := true)
 
 let is_unit_test () =
-  Mutex.execute role_m (fun _ -> !role_unit_tests)
+  with_pool_role_lock (fun _ -> !role_unit_tests)
 
 let string_of = function
   | Master -> "master"
@@ -47,7 +50,7 @@ let string_of = function
 let read_pool_role () =
   try
     let s = String.strip String.isspace
-        (Unixext.string_of_file !Xapi_globs.pool_config_file) in
+        (Unixext.string_of_file !Constants.pool_config_file) in
     match String.split ~limit:2 ':' s with
     | [ "master" ]      -> Master
     | [ "slave"; m_ip ] -> Slave m_ip
@@ -59,11 +62,11 @@ let read_pool_role () =
     then (debug "Executable name is not 'xapi', so we must be running \
                  		             in unit-test mode; setting pool-role to 'Master'";
           Master)
-    else (error "Failed to read pool role from %s" !Xapi_globs.pool_config_file;
+    else (error "Failed to read pool role from %s" !Constants.pool_config_file;
           Broken)
 
 let get_role () =
-  Mutex.execute role_m (fun _ ->
+  with_pool_role_lock (fun _ ->
       match !role with
       | Some x -> x
       | None ->
@@ -88,9 +91,3 @@ let get_master_address () = match get_role () with
   | Master -> raise This_host_is_a_master
   | Broken -> raise This_host_is_broken
 
-let set_role r =
-  let old_role = get_role () in
-  Mutex.execute role_m
-    (fun () ->
-       Unixext.write_string_to_file !Xapi_globs.pool_config_file (string_of r));
-  Localdb.put Constants.this_node_just_became_master (string_of_bool (old_role <> Master && r = Master))

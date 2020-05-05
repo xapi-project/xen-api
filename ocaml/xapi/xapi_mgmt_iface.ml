@@ -75,17 +75,17 @@ let start ~__context ?addr () =
       begin
         try (* Is it IPv6 ? *)
           let addr = Unix.inet6_addr_any in
-          Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)),
+          Xapi_http.bind (Unix.ADDR_INET(addr, Constants.http_port)),
           ":::443"
         with _ -> (* No. *)
           let addr = Unix.inet_addr_any in
-          Xapi_http.bind (Unix.ADDR_INET(addr, Xapi_globs.http_port)),
+          Xapi_http.bind (Unix.ADDR_INET(addr, Constants.http_port)),
           "443"
       end
     | Some ip ->
       info "Starting new server (listening on %s)" ip;
       let addr = Unix.inet_addr_of_string ip in
-      let sockaddr = Unix.ADDR_INET(addr, Xapi_globs.http_port) in
+      let sockaddr = Unix.ADDR_INET(addr, Constants.http_port) in
       Xapi_http.bind sockaddr,
       match Unix.domain_of_sockaddr sockaddr with
       | Unix.PF_INET6 -> "::1:443"

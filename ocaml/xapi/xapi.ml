@@ -162,7 +162,7 @@ let random_setup () =
 let register_callback_fns() =
   let fake_rpc req sock xml : Rpc.response =
     Api_server.callback1 false req sock xml in
-  Helpers.rpc_fun := Some fake_rpc;
+  Xapi_cli.rpc_fun := Some fake_rpc;
   let set_stunnelpid task_opt pid =
     Locking_helpers.Thread_state.acquired (Locking_helpers.Process("stunnel", pid)) in
   let unset_stunnelpid task_opt pid =
@@ -220,7 +220,7 @@ let check_no_other_masters() =
                begin
                  try
                    (* now become a slave of the new master we found... *)
-                   Pool_role.set_role (Pool_role.Slave master_address);
+                   Xapi_pool_transition.set_role (Pool_role.Slave master_address);
                  with
                    e -> (error "Could not transition to slave '%s': xapi will abort completely and not start" (Printexc.to_string e); exit 1)
                end;
@@ -881,7 +881,7 @@ let server_init() =
           "Best-effort bring up of physical and sriov NICs", [ Startup.NoExnRaising ], Xapi_pif.start_of_day_best_effort_bring_up;
           "updating the vswitch controller", [], (fun () -> Helpers.update_vswitch_controller ~__context ~host:(Helpers.get_localhost ~__context));
           "initialising storage", [ Startup.NoExnRaising ],
-          (fun () -> Helpers.call_api_functions ~__context Create_storage.create_storage_localhost);
+          (fun () -> Helpers.call_api_functions ~__context Create_storage.initialise_storage_localhost);
           (* CA-13878: make sure PBD plugging has happened before attempting to reboot any VMs *)
           "resynchronising VM state", [ Startup.NoExnRaising ], (fun () -> Xapi_xenops.on_xapi_restart ~__context);
           "listening to events from xapi", [], (fun () -> if not (!noevents) then ignore (Thread.create Xapi_xenops.events_from_xapi ()));

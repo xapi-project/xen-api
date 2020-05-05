@@ -101,19 +101,21 @@ let read_set_params name params = List.map fst (read_map_params name params)
 
 let get_chunks fd =
   let buffer = Buffer.create 10240 in
-  let rec f () =
+  let rec f bytes_read =
     match unmarshal fd with
     | Blob (Chunk len) ->
       debug "Reading a chunk of %ld bytes" len;
+      let bytes_read = bytes_read + (Int32.to_int len) in
+      if bytes_read > Constants.max_cli_upload_bytes then failwith (Printf.sprintf "Fatal error: A CLI client tried to transfer more than the maximum allowed of %dB, aborting." Constants.max_cli_upload_bytes);
       let data = Unixext.really_read_string fd (Int32.to_int len) in
       Buffer.add_string buffer data;
-      f()
+      f bytes_read
     | Blob End ->
       Buffer.contents buffer
     | _ ->
       failwith "Thin CLI protocol error"
   in
-  f()
+  f 0
 
 let get_client_file fd filename =
   marshal fd (Command (Load filename));
@@ -134,30 +136,6 @@ let get_file_or_fail fd desc filename =
   | None -> fail fd desc
   | Some chunks -> chunks
 
-let diagnostic_compact printer rpc session_id params =
-  Gc.compact ()
-
-let diagnostic_gc_stats printer rpc session_id params =
-  let stat = Gc.stat () in
-  let table =
-    ["minor_words",string_of_float stat.Gc.minor_words;
-     "promoted_words",string_of_float stat.Gc.promoted_words;
-     "major_words",string_of_float stat.Gc.major_words;
-     "minor_collections",string_of_int stat.Gc.minor_collections;
-     "major_collections",string_of_int stat.Gc.major_collections;
-     "heap_words",string_of_int stat.Gc.heap_words;
-     "heap_chunks",string_of_int stat.Gc.heap_chunks;
-     "live_words",string_of_int stat.Gc.live_words;
-     "live_blocks",string_of_int stat.Gc.live_blocks;
-     "free_words",string_of_int stat.Gc.free_words;
-     "free_blocks",string_of_int stat.Gc.free_blocks;
-     "largest_free",string_of_int stat.Gc.largest_free;
-     "fragments",string_of_int stat.Gc.fragments;
-     "compactions",string_of_int stat.Gc.compactions;
-     "top_heap_words",string_of_int stat.Gc.top_heap_words;
-    ] in
-  printer (Cli_printer.PTable [table])
-
 let diagnostic_timing_stats printer rpc session_id params =
   let table_of_host host =
     [ "host-uuid", Client.Host.get_uuid rpc session_id host;
@@ -169,137 +147,6 @@ let diagnostic_timing_stats printer rpc session_id params =
   let all = List.map table_of_host (Client.Host.get_all rpc session_id) in
 
   printer (Cli_printer.PTable all)
-
-let diagnostic_net_stats printer rpc session_id params =
-  let all = Http_svr.Server.all_stats Xapi_http.server in
-  let meth (m, _, _) = match List.assoc_opt "method" params with
-    | Some m' ->
-      String.(lowercase_ascii (Http.string_of_method_t m) = lowercase_ascii m')
-    | None -> true
-  in
-  let uri (_, uri, _) = match List.assoc_opt "uri" params with
-    | Some uri' -> String.(lowercase_ascii uri = lowercase_ascii uri')
-    | None -> true
-  in
-  let has_param x = match List.assoc_opt "params" params with
-    | Some params -> List.mem x (String.split_on_char ',' params)
-    | None -> true
-  in
-
-  let all = List.filter meth (List.filter uri all) in
-  let rows = List.map
-      (fun (m, uri, stats) ->
-         let m' = if has_param "method" then [ Http.string_of_method_t m ] else [] in
-         let uri' = if has_param "uri" then [ uri ] else [] in
-         let requests' = if has_param "requests" then [ string_of_int stats.Http_svr.Stats.n_requests ] else [] in
-         let connections' = if has_param "connections" then [ string_of_int stats.Http_svr.Stats.n_connections ] else [] in
-         let framed' = if has_param "framed" then [ string_of_int stats.Http_svr.Stats.n_framed ] else [] in
-         m' @ uri' @ requests' @ connections' @ framed'
-      ) all in
-  let widths = Table.compute_col_widths rows in
-  let sll = List.map (List.map2 Table.right widths) rows in
-  List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
-
-let diagnostic_db_stats printer rpc session_id params =
-  let (n,avgtime,min,max) = Db_lock.report () in
-  printer (Cli_printer.PMsg (Printf.sprintf "DB lock stats: n=%d avgtime=%f min=%f max=%f" n avgtime min max))
-
-let diagnostic_db_log printer rpc session_id params =
-  printer (Cli_printer.PMsg "Deprecated: no additional statistics available, use diagnostic-db-stats")
-
-type host_license = {
-  hostname: string;
-  uuid: string;
-  rstr: Features.feature list;
-  edition: string;
-  edition_short: string;
-  expiry: float;
-}
-let host_license_of_r host_r editions =
-  let params = host_r.API.host_license_params in
-  let rstr = Features.of_assoc_list params in
-  let expiry =
-    if List.mem_assoc "expiry" params then
-      Date.to_float (Date.of_string (List.assoc "expiry" params))
-    else
-      0.
-  in
-  let edition_str = host_r.API.host_edition in
-  let unavailable_edition_str = "N/A" in
-  let edition_short =
-    editions
-    |> List.filter_map
-      V6_interface.(fun ed -> if ed.title = edition_str
-                     then Some ed.code
-                     else None)
-    |> (function
-        | a::_ -> a
-        | _ -> unavailable_edition_str
-      ) in
-  {
-    hostname = host_r.API.host_hostname;
-    uuid = host_r.API.host_uuid;
-    rstr = rstr;
-    edition = edition_str;
-    edition_short = edition_short;
-    expiry = expiry;
-  }
-
-let diagnostic_license_status printer rpc session_id params =
-  let hosts = Client.Host.get_all_records rpc session_id in
-  let heading = [ "Hostname"; "UUID"; "Features"; "Code"; "Free"; "Expiry"; "Days left" ] in
-  let editions = V6_client.get_editions "diagnostic_license_status" in
-
-  let valid, invalid = List.partition (fun (_, host_r) -> try ignore(host_license_of_r host_r editions); true with _ -> false) hosts in
-  let host_licenses = List.map (fun (_, host_r) -> host_license_of_r host_r editions) valid in
-  (* Sort licenses into nearest-expiry first then free *)
-  let host_licenses = List.sort (fun a b ->
-      let a_expiry = a.expiry and b_expiry = b.expiry in
-      let a_free = a.edition = "free"
-      and b_free = b.edition = "free" in
-      if a_expiry < b_expiry then -1
-      else
-      if a_expiry > b_expiry then 1
-      else
-      if a_free && not b_free then -1
-      else
-      if not a_free && b_free then 1
-      else 0) host_licenses in
-  let now = Unix.gettimeofday () in
-  let hosts = List.map (fun h -> [ h.hostname;
-                                   String.sub h.uuid 0 8;
-                                   Features.to_compact_string h.rstr;
-                                   h.edition_short;
-                                   string_of_bool (h.edition = "free");
-                                   Date.to_string (Date.of_float h.expiry);
-                                   Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
-                                 ]) host_licenses in
-  let invalid_hosts = List.map (fun (_, host_r) -> [ host_r.API.host_hostname;
-                                                     String.sub host_r.API.host_uuid 0 8;
-                                                     "-"; "-"; "-"; "-"; "-" ]) invalid in
-  let __context = Context.make "diagnostic_license_status" in
-  let pool = Helpers.get_pool ~__context in
-  let pool_features = Features.of_assoc_list (Db.Pool.get_restrictions ~__context ~self:pool) in
-  let pool_free = List.fold_left (||) false (List.map (fun h -> h.edition = "free") host_licenses) in
-  let divider = [ "-"; "-"; "-"; "-"; "-"; "-"; "-" ] in
-  let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; string_of_bool pool_free; "-"; "-" ] in
-  let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
-
-  (* Compute the required column widths *)
-  let rec transpose x =
-    if List.filter (fun x -> x <> []) x = []
-    then []
-    else
-      let heads = List.map List.hd x in
-      let tails = List.map List.tl x in
-      heads :: (transpose tails) in
-  let map f x = List.map (List.map f) x in
-  let column_sizes = List.map (List.fold_left max 0) (transpose (map String.length table)) in
-
-  List.iter
-    (fun row ->
-       printer (Cli_printer.PMsg (String.concat " " (List.map (fun (data, len) -> data ^ (String.make (len - String.length data) ' ')) (List.combine row column_sizes))))
-    ) table
 
 let get_hosts_by_name_or_id rpc session_id name =
   let hosts = Client.Host.get_all_records_where rpc session_id "true" in
@@ -329,25 +176,12 @@ let create_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd unplugg
   create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams []
 
 let create_owner_vbd_and_plug rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams =
-  create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams [Xapi_globs.owner_key,""]
+  create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams [Constants.owner_key,""]
 
 
 (* ---------------------------------------------------------------------
    CLI Operation Implementation
    --------------------------------------------------------------------- *)
-
-(* NB: all logging is now via syslog. No manual log controls are here. *)
-let log_set_output printer _ session_id params =
-  ()
-
-let log_get_keys printer _ session_id params =
-  ()
-
-let log_get printer _ session_id params =
-  ()
-
-let log_reopen printer _ session_id params =
-  ()
 
 let user_password_change _ rpc session_id params =
   let old_pwd = Listext.assoc_default "old" params ""
@@ -783,7 +617,7 @@ let gen_cmds rpc session_id =
     ; Client.PBD.(mk get_all get_all_records_where get_by_uuid pbd_record "pbd" [] ["uuid";"host-uuid";"sr-uuid";"device-config";"currently-attached"] rpc session_id)
     ; Client.Task.(mk get_all get_all_records_where get_by_uuid task_record "task" [] ["uuid";"name-label";"name-description";"status";"progress"] rpc session_id)
     ; Client.Subject.(mk get_all get_all_records_where get_by_uuid subject_record "subject" [] ["uuid";"subject-identifier";"other-config";"roles"] rpc session_id)
-    ; Client.Role.(mk get_all (fun ~rpc ~session_id ~expr -> get_all_records_where ~rpc ~session_id ~expr:Xapi_role.expr_no_permissions)
+    ; Client.Role.(mk get_all (fun ~rpc ~session_id ~expr -> get_all_records_where ~rpc ~session_id ~expr:"subroles<>[]")
                      get_by_uuid role_record "role" [] ["uuid";"name";"description";"subroles"] rpc session_id)
     ; Client.VMSS.(mk get_all get_all_records_where get_by_uuid vmss_record "vmss" [] ["uuid";"name-label";"name-description";"enabled";"type";"retained-snapshots";"frequency";"schedule";"last-run-time";"VMs"] rpc session_id)
     (* ; Client.Blob.(mk get_all get_all_records_where get_by_uuid blob_record "blob" [] ["uuid";"mime-type"] rpc session_id)
@@ -902,7 +736,7 @@ let host_ha_xapi_healthcheck fd printer rpc session_id params =
     end;
     marshal fd (Command (Print "xapi is healthy."))
   with e ->
-    marshal fd (Command (PrintStderr (Printf.sprintf "Host.ha_xapi_healthcheck threw exception: %s\n" (ExnHelper.string_of_exn e))));
+    marshal fd (Command (PrintStderr (Printf.sprintf "Host.ha_xapi_healthcheck threw exception: %s\n" (Cli_util.string_of_exn e))));
     raise (ExitWithError 3)
 
 let pool_sync_database printer rpc session_id params =
@@ -930,7 +764,7 @@ let pool_join printer rpc session_id params =
         ~master_address:(List.assoc "master-address" params)
         ~master_username:(List.assoc "master-username" params)
         ~master_password:(List.assoc "master-password" params);
-    printer (Cli_printer.PList ["Host agent will restart and attempt to join pool in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+    printer (Cli_printer.PList ["Host agent will restart and attempt to join pool in "^(string_of_float !Constants.fuse_time)^" seconds..."])
   with
   | Api_errors.Server_error(code, params) when code=Api_errors.pool_joining_host_connection_failed ->
     printer (Cli_printer.PList ["Host cannot contact destination host: connection refused.";
@@ -944,7 +778,7 @@ let pool_eject fd printer rpc session_id params =
 
   let go () =
     Client.Pool.eject ~rpc ~session_id ~host;
-    printer (Cli_printer.PList ["Specified host will attempt to restart as a master of a new pool in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."]) in
+    printer (Cli_printer.PList ["Specified host will attempt to restart as a master of a new pool in "^(string_of_float !Constants.fuse_time)^" seconds..."]) in
 
   if force
   then go ()
@@ -1000,13 +834,13 @@ let pool_eject fd printer rpc session_id params =
 let pool_emergency_reset_master printer rpc session_id params =
   let master_address = List.assoc "master-address" params in
   Client.Pool.emergency_reset_master ~rpc ~session_id ~master_address;
-  printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+  printer (Cli_printer.PList ["Host agent will restart and become slave of "^master_address^" in "^(string_of_float !Constants.fuse_time)^" seconds..."])
 
 let pool_emergency_transition_to_master printer rpc session_id params =
   let force = get_bool_param params "force" in
   if not (Pool_role.is_master ()) || force then begin
     Client.Pool.emergency_transition_to_master ~rpc ~session_id;
-    printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Xapi_globs.fuse_time)^" seconds..."])
+    printer (Cli_printer.PList ["Host agent will restart and transition to master in "^(string_of_float !Constants.fuse_time)^" seconds..."])
   end
   else
     printer (Cli_printer.PList ["Host agent is already master. Use '--force' to execute the operation anyway."])
@@ -1485,6 +1319,11 @@ let sr_introduce printer rpc session_id params =
   let _ = Client.SR.introduce ~rpc ~session_id ~uuid ~name_label ~name_description:"" ~_type ~content_type ~shared ~sm_config in
   printer (Cli_printer.PList [uuid])
 
+
+type probe_result =
+  | Raw of string (* SMAPIv1 adapters return arbitrary data *)
+[@@deriving rpcty]
+
 let sr_probe printer rpc session_id params =
   let host = parse_host_uuid rpc session_id params in
   let _type = List.assoc "type" params in
@@ -1493,10 +1332,8 @@ let sr_probe printer rpc session_id params =
   let txt = Client.SR.probe ~rpc ~session_id ~host ~_type ~device_config ~sm_config in
   try
     (* If it's the new format, try to print it more nicely *)
-    let open Storage_interface in
     match Rpcmarshal.unmarshal probe_result.Rpc.Types.ty (Xmlrpc.of_string txt) with
     | Ok (Raw x) -> printer (Cli_printer.PList [ x ])
-    | Ok (Probe x) -> failwith "Not implemented, this return type is for probe_ext"
     | Error (`Msg m) -> failwith (Printf.sprintf "Failed to unmarshal probe result: %s" m)
   with _ ->
     printer (Cli_printer.PList [txt])
@@ -1994,10 +1831,10 @@ let do_multiple op set =
       with
       | Api_errors.Server_error(code, params) as exn -> (
           match Cli_util.get_server_error code params with
-          | None           -> append_fail e (ExnHelper.string_of_exn exn)
+          | None           -> append_fail e (Cli_util.string_of_exn exn)
           | Some (msg, ps) -> append_fail e (msg ^ "\n" ^ (String.concat "\n" ps))
         ); None
-      | exn -> append_fail e (ExnHelper.string_of_exn exn); None
+      | exn -> append_fail e (Cli_util.string_of_exn exn); None
     ) set in
 
   let success = List.fold_left (fun acc e -> match e with None -> acc | Some x -> x :: acc) [] ret in
@@ -2454,12 +2291,13 @@ let vm_install_real printer rpc session_id template name description params =
 
   let suspend_sr_ref = match sr_ref with
     | Some sr ->
-      if Cli_util.is_valid_ref session_id sr then
+      begin try
         (* sr-uuid and/or sr-name-label was specified - use this as the suspend_SR *)
-        sr
-      else
-        (* Template is a snapshot - copy the suspend_SR from the template *)
-        Client.VM.get_suspend_SR rpc session_id template
+        ignore(Client.SR.get_uuid rpc session_id sr); sr
+        with _ ->
+          (* Template is a snapshot - copy the suspend_SR from the template *)
+          Client.VM.get_suspend_SR rpc session_id template
+      end
     | None ->
       (* Not a snapshot and no sr-uuid or sr-name-label specified - copy the suspend_SR from the template *)
       Client.VM.get_suspend_SR rpc session_id template in
@@ -2473,11 +2311,11 @@ let vm_install_real printer rpc session_id template name description params =
       match get_default_sr_uuid rpc session_id with
       | Some uuid -> uuid
       | None ->
-        match Xapi_templates.get_template_record rpc session_id template
-        with
-        | None | Some {Xapi_templates.disks = []} -> Ref.string_of Ref.null
-        | _ -> failwith "Failed to find a valid default SR for the \
-                         Pool. Please provide an sr-name-label or sr-uuid parameter." in
+        let other_config = Client.VM.get_other_config rpc session_id template in
+        if List.mem_assoc "disks" other_config then
+          failwith "Failed to find a valid default SR for the \
+                    Pool. Please provide an sr-name-label or sr-uuid parameter."
+        else "" in
 
   let new_vm =
     match sr_ref with
@@ -2622,7 +2460,7 @@ let vm_uninstall_common fd printer rpc session_id params vms =
                                    let vdi = Client.VBD.get_VDI rpc session_id vbd in
                                    (* Double-check the VDI actually exists *)
                                    ignore(Client.VDI.get_uuid rpc session_id vdi);
-                                   if List.mem_assoc Xapi_globs.owner_key other_config
+                                   if List.mem_assoc Constants.owner_key other_config
                                    then [ vdi ] else [ ]
                                  with _ -> []) vbds) in
     let suspend_VDI =
@@ -2815,7 +2653,7 @@ let vm_migrate printer rpc session_id params =
       XMLRPC_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi" ~transport:(SSL(SSL.make ~use_fork_exec_helper:false (), ip, 443)) ~http xml in
     let username = List.assoc "remote-username" params in
     let password = List.assoc "remote-password" params in
-    let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" Xapi_globs.xapi_user_agent in
+    let remote_session = Client.Session.login_with_password remote_rpc username password "1.3" Constants.xapi_user_agent in
     finally
       (fun () ->
          let host, host_record =
@@ -3009,7 +2847,7 @@ let vm_disk_add printer rpc session_id params =
   let op vm =
     let vm=vm.getref() in
     let vmuuid = Client.VM.get_uuid ~rpc ~session_id ~self:vm in
-    let sm_config = [ Xapi_globs._sm_vm_hint, vmuuid ] in
+    let sm_config = [ Constants._sm_vm_hint, vmuuid ] in
     let vdi = Client.VDI.create ~rpc ~session_id ~name_label:vdi_name ~name_description:vdi_name ~sR:sr ~virtual_size:vdi_size ~_type:`user ~sharable:false ~read_only:false ~other_config:[] ~xenstore_data:[] ~sm_config ~tags:[] in
     try
       let _ =
@@ -3234,10 +3072,8 @@ let with_license_server_changes printer rpc session_id params hosts f =
     end
   | Api_errors.Server_error (name, args) as e
     when name = Api_errors.invalid_edition ->
-    let editions = (V6_client.get_editions "host_apply_edition")
-                   |> List.map V6_interface.(fun ed -> ed.title)
-                   |> String.concat ", "
-    in
+    let host = get_host_from_session rpc session_id in
+    let editions = Client.Host.get_editions rpc session_id host |> String.concat ", " in
     printer (Cli_printer.PStderr ("Valid editions are: " ^ editions ^ "\n"));
     raise e
   | e -> raise e
@@ -3253,7 +3089,8 @@ let host_apply_edition printer rpc session_id params =
     (fun rpc session_id -> Client.Host.apply_edition rpc session_id host edition false)
 
 let host_all_editions printer rpc session_id params =
-  let editions = List.map V6_interface.(fun ed -> ed.title) (V6_client.get_editions "host_all_editions") in
+  let host = get_host_from_session rpc session_id in
+  let editions = Client.Host.get_editions rpc session_id host in
   printer (Cli_printer.PList editions)
 
 let host_evacuate printer rpc session_id params =
@@ -3338,7 +3175,7 @@ let wait_for_task_complete rpc session_id task_id =
     Thread.delay 1.0
   done
 
-let download_file ~__context rpc session_id task fd filename uri label =
+let download_file rpc session_id task fd filename uri label =
   marshal fd (Command (HttpGet (filename, uri)));
   let response = ref (Response Wait) in
   while !response = Response Wait do response := unmarshal fd done;
@@ -3348,8 +3185,8 @@ let download_file ~__context rpc session_id task fd filename uri label =
     | Response Failed ->
       (* Need to check whether the thin cli managed to contact the server
          				   or not. If not, we need to mark the task as failed *)
-      if Client.Task.get_progress rpc session_id task < 0.0
-      then Db_actions.DB_Action.Task.set_status ~__context ~self:task ~value:`failure;
+      if Client.Task.get_progress rpc session_id task < 0.0 then
+        Client.Task.set_status rpc session_id task `failure;
       false
     | _ -> false
   in
@@ -3387,11 +3224,10 @@ let download_file_with_task fd rpc session_id filename uri query label
   (* Initially mark the task progress as -1.0. The first thing the HTTP handler does it to mark it as zero *)
   (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
   (* not our responsibility any more to mark the task as completed/failed/etc. *)
-  let __context = Context.make task_name in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:task ~value:(-1.0);
+  Client.Task.set_progress rpc session_id task (-1.0);
   finally
     (fun () ->
-       download_file ~__context rpc session_id task fd filename
+       download_file rpc session_id task fd filename
          (Printf.sprintf "%s?session_id=%s&task_id=%s%s%s" uri
             (Ref.string_of session_id)
             (Ref.string_of task)
@@ -3450,7 +3286,7 @@ let vm_import fd printer rpc session_id params =
     marshal fd (Command (PrintStderr "Invalid arguments. The 'url' and 'filename' parameters should not both be specified.\n"));
     raise (ExitWithError 1)
   end;
-  if (Vpx.serverType_of_string _type) <> Vpx.XenServer then begin
+  if (Vpx_types.of_string _type) <> Vpx_types.XenServer then begin
     let username = List.assoc "host-username" params in
     let password = List.assoc "host-password" params in
     let remote_config = read_map_params "remote-config" params in
@@ -3492,8 +3328,7 @@ let vm_import fd printer rpc session_id params =
       (* Initially mark the task progress as -1.0. The first thing the import handler does it to mark it as zero *)
       (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
       (* not our responsibility any more to mark the task as completed/failed/etc. *)
-      let __context = Context.make "import" in
-      Db_actions.DB_Action.Task.set_progress ~__context ~self:importtask ~value:(-1.0);
+      Client.Task.set_progress rpc session_id importtask (-1.0);
 
       finally (fun () ->
           begin
@@ -3504,15 +3339,18 @@ let vm_import fd printer rpc session_id params =
                 (* Only import the first VM *)
                 let vm = List.hd vm in
                 let disks = List.sort compare (List.map (fun x -> x.Xva.device) vm.Xva.vbds) in
-                let host =
-                  if sr<>Ref.null
-                  then Importexport.find_host_for_sr ~__context sr
-                  else Helpers.get_localhost __context
+                let address =
+                  match sr <> Ref.null with
+                  | true -> Client.SR.get_live_hosts rpc session_id sr
+                            |> (fun hosts -> if hosts <> [] then hosts else
+                                   raise (Api_errors.Server_error (Api_errors.host_not_live, [])))
+                            |> (fun hosts -> List.nth hosts (List.length hosts |> Random.int))
+                            |> (fun host -> Client.Host.get_address rpc session_id host)
+                  | false -> "127.0.0.1"
                 in
-                let address = Client.Host.get_address rpc session_id host in
                 (* Although it's inefficient use a loopback HTTP connection *)
                 debug "address is: %s" address;
-                let request = Xapi_http.http_request
+                let request = Http.Request.make ~user_agent:Constants.xapi_user_agent
                     ~cookie:(["session_id", Ref.string_of session_id;
                               "task_id", Ref.string_of importtask] @
                              (if sr <> Ref.null then [ "sr_id", Ref.string_of sr ] else []))
@@ -3575,14 +3413,14 @@ let vm_import fd printer rpc session_id params =
                 in
 
                 let open Xmlrpc_client in
-                let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of (Context.get_task_id __context)) (), address, !Xapi_globs.https_port) in
+                let transport = SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of importtask) (), address, !Constants.https_port) in
                 let stream_ok = with_transport transport (with_http request writer) in
                 if not stream_ok then
                   begin
                     (* If the progress is negative, we never got to talk to the import handler, and must complete *)
                     (* the task ourselves *)
-                    if Client.Task.get_progress rpc session_id importtask < 0.0
-                    then Db_actions.DB_Action.Task.set_status ~__context ~self:importtask ~value:`failure;
+                    if Client.Task.get_progress rpc session_id importtask < 0.0 then
+                      Client.Task.set_status rpc session_id importtask `failure
                   end;
 
                 wait_for_task_complete rpc session_id importtask;
@@ -3616,8 +3454,8 @@ let vm_import fd printer rpc session_id params =
                 marshal fd (Command (Debug ("Caught exception: " ^ (Printexc.to_string e))));
                 marshal fd (Command (PrintStderr "Failed to import directory-format XVA\n"));
                 debug "Import failed with exception: %s" (Printexc.to_string e);
-                (if (Db_actions.DB_Action.Task.get_progress ~__context ~self:importtask = (-1.0))
-                 then TaskHelper.failed ~__context:(Context.from_forwarded_task importtask) (Api_errors.Server_error(Api_errors.import_error_generic,[(Printexc.to_string e)]))
+                (if (Client.Task.get_progress rpc session_id importtask = (-1.0)) then
+                  Client.Task.set_status rpc session_id importtask `failure
                 );
                 raise (ExitWithError 2)
             end
@@ -3653,9 +3491,8 @@ let blob_get fd printer rpc session_id params =
   let blob_uuid = List.assoc "uuid" params in
   let blob_ref = Client.Blob.get_by_uuid rpc session_id blob_uuid in
   let filename = List.assoc "filename" params in
-  let __context = Context.make "import" in
   let blobtask = Client.Task.create rpc session_id (Printf.sprintf "Obtaining blob, ref=%s" (Ref.string_of blob_ref)) "" in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:blobtask ~value:(-1.0);
+  Client.Task.set_progress rpc session_id blobtask (-1.0);
 
   let bloburi = Printf.sprintf "%s?session_id=%s&task_id=%s&ref=%s"
       (Constants.blob_uri) (Ref.string_of session_id) (Ref.string_of blobtask) (Ref.string_of blob_ref)
@@ -3668,8 +3505,8 @@ let blob_get fd printer rpc session_id params =
        let ok = match !response with
          | Response OK -> true
          | Response Failed ->
-           if Client.Task.get_progress rpc session_id blobtask < 0.0
-           then Db_actions.DB_Action.Task.set_status ~__context ~self:blobtask ~value:`failure;
+           if Client.Task.get_progress rpc session_id blobtask < 0.0 then
+             Client.Task.set_status rpc session_id blobtask `failure;
            false
          | _ -> false
        in
@@ -3702,9 +3539,8 @@ let blob_put fd printer rpc session_id params =
   let blob_uuid = List.assoc "uuid" params in
   let blob_ref = Client.Blob.get_by_uuid rpc session_id blob_uuid in
   let filename = List.assoc "filename" params in
-  let __context = Context.make "import" in
   let blobtask = Client.Task.create rpc session_id (Printf.sprintf "Blob PUT, ref=%s" (Ref.string_of blob_ref)) "" in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:blobtask ~value:(-1.0);
+  Client.Task.set_progress rpc session_id blobtask (-1.0);
 
   let bloburi = Printf.sprintf "%s?session_id=%s&task_id=%s&ref=%s"
       (Constants.blob_uri) (Ref.string_of session_id) (Ref.string_of blobtask) (Ref.string_of blob_ref)
@@ -3717,8 +3553,8 @@ let blob_put fd printer rpc session_id params =
        let ok = match !response with
          | Response OK -> true
          | Response Failed ->
-           if Client.Task.get_progress rpc session_id blobtask < 0.0
-           then Db_actions.DB_Action.Task.set_status ~__context ~self:blobtask ~value:`failure;
+           if Client.Task.get_progress rpc session_id blobtask < 0.0 then
+             Client.Task.set_status rpc session_id blobtask `failure;
            false
          | _ -> false
        in
@@ -3814,13 +3650,12 @@ let export_common fd printer rpc session_id params filename num ?task_uuid compr
   (* Initially mark the task progress as -1.0. The first thing the export handler does it to mark it as zero *)
   (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
   (* not our responsibility any more to mark the task as completed/failed/etc. *)
-  let __context = Context.make "export" in
-  Db_actions.DB_Action.Task.set_progress ~__context ~self:exporttask ~value:(-1.0);
+  Client.Task.set_progress rpc session_id exporttask (-1.0);
 
   finally
     (fun () ->
        let f = if !num > 1 then filename ^ (string_of_int !num) else filename in
-       download_file ~__context rpc session_id exporttask fd f
+       download_file rpc session_id exporttask fd f
          (Printf.sprintf
             "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b"
             (if vm_metadata_only then Constants.export_metadata_uri else Constants.export_uri)
@@ -3828,7 +3663,7 @@ let export_common fd printer rpc session_id params filename num ?task_uuid compr
             (Ref.string_of exporttask)
             (Ref.string_of (vm.getref ()))
             Constants.use_compression
-            (Importexport.string_of_compression_algorithm compression)
+            (Compression_algorithms.to_string compression)
             preserve_power_state
             export_snapshots)
          "Export";
@@ -3837,7 +3672,7 @@ let export_common fd printer rpc session_id params filename num ?task_uuid compr
 
 let get_compression_algorithm params =
   if List.mem_assoc "compress" params
-  then Importexport.compression_algorithm_of_string (List.assoc "compress" params)
+  then Compression_algorithms.of_string (List.assoc "compress" params)
   else None
 
 let vm_export fd printer rpc session_id params =
@@ -3875,7 +3710,7 @@ let vm_is_bios_customized printer rpc session_id params =
     let bios_strings = Client.VM.get_bios_strings rpc session_id (vm.getref ()) in
     if List.length bios_strings = 0 then
       printer (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
-    else if bios_strings = Xapi_globs.generic_bios_strings then
+    else if bios_strings = Constants.generic_bios_strings then
       printer (Cli_printer.PMsg "This VM is BIOS-generic.")
     else
       printer (Cli_printer.PMsg "This VM is BIOS-customized.")
@@ -3998,6 +3833,119 @@ let tunnel_destroy printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let tunnel = Client.Tunnel.get_by_uuid rpc session_id uuid in
   Client.Tunnel.destroy rpc session_id tunnel
+
+let diagnostic_compact printer rpc session_id params =
+  ignore(do_host_op rpc session_id ~multiple:false
+           (fun _ host ->
+              let host=host.getref () in
+              Client.Diagnostics.gc_compact rpc session_id host
+           ) params [])
+
+let diagnostic_gc_stats printer rpc session_id params =
+  ignore(do_host_op rpc session_id ~multiple:false
+           (fun _ host ->
+              let host=host.getref () in
+              printer
+                (
+                  Client.Diagnostics.gc_stats rpc session_id host
+                  |> fun x -> Cli_printer.PTable [x]
+                )
+           ) params [])
+
+let diagnostic_db_stats printer rpc session_id params =
+  let get_string_of_assoc_list values =
+    List.map (fun (x,y) -> x ^ "=" ^ y) values
+    |> String.concat " " in
+  printer
+    (Cli_printer.PMsg
+       (Client.Diagnostics.db_stats rpc session_id
+        |> get_string_of_assoc_list
+        |> Printf.sprintf "DB lock stats: %s"
+       ))
+
+let diagnostic_net_stats printer rpc session_id params =
+  let args_pass_to_api = ["method";"uri";"params";"requests";"connections";"framed"] in
+  let xapi_params = List.filter (fun (k,v) -> List.mem k args_pass_to_api) params in
+  ignore(do_host_op rpc session_id ~multiple:false
+           (fun _ host ->
+              let host = host.getref() in
+              let rows = Client.Diagnostics.network_stats rpc session_id host xapi_params in
+              let widths = Table.compute_col_widths rows in
+              let sll = List.map (List.map2 Table.right widths) rows in
+              List.iter (fun line -> printer (Cli_printer.PMsg (String.concat " | " line))) sll
+           ) params [])
+
+type host_license = {
+  hostname: string;
+  uuid: string;
+  rstr: Features.feature list;
+  edition: string;
+  expiry: float;
+}
+
+let license_of_host rpc session_id host =
+  let params = Client.Host.get_license_params rpc session_id host in
+  let edition = Client.Host.get_edition rpc session_id host in
+  let hostname = Client.Host.get_hostname rpc session_id host in
+  let uuid = Client.Host.get_uuid rpc session_id host in
+  let rstr = Features.of_assoc_list params in
+  let expiry =
+    if List.mem_assoc "expiry" params then
+      Date.to_float (Date.of_string (List.assoc "expiry" params))
+    else
+      0.
+  in
+  {
+    hostname; uuid;rstr; edition; expiry;
+  }
+
+let diagnostic_license_status printer rpc session_id params =
+  let hosts = Client.Host.get_all_records rpc session_id in
+  let heading = [ "Hostname"; "UUID"; "Features"; "Edition"; "Expiry"; "Days left" ] in
+  let valid, invalid = List.partition (fun (host,_) ->
+      try ignore(license_of_host rpc session_id host); true with _ -> false) hosts in
+  let host_licenses = List.map (fun (host,_) -> license_of_host rpc session_id host) valid
+                      (* Sort licenses into nearest-expiry first *)
+                      |> List.sort (fun a b -> compare a.expiry b.expiry) in
+  let now = Unix.gettimeofday () in
+  let hosts = List.map (fun h -> [ h.hostname;
+                                   String.sub h.uuid 0 8;
+                                   Features.to_compact_string h.rstr;
+                                   h.edition;
+                                   Date.to_string (Date.of_float h.expiry);
+                                   Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.));
+                                 ]) host_licenses in
+  let invalid_hosts = List.map (fun (host,_) ->
+      [Client.Host.get_hostname rpc session_id host;
+       Client.Host.get_uuid rpc session_id host |> (fun x -> String.sub x 0 8);
+       "-"; "-"; "-"; "-" ]) invalid in
+  let pool_features = Client.Pool.get_all_records rpc session_id
+                      |> List.hd
+                      |> (fun (pool,_) -> Client.Pool.get_restrictions rpc session_id pool)
+                      |> Features.of_assoc_list in
+  let divider = [ "-"; "-"; "-"; "-"; "-"; "-" ] in
+  let pool = [ "-"; "-"; Features.to_compact_string pool_features; "-"; "-"; "-" ] in
+  let table = heading :: divider :: hosts @ invalid_hosts @ [ divider; pool ] in
+
+  (* Compute the required column widths *)
+  let rec transpose x =
+    if List.filter (fun x -> x <> []) x = []
+    then []
+    else
+      let heads = List.map List.hd x in
+      let tails = List.map List.tl x in
+      heads :: (transpose tails) in
+  let map f x = List.map (List.map f) x in
+  let column_sizes = List.map (List.fold_left max 0) (transpose (map String.length table)) in
+
+  List.iter
+    (fun row ->
+       List.combine row column_sizes
+       |> List.map (fun (data, len) -> data ^ (String.make (len - String.length data) ' '))
+       |> String.concat " "
+       |> (fun x -> Cli_printer.PMsg x)
+       |> printer
+    ) table
 
 module Network_sriov = struct
   let create printer rpc session_id params =
@@ -4243,7 +4191,7 @@ let pool_restore_db fd printer rpc session_id params =
   ignore(track_http_operation fd rpc session_id make_command "restore database");
   if dry_run
   then printer (Cli_printer.PList [ "Dry-run backup restore successful" ])
-  else printer (Cli_printer.PList ["Host will reboot with restored database in "^(string_of_float !Xapi_globs.db_restore_fuse_time)^" seconds..."])
+  else printer (Cli_printer.PList ["Host will reboot with restored database in "^(string_of_float !Constants.db_restore_fuse_time)^" seconds..."])
 
 
 let pool_enable_external_auth printer rpc session_id params =
@@ -4397,16 +4345,15 @@ let update_upload fd printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let make_command task_id =
     let prefix = uri_of_someone rpc session_id Master in
-    let pools = Client.Pool.get_all rpc session_id in
     let sr =
       if List.mem_assoc "sr-uuid" params
       then Client.SR.get_by_uuid rpc session_id (List.assoc "sr-uuid" params)
       else begin
-        let sr = Client.Pool.get_default_SR ~rpc ~session_id ~self:(List.hd pools) in
-        if Cli_util.is_valid_ref session_id sr then sr
-        else failwith "No sr-uuid parameter was given, and the pool's default SR \
-                       is unspecified or invalid. Please explicitly specify the SR to use \
-                       in the sr-uuid parameter, or set the pool's default SR."
+        match get_default_sr_uuid rpc session_id with
+        | Some uuid ->  Client.SR.get_by_uuid rpc session_id uuid
+        | None -> failwith "No sr-uuid parameter was given, and the pool's default SR \
+                            is unspecified or invalid. Please explicitly specify the SR to use \
+                            in the sr-uuid parameter, or set the pool's default SR."
       end
     in
     let uri = Printf.sprintf "%s%s?session_id=%s&sr_id=%s&task_id=%s"

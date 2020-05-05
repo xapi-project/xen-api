@@ -346,7 +346,7 @@ let copy_vm_record ?(snapshot_info_record) ~__context ~vm ~disk_op ~new_name ~ne
 
 (* epoch hint for netapp backend *)
 let make_driver_params () =
-  [Xapi_globs._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid())]
+  [Constants._sm_epoch_hint, Uuid.to_string (Uuid.make_uuid())]
 
 (* NB this function may be called when the VM is suspended for copy/clone operations. Snapshot can be done in live.*)
 let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
@@ -397,8 +397,8 @@ let clone ?(snapshot_info_record) disk_op ~__context ~vm ~new_name =
                      					   disks. We wish the clone/snapshot/checkpoint disks to be cleaned up with the VM. *)
                   if Db.VBD.get_type ~__context ~self:vbd = `Disk then begin
                     let other_config = Db.VBD.get_other_config ~__context ~self:vbd in
-                    if not(List.mem_assoc Xapi_globs.owner_key other_config)
-                    then Db.VBD.add_to_other_config ~__context ~self:vbd ~key:Xapi_globs.owner_key ~value:"";
+                    if not(List.mem_assoc Constants.owner_key other_config)
+                    then Db.VBD.add_to_other_config ~__context ~self:vbd ~key:Constants.owner_key ~value:"";
                   end
                 ) cloned_disks;
               (* copy VIFs *)

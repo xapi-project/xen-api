@@ -125,6 +125,17 @@ let parse_port (x: string) =
     error "Port number must be an integer (0-65535)\n";
     raise Usage
 
+let parse_eql arg =
+  try
+    Astring.String.cut ~sep:"=" arg
+  with Invalid_argument _ -> None
+
+let get_named_args args =
+  List.filter_map (fun arg ->
+      match parse_eql arg with
+      | Some (k,v) -> Some v
+      | _ -> None) args
+
 (* Extract the arguments we're interested in. Return a list of the argumets we know *)
 (* nothing about. These will get passed straight into the server *)
 let parse_args =
@@ -166,14 +177,6 @@ let parse_args =
     | "--debug-on-fail" :: xs -> Some("debugonfail", "true", xs)
     | "-h" :: h :: xs -> Some("server", h, xs)
     | _ -> None in
-
-  let parse_eql arg =
-    try
-      let eq = String.index arg '=' in
-      let k = String.sub arg 0 eq in
-      let v = String.sub arg (eq+1) (String.length arg - (eq+1)) in
-      Some (k,v)
-    with _ -> None in
 
   let rec process_args = function
     | [] -> []
@@ -283,6 +286,7 @@ exception ClientSideError of string
 exception Stunnel_exit of int * Unix.process_status
 exception Unexpected_msg of message
 exception Server_internal_error
+exception Upload_filename_error of string
 
 let handle_unmarshal_failure ex ifd = match ex with
   | Unmarshal_failure (e, s) ->
@@ -293,7 +297,16 @@ let handle_unmarshal_failure ex ifd = match ex with
     else raise e
   | e -> raise e
 
-let main_loop ifd ofd =
+let assert_upload_filename_in_args filename permitted_filenames =
+  (* Prefix match instead of exact match is used here to workaround the old xva format that request files
+   * are not in the command line *)
+  let is_filename_permited = List.exists (fun file_in_arg -> Astring.String.is_prefix ~affix:file_in_arg filename)
+      permitted_filenames in
+  if not is_filename_permited then
+    let error_message = Printf.sprintf "Blocked upload of the file %s, which was requested by the server. The file name was not present on the command line\n" filename in
+    raise (Upload_filename_error error_message)
+
+let main_loop ifd ofd permitted_filenames =
   (* Intially exchange version information *)
   let major', minor' =
     try unmarshal_protocol ifd with
@@ -329,6 +342,7 @@ let main_loop ifd ofd =
     | Command (Debug x) -> debug "debug from server: %s\n%!" x
     | Command (Load x) ->
       begin
+        assert_upload_filename_in_args x permitted_filenames;
         try
           let fd = Unix.openfile x [ Unix.O_RDONLY ] 0 in
           marshal ofd (Response OK);
@@ -472,6 +486,7 @@ let main_loop ifd ofd =
        | None -> ())
     | Command (HttpPut(filename, url)) ->
       begin
+        assert_upload_filename_in_args filename permitted_filenames;
         try
           let rec doit url =
             let (server,path) = parse_url url in
@@ -596,6 +611,8 @@ let main () =
       end;
 
       let args = parse_args args in
+      (* All the named args are taken as permitted filename to be uploaded *)
+      let permitted_filenames = get_named_args args in
 
       if List.length args < 1 then raise Usage else
         begin
@@ -610,7 +627,7 @@ let main () =
 
           let in_fd = Unix.descr_of_in_channel ic
           and out_fd = Unix.descr_of_out_channel oc in
-          exit_status := main_loop in_fd out_fd
+          exit_status := main_loop in_fd out_fd permitted_filenames
         end
     with
     | Usage ->
@@ -644,6 +661,8 @@ let main () =
          | Unix.WEXITED c -> "existed with exit code " ^ string_of_int c
          | Unix.WSIGNALED c -> "killed by signal " ^ (Xapi_stdext_unix.Unixext.string_of_signal c)
          | Unix.WSTOPPED c -> "stopped by signal " ^ string_of_int c)
+    | Upload_filename_error e ->
+      error "Upload file error: %s" e
     | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in
   List.iter (fun p ->

@@ -178,11 +178,6 @@ let ref_convert x =
   | Some ir ->
     ir.Ref_index.uuid^(match ir.Ref_index.name_label with None->"" | Some x -> " ("^x^")")
 
-let is_valid_ref session_id ref =
-  Server_helpers.exec_with_new_task
-    ~session_id "Checking validity of reference"
-    (fun __context -> Db.is_valid_ref __context ref)
-
 (* Marshal an API-style server-error *)
 let get_server_error code params =
   try
@@ -253,3 +248,14 @@ let rec uri_of_someone rpc session_id = function
       let address = Client.Host.get_address rpc session_id h in
       "https://" ^ address
 
+
+let error_of_exn e =
+  match e with
+  | Api_errors.Server_error (e,l) ->
+    e,l
+  | e ->
+    Api_errors.internal_error, [ Printexc.to_string e ]
+
+let string_of_exn exn =
+  let e, l = error_of_exn exn in
+  Printf.sprintf "%s: [ %s ]" e (String.concat "; " l)

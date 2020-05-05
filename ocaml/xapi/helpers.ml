@@ -68,16 +68,6 @@ let call_script ?(log_successful_output=true) ?env script args =
 let choose_network_name_for_pif device =
   Printf.sprintf "Pool-wide network associated with %s" device
 
-(** Once the server functor has been instantiated, set this reference to the appropriate
-    "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
-    the HTTP request headers it has already received together with its active file descriptor. *)
-let rpc_fun : (Http.Request.t -> Unix.file_descr -> Rpc.call -> Rpc.response) option ref = ref None
-
-let get_rpc () =
-  match !rpc_fun with
-    None -> failwith "No rpc set!"
-  | Some f -> f
-
 (* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
 (* !! FIXME(2) - this code could be shared with the CLI? *)
 let checknull f =
@@ -272,7 +262,7 @@ let make_rpc ~__context rpc : Rpc.response =
   let transport =
     if Pool_role.is_master ()
     then Unix(Xapi_globs.unix_domain_socket)
-    else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
+    else SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Constants.https_port) in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
@@ -292,7 +282,7 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
     let transport =
       if Pool_role.is_master ()
       then Unix(Xapi_globs.unix_domain_socket)
-      else SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) (), Pool_role.get_master_address (), !Xapi_globs.https_port)
+      else SSL(SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) (), Pool_role.get_master_address (), !Constants.https_port)
     in
     let result = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc in
     Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id);
@@ -310,7 +300,7 @@ let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
 (* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), remote_address, !Constants.https_port) in
   let http = xmlrpc ~version:"1.0" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
@@ -354,22 +344,28 @@ let call_api_functions_internal ~__context f =
   finally
     (fun () -> f rpc session_id)
     (fun () ->
-       (* debug "remote client call finished; logging out"; *)
        if !require_explicit_logout
-       then
+       then (
+         debug "Helpers.call_api_functions: explicit log out";
          try Client.Client.Session.logout rpc session_id
          with e ->
            debug "Helpers.call_api_functions failed to logout: %s (ignoring)" (Printexc.to_string e))
+       else
+        debug "Helpers.call_api_functions: no need to explicitly log out"
+    )
+
 
 let call_api_functions ~__context f =
   match Context.get_test_rpc __context with
-  | Some rpc -> f rpc (Ref.of_string "fake_session")
+  | Some rpc -> ( debug "helpers.ml:call_api_functions fake_session";
+                  f rpc (Ref.of_string "fake_session")
+                )
   | None ->
     call_api_functions_internal ~__context f
 
 let call_emergency_mode_functions hostname f =
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), hostname, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), hostname, !Constants.https_port) in
   let http = xmlrpc ~version:"1.0" "/" in
   let rpc = XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id = Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret in

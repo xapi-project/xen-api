@@ -50,7 +50,7 @@ end)
 let remote_rpc_no_retry context hostname (task_opt: API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ?task_id:(may Ref.string_of task_opt) (),
-                      hostname, !Xapi_globs.https_port) in
+                      hostname, !Constants.https_port) in
   let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.0" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
@@ -58,7 +58,7 @@ let remote_rpc_no_retry context hostname (task_opt: API.ref_task option) xml =
 let remote_rpc_retry context hostname (task_opt: API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true ?task_id:(may Ref.string_of task_opt) (),
-                      hostname, !Xapi_globs.https_port) in
+                      hostname, !Constants.https_port) in
   let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.1" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
@@ -2094,6 +2094,27 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   module VM_guest_metrics = struct
   end
 
+  module Diagnostics = struct
+    let gc_compact ~__context ~host =
+      info "Diagnostics.gc_compact: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.gc_compact ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_compact rpc session_id host)
+
+    let gc_stats ~__context ~host =
+      info "Diagnostics.gc_stats: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.gc_stats ~host in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.gc_stats rpc session_id host)
+
+    let db_stats ~__context =
+      info "Diagnostics.db_stats";
+      Local.Diagnostics.db_stats ~__context
+
+    let network_stats ~__context ~host ~params =
+      info "Diagnostics.network_stats: host = '%s'" (host_uuid ~__context host);
+      let local_fn = Local.Diagnostics.network_stats ~host ~params in
+      do_op_on ~local_fn ~__context ~host (fun session_id rpc -> Client.Diagnostics.network_stats rpc session_id host params)
+  end
+
   module Host = struct
 
     (** Add to the Host's current operations, call a function and then remove from the
@@ -3443,6 +3464,10 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       forward_sr_op ~local_fn ~__context ~self:sr
         (fun session_id rpc ->
            Client.SR.forget_data_source_archives rpc session_id sr data_source)
+    
+    let get_live_hosts ~__context ~sr =
+      info "SR.get_live_hosts: SR = '%s'" (sr_uuid ~__context sr);
+      Local.SR.get_live_hosts ~__context ~sr
 
   end
   module VDI = struct

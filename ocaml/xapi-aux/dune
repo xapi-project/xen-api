@@ -1,0 +1,9 @@
+(library
+ (name xapi_aux)
+
+ (libraries
+   xapi-types
+   stdext
+ )
+ (wrapped false)
+)

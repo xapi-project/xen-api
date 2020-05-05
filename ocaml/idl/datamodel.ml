@@ -235,6 +235,16 @@ module Task = struct
       ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
       ()
 
+  let set_progress = call ~flags:[`Session]
+      ~in_oss_since:None
+      ~in_product_since:rel_stockholm
+      ~name:"set_progress"
+      ~doc:"Set the task progress"
+      ~params:[Ref _task, "self", "Reference to the task object";
+               Float, "value", "Task progress value to be set"]
+      ~allowed_roles:_R_READ_ONLY (* POOL_OP can set status for any tasks, others can set status only for owned tasks *)
+      ()
+
   (* this permission allows to destroy any task, instead of only the owned ones *)
   let extra_permission_task_destroy_any = "task.destroy/any"
 
@@ -249,7 +259,8 @@ module Task = struct
         create;
         destroy;
         cancel;
-        set_status ]
+        set_status;
+        set_progress ]
       ~contents: ([
           uid _task;
           namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ();
@@ -2092,6 +2103,17 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let get_live_hosts = call
+      ~in_oss_since:None
+      ~name:"get_live_hosts"
+      ~in_product_since:rel_stockholm
+      ~doc:"Get all live hosts attached to this SR"
+      ~params:[Ref _sr, "sr", "The SR from which to query attached hosts"]
+      ~allowed_roles:_R_POOL_OP
+      ~hide_from_docs:true
+      ~result:(Set(Ref _host), "A collection of live hosts attached to this SR")
+      ()
+
   (** A storage repository. Note we overide default create/destroy methods with our own here... *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_sr ~descr:"A storage repository"
@@ -2112,6 +2134,7 @@ module SR = struct
                   record_data_source;
                   query_data_source;
                   forget_data_source_archives;
+                  get_live_hosts;
 
                 ]
       ~contents:
@@ -5466,6 +5489,7 @@ let all_system =
     Datamodel_cluster.t;
     Datamodel_cluster_host.t;
     Datamodel_certificate.t;
+    Datamodel_diagnostics.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)

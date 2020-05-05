@@ -926,7 +926,7 @@ let join_common ~__context ~master_address ~master_username ~master_password ~fo
      	a host that does not support pooling then an error will be thrown at this stage *)
   let rpc = rpc master_address in
   let session_id =
-    try Client.Session.login_with_password rpc master_username master_password Datamodel_common.api_version_string Xapi_globs.xapi_user_agent
+    try Client.Session.login_with_password rpc master_username master_password Datamodel_common.api_version_string Constants.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise (Api_errors.Server_error(Api_errors.pool_joining_host_service_failed, [])) in
 
@@ -1208,7 +1208,7 @@ let eject ~__context ~host =
         List.iter (fun x -> Db.VM.destroy ~__context ~self:(fst x)) control_domains_to_destroy;
       with _ -> () end;
     debug "Pool.eject: setting our role to be master";
-    Pool_role.set_role Pool_role.Master;
+    Xapi_pool_transition.set_role Pool_role.Master;
     debug "Pool.eject: forgetting pool secret";
     Unixext.unlink_safe !Xapi_globs.pool_secret_path; (* forget current pool secret *)
     (* delete backup databases and any temporary restore databases *)

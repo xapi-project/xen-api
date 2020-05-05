@@ -226,15 +226,15 @@ let upgrade_bios_strings = {
       info "Upgrade from OEM edition (%s)." oem;
       if String.has_substr oem "HP" then begin
         debug "Using old HP BIOS strings";
-        update_vms Xapi_globs.old_hp_bios_strings
+        update_vms Constants.old_hp_bios_strings
       end else if String.has_substr oem "Dell" then begin
         debug "Using old Dell BIOS strings";
-        update_vms Xapi_globs.old_dell_bios_strings
+        update_vms Constants.old_dell_bios_strings
       end
     | None ->
       info "Upgrade from retail edition.";
       debug "Using generic BIOS strings";
-      update_vms Xapi_globs.generic_bios_strings
+      update_vms Constants.generic_bios_strings
 }
 
 let update_snapshots = {

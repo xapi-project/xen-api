@@ -101,6 +101,7 @@ module Actions = struct
   module Cluster = Xapi_cluster
   module Cluster_host = Xapi_cluster_host
   module Certificate = Certificates
+  module Diagnostics = Xapi_diagnostics
 end
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)
@@ -116,7 +117,7 @@ open D
 (** Forward a call to the master *)
 let forward req call is_json =
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Constants.https_port) in
   let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
   rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } call
 
@@ -185,7 +186,7 @@ open Stdext
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req bio _ =
   let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
+  let body = Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req bio in
   try
     let rpc = Xmlrpc.call_of_string body in
     let response = callback1 is_json req fd rpc in

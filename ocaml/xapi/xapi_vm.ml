@@ -1097,7 +1097,7 @@ let set_bios_strings ~__context ~self ~value =
   let bios_strings =
     List.map (fun (k, v) ->
       if List.mem_assoc k value then (k, (List.assoc k value)) else (k, v)
-    ) Xapi_globs.generic_bios_strings
+    ) Constants.generic_bios_strings
   in
   Db.VM.set_bios_strings ~__context ~self ~value:bios_strings
 
@@ -1255,7 +1255,7 @@ let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   debug "import_convert sr-uuid:%s" sr_uuid;
   let importInfo = { Vpx.sRuuid = sr_uuid } in
   let vmware_serverinfo = {
-    serverType = serverType_of_string _type;
+    serverType = Vpx_types.of_string _type;
     hostname = (List.assoc "hostname" remote_config);
     cred = {username = (List.assoc "username" remote_config); password = (List.assoc "password" remote_config)}} in
   let jobInfo = {source = vmware_serverinfo; sourceVmUUID = "";

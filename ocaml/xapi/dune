@@ -58,11 +58,12 @@
    tar-unix
    xapi-tapctl
    x509
-   xapi_version
    xapi-types
    xapi-client
    xapi-datamodel
    xapi-cli-protocol
+   xapi_cli_server
+   xapi_aux
    xapi-test-utils
    stdext
    threads

@@ -849,3 +849,8 @@ let record_data_source ~__context ~sr ~data_source =
 let query_data_source ~__context ~sr ~data_source = Rrdd.query_sr_ds (Db.SR.get_uuid ~__context ~self:sr) data_source
 
 let forget_data_source_archives ~__context ~sr ~data_source = Rrdd.forget_sr_ds (Db.SR.get_uuid ~__context ~self:sr) data_source
+
+let get_live_hosts ~__context ~sr =
+  let choose_fn ~host =
+    Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host in
+  Xapi_vm_helpers.possible_hosts ~__context ~choose_fn ()

@@ -35,11 +35,6 @@ let restricted_pool_size = 3
 
 let localhost_ref : [`host] Ref.t ref = ref Ref.null
 
-(* xapi version *)
-let version_major = Xapi_version.xapi_version_major
-let version_minor = Xapi_version.xapi_version_minor
-let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
-
 (* client min/max version range *)
 (* xencenter_min should be the lowest version of XenCenter we want the new server to work with. In the
  * (usual) case that we want to force the user to upgrade XenCenter when they upgrade the server,
@@ -59,12 +54,6 @@ let xencenter_max_verstring = Printf.sprintf "%Ld.%Ld" Datamodel.api_version_maj
 (* linux pack vsn key in host.software_version (used for a pool join restriction *)
 let linux_pack_vsn_key = "xs:linux"
 let packs_dir = ref (Filename.concat "/etc/xensource" "installed-repos")
-
-let default_cleartext_port = 80
-let default_ssl_port = 443
-
-let http_port = default_cleartext_port
-let https_port = ref default_ssl_port
 
 let unix_domain_socket = Filename.concat "/var/lib/xcp" "xapi"
 let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
@@ -167,7 +156,6 @@ let host_console_textport = 9500L
 
 let vhd_parent = "vhd-parent" (* set in VDIs backed by VHDs *)
 
-let owner_key = "owner" (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
 let vbd_backend_key = "backend-kind" (* set in VBD other-config *)
 let vbd_polling_duration_key = "polling-duration" (* set in VBD other-config *)
 let vbd_polling_idle_threshold_key = "polling-idle-threshold" (* set in VBD other-config *)
@@ -194,6 +182,8 @@ let tools_sr_pbd_device_config = [
   "location", !tools_sr_dir; (* for legacy iso *)
   "legacy_mode", "true"
 ]
+
+let create_tools_sr = ref false
 
 let default_template_key = "default_template"
 let base_template_name_key = "base_template_name"
@@ -241,11 +231,6 @@ let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
 
 (* Indicates whether we should allow run-script inside VM *)
 let pool_allow_guest_agent_run_script = "allow_guest_agent_run_script"
-
-(* Names of storage parameters *)
-let _sm_vm_hint = "vmhint"
-let _sm_epoch_hint = "epochhint"
-let _sm_initial_allocation = "initial_allocation"
 
 let i18n_key = "i18n-key"
 let i18n_original_value_prefix = "i18n-original-value-"
@@ -334,10 +319,6 @@ let hosts_which_are_shutting_down : API.ref_host list ref = ref []
 let hosts_which_are_shutting_down_m = Mutex.create ()
 
 let xha_timeout = "timeout"
-
-(* Note the following constant has an equivalent in the db layer *)
-let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
-let http_limit_max_cli_size = 200 * 1024 (* 200K *)
 
 let message_limit=10000
 
@@ -487,73 +468,6 @@ let serialize_pool_enable_disable_extauth = Mutex.create()
 
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
-(** {2 BIOS strings} *)
-(* bios_string length is limited to 512 characters *)
-let bios_string_limit_size = 512
-
-(** List of user-settable VM BIOS strings keys *)
-let settable_vm_bios_string_keys =
-  ["bios-vendor";
-   "bios-version";
-   "system-manufacturer";
-   "system-product-name";
-   "system-version";
-   "system-serial-number";
-   "baseboard-manufacturer";
-   "baseboard-product-name";
-   "baseboard-version";
-   "baseboard-serial-number";
-   "baseboard-asset-tag";
-   "baseboard-location-in-chassis";
-   "enclosure-asset-tag"]
-
-(** Type 11 strings that are always included *)
-let standard_type11_strings =
-  ["oem-1", "Xen";
-   "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
-
-(** Generic BIOS strings *)
-let generic_bios_strings =
-  ["bios-vendor", "Xen";
-   "bios-version", "";
-   "system-manufacturer", "Xen";
-   "system-product-name", "HVM domU";
-   "system-version", "";
-   "system-serial-number", "";
-   "baseboard-manufacturer", "";
-   "baseboard-product-name", "";
-   "baseboard-version", "";
-   "baseboard-serial-number", "";
-   "baseboard-asset-tag", "";
-   "baseboard-location-in-chassis", "";
-   "enclosure-asset-tag", "";
-   "hp-rombios", ""] @ standard_type11_strings
-
-(** BIOS strings of the old (XS 5.5) Dell Edition *)
-let old_dell_bios_strings =
-  ["bios-vendor", "Dell Inc.";
-   "bios-version", "1.9.9";
-   "system-manufacturer", "Dell Inc.";
-   "system-product-name", "PowerEdge";
-   "system-version", "";
-   "system-serial-number", "3.3.1";
-   "oem-1", "Dell System";
-   "oem-2", "5[0000]";
-   "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-   "hp-rombios", ""]
-
-(** BIOS strings of the old (XS 5.5) HP Edition *)
-let old_hp_bios_strings =
-  ["bios-vendor", "Xen";
-   "bios-version", "3.3.1";
-   "system-manufacturer", "HP";
-   "system-product-name", "ProLiant Virtual Platform";
-   "system-version", "3.3.1";
-   "system-serial-number", "e30aecc3-e587-5a95-9537-7c306759bced";
-   "oem-1", "Xen";
-   "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
-   "hp-rombios", "COMPAQ"]
-
 (** {2 CPUID feature masking} *)
 
 let cpu_info_vendor_key = "vendor"
@@ -632,12 +546,6 @@ let host_heartbeat_interval = ref 30.
 (* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
 let host_assumed_dead_interval = ref 600.0
 
-(* the time taken to wait before restarting in a different mode for pool eject/join operations *)
-let fuse_time = ref 10.
-
-(* the time taken to wait before restarting after restoring db backup *)
-let db_restore_fuse_time = ref 30.
-
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *)
 
@@ -679,9 +587,6 @@ let max_active_sr_scans = ref 32
 let nowatchdog = ref false
 
 let log_getter = ref false
-
-(* Path to the pool configuration file. *)
-let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
 
 (* Path to the pool secret file. *)
 let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
@@ -828,8 +733,8 @@ let xapi_globs_spec =
     "snapshot_with_quiesce_timeout", Float snapshot_with_quiesce_timeout;
     "host_heartbeat_interval", Float host_heartbeat_interval;
     "host_assumed_dead_interval", Float host_assumed_dead_interval;
-    "fuse_time", Float fuse_time;
-    "db_restore_fuse_time", Float db_restore_fuse_time;
+    "fuse_time", Float Constants.fuse_time;
+    "db_restore_fuse_time", Float Constants.db_restore_fuse_time;
     "inactive_session_timeout", Float inactive_session_timeout;
     "pending_task_timeout", Float pending_task_timeout;
     "completed_task_timeout", Float completed_task_timeout;
@@ -1004,7 +909,9 @@ let other_options = [
   | Nvidia_T4_SRIOV -> "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise"
   ),
   "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'.";
-
+  
+  "create-tools-sr", Arg.Set create_tools_sr,
+  (fun () -> string_of_bool !create_tools_sr), "Indicates whether to create an SR for Tools ISOs";
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1077,7 +984,7 @@ module Resources = struct
     "nvidia-sriov-manage", nvidia_sriov_manage_script, "Path to NVIDIA sriov-manage script"
   ]
   let essential_files = [
-    "pool_config_file", pool_config_file, "Pool configuration file";
+    "pool_config_file", Constants.pool_config_file, "Pool configuration file";
     "db-config-file", Db_globs.db_conf_path, "Database configuration file";
     "udhcpd-skel", udhcpd_skel, "Skeleton config for udhcp";
   ]
@@ -1092,7 +999,6 @@ module Resources = struct
   ]
   let essential_dirs = [
     "sm-dir", sm_dir, "Directory containing SM plugins";
-    "tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
     "web-dir", web_dir, "Directory to export fileserver";
     "cluster-stack-root", cluster_stack_root, "Directory containing collections of HA tools and scripts";
     "xen-cmdline", xen_cmdline_path, "Path to xen-cmdline binary";
@@ -1106,6 +1012,7 @@ module Resources = struct
     "xapi-plugins-root", xapi_plugins_root, "Optional directory containing XenAPI plugins";
     "xapi-extensions-root", xapi_extensions_root, "Optional directory containing XenAPI extensions";
     "static-vdis-root", Db_globs.static_vdis_dir, "Optional directory for configuring static VDIs";
+    "tools-sr-dir", tools_sr_dir, "Directory containing tools ISO";
   ]
 
   let xcp_resources =

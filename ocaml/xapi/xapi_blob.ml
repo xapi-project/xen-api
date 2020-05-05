@@ -50,7 +50,7 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
 
     let open Xmlrpc_client in
     let transport = SSL(SSL.make (), remote_address,
-                        !Xapi_globs.https_port) in
+                        !Constants.https_port) in
     with_transport transport
       (with_http request (fun (response, put_fd) ->
            let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in

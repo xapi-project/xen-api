@@ -191,12 +191,12 @@ let push_database_restore_handler (req: Http.Request.t) s _ =
            Unixext.unlink_safe tmp_xml_file;
            if not(dry_run) then begin
              (* We will restart as a master *)
-             Pool_role.set_role Pool_role.Master;
+             Xapi_pool_transition.set_role Pool_role.Master;
 
              (* now restart *)
              debug "xapi has received new database via xml; will reboot and use that db...";
-             info "Rebooting to use restored database after delay of: %f" !Xapi_globs.db_restore_fuse_time;
-             Xapi_fuse.light_fuse_and_reboot ~fuse_length:!Xapi_globs.db_restore_fuse_time ();
+             info "Rebooting to use restored database after delay of: %f" !Constants.db_restore_fuse_time;
+             Xapi_fuse.light_fuse_and_reboot ~fuse_length:!Constants.db_restore_fuse_time ();
            end
          end
     )
@@ -207,7 +207,7 @@ let http_fetch_db ~master_address ~pool_secret =
     |> SecretString.with_cookie pool_secret
   in
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), master_address, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), master_address, !Constants.https_port) in
   with_transport transport
     (with_http request
        (fun (response, fd) ->

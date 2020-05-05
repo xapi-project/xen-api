@@ -22,6 +22,14 @@ open Client
 module D = Debug.Make(struct let name="xapi_pool_transition" end)
 open D
 
+(** Reset the role on disk, takes effect on next server restart only! *)
+let set_role r =
+  let open Pool_role in
+  let old_role = get_role () in
+  with_pool_role_lock (fun () ->
+      Unixext.write_string_to_file !Constants.pool_config_file (string_of r));
+  Localdb.put Constants.this_node_just_became_master (string_of_bool (old_role <> Master && r = Master))
+
 (** Execute scripts in the "master-scripts" dir when changing role from master
     to slave or back again. Remember whether the scripts have been run using
     state in the local database. *)
@@ -50,7 +58,7 @@ let run_external_scripts becoming_master =
 
 (** Switch into master mode using the backup database *)
 let become_master () =
-  Pool_role.set_role Pool_role.Master; (* picked up as master on next boot *)
+  set_role Pool_role.Master; (* picked up as master on next boot *)
   (* Since we're becoming the master (and in the HA case the old master is dead) we
      save ourselves some trouble by saving the stats locally. *)
   Xapi_fuse.light_fuse_and_run ()
@@ -100,7 +108,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
   let am_master_already = Pool_role.get_role () = Pool_role.Master in
 
   debug "No-one objected to the proposal. Any errors from here on will result in this node entering the 'broken' state";
-  Pool_role.set_role Pool_role.Broken;
+  set_role Pool_role.Broken;
 
   debug "Phase 2: committing transaction";
   (* It's very bad if someone fails now *)
@@ -116,7 +124,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual: bool) (peer_addre
 
   debug "Phase 2.1: telling everyone but me to commit";
   List.iter tell_host_to_commit peer_addresses;
-  if !hosts_which_failed = [] then Pool_role.set_role Pool_role.Master; (* picked up as master on next boot *)
+  if !hosts_which_failed = [] then set_role Pool_role.Master; (* picked up as master on next boot *)
 
   (* If in manual mode then there is an existing master: we must wait for our connection
      to this master to disappear before restarting, otherwise we might come up, detect
@@ -161,7 +169,7 @@ let become_another_masters_slave master_address =
     debug "We are already a slave of %s; nothing to do" master_address;
   end else begin
     debug "Setting pool.conf to point to %s" master_address;
-    Pool_role.set_role new_role;
+    set_role new_role;
     run_external_scripts false;
     Xapi_fuse.light_fuse_and_run ()
   end

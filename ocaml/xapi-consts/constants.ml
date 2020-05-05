@@ -149,3 +149,101 @@ let minimum_token_timeout_coefficient_s = 0.65
 
 (* Maximum VHD Size *)
 let max_vhd_size = Sizes.(2040L ** gib)
+
+(* Limit the max CLI upload size to 32MiB *)
+let max_cli_upload_bytes = 33554432
+let owner_key = "owner" (* set in VBD other-config to indicate that clients can delete the attached VDI on VM uninstall if they want.. *)
+(* the time taken to wait before restarting in a different mode for pool eject/join operations *)
+let fuse_time = ref 10.
+
+(* Names of storage parameters *)
+let _sm_vm_hint = "vmhint"
+let _sm_epoch_hint = "epochhint"
+let _sm_initial_allocation = "initial_allocation"
+
+let default_cleartext_port = 80
+let default_ssl_port = 443
+let http_port = default_cleartext_port
+let https_port = ref default_ssl_port
+
+(** Type 11 strings that are always included *)
+let standard_type11_strings =
+  ["oem-1", "Xen";
+   "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d"]
+
+(** Generic BIOS strings *)
+let generic_bios_strings =
+  ["bios-vendor", "Xen";
+   "bios-version", "";
+   "system-manufacturer", "Xen";
+   "system-product-name", "HVM domU";
+   "system-version", "";
+   "system-serial-number", "";
+   "baseboard-manufacturer", "";
+   "baseboard-product-name", "";
+   "baseboard-version", "";
+   "baseboard-serial-number", "";
+   "baseboard-asset-tag", "";
+   "baseboard-location-in-chassis", "";
+   "enclosure-asset-tag", "";
+   "hp-rombios", ""] @ standard_type11_strings
+
+(** {2 BIOS strings} *)
+(* bios_string length is limited to 512 characters *)
+let bios_string_limit_size = 512
+
+(** List of user-settable VM BIOS strings keys *)
+let settable_vm_bios_string_keys =
+  ["bios-vendor";
+   "bios-version";
+   "system-manufacturer";
+   "system-product-name";
+   "system-version";
+   "system-serial-number";
+   "baseboard-manufacturer";
+   "baseboard-product-name";
+   "baseboard-version";
+   "baseboard-serial-number";
+   "baseboard-asset-tag";
+   "baseboard-location-in-chassis";
+   "enclosure-asset-tag"]
+
+(** BIOS strings of the old (XS 5.5) Dell Edition *)
+let old_dell_bios_strings =
+  ["bios-vendor", "Dell Inc.";
+   "bios-version", "1.9.9";
+   "system-manufacturer", "Dell Inc.";
+   "system-product-name", "PowerEdge";
+   "system-version", "";
+   "system-serial-number", "3.3.1";
+   "oem-1", "Dell System";
+   "oem-2", "5[0000]";
+   "oem-3", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
+   "hp-rombios", ""]
+
+(** BIOS strings of the old (XS 5.5) HP Edition *)
+let old_hp_bios_strings =
+  ["bios-vendor", "Xen";
+   "bios-version", "3.3.1";
+   "system-manufacturer", "HP";
+   "system-product-name", "ProLiant Virtual Platform";
+   "system-version", "3.3.1";
+   "system-serial-number", "e30aecc3-e587-5a95-9537-7c306759bced";
+   "oem-1", "Xen";
+   "oem-2", "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d";
+   "hp-rombios", "COMPAQ"]
+
+(* the time taken to wait before restarting after restoring db backup *)
+let db_restore_fuse_time = ref 30.
+
+(* Note the following constant has an equivalent in the db layer *)
+let http_limit_max_rpc_size = 300 * 1024 (* 300K *)
+let http_limit_max_cli_size = 200 * 1024 (* 200K *)
+
+(* xapi version *)
+let version_major = Xapi_version.xapi_version_major
+let version_minor = Xapi_version.xapi_version_minor
+let xapi_user_agent = "xapi/"^(string_of_int version_major)^"."^(string_of_int version_minor)
+
+(* Path to the pool configuration file. *)
+let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")

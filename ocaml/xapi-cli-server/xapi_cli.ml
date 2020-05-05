@@ -27,6 +27,17 @@ open D
 
 exception Unknown_command of string
 
+(** Once the server functor has been instantiated, xapi sets this reference to the appropriate
+    "fake_rpc" (loopback non-HTTP) rpc function. This is used by the CLI, which passes in
+    the HTTP request headers it has already received together with its active file descriptor.
+    This way, the cli server can short-circuit API calls without having to go over the network. *)
+let rpc_fun : (Http.Request.t -> Unix.file_descr -> Rpc.call -> Rpc.response) option ref = ref None
+
+let get_rpc () =
+  match !rpc_fun with
+  | None -> failwith "No rpc set!"
+  | Some f -> f
+
 let zap_cr s =
   let n = String.length s in
   if n<>0 && String.get s (n - 1) = '\r' then
@@ -34,11 +45,16 @@ let zap_cr s =
   else
     s
 
+let is_unix_socket s =
+  match Unix.getpeername s with
+  | Unix.ADDR_UNIX _ -> true
+  | Unix.ADDR_INET _ -> false
+
 let forward args s session =
   (* Reject forwarding cli commands if the request came in from a tcp socket *)
-  if not (Context.is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
+  if not (is_unix_socket s) then raise (Api_errors.Server_error (Api_errors.host_is_slave,[Pool_role.get_master_address ()]));
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), Pool_role.get_master_address (), !Constants.https_port) in
   let body =
     let args = Opt.default [] (Opt.map (fun s -> [ Printf.sprintf "session_id=%s" (Ref.string_of s) ]) session) @ args in
     String.concat "\r\n" args in
@@ -92,7 +108,7 @@ let do_rpcs req s username password minimal cmd session args =
   in
   let _ = check_required_keys cmd cspec.reqd in
   try
-    let generic_rpc = Helpers.get_rpc () in
+    let generic_rpc = get_rpc () in
     (* NB the request we've received is for the /cli. We need an XMLRPC request for the API *)
     let req = Xmlrpc_client.xmlrpc ~version:"1.1" "/" in
     let rpc = generic_rpc req s in
@@ -157,7 +173,7 @@ let exec_command req cmd s session args =
       is "host-call-plugin", [starts "args"];
       always, [ has "password"; is "url"];
     ] in
-  let rpc = Helpers.get_rpc () req s in
+  let rpc = get_rpc () req s in
   Cli_frontend.populate_cmdtable rpc Ref.null;
   (* Log the actual CLI command to help diagnose failures like CA-25516 *)
   let cmd_name = get_cmdname cmd in
@@ -215,7 +231,7 @@ let parse_session_and_args str =
   with _ -> (None,args)
 
 let exception_handler s e =
-  error "Converting exception %s into a CLI response" (ExnHelper.string_of_exn e);
+  error "Converting exception %s into a CLI response" (Cli_util.string_of_exn e);
   match e with
   | Cli_operations.ExitWithError n ->
     marshal s (Command (Exit n))
@@ -249,10 +265,10 @@ let exception_handler s e =
   | Unix.Unix_error (a,b,c) ->
     Cli_util.server_error Api_errors.internal_error [ "Unix_error: " ^ (Unix.error_message a) ] s
   | exc ->
-    Cli_util.server_error Api_errors.internal_error [ ExnHelper.string_of_exn exc ] s
+    Cli_util.server_error Api_errors.internal_error [ Cli_util.string_of_exn exc ] s
 
 let handler (req:Http.Request.t) (bio: Buf_io.t) _ =
-  let str = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_cli_size req bio in
+  let str = Http_svr.read_body ~limit:Constants.http_limit_max_cli_size req bio in
   let s = Buf_io.fd_of bio in
   (* Tell the client the server version *)
   marshal_protocol s;

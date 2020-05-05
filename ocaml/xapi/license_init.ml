@@ -31,9 +31,16 @@ let find_min_edition allowed_editions =
     allowed_editions
   |> fst4
 
+let initialise_host_editions ~__context ~host =
+  let dbg = Context.string_of_task __context in
+  let editions = List.map V6_interface.(fun ed -> ed.title) (V6_client.get_editions dbg) in
+  Db.Host.set_editions ~__context ~self:host ~value:editions
+
 (* xapi calls this function upon startup *)
 let initialise ~__context ~host =
   let module V6_client = (val !v6client : V6clientS) in
+
+  initialise_host_editions ~__context ~host;
 
   let set_licensing edition features additional =
     debug "Setting license to %s" edition;

@@ -34,22 +34,6 @@ type version = {
   export_vsn: int; (* 0 if missing, indicates eg whether to expect sha1sums in the stream *)
 }
 
-(** Supported compression algorithms *)
-type compression_algorithm =
-  | Gzip
-  | Zstd
-
-let compression_algorithm_of_string = function
-  | "true"
-  | "gzip" -> Some Gzip
-  | "zstd" -> Some Zstd
-  | _      -> None
-
-let string_of_compression_algorithm = function
-  | None      -> "false"
-  | Some Gzip -> "gzip"
-  | Some Zstd -> "zstd"
-
 let rpc_of_version x =
   let open Xapi_globs in
   Rpc.Dict(
@@ -58,8 +42,8 @@ let rpc_of_version x =
     ; _product_version, Rpc.String(x.product_version)
     ; _product_brand,   Rpc.String(x.product_brand)
     ; _build_number,    Rpc.String(x.build_number)
-    ; _xapi_major,      Rpc.Int(Int64.of_int Xapi_globs.version_major)
-    ; _xapi_minor,      Rpc.Int(Int64.of_int Xapi_globs.version_minor)
+    ; _xapi_major,      Rpc.Int(Int64.of_int Constants.version_major)
+    ; _xapi_minor,      Rpc.Int(Int64.of_int Constants.version_minor)
     ; _export_vsn,      Rpc.Int(Int64.of_int Xapi_globs.export_vsn)
     ])
 
@@ -107,8 +91,8 @@ let this_version __context =
     product_version = Xapi_version.product_version ();
     product_brand = Xapi_version.product_brand ();
     build_number = Xapi_version.build_number ();
-    xapi_vsn_major = Xapi_globs.version_major;
-    xapi_vsn_minor = Xapi_globs.version_minor;
+    xapi_vsn_major = Constants.version_major;
+    xapi_vsn_minor = Constants.version_minor;
     export_vsn = Xapi_globs.export_vsn;
   }
 
@@ -258,14 +242,14 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
                    (fun (r, ifd) ->
                      debug "Content-length: %s" (Stdext.Opt.default "None" (Stdext.Opt.map Int64.to_string r.Http.Response.content_length));
                      let put = { put with Http.Request.content_length = r.Http.Response.content_length } in
-                     debug "Connecting to %s:%d" remote_address !Xapi_globs.https_port;
+                     debug "Connecting to %s:%d" remote_address !Constants.https_port;
                      (* Spawn a cached stunnel instance. Otherwise, once metadata tranmission completes, the connection
                         between local xapi and stunnel will be closed immediately, and the new spawned stunnel instance
                         will be revoked, this might cause the remote stunnel gets partial metadata xml file, and the
                         ripple effect is that remote xapi fails to parse metadata xml file. Using a cached stunnel can
                         not always avoid the problem since any cached stunnel entry might be evicted. However, it is
                         unlikely to happen in practice because the cache size is large enough.*)
-                     with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Xapi_globs.https_port))
+                     with_transport (SSL (SSL.make ~use_stunnel_cache:true (), remote_address, !Constants.https_port))
                        (with_http put
                          (fun (_, ofd) ->
                            let (n: int64) = Stdext.Unixext.copy_file ?limit:r.Http.Response.content_length ifd ofd in
@@ -275,7 +259,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address ~r
                    )
                  )
              with Xmlrpc_client.Stunnel_connection_failed ->
-               raise (Api_errors.Server_error(Api_errors.tls_connection_failed, [remote_address; (string_of_int !Xapi_globs.https_port)]))
+               raise (Api_errors.Server_error(Api_errors.tls_connection_failed, [remote_address; (string_of_int !Constants.https_port)]))
            end;
            (* Wait for remote task to succeed or fail *)
            Cli_util.wait_for_task_completion rpc session_id remote_task;

@@ -31,5 +31,5 @@ let dump_config () =
   debug "platform_name: %s" (Xapi_version.platform_name ());
   debug "build_number: %s" (Xapi_version.build_number ());
   debug "git changeset: %s" Xapi_version.git_id;
-  debug "version: %d.%d" version_major version_minor;
+  debug "version: %d.%d" Constants.version_major Constants.version_minor;
   (* debug "License filename: %s" !License_file.filename *)

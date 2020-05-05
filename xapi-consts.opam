@@ -9,6 +9,7 @@ build: [[ "dune" "build" "-p" name ]]
 depends: [
   "ocaml"
   "dune" {build & >= "1.4"}
+  "xapi-inventory"
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """

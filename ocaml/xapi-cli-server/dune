@@ -1,0 +1,15 @@
+(library
+  (name xapi_cli_server)
+
+  (libraries
+   tar-unix
+   xapi-datamodel
+   xapi-types
+   xapi-client
+   xapi-cli-protocol
+   stdext
+   xapi_aux
+  )
+  (preprocess (pps ppx_deriving_rpc))
+  (wrapped false)
+)

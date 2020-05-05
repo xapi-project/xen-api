@@ -46,30 +46,6 @@ let in_memory_cache_length = ref 0
 let in_memory_cache_length_max = 512
 let in_memory_cache_length_default = 256
 
-let class_to_string cls =
-  match cls with
-  | `VM -> "VM"
-  | `Host -> "Host"
-  | `SR -> "SR"
-  | `Pool -> "Pool"
-  | `VMPP -> "VMPP"
-  | `VMSS -> "VMSS"
-  | `PVS_proxy -> "PVS_proxy"
-  | `VDI -> "VDI"
-  | _ -> "unknown"
-
-let string_to_class str =
-  match str with
-  | "VM" -> `VM
-  | "Host" -> `Host
-  | "SR" -> `SR
-  | "Pool" -> `Pool
-  | "VMPP" -> `VMPP
-  | "VMSS" -> `VMSS
-  | "PVS_proxy" -> `PVS_proxy
-  | "VDI" -> `VDI
-  | _ -> failwith "Bad type"
-
 (* We use the timestamp to name the file. For consistency, use this function *)
 let timestamp_to_string f =
   Printf.sprintf "%0.5f" f
@@ -90,7 +66,7 @@ let to_xml output _ref gen message =
     tag "ref" [ data (Ref.string_of _ref) ];
     tag "name" [ data message.API.message_name ];
     tag "priority" [ data (Int64.to_string message.API.message_priority) ];
-    tag "cls" [data (class_to_string message.API.message_cls) ];
+    tag "cls" [data (Record_util.class_to_string message.API.message_cls) ];
     tag "obj_uuid" [data message.API.message_obj_uuid ];
     tag "timestamp" [data (Date.to_string message.API.message_timestamp) ];
     tag "uuid" [data message.API.message_uuid];
@@ -126,7 +102,7 @@ let of_xml input =
       begin match !current_elt with
         | "name" -> message := {!message with API.message_name=dat}
         | "priority" -> message := {!message with API.message_priority=Int64.of_string dat}
-        | "cls" -> message := {!message with API.message_cls=string_to_class dat}
+        | "cls" -> message := {!message with API.message_cls=Record_util.string_to_class dat}
         | "obj_uuid" -> message := {!message with API.message_obj_uuid=dat}
         | "timestamp" -> message := {!message with API.message_timestamp=Date.of_string dat}
         | "uuid" -> message := {!message with API.message_uuid=dat}
@@ -185,7 +161,7 @@ let import_xml xml_in =
 (********** Symlink functions *************)
 
 let class_symlink cls obj_uuid =
-  let strcls = class_to_string cls in
+  let strcls = Record_util.class_to_string cls in
   Printf.sprintf "%s/%s/%s" message_dir strcls obj_uuid
 
 let uuid_symlink () =
@@ -382,7 +358,7 @@ let write ~__context ~_ref ~message =
     	if write failed, or message ref otherwise. *)
 let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   debug "Message.create %s %Ld %s %s" name priority
-    (class_to_string cls) obj_uuid;
+    (Record_util.class_to_string cls) obj_uuid;
 
 
   (if not (Encodings.UTF8_XML.is_valid body)
@@ -390,7 +366,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
                  (Api_errors.invalid_value, ["UTF8 expected"]))) ;
   (if not (check_uuid ~__context ~cls ~uuid:obj_uuid)
    then raise (Api_errors.Server_error
-                 (Api_errors.uuid_invalid, [class_to_string cls; obj_uuid]))) ;
+                 (Api_errors.uuid_invalid, [Record_util.class_to_string cls; obj_uuid]))) ;
 
   let _ref = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
@@ -666,7 +642,7 @@ let handler (req: Http.Request.t) fd _ =
           (* Get and check query parameters *)
           let uuid = List.assoc "uuid" query
           and cls = List.assoc "cls" query in
-          let cls = try string_to_class cls with _ ->
+          let cls = try Record_util.string_to_class cls with _ ->
             failwith ("Xapi_message.handler: Bad class " ^ cls) in
           if not (check_uuid ~__context ~cls ~uuid) then
             failwith ("Xapi_message.handler: Bad uuid " ^ uuid) ;
@@ -698,7 +674,7 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address =
   let request = Xapi_http.http_request ~subtask_of ~query ~body
       Http.Put Constants.message_put_uri in
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make (), remote_address, !Xapi_globs.https_port) in
+  let transport = SSL(SSL.make (), remote_address, !Constants.https_port) in
   with_transport transport
     (with_http request
        (fun (rsp, fd) ->
