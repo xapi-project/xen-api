@@ -198,7 +198,7 @@ let jsoncallback req bio _ =
     let response = Jsonrpc.a_of_response
         ~empty:Bigbuffer.make
         ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
-        (callback1 false req fd rpc) in
+        (callback1 true req fd rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
                                       "Access-Control-Allow-Origin", "*";
                                       "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
