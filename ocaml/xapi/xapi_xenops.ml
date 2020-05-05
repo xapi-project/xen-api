@@ -823,6 +823,11 @@ module MD = struct
     |> List.map (fun self -> Db.PUSB.get_record ~__context ~self)
     |> List.map (fun pusb -> of_vusb ~__context ~vm ~pusb)
 
+  let ssid_of_vm vm =
+    if System_domains.is_system_domain vm then
+      !System_domains.driver_domain_ssid
+    else 0l
+
   let of_vm ~__context (vmref, vm) vbds pci_passthrough vgpu =
     let on_crash_behaviour = function
       | `preserve -> [ Vm.Pause ]
@@ -937,7 +942,7 @@ module MD = struct
     {
       id = vm.API.vM_uuid;
       name = vm.API.vM_name_label;
-      ssidref = 0l;
+      ssidref = ssid_of_vm vm;
       xsdata = vm.API.vM_xenstore_data;
       platformdata = platformdata;
       bios_strings = vm.API.vM_bios_strings;
