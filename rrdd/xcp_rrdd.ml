@@ -118,14 +118,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Thread = Xapi_stdext_threads.Threadext.Thread
 
-let uuid_of_domid domains domid =
-  try
-    Rrdd_server.string_of_domain_handle
-      (List.find (fun di -> di.Xenctrl.domid = domid) domains)
-  with Not_found ->
-    failwith
-      (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
-
 (*****************************************************)
 (* xenstore related code                             *)
 (*****************************************************)
@@ -211,9 +203,9 @@ module Watcher = Watch.WatchXenstore (Meminfo)
 let xen_flag_complement = Int64.(shift_left 1L 63 |> lognot)
 
 (* This function is used for getting vcpu stats of the VMs present on this host. *)
-let dss_vcpus xc doms uuid_domids =
+let dss_vcpus xc doms =
   List.fold_left
-    (fun dss (dom, (uuid, domid)) ->
+    (fun dss (dom, uuid, domid) ->
       let maxcpus = dom.Xenctrl.max_vcpu_id + 1 in
       let rec cpus i dss =
         if i >= maxcpus then
@@ -291,8 +283,7 @@ let dss_vcpus xc doms uuid_domids =
         with _ -> dss
       in
       try cpus 0 dss with _ -> dss)
-    []
-    (List.combine doms uuid_domids)
+    [] doms
 
 let physcpus = ref [||]
 
@@ -348,6 +339,16 @@ let dss_loadavg () =
 (*****************************************************)
 
 let dss_netdev doms =
+  let uuid_of_domid domains domid =
+    let _, uuid, _ =
+      try List.find (fun (_, _, domid') -> domid = domid') domains
+      with Not_found ->
+        failwith
+          (Printf.sprintf "Failed to find uuid corresponding to domid: %d"
+             domid)
+    in
+    uuid
+  in
   let open Network_stats in
   let stats = Network_stats.read_stats () in
   let dss, sum_rx, sum_tx =
@@ -486,15 +487,11 @@ let mem_vm_writer_pages = ((max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
 
 let dss_mem_vms doms =
   List.fold_left
-    (fun acc dom ->
-      let domid = dom.Xenctrl.domid in
+    (fun acc (dom, uuid, domid) ->
       let kib =
         Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
       in
       let memory = Int64.mul kib 1024L in
-      let uuid =
-        Uuid.string_of_uuid (Uuid.uuid_of_int_array dom.Xenctrl.handle)
-      in
       let main_mem_ds =
         ( Rrd.VM uuid
         , Ds.ds_make ~name:"memory"
@@ -674,35 +671,31 @@ let domain_snapshot xc =
   let domains =
     Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
   in
-  let doms = List.map (fun (d, _, _) -> d) domains in
-  let dom_uuids = List.map (fun (d, u, _) -> (d, u)) domains in
-  let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-  let domids = List.map (fun (_, _, i) -> i) domains in
   let timestamp = Unix.gettimeofday () in
-  let domain_paused (d, uuid) = if d.Xenctrl.paused then Some uuid else None in
-  let paused_uuids = List.filter_map domain_paused dom_uuids in
-  let domids = IntSet.of_list domids in
+  let domain_paused (d, uuid, _) =
+    if d.Xenctrl.paused then Some uuid else None
+  in
+  let paused_uuids = List.filter_map domain_paused domains in
+  let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
   let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
   Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
-  (timestamp, doms, uuid_domids, paused_uuids)
+  (timestamp, domains, paused_uuids)
 
 let dom0_stat_generators =
   [
-    ("ha", fun _ _ _ _ -> Rrdd_ha_stats.all ())
-  ; ("mem_host", fun xc _ _ _ -> dss_mem_host xc)
-  ; ("mem_vms", fun _ _ domains _ -> dss_mem_vms domains)
-  ; ("pcpus", fun xc _ _ _ -> dss_pcpus xc)
-  ; ("vcpus", fun xc _ domains uuid_domids -> dss_vcpus xc domains uuid_domids)
-  ; ("loadavg", fun _ _ _ _ -> dss_loadavg ())
-  ; ("netdev", fun _ _ domains _ -> dss_netdev domains)
-  ; ("cache", fun _ timestamp _ _ -> dss_cache timestamp)
+    ("ha", fun _ _ _ -> Rrdd_ha_stats.all ())
+  ; ("mem_host", fun xc _ _ -> dss_mem_host xc)
+  ; ("mem_vms", fun _ _ domains -> dss_mem_vms domains)
+  ; ("pcpus", fun xc _ _ -> dss_pcpus xc)
+  ; ("vcpus", fun xc _ domains -> dss_vcpus xc domains)
+  ; ("loadavg", fun _ _ _ -> dss_loadavg ())
+  ; ("netdev", fun _ _ domains -> dss_netdev domains)
+  ; ("cache", fun _ timestamp _ -> dss_cache timestamp)
   ]
 
-let generate_all_dom0_stats xc timestamp domains uuid_domids =
+let generate_all_dom0_stats xc timestamp domains =
   let handle_generator (name, generator) =
-    ( name
-    , handle_exn name (fun _ -> generator xc timestamp domains uuid_domids) []
-    )
+    (name, handle_exn name (fun _ -> generator xc timestamp domains) [])
   in
   List.map handle_generator dom0_stat_generators
 
@@ -721,15 +714,14 @@ let write_dom0_stats writers timestamp tagged_dss =
 
 let do_monitor_write xc writers =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
-      let timestamp, domains, uuid_domids, my_paused_vms = domain_snapshot xc in
-      let tagged_dom0_stats =
-        generate_all_dom0_stats xc timestamp domains uuid_domids
-      in
+      let timestamp, domains, my_paused_vms = domain_snapshot xc in
+      let tagged_dom0_stats = generate_all_dom0_stats xc timestamp domains in
       write_dom0_stats writers (Int64.of_float timestamp) tagged_dom0_stats ;
       let dom0_stats = List.concat (List.map snd tagged_dom0_stats) in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
       let stats = List.rev_append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
+      let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
       Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms)
 
 let monitor_write_loop writers =
