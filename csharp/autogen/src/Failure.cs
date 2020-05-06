@@ -48,7 +48,7 @@ namespace XenAPI
 
         private static ResourceManager errorDescriptions = FriendlyErrorNames.ResourceManager;
 
-        private readonly List<string> errorDescription;
+        private readonly List<string> errorDescription = new List<string>();
         private string errorText;
         private string shortError;
 
@@ -69,7 +69,8 @@ namespace XenAPI
 
         #region Constructors
 
-        public Failure() : base() { }
+        public Failure()
+        {}
 
         public Failure(params string[] err)
             : this(new List<string>(err))
@@ -131,7 +132,7 @@ namespace XenAPI
                 else
                 {
                     // We need a string array to pass to String.Format, and it must not contain the 0th element
-                    errorText = string.Format(formatString, ErrorDescription.Skip(1));
+                    errorText = string.Format(formatString, ErrorDescription.Skip(1).Cast<object>().ToArray());
                 }
             }
             catch (Exception)
