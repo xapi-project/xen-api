@@ -231,7 +231,7 @@ let string_of_configuration_change ~__context (x: configuration_change) =
     (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Ref.short_string_of vm_ref) vm_t.API.vM_name_label) x.old_vms_leaving))
     (String.concat "; " (List.map (fun (h, (vm_ref, vm_t)) -> Printf.sprintf "%s %s (%s)" (string_of_host h) (Ref.short_string_of vm_ref) vm_t.API.vM_name_label) x.old_vms_arriving))
     (String.concat "; " (List.map string_of_host x.hosts_to_disable))
-    (Option.value ~default:"no change" (Option.map string_of_int x.num_failures))
+    (Option.fold ~none:"no change" ~some:string_of_int x.num_failures)
     (String.concat "; " (List.map Ref.short_string_of x.new_vms_to_protect))
 
 (* Deterministic function which chooses a single host to 'pin' a non-agile VM to. Note we don't consider only live hosts:

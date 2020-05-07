@@ -1775,7 +1775,7 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
   List.iter
     (fun (pif, pif_r) ->
        let bridge = List.assoc pif pif_to_bridge in
-       let currently_attached = Option.value ~default:false (Option.map (fun x -> List.mem x bridges) bridge) in
+       let currently_attached = Option.fold ~none:false ~some:(fun x -> List.mem x bridges) bridge in
        if pif_r.API.pIF_currently_attached <> currently_attached then begin
          Db.PIF.set_currently_attached ~__context ~self:pif ~value:currently_attached;
          debug "PIF %s currently_attached <- %b" (Ref.string_of pif) currently_attached;

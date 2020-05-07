@@ -60,7 +60,7 @@ let find_vdi ~__context sr vdi =
 let find_content ~__context ?sr name =
   (* PR-1255: the backend should do this for us *)
   let open Db_filter_types in
-  let expr = Option.value ~default:True (Option.map (fun sr -> Eq(Field "SR", Literal (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) )))) sr) in
+  let expr = Option.fold ~none:True ~some:(fun sr -> Eq(Field "SR", Literal (Ref.string_of (Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) )))) sr in
   let all = Db.VDI.get_records_where ~__context ~expr in
   List.find
     (fun (_, vdi_rec) ->

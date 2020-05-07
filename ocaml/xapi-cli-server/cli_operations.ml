@@ -2137,8 +2137,7 @@ let host_install_server_certificate fd printer rpc session_id params =
   |> get_file_or_fail fd "private key"
   in
   let certificate_chain = List.assoc_opt "certificate-chain" params
-  |> Option.map (get_file_or_fail fd "certificate chain")
-  |> Option.value ~default:""
+  |> Option.fold ~none:"" ~some:(get_file_or_fail fd "certificate chain")
   in
   ignore (do_host_op rpc session_id ~multiple:false (fun _ host ->
       let host = host.getref () in
