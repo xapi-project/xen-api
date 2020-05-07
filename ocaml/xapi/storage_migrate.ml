@@ -740,8 +740,8 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
              with Not_found -> None) None similar in
 
     debug "Nearest VDI: content_id=%s vdi=%s"
-      (Option.value ~default:"None" (Option.map (fun x -> x.content_id) nearest))
-      (Option.value ~default:"None" (Option.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
+      (Option.fold ~none:"None" ~some:(fun x -> x.content_id) nearest)
+      (Option.fold ~none:"None" ~some:(fun x -> Storage_interface.Vdi.string_of x.vdi) nearest);
 
     let parent = match nearest with
       | Some vdi ->
@@ -911,8 +911,8 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
                with Not_found -> None) None similars in
 
       debug "Nearest VDI: content_id=%s vdi=%s"
-        (Option.value ~default:"None" (Option.map (fun x -> x.content_id) nearest))
-        (Option.value ~default:"None" (Option.map (fun x -> Storage_interface.Vdi.string_of x.vdi) nearest));
+        (Option.fold ~none:"None" ~some:(fun x -> x.content_id) nearest)
+        (Option.fold ~none:"None" ~some:(fun x -> Storage_interface.Vdi.string_of x.vdi) nearest);
       let remote_base = match nearest with
         | Some vdi ->
           debug "Cloning VDI";

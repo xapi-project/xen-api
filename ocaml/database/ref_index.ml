@@ -23,7 +23,7 @@ type indexrec = {
   _ref:string
 }
 let string_of (x: indexrec) =
-  Printf.sprintf "%s%s" x.uuid (Option.value ~default:"" (Option.map (fun name -> Printf.sprintf " (%s)" name) x.name_label))
+  Printf.sprintf "%s%s" x.uuid (Option.fold ~none:"" ~some:(fun name -> Printf.sprintf " (%s)" name) x.name_label)
 
 let lookup key =
   let t = Db_backend.make () in

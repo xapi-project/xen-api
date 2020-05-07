@@ -1203,27 +1203,27 @@ module Xenops_cache = struct
   let update_vbd id info =
     let existing = Option.value ~default:empty (find (fst id)) in
     let vbds' = List.filter (fun (vbd_id, _) -> vbd_id <> id) existing.vbds in
-    update (fst id) { existing with vbds = Option.value ~default:vbds' (Option.map (fun info -> (id, info) :: vbds') info) }
+    update (fst id) { existing with vbds = Option.fold ~none:vbds' ~some:(fun info -> (id, info) :: vbds') info }
 
   let update_vif id info =
     let existing = Option.value ~default:empty (find (fst id)) in
     let vifs' = List.filter (fun (vif_id, _) -> vif_id <> id) existing.vifs in
-    update (fst id) { existing with vifs = Option.value ~default:vifs' (Option.map (fun info -> (id, info) :: vifs') info) }
+    update (fst id) { existing with vifs = Option.fold ~none:vifs' ~some:(fun info -> (id, info) :: vifs') info }
 
   let update_pci id info =
     let existing = Option.value ~default:empty (find (fst id)) in
     let pcis' = List.filter (fun (pci_id, _) -> pci_id <> id) existing.pcis in
-    update (fst id) { existing with pcis = Option.value ~default:pcis' (Option.map (fun info -> (id, info) :: pcis') info) }
+    update (fst id) { existing with pcis = Option.fold ~none:pcis' ~some:(fun info -> (id, info) :: pcis') info }
 
   let update_vgpu id info =
     let existing = Option.value ~default:empty (find (fst id)) in
     let vgpus' = List.filter (fun (vgpu_id, _) -> vgpu_id <> id) existing.vgpus in
-    update (fst id) { existing with vgpus = Option.value ~default:vgpus' (Option.map (fun info -> (id, info) :: vgpus') info) }
+    update (fst id) { existing with vgpus = Option.fold ~none:vgpus' ~some:(fun info -> (id, info) :: vgpus') info }
 
   let update_vusb id info =
     let existing = Option.value ~default:empty (find (fst id)) in
     let vusbs' = List.filter (fun (vusb_id, _) -> vusb_id <> id) existing.vusbs in
-    update (fst id) { existing with vusbs = Option.value ~default:vusbs' (Option.map (fun info -> (id, info) :: vusbs') info) }
+    update (fst id) { existing with vusbs = Option.fold ~none:vusbs' ~some:(fun info -> (id, info) :: vusbs') info }
 
   let update_vm id info =
     let existing = Option.value ~default:empty (find id) in

@@ -189,7 +189,7 @@ module Vdi = struct
     set_dp_state dp state' t
 
   let to_string_list x =
-    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Option.value ~default:"None" (Option.map (fun x -> "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)) x.attach_info)) in
+    let title = Printf.sprintf "%s (device=%s)" (Vdi_automaton.string_of_state (superstate x)) (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)) x.attach_info) in
     let of_dp (dp, state) = Printf.sprintf "DP: %s: %s%s" dp (Vdi_automaton.string_of_state state) (if List.mem dp x.leaked then "  ** LEAKED" else "") in
     title :: (List.map indent (List.map of_dp x.dps))
 end

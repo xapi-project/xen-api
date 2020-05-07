@@ -58,7 +58,7 @@ let address_of_console __context console : address option =
         None
     end
   in
-  debug "VM %s console port: %s" (Ref.string_of vm) (Option.value ~default:"None" (Option.map (fun x -> "Some " ^ (string_of_address x)) address_option));
+  debug "VM %s console port: %s" (Ref.string_of vm) (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ (string_of_address x)) address_option);
   address_option
 
 let real_proxy __context _ _ vnc_port s =

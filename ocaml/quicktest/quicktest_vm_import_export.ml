@@ -7,7 +7,7 @@ let name_of_sr rpc session_id self =
 let vm_import ?(metadata_only=false) ?(preserve=false) ?sr rpc session_id filename =
   let sr_uuid = Option.map (fun sr -> Client.Client.SR.get_uuid rpc session_id sr) sr in
   let args = [ "vm-import"; "filename=" ^ filename ] in
-  let args = args @ (Option.value ~default:[] (Option.map (fun x -> [ "sr-uuid=" ^ x ]) sr_uuid)) in
+  let args = args @ (Option.fold ~none:[] ~some:(fun x -> [ "sr-uuid=" ^ x ]) sr_uuid) in
   let args = if metadata_only then args @ [ "metadata=true" ] else args in
   let args = if preserve then args @ [ "preserve=true" ] else args in
   let newvm_uuids = String.split_on_char ',' (Qt.cli_cmd args) in
