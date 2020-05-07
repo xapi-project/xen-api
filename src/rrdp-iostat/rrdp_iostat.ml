@@ -24,16 +24,40 @@ open Process
 
 open Xenstore
 
-let with_xc f = Xenctrl.with_intf f
+let with_xc_and_xs f = Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
 (* Return a list of (domid, uuid) pairs for domUs running on this host *)
-let get_running_domUs xc =
-  let open Xenctrl in
-  Xenctrl.domain_getinfolist xc 0 |> List.map (fun di ->
-      let domid = di.domid in
-      let uuid = Uuid.to_string (Uuid.uuid_of_int_array di.handle) in
-      (domid, uuid)
-    ) |> List.filter (fun x -> fst x <> 0)
+let get_running_domUs xc xs =
+  let metadata_of_domain di =
+    let open Xenctrl in
+    let domid = di.domid in
+    let uuid = Uuid.(to_string (uuid_of_int_array di.handle)) in
+
+    (* Actively hide migrating VM uuids, these are temporary and xenops
+       writes the original and the final uuid to xenstore *)
+    let uuid_from_key key =
+      let path = Printf.sprintf "/vm/%s/%s" uuid key in
+      try
+        xs.read path
+      with Xs_protocol.Enoent _hint ->
+        D.info "Couldn't read path %s; falling back to actual uuid" path;
+        uuid
+    in
+    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
+
+    let key =
+      if Astring.String.is_suffix ~affix:"000000000000" uuid then
+        Some "origin-uuid"
+      else if Astring.String.is_suffix ~affix:"000000000001" uuid then
+        Some "final-uuid"
+      else
+        None
+    in
+    (domid, stable_uuid key)
+  in
+  (* Do not list dom0 *)
+  Xenctrl.domain_getinfolist xc 1
+  |> List.map metadata_of_domain
 
 (* A mapping of VDIs to the VMs they are plugged to, in which position, and the device-id *)
 let vdi_to_vm_map : (string * (string * string * int)) list ref = ref []
@@ -47,7 +71,7 @@ let update_vdi_to_vm_map () =
     (* We get a VM's VDI information from xenstore, /local/domain/0/backend/vbd/<domid>/<vbdid> *)
     let base_paths = ["/local/domain/0/backend/vbd"; "/local/domain/0/backend/vbd3"] in
     try
-      let domUs = with_xc get_running_domUs in
+      let domUs = with_xc_and_xs get_running_domUs in
       D.debug "Running domUs: [%s]" (String.concat "; " (List.map (fun (domid, uuid) -> Printf.sprintf "%d (%s)" domid (String.sub uuid 0 8)) domUs));
       with_xs (fun xs ->
           List.map (fun (domid, vm) ->
@@ -692,7 +716,7 @@ let gen_metrics () =
   let sr_vdi_to_stats   = get_sr_vdi_to_stats   () in
 
   (* relations between dom-id, vm-uuid, device pos, dev-id, etc *)
-  let domUs = with_xc get_running_domUs in
+  let domUs = with_xc_and_xs get_running_domUs in
   let vdi_to_vm = get_vdi_to_vm_map () in
 
   let get_stats_blktap3_by_vdi vdi =
