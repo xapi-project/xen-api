@@ -38,8 +38,9 @@ geniqn() {
 }
 
 # On upgrade, the host param will already be there - reuse it:
-if [ -n $(xe host-param-get uuid=${INSTALLATION_UUID} param-name=iscsi_iqn 2>/dev/null) ]; then
-    IQN=$(xe host-param-get uuid=${INSTALLATION_UUID} param-name=iscsi_iqn 2>/dev/null)
+IQN_PARAM="$(xe host-param-get uuid=${INSTALLATION_UUID} param-name=iscsi_iqn 2>/dev/null)"
+if [ -n "${IQN_PARAM}" ]; then
+    IQN="${IQN_PARAM}"
 elif xe host-param-get uuid=${INSTALLATION_UUID} param-name=other-config --minimal 2>/dev/null | grep -q "iscsi_iqn:" ; then
     IQN="$(xe host-param-get uuid=${INSTALLATION_UUID} param-name=other-config param-key=iscsi_iqn --minimal)"
 elif [ -n "${IQN_CONF}" ]; then
