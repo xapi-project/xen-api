@@ -404,9 +404,18 @@ let handle_unmarshal_failure ex ifd =
   | e ->
       raise e
 
-let assert_filename_permitted permitted_filenames filename =
+let assert_filename_permitted ?(permit_cwd = false) permitted_filenames filename
+    =
   (* Prefix match instead of exact match is used here to workaround the old xva format that request files
    * are not in the command line *)
+  let permitted_filenames =
+    match permit_cwd with
+    | true ->
+        Filename.current_dir_name |> canonicalize |> fun x ->
+        x :: permitted_filenames
+    | _ ->
+        permitted_filenames
+  in
   let requested_file = canonicalize filename in
   match
     List.exists
@@ -713,12 +722,15 @@ let main_loop ifd ofd permitted_filenames =
               let file_ch =
                 if filename = "" then
                   Unix.out_channel_of_descr (Unix.dup Unix.stdout)
-                else
+                else (
+                  assert_filename_permitted ~permit_cwd:true permitted_filenames
+                    filename ;
                   try
                     open_out_gen
                       [Open_wronly; Open_creat; Open_excl]
                       0o600 filename
                   with e -> raise (ClientSideError (Printexc.to_string e))
+                )
               in
               while input_line ic <> "\r" do
                 ()
@@ -742,9 +754,14 @@ let main_loop ifd ofd permitted_filenames =
           marshal ofd (Response Failed) ;
           Printf.fprintf stderr "Operation failed. Error: %s\n" msg ;
           exit_code := Some 1
-      | e ->
-          debug "HttpGet failure: %s\n%!" (Printexc.to_string e) ;
-          marshal ofd (Response Failed)
+      | e -> (
+        match e with
+        | Filename_not_permitted _ ->
+            raise e
+        | _ ->
+            debug "HttpGet failure: %s\n%!" (Printexc.to_string e) ;
+            marshal ofd (Response Failed)
+      )
     )
     | Command Prompt ->
         let data = input_line stdin in
