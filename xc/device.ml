@@ -2787,11 +2787,28 @@ module Backend = struct
                       (string_of_message msg)
 
     let qmp_event_thread () =
-      debug "Starting QMP_Event thread";
-      (* Add the existing qmp sockets first *)
-      Sys.readdir var_run_xen_path
-      |> Array.to_list
-      |> List.iter (fun x -> try Scanf.sscanf x "qmp-event-%d" add with _ -> ());
+      let qmp_domid socket =
+        try Some (Scanf.sscanf socket "qmp-event-%d" (fun d -> d))
+        with _ -> None in
+
+      let add_domain id =
+        try
+          add id
+        with
+          e -> error "Adding QMP socket for domain %d failed" id in
+
+      begin
+        try
+          debug "Starting QMP_Event thread";
+          (* Add the existing qmp sockets first *)
+          Sys.readdir var_run_xen_path
+          |> Array.to_list
+          |> List.filter_map qmp_domid
+          |> List.iter add_domain
+        with
+          e -> error "Connecting to existing QMP sockets failed: %s (%s)"
+            (Printexc.to_string e) __LOC__
+      end;
 
       while true do
         try
@@ -2819,7 +2836,7 @@ module Backend = struct
               end
             )
         with e ->
-          debug_exn "Exception in qmp_event_thread: %s" e;
+          debug_exn "Exception in QMP_Event_thread: %s" e;
       done
 
   end (* Qemu_upstream_compat.Dm.QMP_Event *)
