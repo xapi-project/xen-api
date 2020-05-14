@@ -64,7 +64,8 @@ module Input_json_object = Generic.MakeStateless (struct
         ("good_call.json", Right good_call)
       ; (* A file containing a partial JSON object. *)
         ("short_call.json", Left Parse_error)
-      ; (* A file containing a JSON object, plus some more characters at the end. *)
+      ; (* A file containing a JSON object, plus some more characters at the
+           end. *)
         ("good_call_plus.json", Right good_call)
       ; (* A file containing some invalid JSON object. *)
         ("bad_call.json", Left Parse_error)

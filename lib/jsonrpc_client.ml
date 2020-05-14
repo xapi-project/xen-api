@@ -49,9 +49,9 @@ let timeout_read fd timeout =
       | Unix.Unix_error (Unix.EINTR, _, _) ->
         ([], [], [])
     in
-    (* This is not accurate the calculate time just for the select part. However, we
-       		 * think the read time will be minor comparing to the scale of tens of seconds.
-       		 * the current style will be much concise in code. *)
+    (* This is not accurate the calculate time just for the select part.
+       However, we think the read time will be minor comparing to the scale of
+       tens of seconds. the current style will be much concise in code. *)
     let remain_time =
       let used_time = get_total_used_time () in
       Int64.sub timeout used_time
@@ -84,8 +84,10 @@ let timeout_read fd timeout =
   in
   inner timeout !json_rpc_max_len
 
-(* Write as many bytes to a file descriptor as possible from data before a given clock time. *)
-(* Raises Timeout exception if the number of bytes written is less than the specified length. *)
+(* Write as many bytes to a file descriptor as possible from data before a given
+   clock time. *)
+(* Raises Timeout exception if the number of bytes written is less than the
+   specified length. *)
 (* Writes into the file descriptor at the current cursor position. *)
 let timeout_write filedesc total_length data response_time =
   let write_start = Mtime_clock.counter () in

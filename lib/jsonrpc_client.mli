@@ -30,5 +30,5 @@ val with_rpc :
   -> call:Rpc.call
   -> unit
   -> Rpc.response
-(** Do an JSON-RPC call to a server that is listening on a Unix domain 
- *  socket at the given path. *)
+(** Do an JSON-RPC call to a server that is listening on a Unix domain socket at
+    the given path. *)

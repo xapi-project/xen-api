@@ -128,7 +128,7 @@ let get_link_stats () =
     in
     List.map (fun link -> (standardise_name (Link.get_name link), link)) links
     |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
-          		   devices (ethx.y). *)
+          devices (ethx.y). *)
     List.filter (fun (name, _) -> is_whitelisted name && not (is_vlan name))
   in
   let devs =
@@ -382,7 +382,7 @@ let rec ip_watcher () =
       && not (Astring.String.is_infix ~affix:"inet6 fe80" line)
     then (
       (* Ignore changes for the next second, since they usually come in bursts,
-         			 * and signal only once. *)
+         * and signal only once. *)
       Thread.delay 1. ;
       clear_input readme ;
       signal_networking_change ()

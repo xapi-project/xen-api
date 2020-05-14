@@ -188,7 +188,8 @@ module Sysfs = struct
     try
       let devpath = getpath name "device" in
       let driver_link = Unix.readlink (devpath ^ "/driver") in
-      (* filter out symlinks under device/driver which look like /../../../devices/xen-backend/vif- *)
+      (* filter out symlinks under device/driver which look like
+         /../../../devices/xen-backend/vif- *)
       not
         (List.mem "xen-backend"
            (Astring.String.cuts ~empty:false ~sep:"/" driver_link))
@@ -239,8 +240,8 @@ module Sysfs = struct
         Result.Error
           (Fail_to_get_driver_name, "Failed to get driver name for: " ^ dev)
 
-  (** Returns the features bitmap for the driver for [dev].
-      	 *  The features bitmap is a set of NETIF_F_ flags supported by its driver. *)
+  (** Returns the features bitmap for the driver for [dev]. The features bitmap
+      is a set of NETIF_F_ flags supported by its driver. *)
   let get_features dev =
     try Some (int_of_string (read_one_line (getpath dev "features")))
     with _ -> None
@@ -274,9 +275,11 @@ module Sysfs = struct
     let ifaces = list () in
     List.filter (fun name -> Sys.file_exists (getpath name "bridge")) ifaces
 
-  (** Returns (speed, duplex) for a given network interface: int megabits/s, Duplex.
-      	 *  The units of speed are specified in pif_record in xen-api/xapi/records.ml.
-      	 *  Note: these data are present in sysfs from kernel 2.6.33. *)
+  (** Returns (speed, duplex) for a given network interface: int megabits/s,
+      Duplex. The units of speed are specified in pif_record in
+      xen-api/xapi/records.ml.
+
+      Note: these data are present in sysfs from kernel 2.6.33. *)
   let get_status name =
     let speed =
       getpath name "speed" |> fun p ->
@@ -653,7 +656,8 @@ module Ip = struct
     with _ ->
       Result.Error (Fail_to_set_vf_vlan, "Failed to set VF VLAN for: " ^ dev)
 
-  (* We know some NICs do not support config VF Rate, so will explicitly tell XAPI this error*)
+  (* We know some NICs do not support config VF Rate, so will explicitly tell
+     XAPI this error*)
   let set_vf_rate dev index rate =
     try
       debug "Setting VF rate for dev: %s, index: %d, rate: %d" dev index rate ;
@@ -670,9 +674,10 @@ module Linux_bonding = struct
     debug "Loading bonding driver" ;
     try
       ignore (call_script modprobe ["bonding"]) ;
-      (* is_bond_device() uses the contents of sysfs_bonding_masters to work out which devices
-         			 * have already been created. Unfortunately the driver creates "bond0" automatically at
-         			 * modprobe init. Get rid of this now or our accounting will go wrong. *)
+      (* is_bond_device() uses the contents of sysfs_bonding_masters to work out
+         which devices have already been created. Unfortunately the driver
+         creates "bond0" automatically at modprobe init. Get rid of this now or
+         our accounting will go wrong. *)
       Sysfs.write_one_line bonding_masters "-bond0"
     with _ -> error "Failed to load bonding driver"
 
@@ -822,8 +827,8 @@ module Linux_bonding = struct
       debug "Current bond properties: %s"
         (String.concat ", "
            (List.map (fun (k, v) -> k ^ "=" ^ v) current_props)) ;
-      (* Find out which properties are known, but different from the current state,
-         			 * and only continue if there is at least one of those. *)
+      (* Find out which properties are known, but different from the current
+         state, and only continue if there is at least one of those. *)
       let props_to_update =
         List.filter
           (fun (prop, value) ->
@@ -986,7 +991,8 @@ end = struct
       (* dhclient is not running, so we need to start it. *)
       ignore (start ~ipv6 interface options)
     else
-      (* dhclient is running - if the config has changed, update the config file and restart. *)
+      (* dhclient is running - if the config has changed, update the config file
+         and restart. *)
       let current_conf = read_conf_file ~ipv6 interface in
       let new_conf = generate_conf ~ipv6 interface options in
       if current_conf <> Some new_conf then (
@@ -1251,13 +1257,13 @@ module Ovs = struct
       with _ -> warn "Failed to set max-idle=%d on OVS" t
 
     let handle_vlan_bug_workaround override bridge =
-      (* This is a list of drivers that do support VLAN tx or rx acceleration, but
-         		 * to which the VLAN bug workaround should not be applied. This could be
-         		 * because these are known-good drivers (that is, they do not have any of
-         		 * the bugs that the workaround avoids) or because the VLAN bug workaround
-         		 * will not work for them and may cause other problems.
-         		 *
-         		 * This is a very short list because few drivers have been tested. *)
+      (* This is a list of drivers that do support VLAN tx or rx acceleration,
+         but to which the VLAN bug workaround should not be applied. This could
+         be because these are known-good drivers (that is, they do not have any
+         of the bugs that the workaround avoids) or because the VLAN bug
+         workaround will not work for them and may cause other problems.
+
+         This is a very short list because few drivers have been tested. *)
       let no_vlan_workaround_drivers = ["bonding"] in
       let phy_interfaces =
         try
@@ -1357,7 +1363,9 @@ module Ovs = struct
             (fun vif -> Astring.String.is_prefix ~affix:"vif" vif)
             bvifs
         in
-        (* The vifs may be large. However considering current XS limit of 1000VM*7NIC/VM + 800VLANs, the buffer of CLI should be sufficient for lots of vifxxxx.xx *)
+        (* The vifs may be large. However considering current XS limit of
+           1000VM*7NIC/VM + 800VLANs, the buffer of CLI should be sufficient for
+           lots of vifxxxx.xx *)
         fork_script !inject_igmp_query_script
           ([
              "--no-check-snooping-toggle"
@@ -1493,14 +1501,16 @@ module Ovs = struct
       let del_old_arg =
         let real_bridge_exists () =
           try
-            (* `ovs-vsctl br-to-parent <name>` returns <name> if <name> is a current "real" bridge *)
+            (* `ovs-vsctl br-to-parent <name>` returns <name> if <name> is a
+               current "real" bridge *)
             vsctl ~log:false ["br-to-parent"; name] |> String.trim = name
           with _ -> false
         in
         if vlan <> None && real_bridge_exists () then
-          (* This is to handle the case that a "real" bridge (not a "fake" VLAN bridge)
-             already exists, while we need to create a VLAN bridge with the same name.
-             The bridge will be destroyed and recreated, and the interfaces on it are put back. *)
+          (* This is to handle the case that a "real" bridge (not a "fake" VLAN
+             bridge) already exists, while we need to create a VLAN bridge with
+             the same name. The bridge will be destroyed and recreated, and the
+             interfaces on it are put back. *)
           ["--"; "--if-exists"; "del-br"; name]
         else
           []
@@ -1882,19 +1892,19 @@ module Modprobe = struct
         ( Fail_to_write_modprobe_cfg
         , "Failed to write modprobe configuration file for: " ^ driver )
 
-  (*
-    For a igb driver, the module config file will be at path `/etc/modprobe.d/igb.conf`
-    The module config file is like:
-    # VFs-param: max_vfs
-    # VFs-maxvfs-by-default: 7
-    # VFs-maxvfs-by-user:
-    options igb max_vfs=7,7
+  (* For a igb driver, the module config file will be at path
+     `/etc/modprobe.d/igb.conf`
 
-    Example of calls:
-    "igb" -> "VFs-param" -> Some "max_vfs"
-    "igb" -> "VFs-maxvfs-by-default" -> Some "7"
-    "igb" -> "VFs-maxvfs-by-user" -> None
-    "igb" -> "Not existed comments" -> None
+     The module config file is like:
+     # VFs-param: max_vfs
+     # VFs-maxvfs-by-default: 7
+     # VFs-maxvfs-by-user: options igb max_vfs=7,7
+
+     Example of calls:
+     "igb" -> "VFs-param" -> Some "max_vfs"
+     "igb" -> "VFs-maxvfs-by-default" -> Some "7"
+     "igb" -> "VFs-maxvfs-by-user" -> None
+     "igb" -> "Not existed comments" -> None
   *)
   let get_config_from_comments driver =
     try
@@ -1917,11 +1927,12 @@ module Modprobe = struct
                    Some (String.trim k, String.trim v))
     with _ -> []
 
-  (* this function not returning None means that the driver doesn't suppport sysfs.
-     	If a driver doesn't support sysfs, then we add VF_param into its driver modprobe
-     	configuration. Therefore, from XAPI's perspective, if Modprobe.get_vf_param is
-     	not None, the driver definitely should use modprobe other than sysfs,
-     	and if Modprobe.get_vf_param is None, we just simple try sysfs. *)
+  (* this function not returning None means that the driver doesn't suppport
+     sysfs. If a driver doesn't support sysfs, then we add VF_param into its
+     driver modprobe configuration. Therefore, from XAPI's perspective, if
+     Modprobe.get_vf_param is not None, the driver definitely should use
+     modprobe other than sysfs, and if Modprobe.get_vf_param is None, we just
+     simple try sysfs. *)
   let get_vf_param config =
     try Some (List.assoc "VFs-param" config) with _ -> None
 
@@ -1946,11 +1957,11 @@ module Modprobe = struct
   let config_sriov driver vf_param maxvfs =
     let open Rresult.R.Infix in
     Modinfo.is_param_array driver vf_param >>= fun is_array ->
-    (* To enable SR-IOV via modprobe configuration, we first determine if the driver requires
-       		in the configuration an array like `options igb max_vfs=7,7,7,7` or a single value
-       		like `options igb max_vfs=7`. If an array is required, this repeat times equals to
-       		the number of devices with the same driver.
-    *)
+    (* To enable SR-IOV via modprobe configuration, we first determine if the
+       driver requires in the configuration an array like `options igb
+       max_vfs=7,7,7,7` or a single value like `options igb max_vfs=7`. If an
+       array is required, this repeat times equals to the number of devices with
+       the same driver. *)
     let repeat =
       if is_array then Sysfs.get_dev_nums_with_same_driver driver else 1
     in
@@ -1969,7 +1980,8 @@ module Modprobe = struct
     let parse_single_line s =
       let parse_driver_options s =
         match Astring.String.cut ~sep:"=" s with
-        (* has SR-IOV configuration but the max_vfs is exactly what we want to set, so no changes and return s *)
+        (* has SR-IOV configuration but the max_vfs is exactly what we want to
+           set, so no changes and return s *)
         | Some (k, v) when k = vf_param && v = option ->
             has_probe_conf := true ;
             s

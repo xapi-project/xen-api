@@ -127,10 +127,10 @@ module Sriov = struct
         debug "%s SR-IOV on a device: %s via modprobe" op dev ;
         (if enable then Modprobe.get_maxvfs driver config else Ok 0)
         >>= fun numvfs ->
-        (* CA-287340: Even if the current numvfs equals to the target numvfs,
-           			it is still needed to update SR-IOV modprobe config file, as the
-           			SR-IOV enabing takes effect after reboot. For example, a user
-           			enables SR-IOV and disables it immediately without a reboot.*)
+        (* CA-287340: Even if the current numvfs equals to the target numvfs, it
+           is still needed to update SR-IOV modprobe config file, as the SR-IOV
+           enabing takes effect after reboot. For example, a user enables SR-IOV
+           and disables it immediately without a reboot.*)
         Modprobe.config_sriov driver vf_param numvfs >>= fun _ ->
         if numvfs = Sysfs.get_sriov_numvfs dev then
           Ok Modprobe_successful
@@ -184,9 +184,11 @@ module Sriov = struct
       (fun () -> Result.Ok ())
       mac
     >>= fun () ->
-    (* In order to ensure the Networkd to be idempotent, configuring VF with no VLAN and rate
-       		have to reset vlan and rate, since the VF might have previous configuration. Refering to
-       		http://gittup.org/cgi-bin/man/man2html?ip-link+8, set VLAN and rate to 0 means to reset them *)
+    (* In order to ensure the Networkd to be idempotent, configuring VF with no
+       VLAN and rate have to reset vlan and rate, since the VF might have
+       previous configuration. Refering to
+       http://gittup.org/cgi-bin/man/man2html?ip-link+8, set VLAN and rate to 0
+       means to reset them *)
     config_or_otherwise_reset (Ip.set_vf_vlan dev index)
       (fun () -> Ip.set_vf_vlan dev index 0)
       vlan
@@ -285,8 +287,8 @@ module Interface = struct
               ignore (Dhclient.stop name) ;
               Ip.flush_ip_addr name
             ) ;
-            (* the function is meant to be idempotent and we
-               				 * want to avoid CA-239919 *)
+            (* the function is meant to be idempotent and we want to avoid
+               CA-239919 *)
             let cur_addrs = Ip.get_ipv4 name in
             let rm_addrs =
               Xapi_stdext_std.Listext.List.set_difference cur_addrs addrs
@@ -372,7 +374,8 @@ module Interface = struct
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
               Sysctl.set_ipv6_autoconf name true
-              (* Cannot link set down/up due to CA-89882 - IPv4 default route cleared *)
+              (* Cannot link set down/up due to CA-89882 - IPv4 default route
+                 cleared *)
           | Static6 addrs ->
               if Dhclient.is_running ~ipv6:true name then
                 ignore (Dhclient.stop ~ipv6:true name) ;
@@ -636,9 +639,11 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    (* We only apply the DNS settings when in static IPv4 mode to avoid conflicts with DHCP mode.
-                       					 * The `dns` field should really be an option type so that we don't have to derive the intention
-                       					 * of the caller by looking at other fields. *)
+                    (* We only apply the DNS settings when in static IPv4 mode
+                       to avoid conflicts with DHCP mode. * The `dns` field
+                       should really be an option type so that we don't have to
+                       derive the intention * of the caller by looking at other
+                       fields. *)
                     match ipv4_conf with
                     | Static4 _ ->
                         set_dns () dbg ~name ~nameservers ~domains
@@ -899,8 +904,9 @@ module Bridge = struct
                 (* Check if the VLAN is already in use by something else *)
                 List.iter
                   (fun (device, vlan', parent') ->
-                    (* A device for the same VLAN (parent + tag), but with a different
-                       						 * device name or not on the requested bridge is bad. *)
+                    (* A device for the same VLAN (parent + tag), but with a
+                       different * device name or not on the requested bridge is
+                       bad. *)
                     if
                       parent' = parent
                       && vlan' = vlan
@@ -910,7 +916,8 @@ module Bridge = struct
                     then
                       raise (Network_error (Vlan_in_use (parent, vlan))))
                   (Proc.get_vlans ()) ;
-                (* Robustness enhancement: ensure there are no other VLANs in the bridge *)
+                (* Robustness enhancement: ensure there are no other VLANs in
+                   the bridge *)
                 let current_interfaces =
                   List.filter
                     (fun n ->
@@ -1378,8 +1385,8 @@ let on_startup () =
     (fun () ->
       Bridge.determine_backend () ;
       let remove_centos_config () =
-        (* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the interfere
-           			 * with this daemon. *)
+        (* Remove DNSDEV and GATEWAYDEV from Centos networking file, because the
+           interfere * with this daemon. *)
         try
           let file =
             String.trim

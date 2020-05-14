@@ -178,7 +178,8 @@ let write_config config =
       (Printexc.get_backtrace ()) ;
     raise Write_error
 
-(* Porting network interaface to ppx: convert ipv4_routes from (string * int * string) list to {gateway:string; netmask:int; subnet:string} *)
+(* Porting network interaface to ppx: convert ipv4_routes from [(string * int *
+   string) list] to [{gateway:string; netmask:int; subnet:string}] *)
 let convert_configuration cfg =
   let open Yojson.Safe in
   let convert_ipv4_routes cfg =

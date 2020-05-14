@@ -95,8 +95,8 @@ let test_lacp_defaults_bond_create () =
   in
   Ovs.create_bond bond ifaces bridge default_props |> ignore ;
   (* should not have any strings which contain lacp-aggregation-key *)
-  (*assert_bool "no default property for lacp_aggregation_key"
-    		List.exists (fun s -> String.*)
+  (*assert_bool "no default property for lacp_aggregation_key" List.exists (fun
+    s -> String.*)
   List.iter
     (fun arg ->
       Alcotest.(
