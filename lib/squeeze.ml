@@ -106,10 +106,8 @@ module IntMap = Map.Make(struct type t = int let compare = compare end)
 
 (** Per-Host data *)
 type host = {
-  (** VMs running on this host *)
-  domains: domain list;
-  domid_to_domain: domain IntMap.t;
-  (** total free memory on this host *)
+  domains: domain list (** VMs running on this host *) ;
+  domid_to_domain: domain IntMap.t (** total free memory on this host *) ;
   free_mem_kib: int64;
 }
 
@@ -134,10 +132,8 @@ let host_to_string_pairs (x: host) =
 
 (** The ballooning algorithm returns a list of actions to perform *)
 type action = {
-  (** domid of domain to operate on *)
-  action_domid: int;
-  (** new balloon target to set *)
-  new_target_kib: int64;
+  action_domid: int (** domid of domain to operate on *) ;
+  new_target_kib: int64 (** new balloon target to set *) ;
 }
 
 let action_to_string_pairs (x: action) = [
@@ -267,8 +263,10 @@ let min_freeable ?(fistpoints=[]) domain =
   if List.mem DisableInaccuracyCompensation fistpoints
   then max 0L (domain.memory_actual_kib -* domain.dynamic_min_kib)
   else max 0L (domain.memory_actual_kib -* domain.dynamic_min_kib -* 2L ** domain.inaccuracy_kib)
+
 (** The minimum amount we will allocate by setting target = dynamic_max *)
 let min_allocatable domain = max 0L (domain.dynamic_max_kib -* domain.memory_actual_kib -* 2L ** domain.inaccuracy_kib)
+
 (** The range between dynamic_min and dynamic_max i.e. the total amount we may vary the balloon target
     NOT the total amount the memory_actual may vary. *)
 let range domain = max 0L (domain.dynamic_max_kib -* domain.dynamic_min_kib)
@@ -486,6 +484,7 @@ type io = {
 }
 
 exception Cannot_free_this_much_memory of int64 * int64 (** even if we balloon everyone down we can't free this much *)
+
 exception Domains_refused_to_cooperate of int list (** these VMs didn't release memory and we failed *)
 
 let change_host_free_memory ?fistpoints io required_mem_kib success_condition =

@@ -337,8 +337,10 @@ module Domain = struct
           (* Log but don't throw an exception *)
           error "xenstore-write %d %s = %s failed: %s" domid key value (Printexc.to_string e)
       end
+
   (** Returns true if the key exists, false otherwise *)
   let exists xc domid key = try ignore(read xc domid key); true with Xs_protocol.Enoent _ -> false
+
   (** Delete the key. Don't throw exceptions. *)
   let rm_noexn xc domid key =
     match get_per_domain xc domid with
