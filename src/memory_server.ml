@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(**
- * @group Memory
-*)
+(** @group Memory *)
 open Xcp_service
 
 open Memory_interface
@@ -50,21 +48,15 @@ end
 
 type context = unit
 
-(** The main body of squeezed is single-threaded, so we protect it with a mutex here. *)
+(** The main body of squeezed is single-threaded, so we protect it with a mutex
+    here. *)
 let big_server_mutex = Xapi_stdext_threads.Threadext.Mutex.create ()
 
 let wrap dbg f =
-  (*
-		Debug.with_thread_associated dbg
-		(fun () ->
-*)
-  try
-    Xapi_stdext_threads.Threadext.Mutex.execute big_server_mutex f (*
-		) ()
-*)
-  with
+  try Xapi_stdext_threads.Threadext.Mutex.execute big_server_mutex f with
   | Squeeze.Cannot_free_this_much_memory (needed, free) ->
-      (* NB both needed and free have been inflated by the lowmem_emergency_pool etc *)
+      (* NB both needed and free have been inflated by the lowmem_emergency_pool
+         etc *)
       let needed = Int64.sub needed Squeeze_xen.target_host_free_mem_kib
       and free = Int64.sub free Squeeze_xen.target_host_free_mem_kib in
       raise
@@ -90,8 +82,8 @@ let get_diagnostics dbg = "diagnostics not yet available"
 
 let login dbg service_name =
   wrap dbg (fun () ->
-      (* We assume only one instance of a named service logs in at a time and therefore can use
-         		   the service name as a session_id. *)
+      (* We assume only one instance of a named service logs in at a time and
+         therefore can use the service name as a session_id. *)
       (* remove any existing reservations associated with this service *)
       Xenctrl.with_intf (fun xc ->
           try
@@ -243,10 +235,10 @@ let get_total_memory_from_proc_meminfo () =
         None)
     (fun () -> close_in ic)
 
-(* The total amount of memory addressable by this OS. If we cannot get it
-   from Xen (which may not be running if we've just installed
-   the packages and are now setting them up), then we ask the balloon driver, or
-   worst-case, /proc/meminfo. *)
+(* The total amount of memory addressable by this OS. If we cannot get it from
+   Xen (which may not be running if we've just installed the packages and are
+   now setting them up), then we ask the balloon driver, or worst-case,
+   /proc/meminfo. *)
 let get_total_memory () =
   let ( >> ) x f = match x with Some x -> Some x | None -> f () in
   None

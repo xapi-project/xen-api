@@ -70,16 +70,15 @@ let options =
     , "Seconds between boot time host free memory check" )
   ]
 
-(* This constructs a server instance using the IDL - we use the
-   GenServerExn module as we're expecting to raise exceptions from the
-   implementations rather than return a Result.result. Once all the
-   methods are bound, the function S.implementation : Rpc.call -> Rpc.response
-   is the dispatcher. *)
+(* This constructs a server instance using the IDL - we use the GenServerExn
+   module as we're expecting to raise exceptions from the implementations rather
+   than return a Result.result. Once all the methods are bound, the function
+   S.implementation : Rpc.call -> Rpc.response is the dispatcher. *)
 module S = Memory_interface.API (Idl.Exn.GenServer ())
 
-(* This is where we bind the method declarations to the implementations.
-   Care has to be taken to bind each and every method declared as there
-   is no checking done in version of the library we're currently using. *)
+(* This is where we bind the method declarations to the implementations. Care
+   has to be taken to bind each and every method declared as there is no
+   checking done in version of the library we're currently using. *)
 let bind () =
   let open Memory_server in
   S.get_diagnostics get_diagnostics ;
@@ -105,8 +104,8 @@ let _ =
       ()
   in
   maybe_daemonize () ;
-  (* NB Initialise the xenstore connection after daemonising, otherwise
-     we lose our connection *)
+  (* NB Initialise the xenstore connection after daemonising, otherwise we lose
+     our connection *)
   let _ = Thread.create Memory_server.record_boot_time_host_free_memory () in
   let rpc_server = Thread.create Xcp_service.serve_forever server in
   Memory_server.start_balance_thread balance_check_interval ;
