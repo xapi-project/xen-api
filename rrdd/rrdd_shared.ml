@@ -50,12 +50,12 @@ let get_pool_secret () =
   with _ -> failwith "Unable to read the pool secret."
 
 (* Here is the only place where RRDs are created. The timescales are fixed. If
- * other timescales are required, this could be done externally. The types of
- * archives created are also fixed.  Currently, we're making 4 timescales of 3
- * types of archive. This adds up to a total of (120+120+168+366)*3 doubles per
- * field, and at 8 bytes per double this is a grand total of 18k per field. For
- * a VM with 2 VBDs, 2 VCPUs and 1 VIF, this adds up to 130k of data per VM.
- * This is the function where tuning could be done to change this. *)
+   other timescales are required, this could be done externally. The types of
+   archives created are also fixed. Currently, we're making 4 timescales of 3
+   types of archive. This adds up to a total of (120+120+168+366)*3 doubles per
+   field, and at 8 bytes per double this is a grand total of 18k per field. For
+   a VM with 2 VBDs, 2 VCPUs and 1 VIF, this adds up to 130k of data per VM.
+   This is the function where tuning could be done to change this. *)
 let timescales =
   (* These are purely for xenrt testing. *)
   if Rrdd_fist.reduce_rra_times then
@@ -63,11 +63,11 @@ let timescales =
   else
     [
       (120, 1)
-    ; (* 120 values of interval 1 step (5 secs) = 10 mins  *)
+    ; (* 120 values of interval 1 step (5 secs) = 10 mins *)
       (120, 12)
     ; (* 120 values of interval 12 steps (1 min) = 2 hours *)
       (168, 720)
-    ; (* 168 values of interval 720 steps (1 hr) = 1 week  *)
+    ; (* 168 values of interval 720 steps (1 hr) = 1 week *)
       (366, 17280)
       (* 366 values of interval 17280 steps (1 day) = 1 yr *)
     ]
@@ -105,8 +105,8 @@ let rrd_of_gzip path =
   else (* If this fails, let the exception propagate *)
     Xapi_stdext_unix.Unixext.with_file path [Unix.O_RDONLY] 0 rrd_of_fd
 
-(* Send rrds to a remote host. If the host is on another pool, you
- * must pass the session_id parameter, and optionally the __context. *)
+(* Send rrds to a remote host. If the host is on another pool, you must pass the
+   session_id parameter, and optionally the __context. *)
 let send_rrd ?(session_id : string option) ~(address : string)
     ~(to_archive : bool) ~(uuid : string) ~(rrd : Rrd.rrd) () =
   debug "Sending RRD for object uuid=%s archiving=%b to address: %s" uuid
@@ -154,11 +154,10 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
           Xapi_stdext_unix.Unixext.unlink_safe base_filename
         ) else
           debug "No local storage: not persisting RRDs"
-      with _ ->
-        (*debug "Caught exception: %s" (ExnHelper.string_of_exn e);*)
-        log_backtrace ()
+      with _ -> log_backtrace ()
     )
   | Some x ->
-      (* Stream it to the master to store, or maybe to a host in the migrate case *)
+      (* Stream it to the master to store, or maybe to a host in the migrate
+         case *)
       debug "Archiving RRD for object uuid=%s to remote master" uuid ;
       send_rrd ~address:x ~to_archive:true ~uuid ~rrd ()

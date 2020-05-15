@@ -12,19 +12,21 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(*
- * This is the entry point of the RRD daemon. It is responsible for binding
- * the daemon's interface to a file descriptor (used by RRD daemon client),
- * creating a daemon thread (that executes the monitoring and file-writing code),
- * and starting the monitor_dbcalls thread, which updates the central database
- * with up-to-date performance metrics.
- *
- * Invariants:
- * 1) xapi depends on rrdd, and not vice-versa.
- * 2) Based on (1), rrdd is started before xapi, and stopped after it.
- * 3) rrdd does not request data from xapi, only from XenStore.
- * 4) xapi occasionally sends data to rrdd through rrdd's interface.
- *)
+(** This is the entry point of the RRD daemon. It is responsible for binding the
+    daemon's interface to a file descriptor (used by RRD daemon client),
+    creating a daemon thread (that executes the monitoring and file-writing
+    code), and starting the monitor_dbcalls thread, which updates the central
+    database with up-to-date performance metrics.
+
+    Invariants:
+
+    1) xapi depends on rrdd, and not vice-versa.
+
+    2) Based on (1), rrdd is started before xapi, and stopped after it.
+
+    3) rrdd does not request data from xapi, only from XenStore.
+
+    4) xapi occasionally sends data to rrdd through rrdd's interface. *)
 
 module D = Debug.Make (struct let name = "rrdd_main" end)
 
@@ -96,11 +98,9 @@ let start (xmlrpc_path, http_fwd_path) process =
   accept_forever http_fwd_socket (fun this_connection ->
       let msg_size = 16384 in
       let buf = Bytes.make msg_size '\000' in
-      (* debug "Calling Unixext.recv_fd()"; *)
       let len, _, received_fd =
         Xapi_stdext_unix.Unixext.recv_fd this_connection buf 0 msg_size []
       in
-      (* debug "Unixext.recv_fd ok (len = %d)" len; *)
       finally
         (fun _ ->
           let req =
@@ -108,7 +108,6 @@ let start (xmlrpc_path, http_fwd_path) process =
             |> Jsonrpc.of_string
             |> Http.Request.t_of_rpc
           in
-          (* debug "Received request = [%s]\n%!" (req |> Http.Request.rpc_of_t |> Jsonrpc.to_string); *)
           req.Http.Request.close <- true ;
           ignore_bool (Http_svr.handle_one server received_fd () req))
         (fun _ -> Unix.close received_fd)) ;
@@ -221,8 +220,8 @@ let dss_vcpus xc doms uuid_domids =
           dss
         else
           let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid i in
-          (* Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE;
-           * using a mask of its complement ~(1 << 63) *)
+          (* Workaround for Xen leaking the flag XEN_RUNSTATE_UPDATE; using a
+             mask of its complement ~(1 << 63) *)
           let cpu_time =
             Int64.(
               to_float @@ logand vcpuinfo.Xenctrl.cputime xen_flag_complement)
@@ -389,7 +388,8 @@ let dss_netdev doms =
                   Scanf.sscanf dev "vif%d.%d" (fun d1 d2 -> (d1, d2))
                 in
                 let vif_name = Printf.sprintf "vif_%d" d2 in
-                (* Note: rx and tx are the wrong way round because from dom0 we see the vms backwards *)
+                (* Note: rx and tx are the wrong way round because from dom0 we
+                   see the vms backwards *)
                 let uuid = uuid_of_domid doms d1 in
                 ( Rrd.VM uuid
                 , Ds.ds_make ~name:(vif_name ^ "_tx") ~units:"B/s"
@@ -475,10 +475,9 @@ let dss_mem_host xc =
         ~units:"KiB" () )
   ]
 
-(** estimate the space needed to serialize all the dss_mem_vms in a host.
- * the json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes.
- * these bytes plus some overhead make 1024 bytes an upper bound.
- *)
+(** estimate the space needed to serialize all the dss_mem_vms in a host. the
+    json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes. these
+    bytes plus some overhead make 1024 bytes an upper bound. *)
 let max_supported_vms = 1024
 
 let bytes_per_mem_vm = 1024
@@ -574,7 +573,6 @@ let dss_cache timestamp =
       |> Astring.String.cuts ~sep:"\n"
       |> List.filter_map (fun line -> Astring.String.cut ~sep:"=" line)
     in
-    (*debug "assoc_list: [%s]" (String.concat ";" (List.map (fun (a,b) -> Printf.sprintf "%s=%s" a b) assoc_list));*)
     {
       time= timestamp
     ; cache_size_raw=
@@ -650,8 +648,8 @@ let domain_snapshot xc =
     let uuid = Uuid.(to_string (uuid_of_int_array dom.Xenctrl.handle)) in
     let domid = dom.Xenctrl.domid in
     let start = String.sub uuid 0 18 in
-    (* Actively hide migrating VM uuids, these are temporary and xenops
-       writes the original and the final uuid to xenstore *)
+    (* Actively hide migrating VM uuids, these are temporary and xenops writes
+       the original and the final uuid to xenstore *)
     let uuid_from_key key =
       let path = Printf.sprintf "/vm/%s/%s" uuid key in
       try Xenstore.(with_xs (fun xs -> xs.read path))
@@ -776,22 +774,20 @@ module GCLog : GCLOG = struct
       ()
 end
 
-(* We watch a directory for RRD files written by plugins. If a new file
- * appears, we register the plugin. If a file disappears, we un-register
- * the plugin.
- *
- * The RRD Transport framework makes some assumptions about these files:
- *
- * * A file doesn't change its size. This forces plugins to create files
- *   that are large enough to contain all data sources from the start.
- *   The underlying reason is that RRD Transport maps files into memory.
- *
- * * A file must immediately contain valid content. This prohibits a
- *   plugin to first create the file and then writing to it only later.
- *
- * To help plugins with this, we ignore RRD files with a *.tmp suffix.
- * This gives a plugin the possibility to use an atomic rename(2) call.
- *)
+(* We watch a directory for RRD files written by plugins. If a new file appears,
+   we register the plugin. If a file disappears, we un-register the plugin.
+
+   The RRD Transport framework makes some assumptions about these files:
+
+   - A file doesn't change its size. This forces plugins to create files that
+   are large enough to contain all data sources from the start. The underlying
+   reason is that RRD Transport maps files into memory.
+
+   - A file must immediately contain valid content. This prohibits a plugin to
+   first create the file and then writing to it only later.
+
+   To help plugins with this, we ignore RRD files with a *.tmp suffix. This
+   gives a plugin the possibility to use an atomic rename(2) call. *)
 
 module type DISCOVER = sig
   val start : string list -> Xapi_stdext_threads.Threadext.Thread.t
@@ -800,8 +796,8 @@ end
 module Discover : DISCOVER = struct
   let directory = Rrdd_server.Plugin.base_path
 
-  (** [is_valid f] is true, if [f] is a filename for an RRD file.
-   *  Currently we only ignore *.tmp files *)
+  (** [is_valid f] is true, if [f] is a filename for an RRD file. Currently we
+      only ignore *.tmp files *)
   let is_valid files_to_ignore file =
     (not @@ List.mem file files_to_ignore)
     && (not @@ Filename.check_suffix file ".tmp")
@@ -812,10 +808,9 @@ module Discover : DISCOVER = struct
    fun es -> es |> List.map Inotify.string_of_event_kind |> String.concat ","
 
   (* [register file] is called when we found a new file in the watched
-   * directory. We do not verify that this is a proper RRD file.
-   * [file] is not a complete path but just the basename of the file.
-   * This corresponds to how the file is used by the Plugin module,
-   * *)
+     directory. We do not verify that this is a proper RRD file. [file] is not a
+     complete path but just the basename of the file. This corresponds to how
+     the file is used by the Plugin module, *)
   let register file =
     info "RRD plugin %s discovered - registering it" file ;
     let info = Rrd.Five_Seconds in
@@ -825,14 +820,14 @@ module Discover : DISCOVER = struct
   (* seconds until next reading phase *)
 
   (* [deregister file] is called when a file is removed from the watched
-   * directory *)
+     directory *)
   let deregister file =
     info "RRD plugin - de-registering %s" file ;
     Rrdd_server.Plugin.Local.deregister file
 
-  (* Here we dispatch over all events that we receive. Note that
-   * [Inotify.read] blocks until an event becomes available. Hence, this
-   * code needs to run in its own thread. *)
+  (* Here we dispatch over all events that we receive. Note that [Inotify.read]
+     blocks until an event becomes available. Hence, this code needs to run in
+     its own thread. *)
   let watch ignored_files dir =
     let fd = Inotify.create () in
     let selectors =
@@ -910,7 +905,7 @@ let doc =
     ]
 
 (** write memory stats to the filesystem so they can be propagated to xapi,
- * along with the number of pages they require to be allocated *)
+    along with the number of pages they require to be allocated *)
 let stats_to_write = [("mem_host", 1); ("mem_vms", mem_vm_writer_pages)]
 
 let writer_basename = ( ^ ) "xcp-rrdd-"
@@ -929,9 +924,8 @@ let configure_writers () =
       (name, writer))
     stats_to_write
 
-(** we need to make sure we call exit on fatal signals to
- * make sure profiling data is dumped
- *)
+(** we need to make sure we call exit on fatal signals to make sure profiling
+    data is dumped *)
 let stop err writers signal =
   debug "caught signal %d" signal ;
   List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers ;
@@ -942,8 +936,8 @@ let _ =
   Rrdd_bindings.Rrd_daemon.bind () ;
   (* bind PPX-generated server calls to implementation of API *)
   let writers = configure_writers () in
-  (* Prevent shutdown due to sigpipe interrupt. This protects against
-   * potential stunnel crashes. *)
+  (* Prevent shutdown due to sigpipe interrupt. This protects against potential
+     stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1 writers)) ;
   Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0 writers)) ;
@@ -964,9 +958,9 @@ let _ =
   Xcp_service.maybe_daemonize () ;
   debug "Starting the HTTP server .." ;
   (* Eventually we should switch over to xcp_service to declare our services,
-   * but since it doesn't support HTTP GET and PUT we keep the old code for now.
-   * We must avoid creating the Unix domain socket twice, so we only call
-   * Xcp_service.serve_forever if we are actually using the message-switch. *)
+     but since it doesn't support HTTP GET and PUT we keep the old code for now.
+     We must avoid creating the Unix domain socket twice, so we only call
+     Xcp_service.serve_forever if we are actually using the message-switch. *)
   let (_ : Thread.t) =
     Thread.create
       (fun () ->

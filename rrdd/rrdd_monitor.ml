@@ -55,18 +55,17 @@ let merge_new_dss rrd dss =
         (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown))
     rrd new_dss
 
-(* Updates all of the hosts rrds. We are passed a list of uuids that
- * is used as the primary source for which VMs are resident on us.
- * When a new uuid turns up that we haven't got an RRD for in our
- * hashtbl, we create a new one. When a uuid for which we have an RRD
- * for doesn't appear to have any stats this update, we assume that the
- * domain has gone and we stream the RRD to the master. We also have a
- * list of the currently rebooting VMs to ensure we don't accidentally
- * archive the RRD. *)
+(** Updates all of the hosts rrds. We are passed a list of uuids that is used as
+    the primary source for which VMs are resident on us. When a new uuid turns
+    up that we haven't got an RRD for in our hashtbl, we create a new one. When
+    a uuid for which we have an RRD for doesn't appear to have any stats this
+    update, we assume that the domain has gone and we stream the RRD to the
+    master. We also have a list of the currently rebooting VMs to ensure we
+    don't accidentally archive the RRD. *)
 let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
-  (* Here we do the synchronising between the dom0 view of the world
-   * and our Hashtbl. By the end of this execute block, the Hashtbl
-   * correctly represents the world *)
+  (* Here we do the synchronising between the dom0 view of the world and our
+     Hashtbl. By the end of this execute block, the Hashtbl correctly represents
+     the world *)
   let execute = Xapi_stdext_threads.Threadext.Mutex.execute in
   execute mutex (fun _ ->
       let out_of_date, by_how_much =
@@ -99,12 +98,10 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
             let rrdi = Hashtbl.find vm_rrds vm_uuid in
             let rrd = merge_new_dss rrdi.rrd dss in
             Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid} ;
-            (* CA-34383:
-             * Memory updates from paused domains serve no useful purpose.
-             * During a migrate such updates can also cause undesirable
-             * discontinuities in the observed value of memory_actual.
-             * Hence, we ignore changes from paused domains:
-             *)
+            (* CA-34383: Memory updates from paused domains serve no useful
+               purpose. During a migrate such updates can also cause undesirable
+               discontinuities in the observed value of memory_actual. Hence, we
+               ignore changes from paused domains: *)
             if not (List.mem vm_uuid paused_vms) then (
               Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
                 (List.map
@@ -121,9 +118,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
               Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid}
           | e ->
               raise e
-        with _ ->
-          (*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
-          log_backtrace ()
+        with _ -> log_backtrace ()
       in
       List.iter do_vm uuid_domids ;
       let do_sr sr_uuid =
@@ -157,9 +152,7 @@ let update_rrds timestamp dss (uuid_domids : (string * int) list) paused_vms =
               Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid= 0}
           | e ->
               raise e
-        with _ ->
-          (*debug "Error: caught exception %s" (ExnHelper.string_of_exn e);*)
-          log_backtrace ()
+        with _ -> log_backtrace ()
       in
       List.to_seq dss
       |> Seq.filter_map (fun (ty, _ds) ->

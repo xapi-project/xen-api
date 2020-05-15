@@ -11,9 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU Lesser General Public License for more details.
  *)
-(* Monitor selected processes, periodically logging stats.
- * @group Performance Monitoring
- *)
+(* Monitor selected processes, periodically logging stats. @group Performance
+   Monitoring *)
 
 module D = Debug.Make (struct let name = "rrdd_stats" end)
 
@@ -191,8 +190,8 @@ let print_system_stats () =
   in
   debug "Clock drift: %.0f" (current_offset -. initial_offset)
 
-(* Obtains process IDs for the specified program.
- * This should probably be moved into xen-api-libs. *)
+(* Obtains process IDs for the specified program. This should probably be moved
+   into xen-api-libs. *)
 let pidof ?(pid_dir = "/var/run") program =
   try
     let out =

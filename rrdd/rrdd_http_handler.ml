@@ -18,11 +18,9 @@ let unarchive_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   Http_svr.headers s header_content ;
   Rrd_unix.to_fd rrd s
 
-(* A handler for putting a VM's RRD data into the Http response.
- * The rrdd assumes that it has RRD for the vm_uuid, since xapi confirmed this
- * with rrdd over XMLRPC before forwarding the HTTP request --- see rrdd_proxy
- * in xapi.
- *)
+(* A handler for putting a VM's RRD data into the Http response. The rrdd
+   assumes that it has RRD for the vm_uuid, since xapi confirmed this with rrdd
+   over XMLRPC before forwarding the HTTP request --- see rrdd_proxy in xapi. *)
 let get_vm_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "get_vm_rrd_handler: start" ;
   let query = req.Http.Request.query in
@@ -72,7 +70,7 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   Rrd_unix.to_fd rrd s
 
 (* Get an XML/JSON document (as a string) representing the updates since the
- * specified start time. *)
+   specified start time. *)
 let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
     ~(cfopt : Rrd.cf_type option) ~(is_host : string) ~(vm_uuid : string)
     ~(sr_uuid : string) () =
@@ -121,7 +119,7 @@ let get_host_stats ?(json = false) ~(start : int64) ~(interval : int64)
       Rrd_updates.export ~json prefixandrrds start interval cfopt)
 
 (* Writes XML/JSON representing the updates since the specified start time to
- * the file descriptor that corresponds to the client HTTP connection. *)
+   the file descriptor that corresponds to the client HTTP connection. *)
 let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let query = req.Http.Request.query in
   let start = Int64.of_string (List.assoc "start" query) in
@@ -175,9 +173,9 @@ let get_rrd_updates_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   Unix.write s (Bytes.unsafe_of_string reply) 0 (String.length reply) |> ignore
 
 (* Reads RRD information sent from the client over HTTP through the file
- * descriptor. The handler either archives the data, or updates the relevant
- * field in the memory. If archiving, it is guaranteed by rrdd_proxy to be
- * called on the master, and that the uuid represents a VM, not a host. *)
+   descriptor. The handler either archives the data, or updates the relevant
+   field in the memory. If archiving, it is guaranteed by rrdd_proxy to be
+   called on the master, and that the uuid represents a VM, not a host. *)
 let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let query = req.Http.Request.query in
   let uuid = List.assoc "uuid" query in

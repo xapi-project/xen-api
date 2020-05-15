@@ -127,7 +127,8 @@ let backup_rrds (remote_address : string option) () : unit =
     )
   done
 
-(* Load an RRD from the local filesystem. Will return an RRD or throw an exception. *)
+(* Load an RRD from the local filesystem. Will return an RRD or throw an
+   exception. *)
 let load_rrd_from_local_filesystem uuid =
   debug "Loading RRD from local filesystem for object uuid=%s" uuid ;
   let path = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
@@ -139,8 +140,8 @@ module Deprecated = struct
   let pull_rrd_from_master ~uuid ~master_address =
     let pool_secret = get_pool_secret () in
     let uri = Rrdd_libs.Constants.get_host_rrd_uri in
-    (* Add in "dbsync = true" to the query to make sure the master
-     * doesn't try to redirect here! *)
+    (* Add in "dbsync = true" to the query to make sure the master doesn't try
+       to redirect here! *)
     let uri = uri ^ "?uuid=" ^ uuid ^ "&dbsync=true" in
     let request =
       Http.Request.make ~user_agent:Rrdd_libs.Constants.rrdd_user_agent
@@ -165,10 +166,9 @@ module Deprecated = struct
                Rrd.from_xml input))
 
   (* DEPRECATED *)
-  (* This used to be called from dbsync in two cases:
-   * 1. For the local host after a xapi restart or host restart.
-   * 2. For running VMs after a xapi restart.
-   * It is now only used to load the host's RRD after xapi restart. *)
+  (* This used to be called from dbsync in two cases: 1. For the local host
+     after a xapi restart or host restart. 2. For running VMs after a xapi
+     restart. It is now only used to load the host's RRD after xapi restart. *)
   let load_rrd (uuid : string) (timescale : int)
       (master_address : string option) : unit =
     try
@@ -237,12 +237,10 @@ let remove_rrd (uuid : string) : unit =
   (try Unix.unlink path with _ -> ()) ;
   try Unix.unlink gz_path with _ -> ()
 
-(* Migrate_push - used by the migrate code to push an RRD directly to
- * a remote host without going via the master. If the host is on a
- * different pool, you must pass both the remote_address and
- * session_id parameters.
- * Remote address is assumed to be valid, since it is set by monitor_master.
- *)
+(* Migrate_push - used by the migrate code to push an RRD directly to a remote
+   host without going via the master. If the host is on a different pool, you
+   must pass both the remote_address and session_id parameters. Remote address
+   is assumed to be valid, since it is set by monitor_master. *)
 let migrate_rrd (session_id : string option) (remote_address : string)
     (vm_uuid : string) (host_uuid : string) : unit =
   try
@@ -261,12 +259,10 @@ let migrate_rrd (session_id : string option) (remote_address : string)
       debug "VM %s RRDs not found on migrate! Continuing anyway..." vm_uuid ;
       log_backtrace ()
   | _ ->
-      (*debug "Caught exception while trying to push VM %s RRDs: %s"
-        			vm_uuid (ExnHelper.string_of_exn e);*)
       log_backtrace ()
 
-(* Called on host shutdown/reboot to send the Host RRD to the master for
- * backup. Note all VMs will have been shutdown by now. *)
+(* Called on host shutdown/reboot to send the Host RRD to the master for backup.
+   Note all VMs will have been shutdown by now. *)
 let send_host_rrd_to_master master_address =
   match !host_rrd with
   | Some rrdi ->
@@ -279,9 +275,8 @@ let send_host_rrd_to_master master_address =
       ()
 
 (** {add_ds rrdi ds_name} creates a new time series (rrd) in {rrdi} with the
-   name {ds_name}. The operation fails if rrdi does not contain any live
-   datasource with the name {ds_name}
- *)
+    name {ds_name}. The operation fails if rrdi does not contain any live
+    datasource with the name {ds_name} *)
 let add_ds ~rrdi ~ds_name =
   let open Ds in
   let ds = List.find (fun ds -> ds.ds_name = ds_name) rrdi.dss in
@@ -307,16 +302,15 @@ let forget_host_ds (ds_name : string) : unit =
           host_rrd := Some {rrdi with rrd= Rrd.rrd_remove_ds rrdi.rrd ds_name})
 
 let query_possible_dss rrdi =
-  (* We have data sources coming from different places, so we want the union of these;
-     this happens to be the union of the rrdi.rrd (live) and rrdi.rrd.rdd_dss (archival).
-     This is straighforward, but those two sets of ds have different types,
-     hence we need to coerce them into a common type (this is why we have
-     'description not available', and 'units unknown' etc.).
-     Deciding whether a ds is enabled is also not obvious. If we have a 'live'
-     ds, then it is enabled if it exists in the set rrdi.rrd. If we have an 'archival'
-     ds, then it is enabled if it is also an enabled 'live' ds, otherwise it is
-     disabled.
-  *)
+  (* We have data sources coming from different places, so we want the union of
+     these; this happens to be the union of the rrdi.rrd (live) and
+     rrdi.rrd.rdd_dss (archival). This is straighforward, but those two sets of
+     ds have different types, hence we need to coerce them into a common type
+     (this is why we have 'description not available', and 'units unknown'
+     etc.). Deciding whether a ds is enabled is also not obvious. If we have a
+     'live' ds, then it is enabled if it exists in the set rrdi.rrd. If we have
+     an 'archival' ds, then it is enabled if it is also an enabled 'live' ds,
+     otherwise it is disabled. *)
   let module SMap = Map.Make (String) in
   let module SSet = Set.Make (String) in
   let open Ds in
@@ -377,13 +371,11 @@ let query_host_ds (ds_name : string) : float =
       | Some rrdi ->
           Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average)
 
-(** {add_vm_ds vm_uuid domid ds_name} enables collection of the data produced
-   by the data sourced with name {ds_name} for the VM {vm_uuid} into a time
-   series (rrd).
-   Throws an exception if there are no time series related to {vm_uuid}
-   present in the host or if there is no live source for the VM with the name
-   {ds_name}.
- *)
+(** {add_vm_ds vm_uuid domid ds_name} enables collection of the data produced by
+    the data sourced with name {ds_name} for the VM {vm_uuid} into a time series
+    (rrd). Throws an exception if there are no time series related to {vm_uuid}
+    present in the host or if there is no live source for the VM with the name
+    {ds_name}. *)
 let add_vm_ds (vm_uuid : string) (domid : int) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
@@ -408,13 +400,11 @@ let query_vm_ds (vm_uuid : string) (ds_name : string) : float =
       let rrdi = Hashtbl.find vm_rrds vm_uuid in
       Rrd.query_named_ds rrdi.rrd now ds_name Rrd.CF_Average)
 
-(** {add_sr_ds sr_uuid domid ds_name} enables collection of the data produced
-   by the data source with name {ds_name} for the SR {sr_uuid} into a time
-   series (rrd).
-   Throws an exception if there are no time series related to {sr_uuid}
-   present in the host or if there is no live source for the SR with the name
-   {ds_name}.
- *)
+(** {add_sr_ds sr_uuid domid ds_name} enables collection of the data produced by
+    the data source with name {ds_name} for the SR {sr_uuid} into a time series
+    (rrd). Throws an exception if there are no time series related to {sr_uuid}
+    present in the host or if there is no live source for the SR with the name
+    {ds_name}. *)
 let add_sr_ds (sr_uuid : string) (ds_name : string) : unit =
   Mutex.execute mutex (fun () ->
       let rrdi = Hashtbl.find sr_rrds sr_uuid in
@@ -465,7 +455,7 @@ module Plugin = struct
   let header = "DATASOURCES\n"
 
   (* The function that tells the plugin what to write at the top of its output
-   * file. *)
+     file. *)
   let get_header () : string = header
 
   (* The function that a plugin can use to determine which file to write to. *)
@@ -499,20 +489,22 @@ module Plugin = struct
       (* A type to represent a registered plugin. *)
 
       (* 11 October 2016
-       * This module needs a re-write when the next major addition comes
-       * along :
-       * - it would be convenient, not to pass the uid in addition to the
-       *   plugin around to facilitate error reporting
-       * - the back-off mechanism needs to be better encapsulated. In the
-       *   ideal case, we can use a wrap() function that turns a reader
-       *   that can fail into one that backs off in the presence of errors
-       *   and retries.
-       * - The error reporting could be moved out of get_payload to the
-       *   caller.
-       * - The lock-protected hash table could be made more abstract such
-       *   that locking is not spread over the module.
-       * - Can the code for backwards compatibility be expunged?
-       *)
+
+         This module needs a re-write when the next major addition comes along:
+
+         - it would be convenient, not to pass the uid in addition to the plugin
+         around to facilitate error reporting
+
+         - the back-off mechanism needs to be better encapsulated. In the ideal
+         case, we can use a wrap() function that turns a reader that can fail
+         into one that backs off in the presence of errors and retries.
+
+         - The error reporting could be moved out of get_payload to the caller.
+
+         - The lock-protected hash table could be made more abstract such that
+         locking is not spread over the module.
+
+         - Can the code for backwards compatibility be expunged? *)
 
       type plugin = {
           info: P.info
@@ -522,11 +514,11 @@ module Plugin = struct
       }
 
       (* A map storing currently registered plugins, and any data required to
-       * process the plugins. *)
+         process the plugins. *)
       let registered : (P.uid, plugin) Hashtbl.t = Hashtbl.create 20
 
       (* The mutex that protects the list of registered plugins against race
-         		 * conditions and data corruption. *)
+         conditions and data corruption. *)
       let registered_m = Mutex.create ()
 
       (* we hit an error - increase skip count exponentially until max *)
@@ -584,8 +576,8 @@ module Plugin = struct
         )
 
       (* Returns the number of seconds until the next reading phase for the
-       * sampling frequency given at registration by the plugin with the specified
-       * unique ID. If the plugin is not registered, -1 is returned. *)
+         sampling frequency given at registration by the plugin with the
+         specified unique ID. If the plugin is not registered, -1 is returned. *)
       let next_reading (uid : P.uid) : float =
         let open Rrdd_shared in
         if Mutex.execute registered_m (fun _ -> Hashtbl.mem registered uid) then
@@ -600,8 +592,8 @@ module Plugin = struct
         | Rrd_interface.V2 ->
             Rrd_protocol_v2.protocol
 
-      (* The function registers a plugin, and returns the number of seconds until
-       * the next reading phase for the specified sampling frequency. *)
+      (* The function registers a plugin, and returns the number of seconds
+         until the next reading phase for the specified sampling frequency. *)
       let register (uid : P.uid) (info : P.info)
           (protocol : Rrd_interface.plugin_protocol) : float =
         Mutex.execute registered_m (fun _ ->
@@ -613,7 +605,7 @@ module Plugin = struct
         next_reading uid
 
       (* The function deregisters a plugin. After this call, the framework will
-       * process its output at most once more. *)
+         process its output at most once more. *)
       let deregister (uid : P.uid) : unit =
         Mutex.execute registered_m (fun _ ->
             if Hashtbl.mem registered uid then (
