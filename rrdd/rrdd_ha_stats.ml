@@ -20,12 +20,16 @@ let rrd_float x = Rrd.VT_Float x
 
 module Statefile_latency = struct
   open Rrd.Statefile_latency
+
   (* There will be more than one statefile at some point *)
   let all = ref []
 
   let get_one t =
-    Ds.ds_make ~name:(Printf.sprintf "statefile/%s/latency" t.id) ~units:"s"
-      ~description:"Turn-around time of the latest State-File access from the local host"
+    Ds.ds_make
+      ~name:(Printf.sprintf "statefile/%s/latency" t.id)
+      ~units:"s"
+      ~description:
+        "Turn-around time of the latest State-File access from the local host"
       ~value:(Option.fold ~none:Rrd.VT_Unknown ~some:rrd_float t.latency)
       ~ty:Rrd.Gauge ~default:false ()
 
@@ -37,7 +41,9 @@ module Heartbeat_latency = struct
 
   let get () =
     Ds.ds_make ~name:"network/latency" ~units:"s"
-      ~description:"Interval between the last two heartbeats transmitted from the local host to all Online hosts"
+      ~description:
+        "Interval between the last two heartbeats transmitted from the local \
+         host to all Online hosts"
       ~value:(Option.fold ~none:Rrd.VT_Unknown ~some:rrd_float !raw)
       ~ty:Rrd.Gauge ~default:false ()
 end
@@ -47,18 +53,20 @@ module Xapi_latency = struct
 
   let get () =
     Ds.ds_make ~name:"xapi_healthcheck/latency" ~units:"s"
-      ~description:"Turn-around time of the latest xapi status monitoring call on the local host"
+      ~description:
+        "Turn-around time of the latest xapi status monitoring call on the \
+         local host"
       ~value:(Option.fold ~none:Rrd.VT_Unknown ~some:rrd_float !raw)
       ~ty:Rrd.Gauge ~default:false ()
 end
 
 let all () =
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun _ ->
-      if !enabled then (
+      if !enabled then
         let all =
-          Statefile_latency.get_all () @
-          [Heartbeat_latency.get (); Xapi_latency.get ()]
+          Statefile_latency.get_all ()
+          @ [Heartbeat_latency.get (); Xapi_latency.get ()]
         in
-        List.map (fun x -> Rrd.Host, x) all
-      ) else []
-    )
+        List.map (fun x -> (Rrd.Host, x)) all
+      else
+        [])

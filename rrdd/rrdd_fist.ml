@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let fistpoint name = try Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ]; true with _ -> false
+let fistpoint name =
+  try
+    Unix.access ("/tmp/fist_" ^ name) [Unix.F_OK] ;
+    true
+  with _ -> false
 
 let reduce_rra_times = fistpoint "reduce_rra_times"
