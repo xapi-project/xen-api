@@ -19,6 +19,7 @@ type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
   [@@deriving rpcty]
 
 type devid = int
+
 (** Represents one end of a device *)
 type endpoint = { domid: int; kind: kind; devid: int }
 [@@deriving rpcty]

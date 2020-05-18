@@ -2469,14 +2469,16 @@ module Backend = struct
   (** Implementation of the backend common signature for the qemu-upstream-compat backend *)
   module type Qemu_upstream_config = sig
     module NIC: sig
-      val max_emulated: int (** Should be <= the hardcoded maximum number of emulated NICs *)
+      (** Should be <= the hardcoded maximum number of emulated NICs *)
+      val max_emulated: int
       val default: string
       val addr: devid:int -> index:int -> int
       val extra_flags: string list
     end
 
     module DISK : sig
-      val max_emulated: int option (** None = just the qemu imposed 4 IDE device limit *)
+      (** None = just the qemu imposed 4 IDE device limit *)
+      val max_emulated: int option
       val default: string
       val types: (string * Dm_Common.disk_type_args) list
       val extra_args: string list
@@ -2539,7 +2541,8 @@ module Backend = struct
 
     module XenPV = struct
       let addr ~xs ~domid info ~nics =
-        (** [first_gap n xs] expects an ascending list of integers [xs].
+
+        (* [first_gap n xs] expects an ascending list of integers [xs].
          * It looks for a gap in sequence [xs] and returns the first it
          * finds at position n or higher:
          * first_gap 4 []      = 4

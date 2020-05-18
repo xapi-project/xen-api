@@ -22,7 +22,7 @@ type devid = int
 type endpoint = { domid: int; kind: kind; devid: int }
 
 (** Represent a device as a pair of endpoints *)
-type device = { 
+type device = {
   frontend: endpoint;
   backend: endpoint
 }
@@ -34,7 +34,9 @@ exception Device_disconnect_timeout of device
 exception Device_error of device * string
 exception Device_unrecognized of string
 exception Hotplug_script_expecting_field of device * string
-exception QMP_Error of int * string (** domid, message *)
+
+(** domid, message *)
+exception QMP_Error of int * string
 exception QMP_connection_error of int * string
 
 val block_device_of_device : device -> string
@@ -76,7 +78,7 @@ val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
     directory.*)
 val list_frontends : xs:Xenstore.Xs.xsh -> ?for_devids:int list -> Xenctrl.domid -> device list
 
-(** Return a list of devices connecting two domains. Ignore those whose kind 
+(** Return a list of devices connecting two domains. Ignore those whose kind
     we don't recognise *)
 val list_devices_between : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid -> device list
 

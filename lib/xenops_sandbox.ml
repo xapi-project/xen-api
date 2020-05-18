@@ -24,6 +24,7 @@ module Chroot : sig
     type t
     val of_string : relative:string -> t
   end
+
   (** [absolute_path_outside chroot path] returns the absolute path outside the chroot *)
   val absolute_path_outside : t -> Path.t -> string
 
