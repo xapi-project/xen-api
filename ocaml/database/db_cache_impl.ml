@@ -57,10 +57,10 @@ let read_field_internal t tblname fldname objref db =
 let read_field t tblname fldname objref =
   Schema.Value.marshal (read_field_internal t tblname fldname objref (get_database t))
 
-(** Finds the longest XML-compatible UTF-8 prefix of the given *)
-(** string, by truncating the string at the first incompatible *)
-(** character. Writes a warning to the debug log if truncation *)
-(** occurs.                                                    *)
+(** Finds the longest XML-compatible UTF-8 prefix of the given
+    string, by truncating the string at the first incompatible
+    character. Writes a warning to the debug log if truncation
+    occurs. *)
 let ensure_utf8_xml string =
   let length = String.length string in
   let prefix = Xapi_stdext_encodings.Encodings.UTF8_XML.longest_valid_prefix string in

@@ -28,7 +28,7 @@ let permanent_vdi_attach ~__context ~vdi ~reason =
   info "permanent_vdi_attach: vdi = %s; sr = %s"
     (Ref.string_of vdi) (Ref.string_of (Db.VDI.get_SR ~__context ~self:vdi));
 
-  (** Disallow attaching VDIs that only have changed block tracking metadata *)
+  (* Disallow attaching VDIs that only have changed block tracking metadata *)
   if (Db.VDI.get_type ~__context ~self:vdi) = `cbt_metadata then begin
     error "Static_vdis.permanent_vdi_attach: the given VDI has type cbt_metadata";
     raise (Api_errors.Server_error(Api_errors.vdi_incompatible_type, [ Ref.string_of vdi; Record_util.vdi_type_to_string `cbt_metadata ]))

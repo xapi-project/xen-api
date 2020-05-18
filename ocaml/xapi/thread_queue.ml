@@ -44,7 +44,7 @@ let make ?max_q_length ?(name="unknown") (process_fn: 'a process_fn) : 'a t =
     let items = List.rev (Queue.fold (fun acc (description, _) -> description::acc) [] q) in
     Printf.sprintf "[ %s ](%d)" (String.concat "; " items) (List.length items) in
 
-  (** The background thread *)
+  (* The background thread *)
   let t = ref None in
 
   let thread_body () =

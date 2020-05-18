@@ -91,7 +91,7 @@ let get_local_usb usbs =
   |> USBSet.of_list
 
 let get_script_stdout () =
-  (** usb_scan is a script that will get all the usb details in current host, which will return json format data *)
+  (* usb_scan is a script that will get all the usb details in current host, which will return json format data *)
   let usb_scan_script = "/opt/xensource/libexec/usb_scan.py" in
   try
     let stdout, stderr = Forkhelpers.execute_command_get_output usb_scan_script [] in

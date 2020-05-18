@@ -778,8 +778,8 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
     let validate_host = vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:false in
     List.flatten host_lists |> Xapi_vm_placement.select_host __context vm validate_host
 
-(* choose_host_for_vm will use WLB as long as it is enabled and there *)
-(* is no pool.other_config["wlb_choose_host_disable"] = "true".       *)
+(** choose_host_for_vm will use WLB as long as it is enabled and there
+    is no pool.other_config["wlb_choose_host_disable"] = "true". *)
 let choose_host_uses_wlb ~__context =
   Workload_balancing.check_wlb_enabled ~__context &&
   not (
@@ -790,9 +790,9 @@ let choose_host_uses_wlb ~__context =
       (Db.Pool.get_other_config ~__context
          ~self:(Helpers.get_pool ~__context)))
 
-(** Given a virtual machine, returns a host it can boot on, giving   *)
-(** priority to an affinity host if one is present. WARNING: called  *)
-(** while holding the global lock from the message forwarding layer. *)
+(** Given a virtual machine, returns a host it can boot on, giving
+    priority to an affinity host if one is present. WARNING: called
+    while holding the global lock from the message forwarding layer. *)
 let choose_host_for_vm ~__context ~vm ~snapshot =
   if choose_host_uses_wlb ~__context then
     try

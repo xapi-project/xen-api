@@ -26,8 +26,10 @@ open Unixext
 
 module D = Debug.Make(struct let name="xapi_pool_update" end)
 open D
-(** Updates contain their own metadata in XML format. When the signature has been verified
-    the update is executed with argument "info" and it emits XML like the following:
+
+(** Updates contain their own metadata in XML format. When the signature has
+    been verified the update is executed with argument "info" and it emits XML
+    like the following:
 
       <update
         name-label="XS70E002" uuid="12acfd0a-0246-4fa7-ba00-2d0e474b3650"
@@ -44,7 +46,7 @@ type update_info = {
   key: string;
   installation_size: int64;
   after_apply_guidance: API.after_apply_guidance list;
-  enforce_homogeneity: bool; (* true = all hosts in a pool must have this update *)
+  enforce_homogeneity: bool; (** true = all hosts in a pool must have this update *)
 }
 
 (** Mount a filesystem somewhere, with optional type *)

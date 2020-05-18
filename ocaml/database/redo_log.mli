@@ -17,8 +17,10 @@
 
 val get_static_device : string -> string option
 (** Finds an attached metadata VDI with a given reason *)
+
 val minimum_vdi_size : int64
 (** Minimum size for redo log VDI *)
+
 val redo_log_sm_config : (string * string) list
 (** SM config for redo log VDI *)
 
@@ -43,10 +45,13 @@ type redo_log = {
 
 val is_enabled : redo_log -> bool
 (** Returns [true] iff writing deltas to the block device is enabled. *)
+
 val enable : redo_log -> string -> unit
 (** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a static-VDI reason as argument to select the device to use. *)
+
 val enable_block : redo_log -> string -> unit
 (** Enables writing deltas to the block device. Subsequent modifications to the database will be persisted to the block device. Takes a path as argument to select the device to use. *)
+
 val disable : redo_log -> unit
 (** Disables writing deltas to the block device. Subsequent modifications to the database will not be persisted to the block device. *)
 
@@ -58,9 +63,12 @@ val redo_log_events: (string * bool) Event.channel
 
 val startup : redo_log -> unit
 (** Start the I/O process. Will do nothing if it's already started. *)
+
 val shutdown : redo_log -> unit
+
 (** Stop the I/O process. Will do nothing if it's not already started. *)
 val switch : redo_log -> string -> unit
+
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
 (** {Keeping track of existing redo_log instances} *)

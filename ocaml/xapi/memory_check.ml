@@ -19,8 +19,8 @@ let ( --- ) = Int64.sub
 let ( *** ) = Int64.mul
 let ( /// ) = Int64.div
 
-(** Calculates the amounts of 'normal' and 'shadow' host memory needed *)
-(** to run the given guest with the given amount of guest memory.      *)
+(** Calculates the amounts of 'normal' and 'shadow' host memory needed
+    to run the given guest with the given amount of guest memory. *)
 let vm_compute_required_memory vm_record guest_memory_kib =
   let vcpu_count = Int64.to_int vm_record.API.vM_VCPUs_max in
   let target_mib = Memory.mib_of_kib_used guest_memory_kib in
@@ -108,12 +108,12 @@ let vm_compute_used_memory ~__context policy vm_ref =
    		request is more than the total free.
 *)
 type host_memory_summary = {
-  (** The maximum amount of memory that guests can use on this host. *)
-  host_maximum_guest_memory_bytes: int64;
-  (** list of VMs which have a domain running here *)
-  resident: API.ref_VM list;
-  (** list of VMs which are in the process of having a domain created here *)
-  scheduled: API.ref_VM list;
+    host_maximum_guest_memory_bytes: int64
+        (** The maximum amount of memory that guests can use on this host. *)
+  ; resident: API.ref_VM list
+        (** list of VMs which have a domain running here *)
+  ; scheduled: API.ref_VM list
+        (** list of VMs which are in the process of having a domain created here *)
 }
 
 open Db_filter_types

@@ -112,7 +112,7 @@ let with_cluster_host_op ~__context self op =
 let test_clustering_ops_disallowed_during_rolling_upgrade () =
   let __context = Test_common.make_test_database () in
 
-  (** Helpers for testing clustering operations forbidden during rolling pool upgrade *)
+  (* Helpers for testing clustering operations forbidden during rolling pool upgrade *)
   let test_clustering_ops_should_pass with_cluster_fn self ops =
     List.iter
       (fun op ->

@@ -147,9 +147,9 @@ module LiveSetInformation : sig
     warning_on_local_host: Warning.t option;
   }
 
-  (** Creates a new HA live set information record from the *)
-  (** given XML document string. Raises Invalid_argument if *)
-  (** the given string is either invalid or incomplete.     *)
+  (** Creates a new HA live set information record from the
+      given XML document string. Raises Invalid_argument if
+      the given string is either invalid or incomplete. *)
   val of_xml_string : string -> t
 
   (** Creates a compact one-line summary suitable for debug logging *)

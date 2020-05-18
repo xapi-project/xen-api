@@ -752,7 +752,7 @@ let restart_auto_run_vms ~__context live_set n =
          | Ok _ -> TaskChains.ok ()
        in
 
-       (** [ordered_map_concat f lst]
+       (* [ordered_map_concat f lst]
         * traverses the list in order, maps each inner list through [f]
         * and concatenates the result *)
        let ordered_map_concat f lst =
@@ -764,7 +764,7 @@ let restart_auto_run_vms ~__context live_set n =
              List.rev_append (f inner) accum) [] lst
        in
 
-       (** [map_parallel ~order_f f lst] groups objects in [lst] by order number
+       (* [map_parallel ~order_f f lst] groups objects in [lst] by order number
            (provided by applying [order_f] to each object). For each group of objects
            it then applies [f] to them to produce an 'a TaskChain.t and then executes this
            set of TaskChain.t values in parallel until they each of the TaskChain.t

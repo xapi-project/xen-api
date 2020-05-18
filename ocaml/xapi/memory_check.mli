@@ -31,12 +31,15 @@
    		request is more than the total free.
 *)
 type host_memory_summary = {
+  host_maximum_guest_memory_bytes: int64
   (** The maximum amount of memory that guests can use on this host. *)
-  host_maximum_guest_memory_bytes: int64;
+  ;
+  resident: API.ref_VM list
   (** list of VMs which have a domain running here *)
-  resident: API.ref_VM list;
+  ;
+  scheduled: API.ref_VM list
   (** list of VMs which are in the process of having a domain created here *)
-  scheduled: API.ref_VM list;
+  ;
 }
 
 (** Different users will wish to use a different VM accounting policy, depending

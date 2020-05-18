@@ -52,8 +52,8 @@ let with_open_vdi __context rpc session_id vdi_ref mode flags perms f =
     sort on the externalised reference (used as a 'directory name') *)
 let vdi_ordering (a,_,_) (b,_,_) = compare a b
 
-(** Lock a bunch of VDIs and then call <f> with them sorted via <vdi_ordering> *)
-(** the function 'f' is responsible for doing attach/activate then deactivate/detach at the end *)
+(** Lock a bunch of VDIs and then call <f> with them sorted via <vdi_ordering>
+    the function 'f' is responsible for doing attach/activate then deactivate/detach at the end *)
 let for_each_vdi __context f prefix_vdis =
   let sorted_prefix_vdis = List.sort vdi_ordering prefix_vdis in
   List.iter f sorted_prefix_vdis
@@ -151,7 +151,7 @@ let flag_zero = 2l
 
 (** [descriptor_list] should be a list of non-overlapping extents, ordered from
     lowest offset to highest.
-    [offset] is the current offset needed to translate from relative extents to 
+    [offset] is the current offset needed to translate from relative extents to
     absolute chunk numbers *)
 let get_chunk_numbers_in_increasing_order descriptor_list offset =
   (* Output increasing range includes start and end points *)
@@ -408,11 +408,11 @@ let recv_all_vdi refresh_session ifd (__context:Context.t) rpc session_id ~has_i
              in
              Unixext.really_read ifd buffer 0 (Int64.to_int length);
              Unix.write ofd buffer 0 (Int64.to_int length) |> ignore;
-             
+
              let buffer_string = Bytes.unsafe_to_string buffer in
              let csum_hdr = Tar_unix.Header.get_next_header ifd in (* Header of the checksum file *)
              let csum_file_name = csum_hdr.Tar_unix.Header.file_name in
-	     	 
+
              let csum = (* Infer checksum algorithm from the file extension *)
                 match Filename.extension csum_file_name with
                 | m when m = checksum_extension_xxh -> Printf.sprintf "%016LX" (XXHash.XXH64.hash buffer_string)

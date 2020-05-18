@@ -13,6 +13,7 @@
  *)
 
 (** Types used to store compression algorithms: ***************************)
+
 (** Supported compression algorithms *)
 type t =
   | Gzip
