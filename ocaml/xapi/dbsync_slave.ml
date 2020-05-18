@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 (** Code to bring the database up-to-date when a host starts up.
- *  @group Main Loop and Start-up
+
+    @group Main Loop and Start-up
 *)
 
 module Rrdd = Rrd_client.Client
@@ -242,7 +243,7 @@ let update_env __context sync_keys =
   let localhost = Helpers.get_localhost_uncached ~__context in
   Xapi_globs.localhost_ref := localhost;
 
-  (** Normally the resident_on field would be set by the helper which creates
+  (* Normally the resident_on field would be set by the helper which creates
       the task, but it uses this `localhost_ref` to do so, which we have only
       just initialized above. Therefore we manually set it here *)
   let task_ref = Context.get_task_id __context in

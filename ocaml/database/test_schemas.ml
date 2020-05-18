@@ -99,7 +99,7 @@ let schema =
     Schema.major_vsn = 1;
     minor_vsn = 1;
     database = database;
-    (** indexed by table name, a list of (this field, foreign table, foreign field) *)
+    (* indexed by table name, a list of (this field, foreign table, foreign field) *)
     one_to_many = one_to_many;
     many_to_many = Schema.ForeignMap.empty;
   }

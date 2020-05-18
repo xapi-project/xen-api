@@ -94,8 +94,8 @@ let master_finished_initial_cancel = ref false
 let cancelled_c = Condition.create ()
 let cancelled_m = Mutex.create ()
 
-(** Mark tasks that are pending or cancelling on this host as cancelled *)
-(** This function is called by master on behalf of slave, when slave sends a "Pool.hello" msg on reconnect *)
+(** Mark tasks that are pending or cancelling on this host as cancelled
+    This function is called by master on behalf of slave, when slave sends a "Pool.hello" msg on reconnect *)
 let cancel_tasks_on_host ~__context ~host_opt =
   Stdext.Threadext.Mutex.execute cancelled_m
     (fun () ->

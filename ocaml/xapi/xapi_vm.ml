@@ -818,24 +818,24 @@ let add_to_NVRAM ~__context ~self ~key ~value =
 (* Use set_memory_dynamic_range instead *)
 let set_memory_target_live ~__context ~self ~target = ()
 
-(** The default upper bound on the acceptable difference between *)
-(** actual memory usage and target memory usage when waiting for *)
-(** a running VM to reach its current memory target.             *)
+(** The default upper bound on the acceptable difference between
+    actual memory usage and target memory usage when waiting for
+    a running VM to reach its current memory target.             *)
 let wait_memory_target_tolerance_bytes = Int64.(mul 1L (mul 1024L 1024L))
 
-(** Returns true if (and only if) the   *)
-(** specified argument is a power of 2. *)
+(** Returns true if (and only if) the
+    specified argument is a power of 2. *)
 let is_power_of_2 n =
   (n > 1) && (n land (0 - n) = n)
 
-(** Waits for a running VM to reach its current memory target. *)
-(** This function waits until the following condition is true: *)
-(**                                                            *)
-(**     abs (memory_actual - memory_target) <= tolerance       *)
-(**                                                            *)
-(** If the task associated with this function is cancelled or  *)
-(** if the time-out counter exceeds its limit, this function   *)
-(** raises a server error and terminates.                      *)
+(** Waits for a running VM to reach its current memory target.
+    This function waits until the following condition is true:
+
+        abs (memory_actual - memory_target) <= tolerance
+
+    If the task associated with this function is cancelled or
+    if the time-out counter exceeds its limit, this function
+    raises a server error and terminates.                      *)
 let wait_memory_target_live ~__context ~self =
   let timeout_seconds = int_of_float !Xapi_globs.wait_memory_target_timeout in
   let tolerance_bytes = wait_memory_target_tolerance_bytes in

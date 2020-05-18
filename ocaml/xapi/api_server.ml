@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 (** The main callback function.
- * @group API Messaging
+
+    @group API Messaging
 *)
 
 (** Actions module *)
@@ -103,6 +104,7 @@ module Actions = struct
   module Certificate = Certificates
   module Diagnostics = Xapi_diagnostics
 end
+
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)
 module Server = Server.Make (Actions) (Forwarder)
@@ -110,7 +112,6 @@ module Server = Server.Make (Actions) (Forwarder)
 
 
 (** Here are the functions to forward calls made on the unix domain socket on a slave to a master *)
-
 module D=Debug.Make(struct let name="api_server" end)
 open D
 

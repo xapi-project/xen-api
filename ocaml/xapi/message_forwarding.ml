@@ -1682,7 +1682,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       let forward_migrate_send () =
         let forward_internal_async () =
           forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-            (** try InternalAsync.VM.migrate_send first to avoid long running idle stunnel connection
+            (* try InternalAsync.VM.migrate_send first to avoid long running idle stunnel connection
               * fall back on Async.VM.migrate_send if slave doesn't support InternalAsync *)
             Helpers.try_internal_async ~__context
               API.ref_VM_of_rpc
@@ -3464,7 +3464,7 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
       forward_sr_op ~local_fn ~__context ~self:sr
         (fun session_id rpc ->
            Client.SR.forget_data_source_archives rpc session_id sr data_source)
-    
+
     let get_live_hosts ~__context ~sr =
       info "SR.get_live_hosts: SR = '%s'" (sr_uuid ~__context sr);
       Local.SR.get_live_hosts ~__context ~sr

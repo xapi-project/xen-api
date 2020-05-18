@@ -168,14 +168,18 @@ let rec mkints = function
   | 0 -> []
   | n -> (mkints (n - 1) @ [n])
 
-(** Ensures that the database has all the necessary records for domain *)
-(** zero, and that the records are up-to-date. Includes the following: *)
-(**     1. The domain zero record.                                     *)
-(**     2. The domain zero console record.                             *)
-(**     3. The domain zero metrics record.                             *)
-(** This function makes sure there is exactly one record of each type. *)
-(** It updates existing records if they are found, or else creates new *)
-(** records for any records that are missing.                          *)
+(** Ensures that the database has all the necessary records for domain
+    zero, and that the records are up-to-date. Includes the following:
+
+        1. The domain zero record.
+
+        2. The domain zero console record.
+
+        3. The domain zero metrics record.
+
+    This function makes sure there is exactly one record of each type.
+    It updates existing records if they are found, or else creates new
+    records for any records that are missing. *)
 let rec ensure_domain_zero_records ~__context ~host (host_info: host_info) : unit =
   maybe_upgrade_domain_zero_record ~__context ~host host_info;
   let domain_zero_ref = ensure_domain_zero_record ~__context host_info in

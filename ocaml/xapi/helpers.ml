@@ -251,7 +251,7 @@ let update_pif_addresses ~__context =
   List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
 
-(* Note that both this and `make_timeboxed_rpc` are almost always 
+(* Note that both this and `make_timeboxed_rpc` are almost always
  * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
  * The body is therefore not evaluated until the RPC call is actually being
  * made. *)
@@ -459,8 +459,8 @@ type boot_method =
   | Direct of direct_boot_t
   | Indirect of indirect_boot_t
 
-(** Returns the current value of the pool configuration flag *)
-(** that indicates whether a rolling upgrade is in progress. *)
+(** Returns the current value of the pool configuration flag
+   that indicates whether a rolling upgrade is in progress. *)
 let rolling_upgrade_in_progress_of_oc oc =
   List.mem_assoc Xapi_globs.rolling_upgrade_in_progress oc
 
@@ -1074,6 +1074,7 @@ let queue_thread f =
 module type POLICY = sig
   type t
   val standard : t
+
   (** Used by operations like VM.start which want to paper over transient glitches but want to fail
       		    quickly if the objects are persistently locked (eg by a VDI.clone) *)
   val fail_quickly : t
@@ -1244,7 +1245,7 @@ end = struct (* can't place these functions in task helpers due to circular depe
             (fun rpc session_id -> Client.Client.Event.from ~rpc ~session_id ~classes ~token ~timeout:30.0) in
         debug "Using events to wait for tasks: %s" (String.concat "," classes);
         let from = Event_types.event_from_of_rpc from in
-        cb (); (** be careful not to include logic in `cb` that could modify tasks we are waiting on indefinitely *)
+        cb (); (* be careful not to include logic in `cb` that could modify tasks we are waiting on indefinitely *)
         process from.Event_types.token
       end else
         ()
@@ -1254,7 +1255,7 @@ end = struct (* can't place these functions in task helpers due to circular depe
   let wait_for = wait_for_ ~propagate_cancel:false Stdlib.Fun.id
 
   let wait_for_mirror ~__context ~t =
-    (** Whilst we wait for task [t], mirror some of its properties in our task *)
+    (* Whilst we wait for task [t], mirror some of its properties in our task *)
     let our_task = Context.get_task_id __context in
     let mirror =
       if t = our_task then Stdlib.Fun.id

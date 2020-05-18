@@ -715,7 +715,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
   let on_fail : (unit -> unit) list ref = ref [] in
 
   let vdis = Local.SR.scan dbg sr in
-  (** We drop cbt_metadata VDIs that do not have any actual data *)
+  (* We drop cbt_metadata VDIs that do not have any actual data *)
   let vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") vdis in
 
   let leaf_dp = Local.DP.create dbg (Uuid.string_of_uuid (Uuid.make_uuid ())) in
@@ -900,7 +900,7 @@ let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
       let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
       debug "Similar VDIs = [ %s ]" (String.concat "; " (List.map (fun x -> Printf.sprintf "(vdi=%s,content_id=%s)" (Storage_interface.Vdi.string_of x.vdi) x.content_id) similar_vdis));
       let remote_vdis = Remote.SR.scan dbg dest in
-      (** We drop cbt_metadata VDIs that do not have any actual data *)
+      (* We drop cbt_metadata VDIs that do not have any actual data *)
       let remote_vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") remote_vdis in
 
       let nearest = List.fold_left

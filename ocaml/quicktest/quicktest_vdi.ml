@@ -1,7 +1,7 @@
 module A = Quicktest_args
 
-(** If VDI_CREATE and VDI_DELETE are present then make sure VDIs appear and disappear correctly *)
-(** VDI_CREATE should make a fresh disk; VDI_DELETE should remove it *)
+(** If VDI_CREATE and VDI_DELETE are present then make sure VDIs appear and disappear correctly
+    VDI_CREATE should make a fresh disk; VDI_DELETE should remove it *)
 let vdi_create_destroy rpc session_id sr_info () =
   let sr = sr_info.Qt.sr in
   (* Request the following sizes and demand the disk is at least this big (or our data won't fit!) *)
@@ -67,8 +67,8 @@ let vdi_resize_test rpc session_id sr_info () =
       end
     )
 
-(** Make sure that I can't call VDI.db_forget *)
-(** VDI.db_forget should always fail without authorisation *)
+(** Make sure that I can't call VDI.db_forget
+    VDI.db_forget should always fail without authorisation *)
 let vdi_db_forget rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vdi ->
       try
@@ -120,7 +120,7 @@ let vdi_bad_introduce rpc session_id sr_info () =
 (** When cloning/snapshotting perform field by field comparisons to look for
     problems *)
 let check_clone_snapshot_fields rpc session_id original_vdi new_vdi =
-  (** Clones and snapshots should have some identical fields and some different
+  (* Clones and snapshots should have some identical fields and some different
       fields: *)
   let clone_snapshot_fields =
     [ `Same, "virtual_size", (fun vdi -> vdi.API.vDI_virtual_size |> Int64.to_string)
@@ -191,8 +191,9 @@ let vdi_snapshot_in_pool rpc session_id sr_info () =
     )
 
 (** Make sure that VDI_CREATE; plug; VDI_DESTROY; VDI_CREATE; plug results in a device of
-    the correct size in dom0 *)
-(** Checking the disk size is correct when a disk is plugged in *)
+    the correct size in dom0.
+
+    Checking the disk size is correct when a disk is plugged in *)
 let vdi_create_destroy_plug_checksize rpc session_id sr_info () =
   let exception Not_this_host in
   (* Query /sys to find the actual size of the plugged in device *)

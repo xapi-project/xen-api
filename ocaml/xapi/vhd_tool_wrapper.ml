@@ -113,6 +113,7 @@ let find_backend_device path =
         )
     | _ -> raise Not_found
   with _ -> None
+
 (** [vhd_of_device path] returns (Some vhd) where 'vhd' is the vhd leaf backing a particular device [path] or None.
     [path] may either be a blktap2 device *or* a blkfront device backed by a blktap2 device. If the latter then
     the script must be run in the same domain as blkback. *)

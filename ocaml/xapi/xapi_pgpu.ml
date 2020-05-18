@@ -378,8 +378,8 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   let addr_of pci = Xenops_interface.Pci.address_of_string pci in
   let dequarantine pci = Xapi_pci.dequarantine ~__context (addr_of pci) in
 
-  (** [num_vfs pci] returns the number of PCI VFs of [pci] or 0 if
-    * [pci] is not an SRIOV device
+  (* [num_vfs pci] returns the number of PCI VFs of [pci] or 0 if
+     [pci] is not an SRIOV device
     *)
   let num_vfs pci =
     let path = Printf.sprintf "/sys/bus/pci/devices/%s/sriov_numvfs" pci in

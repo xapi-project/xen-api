@@ -1163,7 +1163,7 @@ let disable_internal __context =
 
   let hosts = Db.Host.get_all ~__context in
 
-  (** Attempt the HA disable via the statefile, returning true if successful and false
+  (* Attempt the HA disable via the statefile, returning true if successful and false
       		otherwise. If false then we'll retry with the no-statefile procedure *)
   let attempt_disable_through_statefile () =
     info "I have statefile access -- setting pool state to invalid";
@@ -1218,7 +1218,7 @@ let disable_internal __context =
            ) errors
       ) in
 
-  (** Attempt the HA disable without the statefile. *)
+  (* Attempt the HA disable without the statefile. *)
   let attempt_disable_without_statefile () =
 
     (* This is the no-statefile procedure: *)

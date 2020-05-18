@@ -18,8 +18,8 @@ open Listext
 
 (* === Common XML operations === *)
 
-(** Generates an XML leaf element of the form: *)
-(**     <name>value</name>                     *)
+(** Generates an XML leaf element of the form:
+    [<name>value</name>] *)
 let xml_leaf_element name value =
   Xml.Element (
     name, [], [Xml.PCData value]
@@ -31,22 +31,22 @@ let xml_element_has_name name element =
   | Xml.Element (name_, _, _) -> name = name_
   | _                         -> false
 
-(** Returns a sub-list of the given element list, containing *)
-(** only those elements with the specified name.             *)
+(** Returns a sub-list of the given element list, containing
+    only those elements with the specified name. *)
 let xml_elements_with_name elements name =
   List.filter (xml_element_has_name name) elements
 
-(** Returns the first element with the specified name from *)
-(** the given element list.                                *)
+(** Returns the first element with the specified name from
+    the given element list. *)
 let first_xml_element_with_name elements name =
   try
     Some (List.find (xml_element_has_name name) elements)
   with
     Not_found -> None
 
-(** Parses an XML element of the form "<name>value</value>".  *)
-(** Returns a (name, value) string pair, where the arguments  *)
-(** are stripped of leading and trailing whitespace.          *)
+(** Parses an XML element of the form "<name>value</value>".
+    Returns a (name, value) string pair, where the arguments
+    are stripped of leading and trailing whitespace. *)
 let hash_table_entry_of_leaf_xml_element = function
   | Xml.Element (name, _, Xml.PCData (value) :: values) ->
     Some (
@@ -56,17 +56,18 @@ let hash_table_entry_of_leaf_xml_element = function
   | Xml.Element (name, _, []) -> Some (String.strip String.isspace name, "")
   | _ -> None
 
-(** Parses a list of XML elements of the form:    *)
-(**     <name0>value0</name0>                     *)
-(**     <name1>value1</name1>                     *)
-(**     <name2>value2</name2>                     *)
-(**     ...                                       *)
-(** Returns a string hash table with an entry for *)
-(** each element matched:                         *)
-(**     (name0 -> value0)                         *)
-(**     (name1 -> value1)                         *)
-(**     (name2 -> value2)                         *)
-(**     ...                                       *)
+(** Parses a list of XML elements of the form:
+        <name0>value0</name0>
+        <name1>value1</name1>
+        <name2>value2</name2>
+        ...
+    Returns a string hash table with an entry for
+    each element matched:
+        (name0 -> value0)
+        (name1 -> value1)
+        (name2 -> value2)
+        ...
+ *)
 let hash_table_of_leaf_xml_element_list list =
   Hashtblext.of_list (
     List.filter_map hash_table_entry_of_leaf_xml_element list
@@ -92,8 +93,8 @@ module DaemonConfiguration = struct
       address = host_t.host_address;
     }
 
-    (** Converts the given HA daemon host configuration *)
-    (** into an XML element tree.                       *)
+    (** Converts the given HA daemon host configuration
+        into an XML element tree. *)
     let to_xml_element host =
       Xml.Element (
         "host", [], [
@@ -182,8 +183,8 @@ module DaemonConfiguration = struct
   let int_parameter (name, param) =
     Option.fold ~none:[] ~some:(fun x -> [ xml_leaf_element name (string_of_int x) ]) param
 
-  (** Converts the given HA daemon configuration *)
-  (** into an XML element tree.                  *)
+  (** Converts the given HA daemon configuration
+      into an XML element tree. *)
   let to_xml_element config = Xml.Element (
       "xhad-config",
       [("version", "1.0")],
@@ -230,8 +231,8 @@ module DaemonConfiguration = struct
       ]
     )
 
-  (** Converts the given HA daemon configuration *)
-  (** into an XML string.                        *)
+  (** Converts the given HA daemon configuration
+      into an XML string. *)
   let to_xml_string config =
     "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" ^ (
       Xml.to_string_fmt (
@@ -274,9 +275,9 @@ module LiveSetInformation = struct
       excluded: bool
     }
 
-    (** Creates a new host record from a host XML element. *)
-    (** The element must contain valid child elements for  *)
-    (** each member of the host record type.               *)
+    (** Creates a new host record from a host XML element.
+        The element must contain valid child elements for
+        each member of the host record type. *)
     let of_xml_element = function
       | Xml.Element ("host", _, children) ->
         begin
@@ -427,8 +428,8 @@ module LiveSetInformation = struct
     warning_on_local_host: Warning.t option;
   }
 
-  (** Creates a new HA live set information record *)
-  (** from the given list of XML elements.         *)
+  (** Creates a new HA live set information record
+      from the given list of XML elements. *)
   let of_xml_element_list elements = {
     hosts = Hashtblext.of_list (
         List.map
@@ -466,8 +467,8 @@ module LiveSetInformation = struct
     );
   }
 
-  (** Creates a new HA live set information record *)
-  (** from the given root XML element.             *)
+  (** Creates a new HA live set information record
+      from the given root XML element. *)
   let of_xml_element = function
     | Xml.Element ("ha_liveset_info", _, children) ->
       of_xml_element_list children
