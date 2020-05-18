@@ -3,8 +3,7 @@ SBINDIR ?= /usr/sbin
 MANDIR ?= /usr/share/man/man1
 PROFILE=release
 
-
-.PHONY: release build install uninstall clean test doc reindent
+.PHONY: release build install uninstall clean test doc format
 
 release:
 	dune build @install @networkd/man --profile=$(PROFILE)
@@ -40,5 +39,6 @@ gprof:
 doc:
 	dune build @doc --profile=$(PROFILE)
 
-reindent:
-	ocp-indent --inplace **/*.ml*
+# requires ocamlformat
+format:
+	dune build @fmt --auto-promote
