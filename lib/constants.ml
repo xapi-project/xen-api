@@ -14,16 +14,27 @@
 (* constants which are global across all the tools *)
 
 let get_vm_rrd = "vm_rrd"
+
 let get_vm_rrd_uri = "/" ^ get_vm_rrd
+
 let get_host_rrd = "host_rrd"
+
 let get_host_rrd_uri = "/" ^ get_host_rrd
+
 let get_sr_rrd = "sr_rrd"
+
 let get_sr_rrd_uri = "/" ^ get_sr_rrd
+
 let get_rrd_updates = "rrd_updates"
+
 let get_rrd_updates_uri = "/" ^ get_rrd_updates
+
 let put_rrd = "rrd"
+
 let put_rrd_uri = "/" ^ put_rrd
+
 let rrd_unarchive = "rrd_unarchive"
+
 let rrd_unarchive_uri = "/" ^ rrd_unarchive
 
 (* Path to the pool secret file. *)
@@ -39,5 +50,7 @@ let rrd_location = Filename.concat "/var/lib/xcp" "blobs/rrds"
 let blob_location = Filename.concat "/var/lib/xcp" "blobs"
 
 let version_major = 1
+
 let version_minor = 0
+
 let rrdd_user_agent = Printf.sprintf "rrdd/%d.%d" version_major version_minor

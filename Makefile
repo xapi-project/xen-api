@@ -1,5 +1,4 @@
-
-.PHONY: release build install uninstall clean test doc reindent
+.PHONY: release build install uninstall clean test doc format
 
 release:
 	dune build @install --profile=release
@@ -26,5 +25,5 @@ doc:
 gh-pages:
 	bash .docgen.sh
 
-reindent:
-	git ls-files '*.ml*' | xargs ocp-indent --inplace
+format:
+	dune build @fmt --auto-promote
