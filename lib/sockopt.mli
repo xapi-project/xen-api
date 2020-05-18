@@ -12,4 +12,5 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val set_sock_keepalives : ?count:int -> ?idle:int -> ?interval:int -> Unix.file_descr -> unit
+val set_sock_keepalives :
+  ?count:int -> ?idle:int -> ?interval:int -> Unix.file_descr -> unit

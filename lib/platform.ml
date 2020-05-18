@@ -12,23 +12,25 @@
  * GNU Lesser General Public License for more details.
  *)
 
-
 type platformdata = (string * string) list
 
 let is_valid ~key ~platformdata =
-  (not (List.mem_assoc key platformdata)) ||
-  (match List.assoc key platformdata |> String.lowercase_ascii with
-   | "true" | "1" | "false" | "0" -> true
-   | _ -> false
-  )
+  (not (List.mem_assoc key platformdata))
+  ||
+  match List.assoc key platformdata |> String.lowercase_ascii with
+  | "true" | "1" | "false" | "0" ->
+      true
+  | _ ->
+      false
 
 let is_true ~key ~platformdata ~default =
   try
     match List.assoc key platformdata |> String.lowercase_ascii with
-    | "true"  | "1" -> true
-    | "false" | "0" -> false
-    | _ -> default (* Check for validity using is_valid if required *)
-  with Not_found ->
-    default
-
-
+    | "true" | "1" ->
+        true
+    | "false" | "0" ->
+        false
+    | _ ->
+        default
+    (* Check for validity using is_valid if required *)
+  with Not_found -> default

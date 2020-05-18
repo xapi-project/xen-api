@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct
-  let name = "topology"
-end)
+module D = Debug.Make (struct let name = "topology" end)
 
 open D
 
@@ -56,8 +54,10 @@ module NUMAResource = struct
   let pp_dump =
     Fmt.(
       Dump.record
-        [ Dump.field "affinity" (fun t -> t.affinity) CPUSet.pp_dump
-        ; Dump.field "memfree" (fun t -> t.memfree) int64 ])
+        [
+          Dump.field "affinity" (fun t -> t.affinity) CPUSet.pp_dump
+        ; Dump.field "memfree" (fun t -> t.memfree) int64
+        ])
 end
 
 module NUMARequest = struct
@@ -65,8 +65,7 @@ module NUMARequest = struct
 
   let make ~memory ~vcpus =
     if Int64.compare memory 0L < 0 then
-      invalid_arg
-        (Printf.sprintf "NUMARequest: memory must be > 0: %Ld" memory) ;
+      invalid_arg (Printf.sprintf "NUMARequest: memory must be > 0: %Ld" memory) ;
     if vcpus < 0 then
       invalid_arg (Printf.sprintf "vcpus cannot be negative: %d" vcpus) ;
     {memory; vcpus}
@@ -83,8 +82,10 @@ module NUMARequest = struct
   let pp_dump =
     Fmt.(
       Dump.record
-        [ Dump.field "memory" (fun t -> t.memory) int64
-        ; Dump.field "vcpus" (fun t -> t.vcpus) int ])
+        [
+          Dump.field "memory" (fun t -> t.memory) int64
+        ; Dump.field "vcpus" (fun t -> t.vcpus) int
+        ])
 end
 
 (** [seq_range a b] is the sequence of numbers between [a, b). *)
@@ -110,11 +111,7 @@ let seq_sort ~cmp s =
 (** [seq_append a b] is the sequence [a] followed by [b] *)
 let seq_append (a : 'a Seq.t) (b : 'a Seq.t) =
   let rec next v () =
-    match v () with
-    | Seq.Nil ->
-        b ()
-    | Seq.Cons (x, xs) ->
-        Seq.Cons (x, next xs)
+    match v () with Seq.Nil -> b () | Seq.Cons (x, xs) -> Seq.Cons (x, next xs)
   in
   next a
 
@@ -129,20 +126,20 @@ module NUMA = struct
 
   (* no mutation is exposed in the interface,
    * therefore this is immutable *)
-  type t =
-    { distances: int array array
+  type t = {
+      distances: int array array
     ; cpu_to_node: node array
     ; node_cpus: CPUSet.t array
     ; all: CPUSet.t
     ; node_usage: int array
-    ; candidates: (float * node Seq.t) Seq.t }
+    ; candidates: (float * node Seq.t) Seq.t
+  }
 
   let node_of_int i = Node i
 
   let node_distances d nodes =
     let dists =
-      nodes
-      |> Seq.flat_map (fun n1 -> nodes |> Seq.map (fun n2 -> d.(n1).(n2)))
+      nodes |> Seq.flat_map (fun n1 -> nodes |> Seq.map (fun n2 -> d.(n1).(n2)))
     in
     let count, max_dist, sum_dist =
       Seq.fold_left
@@ -177,13 +174,14 @@ module NUMA = struct
          * *)
         single_nodes
       else
-        numa_nodes |> seq_gen_2n
+        numa_nodes
+        |> seq_gen_2n
         |> Seq.map (node_distances d)
         |> seq_append single_nodes
     in
-    nodes |> seq_sort ~cmp:dist_cmp
-    |> Seq.map (fun ((_, avg), nodes) ->
-           (avg, Seq.map (fun n -> Node n) nodes))
+    nodes
+    |> seq_sort ~cmp:dist_cmp
+    |> Seq.map (fun ((_, avg), nodes) -> (avg, Seq.map (fun n -> Node n) nodes))
 
   let pp_dump_distances = Fmt.(int |> Dump.array |> Dump.array)
 
@@ -209,12 +207,14 @@ module NUMA = struct
       distances ;
     let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
     let candidates = gen_candidates distances in
-    { distances
+    {
+      distances
     ; cpu_to_node= Array.map node_of_int cpu_to_node
     ; node_cpus
     ; all
     ; node_usage= Array.map (fun _ -> 0) distances
-    ; candidates }
+    ; candidates
+    }
 
   let distance t (Node a) (Node b) = t.distances.(a).(b)
 
@@ -251,19 +251,20 @@ module NUMA = struct
     |> Seq.map (fun (nodes, r) -> (nodes_sum_usage nodes, nodes, r))
     |> Seq.fold_left min (max_int, [], NUMAResource.empty)
     |> fun (best, nodes, result) ->
-    if best = max_int then None
+    if best = max_int then
+      None
     else (
-      List.iter
-        (fun (Node n) -> t.node_usage.(n) <- t.node_usage.(n) + 1)
-        nodes ;
-      Some result )
+      List.iter (fun (Node n) -> t.node_usage.(n) <- t.node_usage.(n) + 1) nodes ;
+      Some result
+    )
 
   let pp_dump_node = Fmt.(using (fun (Node x) -> x) int)
 
   let pp_dump =
     Fmt.(
       Dump.record
-        [ Dump.field "distances"
+        [
+          Dump.field "distances"
             (fun t -> t.distances)
             (Dump.array (Dump.array int))
         ; Dump.field "cpu2node"
@@ -271,5 +272,6 @@ module NUMA = struct
             (Dump.array pp_dump_node)
         ; Dump.field "node_cpus"
             (fun t -> t.node_cpus)
-            (Dump.array CPUSet.pp_dump) ])
+            (Dump.array CPUSet.pp_dump)
+        ])
 end

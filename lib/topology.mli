@@ -29,8 +29,8 @@ module CPUSet : sig
 end
 
 module NUMAResource : sig
-  type t = private {affinity: CPUSet.t; memfree: int64}
   (** A NUMA node providing CPU and memory resources *)
+  type t = private {affinity: CPUSet.t; memfree: int64}
 
   val make : affinity:CPUSet.t -> memfree:int64 -> t
   (** [make ~affinity ~memfree] constructs a resource requiring
@@ -52,8 +52,8 @@ module NUMAResource : sig
 end
 
 module NUMARequest : sig
-  type t = private {memory: int64; vcpus: int}
   (** A (VM) requesting resources *)
+  type t = private {memory: int64; vcpus: int}
 
   val make : memory:int64 -> vcpus:int -> t
   (**[make ~memory ~vcpus] constructs a request.
@@ -73,10 +73,10 @@ module NUMARequest : sig
 end
 
 module NUMA : sig
-  type t
   (** Non Uniform Memory Access topology information: distances and CPUs.
    * See ACPI version 6.2 section 5.2.17 "System Locality Distance Information Table (SLIT)".
    * *)
+  type t
 
   (** A NUMA node index.
    * Distinct from an int to avoid mixing with CPU numbers

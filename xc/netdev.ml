@@ -13,9 +13,8 @@
  *)
 open Xenops_utils
 
-module D = Debug.Make(struct let name = "netdev" end)
+module D = Debug.Make (struct let name = "netdev" end)
+
 open D
 
-type network =
-  | Bridge of string
-  | VSwitch of string
+type network = Bridge of string | VSwitch of string

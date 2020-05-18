@@ -1,8 +1,6 @@
 open Topology
 
-module D = Debug.Make (struct
-  let name = "test_topology"
-end)
+module D = Debug.Make (struct let name = "test_topology" end)
 
 let make_numa ~numa ~cores =
   let distances =
@@ -17,14 +15,16 @@ let make_numa_amd ~cores_per_numa =
   (* e.g. AMD Opteron 6272 *)
   let numa = 8 in
   let distances =
-    [| [|10; 16; 16; 22; 16; 22; 16; 22|]
+    [|
+       [|10; 16; 16; 22; 16; 22; 16; 22|]
      ; [|16; 10; 22; 16; 16; 22; 22; 16|]
      ; [|16; 22; 10; 16; 16; 16; 16; 16|]
      ; [|22; 16; 16; 10; 16; 16; 22; 22|]
      ; [|16; 16; 16; 16; 10; 16; 16; 22|]
      ; [|22; 22; 16; 16; 16; 10; 22; 16|]
      ; [|16; 22; 16; 22; 16; 22; 10; 16|]
-     ; [|22; 16; 16; 22; 22; 16; 16; 10|] |]
+     ; [|22; 16; 16; 22; 22; 16; 16; 10|]
+    |]
   in
   let cpu_to_node =
     Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
@@ -36,19 +36,23 @@ type t = {worst: int; average: float; nodes: NUMA.node list; best: int}
 let pp =
   Fmt.(
     Dump.record
-      [ Dump.field "worst" (fun t -> t.worst) int
+      [
+        Dump.field "worst" (fun t -> t.worst) int
       ; Dump.field "average" (fun t -> t.average) float
       ; Dump.field "nodes" (fun t -> t.nodes) (Dump.list NUMA.pp_dump_node)
-      ; Dump.field "best" (fun t -> t.best) int ])
+      ; Dump.field "best" (fun t -> t.best) int
+      ])
 
 let sum_costs l =
   D.debug "====" ;
   List.fold_left
     (fun accum cost ->
-      { worst= max accum.worst cost.worst
+      {
+        worst= max accum.worst cost.worst
       ; average= accum.average +. cost.average
       ; nodes= cost.nodes @ accum.nodes
-      ; best= min accum.best cost.best })
+      ; best= min accum.best cost.best
+      })
     {worst= min_int; average= 0.; nodes= []; best= max_int}
     l
 
@@ -57,7 +61,8 @@ let vm_access_costs host all_vms (vcpus, nodes, cpuset) =
   let all_vms = ((vcpus, nodes), cpuset) :: all_vms in
   let n = List.length nodes in
   let costs =
-    cpuset |> CPUSet.elements
+    cpuset
+    |> CPUSet.elements
     |> List.map (fun c ->
            let distances =
              List.map
@@ -118,7 +123,8 @@ let check_aggregate_costs_not_worse (default, next, plans) ~cores ~vms =
     check (float 1e-3) "Balancing could improve" balancing_best balancing_next) ;
   if balancing_next > balancing_default then D.debug "Balancing has improved!" ;
   let used_cpus =
-    plans |> List.map snd
+    plans
+    |> List.map snd
     |> List.fold_left CPUSet.union CPUSet.empty
     |> CPUSet.cardinal
   in
@@ -132,7 +138,8 @@ let mem3 = Int64.div (Int64.mul 4L (Int64.shift_left 1L 34)) 3L
 let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
   let memsize = Int64.shift_left 1L 34 in
   let nodes =
-    NUMA.nodes h |> List.of_seq
+    NUMA.nodes h
+    |> List.of_seq
     |> List.map (fun n -> NUMA.resource h n ~memory:memsize)
     |> Array.of_list
   in
@@ -152,9 +159,11 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
              D.debug "NUMA allocation succeeded for VM %d: %s" i
                (Fmt.to_to_string CPUSet.pp_dump plan) ;
              let usednodes =
-               plan |> CPUSet.elements
+               plan
+               |> CPUSet.elements
                |> List.map (NUMA.node_of_cpu h)
-               |> List.sort_uniq compare |> List.to_seq
+               |> List.sort_uniq compare
+               |> List.to_seq
              in
              let costs_numa_aware =
                vm_access_costs h plans (vm_cores, usednodes, plan)
@@ -173,7 +182,8 @@ let () = Printexc.record_backtrace true
 
 let suite =
   ( "topology test"
-  , [ ( "Allocation of 1 VM on 1 node"
+  , [
+      ( "Allocation of 1 VM on 1 node"
       , `Quick
       , test_allocate ~vms:1 @@ make_numa ~numa:1 ~cores:2 )
     ; ( "Allocation of 10 VMs on 1 node"
@@ -205,4 +215,5 @@ let suite =
       , test_allocate ~vms:10 (make_numa_amd ~cores_per_numa:4) )
     ; ( "Allocation of 10 VM on assymetric nodes"
       , `Quick
-      , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4) ) ] )
+      , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4) )
+    ] )

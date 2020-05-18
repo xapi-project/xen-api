@@ -1,7 +1,6 @@
+type result = Ok of string list | Error of string | EOF
 
-type result     = Ok of string list | Error of string | EOF
-
-val read  : Unix.file_descr -> result
+val read : Unix.file_descr -> result
 (** [read] calls [Unix.read] and returns zero or more newline-delimited
  * byte strings. This is in contrast to [input_line], which only reads
  * the next newline-delimited string. In case input is available but

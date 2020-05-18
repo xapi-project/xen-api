@@ -13,9 +13,7 @@
  *)
 open Topology
 
-module D = Debug.Make (struct
-  let name = "softaffinity"
-end)
+module D = Debug.Make (struct let name = "softaffinity" end)
 
 open D
 
@@ -96,10 +94,11 @@ let plan host nodes ~vm =
       (Fmt.to_to_string NUMAResource.pp_dump allocated)
       (Fmt.to_to_string NUMARequest.pp_dump remaining)
       avg ;
-    if remaining.NUMARequest.memory > 0L || remaining.NUMARequest.vcpus > 0
-    then (* [vm] doesn't fit on these nodes *)
+    if remaining.NUMARequest.memory > 0L || remaining.NUMARequest.vcpus > 0 then
+      (* [vm] doesn't fit on these nodes *)
       None
-    else Some (avg, picked, allocated)
+    else
+      Some (avg, picked, allocated)
   in
   let take_same_distance seq () =
     match seq () with
@@ -114,7 +113,8 @@ let plan host nodes ~vm =
           | Seq.Cons ((avg, node, nodea), next) ->
               if abs_float (avg -. first) < 1e-3 then
                 Seq.Cons ((node, nodea), take_while_same next)
-              else Seq.Nil
+              else
+                Seq.Nil
         in
         Seq.Cons ((node, firstn), take_while_same rest)
   in

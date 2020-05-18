@@ -3,21 +3,21 @@
 (* Intended use case is to set dom0's uuid *)
 
 let is_uuid_valid uuid =
-  match Uuidm.of_string uuid with
-  | None -> false
-  | Some _ -> true
+  match Uuidm.of_string uuid with None -> false | Some _ -> true
 
 let set domain uuid =
-  if not (is_uuid_valid uuid) then begin
-    `Error (false, "Invalid uuid");
-  end else begin
+  if not (is_uuid_valid uuid) then
+    `Error (false, "Invalid uuid")
+  else
     let xc = Xenctrl.interface_open () in
     try
-      Xenctrl.domain_sethandle xc domain uuid;
+      Xenctrl.domain_sethandle xc domain uuid ;
       `Ok ()
     with e ->
-      `Error (false, Printf.sprintf "Caught exception while setting uuid: %s" (Printexc.to_string e))
-  end
+      `Error
+        ( false
+        , Printf.sprintf "Caught exception while setting uuid: %s"
+            (Printexc.to_string e) )
 
 open Cmdliner
 
@@ -34,11 +34,6 @@ let domid =
   let doc = "Id of the domain" in
   Arg.(required & pos 1 (some int) None & info [] ~docv:"DOMID" ~doc)
 
-let cmd =
-  Term.(ret (pure set $ domid $ uuid))
+let cmd = Term.(ret (pure set $ domid $ uuid))
 
-let () =
-  match Term.eval (cmd, info) with
-  | `Error _ -> exit 1
-  | _ -> exit 0
-
+let () = match Term.eval (cmd, info) with `Error _ -> exit 1 | _ -> exit 0

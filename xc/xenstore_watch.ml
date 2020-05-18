@@ -16,6 +16,6 @@
  * repository.
  *)
 
-module XSW_Debug = Debug.Make(struct let name = "xenstore_watch" end)
-include Ez_xenstore_watch.Make(XSW_Debug)
+module XSW_Debug = Debug.Make (struct let name = "xenstore_watch" end)
 
+include Ez_xenstore_watch.Make (XSW_Debug)

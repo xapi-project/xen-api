@@ -24,23 +24,23 @@ exception Error_from_bootloader of string
 (** Raised when an unknown bootloader is used *)
 exception Unknown_bootloader of string
 
+val supported_bootloaders : string list
 (** Bootloaders which are known to the system *)
-val supported_bootloaders: string list
 
 (** Parsed representation of bootloader's stdout, as used by xend *)
-type t = {
-  kernel_path: string;
-  initrd_path: string option;
-  kernel_args: string;
-}
+type t = {kernel_path: string; initrd_path: string option; kernel_args: string}
 
-(** Extract the default kernel from the disk *)
-val extract: Xenops_task.Xenops_task.task_handle -> bootloader:string -> disk:string
+val extract :
+     Xenops_task.Xenops_task.task_handle
+  -> bootloader:string
+  -> disk:string
   -> ?legacy_args:string
   -> ?extra_args:string
   -> ?pv_bootloader_args:string
   -> vm:string
-  -> unit -> t
+  -> unit
+  -> t
+(** Extract the default kernel from the disk *)
 
+val delete : t -> unit
 (** Delete the extracted kernel *)
-val delete: t -> unit
