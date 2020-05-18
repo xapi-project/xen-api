@@ -75,7 +75,7 @@ let shutdown_path_of ~xs = function
       Printf.sprintf "%s/shutdown" (path_of domid)
   | Qemu (backend, _) ->
       (* We only need to cancel when the backend domain shuts down. It will
-         		   break suspend if we cancel when the frontend shuts down. *)
+         break suspend if we cancel when the frontend shuts down. *)
       Printf.sprintf "%s/shutdown" (path_of backend)
   | Vgpu domid ->
       Printf.sprintf "%s/vgpu/shutdown" (path_of domid)
@@ -141,8 +141,8 @@ let with_path ~xs key f =
       try xs.Xs.rm path
       with _ ->
         debug "ignoring cancel request: operation has already terminated" ;
-        (* This means a cancel happened just as we succeeded;
-           				   it was too late and we ignore it. *)
+        (* This means a cancel happened just as we succeeded; it was too late
+           and we ignore it. *)
         ())
 
 let cancellable_watch key good_watches error_watches
@@ -163,9 +163,10 @@ let cancellable_watch key good_watches error_watches
             let any_have_fired ws =
               List.fold_left ( || ) false (List.map (Watch.has_fired ~xs) ws)
             in
-            (* If multiple conditions are true simultaneously then we apply the policy:
-               						   if the success condition is met then any error or cancellation is ignored
-               						   if the error condition is met then any cancellation is ignored *)
+            (* If multiple conditions are true simultaneously then we apply the
+               policy: if the success condition is met then any error or
+               cancellation is ignored if the error condition is met then any
+               cancellation is ignored *)
             match
               ( any_have_fired good_watches
               , any_have_fired error_watches

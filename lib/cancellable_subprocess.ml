@@ -30,7 +30,8 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
         (str, x, y))
       stdin
   in
-  (* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise cancelled *)
+  (* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise
+     cancelled *)
   let cancelled = ref false in
   finally
     (fun () ->

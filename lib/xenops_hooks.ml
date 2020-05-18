@@ -68,7 +68,8 @@ let arg__vmdomid = "-vmdomid"
 (* success = 0 *)
 let exitcode_log_and_continue = 1
 
-(* all other exit codes cause xapi to abort operation and raise XAPI_HOOK_FAILED api exception *)
+(* all other exit codes cause xapi to abort operation and raise XAPI_HOOK_FAILED
+   api exception *)
 
 let list_individual_hooks ~script_name =
   let script_dir = hooks_dir ^ script_name ^ "/" in

@@ -84,9 +84,9 @@ type atomic =
   | VIF_set_ipv4_configuration of Vif.id * Vif.ipv4_configuration
   | VIF_set_ipv6_configuration of Vif.id * Vif.ipv6_configuration
   | VIF_set_active of Vif.id * bool
-  (* During migration the domid of a uuid is not stable. To hide this from
-   * hooks that depend on domids, this allows the caller to provide an
-   * additonal uuid that can maintain the initial domid *)
+  (* During migration the domid of a uuid is not stable. To hide this from hooks
+     that depend on domids, this allows the caller to provide an additonal uuid
+     that can maintain the initial domid *)
   | VM_hook_script_stable of (Vm.id * Xenops_hooks.script * string * Vm.id)
   | VM_hook_script of (Vm.id * Xenops_hooks.script * string)
   | VBD_plug of Vbd.id
@@ -445,7 +445,8 @@ module StringMap = Map.Make (struct
 end)
 
 let push_with_coalesce should_keep item queue =
-  (* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i, [x_0...x_i-1])] *)
+  (* [filter_with_memory p xs] returns elements [x \in xs] where [p (x_i,
+     [x_0...x_i-1])] *)
   let filter_with_memory p xs =
     List.fold_left (fun (acc, xs) x -> (xs :: acc, x :: xs)) ([], []) xs
     |> fst
@@ -471,7 +472,8 @@ let push_with_coalesce should_keep item queue =
   Queue.transfer queue' queue
 
 module Queues = struct
-  (** A set of queues where 'pop' operates on each queue in a round-robin fashion *)
+  (** A set of queues where 'pop' operates on each queue in a round-robin
+      fashion *)
 
   (** Each distinct 'tag' value creates a separate virtual queue *)
   type tag = string
@@ -556,14 +558,14 @@ module Redirector = struct
   (* When a thread is not actively processing a queue, items are placed here: *)
   let default = {queues= Queues.create (); mutex= Mutex.create ()}
 
-  (* We create another queue only for Parallel atoms so as to avoid a situation where
-     	   Parallel atoms can not progress because all the workers available for the
-     	   default queue are used up by other operations depending on further Parallel
-     	   atoms, creating a deadlock.
-  *)
+  (* We create another queue only for Parallel atoms so as to avoid a situation
+     where Parallel atoms can not progress because all the workers available for
+     the default queue are used up by other operations depending on further
+     Parallel atoms, creating a deadlock. *)
   let parallel_queues = {queues= Queues.create (); mutex= Mutex.create ()}
 
-  (* When a thread is actively processing a queue, items are redirected to a thread-private queue *)
+  (* When a thread is actively processing a queue, items are redirected to a
+     thread-private queue *)
   let overrides = ref StringMap.empty
 
   let aliases = ref StringMap.empty
@@ -620,8 +622,8 @@ module Redirector = struct
 
   let pop t () =
     (* We must prevent worker threads all calling Queues.pop before we've
-       		   successfully put the redirection in place. Otherwise we end up with
-       		   parallel threads operating on the same VM. *)
+       successfully put the redirection in place. Otherwise we end up with
+       parallel threads operating on the same VM. *)
     Mutex.execute t.mutex (fun () ->
         let tag, item = Queues.pop t.queues in
         Mutex.execute m (fun () ->
@@ -839,12 +841,13 @@ module WorkerPool = struct
             !pool)
   end
 
-  (* Compute the number of active threads ie those which will continue to operate *)
+  (* Compute the number of active threads ie those which will continue to
+     operate *)
   let count_active queues =
     Mutex.execute m (fun () ->
-        (* we do not want to use = when comparing queues: queues can contain (uncomparable) functions, and we
-           				   are only interested in comparing the equality of their static references
-        *)
+        (* we do not want to use = when comparing queues: queues can contain
+           (uncomparable) functions, and we are only interested in comparing the
+           equality of their static references *)
         List.map
           (fun w -> w.Worker.redirector == queues && Worker.is_active w)
           !pool
@@ -860,9 +863,9 @@ module WorkerPool = struct
   let gc queues pool =
     List.fold_left
       (fun acc w ->
-        (* we do not want to use = when comparing queues: queues can contain (uncomparable) functions, and we
-           				   are only interested in comparing the equality of their static references
-        *)
+        (* we do not want to use = when comparing queues: queues can contain
+           (uncomparable) functions, and we are only interested in comparing the
+           equality of their static references *)
         if w.Worker.redirector == queues && Worker.get_state w = Worker.Shutdown
         then (
           Worker.join w ; acc
@@ -905,8 +908,8 @@ module WorkerPool = struct
     inner Redirector.parallel_queues
 end
 
-(* Keep track of which VMs we're rebooting so we avoid transient glitches
-   where the power_state becomes Halted *)
+(* Keep track of which VMs we're rebooting so we avoid transient glitches where
+   the power_state becomes Halted *)
 let rebooting_vms = ref []
 
 let rebooting_vms_m = Mutex.create ()
@@ -1029,16 +1032,16 @@ let export_metadata vdi_map vif_map vgpu_pci_map id =
   |> rpc_of Metadata.t
   |> Jsonrpc.to_string
 
-(* This is a symptom of the ordering-sensitivity of the SM backend: it is not possible
-   to upgrade RO -> RW or downgrade RW -> RO on the fly.
-   One possible fix is to always attach RW and enforce read/only-ness at the VBD-level.
+(* This is a symptom of the ordering-sensitivity of the SM backend: it is not
+   possible to upgrade RO -> RW or downgrade RW -> RO on the fly. One possible
+   fix is to always attach RW and enforce read/only-ness at the VBD-level.
    However we would need to fix the LVHD "attach provisioning mode". *)
 let vbd_plug_sets vbds =
   List.partition (fun vbd -> vbd.Vbd.mode = Vbd.ReadWrite) vbds
 
 let vbd_plug_order vbds =
-  (* return RW devices first since the storage layer can't upgrade a
-     	   'RO attach' into a 'RW attach' *)
+  (* return RW devices first since the storage layer can't upgrade a 'RO attach'
+     into a 'RW attach' *)
   let rw, ro = vbd_plug_sets vbds in
   rw @ ro
 
@@ -1057,8 +1060,8 @@ let vgpu_receiver_sync : (Vm.id, vgpu_fd_info) Hashtbl.t = Hashtbl.create 10
 
 let vgpu_receiver_sync_m = Mutex.create ()
 
-(* The IOMMU_NO_SHAREPT flag is required for domains that use SRIOV
- * Nvidia VGPUs. This predicate identifies the situation *)
+(* The IOMMU_NO_SHAREPT flag is required for domains that use SRIOV Nvidia
+   VGPUs. This predicate identifies the situation *)
 let is_no_sharept vgpu =
   match (vgpu.Vgpu.virtual_pci_address, vgpu.Vgpu.implementation) with
   | Some _, Vgpu.Nvidia _ ->
@@ -1066,8 +1069,8 @@ let is_no_sharept vgpu =
   | _ ->
       false
 
-(* [is_nvidia_sriov vgpus pci] is true, if [pci] belongs to an SRIOV
- * Nvidia vGPU in [vgpus] and false otherwise *)
+(* [is_nvidia_sriov vgpus pci] is true, if [pci] belongs to an SRIOV Nvidia vGPU
+   in [vgpus] and false otherwise *)
 let is_nvidia_sriov vgpus pci =
   let is_sriov = function
     | Vgpu.{implementation= Nvidia _; virtual_pci_address= Some addr; _} ->
@@ -1120,7 +1123,8 @@ let rec atomics_of_operation = function
       ; List.map
           (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
           (vbds_rw @ vbds_ro)
-        (* keeping behaviour of vbd_plug_order: rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+        (* keeping behaviour of vbd_plug_order: rw vbds must be plugged before
+           ro vbds, see vbd_plug_sets *)
       ; List.map
           (fun (ty, vbds) ->
             Parallel
@@ -1150,8 +1154,8 @@ let rec atomics_of_operation = function
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
       ; List.map (fun pci -> PCI_plug (pci.Pci.id, false)) pcis_sriov
       ; [VM_create_device_model (id, false)]
-        (* PCI and USB devices are hot-plugged into HVM guests via QEMU,
-           so the following operations occur after creating the device models *)
+        (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so the
+           following operations occur after creating the device models *)
       ; List.map (fun pci -> PCI_plug (pci.Pci.id, true)) pcis_other
       ; List.map (fun vusb -> VUSB_plug vusb.Vusb.id) vusbs
         (* At this point the domain is considered survivable. *)
@@ -1169,11 +1173,9 @@ let rec atomics_of_operation = function
         (* Before shutting down a VM, we need to unplug its VUSBs. *)
       ; List.map (fun vusb -> VUSB_unplug vusb.Vusb.id) vusbs
       ; [
-          (* CA-315450: in a hard shutdown or snapshot revert,
-           * timeout=None and VM_shutdown_domain is not called. To avoid
-           * any interference, we pause the domain before destroying the
-           * device model.
-           *)
+          (* CA-315450: in a hard shutdown or snapshot revert, timeout=None and
+             VM_shutdown_domain is not called. To avoid any interference, we
+             pause the domain before destroying the device model. *)
           Best_effort (VM_pause id)
         ; VM_destroy_device_model id
         ; Parallel
@@ -1218,8 +1220,8 @@ let rec atomics_of_operation = function
         (* Nvidia SRIOV PCI devices have been already been plugged *)
       ; [
           VM_create_device_model (id, true)
-          (* PCI and USB devices are hot-plugged into HVM guests via QEMU,
-             so the following operations occur after creating the device models *)
+          (* PCI and USB devices are hot-plugged into HVM guests via QEMU, so
+             the following operations occur after creating the device models *)
         ]
       ; List.map (fun pci -> PCI_plug (pci.Pci.id, true)) pcis_other
       ]
@@ -1403,7 +1405,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
                 Some (Xenopsd_error (Cancelled id)))
           task_list
       in
-      (* if any error was present, raise first one, so that trigger_cleanup_after_failure is called *)
+      (* if any error was present, raise first one, so that
+         trigger_cleanup_after_failure is called *)
       List.iter
         (fun err -> match err with None -> () | Some e -> raise e)
         errors
@@ -1421,8 +1424,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       finally
         (fun () ->
           let vif = VIF_DB.read_exn id in
-          (* Nb, this VIF_DB write needs to come before the call to move
-             					   as the scripts will read from the disk! *)
+          (* Nb, this VIF_DB write needs to come before the call to move as the
+             scripts will read from the disk! *)
           VIF_DB.write id {vif with Vif.backend= network} ;
           B.VIF.move t (VIF_DB.vm_of id) vif network)
         (fun () -> VIF_DB.signal id)
@@ -1440,8 +1443,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       finally
         (fun () ->
           let vif = VIF_DB.read_exn id in
-          (* Nb, this VIF_DB write needs to come before the call to set_locking_mode
-             					   as the scripts will read from the disk! *)
+          (* Nb, this VIF_DB write needs to come before the call to
+             set_locking_mode as the scripts will read from the disk! *)
           VIF_DB.write id {vif with Vif.locking_mode= mode} ;
           B.VIF.set_locking_mode t (VIF_DB.vm_of id) vif mode)
         (fun () -> VIF_DB.signal id)
@@ -1541,8 +1544,8 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
         (fun () -> VBD_DB.signal id)
   | VBD_insert (id, disk) -> (
       (* NB this is also used to "refresh" ie signal a qemu that it should
-         			   re-open a device, useful for when a physical CDROM is inserted into
-         			   the host. *)
+         re-open a device, useful for when a physical CDROM is inserted into the
+         host. *)
       debug "VBD.insert %s" (VBD_DB.string_of_id id) ;
       let vbd_t = VBD_DB.read_exn id in
       let power = (B.VM.get_state (VM_DB.read_exn (fst id))).Vm.power_state in
@@ -1888,9 +1891,9 @@ let rec immediate_operation dbg _id op =
              (Internal_error (Printf.sprintf "Failed to unmarshal error: %s" m)))
   )
 
-(* At all times we ensure that an operation which partially fails
-   leaves the system in a recoverable state. All that should be
-   necessary is to call the {VM,VBD,VIF,PCI}_check_state function. *)
+(* At all times we ensure that an operation which partially fails leaves the
+   system in a recoverable state. All that should be necessary is to call the
+   {VM,VBD,VIF,PCI}_check_state function. *)
 and trigger_cleanup_after_failure op t =
   let dbg = (Xenops_task.to_interface_task t).Task.dbg in
   match op with
@@ -2081,7 +2084,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             ~query:(Uri.query url) ()
         in
         let memory_url = make_url "/memory/" new_dest_id in
-        (* CA-78365: set the memory dynamic range to a single value to stop ballooning. *)
+        (* CA-78365: set the memory dynamic range to a single value to stop
+           ballooning. *)
         let atomic =
           VM_set_memory_dynamic_range
             (id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min)
@@ -2091,12 +2095,13 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             ~progress_callback:(fun _ -> ())
             atomic t
         in
-        (* Waiting here is not essential but adds a degree of safety
-         * and reducess unnecessary memory copying. *)
+        (* Waiting here is not essential but adds a degree of safety and
+           reducess unnecessary memory copying. *)
         ( try B.VM.wait_ballooning t vm
           with Xenopsd_error Ballooning_timeout_before_migration -> ()
         ) ;
-        (* Find out the VM's current memory_limit: this will be used to allocate memory on the receiver *)
+        (* Find out the VM's current memory_limit: this will be used to allocate
+           memory on the receiver *)
         let state = B.VM.get_state vm in
         info "VM %s has memory_limit = %Ld" id state.Vm.memory_limit ;
         Open_uri.with_open_uri memory_url (fun mem_fd ->
@@ -2160,8 +2165,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                 t ;
               debug "VM.migrate: Synchronisation point 2"
             in
-            (* If we have a vGPU, kick off its migration process before
-             * starting the main VM migration sequence. *)
+            (* If we have a vGPU, kick off its migration process before starting
+               the main VM migration sequence. *)
             match VGPU_DB.ids id with
             | [] ->
                 first_handshake () ; save () ; final_handshake ()
@@ -2200,16 +2205,19 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         perform_atomics atomics t
     | VM_receive_memory (id, final_id, memory_limit, s) -> (
         if final_id <> id then
-          (* Note: In the localhost case, there are necessarily two worker threads operating on the
-             same VM. The first one is using tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx and has tag
-             xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000000 aliased to it (so actions being queued against either
-             will get queued on that worker thread). The second worker thread has just started up at
-             this point and has tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000001. The following line will add
-             a new alias of the original id to this second worker thread so we end up with a situation
-             where there are two worker threads that can conceivably queue actions related to the
-             original uuid xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx. However, the alias is always resolved
-             first and hence in practice any further actions related to the real uuid will be queued up
-             on this worker thread's queue. *)
+          (* Note: In the localhost case, there are necessarily two worker
+             threads operating on the same VM. The first one is using tag
+             xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxx and has tag
+             xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000000 aliased to it (so actions
+             being queued against either will get queued on that worker thread).
+             The second worker thread has just started up at this point and has
+             tag xxxxxxxxxxxx-xxxx-xxxx-xxxx-00000001. The following line will
+             add a new alias of the original id to this second worker thread so
+             we end up with a situation where there are two worker threads that
+             can conceivably queue actions related to the original uuid
+             xxxxxxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx. However, the alias is always
+             resolved first and hence in practice any further actions related to
+             the real uuid will be queued up on this worker thread's queue. *)
           Redirector.alias ~tag:id ~alias:final_id ;
         debug "VM.receive_memory %s" id ;
         Sockopt.set_sock_keepalives s ;
@@ -2218,18 +2226,19 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         debug "VM.receive_memory creating domain and restoring VIFs" ;
         finally
           (fun () ->
-            (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that the vgpu_receiver_sync entry for
-               this vm id has already been initialised by the parallel receive_vgpu thread in this receiving host
-            *)
+            (* If we have a vGPU, wait for the vgpu-1 ACK, which indicates that
+               the vgpu_receiver_sync entry for this vm id has already been
+               initialised by the parallel receive_vgpu thread in this receiving
+               host *)
             ( match VGPU_DB.ids id with
             | [] ->
                 ()
             | _ ->
                 Handshake.recv_success s ;
                 debug "VM.receive_memory: Synchronisation point 1-vgpu ACK"
-                (* After this point, vgpu_receiver_sync is initialised by the corresponding receive_vgpu thread
-                   and therefore can be used by this VM_receive_memory thread
-                *)
+                (* After this point, vgpu_receiver_sync is initialised by the
+                   corresponding receive_vgpu thread and therefore can be used
+                   by this VM_receive_memory thread *)
             ) ;
             ( try
                 let no_sharept =
@@ -2240,7 +2249,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   ([
                      VM_create (id, Some memory_limit, Some final_id, no_sharept)
                    ]
-                  @ (* Perform as many operations as possible on the destination domain before pausing the original domain *)
+                  @ (* Perform as many operations as possible on the destination
+                       domain before pausing the original domain *)
                   atomics_of_operation (VM_restore_vifs id)
                   )
                   t ;
@@ -2290,7 +2300,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               t ;
             debug "VM.receive_memory restore complete")
           (fun () ->
-            (* Tell the vGPU receive thread that we're done, so that it can clean up vgpu_receiver_sync id and terminate *)
+            (* Tell the vGPU receive thread that we're done, so that it can
+               clean up vgpu_receiver_sync id and terminate *)
             let vgpu_info = Hashtbl.find_opt vgpu_receiver_sync id in
             Option.iter
               (fun x -> Event.send x.vgpu_channel () |> Event.sync)
@@ -3029,7 +3040,8 @@ module VM = struct
             Response.write (fun _ -> ()) response s)
       ()
 
-  (* This is modelled closely on receive_memory and there is significant scope for refactoring. *)
+  (* This is modelled closely on receive_memory and there is significant scope
+     for refactoring. *)
   let receive_vgpu uri cookies s context : unit =
     let module Request = Cohttp.Request.Make (Cohttp_posix_io.Unbuffered_IO) in
     let module Response = Cohttp.Response.Make (Cohttp_posix_io.Unbuffered_IO) in
@@ -3059,7 +3071,8 @@ module VM = struct
         | Some transferred_fd ->
             (* prevent vgpu-migration from pre-Jura to Jura and later *)
             if not (List.mem_assoc cookie_vgpu_migration cookies) then (
-              (* only Jura and later hosts send this cookie; fail the migration from pre-Jura hosts *)
+              (* only Jura and later hosts send this cookie; fail the migration
+                 from pre-Jura hosts *)
               let msg =
                 Printf.sprintf
                   "VM.migrate: version of sending host incompatible with \
@@ -3079,11 +3092,13 @@ module VM = struct
             in
             Mutex.execute vgpu_receiver_sync_m (fun () ->
                 Hashtbl.add vgpu_receiver_sync vm_id info) ;
-            (* Inform the sender that everything is in place to start save/restore *)
+            (* Inform the sender that everything is in place to start
+               save/restore *)
             Xenops_migrate.(
               Handshake.send ~verbose:true transferred_fd Handshake.Success) ;
             debug "VM.receive_vgpu: Synchronisation point 1-vgpu" ;
-            (* Keep the thread/connection open until the restore is done on the other thread *)
+            (* Keep the thread/connection open until the restore is done on the
+               other thread *)
             Event.receive info.vgpu_channel |> Event.sync ;
             debug "VM.receive_vgpu: Synchronisation point 2-vgpu" ;
             Mutex.execute vgpu_receiver_sync_m (fun () ->
@@ -3120,8 +3135,8 @@ module VM = struct
                       (Printf.sprintf "Unable to unmarshal metadata: %s" m)))
         in
         let id = md.Metadata.vm.Vm.id in
-        (* We allow a higher-level toolstack to replace the metadata of a running VM.
-           				   Any changes will take place on next reboot. *)
+        (* We allow a higher-level toolstack to replace the metadata of a
+           running VM. Any changes will take place on next reboot. *)
         if DB.exists id then
           debug "Overwriting VM metadata for VM: %s" id ;
         let platformdata = md.Metadata.vm.Vm.platformdata in
@@ -3130,9 +3145,10 @@ module VM = struct
             with Not_found -> "(absent)"
           ) ;
         let platformdata =
-          (* If platformdata does not contain a featureset, then we are importing
-             					 * a VM that comes from a levelling-v1 host. In this case, give it a featureset
-             					 * that contains all features that this host has to offer. *)
+          (* If platformdata does not contain a featureset, then we are
+             importing a VM that comes from a levelling-v1 host. In this case,
+             give it a featureset that contains all features that this host has
+             to offer. *)
           if not (List.mem_assoc "featureset" platformdata) then (
             let string_of_features features =
               Array.map (Printf.sprintf "%08Lx") features
@@ -3159,7 +3175,7 @@ module VM = struct
           List.map
             (fun x ->
               (* If receiving an HVM migration from XS 6.2 or earlier, the hd*
-                 						   device names need to be upgraded to xvd*. *)
+                 device names need to be upgraded to xvd*. *)
               let new_device_name =
                 Device_number.upgrade_linux_device (snd x.Vbd.id)
               in
@@ -3186,7 +3202,8 @@ module VM = struct
             (fun x -> {x with Vusb.id= (vm, snd x.Vusb.id)})
             md.Metadata.vusbs
         in
-        (* Remove any VBDs, VIFs, PCIs and VGPUs not passed in - they must have been destroyed in the higher level *)
+        (* Remove any VBDs, VIFs, PCIs and VGPUs not passed in - they must have
+           been destroyed in the higher level *)
         let gc old cur remove =
           let set_difference a b =
             List.filter (fun x -> not (List.mem x b)) a
@@ -3291,7 +3308,8 @@ let internal_event_thread_body =
         try
           while true do
             let _, updates, next_id = B.UPDATES.get !id None in
-            (* Note, backend updates don't use barriers so we should always get updates. *)
+            (* Note, backend updates don't use barriers so we should always get
+               updates. *)
             if updates = [] then
               error
                 "Event thread received an empty list of events: this should \

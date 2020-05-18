@@ -105,10 +105,10 @@ let cost_not_worse ~default c =
     D.debug "The new plan has improved the average access time!"
 
 let balancing nodes ~vms =
-  (* We expect to use many NUMA nodes when we have more VMs,
-   * more elaborate checks could be done on how well balanced the VMs are across NUMA nodes.
-   * Though in this case the default would always be best since it uses all nodes.
-   * *)
+  (* We expect to use many NUMA nodes when we have more VMs, more elaborate
+     checks could be done on how well balanced the VMs are across NUMA nodes.
+     Though in this case the default would always be best since it uses all
+     nodes. *)
   let nodes_used = List.sort_uniq compare nodes |> List.length in
   min vms nodes_used |> float
 

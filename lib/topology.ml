@@ -95,9 +95,8 @@ let seq_range a b =
 
 (** [gen_2n n] Generates all non-empty subsets of the set of [n] nodes. *)
 let seq_gen_2n n =
-  (* A node can either be present in the output or not,
-   * so use a loop [1, 2^n) and have the [i]th bit determine that.
-   * *)
+  (* A node can either be present in the output or not, so use a loop [1, 2^n)
+     and have the [i]th bit determine that. *)
   let of_mask i =
     seq_range 0 n |> Seq.filter (fun bit -> (i lsr bit) land 1 = 1)
   in
@@ -124,8 +123,7 @@ module NUMA = struct
     let compare (Node a) (Node b) = compare a b
   end)
 
-  (* no mutation is exposed in the interface,
-   * therefore this is immutable *)
+  (* no mutation is exposed in the interface, therefore this is immutable *)
   type t = {
       distances: int array array
     ; cpu_to_node: node array
@@ -147,19 +145,17 @@ module NUMA = struct
         (0, min_int, 0) dists
     in
     (* We want to minimize maximum distance first, and average distance next.
-     * When running the VM we don't know which pCPU it'll end up using,
-     * and want to limit the worst case performance.
-     *)
+       When running the VM we don't know which pCPU it'll end up using, and want
+       to limit the worst case performance. *)
     ((max_dist, float sum_dist /. float count), nodes)
 
   let dist_cmp (a1, _) (b1, _) = compare a1 b1
 
   let gen_candidates d =
-    (* We fully expand all combinations up to 16 NUMA nodes.
-     * Higher than that we approximate: the node "n" becomes synonymous with
-     * real NUMA nodes [n*multiply ... n*multiply + multiply-1],
-     * except we always the add the single NUMA node combinations.
-     *)
+    (* We fully expand all combinations up to 16 NUMA nodes. Higher than that we
+       approximate: the node "n" becomes synonymous with real NUMA nodes
+       [n*multiply ... n*multiply + multiply-1], except we always the add the
+       single NUMA node combinations. *)
     (* make sure that single NUMA nodes are always present in the combinations *)
     let single_nodes =
       seq_range 0 (Array.length d)
@@ -168,10 +164,9 @@ module NUMA = struct
     let numa_nodes = Array.length d in
     let nodes =
       if numa_nodes > 16 then
-        (* try just the single nodes, and give up (use all nodes otherwise)
-         * to avoid exponential running time.
-         * We could do better here, e.g. by reducing the matrix
-         * *)
+        (* try just the single nodes, and give up (use all nodes otherwise) to
+           avoid exponential running time. We could do better here, e.g. by
+           reducing the matrix *)
         single_nodes
       else
         numa_nodes
@@ -243,10 +238,8 @@ module NUMA = struct
     let nodes_sum_usage nodes =
       nodes |> List.to_seq |> Seq.map node_get_usage |> Seq.fold_left ( + ) 0
     in
-    (* Find the candidate nodes that have the least usage,
-     * and then increment that usage.
-     * This will try to keep node usage balanced.
-     * *)
+    (* Find the candidate nodes that have the least usage, and then increment
+       that usage. This will try to keep node usage balanced. *)
     candidates
     |> Seq.map (fun (nodes, r) -> (nodes_sum_usage nodes, nodes, r))
     |> Seq.fold_left min (max_int, [], NUMAResource.empty)

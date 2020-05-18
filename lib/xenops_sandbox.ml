@@ -25,7 +25,8 @@ module Chroot : sig
   end
 
   val absolute_path_outside : t -> Path.t -> string
-  (** [absolute_path_outside chroot path] returns the absolute path outside the chroot *)
+  (** [absolute_path_outside chroot path] returns the absolute path outside the
+      chroot *)
 
   val chroot_path_inside : Path.t -> string
   (** [chroot_path_inside path] returns the path when inside the chroot *)
@@ -34,8 +35,9 @@ module Chroot : sig
   (** [of_domid daemon domid] describes a chroot for specified daemon and domain *)
 
   val create : daemon:string -> domid:int -> vm_uuid:string -> Path.t list -> t
-  (** [create daemon domid paths] Creates the specified chroot with appropriate permissions,
-   * and ensures that all [paths] are owned by the chrooted daemon and rw- *)
+  (** [create daemon domid paths] Creates the specified chroot with appropriate
+      permissions, and ensures that all [paths] are owned by the chrooted daemon
+      and rw- *)
 
   val destroy : t -> unit
   (** [destroy chroot] Deletes the chroot *)
@@ -106,9 +108,9 @@ module Varstore_guard = struct
 
   let socket_path = Chroot.Path.of_string ~relative:"xapi-depriv-socket"
 
-  (** [start dbg ~vm_uuid ~domid ~paths] prepares a chroot for [domid],
-   * and asks varstore-guard to create a socket restricted to [vm_uuid].
-   * Also creates empty files specified in [paths] owned by [domid] user.*)
+  (** [start dbg ~vm_uuid ~domid ~paths] prepares a chroot for [domid], and asks
+      varstore-guard to create a socket restricted to [vm_uuid]. Also creates
+      empty files specified in [paths] owned by [domid] user.*)
   let start dbg ~vm_uuid ~domid ~paths =
     let chroot = Chroot.create ~daemon ~domid ~vm_uuid paths in
     let absolute_socket_path =
@@ -125,8 +127,9 @@ module Varstore_guard = struct
       absolute_socket_path ;
     (chroot, Chroot.chroot_path_inside socket_path)
 
-  (** [prepare ~domid path] creates an empty [path] file owned by [domid] inside the chroot for [domid]
- * and returns the absolute path to it outside the chroot *)
+  (** [prepare ~domid path] creates an empty [path] file owned by [domid] inside
+      the chroot for [domid] and returns the absolute path to it outside the
+      chroot *)
   let prepare ~domid ~vm_uuid path =
     let chroot = Chroot.create ~daemon ~domid ~vm_uuid [path] in
     Chroot.absolute_path_outside chroot path

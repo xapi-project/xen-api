@@ -1,16 +1,15 @@
 type result = Ok of string list | Error of string | EOF
 
 val read : Unix.file_descr -> result
-(** [read] calls [Unix.read] and returns zero or more newline-delimited
- * byte strings. This is in contrast to [input_line], which only reads
- * the next newline-delimited string. In case input is available but
- * does not constitute a complete string, [read] will return an empty
- * list and buffer the read input. It will be returned at a subsequent
- * call. *)
+(** [read] calls [Unix.read] and returns zero or more newline-delimited byte
+    strings. This is in contrast to [input_line], which only reads the next
+    newline-delimited string. In case input is available but does not constitute
+    a complete string, [read] will return an empty list and buffer the read
+    input. It will be returned at a subsequent call. *)
 
 val free : Unix.file_descr -> unit
-(** [free fd] removes all buffers associated with [fd]. However, it
- * does not close the file descriptor. *)
+(** [free fd] removes all buffers associated with [fd]. However, it does not
+    close the file descriptor. *)
 
 (*
  * Copyright (C) Citrix Systems Inc.

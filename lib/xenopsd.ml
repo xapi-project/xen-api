@@ -301,9 +301,8 @@ let main backend =
       ~queue_name:!Xenops_interface.queue_name
       ~rpc_fn ()
   in
-  (* we need to catch this to make sure at_exit handlers are
-   * triggered. In particuar, triggers for the bisect_ppx coverage
-   * profiling *)
+  (* we need to catch this to make sure at_exit handlers are triggered. In
+     particuar, triggers for the bisect_ppx coverage profiling *)
   let signal_handler n = debug "caught signal %d" n ; exit 0 in
   Xcp_service.maybe_daemonize () ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
@@ -319,8 +318,6 @@ let main backend =
   Xenops_server.set_backend (Some backend) ;
   Debug.with_thread_associated "main"
     (fun () ->
-      (*
-		let (_: Thread.t) = Thread.create (fun () -> Xcp_service.serve_forever domain_server) () in *)
       let (_ : Thread.t) =
         Thread.create (fun () -> Xcp_service.serve_forever forwarded_server) ()
       in

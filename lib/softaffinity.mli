@@ -16,13 +16,15 @@ open Topology
 
 val plan : NUMA.t -> NUMAResource.t array -> vm:NUMARequest.t -> CPUSet.t option
 (** [plan host nodes ~vm] returns the CPU soft affinity recommended for [vm],
- * Such that the memory latency between the NUMA nodes of the vCPUs is small,
- * and usage of NUMA nodes is balanced.
- * The default in Xen is to stripe memory accross all NUMA nodes, which would
- * cause increased latency and hitting the bandwidth limits of the CPU interconnects.
- * The plan returned here attempts to reduce this, but doesn't look for an optimal plan
- * (which would potentially require solving an NP complete problem).
- *
- * Upon return the amount of memory available in [nodes] is updated, so that concurrent
- * VM starts will have more accurate information without serializing domain builds.
- * *)
+    Such that the memory latency between the NUMA nodes of the vCPUs is small,
+    and usage of NUMA nodes is balanced.
+
+    The default in Xen is to stripe memory accross all NUMA nodes, which would
+    cause increased latency and hitting the bandwidth limits of the CPU
+    interconnects. The plan returned here attempts to reduce this, but doesn't
+    look for an optimal plan (which would potentially require solving an NP
+    complete problem).
+
+    Upon return the amount of memory available in [nodes] is updated, so that
+    concurrent VM starts will have more accurate information without serializing
+    domain builds. *)

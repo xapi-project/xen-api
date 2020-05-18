@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Some string handling functions to help drawing text tables.
-    Modified from Richard's code in the CLI *)
+(** Some string handling functions to help drawing text tables. Modified from
+    Richard's code in the CLI *)
 
 let pad n s before =
   if String.length s > n then

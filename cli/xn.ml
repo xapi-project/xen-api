@@ -511,8 +511,8 @@ let add' _copts x () =
                && List.mem (find _builder |> string) ["linux"; "generic"]
             || ((not (mem _builder)) && any [_bootloader; _kernel])
           in
-          (* We need to have the disk information ready so we can set the
-             PV indirect boot info in the VM record *)
+          (* We need to have the disk information ready so we can set the PV
+             indirect boot info in the VM record *)
           let disks = if mem _disk then find _disk |> list string else [] in
           let disks = List.map parse_disk_info disks in
           let devices =
@@ -1107,9 +1107,9 @@ let raw_console_proxy sockaddr =
     finally f (fun () -> Unix.tcsetattr Unix.stdin Unix.TCSANOW tc)
   in
   let proxy fd =
-    (* The releatively complex design here helps to buffer input/output
-       when the underlying connection temporarily breaks, hence provides
-       seemingly continous connection. *)
+    (* The releatively complex design here helps to buffer input/output when the
+       underlying connection temporarily breaks, hence provides seemingly
+       continous connection. *)
     let block = 65536 in
     let buf_local = Bytes.make block '\000' in
     let buf_local_end = ref 0 in

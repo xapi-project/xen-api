@@ -35,8 +35,8 @@ exception
 
 (* message *)
 
-(** We do all our IO through the buffered channels but pass the
-    underlying fds as integers to the forked helper on the commandline. *)
+(** We do all our IO through the buffered channels but pass the underlying fds
+    as integers to the forked helper on the commandline. *)
 type t =
   in_channel
   * out_channel
@@ -44,13 +44,12 @@ type t =
   * Unix.file_descr
   * Forkhelpers.pidty
 
-(** Fork and run a emu-manager with particular args, leaving 'fds' open
-    (in addition to internal control I/O fds) *)
+(** Fork and run a emu-manager with particular args, leaving 'fds' open (in
+    addition to internal control I/O fds) *)
 let connect path domid (args : string list)
     (fds : (string * Unix.file_descr) list) : t =
   debug "connect: args = [ %s ]" (String.concat " " args) ;
-  (* Need to send commands and receive responses from the
-     	   slave process *)
+  (* Need to send commands and receive responses from the slave process *)
   let slave_to_server_w_uuid = Uuidm.to_string (Uuidm.create `V4) in
   let server_to_slave_r_uuid = Uuidm.to_string (Uuidm.create `V4) in
   let slave_to_server_r, slave_to_server_w = Unix.pipe () in

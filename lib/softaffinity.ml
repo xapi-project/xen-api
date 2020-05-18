@@ -17,63 +17,64 @@ module D = Debug.Make (struct let name = "softaffinity" end)
 
 open D
 
-(* On a NUMA system each node has fast, lower latency access to local memory.
-It can access memory of other NUMA nodes, but this requires going through the
-interconnect (and possible multiple hops), which is higher latency and has less
-bandwidth than the link to the local memory.
-NUMA does have advantages though: if each node accesses only its local memory,
-then each node can independently achieve maximum throughput.
-For best performance we should:
- - minimize the amount of interconnect bandwidth we are using
- - maximize the number of NUMA nodes that we use in the system as a whole
+(* On a NUMA system each node has fast, lower latency access to local memory. It
+   can access memory of other NUMA nodes, but this requires going through the
+   interconnect (and possible multiple hops), which is higher latency and has
+   less bandwidth than the link to the local memory. NUMA does have advantages
+   though: if each node accesses only its local memory, then each node can
+   independently achieve maximum throughput. For best performance we should:
 
-If a VM's memory and vCPUs can entirely fit within a single NUMA node then we
-should tell Xen to prefer to allocate memory from and run the vCPUs on 1 NUMA
-node.
+   - minimize the amount of interconnect bandwidth we are using
 
-This can be achieved by using the VM's soft affinity CPU mask: Xen would
-allocate memory in a round-robin way only from the NUMA nodes corresponding to
-the vCPUs, and it would prefer to schedule the vCPUs on the pCPUs in the soft
-affinity mask.  If it cannot (e.g. all those pCPUs are busy) then it would
-still run the vCPU elsewhere.  This is better than hard affinity where the vCPU
-would not run at all (running the vCPU, even with slower access to memory is
-better than not running it at all).
+   - maximize the number of NUMA nodes that we use in the system as a whole
 
-By default Xen stripes the VM's memory accross all NUMA nodes of the host,
-which means that every VM has to go through all the interconnects.  The goal
-here is to find a better allocation than the default, not necessarily an
-optimal allocation. An optimal allocation would require knowing what VMs you
-would start/create in the future, and planning across hosts too.
+   If a VM's memory and vCPUs can entirely fit within a single NUMA node then we
+   should tell Xen to prefer to allocate memory from and run the vCPUs on 1 NUMA
+   node.
 
-Overall we want to balance the VMs across NUMA nodes, such that we use all NUMA
-nodes to take advantage of the maximum memory bandwidth available on the
-system.  For now this balancing is done only by balancing memory usage: always
-heuristically allocating VMs on the NUMA node that has the most available
-memory.
+   This can be achieved by using the VM's soft affinity CPU mask: Xen would
+   allocate memory in a round-robin way only from the NUMA nodes corresponding
+   to the vCPUs, and it would prefer to schedule the vCPUs on the pCPUs in the
+   soft affinity mask. If it cannot (e.g. all those pCPUs are busy) then it
+   would still run the vCPU elsewhere. This is better than hard affinity where
+   the vCPU would not run at all (running the vCPU, even with slower access to
+   memory is better than not running it at all).
 
-If a VM doesn't fit into a single node then it is not so clear what the best
-approach is.  One criteria to consider is minimizing the NUMA distance between
-the nodes chosen for the VM. Large NUMA systems may not be fully connected in a
-mesh requiring multiple hops to each a node, or even have assymetric links, or
-links with different bitwidth. These tradeoff should be approximatively
-reflected in the ACPI SLIT tables, as a matrix of distances between nodes. It
-is possible that 3 NUMA nodes have a smaller average/maximum distance than 2,
-so we need to consider all possibilities.  For N nodes there would be 2^N
-possibilities, so [NUMA.candidates] limits the number of choices to 65520+N
-(full set of 2^N possibilities for 16 NUMA nodes, and a reduced set of choices
-for larger systems).
+   By default Xen stripes the VM's memory accross all NUMA nodes of the host,
+   which means that every VM has to go through all the interconnects. The goal
+   here is to find a better allocation than the default, not necessarily an
+   optimal allocation. An optimal allocation would require knowing what VMs you
+   would start/create in the future, and planning across hosts too.
 
-[NUMA.candidates] is a sorted sequence of node sets, in ascending order of
-maximum/average distances.  Once we've eliminated the candidates not suitable
-for this VM (that do not have enough total memory/pCPUs) we are left with a
-monotonically increasing sequence of nodes.  There are still multiple
-possibilities with same average distance.  This is where we consider our second
-criteria - balancing - and pick the node with most available free memory.
+   Overall we want to balance the VMs across NUMA nodes, such that we use all
+   NUMA nodes to take advantage of the maximum memory bandwidth available on the
+   system. For now this balancing is done only by balancing memory usage: always
+   heuristically allocating VMs on the NUMA node that has the most available
+   memory.
 
-Once a suitable set of NUMA nodes are picked we compute the CPU soft affinity
-as the union of the CPUs from all these NUMA nodes.  If we didn't find a
-solution then we let Xen use its default allocation.
- *)
+   If a VM doesn't fit into a single node then it is not so clear what the best
+   approach is. One criteria to consider is minimizing the NUMA distance between
+   the nodes chosen for the VM. Large NUMA systems may not be fully connected in
+   a mesh requiring multiple hops to each a node, or even have assymetric links,
+   or links with different bitwidth. These tradeoff should be approximatively
+   reflected in the ACPI SLIT tables, as a matrix of distances between nodes. It
+   is possible that 3 NUMA nodes have a smaller average/maximum distance than 2,
+   so we need to consider all possibilities. For N nodes there would be 2^N
+   possibilities, so [NUMA.candidates] limits the number of choices to 65520+N
+   (full set of 2^N possibilities for 16 NUMA nodes, and a reduced set of
+   choices for larger systems).
+
+   [NUMA.candidates] is a sorted sequence of node sets, in ascending order of
+   maximum/average distances. Once we've eliminated the candidates not suitable
+   for this VM (that do not have enough total memory/pCPUs) we are left with a
+   monotonically increasing sequence of nodes. There are still multiple
+   possibilities with same average distance. This is where we consider our
+   second criteria - balancing - and pick the node with most available free
+   memory.
+
+   Once a suitable set of NUMA nodes are picked we compute the CPU soft affinity
+   as the union of the CPUs from all these NUMA nodes. If we didn't find a
+   solution then we let Xen use its default allocation. *)
 let plan host nodes ~vm =
   (* let host = NUMA.apply_mask host vm.NUMAResource.affinity in *)
   let pick_node (allocated, picked, requested) (NUMA.Node nodeidx as node) =

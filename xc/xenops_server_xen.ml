@@ -81,8 +81,8 @@ let choose_emu_manager x =
 type xendisk = Storage_interface.xendisk = {
     params: string  (** Put into the "params" key in xenstore *)
   ; extra: (string * string) list
-        (** Key-value pairs to be put into the "extra" subdirectory underneath the
-      xenstore backend *)
+        (** Key-value pairs to be put into the "extra" subdirectory underneath
+            the xenstore backend *)
   ; backend_type: string
 }
 [@@deriving rpcty]
@@ -138,9 +138,9 @@ module VmExtra = struct
 
   let persistent_version_naples = 2
 
-  (** Extra data we store per VM. The persistent data is preserved when
-      the domain is suspended so it can be re-used in the following 'create'
-      which is part of 'resume'. *)
+  (** Extra data we store per VM. The persistent data is preserved when the
+      domain is suspended so it can be re-used in the following 'create' which
+      is part of 'resume'. *)
   type persistent_t = {
       (* This field indicates the version of the persistent record with which
          the VM started, and it stays constant through xenopsd VM migration,
@@ -151,7 +151,7 @@ module VmExtra = struct
     ; last_start_time: float [@default 0.0]
     ; domain_config: Domain.arch_domainconfig option
     ; nomigrate: bool [@default false]
-    ; (* platform:nomigrate   at boot time *)
+    ; (* platform:nomigrate at boot time *)
       nested_virt: bool [@default false]
     ; (* platform:nested_virt at boot time *)
       profile: Device.Profile.t option
@@ -188,18 +188,17 @@ module DB = struct
     let key vm = [vm]
   end)
 
-  (* This function will leave untouched the profile of any VM started with the xenopsd persistent
-     record version 1 (or later), and it will revise the profile of any qemu-trad VM started with
-     a persistent record without a version field (which defaults to version 0) *)
+  (* This function will leave untouched the profile of any VM started with the
+     xenopsd persistent record version 1 (or later), and it will revise the
+     profile of any qemu-trad VM started with a persistent record without a
+     version field (which defaults to version 0) *)
   let revise_profile_qemu_trad vm persistent =
     Device.Profile.
       {
         persistent with
         VmExtra.profile=
           ( match persistent.VmExtra.profile with
-          | Some Qemu_trad
-          (* when persistent.VmExtra.version = VmExtra.persistent_version_pre_lima *)
-            ->
+          | Some Qemu_trad ->
               debug "vm %s: revised %s->%s" vm Name.qemu_trad
                 Name.qemu_upstream_compat ;
               Some Qemu_upstream_compat
@@ -211,8 +210,8 @@ module DB = struct
   let revision_of vm persistent = persistent |> revise_profile_qemu_trad vm
 end
 
-(* These updates are local plugin updates, distinct from those that are
-   exposed via the UPDATES API *)
+(* These updates are local plugin updates, distinct from those that are exposed
+   via the UPDATES API *)
 let internal_updates = Updates.empty scheduler
 
 let safe_rm xs path =
@@ -260,8 +259,9 @@ let di_of_uuid ~xc ~xs uuid =
                  domid_list)))
 
 let domid_of_uuid ~xc ~xs uuid =
-  (* We don't fully control the domain lifecycle because libxenguest will actually
-     destroy a domain on suspend. Therefore we only rely on state in xenstore *)
+  (* We don't fully control the domain lifecycle because libxenguest will
+     actually destroy a domain on suspend. Therefore we only rely on state in
+     xenstore *)
   let dir = Printf.sprintf "/vm/%s/domains" (Uuidm.to_string uuid) in
   try
     match
@@ -394,9 +394,9 @@ let destroy_vbd_frontend ~xc ~xs task disk =
       ()
   | Device device ->
       Xenops_task.with_subtask task "Vbd.clean_shutdown" (fun () ->
-          (* Outstanding requests may cause a transient 'refusing to close'
-             but this can be safely ignored because we're controlling the
-             frontend and all users of it. *)
+          (* Outstanding requests may cause a transient 'refusing to close' but
+             this can be safely ignored because we're controlling the frontend
+             and all users of it. *)
           Device.Vbd.clean_shutdown_async ~xs device ;
           Device.Vbd.clean_shutdown_wait task ~xs ~ignore_transients:true device)
 
@@ -553,7 +553,8 @@ module Mem = struct
 
   let do_login dbg = wrap (fun () -> Client.login dbg "xenopsd")
 
-  (* Each "login" causes all unused reservations to be freed, therefore we log in once *)
+  (* Each "login" causes all unused reservations to be freed, therefore we log
+     in once *)
   let cached_session_id = ref None
 
   let cached_session_id_m = Mutex.create ()
@@ -568,10 +569,11 @@ module Mem = struct
             cached_session_id := Some s ;
             s)
 
-  (** If we fail to allocate because VMs either failed to co-operate or because they are still booting
-      and haven't written their feature-balloon flag then retry for a while before finally giving up.
-      In particular this should help smooth over the period when VMs are booting and haven't loaded their balloon
-      drivers yet. *)
+  (** If we fail to allocate because VMs either failed to co-operate or because
+      they are still booting and haven't written their feature-balloon flag then
+      retry for a while before finally giving up. In particular this should help
+      smooth over the period when VMs are booting and haven't loaded their
+      balloon drivers yet. *)
   let retry f =
     let start = Unix.gettimeofday () in
     let interval = 10. in
@@ -633,8 +635,8 @@ module Mem = struct
     in
     ()
 
-  (** Reserves memory, passes the id to [f] and cleans up afterwards. If the user
-      wants to keep the memory, then call [transfer_reservation_to_domain]. *)
+  (** Reserves memory, passes the id to [f] and cleans up afterwards. If the
+      user wants to keep the memory, then call [transfer_reservation_to_domain]. *)
   let with_reservation dbg min max f =
     let amount, id =
       Option.value
@@ -698,7 +700,8 @@ module Mem = struct
           domid ;
         raise Memory_interface.(MemoryError No_reservation)
 
-  (** After an event which frees memory (eg a domain destruction), perform a one-off memory rebalance *)
+  (** After an event which frees memory (eg a domain destruction), perform a
+      one-off memory rebalance *)
   let balance_memory dbg = debug "rebalance_memory" ; Client.balance_memory dbg
 end
 
@@ -707,13 +710,13 @@ let _device_id kind = Device_common.string_of_kind kind ^ "-id"
 
 (* Return the xenstore device with [kind] corresponding to [id]
 
-   This is an inefficient operation because xenstore indexes the devices by devid, not id,
-   so in order to find an id we need to go through potentially all the devids in the tree.
+   This is an inefficient operation because xenstore indexes the devices by
+   devid, not id, so in order to find an id we need to go through potentially
+   all the devids in the tree.
 
-   Therefore, we need to cache the results to decrease the overall xenstore read accesses.
-   During VM lifecycle operations, this cache will reduce xenstored read accesses from
-   O(n^2) to O(n), where n is the number of VBDs in a VM.
-*)
+   Therefore, we need to cache the results to decrease the overall xenstore read
+   accesses. During VM lifecycle operations, this cache will reduce xenstored
+   read accesses from O(n^2) to O(n), where n is the number of VBDs in a VM. *)
 
 module DeviceCache = struct
   module PerVMCache = struct
@@ -754,7 +757,8 @@ module DeviceCache = struct
         in
         ( try
             let cached_value = PerVMCache.find domid_cache (Some key) in
-            (* cross-check cached value with original value to verify it is up-to-date *)
+            (* cross-check cached value with original value to verify it is
+               up-to-date *)
             let fetched_value = fetch_one_f cached_value in
             if cached_value <> fetched_value then
               (* force refresh of domid cache *)
@@ -832,10 +836,9 @@ let upgrade_for_migration ~xc features =
     if Int64.(logand msr_arch_caps tsx_ctrl = tsx_ctrl) then
       let cpuid_hle_rtm = (1 lsl 4) lor (1 lsl 11) |> Int64.of_int in
       features.(5) <- Int64.(logor features.(5) cpuid_hle_rtm)
-    (* These still work, albeit slowly.
-       We might prefer to hide these from host's CPUID for pool leveling
-       and guest boot purposes, but can accept it during migration.
-    *)
+    (* These still work, albeit slowly. We might prefer to hide these from
+       host's CPUID for pool leveling and guest boot purposes, but can accept it
+       during migration. *)
   with Xenctrlext.Unix_error (Unix.ENOSYS, _) ->
     debug "xc_get_msr_arch_caps: ENOSYS"
 
@@ -843,10 +846,11 @@ module HOST = struct
   include Xenops_server_skeleton.HOST
 
   let stat () =
-    (* The boot-time CPU info is copied into a file in @ETCDIR@/ in the xenservices init script;
-       we use that to generate CPU records from. This ensures that if xapi is started after someone has
-       modified dom0's VCPUs we don't change out host config... [Important to get this right, otherwise
-       pool homogeneity checks fail] *)
+    (* The boot-time CPU info is copied into a file in @ETCDIR@/ in the
+       xenservices init script; we use that to generate CPU records from. This
+       ensures that if xapi is started after someone has modified dom0's VCPUs
+       we don't change out host config... [Important to get this right,
+       otherwise pool homogeneity checks fail] *)
     let get_cpuinfo () =
       let cpu_info_file =
         try
@@ -1066,8 +1070,9 @@ module VM = struct
     | S3Suspend ->
         Domain.S3Suspend
 
-  (* We compute our initial target at memory reservation time, done before the domain
-     is created. We consume this information later when the domain is built. *)
+  (* We compute our initial target at memory reservation time, done before the
+     domain is created. We consume this information later when the domain is
+     built. *)
   let set_initial_target ~xs domid initial_target =
     xs.Xs.write
       (Printf.sprintf "/local/domain/%d/memory/initial-target" domid)
@@ -1112,7 +1117,8 @@ module VM = struct
       else
         Domain_PV
 
-  (* Called from a xenops client if it needs to resume a VM that was suspended on a pre-xenopsd host. *)
+  (* Called from a xenops client if it needs to resume a VM that was suspended
+     on a pre-xenopsd host. *)
   let generate_state_string vm =
     let open Memory in
     let builder_spec_info =
@@ -1148,8 +1154,8 @@ module VM = struct
         default_persistent_t with
         build_info= Some build_info
       ; ty= Some vm.ty
-      ; (* Earlier than the PV drivers update time, therefore
-           any cached PV driver information will be kept. *)
+      ; (* Earlier than the PV drivers update time, therefore any cached PV
+           driver information will be kept. *)
         last_start_time= 0.0
       ; profile= profile_of ~vm
       }
@@ -1245,8 +1251,8 @@ module VM = struct
     | None ->
         (* The device_id is always 1 if it is unspecified *)
         let device_id = 1 in
-        (* The revision is usually 1, except for certain cases which require it to
-         * be set to 2 due to historical incompatibilities (CA-313709) *)
+        (* The revision is usually 1, except for certain cases which require it
+           to be set to 2 due to historical incompatibilities (CA-313709) *)
         let revision =
           if
             vmextra.persistent.original_profile = Some Device.Profile.Qemu_trad
@@ -1261,7 +1267,8 @@ module VM = struct
   let create_exn task memory_upper_bound vm final_id no_sharept =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
-        (* Ensure the DB contains something for this VM - this is to avoid a race with the *)
+        (* Ensure the DB contains something for this VM - this is to avoid a
+           race with the *)
         let _ =
           DB.update k (function
             | Some x ->
@@ -1278,8 +1285,9 @@ module VM = struct
                   VmExtra.
                     {
                       default_persistent_t with
-                      (* version 1 and later distinguish VMs started in Lima and later versions of xenopsd
-                         from those VMs started in pre-Lima versions that didn't have this version field *)
+                      (* version 1 and later distinguish VMs started in Lima and
+                         later versions of xenopsd from those VMs started in
+                         pre-Lima versions that didn't have this version field *)
                       version= VmExtra.persistent_version_naples
                     ; ty= Some vm.ty
                     ; last_start_time= Unix.gettimeofday ()
@@ -1322,9 +1330,10 @@ module VM = struct
                   shadow_multiplier
               in
               let resuming = persistent.VmExtra.suspend_memory_bytes <> 0L in
-              (* If we are resuming then we know exactly how much memory is needed. If we are
-                    live migrating then we will only know an upper bound. If we are starting from
-                    scratch then we have a free choice. *)
+              (* If we are resuming then we know exactly how much memory is
+                 needed. If we are live migrating then we will only know an
+                 upper bound. If we are starting from scratch then we have a
+                 free choice. *)
               let min_bytes, max_bytes =
                 match memory_upper_bound with
                 | Some x ->
@@ -1346,7 +1355,8 @@ module VM = struct
               in
               let min_kib = kib_of_bytes_used (min_bytes +++ overhead_bytes)
               and max_kib = kib_of_bytes_used (max_bytes +++ overhead_bytes) in
-              (* XXX: we would like to be able to cancel an in-progress with_reservation *)
+              (* XXX: we would like to be able to cancel an in-progress
+                 with_reservation *)
               let dbg = Xenops_task.get_dbg task in
               Mem.with_reservation dbg min_kib max_kib
                 (fun target_plus_overhead_kib reservation_id ->
@@ -1355,9 +1365,10 @@ module VM = struct
                     | Some dc ->
                         (dc, persistent)
                     | None ->
-                        (* This is the upgraded migration/resume case - we've stored some persistent data
-                           but it was before we recorded emulation flags. Let's regenerate them now and
-                           store them persistently *)
+                        (* This is the upgraded migration/resume case - we've
+                           stored some persistent data but it was before we
+                           recorded emulation flags. Let's regenerate them now
+                           and store them persistently *)
                         ( (* Sanity check *)
                         match vm.Xenops_interface.Vm.ty with
                         | PVinPVH _ ->
@@ -1437,7 +1448,8 @@ module VM = struct
             debug
               "VM %s exists with domid=%d; checking whether xenstore is intact"
               vm.Vm.id di.Xenctrl.domid ;
-            (* Minimal set of keys and values expected by tools like xentop (CA-24231) *)
+            (* Minimal set of keys and values expected by tools like xentop
+               (CA-24231) *)
             let minimal_local_kvs =
               [
                 ("name", vm.Vm.name)
@@ -1502,8 +1514,8 @@ module VM = struct
 
   let remove vm =
     with_xc_and_xs (fun xc xs -> safe_rm xs (Printf.sprintf "/vm/%s" vm.Vm.id)) ;
-    (* Best-effort attempt to remove metadata - if VM has been powered off
-     * then it will have already been deleted by VM.destroy *)
+    (* Best-effort attempt to remove metadata - if VM has been powered off then
+       it will have already been deleted by VM.destroy *)
     try DB.remove vm.Vm.id
     with Xenopsd_error (Does_not_exist ("extra", _)) -> ()
 
@@ -1543,8 +1555,8 @@ module VM = struct
                 (fun device -> Device.Generic.get_private_key ~xs device _dp_id)
                 vbds
             in
-            (* Normally we throw-away our domain-level information. If the domain
-               has suspended then we preserve it. *)
+            (* Normally we throw-away our domain-level information. If the
+               domain has suspended then we preserve it. *)
             if
               di.Xenctrl.shutdown
               && Domain.shutdown_reason_of_int di.Xenctrl.shutdown_code
@@ -1709,8 +1721,10 @@ module VM = struct
                 raise (Xenopsd_error (Internal_error "Invalid graphics mode"))
           in
           let memory =
-            (* This is the same as is passed to xenguest at build time, with -mem_max_mib *)
-            (* build_info.memory_max is set to static_max_kib in build_domain_exn *)
+            (* This is the same as is passed to xenguest at build time, with
+               -mem_max_mib *)
+            (* build_info.memory_max is set to static_max_kib in
+               build_domain_exn *)
             let static_max_mib =
               Memory.mib_of_kib_used build_info.Domain.memory_max
             in
@@ -2142,7 +2156,8 @@ module VM = struct
 
   exception Umount_timeout
 
-  (** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before returning failure *)
+  (** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before
+      returning failure *)
   let umount ?(retry = true) dest =
     let finished = ref false in
     let start = Unix.gettimeofday () in
@@ -2302,8 +2317,8 @@ module VM = struct
                   raise (Xenopsd_error Failed_to_acknowledge_suspend_request) ;
                 if not (wait_shutdown task vm Suspend 1200.) then
                   raise (Xenopsd_error (Failed_to_suspend (vm.Vm.id, 1200.)))) ;
-            (* Record the final memory usage of the domain so we know how
-               much to allocate for the resume *)
+            (* Record the final memory usage of the domain so we know how much
+               to allocate for the resume *)
             let di = Xenctrl.domain_getinfo xc domid in
             let pages = Int64.of_nativeint di.Xenctrl.total_memory_pages in
             debug
@@ -2447,7 +2462,8 @@ module VM = struct
               with e ->
                 error "VM %s: restore failed: %s" vm.Vm.id
                   (Printexc.to_string e) ;
-                (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy the domain on failure *)
+                (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
+                   the domain on failure *)
                 ( if
                   try
                     ignore (Xenctrl.domain_getinfo xc di.Xenctrl.domid) ;
@@ -2542,8 +2558,9 @@ module VM = struct
               Memory.bytes_of_kib kib
             in
             let memory_limit =
-              (* The maximum amount of memory the domain can consume is the max of memory_actual
-                 and max_memory_pages (with our overheads subtracted). *)
+              (* The maximum amount of memory the domain can consume is the max
+                 of memory_actual and max_memory_pages (with our overheads
+                 subtracted). *)
               let max_memory_bytes =
                 let overhead_bytes =
                   Memory.bytes_of_mib
@@ -2559,7 +2576,8 @@ module VM = struct
                 in
                 Int64.sub raw_bytes overhead_bytes
               in
-              (* CA-31764: may be larger than static_max if maxmem has been increased to initial-reservation. *)
+              (* CA-31764: may be larger than static_max if maxmem has been
+                 increased to initial-reservation. *)
               max memory_actual max_memory_bytes
             in
             let rtc =
@@ -2711,7 +2729,8 @@ module VM = struct
           match state with
           | "" ->
               ()
-              (* state should normally be empty, unless in exceptional case e.g. xapi restarted previously *)
+              (* state should normally be empty, unless in exceptional case e.g.
+                 xapi restarted previously *)
           | "IN PROGRESS" ->
               raise
                 (Xenopsd_error
@@ -2840,7 +2859,7 @@ module VM = struct
           ))
 
   (* Some hook scripts need to know the domid to avoid confusion when migrating
-   * vms, now that the behaviour concerning uuids has changed *)
+     vms, now that the behaviour concerning uuids has changed *)
   let get_hook_args vm_uuid =
     with_xc_and_xs (fun xc xs ->
         match domid_of_uuid ~xc ~xs (uuid_of_string vm_uuid) with
@@ -2868,8 +2887,8 @@ module VM = struct
                (Internal_error
                   (Printf.sprintf "Failed to unmarshal persistent_t: %s" m)))
     in
-    (* Don't take the timeoffset from [state] (last boot record). Put back
-       * the one from [vm] which came straight from the platform keys. *)
+    (* Don't take the timeoffset from [state] (last boot record). Put back the
+       one from [vm] which came straight from the platform keys. *)
     let persistent =
       match vm.ty with
       | HVM {timeoffset} -> (
@@ -2883,18 +2902,19 @@ module VM = struct
           persistent
     in
     let profile =
-      (* Set the profile correctly if the incoming state does not have a profile set.
-       * This is the case if the profile is None (the field's default), while the VM does
-       * need QEMU (i.e. an HVM guest). Otherwise, keep the profile from the state.
-       * The resulting profile may be upgraded in `revision_of` below. *)
+      (* Set the profile correctly if the incoming state does not have a profile
+         set. This is the case if the profile is None (the field's default),
+         while the VM does need QEMU (i.e. an HVM guest). Otherwise, keep the
+         profile from the state. The resulting profile may be upgraded in
+         `revision_of` below. *)
       if persistent.VmExtra.profile = None && will_be_hvm vm then
         Some Device.Profile.Qemu_trad
       else
         persistent.VmExtra.profile
     in
     let original_profile =
-      (* Never overwrite the original_profile, if one is present. If not present,
-       * then make it equal to the profile derived above. *)
+      (* Never overwrite the original_profile, if one is present. If not
+         present, then make it equal to the profile derived above. *)
       match persistent.VmExtra.original_profile with None -> profile | p -> p
     in
     let persistent =
@@ -2944,8 +2964,8 @@ module PCI = struct
 
   let get_device_action_request vm pci =
     let state = get_state vm pci in
-    (* If it has disappeared from xenstore then we assume unplug is needed if only
-       to release resources/ deassign devices *)
+    (* If it has disappeared from xenstore then we assume unplug is needed if
+       only to release resources/ deassign devices *)
     if not state.plugged then Some Needs_unplug else None
 
   let get_next_pci_index ~xs domid =
@@ -2953,10 +2973,9 @@ module PCI = struct
     let max_idx = function [] -> -1 | x :: xs -> List.fold_left max x xs in
     1 + max_idx (List.map fst current)
 
-  (* [plug] a [pci] device and advertise it to QEMU when [advertise] is
-   * [true]. With [advertise=false], the device is not advertised to
-   * QEMU. This is currently only the case for NVIDIA SR-IOV vGPUs
-   *)
+  (* [plug] a [pci] device and advertise it to QEMU when [advertise] is [true].
+     With [advertise=false], the device is not advertised to QEMU. This is
+     currently only the case for NVIDIA SR-IOV vGPUs *)
   let plug task vm pci advertise =
     on_frontend
       (fun xc xs frontend_domid domain_type ->
@@ -2989,8 +3008,8 @@ module PCI = struct
       vm
 
   let unplug task vm pci =
-    (* We don't currently need to do anything here. Any necessary cleanup happens
-     * in Domain.destroy. *)
+    (* We don't currently need to do anything here. Any necessary cleanup
+       happens in Domain.destroy. *)
     ()
 
   let dequarantine (pci : Pci.address) =
@@ -3091,8 +3110,8 @@ module VUSB = struct
 
   let get_device_action_request vm vusb =
     let state = get_state vm vusb in
-    (* If it has disappeared from qom-list then we assume unplug is needed if only
-       to release resources *)
+    (* If it has disappeared from qom-list then we assume unplug is needed if
+       only to release resources *)
     if not state.plugged then Some Needs_unplug else None
 
   let is_privileged vm =
@@ -3139,8 +3158,8 @@ module VBD = struct
 
   let id_of vbd = snd vbd.id
 
-  (* When we attach a VDI we remember the attach result so we can lookup
-     details such as the device-kind later. *)
+  (* When we attach a VDI we remember the attach result so we can lookup details
+     such as the device-kind later. *)
 
   let vdi_attach_path vbd =
     Printf.sprintf "/xapi/%s/private/vdis/%s" (fst vbd.id) (snd vbd.id)
@@ -3273,7 +3292,8 @@ module VBD = struct
     Device_common.backend_path_of_device ~xs device ^ "/vdi"
 
   let plug task vm vbd =
-    (* If the vbd isn't listed as "active" then we don't automatically plug this one in *)
+    (* If the vbd isn't listed as "active" then we don't automatically plug this
+       one in *)
     if not (get_active vm vbd) then
       debug "VBD %s.%s is not active: not plugging into VM" (fst vbd.Vbd.id)
         (snd vbd.Vbd.id)
@@ -3392,8 +3412,9 @@ module VBD = struct
                   None
             in
             (* Remember what we've just done *)
-            (* Dom0 doesn't have a vm_t - we don't need this currently, but when we have storage driver domains,
-               we will. Also this causes the SMRT tests to fail, as they demand the loopback VBDs *)
+            (* Dom0 doesn't have a vm_t - we don't need this currently, but when
+               we have storage driver domains, we will. Also this causes the
+               SMRT tests to fail, as they demand the loopback VBDs *)
             Option.iter
               (fun q ->
                 let _ =
@@ -3416,17 +3437,19 @@ module VBD = struct
   let unplug task vm vbd force =
     with_xc_and_xs (fun xc xs ->
         try
-          (* On destroying the datapath:
-             1. if the device has already been shutdown and deactivated (as in suspend) we
-             must call DP.destroy here to avoid leaks
-             2. if the device is successfully shutdown here then we must call DP.destroy
-             because no-one else will
-             3. if the device shutdown is rejected then we should leave the DP alone and
-             rely on the event thread calling us again later.
-          *)
+          (* On destroying the datapath
+
+             1. if the device has already been shutdown and deactivated (as in
+             suspend) we must call DP.destroy here to avoid leaks
+
+             2. if the device is successfully shutdown here then we must call
+             DP.destroy because no-one else will
+
+             3. if the device shutdown is rejected then we should leave the DP
+             alone and rely on the event thread calling us again later. *)
           let domid = domid_of_uuid ~xc ~xs (uuid_of_string vm) in
-          (* If the device is gone then we don't need to shut it down but we do need
-             to free any storage resources. *)
+          (* If the device is gone then we don't need to shut it down but we do
+             need to free any storage resources. *)
           let dev =
             try
               Some (device_by_id xc xs vm (device_kind_of ~xs vbd) (id_of vbd))
@@ -3469,14 +3492,16 @@ module VBD = struct
                    (ignoring and removing anyway)"
                   vm (id_of vbd) ;
               (* this happens on normal shutdown too *)
-              (* Case (1): success; Case (2): success; Case (3): an exception is thrown *)
+              (* Case (1): success; Case (2): success; Case (3): an exception is
+                 thrown *)
               Xenops_task.with_subtask task
                 (Printf.sprintf "Vbd.clean_shutdown %s" (id_of vbd))
                 (fun () ->
                   (if force then Device.hard_shutdown else Device.clean_shutdown)
                     task ~xs dev))
             dev ;
-          (* We now have a shutdown device but an active DP: we should destroy the DP if the backend is of type VDI *)
+          (* We now have a shutdown device but an active DP: we should destroy
+             the DP if the backend is of type VDI *)
           finally
             (fun () ->
               Option.iter
@@ -3495,7 +3520,8 @@ module VBD = struct
                          let _, qemu_vbd =
                            List.assoc vbd.Vbd.id persistent.VmExtra.qemu_vbds
                          in
-                         (* destroy_vbd_frontend ignores 'refusing to close' transients' *)
+                         (* destroy_vbd_frontend ignores 'refusing to close'
+                            transients' *)
                          destroy_vbd_frontend ~xc ~xs task qemu_vbd ;
                          VmExtra.
                            {
@@ -3575,7 +3601,8 @@ module VBD = struct
                 let paths =
                   Device_common.kthread_pid_paths_of_device ~xs device
                 in
-                (* May be [], which means that the kthread-pids haven't been written yet. We'll be called back later. *)
+                (* May be [], which means that the kthread-pids haven't been
+                   written yet. We'll be called back later. *)
                 List.iter
                   (fun path -> xs.Xs.read path |> int_of_string |> ionice qos)
                   paths
@@ -3588,7 +3615,8 @@ module VBD = struct
     try
       match Device_common.kthread_pid_paths_of_device ~xs device with
       | path :: _ ->
-          (* Assume that all threads have the same QoS config, because that is how we set it above *)
+          (* Assume that all threads have the same QoS config, because that is
+             how we set it above *)
           let kthread_pid = xs.Xs.read path |> int_of_string in
           let i =
             run !Xc_resources.ionice (Ionice.get_args kthread_pid)
@@ -3828,7 +3856,8 @@ module VIF = struct
   let plug_exn task vm vif =
     (* Verify that there is metadata present for the VM *)
     let _ = DB.read_exn vm in
-    (* If the vif isn't listed as "active" then we don't automatically plug this one in *)
+    (* If the vif isn't listed as "active" then we don't automatically plug this
+       one in *)
     if not (get_active vm vif) then
       debug "VIF %s.%s is not active: not plugging into VM" (fst vif.Vif.id)
         (snd vif.Vif.id)
@@ -4076,7 +4105,8 @@ module VIF = struct
               (run
                  !Xc_resources.setup_vif_rules
                  ["classic"; vif_interface_name; vm; devid; "filter"]) ;
-            (* Update rules for the tap device if the VM has booted HVM with no PV drivers. *)
+            (* Update rules for the tap device if the VM has booted HVM with no
+               PV drivers. *)
             let di = Xenctrl.domain_getinfo xc device.frontend.domid in
             if VM.get_domain_type ~xs di = Vm.Domain_HVM then
               ignore
@@ -4204,7 +4234,8 @@ module VIF = struct
                        ; hotplug_path
                        ])
                 with _ ->
-                  (* There won't be a tap device if the VM has PV drivers loaded. *)
+                  (* There won't be a tap device if the VM has PV drivers
+                     loaded. *)
                   ()
             in
             if proxy = None then (
@@ -4262,10 +4293,10 @@ module VIF = struct
                   true
                 with _ -> false
               in
-              (* We say the device is present unless it has been deleted
-                 from xenstore. The corrolary is that: only when the device
-                 is finally deleted from xenstore, can we remove bridges or
-                 switch configuration. *)
+              (* We say the device is present unless it has been deleted from
+                 xenstore. The corrolary is that: only when the device is
+                 finally deleted from xenstore, can we remove bridges or switch
+                 configuration. *)
               {
                 Vif.active= true
               ; plugged= true
@@ -4345,13 +4376,15 @@ module Actions = struct
                 , persistent.VmExtra.pv_drivers_detected )
               with
               | true, false ->
-                  (* State "connected" (4) means that PV drivers are present for this device *)
+                  (* State "connected" (4) means that PV drivers are present for
+                     this device *)
                   debug "VM = %s; found PV driver evidence on %s (value = %s)"
                     vm path value ;
                   true
               | false, true ->
-                  (* This device is not connected, while earlier we detected PV drivers. *)
-                  (* We conclude that drivers are still present if any other device is connected. *)
+                  (* This device is not connected, while earlier we detected PV
+                     drivers. We conclude that drivers are still present if any
+                     other device is connected. *)
                   let devices = Device_common.list_frontends ~xs domid in
                   let found =
                     (* Return `true` as soon as a device in state 4 is found. *)
@@ -4385,7 +4418,8 @@ module Actions = struct
           with Xs_protocol.Enoent _ ->
             warn "Watch event on %s fired but couldn't read from it" path ;
             ()
-            (* the path must have disappeared immediately after the watch fired. Let's treat this as if we never saw it. *)
+            (* the path must have disappeared immediately after the watch fired.
+               Let's treat this as if we never saw it. *)
         ))
       (DB.read vm)
 
@@ -4449,8 +4483,8 @@ module Actions = struct
         List.iter (Xenstore_watch.unwatch ~xs token) (watches_of_device d))
       (try IntMap.find domid !device_watches with Not_found -> []) ;
     device_watches := IntMap.remove domid !device_watches ;
-    (* Anyone blocked on a domain/device operation which won't happen because the domain
-       just shutdown should be cancelled here. *)
+    (* Anyone blocked on a domain/device operation which won't happen because
+       the domain just shutdown should be cancelled here. *)
     debug "Cancelling watches for: domid %d" domid ;
     Cancel_utils.on_shutdown ~xs domid ;
     (* Finally, discard any device caching for the domid destroyed *)
@@ -4464,7 +4498,8 @@ module Actions = struct
         debug "action-after-qemu-crash=%s" action ;
         match action with
         | "poweroff" ->
-            (* we do not expect a HVM guest to survive qemu disappearing, so kill the VM *)
+            (* we do not expect a HVM guest to survive qemu disappearing, so
+               kill the VM *)
             Domain.set_action_request ~xs di.Xenctrl.domid (Some "poweroff")
         | "pause" ->
             (* useful for debugging qemu *)
@@ -4600,7 +4635,8 @@ module Actions = struct
           "Watch on backend domid: %s kind: %s -> frontend domid: %s devid: %s"
           domid kind frontend devid ;
         fire_event_on_device frontend kind devid ;
-        (* If this event was a state change then this might be the first time we see evidence of PV drivers *)
+        (* If this event was a state change then this might be the first time we
+           see evidence of PV drivers *)
         if key = ["state"] then
           maybe_update_pv_drivers_detected ~xc ~xs (int_of_string frontend) path
     | "local" :: "domain" :: frontend :: "device" :: _ ->
@@ -4660,9 +4696,8 @@ end
 
 module Watcher = Xenstore_watch.WatchXenstore (Actions)
 
-(* Here we analyse common startup errors in more detail and
-   suggest the most likely fixes (e.g. switch to root, start missing
-   service) *)
+(* Here we analyse common startup errors in more detail and suggest the most
+   likely fixes (e.g. switch to root, start missing service) *)
 
 let look_for_forkexec () =
   try
@@ -4737,8 +4772,10 @@ let init () =
     with_xs (fun xs ->
         xs.Xs.write disable_udev_path "1" ;
         info "Written %s to disable the hotplug/udev scripts" disable_udev_path) ;
-  (* XXX: is this completely redundant now? The Citrix PV drivers don't need this any more *)
-  (* Special XS entry looked for by the XenSource PV drivers (see xenagentd.hg:src/xad.c) *)
+  (* XXX: is this completely redundant now? The Citrix PV drivers don't need
+     this any more *)
+  (* Special XS entry looked for by the XenSource PV drivers (see
+     xenagentd.hg:src/xad.c) *)
   let xe_key = "/mh/XenSource-TM_XenEnterprise-TM" in
   let xe_val =
     "XenSource(TM) and XenEnterprise(TM) are registered trademarks of \

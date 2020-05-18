@@ -214,7 +214,8 @@ let assert_file_is_readable filename =
 
 let maybe f = function None -> () | Some x -> f x
 
-(* Recursively iterate over a directory and all its children, calling fn for each *)
+(* Recursively iterate over a directory and all its children, calling fn for
+   each *)
 let rec xenstore_iter t fn path =
   fn path ;
   match t.Xst.directory path with
@@ -423,11 +424,9 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
           in
           if xsi_254 then [] else device_dirs
         in
-        (* create read/write nodes for the guest to use. XSI-254:
-           * disable creation of empty device entries in the domain
-           * hierarchy upon request. Always create them in the xenops
-           * hierarchy
-        *)
+        (* create read/write nodes for the guest to use. XSI-254: disable
+           creation of empty device entries in the domain hierarchy upon
+           request. Always create them in the xenops hierarchy *)
         mksubdirs dom_path
           (device_dirs'
           @ [
@@ -453,7 +452,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     if vm_info.is_uefi then
       xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
     (* If a toolstack sees a domain which it should own in this state then the
-       		   domain is not completely setup and should be shutdown. *)
+       domain is not completely setup and should be shutdown. *)
     xs.Xs.write (dom_path ^ "/action-request") "poweroff" ;
     xs.Xs.write
       (dom_path ^ "/control/platform-feature-multiprocessor-suspend")
@@ -461,8 +460,8 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     xs.Xs.write
       (dom_path ^ "/control/has-vendor-device")
       (if vm_info.has_vendor_device then "1" else "0") ;
-    (* CA-30811: let the linux guest agent easily determine if this is a fresh domain even if
-       		   the domid hasn't changed (consider cross-host migrate) *)
+    (* CA-30811: let the linux guest agent easily determine if this is a fresh
+       domain even if the domid hasn't changed (consider cross-host migrate) *)
     xs.Xs.write
       (dom_path ^ "/unique-domain-id")
       (Uuid.to_string (Uuid.create `V4)) ;
@@ -560,14 +559,16 @@ let shutdown ~xc ~xs domid req =
         with Xs_protocol.Enoent _ -> false
       in
       if not domain_exists then raise Domain_does_not_exist ;
-      (* Delete the node if it already exists. NB: the guest may well still shutdown for the
-         				previous reason... we only want to give it a kick again just in case. *)
+      (* Delete the node if it already exists. NB: the guest may well still
+         shutdown for the previous reason... we only want to give it a kick
+         again just in case. *)
       ( try t.Xst.rm path with _ -> ()
       ) ;
       t.Xst.write path reason)
 
-(** If domain is enlightened, signal it to shutdown. If the domain fails to respond then throw a Watch.Timeout exception.
-    	All other exceptions imply the domain has disappeared. *)
+(** If domain is enlightened, signal it to shutdown. If the domain fails to
+    respond then throw a Watch.Timeout exception. All other exceptions imply the
+    domain has disappeared. *)
 let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
     (domain_type : [`pv | `pvh | `hvm]) req =
   let di = Xenctrl.domain_getinfo xc domid in
@@ -621,14 +622,14 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
   let s = Printf.sprintf "deadbeef-dead-beef-dead-beef0000%04x" domid in
   Xenctrl.domain_sethandle xc domid s ;
   (* These are the devices with a frontend in [domid] and a well-formed backend
-     	   in some other domain *)
+     in some other domain *)
   let all_devices = list_frontends ~xs domid in
   debug "VM = %s; domid = %d; Domain.destroy: all known devices = [ %a ]"
     (Uuid.to_string uuid) domid
     (fun () -> String.concat "; ")
     (List.map string_of_device all_devices) ;
-  (* Any other domains with the same UUID as the one we are destroying.
-     	 * There can be one during a localhost migration. *)
+  (* Any other domains with the same UUID as the one we are destroying. There
+     can be one during a localhost migration. *)
   let other_domains = Xenops_helpers.domains_of_uuid ~xc uuid in
   debug
     "VM = %s; domid = %d; Domain.destroy: other domains with the same UUID = [ \
@@ -636,7 +637,8 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (Uuid.to_string uuid) domid
     (fun () -> String.concat "; ")
     (List.map (fun x -> string_of_int x.Xenctrl.domid) other_domains) ;
-  (* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU mapping *)
+  (* reset PCI devices before xc.domain_destroy otherwise we lot all IOMMU
+     mapping *)
   let _, all_pci_devices = List.split (Device.PCI.list xs domid) in
   List.iter
     (fun pcidev ->
@@ -646,8 +648,10 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
         (fun () -> Device.PCI.reset ~xs pcidev)
         ())
     all_pci_devices ;
-  (* PCI specification document says that the Function must complete the FLR within 100 ms
-     https://pcisig.com/sites/default/files/specification_documents/ECN_RN_29_Aug_2013.pdf on page 7 *)
+  (* PCI specification document says that the Function must complete the FLR
+     within 100 ms
+     https://pcisig.com/sites/default/files/specification_documents/ECN_RN_29_Aug_2013.pdf
+     on page 7 *)
   Thread.delay 0.1 ;
   List.iter
     (fun pcidev ->
@@ -674,8 +678,8 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (fun device ->
       try Device.hard_shutdown task ~xs device
       with e ->
-        (* If this fails we may have a resource leak. We should prevent
-           		  this from happening! *)
+        (* If this fails we may have a resource leak. We should prevent this
+           from happening! *)
         error
           "VM = %s; domid = %d; Caught exception %s while destroying device %s"
           (Uuid.to_string uuid) domid (Printexc.to_string e)
@@ -683,7 +687,7 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
       (* Keep going on a best-effort basis *))
     all_devices ;
   (* For each device which has a hotplug entry, perform the cleanup. Even if one
-     	   fails, try to cleanup the rest anyway.*)
+     fails, try to cleanup the rest anyway.*)
   let released = ref [] in
   List.iter
     (fun x ->
@@ -694,8 +698,8 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
           released := x :: !released)
         ())
     all_devices ;
-  (* If we fail to release a device we leak resources. If we are to tolerate this
-     	   then we need an async cleanup thread. *)
+  (* If we fail to release a device we leak resources. If we are to tolerate
+     this then we need an async cleanup thread. *)
   let failed_devices =
     List.filter (fun x -> not (List.mem x !released)) all_devices
   in
@@ -710,8 +714,8 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
     (fun vm_path ->
       log_exn_rm ~xs (vm_path ^ "/domains/" ^ string_of_int domid))
     vm_path ;
-  (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid>
-   * and all the backend device paths *)
+  (* Delete /local/domain/<domid>, /xenops/domain/<domid>, /libxl/<domid> and
+     all the backend device paths *)
   debug "VM = %s; domid = %d; xenstore-rm %s" (Uuid.to_string uuid) domid
     dom_path ;
   xs.Xs.rm dom_path ;
@@ -728,9 +732,9 @@ let destroy (task : Xenops_task.task_handle) ~xc ~xs ~qemu_domid ~dm domid =
         all_backend_types)
     ["/backend"; "/xenserver/backend"] ;
   (* If all devices were properly un-hotplugged, then zap the private tree in
-   * xenstore.  If there was some error leave the tree for debugging / async
-   * cleanup.  If there are any remaining domains with the same UUID, then
-   * zap only the hotplug tree for the destroyed domain. *)
+     xenstore. If there was some error leave the tree for debugging / async
+     cleanup. If there are any remaining domains with the same UUID, then zap
+     only the hotplug tree for the destroyed domain. *)
   if failed_devices = [] then
     if List.length other_domains < 1 then
       log_exn_rm ~xs (Device_common.get_private_path_by_uuid uuid)
@@ -994,8 +998,8 @@ let xenguest task xenguest_path domid uuid args =
       raise Domain_build_failed
 
 let correct_shadow_allocation xc domid uuid shadow_mib =
-  (* The domain builder may reduce our shadow allocation under our feet.
-   * Detect this and override. *)
+  (* The domain builder may reduce our shadow allocation under our feet. Detect
+     this and override. *)
   let requested_shadow_mib = Int64.to_int shadow_mib in
   let actual_shadow_mib = Xenctrl.shadow_allocation_get xc domid in
   if actual_shadow_mib < requested_shadow_mib then (
@@ -1292,17 +1296,19 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
       in
       with_emu_manager_restore task ~domain_type ~dm ~store_port ~console_port
         ~extras manager_path domid uuid main_fd vgpu_fd (fun cnx ->
-          (* Maintain a list of results returned by emu-manager that are expected
-           * by the reader threads. Contains the emu for which a result is wanted
-           * plus an event channel for waking up the reader once the result is in. *)
+          (* Maintain a list of results returned by emu-manager that are
+             expected by the reader threads. Contains the emu for which a result
+             is wanted plus an event channel for waking up the reader once the
+             result is in. *)
           let thread_requests = ref [] in
           let thread_requests_m = Mutex.create () in
           let emu_manager_send_m = Mutex.create () in
           let restore_and_wait emu =
-            (* Called by a reader thread to send a "restore" request to emu-manager
-             * and wait for the result. Results from emu-manager come in on the main
-             * thread, and collected there. All we need to do here is block until
-             * this has happened before sending the next request to emu-manager. *)
+            (* Called by a reader thread to send a "restore" request to
+               emu-manager and wait for the result. Results from emu-manager
+               come in on the main thread, and collected there. All we need to
+               do here is block until this has happened before sending the next
+               request to emu-manager. *)
             let wakeup = Event.new_channel () in
             Mutex.execute thread_requests_m (fun () ->
                 thread_requests := (emu, wakeup) :: !thread_requests) ;
@@ -1312,7 +1318,8 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
             >>= fun () ->
             debug "Sent restore:%s to emu-manager. Waiting for result..."
               (string_of_emu emu) ;
-            (* Block until woken up by the main thread once the result has been received. *)
+            (* Block until woken up by the main thread once the result has been
+               received. *)
             Event.receive wakeup |> Event.sync ;
             Mutex.execute thread_requests_m (fun () ->
                 thread_requests := List.remove_assoc emu !thread_requests) ;
@@ -1362,10 +1369,9 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 `Error Suspend_image_failure
           in
           let handle_results () =
-            (* Wait for results coming in from emu-manager, and match them
-             * up with requests from the reader threads.
-             * Emu-manager exits when it is done, so we stop when receiving
-             * an EOF on the control channel. *)
+            (* Wait for results coming in from emu-manager, and match them up
+               with requests from the reader threads. Emu-manager exits when it
+               is done, so we stop when receiving an EOF on the control channel. *)
             let rec loop results =
               try
                 debug "Waiting for response from emu-manager" ;
@@ -1381,7 +1387,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 ) else (
                   error "Received unexpected response from emu-manager" ;
                   (* Exhaust the thread_requests before returning the error,
-                   * this prevenst leaking blocked results threads *)
+                     this prevenst leaking blocked results threads *)
                   List.iter
                     (fun (emu, wakeup) -> Event.send wakeup () |> Event.sync)
                     !thread_requests ;
@@ -1419,7 +1425,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
           in
           let start_reader_thread fd =
             (* Start a reader thread on the given fd. Add a channel back to the
-             * main thread for status reporting *)
+               main thread for status reporting *)
             debug "Starting reader thread (fd=%d)" (Obj.magic fd) ;
             let ch = Event.new_channel () in
             let th =
@@ -1442,8 +1448,8 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
           in
           let receive_thread_status threads_and_channels =
             (* Receive the status from all reader threads and let them exit.
-             * This happens in two steps to make sure that we are unblocking
-             * and closing all threads also in case of errors. *)
+               This happens in two steps to make sure that we are unblocking and
+               closing all threads also in case of errors. *)
             List.map
               (fun (th, ch) _ ->
                 let status = Event.receive ch |> Event.sync in
@@ -1536,21 +1542,6 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
   build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib domid domain_type
     store_mfn store_port local_stuff vm_stuff
 
-(*
-  let restore (task: Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
-      ~no_incr_generationid ~timeoffset ~extras info ~manager_path domid fd vgpu_fd =
-    let restore_fct = match info.priv with
-      | BuildHVM hvminfo ->
-        hvm_restore task ~shadow_multiplier:hvminfo.shadow_multiplier
-          ~timeoffset
-      | BuildPV pvinfo   ->
-        pv_restore task
-    in
-    restore_fct ~xc ~xs ~store_domid ~console_domid ~no_incr_generationid
-      ~static_max_kib:info.memory_max ~target_kib:info.memory_target ~vcpus:info.vcpus ~extras
-      manager_path domid fd vgpu_fd
-*)
-
 let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
     ~is_uefi ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
     ~progress_callback ~qemu_domid ~do_suspend_callback =
@@ -1589,8 +1580,8 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
   let fds = [(fd_uuid, main_fd)] @ vgpu_args in
   (* Start the emu-manager process and connect to the control socket *)
   with_connection task manager_path domid args fds (fun cnx ->
-      (* Callback to monitor the debug (stderr) output of the process and
-              		   spot the progress indicator *)
+      (* Callback to monitor the debug (stderr) output of the process and spot
+         the progress indicator *)
       let callback txt =
         let prefix = "\\b\\b\\b\\b" in
         if Astring.String.is_prefix ~affix:prefix txt then
@@ -1613,8 +1604,8 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
               error
                 "VM = %s; domid = %d; failed to parse progress update: \"%s\""
                 (Uuid.to_string uuid) domid percent ;
-              (* MTC: catch exception by progress_callback, for example,
-                 an abort request, and re-raise them *)
+              (* MTC: catch exception by progress_callback, for example, an
+                 abort request, and re-raise them *)
               raise e
           )
           | _ ->
@@ -1710,10 +1701,9 @@ let write_varstored_record task ~xs domid main_fd =
   Io.write main_fd varstored_record ;
   return ()
 
-(* suspend register the callback function that will be call by linux_save
- * and is in charge to suspend the domain when called. the whole domain
- * context is saved to fd
- *)
+(* suspend register the callback function that will be call by linux_save and is
+   in charge to suspend the domain when called. the whole domain context is
+   saved to fd *)
 let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     ~manager_path vm_str domid main_fd vgpu_fd flags
     ?(progress_callback = fun _ -> ()) ~qemu_domid do_suspend_callback =
@@ -1729,11 +1719,9 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
   debug "Writing save signature: %s" save_signature ;
   Io.write main_fd save_signature ;
   (* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
-     	 * (xs.Xs.getdomainpath domid)] and this data was written to [fd].
-     	 * However, on the receiving side this data is never used. As a
-     	 * short-term fix, we sent nothing but keep the write to maintain the
-     	 * protocol.
-  *)
+     (xs.Xs.getdomainpath domid)] and this data was written to [fd]. However, on
+     the receiving side this data is never used. As a short-term fix, we sent
+     nothing but keep the write to maintain the protocol. *)
   let res =
     let xs_subtree = [] in
     Xenops_record.(to_string (make ~xs_subtree ~vm_str ()))
@@ -1754,9 +1742,9 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     )
     >>= fun () ->
     (* Qemu record (if this is a hvm domain) *)
-    (* Currently Qemu suspended inside above call with the libxc memory
-       		* image, we should try putting it below in the relevant section of the
-       		* suspend-image-writing *)
+    (* Currently Qemu suspended inside above call with the libxc memory image,
+       we should try putting it below in the relevant section of the
+       suspend-image-writing *)
     ( if domain_type = `hvm then
         write_qemu_record domid uuid main_fd
     else
@@ -1786,18 +1774,6 @@ let send_s3resume ~xc domid =
   Xenctrlext.domain_send_s3resume xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
-  (*
-	let bitmap = ref Int64.zero in
-	if Array.length cpumap > 64 then
-		invalid_arg "affinity_set";
-	let bit_set bitmap n =
-		Int64.logor bitmap (Int64.shift_left 1L n) in
-	(* set bits in the bitmap that are true *)
-	Array.iteri (fun i has_affinity ->
-		if has_affinity then bitmap := bit_set !bitmap i
-		) cpumap;
-	(*Xenctrl.vcpu_affinity_set xc domid vcpu !bitmap*)
-	*)
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; vcpu_affinity_set %d <- %s" (Uuid.to_string uuid)
     domid vcpu
@@ -1806,15 +1782,6 @@ let vcpu_affinity_set ~xc domid vcpu cpumap =
   Xenctrl.vcpu_affinity_set xc domid vcpu cpumap
 
 let vcpu_affinity_get ~xc domid vcpu =
-  (*
-	let pcpus = (Xenctrl.physinfo xc).Xenctrl.max_nr_cpus in
-	(* NB we ignore bits corresponding to pCPUs which we don't have *)
-	let bitmap = Xenctrl.vcpu_affinity_get xc domid vcpu in
-	let bit_isset bitmap n =
-		(Int64.logand bitmap (Int64.shift_left 1L n)) > 0L in
-	let cpumap = Array.of_list (List.map (bit_isset bitmap) (List.range 0 pcpus)) in
-	cpumap
-	*)
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; vcpu_affinity_get %d" (Uuid.to_string uuid) domid
     vcpu ;
@@ -1874,9 +1841,9 @@ let del_irq ~xc domid irq =
   debug "VM = %s; domid = %d; irq del %#x" (Uuid.to_string uuid) domid irq ;
   Xenctrl.domain_irq_permission xc domid irq false
 
-(** Sets the current memory target for a running VM, to the given value (in KiB),
-    by writing the target to XenStore. The value is automatically rounded down to
-    the nearest page boundary. *)
+(** Sets the current memory target for a running VM, to the given value (in
+    KiB), by writing the target to XenStore. The value is automatically rounded
+    down to the nearest page boundary. *)
 let set_memory_target ~xs domid mem_kib =
   let mem_kib = Memory.round_kib_down_to_nearest_page_boundary mem_kib in
   let dompath = xs.Xs.getdomainpath domid in

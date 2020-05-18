@@ -95,20 +95,19 @@ val string_of_kind : kind -> string
 val kind_of_string : string -> kind
 
 val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
-(** [list_backends xs domid] returns a list of devices where there is a
-    	backend in [domid]. This function only reads data stored in the backend
-    directory.*)
+(** [list_backends xs domid] returns a list of devices where there is a backend
+    in [domid]. This function only reads data stored in the backend directory.*)
 
 val list_frontends :
   xs:Xenstore.Xs.xsh -> ?for_devids:int list -> Xenctrl.domid -> device list
 (** [list_frontends xs domid] returns a list of devices where there is a
-    	frontend in [domid]. This function only reads data stored in the frontend
+    frontend in [domid]. This function only reads data stored in the frontend
     directory.*)
 
 val list_devices_between :
   xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid -> device list
-(** Return a list of devices connecting two domains. Ignore those whose kind
-    we don't recognise *)
+(** Return a list of devices connecting two domains. Ignore those whose kind we
+    don't recognise *)
 
 val device_of_backend : endpoint -> Xenctrl.domid -> device
 

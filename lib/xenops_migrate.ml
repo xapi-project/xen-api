@@ -18,11 +18,15 @@ open D
 
 exception Remote_failed of string
 
-(** Functions to synchronise between the sender and receiver via binary messages of the form:
+(** Functions to synchronise between the sender and receiver via binary messages
+    of the form:
+
     00 00 -- success
-    11 22 <0x1122 bytes of data> -- failure, with error message
-    Used rather than the API for signalling between sender and receiver to avoid having to
-    go through the master and interact with locking. *)
+
+    11 22 <0x1122 bytes of data> -- failure, with error message.
+
+    Used rather than the API for signalling between sender and receiver to avoid
+    having to go through the master and interact with locking. *)
 module Handshake = struct
   type result = Success | Error of string
 
@@ -64,7 +68,8 @@ module Handshake = struct
         debug "Handshake.recv: finished reading error message from remote." ;
       Error (Bytes.unsafe_to_string msg)
 
-  (** Expects to receive a success code from the server, throws an exception otherwise *)
+  (** Expects to receive a success code from the server, throws an exception
+      otherwise *)
   let recv_success ?verbose (s : Unix.file_descr) : unit =
     match recv ?verbose s with
     | Success ->

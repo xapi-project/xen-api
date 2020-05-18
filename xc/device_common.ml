@@ -138,7 +138,8 @@ let frontend_rw_path_of_device ~xs (x : device) =
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
-(** Location of the frontend read-only path (owned by dom0 not guest) in xenstore *)
+(** Location of the frontend read-only path (owned by dom0 not guest) in
+    xenstore *)
 let frontend_ro_path_of_device ~xs (x : device) =
   sprintf "/xenops/domain/%d/device/%s/%d" x.frontend.domid
     (string_of_kind x.frontend.kind)
@@ -158,13 +159,15 @@ let disconnect_path_of_device ~xs (x : device) =
     (string_of_kind x.frontend.kind)
     x.frontend.devid
 
-(** Where linux blkback writes its thread id. NB this won't work in a driver domain *)
+(** Where linux blkback writes its thread id. NB this won't work in a driver
+    domain *)
 let kthread_pid_path_of_device ~xs (x : device) =
   sprintf "%s/kthread-pid" (backend_path_of_device ~xs x)
 
 let backend_queue_regexp = Re.Pcre.regexp "^queue-\\d+$"
 
-(** Where linux blkback may write its thread ids if multiple queues/rings are in use *)
+(** Where linux blkback may write its thread ids if multiple queues/rings are in
+    use *)
 let kthread_pid_paths_of_device ~xs (x : device) =
   let backend_path = backend_path_of_device ~xs x in
   let paths = xs.Xs.directory backend_path in
@@ -225,26 +228,27 @@ let string_of_device (x : device) =
     (string_of_endpoint x.frontend)
     (string_of_endpoint x.backend)
 
-(* We use this function below to switch from domid- to UUID-based private
- * paths. It can be made a little more efficient by changing the functions below
- * to take the UUID as an argument (and change the callers as well...) *)
+(* We use this function below to switch from domid- to UUID-based private paths.
+   It can be made a little more efficient by changing the functions below to
+   take the UUID as an argument (and change the callers as well...) *)
 let uuid_of_domid domid =
   try
     with_xs (fun xs -> Uuidm.to_string (Xenops_helpers.uuid_of_domid ~xs domid))
   with Xenops_helpers.Domain_not_found ->
     error "uuid_of_domid failed for domid %d" domid ;
     (* Returning a random string on error is not very neat, but we must avoid
-       		 * exceptions here. This patch must be followed soon by a patch that changes the
-       		 * callers of get_private_path{_of_device} to call by UUID, so that this code
-       		 * can go away. *)
+       exceptions here. This patch must be followed soon by a patch that changes
+       the callers of get_private_path{_of_device} to call by UUID, so that this
+       code can go away. *)
     Printf.sprintf "unknown-domid-%d" domid
 
 (* We store some transient data elsewhere in xenstore to avoid it getting
-   deleted by accident when a domain shuts down. We should always zap this
-   tree on boot. *)
+   deleted by accident when a domain shuts down. We should always zap this tree
+   on boot. *)
 let private_path = "/xapi"
 
-(* The private data path is only used by xapi and ignored by frontend and backend *)
+(* The private data path is only used by xapi and ignored by frontend and
+   backend *)
 let get_private_path domid = sprintf "%s/%s" private_path (uuid_of_domid domid)
 
 let get_private_path_by_uuid uuid =
@@ -315,9 +319,9 @@ let to_list ys = List.concat (List.map Option.to_list ys)
 
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
-(* NB: we only read data from the frontend directory. Therefore this gives
-   the "frontend's point of view", using data that we wrote into a subtree
-   that is writable dom0 only (not by the frontend domain). *)
+(* NB: we only read data from the frontend directory. Therefore this gives the
+   "frontend's point of view", using data that we wrote into a subtree that is
+   writable dom0 only (not by the frontend domain). *)
 let list_frontends ~xs ?for_devids domid =
   let frontend_dir = sprintf "/xenops/domain/%d/device" domid in
   let kinds = list_kinds ~xs frontend_dir in
@@ -342,8 +346,7 @@ let list_frontends ~xs ?for_devids domid =
          to_list
            (List.map
               (fun devid ->
-                (* domain [domid] believes it has a frontend for
-                   					   device [devid] *)
+                (* domain [domid] believes it has a frontend for device [devid] *)
                 let frontend = {domid; kind= k; devid} in
                 try
                   let link = xs.Xs.read (sprintf "%s/%d/backend" dir devid) in
@@ -356,8 +359,8 @@ let list_frontends ~xs ?for_devids domid =
               devids))
        kinds)
 
-(* NB: we only read data from the backend directory. Therefore this gives
-   the "backend's point of view". *)
+(* NB: we only read data from the backend directory. Therefore this gives the
+   "backend's point of view". *)
 let list_backends ~xs domid =
   let backend_dir = xs.Xs.getdomainpath domid ^ "/backend" in
   let kinds = list_kinds ~xs backend_dir in
@@ -378,7 +381,7 @@ let list_backends ~xs domid =
                   (List.map
                      (fun devid ->
                        (* domain [domid] believes it has a backend for
-                          							   [frontend_domid] of type [k] with devid [devid] *)
+                          [frontend_domid] of type [k] with devid [devid] *)
                        let backend = {domid; kind= k; devid} in
                        try
                          let link =
@@ -394,8 +397,8 @@ let list_backends ~xs domid =
               domids))
        kinds)
 
-(** Return a list of devices connecting two domains. Ignore those whose kind
-    we don't recognise *)
+(** Return a list of devices connecting two domains. Ignore those whose kind we
+    don't recognise *)
 let list_devices_between ~xs driver_domid user_domid =
   List.filter
     (fun d -> d.frontend.domid = user_domid)
@@ -455,8 +458,8 @@ let is_upstream_qemu domid =
     = "qemu_xen"
   with _ -> false
 
-(** [make_id_generator] returns a function that creates unique IDs using
- * an internal counter *)
+(** [make_id_generator] returns a function that creates unique IDs using an
+    internal counter *)
 let make_id_generator name =
   let count = ref 0 in
   fun domid ->
@@ -465,12 +468,11 @@ let make_id_generator name =
 
 let make_qmp_id = make_id_generator "qmp"
 
-(** [qmp_send_cmd_internal connection domid cmd] sends [cmd] to QEMU, waits
- * for the *matching* response, and returns the result. It uses an
- * already open and negotiated [connection]. Commands are tagged with an
- * identifier and the function waits for the matching response, skipping
- * all other responses it receives while waiting.
-*)
+(** [qmp_send_cmd_internal connection domid cmd] sends [cmd] to QEMU, waits for
+    the *matching* response, and returns the result. It uses an already open and
+    negotiated [connection]. Commands are tagged with an identifier and the
+    function waits for the matching response, skipping all other responses it
+    receives while waiting. *)
 let qmp_send_cmd_internal connection domid cmd =
   let id = make_qmp_id domid in
   let msg = Qmp.Command (Some id, cmd) in
@@ -517,13 +519,11 @@ let with_qmp_connection domid f =
     (fun () -> f connection)
     (fun () -> exec (fun () -> Qmp_protocol.close connection))
 
-(* [qmp_send_cmd domid cmd] sends [cmd] to [domid] and checks that the
- * result it returns is Success. Otherwise it will raise [QMP_Error].
- *
- * [qmp_send_cmd] can send optionally a file descriptor [send_fd]
- * over the connection before it sends the command. This is required for
- * some commands.
- *)
+(** [qmp_send_cmd domid cmd] sends [cmd] to [domid] and checks that the result
+    it returns is Success. Otherwise it will raise [QMP_Error].
+
+    [qmp_send_cmd] can send optionally a file descriptor [send_fd] over the
+    connection before it sends the command. This is required for some commands. *)
 let qmp_send_cmd ?send_fd domid cmd =
   with_qmp_connection domid (fun connection ->
       let result =

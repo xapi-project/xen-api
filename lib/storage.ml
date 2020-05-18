@@ -53,7 +53,7 @@ let vm_of_domid vmdomid =
       Storage_interface.Vm.of_string (string_of_int domid)
   | None ->
       (* If vm is going down the domid might have been removed from xenstore,
-       * pass empty string in this case*)
+         pass empty string in this case*)
       debug
         "Invalid domid, could not be converted to int, passing empty string." ;
       Storage_interface.Vm.of_string ""
@@ -91,14 +91,14 @@ let dp_destroy task dp =
            with
            | Storage_interface.Storage_error (No_storage_plugin_for_sr _sr) as e
              ->
-               (* Since we have an activated disk in this SR, assume we are still
-                  						   waiting for xapi to register the SR's plugin. *)
+               (* Since we have an activated disk in this SR, assume we are
+                  still waiting for xapi to register the SR's plugin. *)
                debug "Caught %s - waiting for xapi to register storage plugins."
                  (Printexc.to_string e) ;
                Thread.delay 5.0
            | e ->
-               (* Backends aren't supposed to return exceptions on deactivate/detach, but they
-                  						   frequently do. Log and ignore *)
+               (* Backends aren't supposed to return exceptions on
+                  deactivate/detach, but they frequently do. Log and ignore *)
                warn "DP destroy returned unexpected exception: %s"
                  (Printexc.to_string e) ;
                waiting_for_plugin := false

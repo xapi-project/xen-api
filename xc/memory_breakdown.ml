@@ -49,8 +49,8 @@ let cli_arguments_extra x = Printf.fprintf stderr "Ignoring argument: %s" x
 
 let flip f x y = f y x
 
-(** Merges two sorted lists into a single sorted list that contains the union
-    of all elements found in both lists. *)
+(** Merges two sorted lists into a single sorted list that contains the union of
+    all elements found in both lists. *)
 let merge xs ys =
   let rec merge xs ys zs =
     match (xs, ys) with
@@ -69,9 +69,9 @@ let merge xs ys =
   in
   List.rev (merge xs ys [])
 
-(** A total ordering on unique guest identifiers that:
-    - orders guest identifiers naturally for normal guests
-    - orders the control domain identifier before any other guest identifier. *)
+(** A total ordering on unique guest identifiers that: - orders guest
+    identifiers naturally for normal guests - orders the control domain
+    identifier before any other guest identifier. *)
 let compare_guests control_domain_id guest_id_1 guest_id_2 =
   if guest_id_1 = control_domain_id then
     -1

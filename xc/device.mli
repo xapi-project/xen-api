@@ -22,7 +22,8 @@ exception Device_not_found
 
 exception Cdrom
 
-(** Definition of available qemu profiles, used by the qemu backend implementations *)
+(** Definition of available qemu profiles, used by the qemu backend
+    implementations *)
 module Profile : sig
   type t =
     | Qemu_trad
@@ -36,12 +37,14 @@ module Profile : sig
   val t : t Rpc.Types.def
 
   val fallback : t
-  (** the fallback profile in case an invalid profile string is provided to [of_string] *)
+  (** the fallback profile in case an invalid profile string is provided to
+      [of_string] *)
 
   val all : t list
   (** all available profiles *)
 
-  (** Valid names for a profile, used to define valid values for VM.platform.device-model *)
+  (** Valid names for a profile, used to define valid values for
+      VM.platform.device-model *)
   module Name : sig
     val qemu_trad : string
 
@@ -54,7 +57,8 @@ module Profile : sig
   (** [wrapper_of profile] returns the qemu wrapper script path of a profile *)
 
   val of_string : string -> t
-  (** [of_string  profile_name] returns the profile of a profile name, and [fallback] if an invalid name is provided. *)
+  (** [of_string profile_name] returns the profile of a profile name, and
+      [fallback] if an invalid name is provided. *)
 end
 
 (** Represent an IPC endpoint *)
@@ -352,7 +356,8 @@ module Dm : sig
 
   type disp_opt =
     | NONE
-    | VNC of disp_intf_opt * string option * bool * int * string option (* IP address, auto-allocate, port if previous false, keymap *)
+    | VNC of disp_intf_opt * string option * bool * int * string option
+    (* IP address, auto-allocate, port if previous false, keymap *)
     | SDL of disp_intf_opt * string
 
   (* X11 display *)

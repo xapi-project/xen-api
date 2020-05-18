@@ -60,7 +60,8 @@ let _ =
     [("-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode")]
     (fun x -> Printf.fprintf stderr "Ignoring argument: %s\n" x)
     "Test cancellation functions" ;
-  (* We need xenstore anyway, so use this to verify that we're running in a domain 0 environment *)
+  (* We need xenstore anyway, so use this to verify that we're running in a
+     domain 0 environment *)
   let xs =
     try Xs.daemon_open ()
     with _ ->

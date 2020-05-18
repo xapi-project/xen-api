@@ -12,12 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* TODO:
-   1. Modify pygrub to extract all possible boot options
-   2. Parse the results into some kind of option list
-   3. Ensure all our guests have complete grub menu.lst (no hacks please!)
-   4. Add support to control a slave screen process, to make a 'bios'
-*)
+(* TODO: 1. Modify pygrub to extract all possible boot options 2. Parse the
+   results into some kind of option list 3. Ensure all our guests have complete
+   grub menu.lst (no hacks please!) 4. Add support to control a slave screen
+   process, to make a 'bios' *)
 
 open Xenops_utils
 open Xenops_task
@@ -62,8 +60,8 @@ type t = {kernel_path: string; initrd_path: string option; kernel_args: string}
 
 (** Helper function to generate a bootloader commandline *)
 let command bootloader q pv_bootloader_args image vm_uuid =
-  (* Let's not do anything fancy while parsing the pv_bootloader_args string:
-     no escaping of spaces or quotes for now *)
+  (* Let's not do anything fancy while parsing the pv_bootloader_args string: no
+     escaping of spaces or quotes for now *)
   let pv_bootloader_args =
     if pv_bootloader_args = "" then
       []
@@ -92,14 +90,12 @@ let command bootloader q pv_bootloader_args image vm_uuid =
       raise (Unknown_bootloader bootloader)
 
 (* The string to parse comes from eliloader or pygrub, which builds it based on
- * reading and processing the grub configuration from the guest's disc.
- * Therefore it may contain malicious content from the guest if pygrub has not
- * cleaned it up sufficiently. *)
-(* Example of a valid three-line string to parse, with blank third line:
- * kernel <kernel:/vmlinuz-2.6.18-412.el5xen>
- * args ro root=/dev/VolGroup00/LogVol00 console=ttyS0,115200n8
- *
- *)
+   reading and processing the grub configuration from the guest's disc.
+   Therefore it may contain malicious content from the guest if pygrub has not
+   cleaned it up sufficiently. *)
+(* Example of a valid three-line string to parse, with blank third line: kernel
+   <kernel:/vmlinuz-2.6.18-412.el5xen> args ro root=/dev/VolGroup00/LogVol00
+   console=ttyS0,115200n8 *)
 type acc_t = {
     kernel: string option
   ; ramdisk: string option
@@ -109,7 +105,7 @@ type acc_t = {
 let parse_output_simple x =
   let parse_line_optimistic acc l =
     (* String.index will raise Not_found on the empty line that pygrub includes
-     * at the end of its simple-format output. *)
+       at the end of its simple-format output. *)
     let space_pos = String.index l ' ' in
     let first_word = String.sub l 0 space_pos in
     let pos = space_pos + 1 in
@@ -178,8 +174,8 @@ let runtimeError = "RuntimeError: "
 
 let parse_exception x =
   debug "Bootloader failed: %s" x ;
-  (* Look through the error for the prefix "RuntimeError: " - raise an exception with a message
-     	 * containing the error from the end of this prefix onwards. *)
+  (* Look through the error for the prefix "RuntimeError: " - raise an exception
+     with a message containing the error from the end of this prefix onwards. *)
   let l = String.length runtimeError in
   match Astring.String.find_sub ~sub:runtimeError x with
   | Some i ->
@@ -189,8 +185,9 @@ let parse_exception x =
       (* no expected prefix *)
       raise (Bad_error x)
 
-(* A layer of defence against the chance of a malicious guest grub config tricking
- * pygrub or eliloader into giving the guest access to an inappropriate file in dom0 *)
+(* A layer of defence against the chance of a malicious guest grub config
+   tricking pygrub or eliloader into giving the guest access to an inappropriate
+   file in dom0 *)
 let sanity_check_path p =
   match p with
   | "" ->

@@ -45,8 +45,6 @@ let ls ~xs = function
       let paths = readdir xs path in
       print_debug "paths = [ %s ]" (String.concat "  " paths) ;
       let longest = List.fold_left max 0 (List.map String.length paths) in
-      (* let perms = List.map (fun x -> catch_invalid (Printf.sprintf "getperms %s" x) xs.Xs.getperms x)
-         	paths in *)
       List.iter
         (fun path ->
           let perm =

@@ -96,8 +96,8 @@ module type FS = sig
   val rename : string list -> string list -> unit
 end
 
-(* Return all the non-empty prefixes of a given string, in descending order by length.
-   prefixes_of [1; 2; 3] = [[1;2;3]; [1;2]; [1]] *)
+(* Return all the non-empty prefixes of a given string, in descending order by
+   length. prefixes_of [1; 2; 3] = [[1;2;3]; [1;2]; [1]] *)
 let prefixes_of k =
   let prefixes, _ =
     List.fold_left
@@ -169,12 +169,13 @@ module FileFS = struct
             Unix.unlink path
         with
         | Unix.Unix_error (Unix.ENOTEMPTY, _, _) ->
-            (* This is thrown by the rmdir when we're trying to delete a directory
-               				     that's got files still in it. It's not an error, so ignore it *)
+            (* This is thrown by the rmdir when we're trying to delete a
+               directory that's got files still in it. It's not an error, so
+               ignore it *)
             ()
         | Unix.Unix_error (Unix.ENOENT, _, _) ->
             (* This is thrown by the `lstat` if we're racing with another thread
-               				     to delete a common directory. Not an error *)
+               to delete a common directory. Not an error *)
             ()
         | e ->
             (* Anything else probably is an error, but we just log and continue *)
@@ -183,7 +184,7 @@ module FileFS = struct
       (paths_of path)
 
   (** [rmtree path] removes a file or directory recursively without following
-  * symbolic links. It may raise [Failure] *)
+      symbolic links. It may raise [Failure] *)
   let rmtree path =
     let ( // ) = Filename.concat in
     let rec rm path =
@@ -428,9 +429,8 @@ functor
 
     (* The call `update k f` reads key `k` from the DB, passes the value to `f`,
        and updates the DB with the result. If the result is `None`, then the key
-       will be deleted. Otherwise, its value will be modified.
-       Returns a Boolean that indicates whether the operation actually
-       changed what is in the DB.
+       will be deleted. Otherwise, its value will be modified. Returns a Boolean
+       that indicates whether the operation actually changed what is in the DB.
        Note that `f` should never itself include an `add`, `remove` or another
        `update` or deadlock will occur! *)
     let update (k : I.key) (f : t option -> t option) : bool =

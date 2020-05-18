@@ -15,8 +15,8 @@
 open Xenops_interface
 open Xenops_utils
 
-(* The network manipulation scripts need to find the VM metadata
-   given only an interface name (e.g. "tapX.Y" or "fooUUID"?) *)
+(* The network manipulation scripts need to find the VM metadata given only an
+   interface name (e.g. "tapX.Y" or "fooUUID"?) *)
 
 module Interface = struct
   type t = {name: string; vif: Vif.id} [@@deriving rpcty]

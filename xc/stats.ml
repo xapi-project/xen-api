@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Time activities, monitor the mean and standard deviation. Try to help understand how
-    long key operations take under load. *)
+(** Time activities, monitor the mean and standard deviation. Try to help
+    understand how long key operations take under load. *)
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
@@ -40,9 +40,8 @@ end
    number should never be proportional to the number of VMs, VIFs etc!
 
    Since these are used for timing data, which is better approximated by a
-   lognormal distribution than a normal one, we take care to apply the
-   lognormal transformations here.
-*)
+   lognormal distribution than a normal one, we take care to apply the lognormal
+   transformations here. *)
 
 open Xenops_utils
 
@@ -81,14 +80,7 @@ let sample (name : string) (x : float) : unit =
           Normal_population.empty
       in
       let p' = Normal_population.sample p x' in
-      Hashtbl.replace timings name p'
-      (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *))
-
-(*
-  (* Check to see if the value is > 3 standard deviations from the mean *)
-  if abs_float (x -. (mean p)) > (sd p *. 3.)
-  then debug "Population %s time more than 3 standard deviations from the mean (time = %f; mean = %s)" name x (string_of p)
-*)
+      Hashtbl.replace timings name p')
 
 (** Helper function to time a specific thing *)
 let time_this (name : string) f =

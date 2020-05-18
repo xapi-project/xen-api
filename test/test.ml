@@ -11,9 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(**
- * @group Storage
-*)
+(** @group Storage *)
 
 let default_path = "/var/xapi/xenopsd"
 
@@ -70,12 +68,10 @@ let task_ended dbg id =
       false
 
 let wait_for_task id =
-  (*	Printf.fprintf stderr "wait_for id = %s\n%!" id; *)
   let finished = function
     | Dynamic.Task id' ->
         id = id' && task_ended dbg id
     | _x ->
-        (* Printf.fprintf stderr "ignore event on %s\n%!" (x |> Dynamic.rpc_of_id |> Jsonrpc.to_string); *)
         false
   in
   event_wait finished ; id
@@ -434,9 +430,6 @@ let vm_test_create_destroy _ =
 let vm_test_pause_unpause _ =
   with_vm example_uuid (fun id ->
       Client.VM.create dbg id |> wait_for_task |> success_task ;
-      (* VM not paused: does not raise exn
-         Client.VM.unpause dbg id |> wait_for_task |> fail_not_built_task;
-      *)
       Client.VM.pause dbg id |> wait_for_task |> fail_not_built_task ;
       Client.VM.destroy dbg id |> wait_for_task |> success_task)
 
@@ -553,15 +546,6 @@ let vm_test_parallel_start_shutdown _ =
   ()
 
 let vm_test_consoles _ = ()
-
-(*
-	with_vm example_uuid
-		(fun id ->
-			success (Client.VM.start id);
-			let (_: Console.t list) = success (Client.CONSOLE.list id) in
-			success (Client.VM.shutdown id None);
-		)
-*)
 
 let vm_test_reboot _ =
   with_vm example_uuid (fun id ->
@@ -884,8 +868,8 @@ let vbd_plug_ordering_good _ =
     }
   in
   let ro position id = {(rw position id) with mode= ReadOnly} in
-  (* We'll try adding the VBDs in both a good order and a bad order.
-     	   The VM.start should plug them in the correct order. *)
+  (* We'll try adding the VBDs in both a good order and a bad order. The
+     VM.start should plug them in the correct order. *)
   let vbds = [[ro "0"; rw "1"]; [rw "0"; ro "1"]] in
   List.iter
     (fun vbds ->

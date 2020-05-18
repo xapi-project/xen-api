@@ -166,7 +166,8 @@ type shutdown_reason =
   | Unknown of int
 
 val string_of_shutdown_reason : shutdown_reason -> string
-(** string versions of the shutdown_reasons, suitable for writing into control/shutdown *)
+(** string versions of the shutdown_reasons, suitable for writing into
+    control/shutdown *)
 
 val shutdown_reason_of_int : int -> shutdown_reason
 (** decodes the shutdown_reason contained within the xc dominfo struct *)
@@ -179,7 +180,8 @@ exception Domain_does_not_exist
 
 val shutdown :
   xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
-(** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an ack *)
+(** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an
+    ack *)
 
 val shutdown_wait_for_ack :
      Xenops_task.Xenops_task.task_handle
@@ -190,7 +192,8 @@ val shutdown_wait_for_ack :
   -> [`hvm | `pv | `pvh]
   -> shutdown_reason
   -> unit
-(** Tell the domain to shutdown with reason 'shutdown_reason', waiting for an ack *)
+(** Tell the domain to shutdown with reason 'shutdown_reason', waiting for an
+    ack *)
 
 val sysrq : xs:Xenstore.Xs.xsh -> domid -> char -> unit
 (** send a domain a sysrq *)
@@ -212,8 +215,8 @@ val unpause : xc:Xenctrl.handle -> domid -> unit
 (** Unpause a domain *)
 
 val set_action_request : xs:Xenstore.Xs.xsh -> domid -> string option -> unit
-(** [set_action_request xs domid None] declares this domain is fully intact.
-    	Any other string is a hint to the toolstack that the domain is still broken. *)
+(** [set_action_request xs domid None] declares this domain is fully intact. Any
+    other string is a hint to the toolstack that the domain is still broken. *)
 
 val get_action_request : xs:Xenstore.Xs.xsh -> domid -> string option
 
@@ -286,7 +289,8 @@ val get_uuid : xc:Xenctrl.handle -> Xenctrl.domid -> Uuidm.t
 
 val set_memory_dynamic_range :
   xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> min:int -> max:int -> domid -> unit
-(** Write the min,max values of memory/target to xenstore for use by a memory policy agent *)
+(** Write the min,max values of memory/target to xenstore for use by a memory
+    policy agent *)
 
 val add_ioport : xc:Xenctrl.handle -> domid -> int -> int -> unit
 (** Grant a domain access to a range of IO ports *)
