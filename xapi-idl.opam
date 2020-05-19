@@ -19,6 +19,7 @@ depends: [
   "logs"
   "message-switch-core"
   "message-switch-unix"
+  "mtime"
   "ocaml-migrate-parsetree"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
