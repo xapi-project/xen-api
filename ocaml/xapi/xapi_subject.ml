@@ -36,7 +36,7 @@ let create ~__context ~subject_identifier ~other_config =
   (* If at least one of the hosts uses AD external auth, then assert that the AD feature is enabled *)
   let hosts = Db.Host.get_all ~__context in
   let auth_types = List.map (fun self -> Db.Host.get_external_auth_type ~__context ~self) hosts in
-  if List.exists (fun x -> x = Extauth.auth_type_AD_Likewise) auth_types then
+  if List.exists (fun x -> x = Xapi_globs.auth_type_AD_Likewise) auth_types then
     Pool_features.assert_enabled ~__context ~f:Features.AD;
 
   (* we need to find if subject is already in the pool *)
