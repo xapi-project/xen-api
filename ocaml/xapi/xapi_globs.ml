@@ -466,6 +466,11 @@ let redo_log_alert_key = "metadata_lun_alerts"
 let serialize_pool_enable_disable_extauth = Mutex.create()
 (* CP-695: controls our asynchronous persistent initialization of the external authentication service during Xapi.server_init *)
 
+(* Auth types *)
+let auth_type_NONE = ""
+let auth_type_AD_Likewise = "AD"
+let auth_type_PAM = "PAM"
+
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 (** {2 CPUID feature masking} *)

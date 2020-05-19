@@ -1185,6 +1185,17 @@ let retry ~__context ~doc ?(policy = Policy.standard) f =
 let retry_with_global_lock ~__context ~doc ?policy f =
   retry ~__context ~doc ?policy (fun () -> with_global_lock f)
 
+(* Retry function f until success or timeout, f should return true on success *)
+let rec retry_until_timeout ?(interval=0.1) ?(timeout=5.) doc f =
+  match f() with
+  | true -> ()
+  | false -> let next_interval = interval *. 1.5 in
+    let next_timeout = timeout -. interval in
+    if next_timeout < 0. then
+      raise Api_errors.(Server_error(internal_error, [Printf.sprintf "retry %s failed" doc]));
+    Thread.delay interval;
+    retry_until_timeout ~interval:next_interval ~timeout:next_timeout doc f
+
 let get_first_pusb ~__context usb_group =
   try
     List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)

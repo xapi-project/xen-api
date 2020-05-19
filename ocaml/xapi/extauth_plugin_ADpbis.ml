@@ -20,6 +20,56 @@ open D
 
 open Stdext.Xstringext
 
+let lwsmd_service = "lwsmd"
+
+module Lwsmd = struct
+
+  let is_ad_enabled ~__context =
+    Helpers.get_localhost ~__context
+    |> (fun self -> Db.Host.get_external_auth_type ~__context ~self)
+    |> (fun x -> x = Xapi_globs.auth_type_AD_Likewise)
+
+  let is_active() =
+    Fe_systemctl.is_active lwsmd_service
+
+  type t =
+    | Start
+    | Stop
+
+  let to_string = function
+    | Start -> "start"
+    | Stop -> "stop"
+
+  let operate ?(wait_until_success=false) op =
+    let op_str = op |> to_string in
+    try
+      ignore (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl [op_str; lwsmd_service]);
+      let timeout = 5. in
+      if wait_until_success then
+        let success_cond = match op with
+          | Start -> is_active
+          | Stop -> Fun.negate is_active in
+        try
+          Helpers.retry_until_timeout ~timeout (Printf.sprintf "trying to %s %s" op_str lwsmd_service) success_cond
+        with _ -> debug "Fail to %s %s timeout %f" op_str lwsmd_service timeout
+    with e -> error "Fail to %s %s with error %s" op_str lwsmd_service (ExnHelper.string_of_exn e)
+
+  let stop ~wait_until_success =
+    operate ~wait_until_success Stop
+
+  let start ~wait_until_success =
+    operate ~wait_until_success Start
+
+  let init_service  ~__context =
+    (* This function is called during xapi start *)
+    (* it will start lwsmd service if the host is authed with AD *)
+    (* Xapi does wait lwsmd service boot up success as following reasons
+     * 1. The waiting will slow down xapi bootup
+     * 2. Xapi still needs to boot up even lwsmd bootup fail
+     * 3. Xapi does not need to use lwsmd functionality during its bootup *)
+    if is_ad_enabled ~__context then start ~wait_until_success:false
+end
+
 let match_error_tag (lines:string list) =
   let err_catch_list =
     [ "DNS_ERROR_BAD_PACKET",       Auth_signature.E_LOOKUP;
