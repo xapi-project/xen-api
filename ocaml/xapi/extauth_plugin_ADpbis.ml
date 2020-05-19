@@ -453,10 +453,10 @@ struct
       (* the space-replacement char used by pbis is defined at /etc/pbis/lsassd.conf *)
       let current_lw_space_replacement = '+' in
       String.iteri (fun i c ->
-        if c = current_lw_space_replacement then
-          Bytes.set defensive_copy i ' '
-        else ()
-      ) lwname;
+          if c = current_lw_space_replacement then
+            Bytes.set defensive_copy i ' '
+          else ()
+        ) lwname;
       Bytes.unsafe_to_string defensive_copy
     in
     let get_value name ls = if List.mem_assoc name ls then List.assoc name ls else "" in
