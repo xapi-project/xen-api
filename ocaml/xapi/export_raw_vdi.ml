@@ -73,7 +73,7 @@ let localhost_handler rpc session_id vdi (req: Http.Request.t) (s: Unix.file_des
                (* The third element of the tuple, the size, is currently ignored by the function *)
                let size = Client.Client.VDI.get_virtual_size ~rpc ~session_id ~self:vdi in
                Stream_vdi.send_all refresh_session s __context rpc session_id [(Xapi_globs.vdi_tar_export_dir, vdi, size)];
-               Tar_unix.write_end s;
+               Tar_helpers.write_end s;
            with e ->
              Backtrace.is_important e;
              TaskHelper.failed ~__context e;

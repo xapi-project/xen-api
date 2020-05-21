@@ -439,9 +439,9 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state ~in
                (string_of_bool preserve_power_state) end;
 
   let _, ova_xml = vm_metadata ~with_snapshot_metadata ~preserve_power_state ~include_vhd_parents ~__context ~vms in
-  let hdr = Tar_unix.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml) in
-  Tar_unix.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s;
-  Tar_unix.write_end s
+  let hdr = Tar.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml) in
+  Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s;
+  Tar_helpers.write_end s
 
 let export refresh_session __context rpc session_id s vm_ref preserve_power_state =
   info "VM.export: VM = %s; preserve_power_state = '%s'"
@@ -452,8 +452,8 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
 
   debug "Outputting ova.xml";
 
-  let hdr = Tar_unix.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml) in
-  Tar_unix.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s;
+  let hdr = Tar.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml) in
+  Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s;
 
   (* Only stream the disks that are in the table AND which are not CDROMs (ie whose VBD.type <> CD
      and whose SR.content_type <> "iso" *)
@@ -471,7 +471,7 @@ let export refresh_session __context rpc session_id s vm_ref preserve_power_stat
 
   (* We no longer write the end-of-tar checksum table, preferring the inline ones instead *)
 
-  Tar_unix.write_end s;
+  Tar_helpers.write_end s;
   debug "export VM = %s completed successfully" (Ref.string_of vm_ref)
 
 open Http
@@ -703,7 +703,6 @@ let handler (req: Request.t) s _ =
                        | Some Zstd -> Zstd.compress s go
                        | None      -> go s
                     )
-
                  (* Exceptions are handled by Xapi_http.with_context *)
                 ))
          end
