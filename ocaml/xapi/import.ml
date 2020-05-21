@@ -1477,7 +1477,7 @@ let with_open_archive fd ?length f =
     (* successfully opened uncompressed stream *)
     retry_with_compression := false;
     let xml = read_xml hdr fd in
-    Tar_unix.Archive.skip fd (Tar_unix.Header.compute_zero_padding_length hdr);
+    Tar_helpers.skip fd (Tar_unix.Header.compute_zero_padding_length hdr);
     f xml fd
   with e ->
     if not(!retry_with_compression) then raise e;
@@ -1521,7 +1521,7 @@ let with_open_archive fd ?length f =
            assert_filename_is hdr;
 
            let xml = read_xml hdr pipe_out in
-           Tar_unix.Archive.skip pipe_out (Tar_unix.Header.compute_zero_padding_length hdr);
+           Tar_helpers.skip pipe_out (Tar_unix.Header.compute_zero_padding_length hdr);
            f xml pipe_out)
         (fun () ->
            ignore_exn (fun () -> Unix.close pipe_out);
@@ -1628,7 +1628,7 @@ let metadata_handler (req: Request.t) s _ =
            (fun metadata s ->
               debug "Got XML";
               (* Skip trailing two zero blocks *)
-              Tar_unix.Archive.skip s (Tar_unix.Header.length * 2);
+              Tar_helpers.skip s (Tar_unix.Header.length * 2);
 
               let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version;

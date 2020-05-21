@@ -10,9 +10,13 @@
   (modules
    xapi_version
    build_info
+   tar_helpers
   )
   (libraries
    xapi-inventory
+   cstruct
+   tar
+   tar-unix
   )
   (wrapped false)
 )
