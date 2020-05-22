@@ -13,21 +13,21 @@
  *)
 
 open Test_highlevel
-open Xapi_stdext_monadic.Either
 
 let dir = Filename.concat "test" "jsonrpc_files"
 
-let jsonrpc_printer : Rpc.t Test_printers.printer = Jsonrpc.to_string
+let pp_jsonrpc fmt rpc = Format.fprintf fmt "%s" (Jsonrpc.to_string rpc)
 
 module Input_json_object = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string
 
-    type output_t = (exn, Rpc.t) Xapi_stdext_monadic.Either.t
+    type output_t = (Rpc.t, exn) result
 
     let string_of_input_t = Test_printers.string
 
-    let string_of_output_t = Test_printers.(either exn jsonrpc_printer)
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:pp_jsonrpc ~error:exn))
   end
 
   let good_call =
@@ -47,12 +47,12 @@ module Input_json_object = Generic.MakeStateless (struct
             5_000_000_000L
         in
         let rpc = Jsonrpc.of_string ~strict:false json in
-        Right rpc
+        Ok rpc
       with
       | End_of_file ->
-          Left End_of_file
+          Error End_of_file
       | _ ->
-          Left Parse_error
+          Error Parse_error
     in
     close_in fin ; response
 
@@ -61,14 +61,14 @@ module Input_json_object = Generic.MakeStateless (struct
       [
         (* A file containing exactly one JSON object. *)
         (* It has got curly braces inside strings to make it interesting. *)
-        ("good_call.json", Right good_call)
+        ("good_call.json", Ok good_call)
       ; (* A file containing a partial JSON object. *)
-        ("short_call.json", Left Parse_error)
+        ("short_call.json", Error Parse_error)
       ; (* A file containing a JSON object, plus some more characters at the
            end. *)
-        ("good_call_plus.json", Right good_call)
+        ("good_call_plus.json", Ok good_call)
       ; (* A file containing some invalid JSON object. *)
-        ("bad_call.json", Left Parse_error)
+        ("bad_call.json", Error Parse_error)
       ]
 end)
 
