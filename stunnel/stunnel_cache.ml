@@ -16,9 +16,11 @@
 
 (* Caveats:
    * stunnel donators should only donate stunnels which they knows are connected
-     to the main HTTP request loop in the server -- HTTP 1.1 should be used and 
+     to the main HTTP request loop in the server -- HTTP 1.1 should be used and
      the connection should be kept-alive
 *)
+
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
 module D=Debug.Make(struct let name="stunnel_cache" end)
 open D
@@ -57,15 +59,12 @@ module Tbl = Table.Make(Stunnel)
 (** A mapping of stunnel unique ID to Stunnel.t *)
 let stunnels : int Tbl.t ref = ref (Tbl.create capacity)
 
-open Xapi_stdext_threads.Threadext
-
 let m = Mutex.create ()
 
 let id_of_stunnel stunnel =
-  let open Xapi_stdext_monadic in
-  Opt.default "unknown" (Opt.map string_of_int stunnel.Stunnel.unique_id)
+  Option.fold ~none:"unknown" ~some:string_of_int stunnel.Stunnel.unique_id
 
-let unlocked_gc () = 
+let unlocked_gc () =
   if debug_enabled then begin
     let now = Unix.gettimeofday () in
     let string_of_id id = 
@@ -81,7 +80,7 @@ let unlocked_gc () =
 
   (* Split a list at the given index to give a pair of lists.
    *  From Xapi_stdext_std.Listext *)
-  let rec chop i l = 
+  let rec chop i l =
     match i, l with
     | 0, l -> [], l
     | i, h :: t -> (fun (fr, ba) -> h :: fr, ba) (chop (i - 1) t)

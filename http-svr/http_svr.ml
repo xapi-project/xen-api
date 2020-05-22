@@ -18,23 +18,21 @@
  *
  * HTTP CONNECT requests are not handled in the standard way! Normally, one
  * would issue a connect request like this:
- * 
+ *
  *    CONNECT host.domain:port HTTP/1.0
- * 
+ *
  * But we've got different proxies for different things, so we use the syntax
  *
  *    CONNECT /console?session_id=... HTTP/1.0
- * 
+ *
  * So we're not exactly standards compliant :)
  *
  *)
 
 open Http
 
-open Xapi_stdext_monadic
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads
-open Xapi_stdext_unix
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
 
 (* This resolves the lowercase deprecation for all compiler versions *)
 let lowercase = Astring.String.Ascii.lowercase
@@ -58,7 +56,7 @@ module Stats = struct
     n_framed = 0;
   }
   let update (x: t) (m: Mutex.t) req =
-    Threadext.Mutex.execute m
+    Mutex.execute m
       (fun () ->
          x.n_requests <- x.n_requests + 1;
          if req.Http.Request.close then x.n_connections <- x.n_connections + 1;
@@ -75,7 +73,7 @@ type 'a handler =
 let best_effort f =
   try f() with _ -> ()
 
-let headers s headers = 
+let headers s headers =
   output_http s headers;
   output_http s [""]
 
@@ -101,7 +99,7 @@ let response_of_request req hdrs =
     ~version:(get_return_version req) ~frame:req.Http.Request.frame
     ~headers:(connection :: cache :: hdrs) "200" "OK"
 
-let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) = 
+let response_fct req ?(hdrs=[]) s (response_length: int64) (write_response_to_fd_fn: Unix.file_descr -> unit) =
   let res = { (response_of_request req hdrs) with Http.Response.content_length = Some response_length } in
   Unixext.really_write_string s (Http.Response.to_wire_string res);
   write_response_to_fd_fn s
@@ -128,38 +126,38 @@ let response_error_html ?(version="1.1") s code message hdrs body =
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
 let response_unauthorised ?req label s =
-  let version = Opt.map get_return_version req in
+  let version = Option.map get_return_version req in
   let body = "<html><body><h1>HTTP 401 unauthorised</h1>Please check your credentials and retry.</body></html>" in
   let realm = "WWW-Authenticate", Printf.sprintf "Basic realm=\"%s\"" label in
   response_error_html ?version s "401" "Unauthorised" [ realm ] body
 
 let response_forbidden ?req s =
-  let version = Opt.map get_return_version req in
-  let body = "<html><body><h1>HTTP 403 forbidden</h1>Access to the requested resource is forbidden.</body></html>" in	
+  let version = Option.map get_return_version req in
+  let body = "<html><body><h1>HTTP 403 forbidden</h1>Access to the requested resource is forbidden.</body></html>" in
   response_error_html ?version s "403" "Forbidden" [] body
 
 let response_badrequest ?req s =
-  let version = Opt.map get_return_version req in
+  let version = Option.map get_return_version req in
   let body = "<html><body><h1>HTTP 400 bad request</h1>The HTTP request was malformed. Please correct and retry.</body></html>" in
   response_error_html ?version s "400" "Bad Request" [] body
 
 let response_internal_error ?req ?extra s =
-  let version = Opt.map get_return_version req in
-  let extra = Opt.default "" (Opt.map (fun x -> "<h1> Additional information </h1>" ^ x) extra) in
+  let version = Option.map get_return_version req in
+  let extra = Option.fold ~none:"" ~some:(fun x -> "<h1> Additional information </h1>" ^ x) extra in
   let body = "<html><body><h1>HTTP 500 internal server error</h1>An unexpected error occurred; please wait a while and try again. If the problem persists, please contact your support representative." ^ extra ^ "</body></html>" in
   response_error_html ?version s "500" "Internal Error" [] body
 
 let response_method_not_implemented ?req s =
-  let version = Opt.map get_return_version req in
-  let extra = Opt.default "" (Opt.map (fun req ->
+  let version = Option.map get_return_version req in
+  let extra = Option.fold ~none:"" ~some:(fun req ->
       Printf.sprintf "<p>%s not supported.<br /></p>" (Http.string_of_method_t req.Http.Request.m)
-    ) req) in
+    ) req in
   let body = "<html><body><h1>HTTP 501 Method Not Implemented</h1>" ^ extra ^ "</body></html>" in
   response_error_html ?version s "501" "Method not implemented" [] body
 
 let response_file ?mime_content_type s file =
   let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
-  let mime_header = Opt.default [] (Opt.map (fun ty -> [ Hdr.content_type, ty ]) mime_content_type) in
+  let mime_header = Option.fold ~none:[] ~some:(fun ty -> [ Hdr.content_type, ty ]) mime_content_type in
   let keep_alive = Http.Hdr.connection, "keep-alive" in
   let res = Http.Response.make ~version:"1.1" ~headers:(keep_alive :: mime_header)
       ~length:size "200" "OK" in
@@ -171,11 +169,11 @@ let response_file ?mime_content_type s file =
     )
 
 let respond_to_options req s =
-  let access_control_allow_headers = 
+  let access_control_allow_headers =
     try
       let acrh = List.assoc Hdr.acrh req.Request.additional_headers in
       Printf.sprintf "%s, X-Requested-With" acrh
-    with Not_found -> 
+    with Not_found ->
       "X-Requested-With"
   in
   response_fct req ~hdrs:[
@@ -185,7 +183,7 @@ let respond_to_options req s =
 
 
 (** If no handler matches the request then call this callback *)
-let default_callback req bio _ = 
+let default_callback req bio _ =
   response_forbidden (Buf_io.fd_of bio);
   req.Request.close <- true
 
@@ -231,7 +229,7 @@ module Server = struct
     then None
     else
       let rt = MethodMap.find m x.handlers in
-      Opt.map (fun te -> te.TE.stats) (Radix_tree.longest_prefix uri rt)
+      Option.map (fun te -> te.TE.stats) (Radix_tree.longest_prefix uri rt)
 
   let all_stats x =
     let open Radix_tree in
@@ -248,7 +246,7 @@ let escape uri =
     let aux h t = (
       if List.mem_assoc h rules
       then List.assoc h rules
-      else Astring.String.of_char h) :: t 
+      else Astring.String.of_char h) :: t
     in
     String.concat "" (Astring.String.fold_right aux string [])
   in
@@ -263,7 +261,7 @@ exception Too_many_headers
 exception Generic_error of string
 
 let request_of_bio_exn_slow ic =
-  (* Try to keep the connection open for a while to prevent spurious End_of_file type 
+  (* Try to keep the connection open for a while to prevent spurious End_of_file type
      	   problems under load *)
   let initial_timeout = 5. *. 60. in
 
@@ -285,7 +283,7 @@ let request_of_bio_exn_slow ic =
             |> Bytes.to_string
             |> Request.of_request_line
   in
-  
+
   (* Default for HTTP/1.1 is persistent connections. Anything else closes *)
   (* the channel as soon as the request is processed *)
   if req.Request.version <> "1.1" then req.Request.close <- true;
@@ -443,7 +441,7 @@ let handle_one (x: 'a Server.t) ss context req =
     D.debug "Request %s" (Http.Request.to_string req);
     let method_map = try MethodMap.find req.Request.m x.Server.handlers with Not_found -> raise Method_not_implemented in
     let empty = TE.empty () in
-    let te = Opt.default empty (Radix_tree.longest_prefix req.Request.uri method_map) in
+    let te = Option.value ~default:empty (Radix_tree.longest_prefix req.Request.uri method_map) in
     (match te.TE.handler with
      | BufIO handlerfn -> handlerfn req ic context
      | FdIO handlerfn ->
@@ -473,7 +471,7 @@ let handle_one (x: 'a Server.t) ss context req =
           response_internal_error ~req ss ~extra:(Printf.sprintf "Got UNIX error: %s %s %s" (Unix.error_message a) b c)
         | exc ->
           response_internal_error ~req ss ~extra:(escape (Printexc.to_string exc));
-          log_backtrace ()			
+          log_backtrace ()
       );
     !finished
 
@@ -486,7 +484,7 @@ let handle_connection (x: 'a Server.t) _ ss =
     let req = request_of_bio ~use_fastpath:x.Server.use_fastpath ic in
 
     (* 2. now we attempt to process the request *)
-    finished := Opt.default true (Opt.map (handle_one x ss x.Server.default_context) req);
+    finished := Option.fold ~none:true ~some:(handle_one x ss x.Server.default_context) req;
   done;
   Unix.close ss
 
@@ -562,7 +560,7 @@ let read_body ?limit req bio =
   | None -> failwith "We require a content-length: HTTP header"
   | Some length ->
     let length = Int64.to_int length in
-    maybe (fun l -> if length > l then raise Client_requested_size_over_limit) limit;
+    Option.fold ~none:() ~some:(fun l -> if length > l then raise Client_requested_size_over_limit) limit;
     if Buf_io.is_buffer_empty bio then Unixext.really_read_string (Buf_io.fd_of bio) length
     else
       Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
@@ -572,7 +570,7 @@ module Chunked = struct
              mutable read_headers : bool; bufio : Buf_io.t }
 
   let of_bufio bufio =
-    { current_size = 0; current_offset = 0; bufio = bufio; 
+    { current_size = 0; current_offset = 0; bufio = bufio;
       read_headers = true }
 
   let rec read chunk size =
@@ -608,14 +606,14 @@ module Chunked = struct
         end else begin
           (* partway through a chunk. *)
           chunk.current_offset <- (chunk.current_offset + bytes_to_read)
-        end; 
+        end;
         ( (Bytes.unsafe_to_string data) ^ read chunk (size - bytes_to_read) )
       end
     end
 end
 
-let read_chunked_encoding _req bio = 
-  let rec next () = 
+let read_chunked_encoding _req bio =
+  let rec next () =
     let size = Buf_io.input_line bio
                (* Strictly speaking need to kill anything past an ';' if present *)
                |> Bytes.to_string
@@ -631,6 +629,6 @@ let read_chunked_encoding _req bio =
       (* Then get rid of the CRLF *)
       let blank = (Bytes.of_string "\000\000") in
       Buf_io.really_input bio blank 0 2;
-      Http.Item (chunk, next) 
+      Http.Item (chunk, next)
   in
   next ()

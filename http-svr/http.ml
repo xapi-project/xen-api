@@ -135,7 +135,7 @@ let urlencode param =
   in fn chars
 
 (** Parses strings of the form a=b&c=d into ["a", "b"; "c", "d"] *)
-let parse_keyvalpairs xs = 
+let parse_keyvalpairs xs =
   let kvpairs = List.map (Astring.String.cuts ~sep:"=") (Astring.String.cuts ~sep:"&" xs) in
   List.map (function
       | k :: vs -> ((urldecode k), urldecode (String.concat "=" vs))
@@ -208,7 +208,7 @@ let read_up_to buf already_read marker fd =
       | Some x, None -> header_len_value_len - (!b - x)
       | _, Some l -> l - !b in
 (*
-		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read; 
+		Printf.fprintf stderr "b = %d; safe_to_read = %d\n" !b safe_to_read;
 		flush stderr;
 *)
     let n =
@@ -265,7 +265,7 @@ let frame_header_length = String.length smallest_request
 
 let make_frame_header headers =
   (* Frame header is the size of the smallest HTTP request
-     	   and the smallest HTTP request is smaller than the smallest 
+     	   and the smallest HTTP request is smaller than the smallest
      	   HTTP response. *)
   Printf.sprintf "FRAME %012d" (String.length headers)
 
@@ -299,8 +299,7 @@ module Accept = struct
   }
 
   let string_of_t x =
-    let open Xapi_stdext_monadic in 
-    Printf.sprintf "%s/%s;q=%.3f" (Opt.default "*" x.ty) (Opt.default "*" x.subty) (float_of_int x.q /. 1000.)
+    Printf.sprintf "%s/%s;q=%.3f" (Option.value ~default:"*" x.ty) (Option.value ~default:"*" x.subty) (float_of_int x.q /. 1000.)
 
   let matches (ty, subty) = function
     | { ty = Some ty'; subty = Some subty'; _ } -> ty' = ty && (subty' = subty)
@@ -398,7 +397,7 @@ module Request = struct
       version = version;
       frame = frame;
       close = not keep_alive;
-      cookie = Xapi_stdext_monadic.Opt.default [] cookie;
+      cookie = Option.value ~default:[] cookie;
       subtask_of = subtask_of;
       content_length = length;
       auth = auth;
@@ -435,7 +434,7 @@ module Request = struct
 
   let to_string x =
     let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
-    Printf.sprintf "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; host = %s; user_agent = %s }" 
+    Printf.sprintf "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; host = %s; user_agent = %s }"
       x.frame (string_of_method_t x.m) x.uri
       (kvpairs x.query)
       (default "" (may Int64.to_string x.content_length))
@@ -449,19 +448,18 @@ module Request = struct
       (default "" x.user_agent)
 
   let to_header_list x =
-    let open Xapi_stdext_monadic in
     let kvpairs x = String.concat "&" (List.map (fun (k, v) -> urlencode k ^ "=" ^ (urlencode v)) x) in
     let query = if x.query = [] then "" else "?" ^ (kvpairs x.query) in
     let cookie = if x.cookie = [] then [] else [ Hdr.cookie ^": " ^ (kvpairs x.cookie) ] in
-    let transfer_encoding = Opt.default [] (Opt.map (fun x -> [ Hdr.transfer_encoding ^": " ^ x ]) x.transfer_encoding) in
-    let accept = Opt.default [] (Opt.map (fun x -> [ Hdr.accept ^ ": " ^ x]) x.accept) in
-    let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length) in
-    let auth = Opt.default [] (Opt.map (fun x -> [ Hdr.authorization ^": " ^ (string_of_authorization x) ]) x.auth) in
-    let task = Opt.default [] (Opt.map (fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task) in
-    let subtask_of = Opt.default [] (Opt.map (fun x -> [ Hdr.subtask_of ^ ": " ^ x ]) x.subtask_of) in
-    let content_type = Opt.default [] (Opt.map (fun x -> [ Hdr.content_type ^": " ^ x ]) x.content_type) in
-    let host = Opt.default [] (Opt.map (fun x -> [ Hdr.host^": " ^ x ]) x.host) in
-    let user_agent = Opt.default [] (Opt.map (fun x -> [ Hdr.user_agent^": " ^ x ]) x.user_agent) in
+    let transfer_encoding = Option.fold ~none:[] ~some:(fun x -> [ Hdr.transfer_encoding ^": " ^ x ]) x.transfer_encoding in
+    let accept = Option.fold ~none:[] ~some:(fun x -> [ Hdr.accept ^ ": " ^ x]) x.accept in
+    let content_length = Option.fold ~none:[] ~some:(fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length in
+    let auth = Option.fold ~none:[] ~some:(fun x -> [ Hdr.authorization ^": " ^ (string_of_authorization x) ]) x.auth in
+    let task = Option.fold ~none:[] ~some:(fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task in
+    let subtask_of = Option.fold ~none:[] ~some:(fun x -> [ Hdr.subtask_of ^ ": " ^ x ]) x.subtask_of in
+    let content_type = Option.fold ~none:[] ~some:(fun x -> [ Hdr.content_type ^": " ^ x ]) x.content_type in
+    let host = Option.fold ~none:[] ~some:(fun x -> [ Hdr.host^": " ^ x ]) x.host in
+    let user_agent = Option.fold ~none:[] ~some:(fun x -> [ Hdr.user_agent^": " ^ x ]) x.user_agent in
     let close = [ Hdr.connection ^": " ^ (if x.close then "close" else "keep-alive") ] in
     [ Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query x.version ]
     @ cookie @ transfer_encoding @ accept @ content_length @ auth @ task @ subtask_of @ content_type @ host @ user_agent @ close
@@ -474,7 +472,7 @@ module Request = struct
       | Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
     let hl = to_header_list x @ [""] in
     let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
-    let body = Xapi_stdext_monadic.Opt.default "" x.body in
+    let body = Option.value ~default:"" x.body in
     headers, body
 
   let to_wire_string (x: t) =
@@ -508,12 +506,11 @@ module Response = struct
   }
 
   let to_string x =
-    let open Xapi_stdext_monadic in
     let kvpairs x = String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x) in
     Printf.sprintf "{ frame = %b; version = %s; code = %s; message = %s; content_length = %s; task = %s; additional_headers = [ %s ] }"
       x.frame x.version x.code x.message
-      (Opt.default "None" (Opt.map (fun x -> "Some " ^ (Int64.to_string x)) x.content_length))
-      (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.task))
+      (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ (Int64.to_string x)) x.content_length)
+      (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ x) x.task)
       (kvpairs x.additional_headers)
 
   let empty = {
@@ -539,10 +536,9 @@ module Response = struct
 
   let internal_error = { empty with code = "500"; message = "internal error"; content_length = Some 0L }
   let to_header_list (x: t) =
-    let open Xapi_stdext_monadic in
     let status = Printf.sprintf "HTTP/%s %s %s" x.version x.code x.message in
-    let content_length = Opt.default [] (Opt.map (fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length) in
-    let task = Opt.default [] (Opt.map (fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task) in
+    let content_length = Option.fold ~none:[] ~some:(fun x -> [ Printf.sprintf "%s: %Ld" Hdr.content_length x ]) x.content_length in
+    let task = Option.fold ~none:[] ~some:(fun x -> [ Hdr.task_id ^ ": " ^ x ]) x.task in
     let headers = List.map (fun (k, v) -> k ^ ":" ^ v) x.additional_headers in
     status :: (content_length @ task @ headers)
 
@@ -553,7 +549,7 @@ module Response = struct
       | Some b -> { x with content_length = Some (Int64.of_int (String.length b)) } in
     let hl = to_header_list x @ [""] in
     let headers = String.concat "" (List.map (fun x -> x ^ "\r\n") hl) in
-    let body = Xapi_stdext_monadic.Opt.default "" x.body in
+    let body = Option.value ~default:"" x.body in
     headers, body
 
   let to_wire_string (x: t) =
@@ -592,7 +588,7 @@ module Url = struct
   type t = scheme * data
 
   let of_string url =
-    let sub_before c s = 
+    let sub_before c s =
       String.sub s 0 (String.index s c)
     in
     let sub_after c s =
@@ -614,7 +610,7 @@ module Url = struct
     let uname_password_host_port x = match Astring.String.cuts ~sep:"@" x with
       | [ _ ] -> None, host x, port x
       | [ uname_password; host_port ] ->
-        begin match Astring.String.cuts ~sep:":" uname_password with 
+        begin match Astring.String.cuts ~sep:":" uname_password with
           | [ uname; password ] -> Some (Basic (uname, password)), host host_port, port host_port
           | _ -> failwith (Printf.sprintf "Failed to parse authentication substring: %s" uname_password)
         end
@@ -642,7 +638,7 @@ module Url = struct
     uri ^ params
 
   (* Wrap a literal IPv6 address in square brackets; otherwise pass through *)
-  let maybe_wrap_IPv6_literal addr = 
+  let maybe_wrap_IPv6_literal addr =
     if Unixext.domain_of_addr addr = Some Unix.PF_INET6 then "[" ^ addr ^ "]" else addr
 
   let to_string = function
