@@ -28,7 +28,9 @@ val (>>=):   'a t -> ('a -> 'b t) -> 'b t
  * we are interested in. These can be accessed using [argv] and [fd_map].
  *)
 val run:    'a t -> 'a * argv
-val argv:   argv -> string list                     (** argument list *)
+val argv:   argv -> string list
+(** argument list *)
+
 val fd_map: argv -> (string * Unix.file_descr) list (** file descriptors *)
 
 (** functions to build argument vector incrementally *)
