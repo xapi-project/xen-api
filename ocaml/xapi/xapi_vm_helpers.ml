@@ -888,7 +888,7 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
   update_memory_overhead ~__context ~vm:self
 
 
-let inclusive_range a b = Range.to_list (Range.make a (b + 1))
+let inclusive_range a b = List.init (b - a + 1) (fun k -> a + k)
 let vbd_inclusive_range hvm a b =
   List.map (Device_number.of_disk_number hvm) (inclusive_range a b)
 let vif_inclusive_range a b =
