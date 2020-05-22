@@ -47,6 +47,7 @@ type err =
 exception Line of err
 
 (** {2 Internal functions} *)
+
 val is_buffer_empty : t -> bool
 val assert_buffer_empty : t -> unit
 

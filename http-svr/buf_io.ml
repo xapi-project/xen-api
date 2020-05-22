@@ -21,9 +21,11 @@ type t =
     mutable max : int;
   }
 
-type err = 
-    Too_long             (* Line input is > 1024 chars *)
-  | No_newline           (* EOF found, with no newline *)
+type err =
+  | (* Line input is > 1024 chars *)
+      Too_long
+  | (* EOF found, with no newline *)
+      No_newline
 
 exception Timeout        (* Waited too long for data to appear *)
 exception Eof           
@@ -35,7 +37,8 @@ let infinite_timeout = -1.
 let of_fd fd =
   (* Unix.set_nonblock fd;*)
   { fd = fd;
-    buf = Bytes.create 1024; (* FIXME -- this should be larger. Low for testing *)
+    (* FIXME -- this should be larger. Low for testing *)
+    buf = Bytes.create 1024;
     cur = 0;
     max = 0;
   }

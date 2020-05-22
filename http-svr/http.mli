@@ -33,9 +33,11 @@ val read_http_response_header: bytes -> Unix.file_descr -> int
 
 module Accept : sig
   type t = {
-    ty: string option; (* None means '*' *)
-    subty: string option; (* None means '*' *)
-    q: int;
+    (* None means '*' *)
+    ty: string option;
+    (* None means '*' *)
+    subty: string option;
+    q: int
   }
   exception Parse_failure of string
   val t_of_string : string -> t

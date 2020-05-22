@@ -1,7 +1,6 @@
 PROFILE=release
 
-
-.PHONY: build install uninstall clean test doc reindent
+.PHONY: build install uninstall clean test doc format
 
 build:
 	dune build @install --profile=$(PROFILE)
@@ -22,5 +21,5 @@ test:
 doc:
 	dune build @doc --profile=$(PROFILE)
 
-reindent:
-	git ls-files '*.ml' '*.mli' | xargs ocp-indent --inplace
+format:
+	dune build @fmt --auto-promote
