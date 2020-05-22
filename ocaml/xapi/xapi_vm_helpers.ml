@@ -15,10 +15,13 @@
  * @group Virtual-Machine Management
 *)
 
-open Stdext
 open Xapi_vm_memory_constraints
 open Xapi_network_attach_helpers
-open Pervasiveext
+
+module Listext = Xapi_stdext_std.Listext
+module Date = Xapi_stdext_date.Date
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module XenAPI = Client.Client
 
@@ -969,21 +972,21 @@ let copy_metrics ~__context ~vm =
   Db.VM_metrics.create ~__context
     ~ref:metrics
     ~uuid:metrics_uuid
-    ~memory_actual:(default 0L (may (fun x -> x.Db_actions.vM_metrics_memory_actual) m))
-    ~vCPUs_number:(default 0L (may (fun x -> x.Db_actions.vM_metrics_VCPUs_number) m))
-    ~vCPUs_utilisation:(default [(0L, 0.)] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation) m))
-    ~vCPUs_CPU:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m))
-    ~vCPUs_params:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_params) m))
-    ~vCPUs_flags:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_flags) m))
-    ~start_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_start_time) m))
-    ~install_time:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_install_time) m))
-    ~state:(default [] (may (fun x -> x.Db_actions.vM_metrics_state) m))
-    ~last_updated:(default Date.never (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
-    ~other_config:(default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m))
-    ~nomigrate:(default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
-    ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
-    ~nested_virt:(default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
-    ~current_domain_type:(default `unspecified (may (fun x -> x.Db_actions.vM_metrics_current_domain_type) m))
+    ~memory_actual:(Option.fold ~none:0L ~some:(fun x -> x.Db_actions.vM_metrics_memory_actual) m)
+    ~vCPUs_number:(Option.fold ~none:0L ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_number) m)
+    ~vCPUs_utilisation:(Option.fold ~none:[(0L, 0.)] ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation) m)
+    ~vCPUs_CPU:(Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m)
+    ~vCPUs_params:(Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_params) m)
+    ~vCPUs_flags:(Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_flags) m)
+    ~start_time:(Option.fold ~none:Date.never ~some:(fun x -> x.Db_actions.vM_metrics_start_time) m)
+    ~install_time:(Option.fold ~none:Date.never ~some:(fun x -> x.Db_actions.vM_metrics_install_time) m)
+    ~state:(Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_state) m)
+    ~last_updated:(Option.fold ~none:Date.never ~some:(fun x -> x.Db_actions.vM_metrics_last_updated) m)
+    ~other_config:(Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_other_config) m)
+    ~nomigrate:(Option.fold ~none:false ~some:(fun x -> x.Db_actions.vM_metrics_nomigrate) m)
+    ~hvm:(Option.fold ~none:false ~some:(fun x -> x.Db_actions.vM_metrics_hvm) m)
+    ~nested_virt:(Option.fold ~none:false ~some:(fun x -> x.Db_actions.vM_metrics_nested_virt) m)
+    ~current_domain_type:(Option.fold ~none:`unspecified ~some:(fun x -> x.Db_actions.vM_metrics_current_domain_type) m)
   ;
   metrics
 
@@ -1157,7 +1160,7 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict=true) ?policy f =
        Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op;
        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self);
   (* Then do the action with the lock released *)
-  Pervasiveext.finally f
+  finally f
     (* Make sure to clean up at the end *)
     (fun () ->
        try
