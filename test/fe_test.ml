@@ -1,6 +1,6 @@
 (* stdin stdout stderr (name, fd) cmd args *)
 
-let mkints n = Xapi_stdext_range.Range.to_list (Xapi_stdext_range.Range.make 0 n)
+let mkints n = List.init n Fun.id
 
 (* All combinations of stdin, stdout, stderr
    0 - 5 named fds on the commandline
@@ -19,7 +19,7 @@ type config = {
 let min_fds = 7
 let max_fds = 1024 - 11 (* fe daemon has a bunch for its own use *)
 
-let all_combinations fds = 
+let all_combinations fds =
   let y = {
     stdin = false;
     stdout = false;
@@ -35,7 +35,7 @@ let all_combinations fds =
   let x = List.concat (List.map (fun x -> List.map (fun n -> { x with extra = n }) (max_fds :: (mkints x.max_extra))) x) in
   x
 
-let shuffle x = 
+let shuffle x =
   let arr = Array.of_list x in
   let swap a b = let t = arr.(a) in arr.(a) <- arr.(b); arr.(b) <- t in
   for i = 0 to Array.length arr - 1 do
@@ -65,7 +65,7 @@ let one fds x =
       Printf.fprintf stderr "%s %s\n" exe (String.concat " " args);
   *)
   Forkhelpers.waitpid_fail_if_bad_exit
-    (Forkhelpers.safe_close_and_exec 
+    (Forkhelpers.safe_close_and_exec
        (if x.stdin then Some fd else None)
        (if x.stdout then Some fd else None)
        (if x.stderr then Some fd else None)
@@ -122,7 +122,7 @@ let master fds =
   let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n%!" (List.length combinations);
   let i = ref 0 in
-  let update_progress f x = 
+  let update_progress f x =
     incr i;
     let frac = float_of_int (!i) /. (float_of_int (List.length combinations)) in
     let hashes = int_of_float (frac *. 70.) in
@@ -143,9 +143,9 @@ let slave = function
     (* Check that these fds are present *)
     let pid = Unix.getpid () in
     let path = Printf.sprintf "/proc/%d/fd" pid in
-    let raw = 
+    let raw =
       List.filter (* get rid of the fd used to read the directory *)
-        (fun x -> try ignore(Unix.readlink (Filename.concat path x)); true with _ -> false) 
+        (fun x -> try ignore(Unix.readlink (Filename.concat path x)); true with _ -> false)
         (Array.to_list (Sys.readdir path)) in
     let pairs = List.map (fun x -> x, Unix.readlink (Filename.concat path x)) raw in
     (* Filter any of stdin,stdout,stderr which have been mapped to /dev/null *)
@@ -178,7 +178,7 @@ let usage () =
     "          <fds> must be between %d and %d inclusive\n" min_fds max_fds;
   exit 1
 
-let _ = 
+let _ =
   match Array.to_list Sys.argv with
   | _ :: "sleep" :: _ -> sleep ()
   | _ :: "slave" :: rest -> slave rest

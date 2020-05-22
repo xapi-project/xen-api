@@ -18,7 +18,6 @@ depends: [
   "systemd" {>= "1.2"}
   "uuidm"
   "xapi-stdext-unix"
-  "xapi-stdext-range" {with-test}
 ]
 conflicts: [
   "fd-send-recv" {< "2.0.0"}
