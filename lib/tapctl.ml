@@ -3,7 +3,6 @@ open Xapi_stdext_unix
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_monadic
 
 (* Tapdisk stats *)
 module Stats = struct
@@ -259,7 +258,7 @@ module Dummy = struct
         let list = get_dummy_tapdisk_list ctx in
         List.filter_map (fun e ->
             let args =
-              match Opt.map (String.split ':') e.d_args with
+              match Option.map (String.split ':') e.d_args with
               | Some (ty::arguments) ->
                 Some (ty,String.concat ":" arguments)
               | _ -> None
@@ -433,7 +432,7 @@ let read_proc_devices () : (int * string) list =
   let parse_line x = match List.filter (fun x -> x <> "") (String.split ' ' x) with
     | [x; y] -> (try Some (int_of_string x, y) with _ -> None)
     | _ -> None in
-  List.concat (List.map Opt.to_list ( Unixext.file_lines_fold (fun acc x -> parse_line x :: acc) [] "/proc/devices") )
+  List.concat (List.map Option.to_list ( Unixext.file_lines_fold (fun acc x -> parse_line x :: acc) [] "/proc/devices") )
 
 let driver_of_major major = List.assoc major (read_proc_devices ())
 
