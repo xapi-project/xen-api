@@ -1,6 +1,6 @@
 PROFILE=release
 
-.PHONY: build install uninstall clean test doc reindent
+.PHONY: build install uninstall clean test doc format
 
 build:
 	dune build @install --profile=$(PROFILE)
@@ -21,5 +21,5 @@ test:
 doc:
 	dune build @doc --profile=$(PROFILE)
 
-reindent:
-	ocp-indent --syntax cstruct -i **/*.ml*
+format:
+	dune build @fmt --auto-promote

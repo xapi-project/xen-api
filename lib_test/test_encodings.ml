@@ -202,21 +202,21 @@ end
 
 module UCS = struct include E.UCS
 
-  (** A list of UCS non-characters values, including:               *)
-  (** a. non-characters within the basic multilingual plane;        *)
-  (** b. non-characters at the end of the basic multilingual plane; *)
-  (** c. non-characters at the end of the private use area.         *)
+  (** A list of UCS non-characters values, including:
+      a. non-characters within the basic multilingual plane;
+      b. non-characters at the end of the basic multilingual plane;
+      c. non-characters at the end of the private use area. *)
   let non_characters = [
     0x00fdd0l; 0x00fdefl; (* case a. *)
     0x00fffel; 0x00ffffl; (* case b. *)
     0x1ffffel; 0x1fffffl; (* case c. *)
   ]
 
-  (** A list of UCS character values located immediately before or  *)
-  (** after UCS non-character values, including:                    *)
-  (** a. non-characters within the basic multilingual plane;        *)
-  (** b. non-characters at the end of the basic multilingual plane; *)
-  (** c. non-characters at the end of the private use area.         *)
+  (** A list of UCS character values located immediately before or
+      after UCS non-character values, including:
+      a. non-characters within the basic multilingual plane;
+      b. non-characters at the end of the basic multilingual plane;
+      c. non-characters at the end of the private use area. *)
   let valid_characters_next_to_non_characters = [
     0x00fdcfl; 0x00fdf0l; (* case a. *)
     0x00fffdl; 0x010000l; (* case b. *)
@@ -322,10 +322,10 @@ end
 
 module UTF8_codec = struct include E.UTF8_codec
 
-  (** A list of canonical encoding widths of UCS values, *)
-  (** represented by tuples of the form (v, w), where:   *)
-  (** v = the UCS character value to be encoded; and     *)
-  (** w = the width of the encoded character, in bytes.  *)
+  (** A list of canonical encoding widths of UCS values,
+      represented by tuples of the form (v, w), where:
+      v = the UCS character value to be encoded; and
+      w = the width of the encoded character, in bytes. *)
   let valid_ucs_value_widths =
     [
       (1l       , 1); ((1l <<<  7) --- 1l, 1);
@@ -340,11 +340,11 @@ module UTF8_codec = struct include E.UTF8_codec
              Alcotest.(check int) "same ints" (width_required_for_ucs_value value) width)
           valid_ucs_value_widths
 
-  (** A list of valid header byte decodings, represented by   *)
-  (** tuples of the form (b, (v, w)), where:                  *)
-  (** b = a valid header byte;                                *)
-  (** v = the (partial) value contained within the byte; and  *)
-  (** w = the total width of the encoded character, in bytes. *)
+  (** A list of valid header byte decodings, represented by
+      tuples of the form (b, (v, w)), where:
+      b = a valid header byte;
+      v = the (partial) value contained within the byte; and
+      w = the total width of the encoded character, in bytes. *)
   let valid_header_byte_decodings =
     [
       (0b00000000, (0b00000000, 1));
@@ -383,10 +383,10 @@ module UTF8_codec = struct include E.UTF8_codec
                (fun () -> decode_header_byte b |> ignore))
           invalid_header_bytes
 
-  (** A list of valid continuation byte decodings, represented *)
-  (** by tuples of the form (b, v), where:                     *)
-  (** b = a valid continuation byte; and                       *)
-  (** v = the partial value contained within the byte.         *)
+  (** A list of valid continuation byte decodings, represented
+      by tuples of the form (b, v), where:
+      b = a valid continuation byte; and
+      v = the partial value contained within the byte. *)
   let valid_continuation_byte_decodings =
     [
       (0b10000000, 0b00000000);
@@ -420,20 +420,19 @@ module UTF8_codec = struct include E.UTF8_codec
                (fun () -> decode_continuation_byte byte |> ignore))
           invalid_continuation_bytes
 
-  (** A list of valid character decodings represented by   *)
-  (** tuples of the form (s, (v, w)), where:               *)
-  (**                                                      *)
-  (** s = a validly-encoded UTF-8 string;                  *)
-  (** v = the UCS value represented by the string;         *)
-  (**     (which may or may not be valid in its own right) *)
-  (** w = the width of the encoded string, in bytes.       *)
-  (**                                                      *)
-  (** For each byte length b in [1...4], the list contains *)
-  (** decodings for:                                       *)
-  (**                                                      *)
-  (** v_min = the smallest UCS value encodable in b bytes. *)
-  (** v_max = the greatest UCS value encodable in b bytes. *)
-  (**                                                      *)
+  (** A list of valid character decodings represented by
+      tuples of the form (s, (v, w)), where:
+
+      s = a validly-encoded UTF-8 string;
+      v = the UCS value represented by the string;
+          (which may or may not be valid in its own right)
+      w = the width of the encoded string, in bytes.
+
+      For each byte length b in [1...4], the list contains
+      decodings for:
+
+      v_min = the smallest UCS value encodable in b bytes.
+      v_max = the greatest UCS value encodable in b bytes. *)
   let valid_character_decodings = [
     (*               7654321   *)
     (* 0b0xxxxxxx                                  *)  (* 00000000000000xxxxxxx   *)
@@ -461,10 +460,10 @@ module UTF8_codec = struct include E.UTF8_codec
                (value, width))
           valid_character_decodings
 
-  (** A list of strings containing overlong character encodings. *)
-  (** For each byte length b in [2...4], this list contains the  *)
-  (** overlong encoding e (v), where v is the UCS value one less *)
-  (** than the smallest UCS value validly-encodable in b bytes.  *)
+  (** A list of strings containing overlong character encodings.
+      For each byte length b in [2...4], this list contains the
+      overlong encoding e (v), where v is the UCS value one less
+      than the smallest UCS value validly-encodable in b bytes. *)
   let overlong_character_encodings =
     [
       "\xc1\xbf"         (* 0b11000001 0b10111111                       *);
@@ -479,9 +478,9 @@ module UTF8_codec = struct include E.UTF8_codec
                (fun () -> Lenient_UTF8_codec.decode_character string 0 |> ignore))
           overlong_character_encodings
 
-  (** Encodes a valid UCS value and then decodes it again, testing: *)
-  (** a. that the encoded width is canonical for the given value.   *)
-  (** b. that the decoded value is identical to the original value. *)
+  (** Encodes a valid UCS value and then decodes it again, testing:
+      a. that the encoded width is canonical for the given value.
+      b. that the decoded value is identical to the original value. *)
   let test_encode_decode_cycle_for_value value =
     let string = Lenient_UTF8_codec.encode_character value in
     let decoded_value, decoded_width =
