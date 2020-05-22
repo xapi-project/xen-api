@@ -1,4 +1,0 @@
-(library
-  (public_name xapi-stdext-monadic)
-  (name xapi_stdext_monadic)
-)

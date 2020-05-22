@@ -14,21 +14,6 @@
 
 module List = struct include List
 
-  module Monad = Xapi_stdext_monadic.Monad.M1.Make (struct
-
-      type 'a m = 'a list
-
-      let bind list f =
-        let rec inner result = function
-          | x :: xs -> inner (List.rev_append (f x) result) xs
-          | [] -> List.rev result
-        in
-        inner [] list
-
-      let return x = [x]
-
-    end)
-
   (** Turn a list into a set *)
   let rec setify = function
     | [] -> []
@@ -214,9 +199,7 @@ module List = struct include List
 
   let make_assoc op l = map (fun key -> key, op key) l
 
-  let unbox_list a =
-    let module Opt = Xapi_stdext_monadic.Opt in
-    List.map Opt.unbox (List.filter Opt.is_boxed a)
+  let unbox_list l = List.filter_map Fun.id l
 
   let filter_map f list =
     unbox_list (map f list)

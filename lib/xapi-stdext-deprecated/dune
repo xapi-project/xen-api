@@ -1,4 +1,0 @@
-(library
-  (name xapi_stdext_deprecated)
-  (public_name xapi-stdext-deprecated)
-)

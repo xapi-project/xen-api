@@ -12,7 +12,6 @@ depends: [
   "ocaml"
   "dune" {build}
   "uuidm"
-  "xapi-stdext-monadic"
 ]
 synopsis:
   "A deprecated collection of utility functions - Standard library extensions"

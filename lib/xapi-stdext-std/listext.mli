@@ -13,7 +13,6 @@
  *)
 module List :
 sig
-  module Monad : sig include Xapi_stdext_monadic.Monad.M1.MONAD with type 'a m = 'a list end
   val setify : 'a list -> 'a list
   val subset : 'a list -> 'a list -> bool
   val set_equiv : 'a list -> 'a list -> bool

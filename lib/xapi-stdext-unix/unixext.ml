@@ -204,18 +204,17 @@ let execv_get_output cmd args =
     pid, pipe_exit
 
 let copy_file_internal ?limit reader writer =
-  let module Opt = Xapi_stdext_monadic.Opt in
   let buffer = Bytes.make 65536 '\000' in
   let buffer_len = Int64.of_int (Bytes.length buffer) in
   let finished = ref false in
   let total_bytes = ref 0L in
   let limit = ref limit in
   while not(!finished) do
-    let requested = min (Opt.default buffer_len !limit) buffer_len in
+    let requested = min (Option.value ~default:buffer_len !limit) buffer_len in
     let num = reader buffer 0 (Int64.to_int requested) in
     let num64 = Int64.of_int num in
 
-    limit := Opt.map (fun x -> Int64.sub x num64) !limit;
+    limit := Option.map (fun x -> Int64.sub x num64) !limit;
     ignore_int (writer buffer 0 num);
     total_bytes := Int64.add !total_bytes num64;
     finished := num = 0 || !limit = Some 0L;
