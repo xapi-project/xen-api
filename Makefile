@@ -1,7 +1,7 @@
 OPAM_PREFIX?=$(DESTDIR)$(shell opam config var prefix)
 OPAM_LIBDIR?=$(DESTDIR)$(shell opam config var lib)
 
-.PHONY: release build install uninstall clean test doc reindent
+.PHONY: release build install uninstall clean test doc format
 
 release:
 	dune build -p xapi-tapctl -j $$(getconf _NPROCESSORS_ONLN)
@@ -25,8 +25,8 @@ test:
 doc:
 	dune build @doc -profile=release
 
-reindent:
-	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
+format:
+	dune build @fmt --auto-promote
 
 
 .DEFAULT_GOAL := release
