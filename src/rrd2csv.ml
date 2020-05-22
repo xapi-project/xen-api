@@ -12,9 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_monadic
-open Xapi_stdext_std
-open Xapi_stdext_threads
+module Xstringext = Xapi_stdext_std.Xstringext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 
 open Rrd
 
@@ -31,7 +30,7 @@ module Stdout = struct
 	let warn ?(oc=stdout) msg = Printf.fprintf oc "WARNING: %s\n%!" msg
 	let print ?(oc=stdout) msg = Printf.fprintf oc "%s\n%!" msg
 
-	let time_of_float x = 
+	let time_of_float x =
 		let time = Unix.gmtime x in
 		Printf.sprintf "%04d-%02d-%02dT%02d:%02d:%02dZ"
 			(time.Unix.tm_year+1900)
@@ -44,16 +43,16 @@ module Stdout = struct
 	let stdout_m = Mutex.create ()
 	let debug (fmt: ('a , unit, string, unit) format4) =
 		if !print_debug then
-			Threadext.Mutex.execute stdout_m
+			Mutex.execute stdout_m
 				(fun () ->
 					Printf.kprintf
-						(fun s -> Printf.printf "%s [%d] %s\n" 
-							(time_of_float (Unix.gettimeofday ())) 
+						(fun s -> Printf.printf "%s [%d] %s\n"
+							(time_of_float (Unix.gettimeofday ()))
 							(Thread.id (Thread.self ())) s; flush stdout) fmt)
 		else
 			Printf.kprintf (fun _ -> ()) fmt
 
-	let string_of_float flt = 
+	let string_of_float flt =
 		if fst (modf flt) = 0. then Printf.sprintf "%.0f" flt
 		else                        Printf.sprintf "%f" flt
 end
@@ -68,13 +67,13 @@ module XAPI = struct
 	let rpc xml =
 		let open Xmlrpc_client in
 		let http = xmlrpc ~version:"1.0" "/" in
-		XMLRPC_protocol.rpc ~srcstr:"rrd2csv" ~dststr:"xapi" 
+		XMLRPC_protocol.rpc ~srcstr:"rrd2csv" ~dststr:"xapi"
 			~transport:(Unix (Filename.concat "/var/lib/xcp" "xapi")) ~http xml
 
 	(* execute f within an active session *)
 	let rec retry_with_session f x =
 		let session =
-			let rec aux () = 
+			let rec aux () =
 				try Client.Session.login_with_password
 					~rpc ~uname:"" ~pwd:"" ~version:"1.4" ~originator:"rrd2csv"
 				with _ -> Thread.delay !delay; aux () in
@@ -89,7 +88,7 @@ module XAPI = struct
 			result
 		with e ->
 			logout_unsafe session;
-			Stdout.warn 
+			Stdout.warn
 				(Printf.sprintf "Got '%s', trying with a new session ..."
 					 (Printexc.to_string e));
 			Thread.delay !delay;
@@ -143,26 +142,26 @@ module Ds_selector = struct
 		{ cf; owner; uuid; metric; enabled }
 
 	let of_datasource ?(uuid="") ?owner (ds : Data_source.t) =
-		{ empty with owner; uuid;  
+		{ empty with owner; uuid;
 			metric=ds.Data_source.name; enabled=ds.Data_source.enabled }
 
 	let of_string str =
 		let open Rrd in
 			let splitted = Xstringext.String.split ':' str in
 			match splitted with
-				| [cf; owner; uuid; metric] -> 
-					{ empty with 
+				| [cf; owner; uuid; metric] ->
+					{ empty with
 						cf=(try Some (cf_type_of_string cf) with _ -> None);
-						owner=(match owner with 
+						owner=(match owner with
 							| "vm" -> Some (VM uuid)
 							| "sr" -> Some (SR uuid)
-							| "host" -> Some Host 
+							| "host" -> Some Host
 							| _ -> None);
 						uuid=uuid; metric=metric
 					}
 				| [metric] -> { empty with metric=metric }
 				| _ -> failwith "ds_selector_of_string"
-					
+
 
 	(* R2.5.1. Data-source names containing commas or newline
 	   characters should be quoted with double-quotes, as per
@@ -170,19 +169,19 @@ module Ds_selector = struct
 	let escape_metric s =
 		let quote s = Printf.sprintf "\"%s\"" s in
 		if String.contains s '"' then
-			quote (Xstringext.String.map_unlikely s 
+			quote (Xstringext.String.map_unlikely s
 					   (function '\"' -> Some "\"\"" | _ -> None))
 		else if String.contains s ',' || String.contains s '\n'
 		then quote s
 		else       s
-				
+
 	let to_string ?(escaped=false) ds_s =
 		let open Rrd in
-        let string_repr = Printf.sprintf "%s:%s:%s:%s" 
-				(try cf_type_to_string (Opt.unbox ds_s.cf) with Not_found -> "")
-				(try match (Opt.unbox ds_s.owner) with 
-					| VM _ -> "vm" 
-					| Host -> "host" 
+        let string_repr = Printf.sprintf "%s:%s:%s:%s"
+				(try cf_type_to_string (Option.get ds_s.cf) with Not_found -> "")
+				(try match (Option.get ds_s.owner) with
+					| VM _ -> "vm"
+					| Host -> "host"
 					| SR _ -> "sr"
 				 with _ -> "")
 				ds_s.uuid
@@ -194,15 +193,15 @@ module Ds_selector = struct
 
 	let to_string_both ?(escaped=false) ds_s =
 		let open Rrd in
-		let string_repr = Printf.sprintf "%s:%s:%s (%s):%s" 
-				(try cf_type_to_string (Opt.unbox ds_s.cf) with Not_found -> "")
-				(try match (Opt.unbox ds_s.owner) with 
-					| VM _ -> "vm" 
-					| Host -> "host" 
+		let string_repr = Printf.sprintf "%s:%s:%s (%s):%s"
+				(try cf_type_to_string (Option.get ds_s.cf) with Not_found -> "")
+				(try match (Option.get ds_s.owner) with
+					| VM _ -> "vm"
+					| Host -> "host"
 					| SR _ -> "sr"
 				 with _ -> "")
 				ds_s.uuid
-				(try match (Opt.unbox ds_s.owner) with
+				(try match (Option.get ds_s.owner) with
 					| VM _ -> get_vm_name_label ds_s.uuid
 					| Host -> get_host_name_label ds_s.uuid
 					| SR _ -> ""
@@ -212,14 +211,14 @@ module Ds_selector = struct
 
 	let to_string_name_label ?(escaped=false) ds_s =
 		let open Rrd in
-		let string_repr = Printf.sprintf "%s:%s:%s:%s" 
-				(try cf_type_to_string (Opt.unbox ds_s.cf) with Not_found -> "")
-				(try match (Opt.unbox ds_s.owner) with 
-					| VM _ -> "vm" 
-					| Host -> "host" 
+		let string_repr = Printf.sprintf "%s:%s:%s:%s"
+				(try cf_type_to_string (Option.get ds_s.cf) with Not_found -> "")
+				(try match (Option.get ds_s.owner) with
+					| VM _ -> "vm"
+					| Host -> "host"
 					| SR _ -> "sr"
 					with _ -> "")
-				(try match (Opt.unbox ds_s.owner) with
+				(try match (Option.get ds_s.owner) with
 					| VM _ -> get_vm_name_label ds_s.uuid
 					| Host -> get_host_name_label ds_s.uuid
 					| SR _ -> ""
@@ -233,16 +232,16 @@ module Ds_selector = struct
 	(* Returns true if d "passes" the filter f, i.e. if fields of d
 	   match the non-null fields of f *)
 	let filter11 f d =
-		true 
+		true
 		&& (Xstringext.String.startswith f.metric d.metric || f.metric = "")
-		&& (f.cf = d.cf || f.cf = None) 
+		&& (f.cf = d.cf || f.cf = None)
 		&& (match f.owner, d.owner with
 			| None, _ -> true
 			| Some (VM _), Some (VM _) -> f.uuid = d.uuid || f.uuid = ""
 			| Some (SR _), Some (SR _) -> f.uuid = d.uuid || f.uuid = ""
 			| Some Host, Some Host		 -> true
 			| _ -> false
-		) 
+		)
 		&& (f.uuid = d.uuid || f.uuid = "")
 
 	(* Returns true if d "passes" at least one of the filters fs, with
@@ -250,11 +249,11 @@ module Ds_selector = struct
 	let filterN1_OR fs d =
 		if fs = [] then true else
 			List.fold_left (fun acc f -> acc || (filter11 f d)) false fs
-				
+
 	(* Returns the d \in ds that passes at least one of the filters
 	   fs *)
 	let filterNN_OR fs ds =
-		List.fold_left (fun acc d -> 
+		List.fold_left (fun acc d ->
 			if filterN1_OR fs d then d::acc else acc) [] ds
 
 	let filter = filterNN_OR
@@ -332,7 +331,7 @@ module Xport = struct
 			| _ -> Xmlm.input_tree ~data ~el input
 		in
 
-		let kvs (elts: xml_tree list) = Listext.List.filter_map
+		let kvs (elts: xml_tree list) = List.filter_map
 			(function | El (key, [D value]) -> Some (key,value) | El _ | D _ -> None) elts in
 
 		let find_elt (key: string) (elts: xml_tree list) =
@@ -410,8 +409,8 @@ module Xport = struct
 
 	let to_csv (update: t) =
 		let last_update = List.hd update.data in
-		Xstringext.String.sub_to_end (Array.fold_left (fun acc v -> 
-			let strv = Stdout.string_of_float v in acc ^ ", " ^ strv) 
+		Xstringext.String.sub_to_end (Array.fold_left (fun acc v ->
+			let strv = Stdout.string_of_float v in acc ^ ", " ^ strv)
 							   "" last_update.values) 2
 
 	(* Association list operations *)
@@ -421,21 +420,21 @@ module Xport = struct
 		type values_list = (Ds_selector.t * float) list
 
 		(* Returns a CSV list of values corresponding to given data_sources
-			 R2.6.2. Floating-point numbers must be quoted with a dot (".") for the 
+			 R2.6.2. Floating-point numbers must be quoted with a dot (".") for the
 			 radix point
 		 *)
 		let to_csv ?data_sources (last_values: values_list) =
-			let assoc_value ds = Stdout.string_of_float 
+			let assoc_value ds = Stdout.string_of_float
 				(try List.assoc ds last_values with Not_found -> nan) in
 			let filtered_values = match data_sources with
 				| None -> List.map (fun (_, v) -> Stdout.string_of_float v) last_values
 				| Some dss -> (List.map assoc_value dss) in
 			(* Display "N/A" instead of "nan" when DS not available *)
-			let filtered_values = List.map (fun str -> 
+			let filtered_values = List.map (fun str ->
 				if str = "nan" then "N/A" else str) filtered_values in
 			String.concat ", " filtered_values
 
-		(* Create an association list (Ds_selector.t -> float) associating a data 
+		(* Create an association list (Ds_selector.t -> float) associating a data
 			 source to its last known value *)
 		let of_xport (update: t) =
 			let last_update = (List.hd update.data) in
@@ -450,12 +449,12 @@ module Xport = struct
 		let gen_query ?(host=false) ?(backstep=10.) ?cf ?vm session =
 			let now = Unix.gettimeofday () in
 			let qstring =
-				Printf.sprintf "/rrd_updates?session_id=%s&start=%.0f" 
+				Printf.sprintf "/rrd_updates?session_id=%s&start=%.0f"
 					(Ref.string_of session) (now -. backstep) in
-			let qstring = Opt.fold_left 
-				(fun acc vm_uuid -> acc ^ "&vm_uuid=" ^ vm_uuid) qstring vm in
-			let qstring = Opt.fold_left
-				(fun acc cf -> acc ^ "&cf=" ^ cf) qstring cf in
+			let qstring = Option.fold ~none:qstring
+				~some:(fun vm_uuid -> qstring ^ "&vm_uuid=" ^ vm_uuid) vm in
+			let qstring = Option.fold ~none:qstring
+				~some:(fun cf -> qstring ^ "&cf=" ^ cf) cf in
 			let qstring = if host then qstring ^ "&host=true" else qstring in
 			Stdout.debug "HTTP Query: %s" qstring;
 			qstring
@@ -497,21 +496,21 @@ let print_header data_sources show_name show_uuid =
 		|> Printf.sprintf "timestamp, %s"
 		|> Stdout.print
 
-(* R2.6. Output the latest known value for each available metric on stdout in 
+(* R2.6. Output the latest known value for each available metric on stdout in
 	 comma-separated row on stdout *)
 
 let print_last session_id data_sources =
 	let last_update = Xport.get_update session_id in
 	let assoc_list_of_update = Xport.Assoc_list.of_xport last_update in
 	let csv_of_assoc_list = Xport.Assoc_list.to_csv ~data_sources assoc_list_of_update in
-	(* R2.6.1. Each row must start with the timestamp of the time at which the 
+	(* R2.6.1. Each row must start with the timestamp of the time at which the
 	   data sources were sampled *)
 	Stdout.print (Printf.sprintf "%s, %s" (Stdout.time_of_float (Int64.to_float
 	(Xport.get_last_timestamp last_update))) csv_of_assoc_list)
-			
+
 let	filter_ds_that_starts_with_name dss name =
-	List.fold_left (fun acc ds -> 
-		if Xstringext.String.startswith name ds.Ds_selector.metric 
+	List.fold_left (fun acc ds ->
+		if Xstringext.String.startswith name ds.Ds_selector.metric
 		then ds::acc else acc ) [] dss
 
 open Xport
@@ -521,37 +520,37 @@ let main session_id user_filters sampling_period show_name show_uuid =
 	let filtered_dss = Xport.filter_sources user_filters init_update in
 	let time_step = Int64.to_int init_update.header.time_step in
 	(* R2.2.1. Warn if any of the metrics mentioned are disabled *)
-	Opt.iter (fun sp -> if time_step > sp then
+	Option.iter (fun sp -> if time_step > sp then
 			Stdout.warn
 				(Printf.sprintf
 					 "Requested sampling period (%ds) is lower than the period of datasources (%ds)"
 					 sp time_step)) sampling_period;
 	(* R2.1.2. Warn user if he specifies inactive metrics *)
-	List.iter (fun ds -> 
-		if filter_ds_that_starts_with_name init_update.header.entries 
+	List.iter (fun ds ->
+		if filter_ds_that_starts_with_name init_update.header.entries
 			ds.Ds_selector.metric = []
-		then Stdout.warn (Printf.sprintf "Requested metric %s is disabled or non-existant" 
+		then Stdout.warn (Printf.sprintf "Requested metric %s is disabled or non-existant"
 							  (Ds_selector.to_string ds))
 	) user_filters;
 	print_header filtered_dss show_name show_uuid;
 	begin
 		while true do (* Wake up every sampling period *)
 			print_last session_id filtered_dss;
-			Unix.sleep (Opt.default time_step sampling_period);
+			Unix.sleep (Option.value ~default:time_step sampling_period);
 		done
 	end
 
 (* Entry point *)
 let _ =
 	let command = Filename.basename Sys.argv.(0) in
-	
-	(* R2.1. Ability to specify subset of data-sources of interest on the 
+
+	(* R2.1. Ability to specify subset of data-sources of interest on the
 	   command-line
 	   R2.2. Ability to specify period of sampling on the command-line (in seconds)
 	*)
 	let user_filters, sampling_period, show_name, show_uuid =
 		let open Xapi_stdext_pervasives.Pervasiveext in
-		(* R2.1.1. If none are specified, assume that all enabled data-sources are of 
+		(* R2.1.1. If none are specified, assume that all enabled data-sources are of
 		   interest *)
 		let ds = ref []
 		and s = ref None
