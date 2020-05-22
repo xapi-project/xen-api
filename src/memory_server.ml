@@ -18,8 +18,7 @@ open Xcp_service
 open Memory_interface
 open Squeezed_state
 open Squeezed_xenstore
-open Xapi_stdext_monadic
-open Xapi_stdext_unix
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
@@ -149,7 +148,7 @@ let transfer_reservation_to_domain dbg session_id reservation_id domid =
                 Client.write xs
                   (path [reservation_id_path; "in-transfer"])
                   (string_of_int domid)) ;
-            Opt.iter
+            Option.iter
               (fun maxmem ->
                 Squeeze_xen.Domain.set_maxmem_noexn xc domid maxmem)
               (try Some (Int64.of_string kib) with _ -> None)

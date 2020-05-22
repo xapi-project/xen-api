@@ -12,9 +12,7 @@ depends: [
   "ocaml"
   "dune" {build}
   "uuidm"
-  "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
-  "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "cohttp" {>= "0.11.0"}
