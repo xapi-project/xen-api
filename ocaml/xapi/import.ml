@@ -1601,13 +1601,11 @@ let with_error_handling f =
     end
 
 (** Import metadata only *)
-let _metadata_handler (req: Request.t) s _ =
+let metadata_handler (req: Request.t) s _ =
   debug "metadata_handler called";
   req.Request.close <- true;
   Xapi_http.with_context "VM.metadata_import" req s
-    (fun __context -> debug "import.ml:metadata_handler: before call_api_functions";
-         Helpers.call_api_functions ~__context (fun rpc session_id ->
-         debug "import.ml:metadata_handler: inside call_api_functions";
+    (fun __context -> Helpers.call_api_functions ~__context (fun rpc session_id ->
          let full_restore = find_query_flag req.Request.query "restore" in
          let force = find_query_flag req.Request.query "force" in
          let dry_run = find_query_flag req.Request.query "dry_run" in
@@ -1660,16 +1658,7 @@ let _metadata_handler (req: Request.t) s _ =
                     end;
                     raise e
                 )
-           )));
-    debug "import.ml:metadata_handler done"
-
-let metadata_handler req s x =
-  try
-    _metadata_handler req s x
-  with e ->
-    debug "import.ml:metadata_handler: exception: %s" (Printexc.to_string e);
-    Backtrace.is_important e;
-    raise e
+           )))
 
 let stream_import __context rpc session_id s content_length refresh_session config =
   let sr = match config.import_type with
