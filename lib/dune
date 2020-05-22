@@ -26,7 +26,6 @@
    unix
    uri
    xapi-backtrace
-   xapi-stdext-monadic
    xapi-stdext-pervasives
    xapi-stdext-threads
    xapi-inventory

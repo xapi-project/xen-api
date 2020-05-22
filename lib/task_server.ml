@@ -14,7 +14,6 @@
 
 (** @group Xenops *)
 
-open Xapi_stdext_monadic
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 
@@ -252,7 +251,7 @@ functor
     let check_cancelling_locked task =
       task.cancel_points_seen <- task.cancel_points_seen + 1 ;
       if task.cancelling then raise_cancelled task ;
-      Opt.iter
+      Option.iter
         (fun x ->
           if task.cancel_points_seen = x then (
             info
