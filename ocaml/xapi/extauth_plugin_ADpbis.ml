@@ -20,6 +20,68 @@ open D
 
 open Stdext.Xstringext
 
+let lwsmd_service = "lwsmd"
+
+module Lwsmd = struct
+
+  let is_ad_enabled ~__context =
+    Helpers.get_localhost ~__context
+    |> (fun self -> Db.Host.get_external_auth_type ~__context ~self)
+    |> (fun x -> x = Xapi_globs.auth_type_AD_Likewise)
+
+  let is_active() =
+    Fe_systemctl.is_active lwsmd_service
+
+  type t =
+    | Start
+    | Stop
+
+  let to_string = function
+    | Start -> "start"
+    | Stop -> "stop"
+
+  let enable_nsswitch() =
+    try
+      ignore (Forkhelpers.execute_command_get_output !Xapi_globs.domain_join_cli_cmd ["configure"; "--enable"; "nsswitch"]);
+    with e -> error "Fail to run %s with error %s" !Xapi_globs.domain_join_cli_cmd (ExnHelper.string_of_exn e)
+
+  let operate ~wait_until_success op =
+    let op_str = op |> to_string in
+    try
+      ignore (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl [op_str; lwsmd_service]);
+      let timeout = 5. in
+      if wait_until_success then
+        let success_cond = match op with
+          | Start -> is_active
+          | Stop -> Fun.negate is_active in
+        try
+          Helpers.retry_until_timeout ~timeout (Printf.sprintf "trying to %s %s" op_str lwsmd_service) success_cond
+        with _ -> debug "Fail to %s %s timeout %f" op_str lwsmd_service timeout
+    with e -> error "Fail to %s %s with error %s" op_str lwsmd_service (ExnHelper.string_of_exn e)
+
+  let stop ~wait_until_success =
+    operate ~wait_until_success Stop
+
+  let start ~wait_until_success =
+    operate ~wait_until_success Start
+
+  let init_service  ~__context =
+    (* This function is called during xapi start *)
+    (* it will start lwsmd service if the host is authed with AD *)
+    (* Xapi does not wait lwsmd service to boot up success as following reasons
+     * 1. The waiting will slow down xapi bootup
+     * 2. Xapi still needs to boot up even lwsmd bootup fail
+     * 3. Xapi does not need to use lwsmd functionality during its bootup *)
+    if is_ad_enabled ~__context then (
+      start ~wait_until_success:false;
+      (* Xapi help to enable nsswitch during bootup if it find the host is authed with AD
+       * nsswitch will be automatically enabled with command domainjoin-cli
+       * but this enabling is necessary when the host authed with AD upgrade
+       * As it will not run the domainjoin-cli command again *)
+      enable_nsswitch()
+    )
+end
+
 let match_error_tag (lines:string list) =
   let err_catch_list =
     [ "DNS_ERROR_BAD_PACKET",       Auth_signature.E_LOOKUP;
@@ -453,10 +515,10 @@ struct
       (* the space-replacement char used by pbis is defined at /etc/pbis/lsassd.conf *)
       let current_lw_space_replacement = '+' in
       String.iteri (fun i c ->
-        if c = current_lw_space_replacement then
-          Bytes.set defensive_copy i ' '
-        else ()
-      ) lwname;
+          if c = current_lw_space_replacement then
+            Bytes.set defensive_copy i ' '
+          else ()
+        ) lwname;
       Bytes.unsafe_to_string defensive_copy
     in
     let get_value name ls = if List.mem_assoc name ls then List.assoc name ls else "" in
@@ -689,12 +751,9 @@ struct
         (* execute the pbis domain join cmd *)
         try
           let (_: (string*string) list) =
-            pbis_common_with_password
-              pass
-              "/opt/pbis/bin/domainjoin-cli"
-              (["join"]
-               @ ou_params @ disabled_module_params @
-               ["--ignore-pam";"--notimesync";domain;user])
+            [["join"]; ou_params; disabled_module_params; ["--ignore-pam"; "--notimesync"; domain; user]]
+            |> List.concat
+            |> pbis_common_with_password pass !Xapi_globs.domain_join_cli_cmd
           in
 
           let max_tries = 60 in (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
@@ -745,7 +804,7 @@ struct
            begin (* no windows admin+pass have been provided: leave the pbis host in the AD database *)
              (* execute the pbis domain-leave cmd *)
              (* this function will raise an exception if something goes wrong *)
-             let (_: (string*string) list) = pbis_common "/opt/pbis/bin/domainjoin-cli" ["leave"] in
+             let (_: (string*string) list) = pbis_common !Xapi_globs.domain_join_cli_cmd ["leave"] in
              ()
            end
          else
@@ -756,7 +815,7 @@ struct
              let user = convert_nt_to_upn_username (get_full_subject_name ~use_nt_format:false _user) in
              (* execute the pbis domain-leave cmd *)
              (* this function will raise an exception if something goes wrong *)
-             let (_: (string*string) list) = pbis_common_with_password pass "/opt/pbis/bin/domainjoin-cli" ["leave";user] in
+             let (_: (string*string) list) = pbis_common_with_password pass !Xapi_globs.domain_join_cli_cmd ["leave";user] in
              ()
            end;
          None (* no failure observed in pbis *)

@@ -924,7 +924,7 @@ let server_init() =
         let maybe_wait_for_clustering_ip () =
           let host = Helpers.get_localhost ~__context in
           begin match Xapi_clustering.find_cluster_host ~__context ~host with
-          | Some self ->
+            | Some self ->
               debug "Waiting forever for cluster_host to gain an IP address";
               let ip = Xapi_mgmt_iface.(wait_for_clustering_ip ~__context ~self) in
               debug "Got clustering IP %s, resyncing cluster_host %s" ip (Ref.string_of self);
@@ -932,7 +932,7 @@ let server_init() =
               debug "Attempting to re-plug remaining unplugged PBDs";
               Helpers.call_api_functions ~__context (fun rpc session_id ->
                   Create_storage.plug_unplugged_pbds __context)
-          | None -> ()
+            | None -> ()
           end;
           Helpers.call_api_functions ~__context (fun rcp session_id ->
               ignore(Create_storage.check_for_unplugged_pbds ~__context ~alert:true))
@@ -957,6 +957,8 @@ let server_init() =
           (* Start the external authentification plugin *)
           "Calling extauth_hook_script_before_xapi_initialize", [ Startup.NoExnRaising ],
           (fun () -> call_extauth_hook_script_before_xapi_initialize ~__context);
+          "Initializing lwsmd service", [ Startup.NoExnRaising ],
+          (fun () -> Extauth_plugin_ADpbis.Lwsmd.init_service ~__context);
           "Calling on_xapi_initialize event hook in the external authentication plugin", [ Startup.NoExnRaising; Startup.OnThread ],
           (fun () -> event_hook_auth_on_xapi_initialize_async ~__context);
           "Cleanup attached pool_updates when start", [ Startup.NoExnRaising ],

@@ -293,6 +293,10 @@ let startup_script_hook = ref "xapi-startup-script"
 (* Executed when a rolling upgrade is detected starting or stopping *)
 let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
 
+(* Executed during startup when the host is authed with AD
+ * or the host is joining or leaving AD *)
+let domain_join_cli_cmd = ref "/opt/pbis/bin/domainjoin-cli"
+
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
 let on_system_boot = ref false
@@ -465,6 +469,11 @@ let redo_log_alert_key = "metadata_lun_alerts"
 (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
 let serialize_pool_enable_disable_extauth = Mutex.create()
 (* CP-695: controls our asynchronous persistent initialization of the external authentication service during Xapi.server_init *)
+
+(* Auth types *)
+let auth_type_NONE = ""
+let auth_type_AD_Likewise = "AD"
+let auth_type_PAM = "PAM"
 
 let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
@@ -974,6 +983,7 @@ module Resources = struct
     "rolling-upgrade-script-hook", rolling_upgrade_script_hook, "Executed when a rolling upgrade is detected starting or stopping";
     "xapi-message-script", xapi_message_script, "Executed when messages are generated if email feature is disabled";
     "non-managed-pifs", non_managed_pifs, "Executed during PIF.scan to find out which NICs should not be managed by xapi";
+    "domain_join_cli_cmd", domain_join_cli_cmd, "Command to manage pbis related service";
     "update-issue", update_issue_script, "Running update-service when configuring the management interface";
     "killall", kill_process_script, "Executed to kill process";
     "nbd-firewall-config", nbd_firewall_config_script, "Executed after NBD-related networking changes to configure the firewall for NBD";
