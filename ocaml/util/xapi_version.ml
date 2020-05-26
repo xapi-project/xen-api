@@ -9,5 +9,8 @@
 let git_id = ""
 let hostname = "localhost"
 let date = Build_info.date
-let xapi_version_major = 1
-let xapi_version_minor = 20
+let (xapi_version_major, xapi_version_minor) =
+  try
+    Scanf.sscanf Build_info.version "%d.%d.%s" (fun maj min _rest -> (maj, min))
+  with _ ->
+    failwith (Printf.sprintf "Couldn't determine xapi version - got unexpected XAPI_VERSION='%s'" Build_info.version)
