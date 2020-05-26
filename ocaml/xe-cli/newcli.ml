@@ -358,6 +358,8 @@ let main_loop ifd ofd permitted_filenames =
           marshal ofd (Blob End);
           Unix.close fd
         with
+        | Unix.Unix_error(Unix.EPIPE,_,_) ->
+            raise (ClientSideError (Printf.sprintf "Failed to upload file %s" x))
         | e -> marshal ofd (Response Failed)
       end
     | Command (HttpConnect(url)) ->
@@ -662,7 +664,9 @@ let main () =
          | Unix.WSIGNALED c -> "killed by signal " ^ (Xapi_stdext_unix.Unixext.string_of_signal c)
          | Unix.WSTOPPED c -> "stopped by signal " ^ string_of_int c)
     | Upload_filename_error e ->
-      error "Upload file error: %s" e
+      error "Upload file error: %s.\n" e
+    | ClientSideError e ->
+      error "Client Side error: %s.\n" e
     | e ->
       error "Unhandled exception\n%s\n" (Printexc.to_string e) in
   List.iter (fun p ->
