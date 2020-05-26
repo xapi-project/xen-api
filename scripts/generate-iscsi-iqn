@@ -7,6 +7,9 @@ set -e
 export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
 export XENSOURCE_INVENTORY=/etc/xensource-inventory
 
+UPGRADE="false"
+[ -r ${FIRSTBOOT_DATA_DIR}/host.conf ] && . ${FIRSTBOOT_DATA_DIR}/host.conf
+
 . ${XENSOURCE_INVENTORY}
 IQN_CONF=${FIRSTBOOT_DATA_DIR}/iqn.conf
 
@@ -55,7 +58,10 @@ xe host-param-set uuid=${INSTALLATION_UUID} iscsi_iqn="${IQN}"
 echo Set iSCSI IQN: "${IQN}"
 echo IQN=\'"${IQN}"\' >${IQN_CONF}
 
-# Ensure changes are synced to disk
-xe pool-sync-database
+
+if [ "$UPGRADE" != "true" ]; then
+  # Ensure changes are synced to disk
+  xe pool-sync-database
+fi
 
 touch /var/lib/misc/ran-generate-iscsi-iqn
