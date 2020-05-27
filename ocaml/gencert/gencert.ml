@@ -22,9 +22,13 @@ module D = Debug.Make(struct let name = "gencert" end)
 let generate_cert_or_fail ~path ~cn =
   let (stdout, stderr) = Lib.call_generate_ssl_cert ~args:[path; cn] in
 
-  let (stdout, stderr) = (String.escaped stdout, String.escaped stderr) in
-  D.debug {|generate_ssl_cert stdout: "%s"|} stdout;
-  D.debug {|generate_ssl_cert stderr: "%s"|} stderr;
+  let debug_lines prefix std_x =
+    let lines = String.split_on_char '\n' std_x in
+    List.iter (fun l -> D.debug {|%s: "%s"|} prefix l) lines
+  in
+  debug_lines "generate_ssl_cert stdout" stdout;
+  debug_lines "generate_ssl_cert stderr" stderr;
+
   if Sys.file_exists path then
     D.info "file exists (%s), assuming cert was created" path
   else begin
