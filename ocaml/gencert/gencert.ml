@@ -15,16 +15,14 @@
 (* Usage: gencert <path> *)
 
 let inventory = "/etc/xensource-inventory"
-let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert"
 
 module Lib = Gencertlib.Lib
 module D = Debug.Make(struct let name = "gencert" end)
 
 let generate_cert_or_fail ~path ~cn =
-  let args = [path; cn] in
-  let (stdout, stderr) = Forkhelpers.execute_command_get_output generate_ssl_cert args in
-  let (stdout, stderr) = (String.escaped stdout, String.escaped stderr) in
+  let (stdout, stderr) = Lib.call_generate_ssl_cert ~args:[path; cn] in
 
+  let (stdout, stderr) = (String.escaped stdout, String.escaped stderr) in
   D.debug {|generate_ssl_cert stdout: "%s"|} stdout;
   D.debug {|generate_ssl_cert stderr: "%s"|} stderr;
   if Sys.file_exists path then

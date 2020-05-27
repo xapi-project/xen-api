@@ -13,6 +13,9 @@
  *)
 
 val get_management_ip_addr : dbg:string -> string option
+
+val call_generate_ssl_cert : args:string list -> string * string
+
 val install_server_certificate :
   ?pem_chain:string option ->
   pem_leaf:string ->
