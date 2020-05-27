@@ -16,6 +16,20 @@ open Db_exn
 
 module Time = struct type t = Generation.t end
 
+module HashedString = struct
+  type t = string
+
+  let equal = String.equal
+
+  let hash = Hashtbl.hash
+end
+
+module StringPool = Weak.Make (HashedString)
+
+let share =
+  let pool = StringPool.create 2048 in
+  StringPool.merge pool
+
 module Stat = struct
   type t = {created: Time.t; modified: Time.t; deleted: Time.t}
 
@@ -30,6 +44,8 @@ module StringMap = struct
 
     let compare = Stdlib.compare
   end)
+
+  let add key v t = add (share key) v t
 
   let update key default f t =
     let v = try find key t with Not_found -> default in
@@ -125,6 +141,17 @@ functor
 
 module Row = struct
   include Make (Schema.Value)
+
+  let add gen key v =
+    add gen key
+    @@
+    match v with
+    | Schema.Value.String x ->
+        Schema.Value.String (share x)
+    | Schema.Value.Pairs ps ->
+        Schema.Value.Pairs (List.map (fun (x, y) -> (share x, share y)) ps)
+    | Schema.Value.Set xs ->
+        Schema.Value.Set (List.map share xs)
 
   type t = map_t
 
