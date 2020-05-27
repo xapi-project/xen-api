@@ -1,19 +1,19 @@
 #
 # Copyright (c) Citrix Systems, Inc.
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-# 
+#
 #   1) Redistributions of source code must retain the above copyright
 #      notice, this list of conditions and the following disclaimer.
-# 
+#
 #   2) Redistributions in binary form must reproduce the above
 #      copyright notice, this list of conditions and the following
 #      disclaimer in the documentation and/or other materials
 #      provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 # LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -88,7 +88,7 @@ function log_error([String]$msg)
 {
   process
   {
-    if($err) 
+    if($err)
 	{
       write-error $msg
 	}
@@ -146,7 +146,7 @@ function exec([String]$test_name, [String]$cmd, [String]$expected)
 	 $fails.Add($test_name, $_.Exception)
 	 break
   }
-  
+
   log_info ("Test '{0}' Started: cmd = {1}, expected = {2}" -f $test_name,$cmd,$expected)
   $result = Invoke-Expression $cmd
   if ($result -eq $expected)
@@ -156,7 +156,7 @@ function exec([String]$test_name, [String]$cmd, [String]$expected)
   }
   else
   {
-    $exc = new-object Exception("Test '{0}' Failed: expected '{1}'; actual '{2}'" `
+    $exc = New-Object Exception("Test '{0}' Failed: expected '{1}'; actual '{2}'" `
                                 -f $test_name,$expected,$result)
     add_result $out_xml $cmd $test_name $exc
 	$fails.Add($test_name, $exc)
@@ -173,7 +173,7 @@ function connect_server([String]$svr, [String]$usr, [String]$pwd)
   log_info ("connecting to server '{0}'" -f $svr)
   $session = Connect-XenServer -Server $svr -UserName $usr -Password $pwd -PassThru
 
-  if($session -eq $null)
+  if($null -eq $session)
   {
     return $false
   }
@@ -186,7 +186,7 @@ function disconnect_server([String]$svr)
   log_info ("disconnecting from server '{0}'" -f $svr)
   Get-XenSession -Server $svr | Disconnect-XenServer
 
-  if ((Get-XenSession -Server $svr) -eq $null)
+  if ($null -eq (Get-XenSession -Server $svr))
   {
     return $true
   }
@@ -205,9 +205,9 @@ function destroy_vm([XenAPI.VM]$vm)
   }
 
   log_info ("destroying vm '{0}'" -f $vm.name_label)
-  
+
   $vdis = @()
-  
+
   foreach($vbd in $vm.VBDs)
   {
 	if((Get-XenVBDProperty -Ref $vbd -XenProperty Mode) -eq [XenAPI.vbd_mode]::RW)
@@ -215,9 +215,9 @@ function destroy_vm([XenAPI.VM]$vm)
       $vdis += Get-XenVBDProperty -Ref $vbd -XenProperty VDI
 	}
   }
-  
+
   Remove-XenVM -VM $vm -Async -PassThru | Wait-XenTask -ShowProgress
-  
+
   foreach($vdi in $vdis)
   {
     Remove-XenVDI -VDI $vdi -Async -PassThru | Wait-XenTask -ShowProgress
@@ -249,20 +249,20 @@ function install_vm([String]$name, [String]$sr_name)
 
   #find a windows template
   log_info "looking for a Windows template..."
-  $template = @(Get-XenVM -Name 'Windows *' | where {$_.is_a_template})[0]
+  $template = @(Get-XenVM -Name 'Windows *' | Where-Object {$_.is_a_template})[0]
 
   log_info ("installing vm '{0}' from template '{1}'" -f $template.name_label,$name)
-  
+
   #clone template
   log_info ("cloning vm '{0}' to '{1}'" -f $template.name_label,$name)
   Invoke-XenVM -VM $template -XenAction Clone -NewName $name -Async `
                      -PassThru | Wait-XenTask -ShowProgress
-  
-  $vm = Get-XenVM -Name $name  
+
+  $vm = Get-XenVM -Name $name
   $sr = Get-XenSR -Name $sr_name
   $other_config = $vm.other_config
   $other_config["disks"] = $other_config["disks"].Replace('sr=""', 'sr="{0}"' -f $sr.uuid)
-  
+
   #add cd drive
   log_info ("creating cd drive for vm '{0}'" -f $vm.name_label)
   New-XenVBD -VM $vm -VDI $null -Userdevice 3 -Bootable $false -Mode RO `
@@ -270,25 +270,25 @@ function install_vm([String]$name, [String]$sr_name)
              -QosAlgorithmType "" -QosAlgorithmParams @{}
 
   Set-XenVM -VM $vm -OtherConfig $other_config
-  
-  #provision vm 
+
+  #provision vm
   log_info ("provisioning vm '{0}'" -f $vm.name_label)
   Invoke-XenVM -VM $vm -XenAction Provision -Async -PassThru | Wait-XenTask -ShowProgress
-  
+
   return $true
 }
 
 function uninstall_vm([String]$name)
 {
   log_info ("uninstalling vm '{0}'" -f $name)
-   
+
   $vms = Get-XenVM -Name $name
-  
+
   foreach($vm in $vms)
   {
     destroy_vm($vm)
   }
-  
+
   return $true
 }
 
@@ -305,14 +305,14 @@ function vm_can_boot($vm_name, [XenApi.Host[]] $servers)
   {
     Invoke-XenVM -Name $vm_name -XenAction AssertCanBootHere -XenHost $server
   }
-  
+
   if ($exceptions.Length -lt $servers.Length)
   {
   	return $true
   }
-  
+
   log_info "No suitable place to boot VM:"
-  
+
   foreach ($excep in $script:exceptions)
   {
   	log_info ("Reason: {0}" -f $excep.Message)
@@ -358,7 +358,7 @@ function get_default_sr()
 {
   log_info ("getting default sr")
   $pool = Get-XenPool
-  return (Get-XenPool).default_SR | Get-XenSR 
+  return $pool.default_SR | Get-XenSR
 }
 
 function create_nfs_sr([String]$sr_svr, [String]$sr_path, [String]$sr_name)
@@ -370,7 +370,7 @@ function create_nfs_sr([String]$sr_svr, [String]$sr_path, [String]$sr_name)
                   -Shared $true -SmConfig @{} -Async -PassThru `
         | Wait-XenTask -ShowProgress -PassThru
 
-  if ($sr_opq -eq $null)
+  if ( $null -eq $sr_opq)
   {
     return $false
   }
@@ -391,10 +391,10 @@ function detach_nfs_sr([String]$sr_name)
       Invoke-XenPBD -PBD $pbd -XenAction Unplug
     }
   }
-  
-  $sr_opq = Remove-XenSR -Name $sr_name -Async -PassThru | Wait-XenTask -ShowProgress
- 
-  if ($sr_opq -eq $null)
+
+  $sr_opq = Remove-XenSR -Name $sr_name -Async -PassThru | Wait-XenTask -ShowProgress -PassThru
+
+  if ($null -eq $sr_opq)
   {
     return $true
   }
@@ -452,13 +452,13 @@ foreach($test in $tests)
 	continue
   }
   $success = $false
-  
-  # Add randomness to the names of the test VM and SR to 
+
+  # Add randomness to the names of the test VM and SR to
   # allow a parallel execution context
   $cmd = $test[1]
   $cmd = $cmd -replace "PowerShellAutoTestVM", $vmName
   $cmd = $cmd -replace "PowerShellAutoTestSR", $srName
-  
+
   $success = exec $test[0] $cmd $test[2]
   if ($success)
   {
