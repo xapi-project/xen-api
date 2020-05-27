@@ -1370,7 +1370,7 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
            field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
 
            field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host the VM is currently resident on";
-           field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host) "scheduled_to_be_resident_on" "the host on which the VM is due to be started/resumed/migrated. This acts as a memory reservation indicator";
+           field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _host) "scheduled_to_be_resident_on" "the host on which the VM is due to be started/resumed/migrated. This acts as a memory reservation indicator";
            field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:(Ref _host) "affinity" "A host which the VM has some affinity for (or NULL). This is used as a hint to the start call when it decides where to run the VM. Resource constraints may cause the VM to be started elsewhere.";
 
            namespace ~name:"memory" ~contents:guest_memory ();
