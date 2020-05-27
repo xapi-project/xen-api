@@ -29,23 +29,23 @@
 #
 
 
-Param([Parameter(Mandatory=$true)][String]$svr,
-        [Parameter(Mandatory=$true)][String]$usr,
-        [Parameter(Mandatory=$true)][String]$pwd,
-        [Parameter(Mandatory=$true)][String]$patchPath)
+Param([Parameter(Mandatory = $true)][String]$svr,
+    [Parameter(Mandatory = $true)][String]$usr,
+    [Parameter(Mandatory = $true)][String]$pwd,
+    [Parameter(Mandatory = $true)][String]$patchPath)
 
 ### Connect to a server
 
-[Net.ServicePointManager]::SecurityProtocol='tls,tls11,tls12'
+[Net.ServicePointManager]::SecurityProtocol = 'tls,tls11,tls12'
 Connect-XenServer -Server $svr -UserName $usr -Password $pwd
 
 
 ### Create a VM
 
-$template = @(Get-XenVM -Name 'Windows *' | Where-Object {$_.is_a_template})[0]
+$template = @(Get-XenVM -Name 'Windows *' | Where-Object { $_.is_a_template })[0]
 
-Invoke-XenVM -VM $template -XenAction Clone -NewName "testVM" -Async `
-             -PassThru | Wait-XenTask -ShowProgress
+Invoke-XenVM -VM $template -XenAction Clone -NewName "testVM" -Async -PassThru |`
+    Wait-XenTask -ShowProgress
 
 $vm = Get-XenVM -Name "testVM"
 $sr = Get-XenSR -Ref (Get-XenPool).default_SR
@@ -53,8 +53,8 @@ $other_config = $vm.other_config
 $other_config["disks"] = $other_config["disks"].Replace('sr=""', 'sr="{0}"' -f $sr.uuid)
 
 New-XenVBD -VM $vm -VDI $null -Userdevice 3 -Bootable $false -Mode RO `
-           -Type CD -Unpluggable $true -Empty $true -OtherConfig @{} `
-           -QosAlgorithmType "" -QosAlgorithmParams @{}
+    -Type CD -Unpluggable $true -Empty $true -OtherConfig @{ } `
+    -QosAlgorithmType "" -QosAlgorithmParams @{ }
 
 Set-XenVM -VM $vm -OtherConfig $other_config
 Invoke-XenVM -VM $vm -XenAction Provision -Async -PassThru | Wait-XenTask -ShowProgress
@@ -64,7 +64,7 @@ Invoke-XenVM -VM $vm -XenAction Provision -Async -PassThru | Wait-XenTask -ShowP
 
 $path = $env:TEMP + "\vm.xva"
 
-$trackDataReceived = [XenAPI.HTTP+DataCopiedDelegate]{
+$trackDataReceived = [XenAPI.HTTP+DataCopiedDelegate] {
     param($bytes);
     Write-Host "Bytes received: $bytes" }
 
@@ -75,7 +75,7 @@ $vm | Remove-XenVM
 
 ### Import the previously exported VM using the ProgressDelegate parameter to track send progress
 
-$trackProgress = [XenAPI.HTTP+UpdateProgressDelegate]{
+$trackProgress = [XenAPI.HTTP+UpdateProgressDelegate] {
     param($percent);
     Write-Progress -Activity "Importing Vm..." -PercentComplete $percent }
 
@@ -84,7 +84,7 @@ Import-XenVm -XenHost $svr -Path $path -ProgressDelegate $trackProgress
 
 ### Upload a patch
 
-$trackProgress = [XenAPI.HTTP+UpdateProgressDelegate]{
+$trackProgress = [XenAPI.HTTP+UpdateProgressDelegate] {
     param($percent);
     Write-Progress -Activity "Uploading patch..." -PercentComplete $percent }
 
