@@ -17,8 +17,6 @@ module D = Debug.Make(struct let name = "gencert_lib" end)
 
 exception Unexpected_address_type of string
 
-let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert"
-
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
   try
@@ -42,7 +40,7 @@ let call_generate_ssl_cert ~args =
   | Some h -> h
   in
   let env = [| "PATH=" ^ (String.concat ":" Forkhelpers.default_path); "HOME=" ^ home |] in
-  Forkhelpers.execute_command_get_output generate_ssl_cert ~env args
+  Forkhelpers.execute_command_get_output !Constants.generate_ssl_cert ~env args
 
 open Api_errors
 open Rresult

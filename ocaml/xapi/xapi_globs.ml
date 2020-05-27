@@ -976,7 +976,8 @@ module Resources = struct
     "fcoe-driver", fcoe_driver, "Execute during PIF unplug to get the lun devices related with the ether interface of the PIF";
     "list_domains", list_domains, "Path to the list_domains command";
     "systemctl", systemctl, "Control the systemd system and service manager";
-    "alert-certificate-check", alert_certificate_check, "Path to alert-certificate-check, which generates alerts on about-to-expire server certificates."
+    "alert-certificate-check", alert_certificate_check, "Path to alert-certificate-check, which generates alerts on about-to-expire server certificates.";
+    "generate_ssl_cert", Constants.generate_ssl_cert, "script to generate SSL certificates to be used by XAPI"
   ]
   let nonessential_executables = [
     "startup-script-hook", startup_script_hook, "Executed during startup";
