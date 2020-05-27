@@ -13,8 +13,11 @@
  *)
 
 module Net = Network_client.Client
+module D = Debug.Make(struct let name = "gencert_lib" end)
 
 exception Unexpected_address_type of string
+
+let generate_ssl_cert = "/opt/xensource/libexec/generate_ssl_cert"
 
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
@@ -32,6 +35,14 @@ let get_management_ip_addr ~dbg =
       let addrs = List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs in
       Some (List.hd addrs)
   with _ -> None
+
+let call_generate_ssl_cert ~args =
+  let home = match Sys.getenv_opt "HOME" with
+  | None -> D.warn "environment variable 'HOME' is unavailable, falling back to HOME=/root"; "/root"
+  | Some h -> h
+  in
+  let env = [| "PATH=" ^ (String.concat ":" Forkhelpers.default_path); "HOME=" ^ home |] in
+  Forkhelpers.execute_command_get_output generate_ssl_cert ~env args
 
 open Api_errors
 open Rresult
