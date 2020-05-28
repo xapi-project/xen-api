@@ -12,74 +12,38 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_pervasives
 open Xapi_stdext_threads
 
 module D = Debug.Make (struct let name = "scheduler" end)
 
 open D
 
-module Delay = struct
+module PipeDelay = struct
   (* Concrete type is the ends of a pipe *)
   type t = {
       (* A pipe is used to wake up a thread blocked in wait: *)
-      mutable pipe_out: Unix.file_descr option
-    ; mutable pipe_in: Unix.file_descr option
-    ; (* Indicates that a signal arrived before a wait: *)
-      mutable signalled: bool
-    ; m: Mutex.t
+      pipe_out: Unix.file_descr
+    ; pipe_in: Unix.file_descr
   }
 
   let make () =
-    {pipe_out= None; pipe_in= None; signalled= false; m= Mutex.create ()}
-
-  exception Pre_signalled
+    let pipe_out, pipe_in = Unix.pipe () in
+    {pipe_out; pipe_in}
 
   let wait (x : t) (seconds : float) =
     let timeout = if seconds < 0.0 then 0.0 else seconds in
-    let to_close = ref [] in
-    let close' fd =
-      if List.mem fd !to_close then Unix.close fd ;
-      to_close := List.filter (fun x -> fd <> x) !to_close
-    in
-    Pervasiveext.finally
-      (fun () ->
-        try
-          let pipe_out =
-            Threadext.Mutex.execute x.m (fun () ->
-                if x.signalled then (
-                  x.signalled <- false ;
-                  raise Pre_signalled
-                ) ;
-                let pipe_out, pipe_in = Unix.pipe () in
-                (* these will be unconditionally closed on exit *)
-                to_close := [pipe_out; pipe_in] ;
-                x.pipe_out <- Some pipe_out ;
-                x.pipe_in <- Some pipe_in ;
-                x.signalled <- false ;
-                pipe_out)
-          in
-          let r, _, _ = Unix.select [pipe_out] [] [] timeout in
-          (* flush the single byte from the pipe *)
-          if r <> [] then ignore (Unix.read pipe_out (Bytes.create 1) 0 1) ;
-          (* return true if we waited the full length of time, false if we were
-             woken *)
-          r = []
-        with Pre_signalled -> false)
-      (fun () ->
-        Threadext.Mutex.execute x.m (fun () ->
-            x.pipe_out <- None ;
-            x.pipe_in <- None ;
-            List.iter close' !to_close))
+    if Thread.wait_timed_read x.pipe_out timeout then
+      (* flush the single byte from the pipe *)
+      let (_ : int) = Unix.read x.pipe_out (Bytes.create 1) 0 1 in
+      (* return false if we were woken *)
+      false
+    else
+      (* return true if we waited the full length of time, false if we were woken *)
+      true
 
   let signal (x : t) =
-    Threadext.Mutex.execute x.m (fun () ->
-        match x.pipe_in with
-        | Some fd ->
-            ignore (Unix.write fd (Bytes.of_string "X") 0 1)
-        | None ->
-            x.signalled <- true
-        (* If the wait hasn't happened yet then store up the signal *))
+    let (_ : int) = Unix.write x.pipe_in (Bytes.of_string "X") 0 1 in
+    ()
 end
 
 type handle = Mtime.span * int
@@ -107,7 +71,7 @@ type item = {id: int; name: string; fn: unit -> unit}
 
 type t = {
     mutable schedule: item HandleMap.t
-  ; delay: Delay.t
+  ; delay: PipeDelay.t
   ; mutable next_id: int
   ; m: Mutex.t
 }
@@ -137,21 +101,21 @@ module Dump = struct
 end
 
 let mtime_add x t =
-  let dt =
-    Mtime.(float x *. Mtime.s_to_ns |> Int64.of_float |> Span.of_uint64_ns)
-  in
+  let dt = Mtime.(x *. Mtime.s_to_ns |> Int64.of_float |> Span.of_uint64_ns) in
   Mtime.Span.add dt t
 
-let one_shot s (Delta x) (name : string) f =
-  let time = mtime_add x (now ()) in
+let one_shot_f s dt (name : string) f =
+  let time = mtime_add dt (now ()) in
   Threadext.Mutex.execute s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
       let item = {id; name; fn= f} in
       let handle = (time, id) in
       s.schedule <- HandleMap.add handle item s.schedule ;
-      Delay.signal s.delay ;
+      PipeDelay.signal s.delay ;
       handle)
+
+let one_shot s (Delta x) name f = one_shot_f s (float x) name f
 
 let cancel s handle =
   Threadext.Mutex.execute s.m (fun () ->
@@ -184,7 +148,7 @@ let rec main_loop s =
   let sleep_until =
     Threadext.Mutex.execute s.m (fun () ->
         try HandleMap.min_binding s.schedule |> fst |> fst
-        with Not_found -> mtime_add 3600 (now ()))
+        with Not_found -> mtime_add 3600. (now ()))
   in
   let this = now () in
   let seconds =
@@ -195,17 +159,59 @@ let rec main_loop s =
     else
       0.
   in
-  let (_ : bool) = Delay.wait s.delay seconds in
+  let (_ : bool) = PipeDelay.wait s.delay seconds in
   main_loop s
 
-let make () =
+let make_scheduler () =
   let s =
     {
       schedule= HandleMap.empty
-    ; delay= Delay.make ()
+    ; delay= PipeDelay.make ()
     ; next_id= 0
     ; m= Mutex.create ()
     }
   in
   let (_ : Thread.t) = Thread.create main_loop s in
   s
+
+let make = make_scheduler
+
+module Delay = struct
+  type state = Signalled | Timedout
+
+  let s = make_scheduler ()
+
+  type t = {c: Condition.t; m: Mutex.t; mutable state: state option}
+
+  let make () = {c= Condition.create (); m= Mutex.create (); state= None}
+
+  let wait t seconds =
+    Threadext.Mutex.execute t.m (fun () ->
+        let handle =
+          one_shot_f s seconds "Delay.wait" (fun () ->
+              if t.state = None then
+                t.state <- Some Timedout ;
+              Condition.broadcast t.c)
+        in
+        let rec loop () =
+          match t.state with
+          | Some Timedout ->
+              (* return true if we waited the full length of time *)
+              true
+          | Some Signalled ->
+              (* return false if we were woken, or pre-signalled *)
+              false
+          | None ->
+              (* initial wait or spurious wakeup *)
+              Condition.wait t.c t.m ; loop ()
+        in
+        let result = loop () in
+        cancel s handle ;
+        t.state <- None ;
+        result)
+
+  let signal t =
+    Threadext.Mutex.execute t.m (fun () ->
+        t.state <- Some Signalled ;
+        Condition.broadcast t.c)
+end
