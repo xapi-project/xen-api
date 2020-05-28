@@ -19,12 +19,6 @@ module D = Debug.Make (struct let name = "scheduler" end)
 
 open D
 
-module Int64Map = Map.Make (struct
-  type t = int64
-
-  let compare = Int64.compare
-end)
-
 module Delay = struct
   (* Concrete type is the ends of a pipe *)
   type t = {
@@ -88,12 +82,23 @@ module Delay = struct
         (* If the wait hasn't happened yet then store up the signal *))
 end
 
-type item = {id: int; name: string; fn: unit -> unit}
-
 type handle = int64 * int [@@deriving rpc]
 
+module HandleMap = Map.Make (struct
+  type t = handle
+
+  let compare (x1, id1) (x2, id2) =
+    let c = Int64.compare x1 x2 in
+    if c = 0 then
+      id2 - id1
+    else
+      c
+end)
+
+type item = {id: int; name: string; fn: unit -> unit}
+
 type t = {
-    mutable schedule: item list Int64Map.t
+    mutable schedule: item HandleMap.t
   ; delay: Delay.t
   ; mutable next_id: int
   ; m: Mutex.t
@@ -113,50 +118,35 @@ module Dump = struct
   let make s =
     let now = now () in
     Threadext.Mutex.execute s.m (fun () ->
-        Int64Map.fold
-          (fun time xs acc ->
-            List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
-            @ acc)
+        HandleMap.fold
+          (fun (time, _) i acc ->
+            {time= Int64.sub time now; thing= i.name} :: acc)
           s.schedule [])
 end
 
 let one_shot s (Delta x) (name : string) f =
   let time = Int64.(add (of_int x) (now ())) in
-  let id =
-    Threadext.Mutex.execute s.m (fun () ->
-        let existing = try Int64Map.find time s.schedule with _ -> [] in
-        let id = s.next_id in
-        s.next_id <- s.next_id + 1 ;
-        let item = {id; name; fn= f} in
-        s.schedule <- Int64Map.add time (item :: existing) s.schedule ;
-        Delay.signal s.delay ;
-        id)
-  in
-  (time, id)
-
-let cancel s (time, id) =
   Threadext.Mutex.execute s.m (fun () ->
-      let existing =
-        if Int64Map.mem time s.schedule then
-          Int64Map.find time s.schedule
-        else
-          []
-      in
-      s.schedule <-
-        Int64Map.add time
-          (List.filter (fun i -> i.id <> id) existing)
-          s.schedule)
+      let id = s.next_id in
+      s.next_id <- s.next_id + 1 ;
+      let item = {id; name; fn= f} in
+      let handle = (time, id) in
+      s.schedule <- HandleMap.add handle item s.schedule ;
+      Delay.signal s.delay ;
+      handle)
+
+let cancel s handle =
+  Threadext.Mutex.execute s.m (fun () ->
+      s.schedule <- HandleMap.remove handle s.schedule)
 
 let process_expired s =
   let t = now () in
   let expired =
     Threadext.Mutex.execute s.m (fun () ->
-        let lt, eq, unexpired = Int64Map.split t s.schedule in
-        let expired =
-          match eq with None -> lt | Some eq -> Int64Map.add t eq lt
-        in
+        let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
+        assert (eq = None) ;
         s.schedule <- unexpired ;
-        Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev)
+        HandleMap.bindings expired |> List.rev_map snd)
   in
   (* This might take a while *)
   List.iter
@@ -175,7 +165,7 @@ let rec main_loop s =
   done ;
   let sleep_until =
     Threadext.Mutex.execute s.m (fun () ->
-        try Int64Map.min_binding s.schedule |> fst
+        try HandleMap.min_binding s.schedule |> fst |> fst
         with Not_found -> Int64.add 3600L (now ()))
   in
   let seconds = Int64.sub sleep_until (now ()) in
@@ -185,7 +175,7 @@ let rec main_loop s =
 let make () =
   let s =
     {
-      schedule= Int64Map.empty
+      schedule= HandleMap.empty
     ; delay= Delay.make ()
     ; next_id= 0
     ; m= Mutex.create ()
