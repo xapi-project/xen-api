@@ -1500,9 +1500,14 @@ and gen_csharp_api_call message classname commonVerb switch =
     else "" in
   let syncPipe = gen_csharp_api_call_sync_pipe message classname in
   let passThruResult =
-    if switch = "pipe" then syncPipe
-    else if switch = "passthru" then print_pass_thru syncPipe
-    else "" in
+    match (switch, message.msg_result) with
+    | ("pipe", _)        -> syncPipe
+    | ("passthru", None) -> "
+                    if (PassThru)
+                        WriteWarning(\"-PassThru can only be used with -Async for this cmdlet. Ignoring.\");"
+    | ("passthru", _)    -> print_pass_thru syncPipe
+    | _                  -> ""
+    in
   if message.msg_async then
     sprintf "
                 var contxt = _context as %s;
