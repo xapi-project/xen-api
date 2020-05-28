@@ -23,7 +23,6 @@ pif_attached() {
 }
 
 prepare_networking() {
-    [ "$UPGRADE" = true ] && return 0
 
     $XE pif-scan host-uuid=${INSTALLATION_UUID}
 
@@ -109,11 +108,15 @@ rename_network_label() {
     done
 }
 
-prepare_networking
-rename_network_label
 
-# Ensure changes are synced to disk
-xe pool-sync-database
+if [ "$UPGRADE" = "true" ]; then
+    rename_network_label
+else
+    prepare_networking
+    rename_network_label
+    # Ensure changes are synced to disk
+    xe pool-sync-database
+fi
 
 touch /var/lib/misc/ran-network-init
 exit 0
