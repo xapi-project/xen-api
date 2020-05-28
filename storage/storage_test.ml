@@ -167,7 +167,7 @@ let vdi_resize sr =
 
 open Cmdliner
 
-let start verbose queue sr =
+let start _verbose queue sr =
   match (queue, sr) with
   | Some queue, Some sr ->
       Storage_interface.queue_name := queue ;
