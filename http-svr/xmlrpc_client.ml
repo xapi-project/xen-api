@@ -101,27 +101,20 @@ let get_new_stunnel_id =
   let m = Mutex.create () in
   fun () -> Mutex.execute m (fun () -> incr counter; !counter)
 
-let run_watchdog timeout (fire_fn : unit -> unit) f (pout,pin) =
-  let fired = ref None in
-  let th = Thread.create (fun () ->
-    match Unix.select [pout] [] [] timeout with
-      | [_],[],[] ->
-        fired := Some false
-      | _,_,_ ->
-        fire_fn ();
-        fired := Some true) () in
-  let cancel_watchdog () = let _x : int = Unix.write pin (Bytes.of_string "x") 0 1 in () in
-  let get_fired () = Thread.join th; !fired in
+let watchdog_scheduler = Scheduler.make ()
+
+let run_watchdog timeout (fire_fn : unit -> unit) f =
+  let fired = ref (Some false) in
+  let handle = Scheduler.one_shot watchdog_scheduler Scheduler.(Delta timeout) "watchdog timeout" @@ fun () ->
+    fired := None;
+    fire_fn ();
+    fired := Some true
+  in
+  let cancel_watchdog () = Scheduler.cancel watchdog_scheduler handle in
+  let get_fired () = !fired in
   f cancel_watchdog get_fired
 
-let with_pipe f =
-  let pout,pin = Unix.pipe () in
-  finally
-    (fun () -> f (pout,pin))
-    (fun () -> Unix.close pout; Unix.close pin)
-
 let watchdog timeout pid f =
- with_pipe
    (run_watchdog
       timeout
       (fun () ->
@@ -145,7 +138,7 @@ let watchdog timeout pid f =
            false))
 
 let check_reusable x pid =
-  watchdog 30.0 pid (fun () -> check_reusable_inner x)
+  watchdog 30 pid (fun () -> check_reusable_inner x)
 
 let assert_dest_is_ok host =
   (* Double check whether we _should_ be able to talk to this host *)

@@ -11,6 +11,7 @@
               sha
               stunnel
               threads
+              xapi-idl.updates
               xapi-stdext-date
               xapi-stdext-monadic
               xapi-stdext-pervasives
