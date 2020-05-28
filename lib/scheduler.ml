@@ -12,15 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let finally f g =
-  try
-    let result = f () in
-    g () ; result
-  with e -> g () ; raise e
-
-let mutex_execute m f =
-  Mutex.lock m ;
-  finally f (fun () -> Mutex.unlock m)
+open Xapi_stdext_pervasives
+open Xapi_stdext_threads
 
 module D = Debug.Make (struct let name = "scheduler" end)
 
@@ -55,11 +48,11 @@ module Delay = struct
       if List.mem fd !to_close then Unix.close fd ;
       to_close := List.filter (fun x -> fd <> x) !to_close
     in
-    finally
+    Pervasiveext.finally
       (fun () ->
         try
           let pipe_out =
-            mutex_execute x.m (fun () ->
+            Threadext.Mutex.execute x.m (fun () ->
                 if x.signalled then (
                   x.signalled <- false ;
                   raise Pre_signalled
@@ -80,13 +73,13 @@ module Delay = struct
           r = []
         with Pre_signalled -> false)
       (fun () ->
-        mutex_execute x.m (fun () ->
+        Threadext.Mutex.execute x.m (fun () ->
             x.pipe_out <- None ;
             x.pipe_in <- None ;
             List.iter close' !to_close))
 
   let signal (x : t) =
-    mutex_execute x.m (fun () ->
+    Threadext.Mutex.execute x.m (fun () ->
         match x.pipe_in with
         | Some fd ->
             ignore (Unix.write fd (Bytes.of_string "X") 0 1)
@@ -101,14 +94,12 @@ type handle = int64 * int [@@deriving rpc]
 
 type t = {
     mutable schedule: item list Int64Map.t
-  ; mutable shutdown: bool
   ; delay: Delay.t
   ; mutable next_id: int
-  ; mutable thread: Thread.t option
   ; m: Mutex.t
 }
 
-type time = Absolute of int64 | Delta of int
+type time = Delta of int
 
 (*type t = int64 * int [@@deriving rpc]*)
 
@@ -121,7 +112,7 @@ module Dump = struct
 
   let make s =
     let now = now () in
-    mutex_execute s.m (fun () ->
+    Threadext.Mutex.execute s.m (fun () ->
         Int64Map.fold
           (fun time xs acc ->
             List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
@@ -129,16 +120,10 @@ module Dump = struct
           s.schedule [])
 end
 
-let one_shot s time (name : string) f =
-  let time =
-    match time with
-    | Absolute x ->
-        x
-    | Delta x ->
-        Int64.(add (of_int x) (now ()))
-  in
+let one_shot s (Delta x) (name : string) f =
+  let time = Int64.(add (of_int x) (now ())) in
   let id =
-    mutex_execute s.m (fun () ->
+    Threadext.Mutex.execute s.m (fun () ->
         let existing = try Int64Map.find time s.schedule with _ -> [] in
         let id = s.next_id in
         s.next_id <- s.next_id + 1 ;
@@ -150,7 +135,7 @@ let one_shot s time (name : string) f =
   (time, id)
 
 let cancel s (time, id) =
-  mutex_execute s.m (fun () ->
+  Threadext.Mutex.execute s.m (fun () ->
       let existing =
         if Int64Map.mem time s.schedule then
           Int64Map.find time s.schedule
@@ -165,7 +150,7 @@ let cancel s (time, id) =
 let process_expired s =
   let t = now () in
   let expired =
-    mutex_execute s.m (fun () ->
+    Threadext.Mutex.execute s.m (fun () ->
         let expired, unexpired =
           Int64Map.partition (fun t' _ -> t' <= t) s.schedule
         in
@@ -188,36 +173,22 @@ let rec main_loop s =
     ()
   done ;
   let sleep_until =
-    mutex_execute s.m (fun () ->
+    Threadext.Mutex.execute s.m (fun () ->
         try Int64Map.min_binding s.schedule |> fst
         with Not_found -> Int64.add 3600L (now ()))
   in
   let seconds = Int64.sub sleep_until (now ()) in
   let (_ : bool) = Delay.wait s.delay (Int64.to_float seconds) in
-  if s.shutdown then s.thread <- None else main_loop s
-
-let start s =
-  if s.shutdown then failwith "Scheduler was shutdown" ;
-  s.thread <- Some (Thread.create main_loop s)
+  main_loop s
 
 let make () =
   let s =
     {
       schedule= Int64Map.empty
-    ; shutdown= false
     ; delay= Delay.make ()
     ; next_id= 0
     ; m= Mutex.create ()
-    ; thread= None
     }
   in
-  start s ; s
-
-let shutdown s =
-  match s.thread with
-  | Some th ->
-      s.shutdown <- true ;
-      Delay.signal s.delay ;
-      Thread.join th
-  | None ->
-      ()
+  let (_ : Thread.t) = Thread.create main_loop s in
+  s

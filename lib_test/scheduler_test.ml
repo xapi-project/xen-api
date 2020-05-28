@@ -57,15 +57,6 @@ let test_one_shot () =
       @@ Scheduler.one_shot global_scheduler (Scheduler.Delta 1) "test_one_shot"
            callback)
 
-(* Test the injection of a one-shot function at an absolute time *)
-let test_one_shot_abs () =
-  timed_wait_callback ~msg:"one_shot_abs_success" ~time_min:1.0 (fun callback ->
-      let now = Scheduler.now () in
-      ignore
-      @@ Scheduler.one_shot global_scheduler
-           (Scheduler.Absolute (Int64.add 1L now))
-           "test_one_shot" callback)
-
 (* Tests that the scheduler still works even after a failure occurs in the
    injected function *)
 let test_one_shot_failure () =
@@ -108,7 +99,6 @@ let tests =
     ("Test Delay", `Slow, test_delay)
   ; ("Test Delay cancellation", `Quick, test_delay_cancel)
   ; ("Test One shot", `Slow, test_one_shot)
-  ; ("Test One shot absolute", `Slow, test_one_shot_abs)
   ; ("Test One shot failure", `Slow, test_one_shot_failure)
   ; ("Test One shot cancellation", `Slow, test_one_shot_cancel)
   ; ("Test dump", `Quick, test_dump)
