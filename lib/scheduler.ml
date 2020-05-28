@@ -151,8 +151,9 @@ let process_expired s =
   let t = now () in
   let expired =
     Threadext.Mutex.execute s.m (fun () ->
-        let expired, unexpired =
-          Int64Map.partition (fun t' _ -> t' <= t) s.schedule
+        let lt, eq, unexpired = Int64Map.split t s.schedule in
+        let expired =
+          match eq with None -> lt | Some eq -> Int64Map.add t eq lt
         in
         s.schedule <- unexpired ;
         Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev)
