@@ -1,6 +1,6 @@
 (rule
   (targets build_info.ml)
-  (deps %{workspace_root}/ocaml/util/gen_build_info_ml.sh)
+  (deps gen_build_info_ml.sh)
   (action (with-stdout-to %{targets} (bash "./gen_build_info_ml.sh")))
 )
 
