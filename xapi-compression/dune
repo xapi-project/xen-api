@@ -3,6 +3,7 @@
   (public_name xapi-compression)
   (libraries forkexec
              threads
+             xapi_stdext_resources
              xapi-stdext-pervasives
              xapi-stdext-unix)
 )

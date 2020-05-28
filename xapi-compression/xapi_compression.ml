@@ -7,11 +7,6 @@ open Xapi_stdext_pervasives.Pervasiveext
 module Make(Algorithm : ALGORITHM) = struct
   let available () = Sys.file_exists Algorithm.executable
 
-  (** Helper function to prevent double-closes of file descriptors *)
-  let close to_close fd =
-    if List.mem fd !to_close then Unix.close fd;
-    to_close := List.filter (fun x -> fd <> x) !to_close
-
   type zcat_mode = Compress | Decompress
 
   type input_type =
@@ -38,32 +33,29 @@ module Make(Algorithm : ALGORITHM) = struct
       ii) a passive input (fd) + active output (ie a function and a pipe)
   *)
   let go (mode: zcat_mode) (input: input_type) fd f =
-    let zcat_out, zcat_in = Unix.pipe() in
+    let open Xapi_stdext_resources in
+    Unixfd.with_pipe ~loc:__LOC__ () @@ fun zcat_out zcat_in ->
 
-    let to_close = ref [ zcat_in; zcat_out ] in
-    let close = close to_close in
-
-    finally
-      (fun () ->
          let args = if mode = Compress then [] else ["--decompress"] @ [ "--stdout"; "--force" ] in
 
          let stdin, stdout, close_now, close_later = match input with
            | Active ->
-             Some zcat_out,                              (* input comes from the pipe+fn *)
+             Some Unixfd.(!zcat_out),                              (* input comes from the pipe+fn *)
              Some fd,                                    (* supplied fd is written to *)
              zcat_out,                                   (* we close this now *)
              zcat_in                                     (* close this before waitpid *)
            | Passive ->
              Some fd,                                    (* supplied fd is read from *)
-             Some zcat_in,                               (* output goes into the pipe+fn *)
+             Some Unixfd.(!zcat_in),                               (* output goes into the pipe+fn *)
              zcat_in,                                    (* we close this now *)
              zcat_out in                                 (* close this before waitpid *)
          let (executable,args)=lower_priority Algorithm.executable args in
          let pid = Forkhelpers.safe_close_and_exec stdin stdout None [] executable args in
-         close close_now;
+
+         Unixfd.safe_close close_now;
          finally
            (fun () ->
-              f close_later
+              f Unixfd.(!close_later)
            )
            (fun () ->
               let failwith_error s =
@@ -72,7 +64,7 @@ module Make(Algorithm : ALGORITHM) = struct
                 Printf.eprintf "%s" msg;
                 failwith msg
               in
-              close close_later;
+              Unixfd.safe_close close_later;
               let open Xapi_stdext_unix in
               match snd (Forkhelpers.waitpid pid) with
               | Unix.WEXITED 0 -> ();
@@ -80,7 +72,6 @@ module Make(Algorithm : ALGORITHM) = struct
               | Unix.WSIGNALED i -> failwith_error (Printf.sprintf "killed by signal: %s" (Unixext.string_of_signal i))
               | Unix.WSTOPPED i -> failwith_error (Printf.sprintf "stopped by signal: %s" (Unixext.string_of_signal i))
            )
-      ) (fun () -> List.iter close !to_close)
 
   let compress fd f = go Compress Active fd f
   let decompress fd f = go Decompress Active fd f
