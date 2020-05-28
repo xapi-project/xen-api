@@ -82,13 +82,21 @@ module Delay = struct
         (* If the wait hasn't happened yet then store up the signal *))
 end
 
-type handle = int64 * int [@@deriving rpc]
+type handle = Mtime.span * int
+
+type handle_compat = int64 * int [@@deriving rpc]
+
+let rpc_of_handle (s, id) = rpc_of_handle_compat (Mtime.Span.to_uint64_ns s, id)
+
+let handle_of_rpc rpc =
+  let i64, id = handle_compat_of_rpc rpc in
+  (Mtime.Span.of_uint64_ns i64, id)
 
 module HandleMap = Map.Make (struct
   type t = handle
 
   let compare (x1, id1) (x2, id2) =
-    let c = Int64.compare x1 x2 in
+    let c = Mtime.Span.compare x1 x2 in
     if c = 0 then
       id2 - id1
     else
@@ -108,7 +116,11 @@ type time = Delta of int
 
 (*type t = int64 * int [@@deriving rpc]*)
 
-let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
+let time_of_span span = span |> Mtime.Span.to_s |> ceil |> Int64.of_float
+
+let mtime_sub time now = Mtime.Span.abs_diff time now |> time_of_span
+
+let now () = Mtime_clock.elapsed ()
 
 module Dump = struct
   type u = {time: int64; thing: string} [@@deriving rpc]
@@ -120,12 +132,18 @@ module Dump = struct
     Threadext.Mutex.execute s.m (fun () ->
         HandleMap.fold
           (fun (time, _) i acc ->
-            {time= Int64.sub time now; thing= i.name} :: acc)
+            {time= mtime_sub time now; thing= i.name} :: acc)
           s.schedule [])
 end
 
+let mtime_add x t =
+  let dt =
+    Mtime.(float x *. Mtime.s_to_ns |> Int64.of_float |> Span.of_uint64_ns)
+  in
+  Mtime.Span.add dt t
+
 let one_shot s (Delta x) (name : string) f =
-  let time = Int64.(add (of_int x) (now ())) in
+  let time = mtime_add x (now ()) in
   Threadext.Mutex.execute s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
@@ -166,10 +184,18 @@ let rec main_loop s =
   let sleep_until =
     Threadext.Mutex.execute s.m (fun () ->
         try HandleMap.min_binding s.schedule |> fst |> fst
-        with Not_found -> Int64.add 3600L (now ()))
+        with Not_found -> mtime_add 3600 (now ()))
   in
-  let seconds = Int64.sub sleep_until (now ()) in
-  let (_ : bool) = Delay.wait s.delay (Int64.to_float seconds) in
+  let this = now () in
+  let seconds =
+    if Mtime.Span.compare sleep_until this > 0 then
+      (* be careful that this is absolute difference,
+         it is never negative! *)
+      Mtime.Span.(abs_diff sleep_until this |> to_s)
+    else
+      0.
+  in
+  let (_ : bool) = Delay.wait s.delay seconds in
   main_loop s
 
 let make () =
