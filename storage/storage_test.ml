@@ -15,9 +15,11 @@
 open Storage_interface
 open Storage_client
 
-(* Principles: 1. we don't delete or manipulate VDIs we didn't create 2. we
-   create VDIs with non-clashing names 3. we always clean up (as best we can)
-   after every test. *)
+(* Principles:
+   1. we don't delete or manipulate VDIs we didn't create
+   2. we create VDIs with non-clashing names
+   3. we always clean up (as best we can) after every test.
+*)
 
 (* We assume that no-one else has made VDIs with this name prefix: *)
 let safe_prefix = Printf.sprintf "storage_test.%d" (Unix.getpid ())
@@ -53,9 +55,11 @@ let names =
   ; String.make 128 '0'
   ]
 
-(* For each VDI we check that: 1. it shows up in a SR.scan 2. attach RO,
-   activate, deactivate, detach works 3. attach RW, activate, deactivate, detach
-   works *)
+(* For each VDI we check that:
+   1. it shows up in a SR.scan
+   2. attach RO, activate, deactivate, detach works
+   3. attach RW, activate, deactivate, detach works
+*)
 
 let vdi_exists sr vdi =
   let all = Client.SR.scan dbg sr in
