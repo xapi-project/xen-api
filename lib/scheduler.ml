@@ -146,16 +146,16 @@ let process_expired s =
         let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
         assert (eq = None) ;
         s.schedule <- unexpired ;
-        HandleMap.bindings expired |> List.rev_map snd)
+        expired |> HandleMap.to_seq |> Seq.map snd)
   in
   (* This might take a while *)
-  List.iter
+  Seq.iter
     (fun i ->
       try i.fn ()
       with e ->
         debug "Scheduler ignoring exception: %s\n%!" (Printexc.to_string e))
     expired ;
-  expired <> []
+  expired () <> Seq.Nil
 
 (* true if work was done *)
 
