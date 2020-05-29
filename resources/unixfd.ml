@@ -29,7 +29,7 @@ let on_finalise_leaked (chan, loc) =
   with e ->
     if enabled then (
       Printexc.print_backtrace stderr ;
-      Printf.eprintf "[unix_fd]: close failed: %s\n%!" (Printexc.to_string e)
+      Printf.eprintf "[unix_fd]: close failed: %s (allocated at %s)\n%!" (Printexc.to_string e) loc
     )
 
 let within chan ~loc =
