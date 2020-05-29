@@ -27,7 +27,12 @@ struct
 
   let move_into (t, m) k v =
     let v = V.move_out_exn v in
-    Mutex.execute m (fun () -> Hashtbl.add t k v)
+    Mutex.execute m (fun () ->
+        match Hashtbl.find_opt t k with
+        | None -> Hashtbl.add t k v
+        | Some old ->
+          V.safe_release old;
+          Hashtbl.replace t k v)
 
   let remove (t, m) k =
     Mutex.execute m (fun () ->
