@@ -435,9 +435,6 @@ let update_use_min_max (value : bool) : unit =
   debug "Updating use_min_max: New value=%b" value ;
   use_min_max := value
 
-let string_of_domain_handle dh =
-  Uuid.string_of_uuid (Uuid.uuid_of_int_array dh.Xenctrl.handle)
-
 let update_vm_memory_target (domid : int) (target : int64) : unit =
   Mutex.execute memory_targets_m (fun _ ->
       Hashtbl.replace memory_targets domid target)
