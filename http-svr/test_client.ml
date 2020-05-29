@@ -1,5 +1,6 @@
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
+open Xapi_stdext_resources
 
 let user_agent = "test_client"
 
@@ -29,11 +30,10 @@ let with_connection ip port f =
 
 let with_stunnel ip port =
   fun f ->
-    let s = Stunnel.connect ~use_fork_exec_helper:false ~extended_diagnosis:false ip port in
-    let fd = s.Stunnel.fd in
-    finally
-      (fun () -> f fd)
-      (fun () -> Stunnel.disconnect s)
+    Stunnel.with_connect ~use_fork_exec_helper:false ~extended_diagnosis:false ip port @@
+    fun s ->
+      let fd = s.Stunnel.fd in
+      f Unixfd.(!fd)
 
 let one ~use_fastpath ~use_framing keep_alive s =
   Http_client.rpc ~use_fastpath s (Http.Request.make ~frame:use_framing ~version:"1.1" ~keep_alive

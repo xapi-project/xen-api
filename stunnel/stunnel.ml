@@ -18,6 +18,7 @@ module D=Debug.Make(struct let name="stunnel" end)
 open Printf
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
+open Xapi_stdext_resources
 
 exception Stunnel_binary_missing
 exception Stunnel_error of string
@@ -27,9 +28,6 @@ let certificates_bundle_path = "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
 let crl_path = "/etc/stunnel/crls"
 let verify_certificates_ctrl = "/var/xapi/verify_certificates"
 
-let use_new_stunnel = ref false
-let new_stunnel_path = "/usr/sbin/stunnelng"
-
 let cached_stunnel_path = ref None
 let stunnel_logger = ref ignore
 
@@ -38,9 +36,6 @@ let timeoutidle = ref None
 let init_stunnel_path () =
   try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
   with Not_found ->
-    if !use_new_stunnel then
-      cached_stunnel_path := Some new_stunnel_path
-    else (
       let choices = [
         "/opt/xensource/libexec/stunnel/stunnel";
         "/usr/sbin/stunnel4";
@@ -57,7 +52,6 @@ let init_stunnel_path () =
       in
       let path = choose choices in
       cached_stunnel_path := Some path
-    )
 
 let stunnel_path () =
   let open Xapi_stdext_monadic in
@@ -114,7 +108,7 @@ let getpid ty =
   | FEFork pid -> Forkhelpers.getpid pid
   | Nopid -> failwith "No pid!"
 
-type t = { mutable pid: pid; fd: Unix.file_descr; host: string; port: int; 
+type t = { mutable pid: pid; fd: Unixfd.t; host: string; port: int; 
            connected_time: float;
            unique_id: int option;
            mutable logfile: string;
@@ -161,7 +155,7 @@ let config_file verify_cert extended_diagnosis host port =
 let ignore_exn f x = try f x with _ -> ()
 
 let rec disconnect ?(wait = true) ?(force = false) x =
-  List.iter (ignore_exn Unix.close) [ x.fd ];
+  ignore_exn Unixfd.safe_close x.fd;
 
   let do_disc waiter pid =
     let res =
@@ -174,7 +168,7 @@ let rec disconnect ?(wait = true) ?(force = false) x =
       disconnect ~wait:wait ~force:force x
     | _ -> ()
   in
-  match x.pid with
+  (match x.pid with
   | FEFork fpid ->
     let pid_int = Forkhelpers.getpid fpid in
     do_disc
@@ -188,7 +182,10 @@ let rec disconnect ?(wait = true) ?(force = false) x =
          (if wait then Unix.waitpid []
           else Unix.waitpid [Unix.WNOHANG]) pid)
       pid
-  | Nopid -> ()
+  | Nopid -> ());
+  (* make disconnect idempotent, need to do it here,
+     due to the recursive call *)
+  x.pid <- Nopid
 
 (* With some probability, stunnel fails during its startup code before it reads
    the config data from us. Therefore we get a SIGPIPE writing the config data.
@@ -198,26 +195,18 @@ exception Stunnel_initialisation_failed
 
 
 (* Internal function which may throw Stunnel_initialisation_failed *)
-let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
-    ?(write_to_log = fun _ -> ()) verify_cert extended_diagnosis host port =
-  let fds_needed = ref [ Unix.stdin; Unix.stdout; Unix.stderr ] in
-  let config_in, config_out, configs, args = 
-    if !use_new_stunnel
-    then begin
-      assert (not verify_cert); (* !! Unimplemented *)
-      let args = [ "-m"; "client"; "-s"; "-"; "-d"; 
-                   Printf.sprintf "%s:%d" host port ] in
-      None, None, [], (if extended_diagnosis then "-v" :: args else args)
-    end else begin
-      let config_out, config_in = Unix.pipe () in
-      let config_out_uuid = Uuidm.to_string (Uuidm.create `V4) in
-      let config_out_fd = 
-        string_of_int (Unixext.int_of_file_descr config_out) in
-      fds_needed := config_out :: !fds_needed;
-      Some config_in, Some config_out, [(config_out_uuid, config_out)],
-      ["-fd"; if use_fork_exec_helper then config_out_uuid else config_out_fd]
-    end in
-  let data_out,data_in = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+let with_attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
+    ?(write_to_log = fun _ -> ()) verify_cert extended_diagnosis host port f =
+  Unixfd.with_pipe () ~loc:__LOC__ @@ fun config_out config_in ->
+  let config_out_uuid = Uuidm.to_string (Uuidm.create `V4) in
+  let config_out_fd = 
+    string_of_int (Unixext.int_of_file_descr Unixfd.(!config_out)) in
+  let fds_needed = [ Unixfd.(!config_out); Unix.stdin; Unix.stdout; Unix.stderr ] in
+  let configs = [config_out_uuid, Unixfd.(!config_out)] in
+  let args = ["-fd"; if use_fork_exec_helper then config_out_uuid else config_out_fd]
+  in
+  Unixfd.with_socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 ~loc:__LOC__
+  @@ fun data_in data_out ->
   (* Dereference just once to ensure we are consistent in t and config_file *)
   let t = 
     { pid = Nopid; fd = data_out; host = host; port = port; 
@@ -228,46 +217,40 @@ let attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
       (fun logfd ->
          let path = stunnel_path() in
          let fdops = 
-           [ Unsafe.Dup2(data_in, Unix.stdin);
-             Unsafe.Dup2(data_in, Unix.stdout);
+           [ Unsafe.Dup2(Unixfd.(!data_in), Unix.stdin);
+             Unsafe.Dup2(Unixfd.(!data_in), Unix.stdout);
              Unsafe.Dup2(logfd, Unix.stderr) ] in
          t.pid <-
            if use_fork_exec_helper then begin
              FEFork(Forkhelpers.safe_close_and_exec 
-                      (Some data_in) (Some data_in) (Some logfd) configs path args)
+                      (Some Unixfd.(!data_in)) (Some Unixfd.(!data_in)) (Some logfd) configs path args)
            end else
              StdFork(Unsafe.fork_and_exec 
                        ~pre_exec:(fun _ -> 
                            List.iter Unsafe.do_fd_operation fdops;
-                           Unixext.close_all_fds_except !fds_needed) 
+                           Unixext.close_all_fds_except fds_needed) 
                        (path::args));
-         (match config_out with Some fd -> Unix.close fd | _ -> ());
-         Unix.close data_in;
-         (* Make sure we close config_in eventually *)
-         finally
-           (fun () ->
-              match config_in with
-              | Some fd -> begin
-                  let config = config_file verify_cert extended_diagnosis host port in
-                  (* Catch the occasional initialisation failure of stunnel: *)
-                  try
-                    let len = String.length config in
-                    let n = Unix.write fd (Bytes.of_string config) 0 len in
-                    if n < len then raise Stunnel_initialisation_failed
-                  with Unix.Unix_error(err, fn, arg) -> 
-                    write_to_log (Printf.sprintf "Caught Unix.Unix_error(%s, %s, %s); raising Stunnel_initialisation_failed" (Unix.error_message err) fn arg);
-                    raise Stunnel_initialisation_failed
-                end 
-              | _ -> ())
-           (fun () -> match config_in with Some fd -> Unix.close fd | _ -> assert false)) in
+         Unixfd.safe_close config_out;
+         Unixfd.safe_close data_in;
+         let config = config_file verify_cert extended_diagnosis host port in
+         (* Catch the occasional initialisation failure of stunnel: *)
+         try
+           let len = String.length config in
+           let n = Unix.write Unixfd.(!config_in) (Bytes.of_string config) 0 len in
+           if n < len then raise Stunnel_initialisation_failed;
+           Unixfd.safe_close config_in
+         with Unix.Unix_error(err, fn, arg) ->
+           write_to_log (Printf.sprintf "Caught Unix.Unix_error(%s, %s, %s); raising Stunnel_initialisation_failed" (Unix.error_message err) fn arg);
+           raise Stunnel_initialisation_failed
+      ) in
   (* Tidy up any remaining unclosed fds *)
   match result with
-  | Forkhelpers.Success(log, _) -> 
+  | Forkhelpers.Success(log, _) ->
     if extended_diagnosis then begin
       write_to_log "stunnel start";
       t.logfile <- log
     end;
-    t
+    f t
   | Forkhelpers.Failure(log, exn) ->
     write_to_log ("stunnel abort: Log from stunnel: [" ^ log ^ "]");
     disconnect t;
@@ -293,19 +276,19 @@ let must_verify_cert verify_cert =
     @param extended_diagnosis If true, the stunnel log file will not be
     deleted.  Instead, it is the caller's responsibility to delete it.  This
     allows the caller to use diagnose_failure below if stunnel fails.  *)
-let connect
+let with_connect
     ?unique_id
     ?use_fork_exec_helper
     ?write_to_log
     ?verify_cert
     ?(extended_diagnosis=false)
     host
-    port = 
+    port f = 
   let _verify_cert = must_verify_cert verify_cert in
   let _ = match write_to_log with 
     | Some logger -> stunnel_logger := logger
     | None -> () in
-  retry (fun () -> attempt_one_connect ?unique_id ?use_fork_exec_helper ?write_to_log _verify_cert extended_diagnosis host port) 5
+  retry (fun () -> with_attempt_one_connect ?unique_id ?use_fork_exec_helper ?write_to_log _verify_cert extended_diagnosis host port f) 5
 
 let check_verify_error line =
   let sub_after i s =
@@ -351,8 +334,14 @@ let diagnose_failure st_proc =
 let test host port = 
   let counter = ref 0 in
   while true do
-    let c = connect ~write_to_log:print_endline host port in
-    disconnect c;
+    with_connect ~write_to_log:print_endline host port disconnect;
     incr counter;
     if !counter mod 100 = 0 then (Printf.printf "Ran stunnel %d times\n" !counter; flush stdout)
   done
+
+let move_out_exn t = { t with fd = Safe.move_exn t.fd }
+
+let with_moved_exn t f =
+  Safe.within (Safe.move_exn t.fd) @@ fun fd -> f { t with fd }
+
+let safe_release t = disconnect ~wait:false ~force:true t
