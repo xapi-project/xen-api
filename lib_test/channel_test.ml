@@ -45,13 +45,13 @@ let dup_proxy x =
   let proto =
     List.find
       (function
-        | Xcp_channel_protocol.TCP_proxy (ip, port) -> true | _ -> false)
+        | Xcp_channel_protocol.TCP_proxy (_ip, _port) -> true | _ -> false)
       protos
   in
   Posix_channel.receive [proto]
 
 let check_for_leak_proxy () =
-  let a, b = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+  let a, _b = Unix.socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
   let before = count_fds () in
   let c = dup_proxy a in
   (* background fd closing *)

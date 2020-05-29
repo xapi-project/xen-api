@@ -15,7 +15,6 @@
 (** @group Storage *)
 
 open Rpc
-
 open Idl
 
 module D = Debug.Make (struct let name = "storage_interface" end)

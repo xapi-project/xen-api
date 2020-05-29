@@ -26,12 +26,8 @@ val handle_of_rpc : Rpc.t -> handle
 val make : unit -> t
 (** Creates a scheduler *)
 
-(** Items can be scheduled at an absolute time (measured in seconds since unix
-    epoch) or as a delta measured in for seconds from now. *)
-type time = Absolute of int64 | Delta of int
-
-val now : unit -> int64
-(** Useful for Absolutely scheduled items *)
+(** Items can be scheduled as a delta measured in seconds from now. *)
+type time = Delta of int
 
 (** This module is for dumping the state of a scheduler *)
 module Dump : sig
@@ -51,7 +47,3 @@ val one_shot : t -> time -> string -> (unit -> unit) -> handle
 
 val cancel : t -> handle -> unit
 (** Cancel an item *)
-
-val shutdown : t -> unit
-(** shutdown a scheduler. Any item currently scheduled will not be executed. The
-    scheduler cannot be restarted. *)

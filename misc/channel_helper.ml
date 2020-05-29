@@ -127,19 +127,17 @@ let advertise_t _common_options_t proxy_socket =
   let t_unix =
     Lwt_unix.accept s_unix >>= fun (fd, _peer) ->
     let buffer = Bytes.make (String.length token) '\000' in
-    let io_vector =
-      Lwt_unix.io_vector
-        ~buffer:(Bytes.unsafe_to_string buffer)
-        ~offset:0 ~length:(Bytes.length buffer)
-    in
-    Lwt_unix.recv_msg ~socket:fd ~io_vectors:[io_vector] >>= fun (n, fds) ->
+    let io_vector = Lwt_unix.IO_vectors.create () in
+    Lwt_unix.IO_vectors.append_bytes io_vector buffer 0 (Bytes.length buffer) ;
+    Lwt_unix.Versioned.recv_msg_2 ~socket:fd ~io_vectors:io_vector
+    >>= fun (n, fds) ->
     List.iter Unix.close fds ;
-    let token' = Bytes.sub_string buffer 0 n in
-    let io_vector' =
-      Lwt_unix.io_vector ~buffer:token' ~offset:0 ~length:(String.length token')
-    in
-    if token = token' then
-      Lwt_unix.send_msg ~socket:fd ~io_vectors:[io_vector'] ~fds:[proxy_socket]
+    let token' = Bytes.sub buffer 0 n in
+    let io_vector' = Lwt_unix.IO_vectors.create () in
+    Lwt_unix.IO_vectors.append_bytes io_vector' token' 0 (Bytes.length token') ;
+    if token = Bytes.to_string token' then
+      Lwt_unix.Versioned.send_msg_2 ~socket:fd ~io_vectors:io_vector'
+        ~fds:[proxy_socket]
       >>= fun _ -> return ()
     else
       return ()

@@ -15,7 +15,6 @@
 (** @group Memory *)
 
 open Rpc
-
 open Idl
 
 module D = Debug.Make (struct let name = "memory_interface" end)

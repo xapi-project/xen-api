@@ -12,107 +12,79 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let finally f g =
-  try
-    let result = f () in
-    g () ; result
-  with e -> g () ; raise e
-
-let mutex_execute m f =
-  Mutex.lock m ;
-  finally f (fun () -> Mutex.unlock m)
+open Xapi_stdext_threads
 
 module D = Debug.Make (struct let name = "scheduler" end)
 
 open D
 
-module Int64Map = Map.Make (struct
-  type t = int64
-
-  let compare = Int64.compare
-end)
-
-module Delay = struct
+module PipeDelay = struct
   (* Concrete type is the ends of a pipe *)
   type t = {
       (* A pipe is used to wake up a thread blocked in wait: *)
-      mutable pipe_out: Unix.file_descr option
-    ; mutable pipe_in: Unix.file_descr option
-    ; (* Indicates that a signal arrived before a wait: *)
-      mutable signalled: bool
-    ; m: Mutex.t
+      pipe_out: Unix.file_descr
+    ; pipe_in: Unix.file_descr
   }
 
   let make () =
-    {pipe_out= None; pipe_in= None; signalled= false; m= Mutex.create ()}
-
-  exception Pre_signalled
+    let pipe_out, pipe_in = Unix.pipe () in
+    {pipe_out; pipe_in}
 
   let wait (x : t) (seconds : float) =
     let timeout = if seconds < 0.0 then 0.0 else seconds in
-    let to_close = ref [] in
-    let close' fd =
-      if List.mem fd !to_close then Unix.close fd ;
-      to_close := List.filter (fun x -> fd <> x) !to_close
-    in
-    finally
-      (fun () ->
-        try
-          let pipe_out =
-            mutex_execute x.m (fun () ->
-                if x.signalled then (
-                  x.signalled <- false ;
-                  raise Pre_signalled
-                ) ;
-                let pipe_out, pipe_in = Unix.pipe () in
-                (* these will be unconditionally closed on exit *)
-                to_close := [pipe_out; pipe_in] ;
-                x.pipe_out <- Some pipe_out ;
-                x.pipe_in <- Some pipe_in ;
-                x.signalled <- false ;
-                pipe_out)
-          in
-          let r, _, _ = Unix.select [pipe_out] [] [] timeout in
-          (* flush the single byte from the pipe *)
-          if r <> [] then ignore (Unix.read pipe_out (Bytes.create 1) 0 1) ;
-          (* return true if we waited the full length of time, false if we were
-             woken *)
-          r = []
-        with Pre_signalled -> false)
-      (fun () ->
-        mutex_execute x.m (fun () ->
-            x.pipe_out <- None ;
-            x.pipe_in <- None ;
-            List.iter close' !to_close))
+    if Thread.wait_timed_read x.pipe_out timeout then
+      (* flush the single byte from the pipe *)
+      let (_ : int) = Unix.read x.pipe_out (Bytes.create 1) 0 1 in
+      (* return false if we were woken *)
+      false
+    else
+      (* return true if we waited the full length of time, false if we were woken *)
+      true
 
   let signal (x : t) =
-    mutex_execute x.m (fun () ->
-        match x.pipe_in with
-        | Some fd ->
-            ignore (Unix.write fd (Bytes.of_string "X") 0 1)
-        | None ->
-            x.signalled <- true
-        (* If the wait hasn't happened yet then store up the signal *))
+    let (_ : int) = Unix.write x.pipe_in (Bytes.of_string "X") 0 1 in
+    ()
 end
+
+type handle = Mtime.span * int
+
+type handle_compat = int64 * int [@@deriving rpc]
+
+let rpc_of_handle (s, id) = rpc_of_handle_compat (Mtime.Span.to_uint64_ns s, id)
+
+let handle_of_rpc rpc =
+  let i64, id = handle_compat_of_rpc rpc in
+  (Mtime.Span.of_uint64_ns i64, id)
+
+module HandleMap = Map.Make (struct
+  type t = handle
+
+  let compare (x1, id1) (x2, id2) =
+    let c = Mtime.Span.compare x1 x2 in
+    if c = 0 then
+      id2 - id1
+    else
+      c
+end)
 
 type item = {id: int; name: string; fn: unit -> unit}
 
-type handle = int64 * int [@@deriving rpc]
-
 type t = {
-    mutable schedule: item list Int64Map.t
-  ; mutable shutdown: bool
-  ; delay: Delay.t
+    mutable schedule: item HandleMap.t
+  ; delay: PipeDelay.t
   ; mutable next_id: int
-  ; mutable thread: Thread.t option
   ; m: Mutex.t
 }
 
-type time = Absolute of int64 | Delta of int
+type time = Delta of int
 
 (*type t = int64 * int [@@deriving rpc]*)
 
-let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
+let time_of_span span = span |> Mtime.Span.to_s |> ceil |> Int64.of_float
+
+let mtime_sub time now = Mtime.Span.abs_diff time now |> time_of_span
+
+let now () = Mtime_clock.elapsed ()
 
 module Dump = struct
   type u = {time: int64; thing: string} [@@deriving rpc]
@@ -121,65 +93,51 @@ module Dump = struct
 
   let make s =
     let now = now () in
-    mutex_execute s.m (fun () ->
-        Int64Map.fold
-          (fun time xs acc ->
-            List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
-            @ acc)
+    Threadext.Mutex.execute s.m (fun () ->
+        HandleMap.fold
+          (fun (time, _) i acc ->
+            {time= mtime_sub time now; thing= i.name} :: acc)
           s.schedule [])
 end
 
-let one_shot s time (name : string) f =
-  let time =
-    match time with
-    | Absolute x ->
-        x
-    | Delta x ->
-        Int64.(add (of_int x) (now ()))
-  in
-  let id =
-    mutex_execute s.m (fun () ->
-        let existing = try Int64Map.find time s.schedule with _ -> [] in
-        let id = s.next_id in
-        s.next_id <- s.next_id + 1 ;
-        let item = {id; name; fn= f} in
-        s.schedule <- Int64Map.add time (item :: existing) s.schedule ;
-        Delay.signal s.delay ;
-        id)
-  in
-  (time, id)
+let mtime_add x t =
+  let dt = Mtime.(x *. Mtime.s_to_ns |> Int64.of_float |> Span.of_uint64_ns) in
+  Mtime.Span.add dt t
 
-let cancel s (time, id) =
-  mutex_execute s.m (fun () ->
-      let existing =
-        if Int64Map.mem time s.schedule then
-          Int64Map.find time s.schedule
-        else
-          []
-      in
-      s.schedule <-
-        Int64Map.add time
-          (List.filter (fun i -> i.id <> id) existing)
-          s.schedule)
+let one_shot_f s dt (name : string) f =
+  let time = mtime_add dt (now ()) in
+  Threadext.Mutex.execute s.m (fun () ->
+      let id = s.next_id in
+      s.next_id <- s.next_id + 1 ;
+      let item = {id; name; fn= f} in
+      let handle = (time, id) in
+      s.schedule <- HandleMap.add handle item s.schedule ;
+      PipeDelay.signal s.delay ;
+      handle)
+
+let one_shot s (Delta x) name f = one_shot_f s (float x) name f
+
+let cancel s handle =
+  Threadext.Mutex.execute s.m (fun () ->
+      s.schedule <- HandleMap.remove handle s.schedule)
 
 let process_expired s =
   let t = now () in
   let expired =
-    mutex_execute s.m (fun () ->
-        let expired, unexpired =
-          Int64Map.partition (fun t' _ -> t' <= t) s.schedule
-        in
+    Threadext.Mutex.execute s.m (fun () ->
+        let expired, eq, unexpired = HandleMap.split (t, max_int) s.schedule in
+        assert (eq = None) ;
         s.schedule <- unexpired ;
-        Int64Map.fold (fun _ stuff acc -> acc @ stuff) expired [] |> List.rev)
+        expired |> HandleMap.to_seq |> Seq.map snd)
   in
   (* This might take a while *)
-  List.iter
+  Seq.iter
     (fun i ->
       try i.fn ()
       with e ->
         debug "Scheduler ignoring exception: %s\n%!" (Printexc.to_string e))
     expired ;
-  expired <> []
+  expired () <> Seq.Nil
 
 (* true if work was done *)
 
@@ -188,36 +146,72 @@ let rec main_loop s =
     ()
   done ;
   let sleep_until =
-    mutex_execute s.m (fun () ->
-        try Int64Map.min_binding s.schedule |> fst
-        with Not_found -> Int64.add 3600L (now ()))
+    Threadext.Mutex.execute s.m (fun () ->
+        try HandleMap.min_binding s.schedule |> fst |> fst
+        with Not_found -> mtime_add 3600. (now ()))
   in
-  let seconds = Int64.sub sleep_until (now ()) in
-  let (_ : bool) = Delay.wait s.delay (Int64.to_float seconds) in
-  if s.shutdown then s.thread <- None else main_loop s
+  let this = now () in
+  let seconds =
+    if Mtime.Span.compare sleep_until this > 0 then
+      (* be careful that this is absolute difference,
+         it is never negative! *)
+      Mtime.Span.(abs_diff sleep_until this |> to_s)
+    else
+      0.
+  in
+  let (_ : bool) = PipeDelay.wait s.delay seconds in
+  main_loop s
 
-let start s =
-  if s.shutdown then failwith "Scheduler was shutdown" ;
-  s.thread <- Some (Thread.create main_loop s)
-
-let make () =
+let make_scheduler () =
   let s =
     {
-      schedule= Int64Map.empty
-    ; shutdown= false
-    ; delay= Delay.make ()
+      schedule= HandleMap.empty
+    ; delay= PipeDelay.make ()
     ; next_id= 0
     ; m= Mutex.create ()
-    ; thread= None
     }
   in
-  start s ; s
+  let (_ : Thread.t) = Thread.create main_loop s in
+  s
 
-let shutdown s =
-  match s.thread with
-  | Some th ->
-      s.shutdown <- true ;
-      Delay.signal s.delay ;
-      Thread.join th
-  | None ->
-      ()
+let make = make_scheduler
+
+module Delay = struct
+  type state = Signalled | Timedout
+
+  let s = make_scheduler ()
+
+  type t = {c: Condition.t; m: Mutex.t; mutable state: state option}
+
+  let make () = {c= Condition.create (); m= Mutex.create (); state= None}
+
+  let wait t seconds =
+    Threadext.Mutex.execute t.m (fun () ->
+        let handle =
+          one_shot_f s seconds "Delay.wait" (fun () ->
+              if t.state = None then
+                t.state <- Some Timedout ;
+              Condition.broadcast t.c)
+        in
+        let rec loop () =
+          match t.state with
+          | Some Timedout ->
+              (* return true if we waited the full length of time *)
+              true
+          | Some Signalled ->
+              (* return false if we were woken, or pre-signalled *)
+              false
+          | None ->
+              (* initial wait or spurious wakeup *)
+              Condition.wait t.c t.m ; loop ()
+        in
+        let result = loop () in
+        cancel s handle ;
+        t.state <- None ;
+        result)
+
+  let signal t =
+    Threadext.Mutex.execute t.m (fun () ->
+        t.state <- Some Signalled ;
+        Condition.broadcast t.c)
+end
