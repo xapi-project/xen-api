@@ -22,7 +22,7 @@
 
 module D=Debug.Make(struct let name="stunnel_cache" end)
 open D
-open Xapi_stdext_resources
+open Safe_resources
 
 (* Disable debug-level logging but leave higher-priority enabled.  It would be
  * better to handle this sort of configuration in the Debug module itself.

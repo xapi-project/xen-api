@@ -1,4 +1,4 @@
-open Xapi_stdext_resources
+open Safe_resources
 
 module Counting : sig
   type t

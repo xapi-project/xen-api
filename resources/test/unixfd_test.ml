@@ -1,4 +1,4 @@
-open Xapi_stdext_resources
+open Safe_resources
 
 let noleak () =
   Unixfd.with_pipe () ~loc:__LOC__ @@ fun p1 p2 ->

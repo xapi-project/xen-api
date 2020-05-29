@@ -33,7 +33,7 @@ module Make(Algorithm : ALGORITHM) = struct
       ii) a passive input (fd) + active output (ie a function and a pipe)
   *)
   let go (mode: zcat_mode) (input: input_type) fd f =
-    let open Xapi_stdext_resources in
+    let open Safe_resources in
     Unixfd.with_pipe ~loc:__LOC__ () @@ fun zcat_out zcat_in ->
 
          let args = if mode = Compress then [] else ["--decompress"] @ [ "--stdout"; "--force" ] in

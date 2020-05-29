@@ -18,7 +18,7 @@ module D=Debug.Make(struct let name="stunnel" end)
 open Printf
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
-open Xapi_stdext_resources
+open Safe_resources
 
 exception Stunnel_binary_missing
 exception Stunnel_error of string

@@ -2,4 +2,4 @@
  (names test)
  (action
   (run %{test} -e))
- (libraries xapi_stdext_resources logs.fmt alcotest))
+ (libraries safe_resources logs.fmt alcotest))

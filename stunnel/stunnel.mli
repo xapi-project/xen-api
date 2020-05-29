@@ -29,7 +29,7 @@ val getpid: pid -> int
 
 (** Represents an active stunnel connection *)
 type t = { mutable pid: pid;
-           fd: Xapi_stdext_resources.Unixfd.t;
+           fd: Safe_resources.Unixfd.t;
            host: string;
            port: int;
            connected_time: float; (** time when the connection opened, for 'early retirement' *)

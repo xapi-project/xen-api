@@ -1,6 +1,6 @@
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
-open Xapi_stdext_resources
+open Safe_resources
 
 let user_agent = "test_client"
 

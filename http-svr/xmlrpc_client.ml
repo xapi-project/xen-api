@@ -15,7 +15,7 @@
 open Xapi_stdext_monadic
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_resources
+open Safe_resources
 
 module D = Debug.Make(struct let name = "xmlrpc_client" end)
 open D

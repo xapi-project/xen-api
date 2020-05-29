@@ -1,4 +1,4 @@
 (library
- (name xapi_stdext_resources)
- (public_name xapi-libs-transitional.xapi-stdext-resources)
+ (name safe_resources)
+ (public_name xapi-libs-transitional.safe-resources)
  (libraries logs xapi-backtrace fmt xapi-stdext-pervasives xapi-stdext-threads))
