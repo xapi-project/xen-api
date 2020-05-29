@@ -8,5 +8,5 @@ install:
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - PINS="gzip:. http-svr:. pciutil:. sexpr:. stunnel:. uuid:. xapi-compression:. xapi-libs-transitional:. xenctrlext:. xml-light2:. zstd:."
+    - PINS="gzip:. http-svr:. pciutil:. sexpr:. stunnel:. uuid:. xapi-compression:. xapi-libs-transitional:. xenctrlext:. xml-light2:. zstd:. safe-resources:."
     - PACKAGE=xapi-libs-transitional

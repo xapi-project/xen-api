@@ -8,6 +8,7 @@ available: [ os = "linux" ]
 depends: [
   "ocaml"
   "ounit" {with-test}
+  "alcotest" {with-test}
   "gzip"
   "http-svr"
   "pciutil"

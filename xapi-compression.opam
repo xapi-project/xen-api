@@ -11,6 +11,7 @@ depends: [
   "ocaml"
   "dune" {build}
   "forkexec"
+  "safe-resources"
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
 ]

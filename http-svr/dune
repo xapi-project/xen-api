@@ -54,12 +54,14 @@
 
 (alias
   (name runtest)
+  (package http-svr)
   (deps (:x http_test.exe))
   (action (run %{x} -runner sequential -verbose true))
 )
 
 (alias
   (name runtest)
+  (package http-svr)
   (deps (:x radix_tree_test.exe))
   (action (run %{x}))
 )
@@ -67,6 +69,7 @@
 
 (alias
   (name runtest)
+  (package http-svr)
   (deps test_client.exe test_server.exe client_server_test.sh)
   (action (run bash client_server_test.sh))
 )

@@ -4,23 +4,25 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api-libs-transitional.git"
 dev-repo: "git+https://github.com/xapi-project/xen-api-libs-transitional.git"
-build: [[ "dune" "build" "-p" name "-j" jobs ]]
-
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
 available: [ os = "linux" ]
 depends: [
   "ocaml"
   "dune" {build}
-  "forkexec"
-  "safe-resources"
-  "xapi-stdext-monadic"
+  "fmt"
+  "logs"
+  "xapi-backtrace"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
-  "xapi-stdext-unix"
+  "alcotest" {with-test}
 ]
-synopsis: "Further transitional libraries required by xapi"
+synopsis: "Safe resource handling: no double close/leaks"
 description: """
-These libraries are provided for backwards compatibility only.
-No new code should use these libraries."""
+Safe resource handling: protection against double close and file descriptor leaks.
+"""
 url {
   src:
     "https://github.com/xapi-project/xen-api-libs-transitional/archive/master.tar.gz"

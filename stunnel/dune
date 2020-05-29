@@ -9,7 +9,7 @@
              fmt
              ptime
              logs.fmt
-             safe_resources
+             safe-resources
              xapi-stdext-monadic
              xapi-stdext-pervasives
              xapi-stdext-threads
