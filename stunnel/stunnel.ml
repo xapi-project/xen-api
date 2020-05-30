@@ -154,10 +154,10 @@ let config_file verify_cert extended_diagnosis host port =
 
 let ignore_exn f x = try f x with _ -> ()
 
-let rec disconnect ?(wait = true) ?(force = false) x =
+let disconnect ?(wait = true) ?(force = false) x =
   ignore_exn Unixfd.safe_close x.fd;
 
-  let do_disc waiter pid =
+  let rec do_disc waiter pid =
     let res =
       try waiter ()
       with Unix.Unix_error (Unix.ECHILD, _, _) -> pid, Unix.WEXITED 0 in
@@ -165,7 +165,7 @@ let rec disconnect ?(wait = true) ?(force = false) x =
     | 0, _ when force ->
       (try Unix.kill pid Sys.sigkill 
        with Unix.Unix_error (Unix.ESRCH, _, _) ->());
-      disconnect ~wait:wait ~force:force x
+      do_disc waiter pid
     | _ -> ()
   in
   (match x.pid with
