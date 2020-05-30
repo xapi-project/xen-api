@@ -157,15 +157,14 @@ let ignore_exn f x = try f x with _ -> ()
 let disconnect ?(wait = true) ?(force = false) x =
   ignore_exn Unixfd.safe_close x.fd;
 
-  let rec do_disc waiter pid =
+  let do_disc waiter pid =
     let res =
       try waiter ()
       with Unix.Unix_error (Unix.ECHILD, _, _) -> pid, Unix.WEXITED 0 in
     match res with
     | 0, _ when force ->
       (try Unix.kill pid Sys.sigkill 
-       with Unix.Unix_error (Unix.ESRCH, _, _) ->());
-      do_disc waiter pid
+       with Unix.Unix_error (Unix.ESRCH, _, _) ->())
     | _ -> ()
   in
   (match x.pid with
