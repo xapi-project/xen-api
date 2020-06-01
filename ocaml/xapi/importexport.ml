@@ -100,14 +100,16 @@ let this_version __context =
     This will get complicated over time... *)
 let assert_compatible ~__context other_version =
   let this_version = this_version __context in
-  let error() =
-    error "Import version is incompatible";
-    raise (Api_errors.Server_error(Api_errors.import_incompatible_version, [])) in
   (* error if major versions differ; also error if this host has a
      lower minor vsn than the import *)
-  if this_version.xapi_vsn_major<>other_version.xapi_vsn_major || this_version.xapi_vsn_minor<other_version.xapi_vsn_minor then
-    error()
-
+  if this_version.xapi_vsn_major<>other_version.xapi_vsn_major || this_version.xapi_vsn_minor<other_version.xapi_vsn_minor then (
+    error "Import version is incompatible - this_version=(%d,%d), other_version=(%d, %d)"
+      this_version.xapi_vsn_major
+      this_version.xapi_vsn_minor
+      other_version.xapi_vsn_major
+      other_version.xapi_vsn_minor;
+    raise (Api_errors.Server_error(Api_errors.import_incompatible_version, []))
+  )
 
 let vm_has_field ~(x: obj) ~name =
   match x.snapshot with
