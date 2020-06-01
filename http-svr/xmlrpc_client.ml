@@ -302,7 +302,8 @@ let with_transport transport f =
               with e ->
                 warn "stunnel pid: %d caught %s" s_pid (Printexc.to_string e);
                 if e = Connection_reset && not use_stunnel_cache
-                then Stunnel.diagnose_failure st_proc;
+                then if Sys.file_exists st_proc.Stunnel.logfile then
+                    Stunnel.diagnose_failure st_proc;
                 raise e)
            (fun () ->
               if use_stunnel_cache
