@@ -409,7 +409,7 @@ let create_root_user ~__context =
   let all = Db.User.get_records_where ~__context ~expr:(Eq(Field "short_name", Literal short_name)) in
   if all = [] then Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
-let get_xapi_verstring () =
+let get_xapi_version () =
   Printf.sprintf "%d.%d" Constants.version_major Constants.version_minor
 
 (** Create assoc list of Supplemental-Pack information.
@@ -482,7 +482,7 @@ let make_software_version ~__context host_info =
   Xapi_globs.software_version () @
   v6_version @
   [
-    "xapi", get_xapi_verstring ();
+    "xapi", get_xapi_version ();
     "xen", Option.value ~default:"(unknown)" host_info.xen_verstring;
     "linux", host_info.linux_verstring;
     "xencenter_min", Xapi_globs.xencenter_min_verstring;

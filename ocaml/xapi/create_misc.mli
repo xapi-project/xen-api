@@ -44,4 +44,4 @@ val create_host_cpu : __context:Context.t -> host_info -> unit
 val create_pool_cpuinfo : __context:Context.t -> unit
 val create_chipset_info : __context:Context.t -> host_info -> unit
 val create_updates_requiring_reboot_info : __context:Context.t -> host:[`host] Ref.t -> unit
-val get_xapi_verstring : unit -> string
+val get_xapi_version : unit -> string

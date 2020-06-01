@@ -89,10 +89,10 @@ let refresh_localhost_info ~__context info =
   let old_software_version = Db.Host.get_software_version ~__context ~self:host in
   match List.assoc_opt "xapi" old_software_version with
   | None              -> D.error "host is missing xapi version. ref = %s" (Ref.string_of host)
-  | Some xapi_version -> (
-    let current_xapi_verstring = Create_misc.get_xapi_verstring () in
-    if xapi_version <> current_xapi_verstring then
-      let value = ("xapi", current_xapi_verstring) :: List.remove_assoc "xapi" old_software_version in
+  | Some old_xapi_version -> (
+    let current_xapi_version = Create_misc.get_xapi_version () in
+    if old_xapi_version <> current_xapi_version then
+      let value = ("xapi", current_xapi_version) :: List.remove_assoc "xapi" old_software_version in
       Db.Host.set_software_version ~__context ~self:host ~value
   );
 
