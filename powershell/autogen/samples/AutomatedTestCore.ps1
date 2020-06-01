@@ -175,7 +175,7 @@ function disconnect_server([String]$svr) {
 # VM Functions
 
 function destroy_vm([XenAPI.VM]$vm) {
-    if ($vm -eq $null) {
+    if ($null -eq $vm) {
         return
     }
 
@@ -343,9 +343,9 @@ function detach_nfs_sr([String]$sr_name) {
         }
     }
 
-    $sr_opq = Remove-XenSR -Name $sr_name -Async -PassThru | Wait-XenTask -ShowProgress -PassThru
+    Remove-XenSR -Name $sr_name -Async -PassThru | Wait-XenTask -ShowProgress
 
-    if ($null -eq $sr_opq) {
+    if ($null -eq (Get-XenSR -Name $sr_name)) {
         return $true
     }
     return $false
