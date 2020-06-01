@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make(struct let name="xapi_support" end)
+module D = Debug.Make (struct let name = "xapi_support" end)
+
 open D
 
 let support_url = "ftp://support.xensource.com/uploads/"
@@ -25,16 +26,22 @@ open Forkhelpers
 
 let do_upload label file url options =
   let proxy =
-    if List.mem_assoc "http_proxy" options
-    then List.assoc "http_proxy" options
-    else try Unix.getenv "http_proxy" with _ -> "" in
-
-  let env = Helpers.env_with_path ["URL", url; "PROXY", proxy] in
-  match with_logfile_fd label
-          (fun log_fd ->
-             let pid = safe_close_and_exec ~env None (Some log_fd) (Some log_fd) [] !Xapi_globs.upload_wrapper [file] in
-             waitpid_fail_if_bad_exit pid) with
-  | Success _ -> debug "Upload succeeded"
+    if List.mem_assoc "http_proxy" options then
+      List.assoc "http_proxy" options
+    else
+      try Unix.getenv "http_proxy" with _ -> ""
+  in
+  let env = Helpers.env_with_path [("URL", url); ("PROXY", proxy)] in
+  match
+    with_logfile_fd label (fun log_fd ->
+        let pid =
+          safe_close_and_exec ~env None (Some log_fd) (Some log_fd) []
+            !Xapi_globs.upload_wrapper [file]
+        in
+        waitpid_fail_if_bad_exit pid)
+  with
+  | Success _ ->
+      debug "Upload succeeded"
   | Failure (log, exn) ->
-    debug "Upload failed, output: %s" log;
-    raise exn
+      debug "Upload failed, output: %s" log ;
+      raise exn

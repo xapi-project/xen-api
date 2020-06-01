@@ -11,10 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type indexrec = {
-  name_label: string option;
-  uuid: string;
-  _ref: string
-}
+type indexrec = {name_label: string option; uuid: string; _ref: string}
+
 val string_of : indexrec -> string
+
 val lookup : string (* ref or uuid *) -> indexrec option

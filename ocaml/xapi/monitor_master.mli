@@ -20,9 +20,10 @@
  * VIFs, CPUs) into xapi's database. It is also used to regularly update
  * some simple configuration from the master. *)
 
+val update_configuration_from_master : unit -> unit
 (** Used on a regular interval to update rrdd's use_min_max and xenops'
  * pass_through_pif_carrier. *)
-val update_configuration_from_master : unit -> unit
 
+val update_pifs :
+  __context:Context.t -> 'a Ref.t -> Monitor_types.pif list -> unit
 (** A function to write information about PIFs to xapi's database. *)
-val update_pifs : __context:Context.t -> 'a Ref.t -> Monitor_types.pif list -> unit

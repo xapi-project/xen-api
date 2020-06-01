@@ -18,11 +18,11 @@
  * (we do need to send these as parameters in RPCs).
  * *)
 
-type t
 (** a type with no direct conversions to string *)
+type t
 
 val of_string : string -> t
 
 val with_cookie : t -> Http.Request.t -> Http.Request.t
 
-val t_of_rpc: Rpc.t -> t
+val t_of_rpc : Rpc.t -> t

@@ -14,7 +14,8 @@
 
 open Db_cache_types
 
-val populate: Schema.t -> Parse_db_conf.db_connection -> Database.t
-val flush_dirty: Parse_db_conf.db_connection -> bool
-val flush: Parse_db_conf.db_connection -> Database.t -> unit
+val populate : Schema.t -> Parse_db_conf.db_connection -> Database.t
 
+val flush_dirty : Parse_db_conf.db_connection -> bool
+
+val flush : Parse_db_conf.db_connection -> Database.t -> unit

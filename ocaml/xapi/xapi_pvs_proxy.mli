@@ -12,9 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val create : __context:Context.t ->
-  site:API.ref_PVS_site ->
-  vIF:API.ref_VIF ->
-  API.ref_PVS_proxy
+val create :
+     __context:Context.t
+  -> site:API.ref_PVS_site
+  -> vIF:API.ref_VIF
+  -> API.ref_PVS_proxy
 
 val destroy : __context:Context.t -> self:API.ref_PVS_proxy -> unit

@@ -17,21 +17,31 @@
 
 open Db_cache_types
 
-type indexrec = {
-  name_label:string option;
-  uuid: string;
-  _ref:string
-}
-let string_of (x: indexrec) =
-  Printf.sprintf "%s%s" x.uuid (Option.fold ~none:"" ~some:(fun name -> Printf.sprintf " (%s)" name) x.name_label)
+type indexrec = {name_label: string option; uuid: string; _ref: string}
+
+let string_of (x : indexrec) =
+  Printf.sprintf "%s%s" x.uuid
+    (Option.fold ~none:""
+       ~some:(fun name -> Printf.sprintf " (%s)" name)
+       x.name_label)
 
 let lookup key =
   let t = Db_backend.make () in
   let db = Db_ref.get_database t in
   let r (tblname, objref) =
-    let row = Table.find objref (TableSet.find tblname (Database.tableset db)) in {
-      name_label = (try Some (Schema.Value.Unsafe_cast.string (Row.find Db_names.name_label row)) with _ -> None);
-      uuid = Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row);
-      _ref = Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row);
-    } in
+    let row =
+      Table.find objref (TableSet.find tblname (Database.tableset db))
+    in
+    {
+      name_label=
+        ( try
+            Some
+              (Schema.Value.Unsafe_cast.string
+                 (Row.find Db_names.name_label row))
+          with _ -> None
+        )
+    ; uuid= Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row)
+    ; _ref= Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row)
+    }
+  in
   Option.map r (Database.lookup_key key db)
