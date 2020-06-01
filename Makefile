@@ -3,25 +3,24 @@ include config.mk
 XAPIDOC=_build/install/default/xapi/doc
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
-XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
 
 .PHONY: build clean test doc python format install uninstall
 
 build:
-	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
+	dune build @install -j $(JOBS) --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it
 check:
-	XAPI_VERSION=$(XAPI_VERSION) dune build @check -j $(JOBS) --profile=$(PROFILE)
+	dune build @check -j $(JOBS) --profile=$(PROFILE)
 
 clean:
 	dune clean
 
 test:
-	XAPI_VERSION=$(XAPI_VERSION) dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
 doc:
-	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
+	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
 	mkdir -p $(XAPIDOC)/html
 	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html

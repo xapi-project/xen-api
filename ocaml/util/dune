@@ -1,7 +1,6 @@
 (rule
   (targets build_info.ml)
-  (deps gen_build_info_ml.sh)
-  (action (with-stdout-to %{targets} (bash "./gen_build_info_ml.sh")))
+  (action (with-stdout-to %{targets} (run "date" "+let date=\"%Y-%m-%d\"")))
 )
 
 (library
