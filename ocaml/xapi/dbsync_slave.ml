@@ -84,6 +84,18 @@ let refresh_localhost_info ~__context info =
   Create_misc.create_software_version ~__context info;
   Db.Host.set_API_version_major ~__context ~self:host ~value:Datamodel_common.api_version_major;
   Db.Host.set_API_version_minor ~__context ~self:host ~value:Datamodel_common.api_version_minor;
+
+  (* update xapi version *)
+  let old_software_version = Db.Host.get_software_version ~__context ~self:host in
+  match List.assoc_opt "xapi" old_software_version with
+  | None              -> D.error "host is missing xapi version. ref = %s" (Ref.string_of host)
+  | Some xapi_version -> (
+    let current_xapi_verstring = Create_misc.get_xapi_verstring () in
+    if xapi_version <> current_xapi_verstring then
+      let value = ("xapi", current_xapi_verstring) :: List.remove_assoc "xapi" old_software_version in
+      Db.Host.set_software_version ~__context ~self:host ~value
+  );
+
   Db.Host.set_virtual_hardware_platform_versions ~__context ~self:host ~value:Xapi_globs.host_virtual_hardware_platform_versions;
   Db.Host.set_hostname ~__context ~self:host ~value:info.hostname;
   let caps =
