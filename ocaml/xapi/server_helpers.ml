@@ -12,10 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Locking_helpers
-open Stdext
-open Xstringext
-open Pervasiveext
-open Threadext
 
 module D = Debug.Make(struct let name = "dispatcher" end)
 open D
@@ -108,7 +104,7 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?(called_
          (fun () ->
             (* CP-982: promote tracking debug line to info status *)
             if called_async then info "spawning a new thread to handle the current task%s" (Context.trackid ~with_brackets:true ~prefix:" " __context);
-            finally exec (fun () ->
+            Xapi_stdext_pervasives.Pervasiveext.finally exec (fun () ->
                 if not called_async then Context.destroy __context
                 (* else debug "nothing more to process for this thread" *)
               )
