@@ -13,12 +13,11 @@
  *)
 (* String-based interface to the API *)
 
-open Stdext
-open Pervasiveext
 open Client
 open Db_cache (* eek! *)
-open Xstringext
-open Threadext
+
+module Date = Xapi_stdext_date.Date
+open Xapi_stdext_std.Xstringext
 
 let nullref = Ref.string_of (Ref.null)
 let nid = "<not in database>"
@@ -290,23 +289,23 @@ let pif_record rpc session_id pif =
               let value = Client.Host.query_data_source rpc session_id host name in
               string_of_float (value /. 1024.0)
             with _ -> "<unknown>") ~expensive:true ();
-        make_field ~name:"carrier" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.pIF_metrics_carrier) (xm ()))) ();
-        make_field ~name:"vendor-id" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_vendor_id) (xm ()))) ();
-        make_field ~name:"vendor-name" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_vendor_name) (xm ()))) ();
-        make_field ~name:"device-id" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_device_id) (xm ()))) ();
-        make_field ~name:"device-name" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_device_name) (xm ()))) ();
-        make_field ~name:"speed" ~get:(fun () -> default nid (may (fun m -> (Int64.to_string m.API.pIF_metrics_speed) ^ " Mbit/s") (xm ()))) ();
-        make_field ~name:"duplex" ~get:(fun () -> default nid (may (fun m ->
+        make_field ~name:"carrier" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> string_of_bool m.API.pIF_metrics_carrier) (xm ())) ();
+        make_field ~name:"vendor-id" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> m.API.pIF_metrics_vendor_id) (xm ())) ();
+        make_field ~name:"vendor-name" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> m.API.pIF_metrics_vendor_name) (xm ())) ();
+        make_field ~name:"device-id" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> m.API.pIF_metrics_device_id) (xm ())) ();
+        make_field ~name:"device-name" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> m.API.pIF_metrics_device_name) (xm ())) ();
+        make_field ~name:"speed" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> (Int64.to_string m.API.pIF_metrics_speed) ^ " Mbit/s") (xm ())) ();
+        make_field ~name:"duplex" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m ->
             if m.API.pIF_metrics_duplex then
               "full"
             else if m.API.pIF_metrics_carrier then
               "half"
             else
               "unknown"
-          ) (xm ()))) ();
+          ) (xm ())) ();
         make_field ~name:"disallow-unplug" ~get:(fun () -> string_of_bool ((x ()).API.pIF_disallow_unplug))
           ~set:(fun disallow_unplug -> Client.PIF.set_disallow_unplug rpc session_id pif (safe_bool_of_string "disallow-unplug" disallow_unplug)) ();
-        make_field ~name:"pci-bus-path" ~get:(fun () -> default nid (may (fun m -> m.API.pIF_metrics_pci_bus_path) (xm ()))) ();
+        make_field ~name:"pci-bus-path" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> m.API.pIF_metrics_pci_bus_path) (xm ())) ();
         make_field ~name:"other-config" ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.pIF_other_config)
           ~add_to_map:(fun k v -> Client.PIF.add_to_other_config rpc session_id pif k v)
           ~remove_from_map:(fun k -> Client.PIF.remove_from_other_config rpc session_id pif k)
@@ -733,7 +732,7 @@ let vm_record rpc session_id vm =
   let empty_guest_metrics = ToGet (fun () -> try Some (Client.VM_guest_metrics.get_record rpc session_id (x ()).API.vM_guest_metrics) with _ -> None) in
   let guest_metrics = ref empty_guest_metrics in
   let get_vcpus_utilisation () =
-    let nvcpus = default 0 (may (fun m -> Int64.to_int m.API.vM_metrics_VCPUs_number) (xm ())) in
+    let nvcpus = Option.fold ~none:0 ~some:(fun m -> Int64.to_int m.API.vM_metrics_VCPUs_number) (xm ()) in
     let rec inner n =
       if n=nvcpus then [] else
         (string_of_int n,string_of_float (Client.VM.query_data_source rpc session_id !_ref (Printf.sprintf "cpu%d" n)))::(inner (n+1))
@@ -798,7 +797,7 @@ let vm_record rpc session_id vm =
       make_field ~name:"power-state"
         ~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state) ();
       make_field ~name:"memory-actual"
-        ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_memory_actual) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Int64.to_string m.API.vM_metrics_memory_actual) (xm ()) ) ();
       make_field ~name:"memory-target" ~expensive:true
         ~get:(fun () -> get_memory_target ()) ();
       make_field ~name:"memory-overhead"
@@ -847,14 +846,14 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_consoles))
         ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_consoles) ();
       make_field ~name:"hvm"
-        ~get:(fun () -> default "false" (may (fun m ->
-            string_of_bool m.API.vM_metrics_hvm) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:"false" ~some:(fun m ->
+            string_of_bool m.API.vM_metrics_hvm) (xm ()) ) ();
       make_field ~name:"nomigrate" ~hidden:true
-        ~get:(fun () -> default "false" (may (fun m ->
-            string_of_bool m.API.vM_metrics_nomigrate) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:"false" ~some:(fun m ->
+            string_of_bool m.API.vM_metrics_nomigrate) (xm ()) ) ();
       make_field ~name:"nested-virt" ~hidden:true
-        ~get:(fun () -> default "false" (may (fun m ->
-            string_of_bool m.API.vM_metrics_nested_virt) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:"false" ~some:(fun m ->
+            string_of_bool m.API.vM_metrics_nested_virt) (xm ()) ) ();
       make_field ~name:"platform"
         ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_platform)
         ~add_to_map:(fun k v -> Client.VM.add_to_platform rpc session_id vm k v)
@@ -884,7 +883,7 @@ let vm_record rpc session_id vm =
         ~get:(fun () -> Record_util.domain_type_to_string (x ()).API.vM_domain_type)
         ~set:(fun x -> Client.VM.set_domain_type rpc session_id vm (Record_util.domain_type_of_string x)) ();
       make_field ~name:"current-domain-type"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.domain_type_to_string (m.API.vM_metrics_current_domain_type)) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.domain_type_to_string (m.API.vM_metrics_current_domain_type)) (xm ()) ) ();
       make_field ~name:"HVM-boot-policy"
         ~get:(fun () -> (x ()).API.vM_HVM_boot_policy)
         ~set:(fun x -> Client.VM.set_HVM_boot_policy rpc session_id vm x) ();
@@ -951,48 +950,48 @@ let vm_record rpc session_id vm =
       make_field ~name:"blobs"
         ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.vM_blobs) ();
       make_field ~name:"start-time"
-        ~get:(fun () -> default unknown_time (may (fun m -> Date.to_string m.API.vM_metrics_start_time) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:unknown_time ~some:(fun m -> Date.to_string m.API.vM_metrics_start_time) (xm ()) ) ();
       make_field ~name:"install-time"
-        ~get:(fun () -> default unknown_time (may (fun m -> Date.to_string m.API.vM_metrics_install_time) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:unknown_time ~some:(fun m -> Date.to_string m.API.vM_metrics_install_time) (xm ()) ) ();
       make_field ~name:"VCPUs-number"
-        ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.vM_metrics_VCPUs_number) (xm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Int64.to_string m.API.vM_metrics_VCPUs_number) (xm ()) ) ();
       make_field ~name:"VCPUs-utilisation"
         ~get:(fun () -> try let info = get_vcpus_utilisation () in String.concat "; " (List.map (fun (a,b) -> Printf.sprintf "%s: %s" a b) info) with _ -> "")
         ~get_map:(fun () -> try get_vcpus_utilisation () with _ -> []) ~expensive:true ();
       make_field ~name:"os-version"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_os_version) (xgm ())))
-        ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_os_version) (xgm ()))) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_os_version) (xgm ()))
+        ~get_map:(fun () -> Option.fold ~none:[] ~some:(fun m -> m.API.vM_guest_metrics_os_version) (xgm ())) ();
       make_field ~name:"PV-drivers-version"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) ))
-        ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ()))) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_PV_drivers_version) (xgm ()) )
+        ~get_map:(fun () -> Option.fold ~none:[] ~some:(fun m -> m.API.vM_guest_metrics_PV_drivers_version) (xgm ())) ();
       make_field ~name:"PV-drivers-up-to-date"
         ~deprecated: true
-        ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_up_to_date) (xgm ()) ) ();
       make_field ~name:"memory"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ())))
-        ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_memory) (xgm ()))) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory) (xgm ()))
+        ~get_map:(fun () -> Option.fold ~none:[] ~some:(fun m -> m.API.vM_guest_metrics_memory) (xgm ())) ();
       make_field ~name:"disks"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) ))
-        ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_disks) (xgm ()))) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks) (xgm ()) )
+        ~get_map:(fun () -> Option.fold ~none:[] ~some:(fun m -> m.API.vM_guest_metrics_disks) (xgm ())) ();
       make_field ~name:"VBDs"
         ~get:(fun () -> String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_VBDs))
         ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_VBDs) ();
       make_field ~name:"networks"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) ))
-        ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_networks) (xgm ()))) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks) (xgm ()) )
+        ~get_map:(fun () -> Option.fold ~none:[] ~some:(fun m -> m.API.vM_guest_metrics_networks) (xgm ())) ();
       make_field ~name:"PV-drivers-detected"
-        ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_detected) (xgm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> string_of_bool m.API.vM_guest_metrics_PV_drivers_detected) (xgm ()) ) ();
       make_field ~name:"other"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) ))
-        ~get_map:(fun () -> default [] (may (fun m -> m.API.vM_guest_metrics_other) (xgm()))) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other) (xgm ()) )
+        ~get_map:(fun () -> Option.fold ~none:[] ~some:(fun m -> m.API.vM_guest_metrics_other) (xgm())) ();
       make_field ~name:"live"
-        ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> string_of_bool m.API.vM_guest_metrics_live) (xgm ()) ) ();
       make_field ~name:"guest-metrics-last-updated"
-        ~get:(fun () -> default nid (may (fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Date.to_string m.API.vM_guest_metrics_last_updated) (xgm ()) ) ();
       make_field ~name:"can-use-hotplug-vbd"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.tristate_to_string m.API.vM_guest_metrics_can_use_hotplug_vbd) (xgm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.tristate_to_string m.API.vM_guest_metrics_can_use_hotplug_vbd) (xgm ()) ) ();
       make_field ~name:"can-use-hotplug-vif"
-        ~get:(fun () -> default nid (may (fun m -> Record_util.tristate_to_string m.API.vM_guest_metrics_can_use_hotplug_vif) (xgm ()) )) ();
+        ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Record_util.tristate_to_string m.API.vM_guest_metrics_can_use_hotplug_vif) (xgm ()) ) ();
       make_field ~name:"cooperative"
         (* NB this can receive VM_IS_SNAPSHOT *)
         ~get:(fun () -> string_of_bool (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
@@ -1225,10 +1224,10 @@ let host_record rpc session_id host =
         ~get_set:(fun () -> (x ()).API.host_supported_bootloaders) ();
       make_field ~name:"blobs" ~get:(fun () -> Record_util.s2brm_to_string get_uuid_from_ref "; " (x ()).API.host_blobs) ();
       make_field ~name:"memory-overhead" ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead) ();
-      make_field ~name:"memory-total" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_total) (xm ()) )) ();
-      make_field ~name:"memory-free" ~get:(fun () -> default nid (may (fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) )) ();
+      make_field ~name:"memory-total" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Int64.to_string m.API.host_metrics_memory_total) (xm ()) ) ();
+      make_field ~name:"memory-free" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> Int64.to_string m.API.host_metrics_memory_free) (xm ()) ) ();
       make_field ~name:"memory-free-computed" ~expensive:true ~get:(fun () -> Int64.to_string (Client.Host.compute_free_memory rpc session_id host)) ();
-      make_field ~name:"host-metrics-live" ~get:(fun () -> default nid (may (fun m -> string_of_bool m.API.host_metrics_live) (xm ()) )) ();
+      make_field ~name:"host-metrics-live" ~get:(fun () -> Option.fold ~none:nid ~some:(fun m -> string_of_bool m.API.host_metrics_live) (xm ()) ) ();
       make_field ~name:"patches" ~deprecated:true ~get:(fun () -> String.concat ", " (get_patches ())) ~get_set:get_patches ();
       make_field ~name:"updates" ~get:(fun () -> String.concat ", " (get_updates ())) ~get_set:get_updates ();
       make_field ~name:"ha-statefiles" ~get:(fun () -> String.concat "; " (List.map (fun x -> get_uuid_from_ref (Ref.of_string x)) (x ()).API.host_ha_statefiles)) ();

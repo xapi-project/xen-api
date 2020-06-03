@@ -15,9 +15,8 @@
  * @group Command-Line Interface (CLI)
 *)
 
-open Stdext
-open Pervasiveext
-open Listext
+module Unixext = Xapi_stdext_unix.Unixext
+
 open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol
@@ -90,7 +89,7 @@ let with_session ~local rpc u p session f =
       then Client.Client.Session.local_logout ~rpc ~session_id:session
       else Client.Client.Session.logout ~rpc ~session_id:session
     end in
-  finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () -> f session)
     (fun () -> do_logout ())
 

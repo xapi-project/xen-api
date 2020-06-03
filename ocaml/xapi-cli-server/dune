@@ -7,7 +7,6 @@
    xapi-types
    xapi-client
    xapi-cli-protocol
-   stdext
    xapi_aux
   )
   (preprocess (pps ppx_deriving_rpc))
