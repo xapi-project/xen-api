@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Xapi_globs
 
 module D=Debug.Make(struct let name="cpuid_helpers" end)

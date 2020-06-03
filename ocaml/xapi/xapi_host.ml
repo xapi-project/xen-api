@@ -1135,7 +1135,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key ~certi
     dates_of_ptimes (X509.Certificate.validity certificate)
   in
   let fingerprint =
-    X509.Certificate.fingerprint Mirage_crypto_pk.(`SHA256) certificate
+    X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
     |> Certificates.pp_hash
   in
   let uuid = Uuid.(to_string (make_uuid ())) in

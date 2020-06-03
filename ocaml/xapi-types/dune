@@ -11,8 +11,8 @@
   (libraries
    astring
    http-svr
-   rpclib
    rpclib.core
+   rpclib.xml
    threads
    uuidm
    xapi-consts

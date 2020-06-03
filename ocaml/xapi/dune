@@ -41,44 +41,92 @@
   (modules (:standard \ xapi_main))
   (libraries
    angstrom
-   unixpwd
+   astring
+   cstruct
+   base64
+   cohttp
+   domain-name
+   ezxenstore.core
+   fmt
+   forkexec
+   gencertlib
+   gzip
+   hex
+   http-svr
+   message-switch-core
+   message-switch-unix
+   mirage-crypto
+   mtime
+   mtime.clock.os
    pam
    pciutil
    pci
-   domain-name
-   ezxenstore.core
-   gencertlib
-   message-switch-unix
-   mtime
-   mtime.clock.os
+   ptime
+   rpclib.core
+   rpclib.json
+   rpclib.xml
+   re
+   result
    rresult
+   rrd-transport.lib
+   rrd-transport.file
+   rrdd-plugin.base
+   rrdd-plugin.local
+   sexplib
+   sexpr
    sha
-   xxhash
+   stdext
+   stringext
+   stunnel
    tar
    tar-unix
-   xapi-tapctl
+   threads.posix
+   unixpwd
+   uri
+   uuid
+   uuidm
    x509
-   xapi-types
+   xapi_aux
+   xapi-backtrace
+   xapi-consts
+   xapi-consts.xapi_version
    xapi-client
-   xapi-datamodel
    xapi-cli-protocol
    xapi_cli_server
-   xapi_aux
-   stdext
-   threads
+   xapi-database
+   xapi-datamodel
    xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd
+   xapi-idl.rrd.interface
+   xapi-idl.rrd.interface.types
    xapi-idl.storage
+   xapi-idl.storage.interface
+   xapi-idl.storage.interface.types
    xapi-idl.xen
+   xapi-idl.xen.interface
+   xapi-idl.xen.interface.types
    xapi-idl.network
    xapi-idl.v6
    xapi-idl.memory
    xapi-idl.gpumon
    xapi-idl.updates
-   rrd-transport.file
-   rrdd-plugin.local
+   xapi-inventory
+   xapi-rrd
+   xapi-tapctl
+   xapi-types
+   xapi-stdext-date
+   xapi-stdext-encodings
+   xapi-stdext-pervasives
+   xapi-stdext-std
+   xapi-stdext-threads
+   xapi-stdext-unix
+   xapi-stdext-zerocheck
    xapi-xenopsd
+   xenstore_transport.unix
+   xml-light2
+   xmlm
+   xxhash
    yojson
    zstd
   )
@@ -93,5 +141,7 @@
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (libraries
    xapi_internal
+   xapi-idl
+   xapi-stdext-unix
   )
 )

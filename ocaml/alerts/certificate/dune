@@ -2,7 +2,10 @@
   (name certificate_check)
   (modules certificate_check)
   (libraries
+    astring
     xapi-client
+    xapi-consts
+    xapi-types
     xapi-stdext-date
   )
 )
@@ -14,7 +17,9 @@
   (modules certificate_check_main)
   (libraries
     certificate_check
+    http-svr
     xapi-client
+    xapi-types
     xapi-stdext-pervasives
   )
 )
