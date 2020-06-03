@@ -86,10 +86,10 @@ let validate_certificate kind pem now private_key =
     let to_string = Ptime.to_rfc3339 ~tz_offset_s:0 in
     let not_before, not_after = X509.Certificate.validity certificate in
 
-    if Ptime.is_earlier time not_before then
+    if Ptime.is_earlier ~than:not_before time then
       Error (`Msg (server_certificate_not_valid_yet,
         [(to_string time); (to_string not_before)]))
-    else if Ptime.is_later time not_after then
+    else if Ptime.is_later ~than:not_after time then
       Error (`Msg (server_certificate_expired,
           [(to_string time); (to_string not_after)]))
     else

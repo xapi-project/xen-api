@@ -15,8 +15,6 @@
 
 exception Record_failure of string
 
-open Stdext.Xstringext
-
 let to_str = function
   | Rpc.String x -> x
   | _ -> failwith "Invalid"
@@ -575,7 +573,6 @@ let domain_type_of_string x =
 
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
-  let isdigit c = c >= '0' && c <= '9' in
   let ( ** ) a b = Int64.mul a b in
   let max_size_TiB = Int64.div Int64.max_int (1024L ** 1024L ** 1024L ** 1024L) in
   (* detect big number that cannot be represented by Int64. *)
@@ -586,18 +583,18 @@ let bytes_of_string field x =
       if s = "" then
         raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field));
       let alldigit = ref true and i = ref (String.length s - 1) in
-      while !alldigit && !i > 0 do alldigit := isdigit s.[!i]; decr i done;
+      while !alldigit && !i > 0 do alldigit := Astring.Char.Ascii.is_digit s.[!i]; decr i done;
       if !alldigit then
         raise (Record_failure (Printf.sprintf "Failed to parse field '%s': number too big (maximum = %Ld TiB)" field max_size_TiB))
       else
         raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field));
   in
-  match (String.split_f (fun c -> String.isspace c || (isdigit c)) x) with
+  match Astring.(String.fields ~empty:false ~is_sep:(fun c -> Char.Ascii.(is_white c || is_digit c))) x with
   | [] ->
     (* no suffix on the end *)
     int64_of_string x
   | [ suffix ] -> begin
-      let number = match (String.split_f (fun x -> not (isdigit x)) x) with
+      let number = match Astring.(String.fields ~empty:false ~is_sep:(Fun.negate Char.Ascii.is_digit)) x with
         | [ number ] -> int64_of_string number
         | _ -> raise (Record_failure (Printf.sprintf "Failed to parse field '%s': expecting an integer (possibly with suffix)" field)) in
       let multiplier = match suffix with
