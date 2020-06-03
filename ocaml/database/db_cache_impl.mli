@@ -1,21 +1,21 @@
 include Db_interface.DB_ACCESS
 
-(** [make t connections default_schema] initialises the in-memory cache *)
 val make : Db_ref.t -> Parse_db_conf.db_connection list -> Schema.t -> unit
+(** [make t connections default_schema] initialises the in-memory cache *)
 
+val flush_and_exit : Parse_db_conf.db_connection -> int -> unit
 (** [flush_and_exit db code] flushes the specific backend [db] and exits
     	xapi with [code] *)
-val flush_and_exit : Parse_db_conf.db_connection -> int -> unit
 
-(** [sync db] forcibly flushes the database to disk *)
 val sync : Parse_db_conf.db_connection list -> Db_cache_types.Database.t -> unit
+(** [sync db] forcibly flushes the database to disk *)
 
-(** [stats t] returns some stats data for logging *)
 val stats : Db_ref.t -> (string * int) list
+(** [stats t] returns some stats data for logging *)
 
+val touch_row : Db_ref.t -> string -> string -> unit
 (** [touch_row context tbl ref] bumps the generation count on [tbl], [ref] and
     generates a RefreshRow event *)
-val touch_row : Db_ref.t -> string -> string -> unit
 
-(** Used for Test_db_lowlevel *)
 val fist_delay_read_records_where : bool ref
+(** Used for Test_db_lowlevel *)

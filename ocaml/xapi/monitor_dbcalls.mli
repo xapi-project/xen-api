@@ -26,7 +26,7 @@
  * fresh information into the database.
 *)
 
+val monitor_dbcall_thread : unit -> unit
 (** The function to be executed as a stand-alone thread as xapi starts. This
  * thread is responsible for continually gathering fresh properties and
  * pushing changes to xapi's database. *)
-val monitor_dbcall_thread : unit -> unit

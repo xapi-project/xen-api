@@ -17,10 +17,10 @@
 *)
 
 val assert_operation_valid :
-  __context:Context.t ->
-  self:API.ref_host ->
-  op:API.host_allowed_operations ->
-  unit
+     __context:Context.t
+  -> self:API.ref_host
+  -> op:API.host_allowed_operations
+  -> unit
 (** [assert_operation_valid ~__context ~self ~op] checks the operation [op] is
     currently valid on [host]. There are various checks that are performed,
     for example:
@@ -30,42 +30,32 @@ val assert_operation_valid :
     {- Shutdown and Reboot are only allowed if the host is disabled}
     }*)
 
-val assert_host_disabled :
-  __context:Context.t ->
-  host:API.ref_host ->
-  unit
+val assert_host_disabled : __context:Context.t -> host:API.ref_host -> unit
 (** [assert_host_disabled ~__context ~host] raises an API error
     host_not_disabled if the host is not disabled. *)
 
-val update_allowed_operations :
-  __context:Context.t ->
-  self:API.ref_host ->
-  unit
+val update_allowed_operations : __context:Context.t -> self:API.ref_host -> unit
 (** [update_allowed_operations ~__context ~self] updates the
     allowed_operations database field with all the operations that are
     currently allowed given the current state of the host. *)
 
-val update_allowed_operations_all_hosts :
-  __context:Context.t ->
-  unit
+val update_allowed_operations_all_hosts : __context:Context.t -> unit
 (** [update_allowd_operations_all_hosts ~__context] runs
     [update_alloed_operations] for each host *)
 
 val cancel_tasks :
-  __context:Context.t ->
-  self:API.ref_host ->
-  all_tasks_in_db:API.ref_task list ->
-  task_ids:string list -> unit
+     __context:Context.t
+  -> self:API.ref_host
+  -> all_tasks_in_db:API.ref_task list
+  -> task_ids:string list
+  -> unit
 (** [cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids] is a helper
     utility for batch cancelling tasks associated with a previously dead host.
     See the file `cancel_tasks.ml` and the function [Helpers.cancel_tasks] for
     more context. *)
 
 val mark_host_as_dead :
-  __context:Context.t ->
-  host:API.ref_host ->
-  reason:string ->
-  unit
+  __context:Context.t -> host:API.ref_host -> reason:string -> unit
 (** [mark_host_as_dead ~__context ~host ~reason] is called on the master when a
     host is declaring it's going to be dead soon, via the [tickle_heartbeat]
     code. The host will be added to the Xapi_globs table of
@@ -126,7 +116,8 @@ module Configuration : sig
       fields in xapi's database. It should be called at startup on every host
       BEFORE the other_config watcher [start_watcher_thread] is started *)
 
-  val watch_other_configs : __context:Context.t -> float -> (string * bool) -> (string * bool)
+  val watch_other_configs :
+    __context:Context.t -> float -> string * bool -> string * bool
   (** [watch_other_configs ~__context timeout] returns a function that performs
       one iteration of watching Host.other_config. If an update occurs this
       will check whether the iscsi_iqn field in other-config is correctly

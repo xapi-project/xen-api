@@ -18,15 +18,15 @@
 (******************************************************************************)
 (** {2 Internal helper functions} *)
 
-val fix_pif_prerequisites : __context:Context.t -> API.ref_PIF ->
-    unit
+val fix_pif_prerequisites : __context:Context.t -> API.ref_PIF -> unit
+
 (* [fix_pif_prerequisites ~__context (pif_ref,pif_rec)] will fix those
    prerequisites that are fixable automatically. It won't be able to fix a
    missing IP address, but it will plug the PIF if it's not attached and it
    will set disallow_unplug once the PIF is plugged *)
 
-val sync_required : __context:Context.t -> host:API.ref_host ->
-    API.ref_Cluster option
+val sync_required :
+  __context:Context.t -> host:API.ref_host -> API.ref_Cluster option
 (** [sync_required ~__context ~host] returns an option type indicating whether
     any action is required to sync the cluster. This will only be the case if
     the cluster object has [pool_auto_join] set and no corresponding
@@ -40,7 +40,11 @@ val create_as_necessary : __context:Context.t -> host:API.ref_host -> unit
 (******************************************************************************)
 (** {2 External API calls} *)
 
-val create : __context:Context.t -> cluster:API.ref_Cluster -> host:API.ref_host -> pif:API.ref_PIF
+val create :
+     __context:Context.t
+  -> cluster:API.ref_Cluster
+  -> host:API.ref_host
+  -> pif:API.ref_PIF
   -> API.ref_Cluster_host
 (** [create ~__context ~cluster ~host] is implementation of the XenAPI call
     'Cluster_host.create'. It is the Cluster_host object constructor, and creates

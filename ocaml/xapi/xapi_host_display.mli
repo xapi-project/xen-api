@@ -16,4 +16,4 @@ val disable : unit -> unit
 
 val enable : unit -> unit
 
-val status : unit -> [ `disabled | `enabled | `unknown ]
+val status : unit -> [`disabled | `enabled | `unknown]

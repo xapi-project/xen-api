@@ -14,10 +14,9 @@
 
 type daemon_check =
   | Pidfile of string
-  (** Check whether the daemon is running by reading a pidfile, and checking
+      (** Check whether the daemon is running by reading a pidfile, and checking
       		    that the PID points to a running process. *)
-  | Function of (unit -> bool)
-  (** Generic user-defined check, *)
+  | Function of (unit -> bool)  (** Generic user-defined check, *)
 
 module type DAEMON = sig
   val check : daemon_check
