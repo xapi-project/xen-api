@@ -13,13 +13,15 @@
     unit_test_sql)
   )
   (libraries
-    rpclib
+    rpclib.core
     ppx_sexp_conv.runtime-lib
+    sexplib
     sexpr
     threads
     http-svr
     gzip
     uuid
+    xapi-backtrace
     xapi-stdext-encodings
     xapi-stdext-pervasives
     xapi-stdext-std

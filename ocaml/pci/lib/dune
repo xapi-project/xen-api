@@ -21,5 +21,5 @@
   (c_names ffi_generated_stubs)
   (c_flags -lpci)
   (c_library_flags -lpci)
-  (libraries  pci_bindings ctypes.stubs)
+  (libraries  pci_bindings ctypes.stubs integers)
 )

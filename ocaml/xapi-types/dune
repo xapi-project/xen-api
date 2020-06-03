@@ -12,10 +12,12 @@
    astring
    http-svr
    rpclib
+   rpclib.core
    threads
    uuidm
    xapi-consts
    xapi-stdext-date
+   xapi-stdext-unix
    xapi-idl
   )
   (wrapped false)
