@@ -267,8 +267,8 @@ let release_order_full = [{
      code_name     = Some rel_stockholm;
      version_major = 2;
      version_minor = 15;
-     branding      = "Unreleased";
-     release_date  = None;
+     branding      = "Citrix Hypervisor 8.2";
+     release_date  = Some "June 2020";
    }; {
      code_name     = Some rel_next;
      version_major = 2;
