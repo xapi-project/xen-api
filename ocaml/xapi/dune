@@ -76,7 +76,6 @@
    sexpr
    sha
    stdext
-   stringext
    stunnel
    tar
    tar-unix

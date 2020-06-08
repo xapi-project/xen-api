@@ -25,7 +25,8 @@ let string_of_features features =
 exception InvalidFeatureString of string
 let features_of_string str =
   let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
-  try Stringext.split ~on:'-' str
+  try String.split_on_char '-' str
+      |> (fun lst -> if lst = [""] then [] else lst)
       |> Array.of_list
       |> Array.map (scanf "%08Lx%!")
   with _ -> raise (InvalidFeatureString str)
