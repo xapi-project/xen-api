@@ -95,11 +95,15 @@ let make __context rpc session_id srid (vms, vdis) =
             ~shutdown_delay:0L
             ~order:0L
             ~suspend_SR:Ref.null
+            ~suspend_VDI:Ref.null
             ~version:0L
             ~generation_id:""
             ~hardware_platform_version:0L
             ~has_vendor_device:false ~reference_label:""
             ~nVRAM:[]
+            ~last_booted_record:""
+            ~last_boot_CPU_flags:[]
+            ~power_state:`Halted
         in
 
         TaskHelper.operate_on_db_task ~__context
@@ -126,7 +130,7 @@ let make __context rpc session_id srid (vms, vdis) =
                 ~_type:`Disk
                 ~empty:false
                 ~unpluggable:(vbd.vdi.variety <> `system)
-                ~qos_algorithm_type:"" ~qos_algorithm_params:[] in
+                ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:"" ~currently_attached:false in
             clean_up_stack :=
               (fun __context rpc session_id ->
                  Client.VBD.destroy rpc session_id vbd_ref) :: !clean_up_stack) vm.vbds;
@@ -134,7 +138,8 @@ let make __context rpc session_id srid (vms, vdis) =
         begin
           try
             ignore (Client.VBD.create ~rpc ~session_id ~vM:vm_ref ~vDI:Ref.null ~other_config:[] ~userdevice:"autodetect"
-                      ~bootable:false ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:true ~qos_algorithm_type:"" ~qos_algorithm_params:[])
+                      ~bootable:false ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:true ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+                      ~device:"" ~currently_attached:false)
           with e -> warn "could not create CD drive on imported XVA: %s" (Printexc.to_string e)
         end;
         (vm,vm_ref)

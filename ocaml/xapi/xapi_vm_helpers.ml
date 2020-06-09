@@ -132,7 +132,7 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
     Db.VM.set_hardware_platform_version ~__context ~self:vm ~value:visibly_required_version
 
 let create_from_record_without_checking_licence_feature_for_vendor_device ~__context rpc session_id vm_record =
-  let mk_vm r = Client.Client.VM.create_from_record rpc session_id r in
+  let mk_vm r = Client.Client.VM.create_from_record rpc session_id { r with API.vM_suspend_VDI = Ref.null ; API.vM_power_state = `Halted } in
   let has_vendor_device = vm_record.API.vM_has_vendor_device in
   if has_vendor_device && not (Pool_features.is_enabled ~__context Features.PCI_device_for_auto_update)
   then (

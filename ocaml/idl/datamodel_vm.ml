@@ -1284,6 +1284,7 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
                    ]
       ~lifecycle:[
         Published, rel_rio, "";
+        Changed, rel_stockholm, "possibility to create a VM in suspended mode with a suspend_VDI set";
       ]
       ~messages_default_allowed_roles:_R_VM_ADMIN
       ~messages:[ snapshot; snapshot_with_quiesce; clone; copy; revert; checkpoint;
@@ -1361,13 +1362,13 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
       ~contents:
         ([ uid _vm;
          ] @ (allowed_and_current_operations operations) @ [
-           field ~writer_roles:_R_VM_OP ~qualifier:DynamicRO ~ty:power_state "power_state" "Current power state of the machine";
            namespace ~name:"name" ~contents:(names oss_since_303 RW) ();
+           field ~writer_roles:_R_VM_OP ~qualifier:StaticRO ~default_value:(Some (VEnum "Halted")) ~lifecycle:[Changed, rel_stockholm, "Become static to allow Suspended VM creation"] ~ty:power_state "power_state" "Current power state of the machine";
 
            field ~ty:Int "user_version" "Creators of VMs and templates may store version information here.";
            field ~effect:true ~ty:Bool "is_a_template" "true if this is a template. Template VMs can never be started, they are used only for cloning other VMs";
            field ~ty:Bool ~default_value:(Some (VBool false)) ~qualifier:DynamicRO ~writer_roles:_R_POOL_ADMIN ~lifecycle:[Published, rel_falcon, "Identifies default templates"] "is_default_template" "true if this is a default template. Default template VMs can never be started or migrated, they are used only for cloning other VMs";
-           field ~qualifier:DynamicRO ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
+           field ~qualifier:StaticRO ~default_value:(Some (VRef null_ref)) ~lifecycle:[Changed, rel_stockholm, "Become static to allow Suspended VM creation"] ~ty:(Ref _vdi) "suspend_VDI" "The VDI that a suspend image is stored on. (Only has meaning if VM is currently suspended)";
 
            field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on" "the host the VM is currently resident on";
            field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref)) ~ty:(Ref _host) "scheduled_to_be_resident_on" "the host on which the VM is due to be started/resumed/migrated. This acts as a memory reservation indicator";
@@ -1395,14 +1396,14 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
            field  ~ty:(Map(String, String)) "other_config" "additional configuration" ~map_keys_roles:["pci", _R_POOL_ADMIN; ("folder",(_R_VM_OP));("XenCenter.CustomFields.*",(_R_VM_OP))];
            field ~qualifier:DynamicRO ~ty:Int "domid" "domain ID (if available, -1 otherwise)";
            field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch" "Domain architecture (if available, null string otherwise)";
-           field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Map(String, String)) "last_boot_CPU_flags" "describes the CPU flags on which the VM was last booted";
+           field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Map(String, String)) ~default_value:(Some (VMap [])) "last_boot_CPU_flags" "describes the CPU flags on which the VM was last booted";
            field ~qualifier:DynamicRO ~ty:Bool "is_control_domain" "true if this is a control domain (domain 0 or a driver domain)";
            field ~qualifier:DynamicRO ~ty:(Ref _vm_metrics) "metrics" "metrics associated with this VM";
            field ~qualifier:DynamicRO ~ty:(Ref _vm_guest_metrics) "guest_metrics" "metrics associated with the running guest";
            (* This was an internal field in Rio, Miami beta1, Miami beta2 but is now exposed so that
               	   it will be included automatically in Miami GA exports and can be restored, important if
               	   the VM is in a suspended state *)
-           field ~in_oss_since:None ~internal_only:false ~in_product_since:rel_miami ~qualifier:DynamicRO ~ty:String "last_booted_record" "marshalled value containing VM record at time of last boot, updated dynamically to reflect the runtime state of the domain" ~default_value:(Some (VString ""));
+           field ~in_oss_since:None ~internal_only:false ~in_product_since:rel_miami ~qualifier:StaticRO ~ty:String "last_booted_record" "marshalled value containing VM record at time of last boot, updated dynamically to reflect the runtime state of the domain" ~default_value:(Some (VString ""));
            field ~in_oss_since:None ~ty:String "recommendations" "An XML specification of recommended values and ranges for properties of this VM";
            field ~effect:true ~in_oss_since:None ~ty:(Map(String, String)) ~in_product_since:rel_miami ~qualifier:RW "xenstore_data" "data to be inserted into the xenstore tree (/local/domain/<domid>/vm-data) after the VM is created." ~default_value:(Some (VMap []));
            field ~writer_roles:_R_POOL_OP ~in_oss_since:None ~ty:Bool ~in_product_since:rel_orlando ~internal_deprecated_since:rel_boston ~qualifier:StaticRO "ha_always_run" "if true then the system will attempt to keep the VM running as much as possible." ~default_value:(Some (VBool false));

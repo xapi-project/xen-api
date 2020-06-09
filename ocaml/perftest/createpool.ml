@@ -56,7 +56,7 @@ let initialise session_id template pool =
   let interfaces = Array.init pool.interfaces_per_host (fun i ->
       let net = networks.(get_network_num_from_interface pool i) in
       Client.VIF.create ~rpc ~session_id ~device:(string_of_int i) ~network:net ~vM:template ~mAC:"" ~mTU:1500L
-        ~other_config:[oc_key,pool.key] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[])
+        ~other_config:[oc_key,pool.key] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false)
   in
 
   (* Create a disk for local storage *)
@@ -69,6 +69,7 @@ let initialise session_id template pool =
       ~sm_config:[] ~tags:[] in
   let (_: API.ref_VBD) = Client.VBD.create ~rpc ~session_id ~vM:template ~vDI:newdisk ~userdevice:sr_disk_device ~bootable:false
       ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~other_config:[oc_key,pool.key]
+      ~device:"" ~currently_attached:false
   in
 
   debug "Setting up xenstore keys";

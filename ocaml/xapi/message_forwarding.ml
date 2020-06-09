@@ -2935,9 +2935,9 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
     (* -------------------------------------------------------------------------- *)
 
-    let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params =
+    let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~currently_attached ~qos_algorithm_type ~qos_algorithm_params =
       info "VIF.create: VM = '%s'; network = '%s'" (vm_uuid ~__context vM) (network_uuid ~__context network);
-      Local.VIF.create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params
+      Local.VIF.create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config ~currently_attached ~qos_algorithm_type ~qos_algorithm_params
 
     let destroy ~__context ~self =
       info "VIF.destroy: VIF = '%s'" (vif_uuid ~__context self);
@@ -3872,10 +3872,13 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
 
 
     (* these are db functions *)
-    let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable ~empty ~other_config ~qos_algorithm_type ~qos_algorithm_params =
+    let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type ~unpluggable
+      ~empty ~other_config ~currently_attached ~qos_algorithm_type ~qos_algorithm_params =
+
       info "VBD.create: VM = '%s'; VDI = '%s'" (vm_uuid ~__context vM) (vdi_uuid ~__context vDI);
       (* NB must always execute this on the master because of the autodetect_mutex *)
-      Local.VBD.create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type ~unpluggable ~empty ~other_config ~qos_algorithm_type ~qos_algorithm_params
+      Local.VBD.create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type ~unpluggable
+        ~empty ~other_config ~currently_attached ~qos_algorithm_type ~qos_algorithm_params
 
     let set_mode ~__context ~self ~value =
       info "VBD.set_mode: VBD = '%s'; value = %s" (vbd_uuid ~__context self) (Record_util.vbd_mode_to_string value);

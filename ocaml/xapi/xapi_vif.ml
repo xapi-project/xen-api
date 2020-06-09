@@ -34,8 +34,17 @@ let unplug_force ~__context ~self =
   Xapi_xenops.vif_unplug ~__context ~self true
 
 let create  ~__context ~device ~network ~vM
-    ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
-  create ~__context ~device ~network ~vM ~currently_attached:false
+    ~mAC ~mTU ~other_config  ~currently_attached ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
+
+  (* TODO: Raise bad power state error (once all API clients make sure to onlu call the needed params in the create method) when:
+    - power_state == `Halted and currently_attached = true
+  *)
+
+  let power_state = Db.VM.get_power_state ~__context ~self:vM in
+  let suspended = (power_state = `Suspended) in
+  let _currently_attached = if suspended then currently_attached else false in
+
+  create ~__context ~device ~network ~vM ~currently_attached:_currently_attached
     ~mAC ~mTU ~other_config ~qos_algorithm_type ~qos_algorithm_params ~locking_mode ~ipv4_allowed ~ipv6_allowed
     ~ipv4_configuration_mode:`None ~ipv4_addresses:[] ~ipv4_gateway:""
     ~ipv6_configuration_mode:`None ~ipv6_addresses:[] ~ipv6_gateway:""

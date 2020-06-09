@@ -167,7 +167,8 @@ let get_host_from_session rpc session_id =
 (* Create a VBD record in database and attempt to hotplug it, ignoring hotplug errors *)
 let create_vbd_and_plug_with_other_config rpc session_id vm vdi device_name bootable rw cd unpluggable qtype qparams other_config =
   let vbd = Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi ~userdevice:device_name ~bootable ~mode:rw
-      ~_type:cd ~unpluggable ~empty:false ~qos_algorithm_type:qtype ~qos_algorithm_params:qparams ~other_config in
+      ~_type:cd ~unpluggable ~empty:false ~qos_algorithm_type:qtype ~qos_algorithm_params:qparams
+      ~other_config ~device:"" ~currently_attached:false in
   try Client.VBD.plug rpc session_id vbd
   with Api_errors.Server_error(_, _) as e ->
     debug "VBD created but not hotplugged: %s" (Api_errors.to_string e)
@@ -1205,7 +1206,7 @@ let vbd_create printer rpc session_id params =
       ~unpluggable
       ~empty
       ~qos_algorithm_type:""
-      ~qos_algorithm_params:[] ~other_config:[] in
+      ~qos_algorithm_params:[] ~other_config:[] ~device:"" ~currently_attached:false in
   let vbd_uuid=Client.VBD.get_uuid rpc session_id vbd in
   printer (Cli_printer.PList [vbd_uuid])
 
@@ -1461,7 +1462,7 @@ let vif_create printer rpc session_id params =
   let vm=Client.VM.get_by_uuid rpc session_id vm_uuid in
   let network=Client.Network.get_by_uuid rpc session_id network_uuid in
   let mtu = Client.Network.get_MTU rpc session_id network in
-  let vif = Client.VIF.create rpc session_id device network vm mac mtu [] "" [] `network_default [] [] in
+  let vif = Client.VIF.create rpc session_id device network vm mac mtu [] false "" [] `network_default [] [] in
   let uuid = Client.VIF.get_uuid rpc session_id vif in
   printer (Cli_printer.PList [uuid])
 
@@ -1549,12 +1550,16 @@ let vm_create printer rpc session_id params =
       ~shutdown_delay:0L
       ~order:0L
       ~suspend_SR:Ref.null
+      ~suspend_VDI:Ref.null
       ~version:0L
       ~generation_id:""
       ~hardware_platform_version:0L
       ~has_vendor_device:false ~reference_label:""
       ~domain_type:`unspecified
       ~nVRAM:[]
+      ~last_booted_record:""
+      ~last_boot_CPU_flags:[]
+      ~power_state:`Halted
   in
   let uuid=Client.VM.get_uuid rpc session_id vm in
   printer (Cli_printer.PList [uuid])
