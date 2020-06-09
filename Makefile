@@ -19,5 +19,5 @@ clean:
 test:
 	dune runtest
 
-reindent:
-	ocp-indent --inplace **/*.ml*
+format:
+	dune build @fmt --auto-promote
