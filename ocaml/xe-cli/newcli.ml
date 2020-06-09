@@ -300,7 +300,9 @@ let with_open_tcp_ssl server f =
     ~extended_diagnosis:(!debug_file <> None) server port
   @@ fun x ->
   Pervasiveext.finally
-    (fun () -> Unixfd.with_channels x.Stunnel.fd f)
+    (fun () ->
+      let r = Unixfd.with_channels x.Stunnel.fd f in
+      Stunnel.disconnect x ; r)
     (fun () ->
       if Sys.file_exists x.Stunnel.logfile then (
         if !exit_status <> 0 then (
