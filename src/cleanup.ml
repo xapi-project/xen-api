@@ -37,7 +37,7 @@ module VBD = struct
       f ()
       >>= fun () ->
       Lwt_mutex.with_lock vbds_to_clean_up_mutex (fun () ->
-          vbds_to_clean_up := StringSet.remove (API.Ref.string_of vbd) !vbds_to_clean_up; 
+          vbds_to_clean_up := StringSet.remove (API.Ref.string_of vbd) !vbds_to_clean_up;
           Lwt.return_unit)
 
     (* Currently when the program is interrupted with a SIGNAL, we don't
@@ -105,7 +105,7 @@ module VBD = struct
   end
 
   let with_vbd ~vDI ~vM ~mode ~rpc ~session_id f =
-    Xen_api.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+    Xen_api.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:"" ~currently_attached:false
     >>= fun vbd ->
     Persistent.with_tracking rpc session_id vbd (fun () ->
         Runtime.with_tracking vbd (fun () ->
