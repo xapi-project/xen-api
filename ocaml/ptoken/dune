@@ -1,6 +1,16 @@
+(library
+  (name genptokenlib)
+  (wrapped true)
+  (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
+  (modules lib)
+  (libraries uuid
+             xapi-types)
+)
+
 (executable
   (name genptoken)
   (public_name genptoken)
   (package xapi)
-  (libraries uuid)
+  (modules genptoken)
+  (libraries genptokenlib)
 )

@@ -871,14 +871,8 @@ let get_pool_secret () =
       ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
   with _ ->
     (* No pool secret exists. *)
-    let mk_rand_string () = Uuid.to_string (Uuid.make_uuid ()) in
-    let ps =
-      SecretString.of_string
-      @@ mk_rand_string ()
-      ^ "/"
-      ^ mk_rand_string ()
-      ^ "/"
-      ^ mk_rand_string ()
+    let module Ptoken = Genptokenlib.Lib in
+    let ps = Ptoken.gen_token () in
     in
     Xapi_globs.pool_secrets := [ps] ;
     Db_globs.pool_secret :=
