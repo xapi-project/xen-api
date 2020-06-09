@@ -1,4 +1,3 @@
-
 (** Xapi's local Unix domain socket *)
 let xapi_unix_domain_socket_uri = "file:///var/xapi/xapi"
 

@@ -20,11 +20,13 @@ val ignore_exn_log_error : string -> (unit -> unit Lwt.t) -> unit Lwt.t
 
 module VBD : sig
   val with_vbd :
-    vDI:[ `VDI ] API.Ref.t ->
-    vM:[ `VM ] API.Ref.t ->
-    mode:[ `RO | `RW ] ->
-    rpc:(Rpc.call -> Rpc.response Lwt.t) ->
-    session_id: [`session ] API.Ref.t -> ([ `VBD ] API.Ref.t -> unit Lwt.t) -> unit Lwt.t
+       vDI:[`VDI] API.Ref.t
+    -> vM:[`VM] API.Ref.t
+    -> mode:[`RO | `RW]
+    -> rpc:(Rpc.call -> Rpc.response Lwt.t)
+    -> session_id:[`session] API.Ref.t
+    -> ([`VBD] API.Ref.t -> unit Lwt.t)
+    -> unit Lwt.t
   (** This function takes care of cleaning up a VBD, and keeps a record of
       it in case something goes wrong before the cleanups can finish (for
       example the program is terminated with SIGTREM or it crashes), so

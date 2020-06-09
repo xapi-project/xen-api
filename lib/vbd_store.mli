@@ -16,22 +16,22 @@
 module Make : functor
   (Config : sig
      val vbd_list_dir : string
+
      val vbd_list_file_name : string
-   end) ->
-sig
+   end)
+  -> sig
+  val add : string -> unit Lwt.t
   (** [add vbd_uuid] adds [vbd_uuid] to the persistent list of VBD UUIDs, and
       writes back the changes to disk. It does not check for duplicated VBD
       UUIDs: if this UUID is already in the list, it will be added again. *)
-  val add: string -> unit Lwt.t
 
+  val remove : string -> unit Lwt.t
   (** [remove vbd_uuid] removes [vbd_uuid] from the persistent list of VBD UUIDs,
       and writes back the changes to disk. If this [vbd_uuid] occurs in the list
       multiple times, all occurrences will be removed. *)
-  val remove: string -> unit Lwt.t
 
+  val get_all : unit -> string list Lwt.t
   (** Returns all of the VBD UUIDs stored on disk. The UUIDs are not
       deduplicated, if the same UUID is added multiple times using {!add}, then it
       will be repeated here too. *)
-  val get_all: unit -> (string list) Lwt.t
-
 end
