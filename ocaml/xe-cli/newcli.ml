@@ -610,9 +610,7 @@ let main_loop ifd ofd permitted_filenames =
           try
             with_open_tcp server @@ fun (ic, oc) ->
             delay := 0.1 ;
-            Pervasiveext.finally
-              (fun () -> connection ic oc)
-              (fun () -> try close_in ic with _ -> ())
+            connection ic oc
           with
           | Unix.Unix_error (_, _, _)
             when !delay <= long_connection_retry_timeout ->
@@ -670,7 +668,10 @@ let main_loop ifd ofd permitted_filenames =
             | 302 ->
                 let newloc = List.assoc "location" headers in
                 (try close_in ic with _ -> ()) ;
-                (* Nb. Unix.close_connection only requires the in_channel *)
+                (* Unixfd.with_connection requires both channels to be closed *)
+                close_in_noerr ic ;
+                close_out_noerr oc ;
+                (* recursive call here, had to close channels on our own *)
                 doit newloc
             | _ ->
                 failwith "Unhandled response code"
@@ -717,15 +718,12 @@ let main_loop ifd ofd permitted_filenames =
                 (fun () ->
                   copy_with_heartbeat ic file_ch heartbeat_fun ;
                   marshal ofd (Response OK))
-                (fun () ->
-                  (try close_in ic with _ -> ()) ;
-                  try close_out file_ch with _ -> ())
+                (fun () -> try close_out file_ch with _ -> ())
           | 302 ->
               let headers = read_rest_of_headers ic in
               let newloc = List.assoc "location" headers in
-              (try close_in ic with _ -> ()) ;
-              (* Nb. Unix.close_connection only requires the in_channel *)
-              doit newloc
+              (* see above about Unixfd.with_connection *)
+              close_in_noerr ic ; close_out_noerr oc ; doit newloc
           | _ ->
               failwith "Unhandled response code"
         in
