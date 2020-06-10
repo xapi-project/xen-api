@@ -237,7 +237,11 @@ let with_open_tcp_ssl server f =
   Stunnel.with_connect ~use_fork_exec_helper:false
     ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
     ~extended_diagnosis:(!debug_file <> None) server port @@ fun x ->
-  Pervasiveext.finally (fun () -> Unixfd.with_channels x.Stunnel.fd f)
+  Pervasiveext.finally (fun () ->
+      let r = Unixfd.with_channels x.Stunnel.fd f in
+      Stunnel.disconnect x;
+      r
+    )
     (fun () ->
        if Sys.file_exists x.Stunnel.logfile then
          begin
@@ -496,9 +500,7 @@ let main_loop ifd ofd permitted_filenames =
         try
           with_open_tcp server @@ fun (ic, oc) ->
           delay := 0.1;
-          Pervasiveext.finally
-            (fun () -> connection ic oc)
-            (fun () -> try close_in ic with _ -> ())
+          connection ic oc
         with
         | Unix.Unix_error (_, _, _)
           when !delay <= long_connection_retry_timeout ->
@@ -549,7 +551,10 @@ let main_loop ifd ofd permitted_filenames =
                    (try close_in file_ch with _ -> ()))
             | 302 ->
               let newloc = List.assoc "location" headers in
-              (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
+              (* Unixfd.with_connection requires both channels to be closed *)
+              close_in_noerr ic;
+              close_out_noerr oc;
+              (* recursive call here, had to close channels on our own *)
               doit newloc
             | _ -> failwith "Unhandled response code"
           in
@@ -592,12 +597,13 @@ let main_loop ifd ofd permitted_filenames =
                    copy_with_heartbeat ic file_ch heartbeat_fun;
                    marshal ofd (Response OK))
                 (fun () ->
-                   (try close_in ic with _ -> ());
                    (try close_out file_ch with _ -> ()))
             | 302 ->
               let headers = read_rest_of_headers ic in
               let newloc = List.assoc "location" headers in
-              (try close_in ic with _ -> ()); (* Nb. Unix.close_connection only requires the in_channel *)
+              (* see above about Unixfd.with_connection *)
+              close_in_noerr ic;
+              close_out_noerr oc;
               doit newloc
             | _ -> failwith "Unhandled response code"
           in
