@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Sexplib.Std
+module Sexp = Sexplib0.Sexp
+open Sexplib0.Sexp_conv
 
 module Type = struct
   type t =
@@ -24,8 +25,8 @@ module Type = struct
   let _ = Printexc.register_printer (function
       | Error (expected, actual) ->
         Some (Printf.sprintf "Schema.Type.Error: expected %s; received %s"
-                (Sexplib.Sexp.to_string_hum (sexp_of_t expected))
-                (Sexplib.Sexp.to_string_hum (sexp_of_t actual)))
+                (Sexp.to_string_hum (sexp_of_t expected))
+                (Sexp.to_string_hum (sexp_of_t actual)))
       | _ -> None
     )
 end
@@ -120,7 +121,7 @@ module ForeignMap = struct
   [@@deriving sexp]
 
   type m = foreign t
-  let sexp_of_m t : Sexplib.Sexp.t =
+  let sexp_of_m t : Sexp.t =
     let t' = fold (fun key foreign acc -> (key, foreign) :: acc) t [] in
     sexp_of_t' t'
 

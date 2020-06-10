@@ -19,7 +19,6 @@
     rpclib.core
     rpclib.json
     safe-resources
-    sexplib
     sexplib0
     sexpr
     stunnel

@@ -14,8 +14,6 @@
 (**
  * @group Command-Line Interface (CLI)
 *)
-open Sexplib.Std
-
 module D = Debug.Make(struct let name = "cli" end)
 open D
 
