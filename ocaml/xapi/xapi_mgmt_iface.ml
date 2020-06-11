@@ -114,7 +114,7 @@ let start ~__context ?addr () =
   Http_svr.start Xapi_http.server socket ;
   management_interface_server := socket :: !management_interface_server ;
   restart_stunnel ~__context ~accept ;
-  if Pool_role.is_master () && !listening_all then
+  if Pool_role.is_master () && addr = None then
     (* NB if we synchronously bring up the management interface on a master with a blank
        		   database this can fail... this is ok because the database will be synchronised later *)
     Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
