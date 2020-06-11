@@ -40,6 +40,8 @@ let xedebug = ref false
 
 let xedebugonfail = ref false
 
+let stunnel_processes = ref []
+
 let debug_channel = ref None
 
 let debug_file = ref None
@@ -299,20 +301,11 @@ let with_open_tcp_ssl server f =
     ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
     ~extended_diagnosis:(!debug_file <> None) server port
   @@ fun x ->
-  Pervasiveext.finally
-    (fun () ->
-      let r = Unixfd.with_channels x.Stunnel.fd f in
-      Stunnel.disconnect x ; r)
-    (fun () ->
-      if Sys.file_exists x.Stunnel.logfile then (
-        if !exit_status <> 0 then (
-          debug "\nStunnel diagnosis:\n\n" ;
-          try Stunnel.diagnose_failure x
-          with e -> debug "%s\n" (Printexc.to_string e)
-        ) ;
-        try Unix.unlink x.Stunnel.logfile with _ -> ()
-      ) ;
-      Stunnel.disconnect ~wait:false ~force:true x)
+  let x = Stunnel.move_out_exn x in
+  let ic = Unix.in_channel_of_descr (Unix.dup Unixfd.(!(x.Stunnel.fd))) in
+  let oc = Unix.out_channel_of_descr (Unix.dup Unixfd.(!(x.Stunnel.fd))) in
+  stunnel_processes := (x, ic, oc) :: !stunnel_processes ;
+  f (ic, oc)
 
 let with_open_tcp server f =
   if !xeusessl && not (is_localhost server) then (* never use SSL on-host *)
@@ -831,6 +824,20 @@ let main () =
     | e ->
         error "Unhandled exception\n%s\n" (Printexc.to_string e)
   in
+  List.iter
+    (fun (x, ic, oc) ->
+      close_out_noerr oc ;
+      close_in_noerr ic ;
+      if Sys.file_exists x.Stunnel.logfile then (
+        if !exit_status <> 0 then (
+          debug "\nStunnel diagnosis:\n\n" ;
+          try Stunnel.diagnose_failure x
+          with e -> debug "%s\n" (Printexc.to_string e)
+        ) ;
+        try Unix.unlink x.Stunnel.logfile with _ -> ()
+      ) ;
+      Stunnel.disconnect ~wait:false ~force:true x)
+    !stunnel_processes ;
   ( match (!debug_file, !debug_channel) with
   | Some f, Some ch -> (
       close_out ch ;
