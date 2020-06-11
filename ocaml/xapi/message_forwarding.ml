@@ -4557,7 +4557,15 @@ functor
         (* Try forward the request to a host which can have access to both source
            and destination SR. *)
         let op session_id rpc =
-          Client.VDI.copy rpc session_id vdi sr base_vdi into_vdi
+          let sync_op () =
+            Client.VDI.copy rpc session_id vdi sr base_vdi into_vdi
+          in
+          let async_op () =
+            Client.InternalAsync.VDI.copy rpc session_id vdi sr base_vdi
+              into_vdi
+          in
+          Helpers.try_internal_async ~__context API.ref_VDI_of_rpc async_op
+            sync_op
         in
         with_sr_andor_vdi ~__context
           ~vdi:(vdi, `copy)
