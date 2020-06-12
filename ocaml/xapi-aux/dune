@@ -2,8 +2,13 @@
  (name xapi_aux)
 
  (libraries
+   astring
+   xapi-consts
+   xapi-idl
+   xapi-stdext-threads
+   xapi-stdext-unix
    xapi-types
-   stdext
+   xml-light2
  )
  (wrapped false)
 )

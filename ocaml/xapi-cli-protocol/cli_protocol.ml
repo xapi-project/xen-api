@@ -275,7 +275,7 @@ let unmarshal_protocol (fd: Unix.file_descr) =
 
 let marshal_unmarshal (a: message) =
   let x = marshal_message a in
-  let b, (s, offset) = unmarshal_message (x, 0) in
+  let b, (_, offset) = unmarshal_message (x, 0) in
   if a <> b
   then failwith (Printf.sprintf "marshal_unmarshal failure: %s <> %s"
                    (string_of_message a) (string_of_message b));

@@ -18,14 +18,18 @@ module StringSet = Set.Make(String)
 
 open Network
 
-open Stdext
-open Xstringext
-open Threadext
-open Pervasiveext
+open Xapi_stdext_std.Xstringext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
+
 module XenAPI = Client.Client
 module Rrdd = Rrd_client.Client
 open Xenops_interface
 open Xapi_xenops_queue
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let rpc_of t x = Rpcmarshal.marshal t.Rpc.Types.ty x
 
@@ -628,15 +632,15 @@ module MD = struct
     let devs = devs @ net_sriov_pcidevs @ unmanaged in
 
     let open Pci in
-    List.map
-      (fun (idx, (domain, bus, dev, fn)) -> {
+    List.mapi
+      (fun idx (domain, bus, dev, fn) -> {
            id = (vm.API.vM_uuid, Printf.sprintf "%04x:%02x:%02x.%01x" domain bus dev fn);
            position = idx;
            address = {domain; bus; dev; fn};
            msitranslate = None;
            power_mgmt = None;
          })
-      (List.combine (Range.to_list (Range.make 0 (List.length devs))) devs)
+      devs
 
   let get_target_pci_address ~__context vgpu =
     let pgpu =
@@ -794,7 +798,7 @@ module MD = struct
     let open Vusb in
     try
       let path = pusb.API.pUSB_path in
-      let pathList= Xstringext.String.split '-' path in
+      let pathList= String.split_on_char '-' path in
       let hostbus = List.nth pathList 0 in
       let hostport = List.nth pathList 1 in
       (* Here version can be 1.10/2.00/3.00. *)
@@ -2860,7 +2864,7 @@ let reboot ~__context ~self timeout =
        Events_from_xapi.wait ~__context ~self;
        info "xenops: VM.reboot %s" id;
        let module Client = (val make_client queue_name : XENOPS ) in
-       let () = Pervasiveext.finally
+       let () = finally
            (fun () ->
               Client.VM.reboot dbg id timeout |> sync_with_task __context queue_name)
            (fun () ->
@@ -2878,7 +2882,7 @@ let shutdown ~__context ~self timeout =
        let dbg = Context.string_of_task __context in
        info "xenops: VM.shutdown %s" id;
        let module Client = (val make_client queue_name : XENOPS ) in
-       let () = Pervasiveext.finally
+       let () = finally
            (fun () ->
               Client.VM.shutdown dbg id timeout |> sync_with_task __context queue_name)
            (fun () ->

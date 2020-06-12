@@ -14,9 +14,7 @@
 module D = Debug.Make(struct let name="xapi_bond" end)
 open D
 
-open Stdext
-open Listext
-open Threadext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Db_filter_types
 
 (* Returns the name of a new bond device, which is the string "bond" followed
@@ -92,7 +90,7 @@ let get_local_vifs ~__context host networks =
   in
 
   (* Make a list of the VIFs for local VMs *)
-  let vms = Hashtblext.fold_keys vms_with_vifs in
+  let vms = Hashtbl.to_seq_keys vms_with_vifs |> List.of_seq in
   let local_vifs = List.concat (List.map (fun vm ->
       if is_local vm then Hashtbl.find_all vms_with_vifs vm else []
     ) vms) in
@@ -291,7 +289,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
 
   (* Prevent someone supplying the same PIF multiple times and bypassing the
      	 * number of bond members check *)
-  let members = List.setify members in
+  let members = Xapi_stdext_std.Listext.List.setify members in
   let master = Ref.make () in
   let bond = Ref.make () in
 
@@ -357,7 +355,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
             Xapi_pif.assert_fcoe_not_in_use ~__context ~self
         ) members;
       let hosts = List.map (fun self -> Db.PIF.get_host ~__context ~self) members in
-      if List.length (List.setify hosts) <> 1
+      if List.length (Xapi_stdext_std.Listext.List.setify hosts) <> 1
       then raise Api_errors.(Server_error (pif_cannot_bond_cross_host, []));
       let pif_properties =
         if members = [] then

@@ -94,6 +94,6 @@ let write_schema_to_file filename =
   let t = of_datamodel () in
   let sexp = Schema.sexp_of_t t in
   let oc = open_out filename in
-  let txt = Sexplib.Sexp.to_string_hum sexp in
+  let txt = Sexplib0.Sexp.to_string_hum sexp in
   output_string oc txt;
   close_out oc

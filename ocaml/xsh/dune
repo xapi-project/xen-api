@@ -4,6 +4,7 @@
   (package xapi)
   (libraries
    stunnel
+   safe-resources
    threads
   )
 )

@@ -59,9 +59,8 @@ let mime_of_extension = function
 
 let response_file s file_path =
   let mime_content_type =
-    let open Stdext.Opt in
-    let ext = map String.lowercase_ascii (get_extension file_path) in
-    default application_octet_stream (map mime_of_extension ext) in
+    let ext = Option.map String.lowercase_ascii (get_extension file_path) in
+    Option.fold ~none:application_octet_stream ~some:mime_of_extension ext in
   Http_svr.response_file ~mime_content_type s file_path
 
 let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) _ =

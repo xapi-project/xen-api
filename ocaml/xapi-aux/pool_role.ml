@@ -15,9 +15,8 @@
  * @group Pool Management
 *)
 
-open Stdext
-open Xstringext
-open Threadext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D=Debug.Make(struct let name="pool_role" end)
 open D
@@ -49,12 +48,12 @@ let string_of = function
 
 let read_pool_role () =
   try
-    let s = String.strip String.isspace
+    let s = Astring.String.trim
         (Unixext.string_of_file !Constants.pool_config_file) in
-    match String.split ~limit:2 ':' s with
-    | [ "master" ]      -> Master
-    | [ "slave"; m_ip ] -> Slave m_ip
-    | [ "broken" ]      -> Broken
+    match Astring.String.cut ~sep:":" s with
+    | Some ( "master", "")  -> Master
+    | Some ( "slave", m_ip) -> Slave m_ip
+    | Some ( "broken", "")  -> Broken
     | _ -> failwith "cannot parse pool_role from pool config file"
   with _ ->
     (* If exec name is suite.opt, we're running as unit tests *)

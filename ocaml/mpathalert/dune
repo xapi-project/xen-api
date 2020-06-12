@@ -4,9 +4,11 @@
   (package xapi)
   (libraries
     http-svr
-    threads
+    threads.posix
     uuid
     xapi-client
+    xapi-consts
+    xapi-types
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix

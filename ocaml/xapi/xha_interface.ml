@@ -12,9 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-open Stdext
-open Xstringext
-open Listext
+open Xapi_stdext_std.Xstringext
+
+let hashtbl_of_list xs =
+  let tbl = Hashtbl.create (List.length xs) in
+  Hashtbl.add_seq tbl (List.to_seq xs) ;
+  tbl
 
 (* === Common XML operations === *)
 
@@ -69,7 +72,7 @@ let hash_table_entry_of_leaf_xml_element = function
         ...
  *)
 let hash_table_of_leaf_xml_element_list list =
-  Hashtblext.of_list (
+  hashtbl_of_list (
     List.filter_map hash_table_entry_of_leaf_xml_element list
   )
 
@@ -395,7 +398,7 @@ module LiveSetInformation = struct
             try int_of_string (String.lowercase_ascii s)
             with Invalid_argument _ ->
               invalid_arg (Printf.sprintf "Invalid integer value '%s' within 'raw_status_on_local_host' element" s) in
-          let host_raw_data = Hashtblext.of_list (
+          let host_raw_data = hashtbl_of_list (
               List.map
                 (fun host -> (host.HostRawData.id, host))
                 (List.filter_map HostRawData.of_xml_element children)
@@ -431,7 +434,7 @@ module LiveSetInformation = struct
   (** Creates a new HA live set information record
       from the given list of XML elements. *)
   let of_xml_element_list elements = {
-    hosts = Hashtblext.of_list (
+    hosts = hashtbl_of_list (
         List.map
           (fun host -> (host.Host.id, host))
           (List.filter_map Host.of_xml_element elements)

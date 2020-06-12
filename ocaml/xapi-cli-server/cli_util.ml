@@ -14,18 +14,17 @@
 (**
  * @group Command-Line Interface (CLI)
 *)
-open Sexplib.Std
-
 module D = Debug.Make(struct let name = "cli" end)
 open D
 
-open Stdext
-open Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
+
 open Event_types
 open Event_helper
 open Cli_protocol
 open Client
-open Pervasiveext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let log_exn_continue msg f x = try f x with e -> debug "Ignoring exception: %s while %s" (Printexc.to_string e) msg
 
@@ -223,7 +222,7 @@ let user_says_yes fd =
     | Blob End -> ()
     | _ -> failwith "Protocol error"
   end;
-  let result = String.lowercase_ascii (String.strip String.isspace response)="yes" in
+  let result = String.lowercase_ascii (Astring.String.trim response)="yes" in
   if not(result)
   then marshal fd (Command (Print ("Aborted (you typed: '"^response^"')")));
   result
