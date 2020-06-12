@@ -1388,12 +1388,19 @@ module VLAN = struct
 end
 
 module Tunnel = struct
+  let tunnel_protocol = Enum ("tunnel_protocol", [
+      "gre", "GRE protocol";
+      "vxlan", "VxLAN Protocol";
+    ])
 
   let create = call
       ~name:"create"
       ~doc:"Create a tunnel"
-      ~params:[ Ref _pif, "transport_PIF", "PIF which receives the tagged traffic";
-                Ref _network, "network", "Network to receive the tunnelled traffic" ]
+      ~versioned_params:[
+        {param_type=Ref _pif; param_name="transport_PIF"; param_doc="PIF which receives the tagged traffic"; param_release=dundee_release; param_default=None};
+        {param_type=Ref _network; param_name="network"; param_doc="Network to receive the tunnelled traffic"; param_release=dundee_release; param_default=None};
+        {param_type=tunnel_protocol; param_name="protocol"; param_doc="Protocol used for the tunnel (GRE or VxLAN)"; param_release=next_release; param_default=Some(VEnum "gre")}
+      ]
       ~result:(Ref _tunnel, "The reference of the created tunnel object")
       ~lifecycle:[Published, rel_cowley, "Create a tunnel"]
       ~allowed_roles:_R_POOL_OP
@@ -1409,7 +1416,8 @@ module Tunnel = struct
       ()
 
   let t =
-    create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
+    create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"]
+      ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~doc_tags:[Networking]
@@ -1420,6 +1428,7 @@ module Tunnel = struct
           field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface used by the tunnel"] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
           field ~ty:(Map(String, String)) ~lifecycle:[Published, rel_cowley, "Status information about the tunnel"] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
           field ~lifecycle:[Published, rel_cowley, "Additional configuration"] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
+          field ~ty:tunnel_protocol ~default_value:(Some (VEnum "gre")) ~lifecycle:[Published, rel_next, "Add protocol field to tunnel"] "protocol" "The protocol used for tunneling (either GRE or VxLAN)";
         ])
       ()
 end

@@ -526,6 +526,16 @@ let sdn_protocol_to_string = function
   | `ssl -> "ssl"
   | `pssl -> "pssl"
 
+let tunnel_protocol_of_string s =
+  match String.lowercase_ascii s with
+  | "gre" -> `gre
+  | "vxlan" -> `vxlan
+  | _ ->  raise (Record_failure ("Expected 'gre','vxlan', got "^s))
+
+let tunnel_protocol_to_string = function
+  | `gre -> "gre"
+  | `vxlan -> "vxlan"
+
 let pif_igmp_status_to_string = function
   | `enabled -> "enabled"
   | `disabled -> "disabled"

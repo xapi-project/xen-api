@@ -185,6 +185,7 @@ let tunnel_record rpc session_id tunnel =
           ~add_to_map:(fun k v -> Client.Tunnel.add_to_other_config rpc session_id tunnel k v)
           ~remove_from_map:(fun k -> Client.Tunnel.remove_from_other_config rpc session_id tunnel k)
           ~get_map:(fun () -> (x ()).API.tunnel_other_config) ();
+        make_field ~name:"protocol" ~get:(fun () -> Record_util.tunnel_protocol_to_string (x ()).API.tunnel_protocol) ();
 
       ]
   }

@@ -20,7 +20,7 @@ let test_create_internal () =
   let network = T.make_network ~__context () in
   let transport_PIF = T.make_pif ~__context ~network ~host () in
   let network = T.make_network ~__context ~bridge:"xapi0" () in
-  let tunnel, access_PIF = Xapi_tunnel.create_internal ~__context ~transport_PIF ~network ~host in
+  let tunnel, access_PIF = Xapi_tunnel.create_internal ~__context ~transport_PIF ~network ~host ~protocol:`gre in
 
   Alcotest.check (Alcotest_comparators.ref ())
     "get tunnel access PIF"
@@ -55,7 +55,7 @@ let test_create_on_unmanaged_pif () =
   Alcotest.check_raises
     "test_create_on_unmanaged_pif"
     Api_errors.(Server_error (pif_unmanaged, [Ref.string_of transport_PIF]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre |> ignore)
 
 let test_create_network_already_connected () =
   let __context = T.make_test_database () in
@@ -65,7 +65,7 @@ let test_create_network_already_connected () =
   Alcotest.check_raises
     "test_create_network_already_connected"
     Api_errors.(Server_error (network_already_connected, [Ref.string_of host; Ref.string_of transport_PIF]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre |> ignore)
 
 let test_create_on_bond_slave () =
   let __context = T.make_test_database () in
@@ -79,7 +79,7 @@ let test_create_on_bond_slave () =
   Alcotest.check_raises
     "test_create_on_bond_slave"
     Api_errors.(Server_error (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre |> ignore)
 
 let test_create_on_tunnel_access () =
   let __context = T.make_test_database () in
@@ -90,7 +90,7 @@ let test_create_on_tunnel_access () =
   Alcotest.check_raises
     "test_create_on_tunnel_access"
     Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of access_PIF]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:access_PIF ~network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:access_PIF ~network ~protocol:`gre |> ignore)
 
 let test_create_on_sriov_logical () =
   let __context = T.make_test_database () in
@@ -101,7 +101,7 @@ let test_create_on_sriov_logical () =
   Alcotest.check_raises
     "test_create_on_sriov_logical"
     Api_errors.(Server_error (cannot_add_tunnel_to_sriov_logical, [Ref.string_of sriov_logical_PIF]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:sriov_logical_PIF ~network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:sriov_logical_PIF ~network ~protocol:`gre |> ignore)
 
 let test_create_on_vlan_on_sriov_logical () =
   let __context = T.make_test_database () in
@@ -113,7 +113,7 @@ let test_create_on_vlan_on_sriov_logical () =
   Alcotest.check_raises
     "test_create_on_vlan_on_sriov_logical"
     Api_errors.(Server_error (cannot_add_tunnel_to_vlan_on_sriov_logical, [Ref.string_of transport_PIF]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF ~network ~protocol:`gre |> ignore)
 
 let test_create_tunnel_into_sriov_network () =
   let __context = T.make_test_database () in
@@ -130,7 +130,7 @@ let test_create_tunnel_into_sriov_network () =
   Alcotest.check_raises
     "test_create_tunnel_into_sriov_network"
     Api_errors.(Server_error (network_incompatible_with_tunnel, [Ref.string_of sriov_network]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_network ~protocol:`gre |> ignore)
 
 let test_create_tunnel_into_sriov_vlan_network () =
   let __context = T.make_test_database () in
@@ -148,7 +148,7 @@ let test_create_tunnel_into_sriov_vlan_network () =
   Alcotest.check_raises
     "test_create_tunnel_into_sriov_vlan_network"
     Api_errors.(Server_error (network_incompatible_with_tunnel, [Ref.string_of sriov_vlan_network]))
-    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_vlan_network |> ignore)
+    (fun () -> Xapi_tunnel.create ~__context ~transport_PIF:pif ~network:sriov_vlan_network ~protocol:`gre |> ignore)
 
 let test =
   [ "test_create_internal", `Quick, test_create_internal

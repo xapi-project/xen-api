@@ -3051,11 +3051,11 @@ module Forward = functor(Local: Custom_actions.CUSTOM_ACTIONS) -> struct
   end
 
   module Tunnel = struct
-    let create ~__context ~transport_PIF ~network =
+    let create ~__context ~transport_PIF ~network ~protocol =
       info "Tunnel.create: network = '%s'" (network_uuid ~__context network);
-      let local_fn = Local.Tunnel.create ~transport_PIF ~network in
+      let local_fn = Local.Tunnel.create ~transport_PIF ~network ~protocol in
       do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self:transport_PIF)
-        (fun session_id rpc -> Client.Tunnel.create rpc session_id transport_PIF network)
+        (fun session_id rpc -> Client.Tunnel.create rpc session_id transport_PIF network protocol)
 
     let destroy ~__context ~self =
       info "Tunnel.destroy: tunnel = '%s'" (tunnel_uuid ~__context self);

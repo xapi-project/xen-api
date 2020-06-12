@@ -360,8 +360,16 @@ _xe()
                 ;;
 
             protocol) # for sdn-controller
-                IFS=$'\n,'
-                set_completions 'ssl' "$value"
+                case "${OLDSTYLE_WORDS[1]}" in
+                    sdn-controller-introduce)
+                        IFS=$'\n,'
+                        set_completions 'ssl' "$value"
+                        ;;
+                    tunnel-create)
+                        IFS=$'\n,'
+                        set_completions 'gre,vxlan' "$value"
+                        ;;
+                esac
                 return 0
                 ;;
 
