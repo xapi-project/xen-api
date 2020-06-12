@@ -137,14 +137,40 @@ module Sriov = struct
         else
           Ok Modprobe_successful_requires_reboot
     | None ->
-        debug "%s SR-IOV on a device: %s via sysfs" op dev ;
-        ( if enable then
-            Sysfs.get_sriov_maxvfs dev
+        (* enable: try sysfs interface to set numfvs = maxvfs. if fails, but vfs are enabled, assume manual configuration.
+           disable: Net.Sriov.disable will not be called for manually configured interfaces, as determined by `require_operation_on_pci_device` *)
+        let man_successful () =
+          debug "SR-IOV/VFs %sd manually on device: %s" op dev ;
+          Manual_successful
+        in
+        if enable then
+          let present_numvfs = Sysfs.get_sriov_numvfs dev in
+          match
+            Sysfs.get_sriov_maxvfs dev >>= fun maxvfs ->
+            maxvfs |> Sysfs.set_sriov_numvfs dev
+          with
+          | Ok _ ->
+              debug "%s SR-IOV on a device: %s via sysfs" op dev ;
+              Ok Sysfs_successful
+          | Error _ when present_numvfs > 0 ->
+              Ok (man_successful ())
+          | exception _ when present_numvfs > 0 ->
+              Ok (man_successful ())
+          | Error err ->
+              Error err
+          | exception e ->
+              let msg =
+                Printf.sprintf
+                  "Error: trying sysfs SR-IOV interface failed with exception \
+                   %s on device: %s"
+                  (Printexc.to_string e) dev
+              in
+              Error (Other, msg)
         else
-          Sysfs.unbind_child_vfs dev >>= fun () -> Ok 0
-        )
-        >>= fun numvfs ->
-        Sysfs.set_sriov_numvfs dev numvfs >>= fun _ -> Ok Sysfs_successful
+          Sysfs.unbind_child_vfs dev >>= fun () ->
+          Sysfs.set_sriov_numvfs dev 0 >>= fun _ ->
+          debug "%s SR-IOV on a device: %s via sysfs" op dev ;
+          Ok Sysfs_successful
 
   let enable dbg name =
     Debug.with_thread_associated dbg
