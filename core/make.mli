@@ -14,13 +14,19 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-module Connection(IO: Cohttp.S.IO) : sig
-  val rpc: (IO.ic * IO.oc) -> Protocol.In.t -> (string, [ `Message_switch of [ `Failed_to_read_response | `Unsuccessful_response | `Communication of exn] ] ) result  IO.t
+module Connection (IO : Cohttp.S.IO) : sig
+  val rpc :
+       IO.ic * IO.oc
+    -> Protocol.In.t
+    -> ( string
+       , [ `Message_switch of
+           [ `Failed_to_read_response
+           | `Unsuccessful_response
+           | `Communication of exn ] ] )
+       result
+       IO.t
 end
 
-module Server(M: S.BACKEND) : S.SERVER
-  with type 'a io = 'a M.IO.t
+module Server (M : S.BACKEND) : S.SERVER with type 'a io = 'a M.IO.t
 
-module Client(M: S.BACKEND) : S.CLIENT
-  with type 'a io = 'a M.IO.t
-
+module Client (M : S.BACKEND) : S.CLIENT with type 'a io = 'a M.IO.t
