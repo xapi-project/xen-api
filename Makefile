@@ -1,6 +1,6 @@
 include config.mk
 
-.PHONY: release build install uninstall clean test doc reindent
+.PHONY: release build install uninstall clean test doc format
 
 release:
 	dune build @install --profile=release
@@ -42,8 +42,7 @@ test:
 doc:
 	dune build @doc --profile=release
 
-reindent:
-	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
-
+format:
+	dune build @fmt --auto-promote
 
 .DEFAULT_GOAL := release
