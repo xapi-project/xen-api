@@ -50,11 +50,11 @@ let read_pool_role () =
   try
     let s = Astring.String.trim
         (Unixext.string_of_file !Constants.pool_config_file) in
-    match Astring.String.cut ~sep:":" s with
-    | Some ( "master", "")  -> Master
-    | Some ( "slave", m_ip) -> Slave m_ip
-    | Some ( "broken", "")  -> Broken
-    | _ -> failwith "cannot parse pool_role from pool config file"
+    match Astring.String.cuts ~sep:":" s with
+    | ["master"]    -> Master
+    | "slave"::m_ip -> Slave (String.concat ":" m_ip)
+    | ["broken"]    -> Broken
+    | _ -> failwith (Printf.sprintf "cannot parse pool_role '%s' from pool config file" s)
   with _ ->
     (* If exec name is suite.opt, we're running as unit tests *)
     if "xapi" <> Filename.basename Sys.executable_name
