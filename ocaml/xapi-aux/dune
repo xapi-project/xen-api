@@ -3,6 +3,8 @@
 
  (libraries
    astring
+   cstruct
+   tar
    xapi-consts
    xapi-idl
    xapi-stdext-threads

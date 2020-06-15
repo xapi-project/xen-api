@@ -11,7 +11,7 @@
    result
    rresult
    sexplib
-   tar-unix
+   tar
    threads.posix
    xapi-backtrace
    xapi-consts
