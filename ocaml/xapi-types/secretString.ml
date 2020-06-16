@@ -28,5 +28,7 @@ let equal = String.equal
 
 let of_request req =
   match List.assoc_opt _pool_secret req.Http.Request.cookie with
-  | Some _ as r -> r
-  | None -> List.assoc_opt _pool_secret req.Http.Request.query
+  | Some _ as r ->
+      r
+  | None ->
+      List.assoc_opt _pool_secret req.Http.Request.query

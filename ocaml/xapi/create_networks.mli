@@ -15,17 +15,17 @@
  * @group Networking
 *)
 
-(** The name_label of the internal management network *)
 val internal_management_network_name : string
+(** The name_label of the internal management network *)
 
-(** The name_description of the internal management network *)
 val internal_management_network_desc : string
+(** The name_description of the internal management network *)
 
-(** The other_config of the internal management network *)
 val internal_management_network_oc : (string * string) list
+(** The other_config of the internal management network *)
 
-(** The well-known bridge name *)
 val internal_management_bridge : string
+(** The well-known bridge name *)
 
-(** Create a host internal management network (if it does not exist yet). *)
 val create_networks_localhost : unit -> unit
+(** Create a host internal management network (if it does not exist yet). *)

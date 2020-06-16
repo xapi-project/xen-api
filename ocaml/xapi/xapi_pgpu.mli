@@ -15,40 +15,46 @@
  * @group Graphics
 *)
 
+val update_gpus : __context:Context.t -> unit
 (** Synchronise the PGPU objects in the database with the actual devices
  *  in the local host. *)
-val update_gpus : __context:Context.t -> unit
 
+val add_enabled_VGPU_types :
+  __context:Context.t -> self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
 (** Enable one of the VGPU types supported by the PGPU. *)
-val add_enabled_VGPU_types : __context:Context.t ->
-  self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
 
+val remove_enabled_VGPU_types :
+  __context:Context.t -> self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
 (** Disable one of the VGPU types supported by the PGPU. *)
-val remove_enabled_VGPU_types : __context:Context.t ->
-  self:API.ref_PGPU -> value:API.ref_VGPU_type -> unit
 
+val set_enabled_VGPU_types :
+     __context:Context.t
+  -> self:API.ref_PGPU
+  -> value:API.ref_VGPU_type list
+  -> unit
 (** Enable a set of VGPU types supported by the PGPU. *)
-val set_enabled_VGPU_types : __context:Context.t ->
-  self:API.ref_PGPU -> value:API.ref_VGPU_type list -> unit
 
+val set_GPU_group :
+  __context:Context.t -> self:API.ref_PGPU -> value:API.ref_GPU_group -> unit
 (** Move the PGPU to a new GPU group. *)
-val set_GPU_group : __context:Context.t -> self:API.ref_PGPU ->
-  value: API.ref_GPU_group -> unit
 
 (* Return the number of VGPUs of the specified type for which capacity
  * remains on the PGPU. *)
-val get_remaining_capacity : __context:Context.t ->
-  self:API.ref_PGPU -> vgpu_type:API.ref_VGPU_type -> int64
+val get_remaining_capacity :
+     __context:Context.t
+  -> self:API.ref_PGPU
+  -> vgpu_type:API.ref_VGPU_type
+  -> int64
 
+val assert_can_run_VGPU :
+  __context:Context.t -> self:API.ref_PGPU -> vgpu:API.ref_VGPU -> unit
 (** Check whether a VGPU can run on a particular PGPU. *)
-val assert_can_run_VGPU : __context:Context.t -> self:API.ref_PGPU ->
-  vgpu:API.ref_VGPU -> unit
 
-val enable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
-  API.pgpu_dom0_access
+val enable_dom0_access :
+  __context:Context.t -> self:API.ref_PGPU -> API.pgpu_dom0_access
 
-val disable_dom0_access : __context:Context.t -> self:API.ref_PGPU ->
-  API.pgpu_dom0_access
+val disable_dom0_access :
+  __context:Context.t -> self:API.ref_PGPU -> API.pgpu_dom0_access
 
 (* For AMD MxGPU. Acts on the local host only.
  * Ensures that the "gim" kernel module is loaded on localhost,
@@ -61,4 +67,5 @@ val mxgpu_vf_setup : __context:Context.t -> unit
  * the VF PCI devices, and that those entries have the
  * "physical_function" field set correctly.  If [pf] is [Ref.null], all
  * VFs will be created. *)
-val nvidia_vf_setup : __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit
+val nvidia_vf_setup :
+  __context:Context.t -> pf:API.ref_PCI -> enable:bool -> unit

@@ -16,5 +16,6 @@ open Test_highlevel
 
 module XapiDb : Generic.STATE with type state_t = Context.t = struct
   type state_t = Context.t
+
   let create_default_state () = Test_common.make_test_database ()
 end

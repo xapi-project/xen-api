@@ -16,9 +16,11 @@
 type t = int64
 
 let of_string str : t = Int64.of_string str
+
 let to_string g = Int64.to_string g
+
 let add_int a b = Int64.add a (Int64.of_int b)
+
 let null_generation = -1L
 
 let suffix = ".generation"
-

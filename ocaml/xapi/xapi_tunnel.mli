@@ -15,22 +15,22 @@
  * @group Networking
 *)
 
-(** Create a tunnel for a given transport PIF and network *)
 val create :
-  __context:Context.t ->
-  transport_PIF:[ `PIF ] Ref.t ->
-  network:[ `network ] Ref.t ->
-  protocol: API.tunnel_protocol ->
-  [ `tunnel ] Ref.t
+     __context:Context.t
+  -> transport_PIF:[`PIF] Ref.t
+  -> network:[`network] Ref.t
+  -> protocol:API.tunnel_protocol
+  -> [`tunnel] Ref.t
+(** Create a tunnel for a given transport PIF and network *)
 
-(** Internal version of [create] without checks/exceptions and auto-plugging *)
 val create_internal :
-  __context:Context.t ->
-  transport_PIF:[ `PIF ] Ref.t ->
-  network:[ `network ] Ref.t ->
-  host:[ `host ] Ref.t ->
-  protocol: API.tunnel_protocol ->
-  [ `tunnel ] Ref.t * [ `PIF ] Ref.t
+     __context:Context.t
+  -> transport_PIF:[`PIF] Ref.t
+  -> network:[`network] Ref.t
+  -> host:[`host] Ref.t
+  -> protocol:API.tunnel_protocol
+  -> [`tunnel] Ref.t * [`PIF] Ref.t
+(** Internal version of [create] without checks/exceptions and auto-plugging *)
 
+val destroy : __context:Context.t -> self:[`tunnel] Ref.t -> unit
 (** Destroy a tunnel. Removes the tunnel object as well as the tunnel access PIF. *)
-val destroy : __context:Context.t -> self:[ `tunnel ] Ref.t -> unit

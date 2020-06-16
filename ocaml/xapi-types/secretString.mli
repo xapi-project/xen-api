@@ -18,8 +18,8 @@
  * (we do need to send these as parameters in RPCs).
  * *)
 
-type t
 (** a type with no direct conversions to string *)
+type t
 
 val of_string : string -> t
 
@@ -27,13 +27,13 @@ val equal : t -> t -> bool
 
 val t_of_rpc : Rpc.t -> t
 
-(** [rpc_of_t secret] serializes [secret]. Should be used with caution! *)
 val rpc_of_t : t -> Rpc.t
+(** [rpc_of_t secret] serializes [secret]. Should be used with caution! *)
 
-val of_request: Http.Request.t -> t option
+val of_request : Http.Request.t -> t option
 
-(** [with_cookies secret request] adds a cookie containing [secret] to [request] *)
 val with_cookie : t -> Http.Request.t -> Http.Request.t
+(** [with_cookies secret request] adds a cookie containing [secret] to [request] *)
 
-(** [write_to_file path secret] should be used with caution! *)
 val write_to_file : string -> t -> unit
+(** [write_to_file path secret] should be used with caution! *)

@@ -26,19 +26,19 @@ val redo_log_sm_config : (string * string) list
 
 (** {redo_log data type} *)
 type redo_log = {
-  name: string;
-  marker: string;
-  read_only: bool;
-  enabled: bool ref;
-  device: string option ref;
-  currently_accessible: bool ref;
-  state_change_callback: (bool -> unit) option;
-  time_of_last_failure: float ref;
-  backoff_delay: int ref;
-  sock: Unix.file_descr option ref;
-  pid: (Forkhelpers.pidty * string * string) option ref;
-  dying_processes_mutex: Mutex.t;
-  num_dying_processes: int ref;
+    name: string
+  ; marker: string
+  ; read_only: bool
+  ; enabled: bool ref
+  ; device: string option ref
+  ; currently_accessible: bool ref
+  ; state_change_callback: (bool -> unit) option
+  ; time_of_last_failure: float ref
+  ; backoff_delay: int ref
+  ; sock: Unix.file_descr option ref
+  ; pid: (Forkhelpers.pidty * string * string) option ref
+  ; dying_processes_mutex: Mutex.t
+  ; num_dying_processes: int ref
 }
 
 (** {2 Enabling and disabling writing} *)
@@ -57,7 +57,7 @@ val disable : redo_log -> unit
 
 (** Communication with other threads. *)
 
-val redo_log_events: (string * bool) Event.channel
+val redo_log_events : (string * bool) Event.channel
 
 (** {2 Lifecycle of I/O process} *)
 
@@ -66,34 +66,41 @@ val startup : redo_log -> unit
 
 val shutdown : redo_log -> unit
 
-(** Stop the I/O process. Will do nothing if it's not already started. *)
 val switch : redo_log -> string -> unit
+(** Stop the I/O process. Will do nothing if it's not already started. *)
 
 (** Start using the VDI with the given reason as redo-log, discarding the current one. *)
 
+val create :
+     name:string
+  -> state_change_callback:(bool -> unit) option
+  -> read_only:bool
+  -> redo_log
 (** {Keeping track of existing redo_log instances} *)
-val create: name:string -> state_change_callback:(bool -> unit) option -> read_only:bool -> redo_log
+
 (* Create a redo log instance and add it to the set. *)
 
-val delete: redo_log -> unit
+val delete : redo_log -> unit
+
 (* Shutdown a redo_log instance and remove it from the set. *)
 
-(** {Finding active redo_log instances} *)
 val with_active_redo_logs : (redo_log -> unit) -> unit
+(** {Finding active redo_log instances} *)
+
 (* Apply the supplied function to all active redo_logs. *)
 
 (** {2 Interacting with the block device} *)
 
 (** The type of a delta, describing an incremental change to the database. *)
 type t =
-  | CreateRow of string * string * (string*string) list
-  (** [CreateRow (tblname, newobjref, [(k1,v1); ...])]
+  | CreateRow of string * string * (string * string) list
+      (** [CreateRow (tblname, newobjref, [(k1,v1); ...])]
       represents the creation of a row in table [tblname], with key [newobjref], and columns [[k1; ...]] having values [[v1; ...]]. *)
   | DeleteRow of string * string
-  (** [DeleteRow (tblname, objref)]
+      (** [DeleteRow (tblname, objref)]
       represents the deletion of a row in table [tblname] with key [objref]. *)
   | WriteField of string * string * string * string
-  (** [WriteField (tblname, objref, fldname, newval)]
+      (** [WriteField (tblname, objref, fldname, newval)]
       represents the write to the field with name [fldname] of a row in table [tblname] with key [objref], overwriting its value with [newval]. *)
 
 val write_db : Generation.t -> (Unix.file_descr -> unit) -> redo_log -> unit
@@ -108,7 +115,11 @@ val write_delta : Generation.t -> t -> (unit -> unit) -> redo_log -> unit
     [write_delta gen_count delta db_flush_fn] writes a delta [delta] with generation count [gen_count] to the block device.
     If the redo log wishes to flush the database before writing the delta, it will invoke [db_flush_fn]. It is expected that this function implicitly attempts to reconnect to the block device I/O process if not already connected. *)
 
-val apply : (Generation.t -> Unix.file_descr -> int -> float -> unit) -> (Generation.t -> t -> unit) -> redo_log -> unit
+val apply :
+     (Generation.t -> Unix.file_descr -> int -> float -> unit)
+  -> (Generation.t -> t -> unit)
+  -> redo_log
+  -> unit
 (** Read from the block device.
     This function is best-effort only and does not raise any exceptions in the case of error.
     [apply db_fn delta_fn] will cause [db_fn] and [delta_fn] to be invoked for each database or database delta which is read.
@@ -120,12 +131,12 @@ val empty : redo_log -> unit
 (** Invalidate the block device. This means that subsequent attempts to read from the block device will not find anything.
     This function is best-effort only and does not raise any exceptions in the case of error. *)
 
-val flush_db_to_redo_log: Db_cache_types.Database.t -> redo_log -> bool
+val flush_db_to_redo_log : Db_cache_types.Database.t -> redo_log -> bool
 (** Immediately write the given database to the given redo_log instance *)
 
-val flush_db_to_all_active_redo_logs: Db_cache_types.Database.t -> unit
+val flush_db_to_all_active_redo_logs : Db_cache_types.Database.t -> unit
 (** Immediately write the given database to all active redo logs *)
 
-val database_callback: Db_cache_types.update -> Db_cache_types.Database.t -> unit
+val database_callback :
+  Db_cache_types.update -> Db_cache_types.Database.t -> unit
 (** Given a database update, add it to all active redo logs *)
-

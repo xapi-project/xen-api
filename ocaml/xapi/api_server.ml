@@ -29,51 +29,72 @@ module Actions = struct
   module Role = Xapi_role
   module Event = Xapi_event
   module Alert = Xapi_alert
-  module VM = struct
-    include Xapi_vm
-    include Xapi_vm_migrate
-  end
+
+  module VM = struct include Xapi_vm include Xapi_vm_migrate end
+
   module VM_metrics = struct end
+
   module VM_guest_metrics = struct end
+
   module VMPP = Xapi_vmpp
   module VMSS = Xapi_vmss
   module VM_appliance = Xapi_vm_appliance
   module DR_task = Xapi_dr_task
+
   module LVHD = struct end
+
   module Host = Xapi_host
   module Host_crashdump = Xapi_host_crashdump
   module Pool = Xapi_pool
   module Pool_update = Xapi_pool_update
   module Pool_patch = Xapi_pool_patch
   module Host_patch = Xapi_host_patch
+
   module Host_metrics = struct end
+
   module Host_cpu = Xapi_host_cpu
   module Network = Xapi_network
   module VIF = Xapi_vif
+
   module VIF_metrics = struct end
+
   module PIF = Xapi_pif
+
   module PIF_metrics = struct end
+
   module SR = Xapi_sr
   module SM = Xapi_sm
+
   module VDI = struct
     include Xapi_vdi
+
     let pool_migrate = Xapi_vm_migrate.vdi_pool_migrate
   end
+
   module VBD = Xapi_vbd
+
   module VBD_metrics = struct end
+
   module Crashdump = Xapi_crashdump
   module PBD = Xapi_pbd
+
   module Data_source = struct end
-  let not_implemented x = raise (Api_errors.Server_error (Api_errors.not_implemented, [ x ]))
+
+  let not_implemented x =
+    raise (Api_errors.Server_error (Api_errors.not_implemented, [x]))
 
   module VTPM = struct
     let create ~__context ~vM ~backend = not_implemented "VTPM.create"
+
     let destroy ~__context ~self = not_implemented "VTPM.destroy"
   end
+
   module Console = struct
     let create ~__context ~other_config = not_implemented "Console.create"
+
     let destroy ~__context ~self = not_implemented "Console.destroy"
   end
+
   module Bond = Xapi_bond
   module VLAN = Xapi_vlan
   module User = Xapi_user
@@ -90,11 +111,17 @@ module Actions = struct
   module PVS_server = Xapi_pvs_server
   module PVS_proxy = Xapi_pvs_proxy
   module PVS_cache_storage = Xapi_pvs_cache_storage
+
   module Feature = struct end
+
   module SDN_controller = Xapi_sdn_controller
+
   module Vdi_nbd_server_info = struct end
+
   module Probe_result = struct end
+
   module Sr_stat = struct end
+
   module PUSB = Xapi_pusb
   module USB_group = Xapi_usb_group
   module VUSB = Xapi_vusb
@@ -107,78 +134,108 @@ end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)
 module Forwarder = Message_forwarding.Forward (Actions)
+
 module Server = Server.Make (Actions) (Forwarder)
 
-
-
 (** Here are the functions to forward calls made on the unix domain socket on a slave to a master *)
-module D=Debug.Make(struct let name="api_server" end)
+module D = Debug.Make (struct
+  let name = "api_server"
+end)
+
 open D
 
 (** Forward a call to the master *)
 let forward req call is_json =
   let open Xmlrpc_client in
-  let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Constants.https_port) in
+  let transport =
+    SSL
+      ( SSL.make ~use_stunnel_cache:true ()
+      , Pool_role.get_master_address ()
+      , !Constants.https_port )
+  in
   let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
-  rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } call
+  rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport
+    ~http:{req with Http.Request.frame= true}
+    call
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
 (* !!! Note, this only blocks synchronous calls. As is it happens, all the calls we want to block right now are only
    synchronous. However, we'd probably want to change this is the list starts getting longer. *)
-let whitelist = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.whitelist
-let emergency_call_list = List.map (fun (obj,msg) -> Datamodel_utils.wire_name ~sync:true obj msg) Datamodel.emergency_calls
+let whitelist =
+  List.map
+    (fun (obj, msg) -> Datamodel_utils.wire_name ~sync:true obj msg)
+    Datamodel.whitelist
+
+let emergency_call_list =
+  List.map
+    (fun (obj, msg) -> Datamodel_utils.wire_name ~sync:true obj msg)
+    Datamodel.emergency_calls
 
 let is_himn_req req =
   match req.Http.Request.host with
-  | Some h ->
-    (match !Xapi_mgmt_iface.himn_addr with
-     | Some himn -> himn = h
-     | None -> false)
-  | None -> false
+  | Some h -> (
+    match !Xapi_mgmt_iface.himn_addr with
+    | Some himn ->
+        himn = h
+    | None ->
+        false
+  )
+  | None ->
+      false
 
 (* The API does not use the error.code and only retains it for compliance with
   the JSON-RPC v2.0 specs. We set this always to a non-zero value because
   some JsonRpc clients consider error.code 0 as no error*)
 let error_code_lit = 1L
 
-let json_of_error_object ?(data=None) code message =
-  let data_json = match data with Some d -> ["data", d] | None -> [] in
-  Rpc.Dict ([ "code", Rpc.Int code; "message", Rpc.String message; ] @ data_json)
-
+let json_of_error_object ?(data = None) code message =
+  let data_json = match data with Some d -> [("data", d)] | None -> [] in
+  Rpc.Dict
+    ([("code", Rpc.Int code); ("message", Rpc.String message)] @ data_json)
 
 (* This bit is called directly by the fake_rpc callback *)
-let callback1 ?(json_rpc_version=Jsonrpc.V1) is_json req fd call =
+let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
   (* in the whitelist, then forward *)
-
   let whitelisted = List.mem call.Rpc.name whitelist in
   let emergency_call = List.mem call.Rpc.name emergency_call_list in
   let is_slave = not (Pool_role.is_master ()) in
-
-  if !Xapi_globs.slave_emergency_mode && (not emergency_call)
-  then raise !Xapi_globs.emergency_mode_error;
-  if is_slave &&
-     ((Context.is_unix_socket fd && not whitelisted) ||
-      (is_himn_req req && not emergency_call))
+  if !Xapi_globs.slave_emergency_mode && not emergency_call then
+    raise !Xapi_globs.emergency_mode_error ;
+  if
+    is_slave
+    && ((Context.is_unix_socket fd && not whitelisted)
+       || (is_himn_req req && not emergency_call)
+       )
   then
     forward req call is_json
   else
     let response = Server.dispatch_call req fd call in
     let translated =
-      if is_json && json_rpc_version = Jsonrpc.V2 && not response.Rpc.success && call.Rpc.name <> "system.listMethods" then
-        begin
-          let message, data = match response.Rpc.contents with
-            | Rpc.Enum ((Rpc.String s)::tl) -> s, (Rpc.Enum tl)
-            | _ -> "", response.Rpc.contents
-          in
-          {response with Rpc.contents = json_of_error_object ~data:(Some data) error_code_lit message}
-        end
+      if
+        is_json
+        && json_rpc_version = Jsonrpc.V2
+        && (not response.Rpc.success)
+        && call.Rpc.name <> "system.listMethods"
+      then
+        let message, data =
+          match response.Rpc.contents with
+          | Rpc.Enum (Rpc.String s :: tl) ->
+              (s, Rpc.Enum tl)
+          | _ ->
+              ("", response.Rpc.contents)
+        in
+        {
+          response with
+          Rpc.contents=
+            json_of_error_object ~data:(Some data) error_code_lit message
+        }
       else
-        response in
+        response
+    in
     translated
-
 
 (* debug(fmt "response = %s" response); *)
 
@@ -186,49 +243,77 @@ open Stdext
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req bio _ =
-  let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  let body = Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req bio in
+  let fd = Buf_io.fd_of bio in
+  (* fd only used for writing *)
+  let body =
+    Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req bio
+  in
   try
     let rpc = Xmlrpc.call_of_string body in
     let response = callback1 is_json req fd rpc in
     let response_str =
-      if rpc.Rpc.name = "system.listMethods"
-      then
+      if rpc.Rpc.name = "system.listMethods" then
         let inner = Xmlrpc.to_string response.Rpc.contents in
-        Printf.sprintf "<?xml version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>" inner
+        Printf.sprintf
+          "<?xml \
+           version=\"1.0\"?><methodResponse><params><param>%s</param></params></methodResponse>"
+          inner
       else
         Xmlrpc.string_of_response response
     in
-    Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "text/xml";
-                                      "Access-Control-Allow-Origin", "*";
-                                      "Access-Control-Allow-Headers", "X-Requested-With"] fd (Int64.of_int @@ String.length response_str)
+    Http_svr.response_fct req
+      ~hdrs:
+        [
+          (Http.Hdr.content_type, "text/xml")
+        ; ("Access-Control-Allow-Origin", "*")
+        ; ("Access-Control-Allow-Headers", "X-Requested-With")
+        ]
+      fd
+      (Int64.of_int @@ String.length response_str)
       (fun fd -> Unixext.really_write_string fd response_str |> ignore)
   with
-  | (Api_errors.Server_error (err, params)) ->
-    Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "text/xml" ] fd
-      (Xmlrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+  | Api_errors.Server_error (err, params) ->
+      Http_svr.response_str req
+        ~hdrs:[(Http.Hdr.content_type, "text/xml")]
+        fd
+        (Xmlrpc.string_of_response
+           (Rpc.failure
+              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
   | e ->
-    Backtrace.is_important e;
-    raise e
-
+      Backtrace.is_important e ; raise e
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req bio _ =
-  let fd = Buf_io.fd_of bio in (* fd only used for writing *)
-  let body = Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio in
+  let fd = Buf_io.fd_of bio in
+  (* fd only used for writing *)
+  let body =
+    Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio
+  in
   try
-    let json_rpc_version, id, rpc = Jsonrpc.version_id_and_call_of_string body in
-    let response = Jsonrpc.string_of_response ~id ~version:json_rpc_version
-        (callback1 ~json_rpc_version true req fd rpc) in
-    Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
-                                      "Access-Control-Allow-Origin", "*";
-                                      "Access-Control-Allow-Headers", "X-Requested-With"] fd
+    let json_rpc_version, id, rpc =
+      Jsonrpc.version_id_and_call_of_string body
+    in
+    let response =
+      Jsonrpc.string_of_response ~id ~version:json_rpc_version
+        (callback1 ~json_rpc_version true req fd rpc)
+    in
+    Http_svr.response_fct req
+      ~hdrs:
+        [
+          (Http.Hdr.content_type, "application/json")
+        ; ("Access-Control-Allow-Origin", "*")
+        ; ("Access-Control-Allow-Headers", "X-Requested-With")
+        ]
+      fd
       (Int64.of_int @@ String.length response)
       (fun fd -> Unixext.really_write_string fd response |> ignore)
-  with
-  | (Api_errors.Server_error (err, params)) ->
-    Http_svr.response_str req ~hdrs:[ Http.Hdr.content_type, "application/json" ] fd
-      (Jsonrpc.string_of_response (Rpc.failure (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+  with Api_errors.Server_error (err, params) ->
+    Http_svr.response_str req
+      ~hdrs:[(Http.Hdr.content_type, "application/json")]
+      fd
+      (Jsonrpc.string_of_response
+         (Rpc.failure
+            (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
 
 let options_callback req bio _ =
   let fd = Buf_io.fd_of bio in
