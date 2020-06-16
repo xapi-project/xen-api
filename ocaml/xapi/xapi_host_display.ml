@@ -15,17 +15,22 @@
 let script = "/opt/xensource/libexec/host-display"
 
 let call_script ~command =
-  let (stdout, _) = Forkhelpers.execute_command_get_output script [command]
-  in String.trim stdout
+  let stdout, _ = Forkhelpers.execute_command_get_output script [command] in
+  String.trim stdout
 
 let disable () =
-  let (_: string) = call_script "disable" in ()
+  let (_ : string) = call_script "disable" in
+  ()
 
 let enable () =
-  let (_: string) = call_script "enable" in ()
+  let (_ : string) = call_script "enable" in
+  ()
 
 let status () =
   match call_script "status" with
-  | "disabled" -> `disabled
-  | "enabled" -> `enabled
-  | _ -> `unknown
+  | "disabled" ->
+      `disabled
+  | "enabled" ->
+      `enabled
+  | _ ->
+      `unknown

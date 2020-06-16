@@ -15,21 +15,23 @@
  * @group Storage
 *)
 
-module D = Debug.Make(struct let name="vbdops" end)
+module D = Debug.Make (struct let name = "vbdops" end)
+
 open D
 
-module L = Debug.Make(struct let name="license" end)
-
+module L = Debug.Make (struct let name = "license" end)
 
 (** Thrown if an empty VBD which isn't a CDROM is attached to an HVM guest *)
 exception Only_CD_VBDs_may_be_empty
 
-
 let translate_vbd_device vbd_ref name is_hvm =
   try
     let i = Device_number.of_string is_hvm name in
-    debug "VBD device name %s interpreted as %s (hvm = %b)" name (Device_number.to_debug_string i) is_hvm;
+    debug "VBD device name %s interpreted as %s (hvm = %b)" name
+      (Device_number.to_debug_string i)
+      is_hvm ;
     i
   with _ ->
-    raise (Api_errors.Server_error(Api_errors.illegal_vbd_device, [ Ref.string_of vbd_ref; name ]))
-
+    raise
+      (Api_errors.Server_error
+         (Api_errors.illegal_vbd_device, [Ref.string_of vbd_ref; name]))

@@ -15,31 +15,32 @@
  *  @group Networking
 *)
 
-(** Local IP address of the HIMN (if any) *)
 val himn_addr : string option ref
+(** Local IP address of the HIMN (if any) *)
 
-(** Block until an IP address appears on the management interface *)
 val wait_for_management_ip : __context:Context.t -> string
+(** Block until an IP address appears on the management interface *)
 
+val wait_for_clustering_ip :
+  __context:Context.t -> self:API.ref_Cluster_host -> string
 (** Block until an IP address appears on the given cluster host PIF *)
-val wait_for_clustering_ip : __context:Context.t -> self:API.ref_Cluster_host -> string
 
+val on_dom0_networking_change : __context:Context.t -> unit
 (** Called anywhere we suspect dom0's networking (hostname, IP address) has been changed
     underneath us (eg by dhclient) *)
-val on_dom0_networking_change : __context:Context.t -> unit
 
+val change : string -> [< `IPv4 | `IPv6] -> unit
 (** Update the inventory file with the given interface (used for management traffic). *)
-val change : string -> [< `IPv4 | `IPv6 ] -> unit
 
+val run : __context:Context.t -> mgmt_enabled:bool -> unit
 (** Ensure the server thread listening on the management interface, or only localhost
  *  and possible the HIMN address, in case management is disabled. *)
-val run : __context:Context.t -> mgmt_enabled:bool -> unit
 
-(** Re-bind the management interface to respond to changes (e.g. adding IPv6 address) *)
 val rebind : __context:Context.t -> unit
+(** Re-bind the management interface to respond to changes (e.g. adding IPv6 address) *)
 
-(** Start a server thread on the given HIMN address if the server is not yet running *)
 val enable_himn : __context:Context.t -> addr:string -> unit
+(** Start a server thread on the given HIMN address if the server is not yet running *)
 
-(** Restart stunnel to make it pick up a change to host.ssl_legacy *)
 val reconfigure_stunnel : __context:Context.t -> unit
+(** Restart stunnel to make it pick up a change to host.ssl_legacy *)

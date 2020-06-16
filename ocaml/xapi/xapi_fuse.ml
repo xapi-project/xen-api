@@ -14,92 +14,119 @@
 (* Xapi_fuse: Code to cause Xapi to commit not-completely-terminal hara-kiri *)
 (* The watchdog catches the exit()s and restarts us *)
 
-module D = Debug.Make(struct let name="xapi_fuse" end)
-open D
+module D = Debug.Make (struct let name = "xapi_fuse" end)
 
+open D
 module Rrdd = Rrd_client.Client
 
 let time f =
   let start = Unix.gettimeofday () in
-  (try f () with e -> warn "Caught exception while performing timed function: %s" (Printexc.to_string e));
+  ( try f ()
+    with e ->
+      warn "Caught exception while performing timed function: %s"
+        (Printexc.to_string e)
+  ) ;
   Unix.gettimeofday () -. start
 
-type fuse_state = { m: Mutex.t ; mutable already_lit: [`Exit | `Reboot] list }
+type fuse_state = {m: Mutex.t; mutable already_lit: [`Exit | `Reboot] list}
 
-let fuses = { m = Mutex.create (); already_lit = [] }
+let fuses = {m= Mutex.create (); already_lit= []}
 
 let once kind f =
   Stdext.Threadext.Mutex.execute fuses.m (fun () ->
       if List.mem kind fuses.already_lit then
         debug "xapi_fuse: this fuse is already lit: no-op"
-      else begin
-        fuses.already_lit <- kind :: fuses.already_lit;
+      else (
+        fuses.already_lit <- kind :: fuses.already_lit ;
         f ()
-      end)
+      ))
 
-let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () = once `Exit @@ fun () ->
-  debug "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally";
+let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
+  once `Exit @@ fun () ->
+  debug
+    "light_fuse_and_run: calling Rrdd.backup_rrds to save current RRDs locally" ;
   let delay_so_far =
-    time (fun _ -> log_and_ignore_exn Xapi_stats.stop) +.
-    time (fun _ -> log_and_ignore_exn (Rrdd.backup_rrds None))
+    time (fun _ -> log_and_ignore_exn Xapi_stats.stop)
+    +. time (fun _ -> log_and_ignore_exn (Rrdd.backup_rrds None))
   in
   let new_fuse_length = max 5. (fuse_length -. delay_so_far) in
-  debug "light_fuse_and_run: current RRDs have been saved";
-  ignore (Thread.create
-            (fun ()->
-               Thread.delay new_fuse_length;
-               debug "light_fuse_and_run: calling flush and exit";
-               (* CA-16368: If the database hasn't been initialised *at all* we can exit immediately.
-                  		  This happens if someone calls flush_and_exit before the db conf has been parsed, the connections
-                  		  initialised and the database "mode" set.
-                  	       *)
-               try
-                 let dbconn = Db_connections.preferred_write_db () in
-                 let lock_db = if Pool_role.is_master () then Db_lock.with_lock else (fun f -> f ()) in
-                 lock_db (fun () -> Db_cache_impl.flush_and_exit dbconn Xapi_globs.restart_return_code)
-               with e ->
-                 warn "Caught an exception flushing database (perhaps it hasn't been initialised yet): %s; restarting immediately" (ExnHelper.string_of_exn e);
-                 exit Xapi_globs.restart_return_code
-            ) () )
+  debug "light_fuse_and_run: current RRDs have been saved" ;
+  ignore
+    (Thread.create
+       (fun () ->
+         Thread.delay new_fuse_length ;
+         debug "light_fuse_and_run: calling flush and exit" ;
+         (* CA-16368: If the database hasn't been initialised *at all* we can exit immediately.
+            		  This happens if someone calls flush_and_exit before the db conf has been parsed, the connections
+            		  initialised and the database "mode" set.
+         *)
+         try
+           let dbconn = Db_connections.preferred_write_db () in
+           let lock_db =
+             if Pool_role.is_master () then Db_lock.with_lock else fun f -> f ()
+           in
+           lock_db (fun () ->
+               Db_cache_impl.flush_and_exit dbconn
+                 Xapi_globs.restart_return_code)
+         with e ->
+           warn
+             "Caught an exception flushing database (perhaps it hasn't been \
+              initialised yet): %s; restarting immediately"
+             (ExnHelper.string_of_exn e) ;
+           exit Xapi_globs.restart_return_code)
+       ())
 
-let light_fuse_and_reboot_after_eject() = once `Reboot @@ fun () ->
-  ignore (Thread.create
-            (fun ()->
-               Thread.delay !Constants.fuse_time;
-               (* this activates firstboot script and reboots the host *)
-               ignore (Forkhelpers.execute_command_get_output "/opt/xensource/libexec/reset-and-reboot" []);
-               ()
-            ) ())
+let light_fuse_and_reboot_after_eject () =
+  once `Reboot @@ fun () ->
+  ignore
+    (Thread.create
+       (fun () ->
+         Thread.delay !Constants.fuse_time ;
+         (* this activates firstboot script and reboots the host *)
+         ignore
+           (Forkhelpers.execute_command_get_output
+              "/opt/xensource/libexec/reset-and-reboot" []) ;
+         ())
+       ())
 
-let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () = once `Reboot @@ fun () ->
-  ignore (Thread.create
-            (fun ()->
-               Thread.delay fuse_length;
-               ignore(Sys.command "shutdown -r now")
-            ) ())
+let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () =
+  once `Reboot @@ fun () ->
+  ignore
+    (Thread.create
+       (fun () ->
+         Thread.delay fuse_length ;
+         ignore (Sys.command "shutdown -r now"))
+       ())
 
-let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () = once `Exit @@ fun () ->
-  ignore (Thread.create
-            (fun () ->
-               debug "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save current RRDs locally";
-               log_and_ignore_exn Xapi_stats.stop;
-               log_and_ignore_exn (Rrdd.backup_rrds None);
-               Thread.delay fuse_length;
-               let lock_db = if Pool_role.is_master () then Db_lock.with_lock else (fun f -> f ()) in
-               lock_db (fun () -> Db_cache_impl.flush_and_exit (Db_connections.preferred_write_db ()) 0)) ());
+let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
+  once `Exit @@ fun () ->
+  ignore
+    (Thread.create
+       (fun () ->
+         debug
+           "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save \
+            current RRDs locally" ;
+         log_and_ignore_exn Xapi_stats.stop ;
+         log_and_ignore_exn (Rrdd.backup_rrds None) ;
+         Thread.delay fuse_length ;
+         let lock_db =
+           if Pool_role.is_master () then Db_lock.with_lock else fun f -> f ()
+         in
+         lock_db (fun () ->
+             Db_cache_impl.flush_and_exit
+               (Db_connections.preferred_write_db ())
+               0))
+       ()) ;
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence
      the use of a background thread. *)
   Helpers.log_exn_continue "setting Host.enabled to false"
     (fun () ->
-       Server_helpers.exec_with_new_task "Setting Host.enabled to false"
-         (fun __context ->
-            debug "About to set Host.enabled to false";
-            let localhost = Helpers.get_localhost ~__context in
-            Db.Host.set_enabled ~__context ~self:localhost ~value:false;
-            Helpers.call_api_functions ~__context
-              (fun rpc session_id ->
-                 Db_gc.send_one_heartbeat ~__context rpc ~shutting_down:true session_id
-              )
-         )
-    ) ()
-
+      Server_helpers.exec_with_new_task "Setting Host.enabled to false"
+        (fun __context ->
+          debug "About to set Host.enabled to false" ;
+          let localhost = Helpers.get_localhost ~__context in
+          Db.Host.set_enabled ~__context ~self:localhost ~value:false ;
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              Db_gc.send_one_heartbeat ~__context rpc ~shutting_down:true
+                session_id)))
+    ()

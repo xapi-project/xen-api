@@ -12,14 +12,20 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val introduce : __context:Context.t -> name_label:string ->
-  name_description:string -> pVS_uuid:string -> API.ref_PVS_site
+val introduce :
+     __context:Context.t
+  -> name_label:string
+  -> name_description:string
+  -> pVS_uuid:string
+  -> API.ref_PVS_site
 
-val forget_internal : __context:Context.t -> self:API.ref_PVS_site ->
-  cleanup_storage:(Context.t -> API.ref_PVS_site -> unit)->
-  unit
+val forget_internal :
+     __context:Context.t
+  -> self:API.ref_PVS_site
+  -> cleanup_storage:(Context.t -> API.ref_PVS_site -> unit)
+  -> unit
 
 val forget : __context:Context.t -> self:API.ref_PVS_site -> unit
 
-val set_PVS_uuid : __context:Context.t ->
-  self:API.ref_PVS_site -> value:string -> unit
+val set_PVS_uuid :
+  __context:Context.t -> self:API.ref_PVS_site -> value:string -> unit

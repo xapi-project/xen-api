@@ -12,35 +12,33 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t =
-  | Master
-  | Slave of string (** IP address *)
-  | Broken
+type t = Master | Slave of string  (** IP address *) | Broken
 
-val with_pool_role_lock: (unit -> unit) -> unit
+val with_pool_role_lock : (unit -> unit) -> unit
 
+val string_of : t -> string
 (** Returns a printable version ot [t] *)
-val string_of: t -> string
 
+val get_role : unit -> t
 (** Returns the role of this node *)
-val get_role: unit -> t
 
+val is_master : unit -> bool
 (** Returns true if this node is a master *)
-val is_master: unit -> bool
 
+val is_slave : unit -> bool
 (** Returns true if this node is a slave *)
-val is_slave: unit -> bool
 
+val is_broken : unit -> bool
 (** Returns true if this node is broken *)
-val is_broken: unit -> bool
 
+val is_unit_test : unit -> bool
 (** Returns true if this is a unit test *)
-val is_unit_test: unit -> bool
 
-val set_pool_role_for_test: unit -> unit
+val set_pool_role_for_test : unit -> unit
 
 exception This_host_is_a_master
+
 exception This_host_is_broken
 
+val get_master_address : unit -> string
 (** If this node is a slave, returns the IP address of its master *)
-val get_master_address: unit -> string

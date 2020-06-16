@@ -15,17 +15,20 @@
 (** Types used to store compression algorithms: ***************************)
 
 (** Supported compression algorithms *)
-type t =
-  | Gzip
-  | Zstd
+type t = Gzip | Zstd
 
 let of_string = function
-  | "true"
-  | "gzip" -> Some Gzip
-  | "zstd" -> Some Zstd
-  | _      -> None
+  | "true" | "gzip" ->
+      Some Gzip
+  | "zstd" ->
+      Some Zstd
+  | _ ->
+      None
 
 let to_string = function
-  | None      -> "false"
-  | Some Gzip -> "gzip"
-  | Some Zstd -> "zstd"
+  | None ->
+      "false"
+  | Some Gzip ->
+      "gzip"
+  | Some Zstd ->
+      "zstd"
