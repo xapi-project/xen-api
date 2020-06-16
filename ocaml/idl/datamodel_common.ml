@@ -8,7 +8,7 @@ open Datamodel_roles
               When introducing a new release, bump the schema minor version to the next hundred
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
-let schema_minor_vsn = 601
+let schema_minor_vsn = 700
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -94,6 +94,9 @@ let naples_release_schema_minor_vsn = 400
 
 let quebec_release_schema_major_vsn = 5
 let quebec_release_schema_minor_vsn = 504
+
+let stockholm_release_schema_major_vsn = 5
+let stockholm_release_schema_minor_vsn = 601
 
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
