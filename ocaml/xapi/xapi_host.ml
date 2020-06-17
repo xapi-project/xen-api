@@ -1014,7 +1014,7 @@ let request_backup ~__context ~host ~generation ~force =
   ) else
     let master_address = Helpers.get_main_ip_address () in
     Pool_db_backup.fetch_database_backup ~master_address
-      ~pool_secret:!Xapi_globs.pool_secret
+      ~pool_secret:(Xapi_globs.pool_secret ())
       ~force:(if force then None else Some generation)
 
 (* request_config_file_sync is used to inform a slave that it should consider resyncing dom0 config files
@@ -1023,7 +1023,7 @@ let request_config_file_sync ~__context ~host ~hash =
   debug "Received notification of dom0 config file change" ;
   let master_address = Helpers.get_main_ip_address () in
   Config_file_sync.fetch_config_files ~master_address
-    ~pool_secret:!Xapi_globs.pool_secret
+    ~pool_secret:(Xapi_globs.pool_secret ())
 
 (* Host parameter will just be me, as message forwarding layer ensures this call has been forwarded correctly *)
 let syslog_reconfigure ~__context ~host =

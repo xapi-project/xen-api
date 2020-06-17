@@ -1722,7 +1722,7 @@ let management_reconfigure ~__context ~network =
       debug "Host recovered=%s" (Db.Host.get_uuid ~__context ~self:host))
     hosts_recovered
 
-let initial_auth ~__context = !Xapi_globs.pool_secret
+let initial_auth ~__context = Xapi_globs.pool_secret ()
 
 (** This call is used during master startup so we should check to see whether we need to re-establish our database
     connection and resynchronise lost database state i.e. state which is non-persistent or reverted over a master crash *)

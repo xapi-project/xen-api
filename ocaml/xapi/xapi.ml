@@ -1215,7 +1215,8 @@ let server_init () =
             , fun () ->
                 Pool_db_backup.fetch_database_backup
                   ~master_address:(Pool_role.get_master_address ())
-                  ~pool_secret:!Xapi_globs.pool_secret ~force:None )
+                  ~pool_secret:(Xapi_globs.pool_secret ())
+                  ~force:None )
           ; ( "wait management interface to come up, re-plug unplugged PBDs"
             , [Startup.NoExnRaising]
             , wait_management_interface )

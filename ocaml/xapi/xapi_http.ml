@@ -127,11 +127,11 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
               with _ -> raise (Http.Unauthorised realm)
             ) ;
             rbac_check session_id)
-    | None, Some pool_secret, _
-      when SecretString.equal pool_secret !Xapi_globs.pool_secret ->
-        fn ()
-    | None, Some _, _ ->
-        raise (Http.Unauthorised realm)
+    | None, Some pool_secret, _ ->
+        if Helpers.is_pool_secret_valid pool_secret then
+          fn ()
+        else
+          raise (Http.Unauthorised realm)
     | None, None, Some (Http.Basic (username, password)) ->
         let session_id =
           try
@@ -160,7 +160,8 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
   try
     let session_id, must_logout =
       if Context.is_unix_socket s then
-        ( Client.Session.slave_login inet_rpc localhost !Xapi_globs.pool_secret
+        ( Client.Session.slave_login inet_rpc localhost
+            (Xapi_globs.pool_secret ())
         , true )
       else
         match

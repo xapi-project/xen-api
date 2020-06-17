@@ -91,7 +91,7 @@ let call_slave_with_local_session remote_rpc_fn __context host
   let session_id =
     Client.Session.slave_local_login
       ~rpc:(remote_rpc_fn __context hostname None)
-      ~psecret:!Xapi_globs.pool_secret
+      ~psecret:(Xapi_globs.pool_secret ())
   in
   Pervasiveext.finally
     (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
