@@ -64,6 +64,7 @@ let rel_naples = "naples"
 let rel_oslo = "oslo"
 let rel_quebec = "quebec"
 let rel_stockholm = "stockholm"
+let rel_next = "next"
 
 type api_release = {
   code_name: string option;
@@ -266,6 +267,12 @@ let release_order_full = [{
      code_name     = Some rel_stockholm;
      version_major = 2;
      version_minor = 15;
+     branding      = "Unreleased";
+     release_date  = None;
+   }; {
+     code_name     = Some rel_next;
+     version_major = 2;
+     version_minor = 16;
      branding      = "Unreleased";
      release_date  = None;
    }
