@@ -345,7 +345,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         ( if preserve_mac_address then
             all.API.vIF_MAC
         else
-          "" (* leave blank == generate new mac from vm random seed *)
+          "" (* leave blank = generate new mac from vm random seed *)
         )
       ~mTU:all.API.vIF_MTU ~other_config:all.API.vIF_other_config
       ~qos_algorithm_type:all.API.vIF_qos_algorithm_type

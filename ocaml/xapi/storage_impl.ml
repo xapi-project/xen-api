@@ -427,7 +427,7 @@ functor
           with
           | Storage_interface.Storage_error
               (Internal_error "Storage_access.No_VDI") as e
-            when op == Vdi_automaton.Deactivate || op == Vdi_automaton.Detach ->
+            when op = Vdi_automaton.Deactivate || op = Vdi_automaton.Detach ->
               error
                 "Storage_impl: caught exception %s while doing %s . Continuing \
                  as if succesful, being optimistic"

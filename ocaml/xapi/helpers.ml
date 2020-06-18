@@ -793,15 +793,6 @@ let max_version_in_pool : __context:Context.t -> int list =
   in
   List.fold_left max_version [] versions
 
-let rec string_of_int_list : int list -> string = function
-  | [] ->
-      ""
-  | x :: xs ->
-      if xs == [] then
-        string_of_int x
-      else
-        string_of_int x ^ "." ^ string_of_int_list xs
-
 let host_has_highest_version_in_pool :
     __context:Context.t -> host:[`host] api_object -> bool =
  fun ~__context ~host ->
@@ -1089,7 +1080,7 @@ let gethostbyname host =
   in
   try
     gethostbyname_family host
-      (if pref == `IPv4 then Unix.PF_INET else Unix.PF_INET6)
+      (if pref = `IPv4 then Unix.PF_INET else Unix.PF_INET6)
   with _ -> (
     try
       gethostbyname_family host
