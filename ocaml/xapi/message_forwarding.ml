@@ -871,6 +871,10 @@ functor
           (pool_uuid ~__context self)
           key ;
         Local.Pool.remove_from_guest_agent_config ~__context ~self ~key
+
+      let rotate_secret ~__context =
+        info "Pool.rotate_secret: pool = '%s'" (current_pool_uuid ~__context) ;
+        Local.Pool.rotate_secret ~__context
     end
 
     module VM = struct
@@ -3361,6 +3365,28 @@ functor
           (host_uuid ~__context host)
           value ;
         Local.Host.set_uefi_certificates ~__context ~host ~value
+
+      let notify_accept_new_pool_secret ~__context ~host ~new_ps =
+        (* we do not need to verify the old pool secret here, since it has
+           already been verified (see xapi_http.assert_credentials_ok) *)
+        info "Host.notify_accept_new_pool_secret: host='%s'"
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.notify_accept_new_pool_secret ~host ~new_ps in
+        do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+            Client.Host.notify_accept_new_pool_secret rpc session_id host new_ps)
+
+      let notify_send_new_pool_secret ~__context ~host ~new_ps =
+        info "Host.notify_send_new_pool_secret: host='%s'"
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.notify_send_new_pool_secret ~host ~new_ps in
+        do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+            Client.Host.notify_send_new_pool_secret rpc session_id host new_ps)
+
+      let cleanup_pool_secret ~__context ~host =
+        info "Host.cleanup_pool_secret: host='%s'" (host_uuid ~__context host) ;
+        let local_fn = Local.Host.cleanup_pool_secret ~host in
+        do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
+            Client.Host.cleanup_pool_secret rpc session_id host)
     end
 
     module Host_crashdump = struct

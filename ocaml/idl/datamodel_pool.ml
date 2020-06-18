@@ -633,6 +633,19 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
+  let rotate_secret = call
+    ~in_product_since:rel_next
+    ~name:"rotate_secret"
+    ~params:[]
+    ~errs:[ Api_errors.internal_error
+          ; Api_errors.host_is_slave
+          ; Api_errors.cannot_contact_host
+          ; Api_errors.ha_is_enabled
+          ; Api_errors.not_supported_during_upgrade
+          ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -706,6 +719,7 @@ open Datamodel_types
         ; has_extension
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
+        ; rotate_secret
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @

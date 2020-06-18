@@ -860,24 +860,25 @@ let pool_has_different_host_platform_versions ~__context =
 
 (* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
-  try
-    Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
-    let ps =
-      Unixext.string_of_file !Xapi_globs.pool_secret_path
-      |> SecretString.of_string
-    in
-    pool_secrets := [ps] ;
-    Db_globs.pool_secret :=
-      ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
-  with _ ->
-    (* No pool secret exists. *)
-    let module Ptoken = Genptokenlib.Lib in
-    let ps = Ptoken.gen_token () in
-    in
-    Xapi_globs.pool_secrets := [ps] ;
-    Db_globs.pool_secret :=
-      ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
-    SecretString.write_to_file !Xapi_globs.pool_secret_path ps
+  ( try
+      Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
+      let ps =
+        Unixext.string_of_file !Xapi_globs.pool_secret_path
+        |> SecretString.of_string
+      in
+      pool_secrets := [ps] ;
+      Db_globs.pool_secret :=
+        ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
+    with _ ->
+      (* No pool secret exists. *)
+      let module Ptoken = Genptokenlib.Lib in
+      let ps = Ptoken.gen_token () in
+      Xapi_globs.pool_secrets := [ps] ;
+      Db_globs.pool_secret :=
+        ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
+      SecretString.write_to_file !Xapi_globs.pool_secret_path ps
+  ) ;
+  Xapi_psr_util.load_psr_pool_secrets ()
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)

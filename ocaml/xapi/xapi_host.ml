@@ -2381,3 +2381,11 @@ let set_multipathing ~__context ~host ~value =
   Db.Host.add_to_other_config ~__context ~self:host ~key:"multipathing"
     ~value:(string_of_bool value) ;
   Xapi_host_helpers.Configuration.set_multipathing value
+
+let notify_accept_new_pool_secret ~__context ~host ~new_ps =
+  Xapi_psr.notify_new ~new_ps
+
+let notify_send_new_pool_secret ~__context ~host ~new_ps =
+  Xapi_psr.notify_send ~new_ps
+
+let cleanup_pool_secret ~__context ~host = Xapi_psr.cleanup ()
