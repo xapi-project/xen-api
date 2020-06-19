@@ -1,43 +1,141 @@
-(executable
- (name xenops_xc_main)
- (public_name xenopsd-xc)
- (package xapi-xenopsd-xc)
+(library
+ (name xenopsd_xc)
  (flags -warn-error +a-3)
-
+ (modules :standard \
+          xenops_xc_main
+          memory_breakdown
+          memory_summary
+          domain_sethandle
+          cancel_utils_test)
  (libraries
-   astring
-   xenctrl
-   xapi-xenopsd
-   xenstore
-   xenstore.unix
-   xenstore_transport.unix
-   rpclib.core
-   forkexec
-   xapi-idl
-   xapi-idl.storage
-   xapi-idl.memory
-   xapi-idl.rrd
-   xapi-idl.network
-   xapi-idl.varstore.privileged
-   xapi-rrd sexplib
-   xapi-inventory
-   ezxenstore
-   profiling qmp
-   mtime.clock.os
-   ppx_sexp_conv.runtime-lib
-   re
-   re.pcre
-   xapi-stdext-pervasives
-   xapi-stdext-std
-   xapi-stdext-threads
-   xapi-stdext-unix
+  astring
+  core
+  core_kernel
+  ezxenstore.core
+  ezxenstore.watch
+  fd-send-recv
+  fmt
+  forkexec
+  mtime
+  mtime.clock.os
+  re
+  result
+  rpclib.core
+  rpclib.json
+  rresult
+  sexplib0
+  qmp
+  threads.posix
+  uuidm
+  xapi-backtrace
+  xapi-idl
+  xapi-idl.memory
+  xapi-idl.network
+  xapi-idl.rrd
+  xapi-idl.rrd.interface
+  xapi-idl.storage
+  xapi-idl.storage.interface
+  xapi-idl.xen.interface
+  xapi-idl.xen.interface.types
+  xapi-rrd
+  xapi-stdext-date
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi-xenopsd
+  xapi-xenopsd.c_stubs
+  xenctrl
+  xenctrl.xenbus
+  xenstore
+  xenstore_transport.unix
  )
 
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv)
  )
+ (wrapped false)
+)
+(executable
+ (name xenops_xc_main)
+ (public_name xenopsd-xc)
+ (package xapi-xenopsd-xc)
+ (flags -warn-error +a-3)
+ (modules xenops_xc_main)
+
+ (libraries
+  ezxenstore.core
+  profiling
+  uuidm
+  xapi-idl.varstore.privileged
+  xapi-idl.xen.interface
+  xapi-inventory
+  xapi-stdext-unix
+  xapi-xenopsd
+  xenctrl
+  xenstore_transport.unix
+  xenopsd_xc
+ )
 )
 
+(executable
+ (name memory_breakdown)
+ (flags -warn-error +a-3)
+ (modules memory_breakdown)
+ (libraries
+  astring
+  cmdliner
+  ezxenstore.core
+  uuid
+  xapi-idl.memory
+  xapi-stdext-date
+  xapi-stdext-unix
+  xenctrl
+  xenopsd_xc
+  xenstore_transport.unix
+ )
+)
+
+(executable
+ (name memory_summary)
+ (flags -warn-error +a-3)
+ (modules memory_summary)
+ (libraries
+  xapi-stdext-date
+  xapi-stdext-unix
+  xapi-xenopsd
+  xenctrl
+ )
+)
+
+(executable
+ (name domain_sethandle)
+ (flags -warn-error +a-3)
+ (modules domain_sethandle)
+ (libraries
+  cmdliner
+  ezxenstore
+  xenctrl
+ )
+)
+
+(test
+ (name cancel_utils_test)
+ (package xapi-xenopsd-xc)
+ (modules cancel_utils_test)
+ (libraries
+  cmdliner
+  ezxenstore.core
+  ounit2
+  threads.posix
+  xapi-idl.xen.interface
+  xapi-xenopsd
+  xenctrl
+  xenopsd_xc
+  xenstore_transport.unix
+ )
+
+)
 (rule
  (with-stdout-to
   xenopsd-xc.1

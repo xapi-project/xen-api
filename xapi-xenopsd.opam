@@ -13,25 +13,33 @@ build: [
 depends: [
   "ocaml"
   "dune" {build}
+  "base-threads"
   "alcotest" {with-test}
+  "astring"
   "cohttp"
-  "core"
   "fd-send-recv"
+  "fmt" { >= "0.8.8" }
   "forkexec"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "re"
+  "result"
   "rpclib"
+  "rresult"
   "sexplib"
-  "stdext"
-  "base-threads"
+  "sexplib0"
   "uri"
   "uuidm"
   "uutf"
+  "xapi-backtrace"
   "xapi-idl"
+  "xapi-stdext-date"
+  "xapi-stdext-pervasives"
+  "xapi-stdext-threads"
+  "xapi-stdext-unix"
   "xenctrl"
+  "xenstore_transport" {with-test}
   "xmlm"
-  "fmt" { >= "0.8.8" }
 ]
 synopsis: "A single-host domain/VM manager for the Xen hypervisor"
 description: """

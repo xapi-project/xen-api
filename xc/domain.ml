@@ -1756,7 +1756,11 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     progress_callback 1. ;
     (* Close all streams *)
     let fds =
-      Xapi_stdext_std.Listext.List.setify (main_fd :: Option.to_list vgpu_fd)
+      match vgpu_fd with
+      | Some fd when not (fd = main_fd) ->
+          [main_fd; fd]
+      | _ ->
+          [main_fd]
     in
     fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
   in

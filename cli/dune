@@ -8,12 +8,16 @@
   (libraries
       cmdliner
       re
-      rpclib
+      result
+      rpclib.core
       rpclib.json
+      rresult
       threads
       uuidm
       xapi-idl
       xapi-idl.xen
+      xapi-idl.xen.interface
+      xapi-idl.xen.interface.types
   )
   (preprocess (pps ppx_deriving_rpc))
 )
