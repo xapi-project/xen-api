@@ -15,7 +15,6 @@ depends: [
   "sexpr"
   "stunnel"
   "uuid"
-  "xenctrlext"
   "xml-light2"
 ]
 synopsis: "Further transitional libraries required by xapi"
