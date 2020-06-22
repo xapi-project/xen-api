@@ -1036,7 +1036,7 @@ let _ =
     ~doc:"The specified CRL is corrupt or unreadable." ();
 
   error Api_errors.server_certificate_key_invalid []
-    ~doc:"The provided key is not in a pem-encoded PKCS#8 format." ();
+    ~doc:"The provided key is not in a PEM-encoded PKCS#8 format." ();
   error Api_errors.server_certificate_key_algorithm_not_supported ["algorithm_oid"]
     ~doc:"The provided key uses an unsupported algorithm." ();
   error Api_errors.server_certificate_key_rsa_length_not_supported ["length"]
@@ -1045,7 +1045,7 @@ let _ =
     ~doc:"The provided RSA key is using more than 2 primes, expecting only 2." ();
 
   error Api_errors.server_certificate_invalid []
-    ~doc:"The provided certificate is not in a pem-encoded X509." ();
+    ~doc:"The provided certificate is not in a PEM-encoded X509." ();
     error Api_errors.server_certificate_key_mismatch []
     ~doc:"The provided key does not match the provided certificate's public key." ();
   error Api_errors.server_certificate_not_valid_yet ["now"; "not_before"]
@@ -1056,7 +1056,7 @@ let _ =
     ~doc:"The provided certificate is not using the SHA256 (SHA2) signature algorithm." ();
 
   error Api_errors.server_certificate_chain_invalid []
-    ~doc:"The provided intermediate certificates are not in a pem-encoded X509." ();
+    ~doc:"The provided intermediate certificates are not in a PEM-encoded X509." ();
 
   error Api_errors.vmpp_has_vm []
     ~doc:"There is at least one VM assigned to this protection policy." ();
