@@ -101,10 +101,10 @@ module D=Debug.Make(struct let name="xapi" end)
 open D
 
 (** Forward a call to the master *)
-let forward req call is_json =
+let forward req call is_jsonrpc =
   let open Xmlrpc_client in
   let transport = SSL(SSL.make ~use_stunnel_cache:true (), Pool_role.get_master_address(), !Xapi_globs.https_port) in
-  let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
+  let rpc = if is_jsonrpc then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
   rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http:{ req with Http.Request.frame = true } call
 
 (* Whitelist of functions that do *not* get forwarded to the master (e.g. session.login_with_password) *)
@@ -122,7 +122,7 @@ let is_himn_req req =
   | None -> false
 
 (* This bit is called directly by the fake_rpc callback *)
-let callback1 is_json req fd call =
+let callback1 is_json is_jsonrpc req fd call =
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
@@ -138,7 +138,7 @@ let callback1 is_json req fd call =
      ((Context.is_unix_socket fd && not whitelisted) ||
       (is_himn_req req && not emergency_call))
   then
-    forward req call is_json
+    forward req call is_jsonrpc
   else
     let response = Server.dispatch_call req fd call in
     let translated =
@@ -159,7 +159,7 @@ let callback is_json req bio _ =
   let body = Http_svr.read_body ~limit:Xapi_globs.http_limit_max_rpc_size req bio in
   try
     let rpc = Xmlrpc.call_of_string body in
-    let response = callback1 is_json req fd rpc in
+    let response = callback1 is_json false req fd rpc in
     let response_str =
       if rpc.Rpc.name = "system.listMethods"
       then
@@ -198,7 +198,7 @@ let jsoncallback req bio _ =
     let response = Jsonrpc.a_of_response
         ~empty:Bigbuffer.make
         ~append:(fun buf s -> Bigbuffer.append_substring buf s 0 (String.length s))
-        (callback1 true req fd rpc) in
+        (callback1 false true req fd rpc) in
     Http_svr.response_fct req ~hdrs:[ Http.Hdr.content_type, "application/json";
                                       "Access-Control-Allow-Origin", "*";
                                       "Access-Control-Allow-Headers", "X-Requested-With"] fd (Bigbuffer.length response)
