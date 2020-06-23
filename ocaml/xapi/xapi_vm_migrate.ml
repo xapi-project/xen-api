@@ -189,6 +189,7 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
     xenops_vdi_map xenops_vif_map xenops_vgpu_map xenops =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
+  let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
   let progress = ref "(none yet)" in
   let f () =
     progress := "Client.VM.migrate" ;
@@ -227,6 +228,18 @@ let rec migrate_with_retries ~__context queue_name max try_no dbg vm_uuid
           "xenops: not retrying migration: caught %s from %s in attempt %d of \
            %d."
           (Printexc.to_string e) !progress try_no max ;
+        ( try
+            Xapi_vm_lifecycle.force_state_reset ~__context ~self:vm
+              ~value:`Halted ;
+            info
+              "migrate_with_retries: successfully set state of VM='%s' to \
+               `Halted"
+              (Ref.string_of vm)
+          with e ->
+            error
+              "migrate_with_retries: failed to set state of VM='%s' to `Halted"
+              (Ref.string_of vm)
+        ) ;
         raise e
 
 let migrate_with_retry ~__context queue_name =
