@@ -122,11 +122,13 @@ let is_himn_req req =
   | None -> false
 
 (* This bit is called directly by the fake_rpc callback *)
+(* If is_json is true, then this is an XML-RPC call, but the response needs to be
+   written into a JSON string, which will be wrapped into the XML-RPC response by the caller.
+   If is_jsonrpc is true, then this is a native JSON-RPC call. *)
 let callback1 is_json is_jsonrpc req fd call =
-  (* We now have the body string, the xml and the call name, and can also tell *)
-  (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
-  (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
-  (* in the whitelist, then forward *)
+  (* If we're a slave, and the call is from the unix domain socket or from the HIMN,
+     and the call *isn't* in the whitelist/emergency-call list, then forward the call
+     to the master. *)
 
   let whitelisted = List.mem call.Rpc.name whitelist in
   let emergency_call = List.mem call.Rpc.name emergency_call_list in
