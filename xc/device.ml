@@ -2363,9 +2363,17 @@ module Dm_Common = struct
 
     let lba_of = function
       | Disk ->
-          "force-lba=on"
+          ["bios-chs-trans=forcelba"]
       | Cdrom ->
-          "force-lba=off"
+          []
+      | Floppy ->
+          []
+
+    let device_driver_of = function
+      | Disk ->
+          "ide-hd"
+      | Cdrom ->
+          "ide-cd"
       | Floppy ->
           ""
   end
@@ -2770,19 +2778,26 @@ module Dm_Common = struct
   let ide = "ide"
 
   let ide_device_of ~trad_compat (index, file, media) =
+    let id = sprintf "ide-disk%d" index in
     [
       "-drive"
     ; String.concat ","
         (List.concat
            [
-             [
-               sprintf "file=%s" file
-             ; "if=ide"
-             ; sprintf "index=%d" index
-             ; sprintf "media=%s" (Media.to_string media)
-             ]
-           ; (if trad_compat then [Media.lba_of media] else [])
+             [sprintf "file=%s" file; "if=none"; sprintf "id=%s" id]
            ; Media.format_of media file
+           ])
+    ; "-device"
+    ; String.concat ","
+        (List.concat
+           [
+             [
+               Media.device_driver_of media
+             ; sprintf "drive=%s" id
+             ; sprintf "bus=ide.%d" (index / 2)
+             ; sprintf "unit=%d" (index mod 2)
+             ]
+           ; (if trad_compat then Media.lba_of media else [])
            ])
     ]
 
