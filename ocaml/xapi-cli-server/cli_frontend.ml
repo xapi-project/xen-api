@@ -414,6 +414,14 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.pool_disable_ssl_legacy
       ; flags= [Deprecated ["Legacy SSL no longer supported"]]
       } )
+  ; ( "pool-secret-rotate"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Change the pool secret"
+      ; implementation= No_fd Cli_operations.pool_rotate_secret
+      ; flags= []
+      } )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []

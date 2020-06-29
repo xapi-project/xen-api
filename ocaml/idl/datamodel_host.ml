@@ -1325,6 +1325,41 @@ let host_query_ha = call ~flags:[`Session]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
 
+  let notify_accept_new_pool_secret = call
+    ~name:"notify_accept_new_pool_secret"
+    ~lifecycle:[Published, rel_next, ""]
+    ~doc:"Notifies host that they must begin accepting requests containing the new pool secret"
+    ~params:[
+      Ref _host, "host", "The host";
+      SecretString, "new_ps", "New pool secret"
+    ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~hide_from_docs:true
+    ()
+
+  let notify_send_new_pool_secret = call
+    ~name:"notify_send_new_pool_secret"
+    ~lifecycle:[Published, rel_next, ""]
+    ~doc:"Notifies host that they must begin sending requests with the new pool secret"
+    ~params:[
+      Ref _host, "host", "The host";
+      SecretString, "new_ps", "New pool secret"
+    ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~hide_from_docs:true
+    ()
+
+  let cleanup_pool_secret = call
+    ~name:"cleanup_pool_secret"
+    ~lifecycle:[Published, rel_next, ""]
+    ~doc:"Cleanup old pool secret on recipient host"
+    ~params:[
+      Ref _host, "host", "The host"
+    ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~hide_from_docs:true
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1443,6 +1478,9 @@ let host_query_ha = call ~flags:[`Session]
         set_iscsi_iqn;
         set_multipathing;
         set_uefi_certificates;
+        notify_accept_new_pool_secret;
+        notify_send_new_pool_secret;
+        cleanup_pool_secret;
       ]
       ~contents:
         ([ uid _host;

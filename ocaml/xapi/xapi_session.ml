@@ -423,20 +423,14 @@ let consider_touching_session rpc session_id =
       ignore (Client.Session.get_uuid rpc session_id session_id)
     )
 
-let pool_authenticate ~__context psecret =
-  if psecret = !Xapi_globs.pool_secret then
-    ()
-  else
-    failwith "Pool credentials invalid"
-
 (* Make sure the pool secret matches *)
 let slave_login_common ~__context ~host_str ~psecret =
-  try pool_authenticate ~__context psecret
-  with Failure msg ->
+  if not (Helpers.is_pool_secret_valid psecret) then (
+    let msg = "Pool credentials invalid" in
     debug "Failed to authenticate slave %s: %s" host_str msg ;
     raise
-      (Api_errors.Server_error
-         (Api_errors.session_authentication_failed, [host_str; msg]))
+      Api_errors.(Server_error (session_authentication_failed, [host_str; msg]))
+  )
 
 (* Normal login, uses the master's database *)
 let slave_login ~__context ~host ~psecret =

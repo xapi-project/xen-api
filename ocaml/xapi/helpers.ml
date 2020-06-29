@@ -409,7 +409,7 @@ let call_api_functions_internal ~__context f =
   let do_master_login () =
     let session =
       Client.Client.Session.slave_login rpc (get_localhost ~__context)
-        !Xapi_globs.pool_secret
+        (Xapi_globs.pool_secret ())
     in
     require_explicit_logout := true ;
     session
@@ -455,7 +455,7 @@ let call_emergency_mode_functions hostname f =
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http
   in
   let session_id =
-    Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret
+    Client.Client.Session.slave_local_login rpc (Xapi_globs.pool_secret ())
   in
   finally
     (fun () -> f rpc session_id)
@@ -860,26 +860,25 @@ let pool_has_different_host_platform_versions ~__context =
 
 (* Read pool secret if it exists; otherwise, create a new one. *)
 let get_pool_secret () =
-  try
-    Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
-    pool_secret :=
-      Unixext.string_of_file !Xapi_globs.pool_secret_path
-      |> SecretString.of_string ;
-    Db_globs.pool_secret :=
-      !pool_secret |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
-  with _ ->
-    (* No pool secret exists. *)
-    let mk_rand_string () = Uuid.to_string (Uuid.make_uuid ()) in
-    pool_secret :=
-      SecretString.of_string
-      @@ mk_rand_string ()
-      ^ "/"
-      ^ mk_rand_string ()
-      ^ "/"
-      ^ mk_rand_string () ;
-    Db_globs.pool_secret :=
-      !pool_secret |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
-    SecretString.write_to_file !Xapi_globs.pool_secret_path !pool_secret
+  ( try
+      Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
+      let ps =
+        Unixext.string_of_file !Xapi_globs.pool_secret_path
+        |> SecretString.of_string
+      in
+      pool_secrets := [ps] ;
+      Db_globs.pool_secret :=
+        ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
+    with _ ->
+      (* No pool secret exists. *)
+      let module Ptoken = Genptokenlib.Lib in
+      let ps = Ptoken.gen_token () in
+      Xapi_globs.pool_secrets := [ps] ;
+      Db_globs.pool_secret :=
+        ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
+      SecretString.write_to_file !Xapi_globs.pool_secret_path ps
+  ) ;
+  Xapi_psr_util.load_psr_pool_secrets ()
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
@@ -1804,3 +1803,6 @@ end = struct
       D.error "Helpers.Stunnel.restart: failed to restart stunnel" ;
       raise e
 end
+
+let is_pool_secret_valid pool_secret =
+  List.exists (SecretString.equal pool_secret) !Xapi_globs.pool_secrets

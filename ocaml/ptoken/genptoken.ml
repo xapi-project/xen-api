@@ -1,5 +1,7 @@
 (* tool to generate pool secrets *)
 
+module Lib = Genptokenlib.Lib
+
 type options = {force: bool; tgtfile: string}
 
 let options =
@@ -28,11 +30,10 @@ let _ =
       print_endline "File exists, use -f to replace it." ;
       exit 1
     ) ;
-  let uuid _ = Uuid.to_string (Uuid.make_uuid ()) in
-  let uuids = String.concat "/" [uuid (); uuid (); uuid ()] in
+  let token = Lib.gen_token () in
   let f =
     open_out_gen
       [Open_wronly; Open_creat; Open_excl; Open_binary]
       0o640 !options.tgtfile
   in
-  output_string f uuids
+  SecretString.write_to_channel f token

@@ -34,7 +34,19 @@ let _ =
         restart_return_code ;
       exit restart_return_code
 
-let pool_secret = ref (SecretString.of_string "")
+(* - this will usually be a singleton list.
+   - during pool secret rotation it will contain multiple elements,
+     but the tail will be dropped when it has completed.
+   - the head is always the pool secret that should be sent in requests *)
+let pool_secrets : SecretString.t list ref = ref []
+
+let pool_secret () =
+  match !pool_secrets with
+  | [] ->
+      failwith
+        "the pool secrets either do not exist or have not been loaded yet"
+  | x :: _ ->
+      x
 
 (* The maximum pool size is restricted to 3 hosts for the pool which does not have Pool_size feature *)
 let restricted_pool_size = 3

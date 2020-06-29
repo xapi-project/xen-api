@@ -48,6 +48,7 @@
    domain-name
    ezxenstore.core
    gencertlib
+   genptokenlib
    message-switch-unix
    mtime
    mtime.clock.os

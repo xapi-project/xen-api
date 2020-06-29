@@ -22,8 +22,15 @@ type failure =
 
 type 'a r = (unit, failure * 'a) result
 
-(* entry point *)
+(* entry point for the master *)
 val start : __context:Context.t -> unit
+
+(* expose client implementations *)
+val notify_new : new_ps:SecretString.t -> unit
+
+val notify_send : new_ps:SecretString.t -> unit
+
+val cleanup : unit -> unit
 
 (* the rest is exposed for unit testing *)
 
