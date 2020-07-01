@@ -2,5 +2,5 @@
   (name list_domains)
   (public_name list_domains)
   (package xapi-xenopsd-xc)
-  (libraries xenctrl xapi-idl.memory ezxenstore uuidm)
+  (libraries xenctrl xapi-idl.memory ezxenstore.watch uuidm)
 )

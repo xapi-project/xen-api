@@ -11,8 +11,9 @@ script:
   - bash .travis-python-nosetests.sh
 env:
   global:
-    - PACKAGE="xapi-xenopsd"
-    - PINS="xapi-xenopsd:. xapi-xenopsd-xc:. xapi-xenopsd-simulator:."
+    - PINS="xapi-xenopsd:. xapi-xenopsd-xc:. xapi-xenopsd-simulator:. xapi-xenopsd-cli:."
   jobs:
-    - PACKAGE="xapi-xenopsd-xc"
+    - PACKAGE="xapi-xenopsd"
+    - PACKAGE="xapi-xenopsd-cli"
     - PACKAGE="xapi-xenopsd-simulator"
+    - PACKAGE="xapi-xenopsd-xc"

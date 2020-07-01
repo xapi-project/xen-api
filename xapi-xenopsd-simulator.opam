@@ -17,7 +17,7 @@ depends: [
   "xapi-xenopsd"
 ]
 synopsis:
-  "Simulation backend allowing testing of the higher-level xenops logic."
+  "Simulation backend allowing testing of the higher-level xenops logic"
 url {
   src: "https://github.com/xapi-project/xenopsd/archive/master/master.tar.gz"
 }

@@ -2294,7 +2294,7 @@ module VM = struct
             let is_uefi =
               match vm.ty with HVM {firmware= Uefi _; _} -> true | _ -> false
             in
-            let vm_str = Vm.sexp_of_t vm |> Sexplib.Sexp.to_string in
+            let vm_str = Vm.sexp_of_t vm |> Sexplib0.Sexp.to_string in
             let vgpu_fd =
               match vgpu_data with
               | Some (FD vgpu_fd) ->
