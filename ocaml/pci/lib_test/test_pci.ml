@@ -59,23 +59,28 @@ let test_lookup_functions () =
      Device: 82371AB/EB/MB PIIX4 ACPI [7113]
      SVendor:        Red Hat, Inc [1af4]
      SDevice:        Qemu virtual machine [1100] *)
-  let test_lookup = assert_equal ~printer:(fun x -> x) in
+  let test_lookup valid_values value =
+    assert_bool
+      (Printf.sprintf {|Value "%s" is not any of the expected ones: [%s]|} value
+         (String.concat "; " (List.map (Printf.sprintf {|"%s"|}) valid_values)))
+      (List.mem value valid_values)
+  in
   let default v = match v with Some v -> v | None -> "" in
   with_dump (fun acc ->
-      test_lookup "Bridge" @@ (lookup_class_name acc 0x0680 |> default) ;
-      test_lookup "Intel Corporation"
+      test_lookup ["Bridge"] @@ (lookup_class_name acc 0x0680 |> default) ;
+      test_lookup ["Intel Corporation"]
       @@ (lookup_vendor_name acc 0x8086 |> default) ;
-      test_lookup "82371AB/EB/MB PIIX4 ACPI"
+      test_lookup ["82371AB/EB/MB PIIX4 ACPI"]
       @@ (lookup_device_name acc 0x8086 0x7113 |> default) ;
-      test_lookup "Red Hat, Inc."
+      test_lookup ["Red Hat, Inc"; "Red Hat, Inc."]
       @@ (lookup_subsystem_vendor_name acc 0x1af4 |> default) ;
-      test_lookup "Qemu virtual machine"
+      test_lookup ["Qemu virtual machine"]
       @@ (lookup_subsystem_device_name acc 0x8086 0x7113 0x1af4 0x1100
          |> default
          ) ;
-      test_lookup "VGA compatible controller"
+      test_lookup ["VGA compatible controller"]
       @@ (lookup_class_name acc 0x0300 |> default) ;
-      test_lookup "VGA controller"
+      test_lookup ["VGA controller"]
       @@ (lookup_progif_name acc 0x0300 0x00 |> default))
 
 let _ =
