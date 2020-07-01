@@ -1486,7 +1486,7 @@ end
 (* These are included in vbds and vifs -- abstracted here to keep both these uses consistent *)
 let device_status_fields =
   [
-    field ~ty:Bool ~qualifier:StaticRO ~default_value:(Some (VBool false)) ~lifecycle:[Changed, rel_stockholm, "Become static to allow plugged VIF and VBD creation for Suspended VM"] "currently_attached" "is the device currently attached (erased on reboot)";
+    field ~ty:Bool ~qualifier:StaticRO ~default_value:(Some (VBool false)) ~lifecycle:[Changed, rel_next, "Become static to allow plugged VIF and VBD creation for Suspended VM"] "currently_attached" "is the device currently attached (erased on reboot)";
     field ~ty:Int ~qualifier:DynamicRO "status_code" "error/success code associated with last attach-operation (erased on reboot)";
     field ~ty:String ~qualifier:DynamicRO "status_detail" "error/success information associated with last attach-operation status (erased on reboot)";
     field ~ty:(Map(String, String)) ~qualifier:DynamicRO "runtime_properties" "Device runtime properties"
@@ -3013,7 +3013,7 @@ module VBD = struct
            field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
            field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
 
-           field ~qualifier:StaticRO ~ty:String ~default_value:(Some (VString "")) ~lifecycle:[Changed, rel_stockholm, "Become static to allow plugged VBD creation for Suspended VM"] "device" "device seen by the guest e.g. hda1";
+           field ~qualifier:StaticRO ~ty:String ~default_value:(Some (VString "")) ~lifecycle:[Changed, rel_next, "Become static to allow plugged VBD creation for Suspended VM"] "device" "device seen by the guest e.g. hda1";
            field "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
            field ~ty:Bool "bootable" "true if this VBD is bootable";
            field ~qualifier:StaticRO ~ty:mode "mode" "the mode the VBD should be mounted with";
