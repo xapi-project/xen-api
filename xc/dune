@@ -46,7 +46,6 @@
   xapi-xenopsd
   xapi-xenopsd.c_stubs
   xenctrl
-  xenctrl.xenbus
   xenstore
   xenstore_transport.unix
  )
