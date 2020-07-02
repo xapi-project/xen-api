@@ -11,6 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+module Date = Xapi_stdext_date.Date
+module Unixext = Xapi_stdext_unix.Unixext
 open Xenops_utils
 
 let xc = Xenctrl.interface_open ()

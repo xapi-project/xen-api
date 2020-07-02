@@ -5,6 +5,7 @@
  (libraries
    xapi-xenopsd
    xenctrl
+   xenctrl.xenmmap
    xenstore
    xenstore.unix
    xenstore_transport
