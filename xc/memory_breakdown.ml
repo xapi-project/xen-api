@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Unixext = Xapi_stdext_unix.Unixext
-module Date = Xapi_stdext_date.Date
+open Listext
+open Unixext
 open Xenstore
 
 (** Command-line tool for sampling host and guest memory usage. *)
@@ -273,30 +273,21 @@ let guest_ids_of_line line =
       []
 
 let guest_ids_of_file file_name =
-  Unixext.file_lines_fold
+  file_lines_fold
     (fun guest_ids line -> merge guest_ids (guest_ids_of_line line))
     [] file_name
 
 let pad_value_list guest_ids_all guest_ids values default_value =
   let fail () =
-    let rec is_sorted cmp = function
-      | [_] | [] ->
-          true
-      | x :: y :: tl when cmp x y <= 0 ->
-          is_sorted cmp (y :: tl)
-      | _ ->
-          false
-    in
-    let is_subset a b = List.for_all (fun x -> List.mem x b) a in
     raise
       (Invalid_argument
          ( if List.length guest_ids <> List.length values then
              "Expected: length (guest_ids) = length (values)"
-         else if not (is_sorted String.compare guest_ids) then
+         else if not (List.is_sorted String.compare guest_ids) then
            "Expected: sorted (guest_ids)"
-         else if not (is_sorted String.compare guest_ids_all) then
+         else if not (List.is_sorted String.compare guest_ids_all) then
            "Expected: sorted (guest_ids_all)"
-         else if not (is_subset guest_ids guest_ids_all) then
+         else if not (List.subset guest_ids guest_ids_all) then
            "Expected: guest_ids subset of guest_ids_all"
          else
            "Unknown failure"
@@ -366,7 +357,7 @@ let print_padded_header_line guest_count =
 let pad_existing_data () =
   let guest_ids_all = guest_ids_of_file !cli_argument_existing_file_to_pad in
   print_padded_header_line (List.length guest_ids_all) ;
-  Unixext.file_lines_iter
+  file_lines_iter
     (print_padded_data_line guest_ids_all)
     !cli_argument_existing_file_to_pad ;
   flush stdout

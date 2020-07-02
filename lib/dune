@@ -11,37 +11,32 @@
  (wrapped false)
  (flags :standard -warn-error +a-3)
  (libraries
-   astring
    c_stubs
-   cohttp
-   fd-send-recv
-   fmt
-   forkexec
-   re
-   result
-   rpclib.core
-   rpclib.json
-   rresult
-   sexplib
-   sexplib0
-   uri
-   uuidm
-   uutf
+   threads
    threads.posix
-   xapi-backtrace
+   uuidm
+   xmlm
+   cohttp
+   uri
+   rpclib.core
+   forkexec
+   fd-send-recv
    xapi-idl
+   xapi-idl.xen
    xapi-idl.storage
-   xapi-idl.storage.interface
    xapi-idl.updates
    xapi-idl.varstore.privileged
-   xapi-idl.xen
-   xapi-idl.xen.interface
-   xapi-idl.xen.interface.types
+   sexplib
+   ppx_sexp_conv.runtime-lib
+   uutf
+   core
+   re
+   re.pcre
+   fmt
    xapi-stdext-date
    xapi-stdext-pervasives
    xapi-stdext-threads
    xapi-stdext-unix
-   xmlm
  )
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv)

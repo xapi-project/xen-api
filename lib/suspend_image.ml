@@ -22,6 +22,8 @@ module M = struct
   let fold f l a = List.fold_left (fun c b -> c >>= f b) (return a) l
 end
 
+let ( |> ) x f = f x
+
 open M
 
 let wrap_exn f = try f () with e -> Backtrace.is_important e ; `Error e
@@ -29,8 +31,8 @@ let wrap_exn f = try f () with e -> Backtrace.is_important e ; `Error e
 let wrap f = wrap_exn (fun () -> return (f ()))
 
 module Xenops_record = struct
-  module Sexp = Sexplib.Sexp
-  open Sexplib0.Sexp_conv
+  open Sexplib
+  open Sexplib.Conv
 
   type t = {
       time: string

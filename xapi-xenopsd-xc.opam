@@ -8,39 +8,30 @@ bug-reports: "https://github.com/xapi-project/xenopsd/issues"
 build: [
   ["./configure"]
   [ "dune" "build" "-p" name "-j" jobs ]
-  [ "dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
   "dune" {build}
-  "ounit2" {with-test}
+  "alcotest" {with-test}
   "astring"
-  "base-threads"
-  "base-unix"
-  "core"
-  "core_kernel"
+  "cmdliner"
   "ezxenstore"
-  "fd-send-recv"
-  "fmt"
   "forkexec"
   "mtime"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "qmp"
   "re"
-  "result"
   "rpclib"
-  "rresult"
-  "sexplib0"
+  "sexplib"
+  "stdext"
+  "base-threads"
+  "base-unix"
   "uuidm"
-  "xapi-backtrace"
+  "uutf"
   "xapi-idl"
+  "xapi-inventory"
   "xapi-rrd"
-  "xapi-stdext-date"
-  "xapi-stdext-pervasives"
-  "xapi-stdext-std"
-  "xapi-stdext-threads"
-  "xapi-stdext-unix"
   "xapi-xenopsd"
   "xenctrl"
   "xenstore"

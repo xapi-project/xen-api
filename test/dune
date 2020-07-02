@@ -1,20 +1,15 @@
-(test
+(executable
  (name test)
- (package xapi-xenopsd)
- (libraries
-  alcotest
-  fmt
-  result
-  rpclib.core
-  rpclib.json
-  xapi-idl
-  xapi-idl.xen.interface
-  xapi-idl.xen.interface.types
-  xapi-stdext-pervasives
-  xapi-xenopsd
-  xenstore_transport.unix
- )
+ (libraries alcotest xenopsd)
  (preprocess
   (pps ppx_deriving_rpc ppx_sexp_conv)
+ )
+)
+
+(alias
+ (name runtest)
+ (deps test.exe)
+ (action
+  (run %{deps} --show-errors)
  )
 )

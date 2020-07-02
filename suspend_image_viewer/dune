@@ -1,13 +1,5 @@
 (executable
  (name suspend_image_viewer)
  (flags :standard -warn-error +a-3)
- (libraries
-  cmdliner
-  forkexec
-  profiling
-  uuidm
-  xapi-idl
-  xapi-stdext-unix
-  xapi-xenopsd
- )
+ (libraries xapi-xenopsd cmdliner profiling)
 )

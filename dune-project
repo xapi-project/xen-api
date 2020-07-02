@@ -1,3 +1,2 @@
-(lang dune 2.0)
-(allow_approximate_merlin)
-(formatting (enabled_for ocaml))
+(lang dune 1.11)
+(using fmt 1.2 (enabled_for ocaml))

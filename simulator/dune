@@ -5,11 +5,7 @@
  (flags
   (:standard -warn-error +a-3)
  )
- (libraries
-   profiling
-   xapi-idl.xen.interface
-   xapi-xenopsd
- )
+ (libraries xapi-xenopsd profiling)
 )
 
 (rule
