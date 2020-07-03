@@ -18,3 +18,21 @@
   (pps ppx_deriving_rpc ppx_sexp_conv)
  )
 )
+
+(rule
+  (alias runtest)
+  (package xapi-xenopsd)
+  (deps
+    (:x ../lib/xenopsd.cmxs)
+  )
+  (action (run ./check-no-xenctrl.sh %{x}))
+)
+
+(rule
+  (alias runtest)
+  (package xapi-xenopsd-simulator)
+  (deps
+    (:x ../simulator/xenops_simulator_main.exe)
+  )
+  (action (run ./check-no-xenctrl.sh %{x}))
+)

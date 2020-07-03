@@ -45,6 +45,7 @@
   xapi-stdext-unix
   xapi-xenopsd
   xapi-xenopsd.c_stubs
+  xapi-xenopsd-xc.c_stubs
   xenctrl
   xenstore
   xenstore_transport.unix
