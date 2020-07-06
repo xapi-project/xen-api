@@ -43,7 +43,7 @@ type update_info = {
   ; name_label: string
   ; name_description: string
   ; version: string
-  ; key: string
+  ; key: string option
   ; installation_size: int64
   ; after_apply_guidance: API.after_apply_guidance list
   ; enforce_homogeneity: bool
@@ -309,7 +309,13 @@ let guidance_from_string = function
 let parse_update_info xml =
   match xml with
   | Xml.Element ("update", attr, children) ->
-      let key = try List.assoc "key" attr with _ -> "" in
+      let key =
+        Option.bind (List.assoc_opt "key" attr) (function
+          | "" ->
+              None
+          | s ->
+              Some (Filename.basename s))
+      in
       let uuid =
         try List.assoc "uuid" attr
         with _ ->
@@ -369,7 +375,7 @@ let parse_update_info xml =
       ; name_label
       ; name_description
       ; version
-      ; key= Filename.basename key
+      ; key
       ; installation_size
       ; after_apply_guidance= guidance
       ; enforce_homogeneity
@@ -459,7 +465,8 @@ let verify update_info update_path =
              (Api_errors.invalid_update, ["Invalid signature"])))
     [update_xml_path; repomd_xml_path] ;
   debug "Verify signature OK for pool update uuid: %s by key: %s"
-    update_info.uuid update_info.key
+    update_info.uuid
+    (Option.value ~default:"" update_info.key)
 
 let patch_uuid_of_update_uuid uuid =
   let arr = Uuid.int_array_of_uuid (Uuid.uuid_of_string uuid) in
@@ -484,7 +491,8 @@ let create_update_record ~__context ~update ~update_info ~vdi =
   Db.Pool_update.create ~__context ~ref:update ~uuid:update_info.uuid
     ~name_label:update_info.name_label
     ~name_description:update_info.name_description ~version:update_info.version
-    ~installation_size:update_info.installation_size ~key:update_info.key
+    ~installation_size:update_info.installation_size
+    ~key:(Option.value ~default:"" update_info.key)
     ~after_apply_guidance:update_info.after_apply_guidance ~vdi ~other_config:[]
     ~enforce_homogeneity:update_info.enforce_homogeneity
 
@@ -622,7 +630,11 @@ let resync_host ~__context ~host =
             debug "pool_update.resync_host: update %s exists - updating it"
               update_uuid ;
             Db.Pool_update.set_enforce_homogeneity ~__context ~self
-              ~value:update_info.enforce_homogeneity
+              ~value:update_info.enforce_homogeneity ;
+            (* CA-341988 *)
+            let db_key = Db.Pool_update.get_key ~__context ~self in
+            if db_key = "." then
+              Db.Pool_update.set_key ~__context ~self ~value:""
         | None ->
             let update = Ref.make () in
             debug
