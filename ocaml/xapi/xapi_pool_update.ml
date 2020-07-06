@@ -19,7 +19,6 @@ open Http
 open Forkhelpers
 open Xml
 open Helpers
-open Listext
 open Client
 open Stdext.Threadext
 open Unixext
@@ -524,11 +523,17 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name ;
+  let module HostSet = Set.Make (struct
+    type t = API.ref_host
+
+    let compare = compare
+  end) in
   let unapplied_hosts =
     Db.Pool_update.get_hosts ~__context ~self
-    |> List.set_difference (Db.Host.get_all ~__context)
+    |> HostSet.of_list
+    |> HostSet.diff (Db.Host.get_all ~__context |> HostSet.of_list)
   in
-  if List.length unapplied_hosts = 0 then (
+  if HostSet.is_empty unapplied_hosts then (
     debug "pool_update.pool_apply, %s has already been applied on all hosts."
       pool_update_name ;
     raise
@@ -536,26 +541,24 @@ let pool_apply ~__context ~self =
          (Api_errors.update_already_applied_in_pool, [Ref.string_of self]))
   ) else
     let failed_hosts =
-      unapplied_hosts
-      |> List.fold_left
-           (fun acc host ->
-             try
-               ignore
-                 (Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.Pool_update.apply rpc session_id self host)) ;
-               acc
-             with e ->
-               debug "Caught exception while pool_apply %s: %s"
-                 (Ref.string_of host)
-                 (ExnHelper.string_of_exn e) ;
-               host :: acc)
-           []
+      HostSet.fold
+        (fun host acc ->
+          try
+            ignore
+              (Helpers.call_api_functions ~__context (fun rpc session_id ->
+                   Client.Pool_update.apply rpc session_id self host)) ;
+            acc
+          with e ->
+            let host_str = Ref.string_of host in
+            debug "Caught exception while pool_apply %s: %s" host_str
+              (ExnHelper.string_of_exn e) ;
+            host_str :: acc)
+        unapplied_hosts []
     in
     if List.length failed_hosts > 0 then
       raise
         (Api_errors.Server_error
-           ( Api_errors.update_pool_apply_failed
-           , List.map Ref.string_of failed_hosts ))
+           (Api_errors.update_pool_apply_failed, failed_hosts))
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
