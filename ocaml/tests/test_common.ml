@@ -473,7 +473,7 @@ let make_pool_update ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
       ; name_label
       ; name_description
       ; version
-      ; key
+      ; key= (match key with "" -> None | s -> Some s)
       ; installation_size
       ; after_apply_guidance
       ; enforce_homogeneity

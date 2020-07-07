@@ -19,7 +19,6 @@ open Http
 open Forkhelpers
 open Xml
 open Helpers
-open Listext
 open Client
 open Stdext.Threadext
 open Unixext
@@ -44,7 +43,7 @@ type update_info = {
   ; name_label: string
   ; name_description: string
   ; version: string
-  ; key: string
+  ; key: string option
   ; installation_size: int64
   ; after_apply_guidance: API.after_apply_guidance list
   ; enforce_homogeneity: bool
@@ -310,7 +309,13 @@ let guidance_from_string = function
 let parse_update_info xml =
   match xml with
   | Xml.Element ("update", attr, children) ->
-      let key = try List.assoc "key" attr with _ -> "" in
+      let key =
+        Option.bind (List.assoc_opt "key" attr) (function
+          | "" ->
+              None
+          | s ->
+              Some (Filename.basename s))
+      in
       let uuid =
         try List.assoc "uuid" attr
         with _ ->
@@ -370,7 +375,7 @@ let parse_update_info xml =
       ; name_label
       ; name_description
       ; version
-      ; key= Filename.basename key
+      ; key
       ; installation_size
       ; after_apply_guidance= guidance
       ; enforce_homogeneity
@@ -460,7 +465,8 @@ let verify update_info update_path =
              (Api_errors.invalid_update, ["Invalid signature"])))
     [update_xml_path; repomd_xml_path] ;
   debug "Verify signature OK for pool update uuid: %s by key: %s"
-    update_info.uuid update_info.key
+    update_info.uuid
+    (Option.value ~default:"" update_info.key)
 
 let patch_uuid_of_update_uuid uuid =
   let arr = Uuid.int_array_of_uuid (Uuid.uuid_of_string uuid) in
@@ -485,7 +491,8 @@ let create_update_record ~__context ~update ~update_info ~vdi =
   Db.Pool_update.create ~__context ~ref:update ~uuid:update_info.uuid
     ~name_label:update_info.name_label
     ~name_description:update_info.name_description ~version:update_info.version
-    ~installation_size:update_info.installation_size ~key:update_info.key
+    ~installation_size:update_info.installation_size
+    ~key:(Option.value ~default:"" update_info.key)
     ~after_apply_guidance:update_info.after_apply_guidance ~vdi ~other_config:[]
     ~enforce_homogeneity:update_info.enforce_homogeneity
 
@@ -525,11 +532,17 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name ;
+  let module HostSet = Set.Make (struct
+    type t = API.ref_host
+
+    let compare = compare
+  end) in
   let unapplied_hosts =
     Db.Pool_update.get_hosts ~__context ~self
-    |> List.set_difference (Db.Host.get_all ~__context)
+    |> HostSet.of_list
+    |> HostSet.diff (Db.Host.get_all ~__context |> HostSet.of_list)
   in
-  if List.length unapplied_hosts = 0 then (
+  if HostSet.is_empty unapplied_hosts then (
     debug "pool_update.pool_apply, %s has already been applied on all hosts."
       pool_update_name ;
     raise
@@ -537,26 +550,24 @@ let pool_apply ~__context ~self =
          (Api_errors.update_already_applied_in_pool, [Ref.string_of self]))
   ) else
     let failed_hosts =
-      unapplied_hosts
-      |> List.fold_left
-           (fun acc host ->
-             try
-               ignore
-                 (Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.Pool_update.apply rpc session_id self host)) ;
-               acc
-             with e ->
-               debug "Caught exception while pool_apply %s: %s"
-                 (Ref.string_of host)
-                 (ExnHelper.string_of_exn e) ;
-               host :: acc)
-           []
+      HostSet.fold
+        (fun host acc ->
+          try
+            ignore
+              (Helpers.call_api_functions ~__context (fun rpc session_id ->
+                   Client.Pool_update.apply rpc session_id self host)) ;
+            acc
+          with e ->
+            let host_str = Ref.string_of host in
+            debug "Caught exception while pool_apply %s: %s" host_str
+              (ExnHelper.string_of_exn e) ;
+            host_str :: acc)
+        unapplied_hosts []
     in
     if List.length failed_hosts > 0 then
       raise
         (Api_errors.Server_error
-           ( Api_errors.update_pool_apply_failed
-           , List.map Ref.string_of failed_hosts ))
+           (Api_errors.update_pool_apply_failed, failed_hosts))
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -619,7 +630,11 @@ let resync_host ~__context ~host =
             debug "pool_update.resync_host: update %s exists - updating it"
               update_uuid ;
             Db.Pool_update.set_enforce_homogeneity ~__context ~self
-              ~value:update_info.enforce_homogeneity
+              ~value:update_info.enforce_homogeneity ;
+            (* CA-341988 *)
+            let db_key = Db.Pool_update.get_key ~__context ~self in
+            if db_key = "." then
+              Db.Pool_update.set_key ~__context ~self ~value:""
         | None ->
             let update = Ref.make () in
             debug
