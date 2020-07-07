@@ -12,12 +12,6 @@ depends: [
   "dune" {build}
   "xmlm"
 ]
-depexts: [
-  ["libxen-dev"] {os-distribution = "debian"}
-  ["libxen-dev"] {os-distribution = "ubuntu"}
-  ["xen-devel"] {os-distribution = "centos"}
-  ["xen-dom0-libs-devel" "xen-libs-devel"] {os = "xenserver"}
-]
 synopsis: "Further transitional libraries required by xapi"
 description: """
 These libraries are provided for backwards compatibility only.
