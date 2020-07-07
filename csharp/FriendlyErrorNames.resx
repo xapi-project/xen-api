@@ -162,9 +162,6 @@
   <data name="HOST_STILL_BOOTING" xml:space="preserve">
     <value>The server is still booting.</value>
   </data>
-  <data name="HOST_UNKNOWN_TO_MASTER" xml:space="preserve">
-    <value>The master says the server is not known to it. Perhaps the server was deleted from the master's database?</value>
-  </data>
   <data name="IMPORT_ERROR" xml:space="preserve">
     <value>This file could not be imported</value>
   </data>
