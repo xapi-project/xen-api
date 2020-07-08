@@ -243,6 +243,10 @@ let parse_update_info xml =
   match xml with
   | Xml.Element ("update", attr, children) ->
     let key = try List.assoc "key" attr with _ -> "" in
+    let key = match key with
+              | "" -> ""
+              | key -> Filename.basename key
+    in
     let uuid = try List.assoc "uuid" attr
       with _ -> raise (Api_errors.Server_error(Api_errors.invalid_update, ["missing <uuid> in update.xml"]))
     in
@@ -281,7 +285,7 @@ let parse_update_info xml =
       ; name_label
       ; name_description
       ; version
-      ; key = Filename.basename key
+      ; key
       ; installation_size
       ; after_apply_guidance = guidance
       ; enforce_homogeneity
@@ -521,7 +525,10 @@ let resync_host ~__context ~host =
                 EnforceHomogeneityWorkaround.set_enforce_homogeneity rpc session_id self update_info.enforce_homogeneity)
             with e ->
               error "Failed to set enforce_homogeneity: %s" (Printexc.to_string e)
-            end
+            end;
+            (* CA-341988 *)
+            let db_key = Db.Pool_update.get_key ~__context ~self in
+            if db_key = "." then Db.Pool_update.set_key ~__context ~self ~value:""
           | None ->
             let update = Ref.make () in
             debug "pool_update.resync_host: update %s not in database - creating it" update_uuid;
