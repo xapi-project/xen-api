@@ -36,4 +36,4 @@ let test_set =
   let t = Alcotest_lwt.test_case in
   [t "Add, remove, and load items" `Quick test]
 
-let () = Alcotest.run "suite" [("Vbd_store", test_set)]
+let () = Lwt_main.run @@ Alcotest_lwt.run "suite" [("Vbd_store", test_set)]
