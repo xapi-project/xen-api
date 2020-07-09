@@ -50,6 +50,32 @@ let test_download_restriction () =
   in
   List.iter test ["/myfile"; "/.."; "/%2e%2e"]
 
+let test_parse_update_info () =
+  let open Xapi_pool_update in
+  let no_key_xml =
+    Xml.parse_string
+    {|
+      <update enforce-homogeneity="false" installation-size="0" name-label="XS71ECU2001" uuid="7ec1a8c1-4e7a-46f4-a935-02ae4c2003dd" version="1.0">
+        <name-description>Public Availability: fixes to Dom0 kernel</name-description>
+        <rolled-up-by name-label="XS71ECU2012" uuid="85655e3a-fbc8-44b6-b233-15823632add6"/>
+      </update>
+    |}
+  in
+  let update_info = parse_update_info no_key_xml in
+  assert_equal update_info.key "";
+
+  let key_xml =
+    Xml.parse_string
+    {|
+      <update enforce-homogeneity="false" key="SOME_KEY" installation-size="0" name-label="XS71ECU2001" uuid="7ec1a8c1-4e7a-46f4-a935-02ae4c2003dd" version="1.0">
+        <name-description>Public Availability: fixes to Dom0 kernel</name-description>
+        <rolled-up-by name-label="XS71ECU2012" uuid="85655e3a-fbc8-44b6-b233-15823632add6"/>
+      </update>
+    |}
+  in
+  let update_info = parse_update_info key_xml in
+  assert_equal update_info.key "SOME_KEY"
+
 let test =
   "test_pool_update" >:::
   [
@@ -57,4 +83,5 @@ let test =
     "test_pool_update_refcount" >:: test_pool_update_refcount;
     "test_assert_space_available" >:: test_assert_space_available;
     "test_download_restriction" >:: test_download_restriction;
+    "test_parse_update_info" >:: test_parse_update_info;
   ]
