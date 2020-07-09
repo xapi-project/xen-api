@@ -155,7 +155,7 @@ functor
           | _ ->
               f ())
 
-    let tell_cleanup_old_pool_secret =
+    let tell_cleanup_old_pool_secret _ =
       iter_host (fun h ->
           let f () = h.staged_pool_secret <- None in
           match h.fistpoint with
@@ -166,7 +166,7 @@ functor
           | _ ->
               f ())
 
-    let cleanup_master () =
+    let cleanup_master _ =
       let f () =
         master.member.staged_pool_secret <- None ;
         master.psr_state.checkpoint <- None ;

@@ -3366,27 +3366,33 @@ functor
           value ;
         Local.Host.set_uefi_certificates ~__context ~host ~value
 
-      let notify_accept_new_pool_secret ~__context ~host ~new_ps =
+      let notify_accept_new_pool_secret ~__context ~host ~old_ps ~new_ps =
         (* we do not need to verify the old pool secret here, since it has
            already been verified (see xapi_http.assert_credentials_ok) *)
         info "Host.notify_accept_new_pool_secret: host='%s'"
           (host_uuid ~__context host) ;
-        let local_fn = Local.Host.notify_accept_new_pool_secret ~host ~new_ps in
+        let local_fn =
+          Local.Host.notify_accept_new_pool_secret ~host ~old_ps ~new_ps
+        in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.notify_accept_new_pool_secret rpc session_id host new_ps)
+            Client.Host.notify_accept_new_pool_secret rpc session_id host old_ps
+              new_ps)
 
-      let notify_send_new_pool_secret ~__context ~host ~new_ps =
+      let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
         info "Host.notify_send_new_pool_secret: host='%s'"
           (host_uuid ~__context host) ;
-        let local_fn = Local.Host.notify_send_new_pool_secret ~host ~new_ps in
+        let local_fn =
+          Local.Host.notify_send_new_pool_secret ~host ~old_ps ~new_ps
+        in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.notify_send_new_pool_secret rpc session_id host new_ps)
+            Client.Host.notify_send_new_pool_secret rpc session_id host old_ps
+              new_ps)
 
-      let cleanup_pool_secret ~__context ~host =
+      let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
         info "Host.cleanup_pool_secret: host='%s'" (host_uuid ~__context host) ;
-        let local_fn = Local.Host.cleanup_pool_secret ~host in
+        let local_fn = Local.Host.cleanup_pool_secret ~host ~old_ps ~new_ps in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.cleanup_pool_secret rpc session_id host)
+            Client.Host.cleanup_pool_secret rpc session_id host old_ps new_ps)
     end
 
     module Host_crashdump = struct

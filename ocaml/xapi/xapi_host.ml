@@ -2382,10 +2382,11 @@ let set_multipathing ~__context ~host ~value =
     ~value:(string_of_bool value) ;
   Xapi_host_helpers.Configuration.set_multipathing value
 
-let notify_accept_new_pool_secret ~__context ~host ~new_ps =
-  Xapi_psr.notify_new ~new_ps
+let notify_accept_new_pool_secret ~__context ~host ~old_ps ~new_ps =
+  Xapi_psr.notify_new ~__context ~old_ps ~new_ps
 
-let notify_send_new_pool_secret ~__context ~host ~new_ps =
-  Xapi_psr.notify_send ~new_ps
+let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
+  Xapi_psr.notify_send ~__context ~old_ps ~new_ps
 
-let cleanup_pool_secret ~__context ~host = Xapi_psr.cleanup ()
+let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
+  Xapi_psr.cleanup ~__context ~old_ps ~new_ps

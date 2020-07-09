@@ -1331,6 +1331,7 @@ let host_query_ha = call ~flags:[`Session]
     ~doc:"Notifies host that they must begin accepting requests containing the new pool secret"
     ~params:[
       Ref _host, "host", "The host";
+      SecretString, "old_ps", "Old pool secret";
       SecretString, "new_ps", "New pool secret"
     ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -1343,6 +1344,7 @@ let host_query_ha = call ~flags:[`Session]
     ~doc:"Notifies host that they must begin sending requests with the new pool secret"
     ~params:[
       Ref _host, "host", "The host";
+      SecretString, "old_ps", "Old pool secret";
       SecretString, "new_ps", "New pool secret"
     ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -1354,7 +1356,9 @@ let host_query_ha = call ~flags:[`Session]
     ~lifecycle:[Published, rel_next, ""]
     ~doc:"Cleanup old pool secret on recipient host"
     ~params:[
-      Ref _host, "host", "The host"
+      Ref _host, "host", "The host";
+      SecretString, "old_ps", "Old pool secret";
+      SecretString, "new_ps", "New pool secret"
     ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ~hide_from_docs:true

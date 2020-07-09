@@ -480,9 +480,22 @@ val set_multipathing :
   __context:Context.t -> host:API.ref_host -> value:bool -> unit
 
 val notify_accept_new_pool_secret :
-  __context:Context.t -> host:API.ref_host -> new_ps:SecretString.t -> unit
+     __context:Context.t
+  -> host:API.ref_host
+  -> old_ps:SecretString.t
+  -> new_ps:SecretString.t
+  -> unit
 
 val notify_send_new_pool_secret :
-  __context:Context.t -> host:API.ref_host -> new_ps:SecretString.t -> unit
+     __context:Context.t
+  -> host:API.ref_host
+  -> old_ps:SecretString.t
+  -> new_ps:SecretString.t
+  -> unit
 
-val cleanup_pool_secret : __context:Context.t -> host:API.ref_host -> unit
+val cleanup_pool_secret :
+     __context:Context.t
+  -> host:API.ref_host
+  -> old_ps:SecretString.t
+  -> new_ps:SecretString.t
+  -> unit
