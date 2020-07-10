@@ -1,0 +1,7 @@
+(library
+ (name polly)
+ ; (public_name polly)
+ (libraries unix)
+ (foreign_stubs
+  (language c)
+  (names polly_stubs)))
