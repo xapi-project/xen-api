@@ -3260,32 +3260,11 @@ module Backend = struct
 
     (** File-descriptor event monitor implementation for the epoll library *)
     module Monitor = struct
-      module Epoll = Core.Linux_ext.Epoll
-      module Flags = Core.Linux_ext.Epoll.Flags
+      let create () = Polly.create ()
 
-      let num_file_descrs =
-        match Core.Unix.RLimit.((get num_file_descriptors).cur) with
-        | Core.Unix.RLimit.Limit v ->
-            Int64.to_int v
-        | Core.Unix.RLimit.Infinity ->
-            raise (Xenopsd_error (Internal_error "Got infinity fds error"))
+      let add m fd = Polly.add m fd Polly.Events.inp
 
-      let () = debug "File descriptor limit is: %d" num_file_descrs
-
-      let create () =
-        (Core.Or_error.ok_exn Epoll.create) ~num_file_descrs ~max_ready_events:1
-
-      let add m fd = Epoll.set m fd Flags.in_
-
-      let remove m fd = Epoll.remove m fd
-
-      let wait m = Epoll.wait m ~timeout:`Never
-
-      let with_event m fn = function
-        | `Ok ->
-            Epoll.iter_ready m ~f:(fun fd flags -> fn fd (flags = Flags.in_))
-        | `Timeout ->
-            debug "Shouldn't receive epoll timeout event in qmp_event_thread"
+      let remove m fd = Polly.del m fd
     end
 
     let m = Monitor.create ()
@@ -3418,7 +3397,7 @@ module Backend = struct
         try add id with e -> error "Adding QMP socket for domain %d failed" id
       in
       ( try
-          debug "Starting QMP_Event thread" ;
+          debug "Starting QMP_Event thread using Polly" ;
           (* Add the existing qmp sockets first *)
           Sys.readdir var_run_xen_path
           |> Array.to_list
@@ -3428,14 +3407,15 @@ module Backend = struct
           error "Connecting to existing QMP sockets failed: %s (%s)"
             (Printexc.to_string e) __LOC__
       ) ;
+      let forever = -1 in
       while true do
         try
-          Monitor.wait m
-          |> Monitor.with_event m (fun fd is_flag_in ->
+          ignore
+          @@ Polly.wait m 1 forever (fun m fd events ->
                  Lookup.domid_of fd >>= fun domid ->
                  Lookup.channel_of domid >>= fun c ->
                  let qmp = Qmp_protocol.to_fd c in
-                 if is_flag_in then (
+                 if Polly.Events.(test events inp) then (
                    match Readln.read qmp with
                    | Readln.Ok msgs ->
                        List.iter (process domid) msgs

@@ -17,8 +17,6 @@ depends: [
   "astring"
   "base-threads"
   "base-unix"
-  "core"
-  "core_kernel"
   "ezxenstore"
   "fd-send-recv"
   "fmt"
