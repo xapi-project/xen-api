@@ -22,7 +22,6 @@ depends: [
   "xapi-stdext-std"
   "xapi-stdext-unix"
   "xenctrl"
-  "xenops"
   "xenstore"
   "mtime"
 ]
