@@ -5,8 +5,6 @@ module Unixext = Stdext.Unixext
 
 let checkpoint_path = "/var/lib/xcp/psr_cp"
 
-let checkpoint_tmp_path = "/var/lib/xcp/psr_cp.tmp"
-
 let old_pool_secret_backup_path = "/var/lib/xcp/ptoken.old"
 
 let new_pool_secret_backup_path = "/var/lib/xcp/ptoken.new"

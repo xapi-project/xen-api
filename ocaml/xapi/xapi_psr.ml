@@ -274,8 +274,7 @@ functor
           Client.Host.cleanup_pool_secret rpc session_id host)
 
     let cleanup_master =
-      cleanup_internal
-        ~additional_files_to_remove:[checkpoint_path; checkpoint_tmp_path]
+      cleanup_internal ~additional_files_to_remove:[checkpoint_path]
   end
 
 let notify_new ~new_ps =
