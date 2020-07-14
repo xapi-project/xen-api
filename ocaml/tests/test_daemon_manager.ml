@@ -145,3 +145,5 @@ let test =
   ; ("test_timeout_succeed", `Slow, test_timeout_succeed)
   ; ("test_timeout_fail", `Slow, test_timeout_fail)
   ]
+
+let () = Alcotest.run "Daemon Manager suite" [("Test_daemon_manager", test)]

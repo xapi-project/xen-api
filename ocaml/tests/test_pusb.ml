@@ -64,3 +64,7 @@ let test =
     , `Quick
     , test_scan_with_usb_add_and_remove )
   ]
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Pusb suite" [("Test_pusb", test)]

@@ -509,3 +509,7 @@ let test =
     , `Quick
     , test_require_operation_on_pci_device_modprobe_5 )
   ]
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Daemon Network SRIOV suite" [("Test_network_sriov", test)]

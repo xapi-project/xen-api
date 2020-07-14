@@ -16,6 +16,8 @@ let start_server handlers =
   Xapi.listen_unix_socket "/tmp/xapi-test/xapi-unit-test-socket"
 
 let harness_init () =
+  (* Alcotest hides the standard output of successful tests,
+     so we will probably not exceed the 4MB limit in Travis *)
   Debug.log_to_stdout () ;
   Printexc.record_backtrace true ;
   Inventory.inventory_filename :=

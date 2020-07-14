@@ -710,3 +710,8 @@ let test =
   ]
   @ test_get_nbd_info
   @ test_data_destroy
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Events and VDI CBT "
+    [("Test_vdi_cbt", test); ("Test_event", Test_event.test)]
