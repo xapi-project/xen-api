@@ -14,12 +14,10 @@ build: [
 depends: [
   "ocaml"
   "dune" {build}
-  "base-threads"
+  "threads"
   "xapi-client"
   "xapi-idl"
   "xapi-rrd"
-  "xapi-stdext-monadic"
-  "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-threads"
 ]
