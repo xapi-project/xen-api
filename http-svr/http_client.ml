@@ -35,14 +35,14 @@ exception Parse_error of string
 let http_rpc_send_query fd request =
   Xapi_stdext_unix.Unixext.really_write_string fd (Http.Request.to_wire_string request)
 
-(* Internal exception thrown when reading a newline-terminated HTTP header when the 
+(* Internal exception thrown when reading a newline-terminated HTTP header when the
    connection is closed *)
 exception Http_header_truncated of string
 
 (* Tediously read an HTTP header byte-by-byte. At some point we need to add buffering
    but we'll need to encapsulate our file descriptor into more of a channel-like object
    to make that work. *)
-let input_line_fd (fd: Unix.file_descr) = 
+let input_line_fd (fd: Unix.file_descr) =
   let buf = Buffer.create 20 in
   let finished = ref false in
   while not(!finished) do
@@ -71,7 +71,7 @@ let response_of_fd_exn_slow fd =
   let bits = if bits <> [] && List.hd bits = "FRAME" then List.tl bits else bits in
   match bits with
   | http_version :: code :: rest ->
-    let version = 
+    let version =
       match Astring.String.cut ~sep:"/" http_version with
       | Some (http, version) when Astring.String.is_suffix ~affix:"HTTP" http -> version
       | _ ->
@@ -85,7 +85,7 @@ let response_of_fd_exn_slow fd =
       let line = input_line_fd fd in
       (* NB input_line removes the final '\n'.
          				   RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
-      match line with       
+      match line with
       | "" | "\r" -> end_of_headers := true
       | x ->
         let k, v = match Astring.String.cuts ~sep:":" x with
@@ -122,9 +122,9 @@ let response_of_fd_exn fd =
              match Astring.String.cut ~sep:" " header with
              | Some (http_version, rest)->
                begin match Astring.String.cut ~sep:" " rest with
-                 | Some (code, message) -> 
+                 | Some (code, message) ->
                    begin match Astring.String.cut ~sep:"/" http_version with
-                     | Some ("HTTP", version) -> 
+                     | Some ("HTTP", version) ->
                        true, { res with version = version; code = code; message = message }
                      | _ ->
                        error "Failed to parse HTTP response status line [%s]" header;
@@ -167,8 +167,7 @@ let http_rpc_recv_response use_fastpath error_msg fd =
     begin match response.Http.Response.code with
       | ("401"|"403"|"500") as http_code -> raise (Http_error (http_code,error_msg))
       | "200" ->
-        let open Xapi_stdext_monadic in
-        Opt.iter (fun x -> last_content_length := x) response.Http.Response.content_length;
+        Option.iter (fun x -> last_content_length := x) response.Http.Response.content_length;
         response
       | code -> raise (Http_request_rejected (Printf.sprintf "%s: %s" code error_msg))
     end

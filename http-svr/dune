@@ -13,7 +13,6 @@
               threads
               xapi-idl.updates
               xapi-stdext-date
-              xapi-stdext-monadic
               xapi-stdext-pervasives
               xapi-stdext-threads
               xapi-stdext-unix
@@ -25,7 +24,7 @@
   (modules http_test)
   (libraries  http-svr
               oUnit
-              xapi-stdext-monadic)
+              )
 )
 
 (executable

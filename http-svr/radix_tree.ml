@@ -76,10 +76,9 @@ let better acc = function | None -> acc | Some x -> Some x
 let longest_prefix str t = fold_over_path better str None t
 
 let fold f acc t =
-  let open Xapi_stdext_monadic in
   let rec inner p acc = function
     | Node (p', v, ns) ->
       let pp = p ^ p' in
-      let acc = Opt.default acc (Opt.map (fun v -> f pp v acc) v) in
+      let acc = Option.fold ~none:acc ~some:(fun v -> f pp v acc) v in
       List.fold_left (fun acc n -> inner pp acc n) acc ns in
   inner "" acc t

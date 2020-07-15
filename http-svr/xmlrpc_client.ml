@@ -12,9 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_monadic
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 open Safe_resources
 
 module D = Debug.Make(struct let name = "xmlrpc_client" end)
@@ -33,13 +34,13 @@ end
 let user_agent = "xen-api-libs/1.0"
 
 let connect ?session_id ?task_id ?subtask_of path =
-  let arg str x = Opt.default [] (Opt.map (fun x -> [ str, x ]) x) in
+  let arg str = Option.fold ~none:[] ~some:(fun x -> [ str, x ]) in
   let cookie = arg "session_id" session_id @ (arg "task_id" task_id) @ (arg "subtask_of" subtask_of) in
   Http.Request.make ~user_agent ~version:"1.0" ~keep_alive:true ~cookie ?subtask_of
     Http.Connect path
 
 let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth ?subtask_of ?query ?body path =
-  let headers = Opt.map (fun x -> [ Http.Hdr.task_id, x ]) task_id in
+  let headers = Option.map (fun x -> [ Http.Hdr.task_id, x ]) task_id in
   Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers ?length ?auth ?subtask_of ?query ?body
     Http.Post path
 
@@ -51,7 +52,7 @@ let write_to_log x = StunnelDebug.debug "%s" (Astring.String.trim x)
 
 (** Return true if this fd is connected to an HTTP server by sending an XMLRPC request
     for an unknown method and checking we get a matching MESSAGE_METHOD_UNKNOWN.
-    This is used to prevent us accidentally trying to reuse a connection which has been 
+    This is used to prevent us accidentally trying to reuse a connection which has been
     closed or left in some other inconsistent state. *)
 let check_reusable_inner (x: Unixfd.t) =
   let msg_name = "system.isAlive" in
@@ -222,8 +223,8 @@ module SSL = struct
   }
   let to_string (x: t) =
     Printf.sprintf "{ use_fork_exec_helper = %b; use_stunnel_cache = %b; verify_cert = %s; task_id = %s }"
-      x.use_fork_exec_helper x.use_stunnel_cache (Opt.default "None" (Opt.map (fun x -> string_of_bool x) x.verify_cert))
-      (Opt.default "None" (Opt.map (fun x -> "Some " ^ x) x.task_id))
+      x.use_fork_exec_helper x.use_stunnel_cache (Option.fold ~none:"None" ~some:(fun x -> string_of_bool x) x.verify_cert)
+      (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ x) x.task_id)
 end
 
 type transport =
@@ -241,14 +242,13 @@ let transport_of_url (scheme, _) =
   match scheme with
   | File { path = path } -> Unix path
   | Http ({ ssl = false; _ } as h) ->
-    let port = Opt.default 80 h.port in
+    let port = Option.value ~default:80 h.port in
     TCP(h.host, port)
   | Http ({ ssl = true; _ } as h) ->
-    let port = Opt.default 443 h.port in
+    let port = Option.value ~default:443 h.port in
     SSL(SSL.make (), h.host, port)
 
 let with_transport transport f =
-  let open Xapi_stdext_unix in
   match transport with
   | Unix path ->
     let fd = Unixext.open_connection_unix_fd path in
@@ -280,7 +280,7 @@ let with_transport transport f =
 
     (* Call the {,un}set_stunnelpid_callback hooks around the remote call *)
     let with_recorded_stunnelpid task_opt s_pid f =
-      debug "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Opt.default "None" task_opt) s_pid;
+      debug "with_recorded_stunnelpid task_opt=%s s_pid=%d" (Option.value ~default:"None" task_opt) s_pid;
       begin
         match !Internal.set_stunnelpid_callback with
         | Some f -> f task_id s_pid

@@ -14,20 +14,19 @@
 
 open OUnit2
 open Http
-open Xapi_stdext_monadic
 
 let test_accept_simple _ =
   let t = Accept.t_of_string "application/json" in
-  assert_equal ~msg:"ty" ~printer:(Opt.default "None") t.Accept.ty (Some "application");
-  assert_equal ~msg:"subty" ~printer:(Opt.default "None") t.Accept.subty (Some "json");
+  assert_equal ~msg:"ty" ~printer:(Option.value ~default:"None") t.Accept.ty (Some "application");
+  assert_equal ~msg:"subty" ~printer:(Option.value ~default:"None") t.Accept.subty (Some "json");
   assert (Accept.matches ("application", "json") t)
 
 let test_accept_complex _ =
   let ts = Accept.ts_of_string "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" in
   let m = Accept.preferred_match ("text", "html") ts in
-  assert((Opt.unbox m).Accept.ty = Some "text");
+  assert((Option.get m).Accept.ty = Some "text");
   let m = Accept.preferred_match ("foo", "bar") ts in
-  assert((Opt.unbox m).Accept.ty = None)
+  assert((Option.get m).Accept.ty = None)
 
 let test_strings = [
   "/import_vdi";
@@ -125,7 +124,7 @@ let test_url _ =
   begin match of_string "https://xapi.xen.org/services/SM?foo=bar" with
     | Http t, { uri = "/services/SM"; query_params = [ "foo", "bar" ] } ->
       assert (t.ssl = true);
-      assert (t.host = "xapi.xen.org");			
+      assert (t.host = "xapi.xen.org");
     | _ -> assert false
   end;
   begin
@@ -135,7 +134,7 @@ let test_url _ =
     assert (s = "https://xapi.xen.org/services/SM/data?foo=bar")
   end
 let _ =
-  let suite = "HTTP test" >::: 
+  let suite = "HTTP test" >:::
               [
                 "accept_simple" >:: test_accept_simple;
                 "accept_complex" >:: test_accept_complex;
