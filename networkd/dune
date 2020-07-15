@@ -32,7 +32,6 @@
   rpclib
   systemd
   threads
-  xapi-stdext-monadic
   xapi-stdext-pervasives
   xapi-stdext-threads
   xapi-stdext-unix

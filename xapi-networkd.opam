@@ -20,7 +20,6 @@ depends: [
   "systemd"
   "xapi-idl"
   "xapi-inventory"
-  "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xapi-stdext-unix"

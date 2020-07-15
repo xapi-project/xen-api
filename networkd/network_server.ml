@@ -14,7 +14,6 @@
 
 open Network_utils
 open Network_interface
-open Xapi_stdext_monadic
 
 module S = Network_interface.Interface_API (Idl.Exn.GenServer ())
 
@@ -226,8 +225,8 @@ module Sriov = struct
   let make_vf_config dbg pci_address (vf_info : sriov_pci_t) =
     Debug.with_thread_associated dbg
       (fun () ->
-        let vlan = Opt.map Int64.to_int vf_info.vlan
-        and rate = Opt.map Int64.to_int vf_info.rate
+        let vlan = Option.map Int64.to_int vf_info.vlan
+        and rate = Option.map Int64.to_int vf_info.rate
         and pcibuspath = Xcp_pci.string_of_address pci_address in
         debug "Config VF with pci address: %s" pcibuspath ;
         match make_vf_conf_internal pcibuspath vf_info.mac vlan rate with
@@ -298,13 +297,15 @@ module Interface = struct
               Ip.flush_ip_addr name
             )
         | DHCP4 ->
-            let open Xapi_stdext_monadic in
             let gateway =
-              Opt.default []
-                (Opt.map (fun n -> [`gateway n]) !config.gateway_interface)
+              Option.fold ~none:[]
+                ~some:(fun n -> [`gateway n])
+                !config.gateway_interface
             in
             let dns =
-              Opt.default [] (Opt.map (fun n -> [`dns n]) !config.dns_interface)
+              Option.fold ~none:[]
+                ~some:(fun n -> [`dns n])
+                !config.dns_interface
             in
             let options = gateway @ dns in
             Dhclient.ensure_running name options
@@ -886,9 +887,7 @@ module Bridge = struct
                 )
             in
             let old_igmp_snooping = Ovs.get_mcast_snooping_enable ~name in
-            Xapi_stdext_monadic.Opt.iter
-              (destroy_existing_vlan_ovs_bridge dbg name)
-              vlan ;
+            Option.iter (destroy_existing_vlan_ovs_bridge dbg name) vlan ;
             ignore
               (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
                  ?igmp_snooping vlan vlan_bug_workaround name) ;
@@ -898,7 +897,7 @@ module Bridge = struct
             ignore (Brctl.create_bridge name) ;
             Brctl.set_forwarding_delay name 0 ;
             Sysfs.set_multicast_snooping name false ;
-            Xapi_stdext_monadic.Opt.iter (Ip.set_mac name) mac ;
+            Option.iter (Ip.set_mac name) mac ;
             match vlan with
             | None ->
                 ()
