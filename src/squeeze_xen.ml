@@ -23,7 +23,6 @@ open Xcp_service
 
 open Squeezed_xenstore
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_monadic
 
 module M = Debug.Make (struct let name = "memory" end)
 
@@ -295,7 +294,8 @@ module Domain = struct
                         ()
                     | Some per_domain ->
                         let key = "/" ^ String.concat "/" rest in
-                        debug "watch %s <- %s" key (Opt.default "None" value) ;
+                        debug "watch %s <- %s" key
+                          (Option.value ~default:"None" value) ;
                         Hashtbl.replace per_domain.keys key value)
             | _ ->
                 debug "Ignoring unexpected watch: %s" path
@@ -331,12 +331,15 @@ module Domain = struct
 
   let get_domain_type cnx domid =
     Mutex.execute m (fun () ->
-        Opt.default `pv
-          (Opt.map (fun d -> d.domain_type) (get_per_domain cnx domid)))
+        Option.fold ~none:`pv
+          ~some:(fun d -> d.domain_type)
+          (get_per_domain cnx domid))
 
   let get_maxmem cnx domid =
     Mutex.execute m (fun () ->
-        Opt.default 0L (Opt.map (fun d -> d.maxmem) (get_per_domain cnx domid)))
+        Option.fold ~none:0L
+          ~some:(fun d -> d.maxmem)
+          (get_per_domain cnx domid))
 
   let set_maxmem_noexn xc domid mem =
     Mutex.execute m (fun () ->

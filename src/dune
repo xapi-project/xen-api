@@ -6,9 +6,7 @@
   (libraries
     xapi-stdext-threads
     xapi-stdext-pervasives
-    xapi-stdext-monadic
     xapi-stdext-unix
-    xapi-stdext-std
     astring
     squeeze
     xenctrl
