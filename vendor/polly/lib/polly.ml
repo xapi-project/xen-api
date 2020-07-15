@@ -96,19 +96,21 @@ module Events = struct
   let test x y = x land y <> empty
 end
 
-external caml_polly_add : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+type t = Unix.file_descr (* epoll fd *)
+
+external caml_polly_add : t -> Unix.file_descr -> Events.t -> unit
   = "caml_polly_add"
 
-external caml_polly_del : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+external caml_polly_del : t -> Unix.file_descr -> Events.t -> unit
   = "caml_polly_del"
 
-external caml_polly_mod : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+external caml_polly_mod : t -> Unix.file_descr -> Events.t -> unit
   = "caml_polly_mod"
 
-external caml_polly_create1 : unit -> Unix.file_descr = "caml_polly_create1"
+external caml_polly_create1 : unit -> t = "caml_polly_create1"
 
 external caml_polly_wait :
-     Unix.file_descr (* epoll fd *)
+     t (* epoll fd *)
   -> int (* max number of fds handled *)
   -> int (* timeout in ms *)
   -> (Unix.file_descr -> Unix.file_descr -> Events.t -> unit)

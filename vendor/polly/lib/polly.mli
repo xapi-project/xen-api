@@ -4,7 +4,9 @@
   interested in.
  *)
 
-val create : unit -> Unix.file_descr
+type t
+
+val create : unit -> t
 (** [create ()] returns an epoll(2) file descriptor which is passed
  * later to [wait], [add], [upd], and [del]. It must be passed to
  * [Unix.close] when no longer needed.
@@ -74,17 +76,17 @@ module Events : sig
   (** [to_string t] return a string representation of [t] for debugging *)
 end
 
-val add : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+val add : t -> Unix.file_descr -> Events.t -> unit
 (** [add epoll fd events] registers [fd] with [epoll] to monitor for
  * [events]
  *)
 
-val upd : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+val upd : t -> Unix.file_descr -> Events.t -> unit
 (** [upd epoll fd events] updates the events set of [fd] where [fd] has
  * been previously been registered. [upd] is called [mod] in the Linux
  * documentation but [mod] is already an infix operator in OCaml. *)
 
-val del : Unix.file_descr -> Unix.file_descr -> unit
+val del : t -> Unix.file_descr -> unit
 (** [del epoll fd] unregister [fd] fro [epoll] *)
 
 (** [wait epoll max timeout f] waits for events on the fds registered
@@ -105,9 +107,9 @@ val del : Unix.file_descr -> Unix.file_descr -> unit
    * call.
    *)
 val wait :
-     Unix.file_descr (** epoll *)
+     t (** epoll *)
   -> int (** max fds to handle *)
   -> int (** timeout in milliseconds: -1 = wait forever *)
-  -> (Unix.file_descr -> Unix.file_descr -> Events.t -> unit)
+  -> (t -> Unix.file_descr -> Events.t -> unit)
   -> int
 (** number of fds ready, 0 = timeout *)
