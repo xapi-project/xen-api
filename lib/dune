@@ -12,6 +12,5 @@
     xapi-stdext-unix
     xapi-stdext-std
     xapi-stdext-threads
-    xapi-stdext-monadic
   )
 )

@@ -13,7 +13,6 @@ depends: [
   "xapi-stdext-unix"
   "xapi-stdext-std"
   "xapi-stdext-threads"
-  "xapi-stdext-monadic"
   "xapi-forkexecd"
   "ppx_deriving_rpc"
   "rpclib"
