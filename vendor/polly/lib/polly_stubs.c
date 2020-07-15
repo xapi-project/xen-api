@@ -1,5 +1,6 @@
 
 #include <sys/epoll.h>
+#include <alloca.h>
 #include <errno.h>
 #include <sys/resource.h>
 #include <unistd.h>
@@ -87,11 +88,14 @@ caml_polly_wait(value val_epfd, value val_max, value val_timeout, value val_f)
 	CAMLparam4(val_epfd, val_max, val_timeout, val_f);
 	CAMLlocal1(ignore);
 
-	struct epoll_event events[Int_val(val_max)];
+	struct epoll_event *events;
 	int ready, i;
 
 	if (Int_val(val_max) <= 0)
-		uerror("epoll_wait", Nothing);
+		uerror(LOCATION, Nothing);
+	events =
+	    (struct epoll_event *)alloca(Int_val(val_max) *
+					 sizeof(struct epoll_event));
 
 	caml_enter_blocking_section();
 	ready = epoll_wait(Int_val(val_epfd), events, Int_val(val_max),
