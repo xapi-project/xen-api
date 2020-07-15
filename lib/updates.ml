@@ -1,7 +1,6 @@
 (******************************************************************************)
 (* Object update tracking                                                     *)
 
-open Xapi_stdext_monadic
 open Xapi_stdext_pervasives.Pervasiveext
 
 module type INTERFACE = sig
@@ -146,7 +145,7 @@ functor
       (int * Interface.Dynamic.id list) list * Interface.Dynamic.id list * id
 
     let get dbg ?(with_cancel = fun _ f -> f ()) from timeout t =
-      let from = Opt.default U.initial from in
+      let from = Option.value ~default:U.initial from in
       let cancel = ref false in
       let cancel_fn () =
         Mutex.execute t.m (fun () ->
@@ -154,7 +153,7 @@ functor
             Condition.broadcast t.c)
       in
       let id =
-        Opt.map
+        Option.map
           (fun timeout ->
             Scheduler.one_shot t.s (Scheduler.Delta timeout) dbg cancel_fn)
           timeout
@@ -172,7 +171,7 @@ functor
                       result
                   in
                   wait ()))
-            (fun () -> Opt.iter (Scheduler.cancel t.s) id))
+            (fun () -> Option.iter (Scheduler.cancel t.s) id))
 
     let last_id _dbg t = Mutex.execute t.m (fun () -> U.last_id t.u)
 

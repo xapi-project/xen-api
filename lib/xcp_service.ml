@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_monadic
 module StringSet = Set.Make (String)
 
 (* Server configuration. We have built-in (hopefully) sensible defaults,
@@ -628,7 +627,7 @@ let daemonize ?start_fn () =
       Sys.set_signal Sys.sighup Sys.Signal_ignore ;
       match Unix.fork () with
       | 0 ->
-          Opt.iter (fun fn -> fn ()) start_fn ;
+          Option.iter (fun fn -> fn ()) start_fn ;
           Unix.chdir "/" ;
           mkdir_rec (Filename.dirname !pidfile) 0o755 ;
           pidfile_write !pidfile ;
@@ -647,4 +646,4 @@ let maybe_daemonize ?start_fn () =
   if !daemon then
     daemonize ?start_fn ()
   else
-    Opt.iter (fun fn -> fn ()) start_fn
+    Option.iter (fun fn -> fn ()) start_fn
