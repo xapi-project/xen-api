@@ -335,11 +335,13 @@ let m = Mutex.create ()
 
 let start ~__context =
   (* checked preconditions:
+     * the feature is enabled (to prevent a PSR when not all hosts have upgraded to this version)
      * we are the master
      * HA disabled
      * RPU not running
      * all hosts in pool 'alive' *)
   let f () =
+    Pool_features.assert_enabled ~__context ~f:Features.Pool_secret_rotation ;
     if
       not
         (Helpers.is_pool_master ~__context
