@@ -2389,3 +2389,42 @@ let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
 
 let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
   Xapi_psr.cleanup ~__context ~old_ps ~new_ps
+
+let set_sched_gran ~__context ~self ~value =
+  if Helpers.get_localhost ~__context <> self then
+    failwith "Forwarded to the wrong host" ;
+  if not !Xapi_globs.allow_host_sched_gran_modification then
+    raise
+      Api_errors.(
+        Server_error (operation_not_allowed, ["Disabled by xapi.conf"])) ;
+  let arg =
+    Printf.sprintf "sched-gran=%s" (Record_util.host_sched_gran_to_string value)
+  in
+  let args = ["--set-xen"; arg] in
+  try
+    let _ = Helpers.call_script !Xapi_globs.xen_cmdline_script args in
+    ()
+  with e ->
+    error "Failed to update sched-gran: %s" (Printexc.to_string e) ;
+    raise
+      Api_errors.(
+        Server_error (internal_error, ["Failed to update sched-gran"]))
+
+let get_sched_gran ~__context ~self =
+  if Helpers.get_localhost ~__context <> self then
+    failwith "Forwarded to the wrong host" ;
+  let args = ["--get-xen"; "sched-gran"] in
+  try
+    let ret =
+      String.trim (Helpers.call_script !Xapi_globs.xen_cmdline_script args)
+    in
+    match ret with
+    | "" ->
+        `cpu (* If no entry then default value: cpu *)
+    | _ ->
+        let value = List.nth (String.split_on_char '=' ret) 1 in
+        Record_util.host_sched_gran_of_string value
+  with e ->
+    error "Failed to get sched-gran: %s" (Printexc.to_string e) ;
+    raise
+      Api_errors.(Server_error (internal_error, ["Failed to get sched-gran"]))

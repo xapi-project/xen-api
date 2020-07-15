@@ -1364,6 +1364,34 @@ let host_query_ha = call ~flags:[`Session]
     ~hide_from_docs:true
     ()
 
+  let host_sched_gran = Enum("host_sched_gran", [
+    "core", "core scheduling";
+    "cpu", "CPU scheduling";
+    "socket", "socket scheduling";
+  ])
+
+  let set_sched_gran = call
+    ~name:"set_sched_gran"
+    ~lifecycle:[Prototyped, rel_next, ""]
+    ~doc:"Sets xen's sched-gran on a host. See: https://xenbits.xen.org/docs/unstable/misc/xen-command-line.html#sched-gran-x86"
+    ~params:[
+      Ref _host, "self", "The host";
+      host_sched_gran, "value", "The sched-gran to apply to a host"
+    ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ()
+
+  let get_sched_gran = call
+    ~name:"get_sched_gran"
+    ~lifecycle:[Prototyped, rel_next, ""]
+    ~doc:"Gets xen's sched-gran on a host"
+    ~params:[
+      Ref _host, "self", "The host";
+    ]
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY
+    ~result:(host_sched_gran, "The host's sched-gran")
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1485,6 +1513,8 @@ let host_query_ha = call ~flags:[`Session]
         notify_accept_new_pool_secret;
         notify_send_new_pool_secret;
         cleanup_pool_secret;
+        set_sched_gran;
+        get_sched_gran;
       ]
       ~contents:
         ([ uid _host;
