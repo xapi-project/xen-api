@@ -1,65 +1,65 @@
 module Events = struct
   type t = int
 
-  external epoll_IN : unit -> t = "caml_epoll_EPOLLIN"
+  external polly_IN : unit -> t = "caml_polly_EPOLLIN"
 
-  external epoll_PRI : unit -> t = "caml_epoll_EPOLLPRI"
+  external polly_PRI : unit -> t = "caml_polly_EPOLLPRI"
 
-  external epoll_OUT : unit -> t = "caml_epoll_EPOLLOUT"
+  external polly_OUT : unit -> t = "caml_polly_EPOLLOUT"
 
-  external epoll_RDNORM : unit -> t = "caml_epoll_EPOLLRDNORM"
+  external polly_RDNORM : unit -> t = "caml_polly_EPOLLRDNORM"
 
-  external epoll_RDBAND : unit -> t = "caml_epoll_EPOLLRDBAND"
+  external polly_RDBAND : unit -> t = "caml_polly_EPOLLRDBAND"
 
-  external epoll_WRNORM : unit -> t = "caml_epoll_EPOLLWRNORM"
+  external polly_WRNORM : unit -> t = "caml_polly_EPOLLWRNORM"
 
-  external epoll_WRBAND : unit -> t = "caml_epoll_EPOLLWRBAND"
+  external polly_WRBAND : unit -> t = "caml_polly_EPOLLWRBAND"
 
-  external epoll_MSG : unit -> t = "caml_epoll_EPOLLMSG"
+  external polly_MSG : unit -> t = "caml_polly_EPOLLMSG"
 
-  external epoll_ERR : unit -> t = "caml_epoll_EPOLLERR"
+  external polly_ERR : unit -> t = "caml_polly_EPOLLERR"
 
-  external epoll_HUP : unit -> t = "caml_epoll_EPOLLHUP"
+  external polly_HUP : unit -> t = "caml_polly_EPOLLHUP"
 
-  external epoll_RDHUP : unit -> t = "caml_epoll_EPOLLRDHUP"
+  external polly_RDHUP : unit -> t = "caml_polly_EPOLLRDHUP"
 
-  external epoll_WAKEUP : unit -> t = "caml_epoll_EPOLLWAKEUP"
+  external polly_WAKEUP : unit -> t = "caml_polly_EPOLLWAKEUP"
 
-  external epoll_ONESHOT : unit -> t = "caml_epoll_EPOLLONESHOT"
+  external polly_ONESHOT : unit -> t = "caml_polly_EPOLLONESHOT"
 
-  external epoll_ET : unit -> t = "caml_epoll_EPOLLET"
+  external polly_ET : unit -> t = "caml_polly_EPOLLET"
 
-  (* external epoll_EXCLUSIVE : unit -> t = "caml_epoll_EPOLLEXCLUSIVE" *)
+  (* external polly_EXCLUSIVE : unit -> t = "caml_polly_EPOLLEXCLUSIVE" *)
 
-  let inp = epoll_IN ()
+  let inp = polly_IN ()
 
-  let pri = epoll_PRI ()
+  let pri = polly_PRI ()
 
-  let out = epoll_OUT ()
+  let out = polly_OUT ()
 
-  let rdnorm = epoll_RDNORM ()
+  let rdnorm = polly_RDNORM ()
 
-  let rdband = epoll_RDBAND ()
+  let rdband = polly_RDBAND ()
 
-  let wrnorm = epoll_WRNORM ()
+  let wrnorm = polly_WRNORM ()
 
-  let wrband = epoll_WRBAND ()
+  let wrband = polly_WRBAND ()
 
-  let msg = epoll_MSG ()
+  let msg = polly_MSG ()
 
-  let err = epoll_ERR ()
+  let err = polly_ERR ()
 
-  let hup = epoll_HUP ()
+  let hup = polly_HUP ()
 
-  let rdhup = epoll_RDHUP ()
+  let rdhup = polly_RDHUP ()
 
-  let wakeup = epoll_WAKEUP ()
+  let wakeup = polly_WAKEUP ()
 
-  let oneshot = epoll_ONESHOT ()
+  let oneshot = polly_ONESHOT ()
 
-  let et = epoll_ET ()
+  let et = polly_ET ()
 
-  (* let exclusive = epoll_EXCLUSIVE () *)
+  (* let exclusive = polly_EXCLUSIVE () *)
 
   let empty = 0
 
@@ -96,30 +96,30 @@ module Events = struct
   let test x y = x land y <> empty
 end
 
-external caml_epoll_add : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
-  = "caml_epoll_add"
+external caml_polly_add : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+  = "caml_polly_add"
 
-external caml_epoll_del : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
-  = "caml_epoll_del"
+external caml_polly_del : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+  = "caml_polly_del"
 
-external caml_epoll_mod : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
-  = "caml_epoll_mod"
+external caml_polly_mod : Unix.file_descr -> Unix.file_descr -> Events.t -> unit
+  = "caml_polly_mod"
 
-external caml_epoll_create1 : unit -> Unix.file_descr = "caml_epoll_create1"
+external caml_polly_create1 : unit -> Unix.file_descr = "caml_polly_create1"
 
-external caml_epoll_wait :
+external caml_polly_wait :
      Unix.file_descr (* epoll fd *)
   -> int (* max number of fds handled *)
   -> int (* timeout in ms *)
   -> (Unix.file_descr -> Unix.file_descr -> Events.t -> unit)
-  -> int (* actual number of ready fds; 0 = timeout *) = "caml_epoll_wait"
+  -> int (* actual number of ready fds; 0 = timeout *) = "caml_polly_wait"
 
-let create = caml_epoll_create1
+let create = caml_polly_create1
 
-let add = caml_epoll_add
+let add = caml_polly_add
 
-let del t fd = caml_epoll_del t fd Events.empty
+let del t fd = caml_polly_del t fd Events.empty
 
-let upd = caml_epoll_mod
+let upd = caml_polly_mod
 
-let wait = caml_epoll_wait
+let wait = caml_polly_wait

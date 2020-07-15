@@ -18,26 +18,26 @@
 #define CONSTANT(name,i) \
   CAMLprim value name(value unit) { return Val_int(i); }
 
-CONSTANT(caml_epoll_EPOLLIN, EPOLLIN);
-CONSTANT(caml_epoll_EPOLLPRI, EPOLLPRI);
-CONSTANT(caml_epoll_EPOLLOUT, EPOLLOUT);
-CONSTANT(caml_epoll_EPOLLRDNORM, EPOLLRDNORM);
-CONSTANT(caml_epoll_EPOLLRDBAND, EPOLLRDBAND);
-CONSTANT(caml_epoll_EPOLLWRNORM, EPOLLWRNORM);
-CONSTANT(caml_epoll_EPOLLWRBAND, EPOLLWRBAND);
-CONSTANT(caml_epoll_EPOLLMSG, EPOLLMSG);
-CONSTANT(caml_epoll_EPOLLERR, EPOLLERR);
-CONSTANT(caml_epoll_EPOLLHUP, EPOLLHUP);
-CONSTANT(caml_epoll_EPOLLRDHUP, EPOLLRDHUP);
-CONSTANT(caml_epoll_EPOLLWAKEUP, EPOLLWAKEUP);
-CONSTANT(caml_epoll_EPOLLONESHOT, EPOLLONESHOT);
-CONSTANT(caml_epoll_EPOLLET, EPOLLET);
+CONSTANT(caml_polly_EPOLLIN, EPOLLIN);
+CONSTANT(caml_polly_EPOLLPRI, EPOLLPRI);
+CONSTANT(caml_polly_EPOLLOUT, EPOLLOUT);
+CONSTANT(caml_polly_EPOLLRDNORM, EPOLLRDNORM);
+CONSTANT(caml_polly_EPOLLRDBAND, EPOLLRDBAND);
+CONSTANT(caml_polly_EPOLLWRNORM, EPOLLWRNORM);
+CONSTANT(caml_polly_EPOLLWRBAND, EPOLLWRBAND);
+CONSTANT(caml_polly_EPOLLMSG, EPOLLMSG);
+CONSTANT(caml_polly_EPOLLERR, EPOLLERR);
+CONSTANT(caml_polly_EPOLLHUP, EPOLLHUP);
+CONSTANT(caml_polly_EPOLLRDHUP, EPOLLRDHUP);
+CONSTANT(caml_polly_EPOLLWAKEUP, EPOLLWAKEUP);
+CONSTANT(caml_polly_EPOLLONESHOT, EPOLLONESHOT);
+CONSTANT(caml_polly_EPOLLET, EPOLLET);
 
 #if 0
-CONSTANT(caml_epoll_EPOLLEXCLUSIVE, EPOLLEXCLUSIVE);
+CONSTANT(caml_polly_EPOLLEXCLUSIVE, EPOLLEXCLUSIVE);
 #endif
 
-CAMLprim value caml_epoll_create1(value val_unit)
+CAMLprim value caml_polly_create1(value val_unit)
 {
 	CAMLparam1(val_unit);
 	CAMLlocal1(val_res);
@@ -52,7 +52,7 @@ CAMLprim value caml_epoll_create1(value val_unit)
 }
 
 static value
-caml_epoll_ctl(value val_epfd, value val_fd, value val_events, int op)
+caml_polly_ctl(value val_epfd, value val_fd, value val_events, int op)
 {
 	CAMLparam3(val_epfd, val_fd, val_events);
 	struct epoll_event event = {
@@ -66,23 +66,23 @@ caml_epoll_ctl(value val_epfd, value val_fd, value val_events, int op)
 	CAMLreturn(Val_unit);
 }
 
-CAMLprim value caml_epoll_add(value val_epfd, value val_fd, value val_events)
+CAMLprim value caml_polly_add(value val_epfd, value val_fd, value val_events)
 {
-	return caml_epoll_ctl(val_epfd, val_fd, val_events, EPOLL_CTL_ADD);
+	return caml_polly_ctl(val_epfd, val_fd, val_events, EPOLL_CTL_ADD);
 }
 
-CAMLprim value caml_epoll_mod(value val_epfd, value val_fd, value val_events)
+CAMLprim value caml_polly_mod(value val_epfd, value val_fd, value val_events)
 {
-	return caml_epoll_ctl(val_epfd, val_fd, val_events, EPOLL_CTL_MOD);
+	return caml_polly_ctl(val_epfd, val_fd, val_events, EPOLL_CTL_MOD);
 }
 
-CAMLprim value caml_epoll_del(value val_epfd, value val_fd, value val_events)
+CAMLprim value caml_polly_del(value val_epfd, value val_fd, value val_events)
 {
-	return caml_epoll_ctl(val_epfd, val_fd, val_events, EPOLL_CTL_DEL);
+	return caml_polly_ctl(val_epfd, val_fd, val_events, EPOLL_CTL_DEL);
 }
 
 CAMLprim value
-caml_epoll_wait(value val_epfd, value val_max, value val_timeout, value val_f)
+caml_polly_wait(value val_epfd, value val_max, value val_timeout, value val_f)
 {
 	CAMLparam4(val_epfd, val_max, val_timeout, val_f);
 	CAMLlocal1(ignore);
