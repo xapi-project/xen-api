@@ -3,7 +3,6 @@
   (libraries
     forkexec
     uuidm
-    xapi-stdext-range
     xapi-stdext-unix
   )
 )

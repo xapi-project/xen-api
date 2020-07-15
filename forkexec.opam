@@ -17,7 +17,6 @@ depends: [
   "rpclib"
   "uuidm"
   "xapi-idl"
-  "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
 ]
