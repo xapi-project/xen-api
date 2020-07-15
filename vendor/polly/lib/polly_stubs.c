@@ -49,7 +49,7 @@ CAMLprim value caml_polly_create1(value val_unit)
 	int fd;
 
 	if ((fd = epoll_create1(0)) == -1)
-		uerror(LOCATION, Nothing);
+		uerror(__FUNCTION__, Nothing);
 
 	val_res = Val_int(fd);
 
@@ -66,7 +66,7 @@ caml_polly_ctl(value val_epfd, value val_fd, value val_events, int op)
 	};
 
 	if (epoll_ctl(Int_val(val_epfd), op, Int_val(val_fd), &event) == -1)
-		uerror(LOCATION, Nothing);
+		uerror(__FUNCTION__, Nothing);
 
 	CAMLreturn(Val_unit);
 }
@@ -96,7 +96,7 @@ caml_polly_wait(value val_epfd, value val_max, value val_timeout, value val_f)
 	int ready, i;
 
 	if (Int_val(val_max) <= 0)
-		uerror(LOCATION, Nothing);
+		uerror(__FUNCTION__, Nothing);
 	events =
 	    (struct epoll_event *)alloca(Int_val(val_max) *
 					 sizeof(struct epoll_event));
@@ -107,7 +107,7 @@ caml_polly_wait(value val_epfd, value val_max, value val_timeout, value val_f)
 	caml_leave_blocking_section();
 
 	if (ready == -1)
-		uerror(LOCATION, Nothing);
+		uerror(__FUNCTION__, Nothing);
 
 	for (i = 0; i < ready; i++) {
 		ignore = caml_callback3(val_f,
