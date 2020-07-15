@@ -3411,7 +3411,7 @@ module Backend = struct
       while true do
         try
           ignore
-          @@ Polly.wait m 1 forever (fun m fd events ->
+          @@ Polly.wait m 10 forever (fun m fd events ->
                  Lookup.domid_of fd >>= fun domid ->
                  Lookup.channel_of domid >>= fun c ->
                  let qmp = Qmp_protocol.to_fd c in
