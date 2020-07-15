@@ -61,10 +61,37 @@ let test_download_restriction () =
   in
   List.iter test ["/myfile"; "/.."; "/%2e%2e"]
 
+let test_parse_update_info () =
+  let no_key_xml =
+    Xml.parse_string
+      {|
+      <update enforce-homogeneity="false" installation-size="0" name-label="XS71ECU2001" uuid="7ec1a8c1-4e7a-46f4-a935-02ae4c2003dd" version="1.0">
+        <name-description>Public Availability: fixes to Dom0 kernel</name-description>
+        <rolled-up-by name-label="XS71ECU2012" uuid="85655e3a-fbc8-44b6-b233-15823632add6"/>
+      </update>
+    |}
+  in
+  let update_info = Xapi_pool_update.parse_update_info no_key_xml in
+  Alcotest.(check (option string) "unsigned update must have no key")
+    update_info.key None ;
+  let key_xml =
+    Xml.parse_string
+      {|
+      <update enforce-homogeneity="false" key="SOME_KEY" installation-size="0" name-label="XS71ECU2001" uuid="7ec1a8c1-4e7a-46f4-a935-02ae4c2003dd" version="1.0">
+        <name-description>Public Availability: fixes to Dom0 kernel</name-description>
+        <rolled-up-by name-label="XS71ECU2012" uuid="85655e3a-fbc8-44b6-b233-15823632add6"/>
+      </update>
+    |}
+  in
+  let update_info = Xapi_pool_update.parse_update_info key_xml in
+  Alcotest.(check (option string) "unsigned update must have no key")
+    update_info.key (Some "SOME_KEY")
+
 let test =
   [
     ("test_pool_update_destroy", `Quick, test_pool_update_destroy)
   ; ("test_pool_update_refcount", `Quick, test_pool_update_refcount)
   ; ("test_assert_space_available", `Quick, test_assert_space_available)
   ; ("test_download_restriction", `Quick, test_download_restriction)
+  ; ("test_parse_update_info", `Quick, test_parse_update_info)
   ]
