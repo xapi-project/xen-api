@@ -19,7 +19,7 @@ clean:
 
 format:
 	dune build @fmt --auto-promote
-	indent -linux lib/epoll_stubs.c
+	indent -linux lib/polly_stubs.c
 
 lint:
 	opam lint polly.opam

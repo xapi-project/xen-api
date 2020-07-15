@@ -12,6 +12,10 @@
 #include <caml/signals.h>
 #include <caml/unixsupport.h>
 
+#define S1(x) #x
+#define S2(x) S1(x)
+#define LOCATION __FILE__ ":" S2(__LINE__)
+
 /* Make all constants available to clients by exporting them via a
  * function. This avoids having to hard code them on the client side. 
  * */
@@ -45,7 +49,7 @@ CAMLprim value caml_polly_create1(value val_unit)
 	int fd;
 
 	if ((fd = epoll_create1(0)) == -1)
-		uerror("epoll_create1", Nothing);
+		uerror(LOCATION, Nothing);
 
 	val_res = Val_int(fd);
 
@@ -62,7 +66,7 @@ caml_polly_ctl(value val_epfd, value val_fd, value val_events, int op)
 	};
 
 	if (epoll_ctl(Int_val(val_epfd), op, Int_val(val_fd), &event) == -1)
-		uerror("epoll_ctl", Nothing);
+		uerror(LOCATION, Nothing);
 
 	CAMLreturn(Val_unit);
 }
@@ -103,7 +107,7 @@ caml_polly_wait(value val_epfd, value val_max, value val_timeout, value val_f)
 	caml_leave_blocking_section();
 
 	if (ready == -1)
-		uerror("epoll_wait", Nothing);
+		uerror(LOCATION, Nothing);
 
 	for (i = 0; i < ready; i++) {
 		ignore = caml_callback3(val_f,
