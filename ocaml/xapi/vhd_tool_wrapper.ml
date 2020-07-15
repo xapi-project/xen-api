@@ -108,12 +108,6 @@ let receive progress_cb format protocol (s : Unix.file_descr)
   in
   run_vhd_tool progress_cb args s s' path
 
-open Stdext.Fun
-
-let startswith prefix x =
-  let prefix' = String.length prefix and x' = String.length x in
-  prefix' <= x' && String.sub x 0 prefix' = prefix
-
 (** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
@@ -127,7 +121,8 @@ let find_backend_device path =
       Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
     in
     match List.rev (String.split '/' link) with
-    | id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
+    | id :: "xen" :: "devices" :: _
+      when Astring.String.is_prefix ~affix:"vbd-" id ->
         let id = int_of_string (String.sub id 4 (String.length id - 4)) in
         with_xs (fun xs ->
             let self = xs.Xs.read "domid" in
