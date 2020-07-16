@@ -118,6 +118,8 @@ external caml_polly_wait :
 
 let create = caml_polly_create1
 
+let close t = Unix.close t
+
 let add = caml_polly_add
 
 let del t fd = caml_polly_del t fd Events.empty

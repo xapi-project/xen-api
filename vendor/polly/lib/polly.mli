@@ -1,5 +1,5 @@
 (**
-  Module Epoll provides access to the Linux epoll system call for
+  Module Polly provides access to the Linux epoll system call for
   monitoring a set of file descriptors for events that the client is
   interested in.
  *)
@@ -9,8 +9,11 @@ type t
 val create : unit -> t
 (** [create ()] returns an epoll(2) file descriptor which is passed
  * later to [wait], [add], [upd], and [del]. It must be passed to
- * [Unix.close] when no longer needed.
+ * [close] when no longer needed.
  *)
+
+val close: t -> unit
+(** [close t] closes the file descriptor underlying [t] *)
 
 module Events : sig
   (** a set of events *)
