@@ -44,7 +44,7 @@ let create_host_metrics ~__context =
         Db.Host_metrics.create ~__context ~ref:r
           ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
           ~live:false ~memory_total:0L ~memory_free:0L
-          ~last_updated:Stdext.Date.never ~other_config:[] ;
+          ~last_updated:Xapi_stdext_date.Date.never ~other_config:[] ;
         Db.Host.set_metrics ~__context ~self ~value:r
       ))
     (Db.Host.get_all ~__context)
