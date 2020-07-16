@@ -13,8 +13,7 @@
  *)
 
 module Rrdd = Rrd_client.Client
-open Stdext
-open Xapi_stdext_std.Listext
+module Date = Xapi_stdext_date.Date
 open Monitor_types
 open Db_filter_types
 open Network

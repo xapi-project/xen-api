@@ -12,9 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Xapi_stdext_std.Listext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module XenAPI = Client.Client
 open Storage_interface
 
@@ -1184,7 +1187,7 @@ let on_xapi_start ~__context =
   in
   let to_keep = configured_drivers @ in_use_drivers in
   (* The SMAPIv2 drivers we know about *)
-  let smapiv2_drivers = List.set_difference to_keep smapiv1_drivers in
+  let smapiv2_drivers = Listext.List.set_difference to_keep smapiv1_drivers in
   (* Query the message switch to detect running SMAPIv2 plugins. *)
   let running_smapiv2_drivers =
     if !Xcp_client.use_switch then (
@@ -1230,7 +1233,7 @@ let on_xapi_start ~__context =
         ty ;
       let self, _ = List.assoc ty existing in
       try Db.SM.destroy ~__context ~self with _ -> ())
-    (List.set_difference (List.map fst existing) to_keep) ;
+    (Listext.List.set_difference (List.map fst existing) to_keep) ;
   (* Synchronize SMAPIv1 plugins *)
 
   (* Create all missing SMAPIv1 plugins *)
@@ -1240,7 +1243,7 @@ let on_xapi_start ~__context =
         Sm.info_of_driver ty |> Smint.query_result_of_sr_driver_info
       in
       Xapi_sm.create_from_query_result ~__context query_result)
-    (List.set_difference smapiv1_drivers (List.map fst existing)) ;
+    (Listext.List.set_difference smapiv1_drivers (List.map fst existing)) ;
   (* Update all existing SMAPIv1 plugins *)
   List.iter
     (fun ty ->
@@ -1249,7 +1252,7 @@ let on_xapi_start ~__context =
       in
       Xapi_sm.update_from_query_result ~__context (List.assoc ty existing)
         query_result)
-    (List.intersect smapiv1_drivers (List.map fst existing)) ;
+    (Listext.List.intersect smapiv1_drivers (List.map fst existing)) ;
   (* Synchronize SMAPIv2 plugins *)
 
   (* Create all missing SMAPIv2 plugins *)
@@ -1271,13 +1274,14 @@ let on_xapi_start ~__context =
   List.iter
     (fun ty ->
       with_query_result ty (Xapi_sm.create_from_query_result ~__context))
-    (List.set_difference running_smapiv2_drivers (List.map fst existing)) ;
+    (Listext.List.set_difference running_smapiv2_drivers
+       (List.map fst existing)) ;
   (* Update all existing SMAPIv2 plugins *)
   List.iter
     (fun ty ->
       with_query_result ty
         (Xapi_sm.update_from_query_result ~__context (List.assoc ty existing)))
-    (List.intersect running_smapiv2_drivers (List.map fst existing))
+    (Listext.List.intersect running_smapiv2_drivers (List.map fst existing))
 
 let bind ~__context ~pbd =
   (* Start the VM if necessary, record its uuid *)
@@ -1847,7 +1851,7 @@ let destroy_sr ~__context ~sr ~and_vdis =
         pbd_t.API.pBD_device_config ;
       (* The current backends expect the PBD to be temporarily set to currently_attached = true *)
       Db.PBD.set_currently_attached ~__context ~self:pbd ~value:true ;
-      Pervasiveext.finally
+      finally
         (fun () ->
           try
             List.iter

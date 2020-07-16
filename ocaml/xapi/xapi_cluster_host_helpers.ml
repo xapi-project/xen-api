@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let all_cluster_host_operations = [`enable; `disable]
 
@@ -94,7 +94,7 @@ let with_cluster_host_operation ~__context ~(self : [`Cluster_host] API.Ref.t)
         ~value:op ;
       update_allowed_operations ~__context ~self) ;
   (* Then do the action with the lock released *)
-  Pervasiveext.finally f (* Make sure to clean up at the end *) (fun () ->
+  finally f (* Make sure to clean up at the end *) (fun () ->
       try
         Db.Cluster_host.remove_from_current_operations ~__context ~self
           ~key:task_id ;

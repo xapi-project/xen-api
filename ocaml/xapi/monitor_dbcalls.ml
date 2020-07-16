@@ -13,11 +13,8 @@
  *)
 
 open Db_filter_types
-open Stdext
-open Xapi_stdext_std.Listext
 open Monitor_types
 open Monitor_dbcalls_cache
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "monitor_dbcalls" end)
@@ -30,7 +27,7 @@ let get_pif_and_bond_changes () =
   let stats = read_stats () in
   List.iter
     (fun (dev, stat) ->
-      if not (String.startswith "vif" dev) then (
+      if not (Astring.String.is_prefix ~affix:"vif" dev) then (
         if stat.nb_links > 1 then (* bond *)
           Hashtbl.add bonds_links_up_tmp dev stat.links_up ;
         let pif =

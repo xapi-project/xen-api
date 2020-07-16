@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Xapi_stdext_std.Listext
 open Client
 open Db_filter_types
 
@@ -194,6 +192,7 @@ let copy_bonds_from_master ~__context () =
         let current_slave_pifs =
           Db.Bond.get_slaves ~__context ~self:slave_bond
         in
+        let open Xapi_stdext_std.Listext in
         if
           not
             (List.set_equiv

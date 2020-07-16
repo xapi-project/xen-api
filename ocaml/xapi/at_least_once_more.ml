@@ -16,7 +16,6 @@
    to minimise the number of times we run the operation i.e. if a large set of changes happen we'd ideally like to
    just execute the function once or twice but not once per thing that changed. *)
 
-open Stdext
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 

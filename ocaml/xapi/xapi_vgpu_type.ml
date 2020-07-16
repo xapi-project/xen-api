@@ -12,13 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module D = Debug.Make (struct let name = "xapi" end)
 
 open D
-open Stdext
-open Xapi_stdext_std.Xstringext
-open Xapi_stdext_std.Listext
-open Xapi_stdext_pervasives.Pervasiveext
 
 let ( *** ) = Int64.mul
 
@@ -486,7 +484,7 @@ module Vendor_nvidia = struct
           </supportedVgpu>
           <supportedVgpu vgpuId="73">
             (...)
-      Output: 
+      Output:
       - Find the pgpus with deviceId = device_id (there's likely just one).
       - List the vgpuIds of all supportedVgpus of these pgpus with their
         maxVgpus value and the pgpu's subsystemId.
@@ -884,14 +882,16 @@ module Nvidia_compat = struct
     try
       let conf = Xapi_stdext_unix.Unixext.read_lines file_path in
       let args =
-        List.filter (fun s -> not (String.startswith "#" s || s = "")) conf
+        List.filter
+          (fun s -> not (Astring.String.is_prefix ~affix:"#" s || s = ""))
+          conf
       in
-      let args = List.map (String.strip String.isspace) args in
+      let args = List.map Astring.String.trim args in
       (* Expecting space separated key value entries *)
       let args =
         List.map
           (fun s ->
-            match String.split ' ' s ~limit:2 with
+            match Xapi_stdext_std.Xstringext.String.split ' ' s ~limit:2 with
             | [k; v] ->
                 (k, v)
             | _ ->

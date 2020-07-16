@@ -15,9 +15,9 @@
  * @group Virtual-Machine Management
 *)
 
-open Stdext
 open Client
 open Xapi_stdext_pervasives.Pervasiveext
+module Date = Xapi_stdext_date.Date
 open Event_types
 
 module D = Debug.Make (struct let name = "xapi_vm_clone" end)

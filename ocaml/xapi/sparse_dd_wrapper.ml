@@ -13,14 +13,16 @@
  *)
 (* Allows xapi to drive the sparse_dd program *)
 
-open Stdext
 open Client
 open Printf
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "sparse_dd_wrapper" end)
 
 open D
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type progress =
   | Started of Forkhelpers.pidty
@@ -80,7 +82,7 @@ let dd_internal progress_cb base prezeroed infile outfile size =
       to_close := List.filter (fun y -> y <> x) !to_close
     )
   in
-  Pervasiveext.finally
+  finally
     (fun () ->
       try
         match
@@ -215,7 +217,7 @@ let killall () =
   List.iter
     (fun pid ->
       try
-        Pervasiveext.finally
+        finally
           (fun () ->
             let exe = Unix.readlink (Printf.sprintf "/proc/%d/exe" pid) in
             debug "checking pid %d exe=%s globs=%s" pid exe

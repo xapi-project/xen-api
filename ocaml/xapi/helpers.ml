@@ -15,10 +15,11 @@
  * Provide some helpers for XAPI
  *)
 
-open Stdext
-open Xapi_stdext_std.Xstringext
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Printf
 open Xapi_globs
 open Db_filter
@@ -486,7 +487,8 @@ let domain_zero_ref_cache = ref None
 let domain_zero_ref_cache_mutex = Mutex.create ()
 
 let get_domain_zero ~__context : API.ref_VM =
-  Threadext.Mutex.execute domain_zero_ref_cache_mutex (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute domain_zero_ref_cache_mutex
+    (fun () ->
       match !domain_zero_ref_cache with
       | Some r ->
           r
@@ -773,7 +775,7 @@ let version_string_of : __context:Context.t -> [`host] api_object -> string =
 let version_of : __context:Context.t -> [`host] api_object -> int list =
  fun ~__context host ->
   let vs = version_string_of ~__context host in
-  List.map int_of_string (String.split '.' vs)
+  List.map int_of_string (String.split_on_char '.' vs)
 
 (* Compares host versions, analogous to Stdlib.compare. *)
 let compare_host_platform_versions :
@@ -1030,7 +1032,7 @@ let assert_is_valid_cidr kind field cidr =
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
 let is_valid_MAC mac =
-  let l = String.split ':' mac in
+  let l = String.split_on_char ':' mac in
   let validchar c =
     (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
   in
@@ -1155,8 +1157,6 @@ let is_xha_protected_r record =
   vm_should_always_run record.API.vM_ha_always_run
     record.API.vM_ha_restart_priority
 
-open Xapi_stdext_std.Listext
-
 let local_storage_exists () =
   try
     ignore (Unix.stat Xapi_globs.xapi_blob_location) ;
@@ -1232,7 +1232,7 @@ let get_all_plugged_srs ~__context =
     Db.PBD.get_refs_where ~__context
       ~expr:(Eq (Field "currently_attached", Literal "true"))
   in
-  List.setify
+  Xapi_stdext_std.Listext.List.setify
     (List.map (fun self -> Db.PBD.get_SR ~__context ~self) pbds_plugged_in)
 
 let get_local_plugged_srs ~__context =
@@ -1245,7 +1245,7 @@ let get_local_plugged_srs ~__context =
            ( Eq (Field "host", Literal localhost)
            , Eq (Field "currently_attached", Literal "true") ))
   in
-  List.setify
+  Xapi_stdext_std.Listext.List.setify
     (List.map (fun self -> Db.PBD.get_SR ~__context ~self) my_pbds_plugged_in)
 
 let find_health_check_task ~__context ~sr =
@@ -1524,8 +1524,7 @@ let host_supports_hvm ~__context host =
   (* We say that a host supports HVM if any of
    * the capability strings contains the substring "hvm". *)
   let capabilities = Db.Host.get_capabilities ~__context ~self:host in
-  List.fold_left ( || ) false
-    (List.map (fun x -> String.has_substr x "hvm") capabilities)
+  List.exists (Astring.String.is_infix ~affix:"hvm") capabilities
 
 let env_with_path env_vars =
   Array.of_list
@@ -1747,8 +1746,7 @@ end = struct
           ]
       in
       let len = String.length conf_contents in
-      Xapi_stdext_unix.Unixext.atomic_write_to_file !Xapi_globs.stunnel_conf 0o0600
-        (fun fd ->
+      Unixext.atomic_write_to_file !Xapi_globs.stunnel_conf 0o0600 (fun fd ->
           let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
           ())
 

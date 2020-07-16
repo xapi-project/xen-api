@@ -22,11 +22,12 @@ module D = Debug.Make (struct let name = "xapi_ha" end)
 
 open D
 module Rrdd = Rrd_client.Client
-open Stdext
-open Xapi_stdext_std.Listext
-open Xapi_stdext_std.Xstringext
+module Date = Xapi_stdext_date.Date
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_pervasives.Pervasiveext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Forkhelpers
 open Client
 open Db_filter_types
@@ -66,7 +67,7 @@ let i_have_statefile_access () =
 let propose_master () =
   try
     let result = call_script ha_propose_master [] in
-    String.rtrim result = "TRUE"
+    Xapi_stdext_std.Xstringext.String.rtrim result = "TRUE"
   with Xha_error e ->
     error "ha_propose_master threw unexpected exception: %s"
       (Xha_errno.to_string e) ;
@@ -604,12 +605,9 @@ module Monitor = struct
               warning_all_live_nodes_lost_statefile
                 all_live_nodes_lost_statefile ;
               (* Now the Host.ha_network_peers *)
-              let subset a b =
-                List.fold_left (fun acc x -> acc && List.mem x b) true a
-              in
               let set_equals a b =
-                let a' = List.setify a and b' = List.setify b in
-                subset a' b' && subset b' a'
+                let open Xapi_stdext_std.Listext.List in
+                set_equiv (setify a) (setify b)
               in
               (* NB raw_status_on_local_host not available if in 'Starting' state *)
               ( match

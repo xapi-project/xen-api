@@ -18,7 +18,7 @@
 module D = Debug.Make (struct let name = "xapi_host_helpers" end)
 
 open D
-open Stdext
+module Unixext = Xapi_stdext_unix.Unixext
 open Db_filter
 open Db_filter_types
 open Record_util (* for host_operation_to_string *)
@@ -185,7 +185,8 @@ let update_allowed_operations ~__context ~self : unit =
   (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
   let keys =
     if Helpers.rolling_upgrade_in_progress ~__context then
-      Listext.List.intersect keys Xapi_globs.host_operations_miami
+      Xapi_stdext_std.Listext.List.intersect keys
+        Xapi_globs.host_operations_miami
     else
       keys
   in
@@ -208,8 +209,8 @@ let shutdown ~__context ~host = ()
 
 let reboot ~__context ~host = ()
 
-(* When the Host.shutdown and Host.reboot calls return to the master, the slave is 
-   shutting down asycnronously. We immediately set the Host_metrics.live to false 
+(* When the Host.shutdown and Host.reboot calls return to the master, the slave is
+   shutting down asycnronously. We immediately set the Host_metrics.live to false
    and add the host to the global list of known-dying hosts. *)
 let mark_host_as_dead ~__context ~host ~reason =
   let done_already =

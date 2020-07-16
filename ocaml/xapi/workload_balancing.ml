@@ -15,10 +15,8 @@
  *  @group Workload Balancing
 *)
 
-open Stdext
 open Printf
 open Xapi_stdext_std.Xstringext
-open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "workload_balancing" end)
 
@@ -497,7 +495,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
         Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username ;
         Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_secret_ref ;
         Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url ;
-        Pervasiveext.ignore_exn (fun _ ->
+        Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
             Db.Secret.destroy ~__context ~self:old_secret_ref)
   in
   Locking_helpers.Named_mutex.execute request_mutex

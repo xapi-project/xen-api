@@ -12,10 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Xapi_stdext_std.Xstringext
-open Xapi_stdext_std.Listext
-
 (* Keys we push through to xenstore. *)
 let acpi = "acpi"
 
@@ -228,7 +224,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
       false
   in
   let platformdata =
-    List.update_assoc
+    Xapi_stdext_std.Listext.List.update_assoc
       [
         (usb, string_of_bool usb_enabled)
       ; (usb_tablet, string_of_bool usb_tablet_enabled)
@@ -242,7 +238,7 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
       | "none" ->
           true
       | dev ->
-          String.startswith "/dev/parport" dev
+          Astring.String.is_prefix ~affix:"/dev/parport" dev
     in
     List.filter
       (fun (k, v) -> k <> parallel || is_valid_parallel_flag v)

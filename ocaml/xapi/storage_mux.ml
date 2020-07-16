@@ -18,7 +18,6 @@ open D
 
 type processor = Rpc.call -> Rpc.response
 
-open Stdext
 open Xapi_stdext_threads.Threadext
 open Storage_interface
 

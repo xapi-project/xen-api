@@ -17,10 +17,9 @@
 module D = Debug.Make (struct let name = "xapi_services" end)
 
 open D
-open Stdext
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 open Constants
 
 type driver_list = Storage_interface.query_result list [@@deriving rpcty]
@@ -77,7 +76,7 @@ let fix_cookie = function
       (* We don't handle $Path, $Domain, $Port, $Version (or $anything $else) *)
       let cookies = List.filter (fun s -> s.[0] != '$') comps in
       let split_pair nvp =
-        match String.split '=' nvp with
+        match String.split_on_char '=' nvp with
         | [] ->
             ("", "")
         | [n] ->
@@ -151,7 +150,7 @@ let http_proxy_to_plugin req from name =
 
 let post_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s (fun __context ->
-      match String.split '/' req.Http.Request.uri with
+      match String.split_on_char '/' req.Http.Request.uri with
       | "" :: services :: "xenops" :: _ when services = _services ->
           (* over the network we still use XMLRPC *)
           let request = Http_svr.read_body req (Buf_io.of_fd s) in
@@ -201,7 +200,7 @@ end))
 
 let put_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s (fun __context ->
-      match String.split '/' req.Http.Request.uri with
+      match String.split_on_char '/' req.Http.Request.uri with
       | "" :: services :: "xenops" :: _ when services = _services ->
           ignore
             (hand_over_connection req s
@@ -224,7 +223,7 @@ let put_handler (req : Http.Request.t) s _ =
 let get_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s (fun __context ->
       debug "uri = %s" req.Http.Request.uri ;
-      match String.split '/' req.Http.Request.uri with
+      match String.split_on_char '/' req.Http.Request.uri with
       | "" :: services :: "xenops" :: _ when services = _services ->
           ignore
             (hand_over_connection req s

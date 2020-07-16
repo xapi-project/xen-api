@@ -15,9 +15,7 @@
  * @group Host Management
 *)
 
-open Stdext
 open Http
-open Xapi_stdext_pervasives.Pervasiveext
 open Forkhelpers
 open Helpers
 

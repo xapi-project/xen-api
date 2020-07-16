@@ -13,10 +13,6 @@
  *)
 (** Detect when PV drivers are out of date *)
 
-open Stdext
-open Xapi_stdext_std.Xstringext
-open Printf
-
 module D = Debug.Make (struct let name = "xapi_pv_driver_version" end)
 
 open D

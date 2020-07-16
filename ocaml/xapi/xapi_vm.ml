@@ -12,10 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 module Rrdd = Rrd_client.Client
-open Stdext
 open Xapi_vm_helpers
 open Client
-open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 open Xmlrpc_sexpr
 
 (* Notes re: VM.{start,resume}{on,}:
@@ -1085,7 +1084,7 @@ let call_plugin_latest_m = Mutex.create ()
 
 let record_call_plugin_latest vm =
   let interval = Int64.of_float (!Xapi_globs.vm_call_plugin_interval *. 1e9) in
-  Mutex.execute call_plugin_latest_m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute call_plugin_latest_m (fun () ->
       let now = Mtime.to_uint64_ns (Mtime_clock.now ()) in
       (* First do a round of GC *)
       let to_gc = ref [] in
@@ -1567,7 +1566,7 @@ let set_HVM_boot_policy ~__context ~self ~value =
 let nvram = Mutex.create ()
 
 let set_NVRAM_EFI_variables ~__context ~self ~value =
-  Mutex.execute nvram (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute nvram (fun () ->
       (* do not use remove_from_NVRAM: we do not want to
          * temporarily end up with an empty NVRAM in HA *)
       let key = "EFI-variables" in

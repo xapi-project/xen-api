@@ -17,9 +17,8 @@
 
 open Client
 open Db_cache_types
-open Stdext
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_vdi_helpers" end)
 
@@ -195,6 +194,7 @@ let database_ref_of_vdi ~__context ~vdi =
     Redo_log.delete log ;
     (* Upgrade database to the local schema. *)
     (* Reindex database to make sure is_valid_ref works. *)
+    let ( ++ ) f g x = f (g x) in
     Db_ref.update_database db_ref
       (Db_upgrade.generic_database_upgrade
       ++ Database.reindex

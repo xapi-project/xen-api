@@ -44,8 +44,7 @@ open Db_actions
 open Db_filter_types
 
 let is_http action =
-  Xapi_stdext_std.Xstringext.String.startswith Datamodel.rbac_http_permission_prefix
-    action
+  Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
 
 let call_type_of ~action = if is_http action then "HTTP" else "API"
 
@@ -160,7 +159,9 @@ let populate_audit_record_with_obj_names_of_refs line =
     let sexpr_idx = String.index line ']' + 1 in
     let before_sexpr_str = String.sub line 0 sexpr_idx in
     (* remove the [...] prefix *)
-    let sexpr_str = Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx in
+    let sexpr_str =
+      Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx
+    in
     let sexpr = SExpr_TS.of_string sexpr_str in
     match sexpr with
     | SExpr.Node els -> (
@@ -379,7 +380,7 @@ let rec sexpr_args_of __context name rpc_value action =
         let name_uuid_ref = get_obj_of_ref value in
         match name_uuid_ref with
         | None ->
-            if Xapi_stdext_std.Xstringext.String.startswith Ref.ref_prefix value then
+            if Astring.String.is_prefix ~affix:Ref.ref_prefix value then
               (* it's a ref, just not in the db cache *)
               Some
                 (get_sexpr_arg name

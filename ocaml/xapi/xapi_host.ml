@@ -13,10 +13,10 @@
  *)
 
 module Rrdd = Rrd_client.Client
-open Stdext
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_std.Listext
+module Date = Xapi_stdext_date.Date
+module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
 open Xapi_support
 open Db_filter_types
@@ -1776,7 +1776,8 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
   let socket_count = List.assoc "socket_count" cpu_info in
   let current_license_params =
-    List.replace_assoc "sockets" socket_count current_license_params
+    Xapi_stdext_std.Listext.List.replace_assoc "sockets" socket_count
+      current_license_params
   in
   (* Construct the RPC params to be sent to v6d *)
   let params =
@@ -1861,7 +1862,7 @@ let license_add ~__context ~host ~contents =
       raise Api_errors.(Server_error (license_processing_error, []))
   in
   let tmp = "/tmp/new_license" in
-  finally
+  Pervasiveext.finally
     (fun () ->
       ( try Unixext.write_string_to_file tmp license
         with _ ->

@@ -15,12 +15,13 @@
  * @group Storage
 *)
 
-open Stdext
-open Xapi_stdext_std.Xstringext
 open Debug
 open Http
 open Forkhelpers
-open Xapi_stdext_pervasives.Pervasiveext
+module Zerocheck = Xapi_stdext_zerocheck.Zerocheck
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 exception Failure of string
 
@@ -56,9 +57,7 @@ let with_open_vdi __context rpc session_id vdi_ref mode flags perms f =
     (fun dom0_path ->
       debug "with_open_vdi opening: %s" dom0_path ;
       let ofd = Unix.openfile dom0_path flags perms in
-      Pervasiveext.finally
-        (fun () -> f ofd dom0_path)
-        (fun () -> Unix.close ofd))
+      finally (fun () -> f ofd dom0_path) (fun () -> Unix.close ofd))
 
 (** Used to sort VDI prefixes into a canonical order for streaming. Currently lexicographic
     sort on the externalised reference (used as a 'directory name') *)
@@ -438,7 +437,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
               firstchunklength := Int64.to_int length ;
               zerochunkstring := Bytes.make !firstchunklength '\000'
             ) ;
-            if not (String.startswith prefix file_name) then (
+            if not (Astring.String.is_prefix ~affix:prefix file_name) then (
               error "Expected VDI chunk prefixed %s; got %s" prefix file_name ;
               raise (Failure "Invalid XVA file")
             ) ;
@@ -556,7 +555,7 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
               refresh_session () ;
               let file_name = hdr.Tar_unix.Header.file_name in
               let length = hdr.Tar_unix.Header.file_size in
-              if String.startswith prefix file_name then (
+              if Astring.String.is_prefix ~affix:prefix file_name then (
                 let suffix =
                   String.sub file_name (String.length prefix)
                     (String.length file_name - String.length prefix)

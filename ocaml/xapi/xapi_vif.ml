@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Xapi_stdext_std.Listext
 open Xapi_vif_helpers
 

@@ -15,7 +15,6 @@
  * @group Storage
 *)
 
-open Stdext
 open Xapi_stdext_std.Xstringext
 open Smint
 open Printf
