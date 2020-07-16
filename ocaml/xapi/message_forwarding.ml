@@ -15,9 +15,10 @@
  * @group API Messaging
 *)
 
-open Stdext
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_pervasives.Pervasiveext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Server_helpers
 open Client
 open Db_filter_types
@@ -54,11 +55,13 @@ let remote_rpc_no_retry context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ?task_id:(may Ref.string_of task_opt) ()
+      ( SSL.make ?task_id:(Option.map Ref.string_of task_opt) ()
       , hostname
       , !Constants.https_port )
   in
-  let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.0" "/" in
+  let http =
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+  in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
@@ -66,11 +69,15 @@ let remote_rpc_retry context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ~use_stunnel_cache:true ?task_id:(may Ref.string_of task_opt) ()
+      ( SSL.make ~use_stunnel_cache:true
+          ?task_id:(Option.map Ref.string_of task_opt)
+          ()
       , hostname
       , !Constants.https_port )
   in
-  let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.1" "/" in
+  let http =
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+  in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host
@@ -81,7 +88,7 @@ let call_slave_with_session remote_rpc_fn __context host
       ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
       ~auth_user_name:"" ~rbac_permissions:[]
   in
-  Pervasiveext.finally
+  finally
     (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
@@ -93,7 +100,7 @@ let call_slave_with_local_session remote_rpc_fn __context host
       ~rpc:(remote_rpc_fn __context hostname None)
       ~psecret:!Xapi_globs.pool_secret
   in
-  Pervasiveext.finally
+  finally
     (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
     (fun () ->
       Client.Session.local_logout
@@ -4310,18 +4317,27 @@ functor
       (** Use this function to mark the SR and/or the individual VDI *)
       let with_sr_andor_vdi ~__context ?sr ?vdi ~doc f =
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            maybe (fun (sr, op) -> SR.mark_sr ~__context ~sr ~doc ~op) sr ;
+            Option.iter (fun (sr, op) -> SR.mark_sr ~__context ~sr ~doc ~op) sr ;
             (* If we fail to acquire the VDI lock, unlock the SR *)
-            try maybe (fun (vdi, op) -> mark_vdi ~__context ~vdi ~doc ~op) vdi
+            try
+              Option.iter
+                (fun (vdi, op) -> mark_vdi ~__context ~vdi ~doc ~op)
+                vdi
             with e ->
-              maybe (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op) sr ;
+              Option.iter
+                (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
+                sr ;
               raise e) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                maybe (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op) sr ;
-                maybe (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op) vdi))
+                Option.iter
+                  (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
+                  sr ;
+                Option.iter
+                  (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op)
+                  vdi))
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 

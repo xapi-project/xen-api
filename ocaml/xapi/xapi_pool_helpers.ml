@@ -20,6 +20,8 @@ open Db_filter
 open Record_util
 open Api_errors
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 let all_operations = [`ha_enable; `ha_disable; `cluster_create]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -118,8 +120,7 @@ let with_pool_operation ~__context ~self ~doc ~op f =
       Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op) ;
   update_allowed_operations ~__context ~self ;
   (* Then do the action with the lock released *)
-  Xapi_stdext_pervasives.Pervasiveext.finally f (* Make sure to clean up at the end *)
-    (fun () ->
+  finally f (* Make sure to clean up at the end *) (fun () ->
       try
         Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id ;
         update_allowed_operations ~__context ~self ;

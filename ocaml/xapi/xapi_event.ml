@@ -11,11 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_pervasives.Pervasiveext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Event_types
-open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_event" end)
 
@@ -37,7 +37,7 @@ module Token = struct
   exception Failed_to_parse of string
 
   let of_string token =
-    match String.split ',' token with
+    match String.split_on_char ',' token with
     | [from; from_t] ->
         (Int64.of_string from, Int64.of_string from_t)
     | [""] ->
@@ -58,7 +58,7 @@ module Subscription = struct
     if x = "*" then
       All
     else
-      match String.split ~limit:2 '/' x with
+      match Xapi_stdext_std.Xstringext.String.split ~limit:2 '/' x with
       | [cls] ->
           Class (String.lowercase_ascii cls)
       | [cls; id] ->

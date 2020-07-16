@@ -18,9 +18,6 @@
 module D = Debug.Make (struct let name = "static_vdis" end)
 
 open D
-open Stdext
-open Xapi_stdext_std.Xstringext
-open Xapi_stdext_pervasives.Pervasiveext
 include Static_vdis_list (* include the vdi type and the list() function *)
 
 (** Generate the static configuration and attach the VDI now *)
@@ -40,7 +37,7 @@ let permanent_vdi_attach ~__context ~vdi ~reason =
     (Helpers.call_script !Xapi_globs.static_vdis
        ["add"; Db.VDI.get_uuid ~__context ~self:vdi; reason]) ;
   (* VDI will be attached on next boot; attach it now too *)
-  String.rtrim
+  Xapi_stdext_std.Xstringext.String.rtrim
     (Helpers.call_script !Xapi_globs.static_vdis
        ["attach"; Db.VDI.get_uuid ~__context ~self:vdi])
 

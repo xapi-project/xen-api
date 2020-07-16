@@ -18,8 +18,9 @@
 (* The SMAPIv1 plugins are a static set in the filesystem.
    The SMAPIv2 plugins are a dynamic set hosted in driver domains. *)
 
-open Stdext
 open Xapi_stdext_threads.Threadext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (* We treat versions as '.'-separated integer lists under the usual
    lexicographic ordering. *)
@@ -97,7 +98,7 @@ let _serialize_reg =
     | _ ->
         Mutex.execute lock (fun () ->
             holder := Some (Thread.self ()) ;
-            Pervasiveext.finally f (fun () -> holder := None))
+            finally f (fun () -> holder := None))
 
 let unregister_plugin ~__context q_result =
   _serialize_reg (fun () ->

@@ -15,7 +15,9 @@
  * @group Database Operations
 *)
 
-open Stdext
+module Xstringext = Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
+module Date = Xapi_stdext_date.Date
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Db_filter
@@ -56,7 +58,7 @@ type host_info = {
 let make_xen_livepatch_list () =
   let lines =
     try
-      Xstringext.String.split '\n'
+      String.split_on_char '\n'
         (Helpers.get_process_output !Xapi_globs.xen_livepatch_list)
     with _ -> []
   in
@@ -84,7 +86,7 @@ let make_kpatch_list () =
   let end_line = "Installed patch modules:" in
   let lines =
     try
-      Xstringext.String.split '\n'
+      String.split_on_char '\n'
         (Helpers.get_process_output !Xapi_globs.kpatch_list)
     with _ -> []
   in
@@ -105,15 +107,13 @@ let make_kpatch_list () =
   let patches = loop [] false lines in
   if List.length patches > 0 then Some (String.concat ", " patches) else None
 
-open Xapi_stdext_std.Xstringext
-
 (** [count_cpus] returns the number of CPUs found in /proc/cpuinfo *)
 let count_cpus () =
   let cpuinfo = "/proc/cpuinfo" in
   let re = Re.Perl.compile @@ Re.Perl.re {|^processor\s*:\s+\d+|} in
   let matches line = Re.matches re line <> [] in
   let count n line = if matches line then n + 1 else n in
-  Xapi_stdext_unix.Unixext.file_lines_fold count 0 cpuinfo
+  Unixext.file_lines_fold count 0 cpuinfo
 
 (* NB: this is dom0's view of the world, not Xen's. *)
 let read_dom0_memory_usage () =
@@ -143,7 +143,7 @@ let read_localhost_info ~__context =
   let linux_verstring =
     let verstring = ref "" in
     let f line =
-      try verstring := List.nth (String.split ' ' line) 2 with _ -> ()
+      try verstring := List.nth (String.split_on_char ' ' line) 2 with _ -> ()
     in
     Unixext.readfile_line f "/proc/version" ;
     !verstring
@@ -796,7 +796,7 @@ let create_updates_requiring_reboot_info ~__context ~host =
   let update_uuids =
     try
       Xapi_stdext_std.Listext.List.setify
-        (Xapi_stdext_unix.Unixext.read_lines !Xapi_globs.reboot_required_hfxs)
+        (Unixext.read_lines !Xapi_globs.reboot_required_hfxs)
     with _ -> []
   in
   let updates =

@@ -20,9 +20,9 @@
     co-ordinate tapdisk locking. We have not got code for this.
 *)
 
-open Stdext
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module DD = Debug.Make (struct let name = "xapi_vm_migrate" end)
 

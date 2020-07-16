@@ -14,7 +14,6 @@
 module D = Debug.Make (struct let name = "xapi_gpu_group" end)
 
 open D
-open Stdext
 
 let create ~__context ~name_label ~name_description ~other_config =
   let group = Ref.make () in

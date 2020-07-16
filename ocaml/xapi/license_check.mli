@@ -20,7 +20,9 @@ val never : float
 (** The expiry date that is considered to be "never". *)
 
 val get_expiry_date :
-  __context:Context.t -> host:API.ref_host -> Xapi_stdext_date.Date.iso8601 option
+     __context:Context.t
+  -> host:API.ref_host
+  -> Xapi_stdext_date.Date.iso8601 option
 (** Returns (Some date) if the host's license has an expiry date,
  *  otherwise returns None. *)
 

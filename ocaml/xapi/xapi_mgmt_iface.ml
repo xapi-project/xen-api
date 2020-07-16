@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 open Db_filter_types
-open Stdext
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 

@@ -15,8 +15,7 @@
  * @group Pool Management
 *)
 
-open Stdext
-open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 open Client
 
 module D = Debug.Make (struct let name = "xapi_pool_transition" end)

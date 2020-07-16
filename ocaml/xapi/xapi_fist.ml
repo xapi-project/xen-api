@@ -15,7 +15,7 @@
  * @group Testing
 *)
 
-open Stdext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_fist" end)
 

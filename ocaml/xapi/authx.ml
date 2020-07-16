@@ -51,7 +51,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
         raise
           (Auth_signature.Auth_service_error (Auth_signature.E_GENERIC, errmsg))
     in
-    let output_lines = Xapi_stdext_std.Xstringext.String.split '\n' output_str in
+    let output_lines = String.split_on_char '\n' output_str in
     fn output_lines
 
   let getent_common nss_database fn =
@@ -256,7 +256,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
             | [] ->
                 raise Not_found
             | gidline :: _ ->
-                let gids = Xapi_stdext_std.Xstringext.String.split ' ' gidline in
+                let gids = String.split_on_char ' ' gidline in
                 debug "Resolved %i group ids for subject %s (%s): %s"
                   (List.length gids) subject_name subject_identifier
                   (List.fold_left

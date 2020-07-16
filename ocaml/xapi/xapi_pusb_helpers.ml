@@ -14,7 +14,6 @@
 module D = Debug.Make (struct let name = "xapi_pusb_helpers" end)
 
 open D
-open Stdext
 open Yojson.Basic.Util
 
 module USB = struct

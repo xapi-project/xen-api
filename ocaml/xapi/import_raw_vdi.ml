@@ -18,7 +18,6 @@
 module D = Debug.Make (struct let name = "import" end)
 
 open D
-open Stdext
 open Http
 open Importexport
 open Sparse_encoding

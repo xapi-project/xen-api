@@ -847,8 +847,8 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
             events
         in
         let snapshots_from_newest_to_oldest =
-          (* filter_map in Stdext preserves the order of elements *)
-          Xapi_stdext_std.Listext.List.filter_map
+          (* filter_map preserves the order of elements *)
+          List.filter_map
             (fun event -> event.Event_types.snapshot)
             events_from_newest_to_oldest
         in

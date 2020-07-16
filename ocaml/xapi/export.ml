@@ -36,8 +36,9 @@
     to the VBDs, SRs connected to the VDIs (and maybe a suspend image?). *)
 
 open Importexport
-open Stdext
 open Xapi_stdext_pervasives.Pervasiveext
+module Date = Xapi_stdext_date.Date
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "export" end)
 

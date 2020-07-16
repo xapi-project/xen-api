@@ -65,10 +65,10 @@
       SR_p, VDI_p_a, VDI_p_b, ..., VDI_p_z : for an SR.detach (to "quiesce" the SR)
 *)
 
-open Stdext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext
+module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_std.Listext
 open Storage_interface
 open Storage_task
 
@@ -1104,7 +1104,11 @@ functor
             (List.map
                (fun (k, v) ->
                  let v' =
-                   if List.exists (Xstringext.String.has_substr k) censor_key
+                   if
+                     List.exists
+                       (fun censored ->
+                         Astring.String.is_infix ~affix:censored k)
+                       censor_key
                    then
                      "(omitted)"
                    else

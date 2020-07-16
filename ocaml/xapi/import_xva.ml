@@ -15,7 +15,6 @@
  * @group Import and Export
 *)
 
-open Stdext
 open Xapi_stdext_std.Xstringext
 open Http
 open Importexport

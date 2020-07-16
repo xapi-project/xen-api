@@ -18,7 +18,9 @@
 module D = Debug.Make (struct let name = "import" end)
 
 open D
-open Stdext
+module Listext = Xapi_stdext_std.Listext
+module Xstringext = Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Importexport
 open Xapi_stdext_unix.Unixext
@@ -179,7 +181,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
       if Xstringext.String.startswith "Ref:" snapshot_of then
         (* This should be a snapshot in the archive *)
         let v =
-          Listext.List.find
+          List.find
             (fun v -> v.cls = Datamodel_common._vm && v.id = snapshot_of)
             x.objects
         in
@@ -221,7 +223,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
         v2' = Some v1.API.vM_uuid
   in
   let import_vms =
-    Listext.List.filter_map
+    List.filter_map
       (fun x ->
         if x.cls <> Datamodel_common._vm then
           None
@@ -231,7 +233,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
       x.objects
   in
   let existing_vms =
-    Listext.List.filter_map
+    List.filter_map
       (fun (_, v) -> get_mac_seed v)
       (Client.VM.get_all_records rpc session_id)
   in
@@ -891,7 +893,7 @@ module VDI : HandlerTools = struct
           in
           let find_by_scsiid x =
             vdi_records
-            |> Listext.List.filter_map (fun (rf, vdir) ->
+            |> List.filter_map (fun (rf, vdir) ->
                    if scsiid_of vdir = Some x then Some (rf, vdir) else None)
             |> choose_one
           in

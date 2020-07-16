@@ -14,9 +14,9 @@
 module D = Debug.Make (struct let name = "xapi_pci" end)
 
 open D
-open Stdext
-open Xapi_stdext_std.Listext
-open Xapi_stdext_std.Xstringext
+module Listext = Xapi_stdext_std.Listext
+module Unixext = Xapi_stdext_unix.Unixext
+module Xstringext = Xapi_stdext_std.Xstringext
 
 type base_class = Storage_controller | Network_controller | Display_controller
 
@@ -241,7 +241,7 @@ let update_pcis ~__context =
       (fun dep -> List.find (fun pci -> pci.address = dep) host_pcis)
       deps
   in
-  let managed_pcis = List.setify (class_pcis @ deps) in
+  let managed_pcis = Listext.List.setify (class_pcis @ deps) in
   let current = update_or_create [] managed_pcis in
   let pfs, vfs =
     current
@@ -279,7 +279,7 @@ let update_pcis ~__context =
   in
   update_dependencies pfs ;
   let current = List.map (fun ((pref, prec), _) -> (pref, prec)) current in
-  let obsolete = List.set_difference existing current in
+  let obsolete = Listext.List.set_difference existing current in
   List.iter (fun (self, _) -> Db.PCI.destroy ~__context ~self) obsolete ;
   update_pf_vf_relations ~__context pfs vfs
 
@@ -297,14 +297,14 @@ let get_system_display_device () =
     let line =
       with_vga_arbiter ~readonly:true (fun fd ->
           let data = Unixext.try_read_string ~limit:1024 fd in
-          List.hd (String.split ~limit:2 '\n' data))
+          List.hd (Xstringext.String.split ~limit:2 '\n' data))
     in
     (* Example contents of line:
        		 * count:7,PCI:0000:10:00.0,decodes=io+mem,owns=io+mem,locks=none(0:0) *)
-    let items = String.split ',' line in
+    let items = String.split_on_char ',' line in
     List.fold_left
       (fun acc item ->
-        if String.startswith "PCI" item then
+        if Astring.String.is_prefix ~affix:"PCI" item then
           Some (Scanf.sscanf item "PCI:%s" (fun id -> id))
         else
           acc)

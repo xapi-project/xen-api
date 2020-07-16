@@ -20,8 +20,9 @@
 module D = Debug.Make (struct let name = "xapi_session" end)
 
 open D
-open Stdext
 open Xapi_stdext_threads.Threadext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext
 open Client
 open Auth_signature
 open Extauth

@@ -15,10 +15,10 @@
  * @group Storage
 *)
 
-open Stdext
-open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_std.Xstringext
+module Listext = Xapi_stdext_std.Listext
+module Date = Xapi_stdext_date.Date
 
 module D = Debug.Make (struct let name = "xapi_vbd_helpers" end)
 
@@ -43,7 +43,7 @@ type table = (API.vbd_operations, (string * string list) option) Hashtbl.t
 let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops =
-    List.setify (List.map snd record.Db_actions.vBD_current_operations)
+    Listext.List.setify (List.map snd record.Db_actions.vBD_current_operations)
   in
   (* Policy:
      * current_ops must be empty [ will make exceptions later for eg eject/unplug of attached vbd ]
@@ -74,7 +74,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       let concurrent_op = List.hd current_ops in
       set_errors Api_errors.other_operation_in_progress
         ["VBD"; _ref; vbd_operation_to_string concurrent_op]
-        (List.set_difference all_ops safe_to_parallelise)
+        (Listext.List.set_difference all_ops safe_to_parallelise)
   ) ;
   (* If not all operations are parallisable then preclude pause *)
   let all_are_parallelisable =
@@ -88,7 +88,10 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
       [`pause] ;
   (* If something other than `pause `unpause *and* `attach (for VM.reboot, see CA-24282) then disallow unpause *)
-  if List.set_difference current_ops (`attach :: safe_to_parallelise) <> [] then
+  if
+    Listext.List.set_difference current_ops (`attach :: safe_to_parallelise)
+    <> []
+  then
     set_errors Api_errors.other_operation_in_progress
       ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
       [`unpause] ;
@@ -429,7 +432,7 @@ let copy ~__context ?vdi ~vm vbd =
   let vbd_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   let metrics = Ref.make () in
   let metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
-  let vdi = Pervasiveext.default all.API.vBD_VDI vdi in
+  let vdi = Option.value ~default:all.API.vBD_VDI vdi in
   Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
     ~other_config:[] ;

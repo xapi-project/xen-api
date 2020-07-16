@@ -18,12 +18,11 @@ open D
 
 module SMPERF = Debug.Make (struct let name = "SMPERF" end)
 
-open Stdext
-open Xapi_stdext_std.Listext
-open Xapi_stdext_std.Xstringext
+module Listext = Xapi_stdext_std.Listext
 open Xapi_stdext_pervasives.Pervasiveext
-open Xmlrpc_client
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+open Xmlrpc_client
 open Storage_interface
 open Storage_task
 open Storage_utils
@@ -286,7 +285,7 @@ module State = struct
       (Storage_interface.Vdi.string_of vdi)
 
   let of_mirror_id id =
-    match String.split '/' id with
+    match String.split_on_char '/' id with
     | sr :: rest ->
         Storage_interface.
           (Sr.of_string sr, Vdi.of_string (String.concat "/" rest))
@@ -299,7 +298,7 @@ module State = struct
       (Storage_interface.Vdi.string_of vdi)
 
   let of_copy_id id =
-    match String.split '/' id with
+    match String.split_on_char '/' id with
     | op :: sr :: rest when op = "copy" ->
         Storage_interface.
           (Sr.of_string sr, Vdi.of_string (String.concat "/" rest))
@@ -506,7 +505,7 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
     SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s"
       (Storage_interface.Vdi.string_of vdi)
       (Storage_interface.Vdi.string_of dest_vdi) ;
-    Pervasiveext.finally
+    finally
       (fun () ->
         debug "activating RW datapath %s on remote" remote_dp ;
         ignore (Remote.VDI.attach2 dbg remote_dp dest dest_vdi true) ;

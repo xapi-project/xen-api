@@ -14,8 +14,6 @@
 
 (* This module implements methods for the PVS_proxy class *)
 
-open Stdext
-
 module D = Debug.Make (struct let name = "xapi_pvs_proxy" end)
 
 open D

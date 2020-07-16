@@ -27,9 +27,11 @@
  *  /var/lib/xcp/blobs/messages/ref/<message ref> -> message
  *)
 
-open Stdext
-open Xapi_stdext_std.Listext
-open Xapi_stdext_std.Xstringext
+module Date = Xapi_stdext_date.Date
+module Encodings = Xapi_stdext_encodings.Encodings
+module Listext = Xapi_stdext_std.Listext
+module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
+module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_message" end)
@@ -508,7 +510,7 @@ let destroy ~__context ~self =
              , [Datamodel_common._message; Ref.string_of self] ))
     )
   in
-  let basefilename = List.hd (List.rev (String.split '/' fullpath)) in
+  let basefilename = List.hd (List.rev (String.split_on_char '/' fullpath)) in
   destroy_real __context basefilename
 
 (* Gc the messages - leave only the number of messages defined in 'Xapi_globs.message_limit' *)
@@ -710,7 +712,7 @@ let repopulate_cache () =
               true
             with _ -> false)
       in
-      let last_256 = List.take 256 messages in
+      let last_256 = Listext.List.take 256 messages in
       in_memory_cache := last_256 ;
       let get_ts (ts, _, m) =
         Printf.sprintf "%Ld (%s)" ts (Date.to_string m.API.message_timestamp)

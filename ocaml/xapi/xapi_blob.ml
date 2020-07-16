@@ -72,7 +72,8 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
                  (Xapi_stdext_pervasives.Pervasiveext.finally
-                    (fun () -> Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
+                    (fun () ->
+                      Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
                     (fun () -> Unix.close blob_fd))))
       with e ->
         debug "Ignoring exception in send_blobs: %s" (Printexc.to_string e) ;

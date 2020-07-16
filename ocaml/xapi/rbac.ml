@@ -148,11 +148,12 @@ let permission_of_action ?args ~keys _action =
                       let key_name =
                         List.find
                           (fun key_name ->
-                            if Xapi_stdext_std.Xstringext.String.endswith "*" key_name
-                            then (* resolve wildcards at the end *)
-                              Xapi_stdext_std.Xstringext.String.startswith
-                                (String.sub key_name 0
-                                   (String.length key_name - 1))
+                            if Astring.String.is_suffix ~affix:"*" key_name then
+                              (* resolve wildcards at the end *)
+                              Astring.String.is_prefix
+                                ~affix:
+                                  (String.sub key_name 0
+                                     (String.length key_name - 1))
                                 key_name_in_args
                             else (* no wildcards to resolve *)
                               key_name = key_name_in_args)

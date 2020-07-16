@@ -40,8 +40,8 @@ let read_from_redo_log log staging_path db_ref =
           let total_read =
             Xapi_stdext_unix.Unixext.read_data_in_string_chunks
               (fun str length ->
-                Xapi_stdext_unix.Unixext.time_limited_write_substring outfd length str
-                  latest_response_time)
+                Xapi_stdext_unix.Unixext.time_limited_write_substring outfd
+                  length str latest_response_time)
               fd
           in
           R.debug "Reading database from fd into file %s" temp_file ;

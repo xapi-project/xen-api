@@ -12,11 +12,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Client
 open Db_filter_types
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_threads.Threadext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext
+module Threadext = Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+module Xstringext = Xapi_stdext_std.Xstringext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Network
 
 module L = Debug.Make (struct let name = "license" end)
@@ -1619,7 +1624,7 @@ let sync_m = Mutex.create ()
 open Db_cache_types
 
 let sync_database ~__context =
-  Mutex.execute sync_m (fun () ->
+  Threadext.Mutex.execute sync_m (fun () ->
       (* If HA is enabled I'll first try to flush to the LUN *)
       let pool = Helpers.get_pool ~__context in
       let flushed_to_vdi =
@@ -1794,7 +1799,8 @@ let hello ~__context ~host_uuid ~host_address =
       debug "Hello message from slave OK: cancelling tasks on behalf of slave" ;
       Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:(Some host_ref) ;
       (* Make sure we mark this host as live again *)
-      Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+      Threadext.Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
+        (fun () ->
           Xapi_globs.hosts_which_are_shutting_down :=
             List.filter
               (fun x -> x <> host_ref)
@@ -1941,14 +1947,14 @@ let enable_disable_m = Mutex.create ()
 
 let enable_ha ~__context ~heartbeat_srs ~configuration =
   if not (Helpers.pool_has_different_host_platform_versions ~__context) then
-    Mutex.execute enable_disable_m (fun () ->
+    Threadext.Mutex.execute enable_disable_m (fun () ->
         Xapi_ha.enable __context heartbeat_srs configuration)
   else
     raise
       (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
 
 let disable_ha ~__context =
-  Mutex.execute enable_disable_m (fun () -> Xapi_ha.disable __context)
+  Threadext.Mutex.execute enable_disable_m (fun () -> Xapi_ha.disable __context)
 
 let ha_prevent_restarts_for ~__context ~seconds =
   Xapi_ha.ha_prevent_restarts_for __context seconds
@@ -2162,7 +2168,8 @@ let revalidate_subjects ~__context =
 let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
-  Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+  Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
+    (fun () ->
       (* the first element in the hosts list needs to be the pool's master, because we *)
       (* always want to update first the master's record due to homogeneity checks in CA-24856 *)
       let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
@@ -2327,7 +2334,8 @@ let enable_external_auth ~__context ~pool ~config ~service_name ~auth_type =
 let disable_external_auth ~__context ~pool ~config =
   (* CP-825: Serialize execution of pool-enable-extauth and pool-disable-extauth *)
   (* enabling/disabling the pool's extauth at the same time could produce inconsistent states for extauth in each host of the pool *)
-  Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth (fun () ->
+  Threadext.Mutex.execute Xapi_globs.serialize_pool_enable_disable_extauth
+    (fun () ->
       (* the first element in the hosts list needs to be the pool's master, because we *)
       (* always want to update first the master's record due to homogeneity checks in CA-24856 *)
       let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in

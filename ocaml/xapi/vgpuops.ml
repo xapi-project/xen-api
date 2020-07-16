@@ -14,7 +14,6 @@
 module D = Debug.Make (struct let name = "vgpuops" end)
 
 open D
-open Stdext
 open Xapi_stdext_std.Listext
 open Xapi_stdext_std.Xstringext
 

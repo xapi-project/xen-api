@@ -12,16 +12,15 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Forkhelpers
 open Xml
 open Helpers
 open Client
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_pool_update" end)
 
@@ -433,7 +432,7 @@ let extract_update_info ~__context ~vdi ~verify =
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
 let get_free_bytes path =
-  let stat = statvfs path in
+  let stat = Unixext.statvfs path in
   (* block size times free blocks *)
   Int64.mul stat.f_frsize stat.f_bfree
 

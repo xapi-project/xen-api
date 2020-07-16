@@ -15,10 +15,10 @@
  * @group XenAPI functions
 *)
 
-open Stdext
 open Xapi_vbd_helpers
 open Vbdops
 open Xapi_stdext_threads.Threadext
+module Date = Xapi_stdext_date.Date
 open D
 
 let update_allowed_operations ~__context ~self : unit =
@@ -213,7 +213,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
   (* CA-75697: Disallow VBD.create on a VM that's in the middle of a migration *)
   debug "Checking whether there's a migrate in progress..." ;
   let vm_current_ops =
-    Listext.List.setify
+    Xapi_stdext_std.Listext.List.setify
       (List.map snd (Db.VM.get_current_operations ~__context ~self:vM))
   in
   let migrate_ops = [`migrate_send; `pool_migrate] in
@@ -272,7 +272,10 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           let existing_devices =
             Xapi_vm_helpers.all_used_VBD_devices ~__context ~self:vM
           in
-          if Listext.List.intersect userdevices existing_devices <> [] then
+          if
+            Xapi_stdext_std.Listext.List.intersect userdevices existing_devices
+            <> []
+          then
             raise
               (Api_errors.Server_error
                  (Api_errors.device_already_exists, [userdevice])) ;
