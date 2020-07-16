@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "rbac" end)
 

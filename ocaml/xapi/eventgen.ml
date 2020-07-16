@@ -39,7 +39,7 @@ let compute_object_references_to_follow (obj_name : string) =
   let symmetric =
     List.concat (List.map (fun (a, b) -> [(a, b); (b, a)]) relations)
   in
-  let set = Stdext.Listext.List.setify symmetric in
+  let set = Xapi_stdext_std.Listext.List.setify symmetric in
   List.concat
     (List.map
        (function

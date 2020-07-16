@@ -19,7 +19,7 @@ module L = Debug.Make (struct let name = "license" end)
 
 open Db_filter_types
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Pervasiveext
 open Xstringext
 open Threadext

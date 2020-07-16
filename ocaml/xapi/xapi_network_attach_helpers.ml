@@ -13,7 +13,7 @@
  *)
 
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "xapi_network_attach_helpers" end)
 

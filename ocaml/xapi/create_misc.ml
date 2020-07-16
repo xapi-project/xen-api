@@ -105,7 +105,7 @@ let make_kpatch_list () =
   let patches = loop [] false lines in
   if List.length patches > 0 then Some (String.concat ", " patches) else None
 
-open Xstringext
+open Xapi_stdext_std.Xstringext
 
 (** [count_cpus] returns the number of CPUs found in /proc/cpuinfo *)
 let count_cpus () =
@@ -113,7 +113,7 @@ let count_cpus () =
   let re = Re.Perl.compile @@ Re.Perl.re {|^processor\s*:\s+\d+|} in
   let matches line = Re.matches re line <> [] in
   let count n line = if matches line then n + 1 else n in
-  Stdext.Unixext.file_lines_fold count 0 cpuinfo
+  Xapi_stdext_unix.Unixext.file_lines_fold count 0 cpuinfo
 
 (* NB: this is dom0's view of the world, not Xen's. *)
 let read_dom0_memory_usage () =
@@ -795,8 +795,8 @@ let create_chipset_info ~__context host_info =
 let create_updates_requiring_reboot_info ~__context ~host =
   let update_uuids =
     try
-      Stdext.Listext.List.setify
-        (Stdext.Unixext.read_lines !Xapi_globs.reboot_required_hfxs)
+      Xapi_stdext_std.Listext.List.setify
+        (Xapi_stdext_unix.Unixext.read_lines !Xapi_globs.reboot_required_hfxs)
     with _ -> []
   in
   let updates =

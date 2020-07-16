@@ -1146,7 +1146,7 @@ let is_xha_protected_r record =
   vm_should_always_run record.API.vM_ha_always_run
     record.API.vM_ha_restart_priority
 
-open Listext
+open Xapi_stdext_std.Listext
 
 let local_storage_exists () =
   try

@@ -14,7 +14,7 @@
 
 open Db_filter_types
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Monitor_types
 open Monitor_dbcalls_cache
 open Xstringext

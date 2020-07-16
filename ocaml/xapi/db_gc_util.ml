@@ -17,7 +17,7 @@
 
 open API
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "db_gc_util" end)
 

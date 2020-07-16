@@ -152,7 +152,7 @@ let get_permissions_name_label ~__context ~self =
      	  fold get_all_permissions ~__context ~role
      	  setify
   *)
-  Stdext.Listext.List.setify
+  Xapi_stdext_std.Listext.List.setify
     (List.fold_left
        (fun accu role ->
          List.rev_append

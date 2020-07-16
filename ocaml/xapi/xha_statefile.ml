@@ -27,7 +27,7 @@ let statefile_sm_config = [("type", "raw")]
 
 open Client
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Xstringext
 
 (** Return the minimum size of an HA statefile, as of

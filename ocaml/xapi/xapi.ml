@@ -20,7 +20,7 @@ open Printf
 open Xstringext
 open Threadext
 open Pervasiveext
-open Listext
+open Xapi_stdext_std.Listext
 open Auth_signature
 open Extauth
 open Db_filter_types

@@ -12,8 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Mtxext = Stdext.Threadext.Mutex
-module Lstext = Stdext.Listext.List
+module Mtxext = Xapi_stdext_threads.Threadext.Mutex
+module Lstext = Xapi_stdext_std.Listext.List
 module Mcache = Monitor_dbcalls_cache
 
 module D = Debug.Make (struct let name = "monitor_pvs_proxy" end)

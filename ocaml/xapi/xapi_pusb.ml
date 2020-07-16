@@ -13,7 +13,7 @@
  *)
 
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Threadext
 open Xapi_pusb_helpers
 
