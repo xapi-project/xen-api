@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 module D = Debug.Make (struct let name = "attach_helpers" end)

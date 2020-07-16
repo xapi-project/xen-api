@@ -17,7 +17,7 @@ open D
 open Stdext
 open Http
 open Xapi_stdext_std.Xstringext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 let audit_log_whitelist_prefix = "/var/log/audit.log"
 

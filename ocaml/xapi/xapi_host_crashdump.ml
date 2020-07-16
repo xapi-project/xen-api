@@ -17,7 +17,7 @@
 
 open Stdext
 open Xapi_stdext_std.Listext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 open Xapi_support
 

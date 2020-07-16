@@ -20,7 +20,7 @@ open Xapi_stdext_std.Xstringext
 open Debug
 open Http
 open Forkhelpers
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 exception Failure of string
 

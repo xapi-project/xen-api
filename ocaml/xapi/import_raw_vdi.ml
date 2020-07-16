@@ -23,7 +23,7 @@ open Http
 open Importexport
 open Sparse_encoding
 open Xapi_stdext_unix.Unixext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 let fail_task_in_request (req : Request.t) (s : Unix.file_descr) e =

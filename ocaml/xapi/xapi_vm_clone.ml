@@ -17,7 +17,7 @@
 
 open Stdext
 open Client
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Event_types
 
 module D = Debug.Make (struct let name = "xapi_vm_clone" end)

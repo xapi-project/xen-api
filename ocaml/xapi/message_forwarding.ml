@@ -17,7 +17,7 @@
 
 open Stdext
 open Xapi_stdext_threads.Threadext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Server_helpers
 open Client
 open Db_filter_types

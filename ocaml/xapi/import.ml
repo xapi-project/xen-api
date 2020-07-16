@@ -22,7 +22,7 @@ open Stdext
 open Http
 open Importexport
 open Xapi_stdext_unix.Unixext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 type import_failure =

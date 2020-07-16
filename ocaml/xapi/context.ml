@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 module R = Debug.Make (struct let name = "taskhelper" end)
 

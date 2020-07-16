@@ -14,7 +14,7 @@
 
 module Rrdd = Rrd_client.Client
 open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
 open Xapi_host_helpers

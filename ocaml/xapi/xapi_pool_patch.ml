@@ -66,7 +66,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                 ("sr_id", Ref.string_of default_SR) :: query
           in
           let subtask = Client.Task.create rpc session_id "VDI upload" "" in
-          Stdext.Pervasiveext.finally
+          Xapi_stdext_pervasives.Pervasiveext.finally
             (fun () ->
               let req =
                 Http.Request.

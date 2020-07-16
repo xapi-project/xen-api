@@ -21,7 +21,7 @@ module D = Debug.Make (struct let name = "db_hiupgrade" end)
 open D
 open Stdext
 open Xapi_stdext_std.Xstringext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 (** The type of an upgrade rule. The rules should ideally be idempotent and composable.
     All new fields will have been created with default values and new tables will exist. *)

@@ -139,7 +139,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
               Datamodel_common.api_version_string Constants.xapi_user_agent
           with _ -> raise (Http.Unauthorised realm)
         in
-        Stdext.Pervasiveext.finally
+        Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () -> rbac_check session_id)
           (fun () ->
             try Client.Session.logout inet_rpc session_id with _ -> ())
@@ -189,7 +189,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         | None, None, None ->
             raise (Http.Unauthorised label)
     in
-    Stdext.Pervasiveext.finally
+    Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         let login_perform_logout __context =
           validate_session __context session_id label ;

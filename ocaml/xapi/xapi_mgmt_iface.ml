@@ -13,7 +13,7 @@
  *)
 open Db_filter_types
 open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_mgmt_iface" end)

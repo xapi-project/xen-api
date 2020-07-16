@@ -21,7 +21,7 @@ open Stdext
 open Xapi_stdext_std.Xstringext
 open Create_misc
 open Client
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Network
 
 module D = Debug.Make (struct let name = "dbsync" end)

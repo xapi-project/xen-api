@@ -15,7 +15,7 @@
 open Stdext
 open Client
 open Db_filter_types
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 open Network
 

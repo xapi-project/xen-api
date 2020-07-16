@@ -13,7 +13,7 @@
  *)
 (* Session checking **********************************************************)
 
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 exception Non_master_login_on_slave
 
