@@ -63,7 +63,7 @@ module Make (D : DAEMON) = struct
     | Pidfile file -> (
       try
         let pid =
-          Stdext.Unixext.string_of_file file |> String.trim |> int_of_string
+          Xapi_stdext_unix.Unixext.string_of_file file |> String.trim |> int_of_string
         in
         Unix.kill pid 0 ; true
       with _ -> false

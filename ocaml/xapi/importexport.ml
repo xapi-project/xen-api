@@ -310,7 +310,7 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
                           , !Constants.https_port ))
                        (with_http put (fun (_, ofd) ->
                             let (n : int64) =
-                              Stdext.Unixext.copy_file
+                              Xapi_stdext_unix.Unixext.copy_file
                                 ?limit:r.Http.Response.content_length ifd ofd
                             in
                             debug "Written %Ld bytes" n))))

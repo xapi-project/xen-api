@@ -21,7 +21,7 @@ open Xml
 open Helpers
 open Client
 open Stdext.Threadext
-open Unixext
+open Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_pool_update" end)
 
@@ -732,7 +732,7 @@ let path_and_host_from_uri uri =
         untrusted_path
         |> Filename.concat !Xapi_globs.host_update_dir
         |> Uri.pct_decode
-        |> Stdext.Unixext.resolve_dot_and_dotdot
+        |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
       in
       (host, resolved_path)
   | _ ->

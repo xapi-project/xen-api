@@ -41,7 +41,7 @@ let destroy ~__context ~self =
     vms ;
   let uuid = Db.Blob.get_uuid ~__context ~self in
   let path = Xapi_globs.xapi_blob_location ^ "/" ^ uuid in
-  Stdext.Unixext.unlink_safe path ;
+  Xapi_stdext_unix.Unixext.unlink_safe path ;
   Db.Blob.destroy ~__context ~self
 
 (* Send blobs to a remote host on a different pool. uuid_map is a
@@ -72,7 +72,7 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
                  (Stdext.Pervasiveext.finally
-                    (fun () -> Stdext.Unixext.copy_file blob_fd put_fd)
+                    (fun () -> Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
                     (fun () -> Unix.close blob_fd))))
       with e ->
         debug "Ignoring exception in send_blobs: %s" (Printexc.to_string e) ;
@@ -171,7 +171,7 @@ let handler (req : Http.Request.t) s _ =
               ) ;
             ignore
               (Stdext.Pervasiveext.finally
-                 (fun () -> Stdext.Unixext.copy_file ifd s)
+                 (fun () -> Xapi_stdext_unix.Unixext.copy_file ifd s)
                  (fun () -> Unix.close ifd))
           with _ -> Http_svr.headers s (Http.http_404_missing ())
         )
@@ -193,7 +193,7 @@ let handler (req : Http.Request.t) s _ =
                 (fun () ->
                   Http_svr.headers s
                     (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]) ;
-                  Stdext.Unixext.copy_file ~limit s ofd)
+                  Xapi_stdext_unix.Unixext.copy_file ~limit s ofd)
                 (fun () -> Unix.close ofd)
             in
             Db.Blob.set_size ~__context ~self ~value:size ;

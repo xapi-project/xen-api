@@ -21,7 +21,7 @@ open D
 open Stdext
 open Http
 open Importexport
-open Unixext
+open Xapi_stdext_unix.Unixext
 open Pervasiveext
 open Client
 

@@ -310,8 +310,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                 | _, Unix.WEXITED n ->
                     exited_code := n ;
                     output :=
-                      Stdext.Unixext.string_of_file out_tmpfile
-                      ^ Stdext.Unixext.string_of_file err_tmpfile
+                      Xapi_stdext_unix.Unixext.string_of_file out_tmpfile
+                      ^ Xapi_stdext_unix.Unixext.string_of_file err_tmpfile
                 | _ ->
                     error "PBIS %s exit with WSTOPPED or WSIGNALED" debug_cmd ;
                     raise
