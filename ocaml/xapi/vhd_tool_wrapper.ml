@@ -38,7 +38,7 @@ let run_vhd_tool progress_cb args s s' path =
       to_close := List.filter (fun y -> y <> x) !to_close
     )
   in
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
       match
         with_logfile_fd "vhd-tool" (fun log_fd ->

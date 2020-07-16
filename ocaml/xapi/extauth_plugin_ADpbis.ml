@@ -249,7 +249,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       List.iter close_fd !fds_to_close ;
       List.iter unlink_file !files_to_unlink
     in
-    let finally_finalize f = Stdext.Pervasiveext.finally f finalize in
+    let finally_finalize f = Xapi_stdext_pervasives.Pervasiveext.finally f finalize in
     let exited_code = ref 0 in
     let output = ref "" in
     finally_finalize (fun () ->
@@ -271,7 +271,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
               Forkhelpers.safe_close_and_exec (Some in_readme)
                 (Some out_writeme) (Some err_writeme) [] pbis_cmd pbis_args
             in
-            Stdext.Pervasiveext.finally
+            Xapi_stdext_pervasives.Pervasiveext.finally
               (fun () ->
                 debug "Created process pid %s for cmd %s"
                   (Forkhelpers.string_of_pidty pid)

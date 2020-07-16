@@ -16,7 +16,7 @@
 *)
 
 open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 open Forkhelpers
 open Xapi_templates

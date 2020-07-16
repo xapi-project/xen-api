@@ -16,7 +16,7 @@
    Useful for offloading potentially blocking but not critical tasks to background threads (like HA alerts) *)
 
 open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "thread_queue" end)

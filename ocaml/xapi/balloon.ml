@@ -14,7 +14,7 @@
 
 open Stdext
 open Xapi_stdext_std.Xstringext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Printf
 
 module D = Debug.Make (struct let name = "xenops" end)

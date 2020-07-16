@@ -14,7 +14,7 @@
 open Stdext
 open Http
 open Printf
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 open Forkhelpers
 

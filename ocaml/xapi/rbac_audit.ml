@@ -232,7 +232,7 @@ let zip data =
   try
     let tmp_path = Filename.temp_file "zip-" ".dat" in
     let zdata = ref Bytes.empty in
-    Stdext.Pervasiveext.finally
+    Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         Xapi_stdext_unix.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
             Gzip.compress fd (fun fd ->
@@ -243,7 +243,7 @@ let zip data =
                     (Printf.sprintf "zip: wrote only %i bytes of %i" written
                        len))) ;
         let fd_in = Unix.openfile tmp_path [Unix.O_RDONLY] 0o400 in
-        Stdext.Pervasiveext.finally
+        Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
             let cin = Unix.in_channel_of_descr fd_in in
             let cin_len = in_channel_length cin in

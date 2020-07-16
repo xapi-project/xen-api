@@ -29,7 +29,7 @@ let read_from_redo_log log staging_path db_ref =
     let read_db gen_count fd expected_length latest_response_time =
       (* Read the database from the fd into a file *)
       let temp_file = Filename.temp_file "from-vdi" ".db" in
-      Stdext.Pervasiveext.finally
+      Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () ->
           let outfd =
             Unix.openfile temp_file

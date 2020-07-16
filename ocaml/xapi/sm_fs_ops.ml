@@ -34,7 +34,7 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
         match mode with `RO -> [Unix.O_RDONLY] | `RW -> [Unix.O_RDWR]
       in
       let fd = Unix.openfile path mode' 0 in
-      Stdext.Pervasiveext.finally (fun () -> f fd) (fun () -> Unix.close fd))
+      Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f fd) (fun () -> Unix.close fd))
 
 (** Return a URL suitable for passing to the sparse_dd process *)
 let import_vdi_url ~__context ?(prefer_slaves = false) rpc session_id task_id

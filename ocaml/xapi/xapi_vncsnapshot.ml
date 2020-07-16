@@ -30,7 +30,7 @@ let vncsnapshot_handler (req : Request.t) s _ =
           Rbac_static.permission_http_get_vncsnapshot_host_console
             .Db_actions.role_name_label ;
         let tmp = Filename.temp_file "snapshot" "jpg" in
-        Stdext.Pervasiveext.finally
+        Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
             let vnc_port =
               Int64.to_int (Db.Console.get_port ~__context ~self:console)

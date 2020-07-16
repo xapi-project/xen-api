@@ -18,7 +18,7 @@
 open Client
 open Db_cache_types
 open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_vdi_helpers" end)

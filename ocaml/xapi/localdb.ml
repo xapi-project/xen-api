@@ -15,7 +15,7 @@
    be used in emergency mode since every slave has its own copy. *)
 
 open Xapi_stdext_threads.Threadext
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 module D = Debug.Make (struct let name = "localdb" end)
 

@@ -19,7 +19,7 @@ open Stdext
 open Printf
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Listext
 open Auth_signature
 open Extauth

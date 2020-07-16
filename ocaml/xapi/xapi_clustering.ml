@@ -30,7 +30,7 @@ let clustering_lock_m = Locking_helpers.Named_mutex.create "clustering"
 let with_clustering_lock where f =
   debug "Trying to grab host-local clustering lock... (%s)" where ;
   Locking_helpers.Named_mutex.execute clustering_lock_m (fun () ->
-      Stdext.Pervasiveext.finally
+      Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () ->
           debug "Grabbed host-local clustering lock; executing function... (%s)"
             where ;

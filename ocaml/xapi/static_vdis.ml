@@ -20,7 +20,7 @@ module D = Debug.Make (struct let name = "static_vdis" end)
 open D
 open Stdext
 open Xapi_stdext_std.Xstringext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 include Static_vdis_list (* include the vdi type and the list() function *)
 
 (** Generate the static configuration and attach the VDI now *)

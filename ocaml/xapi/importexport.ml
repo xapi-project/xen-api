@@ -219,7 +219,7 @@ let cleanup (x : cleanup_stack) =
                 (action __context rpc) session_id)
             x))
 
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 type vm_export_import = {
     vm: API.ref_VM

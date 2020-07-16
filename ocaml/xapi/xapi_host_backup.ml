@@ -17,7 +17,7 @@
 
 open Stdext
 open Http
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Forkhelpers
 open Helpers
 

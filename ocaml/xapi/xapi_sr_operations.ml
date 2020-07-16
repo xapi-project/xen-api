@@ -17,7 +17,7 @@
 
 open Stdext
 open Xapi_stdext_threads.Threadext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 module Listext = Listext.List
 open Db_filter_types
 open API

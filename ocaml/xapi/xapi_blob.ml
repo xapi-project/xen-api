@@ -71,7 +71,7 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
           (with_http request (fun (response, put_fd) ->
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
-                 (Stdext.Pervasiveext.finally
+                 (Xapi_stdext_pervasives.Pervasiveext.finally
                     (fun () -> Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
                     (fun () -> Unix.close blob_fd))))
       with e ->
@@ -170,7 +170,7 @@ let handler (req : Http.Request.t) s _ =
                 ]
               ) ;
             ignore
-              (Stdext.Pervasiveext.finally
+              (Xapi_stdext_pervasives.Pervasiveext.finally
                  (fun () -> Xapi_stdext_unix.Unixext.copy_file ifd s)
                  (fun () -> Unix.close ifd))
           with _ -> Http_svr.headers s (Http.http_404_missing ())
@@ -189,7 +189,7 @@ let handler (req : Http.Request.t) s _ =
                   failwith "Need content length"
             in
             let size =
-              Stdext.Pervasiveext.finally
+              Xapi_stdext_pervasives.Pervasiveext.finally
                 (fun () ->
                   Http_svr.headers s
                     (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]) ;

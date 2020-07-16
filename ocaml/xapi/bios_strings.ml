@@ -191,7 +191,7 @@ let get_hp_rombios () =
   let hp_rombios = Bytes.make 6 ' ' in
   ( try
       let mem = Unix.openfile "/dev/mem" [Unix.O_RDONLY] 0 in
-      Stdext.Pervasiveext.finally
+      Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () ->
           ignore (Unix.lseek mem 0xfffea Unix.SEEK_SET) ;
           ignore (Unix.read mem hp_rombios 0 6))

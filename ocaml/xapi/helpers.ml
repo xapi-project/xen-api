@@ -17,7 +17,7 @@
 
 open Stdext
 open Xapi_stdext_std.Xstringext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
 open Printf
 open Xapi_globs
