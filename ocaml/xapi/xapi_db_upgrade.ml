@@ -20,7 +20,7 @@ module D = Debug.Make (struct let name = "db_hiupgrade" end)
 
 open D
 open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Pervasiveext
 
 (** The type of an upgrade rule. The rules should ideally be idempotent and composable.

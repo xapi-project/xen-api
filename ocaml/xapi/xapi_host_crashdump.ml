@@ -18,7 +18,7 @@
 open Stdext
 open Xapi_stdext_std.Listext
 open Pervasiveext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Xapi_support
 
 module D = Debug.Make (struct let name = "xapi_host_crashdump" end)

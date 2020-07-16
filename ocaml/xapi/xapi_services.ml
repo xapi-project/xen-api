@@ -18,7 +18,7 @@ module D = Debug.Make (struct let name = "xapi_services" end)
 
 open D
 open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Pervasiveext
 open Threadext
 open Constants

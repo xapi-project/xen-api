@@ -17,7 +17,7 @@ open Stdext
 open Xapi_stdext_std.Listext
 open Monitor_types
 open Monitor_dbcalls_cache
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Threadext
 
 module D = Debug.Make (struct let name = "monitor_dbcalls" end)

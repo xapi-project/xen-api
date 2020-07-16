@@ -18,7 +18,7 @@
 module D = Debug.Make (struct let name = "extauth_plugin_ADpbis" end)
 
 open D
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 
 let lwsmd_service = "lwsmd"
 
@@ -149,7 +149,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
   let mutex_check_availability =
     Locking_helpers.Named_mutex.create "IS_SERVER_AVAILABLE"
 
-  open Stdext.Xstringext
+  open Xapi_stdext_std.Xstringext
 
   let splitlines s =
     String.split_f (fun c -> c = '\n') (String.replace "#012" "\n" s)

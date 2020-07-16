@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = "xapi_pci" end)
 open D
 open Stdext
 open Xapi_stdext_std.Listext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 
 type base_class = Storage_controller | Network_controller | Display_controller
 

@@ -17,7 +17,7 @@
 
 open Stdext
 open Printf
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Threadext
 open Pervasiveext
 open Xapi_stdext_std.Listext

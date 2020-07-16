@@ -13,7 +13,7 @@
  *)
 
 open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Xapi_stdext_std.Listext
 
 (* Keys we push through to xenstore. *)

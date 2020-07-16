@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = "audit_log" end)
 open D
 open Stdext
 open Http
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Pervasiveext
 
 let audit_log_whitelist_prefix = "/var/log/audit.log"

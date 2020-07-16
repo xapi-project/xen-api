@@ -24,7 +24,7 @@ open D
 module Rrdd = Rrd_client.Client
 open Stdext
 open Xapi_stdext_std.Listext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Threadext
 open Pervasiveext
 open Forkhelpers
