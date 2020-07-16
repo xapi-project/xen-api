@@ -18,7 +18,7 @@
 
 module Rrdd = Rrd_client.Client
 open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Create_misc
 open Client
 open Pervasiveext

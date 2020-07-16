@@ -14,7 +14,7 @@
 open Stdext
 open Threadext
 open Client
-open Xstringext
+open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_network" end)
 

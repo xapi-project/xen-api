@@ -13,7 +13,7 @@
  *)
 (* Interface to udhcpd *)
 open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_udhcpd" end)
 

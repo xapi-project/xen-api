@@ -14,7 +14,7 @@
 (** Wrapper around gpg *)
 
 open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Pervasiveext
 
 module D = Debug.Make (struct let name = "gpg" end)

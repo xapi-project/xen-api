@@ -21,7 +21,7 @@ open Db_filter_types
 open Stdext
 open Xapi_stdext_std.Listext
 open Pervasiveext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Threadext
 open Network
 

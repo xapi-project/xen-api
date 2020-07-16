@@ -17,7 +17,7 @@
 
 open Stdext
 open Pervasiveext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Printf
 open Smint
 

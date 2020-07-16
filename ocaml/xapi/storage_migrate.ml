@@ -20,7 +20,7 @@ module SMPERF = Debug.Make (struct let name = "SMPERF" end)
 
 open Stdext
 open Xapi_stdext_std.Listext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Pervasiveext
 open Xmlrpc_client
 open Threadext

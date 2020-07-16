@@ -18,7 +18,7 @@
 open Xml
 open XMLRPC
 open SExpr
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 
 (** Accepts an xml-rpc tree of type xml.xml
     with contents <tag> [child1] [child2] ... [childn] </tag>

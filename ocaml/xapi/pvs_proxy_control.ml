@@ -15,7 +15,7 @@
 open Stdext
 open Xapi_stdext_std.Listext
 open Threadext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_pvs_proxy_control" end)
 

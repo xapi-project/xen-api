@@ -45,7 +45,7 @@ let get_supported_srs cluster_stack =
   in
   let fname = Filename.concat folder_name ha_supported_srs in
   try
-    let open Stdext.Xstringext.String in
+    let open Xapi_stdext_std.Xstringext.String in
     Some
       (Stdext.Unixext.string_of_file fname |> strip isspace |> split_f isspace)
   with _ -> None

@@ -17,7 +17,7 @@
 
 open Printf
 open Http
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 open Stdext.Pervasiveext
 
 module D = Debug.Make (struct let name = "fileserver" end)
