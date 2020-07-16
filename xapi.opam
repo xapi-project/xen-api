@@ -37,7 +37,6 @@ depends: [
   "rresult"
   "sexpr"
   "sha"
-  "stdext"
   "stunnel"
   "tar"
   "tar-unix"
@@ -55,6 +54,7 @@ depends: [
   "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
+  "xapi-stdext-zerocheck"
   "xapi-tapctl"
   "xapi-test-utils" {with-test}
   "xapi-types"
