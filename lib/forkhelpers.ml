@@ -44,9 +44,14 @@ let waitpid (sock, pid) =
   end
 
 let waitpid_nohang ((sock, _) as x) =
-  (match Unix.select [sock] [] [] 0.0 with
-   | ([_s],_,_) -> waitpid x
-   | _ -> (0,Unix.WEXITED 0))
+  Unix.set_nonblock sock;
+  let r =
+    try waitpid x
+    with Unix.(Unix_error((EAGAIN|EWOULDBLOCK), _, _)) ->
+      (0,Unix.WEXITED 0)
+  in
+  Unix.clear_nonblock sock;
+  r
 
 let dontwaitpid (sock, _pid) =
   begin
@@ -197,9 +202,10 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout=NoSyslogging) ?
                   Xapi_stdext_unix.Unixext.really_write_string wr str;
                   close wr;
                 ) stdinandpipes;
-              match Unix.select [sock] [] [] timeout with
-              | ([_s],_,_) -> waitpid (sock,pid)
-              | _ ->
+              if timeout > 0. then
+                Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout;
+              try waitpid (sock, pid)
+              with Unix.(Unix_error((EAGAIN|EWOULDBLOCK), _, _)) ->
                 Unix.kill pid Sys.sigkill;
                 ignore (waitpid (sock,pid));
                 raise Subprocess_timeout
