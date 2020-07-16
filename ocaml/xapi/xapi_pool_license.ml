@@ -19,8 +19,8 @@ module D = Debug.Make (struct let name = "xapi_pool_license" end)
 open D
 
 (* Compare two date options, where None is always greater than (Some _) *)
-let compare_dates (a : Stdext.Date.iso8601 option)
-    (b : Stdext.Date.iso8601 option) =
+let compare_dates (a : Xapi_stdext_date.Date.iso8601 option)
+    (b : Xapi_stdext_date.Date.iso8601 option) =
   match (a, b) with
   | None, None ->
       0

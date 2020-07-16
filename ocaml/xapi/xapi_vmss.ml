@@ -210,7 +210,7 @@ let create ~__context ~name_label ~name_description ~enabled ~_type
   let uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.VMSS.create ~__context ~ref ~uuid ~name_label ~name_description ~enabled
     ~_type ~retained_snapshots ~frequency ~schedule
-    ~last_run_time:(Stdext.Date.of_float 0.) ;
+    ~last_run_time:(Xapi_stdext_date.Date.of_float 0.) ;
   ref
 
 let destroy_all_messages ~__context ~self =
