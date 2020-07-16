@@ -14,7 +14,7 @@
 
 open Stdext
 open Xapi_stdext_std.Listext
-open Threadext
+open Xapi_stdext_threads.Threadext
 module XenAPI = Client.Client
 open Storage_interface
 

@@ -14,7 +14,7 @@
 (** Queues of jobs to perform, represented as unit -> unit thunks *)
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let vm_lifecycle_queue_started = ref false
 

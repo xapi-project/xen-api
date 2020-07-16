@@ -15,7 +15,7 @@ module Rrdd = Rrd_client.Client
 open Stdext
 open Xapi_vm_helpers
 open Client
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Xmlrpc_sexpr
 
 (* Notes re: VM.{start,resume}{on,}:

@@ -1,6 +1,6 @@
 open Xapi_stdext_threads
 open Xapi_stdext_unix
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 type mode =
   | Slave of string

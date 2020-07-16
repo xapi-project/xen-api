@@ -285,7 +285,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
          (Api_errors.ha_operation_would_break_failover_plan, []))
   ) ;
   (* Check to make sure the device is unique *)
-  Stdext.Threadext.Mutex.execute m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let all = Db.VM.get_VIFs ~__context ~self:vM in
       let all_devices =
         List.map (fun self -> Db.VIF.get_device ~__context ~self) all

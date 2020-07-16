@@ -21,7 +21,7 @@ module D = Debug.Make (struct let name = "xapi_session" end)
 
 open D
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Client
 open Auth_signature
 open Extauth

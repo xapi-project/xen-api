@@ -432,7 +432,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           !cache_of_pbis_common @ [(cache_key, (Unix.time (), result))] ;
         result
     in
-    Stdext.Threadext.Mutex.execute cache_of_pbis_common_m f
+    Xapi_stdext_threads.Threadext.Mutex.execute cache_of_pbis_common_m f
 
   let get_joined_domain_name () =
     Server_helpers.exec_with_new_task "obtaining joined-domain name"
@@ -965,7 +965,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                 ~value:extauthconf ;
               debug "added external_auth_configuration for host %s"
                 (Db.Host.get_name_label ~__context ~self:host)) ;
-          Stdext.Threadext.Mutex.execute cache_of_pbis_common_m (fun _ ->
+          Xapi_stdext_threads.Threadext.Mutex.execute cache_of_pbis_common_m (fun _ ->
               cache_of_pbis_common := []) ;
           ensure_pbis_configured ()
         with e ->

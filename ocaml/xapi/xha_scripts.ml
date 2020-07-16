@@ -61,7 +61,7 @@ let call_script ?log_successful_output script args =
   let script' = Filename.concat path script in
   let env = [|Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path|] in
   try
-    Stdext.Threadext.Mutex.execute ha_script_m (fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute ha_script_m (fun () ->
         Helpers.call_script ?log_successful_output ~env script' args)
   with Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
     let code = Xha_errno.of_int n in

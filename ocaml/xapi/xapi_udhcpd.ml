@@ -20,7 +20,7 @@ module D = Debug.Make (struct let name = "xapi_udhcpd" end)
 open D
 open Forkhelpers
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let ip_begin_key = "ip_begin"
 

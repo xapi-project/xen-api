@@ -15,7 +15,7 @@
  * @group Helper functions for handling system domains
 *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "system_domains" end)
 

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Client
 open Xapi_stdext_std.Xstringext
 

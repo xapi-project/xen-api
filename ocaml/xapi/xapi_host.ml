@@ -16,7 +16,7 @@ module Rrdd = Rrd_client.Client
 open Stdext
 open Pervasiveext
 open Xapi_stdext_std.Listext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Xapi_host_helpers
 open Xapi_support
 open Db_filter_types

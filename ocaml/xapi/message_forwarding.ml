@@ -16,7 +16,7 @@
 *)
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Pervasiveext
 open Server_helpers
 open Client

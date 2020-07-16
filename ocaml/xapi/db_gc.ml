@@ -17,7 +17,7 @@
 
 open API
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "db_gc" end)
 

@@ -20,7 +20,7 @@ open Forkhelpers
 open Xml
 open Helpers
 open Client
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 open Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_pool_update" end)

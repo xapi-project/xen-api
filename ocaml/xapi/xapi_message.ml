@@ -30,7 +30,7 @@
 open Stdext
 open Xapi_stdext_std.Listext
 open Xapi_stdext_std.Xstringext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_message" end)
 

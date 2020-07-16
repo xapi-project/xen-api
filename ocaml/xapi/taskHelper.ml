@@ -17,7 +17,7 @@ open D
 
 (*open API*)
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 type t = API.ref_task
 

@@ -18,7 +18,7 @@
 open Stdext
 open Xapi_vbd_helpers
 open Vbdops
-open Threadext
+open Xapi_stdext_threads.Threadext
 open D
 
 let update_allowed_operations ~__context ~self : unit =

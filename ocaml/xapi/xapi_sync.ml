@@ -17,7 +17,7 @@ module D = Debug.Make (struct let name = "sync" end)
 
 open D
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let sync_lock = Mutex.create ()
 

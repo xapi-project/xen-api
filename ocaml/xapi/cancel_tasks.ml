@@ -136,7 +136,7 @@ let cancelled_m = Mutex.create ()
 (** Mark tasks that are pending or cancelling on this host as cancelled
     This function is called by master on behalf of slave, when slave sends a "Pool.hello" msg on reconnect *)
 let cancel_tasks_on_host ~__context ~host_opt =
-  Stdext.Threadext.Mutex.execute cancelled_m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute cancelled_m (fun () ->
       (* Block Pool.hello on behalf of slaves until the master has finished the initial resync *)
       if host_opt = None (* initial sync, not Pool.hello *) then (
         master_finished_initial_cancel := true ;

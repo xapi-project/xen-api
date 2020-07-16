@@ -33,7 +33,7 @@
 
 open Stdext
 open Printf
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "remote_requests" end)
 

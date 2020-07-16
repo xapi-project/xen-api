@@ -22,7 +22,7 @@
 
 open Stdext
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module DD = Debug.Make (struct let name = "xapi_vm_migrate" end)
 

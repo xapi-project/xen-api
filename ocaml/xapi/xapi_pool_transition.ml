@@ -16,7 +16,7 @@
 *)
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Client
 
 module D = Debug.Make (struct let name = "xapi_pool_transition" end)

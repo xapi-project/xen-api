@@ -23,7 +23,7 @@ open Xapi_stdext_std.Listext
 open Xapi_stdext_std.Xstringext
 open Pervasiveext
 open Xmlrpc_client
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Storage_interface
 open Storage_task
 open Storage_utils
