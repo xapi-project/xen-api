@@ -234,7 +234,7 @@ let zip data =
     let zdata = ref Bytes.empty in
     Stdext.Pervasiveext.finally
       (fun () ->
-        Stdext.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
+        Xapi_stdext_unix.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
             Gzip.compress fd (fun fd ->
                 let len = String.length data in
                 let written = Unix.write_substring fd data 0 len in

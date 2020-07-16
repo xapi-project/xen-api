@@ -1747,7 +1747,7 @@ end = struct
           ]
       in
       let len = String.length conf_contents in
-      Stdext.Unixext.atomic_write_to_file !Xapi_globs.stunnel_conf 0o0600
+      Xapi_stdext_unix.Unixext.atomic_write_to_file !Xapi_globs.stunnel_conf 0o0600
         (fun fd ->
           let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
           ())

@@ -50,7 +50,7 @@ let run_vhd_tool progress_cb args s s' path =
             ( try
                 let buf = Bytes.make 3 '\000' in
                 while true do
-                  Stdext.Unixext.really_read pipe_read buf 0 (Bytes.length buf) ;
+                  Xapi_stdext_unix.Unixext.really_read pipe_read buf 0 (Bytes.length buf) ;
                   progress_cb (int_of_string (Bytes.to_string buf))
                 done
               with

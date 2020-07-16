@@ -93,7 +93,7 @@ let send_file (uri_base : string) (dir : string) (req : Request.t)
     (* file_path is the thing which should be served *)
     let file_path = dir ^ "/" ^ relative_url in
     (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
-    let file_path = Stdext.Unixext.resolve_dot_and_dotdot file_path in
+    let file_path = Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot file_path in
     if not (String.startswith dir file_path) then (
       debug "Rejecting request for file: %s (outside of directory %s)" file_path
         dir ;

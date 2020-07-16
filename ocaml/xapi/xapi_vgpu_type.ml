@@ -380,7 +380,7 @@ functor
 let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line
     ~device_id_of_conf =
   if Sys.file_exists whitelist then
-    Stdext.Unixext.file_lines_fold
+    Xapi_stdext_unix.Unixext.file_lines_fold
       Identifier.(
         fun acc line ->
           match parse_line ~line with
@@ -882,7 +882,7 @@ module Nvidia_compat = struct
 
   let of_conf_file file_path =
     try
-      let conf = Stdext.Unixext.read_lines file_path in
+      let conf = Xapi_stdext_unix.Unixext.read_lines file_path in
       let args =
         List.filter (fun s -> not (String.startswith "#" s || s = "")) conf
       in

@@ -52,7 +52,7 @@ let call_plugin session_id plugin_name fn_name args =
           (Api_errors.Server_error
              ( Api_errors.xenapi_plugin_failure
              , [
-                 Printf.sprintf "signal: %s" (Stdext.Unixext.string_of_signal i)
+                 Printf.sprintf "signal: %s" (Xapi_stdext_unix.Unixext.string_of_signal i)
                ; output
                ; log
                ] ))

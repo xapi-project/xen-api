@@ -1553,7 +1553,7 @@ module Xenopsd_metadata = struct
       let file_path =
         Filename.concat Xapi_globs.persist_xenopsd_md_root
           (List.assoc Xapi_globs.persist_xenopsd_md oc)
-        |> Stdext.Unixext.resolve_dot_and_dotdot
+        |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
       in
       if not (String.startswith Xapi_globs.persist_xenopsd_md_root file_path)
       then

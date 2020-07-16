@@ -38,9 +38,9 @@ let read_from_redo_log log staging_path db_ref =
           in
           (* ideally, the reading would also respect the latest_response_time *)
           let total_read =
-            Stdext.Unixext.read_data_in_string_chunks
+            Xapi_stdext_unix.Unixext.read_data_in_string_chunks
               (fun str length ->
-                Stdext.Unixext.time_limited_write_substring outfd length str
+                Xapi_stdext_unix.Unixext.time_limited_write_substring outfd length str
                   latest_response_time)
               fd
           in
@@ -64,7 +64,7 @@ let read_from_redo_log log staging_path db_ref =
           latest_generation := Some gen_count)
         (fun () ->
           (* Remove the temporary file *)
-          Stdext.Unixext.unlink_safe temp_file)
+          Xapi_stdext_unix.Unixext.unlink_safe temp_file)
     in
     let read_delta gen_count delta =
       (* Apply the delta *)
@@ -92,7 +92,7 @@ let read_from_redo_log log staging_path db_ref =
      *   danger of conflicting writes. *)
     R.debug "Staging redo log to file %s" staging_path ;
     (* Remove any existing file *)
-    Stdext.Unixext.unlink_safe staging_path ;
+    Xapi_stdext_unix.Unixext.unlink_safe staging_path ;
     match !latest_generation with
     | None ->
         R.debug "No database was read, so no staging is necessary" ;
@@ -105,7 +105,7 @@ let read_from_redo_log log staging_path db_ref =
           (Db_cache_types.Database.set_generation generation) ;
         let db = Db_ref.get_database db_ref in
         Db_xml.To.file staging_path db ;
-        Stdext.Unixext.write_string_to_file
+        Xapi_stdext_unix.Unixext.write_string_to_file
           (staging_path ^ ".generation")
           (Generation.to_string generation)
   with _ -> ()

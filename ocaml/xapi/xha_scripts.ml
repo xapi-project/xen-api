@@ -47,7 +47,7 @@ let get_supported_srs cluster_stack =
   try
     let open Xapi_stdext_std.Xstringext.String in
     Some
-      (Stdext.Unixext.string_of_file fname |> strip isspace |> split_f isspace)
+      (Xapi_stdext_unix.Unixext.string_of_file fname |> strip isspace |> split_f isspace)
   with _ -> None
 
 (** The xHA scripts throw these exceptions: *)

@@ -22,7 +22,7 @@ open Stdext
 open Http
 open Importexport
 open Sparse_encoding
-open Unixext
+open Xapi_stdext_unix.Unixext
 open Pervasiveext
 open Client
 
