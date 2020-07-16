@@ -16,7 +16,7 @@
 
 type t = {r: API.ref_session; pool: bool; last_active: Stdext.Date.iso8601}
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 let m = Mutex.create ()
 

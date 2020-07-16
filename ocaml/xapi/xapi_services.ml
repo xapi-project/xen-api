@@ -20,7 +20,7 @@ open D
 open Stdext
 open Xapi_stdext_std.Xstringext
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Constants
 
 type driver_list = Storage_interface.query_result list [@@deriving rpcty]

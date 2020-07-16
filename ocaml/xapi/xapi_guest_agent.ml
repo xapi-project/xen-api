@@ -16,7 +16,7 @@
     not dynamic performance data. *)
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_guest_metrics" end)
 

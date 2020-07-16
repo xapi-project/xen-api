@@ -18,7 +18,7 @@
 open Stdext
 open Xapi_stdext_std.Xstringext
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Printf
 open Xapi_globs
 open Db_filter

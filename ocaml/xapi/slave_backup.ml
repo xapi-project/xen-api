@@ -26,7 +26,7 @@ let backup_write_table : (Parse_db_conf.db_connection, write_entry) Hashtbl.t =
 
 let backup_m = Mutex.create ()
 
-let with_backup_lock f = Stdext.Threadext.Mutex.execute backup_m f
+let with_backup_lock f = Xapi_stdext_threads.Threadext.Mutex.execute backup_m f
 
 (* lookup a write entry, returning one if there's one there. If there isn't one there then create a new one,
    log it in table and return that *)

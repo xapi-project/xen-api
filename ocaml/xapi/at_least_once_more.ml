@@ -18,7 +18,7 @@
 
 open Stdext
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "at_least_once_more" end)
 

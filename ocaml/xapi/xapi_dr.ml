@@ -15,7 +15,7 @@
 open Db_cache_types
 open Stdext
 open Xapi_stdext_std.Listext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_dr" end)
 

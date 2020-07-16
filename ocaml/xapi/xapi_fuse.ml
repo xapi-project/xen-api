@@ -33,7 +33,7 @@ type fuse_state = {m: Mutex.t; mutable already_lit: [`Exit | `Reboot] list}
 let fuses = {m= Mutex.create (); already_lit= []}
 
 let once kind f =
-  Stdext.Threadext.Mutex.execute fuses.m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute fuses.m (fun () ->
       if List.mem kind fuses.already_lit then
         debug "xapi_fuse: this fuse is already lit: no-op"
       else (

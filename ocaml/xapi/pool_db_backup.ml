@@ -16,7 +16,7 @@
 *)
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Client
 open Db_cache_types
 

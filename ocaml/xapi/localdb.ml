@@ -14,7 +14,7 @@
 (* Store and retrieve some host-specific data as key-value pairs. This can
    be used in emergency mode since every slave has its own copy. *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 open Stdext.Pervasiveext
 
 module D = Debug.Make (struct let name = "localdb" end)

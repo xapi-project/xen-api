@@ -19,7 +19,7 @@ module Rrdd = Rrd_client.Client
 
 open Printf
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Pervasiveext
 module Listext = Listext.List
 open Db_filter_types

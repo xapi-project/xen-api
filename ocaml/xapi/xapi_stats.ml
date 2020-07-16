@@ -131,7 +131,7 @@ let shared_page_count = 1
 let start () =
   let __context = Context.make "xapi_stats" in
   let master = Pool_role.is_master () in
-  Stdext.Threadext.Mutex.execute reporter_m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute reporter_m (fun () ->
       match !reporter_cache with
       | Some _ ->
           ()
@@ -153,7 +153,7 @@ let start () =
           reporter_cache := Some reporter)
 
 let stop () =
-  Stdext.Threadext.Mutex.execute reporter_m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute reporter_m (fun () ->
       match !reporter_cache with
       | None ->
           ()

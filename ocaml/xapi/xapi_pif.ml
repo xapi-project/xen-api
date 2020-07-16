@@ -22,7 +22,7 @@ open Stdext
 open Xapi_stdext_std.Listext
 open Pervasiveext
 open Xapi_stdext_std.Xstringext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Network
 
 let get_device_pci ~__context ~host ~device =

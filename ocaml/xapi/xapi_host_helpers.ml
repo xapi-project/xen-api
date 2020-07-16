@@ -23,7 +23,7 @@ open Db_filter
 open Db_filter_types
 open Record_util (* for host_operation_to_string *)
 
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let all_operations =
   [

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 (** A table of 'instance' locks with a single master lock *)
 type ('a, 'b) t = {

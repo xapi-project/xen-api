@@ -18,7 +18,7 @@
 open Stdext
 open Printf
 open Xapi_stdext_std.Xstringext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "workload_balancing" end)
 

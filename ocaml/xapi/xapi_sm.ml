@@ -19,7 +19,7 @@
    The SMAPIv2 plugins are a dynamic set hosted in driver domains. *)
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 (* We treat versions as '.'-separated integer lists under the usual
    lexicographic ordering. *)

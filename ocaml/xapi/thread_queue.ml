@@ -17,7 +17,7 @@
 
 open Stdext
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "thread_queue" end)
 

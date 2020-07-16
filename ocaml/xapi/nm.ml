@@ -17,7 +17,7 @@ open D
 open Stdext
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_std.Listext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Db_filter_types
 open Network
 open Network_interface

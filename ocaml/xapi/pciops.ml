@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = "pciops" end)
 open D
 open Stdext
 open Xapi_stdext_std.Xstringext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let m = Mutex.create ()
 

@@ -25,11 +25,10 @@ module Rrdd = Rrd_client.Client
 open Stdext
 open Xapi_stdext_std.Listext
 open Xapi_stdext_std.Xstringext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Pervasiveext
 open Forkhelpers
 open Client
-open Threadext
 open Db_filter_types
 open Xha_scripts
 

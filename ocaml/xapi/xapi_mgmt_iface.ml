@@ -14,7 +14,7 @@
 open Db_filter_types
 open Stdext
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_mgmt_iface" end)
 

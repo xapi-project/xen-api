@@ -905,7 +905,7 @@ let restart_auto_run_vms ~__context live_set n =
           if current then (
             (* Fire off a ha_host_failed message if the host hasn't just shut itself down *)
             let shutting_down =
-              Stdext.Threadext.Mutex.execute
+              Xapi_stdext_threads.Threadext.Mutex.execute
                 Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
                   !Xapi_globs.hosts_which_are_shutting_down)
             in

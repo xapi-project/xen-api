@@ -16,7 +16,7 @@ open Stdext
 open Client
 open Db_filter_types
 open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Network
 
 module L = Debug.Make (struct let name = "license" end)

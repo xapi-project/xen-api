@@ -19,7 +19,7 @@ open D
 type processor = Rpc.call -> Rpc.response
 
 open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Storage_interface
 
 let s_of_sr = Sr.string_of

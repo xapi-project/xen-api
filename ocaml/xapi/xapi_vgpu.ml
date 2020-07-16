@@ -95,7 +95,7 @@ let create' ~__context ~vM ~gPU_group ~device ~other_config ~_type
          (Api_errors.vgpu_type_not_compatible, [Ref.string_of _type])) ;
   debug "Creating vGPU %s with metadata: [%s]" (Ref.string_of vgpu)
     (List.map fst compatibility_metadata |> String.concat ":") ;
-  Stdext.Threadext.Mutex.execute m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let device_id = get_valid_device ~__context ~device ~vM ~vGPUs:existing in
       Db.VGPU.create ~__context ~ref:vgpu ~uuid ~vM ~gPU_group ~device:device_id
         ~currently_attached:false ~other_config ~_type ~resident_on:Ref.null

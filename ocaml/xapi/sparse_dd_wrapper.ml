@@ -16,7 +16,7 @@
 open Stdext
 open Client
 open Printf
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "sparse_dd_wrapper" end)
 

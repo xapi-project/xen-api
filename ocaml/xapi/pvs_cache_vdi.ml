@@ -57,7 +57,7 @@ let get_vdi ~__context ~self =
 let m = Mutex.create ()
 
 let get_or_recreate_vdi ~__context ~self =
-  Stdext.Threadext.Mutex.execute m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       match get_vdi ~__context ~self with
       | None ->
           let sR = Db.PVS_cache_storage.get_SR ~__context ~self in
