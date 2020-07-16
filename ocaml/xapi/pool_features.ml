@@ -47,7 +47,7 @@ let assert_enabled ~__context ~f =
    of the individual hosts. *)
 let compute_core_features all_host_params =
   List.map of_assoc_list all_host_params
-  |> List.fold_left Stdext.Listext.List.intersect all_features
+  |> List.fold_left Xapi_stdext_std.Listext.List.intersect all_features
 
 (* Find the feature flags in the given license params that are not represented
    in the feature type. These are additional flags given to us by v6d.

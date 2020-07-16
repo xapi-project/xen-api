@@ -14,7 +14,7 @@
 
 module Rrdd = Rrd_client.Client
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Monitor_types
 open Db_filter_types
 open Network

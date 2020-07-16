@@ -17,7 +17,7 @@ module D = Debug.Make (struct let name = "xapi" end)
 open D
 open Stdext
 open Xstringext
-open Listext
+open Xapi_stdext_std.Listext
 open Pervasiveext
 
 let ( *** ) = Int64.mul

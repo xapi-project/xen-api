@@ -96,7 +96,7 @@ let choose l n =
 (** Return all permutations of a list *)
 let rec permutations : 'a list -> 'a list list =
   let rotate n xs =
-    let a, b = Stdext.Listext.List.chop n xs in
+    let a, b = Xapi_stdext_std.Listext.List.chop n xs in
     b @ a
   in
   let insert_at n x xs = rotate (List.length xs - n + 1) (x :: rotate n xs) in

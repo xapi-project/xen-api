@@ -197,7 +197,7 @@ let get_permissions_common ~__context ~role ~ret_value_fn =
           List.rev_append (rec_get_permissions_of_role ~__context ~role) accu)
         [] subroles
   in
-  Stdext.Listext.List.setify (rec_get_permissions_of_role ~__context ~role)
+  Xapi_stdext_std.Listext.List.setify (rec_get_permissions_of_role ~__context ~role)
 
 let get_permissions ~__context ~self =
   get_permissions_common ~__context ~role:self ~ret_value_fn:(fun role -> role)

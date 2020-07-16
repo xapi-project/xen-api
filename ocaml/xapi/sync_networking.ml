@@ -13,7 +13,7 @@
  *)
 
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Client
 open Db_filter_types
 

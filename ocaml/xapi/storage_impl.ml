@@ -68,7 +68,7 @@
 open Stdext
 open Threadext
 open Pervasiveext
-open Listext
+open Xapi_stdext_std.Listext
 open Storage_interface
 open Storage_task
 

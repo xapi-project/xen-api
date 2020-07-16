@@ -13,7 +13,7 @@
  *)
 
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 open Xapi_vif_helpers
 
 module D = Debug.Make (struct let name = "xapi_vif" end)

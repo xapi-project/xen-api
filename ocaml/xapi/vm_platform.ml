@@ -14,7 +14,7 @@
 
 open Stdext
 open Xstringext
-open Listext
+open Xapi_stdext_std.Listext
 
 (* Keys we push through to xenstore. *)
 let acpi = "acpi"

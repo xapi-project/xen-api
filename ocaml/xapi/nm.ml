@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = "nm" end)
 open D
 open Stdext
 open Xstringext
-open Listext
+open Xapi_stdext_std.Listext
 open Threadext
 open Db_filter_types
 open Network

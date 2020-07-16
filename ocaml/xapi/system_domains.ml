@@ -124,7 +124,7 @@ let storage_driver_domain_of_vbd ~__context ~vbd =
     let sr = Db.VDI.get_SR ~__context ~self:vdi in
     let sr_pbds = Db.SR.get_PBDs ~__context ~self:sr in
     let my_pbds = List.map fst (Helpers.get_my_pbds __context) in
-    match Stdext.Listext.List.intersect sr_pbds my_pbds with
+    match Xapi_stdext_std.Listext.List.intersect sr_pbds my_pbds with
     | pbd :: _ ->
         storage_driver_domain_of_pbd ~__context ~pbd
     | _ ->

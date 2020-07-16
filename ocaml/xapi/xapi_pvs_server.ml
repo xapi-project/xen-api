@@ -15,7 +15,7 @@
 (** Implementation of PVS Server *)
 
 open Stdext
-open Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "xapi_pvs_server" end)
 
