@@ -281,6 +281,9 @@ val send_s3resume : xc:Xenctrl.handle -> domid -> unit
 val vcpu_affinity_set : xc:Xenctrl.handle -> domid -> int -> bool array -> unit
 (** Set cpu affinity of some vcpus of a domain using an boolean array *)
 
+val soft_reset : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
+(** Perform soft reset of a domain *)
+
 val vcpu_affinity_get : xc:Xenctrl.handle -> domid -> int -> bool array
 (** Get Cpu affinity of some vcpus of a domain *)
 

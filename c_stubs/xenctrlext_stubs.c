@@ -243,6 +243,31 @@ CAMLprim value stub_xenctrlext_domid_quarantine(value unit)
     CAMLreturn(Val_int(DOMID_IO));
 }
 
+CAMLprim value stub_xenctrlext_domain_soft_reset(value xch, value domid)
+{
+    CAMLparam2(xch, domid);
+    caml_enter_blocking_section();
+    int retval = xc_domain_soft_reset(_H(xch), _D(domid));
+    caml_leave_blocking_section();
+    if (retval)
+        failwith_xc(_H(xch));
+    CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenctrlext_domain_update_channels(value xch, value domid,
+        value store_port, value console_port)
+{
+    CAMLparam4(xch, domid, store_port, console_port);
+    caml_enter_blocking_section();
+    int retval = xc_set_hvm_param(_H(xch), _D(domid), HVM_PARAM_STORE_EVTCHN, Int_val(store_port));
+    if (!retval)
+        retval = xc_set_hvm_param(_H(xch), _D(domid), HVM_PARAM_CONSOLE_EVTCHN, Int_val(console_port));
+    caml_leave_blocking_section();
+    if (retval)
+        failwith_xc(_H(xch));
+    CAMLreturn(Val_unit);
+}
+
 /* based on xenctrl_stubs.c */
 static int get_cpumap_len(value xch, value cpumap)
 {

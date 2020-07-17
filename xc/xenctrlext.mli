@@ -60,6 +60,12 @@ external deassign_device : handle -> domid -> int -> unit
 
 external domid_quarantine : unit -> int = "stub_xenctrlext_domid_quarantine"
 
+external domain_soft_reset : handle -> domid -> unit
+  = "stub_xenctrlext_domain_soft_reset"
+
+external domain_update_channels : handle -> domid -> int -> int -> unit
+  = "stub_xenctrlext_domain_update_channels"
+
 type meminfo = {memfree: int64; memsize: int64}
 
 type numainfo = {memory: meminfo array; distances: int array array}

@@ -457,6 +457,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     xs.Xs.write
       (dom_path ^ "/control/platform-feature-multiprocessor-suspend")
       "1" ;
+    xs.Xs.write (dom_path ^ "/control/platform-feature-xs_reset_watches") "1" ;
     xs.Xs.write
       (dom_path ^ "/control/has-vendor-device")
       (if vm_info.has_vendor_device then "1" else "0") ;
@@ -1776,6 +1777,21 @@ let send_s3resume ~xc domid =
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; send_s3resume" (Uuid.to_string uuid) domid ;
   Xenctrlext.domain_send_s3resume xc domid
+
+let soft_reset ~xc ~xs domid =
+  let uuid = get_uuid ~xc domid in
+  debug "VM = %s; domid = %d; soft_reset" (Uuid.to_string uuid) domid ;
+  pause ~xc domid ;
+  Xenctrlext.domain_soft_reset xc domid ;
+  let dom_path = xs.Xs.getdomainpath domid in
+  let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
+  let store_mfn = Nativeint.of_string store_mfn_s in
+  let store_port, console_port = create_channels ~xc uuid domid in
+  xs.Xs.introduce domid store_mfn store_port ;
+  xs.Xs.write (dom_path ^ "/store/port") (string_of_int store_port) ;
+  xs.Xs.write (dom_path ^ "/console/port") (string_of_int console_port) ;
+  Xenctrlext.domain_update_channels xc domid store_port console_port ;
+  unpause ~xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
   let uuid = get_uuid ~xc domid in

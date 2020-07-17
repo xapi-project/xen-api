@@ -2367,6 +2367,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
           | Some Needs_suspend ->
               warn "VM %s has unexpectedly suspended" id ;
               [Vm.Shutdown]
+          | Some Needs_softreset ->
+              B.VM.soft_reset t vm ; []
           | None ->
               debug "VM %s is not requesting any attention" id ;
               []
