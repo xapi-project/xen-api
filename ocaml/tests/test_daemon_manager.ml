@@ -146,4 +146,6 @@ let test =
   ; ("test_timeout_fail", `Slow, test_timeout_fail)
   ]
 
-let () = Alcotest.run "Daemon Manager suite" [("Test_daemon_manager", test)]
+let () = 
+  Suite_init.harness_init () ;
+  Alcotest.run "Daemon Manager suite" [("Test_daemon_manager", test)]
