@@ -4,6 +4,7 @@
   (package xe)
   (libraries
    astring
+   fpath
    safe-resources
    stunnel
    threads
