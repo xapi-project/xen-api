@@ -6,11 +6,16 @@ dev-repo: "git://github.com/xapi-project/stdext.git"
 homepage: "https://xapi-project.github.io/"
 tags: [ "org:xapi-project" ]
 
-build:  [[ "dune" "build" "-p" name "-j" jobs ]]
+build:  [
+  [ "dune" "build" "-p" name "-j" jobs ]
+  [ "dune" "runtest" "-p" name "-j" jobs ] {with-test}
+]
 
 depends: [
   "ocaml"
   "dune" {build}
+  "alcotest" {with-test}
+  "xapi-stdext-date" {with-test}
 ]
 synopsis: "A deprecated collection of utility functions - Encodings module"
 description: """

@@ -575,3 +575,7 @@ let tests =
       XML_UTF8_UCS_validator.tests @
       UTF8_codec            .tests @
       Date                  .tests
+let () =
+  Alcotest.run
+    "suite"
+    [ "Test_encodings", tests ]

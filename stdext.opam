@@ -12,10 +12,8 @@ depends: [
   "ocaml"
   "dune" {build}
   "xapi-stdext-date"
-  "xapi-stdext-deprecated"
   "xapi-stdext-encodings"
   "xapi-stdext-pervasives"
-  "xapi-stdext-range"
   "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
