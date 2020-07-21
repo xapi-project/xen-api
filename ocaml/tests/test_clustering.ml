@@ -839,3 +839,12 @@ let test =
   (* NOTE: lock test hoards the mutex and should thus always be last,
    * otherwise any other functions trying to use the lock will hang *)
   @ test_clustering_lock_only_taken_if_needed
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Clustering suite"
+    [
+      ("Test_cluster", Test_cluster.test)
+    ; ("Test_cluster_host", Test_cluster_host.test)
+    ; ("test_clustering", test)
+    ]

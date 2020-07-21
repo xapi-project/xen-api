@@ -569,3 +569,7 @@ let test =
     , `Quick
     , test_get_group_key_vgpu_and_netsriov )
   ]
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Test VM Helpers suite" [("Test_vm_helpers", test)]

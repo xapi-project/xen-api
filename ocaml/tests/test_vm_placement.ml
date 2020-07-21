@@ -631,3 +631,7 @@ end
 
 let test =
   Utility.tests @ Summarisation.tests @ Categorisation.tests @ Selection.tests
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Test VM Placement suite" [("Test_vm_placement", test)]
