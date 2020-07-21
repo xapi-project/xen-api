@@ -465,62 +465,90 @@ end)
 
 module Ptoken = Genptokenlib.Lib
 
-(* at most one PSR should be
-   running at any given time *)
-let m = Mutex.create ()
-
-let start ~__context =
-  (* checked preconditions:
-     * the feature is enabled (to prevent a PSR when not all hosts have upgraded to this version)
-     * we are the master
-     * HA disabled
-     * RPU not running
-     * all hosts in pool 'alive' *)
-  let f () =
-    Pool_features.assert_enabled ~__context ~f:Features.Pool_secret_rotation ;
-    if
-      not
-        (Helpers.is_pool_master ~__context
-           ~host:(Helpers.get_localhost ~__context))
-    then
+let start =
+  let m = Mutex.create () in
+  let with_lock f =
+    (* prevents multiple concurrent PSRs *)
+    if Mutex.try_lock m then (
+      try f () ; Mutex.unlock m with e -> Mutex.unlock m ; raise e
+    ) else
       raise
         Api_errors.(
-          Server_error (host_is_slave, [Pool_role.get_master_address ()])) ;
-    Assert.master_state_valid () ;
-    let live_hosts = Helpers.get_live_hosts ~__context |> HostSet.of_list in
-    let all_hosts_list = Xapi_pool_helpers.get_master_slaves_list ~__context in
-    let all_hosts = all_hosts_list |> HostSet.of_list in
-    let offline_hosts = HostSet.diff all_hosts live_hosts in
-    ( if not (HostSet.is_empty offline_hosts) then
-        let offline_host = HostSet.min_elt offline_hosts in
+          Server_error (internal_error, ["pool secret rotation already running"]))
+  in
+  fun ~__context ->
+    let self = Helpers.get_pool ~__context in
+    let set_up_psr_pending_flag asserts =
+      let was_already_pending = Db.Pool.get_is_psr_pending ~__context ~self in
+      let maybe_set_pending value =
+        if not was_already_pending then
+          Db.Pool.set_is_psr_pending ~__context ~self ~value
+      in
+      maybe_set_pending true ;
+      try asserts ()
+      with e ->
+        (* only set pending to false if we just set it to true *)
+        maybe_set_pending false ; raise e
+    in
+    let assert_no_ha () =
+      let is_ha_enabled = Db.Pool.get_ha_enabled ~__context ~self in
+      if is_ha_enabled then
+        raise Api_errors.(Server_error (ha_is_enabled, []))
+    in
+    let assert_we_are_master () =
+      if
+        not
+          (Helpers.is_pool_master ~__context
+             ~host:(Helpers.get_localhost ~__context))
+      then
         raise
           Api_errors.(
-            Server_error (cannot_contact_host, [Ref.string_of offline_host]))
-    ) ;
-    let is_ha_enabled =
-      Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context)
+            Server_error (host_is_slave, [Pool_role.get_master_address ()]))
     in
-    if is_ha_enabled then raise Api_errors.(Server_error (ha_is_enabled, [])) ;
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      raise Api_errors.(Server_error (not_supported_during_upgrade, [])) ;
-    let module PSR = Make (Impl (struct let __context = __context end)) in
-    let[@warning "-8"] (master :: members) = all_hosts_list in
-    let r =
-      PSR.start
-        (Xapi_globs.pool_secret (), Ptoken.gen_token ())
-        ~master ~members
+    let assert_all_hosts_alive () =
+      let live_hosts = Helpers.get_live_hosts ~__context |> HostSet.of_list in
+      let all_hosts_list =
+        Xapi_pool_helpers.get_master_slaves_list ~__context
+      in
+      let all_hosts = all_hosts_list |> HostSet.of_list in
+      let offline_hosts = HostSet.diff all_hosts live_hosts in
+      ( if not (HostSet.is_empty offline_hosts) then
+          let offline_host = HostSet.min_elt offline_hosts in
+          raise
+            Api_errors.(
+              Server_error (cannot_contact_host, [Ref.string_of offline_host]))
+      ) ;
+      all_hosts_list
     in
-    match r with
-    | Ok () ->
-        D.info "Xapi_psr.start: pool secret rotation successful"
-    | Error e ->
-        let err_msg = user_facing_error_message ~__context e in
-        D.error "PSR failed: %s" err_msg ;
-        raise Api_errors.(Server_error (internal_error, [err_msg]))
-  in
-  if Mutex.try_lock m then (
-    try f () ; Mutex.unlock m with e -> Mutex.unlock m ; raise e
-  ) else
-    raise
-      Api_errors.(
-        Server_error (internal_error, ["pool secret rotation already running"]))
+    let assert_no_rpu () =
+      if Helpers.rolling_upgrade_in_progress ~__context then
+        raise Api_errors.(Server_error (not_supported_during_upgrade, []))
+    in
+    with_lock (fun () ->
+        let master, members =
+          set_up_psr_pending_flag (fun () ->
+              Pool_features.assert_enabled ~__context
+                ~f:Features.Pool_secret_rotation ;
+              assert_we_are_master () ;
+              Assert.master_state_valid () ;
+              let[@warning "-8"] (master :: members) =
+                assert_all_hosts_alive ()
+              in
+              assert_no_ha () ; assert_no_rpu () ; (master, members))
+        in
+        let module PSR = Make (Impl (struct let __context = __context end)) in
+        let r =
+          PSR.start
+            (Xapi_globs.pool_secret (), Ptoken.gen_token ())
+            ~master ~members
+        in
+        match r with
+        | Ok () ->
+            (* if a rotation fails, then PSR should remain pending -
+               the user is expected to re-run the rotation *)
+            Db.Pool.set_is_psr_pending ~__context ~self ~value:false ;
+            D.info "Xapi_psr.start: pool secret rotation successful"
+        | Error e ->
+            let err_msg = user_facing_error_message ~__context e in
+            D.error "PSR failed: %s" err_msg ;
+            raise Api_errors.(Server_error (internal_error, [err_msg])))
