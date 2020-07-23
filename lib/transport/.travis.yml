@@ -1,0 +1,21 @@
+language: c
+sudo: required
+services:
+  - docker
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+script:
+  - bash -ex .travis-docker.sh
+env:
+  global:
+    - DISTRO=debian-unstable
+    - PINS="rrd-transport:. xapi-rrd-transport:. xapi-rrd-transport-utils:."
+    - PACKAGE=rrd-transport
+  matrix:
+    # We need to pass some Travis environment variables to the container to
+    # enable uploading to coveralls and detection of Travis CI.
+    # Also, set TESTS to false to avoid running them twice.
+    - BASE_REMOTE=git://github.com/xapi-project/xs-opam \
+      TEST=false \
+      OCAML_VERSION="4.07" \
+      POST_INSTALL_HOOK="env TRAVIS=$TRAVIS TRAVIS_JOB_ID=$TRAVIS_JOB_ID bash -ex .coverage.sh"

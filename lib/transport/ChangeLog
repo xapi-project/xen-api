@@ -1,0 +1,47 @@
+1.4.0 (18-12-2017)
+ * CA-276795: Trim null terminators that can be incorrectly part of the rrd metadata
+
+1.3.0 (14-12-2017)
+ * rrd-transport: stringext -> astring
+ * Port to jbuilder
+ * (v1.2.0 v1.1.2) CA-253704: Force a memory re-mapping of mapped files with 0 length
+ * (v1.1.1) CP-18504 update auto-generated files
+ * (v1.1.1) CP-18504 implement -once flag for rrd reader
+ * (v1.1.0) Let's write the actual name of the value to the shared memory area
+
+1.0.0 (25-04-2016)
+ * Declare this package stable
+ * Testing, coverage and general code improvements
+
+0.9.0 (16-07-2015)
+ * Interface change to FileWriter module
+ * FileWriter.create now takes a number of pages to share
+ * FileReader now mmaps once and closes the file descriptor, instead of
+   keeping the file descriptor open and mmaping on each read.
+
+0.8.1 (15-06-2015)
+ * Add flag to set whether imported datasources are default
+
+0.8.0 (04-04-2015)
+ * add opam file
+ * update to new rrd interface
+ * compatible with io-page.1.5.1
+
+0.7.2 (13-08-2014)
+ * Fix build dependencies of main library
+ * travis fixes
+
+0.7.1 (12-08-2014)
+ * Add OCaml 4.00.1 support
+ * Switch to new upstream grant table bindings
+
+0.7.0 (07-02-2014)
+ * Add unit tests and travis integration
+ * Remove unwanted modules from the interface
+ * Cache a single interface to gnttab
+
+0.6.0 (19-Dec-2013)
+ * Use record types instead of tuples in the interface
+
+0.5.0 (15-Dec-2013)
+ * initial release.

@@ -1,0 +1,21 @@
+(* -*- tuareg -*- *)
+
+let coverage_rewriter =
+  match Sys.getenv "BISECT_ENABLE" with
+  | "YES" -> "(preprocess (pps bisect_ppx))"
+  | _ -> ""
+| exception Not_found -> ""
+
+let () = Printf.ksprintf Jbuild_plugin.V1.send {|
+(library
+  (name rrd_transport_page)
+  (public_name rrd-transport.page)
+  (wrapped false)
+  (libraries
+    rrd_transport_lib
+    xen-gnt
+    xen-gnt-unix
+  )
+  %s
+)
+|} coverage_rewriter
