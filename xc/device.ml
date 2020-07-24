@@ -2785,6 +2785,7 @@ module Dm_Common = struct
         (List.concat
            [
              [sprintf "file=%s" file; "if=none"; sprintf "id=%s" id]
+           ; (if file <> "" then ["auto-read-only=off"] else [])
            ; Media.format_of media file
            ])
     ; "-device"
@@ -2814,6 +2815,7 @@ module Dm_Common = struct
          ; sprintf "file=%s" file
          ; sprintf "media=%s" (Media.to_string media)
          ]
+        @ (if file <> "" then ["auto-read-only=off"] else [])
         @ Media.format_of media file
         )
     ; "-device"
