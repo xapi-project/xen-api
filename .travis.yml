@@ -9,5 +9,7 @@ install:
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - PACKAGE="xapi-stdext"
-    - PINS="stdext:. xapi-stdext:. xapi-stdext-date:. xapi-stdext-encodings:. xapi-stdext-pervasives:. xapi-stdext-std:. xapi-stdext-threads:. xapi-stdext-unix:. xapi-stdext-zerocheck:."
+    - PINS="stdext:. xapi-stdext-date:. xapi-stdext-encodings:. xapi-stdext-pervasives:. xapi-stdext-std:. xapi-stdext-threads:. xapi-stdext-unix:. xapi-stdext-zerocheck:."
+  jobs:
+    - PACKAGE="stdext"
+    - PACKAGE="xapi-stdext-encodings"

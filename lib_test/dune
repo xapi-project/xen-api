@@ -1,13 +1,8 @@
-(executable
-  (name suite)
+(test
+  (name test_encodings)
+  (package xapi-stdext-encodings)
   (libraries
     alcotest
     xapi_stdext_encodings
-    xapi_stdext_date)
-)
-
-(alias
-  (name runtest)
-  (deps (:x suite.exe))
-  (action (run %{x}))
+    xapi-stdext-date)
 )
