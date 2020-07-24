@@ -3,6 +3,7 @@
   (public_name xe)
   (package xe)
   (libraries
+   fpath
    stunnel
    threads
    xapi-cli-protocol

@@ -266,8 +266,8 @@ let release_order_full = [{
      code_name     = Some rel_stockholm;
      version_major = 2;
      version_minor = 15;
-     branding      = "Unreleased";
-     release_date  = None;
+     branding      = "Citrix Hypervisor 8.2";
+     release_date  = Some "June 2020";
    }
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"
