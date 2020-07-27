@@ -142,6 +142,9 @@ let ha_disable_in_progress ~__context =
   else
     false
 
+let pool_secret_rotation_pending ~__context =
+  Db.Pool.get_is_psr_pending ~__context ~self:(Helpers.get_pool ~__context)
+
 let get_master_slaves_list_with_fn ~__context fn =
   let _unsorted_hosts = Db.Host.get_all ~__context in
   let master = Helpers.get_master ~__context in

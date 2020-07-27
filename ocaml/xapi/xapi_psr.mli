@@ -26,11 +26,14 @@ type 'a r = (unit, failure * 'a) result
 val start : __context:Context.t -> unit
 
 (* expose client implementations *)
-val notify_new : new_ps:SecretString.t -> unit
+val notify_new :
+  __context:Context.t -> old_ps:SecretString.t -> new_ps:SecretString.t -> unit
 
-val notify_send : new_ps:SecretString.t -> unit
+val notify_send :
+  __context:Context.t -> old_ps:SecretString.t -> new_ps:SecretString.t -> unit
 
-val cleanup : unit -> unit
+val cleanup :
+  __context:Context.t -> old_ps:SecretString.t -> new_ps:SecretString.t -> unit
 
 (* the rest is exposed for unit testing *)
 
@@ -65,10 +68,10 @@ module type Impl = sig
 
   val tell_send_new_pool_secret : pool_secrets -> host -> unit
 
-  val tell_cleanup_old_pool_secret : host -> unit
+  val tell_cleanup_old_pool_secret : pool_secrets -> host -> unit
 
   (* cleanup master _after_ the members *)
-  val cleanup_master : unit -> unit
+  val cleanup_master : pool_secrets -> unit
 end
 
 module Make : functor (Impl : Impl) -> sig

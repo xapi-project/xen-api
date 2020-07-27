@@ -64,7 +64,7 @@ let rel_naples = "naples"
 let rel_oslo = "oslo"
 let rel_quebec = "quebec"
 let rel_stockholm = "stockholm"
-let rel_next = "next"
+let rel_stockholm_psr = "stockholm_psr"
 
 type api_release = {
   code_name: string option;
@@ -267,13 +267,13 @@ let release_order_full = [{
      code_name     = Some rel_stockholm;
      version_major = 2;
      version_minor = 15;
-     branding      = "Unreleased";
-     release_date  = None;
+     branding      = "Citrix Hypervisor 8.2";
+     release_date  = Some "June 2020";
    }; {
-     code_name     = Some rel_next;
+     code_name     = Some rel_stockholm_psr;
      version_major = 2;
-     version_minor = 16;
-     branding      = "Unreleased";
+     version_minor = 15;
+     branding      = "Citrix Hypervisor 8.2 Hotfix n";
      release_date  = None;
    }
   ]

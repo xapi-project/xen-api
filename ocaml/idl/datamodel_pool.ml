@@ -634,7 +634,7 @@ open Datamodel_types
       ()
 
   let rotate_secret = call
-    ~in_product_since:rel_next
+    ~in_product_since:rel_stockholm_psr
     ~name:"rotate_secret"
     ~params:[]
     ~errs:[ Api_errors.internal_error
@@ -762,5 +762,6 @@ open Datamodel_types
          ; field ~qualifier:RW ~in_product_since:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool "live_patching_disabled" "The pool-wide flag to show if the live patching feauture is disabled or not."
          ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
+         ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ])
       ()

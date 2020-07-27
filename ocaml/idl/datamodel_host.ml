@@ -1327,10 +1327,11 @@ let host_query_ha = call ~flags:[`Session]
 
   let notify_accept_new_pool_secret = call
     ~name:"notify_accept_new_pool_secret"
-    ~lifecycle:[Published, rel_next, ""]
+    ~lifecycle:[Published, rel_stockholm_psr, ""]
     ~doc:"Notifies host that they must begin accepting requests containing the new pool secret"
     ~params:[
       Ref _host, "host", "The host";
+      SecretString, "old_ps", "Old pool secret";
       SecretString, "new_ps", "New pool secret"
     ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -1339,10 +1340,11 @@ let host_query_ha = call ~flags:[`Session]
 
   let notify_send_new_pool_secret = call
     ~name:"notify_send_new_pool_secret"
-    ~lifecycle:[Published, rel_next, ""]
+    ~lifecycle:[Published, rel_stockholm_psr, ""]
     ~doc:"Notifies host that they must begin sending requests with the new pool secret"
     ~params:[
       Ref _host, "host", "The host";
+      SecretString, "old_ps", "Old pool secret";
       SecretString, "new_ps", "New pool secret"
     ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -1351,10 +1353,12 @@ let host_query_ha = call ~flags:[`Session]
 
   let cleanup_pool_secret = call
     ~name:"cleanup_pool_secret"
-    ~lifecycle:[Published, rel_next, ""]
+    ~lifecycle:[Published, rel_stockholm_psr, ""]
     ~doc:"Cleanup old pool secret on recipient host"
     ~params:[
-      Ref _host, "host", "The host"
+      Ref _host, "host", "The host";
+      SecretString, "old_ps", "Old pool secret";
+      SecretString, "new_ps", "New pool secret"
     ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ~hide_from_docs:true
