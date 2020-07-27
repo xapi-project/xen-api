@@ -107,6 +107,7 @@ let set_forwarding_on_task ~__context ~host =
     let rt = Context.get_task_id __context in
     Db.Task.set_forwarded ~__context ~self:rt ~value:true ;
     Db.Task.set_forwarded_to ~__context ~self:rt ~value:host ;
+    Db.Task.set_resident_on ~__context ~self:rt ~value:host ;
     Some rt (* slave uses this task for progress/status etc. *)
   ) else
     None
