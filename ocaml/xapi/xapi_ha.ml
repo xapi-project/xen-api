@@ -202,12 +202,12 @@ module Timeouts = struct
     (* xHA interface section 4.1.4.1.1 Formula of key timeouts *)
     (* t >= 10 *)
     (* All other values are derived from this single parameter *)
-    let round expr = float_of_int t |> expr |> ( +. ) 0.5 |> int_of_float in
     if t < 10 then failwith "constraint violation: timeout >= 10" ;
     (* heart beats are cheap but unreliable b/c of UDP - have many *)
-    let heart_beat_interval = 3 in
-    (* state file is slow but realiable  - have 20 *)
-    let state_file_interval = round (fun t -> max 5.0 (t /. 20.0)) in
+    let interval = (t + 10)/10 in (* interval used previously *)
+    let heart_beat_interval = min interval 3 in
+    (* state file is slow but realiable  - have 20 when possible *)
+    let state_file_interval = max 2 (t / 20) in
     let heart_beat_timeout = t in
     let state_file_timeout = t in
     let heart_beat_watchdog_timeout = heart_beat_timeout in
