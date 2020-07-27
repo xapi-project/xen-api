@@ -13,20 +13,23 @@
  *)
 
 (** For function application without extra indentation and brackets *)
-let ($) a b = a b
+let ( $ ) a b = a b
 
 module VDI = Client.Client.VDI
 
 module Testable = struct
   let vdi_type =
-    let fmt = Fmt.of_to_string (fun t -> API.rpc_of_vdi_type t |> Rpc.to_string) in
-    Alcotest.testable fmt (=)
+    let fmt =
+      Fmt.of_to_string (fun t -> API.rpc_of_vdi_type t |> Rpc.to_string)
+    in
+    Alcotest.testable fmt ( = )
 end
 
-let get_cbt_status ~rpc ~session_id ~vDI = VDI.get_cbt_enabled ~session_id ~rpc ~self:vDI
+let get_cbt_status ~rpc ~session_id ~vDI =
+  VDI.get_cbt_enabled ~session_id ~rpc ~self:vDI
 
-let assert_cbt_status boolean ~rpc ~session_id  ~vDI ~msg =
-  let cbt_status = (get_cbt_status ~rpc ~session_id ~vDI) in
+let assert_cbt_status boolean ~rpc ~session_id ~vDI ~msg =
+  let cbt_status = get_cbt_status ~rpc ~session_id ~vDI in
   Alcotest.(check bool) msg boolean cbt_status
 
 (* ------------------ *
@@ -40,84 +43,91 @@ let assert_cbt_status boolean ~rpc ~session_id  ~vDI ~msg =
 (* Test enable/disable_cbt, data_destroy, and snapshot update the necessary fields *)
 let vdi_data_destroy_test rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vDI ->
-      print_endline "Enabling CBT on original VDI";
-      VDI.enable_cbt ~session_id ~rpc ~self:vDI;
-      assert_cbt_status true ~rpc ~session_id ~vDI
-        ~msg:"VDI.enable_cbt failed";
-      Qt.VDI.test_update rpc session_id vDI;
-
-      print_endline "Snapshotting original VDI with CBT enabled";
+      print_endline "Enabling CBT on original VDI" ;
+      VDI.enable_cbt ~session_id ~rpc ~self:vDI ;
+      assert_cbt_status true ~rpc ~session_id ~vDI ~msg:"VDI.enable_cbt failed" ;
+      Qt.VDI.test_update rpc session_id vDI ;
+      print_endline "Snapshotting original VDI with CBT enabled" ;
       let snapshot = VDI.snapshot ~session_id ~rpc ~vdi:vDI ~driver_params:[] in
       Qt.VDI.with_destroyed rpc session_id snapshot $ fun () ->
-      assert_cbt_status true ~rpc ~session_id  ~vDI:snapshot
-        ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
-      List.iter (Qt.VDI.test_update rpc session_id) [snapshot ; vDI];
-
-      print_endline "Disabling CBT on original VDI";
-      VDI.disable_cbt ~session_id ~rpc ~self:vDI;
-      assert_cbt_status false ~rpc ~session_id  ~vDI
-        ~msg:"VDI.disable_cbt failed";
-      Qt.VDI.test_update rpc session_id  vDI;
-
-      print_endline "Snapshotting original VDI with CBT disabled";
-      let snapshot_no_cbt = VDI.snapshot ~session_id ~rpc ~vdi:vDI ~driver_params:[] in
+      assert_cbt_status true ~rpc ~session_id ~vDI:snapshot
+        ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over" ;
+      List.iter (Qt.VDI.test_update rpc session_id) [snapshot; vDI] ;
+      print_endline "Disabling CBT on original VDI" ;
+      VDI.disable_cbt ~session_id ~rpc ~self:vDI ;
+      assert_cbt_status false ~rpc ~session_id ~vDI
+        ~msg:"VDI.disable_cbt failed" ;
+      Qt.VDI.test_update rpc session_id vDI ;
+      print_endline "Snapshotting original VDI with CBT disabled" ;
+      let snapshot_no_cbt =
+        VDI.snapshot ~session_id ~rpc ~vdi:vDI ~driver_params:[]
+      in
       Qt.VDI.with_destroyed rpc session_id snapshot_no_cbt $ fun () ->
-      assert_cbt_status false ~rpc ~session_id  ~vDI:snapshot_no_cbt
-        ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over";
-      List.iter (Qt.VDI.test_update rpc session_id) [snapshot_no_cbt ; vDI];
-
-      print_endline "Destroying snapshot VDI data";
-      VDI.data_destroy ~session_id ~rpc ~self:snapshot;
-      Alcotest.check Testable.vdi_type "VDI.data_destroy failed to update VDI.type"
-        `cbt_metadata
-        (VDI.get_type ~session_id ~rpc ~self:snapshot);
-      assert_cbt_status true ~rpc ~session_id  ~vDI:snapshot
-        ~msg:"VDI snapshot cbt_enabled field erroneously set to false";
-      (*  test_vdi_update ~session_id  snapshot;
-          temporarily comment this out as it is blocked on CA-273981
-          VDI.update doesn't currently work on cbt-metadata VDIs *)
-
+      assert_cbt_status false ~rpc ~session_id ~vDI:snapshot_no_cbt
+        ~msg:"VDI.snapshot failed, cbt_enabled field didn't carry over" ;
+      List.iter (Qt.VDI.test_update rpc session_id) [snapshot_no_cbt; vDI] ;
+      print_endline "Destroying snapshot VDI data" ;
+      VDI.data_destroy ~session_id ~rpc ~self:snapshot ;
+      Alcotest.check Testable.vdi_type
+        "VDI.data_destroy failed to update VDI.type" `cbt_metadata
+        (VDI.get_type ~session_id ~rpc ~self:snapshot) ;
+      assert_cbt_status true ~rpc ~session_id ~vDI:snapshot
+        ~msg:"VDI snapshot cbt_enabled field erroneously set to false" ;
+      (* test_vdi_update ~session_id  snapshot;
+         temporarily comment this out as it is blocked on CA-273981
+         VDI.update doesn't currently work on cbt-metadata VDIs *)
       let content_id_str = "/No content: this is a cbt_metadata VDI/" in
       Alcotest.(check string)
-        (Printf.sprintf "VDI.data_destroy failed to update VDI.content_id to \"%s\"" content_id_str)
-        (VDI.get_other_config ~session_id ~rpc ~self:snapshot |> List.assoc "content_id")
-        content_id_str
-    )
+        (Printf.sprintf
+           "VDI.data_destroy failed to update VDI.content_id to \"%s\""
+           content_id_str)
+        (VDI.get_other_config ~session_id ~rpc ~self:snapshot
+        |> List.assoc "content_id"
+        )
+        content_id_str)
 
 (* Check VDI.{copy, clone} all properly update cbt_enabled
  * Debug output included as VDI operations are expensive and take longer than other calls *)
 let vdi_clone_copy_test rpc session_id sr_info () =
   Qt.VDI.with_any rpc session_id sr_info (fun vDI ->
-      print_endline "Enabling CBT on original VDI";
-      VDI.enable_cbt ~rpc ~session_id ~self:vDI;
-      assert_cbt_status true ~rpc ~session_id ~vDI
-        ~msg:"VDI.enable_cbt failed";
-
-      print_endline "Cloning VDI";
+      print_endline "Enabling CBT on original VDI" ;
+      VDI.enable_cbt ~rpc ~session_id ~self:vDI ;
+      assert_cbt_status true ~rpc ~session_id ~vDI ~msg:"VDI.enable_cbt failed" ;
+      print_endline "Cloning VDI" ;
       let vdi_clone = VDI.clone ~rpc ~session_id ~vdi:vDI ~driver_params:[] in
       Qt.VDI.with_destroyed rpc session_id vdi_clone $ fun () ->
       (* Test VDI.copy for copying from existing to fresh VDI in same SR *)
-      print_endline "Copying VDI into a freshly created VDI in same SR";
-      let vdi_copy_fresh = VDI.copy ~session_id ~rpc ~vdi:vDI ~base_vdi:(Ref.null) ~into_vdi:(Ref.null) ~sr:sr_info.Qt.sr in
+      print_endline "Copying VDI into a freshly created VDI in same SR" ;
+      let vdi_copy_fresh =
+        VDI.copy ~session_id ~rpc ~vdi:vDI ~base_vdi:Ref.null ~into_vdi:Ref.null
+          ~sr:sr_info.Qt.sr
+      in
       Qt.VDI.with_destroyed rpc session_id vdi_copy_fresh $ fun () ->
-
       (* Test VDI.copy for backing up differences between freshly copied VDI and original *)
-      print_endline "Copying differences between original VDI and fresh copy to a new VDI";
-      Qt.VDI.with_any rpc session_id sr_info
-        (fun into_vdi ->
-           VDI.copy ~session_id ~rpc ~vdi:vDI ~base_vdi:vdi_copy_fresh ~into_vdi ~sr:(Ref.null) |> ignore;
-
-           (* Test cbt_enabled field of the original VDI and new copies *)
-           [ true , vDI , "VDI.copy erroneously reset the original VDI's cbt_enabled to false"
-           ; false , into_vdi , "VDI.copy failed to initialise cbt_enabled to false"
-           ; false , vdi_copy_fresh , "VDI.copy erroneously reset the copied VDI's cbt_enabled field to true"
-           ; false , vdi_clone , "VDI.clone failed to set cbt_enabled to false";
-           ] |> List.iter
-             (fun (boolean, vDI, msg) ->
-                assert_cbt_status boolean ~rpc ~session_id ~vDI ~msg;
-                Qt.VDI.test_update rpc session_id  vDI)
-        )
-    )
+      print_endline
+        "Copying differences between original VDI and fresh copy to a new VDI" ;
+      Qt.VDI.with_any rpc session_id sr_info (fun into_vdi ->
+          VDI.copy ~session_id ~rpc ~vdi:vDI ~base_vdi:vdi_copy_fresh ~into_vdi
+            ~sr:Ref.null
+          |> ignore ;
+          (* Test cbt_enabled field of the original VDI and new copies *)
+          [
+            ( true
+            , vDI
+            , "VDI.copy erroneously reset the original VDI's cbt_enabled to \
+               false" )
+          ; ( false
+            , into_vdi
+            , "VDI.copy failed to initialise cbt_enabled to false" )
+          ; ( false
+            , vdi_copy_fresh
+            , "VDI.copy erroneously reset the copied VDI's cbt_enabled field \
+               to true" )
+          ; (false, vdi_clone, "VDI.clone failed to set cbt_enabled to false")
+          ]
+          |> List.iter (fun (boolean, vDI, msg) ->
+                 assert_cbt_status boolean ~rpc ~session_id ~vDI ~msg ;
+                 Qt.VDI.test_update rpc session_id vDI)))
 
 (* ---------------- *
     Test execution
@@ -126,7 +136,25 @@ let vdi_clone_copy_test rpc session_id sr_info () =
 (** Each test specifies the set of SR capabilities it requires *)
 let tests () =
   let open Qt_filter in
-  [ ["vdi_data_destroy_test", `Slow, vdi_data_destroy_test] |> conn |> sr SR.(all |> allowed_operations [ `vdi_enable_cbt ; `vdi_disable_cbt ; `vdi_data_destroy ; `vdi_snapshot ])
-  ; ["vdi_clone_copy_test", `Slow, vdi_clone_copy_test] |> conn |> sr SR.(all |> allowed_operations [ `vdi_create; `vdi_destroy; `vdi_enable_cbt; `vdi_clone ])
+  [
+    [("vdi_data_destroy_test", `Slow, vdi_data_destroy_test)]
+    |> conn
+    |> sr
+         SR.(
+           all
+           |> allowed_operations
+                [
+                  `vdi_enable_cbt
+                ; `vdi_disable_cbt
+                ; `vdi_data_destroy
+                ; `vdi_snapshot
+                ])
+  ; [("vdi_clone_copy_test", `Slow, vdi_clone_copy_test)]
+    |> conn
+    |> sr
+         SR.(
+           all
+           |> allowed_operations
+                [`vdi_create; `vdi_destroy; `vdi_enable_cbt; `vdi_clone])
   ]
   |> List.concat

@@ -5,5 +5,6 @@
   (libraries
    http-svr
    xapi-client
+   xapi-types
   )
 )

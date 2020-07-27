@@ -8,7 +8,7 @@ let rpc = Quicktest_args.rpc
 module Testable = struct
   let ref () =
     let fmt = Fmt.of_to_string Ref.string_of in
-    let cmp = (=) in
+    let cmp = ( = ) in
     Alcotest.testable fmt cmp
 end
 
@@ -17,20 +17,16 @@ end
    to delay the evaluation after all the inputs have been specified by the
    filters. *)
 let uuid_test rpc session_id () =
-
   (* Helper functions for API/PBD calls *)
   let with_api fn = fn ~rpc ~session_id in
   let with_pbd fn pbd = with_api fn ~self:pbd in
-
   (* Checks get_uuid returns correct UUID by comparing
    * the PBD returned by get_by_uuid *)
   let uuid_test pbd =
     let uuid = with_pbd PBD.get_uuid pbd in
-    Alcotest.check (Testable.ref ()) "PBD ref"
-      pbd
+    Alcotest.check (Testable.ref ()) "PBD ref" pbd
       (with_api PBD.get_by_uuid ~uuid)
   in
-
   let pbd = List.hd (with_api PBD.get_all) in
   uuid_test pbd
 
@@ -50,8 +46,7 @@ let tests () =
    * specified by a filter. This is why we need to add a () argument to each
    * test - to delay the evaluation after all the inputs have been specified.
    * Here we only use the [conn] filter to specify the connection details. *)
-  [ ["example test", `Quick, uuid_test] |> conn
-  ]
+  [[("example test", `Quick, uuid_test)] |> conn]
   (* We need to put each test case that needs a different filter into a
    * separate list, because every filter takes a list of test cases as input
    * and outputs another list of test cases. Since each filter's output is a

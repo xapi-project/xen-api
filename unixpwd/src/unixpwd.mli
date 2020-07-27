@@ -14,30 +14,35 @@
 
 exception Error of string
 
-val getpwd :   string -> string
+val getpwd : string -> string
+
 (* [getpwd user] returns the (encrypted) password for [user] from the
  * /etc/passwd database. It raised [Error] on error. *)
 
+val getspw : string -> string
 
-val getspw :   string -> string
 (* [getspw user] returns the (encrypted) password for [user] from the
  * /etc/shadow database. It raises [Error] on error. *)
 
-val get    :   string -> string
+val get : string -> string
+
 (* [get user] returns the (encrypted) password for [user] from the
  * /etc/shadow database if an entry exists, otherwise it tries to
  * obtain the password from the /etc/passwd database. It raises [Error]
  * if that fails.
- **)
+ * *)
 
-val setpwd :   string -> string -> unit
-val setspw :   string -> string -> unit
+val setpwd : string -> string -> unit
+
+val setspw : string -> string -> unit
+
 (* [setpwd user pw] and [setspw user pw] set the (encrypted) password
  * for [user] in /etc/passwd and /etc/shadow, respectively. They raise
  * [Error] on error.
  *)
 
-val unshadow : unit   -> string
+val unshadow : unit -> string
+
 (* [unshadow] returns the contents of /etc/passwd as a string with
  * passwords from /etc/shadow for users that have a corresponding entry.
  * Raises [Error] on error.

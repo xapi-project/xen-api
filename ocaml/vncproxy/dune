@@ -5,6 +5,8 @@
   (libraries
    http-svr
    xapi-client
+   xapi-consts
+   xapi-types
    xapi-stdext-unix
    xapi-stdext-pervasives
   )

@@ -16,26 +16,23 @@
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
-  type t = { sigma_x: float;
-             sigma_xx: float;
-             n: int }
+  type t = {sigma_x: float; sigma_xx: float; n: int}
 
-  let empty = { sigma_x = 0.; sigma_xx = 0.; n = 0 }
+  let empty = {sigma_x= 0.; sigma_xx= 0.; n= 0}
 
-  let sample (p: t) (x: float) : t =
-    { sigma_x = p.sigma_x +. x;
-      sigma_xx = p.sigma_xx +. x *. x;
-      n = p.n + 1 }
+  let sample (p : t) (x : float) : t =
+    {sigma_x= p.sigma_x +. x; sigma_xx= p.sigma_xx +. (x *. x); n= p.n + 1}
 
   exception Unknown
 
-  let mean (p: t) : float = p.sigma_x /. (float_of_int p.n)
-  let sd (p: t) : float =
-    if p.n = 0
-    then raise Unknown
+  let mean (p : t) : float = p.sigma_x /. float_of_int p.n
+
+  let sd (p : t) : float =
+    if p.n = 0 then
+      raise Unknown
     else
       let n = float_of_int p.n in
-      sqrt (n *. p.sigma_xx -. p.sigma_x *. p.sigma_x) /. n
+      sqrt ((n *. p.sigma_xx) -. (p.sigma_x *. p.sigma_x)) /. n
 end
 
 (* We keep a finite global table of timing statistics, each named by a string.
@@ -47,42 +44,47 @@ end
    lognormal transformations here.
 *)
 
-module D=Debug.Make(struct let name="stats" end)
+module D = Debug.Make (struct let name = "stats" end)
+
 open D
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext
 
 let timings : (string, Normal_population.t) Hashtbl.t = Hashtbl.create 10
+
 let timings_m = Mutex.create ()
 
-let mean (p: Normal_population.t) =
+let mean (p : Normal_population.t) =
   let sigma = Normal_population.sd p in
   let mu = Normal_population.mean p in
-  exp (mu +. sigma *. sigma /. 2.)
+  exp (mu +. (sigma *. sigma /. 2.))
 
-let sd (p: Normal_population.t) =
+let sd (p : Normal_population.t) =
   let sigma = Normal_population.sd p in
   let mu = Normal_population.mean p in
-  let v = (exp(sigma *. sigma) -. 1.) *. (exp (2. *. mu +. sigma *. sigma)) in
+  let v =
+    (exp (sigma *. sigma) -. 1.) *. exp ((2. *. mu) +. (sigma *. sigma))
+  in
   sqrt v
 
-let string_of (p: Normal_population.t) =
+let string_of (p : Normal_population.t) =
   Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
 
 (** [sample thing t] records new time [t] for population named [thing] *)
-let sample (name: string) (x: float) : unit =
+let sample (name : string) (x : float) : unit =
   (* Use the lognormal distribution: *)
   let x' = log x in
-  Mutex.execute timings_m
-    (fun () ->
-       let p =
-         if Hashtbl.mem timings name
-         then Hashtbl.find timings name
-         else Normal_population.empty in
-       let p' = Normal_population.sample p x' in
-       Hashtbl.replace timings name p';
-       (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
-    )
+  Mutex.execute timings_m (fun () ->
+      let p =
+        if Hashtbl.mem timings name then
+          Hashtbl.find timings name
+        else
+          Normal_population.empty
+      in
+      let p' = Normal_population.sample p x' in
+      Hashtbl.replace timings name p'
+      (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *))
+
 (*
   (* Check to see if the value is > 3 standard deviations from the mean *)
   if abs_float (x -. (mean p)) > (sd p *. 3.)
@@ -90,19 +92,16 @@ let sample (name: string) (x: float) : unit =
 *)
 
 (** Helper function to time a specific thing *)
-let time_this (name: string) f =
+let time_this (name : string) f =
   let start_time = Unix.gettimeofday () in
-  finally f
-    (fun () ->
-       try
-         let end_time = Unix.gettimeofday () in
-         sample name (end_time -. start_time)
-       with e ->
-         warn "Ignoring exception %s while timing: %s" (Printexc.to_string e) name
-    )
+  finally f (fun () ->
+      try
+        let end_time = Unix.gettimeofday () in
+        sample name (end_time -. start_time)
+      with e ->
+        warn "Ignoring exception %s while timing: %s" (Printexc.to_string e)
+          name)
 
 let summarise () =
-  Mutex.execute timings_m
-    (fun () ->
-       Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
-    )
+  Mutex.execute timings_m (fun () ->
+      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings [])

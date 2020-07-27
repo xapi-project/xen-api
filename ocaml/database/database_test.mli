@@ -12,6 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Tests : functor (Client: Db_interface.DB_ACCESS) -> sig
-  val main: bool -> unit
+module Tests : functor (Client : Db_interface.DB_ACCESS) -> sig
+  val main : bool -> unit
 end

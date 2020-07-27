@@ -14,16 +14,18 @@
 
 open Xmlrpc_client
 
-module type RPC_META =
-sig
+module type RPC_META = sig
   val client_name : string
+
   val server_name : string
+
   val server_path : string
+
   val should_retry : bool
 end
 
-module Make : functor (Meta : RPC_META) ->
-sig
+module Make : functor (Meta : RPC_META) -> sig
   val transport : Xmlrpc_client.transport
+
   val rpc : Rpc.call -> Rpc.response
 end

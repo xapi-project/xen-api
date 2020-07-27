@@ -12,6 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
+val create :
+     __context:Context.t
+  -> _type:string
+  -> device_config:(string * string) list
+  -> whitelist:string list
+  -> API.ref_DR_task
 (** * Introduce SR records into the database based on a probe result.
     * Create a PBD for each SR for each host.
     * Plug all the PBDs.
@@ -19,13 +25,8 @@
 
     If anything goes wrong, unplug all PBDs which were created, forget the SRs,
     and re-raise the error. *)
-val create : __context:Context.t ->
-  _type:string ->
-  device_config:(string * string) list ->
-  whitelist:string list ->
-  API.ref_DR_task
 
+val destroy : __context:Context.t -> self:API.ref_DR_task -> unit
 (** * Unplug all PBDs for each SR associated with the DR_task.
     * Forget each SR associated with the DR_task.
     * Destroy the DR_task. *)
-val destroy : __context:Context.t -> self:API.ref_DR_task -> unit

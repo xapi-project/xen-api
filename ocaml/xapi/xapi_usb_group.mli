@@ -12,13 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-
-(** Create a USB group. *)
 val create :
-  __context:Context.t ->
-  name_label:string ->
-  name_description:string ->
-  other_config:(string * string) list -> [ `USB_group ] Ref.t
+     __context:Context.t
+  -> name_label:string
+  -> name_description:string
+  -> other_config:(string * string) list
+  -> [`USB_group] Ref.t
+(** Create a USB group. *)
 
+val destroy : __context:Context.t -> self:[`USB_group] Ref.t -> unit
 (** Destroy a USB group. *)
-val destroy : __context:Context.t -> self:[ `USB_group ] Ref.t -> unit

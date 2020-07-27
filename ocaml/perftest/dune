@@ -4,16 +4,19 @@
   (package xapi)
   (libraries
     http-svr
-    rpclib
-    threads
+    rpclib.core
+    threads.posix
     xapi-consts
+    xapi-cli-protocol
     xapi-client
     xapi-datamodel
+    xapi-idl
+    xapi-inventory
+    xapi-types
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
-    xapi-idl
     xml-light2
   )
 )

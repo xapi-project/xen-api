@@ -25,34 +25,37 @@
    }
 *)
 
+val create :
+     __context:Context.t
+  -> network:[`network] Ref.t
+  -> members:[`PIF] Ref.t list
+  -> mAC:string
+  -> mode:API.bond_mode
+  -> properties:(string * string) list
+  -> [`Bond] Ref.t
 (** Create a PIF to represent the bond master and a Bond record to represent the bond.
  *  Return a reference to the bond record. The given network must not have any local
  *  PIFs on it yet.
 *)
-val create :
-  __context:Context.t ->
-  network:[ `network ] Ref.t ->
-  members:[ `PIF ] Ref.t list ->
-  mAC:string ->
-  mode:API.bond_mode ->
-  properties:(string * string) list ->
-  [ `Bond ] Ref.t
 
+val destroy : __context:Context.t -> self:[`Bond] Ref.t -> unit
 (** Destroy the bond master (PIF) and the Bond objects, unless the bond master
  *  is the management interface, or used as VLAN master. *)
-val destroy : __context:Context.t -> self:[ `Bond ] Ref.t -> unit
 
+val set_mode :
+  __context:Context.t -> self:[`Bond] Ref.t -> value:API.bond_mode -> unit
 (** Change the bond mode. *)
-val set_mode : __context:Context.t -> self:[ `Bond ] Ref.t -> value:API.bond_mode -> unit
 
+val set_property :
+     __context:Context.t
+  -> self:[`Bond] Ref.t
+  -> name:string
+  -> value:string
+  -> unit
 (** Change a property of the bond. *)
-val set_property : __context:Context.t -> self:[ `Bond ] Ref.t -> name:string -> value:string -> unit
 
+val fix_bond : __context:Context.t -> bond:[`Bond] Ref.t -> unit
 (** If the given bond has VIFs or VLANs on its slaves, move these to the master. *)
-val fix_bond :
-  __context:Context.t ->
-  bond:[ `Bond ] Ref.t ->
-  unit
 
-(** Functions for test cases *)
 val __test_add_lacp_defaults : (string * string) list -> (string * string) list
+(** Functions for test cases *)

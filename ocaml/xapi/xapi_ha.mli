@@ -21,15 +21,14 @@ val ha_redo_log : Redo_log.redo_log
 (******************************************************************************)
 (** {2 Interface with the low-level HA subsystem} *)
 
-module Monitor :
-  sig
-    (** Control the background HA monitoring thread *)
+module Monitor : sig
+  (** Control the background HA monitoring thread *)
 
-    val plan_out_of_date : bool ref
-    (** Used to explicitly signal that we should replan *)
+  val plan_out_of_date : bool ref
+  (** Used to explicitly signal that we should replan *)
 
-    val stop : unit -> unit
-  end
+  val stop : unit -> unit
+end
 
 val ha_prevent_restarts_for : 'a -> int64 -> unit
 (** Called by MTC in Orlando Update 1 to temporarily block the VM restart thread. *)
@@ -81,11 +80,12 @@ val ha_wait_for_shutdown_via_statefile : 'a -> 'b -> unit
 *)
 
 val preconfigure_host :
-  Context.t ->
-  [ `host ] API.Ref.t ->
-  [ `VDI ] API.Ref.t list ->
-  [ `VDI ] API.Ref.t ->
-  string -> unit
+     Context.t
+  -> [`host] API.Ref.t
+  -> [`VDI] API.Ref.t list
+  -> [`VDI] API.Ref.t
+  -> string
+  -> unit
 (** Internal API call to preconfigure localhost *)
 
 val join_liveset : 'a -> 'b Ref.t -> unit
@@ -105,8 +105,7 @@ val abort_new_master : __context:'a -> address:string -> unit
 
 val disable : Context.t -> unit
 
-val enable :
-  Context.t -> [ `SR ] API.Ref.t list -> (string * string) list -> unit
+val enable : Context.t -> [`SR] API.Ref.t list -> (string * string) list -> unit
 
 (** {3 Functions called by host.* API calls} *)
 
@@ -114,5 +113,6 @@ val before_clean_shutdown_or_reboot : __context:Context.t -> host:'a -> unit
 (** Called before shutting down or rebooting a host
     (called by the host.shutdown, host.reboot API functions). *)
 
-val before_clean_shutdown_or_reboot_precheck : __context:Context.t -> host:'a -> unit
+val before_clean_shutdown_or_reboot_precheck :
+  __context:Context.t -> host:'a -> unit
 (** Only runs the checks performed by [before_clean_shutdown_or_reboot]. *)

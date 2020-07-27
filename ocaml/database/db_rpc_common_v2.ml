@@ -15,7 +15,6 @@
 (** Marshall/unmarshall functions and types for db remote access protocol v2 *)
 
 module Request = struct
-
   (** All possible request messages *)
   type t =
     | Get_table_from_ref of string
@@ -31,22 +30,27 @@ module Request = struct
     | Read_field of string * string * string
     | Read_record of string * string
     | Read_records_where of string * Db_filter_types.expr
-    | Process_structured_field of (string * string) * string * string * string * Db_cache_types.structured_op_t
+    | Process_structured_field of
+        (string * string)
+        * string
+        * string
+        * string
+        * Db_cache_types.structured_op_t
   [@@deriving rpc]
 
   (* Make sure the slave only ever uses the idempotent version *)
   let rpc_of_t t =
     let t' =
       match t with
-      | Process_structured_field (a,b,c,d,Db_cache_types.AddMapLegacy) ->
-        Process_structured_field (a,b,c,d,Db_cache_types.AddMap)
-      | x -> x
+      | Process_structured_field (a, b, c, d, Db_cache_types.AddMapLegacy) ->
+          Process_structured_field (a, b, c, d, Db_cache_types.AddMap)
+      | x ->
+          x
     in
     rpc_of_t t'
 end
 
 module Response = struct
-
   (** All possible response messages *)
   type t =
     | Get_table_from_ref of string option
@@ -61,9 +65,9 @@ module Response = struct
     | Write_field of unit
     | Read_field of string
     | Read_record of (string * string) list * (string * string list) list
-    | Read_records_where of (string * ((string * string) list * (string * string list) list )) list
+    | Read_records_where of
+        (string * ((string * string) list * (string * string list) list)) list
     | Process_structured_field of unit
-
     | Dbcache_notfound of string * string * string
     | Duplicate_key_of of string * string * string * string
     | Uniqueness_constraint_violation of string * string * string

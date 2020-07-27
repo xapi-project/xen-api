@@ -12,10 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type _val =
-  | Field of string
-  | Literal of string
-[@@deriving rpc]
+type _val = Field of string | Literal of string [@@deriving rpc]
 
 (** Represent a predicate: table row -> bool *)
 type expr =

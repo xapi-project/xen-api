@@ -4,7 +4,9 @@
   (libraries
    xapi-datamodel
    xapi-consts
-   stdext
+   xapi-stdext-pervasives
+   xapi-stdext-std
+   xapi-stdext-unix
    uuid
    gzip
    mustache

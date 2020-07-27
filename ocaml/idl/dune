@@ -22,12 +22,15 @@
   )
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29))
   (libraries
-   rpclib
+   ppx_sexp_conv.runtime-lib
+   rpclib.core
+   sexplib0
+   sexpr
    threads
+   xapi-backtrace
    xapi-consts
    xapi-database
    xapi-stdext-date
-   xapi-stdext-monadic
    xapi-stdext-std
    xapi-stdext-unix
   )

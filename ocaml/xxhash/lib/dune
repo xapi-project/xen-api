@@ -9,6 +9,7 @@
 	(wrapped false)
 	(libraries
 		ctypes
+        integers
 		xxhash_bindings
 		xapi-stdext-pervasives
 	)

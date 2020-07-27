@@ -18,6 +18,7 @@ let redo_log_max_block_time_writedelta = ref 2.
 let redo_log_max_block_time_writedb = ref 30.
 
 (** {3 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
+
 (** The initial backoff delay, in seconds *)
 let redo_log_initial_backoff_delay = 2
 

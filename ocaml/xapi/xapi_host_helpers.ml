@@ -15,117 +15,163 @@
  * @group Host Management
 *)
 
-module D = Debug.Make(struct let name="xapi_host_helpers" end)
-open D
+module D = Debug.Make (struct let name = "xapi_host_helpers" end)
 
+open D
 open Stdext
 open Db_filter
 open Db_filter_types
 open Record_util (* for host_operation_to_string *)
+
 open Threadext
 
-let all_operations = [ `provision; `evacuate; `reboot; `shutdown;
-                       `vm_start; `vm_resume; `vm_migrate; `power_on ]
+let all_operations =
+  [
+    `provision
+  ; `evacuate
+  ; `reboot
+  ; `shutdown
+  ; `vm_start
+  ; `vm_resume
+  ; `vm_migrate
+  ; `power_on
+  ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
-let valid_operations ~__context record _ref' = 
+let valid_operations ~__context record _ref' =
   let _ref = Ref.string_of _ref' in
   let current_ops = List.map snd record.Db_actions.host_current_operations in
-
   let table = Hashtbl.create 10 in
-  List.iter (fun x -> Hashtbl.replace table x None) all_operations;
-  let set_errors (code: string) (params: string list) (ops: API.host_allowed_operations_set) =
-    List.iter (fun op ->
-        if Hashtbl.find table op = None
-        then Hashtbl.replace table op (Some(code, params))) ops in
-
+  List.iter (fun x -> Hashtbl.replace table x None) all_operations ;
+  let set_errors (code : string) (params : string list)
+      (ops : API.host_allowed_operations_set) =
+    List.iter
+      (fun op ->
+        if Hashtbl.find table op = None then
+          Hashtbl.replace table op (Some (code, params)))
+      ops
+  in
   (* Operations are divided into two groups:
      	 1. those that create new VMs: `provision, `vm_resume, `vm_migrate
      	 2. those that remove VMs: `evacuate, `reboot, `shutdown *)
-  let is_creating_new x = List.mem x [ `provision; `vm_resume; `vm_migrate ] in
-  let is_removing x = List.mem x [ `evacuate; `reboot; `shutdown ] in
-  let creating_new = List.fold_left (fun acc op -> acc || (is_creating_new op)) false current_ops in
-  let removing = List.fold_left (fun acc op -> acc || (is_removing op)) false current_ops in
+  let is_creating_new x = List.mem x [`provision; `vm_resume; `vm_migrate] in
+  let is_removing x = List.mem x [`evacuate; `reboot; `shutdown] in
+  let creating_new =
+    List.fold_left (fun acc op -> acc || is_creating_new op) false current_ops
+  in
+  let removing =
+    List.fold_left (fun acc op -> acc || is_removing op) false current_ops
+  in
   List.iter
     (fun op ->
-       if is_creating_new op && removing || (is_removing op && creating_new)
-       then set_errors Api_errors.other_operation_in_progress
-           [ "host"; _ref; host_operation_to_string (List.hd current_ops) ]
-           [ op ]
-    ) (List.filter (fun x -> x <> `power_on) all_operations);
-
+      if (is_creating_new op && removing) || (is_removing op && creating_new)
+      then
+        set_errors Api_errors.other_operation_in_progress
+          ["host"; _ref; host_operation_to_string (List.hd current_ops)]
+          [op])
+    (List.filter (fun x -> x <> `power_on) all_operations) ;
   (* reboot and shutdown cannot run concurrently *)
-  if List.mem `reboot current_ops
-  then set_errors Api_errors.other_operation_in_progress
-      [ "host"; _ref; host_operation_to_string `reboot ] [ `shutdown ];
-  if List.mem `shutdown current_ops
-  then set_errors Api_errors.other_operation_in_progress
-      [ "host"; _ref; host_operation_to_string `shutdown ] [ `reboot ];
-
+  if List.mem `reboot current_ops then
+    set_errors Api_errors.other_operation_in_progress
+      ["host"; _ref; host_operation_to_string `reboot]
+      [`shutdown] ;
+  if List.mem `shutdown current_ops then
+    set_errors Api_errors.other_operation_in_progress
+      ["host"; _ref; host_operation_to_string `shutdown]
+      [`reboot] ;
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
      template we can relax this. *)
-  if List.mem `provision current_ops
-  then set_errors Api_errors.other_operation_in_progress
-      [ "host"; _ref; host_operation_to_string `provision ]
-      [ `provision ];
-
+  if List.mem `provision current_ops then
+    set_errors Api_errors.other_operation_in_progress
+      ["host"; _ref; host_operation_to_string `provision]
+      [`provision] ;
   (* The host must be disabled before reboots or shutdowns are permitted *)
-  if record.Db_actions.host_enabled
-  then set_errors Api_errors.host_not_disabled [] [ `reboot; `shutdown ];
-
+  if record.Db_actions.host_enabled then
+    set_errors Api_errors.host_not_disabled [] [`reboot; `shutdown] ;
   (* The host must be (thought to be down) before power_on is possible *)
-  begin 
-    try 
-      if Db.Host_metrics.get_live ~__context ~self:record.Db_actions.host_metrics 
-      then set_errors Api_errors.host_is_live [ _ref ] [ `power_on ] 
-    with _ -> () 
-  end;
+  ( try
+      if
+        Db.Host_metrics.get_live ~__context ~self:record.Db_actions.host_metrics
+      then
+        set_errors Api_errors.host_is_live [_ref] [`power_on]
+    with _ -> ()
+  ) ;
   (* The host power_on_mode must be not disabled *)
-  begin 
-    try 
-      if record.Db_actions.host_power_on_mode = ""
-      then set_errors Api_errors.host_power_on_mode_disabled [] [ `power_on ]
-    with _ -> () 
-  end;
+  ( try
+      if record.Db_actions.host_power_on_mode = "" then
+        set_errors Api_errors.host_power_on_mode_disabled [] [`power_on]
+    with _ -> ()
+  ) ;
   (* The power-on-host plugin must be available before power_on is possible *)
-  begin 
-    try Unix.access (Filename.concat !Xapi_globs.xapi_plugins_root Constants.power_on_plugin) [ Unix.X_OK ]
-    with _ -> set_errors Api_errors.xenapi_missing_plugin [ Constants.power_on_plugin ] [ `power_on ]
-  end;
-
+  ( try
+      Unix.access
+        (Filename.concat
+           !Xapi_globs.xapi_plugins_root
+           Constants.power_on_plugin)
+        [Unix.X_OK]
+    with _ ->
+      set_errors Api_errors.xenapi_missing_plugin
+        [Constants.power_on_plugin]
+        [`power_on]
+  ) ;
   (* Check where there are any attached clustered SRs. If so:
    * - Only one enabled host may be down at a time;
    * - No hosts may go down if the SR is "recovering".
-  *)
+   *)
   let plugged_srs = Helpers.get_all_plugged_srs ~__context in
-  let plugged_clustered_srs = List.filter (fun self -> Db.SR.get_clustered ~__context ~self) plugged_srs in
-  if plugged_clustered_srs <> [] then begin
-    let hosts_down = Db.Host_metrics.get_refs_where ~__context ~expr:(Eq (Field "live", Literal "false")) in
-    if not (List.for_all (Xapi_clustering.is_clustering_disabled_on_host ~__context) hosts_down) then
-      set_errors Api_errors.clustered_sr_degraded [ List.hd plugged_clustered_srs |> Ref.string_of ] [ `shutdown; `reboot ];
-
+  let plugged_clustered_srs =
+    List.filter (fun self -> Db.SR.get_clustered ~__context ~self) plugged_srs
+  in
+  if plugged_clustered_srs <> [] then (
+    let hosts_down =
+      Db.Host_metrics.get_refs_where ~__context
+        ~expr:(Eq (Field "live", Literal "false"))
+    in
+    if
+      not
+        (List.for_all
+           (Xapi_clustering.is_clustering_disabled_on_host ~__context)
+           hosts_down)
+    then
+      set_errors Api_errors.clustered_sr_degraded
+        [List.hd plugged_clustered_srs |> Ref.string_of]
+        [`shutdown; `reboot] ;
     let recovering_tasks =
-      List.map (fun sr -> Helpers.find_health_check_task ~__context ~sr) plugged_clustered_srs
+      List.map
+        (fun sr -> Helpers.find_health_check_task ~__context ~sr)
+        plugged_clustered_srs
       |> List.concat
     in
     if recovering_tasks <> [] then
       set_errors Api_errors.clustered_sr_degraded
-        [ Db.Task.get_name_description ~__context ~self:(List.hd recovering_tasks) ] [ `shutdown; `reboot ];
-  end;
-
+        [
+          Db.Task.get_name_description ~__context
+            ~self:(List.hd recovering_tasks)
+        ]
+        [`shutdown; `reboot]
+  ) ;
   (* All other operations may be parallelised *)
   table
 
-let throw_error table op = 
-  if not(Hashtbl.mem table op)
-  then raise (Api_errors.Server_error(Api_errors.internal_error, [ Printf.sprintf "xapi_host_helpers.assert_operation_valid unknown operation: %s" (host_operation_to_string op) ]));
-
+let throw_error table op =
+  if not (Hashtbl.mem table op) then
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.internal_error
+         , [
+             Printf.sprintf
+               "xapi_host_helpers.assert_operation_valid unknown operation: %s"
+               (host_operation_to_string op)
+           ] )) ;
   match Hashtbl.find table op with
-  | Some (code, params) -> raise (Api_errors.Server_error(code, params))
-  | None -> ()
+  | Some (code, params) ->
+      raise (Api_errors.Server_error (code, params))
+  | None ->
+      ()
 
-let assert_operation_valid ~__context ~self ~(op:API.host_allowed_operations) = 
+let assert_operation_valid ~__context ~self ~(op : API.host_allowed_operations)
+    =
   let all = Db.Host.get_record_internal ~__context ~self in
   let table = valid_operations ~__context all self in
   throw_error table op
@@ -133,11 +179,16 @@ let assert_operation_valid ~__context ~self ~(op:API.host_allowed_operations) =
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.Host.get_record_internal ~__context ~self in
   let valid = valid_operations ~__context all self in
-  let keys = Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid [] in
+  let keys =
+    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+  in
   (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
-  let keys = if Helpers.rolling_upgrade_in_progress ~__context
-    then Listext.List.intersect keys Xapi_globs.host_operations_miami
-    else keys in
+  let keys =
+    if Helpers.rolling_upgrade_in_progress ~__context then
+      Listext.List.intersect keys Xapi_globs.host_operations_miami
+    else
+      keys
+  in
   Db.Host.set_allowed_operations ~__context ~self ~value:keys
 
 let update_allowed_operations_all_hosts ~__context : unit =
@@ -146,62 +197,65 @@ let update_allowed_operations_all_hosts ~__context : unit =
 
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.Host.get_current_operations ~__context ~self in
-  let set = (fun value -> Db.Host.set_current_operations ~__context ~self ~value) in
+  let set value = Db.Host.set_current_operations ~__context ~self ~value in
   Helpers.cancel_tasks ~__context ~ops ~all_tasks_in_db ~task_ids ~set
 
-let disable  ~__context ~host = ()
+let disable ~__context ~host = ()
 
-let enable  ~__context ~host = ()
+let enable ~__context ~host = ()
 
-let shutdown  ~__context ~host = ()
+let shutdown ~__context ~host = ()
 
-let reboot  ~__context ~host = ()
+let reboot ~__context ~host = ()
 
 (* When the Host.shutdown and Host.reboot calls return to the master, the slave is 
    shutting down asycnronously. We immediately set the Host_metrics.live to false 
    and add the host to the global list of known-dying hosts. *)
 let mark_host_as_dead ~__context ~host ~reason =
-  let done_already = Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m
-    (fun () ->
-      if List.mem host !Xapi_globs.hosts_which_are_shutting_down then
-        true
-      else (
-        Xapi_globs.hosts_which_are_shutting_down := host :: !Xapi_globs.hosts_which_are_shutting_down;
-        false
-      )
-    ) in
+  let done_already =
+    Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+        if List.mem host !Xapi_globs.hosts_which_are_shutting_down then
+          true
+        else (
+          Xapi_globs.hosts_which_are_shutting_down :=
+            host :: !Xapi_globs.hosts_which_are_shutting_down ;
+          false
+        ))
+  in
   if not done_already then (
     (* The heartbeat handling code (HA and non-HA) will hopefully ignore the heartbeats
        and leave the host as dead from now until it comes back with a Pool.hello *)
-    Xapi_hooks.host_pre_declare_dead ~__context ~host ~reason;
-    begin
-      try
+    Xapi_hooks.host_pre_declare_dead ~__context ~host ~reason ;
+    ( try
         let metrics = Db.Host.get_metrics ~__context ~self:host in
-        Db.Host_metrics.set_live ~__context ~self:metrics ~value:false;
+        Db.Host_metrics.set_live ~__context ~self:metrics ~value:false ;
         update_allowed_operations ~__context ~self:host
       with e ->
-        info "Caught and ignoring exception setting host %s to dead: %s" (Ref.string_of host) (ExnHelper.string_of_exn e)
-    end;
+        info "Caught and ignoring exception setting host %s to dead: %s"
+          (Ref.string_of host)
+          (ExnHelper.string_of_exn e)
+    ) ;
     Xapi_hooks.host_post_declare_dead ~__context ~host ~reason
   )
 
 let assert_host_disabled ~__context ~host =
-  if Db.Host.get_enabled ~__context ~self:host
-  then raise (Api_errors.Server_error (Api_errors.host_not_disabled, []))
+  if Db.Host.get_enabled ~__context ~self:host then
+    raise (Api_errors.Server_error (Api_errors.host_not_disabled, []))
 
 (* Toggled by an explicit Host.disable call to prevent a master restart making us bounce back *)
 let user_requested_host_disable = ref false
 
 (* Track whether the host considers itself started - we want to block host.enable API calls until this is the case. *)
 let startup_complete = ref false
+
 let startup_complete_m = Mutex.create ()
 
 let signal_startup_complete () =
   Mutex.execute startup_complete_m (fun () -> startup_complete := true)
 
 let assert_startup_complete () =
-  Mutex.execute startup_complete_m
-    (fun () -> if not (!startup_complete) then
+  Mutex.execute startup_complete_m (fun () ->
+      if not !startup_complete then
         raise (Api_errors.Server_error (Api_errors.host_still_booting, [])))
 
 (* Check whether the currently installed Toolstack is compatible with the
@@ -209,24 +263,28 @@ let assert_startup_complete () =
 *)
 let is_xen_compatible () =
   try
-    let _ = Forkhelpers.execute_command_get_output !Xapi_globs.list_domains [] in
-    info "The Toolstack is compatible with the current Xen and libxenctrl versions";
+    let _ =
+      Forkhelpers.execute_command_get_output !Xapi_globs.list_domains []
+    in
+    info
+      "The Toolstack is compatible with the current Xen and libxenctrl versions" ;
     true
   with
-  | Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED 2) ->
-    (* list_domains failed with an exception: assuming that the hypercall
-       returned -EACCES, indicating a compatibility problem. *)
-    warn "The current Xen version is incompatible with the Toolstack";
-    false
-  | Forkhelpers.Spawn_internal_error(_, _, Unix.WEXITED 127) ->
-    (* list_domains could not execute due to a missing library: assuming that
-       that a compatible version of libxenctrl is not present. *)
-    warn "The current libxenctrl version is incompatible with the Toolstack";
-    false
+  | Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED 2) ->
+      (* list_domains failed with an exception: assuming that the hypercall
+         returned -EACCES, indicating a compatibility problem. *)
+      warn "The current Xen version is incompatible with the Toolstack" ;
+      false
+  | Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED 127) ->
+      (* list_domains could not execute due to a missing library: assuming that
+         that a compatible version of libxenctrl is not present. *)
+      warn "The current libxenctrl version is incompatible with the Toolstack" ;
+      false
   | _ ->
-    error "Unexpected error when calling list_domains; assuming the Toolstack is \
-      incompatible with Xen and/or libxenctrl";
-    false
+      error
+        "Unexpected error when calling list_domains; assuming the Toolstack is \
+         incompatible with Xen and/or libxenctrl" ;
+      false
 
 let xen_compatible = ref None
 
@@ -234,67 +292,87 @@ let assert_xen_compatible () =
   let compatible =
     match !xen_compatible with
     | None ->
-      let x = is_xen_compatible () in
-      xen_compatible := Some x;
-      x
-    | Some x -> x
+        let x = is_xen_compatible () in
+        xen_compatible := Some x ;
+        x
+    | Some x ->
+        x
   in
   if not compatible then
     raise Api_errors.(Server_error (xen_incompatible, []))
 
 let consider_enabling_host_nolock ~__context =
-  debug "Xapi_host_helpers.consider_enabling_host_nolock called";
+  debug "Xapi_host_helpers.consider_enabling_host_nolock called" ;
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
         Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
         fail to plug in a PBD and cause all protected VMs to suddenly become non-agile. *)
-  let ha_enabled = try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false in
+  let ha_enabled =
+    try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false
+  in
   let localhost = Helpers.get_localhost ~__context in
   let pbds = Db.Host.get_PBDs ~__context ~self:localhost in
-  Storage_access.resynchronise_pbds ~__context ~pbds;
-  let all_pbds_ok = List.fold_left (&&) true (List.map (fun self -> Db.PBD.get_currently_attached ~__context ~self) pbds) in
-
-  if not !user_requested_host_disable && (not ha_enabled || all_pbds_ok) && is_xen_compatible () then begin
+  Storage_access.resynchronise_pbds ~__context ~pbds ;
+  let all_pbds_ok =
+    List.fold_left ( && ) true
+      (List.map
+         (fun self -> Db.PBD.get_currently_attached ~__context ~self)
+         pbds)
+  in
+  if
+    (not !user_requested_host_disable)
+    && ((not ha_enabled) || all_pbds_ok)
+    && is_xen_compatible ()
+  then (
     (* If we were in the middle of a shutdown or reboot with HA enabled but somehow we failed
        		   and xapi restarted, make sure we don't automatically re-enable ourselves. This is to avoid
        		   letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear
        		   the flag 'host_disabled_until_reboot' *)
     let pool = Helpers.get_pool ~__context in
-    if !Xapi_globs.on_system_boot then begin
-      debug "Host.enabled: system has just restarted: setting localhost to enabled";
-      Db.Host.set_enabled ~__context ~self:localhost ~value:true;
-      update_allowed_operations ~__context ~self:localhost;
-      Localdb.put Constants.host_disabled_until_reboot "false";
+    if !Xapi_globs.on_system_boot then (
+      debug
+        "Host.enabled: system has just restarted: setting localhost to enabled" ;
+      Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+      update_allowed_operations ~__context ~self:localhost ;
+      Localdb.put Constants.host_disabled_until_reboot "false" ;
       (* Start processing pending VM powercycle events *)
-      Local_work_queue.start_vm_lifecycle_queue ();
-    end else begin
-      if try bool_of_string (Localdb.get Constants.host_disabled_until_reboot) with _ -> false then begin
-        debug "Host.enabled: system not just rebooted but host_disabled_until_reboot still set. Leaving host disabled";
-      end else begin
-        debug "Host.enabled: system not just rebooted && host_disabled_until_reboot not set: setting localhost to enabled";
-        Db.Host.set_enabled ~__context ~self:localhost ~value:true;
-        update_allowed_operations ~__context ~self:localhost;
-        (* Start processing pending VM powercycle events *)
-        Local_work_queue.start_vm_lifecycle_queue ();
-      end
-    end;
+      Local_work_queue.start_vm_lifecycle_queue ()
+    ) else if
+        try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
+        with _ -> false
+      then
+      debug
+        "Host.enabled: system not just rebooted but host_disabled_until_reboot \
+         still set. Leaving host disabled"
+    else (
+      debug
+        "Host.enabled: system not just rebooted && host_disabled_until_reboot \
+         not set: setting localhost to enabled" ;
+      Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+      update_allowed_operations ~__context ~self:localhost ;
+      (* Start processing pending VM powercycle events *)
+      Local_work_queue.start_vm_lifecycle_queue ()
+    ) ;
     (* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)
-    if Db.Host.get_enabled ~__context ~self:localhost && (Db.Pool.get_ha_enabled ~__context ~self:pool)
-    then Helpers.call_api_functions ~__context (fun rpc session_id -> Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
-  end;
+    if
+      Db.Host.get_enabled ~__context ~self:localhost
+      && Db.Pool.get_ha_enabled ~__context ~self:pool
+    then
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
+  ) ;
   signal_startup_complete ()
 
 (** Attempt to minimise the number of times we call consider_enabling_host_nolock *)
 let consider_enabling_host =
-  At_least_once_more.make "consider_enabling_host"
-    (fun () ->
-       Server_helpers.exec_with_new_task "consider_enabling_host"
-         (fun __context -> consider_enabling_host_nolock __context)
-    )
+  At_least_once_more.make "consider_enabling_host" (fun () ->
+      Server_helpers.exec_with_new_task "consider_enabling_host"
+        (fun __context -> consider_enabling_host_nolock __context))
 
-let consider_enabling_host_request ~__context = At_least_once_more.again consider_enabling_host
+let consider_enabling_host_request ~__context =
+  At_least_once_more.again consider_enabling_host
 
 let consider_enabling_host ~__context =
-  debug "Xapi_host_helpers.consider_enabling_host called";
+  debug "Xapi_host_helpers.consider_enabling_host called" ;
   consider_enabling_host_request ~__context
 
 module Host_requires_reboot = struct
@@ -302,111 +380,132 @@ module Host_requires_reboot = struct
 
   let get () =
     Mutex.execute m (fun () ->
-        try Unix.access Xapi_globs.requires_reboot_file [Unix.F_OK]; true with _ -> false
-      )
+        try
+          Unix.access Xapi_globs.requires_reboot_file [Unix.F_OK] ;
+          true
+        with _ -> false)
 
   let set () =
     Mutex.execute m (fun () ->
-        Unixext.touch_file Xapi_globs.requires_reboot_file
-      )
+        Unixext.touch_file Xapi_globs.requires_reboot_file)
 end
 
 module Configuration = struct
-
   let make_initiatorname_config iqn hostname =
     (* CA-18000: there is a 30 character limit to the initiator when talking to
        Dell MD3000i filers, so we limit the size of the initiator name in all cases *)
     let hostname_chopped =
-      if String.length hostname > 30
-      then String.sub hostname 0 30
-      else hostname
+      if String.length hostname > 30 then
+        String.sub hostname 0 30
+      else
+        hostname
     in
-    Printf.sprintf
-      "InitiatorName=%s\nInitiatorAlias=%s\n"
-      iqn hostname_chopped
+    Printf.sprintf "InitiatorName=%s\nInitiatorAlias=%s\n" iqn hostname_chopped
 
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
     let config_file = make_initiatorname_config iqn hostname in
-    Unixext.write_string_to_file !Xapi_globs.iscsi_initiator_config_file config_file
+    Unixext.write_string_to_file
+      !Xapi_globs.iscsi_initiator_config_file
+      config_file
 
   let set_multipathing enabled =
     let flag = !Xapi_globs.multipathing_config_file in
-    if enabled then Unixext.touch_file flag
-    else begin
+    if enabled then
+      Unixext.touch_file flag
+    else
       Unixext.unlink_safe flag
-    end
 
   let sync_config_files ~__context =
     (* If the host fields are not in sync with the values in other_config,
        the other_config watcher thread will make sure that these functions will
        be called again with the up to date values. *)
     let self = Helpers.get_localhost ~__context in
-    set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self);
+    set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self) ;
     set_multipathing (Db.Host.get_multipathing ~__context ~self)
 
   let watch_other_configs ~__context delay =
     let loop (token, was_in_rpu) =
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           let events =
-            Client.Client.Event.from rpc session_id ["host"; "pool"] token delay |>
-            Event_types.event_from_of_rpc
+            Client.Client.Event.from rpc session_id ["host"; "pool"] token delay
+            |> Event_types.event_from_of_rpc
           in
-          let check_host (host_ref,host_rec) =
+          let check_host (host_ref, host_rec) =
             let oc = host_rec.API.host_other_config in
-            let iscsi_iqn = try Some (List.assoc "iscsi_iqn" oc) with _ -> None in
-            begin match iscsi_iqn with
-              | None -> ()
-              | Some "" -> ()
-              | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
+            let iscsi_iqn =
+              try Some (List.assoc "iscsi_iqn" oc) with _ -> None
+            in
+            ( match iscsi_iqn with
+            | None ->
+                ()
+            | Some "" ->
+                ()
+            | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
                 Client.Client.Host.set_iscsi_iqn rpc session_id host_ref iqn
-              | _ -> ()
-            end;
+            | _ ->
+                ()
+            ) ;
             (* Accepted values are "true" and "false" *)
             (* If someone deletes the multipathing other_config key, we don't do anything *)
-            let multipathing = try Some (List.assoc "multipathing" oc |> Stdlib.bool_of_string) with _ -> None in
-            begin match multipathing with
-              | None -> ()
-              | Some multipathing when multipathing <> host_rec.API.host_multipathing ->
-                Client.Client.Host.set_multipathing rpc session_id host_ref multipathing
-              | _ -> ()
-            end
+            let multipathing =
+              try Some (List.assoc "multipathing" oc |> Stdlib.bool_of_string)
+              with _ -> None
+            in
+            match multipathing with
+            | None ->
+                ()
+            | Some multipathing
+              when multipathing <> host_rec.API.host_multipathing ->
+                Client.Client.Host.set_multipathing rpc session_id host_ref
+                  multipathing
+            | _ ->
+                ()
           in
-          let event_recs = List.map Event_helper.record_of_event events.Event_types.events in
-          let in_rpu = List.fold_left (fun in_rpu ev ->
-              match ev with
-              | Event_helper.Pool (_pool_ref, Some pool_rec) ->
-                let in_rpu = Helpers.rolling_upgrade_in_progress_of_oc pool_rec.API.pool_other_config in
-                if (not in_rpu) && was_in_rpu then begin
-                  List.iter check_host (Db.Host.get_all_records ~__context)
-                end;
-                in_rpu
-              | _ ->
-                in_rpu)
-              was_in_rpu
-              event_recs
+          let event_recs =
+            List.map Event_helper.record_of_event events.Event_types.events
           in
-          List.iter (function
+          let in_rpu =
+            List.fold_left
+              (fun in_rpu ev ->
+                match ev with
+                | Event_helper.Pool (_pool_ref, Some pool_rec) ->
+                    let in_rpu =
+                      Helpers.rolling_upgrade_in_progress_of_oc
+                        pool_rec.API.pool_other_config
+                    in
+                    if (not in_rpu) && was_in_rpu then
+                      List.iter check_host (Db.Host.get_all_records ~__context) ;
+                    in_rpu
+                | _ ->
+                    in_rpu)
+              was_in_rpu event_recs
+          in
+          List.iter
+            (function
               | Event_helper.Host (host_ref, Some host_rec) ->
-                if not in_rpu then begin
-                  check_host (host_ref, host_rec)
-                end
-              | _ -> ()) event_recs;
-          (events.Event_types.token, in_rpu)
-        )
+                  if not in_rpu then
+                    check_host (host_ref, host_rec)
+              | _ ->
+                  ())
+            event_recs ;
+          (events.Event_types.token, in_rpu))
     in
     loop
 
   let start_watcher_thread ~__context =
-    Thread.create (fun () ->
+    Thread.create
+      (fun () ->
         let loop = watch_other_configs ~__context 30.0 in
         while true do
-          begin
-            try
-              let rec inner token = inner (loop token) in inner ("", Helpers.rolling_upgrade_in_progress ~__context)
-            with e ->
-              error "Caught exception in Configuration.start_watcher_thread: %s" (Printexc.to_string e);
-              Thread.delay 5.0;
-          end;
-        done) () |> ignore
+          try
+            let rec inner token = inner (loop token) in
+            inner ("", Helpers.rolling_upgrade_in_progress ~__context)
+          with e ->
+            error "Caught exception in Configuration.start_watcher_thread: %s"
+              (Printexc.to_string e) ;
+            Thread.delay 5.0
+        done)
+      ()
+    |> ignore
 end

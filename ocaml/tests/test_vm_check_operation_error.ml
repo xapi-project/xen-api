@@ -1,6 +1,6 @@
-
 let all_vm_operations =
-  [ `assert_operation_valid
+  [
+    `assert_operation_valid
   ; `awaiting_memory_live
   ; `call_plugin
   ; `changing_VCPUs
@@ -62,46 +62,54 @@ let test_null_vdi () =
   with_test_vm (fun __context vm_ref ->
       (* It is valid for one of the VM's VBDs to have a null VDI:
          A read-only, empty, CD VBD has a null VDI *)
-      let () = ignore(Test_common.make_vbd ~__context ~vM:vm_ref ~_type:`CD ~mode:`RO ~empty:true ~vDI:Ref.null ()) in
+      let () =
+        ignore
+          (Test_common.make_vbd ~__context ~vM:vm_ref ~_type:`CD ~mode:`RO
+             ~empty:true ~vDI:Ref.null ())
+      in
       List.iter
-        (fun op -> ignore(Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op ~strict:true))
-        all_vm_operations
-    )
+        (fun op ->
+          ignore
+            (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op
+               ~strict:true))
+        all_vm_operations)
 
 let test_vm_set_nvram_running () =
   with_test_vm (fun __context vm_ref ->
-      Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted;
-      let old_nvram = ["EFI-variables", "AAAA"] in
-      Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref ~value:old_nvram;
-      Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running;
-      Alcotest.check_raises
-        "VM.set_NVRAM should fail when the VM is running"
-        Api_errors.(Server_error (vm_bad_power_state, [Ref.string_of vm_ref; "halted"; "running"]))
+      Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted ;
+      let old_nvram = [("EFI-variables", "AAAA")] in
+      Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref ~value:old_nvram ;
+      Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running ;
+      Alcotest.check_raises "VM.set_NVRAM should fail when the VM is running"
+        Api_errors.(
+          Server_error
+            (vm_bad_power_state, [Ref.string_of vm_ref; "halted"; "running"]))
         (fun () ->
-           Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref ~value:["EFI-variables", "BBBB"]);
+          Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref
+            ~value:[("EFI-variables", "BBBB")]) ;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
-      Alcotest.(check (list (pair string string))) "NVRAM not updated" old_nvram read_nvram;
-
+      Alcotest.(check (list (pair string string)))
+        "NVRAM not updated" old_nvram read_nvram ;
       let new_vars = "CCCC" in
-      let new_nvram = ["EFI-variables", new_vars] in
-      Api_server.Forwarder.VM.set_NVRAM_EFI_variables ~__context ~self:vm_ref ~value:new_vars;
+      let new_nvram = [("EFI-variables", new_vars)] in
+      Api_server.Forwarder.VM.set_NVRAM_EFI_variables ~__context ~self:vm_ref
+        ~value:new_vars ;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
-      Alcotest.(check (list (pair string string))) "NVRAM updated" new_nvram read_nvram;
-  )
+      Alcotest.(check (list (pair string string)))
+        "NVRAM updated" new_nvram read_nvram)
 
-let compare_errors = Alcotest.(check (option (pair string (list string)))) "same error codes"
+let compare_errors =
+  Alcotest.(check (option (pair string (list string)))) "same error codes"
 
 (* Operations that check the validity of other VM operations should
    always be allowed *)
 let test_operation_checks_allowed () =
   with_test_vm (fun __context vm_ref ->
-      [`assert_operation_valid; `update_allowed_operations] |>
-      List.iter
-        (fun op ->
-          compare_errors
-            None
-            (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op ~strict:true))
-    )
+      [`assert_operation_valid; `update_allowed_operations]
+      |> List.iter (fun op ->
+             compare_errors None
+               (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
+                  ~op ~strict:true)))
 
 (* The check_operation_error function, which is called from the message
    forwarding layer, should allow the `migrate_send operation, because the VDIs
@@ -112,30 +120,33 @@ let test_operation_checks_allowed () =
 let test_migration_allowed_when_cbt_enabled_vdis_are_not_moved () =
   with_test_vm (fun __context vM ->
       let vDI = Test_common.make_vdi ~__context ~cbt_enabled:true () in
-      let _: _ API.Ref.t = Test_common.make_vbd ~__context ~vM ~vDI () in
-      compare_errors
-        None
-        (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vM ~op:`migrate_send ~strict:true)
-    )
+      let (_ : _ API.Ref.t) = Test_common.make_vbd ~__context ~vM ~vDI () in
+      compare_errors None
+        (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vM
+           ~op:`migrate_send ~strict:true))
 
-let test_sxm_disallowed_when_rum () =
+let test_sxm_allowed_when_rum () =
   with_test_vm (fun __context vm_ref ->
-    let master = Test_common.make_host __context () in
-    let pool = Test_common.make_pool ~__context ~master () in
-    Db.Pool.add_to_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x";
-    compare_errors
-      (Some(Api_errors.not_supported_during_upgrade, [ ]))
-      (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op:`migrate_send ~strict:false);
-    Db.Pool.remove_from_other_config ~__context ~self:pool ~key:Xapi_globs.rolling_upgrade_in_progress;
-    compare_errors
-      None
-      (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref ~op:`migrate_send ~strict:false)
-  )
+      let master = Test_common.make_host __context () in
+      let pool = Test_common.make_pool ~__context ~master () in
+      Db.Pool.add_to_other_config ~__context ~self:pool
+        ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;
+      compare_errors None
+        (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
+           ~op:`migrate_send ~strict:false) ;
+      Db.Pool.remove_from_other_config ~__context ~self:pool
+        ~key:Xapi_globs.rolling_upgrade_in_progress ;
+      compare_errors None
+        (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
+           ~op:`migrate_send ~strict:false))
 
 let test =
-  [ "test_null_vdi", `Quick, test_null_vdi
-  ; "test_operation_checks_allowed", `Quick, test_operation_checks_allowed
-  ; "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved", `Quick, test_migration_allowed_when_cbt_enabled_vdis_are_not_moved
-  ; "test_sxm_disallowed_when_rum", `Quick, test_sxm_disallowed_when_rum
-  ; "test_vm_set_nvram when VM is running", `Quick, test_vm_set_nvram_running
+  [
+    ("test_null_vdi", `Quick, test_null_vdi)
+  ; ("test_operation_checks_allowed", `Quick, test_operation_checks_allowed)
+  ; ( "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved"
+    , `Quick
+    , test_migration_allowed_when_cbt_enabled_vdis_are_not_moved )
+  ; ("test_sxm_allowed_when_rum", `Quick, test_sxm_allowed_when_rum)
+  ; ("test_vm_set_nvram when VM is running", `Quick, test_vm_set_nvram_running)
   ]

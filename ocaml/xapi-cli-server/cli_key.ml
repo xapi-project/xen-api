@@ -15,16 +15,22 @@
  * @group Command-Line Interface (CLI)
 *)
 
-let force="force"
-let live="live"
-let internal="internal"
-let username="username"
-let password="password"
-let server="server"
-let port="port"
+let force = "force"
 
-let debug="debug"
-let minimal="minimal"
+let live = "live"
 
+let internal = "internal"
 
-let all="all"
+let username = "username"
+
+let password = "password"
+
+let server = "server"
+
+let port = "port"
+
+let debug = "debug"
+
+let minimal = "minimal"
+
+let all = "all"

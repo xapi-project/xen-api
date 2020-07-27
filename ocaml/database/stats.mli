@@ -11,8 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Produce a string name -> string mean, standard deviation summary for each population *)
-val summarise : unit -> (string * string) list
 
-(** Time the given function and attribute the result to the named population *)
+val summarise : unit -> (string * string) list
+(** Produce a string name -> string mean, standard deviation summary for each population *)
+
 val time_this : string -> (unit -> 'a) -> 'a
+(** Time the given function and attribute the result to the named population *)

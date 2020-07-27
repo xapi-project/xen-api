@@ -4,6 +4,7 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build-env: [[ XAPI_VERSION = "v0.0.0" ]]
 build: [[ "dune" "build" "-p" name ]]
 
 depends: [
@@ -17,7 +18,6 @@ depends: [
   "xapi-consts"
   "xapi-database"
   "xapi-stdext-date"
-  "xapi-stdext-monadic"
   "xapi-stdext-std"
   "xapi-stdext-unix"
 ]

@@ -4,6 +4,7 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build-env: [[ XAPI_VERSION = "v0.0.0" ]]
 build: [
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-p" name] {with-test}
@@ -23,7 +24,6 @@ depends: [
   "base-threads"
   "uuid"
   "xapi-stdext-encodings"
-  "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-threads"

@@ -43,7 +43,7 @@ let of_datamodel () =
       default =
         if issetref
         then Some (Value.Set [])
-        else Xapi_stdext_monadic.Opt.map Datamodel_values.to_db f.Datamodel_types.default_value ;
+        else Option.map Datamodel_values.to_db f.Datamodel_types.default_value ;
       ty = ty;
       issetref = issetref;
     } in
@@ -94,6 +94,6 @@ let write_schema_to_file filename =
   let t = of_datamodel () in
   let sexp = Schema.sexp_of_t t in
   let oc = open_out filename in
-  let txt = Sexplib.Sexp.to_string_hum sexp in
+  let txt = Sexplib0.Sexp.to_string_hum sexp in
   output_string oc txt;
   close_out oc

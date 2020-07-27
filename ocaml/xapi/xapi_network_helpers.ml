@@ -12,61 +12,107 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-module D=Debug.Make(struct let name="xapi_network_helpers" end)
+
+module D = Debug.Make (struct let name = "xapi_network_helpers" end)
+
 open D
 open Xapi_pif_helpers
 
 let is_sriov_based_network ~__context ~network =
   match Db.Network.get_PIFs ~__context ~self:network with
-  | [] -> false
-  | existing_pif :: _ ->
-    let existing_pif_rec = Db.PIF.get_record ~__context ~self:existing_pif in
-    match get_pif_topo ~__context ~pif_rec:existing_pif_rec with
-    | VLAN_untagged _ :: Network_sriov_logical _ :: _
-    | Network_sriov_logical _ :: _ -> true
-    | _ -> false
+  | [] ->
+      false
+  | existing_pif :: _ -> (
+      let existing_pif_rec = Db.PIF.get_record ~__context ~self:existing_pif in
+      match get_pif_topo ~__context ~pif_rec:existing_pif_rec with
+      | VLAN_untagged _ :: Network_sriov_logical _ :: _
+      | Network_sriov_logical _ :: _ ->
+          true
+      | _ ->
+          false
+    )
 
 let assert_network_compatible_with_tunnel ~__context ~network =
   if is_sriov_based_network ~__context ~network then
-    raise Api_errors.(Server_error (network_incompatible_with_tunnel, [Ref.string_of network]))
+    raise
+      Api_errors.(
+        Server_error (network_incompatible_with_tunnel, [Ref.string_of network]))
 
 let assert_network_compatible_with_bond ~__context ~network =
   if is_sriov_based_network ~__context ~network then
-    raise Api_errors.(Server_error (network_incompatible_with_bond, [Ref.string_of network]))
+    raise
+      Api_errors.(
+        Server_error (network_incompatible_with_bond, [Ref.string_of network]))
 
 let assert_network_compatible_with_vlan_on_bridge ~__context ~network =
   if is_sriov_based_network ~__context ~network then
-    raise Api_errors.(Server_error (network_incompatible_with_vlan_on_bridge, [Ref.string_of network]))
+    raise
+      Api_errors.(
+        Server_error
+          (network_incompatible_with_vlan_on_bridge, [Ref.string_of network]))
 
-let assert_network_compatible_with_vlan_on_sriov ~__context ~network ~sriov ~tagged_PIF =
+let assert_network_compatible_with_vlan_on_sriov ~__context ~network ~sriov
+    ~tagged_PIF =
   match Db.Network.get_PIFs ~__context ~self:network with
-  | [] -> ()
-  | existing_pif :: _ ->
-    let existing_pif_rec = Db.PIF.get_record ~__context ~self:existing_pif in
-    match get_pif_topo ~__context ~pif_rec:existing_pif_rec with
-    | VLAN_untagged _ :: Network_sriov_logical existing_sriov :: _ ->
-      let existing_phy_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:existing_sriov in
-      let candidate_phy_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-      if not (is_device_underneath_same_type ~__context existing_phy_pif candidate_phy_pif) then
-        raise Api_errors.(Server_error (network_has_incompatible_vlan_on_sriov_pifs, [Ref.string_of tagged_PIF; Ref.string_of network]))
-    | _ ->
-      raise Api_errors.(Server_error (network_incompatible_with_vlan_on_sriov, [Ref.string_of network]))
+  | [] ->
+      ()
+  | existing_pif :: _ -> (
+      let existing_pif_rec = Db.PIF.get_record ~__context ~self:existing_pif in
+      match get_pif_topo ~__context ~pif_rec:existing_pif_rec with
+      | VLAN_untagged _ :: Network_sriov_logical existing_sriov :: _ ->
+          let existing_phy_pif =
+            Db.Network_sriov.get_physical_PIF ~__context ~self:existing_sriov
+          in
+          let candidate_phy_pif =
+            Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
+          in
+          if
+            not
+              (is_device_underneath_same_type ~__context existing_phy_pif
+                 candidate_phy_pif)
+          then
+            raise
+              Api_errors.(
+                Server_error
+                  ( network_has_incompatible_vlan_on_sriov_pifs
+                  , [Ref.string_of tagged_PIF; Ref.string_of network] ))
+      | _ ->
+          raise
+            Api_errors.(
+              Server_error
+                ( network_incompatible_with_vlan_on_sriov
+                , [Ref.string_of network] ))
+    )
 
-let assert_vlan_network_compatible_with_pif ~__context ~network ~tagged_PIF ~pif_topo =
+let assert_vlan_network_compatible_with_pif ~__context ~network ~tagged_PIF
+    ~pif_topo =
   match pif_topo with
   | Network_sriov_logical sriov :: _ ->
-    assert_network_compatible_with_vlan_on_sriov ~__context ~network ~sriov ~tagged_PIF
+      assert_network_compatible_with_vlan_on_sriov ~__context ~network ~sriov
+        ~tagged_PIF
   | _ ->
-    assert_network_compatible_with_vlan_on_bridge ~__context ~network
+      assert_network_compatible_with_vlan_on_bridge ~__context ~network
 
 (* SRIOV PIF can only join the network which is empty or all of the existing PIFs of it are SRIOV PIFS and all of them has identical PCI devices. *)
 let assert_network_compatible_with_sriov ~__context ~pif ~network =
   match Db.Network.get_PIFs ~__context ~self:network with
-  | [] -> ()
-  | logical_pif :: _ ->
+  | [] ->
+      ()
+  | logical_pif :: _ -> (
     match Db.PIF.get_sriov_logical_PIF_of ~__context ~self:logical_pif with
-    | [] -> raise Api_errors.(Server_error (network_incompatible_with_sriov, [Ref.string_of network]))
+    | [] ->
+        raise
+          Api_errors.(
+            Server_error
+              (network_incompatible_with_sriov, [Ref.string_of network]))
     | sriov :: _ ->
-      let existing_pif = Db.Network_sriov.get_physical_PIF ~__context ~self:sriov in
-      if not (is_device_underneath_same_type ~__context pif existing_pif) then
-        raise Api_errors.(Server_error (network_has_incompatible_sriov_pifs, [Ref.string_of pif; Ref.string_of network]))
+        let existing_pif =
+          Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
+        in
+        if not (is_device_underneath_same_type ~__context pif existing_pif) then
+          raise
+            Api_errors.(
+              Server_error
+                ( network_has_incompatible_sriov_pifs
+                , [Ref.string_of pif; Ref.string_of network] ))
+  )

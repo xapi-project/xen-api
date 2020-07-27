@@ -18,14 +18,11 @@ let test_vm_agility_with_vgpu () =
   let __context = make_test_database () in
   let vm = make_vm ~__context () in
   (* VM has no VIFs, VBDs or VGPUs, so should be agile. *)
-  Agility.vm_assert_agile ~__context ~self:vm;
+  Agility.vm_assert_agile ~__context ~self:vm ;
   (* Create a VGPU - VM should no longer be agile. *)
-  let (_: API.ref_VGPU) = make_vgpu ~__context ~vM:vm () in
+  let (_ : API.ref_VGPU) = make_vgpu ~__context ~vM:vm () in
   Alcotest.check_raises "VM should no longer be agile"
     Api_errors.(Server_error (vm_has_vgpu, [Ref.string_of vm]))
     (fun () -> Agility.vm_assert_agile ~__context ~self:vm)
 
-let test =
-  [
-    "test_vm_agility_with_vgpu", `Quick, test_vm_agility_with_vgpu;
-  ]
+let test = [("test_vm_agility_with_vgpu", `Quick, test_vm_agility_with_vgpu)]

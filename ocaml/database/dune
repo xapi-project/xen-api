@@ -13,20 +13,27 @@
     unit_test_sql)
   )
   (libraries
-    rpclib
-    ppx_sexp_conv.runtime-lib
-    sexpr
-    threads
-    http-svr
+    forkexec
     gzip
+    ppx_sexp_conv.runtime-lib
+    rpclib.core
+    rpclib.json
+    safe-resources
+    sexplib0
+    sexpr
+    stunnel
+    threads.posix
+    http-svr
     uuid
+    xapi-backtrace
     xapi-stdext-encodings
-    xapi-stdext-monadic
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-idl
+    xml-light2
+    xmlm
   )
   (wrapped false)
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
@@ -41,6 +48,10 @@
   )
   (libraries
     xapi-database
+    xapi-idl
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+    uuid
   )
 )
 

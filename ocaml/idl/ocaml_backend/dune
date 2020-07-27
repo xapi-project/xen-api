@@ -7,6 +7,7 @@
    uuid
    xapi-consts
    xapi-datamodel
+   xapi-idl
    xapi-stdext-pervasives
    xapi-stdext-std
   )
