@@ -201,14 +201,17 @@ module Timeouts = struct
   let derive (t : int) =
     (* xHA interface section 4.1.4.1.1 Formula of key timeouts *)
     (* t >= 10 *)
-    if t < 10 then failwith "constraint violation: timeout >= 10" ;
     (* All other values are derived from this single parameter *)
-    let heart_beat_interval = (t + 10) / 10 in
-    let state_file_interval = heart_beat_interval in
+    let round expr = float_of_int t |> expr |> ( +. ) 0.5 |> int_of_float in
+    if t < 10 then failwith "constraint violation: timeout >= 10" ;
+    (* heart beats are cheap but unreliable b/c of UDP - have many *)
+    let heart_beat_interval = 3 in
+    (* state file is slow but realiable  - have 20 *)
+    let state_file_interval = round (fun t -> max 5.0 (t /. 20.0)) in
     let heart_beat_timeout = t in
     let state_file_timeout = t in
-    let heart_beat_watchdog_timeout = t in
-    let state_file_watchdog_timeout = t + 15 in
+    let heart_beat_watchdog_timeout = heart_beat_timeout in
+    let state_file_watchdog_timeout = state_file_timeout + 15 in
     let boot_join_timeout = t + 60 in
     let enable_join_timeout = boot_join_timeout in
     {
