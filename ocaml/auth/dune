@@ -4,7 +4,6 @@
     xa_auth
     xa_auth_stubs
   )
-  (c_flags -I/usr/lib64/ocaml)
   (c_library_flags -lpam)
   (wrapped false)
 )
