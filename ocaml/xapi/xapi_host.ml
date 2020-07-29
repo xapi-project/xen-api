@@ -1322,12 +1322,11 @@ let get_servertime ~__context ~host = Date.of_float (Unix.gettimeofday ())
 let get_server_localtime ~__context ~host =
   let gmt_time = Unix.gettimeofday () in
   let local_time = Unix.localtime gmt_time in
-  Date.of_string
-    (Printf.sprintf "%04d%02d%02dT%02d:%02d:%02d"
-       (local_time.Unix.tm_year + 1900)
-       (local_time.Unix.tm_mon + 1)
-       local_time.Unix.tm_mday local_time.Unix.tm_hour local_time.Unix.tm_min
-       local_time.Unix.tm_sec)
+  Printf.sprintf "%04d%02d%02dT%02d:%02d:%02d"
+    (local_time.Unix.tm_year + 1900)
+    (local_time.Unix.tm_mon + 1)
+    local_time.Unix.tm_mday local_time.Unix.tm_hour local_time.Unix.tm_min
+    local_time.Unix.tm_sec
 
 let enable_binary_storage ~__context ~host =
   Unixext.mkdir_safe Xapi_globs.xapi_blob_location 0o700 ;

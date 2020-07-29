@@ -259,7 +259,7 @@ val backup_rrds : __context:Context.t -> host:'b -> delay:float -> unit
 
 val get_servertime : __context:'a -> host:'b -> Stdext.Date.iso8601
 
-val get_server_localtime : __context:'a -> host:'b -> Stdext.Date.iso8601
+val get_server_localtime : __context:'a -> host:'b -> string
 
 val enable_binary_storage : __context:Context.t -> host:[`host] Ref.t -> unit
 
