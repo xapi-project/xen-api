@@ -2376,6 +2376,14 @@ module Dm_Common = struct
           "ide-cd"
       | Floppy ->
           ""
+
+    let readonly_of = function
+      | Disk ->
+          []
+      | Cdrom ->
+          ["read-only=on"]
+      | Floppy ->
+          []
   end
 
   type info = {
@@ -2786,6 +2794,7 @@ module Dm_Common = struct
            [
              [sprintf "file=%s" file; "if=none"; sprintf "id=%s" id]
            ; (if file <> "" then ["auto-read-only=off"] else [])
+           ; Media.readonly_of media
            ; Media.format_of media file
            ])
     ; "-device"
