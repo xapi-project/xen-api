@@ -5,6 +5,7 @@
   (flags (:standard -w -39))
   (libraries
     astring
+    dune-build-info
     gzip
     http-svr
     inotify
