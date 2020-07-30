@@ -28,7 +28,7 @@ val to_float : iso8601 -> float
 val to_string : iso8601 -> string
 
 (** Convert ISO 8601 formatted string to a date/time value.
-  * Does not accept a timezone annotated datetime *)
+  * Does not accept a timezone annotated datetime - i.e. string must be UTC, and end with a Z *)
 val of_string : string -> iso8601
 
 (** Raises an Invalid_argument exception if the given date is not a UTC date.
@@ -38,6 +38,11 @@ val assert_utc : iso8601 -> unit
 
 (** Representation of the concept "never" (actually 00:00:00 UTC, 1 Jan 1970). *)
 val never: iso8601
+
+(** exposed for testing *)
+val _localtime_string : Ptime.tz_offset_s option -> Ptime.t -> string
+
+val localtime : unit -> iso8601
 
 (** {2 RFC 822 Dates} *)
 

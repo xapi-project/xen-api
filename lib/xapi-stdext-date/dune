@@ -3,5 +3,6 @@
   (public_name xapi-stdext-date)
   (libraries astring
              ptime
+             ptime.clock.os
              unix)
 )
