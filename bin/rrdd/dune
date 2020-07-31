@@ -1,18 +1,3 @@
-(* -*- tuareg -*- *)
-let version =
-  let ic = open_in "../VERSION" in
-  let version = input_line ic in
-  close_in ic;
-  version
-
-let () = Printf.ksprintf Jbuild_plugin.V1.send {|
-(rule
-  (targets version.ml)
-  (deps)
-   (action (with-stdout-to %%{targets}
-            (echo "let version = \"%s\"\n")))
-)
-
 (library
   (name rrdd_libs_internal)
   (wrapped false)
@@ -20,6 +5,7 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (flags (:standard -w -39))
   (libraries
     astring
+    dune-build-info
     gzip
     http-svr
     inotify
@@ -52,4 +38,3 @@ let () = Printf.ksprintf Jbuild_plugin.V1.send {|
     xapi-idl
   )
 )
-|} version
