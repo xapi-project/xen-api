@@ -125,8 +125,8 @@ module Make (Debug: DEBUG) = struct
                       end;
                     end else begin
                       Actions.found_running_domain domid id;
-                      (* A domain is 'running' if we know it has not shutdown *)
-                      let running = IntMap.mem domid domains' && (not (IntMap.find domid domains').shutdown) in
+                      (* A domain is 'running' if we know it has not shutdown or is waiting for soft reset *)
+                      let running = IntMap.mem domid domains' && (not di.shutdown || di.shutdown_code == 5) in
                       match IntSet.mem domid !watches, running with
                       | true, true -> () (* still running, nothing to do *)
                       | false, false -> () (* still offline, nothing to do *)
