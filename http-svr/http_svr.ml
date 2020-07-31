@@ -406,7 +406,7 @@ let request_of_bio ?(use_fastpath=false) ic =
 *)
     Some r
   with e ->
-    Printf.fprintf stderr "%s" (Printexc.to_string e);
+    D.error "%s (%s)" (Printexc.to_string e) __LOC__;
     best_effort (fun () ->
         let ss = Buf_io.fd_of ic in
         match e with
