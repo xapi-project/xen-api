@@ -8,6 +8,7 @@ let coverage_rewriter =
 let () = Printf.ksprintf Jbuild_plugin.V1.send {|
   (tests
     (names test_unit  test_scale)
+    (package rrd-transport)
     (libraries oUnit rrd-transport)
     %s
   )

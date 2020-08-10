@@ -11,4 +11,7 @@ env:
     - PINS="xapi-rrdd:. xapi-rrd-transport:. xapi-rrd-transport-utils:. rrddump:. rrd-transport:."
   jobs:
     - PACKAGE="xapi-rrdd"
+    - PACKAGE="xapi-rrd-transport"
+    - PACKAGE="xapi-rrd-transport-utils"
     - PACKAGE="rrddump"
+    - PACKAGE="rrd-transport"

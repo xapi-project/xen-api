@@ -1,5 +1,6 @@
 (test
   (name test_rrdd_monitor)
+  (package xapi-rrdd)
   (libraries
     oUnit
     rrdd_libs_internal
