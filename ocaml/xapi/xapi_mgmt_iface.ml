@@ -155,8 +155,6 @@ let enable_himn ~__context ~addr =
   Mutex.execute management_m (fun () -> himn_addr := Some addr) ;
   run ~__context ~mgmt_enabled:!listening_all
 
-let rebind ~__context = run ~__context ~mgmt_enabled:!listening_all
-
 let ip_mutex = Mutex.create ()
 
 let ip_cond = Condition.create ()
