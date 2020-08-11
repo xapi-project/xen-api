@@ -1,8 +1,0 @@
-(test
-  (name test_encodings)
-  (package xapi-stdext-encodings)
-  (libraries
-    alcotest
-    xapi_stdext_encodings
-    xapi-stdext-date)
-)

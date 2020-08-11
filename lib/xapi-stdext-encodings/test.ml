@@ -515,15 +515,14 @@ module UTF8_codec = struct include E.UTF8_codec
 
 end
 
-let tests =
-      UCS                   .tests @
-      XML                   .tests @
-      String_validator      .tests @
-      UTF8_UCS_validator    .tests @
-      XML_UTF8_UCS_validator.tests @
-      UTF8_codec            .tests
-
 let () =
   Alcotest.run
-    "suite"
-    [ "Test_encodings", tests ]
+    "Encodings"
+    [
+      "UCS", UCS.tests
+    ; "XML", XML.tests
+    ; "String_validator", String_validator.tests
+    ; "UTF8_UCS_validator", UTF8_UCS_validator.tests
+    ; "XML_UTF8_UCS_validator", XML_UTF8_UCS_validator.tests
+    ; "UTF8_codec", UTF8_codec.tests
+    ]
