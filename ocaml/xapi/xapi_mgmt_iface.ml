@@ -161,13 +161,13 @@ let change interface primary_address_type =
     (Record_util.primary_address_type_to_string primary_address_type) ;
   update_mh_info interface
 
-let himn_addr = ref None
+let himn = ref None
 
 let management_m = Mutex.create ()
 
 let next_server_mode ~mgmt_enabled =
   let localhost = "127.0.0.1" in
-  match (mgmt_enabled, !himn_addr) with
+  match (mgmt_enabled, !himn) with
   | true, _ ->
       Server.Any
   | false, Some himn ->
@@ -183,9 +183,11 @@ let run ~__context ~mgmt_enabled =
 
 let enable_himn ~__context ~addr =
   Mutex.execute management_m (fun () ->
-      himn_addr := Some addr ;
+      himn := Some addr ;
       next_server_mode ~mgmt_enabled:(mgmt_is_enabled ())
       |> Server.update ~__context)
+
+let himn_addr () = !himn
 
 let ip_mutex = Mutex.create ()
 

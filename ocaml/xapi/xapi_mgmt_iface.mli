@@ -15,7 +15,7 @@
  *  @group Networking
 *)
 
-val himn_addr : string option ref
+val himn_addr : unit -> string option
 (** Local IP address of the HIMN (if any) *)
 
 val wait_for_management_ip : __context:Context.t -> string
