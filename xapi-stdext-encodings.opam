@@ -15,7 +15,6 @@ depends: [
   "ocaml"
   "dune" {build}
   "alcotest" {with-test}
-  "xapi-stdext-date" {with-test}
 ]
 synopsis: "A deprecated collection of utility functions - Encodings module"
 description: """
