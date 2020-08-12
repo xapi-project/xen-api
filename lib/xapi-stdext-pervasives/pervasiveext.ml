@@ -36,26 +36,20 @@ let finally fct clean_f =
   clean_f ();
   result
 
-(* Those should go into the Opt module: *)
 
-let maybe_with_default d f v =
-  match v with None -> d | Some x -> f x
+let maybe_with_default d f v = Option.fold ~none:d ~some:f v
 
-(** if v is not none, apply f on it and return some value else return none. *)
-let may f v = maybe_with_default None (fun x -> Some (f x)) v
+let may f v = Option.map f v
 
-(** default value to d if v is none. *) 
-let default d v = maybe_with_default d (fun x -> x) v
+let default d v = Option.value ~default:d v
 
-(** apply f on v if not none *)
-let maybe f v = maybe_with_default () f v
-
-(** if bool is false then we intercept and quiten any exception *)
-let reraise_if bool fct =
-  try fct () with exn -> if bool then raise exn else ()
+let maybe f v = Option.iter f v
 
 (** execute fct ignoring exceptions *)
 let ignore_exn fct = try fct () with _ -> ()
+
+(** if not bool ignore exceptions raised by fct () *)
+let reraise_if bool fct = if bool then fct () else ignore_exn fct
 
 (* non polymorphic ignore function *)
 let ignore_int v = let (_: int) = v in ()
