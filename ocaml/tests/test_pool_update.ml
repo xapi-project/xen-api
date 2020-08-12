@@ -26,7 +26,7 @@ let test_pool_update_refcount () =
   let assert_equal =
     Alcotest.(check int) "assertion called by test_pool_update_refcount"
   in
-  let __context = Mock.make_context_with_new_db "Mock context" in
+  let __context = make_test_database () in
   let vdi = make_vdi ~__context ~virtual_size:4096L () in
   Xapi_pool_update.with_inc_refcount ~__context ~uuid:"a" ~vdi
     (fun ~__context ~uuid ~vdi -> ()) ;

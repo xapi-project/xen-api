@@ -98,8 +98,35 @@ let updates_to_attach_count_tbl : (string, int) Hashtbl.t = Hashtbl.create 10
 
 let updates_to_attach_count_tbl_mutex = Mutex.create ()
 
+let get_update_vbds ~__context ~vdi =
+  let dom0 = Helpers.get_domain_zero ~__context in
+  Db.VDI.get_VBDs ~__context ~self:vdi
+  |> List.filter (fun self -> Db.VBD.get_VM ~__context ~self = dom0)
+
+let get_mount_dir_opt ~__context ~uuid =
+  let mount_dir = Filename.concat !Xapi_globs.host_update_dir uuid in
+  if Sys.file_exists mount_dir then Some mount_dir else None
+
+let assert_update_vbds_attached ~__context ~vdi =
+  let unplugged =
+    get_update_vbds ~__context ~vdi
+    |> List.filter (fun self ->
+           not (Db.VBD.get_currently_attached ~__context ~self))
+  in
+  match unplugged with
+  | [] ->
+      ()
+  | _ ->
+      let msg =
+        Printf.sprintf
+          "pool_update: expected VBDs=[ %s ] to be attached but they aren't!"
+          (unplugged |> List.map Ref.string_of |> String.concat "; ")
+      in
+      raise Api_errors.(Server_error (internal_error, [msg]))
+
 let with_dec_refcount ~__context ~uuid ~vdi f =
   Mutex.execute updates_to_attach_count_tbl_mutex (fun () ->
+      assert_update_vbds_attached ~__context ~vdi ;
       let count =
         try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0
       in
@@ -119,20 +146,8 @@ let with_inc_refcount ~__context ~uuid ~vdi f =
       debug "pool_update.attach_helper refcount='%d'" count ;
       if count = 0 then
         f ~__context ~uuid ~vdi ;
+      assert_update_vbds_attached ~__context ~vdi ;
       Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1))
-
-let get_locally_attached ~__context ~uuid ~vdi =
-  let mount_dir = Filename.concat !Xapi_globs.host_update_dir uuid in
-  let mount_dir_opt =
-    if Sys.file_exists mount_dir then Some mount_dir else None
-  in
-  let dom0 = Helpers.get_domain_zero ~__context in
-  let vbds =
-    List.filter
-      (fun self -> Db.VBD.get_VM ~__context ~self = dom0)
-      (Db.VDI.get_VBDs ~__context ~self:vdi)
-  in
-  (mount_dir_opt, vbds)
 
 let detach_helper ~__context ~uuid ~vdi =
   with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi ->
@@ -146,15 +161,12 @@ let detach_helper ~__context ~uuid ~vdi =
           ("detach_helper: unmounting " ^ mount_point)
           (fun () -> umount mount_point)
           () ;
+      let vbds = get_update_vbds ~__context ~vdi in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          let dom0 = Helpers.get_domain_zero ~__context in
-          let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
           List.iter
             (fun self ->
-              if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then (
-                Client.VBD.unplug ~rpc ~session_id ~self ;
-                Client.VBD.destroy ~rpc ~session_id ~self
-              ))
+              Client.VBD.unplug ~rpc ~session_id ~self ;
+              Client.VBD.destroy ~rpc ~session_id ~self)
             vbds) ;
       if try Sys.is_directory mount_point_parent_dir with _ -> false then (
         Helpers.log_exn_continue
@@ -595,7 +607,9 @@ let detach_attached_updates __context =
   |> List.iter (fun self ->
          let uuid = Db.Pool_update.get_uuid ~__context ~self in
          let vdi = Db.Pool_update.get_vdi ~__context ~self in
-         match get_locally_attached ~__context ~uuid ~vdi with
+         match
+           (get_mount_dir_opt ~__context ~uuid, get_update_vbds ~__context ~vdi)
+         with
          | None, [] ->
              ()
          | _ ->
