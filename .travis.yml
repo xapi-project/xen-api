@@ -1,11 +1,14 @@
 language: c
-service: docker
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+services: docker
+os: linux
+dist: xenial
+install:
+  - wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-docker.sh
+  - wget https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env
+  - source xs-opam-ci.env
 script: bash -ex .travis-docker.sh
 env:
   global:
-    - PACKAGE="wsproxy"
     - PINS="wsproxy:."
-    - BASE_REMOTE="https://github.com/xapi-project/xs-opam.git"
-  matrix:
-    - DISTRO="debian-9-ocaml-4.07"
+  jobs:
+    - PACKAGE="wsproxy"
