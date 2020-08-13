@@ -118,13 +118,7 @@ let destroy ~__context ~self =
     Xapi_pif.assert_no_protection_enabled ~__context ~self:untagged_PIF ;
     if Db.PIF.get_VLAN ~__context ~self:untagged_PIF < 0L then
       raise (Api_errors.Server_error (Api_errors.pif_is_physical, [])) ;
-    (* Because of the precondition in create_VLAN, this will always be the only PIF
-       		   connecting this host to the network. Therefore it is safe to detach the network. *)
-    let network = Db.PIF.get_network ~__context ~self:untagged_PIF in
-    let bridge = Db.Network.get_bridge ~__context ~self:network in
-    let managed = Db.Network.get_managed ~__context ~self:network in
     Xapi_pif.unplug ~__context ~self:untagged_PIF ;
-    Xapi_network.detach ~__context ~bridge_name:bridge ~managed ;
     ( try
         let vlan = Db.PIF.get_VLAN_master_of ~__context ~self:untagged_PIF in
         Db.VLAN.destroy ~__context ~self:vlan

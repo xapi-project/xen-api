@@ -52,9 +52,6 @@ val attach_internal :
     {!Nm.bring_pif_up} with the [management_interface] argument so it can make sure
     the default gateway is set up correctly *)
 
-val detach : __context:Context.t -> bridge_name:string -> managed:bool -> unit
-(** Remove the bridge associated to this network *)
-
 val attach : __context:Context.t -> network:[`network] Ref.t -> host:'a -> unit
 (** Makes the network immediately available on a particular host (Network.attach is hidden from docs) *)
 
