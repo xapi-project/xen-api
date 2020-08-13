@@ -13,6 +13,8 @@ install:
 	dune install rrd-transport
 	install -D _build/install/default/bin/rrdreader $(DESTDIR)$(BINDIR)/rrdreader
 	install -D _build/install/default/bin/rrdwriter $(DESTDIR)$(BINDIR)/rrdwriter
+	# rrdd-plugin
+	dune install rrdd-plugin
 
 uninstall:
 	# rrdd
