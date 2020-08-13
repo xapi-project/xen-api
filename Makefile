@@ -16,6 +16,5 @@ clean:
 test:
 	dune runtest --profile=$(PROFILE)
 
-reindent:
-	ocp-indent --syntax cstruct -i **/*.mli
-	ocp-indent --syntax cstruct -i **/*.ml
+format:
+	dune build @fmt --auto-promote
