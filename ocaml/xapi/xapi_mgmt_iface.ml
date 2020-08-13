@@ -181,9 +181,9 @@ let run ~__context ~mgmt_enabled =
   Mutex.execute management_m (fun () ->
       next_server_mode ~mgmt_enabled |> Server.update ~__context)
 
-let enable_himn ~__context ~addr =
+let reconfigure_himn ~__context ~addr =
   Mutex.execute management_m (fun () ->
-      himn := Some addr ;
+      himn := addr ;
       next_server_mode ~mgmt_enabled:(mgmt_is_enabled ())
       |> Server.update ~__context)
 

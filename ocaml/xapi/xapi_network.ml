@@ -60,23 +60,21 @@ let set_himn_ip ~__context bridge other_config =
         Static4 [(Unix.inet_addr_of_string ip, netmask_to_prefixlen netmask)])
     in
     Net.Interface.set_ipv4_conf dbg bridge ipv4_conf ;
-    Xapi_mgmt_iface.enable_himn ~__context ~addr:ip ;
+    Xapi_mgmt_iface.reconfigure_himn ~__context ~addr:(Some ip) ;
     Net.Interface.set_persistent dbg bridge persist
   with Not_found ->
     error
       "Cannot setup host internal management network: no other-config:ip_begin \
        or other-config:netmask"
 
+let is_himn net =
+  List.assoc_opt Xapi_globs.is_guest_installer_network
+    net.API.network_other_config
+  = Some "true"
+
 let check_himn ~__context =
   let nets = Db.Network.get_all_records ~__context in
-  let mnets =
-    List.filter
-      (fun (_, n) ->
-        let oc = n.API.network_other_config in
-        List.mem_assoc Xapi_globs.is_guest_installer_network oc
-        && List.assoc Xapi_globs.is_guest_installer_network oc = "true")
-      nets
-  in
+  let mnets = List.filter (fun (_, n) -> is_himn n) nets in
   match mnets with
   | [] ->
       ()
@@ -111,13 +109,7 @@ let attach_internal ?(management_interface = false) ?(force_bringup = false)
       create_internal_bridge ~__context ~bridge:net.API.network_bridge
         ~uuid:net.API.network_uuid ~persist ;
     (* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
-    if
-      List.mem_assoc Xapi_globs.is_guest_installer_network
-        net.API.network_other_config
-      && List.assoc Xapi_globs.is_guest_installer_network
-           net.API.network_other_config
-         = "true"
-    then
+    if is_himn net then
       set_himn_ip ~__context net.API.network_bridge net.API.network_other_config ;
     (* Ensure that required PIFs are attached *)
     List.iter
@@ -146,9 +138,13 @@ let attach_internal ?(management_interface = false) ?(force_bringup = false)
       local_pifs
   )
 
-let detach ~__context ~bridge_name ~managed =
+let detach ~__context net =
   let dbg = Context.string_of_task __context in
-  if managed && Net.Interface.exists dbg bridge_name then (
+  let bridge_name = net.API.network_bridge in
+  if is_himn net then
+    Xapi_mgmt_iface.reconfigure_himn ~__context ~addr:None ;
+  if net.API.network_managed && Net.Interface.exists dbg bridge_name
+  then (
     List.iter
       (fun iface ->
         D.warn "Untracked interface %s exists on bridge %s: deleting" iface
@@ -176,9 +172,9 @@ let register_vif ~__context vif =
 
 let deregister_vif ~__context vif =
   let network = Db.VIF.get_network ~__context ~self:vif in
-  let bridge = Db.Network.get_bridge ~__context ~self:network in
-  let managed = Db.Network.get_managed ~__context ~self:network in
-  let internal_only = Db.Network.get_PIFs ~__context ~self:network = [] in
+  let network_rc = Db.Network.get_record ~__context ~self:network in
+  let bridge = network_rc.API.network_bridge in
+  let internal_only = network_rc.API.network_PIFs = [] in
   Mutex.execute active_vifs_to_networks_m (fun () ->
       Hashtbl.remove active_vifs_to_networks vif ;
       (* If a network has PIFs, then we create/destroy when the PIFs are plugged/unplugged.
@@ -198,7 +194,7 @@ let deregister_vif ~__context vif =
           let dbg = Context.string_of_task __context in
           let ifs = Net.Bridge.get_interfaces dbg bridge in
           if ifs = [] then
-            detach ~__context ~bridge_name:bridge ~managed
+            detach ~__context network_rc
           else
             error
               "Cannot remove bridge %s: other interfaces still present [ %s ]"
