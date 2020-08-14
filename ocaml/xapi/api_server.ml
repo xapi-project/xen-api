@@ -174,7 +174,7 @@ let emergency_call_list =
 let is_himn_req req =
   match req.Http.Request.host with
   | Some h -> (
-    match !Xapi_mgmt_iface.himn_addr with
+    match Xapi_mgmt_iface.himn_addr () with
     | Some himn ->
         himn = h
     | None ->
