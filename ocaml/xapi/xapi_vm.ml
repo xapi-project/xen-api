@@ -109,7 +109,7 @@ let set_ha_restart_priority ~__context ~self ~value =
   let current = Db.VM.get_ha_restart_priority ~__context ~self in
   if true && current <> Constants.ha_restart && value = Constants.ha_restart
   then (
-    if Db.VM.get_power_state ~__context ~self != `Halted then
+    if Db.VM.get_power_state ~__context ~self <> `Halted then
       Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self ;
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then

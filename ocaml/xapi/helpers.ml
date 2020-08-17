@@ -279,12 +279,12 @@ let set_DNS ~__context ~pif ~bridge =
   try
     if Net.Interface.exists dbg bridge then
       match Net.Interface.get_dns dbg bridge with
-      | nameservers, _ when nameservers != [] ->
+      | (_ :: _ as nameservers), _ ->
           let dns =
             String.concat "," (List.map Unix.string_of_inet_addr nameservers)
           in
           Db.PIF.set_DNS ~__context ~self:pif ~value:dns
-      | _ ->
+      | [], _ ->
           ()
   with _ ->
     warn "Unable to get the dns of PIF %s (%s)" (Ref.string_of pif) bridge

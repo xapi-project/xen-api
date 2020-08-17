@@ -75,7 +75,7 @@ let fix_cookie = function
         bounded_split_delim (Re.compile (Re.Emacs.re "[;,][ \t]*")) str_cookie 0
       in
       (* We don't handle $Path, $Domain, $Port, $Version (or $anything $else) *)
-      let cookies = List.filter (fun s -> s.[0] != '$') comps in
+      let cookies = List.filter (fun s -> s.[0] <> '$') comps in
       let split_pair nvp =
         match String.split '=' nvp with
         | [] ->

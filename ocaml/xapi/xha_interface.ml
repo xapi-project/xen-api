@@ -620,7 +620,7 @@ module LiveSetInformationTest = struct
 	let ($) f a = a f
 
 	let _ =
-		if Array.length Sys.argv != 2 then
+		if Array.length Sys.argv <> 2 then
 			print_endline "usage: xha_interface <path-to-xml-file>"
 		else
 			Sys.argv. (1)
