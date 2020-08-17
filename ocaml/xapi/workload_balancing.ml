@@ -127,7 +127,7 @@ let check_wlb_enabled ~__context =
 let match_xml_tag x t =
   match x with
   | Xml.Element (tag, _, _) ->
-      String.compare tag t == 0
+      String.compare tag t = 0
   | Xml.PCData data ->
       false
 
@@ -143,7 +143,7 @@ let is_childless elem =
   | Xml.Element (_, _, [Xml.PCData _]) ->
       true
   | Xml.Element (_, _, children) ->
-      List.length children == 0
+      List.length children = 0
   | Xml.PCData _ ->
       true
 

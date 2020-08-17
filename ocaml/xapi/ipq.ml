@@ -44,7 +44,7 @@ let add h x =
   ) ;
   let n = h.size in
   (* resizing if needed *)
-  if n == Array.length h.data then resize h ;
+  if n = Array.length h.data then resize h ;
   let d = h.data in
   (* moving [x] up in the heap *)
   let rec moveup i =

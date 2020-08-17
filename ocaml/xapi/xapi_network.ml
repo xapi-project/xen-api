@@ -143,8 +143,7 @@ let detach ~__context net =
   let bridge_name = net.API.network_bridge in
   if is_himn net then
     Xapi_mgmt_iface.reconfigure_himn ~__context ~addr:None ;
-  if net.API.network_managed && Net.Interface.exists dbg bridge_name
-  then (
+  if net.API.network_managed && Net.Interface.exists dbg bridge_name then (
     List.iter
       (fun iface ->
         D.warn "Untracked interface %s exists on bridge %s: deleting" iface

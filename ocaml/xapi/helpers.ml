@@ -279,12 +279,12 @@ let set_DNS ~__context ~pif ~bridge =
   try
     if Net.Interface.exists dbg bridge then
       match Net.Interface.get_dns dbg bridge with
-      | nameservers, _ when nameservers != [] ->
+      | (_ :: _ as nameservers), _ ->
           let dns =
             String.concat "," (List.map Unix.string_of_inet_addr nameservers)
           in
           Db.PIF.set_DNS ~__context ~self:pif ~value:dns
-      | _ ->
+      | [], _ ->
           ()
   with _ ->
     warn "Unable to get the dns of PIF %s (%s)" (Ref.string_of pif) bridge
@@ -793,15 +793,6 @@ let max_version_in_pool : __context:Context.t -> int list =
   in
   List.fold_left max_version [] versions
 
-let rec string_of_int_list : int list -> string = function
-  | [] ->
-      ""
-  | x :: xs ->
-      if xs == [] then
-        string_of_int x
-      else
-        string_of_int x ^ "." ^ string_of_int_list xs
-
 let host_has_highest_version_in_pool :
     __context:Context.t -> host:[`host] api_object -> bool =
  fun ~__context ~host ->
@@ -1089,7 +1080,7 @@ let gethostbyname host =
   in
   try
     gethostbyname_family host
-      (if pref == `IPv4 then Unix.PF_INET else Unix.PF_INET6)
+      (if pref = `IPv4 then Unix.PF_INET else Unix.PF_INET6)
   with _ -> (
     try
       gethostbyname_family host

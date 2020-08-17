@@ -36,7 +36,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     ~currently_attached ~qos_algorithm_type ~qos_algorithm_params ~locking_mode
     ~ipv4_allowed ~ipv6_allowed : API.ref_VIF =
   (* TODO: Raise bad power state error (once all API clients make sure to onlu call the needed params in the create method) when:
-     - power_state == `Halted and currently_attached = true
+     - power_state = `Halted and currently_attached = true
   *)
   let power_state = Db.VM.get_power_state ~__context ~self:vM in
   let suspended = power_state = `Suspended in

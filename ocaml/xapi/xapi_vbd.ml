@@ -171,7 +171,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
     ~unpluggable ~empty ~other_config ~currently_attached ~qos_algorithm_type
     ~qos_algorithm_params =
   (* TODO: Raise bad power state error (once all API clients make sure to onlu call the needed params in the create method) when:
-     - power_state == `Halted and (device <> "" || currently_attached)
+     - power_state = `Halted and (device <> "" || currently_attached)
   *)
   let power_state = Db.VM.get_power_state ~__context ~self:vM in
   let suspended = power_state = `Suspended in

@@ -109,7 +109,7 @@ let set_ha_restart_priority ~__context ~self ~value =
   let current = Db.VM.get_ha_restart_priority ~__context ~self in
   if true && current <> Constants.ha_restart && value = Constants.ha_restart
   then (
-    if Db.VM.get_power_state ~__context ~self != `Halted then
+    if Db.VM.get_power_state ~__context ~self <> `Halted then
       Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context self ;
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
@@ -620,8 +620,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
   let resident_on = Ref.null in
   let scheduled_to_be_resident_on = Ref.null in
   (* TODO: Raise bad power state error (once all API clients make sure to only call the needed params in the create method) when:
-     - power_state == `Halted and suspend_VDI <> Ref.null
-     - power_state == `Suspended and suspend_VDI = Ref.null || last_booted_record = "" || last_boot_CPU_flags = []
+     - power_state = `Halted and suspend_VDI <> Ref.null
+     - power_state = `Suspended and suspend_VDI = Ref.null || last_booted_record = "" || last_boot_CPU_flags = []
      - power_state not in [`Halted, `Suspended]
   *)
   let metrics = Ref.make ()

@@ -125,7 +125,7 @@ functor
       if mem key row then
         let old = find key row in
         let newv = f old in
-        if newv == old then
+        if newv = old then
           row
         else
           updatefn ()

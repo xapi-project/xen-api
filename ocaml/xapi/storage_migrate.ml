@@ -770,7 +770,7 @@ let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
             ~dest_vdi:result.Mirror.copy_diffs_to)
       |> vdi_info
     in
-    debug "Local VDI %s == remote VDI %s"
+    debug "Local VDI %s = remote VDI %s"
       (Storage_interface.Vdi.string_of snapshot.vdi)
       (Storage_interface.Vdi.string_of new_parent.vdi) ;
     Remote.VDI.compose dbg dest result.Mirror.copy_diffs_to

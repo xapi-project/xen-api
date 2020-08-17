@@ -442,7 +442,7 @@ let compute_evacuation_plan_wlb ~__context ~self =
       let target_uuid = List.hd (List.tl detail) in
       let target_host = Db.Host.get_by_uuid ~__context ~uuid:target_uuid in
       if
-        Db.Host.get_control_domain ~__context ~self:target_host != v
+        Db.Host.get_control_domain ~__context ~self:target_host <> v
         && Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
       then (* resident host and migration host are the same. Reject this plan *)
         raise

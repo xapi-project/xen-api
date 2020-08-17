@@ -121,7 +121,7 @@ let check_live ~__context h =
   then
     raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of h]))
 
-(* Forward op to one of the specified hosts if host!=localhost *)
+(* Forward op to one of the specified hosts if host is not localhost *)
 let do_op_on_common ~local_fn ~__context ~host op f =
   try
     let localhost = Helpers.get_localhost ~__context in
