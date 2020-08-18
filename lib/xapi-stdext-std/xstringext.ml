@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module String = struct include String
+module String = struct
+  include String
 
   let of_char c = String.make 1 c
 
@@ -21,28 +22,26 @@ module String = struct include String
 
   let rev_iter f string =
     for i = length string - 1 downto 0 do
-      f (string.[i])
+      f string.[i]
     done
 
   let fold_left f accu string =
     let accu = ref accu in
     for i = 0 to length string - 1 do
       accu := f !accu string.[i]
-    done;
+    done ;
     !accu
 
   let fold_right f string accu =
     let accu = ref accu in
     for i = length string - 1 downto 0 do
       accu := f string.[i] !accu
-    done;
+    done ;
     !accu
 
-  let explode string =
-    fold_right (fun h t -> h :: t) string []
+  let explode string = fold_right (fun h t -> h :: t) string []
 
-  let implode list =
-    concat "" (List.map of_char list)
+  let implode list = concat "" (List.map of_char list)
 
   (** True if string 'x' ends with suffix 'suffix' *)
   let endswith suffix x =
@@ -52,101 +51,109 @@ module String = struct include String
   (** True if string 'x' starts with prefix 'prefix' *)
   let startswith prefix x =
     let x_l = String.length x and prefix_l = String.length prefix in
-    prefix_l <= x_l && String.sub x 0 prefix_l  = prefix
+    prefix_l <= x_l && String.sub x 0 prefix_l = prefix
 
   (** Returns true for whitespace characters, false otherwise *)
-  let isspace = function
-    | ' ' | '\n' | '\r' | '\t' -> true
-    | _ -> false
+  let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
   (** Removes all the characters from the ends of a string for which the predicate is true *)
   let strip predicate string =
     let rec remove = function
-      | [] -> []
-      | c :: cs -> if predicate c then remove cs else c :: cs in
+      | [] ->
+          []
+      | c :: cs ->
+          if predicate c then remove cs else c :: cs
+    in
     implode (List.rev (remove (List.rev (remove (explode string)))))
 
-  let escaped ?rules string = match rules with
-    | None -> String.escaped string
+  let escaped ?rules string =
+    match rules with
+    | None ->
+        String.escaped string
     | Some rules ->
-      let aux h t = (if List.mem_assoc h rules
-                     then List.assoc h rules
-                     else of_char h) :: t in
-      concat "" (fold_right aux string [])
+        let aux h t =
+          ( if List.mem_assoc h rules then
+              List.assoc h rules
+          else
+            of_char h
+          )
+          :: t
+        in
+        concat "" (fold_right aux string [])
 
   (** Take a predicate and a string, return a list of strings separated by
       runs of characters where the predicate was true (excluding those characters from the result) *)
   let split_f p str =
-    let not_p = fun x -> not (p x) in
+    let not_p x = not (p x) in
     let rec split_one p acc = function
-      | [] -> List.rev acc, []
-      | c :: cs -> if p c then split_one p (c :: acc) cs else List.rev acc, c :: cs in
-
+      | [] ->
+          (List.rev acc, [])
+      | c :: cs ->
+          if p c then split_one p (c :: acc) cs else (List.rev acc, c :: cs)
+    in
     let rec alternate acc drop chars =
-      if chars = [] then acc else
-        begin
-          let a, b = split_one (if drop then p else not_p) [] chars in
-          alternate (if drop then acc else a :: acc) (not drop) b
-        end  in
+      if chars = [] then
+        acc
+      else
+        let a, b = split_one (if drop then p else not_p) [] chars in
+        alternate (if drop then acc else a :: acc) (not drop) b
+    in
     List.rev (List.map implode (alternate [] true (explode str)))
 
   let index_opt s c =
     let rec loop i =
-      if String.length s = i
-      then None
+      if String.length s = i then
+        None
+      else if s.[i] = c then
+        Some i
       else
-      if s.[i] = c
-      then Some i
-      else loop (i + 1) in
+        loop (i + 1)
+    in
     loop 0
 
-  let rec split ?limit:(limit=(-1)) c s =
-    let i = match index_opt s c with | Some x -> x | None -> -1 in
+  let rec split ?(limit = -1) c s =
+    let i = match index_opt s c with Some x -> x | None -> -1 in
     let nlimit = if limit = -1 || limit = 0 then limit else limit - 1 in
     if i = -1 || nlimit = 0 then
-      [ s ]
+      [s]
     else
       let a = String.sub s 0 i
       and b = String.sub s (i + 1) (String.length s - i - 1) in
-      a :: (split ~limit: nlimit c b)
+      a :: split ~limit:nlimit c b
 
   let rtrim s =
     let n = String.length s in
-    if n > 0 && String.get s (n - 1) = '\n' then
+    if n > 0 && s.[n - 1] = '\n' then
       String.sub s 0 (n - 1)
     else
       s
 
   (** has_substr str sub returns true if sub is a substring of str. Simple, naive, slow. *)
   let has_substr str sub =
-    if String.length sub > String.length str then false else
-      begin
-        let result=ref false in
-        for start = 0 to (String.length str) - (String.length sub) do
-          if String.sub str start (String.length sub) = sub then result := true
-        done;
-        !result
-      end
+    if String.length sub > String.length str then
+      false
+    else
+      let result = ref false in
+      for start = 0 to String.length str - String.length sub do
+        if String.sub str start (String.length sub) = sub then result := true
+      done ;
+      !result
 
   (** find all occurences of needle in haystack and return all their respective index *)
   let find_all needle haystack =
     let m = String.length needle and n = String.length haystack in
-
     if m > n then
       []
-    else (
+    else
       let i = ref 0 and found = ref [] in
-      while !i < (n - m + 1)
-      do
-        if (String.sub haystack !i m) = needle then (
-          found := !i :: !found;
+      while !i < n - m + 1 do
+        if String.sub haystack !i m = needle then (
+          found := !i :: !found ;
           i := !i + m
-        ) else (
+        ) else
           incr i
-        )
-      done;
+      done ;
       List.rev !found
-    )
 
   (* replace all @f substring in @s by @t *)
   let replace f t s =
@@ -157,14 +164,16 @@ module String = struct include String
       let new_len = String.length s + (n * len_t) - (n * len_f) in
       let new_b = Bytes.make new_len '\000' in
       let orig_offset = ref 0 and dest_offset = ref 0 in
-      List.iter (fun h ->
+      List.iter
+        (fun h ->
           let len = h - !orig_offset in
-          Bytes.blit_string s !orig_offset new_b !dest_offset len;
-          Bytes.blit_string t 0 new_b (!dest_offset + len) len_t;
-          orig_offset := !orig_offset + len + len_f;
-          dest_offset := !dest_offset + len + len_t;
-        ) indexes;
-      Bytes.blit_string s !orig_offset new_b !dest_offset (String.length s - !orig_offset);
+          Bytes.blit_string s !orig_offset new_b !dest_offset len ;
+          Bytes.blit_string t 0 new_b (!dest_offset + len) len_t ;
+          orig_offset := !orig_offset + len + len_f ;
+          dest_offset := !dest_offset + len + len_t)
+        indexes ;
+      Bytes.blit_string s !orig_offset new_b !dest_offset
+        (String.length s - !orig_offset) ;
       Bytes.unsafe_to_string new_b
     ) else
       s
@@ -172,36 +181,33 @@ module String = struct include String
   let filter_chars s valid =
     let badchars = ref false in
     let buf = Buffer.create 0 in
-    for i = 0 to String.length s - 1
-    do
+    for i = 0 to String.length s - 1 do
       if !badchars then (
         if valid s.[i] then
           Buffer.add_char buf s.[i]
-      ) else (
-        if not (valid s.[i]) then (
-          Buffer.add_substring buf s 0 i;
-          badchars := true
-        )
+      ) else if not (valid s.[i]) then (
+        Buffer.add_substring buf s 0 i ;
+        badchars := true
       )
-    done;
+    done ;
     if !badchars then Buffer.contents buf else s
 
   let map_unlikely s f =
     let changed = ref false in
     let m = ref 0 in
     let buf = Buffer.create 0 in
-    for i = 0 to String.length s - 1
-    do
+    for i = 0 to String.length s - 1 do
       match f s.[i] with
-      | None   -> ()
+      | None ->
+          ()
       | Some n ->
-        changed := true;
-        Buffer.add_substring buf s !m (i - !m);
-        Buffer.add_string buf n;
-        m := i + 1
-    done;
+          changed := true ;
+          Buffer.add_substring buf s !m (i - !m) ;
+          Buffer.add_string buf n ;
+          m := i + 1
+    done ;
     if !changed then (
-      Buffer.add_substring buf s !m (String.length s - !m);
+      Buffer.add_substring buf s !m (String.length s - !m) ;
       Buffer.contents buf
     ) else
       s
@@ -210,10 +216,7 @@ module String = struct include String
     let length = String.length s in
     String.sub s start (length - start)
 
-  let sub_before c s = 
-    String.sub s 0 (String.index s c)
+  let sub_before c s = String.sub s 0 (String.index s c)
 
-  let sub_after c s =
-    sub_to_end s (String.index s c + 1)
-
+  let sub_after c s = sub_to_end s (String.index s c + 1)
 end
