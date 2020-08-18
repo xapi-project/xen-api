@@ -5287,6 +5287,36 @@ functor
         info "SDN_controller.forget: sdn_controller = '%s'"
           (sdn_controller_uuid ~__context self) ;
         Local.SDN_controller.forget ~__context ~self
+
+      let open_port ~__context ~self ~protocol ~port =
+        info
+          "SDN_controller.open_port: sdn_controller = '%s', protocol = '%s', \
+           port = '%s'"
+          (sdn_controller_uuid ~__context self)
+          (Record_util.sdn_port_protocol_to_string protocol)
+          (Int64.to_string port) ;
+        let local_fn = Local.SDN_controller.open_port ~self ~protocol ~port in
+        List.iter
+          (fun host ->
+            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                Client.SDN_controller.open_port rpc session_id self protocol
+                  port))
+          (Db.Host.get_all ~__context)
+
+      let close_port ~__context ~self ~protocol ~port =
+        info
+          "SDN_controller.close_port: sdn_controller = '%s', protocol = '%s', \
+           port = '%s'"
+          (sdn_controller_uuid ~__context self)
+          (Record_util.sdn_port_protocol_to_string protocol)
+          (Int64.to_string port) ;
+        let local_fn = Local.SDN_controller.close_port ~self ~protocol ~port in
+        List.iter
+          (fun host ->
+            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                Client.SDN_controller.close_port rpc session_id self protocol
+                  port))
+          (Db.Host.get_all ~__context)
     end
 
     module PUSB = struct

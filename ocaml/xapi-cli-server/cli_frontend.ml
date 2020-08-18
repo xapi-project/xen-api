@@ -2957,6 +2957,22 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.SDN_controller.forget
       ; flags= []
       } )
+    ; ( "sdn-controller-open-port"
+      , {
+          reqd= ["uuid"; "protocol"; "port"]
+        ; optn= []
+        ; help= "Open a port on all the hosts"
+        ; implementation= No_fd Cli_operations.SDN_controller.open_port
+        ; flags= []
+        } )
+    ; ( "sdn-controller-close-port"
+      , {
+          reqd= ["uuid"; "protocol"; "port"]
+        ; optn= []
+        ; help= "Close a port on all the hosts"
+        ; implementation= No_fd Cli_operations.SDN_controller.close_port
+        ; flags= []
+        } )
   ; ( "pusb-scan"
     , {
         reqd= ["host-uuid"]
