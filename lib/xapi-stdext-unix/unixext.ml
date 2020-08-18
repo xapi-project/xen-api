@@ -642,22 +642,6 @@ let current_cursor_pos fd =
   (* 'seek' to the current position, exploiting the return value from Unix.lseek as the new cursor position *)
   Unix.lseek fd 0 Unix.SEEK_CUR
 
-module Fdset = struct
-  type t
-  external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"
-  external is_set : t -> Unix.file_descr -> bool = "stub_fdset_is_set"
-  external is_set_and_clear : t -> Unix.file_descr -> bool = "stub_fdset_is_set_and_clear"
-  external is_empty : t -> bool = "stub_fdset_is_empty"
-  external set : t -> Unix.file_descr -> unit = "stub_fdset_set"
-  external clear : t -> Unix.file_descr -> unit = "stub_fdset_clear"
-  external _select : t -> t -> t -> float -> t * t * t = "stub_fdset_select"
-  external _select_ro : t -> float -> t = "stub_fdset_select_ro"
-  external _select_wo : t -> float -> t = "stub_fdset_select_wo"
-  let select r w e t = _select r w e t
-  let select_ro r t = _select_ro r t
-  let select_wo w t = _select_wo w t
-end
-
 let wait_for_path path delay timeout =
   let rec inner ttl =
     if ttl=0 then failwith "No path!";

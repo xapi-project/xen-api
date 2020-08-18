@@ -141,20 +141,6 @@ val seek_to : Unix.file_descr -> int -> int
 val seek_rel : Unix.file_descr -> int -> int
 val current_cursor_pos : Unix.file_descr -> int
 
-module Fdset : sig
-  type t
-  external of_list : Unix.file_descr list -> t = "stub_fdset_of_list"
-  external is_set : t -> Unix.file_descr -> bool = "stub_fdset_is_set"
-  external is_set_and_clear : t -> Unix.file_descr -> bool = "stub_fdset_is_set_and_clear"
-  external is_empty : t -> bool = "stub_fdset_is_empty"
-  external set : t -> Unix.file_descr -> unit = "stub_fdset_set"
-  external clear : t -> Unix.file_descr -> unit = "stub_fdset_clear"
-
-  val select : t -> t -> t -> float -> t * t * t
-  val select_ro : t -> float -> t
-  val select_wo : t -> float -> t
-end
-
 val wait_for_path : string -> (float -> unit) -> int -> unit
 
 val send_fd : Unix.file_descr -> bytes -> int -> int -> Unix.msg_flag list -> Unix.file_descr -> int
