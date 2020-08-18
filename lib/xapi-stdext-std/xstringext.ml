@@ -15,19 +15,9 @@ module String = struct include String
 
   let of_char c = String.make 1 c
 
-  let init n f =
-    let b = Bytes.make n (f 0) in
-    for i=1 to n-1 do
-      Bytes.set b i (f i);
-    done;
-    Bytes.unsafe_to_string b
-
-  let map f string =
-    init (length string) (fun i -> f string.[i])
-
   let rev_map f string =
     let n = length string in
-    init n (fun i -> f string.[n - i - 1])
+    String.init n (fun i -> f string.[n - i - 1])
 
   let rev_iter f string =
     for i = length string - 1 downto 0 do
@@ -40,11 +30,6 @@ module String = struct include String
       accu := f !accu string.[i]
     done;
     !accu
-
-  let iteri f string =
-    for i = 0 to length string - 1 do
-      f i string.[i]
-    done
 
   let fold_right f string accu =
     let accu = ref accu in
