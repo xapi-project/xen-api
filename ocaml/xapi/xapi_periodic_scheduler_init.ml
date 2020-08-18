@@ -22,7 +22,7 @@ let register () =
   let master = Pool_role.is_master () in
   (* blob/message/rrd file syncing - sync once a day *)
   let sync_timer =
-    if Xapi_fist.reduce_blob_sync_interval then
+    if Xapi_fist.reduce_blob_sync_interval () then
       60.0 *. 5.0
     else
       !Xapi_globs.pool_data_sync_interval
@@ -30,7 +30,7 @@ let register () =
   let sync_func () = Xapi_sync.do_sync () in
   let sync_delay =
     (* 10 mins if fist point there - to ensure rrd sync happens first *)
-    if Xapi_fist.reduce_blob_sync_interval then 60.0 *. 10.0 else 7200.
+    if Xapi_fist.reduce_blob_sync_interval () then 60.0 *. 10.0 else 7200.
   in
   (* Heartbeat to show the queue is still running - will be more useful when there's less logging! *)
   let hb_timer = 3600.0 in
@@ -38,7 +38,7 @@ let register () =
   let hb_func () = debug "Periodic scheduler heartbeat" in
   (* Periodic backup of RRDs *)
   let rrdbackup_timer =
-    if Xapi_fist.reduce_rrd_backup_interval then
+    if Xapi_fist.reduce_rrd_backup_interval () then
       60.0 *. 5.0
     else
       !Xapi_globs.rrd_backup_interval
@@ -55,7 +55,7 @@ let register () =
                  0.0 hosts)))
   in
   let rrdbackup_delay =
-    if Xapi_fist.reduce_rrd_backup_interval then 60.0 *. 6.0 else 3600.0
+    if Xapi_fist.reduce_rrd_backup_interval () then 60.0 *. 6.0 else 3600.0
   in
   let session_revalidation_func () =
     Server_helpers.exec_with_new_task "session_revalidation_func"
