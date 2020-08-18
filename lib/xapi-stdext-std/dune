@@ -1,5 +1,12 @@
 (library
   (public_name xapi-stdext-std)
   (name  xapi_stdext_std)
+  (modules :standard \ xstringext_test)
   (libraries uuidm)
+)
+(tests
+  (names xstringext_test)
+  (package xapi-stdext-std)
+  (modules xstringext_test)
+  (libraries xapi_stdext_std alcotest)
 )

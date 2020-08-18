@@ -14,3 +14,4 @@ env:
     - PACKAGE="stdext"
     - PACKAGE="xapi-stdext-encodings"
     - PACKAGE="xapi-stdext-date"
+    - PACKAGE="xapi-stdext-std"
