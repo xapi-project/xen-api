@@ -79,9 +79,9 @@ let simulate_blocking_planner () = fistpoint "simulate_blocking_planner"
  *  NB: these are evaluated once at run time and not again - no dynamic changing here :-) *)
 
 (** Reduce blob sync period to 5 minutes *)
-let reduce_blob_sync_interval = fistpoint "reduce_blob_sync_interval"
+let reduce_blob_sync_interval () = fistpoint "reduce_blob_sync_interval"
 
-let reduce_rrd_backup_interval = fistpoint "reduce_rrd_backup_interval"
+let reduce_rrd_backup_interval () = fistpoint "reduce_rrd_backup_interval"
 
 let force_remote_vdi_copy () = fistpoint "force_remote_vdi_copy"
 
