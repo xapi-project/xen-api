@@ -345,6 +345,7 @@ functor
           None
 
     let backup (old_pool_secret, new_pool_secret) =
+      Xapi_fist.hang_psr `backup ;
       SecretString.write_to_file old_pool_secret_backup_path old_pool_secret ;
       SecretString.write_to_file new_pool_secret_backup_path new_pool_secret
 
@@ -366,11 +367,13 @@ functor
             new_pool_secret)
 
     let cleanup_master (old_ps, new_ps) =
+      Xapi_fist.hang_psr `cleanup ;
       cleanup_internal ~additional_files_to_remove:[checkpoint_path] ~old_ps
         ~new_ps
   end
 
 let notify_new ~__context ~old_ps ~new_ps =
+  Xapi_fist.hang_psr `notify_new ;
   Assert.no_checkpoint () ;
   match !Xapi_globs.pool_secrets with
   | [priority_1_ps; priority_2_ps] ->
@@ -408,6 +411,7 @@ let notify_new ~__context ~old_ps ~new_ps =
               ] ))
 
 let notify_send ~__context ~old_ps ~new_ps =
+  Xapi_fist.hang_psr `notify_send ;
   Assert.no_checkpoint () ;
   Assert.backups_match ~old_ps ~new_ps ;
   match !Xapi_globs.pool_secrets with
@@ -454,6 +458,7 @@ let notify_send ~__context ~old_ps ~new_ps =
               ] ))
 
 let cleanup ~__context ~old_ps ~new_ps =
+  Xapi_fist.hang_psr `cleanup ;
   Assert.no_checkpoint () ;
   cleanup_internal ~additional_files_to_remove:[] ~old_ps ~new_ps
 
