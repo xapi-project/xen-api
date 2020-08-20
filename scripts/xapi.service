@@ -11,7 +11,6 @@ After=time-sync.target
 After=v6d.service
 After=xapi-storage-script.service
 After=xcp-networkd.service
-After=xcp-networkd.service
 After=xcp-rrdd.service
 After=xenopsd-xc.service
 After=xenstored.service
