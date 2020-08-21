@@ -33,15 +33,15 @@ module type CONFIG = sig
 end
 
 module type MARSHALLER = sig
-  val string_of_call : Rpc.call -> string
+  val string_of_call : ?strict:bool -> Rpc.call -> string
 
   val call_of_string : string -> Rpc.call
 
-  val string_of_response : Rpc.response -> string
+  val string_of_response : ?strict:bool -> Rpc.response -> string
 
   val response_of_string : string -> Rpc.response
 
-  val to_string : Rpc.t -> string
+  val to_string : ?strict:bool -> Rpc.t -> string
 
   val of_string : string -> Rpc.t
 end
@@ -54,11 +54,13 @@ module TJsonrpc : MARSHALLER = struct
   (* there is a ?strict parameter, and the signature would not match *)
   let of_string s = of_string s
 
+  let to_string ?(strict : _) t = to_string t
+
   let response_of_string r = response_of_string r
 
-  let string_of_call call = string_of_call call
+  let string_of_call ?(strict : _) call = string_of_call call
 
-  let string_of_response response = string_of_response response
+  let string_of_response ?(strict : _) response = string_of_response response
 end
 
 module TXmlrpc : MARSHALLER = struct
@@ -69,6 +71,12 @@ module TXmlrpc : MARSHALLER = struct
   let response_of_string s = response_of_string s
 
   let of_string s = of_string s
+
+  let to_string ?(strict : _) t = to_string t
+
+  let string_of_call ?(strict : _) call = string_of_call call
+
+  let string_of_response ?(strict : _) response = string_of_response response
 end
 
 (** The following module implements test cases that write test RPC requests and
@@ -105,7 +113,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
 
   open M
 
-  let declare name _ ty =
+  let declare_ response_needed name _ ty =
     let rec inner :
         type b. ((string * Rpc.t) list * Rpc.t list) list -> b fn -> unit =
      fun params -> function
@@ -170,8 +178,8 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                   | _ ->
                       Rpc.Dict named :: List.rev unnamed
                 in
-                let call = Rpc.call wire_name args in
-                call)
+                let rpccall = if response_needed then Rpc.notif else Rpc.call in
+                rpccall wire_name args)
               params
           in
           List.iteri
@@ -229,6 +237,10 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
       , `Quick
       , test_fn )
       :: !tests
+
+  let declare name desc_list ty = declare_ false name desc_list ty
+
+  let declare_notification name desc_list ty = declare_ true name desc_list ty
 end
 
 let get_arg call has_named name is_opt =
@@ -315,8 +327,8 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
     | Returning (_, _) ->
         false
 
-  let declare : string -> string list -> 'a fn -> _ res =
-   fun name _ ty ->
+  let declare_ : bool -> string -> string list -> 'a fn -> _ res =
+   fun _notification name _ ty ->
     ( (* Sanity check: ensure the description has been set before we declare any
          RPCs *)
     match !description with
@@ -430,4 +442,8 @@ module TestOldRpcs (C : CONFIG) (M : MARSHALLER) = struct
         responses
     in
     tests := !tests @ request_tests @ response_tests
+
+  let declare name desc_list ty = declare_ false name desc_list ty
+
+  let declare_notification name desc_list ty = declare_ true name desc_list ty
 end
