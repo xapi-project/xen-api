@@ -55,8 +55,9 @@ module M = struct
       Monitor.try_with ~extract_exn:true connect >>= function
       | Error
           (Unix.Unix_error
-            ((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _)) ->
-          let delay = min maximum_delay delay in
+            (Core.(Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _))
+        ->
+          let delay = Float.min maximum_delay delay in
           Clock.after (Time.Span.of_sec delay) >>= fun () ->
           retry (delay +. delay)
       | Error e ->
@@ -80,7 +81,7 @@ module M = struct
 
     let with_lock t f =
       let rec wait state =
-        if t.m = state then
+        if Bool.(t.m = state) then
           return ()
         else
           Condition.wait t.c >>= fun () -> wait state
