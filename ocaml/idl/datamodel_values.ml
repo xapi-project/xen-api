@@ -48,7 +48,8 @@ let to_ocaml_string ?(v2=false) v =
     | Rpc.Bool b -> sprintf "Rpc.Bool %b" b
     | Rpc.Dict d -> sprintf "Rpc.Dict [%s]" (String.concat ";" (List.map (fun (n,v) -> sprintf "(\"%s\",%s)" n (aux v)) d))
     | Rpc.Enum l -> sprintf "Rpc.Enum [%s]" (String.concat ";" (List.map aux l))
-    | Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t in
+    | Rpc.DateTime t -> sprintf "Rpc.DateTime %s" t
+    | Rpc.Base64 t -> sprintf "Rpc.Base64 %s" t in
   match v with
   | VCustom (s,v') ->
     if v2 then
