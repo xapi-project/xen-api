@@ -24,8 +24,8 @@ clean:
 doc:
 	dune build @doc --profile=release
 
-reindent:
-	git ls-files '*.ml*' | xargs ocp-indent --syntax cstruct -i
+format:
+	dune build @fmt --auto-promote
 
 test:
 	dune runtest --profile=release
