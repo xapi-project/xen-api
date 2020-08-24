@@ -109,7 +109,7 @@ let error fmt = log Syslog.Err     fmt
 
 let pvs_version = "3.0"
 let supported_api_versions = [pvs_version; "5.0"]
-let api_max = List.fold_left ~f:max supported_api_versions ~init:""
+let api_max = List.fold_left ~f:String.max supported_api_versions ~init:""
 
 let id = fun x -> x
 
@@ -153,11 +153,16 @@ end = struct
 
   let remove field rpc =
     match !V.version, rpc with
-    | Some v, R.Dict d when v = pvs_version ->
-      R.Dict (List.filter ~f:(fun (k,_) -> k <> field) d)
+    | Some v, R.Dict d when String.( v = pvs_version) ->
+      R.Dict (List.filter ~f:(fun (k,_) -> String.( k <> field)) d)
     | _ -> rpc
 
-  let with_pvs_version f rpc = if !V.version = Some pvs_version then f rpc else rpc
+  let with_pvs_version f rpc =
+    match !V.version with
+    | Some v when String.( v = pvs_version) ->
+        f rpc
+    | _ ->
+        rpc
 
   let add_param_to_input params =
     with_pvs_version (function
@@ -188,26 +193,29 @@ end = struct
   (** Adds the uri parameter to the call from device_config when talking to the
       old PVS scripts *)
   let compat_uri device_config =
-    if !V.version = Some pvs_version then
+    match !V.version with
+    | Some version when String.(version = pvs_version) -> (
       match List.Assoc.find ~equal:String.equal device_config "uri" with
       | None ->
         return (Error (missing_uri ()))
       | Some uri ->
         return (Ok (add_param_to_input ["uri", R.String uri]))
-    else
+      )
+    | _ ->
       return (Ok id)
 
   let sr_create device_config =
     compat_uri device_config >>>= fun compat_in ->
     let compat_out =
-      if !V.version = Some pvs_version then begin
-        fun rpc ->
-          (* The PVS version will return nothing *)
-          if rpc = R.Null then
-            Rpcmarshal.marshal Xapi_storage.Control.typ_of_configuration device_config
-          else rpc
-      end
-      else id
+      match !V.version with
+      | Some v when String.(v = pvs_version) -> (
+        function
+        (* The PVS version will return nothing *)
+        | R.Null ->
+          Rpcmarshal.marshal Xapi_storage.Control.typ_of_configuration device_config
+        | rpc -> rpc
+        )
+      | _ -> id
     in
     return (Ok (device_config, compat_in, compat_out))
 
@@ -216,7 +224,7 @@ end
 
 let check_plugin_version_compatible query_result =
   let Xapi_storage.Plugin.{ name; required_api_version; _ } = query_result in
-  if required_api_version <> api_max then
+  if String.(required_api_version <> api_max) then
     warn "Using deprecated SMAPIv3 API version %s, latest is %s. Update your %s plugin!" required_api_version api_max name;
   if List.mem ~equal:String.equal supported_api_versions required_api_version then
     Deferred.Result.return ()
@@ -279,7 +287,7 @@ module Script = struct
        just take the first one, instead of failing *)
     let mapping =
       List.zip_exn files files
-      |> Core.String.Caseless.Map.of_alist_reduce ~f:min
+      |> String.Caseless.Map.of_alist_reduce ~f:String.min
     in
     Hashtbl.set name_mapping ~key:script_dir ~data:mapping
 
@@ -587,11 +595,15 @@ let bind ~volume_script_dir =
     (* this is wrong, we loose the VDI type, but old pvsproxy didn't have
      * Volume.set and Volume.unset *)
     (* TODO handle this properly? *)
-    let missing = if !version = Some pvs_version then Some (R.rpc_of_unit ()) else None in
+    let missing = Option.bind !version (fun v ->
+      if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None)
+    in
     return_volume_rpc (fun () -> Volume_client.set (volume_rpc ?missing) dbg sr vdi key value)
   in
   let unset ~dbg ~sr ~vdi ~key =
-    let missing = if !version = Some pvs_version then Some (R.rpc_of_unit ()) else None in
+    let missing = Option.bind !version (fun v ->
+      if String.(v = pvs_version) then Some (R.rpc_of_unit ()) else None)
+    in
     return_volume_rpc (fun () -> Volume_client.unset (volume_rpc ?missing) dbg sr vdi key)
   in
   let update_keys ~dbg ~sr ~key ~value response =
@@ -1196,7 +1208,7 @@ let get_ok = function
 let rec diff a b = match a with
   | [] -> []
   | a :: aa ->
-    if List.mem b a ~equal:(=) then diff aa b else a :: (diff aa b)
+    if List.mem b a ~equal:String.(=) then diff aa b else a :: (diff aa b)
 
 let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   let create volume_plugin_name =
