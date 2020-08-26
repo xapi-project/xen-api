@@ -33,7 +33,6 @@
     xapi-inventory
     xapi-idl)
 )
-
 (test
   (name test_lib)
   (package xapi)
