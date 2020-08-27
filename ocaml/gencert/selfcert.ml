@@ -14,7 +14,12 @@
 
 module C = Cmdliner
 module Rsa = Mirage_crypto_pk.Rsa
-open Rresult
+module UX = Xapi_stdext_unix.Unixext
+open Rresult (* introduces >>= >>| and R *)
+
+(** initialize the random number generator at program startup when this
+module is loaded. *)
+let () = Mirage_crypto_rng_unix.initialize ()
 
 let defer f = Fun.protect ~finally:f
 
@@ -22,15 +27,15 @@ let defer f = Fun.protect ~finally:f
   atomically by writing to a temporary file in the same directory first and
   renaming the file at the end *)
 let write_certs path key cert =
-  let delimit = "\n" in
+  let delim = "\n" in
   let temp_dir = Filename.dirname path in
   let tmp = Filename.temp_file ~temp_dir "certify-" ".tmp" in
   try
     let fd = Unix.openfile tmp [Unix.O_WRONLY] 0o600 in
     defer (fun () -> Unix.close fd) @@ fun () ->
-    Unixext.really_write fd (Cstruct.to_string key) 0 (Cstruct.len key) ;
-    Unixext.really_write_string fd delim ;
-    Unixext.really_write fd (Cstruct.to_string cert) 0 (Cstruct.len cert) ;
+    UX.really_write fd (Cstruct.to_string key) 0 (Cstruct.len key) ;
+    UX.really_write_string fd delim ;
+    UX.really_write fd (Cstruct.to_string cert) 0 (Cstruct.len cert) ;
     Unix.rename tmp path ;
     R.ok ()
   with e -> R.error_msg (Printexc.to_string e)
@@ -78,7 +83,6 @@ let selfsign name alt_names length days certfile =
   write_certs certfile key_pem cert_pem
 
 let host name alt_names pemfile =
-  let () = Mirage_crypto_rng_unix.initialize () in
   let expire_days = 3650 in
   let length = 2048 in
   selfsign name alt_names length expire_days pemfile |> R.failwith_error_msg
