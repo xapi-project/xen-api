@@ -26,7 +26,6 @@ open Workload_balancing
 
 module D = Debug.Make (struct let name = "xapi_host" end)
 
-module Gencert = Gencertlib.Lib
 open D
 
 let set_emergency_mode_error code params =
@@ -1400,10 +1399,10 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   Xapi_mgmt_iface.reconfigure_stunnel ~__context
 
 let emergency_reset_server_certificate ~__context =
-  let args =
-    [!Xapi_globs.server_cert_path; Helper_hostname.get_hostname (); "--force"]
-  in
-  ignore @@ Gencert.call_generate_ssl_cert ~args ;
+  let xapi_ssl_pem = !Xapi_globs.server_cert_path in
+  let common_name = Helper_hostname.get_hostname () in
+  let alt_names = [] in
+  Gencertlib.Selfcert.host common_name alt_names xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
   let self = Helpers.get_localhost ~__context in
