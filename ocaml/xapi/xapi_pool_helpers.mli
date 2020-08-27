@@ -32,7 +32,6 @@ val ha_disable_in_progress : __context:Context.t -> bool
 
 val ha_enable_in_progress : __context:Context.t -> bool
 
-val pool_secret_rotation_pending : __context:Context.t -> bool
 
 val call_fn_on_master_then_slaves :
      __context:Context.t

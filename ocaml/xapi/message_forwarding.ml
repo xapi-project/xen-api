@@ -712,11 +712,14 @@ functor
         info "Pool.designate_new_master: pool = '%s'; host = '%s'"
           (current_pool_uuid ~__context)
           (host_uuid ~__context host) ;
-        (* Sync the RRDs from localhost to new master *)
-        Xapi_sync.sync_host __context host ;
-        let local_fn = Local.Pool.designate_new_master ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool.designate_new_master rpc session_id host)
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~self:(Helpers.get_pool ~__context)
+          ~doc:"Pool.designate_new_master" ~op:`designate_new_master (fun () ->
+            (* Sync the RRDs from localhost to new master *)
+            Xapi_sync.sync_host __context host ;
+            let local_fn = Local.Pool.designate_new_master ~host in
+            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                Client.Pool.designate_new_master rpc session_id host))
 
       let management_reconfigure ~__context ~network =
         info "Pool.management_reconfigure: pool = '%s'; network = '%s'"

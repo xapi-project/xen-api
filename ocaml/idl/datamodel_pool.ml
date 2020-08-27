@@ -6,7 +6,8 @@ open Datamodel_types
     Enum ("pool_allowed_operations", (* FIXME: This should really be called `pool_operations`, to avoid confusion with the Pool.allowed_operations field *)
           [ "ha_enable", "Indicates this pool is in the process of enabling HA";
             "ha_disable", "Indicates this pool is in the process of disabling HA";
-	    "cluster_create", "Indicates this pool is in the process of creating a cluster";
+            "cluster_create", "Indicates this pool is in the process of creating a cluster";
+            "designate_new_master", "Indicates this pool is in the process of changing master";
           ])
 
   let enable_ha = call

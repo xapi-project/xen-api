@@ -1677,15 +1677,6 @@ let enable __context heartbeat_srs configuration =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
-  if Xapi_pool_helpers.pool_secret_rotation_pending ~__context then
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , [
-              "a pool secret rotation is pending, please complete it before \
-               attempting to enable HA"
-            ] )) ;
   Pool_features.assert_enabled ~__context ~f:Features.HA ;
   (* Check that all of our 'disallow_unplug' PIFs are currently attached *)
   let unplugged_ununpluggable_pifs =
