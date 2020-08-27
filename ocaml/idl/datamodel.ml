@@ -5211,21 +5211,21 @@ module SDN_controller = struct
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let open_port = call
-      ~name:"open_port"
-      ~doc:"Open a port and add it to the list of opened ports"
+  let add_local_port = call
+      ~name:"add_local_port"
+      ~doc:"Add a port to the list of required open ports"
       ~params: [
         Ref _sdn_controller, "self", "this SDN controller";
         sdn_port_protocol, "protocol", "The protocol (tcp | udp)";
-        Int, "port", "The port to open"
+        Int, "port", "The required port"
       ]
       ~lifecycle:[Prototyped, rel_next, ""]
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let close_port = call
-      ~name:"close_port"
-      ~doc:"Close a port and remove it to the list of opened ports"
+  let remove_local_port = call
+      ~name:"remove_local_port"
+      ~doc:"Remove a port from the list of required open ports"
       ~params: [
         Ref _sdn_controller, "self", "this SDN controller";
         sdn_port_protocol, "protocol", "the protocol (tcp | udp)";
@@ -5263,13 +5263,13 @@ module SDN_controller = struct
             "TCP port of the controller"
 
         ; field   ~qualifier:RW ~lifecycle:[Prototyped, rel_next, ""]
-            ~ty:(Set(String)) "opened_ports" ~default_value:(Some (VSet [])) "List of opened ports"
+            ~ty:(Set(String)) "local_ports" ~default_value:(Some (VSet [])) "List of required opened ports"
         ]
       ~messages:
         [ introduce
         ; forget
-        ; open_port
-        ; close_port
+        ; add_local_port
+        ; remove_local_port
         ]
       ()
 end

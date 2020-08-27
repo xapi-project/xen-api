@@ -7181,24 +7181,6 @@ module SDN_controller = struct
     let uuid = List.assoc "uuid" params in
     let ref = Client.SDN_controller.get_by_uuid rpc session_id uuid in
     Client.SDN_controller.forget rpc session_id ref
-
-  let open_port printer rpc session_id params =
-    let uuid = List.assoc "uuid" params in
-    let ref = Client.SDN_controller.get_by_uuid rpc session_id uuid in
-    let protocol =
-      Record_util.sdn_port_protocol_of_string (List.assoc "protocol" params)
-    in
-    let port = Int64.of_string (List.assoc "port" params) in
-    Client.SDN_controller.open_port rpc session_id ref protocol port
-
-  let close_port printer rpc session_id params =
-    let uuid = List.assoc "uuid" params in
-    let ref = Client.SDN_controller.get_by_uuid rpc session_id uuid in
-    let protocol =
-      Record_util.sdn_port_protocol_of_string (List.assoc "protocol" params)
-    in
-    let port = Int64.of_string (List.assoc "port" params) in
-    Client.SDN_controller.close_port rpc session_id ref protocol port
 end
 
 module PUSB = struct

@@ -44,7 +44,7 @@ let db_introduce ~__context ~protocol ~address ~port =
   let tcpport = if protocol = `ssl && port = 0L then 6632L else port in
   let r = Ref.make () and uuid = Uuid.make_uuid () in
   Db.SDN_controller.create ~__context ~ref:r ~uuid:(Uuid.to_string uuid)
-    ~protocol ~address ~port:tcpport ~opened_ports:[] ;
+    ~protocol ~address ~port:tcpport ~local_ports:[] ;
   r
 
 let introduce ~__context ~protocol ~address ~port =
@@ -70,26 +70,16 @@ let forget ~__context ~self =
       (fun host -> Helpers.update_vswitch_controller ~__context ~host)
       (Db.Host.get_all ~__context)
 
-let open_port ~__context ~self ~protocol ~port =
-  Pool_features.assert_enabled ~__context ~f:Features.Sdn_port_management ;
+let add_local_port ~__context ~self ~protocol ~port =
   Helpers.assert_is_valid_tcp_udp_port (Int64.to_int port) "port" ;
   let port_str = Int64.to_string port in
   let protocol_str = Record_util.sdn_port_protocol_to_string protocol in
-  ignore
-  @@ Helpers.call_script
-       !Xapi_globs.firewall_port_config_script
-       ["open"; port_str; protocol_str] ;
   let value = protocol_str ^ ":" ^ port_str in
-  Db.SDN_controller.add_opened_ports ~__context ~self ~value
+  Db.SDN_controller.add_local_ports ~__context ~self ~value
 
-let close_port ~__context ~self ~protocol ~port =
-  Pool_features.assert_enabled ~__context ~f:Features.Sdn_port_management ;
+let remove_local_port ~__context ~self ~protocol ~port =
   Helpers.assert_is_valid_tcp_udp_port (Int64.to_int port) "port" ;
   let port_str = Int64.to_string port in
   let protocol_str = Record_util.sdn_port_protocol_to_string protocol in
-  ignore
-  @@ Helpers.call_script
-       !Xapi_globs.firewall_port_config_script
-       ["close"; port_str; protocol_str] ;
   let value = protocol_str ^ ":" ^ port_str in
-  Db.SDN_controller.remove_opened_ports ~__context ~self ~value
+  Db.SDN_controller.remove_local_ports ~__context ~self ~value

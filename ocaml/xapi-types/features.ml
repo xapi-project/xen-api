@@ -59,7 +59,6 @@ type feature =
   | Network_sriov
   | Corosync
   | Zstd_export
-  | Sdn_port_management
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -114,7 +113,6 @@ let keys_of_features =
   ; (Network_sriov, ("restrict_network_sriov", Negative, "Network_sriov"))
   ; (Corosync, ("restrict_corosync", Negative, "Corosync"))
   ; (Zstd_export, ("restrict_zstd_export", Negative, "Zstd_export"))
-  ; (Sdn_port_management, ("restrict_sdn_port_management", Negative, "Sdn_port_management"))
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

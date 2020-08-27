@@ -66,7 +66,6 @@ type feature =
   | Network_sriov  (** Enable the use of Network SRIOV. *)
   | Corosync  (** Enable the use of corosync. *)
   | Zstd_export  (** Enable the use of VM export with zstd compression. *)
-  | Sdn_port_management (** Enable the SDN Controller to open/close port. *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)
