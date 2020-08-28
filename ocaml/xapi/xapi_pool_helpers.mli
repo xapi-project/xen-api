@@ -12,12 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val assert_operation_valid :
-     __context:Context.t
-  -> self:API.ref_pool
-  -> op:API.pool_allowed_operations
-  -> unit
-
 val update_allowed_operations : __context:Context.t -> self:API.ref_pool -> unit
 
 (* checks that no other pool ops are running
