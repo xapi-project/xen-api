@@ -145,6 +145,8 @@ let pool_operation_to_string = function
       "ha_disable"
   | `cluster_create ->
       "cluster_create"
+  | `designate_new_master ->
+      "designate_new_master"
 
 let host_operation_to_string = function
   | `provision ->

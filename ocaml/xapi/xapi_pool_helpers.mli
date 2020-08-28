@@ -12,14 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val assert_operation_valid :
-     __context:Context.t
-  -> self:API.ref_pool
-  -> op:API.pool_allowed_operations
-  -> unit
-
 val update_allowed_operations : __context:Context.t -> self:API.ref_pool -> unit
 
+(* checks that no other pool ops are running
+   before starting a new pool operation *)
 val with_pool_operation :
      __context:Context.t
   -> self:API.ref_pool
@@ -32,7 +28,9 @@ val ha_disable_in_progress : __context:Context.t -> bool
 
 val ha_enable_in_progress : __context:Context.t -> bool
 
-val pool_secret_rotation_pending : __context:Context.t -> bool
+(* useful when a non-pool operation requires
+   that no pool operations are running. *)
+val assert_no_pool_ops : __context:Context.t -> unit
 
 val call_fn_on_master_then_slaves :
      __context:Context.t

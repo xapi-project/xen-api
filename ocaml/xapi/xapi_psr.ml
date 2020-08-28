@@ -539,7 +539,10 @@ let start =
               let[@warning "-8"] (master :: members) =
                 assert_all_hosts_alive ()
               in
-              assert_no_ha () ; assert_no_rpu () ; (master, members))
+              assert_no_ha () ;
+              assert_no_rpu () ;
+              Xapi_pool_helpers.assert_no_pool_ops ~__context ;
+              (master, members))
         in
         let module PSR = Make (Impl (struct let __context = __context end)) in
         let r =

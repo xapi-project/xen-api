@@ -1651,7 +1651,7 @@ let designate_new_master ~__context ~host =
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
     (* Only the master can sync the *current* database; only the master
-       		   knows the current generation count etc. *)
+       knows the current generation count etc. *)
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.Pool.sync_database rpc session_id) ;
     let all_hosts = Db.Host.get_all ~__context in
