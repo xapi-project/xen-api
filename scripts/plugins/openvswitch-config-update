@@ -101,7 +101,6 @@ def update(session, args):
             cmd = [iptablectl, 'open', port, protocol]
             output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
 
-
     try:
         pool_fail_mode = pool['other_config']['vswitch-controller-fail-mode']
     except KeyError as e:

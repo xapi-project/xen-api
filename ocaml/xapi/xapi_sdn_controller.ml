@@ -75,11 +75,17 @@ let add_local_port ~__context ~self ~protocol ~port =
   let port_str = Int64.to_string port in
   let protocol_str = Record_util.sdn_port_protocol_to_string protocol in
   let value = protocol_str ^ ":" ^ port_str in
-  Db.SDN_controller.add_local_ports ~__context ~self ~value
+  Db.SDN_controller.add_local_ports ~__context ~self ~value ;
+  List.iter
+    (fun host -> Helpers.update_vswitch_controller ~__context ~host)
+    (Db.Host.get_all ~__context)
 
 let remove_local_port ~__context ~self ~protocol ~port =
   Helpers.assert_is_valid_tcp_udp_port (Int64.to_int port) "port" ;
   let port_str = Int64.to_string port in
   let protocol_str = Record_util.sdn_port_protocol_to_string protocol in
   let value = protocol_str ^ ":" ^ port_str in
-  Db.SDN_controller.remove_local_ports ~__context ~self ~value
+  Db.SDN_controller.remove_local_ports ~__context ~self ~value ;
+  List.iter
+    (fun host -> Helpers.update_vswitch_controller ~__context ~host)
+    (Db.Host.get_all ~__context)

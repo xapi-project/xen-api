@@ -5295,13 +5295,7 @@ functor
           (sdn_controller_uuid ~__context self)
           (Record_util.sdn_port_protocol_to_string protocol)
           (Int64.to_string port) ;
-        let local_fn = Local.SDN_controller.add_local_port ~self ~protocol ~port in
-        List.iter
-          (fun host ->
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.SDN_controller.add_local_port rpc session_id self protocol
-                  port))
-          (Db.Host.get_all ~__context)
+        Local.SDN_controller.add_local_port ~__context ~self ~protocol ~port
 
       let remove_local_port ~__context ~self ~protocol ~port =
         info
@@ -5310,13 +5304,7 @@ functor
           (sdn_controller_uuid ~__context self)
           (Record_util.sdn_port_protocol_to_string protocol)
           (Int64.to_string port) ;
-        let local_fn = Local.SDN_controller.remove_local_port ~self ~protocol ~port in
-        List.iter
-          (fun host ->
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.SDN_controller.remove_local_port rpc session_id self protocol
-                  port))
-          (Db.Host.get_all ~__context)
+        Local.SDN_controller.remove_local_port ~__context ~self ~protocol ~port
     end
 
     module PUSB = struct
