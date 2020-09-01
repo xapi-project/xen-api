@@ -191,19 +191,34 @@ let rec split_c c str =
     :: split_c c (String.sub str (i + 1) (String.length str - i - 1))
   with Not_found -> [str]
 
-let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn _bt =
-  Backtrace.is_important exn ;
-  let all = split_c '\n' Backtrace.(to_string_hum (remove exn)) in
+let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
+  (* We already got the backtrace in the `bt` argument when called from with_thread_associated.
+     Log that, and remove `exn` from the backtraces table.
+     If with_backtraces was not nested then looking at `bt` is the only way to get
+     a proper backtrace, otherwise exiting from `with_backtraces` would've removed the backtrace
+     from the thread-local backtraces table, and we'd always just log a message complaining about
+     with_backtraces not being called, which is not true because it was.
+  *)
+  let bt' = Backtrace.remove exn in
+  (* bt could be empty, but bt' would contain a non-empty warning, so compare 'bt' here *)
+  let bt = if bt = Backtrace.empty then bt' else bt in
+  let all = split_c '\n' Backtrace.(to_string_hum bt) in
   (* Write to the log line at a time *)
   output_log "backtrace" level msg
     (Printf.sprintf "Raised %s" (Printexc.to_string exn)) ;
   List.iter (output_log "backtrace" level msg) all
 
-let log_backtrace e bt = log_backtrace_exn e bt
+let log_backtrace_internal ?level ?msg e _bt =
+ Backtrace.is_important e;
+ log_backtrace_exn ?level ?msg e (Backtrace.remove e)
+
+let log_backtrace e bt = log_backtrace_internal e bt
 
 let with_thread_associated task f x =
   ThreadLocalTable.add tasks task ;
-  let result = Backtrace.with_backtraces (fun () -> f x) in
+  let result = Backtrace.with_backtraces (fun () ->
+	try f x
+	with e -> Backtrace.is_important e; raise e) in
   ThreadLocalTable.remove tasks ;
   match result with
   | `Ok result ->
@@ -214,7 +229,7 @@ let with_thread_associated task f x =
       output_log "backtrace" Syslog.Err "error"
         (Printf.sprintf "%s failed with exception %s" task
            (Printexc.to_string exn)) ;
-      log_backtrace exn bt ;
+      log_backtrace_exn exn bt ;
       raise exn
 
 let with_thread_named name f x =
@@ -299,5 +314,5 @@ functor
 
     let log_and_ignore_exn f =
       try f ()
-      with e -> log_backtrace_exn ~level:Syslog.Debug ~msg:"debug" e ()
+      with e -> log_backtrace_internal ~level:Syslog.Debug ~msg:"debug" e ()
   end
