@@ -225,6 +225,7 @@ let check ?(extra_dmsg = "") ?(extra_msg = "") ?args ?(keys = []) ~__context ~fn
         ?sexpr_of_args ?args ~result () ;
       result
     with error ->
+      Backtrace.is_important error;
       (* catch all exceptions *)
       Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action
         ~permission ?sexpr_of_args ?args ~error () ;
