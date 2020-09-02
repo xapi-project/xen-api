@@ -1183,6 +1183,9 @@ module Resources = struct
     ; ( "generate_ssl_cert"
       , Constants.generate_ssl_cert
       , "script to generate SSL certificates to be used by XAPI" )
+    ; ( "openssl_path"
+      , Constants.openssl_path
+      , "Path for openssl command to generate RSA keys" )
     ]
 
   let nonessential_executables =
