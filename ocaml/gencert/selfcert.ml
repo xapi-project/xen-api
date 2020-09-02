@@ -17,6 +17,8 @@ module Rsa = Mirage_crypto_pk.Rsa
 module UX = Xapi_stdext_unix.Unixext
 open Rresult (* introduces >>= >>| and R *)
 
+module D = Debug.Make (struct let name = "gencert_selfcert" end)
+
 (** initialize the random number generator at program startup when this
 module is loaded. *)
 let () = Mirage_crypto_rng_unix.initialize ()
@@ -69,8 +71,46 @@ let sign days key pubkey issuer req alt_names =
   | _ ->
       R.error_msgf "public/private keys don't match (%s)" __LOC__
 
+(** call openssl and return stdout, stderr as strings *)
+let call_openssl args =
+  let openssl = !Constants.openssl_path in
+  let home =
+    match Sys.getenv_opt "HOME" with
+    | None ->
+        D.warn
+          "environment variable 'HOME' is unavailable, falling back to \
+           HOME=/root" ;
+        "/root"
+    | Some path ->
+        path
+  in
+  let env =
+    [|"PATH=" ^ String.concat ":" Forkhelpers.default_path; "HOME=" ^ home|]
+  in
+  Forkhelpers.execute_command_get_output openssl ~env args
+
+(** [generate_private_key] calls openssl to generate an RSA key of
+  [length] bits. *)
+let generate_private_key length =
+  let args = ["genrsa"; string_of_int length] in
+  let stdout, _stderr = call_openssl args in
+  stdout
+
 let selfsign name alt_names length days certfile =
-  let rsa = Rsa.generate ~bits:length () in
+  let rsa =
+    try
+      generate_private_key length
+      |> Cstruct.of_string
+      |> X509.Private_key.decode_pem
+      |> R.get_ok
+      |> function
+      | `RSA x ->
+          x
+    with e ->
+      D.error "generating RSA key for %s failed: %s" certfile
+        (Printexc.to_string e) ;
+      failwith (Printf.sprintf "generating RSA key for %s failed" certfile)
+  in
   let privkey = `RSA rsa in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
   let issuer =
