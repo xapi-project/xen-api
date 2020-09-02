@@ -42,6 +42,10 @@ def info(message, *args, **kwargs):
     _LOGGER.info(message, *args, **kwargs)
 
 
+def warning(message, *args, **kwargs):
+    _LOGGER.warning(message, *args, **kwargs)
+
+
 def error(message, *args, **kwargs):
     _LOGGER.error(message, *args, **kwargs)
 
