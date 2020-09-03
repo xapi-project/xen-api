@@ -1192,3 +1192,5 @@ let cluster_host_not_joined = "CLUSTER_HOST_NOT_JOINED"
 let no_cluster_hosts_reachable = "NO_CLUSTER_HOSTS_REACHABLE"
 
 let xen_incompatible = "XEN_INCOMPATIBLE"
+
+let vcpu_max_not_cores_per_socket_multiple = "VCPU_MAX_NOT_CORES_PER_SOCKET_MULTIPLE"
