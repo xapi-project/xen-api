@@ -425,7 +425,7 @@ let consider_touching_session rpc session_id =
 
 (* Make sure the pool secret matches *)
 let slave_login_common ~__context ~host_str ~psecret =
-  if not (Helpers.is_pool_secret_valid psecret) then (
+  if not (Helpers.PoolSecret.is_authorized psecret) then (
     let msg = "Pool credentials invalid" in
     debug "Failed to authenticate slave %s: %s" host_str msg ;
     raise

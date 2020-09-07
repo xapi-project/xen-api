@@ -128,7 +128,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
             ) ;
             rbac_check session_id)
     | None, Some pool_secret, _ ->
-        if Helpers.is_pool_secret_valid pool_secret then
+        if Helpers.PoolSecret.is_authorized pool_secret then
           fn ()
         else
           raise (Http.Unauthorised realm)

@@ -843,6 +843,8 @@ let sr_health_check_task_label = "SR Recovering"
 
 let domain_zero_domain_type = `pv
 
+let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
+
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -1235,6 +1237,9 @@ module Resources = struct
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script
       , "Path to NVIDIA sriov-manage script" )
+    ; ( "gen_pool_secret_script"
+      , gen_pool_secret_script
+      , "Generates new pool secrets" )
     ]
 
   let essential_files =

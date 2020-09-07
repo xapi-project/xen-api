@@ -858,28 +858,6 @@ let pool_has_different_host_platform_versions ~__context =
   in
   List.fold_left ( || ) false (List.map is_different_to_me platform_versions)
 
-(* Read pool secret if it exists; otherwise, create a new one. *)
-let get_pool_secret () =
-  ( try
-      Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
-      let ps =
-        Unixext.string_of_file !Xapi_globs.pool_secret_path
-        |> SecretString.of_string
-      in
-      pool_secrets := [ps] ;
-      Db_globs.pool_secret :=
-        ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
-    with _ ->
-      (* No pool secret exists. *)
-      let module Ptoken = Genptokenlib.Lib in
-      let ps = Ptoken.gen_token () in
-      Xapi_globs.pool_secrets := [ps] ;
-      Db_globs.pool_secret :=
-        ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
-      SecretString.write_to_file !Xapi_globs.pool_secret_path ps
-  ) ;
-  Xapi_psr_util.load_psr_pool_secrets ()
-
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
 let host_has_pbd_for_sr ~__context ~host ~sr =
@@ -1804,5 +1782,83 @@ end = struct
       raise e
 end
 
-let is_pool_secret_valid pool_secret =
-  List.exists (SecretString.equal pool_secret) !Xapi_globs.pool_secrets
+module PoolSecret : sig
+  val make : unit -> SecretString.t
+
+  val is_authorized : SecretString.t -> bool
+
+  val refresh_cache_or_create_new : unit -> unit
+end = struct
+  let to_secret x =
+    (* an opaque failure arises when a pool secret
+       contains a newline char, because a newline is
+       not encoded properly when putting the pool secret
+       into an http cookie. we enforce that the pool
+       secret has a certain form to avoid this kind
+       of issue
+    *)
+    let has_valid_chars =
+      Astring.(
+        String.for_all
+          (fun c -> Char.Ascii.is_alphanum c || c = '-' || c = '/')
+          x)
+    in
+    let sufficiently_secret = String.length x > 36 in
+    if has_valid_chars && sufficiently_secret |> not then
+      raise
+        Api_errors.(
+          Server_error
+            ( internal_error
+            , [
+                {|expected pool secret to match the following regex '^[0-9a-f\/\-]{37,}$'|}
+              ] )) ;
+    SecretString.of_string x
+
+  let _make () =
+    (* by default we generate the pool secret using /dev/urandom,
+       but if a script to generate the pool secret exists, use that instead *)
+    let make_urandom () =
+      Stdlib.List.init 3 (fun _ -> Uuid.(make_uuid_urnd () |> to_string))
+      |> String.concat "/"
+    in
+    let make_script () =
+      try call_script !Xapi_globs.gen_pool_secret_script []
+      with _ ->
+        info "helpers.ml:PoolSecret._make: script failed, using urandom instead" ;
+        make_urandom ()
+    in
+    let use_script =
+      try
+        Unix.access !Xapi_globs.gen_pool_secret_script [Unix.X_OK] ;
+        true
+      with _ -> false
+    in
+    if use_script then
+      make_script ()
+    else
+      make_urandom ()
+
+  let make () = _make () |> to_secret
+
+  let is_authorized x =
+    List.exists (SecretString.equal x) !Xapi_globs.pool_secrets
+
+  (* here, the caches are the globs.
+     - if pool secret exists on disk, use that
+     - else generate a new one *)
+  let refresh_cache_or_create_new () =
+    let ps =
+      ( try
+          Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
+          Unixext.string_of_file !Xapi_globs.pool_secret_path
+        with _ -> (* No pool secret exists. *)
+                  _make ()
+      )
+      |> to_secret
+    in
+    Xapi_globs.pool_secrets := [ps] ;
+    Db_globs.pool_secret :=
+      ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
+    SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
+    Xapi_psr_util.load_psr_pool_secrets ()
+end

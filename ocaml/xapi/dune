@@ -48,7 +48,6 @@
    domain-name
    ezxenstore.core
    gencertlib
-   genptokenlib
    message-switch-unix
    mtime
    mtime.clock.os
@@ -67,6 +66,7 @@
    xapi_aux
    stdext
    threads
+   uuid
    xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd

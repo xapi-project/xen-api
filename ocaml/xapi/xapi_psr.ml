@@ -468,8 +468,6 @@ module HostSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
-module Ptoken = Genptokenlib.Lib
-
 let start =
   let m = Mutex.create () in
   let with_lock f =
@@ -547,7 +545,7 @@ let start =
         let module PSR = Make (Impl (struct let __context = __context end)) in
         let r =
           PSR.start
-            (Xapi_globs.pool_secret (), Ptoken.gen_token ())
+            (Xapi_globs.pool_secret (), Helpers.PoolSecret.make ())
             ~master ~members
         in
         match r with

@@ -927,7 +927,9 @@ let server_init () =
           ; ("Setting stunnel timeout", [], set_stunnel_timeout)
           ; ("Initialising local database", [], init_local_database)
           ; ("Loading DHCP leases", [], Xapi_udhcpd.init)
-          ; ("Reading pool secret", [], Helpers.get_pool_secret)
+          ; ( "Reading pool secret"
+            , []
+            , Helpers.PoolSecret.refresh_cache_or_create_new )
           ; ("Logging xapi version info", [], Xapi_config.dump_config)
           ; ("Setting signal handlers", [], signals_handling)
           ; ("Initialising random number generator", [], random_setup)
