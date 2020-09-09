@@ -2,42 +2,40 @@ module Fring = Rrd.Fring
 
 module Cb = Crowbar
 
-(* cast double-precision float to single-precision *)
-let castd2s min max =
+(* cast double-precision floats to single-precision and return them in
+   ascending order *)
+let castd2s x y =
   let _data = Bigarray.Array1.create Bigarray.float32 Bigarray.c_layout 1 in
-  Bigarray.Array1.set _data 0 min;
-  let min = Bigarray.Array1.get _data 0 in
-  Bigarray.Array1.set _data 0 max;
-  let max = Bigarray.Array1.get _data 0 in
-  min, max
+  Bigarray.Array1.set _data 0 x;
+  let x = Bigarray.Array1.get _data 0 in
+  Bigarray.Array1.set _data 0 y;
+  let y = Bigarray.Array1.get _data 0 in
+  if x > y then
+    y, x
+  else x, y
 
 let in_range min max values =
   let between value =
     if Rrd.Utils.isnan value then
       true
     else if min > value then (
-      Printf.printf "value (%f) lower than min (%f); " value min;
-      false
+      Cb.fail (Printf.sprintf "value (%f) lower than min (%f); " value min)
     ) else if max < value then (
-      Printf.printf "value (%f) higher than max (%f); " value max;
-      false
+      Cb.fail (Printf.sprintf "value (%f) higher than max (%f); " value max)
     ) else
       true
     in
-  Cb.check @@ List.for_all between values
-
-let fring_to_list fring =
-  Array.to_list @@ Fring.get fring
+  Cb.check @@ Array.for_all between values
 
 (* Checks if all the values in the archives are within the limits set by the data sources
  * Each archive (RRA) has a ring for each datasource (DS) *)
 let test_ranges rrd =
   let open Rrd in
   let in_range_fring ds fring =
-    in_range ds.ds_min ds.ds_max (fring_to_list fring) in
+    in_range ds.ds_min ds.ds_max (Fring.get fring) in
   let in_range_rra dss rra =
-    List.iter2 in_range_fring dss (Array.to_list rra.rra_data) in
-  List.iter (in_range_rra @@ Array.to_list rrd.rrd_dss) (Array.to_list rrd.rrd_rras)
+    Array.iter2 in_range_fring dss rra.rra_data in
+  Array.iter (in_range_rra rrd.rrd_dss) rrd.rrd_rras
 
 let same_input_type vf vf' =
   let open Rrd in
@@ -76,34 +74,24 @@ let ds_value =
    *)
 let ds =
   let open Rrd in
-  Cb.choose [
-    Cb.map Cb.[ds_value; float; float] (fun v min max ->
-      let min, max = castd2s min max in
-      Cb.guard (min < max); ds_create "derive" ~min ~max Derive v);
-    Cb.map Cb.[ds_value; float; float] (fun v min max ->
-      let min, max = castd2s min max in
-      Cb.guard (min < max); ds_create "absolute" ~min ~max Absolute v);
-    Cb.map Cb.[ds_value; float; float] (fun v min max ->
-      let min, max = castd2s min max in
-      Cb.guard (min < max); ds_create "gauge" ~min ~max Gauge v)
-  ]
+  let ds_type = Cb.(choose [const Derive; const Absolute; const Gauge]) in
+  Cb.(map [ds_value; float; float; ds_type] (fun v x y typ ->
+      let min, max = castd2s x y in
+      ds_create (ds_type_to_string typ) ~min ~max typ v))
 
 let rrd =
-  Cb.map Cb.[list1 int64; rra; ds] (fun values rra ds ->
+  Cb.(map [list1 int64; rra; ds]) (fun values rra ds ->
 
     let open Rrd in
     let init_time = 0. in
 
     let rrd = rrd_create [|ds|] [|rra|] 5L init_time in
 
-    let id = fun x -> x in
-
     List.iteri (fun i v ->
       let t = 5. *. (init_time +. float_of_int i) in
-      ds_update rrd t [|VT_Int64 v|] [|id|] (i = 0)
+      ds_update rrd t [|VT_Int64 v|] [|Fun.id|] (i = 0)
     ) values;
     rrd
   )
 let () =
-  Cb.add_test ~name:"Out-of-bounds rates in archives" [rrd] @@ fun rrd ->
-    test_ranges rrd
+  Cb.add_test ~name:"Out-of-bounds rates in archives" [rrd] test_ranges
