@@ -325,7 +325,6 @@ let () =
     "RRD for CA-322008", rrd_suite ca_322008_rrd;
     "RRD for CA-329043", rrd_suite ca_329043_rrd_1;
     "RRD for CA-329813", rrd_suite ca_329813_rrd;
-    "RRD for CA-322008", rrd_suite ca_322008_rrd;
     "CP-33354", suite_create_multi;
     "Regressions", regression_suite;
   ]
