@@ -143,26 +143,8 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
       Ok [pkcs8_private_key; pem_leaf; pem_chain])
     pem_chain
   >>= fun server_cert_components ->
-  let cert_server =
-    server_cert_components |> String.concat "\n\n" |> Bytes.unsafe_of_string
-  in
-  let owner_ro = 0o400 in
-  let atomic_write fd =
-    Unix.write fd cert_server 0 (Bytes.length cert_server)
-  in
-  try
-    let (_ : int) =
-      Xapi_stdext_unix.Unixext.atomic_write_to_file server_cert_path owner_ro
-        atomic_write
-    in
-    Ok cert
-  with Unix.Unix_error (err, _, _) ->
-    Error
-      (`Msg
-        ( internal_error
-        , [
-            Printf.sprintf
-              "certificates: could not write server certificate to disk. \
-               Reason: %s"
-              (Unix.error_message err)
-          ] ))
+  server_cert_components
+  |> String.concat "\n\n"
+  |> Selfcert.write_certs server_cert_path
+  |> R.reword_error (function `Msg msg -> `Msg (internal_error, [msg]))
+  >>= fun () -> R.ok cert
