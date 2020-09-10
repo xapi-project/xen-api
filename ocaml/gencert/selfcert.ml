@@ -25,15 +25,16 @@ let () = Mirage_crypto_rng_unix.initialize ()
 
 let defer f = Fun.protect ~finally:f
 
-(** [write_cert] writes a PEM file to [path]. It attempts to do that
-  atomically by writing to a temporary file in the same directory first and
-  renaming the file at the end *)
+(** [write_cert] writes a PKCS12 file to [path], containing the private
+RSA [key] and [cert]. The typical file extension would be ".pem" . It
+attempts to do that atomically by writing to a temporary file in the
+same directory first and renaming the file at the end *)
 let write_certs path key cert =
   let delim = "\n" in
   let temp_dir = Filename.dirname path in
   let tmp = Filename.temp_file ~temp_dir "certify-" ".tmp" in
   try
-    let fd = Unix.openfile tmp [Unix.O_WRONLY] 0o600 in
+    let fd = Unix.openfile tmp [Unix.O_WRONLY] 0o400 in
     defer (fun () -> Unix.close fd) @@ fun () ->
     UX.really_write fd (Cstruct.to_string key) 0 (Cstruct.len key) ;
     UX.really_write_string fd delim ;
@@ -102,14 +103,16 @@ let selfsign name alt_names length days certfile =
       generate_private_key length
       |> Cstruct.of_string
       |> X509.Private_key.decode_pem
-      |> R.get_ok
+      |> R.failwith_error_msg
       |> function
       | `RSA x ->
           x
     with e ->
-      D.error "generating RSA key for %s failed: %s" certfile
-        (Printexc.to_string e) ;
-      failwith (Printf.sprintf "generating RSA key for %s failed" certfile)
+      let msg =
+        Printf.sprintf "generating RSA key for %s failed: %s" certfile
+          (Printexc.to_string e)
+      in
+      D.error "%s" msg ; failwith msg
   in
   let privkey = `RSA rsa in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
