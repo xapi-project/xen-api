@@ -24,9 +24,9 @@ let switch_path = ref "/var/run/message-switch/sock"
 let use_switch = ref true
 
 let get_ok = function
-  | `Ok x ->
+  | Ok x ->
       x
-  | `Error e ->
+  | Error e ->
       let b = Buffer.create 16 in
       let fmt = Format.formatter_of_buffer b in
       Message_switch_unix.Protocol_unix.Client.pp_error fmt e ;
