@@ -23,25 +23,19 @@ module D = Debug.Make (struct let name = "gencert_selfcert" end)
 module is loaded. *)
 let () = Mirage_crypto_rng_unix.initialize ()
 
-let defer f = Fun.protect ~finally:f
-
 (** [write_cert] writes a PKCS12 file to [path], containing the private
 RSA [key] and [cert]. The typical file extension would be ".pem" . It
 attempts to do that atomically by writing to a temporary file in the
 same directory first and renaming the file at the end *)
 let write_certs path key cert =
   let delim = "\n" in
-  let temp_dir = Filename.dirname path in
-  let tmp = Filename.temp_file ~temp_dir "certify-" ".tmp" in
-  try
-    let fd = Unix.openfile tmp [Unix.O_WRONLY] 0o400 in
-    defer (fun () -> Unix.close fd) @@ fun () ->
+  let f () =
+    UX.atomic_write_to_file path 0o400 @@ fun fd ->
     UX.really_write fd (Cstruct.to_string key) 0 (Cstruct.len key) ;
     UX.really_write_string fd delim ;
-    UX.really_write fd (Cstruct.to_string cert) 0 (Cstruct.len cert) ;
-    Unix.rename tmp path ;
-    R.ok ()
-  with e -> R.error_msg (Printexc.to_string e)
+    UX.really_write fd (Cstruct.to_string cert) 0 (Cstruct.len cert)
+  in
+  R.trap_exn f () |> R.error_exn_trap_to_msg
 
 let expire_in days =
   let seconds = days * 24 * 60 * 60 in
