@@ -278,9 +278,9 @@ module RRD = struct
 
   let ( >>|= ) m f =
     m >>= function
-    | `Ok x ->
+    | Ok x ->
         f x
-    | `Error y ->
+    | Error y ->
         let b = Buffer.create 16 in
         let fmt = Format.formatter_of_buffer b in
         Client.pp_error fmt y ;
@@ -1459,9 +1459,9 @@ let servers = String.Table.create () ~size:4
 
 (* XXX: need a better error-handling strategy *)
 let get_ok = function
-  | `Ok x ->
+  | Ok x ->
       x
-  | `Error e ->
+  | Error e ->
       let b = Buffer.create 16 in
       let fmt = Format.formatter_of_buffer b in
       Message_switch_unix.Protocol_unix.Server.pp_error fmt e ;
