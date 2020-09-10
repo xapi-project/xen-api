@@ -398,6 +398,6 @@ let xapi_user_agent =
 (* Path to the pool configuration file. *)
 let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
 
-let generate_ssl_cert = ref "/opt/xensource/libexec/gencert"
+let gencert = ref "/opt/xensource/libexec/gencert"
 
 let openssl_path = ref "/usr/bin/openssl"
