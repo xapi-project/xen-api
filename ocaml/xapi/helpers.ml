@@ -1833,7 +1833,7 @@ end = struct
       |> String.concat "/"
     in
     let make_script () =
-      try call_script !Xapi_globs.gen_pool_secret_script []
+      try call_script ~log_output:Never !Xapi_globs.gen_pool_secret_script []
       with _ ->
         info "helpers.ml:PoolSecret._make: script failed, using urandom instead" ;
         make_urandom ()
