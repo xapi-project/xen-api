@@ -1400,8 +1400,14 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
 
 let emergency_reset_server_certificate ~__context =
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
-  let common_name = Helper_hostname.get_hostname () in
-  let alt_names = [] in
+  let common_name, alt_names =
+    match Gencertlib.Lib.hostnames () with
+    | cn :: alt ->
+        (cn, alt)
+    | [] ->
+        (Helper_hostname.get_hostname (), [])
+    (* should never happen *)
+  in
   Gencertlib.Selfcert.host common_name alt_names xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
