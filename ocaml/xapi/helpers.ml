@@ -39,7 +39,19 @@ let log_exn_continue msg f x =
   with e ->
     debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
-let call_script ?(log_successful_output = true) ?env script args =
+type log_output = Always | Never | On_failure
+
+let call_script ?(log_output = Always) ?env script args =
+  let should_log_output_on_success, should_log_output_on_failure =
+    match log_output with
+    | Always ->
+        (true, true)
+    | Never ->
+        (false, false)
+    | On_failure ->
+        (false, true)
+  in
+  debug "about to call script: %s" script ;
   try
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
@@ -47,7 +59,7 @@ let call_script ?(log_successful_output = true) ?env script args =
       match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
     in
     let output, _ = Forkhelpers.execute_command_get_output ~env script args in
-    if log_successful_output then
+    if should_log_output_on_success then
       debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args)
         output ;
     output
@@ -66,8 +78,9 @@ let call_script ?(log_successful_output = true) ?env script args =
         | Unix.WSTOPPED n ->
             Printf.sprintf "was stopped by signal %d" n
       in
-      debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
-        (String.concat " " args) message stdout stderr ;
+      if should_log_output_on_failure then
+        debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
+          (String.concat " " args) message stdout stderr ;
       raise e
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
@@ -252,11 +265,9 @@ let update_getty () =
   (* Running update-issue service on best effort basis *)
   try
     ignore
-      (call_script ~log_successful_output:false
-         !Xapi_globs.update_issue_script
-         []) ;
+      (call_script ~log_output:On_failure !Xapi_globs.update_issue_script []) ;
     ignore
-      (call_script ~log_successful_output:false
+      (call_script ~log_output:On_failure
          !Xapi_globs.kill_process_script
          ["-q"; "-HUP"; "-r"; ".*getty"])
   with e -> warn "Unable to update getty at %s" __LOC__

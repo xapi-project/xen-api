@@ -56,13 +56,13 @@ exception Xha_error of Xha_errno.code
 (** Only call one xHA script at a time *)
 let ha_script_m = Mutex.create ()
 
-let call_script ?log_successful_output script args =
+let call_script ?log_output script args =
   let path = ha_dir () in
   let script' = Filename.concat path script in
   let env = [|Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path|] in
   try
     Stdext.Threadext.Mutex.execute ha_script_m (fun () ->
-        Helpers.call_script ?log_successful_output ~env script' args)
+        Helpers.call_script ?log_output ~env script' args)
   with Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
     let code = Xha_errno.of_int n in
     warn "%s %s returned %s (%s)" script' (String.concat " " args)
@@ -76,7 +76,7 @@ let can_unplug_statefile_pbd () =
   (* During shutdown we execute a soft emergency HA disable, which means that HA will still look to be armed in the localdb,
      so we cannot use that to determine if it is safe to unplug.
      However during shutdown we stop the daemon, so querying the liveset should fail with daemon not running *)
-  match call_script ~log_successful_output:false ha_query_liveset [] with
+  match call_script ~log_output:On_failure ha_query_liveset [] with
   | exception Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
       info "HA daemon not running: safe to unplug statefile PBD" ;
       true
