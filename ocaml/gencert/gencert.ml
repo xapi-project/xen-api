@@ -29,25 +29,11 @@ let generate_cert_or_fail ~path ~cn ~sans =
     exit 1
   )
 
-(* Try to get all FQDNs, use the hostname if none are available *)
-let hostnames () =
-  let hostname = Unix.gethostname () in
-  let fqdns =
-    Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
-    |> List.filter_map (fun addrinfo ->
-           match addrinfo.Unix.ai_canonname with
-           | "" ->
-               None
-           | name ->
-               Some name)
-  in
-  match fqdns with [] -> [hostname] | fqdns -> fqdns
-
 let main ~dbg ~path =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
   let hostname, sans =
-    match hostnames () with
+    match Lib.hostnames () with
     | [] ->
         D.error "can't infer hostname for SSL certificate" ;
         exit 1
