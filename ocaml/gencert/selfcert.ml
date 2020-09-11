@@ -122,4 +122,7 @@ let selfsign name alt_names length days certfile =
 let host name alt_names pemfile =
   let expire_days = 3650 in
   let length = 2048 in
-  selfsign name alt_names length expire_days pemfile |> R.failwith_error_msg
+  (* make sure name is part of alt_names because CN is deprecated and
+     that there are no duplicates *)
+  let alt = Astring.String.uniquify (name :: alt_names) in
+  selfsign name alt length expire_days pemfile |> R.failwith_error_msg
