@@ -145,8 +145,10 @@ val create :
      __context:Context.t
   -> name_label:string
   -> name_description:string
+  -> power_state:API.vm_power_state
   -> user_version:int64
   -> is_a_template:bool
+  -> suspend_VDI:API.ref_VDI
   -> affinity:[`host] Ref.t
   -> memory_target:int64
   -> memory_static_max:int64
@@ -177,6 +179,8 @@ val create :
   -> platform:(string * string) list
   -> pCI_bus:string
   -> other_config:(string * string) list
+  -> last_boot_CPU_flags:(string * string) list
+  -> last_booted_record:string
   -> recommendations:string
   -> xenstore_data:(string * string) list
   -> ha_always_run:bool

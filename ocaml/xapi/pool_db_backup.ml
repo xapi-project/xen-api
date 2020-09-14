@@ -15,8 +15,10 @@
  * @group Pool Management
 *)
 
-open Stdext
-open Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Client
 open Db_cache_types
 
@@ -218,7 +220,7 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
           let tmp_xml_file = Filename.temp_file "" "xml_file" in
           let xml_file_fd = Unix.openfile tmp_xml_file [Unix.O_WRONLY] 0o600 in
           let () =
-            Pervasiveext.finally
+            finally
               (fun () -> ignore (Unixext.copy_file ~limit:l s xml_file_fd))
               (fun () -> Unix.close xml_file_fd)
           in
@@ -282,7 +284,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
     (* flush backup to each of our database connections *)
     List.iter
       (fun dbconn ->
-        Threadext.Mutex.execute slave_backup_m (fun () ->
+        Xapi_stdext_threads.Threadext.Mutex.execute slave_backup_m (fun () ->
             Db_connections.flush dbconn db ;
             Slave_backup.notify_write dbconn
             (* update writes_this_period for this connection *)))

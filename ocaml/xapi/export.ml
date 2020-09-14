@@ -36,8 +36,9 @@
     to the VBDs, SRs connected to the VDIs (and maybe a suspend image?). *)
 
 open Importexport
-open Stdext
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
+module Date = Xapi_stdext_date.Date
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "export" end)
 
@@ -588,10 +589,10 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
       ~include_vhd_parents ~__context ~vms
   in
   let hdr =
-    Tar_unix.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml)
+    Tar.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml)
   in
-  Tar_unix.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
-  Tar_unix.write_end s
+  Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
+  Tar_helpers.write_end s
 
 let export refresh_session __context rpc session_id s vm_ref
     preserve_power_state =
@@ -604,9 +605,9 @@ let export refresh_session __context rpc session_id s vm_ref
   in
   debug "Outputting ova.xml" ;
   let hdr =
-    Tar_unix.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml)
+    Tar.Header.make Xva.xml_filename (Int64.of_int @@ String.length ova_xml)
   in
-  Tar_unix.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
+  Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
   (* Only stream the disks that are in the table AND which are not CDROMs (ie whose VBD.type <> CD
      and whose SR.content_type <> "iso" *)
   let vbds = Db.VM.get_VBDs ~__context ~self:vm_ref in
@@ -642,7 +643,7 @@ let export refresh_session __context rpc session_id s vm_ref
   in
   Stream_vdi.send_all refresh_session s __context rpc session_id vdis ;
   (* We no longer write the end-of-tar checksum table, preferring the inline ones instead *)
-  Tar_unix.write_end s ;
+  Tar_helpers.write_end s ;
   debug "export VM = %s completed successfully" (Ref.string_of vm_ref)
 
 open Http

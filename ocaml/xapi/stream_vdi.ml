@@ -15,12 +15,13 @@
  * @group Storage
 *)
 
-open Stdext
-open Xstringext
 open Debug
 open Http
 open Forkhelpers
-open Pervasiveext
+module Zerocheck = Xapi_stdext_zerocheck.Zerocheck
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 exception Failure of string
 
@@ -56,9 +57,7 @@ let with_open_vdi __context rpc session_id vdi_ref mode flags perms f =
     (fun dom0_path ->
       debug "with_open_vdi opening: %s" dom0_path ;
       let ofd = Unix.openfile dom0_path flags perms in
-      Pervasiveext.finally
-        (fun () -> f ofd dom0_path)
-        (fun () -> Unix.close ofd))
+      finally (fun () -> f ofd dom0_path) (fun () -> Unix.close ofd))
 
 (** Used to sort VDI prefixes into a canonical order for streaming. Currently lexicographic
     sort on the externalised reference (used as a 'directory name') *)
@@ -107,22 +106,22 @@ let made_progress __context progress n =
 
 (** Write a block of checksummed data of length [len] with name [filename] to [ofd] *)
 let write_block ~__context filename buffer ofd len =
-  let hdr = Tar_unix.Header.make filename (Int64.of_int len) in
+  let hdr = Tar.Header.make filename (Int64.of_int len) in
   try
     let csum =
       Printf.sprintf "%016LX"
         (XXHash.XXH64.hash (Bytes.unsafe_to_string buffer))
     in
-    Tar_unix.write_block hdr
+    Tar_helpers.write_block hdr
       (fun ofd -> Unix.write ofd buffer 0 len |> ignore)
       ofd ;
     (* Write the checksum as a separate file *)
     let hdr' =
-      Tar_unix.Header.make
+      Tar.Header.make
         (filename ^ checksum_extension_xxh)
         (Int64.of_int (String.length csum))
     in
-    Tar_unix.write_block hdr'
+    Tar_helpers.write_block hdr'
       (fun ofd -> ignore (Unix.write_substring ofd csum 0 (String.length csum)))
       ofd
   with Unix.Unix_error (a, b, c) as e ->
@@ -392,7 +391,7 @@ let verify_inline_checksum ifd checksum_table hdr =
     let csum = Bytes.make length' ' ' in
     Unixext.really_read ifd csum 0 length' ;
     let csum = Bytes.unsafe_to_string csum in
-    Tar_unix.Archive.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr) ;
+    Tar_helpers.skip ifd (Tar_unix.Header.compute_zero_padding_length hdr) ;
     (* Look up the relevant file_name in the checksum_table *)
     let original_file_name = Filename.remove_extension file_name in
     let csum' = List.assoc original_file_name !checksum_table in
@@ -438,7 +437,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
               firstchunklength := Int64.to_int length ;
               zerochunkstring := Bytes.make !firstchunklength '\000'
             ) ;
-            if not (String.startswith prefix file_name) then (
+            if not (Astring.String.is_prefix ~affix:prefix file_name) then (
               error "Expected VDI chunk prefixed %s; got %s" prefix file_name ;
               raise (Failure "Invalid XVA file")
             ) ;
@@ -501,7 +500,7 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
                   error "%s" msg ; raise (Failure msg)
             in
             checksum_table := (file_name, csum) :: !checksum_table ;
-            Tar_unix.Archive.skip ifd
+            Tar_helpers.skip ifd
               (Tar_unix.Header.compute_zero_padding_length hdr) ;
             made_progress __context progress (Int64.add skipped_size length) ;
             ( if has_inline_checksums then
@@ -556,7 +555,7 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
               refresh_session () ;
               let file_name = hdr.Tar_unix.Header.file_name in
               let length = hdr.Tar_unix.Header.file_size in
-              if String.startswith prefix file_name then (
+              if Astring.String.is_prefix ~affix:prefix file_name then (
                 let suffix =
                   String.sub file_name (String.length prefix)
                     (String.length file_name - String.length prefix)
@@ -570,8 +569,8 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
                 ) ;
                 debug "Decompressing %Ld bytes from %s\n" length file_name ;
                 Gzip.decompress ofd (fun zcat_in ->
-                    Tar_unix.Archive.copy_n ifd zcat_in length) ;
-                Tar_unix.Archive.skip ifd
+                    Tar_helpers.copy_n ifd zcat_in length) ;
+                Tar_helpers.skip ifd
                   (Tar_unix.Header.compute_zero_padding_length hdr) ;
                 (* XXX: this is totally wrong: *)
                 made_progress __context progress length ;

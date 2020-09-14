@@ -39,7 +39,7 @@ module type XXHASH = sig
   val with_state : ?seed:hash -> (state -> unit) -> hash
 end
 
-let check errorcode = if errorcode != 0 then raise XXH_error
+let check errorcode = if errorcode <> 0 then raise XXH_error
 
 module Make (Bindings : Xxhash_bindings.BINDINGS) = struct
   type hash = Bindings.hash

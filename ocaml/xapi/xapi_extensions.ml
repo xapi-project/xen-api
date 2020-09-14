@@ -50,7 +50,7 @@ let call_extension rpc =
                , [
                    path
                  ; Printf.sprintf "signal: %s"
-                     (Stdext.Unixext.string_of_signal i)
+                     (Xapi_stdext_unix.Unixext.string_of_signal i)
                  ; output
                  ; log
                  ] ))

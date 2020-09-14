@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Listext
-
 module D = Debug.Make (struct let name = "xapi_network_attach_helpers" end)
 
 open D
@@ -125,7 +122,9 @@ let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
         hosts = [] || List.mem host hosts
   in
   let avail_nets = List.filter (is_network_available_on host) reqd_nets in
-  let not_available = List.set_difference reqd_nets avail_nets in
+  let not_available =
+    Xapi_stdext_std.Listext.List.set_difference reqd_nets avail_nets
+  in
   List.iter
     (fun net ->
       warn "Host %s cannot see Network %s"

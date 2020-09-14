@@ -125,14 +125,13 @@ let test_migration_allowed_when_cbt_enabled_vdis_are_not_moved () =
         (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vM
            ~op:`migrate_send ~strict:true))
 
-let test_sxm_disallowed_when_rum () =
+let test_sxm_allowed_when_rum () =
   with_test_vm (fun __context vm_ref ->
       let master = Test_common.make_host __context () in
       let pool = Test_common.make_pool ~__context ~master () in
       Db.Pool.add_to_other_config ~__context ~self:pool
         ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"x" ;
-      compare_errors
-        (Some (Api_errors.not_supported_during_upgrade, []))
+      compare_errors None
         (Xapi_vm_lifecycle.check_operation_error ~__context ~ref:vm_ref
            ~op:`migrate_send ~strict:false) ;
       Db.Pool.remove_from_other_config ~__context ~self:pool
@@ -148,6 +147,6 @@ let test =
   ; ( "test_migration_allowed_when_cbt_enabled_vdis_are_not_moved"
     , `Quick
     , test_migration_allowed_when_cbt_enabled_vdis_are_not_moved )
-  ; ("test_sxm_disallowed_when_rum", `Quick, test_sxm_disallowed_when_rum)
+  ; ("test_sxm_allowed_when_rum", `Quick, test_sxm_allowed_when_rum)
   ; ("test_vm_set_nvram when VM is running", `Quick, test_vm_set_nvram_running)
   ]

@@ -15,8 +15,6 @@
  * @group Virtual-Machine Management
 *)
 
-open Stdext
-open Pervasiveext
 open Client
 open Forkhelpers
 open Xapi_templates
@@ -39,7 +37,7 @@ let is_whitelisted script =
   in
   let safe_str str =
     List.fold_left ( && ) true
-      (List.map safe_char (Xstringext.String.explode str))
+      (List.map safe_char (Xapi_stdext_std.Xstringext.String.explode str))
   in
   (* make sure the script prefix is the allowed dom0 directory *)
   Filename.dirname script = !Xapi_globs.post_install_scripts_dir

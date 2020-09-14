@@ -15,8 +15,6 @@
 
 exception Record_failure of string
 
-open Stdext.Xstringext
-
 let to_str = function Rpc.String x -> x | _ -> failwith "Invalid"
 
 let class_to_string cls =
@@ -828,6 +826,17 @@ let sdn_protocol_of_string s =
 
 let sdn_protocol_to_string = function `ssl -> "ssl" | `pssl -> "pssl"
 
+let tunnel_protocol_of_string s =
+  match String.lowercase_ascii s with
+  | "gre" ->
+      `gre
+  | "vxlan" ->
+      `vxlan
+  | _ ->
+      raise (Record_failure ("Expected 'gre','vxlan', got " ^ s))
+
+let tunnel_protocol_to_string = function `gre -> "gre" | `vxlan -> "vxlan"
+
 let pif_igmp_status_to_string = function
   | `enabled ->
       "enabled"
@@ -849,6 +858,8 @@ let network_sriov_configuration_mode_to_string = function
       "sysfs"
   | `modprobe ->
       "modprobe"
+  | `manual ->
+      "manual"
   | `unknown ->
       "unknown"
 
@@ -895,7 +906,6 @@ let domain_type_of_string x =
 
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
-  let isdigit c = c >= '0' && c <= '9' in
   let ( ** ) a b = Int64.mul a b in
   let max_size_TiB =
     Int64.div Int64.max_int (1024L ** 1024L ** 1024L ** 1024L)
@@ -913,7 +923,7 @@ let bytes_of_string field x =
                 field)) ;
       let alldigit = ref true and i = ref (String.length s - 1) in
       while !alldigit && !i > 0 do
-        alldigit := isdigit s.[!i] ;
+        alldigit := Astring.Char.Ascii.is_digit s.[!i] ;
         decr i
       done ;
       if !alldigit then
@@ -930,13 +940,22 @@ let bytes_of_string field x =
                  with suffix)"
                 field))
   in
-  match String.split_f (fun c -> String.isspace c || isdigit c) x with
+  match
+    Astring.(
+      String.fields ~empty:false ~is_sep:(fun c ->
+          Char.Ascii.(is_white c || is_digit c)))
+      x
+  with
   | [] ->
       (* no suffix on the end *)
       int64_of_string x
   | [suffix] ->
       let number =
-        match String.split_f (fun x -> not (isdigit x)) x with
+        match
+          Astring.(
+            String.fields ~empty:false ~is_sep:(Fun.negate Char.Ascii.is_digit))
+            x
+        with
         | [number] ->
             int64_of_string number
         | _ ->

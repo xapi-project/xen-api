@@ -68,8 +68,7 @@ let dm_to_string tys : O.Module.t =
       | DT.Bool ->
           "string_of_bool"
       | DT.DateTime ->
-          "fun x -> (try Date.assert_utc x with Invalid_argument s -> raise \
-           (DateTimeError s)); Date.to_string x"
+          "Date.to_string"
       | DT.Enum (name, cs) ->
           let aux (c, _) = OU.constructor_of c ^ " -> \"" ^ c ^ "\"" in
           "fun v -> match v with\n      "

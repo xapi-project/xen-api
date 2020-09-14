@@ -254,10 +254,11 @@ let ensure_vm_metrics_records_exist __context =
         let uuid = Uuid.to_string (Uuid.make_uuid ()) in
         Db.VM_metrics.create ~__context ~ref:m ~uuid ~vCPUs_number:0L
           ~vCPUs_utilisation:[] ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[]
-          ~vCPUs_flags:[] ~start_time:Stdext.Date.never
-          ~install_time:Stdext.Date.never ~state:[]
-          ~last_updated:(Stdext.Date.of_float 0.) ~other_config:[] ~hvm:false
-          ~nested_virt:false ~nomigrate:false ~current_domain_type:`unspecified ;
+          ~vCPUs_flags:[] ~start_time:Xapi_stdext_date.Date.never
+          ~install_time:Xapi_stdext_date.Date.never ~state:[]
+          ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
+          ~other_config:[] ~hvm:false ~nested_virt:false ~nomigrate:false
+          ~current_domain_type:`unspecified ;
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       ))
     (Db.VM.get_all __context)

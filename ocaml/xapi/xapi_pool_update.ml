@@ -12,17 +12,15 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Pervasiveext
-open Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Forkhelpers
 open Xml
 open Helpers
-open Listext
 open Client
-open Stdext.Threadext
-open Unixext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_pool_update" end)
 
@@ -44,7 +42,7 @@ type update_info = {
   ; name_label: string
   ; name_description: string
   ; version: string
-  ; key: string
+  ; key: string option
   ; installation_size: int64
   ; after_apply_guidance: API.after_apply_guidance list
   ; enforce_homogeneity: bool
@@ -99,8 +97,35 @@ let updates_to_attach_count_tbl : (string, int) Hashtbl.t = Hashtbl.create 10
 
 let updates_to_attach_count_tbl_mutex = Mutex.create ()
 
+let get_update_vbds ~__context ~vdi =
+  let dom0 = Helpers.get_domain_zero ~__context in
+  Db.VDI.get_VBDs ~__context ~self:vdi
+  |> List.filter (fun self -> Db.VBD.get_VM ~__context ~self = dom0)
+
+let get_mount_dir_opt ~__context ~uuid =
+  let mount_dir = Filename.concat !Xapi_globs.host_update_dir uuid in
+  if Sys.file_exists mount_dir then Some mount_dir else None
+
+let assert_update_vbds_attached ~__context ~vdi =
+  let unplugged =
+    get_update_vbds ~__context ~vdi
+    |> List.filter (fun self ->
+           not (Db.VBD.get_currently_attached ~__context ~self))
+  in
+  match unplugged with
+  | [] ->
+      ()
+  | _ ->
+      let msg =
+        Printf.sprintf
+          "pool_update: expected VBDs=[ %s ] to be attached but they aren't!"
+          (unplugged |> List.map Ref.string_of |> String.concat "; ")
+      in
+      raise Api_errors.(Server_error (internal_error, [msg]))
+
 let with_dec_refcount ~__context ~uuid ~vdi f =
   Mutex.execute updates_to_attach_count_tbl_mutex (fun () ->
+      assert_update_vbds_attached ~__context ~vdi ;
       let count =
         try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0
       in
@@ -120,20 +145,8 @@ let with_inc_refcount ~__context ~uuid ~vdi f =
       debug "pool_update.attach_helper refcount='%d'" count ;
       if count = 0 then
         f ~__context ~uuid ~vdi ;
+      assert_update_vbds_attached ~__context ~vdi ;
       Hashtbl.replace updates_to_attach_count_tbl uuid (count + 1))
-
-let get_locally_attached ~__context ~uuid ~vdi =
-  let mount_dir = Filename.concat !Xapi_globs.host_update_dir uuid in
-  let mount_dir_opt =
-    if Sys.file_exists mount_dir then Some mount_dir else None
-  in
-  let dom0 = Helpers.get_domain_zero ~__context in
-  let vbds =
-    List.filter
-      (fun self -> Db.VBD.get_VM ~__context ~self = dom0)
-      (Db.VDI.get_VBDs ~__context ~self:vdi)
-  in
-  (mount_dir_opt, vbds)
 
 let detach_helper ~__context ~uuid ~vdi =
   with_dec_refcount ~__context ~uuid ~vdi (fun ~__context ~uuid ~vdi ->
@@ -147,15 +160,12 @@ let detach_helper ~__context ~uuid ~vdi =
           ("detach_helper: unmounting " ^ mount_point)
           (fun () -> umount mount_point)
           () ;
+      let vbds = get_update_vbds ~__context ~vdi in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          let dom0 = Helpers.get_domain_zero ~__context in
-          let vbds = Client.VDI.get_VBDs ~rpc ~session_id ~self:vdi in
           List.iter
             (fun self ->
-              if Client.VBD.get_VM ~rpc ~session_id ~self = dom0 then (
-                Client.VBD.unplug ~rpc ~session_id ~self ;
-                Client.VBD.destroy ~rpc ~session_id ~self
-              ))
+              Client.VBD.unplug ~rpc ~session_id ~self ;
+              Client.VBD.destroy ~rpc ~session_id ~self)
             vbds) ;
       if try Sys.is_directory mount_point_parent_dir with _ -> false then (
         Helpers.log_exn_continue
@@ -263,7 +273,8 @@ let attach_helper ~__context ~uuid ~vdi ~use_localhost_proxy =
               Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false ~vDI:vdi
                 ~userdevice:"autodetect" ~bootable:false ~mode:`RO ~_type:`Disk
                 ~unpluggable:true ~qos_algorithm_type:""
-                ~qos_algorithm_params:[] ~other_config:[]
+                ~qos_algorithm_params:[] ~other_config:[] ~device:""
+                ~currently_attached:false
             in
             Client.VBD.plug ~rpc ~session_id ~self:vbd ;
             "/dev/" ^ Client.VBD.get_device ~rpc ~session_id ~self:vbd)
@@ -309,7 +320,13 @@ let guidance_from_string = function
 let parse_update_info xml =
   match xml with
   | Xml.Element ("update", attr, children) ->
-      let key = try List.assoc "key" attr with _ -> "" in
+      let key =
+        Option.bind (List.assoc_opt "key" attr) (function
+          | "" ->
+              None
+          | s ->
+              Some (Filename.basename s))
+      in
       let uuid =
         try List.assoc "uuid" attr
         with _ ->
@@ -369,7 +386,7 @@ let parse_update_info xml =
       ; name_label
       ; name_description
       ; version
-      ; key= Filename.basename key
+      ; key
       ; installation_size
       ; after_apply_guidance= guidance
       ; enforce_homogeneity
@@ -415,7 +432,7 @@ let extract_update_info ~__context ~vdi ~verify =
     (fun () -> detach_helper ~__context ~uuid:vdi_uuid ~vdi)
 
 let get_free_bytes path =
-  let stat = statvfs path in
+  let stat = Unixext.statvfs path in
   (* block size times free blocks *)
   Int64.mul stat.f_frsize stat.f_bfree
 
@@ -459,7 +476,8 @@ let verify update_info update_path =
              (Api_errors.invalid_update, ["Invalid signature"])))
     [update_xml_path; repomd_xml_path] ;
   debug "Verify signature OK for pool update uuid: %s by key: %s"
-    update_info.uuid update_info.key
+    update_info.uuid
+    (Option.value ~default:"" update_info.key)
 
 let patch_uuid_of_update_uuid uuid =
   let arr = Uuid.int_array_of_uuid (Uuid.uuid_of_string uuid) in
@@ -484,7 +502,8 @@ let create_update_record ~__context ~update ~update_info ~vdi =
   Db.Pool_update.create ~__context ~ref:update ~uuid:update_info.uuid
     ~name_label:update_info.name_label
     ~name_description:update_info.name_description ~version:update_info.version
-    ~installation_size:update_info.installation_size ~key:update_info.key
+    ~installation_size:update_info.installation_size
+    ~key:(Option.value ~default:"" update_info.key)
     ~after_apply_guidance:update_info.after_apply_guidance ~vdi ~other_config:[]
     ~enforce_homogeneity:update_info.enforce_homogeneity
 
@@ -524,11 +543,17 @@ let introduce ~__context ~vdi =
 let pool_apply ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
   debug "pool_update.pool_apply %s" pool_update_name ;
+  let module HostSet = Set.Make (struct
+    type t = API.ref_host
+
+    let compare = compare
+  end) in
   let unapplied_hosts =
     Db.Pool_update.get_hosts ~__context ~self
-    |> List.set_difference (Db.Host.get_all ~__context)
+    |> HostSet.of_list
+    |> HostSet.diff (Db.Host.get_all ~__context |> HostSet.of_list)
   in
-  if List.length unapplied_hosts = 0 then (
+  if HostSet.is_empty unapplied_hosts then (
     debug "pool_update.pool_apply, %s has already been applied on all hosts."
       pool_update_name ;
     raise
@@ -536,26 +561,24 @@ let pool_apply ~__context ~self =
          (Api_errors.update_already_applied_in_pool, [Ref.string_of self]))
   ) else
     let failed_hosts =
-      unapplied_hosts
-      |> List.fold_left
-           (fun acc host ->
-             try
-               ignore
-                 (Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.Pool_update.apply rpc session_id self host)) ;
-               acc
-             with e ->
-               debug "Caught exception while pool_apply %s: %s"
-                 (Ref.string_of host)
-                 (ExnHelper.string_of_exn e) ;
-               host :: acc)
-           []
+      HostSet.fold
+        (fun host acc ->
+          try
+            ignore
+              (Helpers.call_api_functions ~__context (fun rpc session_id ->
+                   Client.Pool_update.apply rpc session_id self host)) ;
+            acc
+          with e ->
+            let host_str = Ref.string_of host in
+            debug "Caught exception while pool_apply %s: %s" host_str
+              (ExnHelper.string_of_exn e) ;
+            host_str :: acc)
+        unapplied_hosts []
     in
     if List.length failed_hosts > 0 then
       raise
         (Api_errors.Server_error
-           ( Api_errors.update_pool_apply_failed
-           , List.map Ref.string_of failed_hosts ))
+           (Api_errors.update_pool_apply_failed, failed_hosts))
 
 let pool_clean ~__context ~self =
   let pool_update_name = Db.Pool_update.get_name_label ~__context ~self in
@@ -583,7 +606,9 @@ let detach_attached_updates __context =
   |> List.iter (fun self ->
          let uuid = Db.Pool_update.get_uuid ~__context ~self in
          let vdi = Db.Pool_update.get_vdi ~__context ~self in
-         match get_locally_attached ~__context ~uuid ~vdi with
+         match
+           (get_mount_dir_opt ~__context ~uuid, get_update_vbds ~__context ~vdi)
+         with
          | None, [] ->
              ()
          | _ ->
@@ -618,7 +643,11 @@ let resync_host ~__context ~host =
             debug "pool_update.resync_host: update %s exists - updating it"
               update_uuid ;
             Db.Pool_update.set_enforce_homogeneity ~__context ~self
-              ~value:update_info.enforce_homogeneity
+              ~value:update_info.enforce_homogeneity ;
+            (* CA-341988 *)
+            let db_key = Db.Pool_update.get_key ~__context ~self in
+            if db_key = "." then
+              Db.Pool_update.set_key ~__context ~self ~value:""
         | None ->
             let update = Ref.make () in
             debug
@@ -702,7 +731,7 @@ let path_and_host_from_uri uri =
         untrusted_path
         |> Filename.concat !Xapi_globs.host_update_dir
         |> Uri.pct_decode
-        |> Stdext.Unixext.resolve_dot_and_dotdot
+        |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
       in
       (host, resolved_path)
   | _ ->

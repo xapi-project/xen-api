@@ -164,6 +164,7 @@ let test_vbd_create () =
       Xapi_vbd.create ~__context ~vM ~vDI ~userdevice:"autodetect"
         ~bootable:true ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false
         ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+        ~device:"" ~currently_attached:false
       |> ignore)
 
 let test_get_nbd_info =
@@ -709,3 +710,8 @@ let test =
   ]
   @ test_get_nbd_info
   @ test_data_destroy
+
+let () =
+  Suite_init.harness_init () ;
+  Alcotest.run "Test Events and VDI CBT "
+    [("Test_vdi_cbt", test); ("Test_event", Test_event.test)]

@@ -208,7 +208,8 @@ let vbd_create_helper ~rpc ~session_id ~vM ~vDI ?(userdevice = "autodetect") ()
     : API.ref_VBD =
   Client.Client.VBD.create ~rpc ~session_id ~vM ~vDI ~userdevice ~bootable:false
     ~mode:`RW ~_type:`Disk ~unpluggable:true ~empty:false ~other_config:[]
-    ~qos_algorithm_type:"" ~qos_algorithm_params:[]
+    ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:""
+    ~currently_attached:false
 
 (** Check that snapshot works regardless which host has the VDI activated *)
 let vdi_snapshot_in_pool rpc session_id sr_info () =
@@ -320,7 +321,7 @@ let vdi_general_test rpc session_id sr_info () =
         Client.Client.VBD.create ~rpc ~session_id ~vM:dom0 ~vDI:newvdi
           ~userdevice:device ~bootable:false ~mode:`RW ~_type:`Disk
           ~unpluggable:true ~empty:false ~other_config:[] ~qos_algorithm_type:""
-          ~qos_algorithm_params:[]
+          ~qos_algorithm_params:[] ~device:"" ~currently_attached:false
       in
       Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () ->

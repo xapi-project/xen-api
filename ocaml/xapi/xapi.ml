@@ -15,12 +15,12 @@
  * @group Main Loop and Start-up
 *)
 
-open Stdext
 open Printf
-open Xstringext
-open Threadext
-open Pervasiveext
-open Listext
+open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Auth_signature
 open Extauth
 open Db_filter_types
@@ -153,9 +153,7 @@ let random_setup () =
   let n = 8 in
   let s = Bytes.create n in
   let chan = open_in "/dev/urandom" in
-  Pervasiveext.finally
-    (fun () -> really_input chan s 0 n)
-    (fun () -> close_in chan) ;
+  finally (fun () -> really_input chan s 0 n) (fun () -> close_in chan) ;
   Random.full_init (Array.init n (fun i -> Char.code (Bytes.get s i)))
 
 let register_callback_fns () =
@@ -459,7 +457,7 @@ let start_dr_redo_logs () =
           (Db.VDI.get_all ~__context)
       in
       let metadata_srs =
-        List.setify
+        Xapi_stdext_std.Listext.List.setify
           (List.map
              (fun vdi -> Db.VDI.get_SR ~__context ~self:vdi)
              metadata_vdis)
@@ -571,11 +569,15 @@ let check_network_reset () =
       (fun __context ->
         let host = Helpers.get_localhost ~__context in
         (* Parse reset file *)
-        let args = String.split '\n' reset_file in
+        let args = String.split_on_char '\n' reset_file in
         let args =
           List.map
             (fun s ->
-              match String.split '=' s with [k; v] -> (k, v) | _ -> ("", ""))
+              match String.split_on_char '=' s with
+              | [k; v] ->
+                  (k, v)
+              | _ ->
+                  ("", ""))
             args
         in
         let device = List.assoc "DEVICE" args in

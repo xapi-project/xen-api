@@ -68,8 +68,7 @@ let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
   (* it is necessary to do that manually from the slaves *)
   if
-    Stdext.Xstringext.String.startswith Datamodel.rbac_http_permission_prefix
-      action
+    Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
   then
     if Pool_role.is_slave () then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -139,7 +138,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
               Datamodel_common.api_version_string Constants.xapi_user_agent
           with _ -> raise (Http.Unauthorised realm)
         in
-        Stdext.Pervasiveext.finally
+        Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () -> rbac_check session_id)
           (fun () ->
             try Client.Session.logout inet_rpc session_id with _ -> ())
@@ -190,7 +189,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         | None, None, None ->
             raise (Http.Unauthorised label)
     in
-    Stdext.Pervasiveext.finally
+    Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         let login_perform_logout __context =
           validate_session __context session_id label ;

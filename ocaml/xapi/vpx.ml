@@ -17,7 +17,7 @@ type jobInfo = {
   ; importInfo: importInfo
 }
 
-type dateTime = Stdext.Date.iso8601
+type dateTime = Xapi_stdext_date.Date.iso8601
 
 type jobInstance = {
     id: string
@@ -209,12 +209,12 @@ let serverInfo_of_rpc r =
       }
   }
 
-let rpc_of_dateTime v = Rpc.DateTime (Stdext.Date.to_string v)
+let rpc_of_dateTime v = Rpc.DateTime (Xapi_stdext_date.Date.to_string v)
 
 let dateTime_of_rpc r =
   match r with
   | Rpc.DateTime v ->
-      Stdext.Date.of_string v
+      Xapi_stdext_date.Date.of_string v
   | x ->
       rpc_type_error x "DateTime" "DateTime(datetime)"
 

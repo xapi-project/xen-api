@@ -26,9 +26,6 @@ let reason = "HA statefile"
 let statefile_sm_config = [("type", "raw")]
 
 open Client
-open Stdext
-open Listext
-open Xstringext
 
 (** Return the minimum size of an HA statefile, as of
     XenServer HA state-file description vsn 1.3 *)
@@ -43,7 +40,8 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   (* Check that each host has a PBD to this SR *)
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   let connected_hosts =
-    List.setify (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds)
+    Xapi_stdext_std.Listext.List.setify
+      (List.map (fun self -> Db.PBD.get_host ~__context ~self) pbds)
   in
   let all_hosts = Db.Host.get_all ~__context in
   if List.length connected_hosts < List.length all_hosts then (
@@ -51,7 +49,8 @@ let assert_sr_can_host_statefile ~__context ~sr ~cluster_stack =
       (Ref.string_of sr)
       (String.concat "; "
          (List.map Ref.string_of
-            (List.set_difference all_hosts connected_hosts))) ;
+            (Xapi_stdext_std.Listext.List.set_difference all_hosts
+               connected_hosts))) ;
     raise (Api_errors.Server_error (Api_errors.sr_no_pbds, [Ref.string_of sr]))
   ) ;
   (* Check that each PBD is plugged in *)

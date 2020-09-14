@@ -18,7 +18,7 @@
 module D = Debug.Make (struct let name = "vhd_tool_wrapper" end)
 
 open D
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 
 (* .vhds on XenServer are sometimes found via /dev/mapper *)
 let vhd_search_path = "/dev/mapper:."
@@ -38,7 +38,7 @@ let run_vhd_tool progress_cb args s s' path =
       to_close := List.filter (fun y -> y <> x) !to_close
     )
   in
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
       match
         with_logfile_fd "vhd-tool" (fun log_fd ->
@@ -50,7 +50,8 @@ let run_vhd_tool progress_cb args s s' path =
             ( try
                 let buf = Bytes.make 3 '\000' in
                 while true do
-                  Stdext.Unixext.really_read pipe_read buf 0 (Bytes.length buf) ;
+                  Xapi_stdext_unix.Unixext.really_read pipe_read buf 0
+                    (Bytes.length buf) ;
                   progress_cb (int_of_string (Bytes.to_string buf))
                 done
               with
@@ -108,12 +109,6 @@ let receive progress_cb format protocol (s : Unix.file_descr)
   in
   run_vhd_tool progress_cb args s s' path
 
-open Stdext.Fun
-
-let startswith prefix x =
-  let prefix' = String.length prefix and x' = String.length x in
-  prefix' <= x' && String.sub x 0 prefix' = prefix
-
 (** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
@@ -127,7 +122,8 @@ let find_backend_device path =
       Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
     in
     match List.rev (String.split '/' link) with
-    | id :: "xen" :: "devices" :: _ when startswith "vbd-" id ->
+    | id :: "xen" :: "devices" :: _
+      when Astring.String.is_prefix ~affix:"vbd-" id ->
         let id = int_of_string (String.sub id 4 (String.length id - 4)) in
         with_xs (fun xs ->
             let self = xs.Xs.read "domid" in

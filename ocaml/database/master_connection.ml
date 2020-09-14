@@ -166,7 +166,7 @@ let open_secure_connection () =
     try
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0 ;
       false
-    with e -> true
+    with _ -> true
   in
   if (not fd_closed) && not proc_quit then (
     info "stunnel connected pid=%d fd=%d"
@@ -193,7 +193,7 @@ let restart_on_connection_timeout = ref true
 
 exception Content_length_required
 
-let do_db_xml_rpc_persistent_with_reopen ~host ~path (req : string) :
+let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
     Db_interface.response =
   let time_call_started = Unix.gettimeofday () in
   let write_ok = ref false in

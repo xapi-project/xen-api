@@ -14,9 +14,7 @@
 module D = Debug.Make (struct let name = "xapi_bond" end)
 
 open D
-open Stdext
-open Listext
-open Threadext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
 open Db_filter_types
 
 (* Returns the name of a new bond device, which is the string "bond" followed
@@ -102,7 +100,7 @@ let get_local_vifs ~__context host networks =
       (List.mem host hosts && List.length hosts = 1) || List.length hosts = 0
   in
   (* Make a list of the VIFs for local VMs *)
-  let vms = Hashtblext.fold_keys vms_with_vifs in
+  let vms = Hashtbl.to_seq_keys vms_with_vifs |> List.of_seq in
   let local_vifs =
     List.concat
       (List.map
@@ -188,9 +186,10 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
   let network = Db.PIF.get_network ~__context ~self:old_access_PIF in
   let plugged = Db.PIF.get_currently_attached ~__context ~self:old_access_PIF in
   (* Create new tunnel object and access PIF *)
+  let protocol = Db.Tunnel.get_protocol ~__context ~self:old_tunnel in
   let new_tunnel, new_access_PIF =
     Xapi_tunnel.create_internal ~__context ~transport_PIF:new_transport_PIF
-      ~network ~host
+      ~network ~host ~protocol
   in
   debug "Created new tunnel %s on bond" (Ref.string_of new_tunnel) ;
   (* Destroy old VLAN and VLAN-master objects *)
@@ -337,7 +336,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
   let properties = Map_check.add_defaults requirements properties in
   (* Prevent someone supplying the same PIF multiple times and bypassing the
      	 * number of bond members check *)
-  let members = List.setify members in
+  let members = Xapi_stdext_std.Listext.List.setify members in
   let master = Ref.make () in
   let bond = Ref.make () in
   with_local_lock (fun () ->
@@ -436,7 +435,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       let hosts =
         List.map (fun self -> Db.PIF.get_host ~__context ~self) members
       in
-      if List.length (List.setify hosts) <> 1 then
+      if List.length (Xapi_stdext_std.Listext.List.setify hosts) <> 1 then
         raise Api_errors.(Server_error (pif_cannot_bond_cross_host, [])) ;
       let pif_properties =
         if members = [] then

@@ -65,10 +65,10 @@
       SR_p, VDI_p_a, VDI_p_b, ..., VDI_p_z : for an SR.detach (to "quiesce" the SR)
 *)
 
-open Stdext
-open Threadext
-open Pervasiveext
-open Listext
+module Date = Xapi_stdext_date.Date
+module Listext = Xapi_stdext_std.Listext
+module Unixext = Xapi_stdext_unix.Unixext
+open Xapi_stdext_threads.Threadext
 open Storage_interface
 open Storage_task
 
@@ -427,7 +427,7 @@ functor
           with
           | Storage_interface.Storage_error
               (Internal_error "Storage_access.No_VDI") as e
-            when op == Vdi_automaton.Deactivate || op == Vdi_automaton.Detach ->
+            when op = Vdi_automaton.Deactivate || op = Vdi_automaton.Detach ->
               error
                 "Storage_impl: caught exception %s while doing %s . Continuing \
                  as if succesful, being optimistic"
@@ -1104,7 +1104,11 @@ functor
             (List.map
                (fun (k, v) ->
                  let v' =
-                   if List.exists (Xstringext.String.has_substr k) censor_key
+                   if
+                     List.exists
+                       (fun censored ->
+                         Astring.String.is_infix ~affix:censored k)
+                       censor_key
                    then
                      "(omitted)"
                    else

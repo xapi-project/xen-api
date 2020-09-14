@@ -3,24 +3,26 @@ include config.mk
 XAPIDOC=_build/install/default/xapi/doc
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
+XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
+MANDIR ?= $(OPTDIR)/man/man1/
 
 .PHONY: build clean test doc python format install uninstall
 
 build:
-	dune build @install -j $(JOBS) --profile=$(PROFILE)
+	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it
 check:
-	dune build @check -j $(JOBS) --profile=$(PROFILE)
+	XAPI_VERSION=$(XAPI_VERSION) dune build @check -j $(JOBS) --profile=$(PROFILE)
 
 clean:
 	dune clean
 
 test:
-	dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
+	XAPI_VERSION=$(XAPI_VERSION) dune runtest --profile=$(PROFILE) --no-buffer -j $(JOBS)
 
 doc:
-	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
+	XAPI_VERSION=$(XAPI_VERSION) dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
 	mkdir -p $(XAPIDOC)/html
 	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
@@ -43,6 +45,7 @@ format:
 install: build doc
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
+	mkdir -p $(DESTDIR)$(MANDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	mkdir -p $(DESTDIR)/usr/bin
@@ -79,6 +82,9 @@ install: build doc
 	scripts/install.sh 755 _build/install/default/bin/block_device_io $(DESTDIR)$(LIBEXECDIR)/block_device_io
 # ocaml/gencert
 	scripts/install.sh 755 _build/install/default/bin/gencert $(DESTDIR)$(LIBEXECDIR)/gencert
+# ocaml/rrd2csv
+	scripts/install.sh 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(OPTDIR)/bin/rrd2csv
+	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
 # Libraries
 	dune install --profile=$(PROFILE) \
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types

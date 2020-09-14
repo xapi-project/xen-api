@@ -12,13 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module D = Debug.Make (struct let name = "xapi" end)
 
 open D
-open Stdext
-open Xstringext
-open Listext
-open Pervasiveext
 
 let ( *** ) = Int64.mul
 
@@ -380,7 +378,7 @@ functor
 let read_whitelist_line_by_line ~whitelist ~device_id ~parse_line
     ~device_id_of_conf =
   if Sys.file_exists whitelist then
-    Stdext.Unixext.file_lines_fold
+    Xapi_stdext_unix.Unixext.file_lines_fold
       Identifier.(
         fun acc line ->
           match parse_line ~line with
@@ -423,19 +421,58 @@ module Vendor_nvidia = struct
         !Xapi_globs.nvidia_host_driver_file ;
       Xapi_globs.nvidia_default_host_driver_version
 
+  (** Turn an Nvidia version string into a list on numbers *)
+  let nvidia_version version =
+    try
+      Astring.String.filter (( <> ) '+') version
+      |> Astring.String.cuts ~empty:false ~sep:"."
+      |> List.map int_of_string
+    with _ ->
+      error "Not a proper NVidia host driver version: '%s'" version ;
+      failwith (Printf.sprintf "%s is not a version string" version)
+
+  (** [compare_versions] compares two host driver
+  versions represented as int list of possibly different length. The
+  shorter list is conceptually extended with zero entries *)
+  let compare_version v1 v2 =
+    let rec compare v1 v2 =
+      match (v1, v2) with
+      | [], [] ->
+          0
+      | [], 0 :: ys ->
+          compare v1 ys
+      | [], _ ->
+          -1
+      | 0 :: xs, [] ->
+          compare xs v2
+      | _, [] ->
+          1
+      | x :: xs, y :: ys when x < y ->
+          -1
+      | x :: xs, y :: ys when x > y ->
+          1
+      | _ :: xs, _ :: ys ->
+          compare xs ys
+    in
+    compare v1 v2
+
   let host_driver_supports_multi_vgpu ~host_driver_version ~supported_versions =
-    let version = float_of_string host_driver_version in
-    List.exists
-      (fun pattern ->
-        match String.index_opt pattern '+' with
-        | Some i -> (
-          try float_of_string (String.sub pattern 0 i) <= version
-          with _ -> false
-        )
-        | None -> (
-          try float_of_string pattern = version with _ -> false
-        ))
-      supported_versions
+    try
+      let driver = nvidia_version host_driver_version in
+      let supported = List.map nvidia_version supported_versions in
+      let latest =
+        List.find_opt (fun v -> String.contains v '+') supported_versions
+      in
+      let is_equal v1 v2 = compare_version v1 v2 = 0 in
+      let gt_latest v1 =
+        match latest with
+        | None ->
+            false
+        | Some v2 ->
+            compare_version v1 (nvidia_version v2) > 0
+      in
+      List.exists (is_equal driver) supported || gt_latest driver
+    with _ -> false
 
   (* A type to capture the XML tree with functions for use in Xmlm.input_doc_tree *)
   type tree = E of string * (string * string) list * tree list | D of string
@@ -486,7 +523,7 @@ module Vendor_nvidia = struct
           </supportedVgpu>
           <supportedVgpu vgpuId="73">
             (...)
-      Output: 
+      Output:
       - Find the pgpus with deviceId = device_id (there's likely just one).
       - List the vgpuIds of all supportedVgpus of these pgpus with their
         maxVgpus value and the pgpu's subsystemId.
@@ -882,16 +919,18 @@ module Nvidia_compat = struct
 
   let of_conf_file file_path =
     try
-      let conf = Stdext.Unixext.read_lines file_path in
+      let conf = Xapi_stdext_unix.Unixext.read_lines file_path in
       let args =
-        List.filter (fun s -> not (String.startswith "#" s || s = "")) conf
+        List.filter
+          (fun s -> not (Astring.String.is_prefix ~affix:"#" s || s = ""))
+          conf
       in
-      let args = List.map (String.strip String.isspace) args in
+      let args = List.map Astring.String.trim args in
       (* Expecting space separated key value entries *)
       let args =
         List.map
           (fun s ->
-            match String.split ' ' s ~limit:2 with
+            match Xapi_stdext_std.Xstringext.String.split ' ' s ~limit:2 with
             | [k; v] ->
                 (k, v)
             | _ ->

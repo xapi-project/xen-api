@@ -11,8 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext.Xstringext
-
 module D = Debug.Make (struct let name = "xva" end)
 
 open D
@@ -157,7 +155,7 @@ let parse_appliance attrs children =
   let child_string node =
     match node with
     | Xml.Element (_, _, [Xml.PCData x]) ->
-        String.strip String.isspace x
+        Astring.String.trim x
     | Xml.Element (_, _, []) ->
         ""
     | _ ->

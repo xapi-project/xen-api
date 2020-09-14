@@ -18,11 +18,11 @@ open D
 module L = Debug.Make (struct let name = "license" end)
 
 open Db_filter_types
-open Stdext
-open Listext
-open Pervasiveext
-open Xstringext
-open Threadext
+open Xapi_stdext_std.Listext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_threads.Threadext
+module Date = Xapi_stdext_date.Date
 open Network
 
 let get_device_pci ~__context ~host ~device =
@@ -705,7 +705,6 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
     raise
       (Api_errors.Server_error
          (Api_errors.pif_is_management_iface, [Ref.string_of self])) ;
-  let old_mode = Db.PIF.get_ipv6_configuration_mode ~__context ~self in
   (* Set the values in the DB *)
   Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode ;
   Db.PIF.set_ipv6_gateway ~__context ~self ~value:gateway ;
@@ -724,12 +723,7 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
       Helpers.update_pif_address ~__context ~self
   ) ;
   Monitor_dbcalls_cache.clear_cache_for_pif
-    ~pif_name:(Db.PIF.get_device ~__context ~self) ;
-  if (old_mode == `None && mode <> `None) || (old_mode <> `None && mode == `None)
-  then (
-    debug "IPv6 mode has changed - updating management interface" ;
-    Xapi_mgmt_iface.rebind ~__context
-  )
+    ~pif_name:(Db.PIF.get_device ~__context ~self)
 
 let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Xapi_pif_helpers.assert_pif_is_managed ~__context ~self ;

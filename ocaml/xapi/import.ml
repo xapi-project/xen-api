@@ -18,11 +18,13 @@
 module D = Debug.Make (struct let name = "import" end)
 
 open D
-open Stdext
+module Listext = Xapi_stdext_std.Listext
+module Xstringext = Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Importexport
-open Unixext
-open Pervasiveext
+open Xapi_stdext_unix.Unixext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 type import_failure =
@@ -179,7 +181,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
       if Xstringext.String.startswith "Ref:" snapshot_of then
         (* This should be a snapshot in the archive *)
         let v =
-          Listext.List.find
+          List.find
             (fun v -> v.cls = Datamodel_common._vm && v.id = snapshot_of)
             x.objects
         in
@@ -221,7 +223,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
         v2' = Some v1.API.vM_uuid
   in
   let import_vms =
-    Listext.List.filter_map
+    List.filter_map
       (fun x ->
         if x.cls <> Datamodel_common._vm then
           None
@@ -231,7 +233,7 @@ let assert_can_restore_backup ~__context rpc session_id (x : header) =
       x.objects
   in
   let existing_vms =
-    Listext.List.filter_map
+    List.filter_map
       (fun (_, v) -> get_mac_seed v)
       (Client.VM.get_all_records rpc session_id)
   in
@@ -891,7 +893,7 @@ module VDI : HandlerTools = struct
           in
           let find_by_scsiid x =
             vdi_records
-            |> Listext.List.filter_map (fun (rf, vdir) ->
+            |> List.filter_map (fun (rf, vdir) ->
                    if scsiid_of vdir = Some x then Some (rf, vdir) else None)
             |> choose_one
           in
@@ -1318,7 +1320,14 @@ module VBD : HandlerTools = struct
         let vbd =
           log_reraise "failed to create VBD"
             (fun value ->
-              let vbd = Client.VBD.create_from_record rpc session_id value in
+              let vbd =
+                Client.VBD.create_from_record rpc session_id
+                  {
+                    value with
+                    API.vBD_device= ""
+                  ; API.vBD_currently_attached= false
+                  }
+              in
               if config.full_restore then
                 Db.VBD.set_uuid ~__context ~self:vbd ~value:value.API.vBD_uuid ;
               vbd)
@@ -1440,7 +1449,10 @@ module VIF : HandlerTools = struct
         let vif =
           log_reraise "failed to create VIF"
             (fun value ->
-              let vif = Client.VIF.create_from_record rpc session_id value in
+              let vif =
+                Client.VIF.create_from_record rpc session_id
+                  {value with API.vIF_currently_attached= false}
+              in
               if config.full_restore then
                 Db.VIF.set_uuid ~__context ~self:vif ~value:value.API.vIF_uuid ;
               vif)
@@ -1860,7 +1872,7 @@ let with_open_archive fd ?length f =
     (* successfully opened uncompressed stream *)
     retry_with_compression := false ;
     let xml = read_xml hdr fd in
-    Tar_unix.Archive.skip fd (Tar_unix.Header.compute_zero_padding_length hdr) ;
+    Tar_helpers.skip fd (Tar_unix.Header.compute_zero_padding_length hdr) ;
     f xml fd
   with e ->
     if not !retry_with_compression then raise e ;
@@ -1904,7 +1916,7 @@ let with_open_archive fd ?length f =
           let hdr = Tar_unix.Header.get_next_header pipe_out in
           assert_filename_is hdr ;
           let xml = read_xml hdr pipe_out in
-          Tar_unix.Archive.skip pipe_out
+          Tar_helpers.skip pipe_out
             (Tar_unix.Header.compute_zero_padding_length hdr) ;
           f xml pipe_out)
         (fun () ->
@@ -2046,7 +2058,7 @@ let metadata_handler (req : Request.t) s _ =
             (fun metadata s ->
               debug "Got XML" ;
               (* Skip trailing two zero blocks *)
-              Tar_unix.Archive.skip s (Tar_unix.Header.length * 2) ;
+              Tar_helpers.skip s (Tar_unix.Header.length * 2) ;
               let header = metadata |> Xmlrpc.of_string |> header_of_rpc in
               assert_compatible ~__context header.version ;
               if full_restore then

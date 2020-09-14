@@ -16,7 +16,6 @@ module D = Debug.Make (struct let name = "sql" end)
 
 open D
 open Db_cache_types
-open Db_backend
 
 let unmarshall schema dbconn =
   let filename = dbconn.Parse_db_conf.path in

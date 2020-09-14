@@ -12,9 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 open API
-open Stdext
-open Xstringext
-open Listext
+open Xapi_stdext_std.Xstringext
+
+let hashtbl_of_list xs =
+  let tbl = Hashtbl.create (List.length xs) in
+  Hashtbl.add_seq tbl (List.to_seq xs) ;
+  tbl
 
 (* === Common XML operations === *)
 
@@ -61,7 +64,7 @@ let hash_table_entry_of_leaf_xml_element = function
         ...
  *)
 let hash_table_of_leaf_xml_element_list list =
-  Hashtblext.of_list (List.filter_map hash_table_entry_of_leaf_xml_element list)
+  hashtbl_of_list (List.filter_map hash_table_entry_of_leaf_xml_element list)
 
 (* === Daemon configuration === *)
 
@@ -410,7 +413,7 @@ module LiveSetInformation = struct
                    s)
           in
           let host_raw_data =
-            Hashtblext.of_list
+            hashtbl_of_list
               (List.map
                  (fun host -> (host.HostRawData.id, host))
                  (List.filter_map HostRawData.of_xml_element children))
@@ -445,7 +448,7 @@ module LiveSetInformation = struct
   let of_xml_element_list elements =
     {
       hosts=
-        Hashtblext.of_list
+        hashtbl_of_list
           (List.map
              (fun host -> (host.Host.id, host))
              (List.filter_map Host.of_xml_element elements))
@@ -617,7 +620,7 @@ module LiveSetInformationTest = struct
 	let ($) f a = a f
 
 	let _ =
-		if Array.length Sys.argv != 2 then
+		if Array.length Sys.argv <> 2 then
 			print_endline "usage: xha_interface <path-to-xml-file>"
 		else
 			Sys.argv. (1)

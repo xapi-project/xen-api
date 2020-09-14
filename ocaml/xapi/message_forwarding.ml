@@ -15,9 +15,10 @@
  * @group API Messaging
 *)
 
-open Stdext
-open Threadext
-open Pervasiveext
+open Xapi_stdext_threads.Threadext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Server_helpers
 open Client
 open Db_filter_types
@@ -54,11 +55,13 @@ let remote_rpc_no_retry context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ?task_id:(may Ref.string_of task_opt) ()
+      ( SSL.make ?task_id:(Option.map Ref.string_of task_opt) ()
       , hostname
       , !Constants.https_port )
   in
-  let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.0" "/" in
+  let http =
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+  in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
@@ -66,11 +69,15 @@ let remote_rpc_retry context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ~use_stunnel_cache:true ?task_id:(may Ref.string_of task_opt) ()
+      ( SSL.make ~use_stunnel_cache:true
+          ?task_id:(Option.map Ref.string_of task_opt)
+          ()
       , hostname
       , !Constants.https_port )
   in
-  let http = xmlrpc ?task_id:(may Ref.string_of task_opt) ~version:"1.1" "/" in
+  let http =
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+  in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host
@@ -81,7 +88,7 @@ let call_slave_with_session remote_rpc_fn __context host
       ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
       ~auth_user_name:"" ~rbac_permissions:[]
   in
-  Pervasiveext.finally
+  finally
     (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
@@ -93,7 +100,7 @@ let call_slave_with_local_session remote_rpc_fn __context host
       ~rpc:(remote_rpc_fn __context hostname None)
       ~psecret:(Xapi_globs.pool_secret ())
   in
-  Pervasiveext.finally
+  finally
     (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
     (fun () ->
       Client.Session.local_logout
@@ -107,6 +114,7 @@ let set_forwarding_on_task ~__context ~host =
     let rt = Context.get_task_id __context in
     Db.Task.set_forwarded ~__context ~self:rt ~value:true ;
     Db.Task.set_forwarded_to ~__context ~self:rt ~value:host ;
+    Db.Task.set_resident_on ~__context ~self:rt ~value:host ;
     Some rt (* slave uses this task for progress/status etc. *)
   ) else
     None
@@ -120,7 +128,7 @@ let check_live ~__context h =
   then
     raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of h]))
 
-(* Forward op to one of the specified hosts if host!=localhost *)
+(* Forward op to one of the specified hosts if host is not localhost *)
 let do_op_on_common ~local_fn ~__context ~host op f =
   try
     let localhost = Helpers.get_localhost ~__context in
@@ -3610,11 +3618,11 @@ functor
       (* -------------------------------------------------------------------------- *)
 
       let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
-          ~qos_algorithm_type ~qos_algorithm_params =
+          ~currently_attached ~qos_algorithm_type ~qos_algorithm_params =
         info "VIF.create: VM = '%s'; network = '%s'" (vm_uuid ~__context vM)
           (network_uuid ~__context network) ;
         Local.VIF.create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
-          ~qos_algorithm_type ~qos_algorithm_params
+          ~currently_attached ~qos_algorithm_type ~qos_algorithm_params
 
       let destroy ~__context ~self =
         info "VIF.destroy: VIF = '%s'" (vif_uuid ~__context self) ;
@@ -3783,13 +3791,13 @@ functor
     end
 
     module Tunnel = struct
-      let create ~__context ~transport_PIF ~network =
+      let create ~__context ~transport_PIF ~network ~protocol =
         info "Tunnel.create: network = '%s'" (network_uuid ~__context network) ;
-        let local_fn = Local.Tunnel.create ~transport_PIF ~network in
+        let local_fn = Local.Tunnel.create ~transport_PIF ~network ~protocol in
         do_op_on ~local_fn ~__context
           ~host:(Db.PIF.get_host ~__context ~self:transport_PIF)
           (fun session_id rpc ->
-            Client.Tunnel.create rpc session_id transport_PIF network)
+            Client.Tunnel.create rpc session_id transport_PIF network protocol)
 
       let destroy ~__context ~self =
         info "Tunnel.destroy: tunnel = '%s'" (tunnel_uuid ~__context self) ;
@@ -4344,18 +4352,27 @@ functor
       (** Use this function to mark the SR and/or the individual VDI *)
       let with_sr_andor_vdi ~__context ?sr ?vdi ~doc f =
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            maybe (fun (sr, op) -> SR.mark_sr ~__context ~sr ~doc ~op) sr ;
+            Option.iter (fun (sr, op) -> SR.mark_sr ~__context ~sr ~doc ~op) sr ;
             (* If we fail to acquire the VDI lock, unlock the SR *)
-            try maybe (fun (vdi, op) -> mark_vdi ~__context ~vdi ~doc ~op) vdi
+            try
+              Option.iter
+                (fun (vdi, op) -> mark_vdi ~__context ~vdi ~doc ~op)
+                vdi
             with e ->
-              maybe (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op) sr ;
+              Option.iter
+                (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
+                sr ;
               raise e) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                maybe (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op) sr ;
-                maybe (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op) vdi))
+                Option.iter
+                  (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
+                  sr ;
+                Option.iter
+                  (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op)
+                  vdi))
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -4592,7 +4609,15 @@ functor
         (* Try forward the request to a host which can have access to both source
            and destination SR. *)
         let op session_id rpc =
-          Client.VDI.copy rpc session_id vdi sr base_vdi into_vdi
+          let sync_op () =
+            Client.VDI.copy rpc session_id vdi sr base_vdi into_vdi
+          in
+          let async_op () =
+            Client.InternalAsync.VDI.copy rpc session_id vdi sr base_vdi
+              into_vdi
+          in
+          Helpers.try_internal_async ~__context API.ref_VDI_of_rpc async_op
+            sync_op
         in
         with_sr_andor_vdi ~__context
           ~vdi:(vdi, `copy)
@@ -4825,15 +4850,15 @@ functor
       (* -------------------------------------------------------------------------- *)
 
       (* these are db functions *)
-      let create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type
-          ~unpluggable ~empty ~other_config ~qos_algorithm_type
-          ~qos_algorithm_params =
+      let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
+          ~unpluggable ~empty ~other_config ~currently_attached
+          ~qos_algorithm_type ~qos_algorithm_params =
         info "VBD.create: VM = '%s'; VDI = '%s'" (vm_uuid ~__context vM)
           (vdi_uuid ~__context vDI) ;
         (* NB must always execute this on the master because of the autodetect_mutex *)
-        Local.VBD.create ~__context ~vM ~vDI ~userdevice ~bootable ~mode ~_type
-          ~unpluggable ~empty ~other_config ~qos_algorithm_type
-          ~qos_algorithm_params
+        Local.VBD.create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode
+          ~_type ~unpluggable ~empty ~other_config ~currently_attached
+          ~qos_algorithm_type ~qos_algorithm_params
 
       let set_mode ~__context ~self ~value =
         info "VBD.set_mode: VBD = '%s'; value = %s" (vbd_uuid ~__context self)

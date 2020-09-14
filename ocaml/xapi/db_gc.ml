@@ -16,8 +16,7 @@
 *)
 
 open API
-open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "db_gc" end)
 
@@ -329,15 +328,13 @@ let start_heartbeat_thread () =
                         send_one_heartbeat ~__context rpc session_id ;
                         Thread.delay !Xapi_globs.host_heartbeat_interval
                       with
-                      | Api_errors.Server_error (x, y) as e ->
-                          if x = Api_errors.session_invalid then
-                            raise e
-                          else
-                            debug "Caught exception in heartbeat thread: %s"
-                              (ExnHelper.string_of_exn e)
+                      | Api_errors.Server_error (x, y) as e
+                        when x = Api_errors.session_invalid ->
+                          raise e
                       | e ->
                           debug "Caught exception in heartbeat thread: %s"
-                            (ExnHelper.string_of_exn e)
+                            (ExnHelper.string_of_exn e) ;
+                          Thread.delay !Xapi_globs.host_heartbeat_interval
                     done)
               with
               | Api_errors.Server_error (code, params)

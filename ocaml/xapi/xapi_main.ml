@@ -16,6 +16,7 @@
 *)
 
 open Xapi
+module Unixext = Xapi_stdext_unix.Unixext
 
 let _ =
   Debug.set_facility Syslog.Local5 ;
@@ -29,9 +30,9 @@ let _ =
       D.debug "Disabling logging for: %s" m ;
       Debug.disable m)
     !Xapi_globs.disable_logging_for ;
-  Stdext.Unixext.pidfile_write "/var/run/xapi.pid" ;
+  Unixext.pidfile_write "/var/run/xapi.pid" ;
   (* chdir to /var/lib/xcp/debug so that's where xapi coredumps go
      (in the unlikely event that there are any ;) *)
-  Stdext.Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700 ;
+  Unixext.mkdir_rec (Filename.concat "/var/lib/xcp" "debug") 0o700 ;
   Unix.chdir (Filename.concat "/var/lib/xcp" "debug") ;
   watchdog server_init

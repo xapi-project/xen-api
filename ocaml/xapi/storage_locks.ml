@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 (** A table of 'instance' locks with a single master lock *)
 type ('a, 'b) t = {
@@ -45,7 +45,7 @@ let with_instance_lock t key f =
       done ;
       Hashtbl.replace t.t key ()) ;
   Locking_helpers.Thread_state.acquired r ;
-  Stdext.Pervasiveext.finally f (fun () ->
+  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
       Mutex.execute t.m (fun () ->
           Hashtbl.remove t.t key ; Condition.broadcast t.c) ;
       Locking_helpers.Thread_state.released r)
@@ -66,7 +66,7 @@ let with_master_lock t f =
         Condition.wait t.c t.m
       done) ;
   Locking_helpers.Thread_state.acquired r ;
-  Stdext.Pervasiveext.finally f (fun () ->
+  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
       Mutex.execute t.m (fun () ->
           t.master_lock <- false ;
           Condition.broadcast t.c) ;

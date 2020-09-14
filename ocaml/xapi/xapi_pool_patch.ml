@@ -66,7 +66,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
                 ("sr_id", Ref.string_of default_SR) :: query
           in
           let subtask = Client.Task.create rpc session_id "VDI upload" "" in
-          Stdext.Pervasiveext.finally
+          Xapi_stdext_pervasives.Pervasiveext.finally
             (fun () ->
               let req =
                 Http.Request.
@@ -130,7 +130,7 @@ let get_patch_applied_to ~__context ~patch ~host =
 
 let write_patch_applied_db ~__context ?date ?(applied = true) ~self ~host () =
   let date =
-    Stdext.Date.of_float
+    Xapi_stdext_date.Date.of_float
       (match date with Some d -> d | None -> Unix.gettimeofday ())
   in
   match get_patch_applied_to ~__context ~patch:self ~host with

@@ -15,9 +15,7 @@
  * @group Command-Line Interface (CLI)
 *)
 
-open Stdext
-open Pervasiveext
-open Listext
+module Unixext = Xapi_stdext_unix.Unixext
 open Cli_frontend
 open Cli_cmdtable
 open Cli_protocol
@@ -111,7 +109,9 @@ let with_session ~local rpc u p session f =
       else
         Client.Client.Session.logout ~rpc ~session_id:session
   in
-  finally (fun () -> f session) (fun () -> do_logout ())
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f session)
+    (fun () -> do_logout ())
 
 let do_rpcs req s username password minimal cmd session args =
   let cmdname = get_cmdname cmd in

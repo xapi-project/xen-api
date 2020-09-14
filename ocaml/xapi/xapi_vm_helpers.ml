@@ -15,10 +15,13 @@
  * @group Virtual-Machine Management
 *)
 
-open Stdext
 open Xapi_vm_memory_constraints
 open Xapi_network_attach_helpers
-open Pervasiveext
+module Listext = Xapi_stdext_std.Listext
+module Date = Xapi_stdext_date.Date
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module XenAPI = Client.Client
 
 module D = Debug.Make (struct let name = "xapi_vm_helpers" end)
@@ -149,7 +152,10 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
 
 let create_from_record_without_checking_licence_feature_for_vendor_device
     ~__context rpc session_id vm_record =
-  let mk_vm r = Client.Client.VM.create_from_record rpc session_id r in
+  let mk_vm r =
+    Client.Client.VM.create_from_record rpc session_id
+      {r with API.vM_suspend_VDI= Ref.null; API.vM_power_state= `Halted}
+  in
   let has_vendor_device = vm_record.API.vM_has_vendor_device in
   if
     has_vendor_device
@@ -1110,7 +1116,7 @@ let set_HVM_shadow_multiplier ~__context ~self ~value =
   Db.VM.set_HVM_shadow_multiplier ~__context ~self ~value ;
   update_memory_overhead ~__context ~vm:self
 
-let inclusive_range a b = Range.to_list (Range.make a (b + 1))
+let inclusive_range a b = List.init (b - a + 1) (fun k -> a + k)
 
 let vbd_inclusive_range hvm a b =
   List.map (Device_number.of_disk_number hvm) (inclusive_range a b)
@@ -1213,36 +1219,61 @@ let copy_metrics ~__context ~vm =
   and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:
-      (default 0L (may (fun x -> x.Db_actions.vM_metrics_memory_actual) m))
+      (Option.fold ~none:0L
+         ~some:(fun x -> x.Db_actions.vM_metrics_memory_actual)
+         m)
     ~vCPUs_number:
-      (default 0L (may (fun x -> x.Db_actions.vM_metrics_VCPUs_number) m))
+      (Option.fold ~none:0L
+         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_number)
+         m)
     ~vCPUs_utilisation:
-      (default [(0L, 0.)]
-         (may (fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation) m))
-    ~vCPUs_CPU:(default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_CPU) m))
+      (Option.fold ~none:[(0L, 0.)]
+         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_utilisation)
+         m)
+    ~vCPUs_CPU:
+      (Option.fold ~none:[]
+         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_CPU)
+         m)
     ~vCPUs_params:
-      (default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_params) m))
+      (Option.fold ~none:[]
+         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_params)
+         m)
     ~vCPUs_flags:
-      (default [] (may (fun x -> x.Db_actions.vM_metrics_VCPUs_flags) m))
+      (Option.fold ~none:[]
+         ~some:(fun x -> x.Db_actions.vM_metrics_VCPUs_flags)
+         m)
     ~start_time:
-      (default Date.never (may (fun x -> x.Db_actions.vM_metrics_start_time) m))
+      (Option.fold ~none:Date.never
+         ~some:(fun x -> x.Db_actions.vM_metrics_start_time)
+         m)
     ~install_time:
-      (default Date.never
-         (may (fun x -> x.Db_actions.vM_metrics_install_time) m))
-    ~state:(default [] (may (fun x -> x.Db_actions.vM_metrics_state) m))
+      (Option.fold ~none:Date.never
+         ~some:(fun x -> x.Db_actions.vM_metrics_install_time)
+         m)
+    ~state:
+      (Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_state) m)
     ~last_updated:
-      (default Date.never
-         (may (fun x -> x.Db_actions.vM_metrics_last_updated) m))
+      (Option.fold ~none:Date.never
+         ~some:(fun x -> x.Db_actions.vM_metrics_last_updated)
+         m)
     ~other_config:
-      (default [] (may (fun x -> x.Db_actions.vM_metrics_other_config) m))
+      (Option.fold ~none:[]
+         ~some:(fun x -> x.Db_actions.vM_metrics_other_config)
+         m)
     ~nomigrate:
-      (default false (may (fun x -> x.Db_actions.vM_metrics_nomigrate) m))
-    ~hvm:(default false (may (fun x -> x.Db_actions.vM_metrics_hvm) m))
+      (Option.fold ~none:false
+         ~some:(fun x -> x.Db_actions.vM_metrics_nomigrate)
+         m)
+    ~hvm:
+      (Option.fold ~none:false ~some:(fun x -> x.Db_actions.vM_metrics_hvm) m)
     ~nested_virt:
-      (default false (may (fun x -> x.Db_actions.vM_metrics_nested_virt) m))
+      (Option.fold ~none:false
+         ~some:(fun x -> x.Db_actions.vM_metrics_nested_virt)
+         m)
     ~current_domain_type:
-      (default `unspecified
-         (may (fun x -> x.Db_actions.vM_metrics_current_domain_type) m)) ;
+      (Option.fold ~none:`unspecified
+         ~some:(fun x -> x.Db_actions.vM_metrics_current_domain_type)
+         m) ;
   metrics
 
 let copy_guest_metrics ~__context ~vm =
@@ -1433,7 +1464,7 @@ let with_vm_operation ~__context ~self ~doc ~op ?(strict = true) ?policy f =
       Db.VM.add_to_current_operations ~__context ~self ~key:task_id ~value:op ;
       Xapi_vm_lifecycle.update_allowed_operations ~__context ~self) ;
   (* Then do the action with the lock released *)
-  Pervasiveext.finally f (* Make sure to clean up at the end *) (fun () ->
+  finally f (* Make sure to clean up at the end *) (fun () ->
       try
         Db.VM.remove_from_current_operations ~__context ~self ~key:task_id ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self ;

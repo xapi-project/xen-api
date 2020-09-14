@@ -11,11 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
 open Http
 open Printf
-open Pervasiveext
-open Xstringext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_std.Xstringext
 open Forkhelpers
 
 let content_type = "application/data"

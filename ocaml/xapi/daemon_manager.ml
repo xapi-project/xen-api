@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 
 module IntSet = Set.Make (struct
   type t = int
@@ -63,7 +63,9 @@ module Make (D : DAEMON) = struct
     | Pidfile file -> (
       try
         let pid =
-          Stdext.Unixext.string_of_file file |> String.trim |> int_of_string
+          Xapi_stdext_unix.Unixext.string_of_file file
+          |> String.trim
+          |> int_of_string
         in
         Unix.kill pid 0 ; true
       with _ -> false
@@ -101,7 +103,7 @@ module Make (D : DAEMON) = struct
             ()
         ) ;
         register_thread_nolock thread_id) ;
-    Stdext.Pervasiveext.finally f
+    Xapi_stdext_pervasives.Pervasiveext.finally f
       (* Deregister this thread, and if there are no more threads registered,
          			 * start the daemon if it was running in the first place. *)
       (fun () ->

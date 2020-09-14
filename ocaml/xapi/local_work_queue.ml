@@ -13,8 +13,7 @@
  *)
 (** Queues of jobs to perform, represented as unit -> unit thunks *)
 
-open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let vm_lifecycle_queue_started = ref false
 
@@ -53,7 +52,7 @@ let dom0_device_resync_queue =
 let domU_internal_shutdown_queue =
   Thread_queue.make ~name:"domU_internal_shutdown" (fun f -> f ())
 
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 (** Join a given queue and execute the function 'f' when its our turn. Actually perform the computation in
     this thread so we can return a result. *)

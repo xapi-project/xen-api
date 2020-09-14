@@ -73,7 +73,6 @@ install:
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCDIR)/master.d/03-mpathalert-daemon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
-	$(IPROG) generate_ssl_cert $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) nbd-firewall-config.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) fix_firewall.sh $(DESTDIR)$(BINDIR)
 	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(BINDIR)

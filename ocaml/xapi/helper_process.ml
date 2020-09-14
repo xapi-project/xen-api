@@ -19,7 +19,7 @@ let generic_handler cmd n =
 exception Process_output_error of string
 
 let get_process_output ?(handler = generic_handler) cmd =
-  let args = Stdext.Xstringext.String.split ' ' cmd in
+  let args = String.split_on_char ' ' cmd in
   try
     fst (Forkhelpers.execute_command_get_output (List.hd args) (List.tl args))
   with

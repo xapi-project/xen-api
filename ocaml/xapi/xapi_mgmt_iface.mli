@@ -15,7 +15,7 @@
  *  @group Networking
 *)
 
-val himn_addr : string option ref
+val himn_addr : unit -> string option
 (** Local IP address of the HIMN (if any) *)
 
 val wait_for_management_ip : __context:Context.t -> string
@@ -36,11 +36,9 @@ val run : __context:Context.t -> mgmt_enabled:bool -> unit
 (** Ensure the server thread listening on the management interface, or only localhost
  *  and possible the HIMN address, in case management is disabled. *)
 
-val rebind : __context:Context.t -> unit
-(** Re-bind the management interface to respond to changes (e.g. adding IPv6 address) *)
-
-val enable_himn : __context:Context.t -> addr:string -> unit
-(** Start a server thread on the given HIMN address if the server is not yet running *)
+val reconfigure_himn : __context:Context.t -> addr:string option -> unit
+(** Start a server thread on the given HIMN address if the server is not yet running,
+    or stop the HIMN thread if `addr = None` *)
 
 val reconfigure_stunnel : __context:Context.t -> unit
 (** Restart stunnel to make it pick up a change to host.ssl_legacy *)

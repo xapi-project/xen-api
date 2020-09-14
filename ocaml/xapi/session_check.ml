@@ -13,7 +13,7 @@
  *)
 (* Session checking **********************************************************)
 
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 exception Non_master_login_on_slave
 
@@ -55,7 +55,7 @@ let check ~intra_pool_only ~session_id =
           if Pool_role.is_master () then
             Db_actions.DB_Action.Session.set_last_active ~__context
               ~self:session_id
-              ~value:(Stdext.Date.of_float (Unix.time ()))
+              ~value:(Xapi_stdext_date.Date.of_float (Unix.time ()))
         with
         | Db_exn.DBCache_NotFound (_, tblname, reference) ->
             debug "Session check failed: missing reference; tbl = %s, ref = %s"

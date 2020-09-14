@@ -18,12 +18,11 @@
 module D = Debug.Make (struct let name = "import" end)
 
 open D
-open Stdext
 open Http
 open Importexport
 open Sparse_encoding
-open Unixext
-open Pervasiveext
+open Xapi_stdext_unix.Unixext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 let fail_task_in_request (req : Request.t) (s : Unix.file_descr) e =

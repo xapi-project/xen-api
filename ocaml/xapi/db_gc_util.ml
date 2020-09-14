@@ -16,8 +16,7 @@
 *)
 
 open API
-open Stdext
-open Listext
+module Listext = Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "db_gc_util" end)
 
@@ -167,7 +166,7 @@ let gc_PGPUs ~__context =
           acc)
       [] pgpus
     |> List.filter (valid_ref __context)
-    |> List.setify
+    |> Listext.List.setify
   in
   (* Update enabled/supported VGPU types on the groups which contained the
      	 * destroyed PGPUs. *)
@@ -314,7 +313,7 @@ let timeout_tasks ~__context =
       (* From the completes set, choose up to 'overflow' *)
       let unlucky, lucky =
         if List.length completed > overflow then
-          List.chop overflow completed
+          Listext.List.chop overflow completed
         else
           (completed, [])
       in
@@ -379,7 +378,8 @@ let timeout_sessions_common ~__context sessions limit session_group =
     if List.length young <= limit then
       (young, []) (* keep them all *)
     else (* Need to reverse sort by last active and drop the oldest *)
-      List.chop limit (List.sort (fun (_, a, _) (_, b, _) -> compare b a) young)
+      Listext.List.chop limit
+        (List.sort (fun (_, a, _) (_, b, _) -> compare b a) young)
   in
   let cancel doc sessions =
     List.iter

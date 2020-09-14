@@ -20,6 +20,7 @@ open Db_filter
 open Record_util
 open Api_errors
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 (* psr is not included in this list because it can be considered in progress
    in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
 let all_operations =
@@ -126,8 +127,7 @@ let with_pool_operation ~__context ~self ~doc ~op f =
       Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op) ;
   update_allowed_operations ~__context ~self ;
   (* Then do the action with the lock released *)
-  Stdext.Pervasiveext.finally f (* Make sure to clean up at the end *)
-    (fun () ->
+  finally f (* Make sure to clean up at the end *) (fun () ->
       try
         Db.Pool.remove_from_current_operations ~__context ~self ~key:task_id ;
         update_allowed_operations ~__context ~self ;

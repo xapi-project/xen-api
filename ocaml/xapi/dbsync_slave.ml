@@ -17,11 +17,12 @@
 *)
 
 module Rrdd = Rrd_client.Client
-open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
+module Date = Xapi_stdext_date.Date
 open Create_misc
 open Client
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Network
 
 module D = Debug.Make (struct let name = "dbsync" end)

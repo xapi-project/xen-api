@@ -13,9 +13,7 @@
  *)
 
 open Db_cache_types
-open Stdext
-open Listext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_dr" end)
 
@@ -279,7 +277,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
         Import.handle_all __context_to config rpc session_to objects
       in
       let vmrefs =
-        List.setify
+        Xapi_stdext_std.Listext.List.setify
           (List.map
              (fun (cls, id, r) -> Ref.of_string r)
              state.Import.created_vms)

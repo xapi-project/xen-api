@@ -11,7 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_unix
 
 let name_label = "name__label"
 
@@ -26,7 +25,7 @@ functor
 
     let invalid_name = "notavmname"
 
-    let make_vm r uuid =
+    let make_vm _ uuid =
       [
         ("uuid", uuid)
       ; (name_description, "")
@@ -36,7 +35,7 @@ functor
       ; (name_label, name)
       ]
 
-    let make_vbd vm r uuid =
+    let make_vbd vm _ uuid =
       [(*    "ref", r; *) ("uuid", uuid); ("VM", vm); ("type", "user")]
 
     let expect_missing_row tbl r f =
@@ -175,7 +174,6 @@ functor
                  (Option.value ~default:"None" name_label')
                  (Option.value ~default:"None" real_name_label))
 
-    open Xapi_stdext_pervasives
     open Db_cache_types
 
     let create_test_db () =
@@ -255,9 +253,9 @@ functor
       let dump db g =
         let tables = Db_cache_types.Database.tableset db in
         Db_cache_types.TableSet.fold_over_recent g
-          (fun name _ table acc ->
+          (fun name _ table _ ->
             Db_cache_types.Table.fold_over_recent g
-              (fun r {Db_cache_types.Stat.created; modified; deleted} _ acc ->
+              (fun r {Db_cache_types.Stat.created; modified; deleted} _ _ ->
                 let s =
                   try
                     let row = Db_cache_types.Table.find r table in
@@ -282,7 +280,7 @@ functor
         Db_cache_types.TableSet.fold_over_recent g
           (fun name _ table acc ->
             Db_cache_types.Table.fold_over_recent g
-              (fun r {Db_cache_types.Stat.created} _ acc ->
+              (fun r {Db_cache_types.Stat.created; _} _ acc ->
                 if created >= g then (name, r) :: acc else acc)
               table acc)
           tables []
@@ -290,7 +288,7 @@ functor
       let get_updated db g =
         let tables = Db_cache_types.Database.tableset db in
         Db_cache_types.TableSet.fold_over_recent g
-          (fun name _ table acc ->
+          (fun _ _ table acc ->
             Db_cache_types.Table.fold_over_recent g
               (fun r _ _ acc ->
                 let row = Db_cache_types.Table.find r table in
@@ -303,9 +301,9 @@ functor
       let get_deleted db g =
         let tables = Db_cache_types.Database.tableset db in
         Db_cache_types.TableSet.fold_over_recent g
-          (fun name _ table acc ->
+          (fun _ _ table acc ->
             Db_cache_types.Table.fold_over_deleted g
-              (fun r {Db_cache_types.Stat.deleted} acc ->
+              (fun r {Db_cache_types.Stat.deleted; _} acc ->
                 if deleted > g then r :: acc else acc)
               table acc)
           tables []
@@ -507,7 +505,7 @@ functor
       ( match Client.get_table_from_ref t valid_ref with
       | Some "VM" ->
           ()
-      | Some t ->
+      | Some _ ->
           failwith "get_table_from_ref <valid ref> : invalid table"
       | None ->
           failwith "get_table_from_ref <valid ref> : None"
@@ -640,17 +638,17 @@ functor
       Printf.printf
         "read_record <valid table> <valid ref> deleted foreign key\n" ;
       Client.delete_row t "VBD" vbd_ref ;
-      let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
+      let _, fvs_list = Client.read_record t "VM" valid_ref in
       if List.assoc "VBDs" fvs_list <> [] then
         failwith "read_record <valid table> <valid ref> 4" ;
       Printf.printf
         "read_record <valid table> <valid ref> overwritten foreign key\n" ;
       Client.create_row t "VBD" (make_vbd valid_ref vbd_ref vbd_uuid) vbd_ref ;
-      let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
+      let _, fvs_list = Client.read_record t "VM" valid_ref in
       if List.assoc "VBDs" fvs_list = [] then
         failwith "read_record <valid table> <valid ref> 5" ;
       Client.write_field t "VBD" vbd_ref "VM" "overwritten" ;
-      let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
+      let _, fvs_list = Client.read_record t "VM" valid_ref in
       if List.assoc "VBDs" fvs_list <> [] then
         failwith "read_record <valid table> <valid ref> 6" ;
       expect_missing_tbl "Vm" (fun () ->

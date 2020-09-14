@@ -72,7 +72,7 @@ let rec make_vdis_and_vbds __context vmref i =
     let physical_utilisation = 1L in
     let metadata_of_pool = Ref.null in
     let is_a_snapshot = false in
-    let snapshot_time = Stdext.Date.never in
+    let snapshot_time = Xapi_stdext_date.Date.never in
     let snapshot_of = Ref.null in
     let sharable = false in
     let cbt_enabled = false in
@@ -87,7 +87,7 @@ let rec make_vdis_and_vbds __context vmref i =
       Xapi_vbd.create ~__context ~vM:vmref ~vDI:vdi
         ~userdevice:(string_of_int i) ~bootable:true ~mode:`RW ~_type:`Disk
         ~empty:false ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-        ~other_config:[] ~unpluggable:false
+        ~other_config:[] ~unpluggable:false ~device:"" ~currently_attached:false
     in
     make_vdis_and_vbds __context vmref (i - 1)
 
@@ -100,7 +100,7 @@ let rec make_vifs __context vmref i =
          ~network:(get_random nws) ~vM:vmref ~mAC:"de:ad:be:ef:99:88"
          ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:""
          ~qos_algorithm_params:[] ~locking_mode:`network_default
-         ~ipv4_allowed:[] ~ipv6_allowed:[]) ;
+         ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false) ;
     make_vifs __context vmref (i - 1)
   )
 

@@ -14,9 +14,7 @@
 module D = Debug.Make (struct let name = "pciops" end)
 
 open D
-open Stdext
-open Xstringext
-open Threadext
+open Xapi_stdext_threads.Threadext
 
 let m = Mutex.create ()
 
@@ -47,7 +45,7 @@ let is_bdf_format str =
    xxxx:xx:xx.x should be plugged into bus number n. HVM guests don't have
    multiple PCI buses anyway. We reinterpret the 'n' to be a hotplug ordering *)
 let sort_pcidevs devs =
-  let ids = List.sort compare (Listext.List.setify (List.map fst devs)) in
+  let ids = List.sort_uniq compare (List.map fst devs) in
   List.map
     (fun id -> (id, List.map snd (List.filter (fun (x, _) -> x = id) devs)))
     ids
@@ -61,7 +59,7 @@ let other_pcidevs_of_vm ~__context other_config =
   let devs =
     try
       let oc = List.assoc "pci" other_config in
-      String.split ',' oc
+      String.split_on_char ',' oc
     with Not_found -> []
   in
   List.fold_left
@@ -76,10 +74,10 @@ let get_pci_hidden_raw_value () =
   let cmd = !Xapi_globs.xen_cmdline_path ^ " --get-dom0 " ^ pci_hiding_key in
   let raw_kv_string = Helpers.get_process_output cmd in
   (* E.g. "xen-pciback.hide=(0000:00:02.0)(0000:00:02.1)\n" or just "\n" *)
-  if String.startswith pci_hiding_key_eq raw_kv_string then
+  if Astring.String.is_prefix ~affix:pci_hiding_key_eq raw_kv_string then
     let keylen = String.length pci_hiding_key_eq in
     (* rtrim to remove trailing newline *)
-    String.rtrim (String.sub_to_end raw_kv_string keylen)
+    Xapi_stdext_std.Xstringext.String.(rtrim (sub_to_end raw_kv_string keylen))
   else
     ""
 
@@ -93,7 +91,8 @@ let get_hidden_pcidevs () =
         let dev =
           Scanf.sscanf raw bdf_paren_scan_fmt (fun a b c d -> (a, b, c, d))
         in
-        read_dev (dev :: devs) (String.sub_to_end raw paren_len)
+        read_dev (dev :: devs)
+          (Xapi_stdext_std.Xstringext.String.sub_to_end raw paren_len)
   in
   read_dev [] (get_pci_hidden_raw_value ())
 
@@ -129,7 +128,9 @@ let _unhide_pci ~__context pci =
     let bdf_paren =
       Printf.sprintf "(%s)" (Db.PCI.get_pci_id ~__context ~self:pci)
     in
-    let new_value = String.replace bdf_paren "" raw_value in
+    let new_value =
+      Xapi_stdext_std.Xstringext.String.replace bdf_paren "" raw_value
+    in
     let cmd =
       match new_value with
       | "" ->

@@ -40,6 +40,8 @@ let xedebug = ref false
 
 let xedebugonfail = ref false
 
+let stunnel_processes = ref []
+
 let debug_channel = ref None
 
 let debug_file = ref None
@@ -87,6 +89,14 @@ let hdrs =
   ; "authorization"
   ; "location"
   ]
+
+let canonicalize path =
+  let open Fpath in
+  match Filename.is_relative path with
+  | true ->
+      (Sys.getcwd () |> v) // (path |> v) |> normalize
+  | false ->
+      path |> v |> normalize
 
 let end_of_string s from = String.sub s from (String.length s - from)
 
@@ -154,12 +164,15 @@ let parse_port (x : string) =
     error "Port number must be an integer (0-65535)\n" ;
     raise Usage
 
-let parse_eql arg =
-  try Astring.String.cut ~sep:"=" arg with Invalid_argument _ -> None
-
-let get_named_args args =
+let get_permit_filenames args =
   List.filter_map
-    (fun arg -> match parse_eql arg with Some (k, v) -> Some v | _ -> None)
+    (fun arg ->
+      match Astring.String.cut ~sep:"=" arg with
+      | Some (k, v) -> (
+        match String.trim v with "" -> None | _ -> Some (v |> canonicalize)
+      )
+      | _ ->
+          None)
     args
 
 (* Extract the arguments we're interested in. Return a list of the argumets we know *)
@@ -237,7 +250,7 @@ let parse_args =
     | [] ->
         []
     | arg :: args -> (
-      match parse_eql arg with
+      match Astring.String.cut ~sep:"=" arg with
       | Some (k, v) when set_keyword (k, v) ->
           process_args args
       | _ ->
@@ -299,18 +312,11 @@ let with_open_tcp_ssl server f =
     ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
     ~extended_diagnosis:(!debug_file <> None) server port
   @@ fun x ->
-  Pervasiveext.finally
-    (fun () -> Unixfd.with_channels x.Stunnel.fd f)
-    (fun () ->
-      if Sys.file_exists x.Stunnel.logfile then (
-        if !exit_status <> 0 then (
-          debug "\nStunnel diagnosis:\n\n" ;
-          try Stunnel.diagnose_failure x
-          with e -> debug "%s\n" (Printexc.to_string e)
-        ) ;
-        try Unix.unlink x.Stunnel.logfile with _ -> ()
-      ) ;
-      Stunnel.disconnect ~wait:false ~force:true x)
+  let x = Stunnel.move_out_exn x in
+  let ic = Unix.in_channel_of_descr (Unix.dup Unixfd.(!(x.Stunnel.fd))) in
+  let oc = Unix.out_channel_of_descr (Unix.dup Unixfd.(!(x.Stunnel.fd))) in
+  stunnel_processes := (x, ic, oc) :: !stunnel_processes ;
+  f (ic, oc)
 
 let with_open_tcp server f =
   if !xeusessl && not (is_localhost server) then (* never use SSL on-host *)
@@ -381,7 +387,7 @@ exception Unexpected_msg of message
 
 exception Server_internal_error
 
-exception Upload_filename_error of string
+exception Filename_not_permitted of string
 
 let handle_unmarshal_failure ex ifd =
   match ex with
@@ -398,22 +404,34 @@ let handle_unmarshal_failure ex ifd =
   | e ->
       raise e
 
-let assert_upload_filename_in_args filename permitted_filenames =
+let assert_filename_permitted ?(permit_cwd = false) permitted_filenames filename
+    =
   (* Prefix match instead of exact match is used here to workaround the old xva format that request files
    * are not in the command line *)
-  let is_filename_permited =
-    List.exists
-      (fun file_in_arg -> Astring.String.is_prefix ~affix:file_in_arg filename)
-      permitted_filenames
+  let permitted_filenames =
+    match permit_cwd with
+    | true ->
+        Filename.current_dir_name |> canonicalize |> fun x ->
+        x :: permitted_filenames
+    | _ ->
+        permitted_filenames
   in
-  if not is_filename_permited then
-    let error_message =
-      Printf.sprintf
-        "Blocked upload of the file %s, which was requested by the server. The \
-         file name was not present on the command line\n"
-        filename
-    in
-    raise (Upload_filename_error error_message)
+  let requested_file = canonicalize filename in
+  match
+    List.exists
+      (fun file -> Fpath.is_prefix file requested_file)
+      permitted_filenames
+  with
+  | false ->
+      let error_message =
+        Printf.sprintf
+          "Blocked upload/download of the file %s, which was requested by the \
+           server. The file name was not present on the command line\n"
+          filename
+      in
+      raise (Filename_not_permitted error_message)
+  | _ ->
+      ()
 
 let main_loop ifd ofd permitted_filenames =
   (* Intially exchange version information *)
@@ -462,7 +480,7 @@ let main_loop ifd ofd permitted_filenames =
     | Command (Debug x) ->
         debug "debug from server: %s\n%!" x
     | Command (Load x) -> (
-        assert_upload_filename_in_args x permitted_filenames ;
+        assert_filename_permitted permitted_filenames x ;
         try
           let fd = Unix.openfile x [Unix.O_RDONLY] 0 in
           marshal ofd (Response OK) ;
@@ -610,9 +628,7 @@ let main_loop ifd ofd permitted_filenames =
           try
             with_open_tcp server @@ fun (ic, oc) ->
             delay := 0.1 ;
-            Pervasiveext.finally
-              (fun () -> connection ic oc)
-              (fun () -> try close_in ic with _ -> ())
+            connection ic oc
           with
           | Unix.Unix_error (_, _, _)
             when !delay <= long_connection_retry_timeout ->
@@ -632,7 +648,7 @@ let main_loop ifd ofd permitted_filenames =
             ()
       )
     | Command (HttpPut (filename, url)) -> (
-        assert_upload_filename_in_args filename permitted_filenames ;
+        assert_filename_permitted permitted_filenames filename ;
         try
           let rec doit url =
             let server, path = parse_url url in
@@ -670,7 +686,10 @@ let main_loop ifd ofd permitted_filenames =
             | 302 ->
                 let newloc = List.assoc "location" headers in
                 (try close_in ic with _ -> ()) ;
-                (* Nb. Unix.close_connection only requires the in_channel *)
+                (* Unixfd.with_connection requires both channels to be closed *)
+                close_in_noerr ic ;
+                close_out_noerr oc ;
+                (* recursive call here, had to close channels on our own *)
                 doit newloc
             | _ ->
                 failwith "Unhandled response code"
@@ -703,12 +722,15 @@ let main_loop ifd ofd permitted_filenames =
               let file_ch =
                 if filename = "" then
                   Unix.out_channel_of_descr (Unix.dup Unix.stdout)
-                else
+                else (
+                  assert_filename_permitted ~permit_cwd:true permitted_filenames
+                    filename ;
                   try
                     open_out_gen
                       [Open_wronly; Open_creat; Open_excl]
                       0o600 filename
                   with e -> raise (ClientSideError (Printexc.to_string e))
+                )
               in
               while input_line ic <> "\r" do
                 ()
@@ -717,15 +739,12 @@ let main_loop ifd ofd permitted_filenames =
                 (fun () ->
                   copy_with_heartbeat ic file_ch heartbeat_fun ;
                   marshal ofd (Response OK))
-                (fun () ->
-                  (try close_in ic with _ -> ()) ;
-                  try close_out file_ch with _ -> ())
+                (fun () -> try close_out file_ch with _ -> ())
           | 302 ->
               let headers = read_rest_of_headers ic in
               let newloc = List.assoc "location" headers in
-              (try close_in ic with _ -> ()) ;
-              (* Nb. Unix.close_connection only requires the in_channel *)
-              doit newloc
+              (* see above about Unixfd.with_connection *)
+              close_in_noerr ic ; close_out_noerr oc ; doit newloc
           | _ ->
               failwith "Unhandled response code"
         in
@@ -735,9 +754,14 @@ let main_loop ifd ofd permitted_filenames =
           marshal ofd (Response Failed) ;
           Printf.fprintf stderr "Operation failed. Error: %s\n" msg ;
           exit_code := Some 1
-      | e ->
-          debug "HttpGet failure: %s\n%!" (Printexc.to_string e) ;
-          marshal ofd (Response Failed)
+      | e -> (
+        match e with
+        | Filename_not_permitted _ ->
+            raise e
+        | _ ->
+            debug "HttpGet failure: %s\n%!" (Printexc.to_string e) ;
+            marshal ofd (Response Failed)
+      )
     )
     | Command Prompt ->
         let data = input_line stdin in
@@ -768,7 +792,7 @@ let main () =
       ) ;
       let args = parse_args args in
       (* All the named args are taken as permitted filename to be uploaded *)
-      let permitted_filenames = get_named_args args in
+      let permitted_filenames = get_permit_filenames args in
       if List.length args < 1 then
         raise Usage
       else
@@ -824,13 +848,27 @@ let main () =
           | Unix.WSTOPPED c ->
               "stopped by signal " ^ string_of_int c
           )
-    | Upload_filename_error e ->
-        error "Upload file error: %s.\n" e
+    | Filename_not_permitted e ->
+        error "File not permitted: %s.\n" e
     | ClientSideError e ->
         error "Client Side error: %s.\n" e
     | e ->
         error "Unhandled exception\n%s\n" (Printexc.to_string e)
   in
+  List.iter
+    (fun (x, ic, oc) ->
+      close_out_noerr oc ;
+      close_in_noerr ic ;
+      if Sys.file_exists x.Stunnel.logfile then (
+        if !exit_status <> 0 then (
+          debug "\nStunnel diagnosis:\n\n" ;
+          try Stunnel.diagnose_failure x
+          with e -> debug "%s\n" (Printexc.to_string e)
+        ) ;
+        try Unix.unlink x.Stunnel.logfile with _ -> ()
+      ) ;
+      Stunnel.disconnect ~wait:false ~force:true x)
+    !stunnel_processes ;
   ( match (!debug_file, !debug_channel) with
   | Some f, Some ch -> (
       close_out ch ;

@@ -65,6 +65,7 @@ let rel_oslo = "oslo"
 let rel_quebec = "quebec"
 let rel_stockholm = "stockholm"
 let rel_stockholm_psr = "stockholm_psr"
+let rel_next = "next"
 
 type api_release = {
   code_name: string option;
@@ -273,7 +274,13 @@ let release_order_full = [{
      code_name     = Some rel_stockholm_psr;
      version_major = 2;
      version_minor = 15;
-     branding      = "Citrix Hypervisor 8.2 Hotfix n";
+     branding      = "Citrix Hypervisor 8.2 Hotfix 2";
+     release_date  = None;
+   }; {
+     code_name     = Some rel_next;
+     version_major = 2;
+     version_minor = 16;
+     branding      = "Unreleased";
      release_date  = None;
    }
   ]
@@ -296,8 +303,8 @@ let release_leq x y =
   let rec posn_in_list i x l =
     match l with
       [] -> raise (Unknown_release x)
-    | r::rs when code_name_of_release r = x -> i
-    | r::rs-> posn_in_list (i+1) x rs in
+    | r :: _ when code_name_of_release r = x -> i
+    | _ :: rs -> posn_in_list (i+1) x rs in
   (posn_in_list 0 x release_order) <= (posn_in_list 0 y release_order)
 
 (** Types of object fields. Accessor functions are generated for each field automatically according to its type and qualifiers. *)
@@ -525,6 +532,6 @@ let rec type_checks v t =
     all_true (List.map (fun (k,v)->type_checks k t1 && type_checks v t2) vvl)
   | VSet vl, Set t ->
     all_true (List.map (fun v->type_checks v t) vl)
-  | VRef r, Ref _ -> true
+  | VRef _, Ref _ -> true
   | VCustom _, _ -> true (* Type checks defered to phase-2 compile time *)
   | _, _ -> false

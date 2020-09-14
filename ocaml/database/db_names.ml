@@ -41,8 +41,6 @@ let memory_static_min = "memory__static_min"
 
 let memory_target = "memory__target"
 
-let other_config = "other_config"
-
 let is_a_template = "is_a_template"
 
 let is_default_template = "is_default_template"

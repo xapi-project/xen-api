@@ -17,9 +17,8 @@
 
 open Client
 open Db_cache_types
-open Stdext
-open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_vdi_helpers" end)
 
@@ -114,7 +113,8 @@ let enable_database_replication ~__context ~get_vdi_callback =
                 Client.VBD.create ~rpc ~session_id ~vM:dom0 ~empty:false
                   ~vDI:vdi ~userdevice:"autodetect" ~bootable:false ~mode:`RW
                   ~_type:`Disk ~unpluggable:true ~qos_algorithm_type:""
-                  ~qos_algorithm_params:[] ~other_config:[]
+                  ~qos_algorithm_params:[] ~other_config:[] ~device:""
+                  ~currently_attached:false
               in
               Client.VBD.plug ~rpc ~session_id ~self:vbd ;
               vbd)
@@ -194,6 +194,7 @@ let database_ref_of_vdi ~__context ~vdi =
     Redo_log.delete log ;
     (* Upgrade database to the local schema. *)
     (* Reindex database to make sure is_valid_ref works. *)
+    let ( ++ ) f g x = f (g x) in
     Db_ref.update_database db_ref
       (Db_upgrade.generic_database_upgrade
       ++ Database.reindex

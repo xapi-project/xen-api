@@ -50,8 +50,8 @@ let make_iscsi session_id pool network =
     let newvm = Client.VM.clone rpc session_id template "ISCSI target server" in
     Client.VM.provision rpc session_id newvm ;
     let _ (* isovbd *) =
-      Client.VBD.create rpc session_id newvm iscsi_iso "0" true `RO `CD false
-        false [] "" []
+      Client.VBD.create rpc session_id newvm iscsi_iso "" "0" true `RO `CD false
+        false [] false "" []
     in
     let realpool = List.hd (Client.Pool.get_all rpc session_id) in
     let defaultsr = Client.Pool.get_default_SR rpc session_id realpool in
@@ -63,8 +63,8 @@ let make_iscsi session_id pool network =
       in
       let userdevice = Printf.sprintf "%d" (i + 1) in
       ignore
-        (Client.VBD.create rpc session_id newvm storage_vdi userdevice false `RW
-           `Disk false false [] "" [])
+        (Client.VBD.create rpc session_id newvm storage_vdi "" userdevice false
+           `RW `Disk false false [] false "" [])
     done ;
     Client.VM.set_PV_bootloader rpc session_id newvm "pygrub" ;
     Client.VM.set_PV_args rpc session_id newvm
@@ -72,7 +72,7 @@ let make_iscsi session_id pool network =
     Client.VM.set_HVM_boot_policy rpc session_id newvm "" ;
     let (_ : API.ref_VIF) =
       Client.VIF.create rpc session_id "0" network newvm "" 1500L
-        [(oc_key, pool.key)] "" [] `network_default [] []
+        [(oc_key, pool.key)] false "" [] `network_default [] []
     in
     Client.VM.add_to_other_config rpc session_id newvm oc_key pool.key ;
     let localhost_uuid = Inventory.lookup "INSTALLATION_UUID" in
@@ -120,7 +120,8 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
           (Client.VBD.create ~rpc ~session_id ~vM:clone ~vDI:newdisk
              ~userdevice:(string_of_int userdevice) ~bootable:false ~mode:`RW
              ~_type:`Disk ~unpluggable:true ~empty:false ~qos_algorithm_type:""
-             ~qos_algorithm_params:[] ~other_config:[])
+             ~qos_algorithm_params:[] ~other_config:[] ~device:""
+             ~currently_attached:false)
       done ;
       Client.VM.provision ~rpc ~session_id ~vm:clone ;
       for device = 0 to min vm.vifs (Array.length networks) - 1 do
@@ -128,7 +129,8 @@ let make ~rpc ~session_id ~pool ~vm ~networks ~storages =
           (Client.VIF.create ~rpc ~session_id ~device:(string_of_int device)
              ~network:networks.(device) ~vM:clone ~mAC:"" ~mTU:1500L
              ~other_config:[] ~qos_algorithm_type:"" ~qos_algorithm_params:[]
-             ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[])
+             ~locking_mode:`network_default ~ipv4_allowed:[] ~ipv6_allowed:[]
+             ~currently_attached:false)
       done ;
       Client.VM.set_memory_static_min ~rpc ~session_id ~self:clone
         ~value:16777216L ;

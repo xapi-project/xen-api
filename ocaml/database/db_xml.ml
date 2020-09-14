@@ -55,7 +55,7 @@ module To = struct
 
   (* Marshal a whole database table to an Xmlm output abstraction *)
   let table schema (output : Xmlm.output) name (tbl : Table.t) =
-    let record rf {Stat.created; modified} (row : Row.t) _ =
+    let record rf {Stat.created; modified; _} (row : Row.t) _ =
       let preamble =
         if persist_generation_counts then
           [

@@ -12,14 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Xstringext
-open Pervasiveext
-open Printf
+module Xstringext = Xapi_stdext_std.Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xenops" end)
 
 open D
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let sysfs_stem = "/sys/devices/system/xen_memory/xen_memory0/"
 

@@ -19,9 +19,8 @@
 module D = Debug.Make (struct let name = "db_hiupgrade" end)
 
 open D
-open Stdext
-open Xstringext
-open Pervasiveext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (** The type of an upgrade rule. The rules should ideally be idempotent and composable.
     All new fields will have been created with default values and new tables will exist. *)
@@ -203,7 +202,7 @@ let upgrade_wlb_configuration =
           in
           if old_wlb_pwd = "" then
             Ref.null
-          else if String.startswith "OpaqueRef:" old_wlb_pwd then
+          else if Astring.String.is_prefix ~affix:"OpaqueRef:" old_wlb_pwd then
             Db.Pool.get_wlb_password ~__context ~self:pool
           else
             Xapi_secret.create ~__context ~value:old_wlb_pwd ~other_config:[]
@@ -293,7 +292,7 @@ let upgrade_bios_strings =
               | None ->
                   None
             in
-            Pervasiveext.finally find_oem_manufacturer (fun () -> close_in ic)
+            finally find_oem_manufacturer (fun () -> close_in ic)
           with _ -> None
         in
         let update_vms bios_strings =
@@ -305,10 +304,10 @@ let upgrade_bios_strings =
         match oem_manufacturer with
         | Some oem ->
             info "Upgrade from OEM edition (%s)." oem ;
-            if String.has_substr oem "HP" then (
+            if Astring.String.is_infix ~affix:"HP" oem then (
               debug "Using old HP BIOS strings" ;
               update_vms Constants.old_hp_bios_strings
-            ) else if String.has_substr oem "Dell" then (
+            ) else if Astring.String.is_infix ~affix:"Dell" oem then (
               debug "Using old Dell BIOS strings" ;
               update_vms Constants.old_dell_bios_strings
             )
@@ -886,6 +885,7 @@ let maybe_upgrade ~__context =
     apply_upgrade_rules ~__context rules previous_vsn ;
     debug "Upgrade rules applied, bumping schema version to %d.%d"
       latest_major_vsn latest_minor_vsn ;
+    let ( ++ ) f g h = f (g h) in
     Db_ref.update_database db_ref
       ((Db_cache_types.Database.update_manifest
        ++ Db_cache_types.Manifest.update_schema

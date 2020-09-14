@@ -22,14 +22,14 @@ module D = Debug.Make (struct let name = "xapi_ha" end)
 
 open D
 module Rrdd = Rrd_client.Client
-open Stdext
-open Listext
-open Xstringext
-open Threadext
-open Pervasiveext
+module Date = Xapi_stdext_date.Date
+open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Forkhelpers
 open Client
-open Threadext
 open Db_filter_types
 open Xha_scripts
 
@@ -67,7 +67,7 @@ let i_have_statefile_access () =
 let propose_master () =
   try
     let result = call_script ha_propose_master [] in
-    String.rtrim result = "TRUE"
+    Xapi_stdext_std.Xstringext.String.rtrim result = "TRUE"
   with Xha_error e ->
     error "ha_propose_master threw unexpected exception: %s"
       (Xha_errno.to_string e) ;
@@ -201,14 +201,18 @@ module Timeouts = struct
   let derive (t : int) =
     (* xHA interface section 4.1.4.1.1 Formula of key timeouts *)
     (* t >= 10 *)
-    if t < 10 then failwith "constraint violation: timeout >= 10" ;
     (* All other values are derived from this single parameter *)
-    let heart_beat_interval = (t + 10) / 10 in
-    let state_file_interval = heart_beat_interval in
+    if t < 10 then failwith "constraint violation: timeout >= 10" ;
+    (* heart beats are cheap but unreliable b/c of UDP - have many *)
+    let interval = (t + 10) / 10 in
+    (* interval used previously *)
+    let heart_beat_interval = min interval 3 in
+    (* state file is slow but realiable  - have 20 when possible *)
+    let state_file_interval = max 2 (t / 20) in
     let heart_beat_timeout = t in
     let state_file_timeout = t in
-    let heart_beat_watchdog_timeout = t in
-    let state_file_watchdog_timeout = t + 15 in
+    let heart_beat_watchdog_timeout = heart_beat_timeout in
+    let state_file_watchdog_timeout = state_file_timeout + 15 in
     let boot_join_timeout = t + 60 in
     let enable_join_timeout = boot_join_timeout in
     {
@@ -602,12 +606,9 @@ module Monitor = struct
               warning_all_live_nodes_lost_statefile
                 all_live_nodes_lost_statefile ;
               (* Now the Host.ha_network_peers *)
-              let subset a b =
-                List.fold_left (fun acc x -> acc && List.mem x b) true a
-              in
               let set_equals a b =
-                let a' = List.setify a and b' = List.setify b in
-                subset a' b' && subset b' a'
+                let open Xapi_stdext_std.Listext.List in
+                set_equiv (setify a) (setify b)
               in
               (* NB raw_status_on_local_host not available if in 'Starting' state *)
               ( match

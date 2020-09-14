@@ -14,10 +14,8 @@
 module D = Debug.Make (struct let name = "taskhelper" end)
 
 open D
-
-(*open API*)
-open Stdext
-open Threadext
+module Date = Xapi_stdext_date.Date
+open Xapi_stdext_threads.Threadext
 
 type t = API.ref_task
 
@@ -41,7 +39,7 @@ let make ~__context ~http_other_config ?(description = "") ?session_id
     Db_actions.DB_Action.Task.create ~ref ~__context
       ~created:(Date.of_float (Unix.time ()))
       ~finished:(Date.of_float 0.0) ~current_operations:[] ~_type:"<none/>"
-      ~session:(Pervasiveext.default Ref.null session_id)
+      ~session:(Option.value ~default:Ref.null session_id)
       ~resident_on:!Xapi_globs.localhost_ref ~status:`pending ~result:""
       ~progress:0. ~error_info:[] ~allowed_operations:[]
       ~name_description:description ~name_label:label ~stunnelpid:(-1L)

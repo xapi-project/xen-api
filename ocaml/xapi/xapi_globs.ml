@@ -16,7 +16,7 @@
 
 module String_plain = String (* For when we don't want the Xstringext version *)
 
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 open Printf
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
@@ -453,6 +453,7 @@ let rpu_allowed_vm_operations =
   ; `hard_shutdown
   ; `import
   ; `make_into_template
+  ; `migrate_send
   ; `pause
   ; `pool_migrate
   ; `power_state_reset
@@ -1193,9 +1194,12 @@ module Resources = struct
       , alert_certificate_check
       , "Path to alert-certificate-check, which generates alerts on \
          about-to-expire server certificates." )
-    ; ( "generate_ssl_cert"
-      , Constants.generate_ssl_cert
-      , "script to generate SSL certificates to be used by XAPI" )
+    ; ( "gencert"
+      , Constants.gencert
+      , "command to generate SSL certificates to be used by XAPI" )
+    ; ( "openssl_path"
+      , Constants.openssl_path
+      , "Path for openssl command to generate RSA keys" )
     ]
 
   let nonessential_executables =

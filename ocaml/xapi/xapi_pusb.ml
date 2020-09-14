@@ -12,9 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
-open Listext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Xapi_pusb_helpers
 
 module D = Debug.Make (struct let name = "xapi_pusb" end)

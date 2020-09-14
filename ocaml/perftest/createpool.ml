@@ -65,7 +65,7 @@ let initialise session_id template pool =
           ~network:net ~vM:template ~mAC:"" ~mTU:1500L
           ~other_config:[(oc_key, pool.key)] ~qos_algorithm_type:""
           ~qos_algorithm_params:[] ~locking_mode:`network_default
-          ~ipv4_allowed:[] ~ipv6_allowed:[])
+          ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false)
   in
   (* Create a disk for local storage *)
   debug "Creating a disk for local storage on the template" ;
@@ -82,7 +82,8 @@ let initialise session_id template pool =
     Client.VBD.create ~rpc ~session_id ~vM:template ~vDI:newdisk
       ~userdevice:sr_disk_device ~bootable:false ~mode:`RW ~_type:`Disk
       ~unpluggable:true ~empty:false ~qos_algorithm_type:""
-      ~qos_algorithm_params:[] ~other_config:[(oc_key, pool.key)]
+      ~qos_algorithm_params:[] ~other_config:[(oc_key, pool.key)] ~device:""
+      ~currently_attached:false
   in
   debug "Setting up xenstore keys" ;
   (* Set up the various xenstore keys *)

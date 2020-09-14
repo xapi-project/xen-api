@@ -15,11 +15,10 @@
  * @group Storage
 *)
 
-open Stdext
-open Xstringext
+open Xapi_stdext_std.Xstringext
 open Smint
 open Printf
-open Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 
 module D = Debug.Make (struct let name = "sm" end)
 

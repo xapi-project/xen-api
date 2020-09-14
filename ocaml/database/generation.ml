@@ -13,10 +13,6 @@
  *)
 
 (* Simple generation count implementation *)
-module D = Debug.Make (struct let name = "sql" end)
-
-open D
-
 type t = int64
 
 let of_string str : t = Int64.of_string str

@@ -45,9 +45,10 @@ let get_supported_srs cluster_stack =
   in
   let fname = Filename.concat folder_name ha_supported_srs in
   try
-    let open Stdext.Xstringext.String in
     Some
-      (Stdext.Unixext.string_of_file fname |> strip isspace |> split_f isspace)
+      (Xapi_stdext_unix.Unixext.string_of_file fname
+      |> Astring.String.fields ~empty:false
+      )
   with _ -> None
 
 (** The xHA scripts throw these exceptions: *)
@@ -61,7 +62,7 @@ let call_script ?log_output script args =
   let script' = Filename.concat path script in
   let env = [|Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path|] in
   try
-    Stdext.Threadext.Mutex.execute ha_script_m (fun () ->
+    Xapi_stdext_threads.Threadext.Mutex.execute ha_script_m (fun () ->
         Helpers.call_script ?log_output ~env script' args)
   with Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED n) ->
     let code = Xha_errno.of_int n in

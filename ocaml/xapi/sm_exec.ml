@@ -15,9 +15,10 @@
  * @group Storage
 *)
 
-open Stdext
-open Pervasiveext
-open Xstringext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Printf
 open Smint
 
@@ -105,13 +106,13 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
         if vdi_location <> None then
           vdi_location
         else
-          may (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref
+          Option.map (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref
       in
       let vdi_uuid =
-        may (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref
+        Option.map (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref
       in
       let vdi_on_boot =
-        may
+        Option.map
           (fun self ->
             match Db.VDI.get_on_boot ~__context ~self with
             | `persist ->
@@ -121,7 +122,7 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
           vdi_ref
       in
       let vdi_allow_caching =
-        may
+        Option.map
           (fun self ->
             string_of_bool (Db.VDI.get_allow_caching ~__context ~self))
           vdi_ref
@@ -135,7 +136,9 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
                     ~self:(Helpers.get_localhost __context)))
         with _ -> None
       in
-      let sr_uuid = may (fun self -> Db.SR.get_uuid ~__context ~self) sr_ref in
+      let sr_uuid =
+        Option.map (fun self -> Db.SR.get_uuid ~__context ~self) sr_ref
+      in
       {
         host_ref= !Xapi_globs.localhost_ref
       ; session_ref= None
@@ -173,71 +176,79 @@ let xmlrpc_of_call (call : call) =
   in
   let dc = [("device_config", kvpairs call.device_config)] in
   let session_ref =
-    default []
-      (may
-         (fun x -> [("session_ref", XMLRPC.To.string (Ref.string_of x))])
-         call.session_ref)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("session_ref", XMLRPC.To.string (Ref.string_of x))])
+      call.session_ref
   in
   let sr_sm_config =
-    default [] (may (fun x -> [("sr_sm_config", kvpairs x)]) call.sr_sm_config)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("sr_sm_config", kvpairs x)])
+      call.sr_sm_config
   in
   let sr_ref =
-    default []
-      (may
-         (fun x -> [("sr_ref", XMLRPC.To.string (Ref.string_of x))])
-         call.sr_ref)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("sr_ref", XMLRPC.To.string (Ref.string_of x))])
+      call.sr_ref
   in
   let sr_uuid =
-    default [] (may (fun x -> [("sr_uuid", XMLRPC.To.string x)]) call.sr_uuid)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("sr_uuid", XMLRPC.To.string x)])
+      call.sr_uuid
   in
   let vdi_type =
-    default [] (may (fun x -> [("vdi_type", XMLRPC.To.string x)]) call.vdi_type)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_type", XMLRPC.To.string x)])
+      call.vdi_type
   in
   let vdi_ref =
-    default []
-      (may
-         (fun x -> [("vdi_ref", XMLRPC.To.string (Ref.string_of x))])
-         call.vdi_ref)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_ref", XMLRPC.To.string (Ref.string_of x))])
+      call.vdi_ref
   in
   let vdi_location =
-    default []
-      (may (fun x -> [("vdi_location", XMLRPC.To.string x)]) call.vdi_location)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_location", XMLRPC.To.string x)])
+      call.vdi_location
   in
   let vdi_uuid =
-    default [] (may (fun x -> [("vdi_uuid", XMLRPC.To.string x)]) call.vdi_uuid)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_uuid", XMLRPC.To.string x)])
+      call.vdi_uuid
   in
   let vdi_on_boot =
-    default []
-      (may (fun x -> [("vdi_on_boot", XMLRPC.To.string x)]) call.vdi_on_boot)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_on_boot", XMLRPC.To.string x)])
+      call.vdi_on_boot
   in
   let vdi_allow_caching =
-    default []
-      (may
-         (fun x -> [("vdi_allow_caching", XMLRPC.To.string x)])
-         call.vdi_allow_caching)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_allow_caching", XMLRPC.To.string x)])
+      call.vdi_allow_caching
   in
   let new_uuid =
-    default [] (may (fun x -> [("new_uuid", XMLRPC.To.string x)]) call.new_uuid)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("new_uuid", XMLRPC.To.string x)])
+      call.new_uuid
   in
   let driver_params =
-    default []
-      (may (fun x -> [("driver_params", kvpairs x)]) call.driver_params)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("driver_params", kvpairs x)])
+      call.driver_params
   in
   let vdi_sm_config =
-    default []
-      (may (fun x -> [("vdi_sm_config", kvpairs x)]) call.vdi_sm_config)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("vdi_sm_config", kvpairs x)])
+      call.vdi_sm_config
   in
   let subtask_of =
-    default []
-      (may
-         (fun x -> [("subtask_of", XMLRPC.To.string (Ref.string_of x))])
-         call.subtask_of)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("subtask_of", XMLRPC.To.string (Ref.string_of x))])
+      call.subtask_of
   in
   let local_cache_sr =
-    default []
-      (may
-         (fun x -> [("local_cache_sr", XMLRPC.To.string x)])
-         call.local_cache_sr)
+    Option.fold ~none:[]
+      ~some:(fun x -> [("local_cache_sr", XMLRPC.To.string x)])
+      call.local_cache_sr
   in
   let all =
     common
@@ -283,7 +294,7 @@ let with_session sr f =
             ~auth_user_sid:"" ~auth_user_name:sm_username ~rbac_permissions:[]
         in
         (* Give this session access to this particular SR *)
-        maybe
+        Option.iter
           (fun sr ->
             Db.Session.add_to_other_config ~__context ~self:session
               ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr))
@@ -294,9 +305,7 @@ let with_session sr f =
         Xapi_session.destroy_db_session ~__context ~self:session_id
       in
       let session_id = create_session () in
-      Pervasiveext.finally
-        (fun () -> f session_id)
-        (fun () -> destroy_session session_id))
+      finally (fun () -> f session_id) (fun () -> destroy_session session_id))
 
 let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
     =
@@ -365,8 +374,8 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
     | XMLRPC.Fault (144l, _) ->
         (* Any call which returns this 'VDIMissing' error really ought to have
            	   been provided both an SR and VDI reference... *)
-        let sr = default "" (may Ref.string_of call.sr_ref)
-        and vdi = default "" (may Ref.string_of call.vdi_ref) in
+        let sr = Option.fold ~none:"" ~some:Ref.string_of call.sr_ref in
+        let vdi = Option.fold ~none:"" ~some:Ref.string_of call.vdi_ref in
         raise
           (Storage_interface.Storage_error
              (Backend_error (Api_errors.vdi_missing, [sr; vdi])))
@@ -503,7 +512,7 @@ let sr_get_driver_info driver =
  * backend and daemon found. *)
 let get_supported add_fn =
   let check_driver entry =
-    if String.endswith "SR" entry then
+    if Astring.String.is_suffix ~affix:"SR" entry then
       let driver = String.sub entry 0 (String.length entry - 2) in
       if not (Xapi_globs.accept_sm_plugin driver) then
         info

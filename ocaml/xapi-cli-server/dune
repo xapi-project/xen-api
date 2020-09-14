@@ -2,13 +2,32 @@
   (name xapi_cli_server)
 
   (libraries
-   tar-unix
+   astring
+   base64
+   http-svr
+   rpclib.core
+   rpclib.xml
+   re
+   result
+   rresult
+   sexplib
+   tar
+   threads.posix
+   xapi-backtrace
+   xapi-consts
+   xapi-database
    xapi-datamodel
+   xapi-idl
    xapi-types
    xapi-client
    xapi-cli-protocol
-   stdext
    xapi_aux
+   xapi-stdext-date
+   xapi-stdext-pervasives
+   xapi-stdext-std
+   xapi-stdext-unix
+   xmlm
+   xml-light2
   )
   (preprocess (pps ppx_deriving_rpc))
   (wrapped false)

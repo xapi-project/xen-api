@@ -18,8 +18,7 @@ open D
 
 type processor = Rpc.call -> Rpc.response
 
-open Stdext
-open Threadext
+open Xapi_stdext_threads.Threadext
 open Storage_interface
 
 let s_of_sr = Sr.string_of
@@ -417,7 +416,7 @@ module Mux = struct
     (* Assume it has either the format:
        SR/VDI -- for a particular SR and VDI
        content_id -- for a particular content *)
-    let open Xstringext in
+    let open Xapi_stdext_std.Xstringext in
     match List.filter (fun x -> x <> "") (String.split ~limit:2 '/' name) with
     | [sr; name] ->
         let sr = Storage_interface.Sr.of_string sr in

@@ -14,9 +14,8 @@
 module D = Debug.Make (struct let name = "vgpuops" end)
 
 open D
-open Stdext
-open Listext
-open Xstringext
+open Xapi_stdext_std.Listext
+open Xapi_stdext_std.Xstringext
 
 type vgpu_t = {
     vgpu_ref: API.ref_VGPU

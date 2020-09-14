@@ -46,13 +46,14 @@ let with_setup rpc session_id sr vm_template f =
         (Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:Ref.null
            ~userdevice:"0" ~bootable:false ~mode:`RO ~_type:`CD
            ~unpluggable:true ~empty:true ~other_config:[] ~qos_algorithm_type:""
-           ~qos_algorithm_params:[]) ;
+           ~qos_algorithm_params:[] ~device:"" ~currently_attached:false) ;
       ignore
         (Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi
            ~userdevice:"1" ~bootable:false ~mode:`RW ~_type:`Disk
            ~unpluggable:true ~empty:false
            ~other_config:[(Constants.owner_key, "")]
-           ~qos_algorithm_type:"" ~qos_algorithm_params:[]) ;
+           ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:""
+           ~currently_attached:false) ;
       f vm)
 
 let import_export_test rpc session_id sr_info vm_template () =

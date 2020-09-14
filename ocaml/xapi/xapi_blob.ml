@@ -24,7 +24,7 @@ let create ~__context ~mime_type ~public =
     if mime_type = "" then "application/octet-stream" else mime_type
   in
   Db.Blob.create ~__context ~ref ~uuid:(Uuid.to_string uuid) ~public
-    ~mime_type:mime_type' ~size:0L ~last_updated:Stdext.Date.never
+    ~mime_type:mime_type' ~size:0L ~last_updated:Xapi_stdext_date.Date.never
     ~name_label:"" ~name_description:"" ;
   ref
 
@@ -41,7 +41,7 @@ let destroy ~__context ~self =
     vms ;
   let uuid = Db.Blob.get_uuid ~__context ~self in
   let path = Xapi_globs.xapi_blob_location ^ "/" ^ uuid in
-  Stdext.Unixext.unlink_safe path ;
+  Xapi_stdext_unix.Unixext.unlink_safe path ;
   Db.Blob.destroy ~__context ~self
 
 (* Send blobs to a remote host on a different pool. uuid_map is a
@@ -71,8 +71,9 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
           (with_http request (fun (response, put_fd) ->
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
-                 (Stdext.Pervasiveext.finally
-                    (fun () -> Stdext.Unixext.copy_file blob_fd put_fd)
+                 (Xapi_stdext_pervasives.Pervasiveext.finally
+                    (fun () ->
+                      Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
                     (fun () -> Unix.close blob_fd))))
       with e ->
         debug "Ignoring exception in send_blobs: %s" (Printexc.to_string e) ;
@@ -170,8 +171,8 @@ let handler (req : Http.Request.t) s _ =
                 ]
               ) ;
             ignore
-              (Stdext.Pervasiveext.finally
-                 (fun () -> Stdext.Unixext.copy_file ifd s)
+              (Xapi_stdext_pervasives.Pervasiveext.finally
+                 (fun () -> Xapi_stdext_unix.Unixext.copy_file ifd s)
                  (fun () -> Unix.close ifd))
           with _ -> Http_svr.headers s (Http.http_404_missing ())
         )
@@ -189,16 +190,16 @@ let handler (req : Http.Request.t) s _ =
                   failwith "Need content length"
             in
             let size =
-              Stdext.Pervasiveext.finally
+              Xapi_stdext_pervasives.Pervasiveext.finally
                 (fun () ->
                   Http_svr.headers s
                     (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]) ;
-                  Stdext.Unixext.copy_file ~limit s ofd)
+                  Xapi_stdext_unix.Unixext.copy_file ~limit s ofd)
                 (fun () -> Unix.close ofd)
             in
             Db.Blob.set_size ~__context ~self ~value:size ;
             Db.Blob.set_last_updated ~__context ~self
-              ~value:(Stdext.Date.of_float (Unix.gettimeofday ()))
+              ~value:(Xapi_stdext_date.Date.of_float (Unix.gettimeofday ()))
         | _ ->
             failwith "Unsupported method for BLOB"
       in

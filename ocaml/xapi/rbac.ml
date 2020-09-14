@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "rbac" end)
 
@@ -148,11 +148,12 @@ let permission_of_action ?args ~keys _action =
                       let key_name =
                         List.find
                           (fun key_name ->
-                            if Stdext.Xstringext.String.endswith "*" key_name
-                            then (* resolve wildcards at the end *)
-                              Stdext.Xstringext.String.startswith
-                                (String.sub key_name 0
-                                   (String.length key_name - 1))
+                            if Astring.String.is_suffix ~affix:"*" key_name then
+                              (* resolve wildcards at the end *)
+                              Astring.String.is_prefix
+                                ~affix:
+                                  (String.sub key_name 0
+                                     (String.length key_name - 1))
                                 key_name_in_args
                             else (* no wildcards to resolve *)
                               key_name = key_name_in_args)
@@ -225,6 +226,7 @@ let check ?(extra_dmsg = "") ?(extra_msg = "") ?args ?(keys = []) ~__context ~fn
         ?sexpr_of_args ?args ~result () ;
       result
     with error ->
+      Backtrace.is_important error ;
       (* catch all exceptions *)
       Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action
         ~permission ?sexpr_of_args ?args ~error () ;

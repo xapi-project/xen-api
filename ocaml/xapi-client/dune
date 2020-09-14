@@ -10,8 +10,12 @@
   (libraries
    mtime
    mtime.clock.os
+   rpclib.core
+   xapi-consts
+   xapi-idl
    xapi-types
    xapi-stdext-date
+   xapi-stdext-pervasives
   )
   (wrapped false)
 )

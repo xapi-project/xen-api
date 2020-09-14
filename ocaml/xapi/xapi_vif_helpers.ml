@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_vif_helpers" end)
 
@@ -285,7 +285,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
          (Api_errors.ha_operation_would_break_failover_plan, []))
   ) ;
   (* Check to make sure the device is unique *)
-  Stdext.Threadext.Mutex.execute m (fun () ->
+  Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
       let all = Db.VM.get_VIFs ~__context ~self:vM in
       let all_devices =
         List.map (fun self -> Db.VIF.get_device ~__context ~self) all
@@ -296,7 +296,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       let metrics = Ref.make ()
       and metrics_uuid = Uuid.to_string (Uuid.make_uuid ()) in
       Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-        ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Stdext.Date.of_float 0.)
+        ~io_read_kbs:0. ~io_write_kbs:0.
+        ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
         ~other_config:[] ;
       let (_ : unit) =
         Db.VIF.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
@@ -345,7 +346,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         ( if preserve_mac_address then
             all.API.vIF_MAC
         else
-          "" (* leave blank == generate new mac from vm random seed *)
+          "" (* leave blank = generate new mac from vm random seed *)
         )
       ~mTU:all.API.vIF_MTU ~other_config:all.API.vIF_other_config
       ~qos_algorithm_type:all.API.vIF_qos_algorithm_type

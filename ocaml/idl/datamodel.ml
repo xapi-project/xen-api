@@ -282,7 +282,7 @@ module Task = struct
             (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
             field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of" "Ref pointing to the task this is a substask of.";
             field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Set (Ref _task)) "subtasks"   "List pointing to all the substasks.";
-            field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~ty:String ~default_value:(Some (VString (Sexplib.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
+            field ~qualifier:DynamicRO ~in_product_since:rel_dundee ~ty:String ~default_value:(Some (VString (Sexplib0.Sexp.to_string (Backtrace.(sexp_of_t empty))))) "backtrace" "Function call trace for debugging.";
           ])
       ()
 end
@@ -1388,12 +1388,19 @@ module VLAN = struct
 end
 
 module Tunnel = struct
+  let tunnel_protocol = Enum ("tunnel_protocol", [
+      "gre", "GRE protocol";
+      "vxlan", "VxLAN Protocol";
+    ])
 
   let create = call
       ~name:"create"
       ~doc:"Create a tunnel"
-      ~params:[ Ref _pif, "transport_PIF", "PIF which receives the tagged traffic";
-                Ref _network, "network", "Network to receive the tunnelled traffic" ]
+      ~versioned_params:[
+        {param_type=Ref _pif; param_name="transport_PIF"; param_doc="PIF which receives the tagged traffic"; param_release=dundee_release; param_default=None};
+        {param_type=Ref _network; param_name="network"; param_doc="Network to receive the tunnelled traffic"; param_release=dundee_release; param_default=None};
+        {param_type=tunnel_protocol; param_name="protocol"; param_doc="Protocol used for the tunnel (GRE or VxLAN)"; param_release=next_release; param_default=Some(VEnum "gre")}
+      ]
       ~result:(Ref _tunnel, "The reference of the created tunnel object")
       ~lifecycle:[Published, rel_cowley, "Create a tunnel"]
       ~allowed_roles:_R_POOL_OP
@@ -1409,7 +1416,8 @@ module Tunnel = struct
       ()
 
   let t =
-    create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"] ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
+    create_obj ~in_db:true ~lifecycle:[Published, rel_cowley, "A tunnel for network traffic"]
+      ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_tunnel ~descr:"A tunnel for network traffic" ~gen_events:true
       ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP
       ~doc_tags:[Networking]
@@ -1420,6 +1428,7 @@ module Tunnel = struct
           field ~qualifier:StaticRO ~ty:(Ref _pif) ~lifecycle:[Published, rel_cowley, "The interface used by the tunnel"] "transport_PIF" "The interface used by the tunnel" ~default_value:(Some (VRef ""));
           field ~ty:(Map(String, String)) ~lifecycle:[Published, rel_cowley, "Status information about the tunnel"] "status" "Status information about the tunnel" ~default_value:(Some (VMap [VString "active", VString "false"]));
           field ~lifecycle:[Published, rel_cowley, "Additional configuration"] ~default_value:(Some (VMap [])) ~ty:(Map(String, String)) "other_config" "Additional configuration";
+          field ~ty:tunnel_protocol ~default_value:(Some (VEnum "gre")) ~lifecycle:[Published, rel_next, "Add protocol field to tunnel"] "protocol" "The protocol used for tunneling (either GRE or VxLAN)";
         ])
       ()
 end
@@ -1477,7 +1486,7 @@ end
 (* These are included in vbds and vifs -- abstracted here to keep both these uses consistent *)
 let device_status_fields =
   [
-    field ~ty:Bool ~qualifier:DynamicRO "currently_attached" "is the device currently attached (erased on reboot)";
+    field ~ty:Bool ~qualifier:StaticRO ~default_value:(Some (VBool false)) ~lifecycle:[Changed, rel_next, "Become static to allow plugged VIF and VBD creation for Suspended VM"] "currently_attached" "is the device currently attached (erased on reboot)";
     field ~ty:Int ~qualifier:DynamicRO "status_code" "error/success code associated with last attach-operation (erased on reboot)";
     field ~ty:String ~qualifier:DynamicRO "status_detail" "error/success information associated with last attach-operation status (erased on reboot)";
     field ~ty:(Map(String, String)) ~qualifier:DynamicRO "runtime_properties" "Device runtime properties"
@@ -3004,7 +3013,7 @@ module VBD = struct
            field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine";
            field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk";
 
-           field ~qualifier:DynamicRO "device" "device seen by the guest e.g. hda1";
+           field ~qualifier:StaticRO ~ty:String ~default_value:(Some (VString "")) ~lifecycle:[Changed, rel_next, "Become static to allow plugged VBD creation for Suspended VM"] "device" "device seen by the guest e.g. hda1";
            field "userdevice" "user-friendly device name e.g. 0,1,2,etc.";
            field ~ty:Bool "bootable" "true if this VBD is bootable";
            field ~qualifier:StaticRO ~ty:mode "mode" "the mode the VBD should be mounted with";
@@ -4367,6 +4376,7 @@ module Network_sriov = struct
     [
       "sysfs", "Configure network sriov by sysfs, do not need reboot";
       "modprobe", "Configure network sriov by modprobe, need reboot";
+      "manual", "Configure network sriov manually";
       "unknown", "Unknown mode";
     ])
 

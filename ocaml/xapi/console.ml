@@ -18,7 +18,9 @@
  *)
 
 open Http
-open Stdext
+module Unixext = Xapi_stdext_unix.Unixext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module D = Debug.Make (struct let name = "console" end)
 
@@ -132,7 +134,7 @@ let ws_proxy __context req protocol address s =
       None
   in
   (* Ensure we always close the socket *)
-  Pervasiveext.finally
+  finally
     (fun () ->
       let upgrade_successful =
         Option.map

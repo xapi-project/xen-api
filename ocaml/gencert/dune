@@ -2,18 +2,24 @@
   (name gencertlib)
   (wrapped true)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
-  (modules lib)
+  (modules lib selfcert)
   (libraries
+    astring
+    cstruct
     forkexec
+    mirage-crypto
     mirage-crypto-pk
     mirage-crypto-rng.unix
     ptime
     ptime.clock.os
+    result
     rresult
     x509
     xapi-consts
+    xapi-idl
+    xapi-idl.network
     xapi-inventory
-    xapi-idl.network)
+    xapi-stdext-unix)
 )
 (executable
   (name gencert)
@@ -21,10 +27,12 @@
   (package xapi)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
   (modules gencert)
-  (libraries gencertlib
-             xapi-idl)
+  (libraries
+    astring
+    gencertlib
+    xapi-inventory
+    xapi-idl)
 )
-
 (test
   (name test_lib)
   (package xapi)

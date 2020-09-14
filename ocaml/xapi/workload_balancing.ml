@@ -15,10 +15,8 @@
  *  @group Workload Balancing
 *)
 
-open Stdext
 open Printf
-open Xstringext
-open Threadext
+open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "workload_balancing" end)
 
@@ -127,7 +125,7 @@ let check_wlb_enabled ~__context =
 let match_xml_tag x t =
   match x with
   | Xml.Element (tag, _, _) ->
-      String.compare tag t == 0
+      String.compare tag t = 0
   | Xml.PCData data ->
       false
 
@@ -143,7 +141,7 @@ let is_childless elem =
   | Xml.Element (_, _, [Xml.PCData _]) ->
       true
   | Xml.Element (_, _, children) ->
-      List.length children == 0
+      List.length children = 0
   | Xml.PCData _ ->
       true
 
@@ -497,7 +495,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
         Db.Pool.set_wlb_username ~__context ~self:pool ~value:wlb_username ;
         Db.Pool.set_wlb_password ~__context ~self:pool ~value:wlb_secret_ref ;
         Db.Pool.set_wlb_url ~__context ~self:pool ~value:wlb_url ;
-        Pervasiveext.ignore_exn (fun _ ->
+        Xapi_stdext_pervasives.Pervasiveext.ignore_exn (fun _ ->
             Db.Secret.destroy ~__context ~self:old_secret_ref)
   in
   Locking_helpers.Named_mutex.execute request_mutex

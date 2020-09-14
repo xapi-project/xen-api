@@ -20,9 +20,9 @@
     co-ordinate tapdisk locking. We have not got code for this.
 *)
 
-open Stdext
-open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module DD = Debug.Make (struct let name = "xapi_vm_migrate" end)
 
@@ -1035,7 +1035,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
       true
     with _ -> false
   in
-  let is_same_host = is_intra_pool && remote.dest_host == localhost in
+  let is_same_host = is_intra_pool && remote.dest_host = localhost in
   if copy && is_intra_pool then
     raise
       (Api_errors.Server_error
@@ -1057,7 +1057,7 @@ let migrate_send' ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
     iter
       (fun vconf ->
         let vdi = vconf.vdi in
-        if Db.VDI.get_on_boot ~__context ~self:vdi == `reset then
+        if Db.VDI.get_on_boot ~__context ~self:vdi = `reset then
           raise
             (Api_errors.Server_error
                ( Api_errors.vdi_on_boot_mode_incompatible_with_operation

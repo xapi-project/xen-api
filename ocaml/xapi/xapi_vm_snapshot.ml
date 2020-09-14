@@ -16,7 +16,7 @@
 *)
 
 open Client
-open Stdext.Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "xapi_vm_snapshot" end)
 

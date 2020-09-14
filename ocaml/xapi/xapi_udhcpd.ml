@@ -12,15 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 (* Interface to udhcpd *)
-open Stdext
-open Xstringext
-
 module D = Debug.Make (struct let name = "xapi_udhcpd" end)
 
 open D
 open Forkhelpers
-open Pervasiveext
-open Threadext
+open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 
 let ip_begin_key = "ip_begin"
 
@@ -90,7 +87,8 @@ let assigned = ref []
 let update_db_nolock ~__context =
   let loc_assigned = !assigned in
   let networks =
-    List.map (fun lease -> lease.network) loc_assigned |> Listext.List.setify
+    List.map (fun lease -> lease.network) loc_assigned
+    |> Xapi_stdext_std.Listext.List.setify
   in
   let update_network net =
     let cur_assigned =
@@ -101,8 +99,12 @@ let update_db_nolock ~__context =
       |> List.map (fun l -> Ref.of_string l.vif)
     in
     let db_vifs = List.map fst cur_assigned in
-    let new_lease_vifs = Listext.List.set_difference cur_vifs db_vifs in
-    let released_lease_vifs = Listext.List.set_difference db_vifs cur_vifs in
+    let new_lease_vifs =
+      Xapi_stdext_std.Listext.List.set_difference cur_vifs db_vifs
+    in
+    let released_lease_vifs =
+      Xapi_stdext_std.Listext.List.set_difference db_vifs cur_vifs
+    in
     List.iter
       (fun new_lease_vif ->
         let lease =

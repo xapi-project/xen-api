@@ -309,15 +309,17 @@ let select_host_from_categories categories hosts validate_host
         None
     | xx, [] ->
         None
-    | hosts, category :: categories_remaining ->
+    | hosts, category :: categories_remaining -> (
         let host, hosts_remaining =
           select_host_from_category category hosts validate_host
             generate_random_value
         in
-        if host != None then
-          host
-        else
-          select hosts_remaining categories_remaining
+        match host with
+        | Some _ ->
+            host
+        | None ->
+            select hosts_remaining categories_remaining
+      )
   in
   select hosts categories
 

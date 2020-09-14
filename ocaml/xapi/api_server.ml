@@ -174,7 +174,7 @@ let emergency_call_list =
 let is_himn_req req =
   match req.Http.Request.host with
   | Some h -> (
-    match !Xapi_mgmt_iface.himn_addr with
+    match Xapi_mgmt_iface.himn_addr () with
     | Some himn ->
         himn = h
     | None ->
@@ -239,7 +239,7 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
 
 (* debug(fmt "response = %s" response); *)
 
-open Stdext
+module Unixext = Xapi_stdext_unix.Unixext
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req bio _ =

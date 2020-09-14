@@ -45,6 +45,8 @@ let sriov_bring_up ~__context ~self =
           (`modprobe, false)
       | Modprobe_successful_requires_reboot ->
           (`modprobe, true)
+      | Manual_successful ->
+          (`manual, false)
     in
     let sriov = get_sriov_of ~__context ~sriov_logical_pif:self in
     let physical_pif =
@@ -87,6 +89,9 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
     | `sysfs ->
         true
     | `unknown ->
+        false
+    (* Manually enabled SR-IOV and VFs cannot be disabled automatically; a debug message to inform the user is produced by config_sriov in xcp-networkd *)
+    | `manual ->
         false
     | `modprobe ->
         let host = Db.PIF.get_host ~__context ~self in
@@ -168,9 +173,9 @@ let get_underlying_pif ~__context ~pif =
   | _ ->
       None
 
-(* Only 2 type pif of sr-iov can be quickly up without a reboot:
+(* 3 type pif of sr-iov can be quickly up without a reboot:
    1. sysfs mode
-   2. modprobe with currently_attached or unattached but has remaining-capacity(it means unplug sr-iov pif but before reboot host) 
+   2. & 3. modprobe/manually-configured with currently_attached or unattached but has remaining-capacity(it means unplug sr-iov pif but before reboot host) 
    Used in
    * Group host by best sriov
    * Check the network is properly shared *)
@@ -180,7 +185,7 @@ let can_be_up_without_reboot ~__context sriov =
       true
   | `unknown ->
       false
-  | `modprobe ->
+  | `modprobe | `manual ->
       let pif = Db.Network_sriov.get_logical_PIF ~__context ~self:sriov in
       Db.PIF.get_currently_attached ~__context ~self:pif
       || get_remaining_capacity_on_sriov ~__context ~self:sriov > 0L

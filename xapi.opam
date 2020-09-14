@@ -4,6 +4,7 @@ authors: [ "xen-api@lists.xen.org" ]
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+build-env: [[ XAPI_VERSION = "v0.0.0" ]]
 build: [
   ["dune" "build" "-p" name]
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
@@ -36,7 +37,6 @@ depends: [
   "rresult"
   "sexpr"
   "sha"
-  "stdext"
   "stunnel"
   "tar"
   "tar-unix"
@@ -50,11 +50,11 @@ depends: [
   "xapi-database"
   "xapi-datamodel"
   "xapi-stdext-date"
-  "xapi-stdext-monadic"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
+  "xapi-stdext-zerocheck"
   "xapi-tapctl"
   "xapi-test-utils" {with-test}
   "xapi-types"
@@ -69,6 +69,7 @@ depexts: [
   ["hwdata" "libpci-dev" "libpam-dev" "libxxhash-dev" "libxxhash0"] {os-distribution = "debian"}
   ["hwdata" "libpci-dev" "libpam-dev" "libxxhash-dev" "libxxhash0"] {os-distribution = "ubuntu"}
   ["hwdata" "pciutils-devel" "pam-devel" "xxhash-devel" "xxhash-libs"] {os-distribution = "centos"}
+  ["hwdata" "pciutils-devel" "pam-devel" "xxhash-devel" "xxhash-libs"] {os-distribution = "fedora"}
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """

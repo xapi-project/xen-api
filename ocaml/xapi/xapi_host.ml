@@ -13,10 +13,10 @@
  *)
 
 module Rrdd = Rrd_client.Client
-open Stdext
-open Pervasiveext
-open Listext
-open Threadext
+module Date = Xapi_stdext_date.Date
+module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
 open Xapi_support
 open Db_filter_types
@@ -26,7 +26,6 @@ open Workload_balancing
 
 module D = Debug.Make (struct let name = "xapi_host" end)
 
-module Gencert = Gencertlib.Lib
 open D
 
 let set_emergency_mode_error code params =
@@ -442,7 +441,7 @@ let compute_evacuation_plan_wlb ~__context ~self =
       let target_uuid = List.hd (List.tl detail) in
       let target_host = Db.Host.get_by_uuid ~__context ~uuid:target_uuid in
       if
-        Db.Host.get_control_domain ~__context ~self:target_host != v
+        Db.Host.get_control_domain ~__context ~self:target_host <> v
         && Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
       then (* resident host and migration host are the same. Reject this plan *)
         raise
@@ -1319,15 +1318,7 @@ let backup_rrds ~__context ~host ~delay =
 
 let get_servertime ~__context ~host = Date.of_float (Unix.gettimeofday ())
 
-let get_server_localtime ~__context ~host =
-  let gmt_time = Unix.gettimeofday () in
-  let local_time = Unix.localtime gmt_time in
-  Date.of_string
-    (Printf.sprintf "%04d%02d%02dT%02d:%02d:%02d"
-       (local_time.Unix.tm_year + 1900)
-       (local_time.Unix.tm_mon + 1)
-       local_time.Unix.tm_mday local_time.Unix.tm_hour local_time.Unix.tm_min
-       local_time.Unix.tm_sec)
+let get_server_localtime ~__context ~host = Date.localtime ()
 
 let enable_binary_storage ~__context ~host =
   Unixext.mkdir_safe Xapi_globs.xapi_blob_location 0o700 ;
@@ -1391,7 +1382,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
     dates_of_ptimes (X509.Certificate.validity certificate)
   in
   let fingerprint =
-    X509.Certificate.fingerprint Mirage_crypto_pk.(`SHA256) certificate
+    X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
     |> Certificates.pp_hash
   in
   let uuid = Uuid.(to_string (make_uuid ())) in
@@ -1408,10 +1399,16 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   Xapi_mgmt_iface.reconfigure_stunnel ~__context
 
 let emergency_reset_server_certificate ~__context =
-  let args =
-    [!Xapi_globs.server_cert_path; Helper_hostname.get_hostname (); "--force"]
+  let xapi_ssl_pem = !Xapi_globs.server_cert_path in
+  let common_name, alt_names =
+    match Gencertlib.Lib.hostnames () with
+    | cn :: alt ->
+        (cn, alt)
+    | [] ->
+        (Helper_hostname.get_hostname (), [])
+    (* should never happen *)
   in
-  ignore @@ Gencert.call_generate_ssl_cert ~args ;
+  Gencertlib.Selfcert.host common_name alt_names xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
   let self = Helpers.get_localhost ~__context in
@@ -1784,7 +1781,8 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   let cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
   let socket_count = List.assoc "socket_count" cpu_info in
   let current_license_params =
-    List.replace_assoc "sockets" socket_count current_license_params
+    Xapi_stdext_std.Listext.List.replace_assoc "sockets" socket_count
+      current_license_params
   in
   (* Construct the RPC params to be sent to v6d *)
   let params =
@@ -1869,7 +1867,7 @@ let license_add ~__context ~host ~contents =
       raise Api_errors.(Server_error (license_processing_error, []))
   in
   let tmp = "/tmp/new_license" in
-  finally
+  Pervasiveext.finally
     (fun () ->
       ( try Unixext.write_string_to_file tmp license
         with _ ->
@@ -2118,7 +2116,8 @@ let sync_tunnels ~__context ~host =
         let transport_pif =
           Db.Tunnel.get_transport_PIF ~__context ~self:tunnel
         in
-        Db.PIF.get_network ~__context ~self:transport_pif
+        let protocol = Db.Tunnel.get_protocol ~__context ~self:tunnel in
+        (Db.PIF.get_network ~__context ~self:transport_pif, protocol)
     | _ ->
         raise
           Api_errors.(
@@ -2141,8 +2140,8 @@ let sync_tunnels ~__context ~host =
     in
     (* If the slave doesn't have any such PIF then make one: *)
     if existing_pif = [] then
-      (* On the master, we find the network the tunnel transport PIF is on *)
-      let network_of_transport_pif_on_master =
+      (* On the master, we find the network the tunnel transport PIF is on and its protocol *)
+      let network_of_transport_pif_on_master, protocol =
         get_network_of_transport_pif master_pif_rec
       in
       let pifs =
@@ -2163,7 +2162,7 @@ let sync_tunnels ~__context ~host =
           (* this is the PIF on which we want as transport PIF; let's make it *)
           ignore
             (Xapi_tunnel.create_internal ~__context ~transport_PIF:pif_ref
-               ~network:master_pif_rec.API.pIF_network ~host)
+               ~network:master_pif_rec.API.pIF_network ~host ~protocol)
       | _ ->
           (* This should never happen cos we should never have more than one of _our_ pifs
              					 * on the same nework *)

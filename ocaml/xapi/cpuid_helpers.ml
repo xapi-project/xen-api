@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Xapi_globs
 
 module D = Debug.Make (struct let name = "cpuid_helpers" end)
@@ -29,7 +28,10 @@ exception InvalidFeatureString of string
 let features_of_string str =
   let scanf fmt s = Scanf.sscanf s fmt (fun x -> x) in
   try
-    Stringext.split ~on:'-' str |> Array.of_list |> Array.map (scanf "%08Lx%!")
+    String.split_on_char '-' str
+    |> (fun lst -> if lst = [""] then [] else lst)
+    |> Array.of_list
+    |> Array.map (scanf "%08Lx%!")
   with _ -> raise (InvalidFeatureString str)
 
 (** If arr0 is shorter than arr1, extend arr0 with elements from arr1 up to the

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext.Threadext
+open Xapi_stdext_threads.Threadext
 module StringSet = Set.Make (String)
 
 (* A cache mapping PIF names to PIF structures. *)

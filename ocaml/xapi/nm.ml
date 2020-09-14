@@ -14,10 +14,9 @@
 module D = Debug.Make (struct let name = "nm" end)
 
 open D
-open Stdext
-open Xstringext
-open Listext
-open Threadext
+open Xapi_stdext_std.Xstringext
+open Xapi_stdext_std.Listext
+open Xapi_stdext_threads.Threadext
 open Db_filter_types
 open Network
 open Network_interface
@@ -491,7 +490,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
           in
           Db.PIF.set_currently_attached ~__context ~self:pif
             ~value:currently_attached
-      | _ ->
+      | _ -> (
           let dbg = Context.string_of_task __context in
           let net_rc =
             Db.Network.get_record ~__context ~self:rc.API.pIF_network
@@ -697,37 +696,94 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               warn "could not update MTU field on PIF %s" rc.API.pIF_uuid
           ) ;
           (* sync igmp_snooping_enabled *)
-          if rc.API.pIF_VLAN = -1L then
-            let igmp_snooping =
-              Db.Pool.get_igmp_snooping_enabled ~__context
-                ~self:(Helpers.get_pool ~__context)
-            in
-            let igmp_snooping' =
-              if igmp_snooping then `enabled else `disabled
-            in
-            if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
-              Db.PIF.set_igmp_snooping_status ~__context ~self:pif
-                ~value:igmp_snooping')
+          ( if rc.API.pIF_VLAN = -1L then
+              let igmp_snooping =
+                Db.Pool.get_igmp_snooping_enabled ~__context
+                  ~self:(Helpers.get_pool ~__context)
+              in
+              let igmp_snooping' =
+                if igmp_snooping then `enabled else `disabled
+              in
+              if igmp_snooping' <> rc.API.pIF_igmp_snooping_status then
+                Db.PIF.set_igmp_snooping_status ~__context ~self:pif
+                  ~value:igmp_snooping'
+          ) ;
+          (* Open VxLAN UDP port (4789) if a VxLAN tunnel access PIF is plugged *)
+          match Xapi_pif_helpers.get_pif_type rc with
+          | Tunnel_access tunnel_ref -> (
+              let protocol =
+                Db.Tunnel.get_protocol ~__context ~self:tunnel_ref
+              in
+              match protocol with
+              | `vxlan ->
+                  debug
+                    "Opening VxLAN UDP port for tunnel with protocol 'vxlan'" ;
+                  ignore
+                  @@ Helpers.call_script
+                       !Xapi_globs.firewall_port_config_script
+                       ["open"; "4789"; "udp"]
+              | `gre ->
+                  ()
+            )
+          | _ ->
+              ()
+        ))
 
 let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
   with_local_lock (fun () ->
       let rc = Db.PIF.get_record ~__context ~self:pif in
       let open Xapi_pif_helpers in
+      let close_network_interface cleanup_f () =
+        Network.transform_networkd_exn pif (fun () ->
+            let dbg = Context.string_of_task __context in
+            debug "Making sure that PIF %s down" rc.API.pIF_uuid ;
+            let bridge =
+              Db.Network.get_bridge ~__context ~self:rc.API.pIF_network
+            in
+            let cleanup = destroy_bridges ~__context ~force rc bridge in
+            List.iter
+              (fun (name, force) -> Net.Bridge.destroy dbg force name)
+              cleanup ;
+            Net.Interface.set_persistent dbg bridge false ;
+            Db.PIF.set_currently_attached ~__context ~self:pif ~value:false ;
+            cleanup_f ())
+      in
       match get_pif_topo ~__context ~pif_rec:rc with
       | Network_sriov_logical _ :: _ ->
           Xapi_network_sriov_helpers.sriov_bring_down ~__context ~self:pif
       | VLAN_untagged _ :: Network_sriov_logical _ :: _ ->
           Db.PIF.set_currently_attached ~__context ~self:pif ~value:false
+      | Tunnel_access tunnel_ref :: _ ->
+          (* If last tunnel with VxLAN protocol is unplugged, close VxLAN UDP port *)
+          let maybe_close_port () =
+            let host = rc.API.pIF_host in
+            match Db.Tunnel.get_protocol ~__context ~self:tunnel_ref with
+            | `vxlan ->
+                let expr =
+                  Eq
+                    ( Field "protocol"
+                    , Literal (Record_util.tunnel_protocol_to_string `vxlan) )
+                in
+                let tunnels = Db.Tunnel.get_records_where ~__context ~expr in
+                let still_plugged_on_host (_, tunnel_rec) =
+                  let pif_ref = tunnel_rec.API.tunnel_access_PIF in
+                  let pif_record = Db.PIF.get_record ~__context ~self:pif_ref in
+                  host = pif_record.API.pIF_host
+                  && pif_record.API.pIF_currently_attached
+                in
+                let no_more_vxlan =
+                  not (List.exists still_plugged_on_host tunnels)
+                in
+                if no_more_vxlan then (
+                  debug "Last VxLAN tunnel was closed, closing VxLAN UDP port" ;
+                  ignore
+                  @@ Helpers.call_script
+                       !Xapi_globs.firewall_port_config_script
+                       ["close"; "4789"; "udp"]
+                )
+            | `gre ->
+                ()
+          in
+          close_network_interface maybe_close_port ()
       | _ ->
-          Network.transform_networkd_exn pif (fun () ->
-              let dbg = Context.string_of_task __context in
-              debug "Making sure that PIF %s down" rc.API.pIF_uuid ;
-              let bridge =
-                Db.Network.get_bridge ~__context ~self:rc.API.pIF_network
-              in
-              let cleanup = destroy_bridges ~__context ~force rc bridge in
-              List.iter
-                (fun (name, force) -> Net.Bridge.destroy dbg force name)
-                cleanup ;
-              Net.Interface.set_persistent dbg bridge false ;
-              Db.PIF.set_currently_attached ~__context ~self:pif ~value:false))
+          close_network_interface (fun () -> ()) ())

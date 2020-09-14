@@ -11,10 +11,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "license" end)
-
-open D
-
 (* Features and restrictions *)
 
 type feature =
@@ -133,12 +129,6 @@ let name_of_feature f = rpc_of_feature f |> Rpc.string_of_rpc
 let string_of_feature f =
   let str, o, _ = List.assoc f keys_of_features in
   (str, o)
-
-let feature_of_string str =
-  let f, (_, o, _) =
-    List.find (fun (_, (k, _, _)) -> str = k) keys_of_features
-  in
-  (f, o)
 
 let tag_of_feature f =
   let _, _, tag = List.assoc f keys_of_features in

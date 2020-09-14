@@ -16,6 +16,20 @@ open Db_exn
 
 module Time = struct type t = Generation.t end
 
+module HashedString = struct
+  type t = string
+
+  let equal = String.equal
+
+  let hash = Hashtbl.hash
+end
+
+module StringPool = Weak.Make (HashedString)
+
+let share =
+  let pool = StringPool.create 2048 in
+  StringPool.merge pool
+
 module Stat = struct
   type t = {created: Time.t; modified: Time.t; deleted: Time.t}
 
@@ -30,6 +44,8 @@ module StringMap = struct
 
     let compare = Stdlib.compare
   end)
+
+  let add key v t = add (share key) v t
 
   let update key default f t =
     let v = try find key t with Not_found -> default in
@@ -109,7 +125,7 @@ functor
       if mem key row then
         let old = find key row in
         let newv = f old in
-        if newv == old then
+        if newv = old then
           row
         else
           updatefn ()
@@ -125,6 +141,17 @@ functor
 
 module Row = struct
   include Make (Schema.Value)
+
+  let add gen key v =
+    add gen key
+    @@
+    match v with
+    | Schema.Value.String x ->
+        Schema.Value.String (share x)
+    | Schema.Value.Pairs ps ->
+        Schema.Value.Pairs (List.map (fun (x, y) -> (share x, share y)) ps)
+    | Schema.Value.Set xs ->
+        Schema.Value.Set (List.map share xs)
 
   type t = map_t
 
@@ -456,8 +483,6 @@ let remove_from_map key t =
   let t = Schema.Value.Unsafe_cast.pairs t in
   Schema.Value.Pairs (List.filter (fun (k, _) -> k <> key) t)
 
-let id x = x
-
 let is_valid tblname objref db =
   Table.mem objref (TableSet.find tblname (Database.tableset db))
 
@@ -538,8 +563,8 @@ let set_field tblname objref fldname newval db =
     | [], [] ->
         false
     | o2m, m2m ->
-        List.exists (fun (fld, tbl, otherfld) -> fld = fldname) o2m
-        || List.exists (fun (fld, tbl, otherfld) -> fld = fldname) m2m
+        List.exists (fun (fld, _, _) -> fld = fldname) o2m
+        || List.exists (fun (fld, _, _) -> fld = fldname) m2m
   in
   if need_other_table_update then
     let g = Manifest.generation (Database.manifest db) in

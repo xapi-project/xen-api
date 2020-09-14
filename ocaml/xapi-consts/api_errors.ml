@@ -23,7 +23,7 @@ let to_string = function
 
 let _ =
   Printexc.register_printer (function
-    | Server_error (code, params) as e ->
+    | Server_error (_, _) as e ->
         Some (to_string e)
     | _ ->
         None)

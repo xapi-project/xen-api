@@ -31,9 +31,8 @@
   killed, to make cleanup quicker (i.e. to avoid waiting for the TCP timeout).
 *)
 
-open Stdext
-open Printf
-open Threadext
+module Unixext = Xapi_stdext_unix.Unixext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "remote_requests" end)
 

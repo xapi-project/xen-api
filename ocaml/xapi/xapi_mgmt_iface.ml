@@ -12,33 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 open Db_filter_types
-open Stdext
-open Pervasiveext
-open Threadext
+open Xapi_stdext_pervasives.Pervasiveext
+open Xapi_stdext_threads.Threadext
 
 module D = Debug.Make (struct let name = "xapi_mgmt_iface" end)
 
 open D
-
-(** Keep track of the management interface server thread *)
-
-let himn_addr = ref None
-
-(* Stores a key into the table in Http_srv which identifies the server thread bound
-   	 to the management IP. *)
-let management_interface_server = ref []
-
-let listening_all = ref false
-
-let listening_localhost = ref false
-
-let listening_himn = ref false
-
-let management_m = Mutex.create ()
-
-let stunnel_accept_m = Mutex.create ()
-
-let stunnel_accept = ref None
+module Addresses = Set.Make (String)
 
 let update_mh_info interface =
   let (_ : string * string) =
@@ -48,78 +28,131 @@ let update_mh_info interface =
   in
   ()
 
-let _restart_stunnel_no_cache ~__context ~accept =
-  let (_ : Thread.t) =
-    Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) ()
-  in
-  ()
+module Stunnel : sig
+  val restart : __context:Context.t -> accept:string -> unit
 
-let restart_stunnel ~__context ~accept =
-  info "Restarting stunnel (accepting connections on %s)" accept ;
-  (* cache `accept` so client can call `reconfigure_stunnel` easily *)
-  Mutex.execute stunnel_accept_m (fun () -> stunnel_accept := Some accept) ;
-  _restart_stunnel_no_cache ~__context ~accept
+  val reconfigure : __context:Context.t -> unit
+end = struct
+  let accept_cached_m = Mutex.create ()
 
-let reconfigure_stunnel ~__context =
-  let f =
-    Mutex.execute stunnel_accept_m (fun () ->
-        match !stunnel_accept with
-        | None ->
-            fun () ->
-              D.warn
-                "reconfigure_stunnel: accept is not set, so not restarting \
-                 stunnel"
-        | Some accept ->
-            fun () -> _restart_stunnel_no_cache ~__context ~accept)
-  in
-  f ()
+  let accept_cached = ref None
 
-let stop () =
-  debug "Shutting down the old management interface (if any)" ;
-  List.iter (fun i -> Http_svr.stop i) !management_interface_server ;
-  management_interface_server := [] ;
-  listening_all := false ;
-  listening_localhost := false ;
-  listening_himn := false
+  let _restart_no_cache ~__context ~accept =
+    let (_ : Thread.t) =
+      Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) ()
+    in
+    ()
 
-(* Even though xapi listens on all IP addresses, there is still an interface appointed as
- * _the_ management interface. Slaves in a pool use the IP address of this interface to connect
- * the pool master. *)
-let start ~__context ?addr () =
-  let socket, accept =
-    match addr with
-    | None -> (
-        info "Starting new server (listening on all IP addresses)" ;
-        try
-          (* Is it IPv6 ? *)
-          let addr = Unix.inet6_addr_any in
-          (Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port)), ":::443")
-        with _ ->
-          (* No. *)
-          let addr = Unix.inet_addr_any in
-          (Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port)), "443")
-      )
-    | Some ip -> (
-        info "Starting new server (listening on %s)" ip ;
-        let addr = Unix.inet_addr_of_string ip in
-        let sockaddr = Unix.ADDR_INET (addr, Constants.http_port) in
-        ( Xapi_http.bind sockaddr
-        , match Unix.domain_of_sockaddr sockaddr with
-          | Unix.PF_INET6 ->
-              "::1:443"
-          | _ ->
-              "127.0.0.1:443" )
-      )
-  in
-  Http_svr.start Xapi_http.server socket ;
-  management_interface_server := socket :: !management_interface_server ;
-  restart_stunnel ~__context ~accept ;
-  if Pool_role.is_master () && !listening_all then
-    (* NB if we synchronously bring up the management interface on a master with a blank
-       		   database this can fail... this is ok because the database will be synchronised later *)
-    Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
-        Dbsync_master.set_master_ip ~__context ;
-        Dbsync_master.refresh_console_urls ~__context)
+  let restart ~__context ~accept =
+    info "Restarting stunnel (accepting connections on %s)" accept ;
+    (* cache `accept` so client can call `reconfigure` easily *)
+    Mutex.execute accept_cached_m (fun () -> accept_cached := Some accept) ;
+    _restart_no_cache ~__context ~accept
+
+  let reconfigure ~__context =
+    let f =
+      Mutex.execute accept_cached_m (fun () ->
+          match !accept_cached with
+          | None ->
+              fun () ->
+                D.warn
+                  "reconfigure: accept is not set, so not restarting stunnel"
+          | Some accept ->
+              fun () -> _restart_no_cache ~__context ~accept)
+    in
+    f ()
+end
+
+module Server : sig
+  type listening_mode = Off | Any | Local of Addresses.t
+
+  val update : __context:Context.t -> listening_mode -> unit
+
+  val current_mode : unit -> listening_mode
+end = struct
+  (* Keep track of the management interface server thread.
+     Stores a key into the table in Http_srv which identifies the server thread bound
+     to the management IP. *)
+  let management_servers = ref []
+
+  let stop () =
+    debug "Shutting down the old management interface (if any)" ;
+    List.iter (fun i -> Http_svr.stop i) !management_servers ;
+    management_servers := []
+
+  (* Even if xapi listens on all IP addresses, there is still an interface appointed as
+     _the_ management interface. Hosts in a pool use the IP addresses of this interface
+     to communicate with each other. *)
+  let start ~__context ?addr () =
+    let socket, stunnel_accept =
+      match addr with
+      | None -> (
+          info "Starting new server (listening on all IP addresses)" ;
+          try
+            (* Is it IPv6 ? *)
+            let addr = Unix.inet6_addr_any in
+            ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
+            , ":::" ^ string_of_int !Constants.https_port )
+          with _ ->
+            (* No. *)
+            let addr = Unix.inet_addr_any in
+            ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
+            , string_of_int !Constants.https_port )
+        )
+      | Some ip -> (
+          info "Starting new server (listening on %s)" ip ;
+          let addr = Unix.inet_addr_of_string ip in
+          let sockaddr = Unix.ADDR_INET (addr, Constants.http_port) in
+          ( Xapi_http.bind sockaddr
+          , match Unix.domain_of_sockaddr sockaddr with
+            | Unix.PF_INET6 ->
+                "::1:" ^ string_of_int !Constants.https_port
+            | _ ->
+                "127.0.0.1:" ^ string_of_int !Constants.https_port )
+        )
+    in
+    Http_svr.start Xapi_http.server socket ;
+    management_servers := socket :: !management_servers ;
+    Stunnel.restart ~__context ~accept:stunnel_accept ;
+    if Pool_role.is_master () && addr = None then
+      (* NB if we synchronously bring up the management interface on a master with a blank
+         database this can fail... this is ok because the database will be synchronised later *)
+      Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
+          Dbsync_master.set_master_ip ~__context ;
+          Dbsync_master.refresh_console_urls ~__context)
+
+  type listening_mode = Off | Any | Local of Addresses.t
+
+  (* This is an idempotent function that leaves servers running if they do not
+     require any changes. *)
+  let update' ~__context = function
+    | current, next when current = next ->
+        ()
+    | _, Off ->
+        stop ()
+    | _, Any ->
+        stop () ; start ~__context ()
+    | Local old_addresses, Local new_addresses ->
+        if not (Addresses.subset old_addresses new_addresses) then
+          stop () ;
+        let to_start = Addresses.diff new_addresses old_addresses in
+        Addresses.iter (fun addr -> start ~__context ~addr ()) to_start
+    | _, Local addresses ->
+        stop () ;
+        Addresses.iter (fun addr -> start ~__context ~addr ()) addresses
+
+  let mode = ref Off
+
+  let update ~__context next_mode =
+    update' ~__context (!mode, next_mode) ;
+    mode := next_mode
+
+  let current_mode () = !mode
+end
+
+(* High-level interface *)
+
+let reconfigure_stunnel = Stunnel.reconfigure
 
 let change interface primary_address_type =
   Xapi_inventory.update Xapi_inventory._management_interface interface ;
@@ -127,35 +160,33 @@ let change interface primary_address_type =
     (Record_util.primary_address_type_to_string primary_address_type) ;
   update_mh_info interface
 
+let himn = ref None
+
+let management_m = Mutex.create ()
+
+let next_server_mode ~mgmt_enabled =
+  let localhost = "127.0.0.1" in
+  match (mgmt_enabled, !himn) with
+  | true, _ ->
+      Server.Any
+  | false, Some himn ->
+      Server.Local (Addresses.of_list [localhost; himn])
+  | false, None ->
+      Server.Local (Addresses.of_list [localhost])
+
+let mgmt_is_enabled () = Server.current_mode () = Any
+
 let run ~__context ~mgmt_enabled =
   Mutex.execute management_m (fun () ->
-      if mgmt_enabled then (
-        if not !listening_all then (
-          stop () ;
-          start ~__context () ;
-          listening_all := true
-        )
-      ) else (
-        if !listening_all then
-          stop () ;
-        if not !listening_localhost then (
-          start ~__context ~addr:"127.0.0.1" () ;
-          listening_localhost := true
-        ) ;
-        Option.iter
-          (fun addr ->
-            if not !listening_himn then (
-              start ~__context ~addr () ;
-              listening_himn := true
-            ))
-          !himn_addr
-      ))
+      next_server_mode ~mgmt_enabled |> Server.update ~__context)
 
-let enable_himn ~__context ~addr =
-  Mutex.execute management_m (fun () -> himn_addr := Some addr) ;
-  run ~__context ~mgmt_enabled:!listening_all
+let reconfigure_himn ~__context ~addr =
+  Mutex.execute management_m (fun () ->
+      himn := addr ;
+      next_server_mode ~mgmt_enabled:(mgmt_is_enabled ())
+      |> Server.update ~__context)
 
-let rebind ~__context = run ~__context ~mgmt_enabled:!listening_all
+let himn_addr () = !himn
 
 let ip_mutex = Mutex.create ()
 

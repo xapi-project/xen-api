@@ -14,10 +14,9 @@
 module D = Debug.Make (struct let name = "audit_log" end)
 
 open D
-open Stdext
 open Http
-open Xstringext
-open Pervasiveext
+module Unixext = Xapi_stdext_unix.Unixext
+open Xapi_stdext_pervasives.Pervasiveext
 
 let audit_log_whitelist_prefix = "/var/log/audit.log"
 
@@ -31,7 +30,7 @@ let went_through ?filter line =
   | None ->
       true
   | Some fs ->
-      List.fold_left (fun acc f -> acc && String.has_substr line f) true fs
+      List.for_all (fun f -> Astring.String.is_infix ~affix:f line) fs
 
 let write_line line fd ?filter since =
   if String.length line > line_timestamp_length + timestamp_index line then
@@ -45,7 +44,9 @@ let write_line line fd ?filter since =
 
 let transfer_audit_file _path compression fd_out ?filter since : unit =
   let path = Unixext.resolve_dot_and_dotdot _path in
-  let in_whitelist = String.startswith audit_log_whitelist_prefix path in
+  let in_whitelist =
+    Astring.String.is_prefix ~affix:audit_log_whitelist_prefix path
+  in
   if in_whitelist then
     let file_exists = Unixext.file_exists path in
     if file_exists then (
@@ -100,6 +101,7 @@ let transfer_all_audit_files fd_out ?filter since =
 
 (* map the ISO8601 timestamp format into the one in our logs *)
 let log_timestamp_of_iso8601 iso8601_timestamp =
+  let module Xstringext = Xapi_stdext_std.Xstringext in
   let step1 = iso8601_timestamp in
   let step2 = Xstringext.String.replace "-" "" step1 in
   let step3 = Xstringext.String.replace "Z" "" step2 in

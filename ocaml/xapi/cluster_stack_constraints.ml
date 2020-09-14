@@ -1,5 +1,5 @@
 open Db_filter_types
-open Stdext.Listext
+open Xapi_stdext_std.Listext
 
 module D = Debug.Make (struct let name = "cluster_stack_constraints" end)
 

@@ -15,7 +15,7 @@
 module D = Debug.Make (struct let name = "config_file_sync" end)
 
 open D
-open Stdext.Xstringext
+open Xapi_stdext_std.Xstringext
 
 let superuser = "root"
 
@@ -104,7 +104,7 @@ let fetch_config_files_internal ~master_address ~pool_secret =
           in
           with_transport transport
             (with_http request (fun (response, fd) ->
-                 Stdext.Unixext.string_of_fd fd))))
+                 Xapi_stdext_unix.Unixext.string_of_fd fd))))
 
 (* Invoked on slave as a notification that config files may have changed. Slaves can use
    this to decide whether to sync the new config files if the hash is different from the

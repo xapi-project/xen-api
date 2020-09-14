@@ -18,6 +18,20 @@ module D = Debug.Make (struct let name = "gencert_lib" end)
 
 exception Unexpected_address_type of string
 
+(* Try to get all FQDNs, use the hostname if none are available *)
+let hostnames () =
+  let hostname = Unix.gethostname () in
+  let fqdns =
+    Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
+    |> List.filter_map (fun addrinfo ->
+           match addrinfo.Unix.ai_canonname with
+           | "" ->
+               None
+           | name ->
+               Some name)
+  in
+  match fqdns with [] -> [hostname] | fqdns -> fqdns
+
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
   try
@@ -48,22 +62,6 @@ let get_management_ip_addr ~dbg =
       in
       Some (List.hd addrs)
   with _ -> None
-
-let call_generate_ssl_cert ~args =
-  let home =
-    match Sys.getenv_opt "HOME" with
-    | None ->
-        D.warn
-          "environment variable 'HOME' is unavailable, falling back to \
-           HOME=/root" ;
-        "/root"
-    | Some h ->
-        h
-  in
-  let env =
-    [|"PATH=" ^ String.concat ":" Forkhelpers.default_path; "HOME=" ^ home|]
-  in
-  Forkhelpers.execute_command_get_output !Constants.generate_ssl_cert ~env args
 
 open Api_errors
 open Rresult
@@ -112,12 +110,12 @@ let validate_certificate kind pem now private_key =
   let ensure_validity ~time certificate =
     let to_string = Ptime.to_rfc3339 ~tz_offset_s:0 in
     let not_before, not_after = X509.Certificate.validity certificate in
-    if Ptime.is_earlier time not_before then
+    if Ptime.is_earlier ~than:not_before time then
       Error
         (`Msg
           ( server_certificate_not_valid_yet
           , [to_string time; to_string not_before] ))
-    else if Ptime.is_later time not_after then
+    else if Ptime.is_later ~than:not_after time then
       Error
         (`Msg
           (server_certificate_expired, [to_string time; to_string not_after]))
@@ -159,26 +157,8 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
       Ok [pkcs8_private_key; pem_leaf; pem_chain])
     pem_chain
   >>= fun server_cert_components ->
-  let cert_server =
-    server_cert_components |> String.concat "\n\n" |> Bytes.unsafe_of_string
-  in
-  let owner_ro = 0o400 in
-  let atomic_write fd =
-    Unix.write fd cert_server 0 (Bytes.length cert_server)
-  in
-  try
-    let (_ : int) =
-      Xapi_stdext_unix.Unixext.atomic_write_to_file server_cert_path owner_ro
-        atomic_write
-    in
-    Ok cert
-  with Unix.Unix_error (err, _, _) ->
-    Error
-      (`Msg
-        ( internal_error
-        , [
-            Printf.sprintf
-              "certificates: could not write server certificate to disk. \
-               Reason: %s"
-              (Unix.error_message err)
-          ] ))
+  server_cert_components
+  |> String.concat "\n\n"
+  |> Selfcert.write_certs server_cert_path
+  |> R.reword_error (function `Msg msg -> `Msg (internal_error, [msg]))
+  >>= fun () -> R.ok cert

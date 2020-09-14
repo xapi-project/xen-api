@@ -37,5 +37,4 @@ tar --exclude 'tmp/*' --exclude 'tmp/.*' --exclude 'var/crash/*' --exclude 'var/
     --exclude 'var/xsconfig/*' --exclude 'var/xsconfig/.*' \
     --exclude 'var/xapi/[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*-[0-9a-f]*' \
     --warning='no-file-ignored' \
-    --sparse --preserve-permissions --to-stdout --gzip --one-file-system -C / -c . 
-
+    --sparse --preserve-permissions --to-stdout --gzip --one-file-system -C / -c . boot/efi

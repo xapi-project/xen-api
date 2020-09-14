@@ -11,9 +11,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Pervasiveext
-
 module R = Debug.Make (struct let name = "taskhelper" end)
 
 module D = Debug.Make (struct let name = "dummytaskhelper" end)
@@ -34,7 +31,7 @@ let string_of_origin = function
       in
       (* unfortunately all connections come from stunnel on localhost *)
       Printf.sprintf "HTTP request from %s with User-Agent: %s" peer
-        (default "unknown" req.Http.Request.user_agent)
+        (Option.value ~default:"unknown" req.Http.Request.user_agent)
   | Internal ->
       "Internal"
 
@@ -248,7 +245,7 @@ let of_http_req ?session_id ?(internal_async_subtask = false) ~generate_task_for
   let http_other_config = get_http_other_config http_req in
   let new_task_context () =
     let subtask_of =
-      Pervasiveext.may Ref.of_string http_req.Http.Request.subtask_of
+      Option.map Ref.of_string http_req.Http.Request.subtask_of
     in
     make ?session_id ?subtask_of ~http_other_config ~task_in_database:true
       ~origin:(Http (http_req, fd))

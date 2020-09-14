@@ -48,6 +48,7 @@ val create :
   -> mAC:string
   -> mTU:int64
   -> other_config:(string * string) list
+  -> currently_attached:bool
   -> qos_algorithm_type:string
   -> qos_algorithm_params:(string * string) list
   -> locking_mode:API.vif_locking_mode

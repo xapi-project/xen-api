@@ -13,7 +13,7 @@
  *)
 
 let destroy ~__context ~self =
-  Stdext.Pervasiveext.finally
+  Xapi_stdext_pervasives.Pervasiveext.finally
     (Helpers.log_exn_continue "destroying crashdump" (fun () ->
          let vdi = Db.Crashdump.get_VDI ~__context ~self in
          Helpers.call_api_functions ~__context (fun rpc session_id ->

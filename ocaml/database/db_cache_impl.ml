@@ -45,7 +45,7 @@ let get_table_from_ref t objref =
 let is_valid_ref t objref =
   match get_table_from_ref t objref with Some _ -> true | None -> false
 
-let read_field_internal t tblname fldname objref db =
+let read_field_internal _ tblname fldname objref db =
   try
     Row.find fldname
       (Table.find objref (TableSet.find tblname (Database.tableset db)))
@@ -176,7 +176,7 @@ let create_row_locked t tblname kvs' new_objref =
   let row = Row.add_defaults g schema row in
   W.debug "create_row %s (%s) [%s]" tblname new_objref
     (String.concat ","
-       (List.map (fun (k, v) -> "(" ^ k ^ "," ^ "v" ^ ")") kvs')) ;
+       (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')) ;
   update_database t (add_row tblname new_objref row) ;
   Database.notify
     (Create
@@ -210,7 +210,7 @@ let read_field_where t rcd =
   let db = get_database t in
   let tbl = TableSet.find rcd.table (Database.tableset db) in
   Table.fold
-    (fun r _ row acc ->
+    (fun _ _ row acc ->
       let field = Schema.Value.marshal (Row.find rcd.where_field row) in
       if field = rcd.where_value then
         Schema.Value.marshal (Row.find rcd.return row) :: acc
@@ -261,7 +261,7 @@ let find_refs_with_filter_internal db (tblname : string)
         Schema.Value.marshal (Row.find x row)
   in
   Table.fold
-    (fun r _ row acc ->
+    (fun _ _ row acc ->
       if Db_filter.eval_expr (eval_val row) expr then
         Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row) :: acc
       else

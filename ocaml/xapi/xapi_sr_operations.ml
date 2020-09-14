@@ -15,10 +15,6 @@
  * @group XenAPI functions
 *)
 
-open Stdext
-open Threadext
-open Pervasiveext
-module Listext = Listext.List
 open Db_filter_types
 open API
 open Client
@@ -108,7 +104,7 @@ let features_of_sr_internal ~__context ~_type =
   | [] ->
       []
   | (_, sm) :: _ ->
-      Listext.filter_map
+      List.filter_map
         (fun (name, v) ->
           try Some (List.assoc name Smint.string_to_capability_table, v)
           with Not_found -> None)
@@ -197,13 +193,16 @@ let valid_operations ~__context ?op record _ref' : table =
   in
   let check_parallel_ops ~__context record =
     let safe_to_parallelise = [`plug] in
-    let current_ops = Listext.setify (List.map snd current_ops) in
+    let current_ops =
+      Xapi_stdext_std.Listext.List.setify (List.map snd current_ops)
+    in
     (* If there are any current operations, all the non_parallelisable operations
        must definitely be stopped *)
     if current_ops <> [] then
       set_errors Api_errors.other_operation_in_progress
         ["SR"; _ref; sr_operation_to_string (List.hd current_ops)]
-        (Listext.set_difference all_ops safe_to_parallelise) ;
+        (Xapi_stdext_std.Listext.List.set_difference all_ops
+           safe_to_parallelise) ;
     let all_are_parallelisable =
       List.fold_left ( && ) true
         (List.map (fun op -> List.mem op safe_to_parallelise) current_ops)

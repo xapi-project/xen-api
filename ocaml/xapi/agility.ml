@@ -15,7 +15,7 @@
 module D = Debug.Make (struct let name = "agility" end)
 
 open D
-open Stdext.Listext
+open Xapi_stdext_std.Listext
 
 (* Only returns true if the SR is marked as shared, all hosts have PBDs and all PBDs are currently_attached.
    Is used to prevent a non-shared disk being added to a protected VM *)

@@ -44,8 +44,7 @@ open Db_actions
 open Db_filter_types
 
 let is_http action =
-  Stdext.Xstringext.String.startswith Datamodel.rbac_http_permission_prefix
-    action
+  Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
 
 let call_type_of ~action = if is_http action then "HTTP" else "API"
 
@@ -160,7 +159,9 @@ let populate_audit_record_with_obj_names_of_refs line =
     let sexpr_idx = String.index line ']' + 1 in
     let before_sexpr_str = String.sub line 0 sexpr_idx in
     (* remove the [...] prefix *)
-    let sexpr_str = Stdext.Xstringext.String.sub_to_end line sexpr_idx in
+    let sexpr_str =
+      Xapi_stdext_std.Xstringext.String.sub_to_end line sexpr_idx
+    in
     let sexpr = SExpr_TS.of_string sexpr_str in
     match sexpr with
     | SExpr.Node els -> (
@@ -232,9 +233,9 @@ let zip data =
   try
     let tmp_path = Filename.temp_file "zip-" ".dat" in
     let zdata = ref Bytes.empty in
-    Stdext.Pervasiveext.finally
+    Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
-        Stdext.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
+        Xapi_stdext_unix.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
             Gzip.compress fd (fun fd ->
                 let len = String.length data in
                 let written = Unix.write_substring fd data 0 len in
@@ -243,7 +244,7 @@ let zip data =
                     (Printf.sprintf "zip: wrote only %i bytes of %i" written
                        len))) ;
         let fd_in = Unix.openfile tmp_path [Unix.O_RDONLY] 0o400 in
-        Stdext.Pervasiveext.finally
+        Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
             let cin = Unix.in_channel_of_descr fd_in in
             let cin_len = in_channel_length cin in
@@ -379,7 +380,7 @@ let rec sexpr_args_of __context name rpc_value action =
         let name_uuid_ref = get_obj_of_ref value in
         match name_uuid_ref with
         | None ->
-            if Stdext.Xstringext.String.startswith Ref.ref_prefix value then
+            if Astring.String.is_prefix ~affix:Ref.ref_prefix value then
               (* it's a ref, just not in the db cache *)
               Some
                 (get_sexpr_arg name
@@ -457,7 +458,7 @@ and
 
 let has_to_audit action =
   let has_side_effect action =
-    not (Stdext.Xstringext.String.has_substr action ".get")
+    not (Xapi_stdext_std.Xstringext.String.has_substr action ".get")
     (* TODO: a bit slow? *)
   in
   (!Xapi_globs.log_getter || has_side_effect action)
@@ -556,9 +557,9 @@ let audit_line_of __context session_id allowed_denied ok_error result_error
       (sexpr_of __context session_id allowed_denied ok_error result_error ?args
          ?sexpr_of_args action permission)
   in
-  let line = Stdext.Xstringext.String.replace "\n" " " _line in
+  let line = Xapi_stdext_std.Xstringext.String.replace "\n" " " _line in
   (* no \n in line *)
-  let line = Stdext.Xstringext.String.replace "\r" " " line in
+  let line = Xapi_stdext_std.Xstringext.String.replace "\r" " " line in
   (* no \r in line *)
   let audit_line = append_line "%s" line in
   (*D.debug "line=%s, audit_line=%s" line audit_line;*)
@@ -573,7 +574,7 @@ let allowed_pre_fn ~__context ~action ?args () =
     if
       has_to_audit action
       (* for now, we only cache arg results for destroy actions *)
-      && Stdext.Xstringext.String.has_substr action ".destroy"
+      && Xapi_stdext_std.Xstringext.String.has_substr action ".destroy"
     then
       let args' = add_dummy_args __context action args in
       Some (sexpr_of_parameters __context action args')

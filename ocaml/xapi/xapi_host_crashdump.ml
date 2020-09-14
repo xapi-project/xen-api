@@ -15,10 +15,10 @@
    * @group Host Management
 *)
 
-open Stdext
-open Listext
-open Pervasiveext
-open Xstringext
+module Listext = Xapi_stdext_std.Listext
+module Xstringext = Xapi_stdext_std.Xstringext
+module Date = Xapi_stdext_date.Date
+open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_support
 
 module D = Debug.Make (struct let name = "xapi_host_crashdump" end)
@@ -67,8 +67,8 @@ let resynchronise ~__context ~host =
         (*only directories are marked as crashdumps*))
       (try Array.to_list (Sys.readdir crash_dir) with _ -> [])
   in
-  let gone_away = List.set_difference db_filenames real_filenames
-  and arrived = List.set_difference real_filenames db_filenames in
+  let gone_away = Listext.List.set_difference db_filenames real_filenames
+  and arrived = Listext.List.set_difference real_filenames db_filenames in
   let was_shutdown_cleanly =
     try bool_of_string (Localdb.get Constants.host_restarted_cleanly)
     with _ -> false
@@ -102,7 +102,7 @@ let resynchronise ~__context ~host =
       let cmd = Printf.sprintf "%s --bytes -s %s/%s" du crash_dir filename in
       let size =
         match
-          String.split_f String.isspace (Helpers.get_process_output cmd)
+          Xstringext.String.(split_f isspace (Helpers.get_process_output cmd))
         with
         | size :: _ ->
             Int64.of_string size

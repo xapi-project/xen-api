@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext.Pervasiveext
+open Xapi_stdext_pervasives.Pervasiveext
 open Client
 
 module D = Debug.Make (struct let name = "attach_helpers" end)
@@ -97,6 +97,7 @@ let with_vbds rpc session_id __context vm vdis mode f =
               ~userdevice:"autodetect" ~bootable:false ~mode ~_type:`Disk
               ~unpluggable:true ~qos_algorithm_type:"" ~qos_algorithm_params:[]
               ~other_config:[(Xapi_globs.vbd_task_key, Ref.string_of task_id)]
+              ~device:"" ~currently_attached:false
           in
           (* sanity-check *)
           if has_vbd_leaked __context vbd then

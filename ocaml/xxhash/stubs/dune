@@ -11,6 +11,7 @@
 	(name xxhash_bindings)
 	(libraries
 		ctypes
+        integers
 	)
 	(modules xxhash_bindings)
 )

@@ -11,10 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Stdext
-open Threadext
-open Pervasiveext
-open Listext
+module Mutex = Xapi_stdext_threads.Threadext.Mutex
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (** Allow VMs to be locked to prevent API calls racing with the background event thread *)
 
@@ -134,12 +133,11 @@ module Thread_state = struct
       @ Option.fold ~none:[] ~some:(fun (r, _) -> [r]) ts.waiting_for
     in
     let all_resources =
-      List.setify
+      Xapi_stdext_std.Listext.List.setify
         (IntMap.fold (fun _ ts acc -> resources_of_ts ts @ acc) snapshot [])
     in
     let resources_to_ids =
-      List.combine all_resources
-        (Range.to_list (Range.make 0 (List.length all_resources)))
+      List.combine all_resources (List.init (List.length all_resources) Fun.id)
     in
     let resources_to_sll =
       List.map

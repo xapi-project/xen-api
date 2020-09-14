@@ -103,7 +103,7 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
                 in
                 Stream_vdi.send_all refresh_session s __context rpc session_id
                   [(Xapi_globs.vdi_tar_export_dir, vdi, size)] ;
-                Tar_unix.write_end s
+                Tar_helpers.write_end s
           with e ->
             Backtrace.is_important e ;
             TaskHelper.failed ~__context e ;
