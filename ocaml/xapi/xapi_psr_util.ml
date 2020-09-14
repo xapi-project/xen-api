@@ -1,7 +1,7 @@
 (* avoiding circular deps *)
 module D = Debug.Make (struct let name = "xapi_psr" end)
 
-module Unixext = Stdext.Unixext
+module Unixext = Xapi_stdext_unix.Unixext
 
 let checkpoint_path = "/var/lib/xcp/psr_cp"
 

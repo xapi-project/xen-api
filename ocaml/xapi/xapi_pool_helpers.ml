@@ -21,6 +21,7 @@ open Record_util
 open Api_errors
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 (* psr is not included in this list because it can be considered in progress
    in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
 let all_operations =
