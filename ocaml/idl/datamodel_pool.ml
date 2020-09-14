@@ -435,7 +435,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"crl_install"
-      ~doc:"Install a TLS Certificate Revocation List, pool-wide."
+      ~doc:"Install a TLS CA-issued Certificate Revocation List, pool-wide."
       ~params:[String, "name", "A name to give the CRL";
                String, "cert", "The CRL"]
       ~allowed_roles:_R_POOL_OP
@@ -445,7 +445,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"crl_uninstall"
-      ~doc:"Remove a pool-wide TLS Certificate Revocation List."
+      ~doc:"Remove a pool-wide TLS CA-issued Certificate Revocation List."
       ~params:[String, "name", "The CRL name"]
       ~allowed_roles:_R_POOL_OP
       ()
@@ -454,7 +454,7 @@ open Datamodel_types
       ~in_oss_since:None
       ~in_product_since:rel_george
       ~name:"crl_list"
-      ~doc:"List the names of all installed TLS Certificate Revocation Lists."
+      ~doc:"List the names of all installed TLS CA-issued Certificate Revocation Lists."
       ~result:(Set(String), "The names of all installed CRLs")
       ~allowed_roles:_R_POOL_OP
       ()
