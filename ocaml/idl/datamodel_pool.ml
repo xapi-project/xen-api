@@ -411,7 +411,21 @@ open Datamodel_types
       ~params:[String, "name", "A name to give the certificate";
                String, "cert", "The certificate"]
       ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_next
       ()
+
+
+  let install_ca_certificate = call
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~name:"install_ca_certificate"
+      ~doc:"Install a TLS CA certificate, pool-wide."
+      ~params:[String, "name", "A name to give the certificate";
+               String, "cert", "The certificate"]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_next
+      ()
+
 
   let certificate_uninstall = call
       ~in_oss_since:None
@@ -420,6 +434,17 @@ open Datamodel_types
       ~doc:"Remove a pool-wide TLS CA certificate."
       ~params:[String, "name", "The certificate name"]
       ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_next
+      ()
+
+  let uninstall_ca_certificate = call
+      ~in_oss_since:None
+      ~in_product_since:rel_george
+      ~name:"uninstall_ca_certificate"
+      ~doc:"Remove a pool-wide TLS CA certificate."
+      ~params:[String, "name", "The certificate name"]
+      ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_next
       ()
 
   let certificate_list = call
@@ -429,6 +454,7 @@ open Datamodel_types
       ~doc:"List the names of all installed TLS CA certificates."
       ~result:(Set(String),"All installed certificates")
       ~allowed_roles:_R_POOL_OP
+      ~internal_deprecated_since:rel_next
       ()
 
   let crl_install = call
@@ -687,6 +713,8 @@ open Datamodel_types
         ; certificate_install
         ; certificate_uninstall
         ; certificate_list
+        ; install_ca_certificate
+        ; uninstall_ca_certificate
         ; crl_install
         ; crl_uninstall
         ; crl_list
