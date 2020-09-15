@@ -240,7 +240,12 @@ val send_test_post :
 val certificate_install :
   __context:Context.t -> name:string -> cert:string -> unit
 
+val install_ca_certificate :
+  __context:Context.t -> name:string -> cert:string -> unit
+
 val certificate_uninstall : __context:Context.t -> name:string -> unit
+
+val uninstall_ca_certificate : __context:Context.t -> name:string -> unit
 
 val certificate_list : __context:'a -> string list
 
