@@ -139,6 +139,8 @@ type vm_migrate_op = {
   ; vmm_vif_map: (string * Network.t) list
   ; vmm_vgpu_pci_map: (string * Pci.address) list
   ; vmm_url: string
+  ; vmm_tmp_src_id: Vm.id
+  ; vmm_tmp_dest_id: Vm.id
 }
 [@@deriving rpcty]
 
@@ -2046,6 +2048,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
     | VM_migrate vmm ->
         debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url ;
         let id = vmm.vmm_id in
+        let new_src_id = vmm.vmm_tmp_src_id in
+        let new_dest_id = vmm.vmm_tmp_dest_id in
         let vm = VM_DB.read_exn id in
         let dbg = (Xenops_task.to_interface_task t).Task.dbg in
         let url = Uri.of_string vmm.vmm_url in
@@ -2062,8 +2066,6 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               (fun () -> vmm.vmm_url)
         end)) in
         let regexp = Re.Pcre.regexp id in
-        let new_dest_id = String.sub id 0 24 ^ "000000000001" in
-        let new_src_id = String.sub id 0 24 ^ "000000000000" in
         debug "Destination domain will be built with uuid=%s" new_dest_id ;
         debug "Original domain will be moved to uuid=%s" new_src_id ;
         (* Redirect operations on new_src_id to our worker thread. *)
@@ -3009,9 +3011,21 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
+    let tmp_uuid_of uuid ~kind =
+      Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
+        (match kind with `dest -> '1' | `src -> '0')
+    in
     queue_operation dbg id
       (VM_migrate
-         {vmm_id= id; vmm_vdi_map; vmm_vif_map; vmm_vgpu_pci_map; vmm_url})
+         {
+           vmm_id= id
+         ; vmm_vdi_map
+         ; vmm_vif_map
+         ; vmm_vgpu_pci_map
+         ; vmm_url
+         ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
+         ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
+         })
 
   let migrate_receive_memory _ _ _ _ _ _ = failwith "Unimplemented"
 
