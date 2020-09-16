@@ -2153,8 +2153,18 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             let final_handshake () =
               Handshake.send ~verbose:true mem_fd Handshake.Success ;
               debug "VM.migrate: Synchronisation point 3" ;
-              Handshake.recv_success mem_fd ;
-              debug "VM.migrate: Synchronisation point 4"
+              match Handshake.recv mem_fd with
+              | Success ->
+                  debug "VM.migrate: Synchronisation point 4"
+              | Error msg ->
+                  (* at this point, the VM has already been transferred to
+                     the destination host. even though the destination host
+                     failed to respond successfully to our handshake, the VM
+                     should still be running correctly *)
+                  error
+                    "VM.migrate: Failed during Synchronisation point 4. msg: %s"
+                    msg ;
+                  raise (Xenopsd_error (Internal_error msg))
             in
             let save ?vgpu_fd () =
               perform_atomics
@@ -2184,6 +2194,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                     first_handshake () ;
                     save ~vgpu_fd:(FD vgpu_fd) ()) ;
                 final_handshake ()) ;
+        (* cleanup tmp src VM *)
         let atomics =
           [
             VM_hook_script_stable
@@ -2331,13 +2342,16 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
           Handshake.send s Handshake.Success ;
           debug "VM.receive_memory: Synchronisation point 4"
         with e ->
-          Backtrace.is_important e ;
-          Debug.log_backtrace e (Backtrace.get e) ;
-          debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
-          perform_atomics
-            (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
-            t ;
-          Handshake.send s (Handshake.Error (Printexc.to_string e))
+          finally
+            (fun () ->
+              Backtrace.is_important e ;
+              Debug.log_backtrace e (Backtrace.get e) ;
+              debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
+              perform_atomics
+                (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
+                t)
+            (fun () ->
+              Handshake.send s (Handshake.Error (Printexc.to_string e)))
       )
     | VM_check_state id ->
         let vm = VM_DB.read_exn id in
