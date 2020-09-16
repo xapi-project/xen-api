@@ -409,7 +409,7 @@ open Datamodel_types
       ~name:"certificate_install"
       ~doc:"Install a TLS CA certificate, pool-wide."
       ~params:[String, "name", "A name to give the certificate";
-               String, "cert", "The certificate"]
+               String, "cert", "The certificate in PEM format"]
       ~allowed_roles:_R_POOL_OP
       ~internal_deprecated_since:rel_next
       ()
@@ -421,9 +421,8 @@ open Datamodel_types
       ~name:"install_ca_certificate"
       ~doc:"Install a TLS CA certificate, pool-wide."
       ~params:[String, "name", "A name to give the certificate";
-               String, "cert", "The certificate"]
+               String, "cert", "The certificate in PEM format"]
       ~allowed_roles:_R_POOL_OP
-      ~internal_deprecated_since:rel_next
       ()
 
 
@@ -444,7 +443,6 @@ open Datamodel_types
       ~doc:"Remove a pool-wide TLS CA certificate."
       ~params:[String, "name", "The certificate name"]
       ~allowed_roles:_R_POOL_OP
-      ~internal_deprecated_since:rel_next
       ()
 
   let certificate_list = call
