@@ -1193,7 +1193,9 @@ let no_cluster_hosts_reachable = "NO_CLUSTER_HOSTS_REACHABLE"
 
 let xen_incompatible = "XEN_INCOMPATIBLE"
 
-let vcpu_max_not_cores_per_socket_multiple = "VCPU_MAX_NOT_CORES_PER_SOCKET_MULTIPLE"
+let vcpu_max_not_cores_per_socket_multiple =
+  "VCPU_MAX_NOT_CORES_PER_SOCKET_MULTIPLE"
+
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"

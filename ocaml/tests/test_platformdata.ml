@@ -152,37 +152,26 @@ module SanityCheck = Generic.MakeStateless (struct
         ( ([("cores-per-socket", "4")], None, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
-               , [
-                     "6"
-                   ; "4"
-                 ] )) )
+               (Api_errors.vcpu_max_not_cores_per_socket_multiple, ["6"; "4"]))
+        )
       ; (* Check VCPUs configuration - hvm failure scenario*)
         ( ([("cores-per-socket", "0")], None, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
-               , [
-                   "6"
-                   ; "0"
-                 ] )) )
+               (Api_errors.vcpu_max_not_cores_per_socket_multiple, ["6"; "0"]))
+        )
       ; (* Check VCPUs configuration - hvm failure scenario*)
         ( ([("cores-per-socket", "-1")], None, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
-               , [
-                   "6"
-                   ; "-1"
-                 ] )) )
+               (Api_errors.vcpu_max_not_cores_per_socket_multiple, ["6"; "-1"]))
+        )
       ; (* Check VCPUs configuration - hvm failure scenario*)
         ( ([("cores-per-socket", "abc")], None, false, 6L, 5L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.invalid_value
-               , [
-                 "platform:cores-per-socket"; "abc"
-                 ] )) )
+               (Api_errors.invalid_value, ["platform:cores-per-socket"; "abc"]))
+        )
       ; (* Check BIOS configuration - qemu trad *)
         make_firmware_ok "qemu-trad" (Some Bios)
       ; make_firmware_ok "qemu-upstream" (Some Bios)

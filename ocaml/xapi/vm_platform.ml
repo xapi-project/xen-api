@@ -197,17 +197,11 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
           raise
             (Api_errors.Server_error
                ( Api_errors.vcpu_max_not_cores_per_socket_multiple
-               , [
-                   string_of_int vcpus; cps_str
-                 ]
- ))
+               , [string_of_int vcpus; cps_str] ))
       with Failure msg ->
         raise
           (Api_errors.Server_error
-             ( Api_errors.invalid_value
-             , [
-               "platform:cores-per-socket"; cps_str
-               ] ))
+             (Api_errors.invalid_value, ["platform:cores-per-socket"; cps_str]))
   ) ;
   (* Add usb emulation flags.
      Make sure we don't send usb=false and usb_tablet=true,
