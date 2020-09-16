@@ -23,16 +23,31 @@ open D
 
 (** {2 (Fill in title!)} *)
 
+let path_for name =
+  let prefix = "/tmp/fist_" in
+  Printf.sprintf "%s%s" prefix name
+
 let fistpoint name =
   try
-    Unix.access ("/tmp/fist_" ^ name) [Unix.F_OK] ;
+    Unix.access (path_for name) [Unix.F_OK] ;
     true
   with _ -> false
 
-let fistpoint_read name =
-  try Some (Unixext.string_of_file ("/tmp/fist_" ^ name)) with _ -> None
+let hang_while name =
+  let rec go ctr =
+    if fistpoint name then (
+      Thread.delay 1.0 ;
+      if ctr mod 10 = 0 then
+        debug "hang_while: waiting for fist '%s' to be removed" name ;
+      (go [@tailcall]) (ctr + 1)
+    )
+  in
+  go 1
 
-let delete name = Unixext.unlink_safe ("/tmp/fist_" ^ name)
+let fistpoint_read name =
+  try Some (Unixext.string_of_file (path_for name)) with _ -> None
+
+let delete name = Unixext.unlink_safe (path_for name)
 
 (** Insert 2 * Xapi_globs.max_clock_skew into the heartbeat messages *)
 let insert_clock_skew () = fistpoint "insert_clock_skew"
@@ -92,3 +107,16 @@ let pause_storage_migrate2 () = fistpoint "pause_storage_migrate2"
 let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
 
 let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
+
+let hang_psr psr_checkpoint =
+  ( match psr_checkpoint with
+  | `backup ->
+      "psr_backup"
+  | `notify_new ->
+      "psr_notify_new"
+  | `notify_send ->
+      "psr_notify_send"
+  | `cleanup ->
+      "psr_cleanup"
+  )
+  |> hang_while

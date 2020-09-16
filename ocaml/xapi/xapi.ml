@@ -929,7 +929,9 @@ let server_init () =
           ; ("Setting stunnel timeout", [], set_stunnel_timeout)
           ; ("Initialising local database", [], init_local_database)
           ; ("Loading DHCP leases", [], Xapi_udhcpd.init)
-          ; ("Reading pool secret", [], Helpers.get_pool_secret)
+          ; ( "Reading pool secret"
+            , []
+            , Helpers.PoolSecret.refresh_cache_or_create_new )
           ; ("Logging xapi version info", [], Xapi_config.dump_config)
           ; ("Setting signal handlers", [], signals_handling)
           ; ("Initialising random number generator", [], random_setup)
@@ -1217,7 +1219,8 @@ let server_init () =
             , fun () ->
                 Pool_db_backup.fetch_database_backup
                   ~master_address:(Pool_role.get_master_address ())
-                  ~pool_secret:!Xapi_globs.pool_secret ~force:None )
+                  ~pool_secret:(Xapi_globs.pool_secret ())
+                  ~force:None )
           ; ( "wait management interface to come up, re-plug unplugged PBDs"
             , [Startup.NoExnRaising]
             , wait_management_interface )

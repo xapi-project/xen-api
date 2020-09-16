@@ -64,8 +64,6 @@ install: build doc
 	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 # ocaml/vncproxy
 	scripts/install.sh 755 _build/install/default/bin/vncproxy $(DESTDIR)$(OPTDIR)/debug/vncproxy
-# ocaml/ptoken
-	scripts/install.sh 755 _build/install/default/bin/genptoken $(DESTDIR)$(LIBEXECDIR)/genptoken
 # ocaml/perftest
 	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/perftest
 # ocaml/mpathalert

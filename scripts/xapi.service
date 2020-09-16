@@ -3,7 +3,6 @@ Description=XenAPI server (XAPI)
 
 After=attach-static-vdis.service
 After=forkexecd.service
-After=genptoken.service
 After=message-switch.service
 After=save-boot-info.service
 After=syslog.target

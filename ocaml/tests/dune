@@ -10,6 +10,7 @@
     alcotest
     astring
     fmt
+    rresult
     xapi_internal
     xapi-stdext-date
     xapi-stdext-std

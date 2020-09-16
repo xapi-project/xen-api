@@ -57,7 +57,6 @@ install:
 	$(IDATA) gencert.service $(DESTDIR)/usr/lib/systemd/system/gencert.service
 	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
 	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
-	$(IDATA) genptoken.service $(DESTDIR)/usr/lib/systemd/system/genptoken.service
 	$(IDATA) generate-iscsi-iqn.service $(DESTDIR)/usr/lib/systemd/system/generate-iscsi-iqn.service
 	$(IDATA) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
 	$(IDATA) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service

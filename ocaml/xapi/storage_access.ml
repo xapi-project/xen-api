@@ -997,7 +997,7 @@ module SMAPIv1 = struct
           let localhost = Helpers.get_localhost ~__context in
           (* XXX: leaked *)
           let session_ref =
-            XenAPI.Session.slave_login rpc localhost !Xapi_globs.pool_secret
+            XenAPI.Session.slave_login rpc localhost (Xapi_globs.pool_secret ())
           in
           let vdi, _ = find_vdi ~__context sr vdi in
           Printf.sprintf "%s/%s/%s" ip

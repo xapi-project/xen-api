@@ -59,6 +59,7 @@ type feature =
   | Network_sriov
   | Corosync
   | Zstd_export
+  | Pool_secret_rotation
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -113,6 +114,8 @@ let keys_of_features =
   ; (Network_sriov, ("restrict_network_sriov", Negative, "Network_sriov"))
   ; (Corosync, ("restrict_corosync", Negative, "Corosync"))
   ; (Zstd_export, ("restrict_zstd_export", Negative, "Zstd_export"))
+  ; ( Pool_secret_rotation
+    , ("restrict_pool_secret_rotation", Negative, "Pool_secret_rotation") )
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

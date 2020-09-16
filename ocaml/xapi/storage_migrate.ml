@@ -33,7 +33,7 @@ let local_url () =
   Http.Url.
     ( Http {host= "127.0.0.1"; auth= None; port= None; ssl= false}
     , {uri= Constants.sm_uri; query_params= []} )
-  |> storage_url ~pool_secret:!Xapi_globs.pool_secret
+  |> storage_url ~pool_secret:(Xapi_globs.pool_secret ())
 
 module State = struct
   module Receive_state = struct

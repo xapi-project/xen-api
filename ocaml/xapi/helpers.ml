@@ -40,7 +40,19 @@ let log_exn_continue msg f x =
   with e ->
     debug "Ignoring exception: %s while %s" (ExnHelper.string_of_exn e) msg
 
-let call_script ?(log_successful_output = true) ?env script args =
+type log_output = Always | Never | On_failure
+
+let call_script ?(log_output = Always) ?env script args =
+  let should_log_output_on_success, should_log_output_on_failure =
+    match log_output with
+    | Always ->
+        (true, true)
+    | Never ->
+        (false, false)
+    | On_failure ->
+        (false, true)
+  in
+  debug "about to call script: %s" script ;
   try
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
@@ -48,7 +60,7 @@ let call_script ?(log_successful_output = true) ?env script args =
       match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
     in
     let output, _ = Forkhelpers.execute_command_get_output ~env script args in
-    if log_successful_output then
+    if should_log_output_on_success then
       debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args)
         output ;
     output
@@ -67,8 +79,9 @@ let call_script ?(log_successful_output = true) ?env script args =
         | Unix.WSTOPPED n ->
             Printf.sprintf "was stopped by signal %d" n
       in
-      debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
-        (String.concat " " args) message stdout stderr ;
+      if should_log_output_on_failure then
+        debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
+          (String.concat " " args) message stdout stderr ;
       raise e
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
@@ -253,11 +266,9 @@ let update_getty () =
   (* Running update-issue service on best effort basis *)
   try
     ignore
-      (call_script ~log_successful_output:false
-         !Xapi_globs.update_issue_script
-         []) ;
+      (call_script ~log_output:On_failure !Xapi_globs.update_issue_script []) ;
     ignore
-      (call_script ~log_successful_output:false
+      (call_script ~log_output:On_failure
          !Xapi_globs.kill_process_script
          ["-q"; "-HUP"; "-r"; ".*getty"])
   with e -> warn "Unable to update getty at %s" __LOC__
@@ -410,7 +421,7 @@ let call_api_functions_internal ~__context f =
   let do_master_login () =
     let session =
       Client.Client.Session.slave_login rpc (get_localhost ~__context)
-        !Xapi_globs.pool_secret
+        (Xapi_globs.pool_secret ())
     in
     require_explicit_logout := true ;
     session
@@ -456,7 +467,7 @@ let call_emergency_mode_functions hostname f =
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http
   in
   let session_id =
-    Client.Client.Session.slave_local_login rpc !Xapi_globs.pool_secret
+    Client.Client.Session.slave_local_login rpc (Xapi_globs.pool_secret ())
   in
   finally
     (fun () -> f rpc session_id)
@@ -850,29 +861,6 @@ let pool_has_different_host_platform_versions ~__context =
     platform_version <> Xapi_version.platform_version ()
   in
   List.fold_left ( || ) false (List.map is_different_to_me platform_versions)
-
-(* Read pool secret if it exists; otherwise, create a new one. *)
-let get_pool_secret () =
-  try
-    Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
-    pool_secret :=
-      Unixext.string_of_file !Xapi_globs.pool_secret_path
-      |> SecretString.of_string ;
-    Db_globs.pool_secret :=
-      !pool_secret |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
-  with _ ->
-    (* No pool secret exists. *)
-    let mk_rand_string () = Uuid.to_string (Uuid.make_uuid ()) in
-    pool_secret :=
-      SecretString.of_string
-      @@ mk_rand_string ()
-      ^ "/"
-      ^ mk_rand_string ()
-      ^ "/"
-      ^ mk_rand_string () ;
-    Db_globs.pool_secret :=
-      !pool_secret |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
-    SecretString.write_to_file !Xapi_globs.pool_secret_path !pool_secret
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
@@ -1798,4 +1786,85 @@ end = struct
       Backtrace.is_important e ;
       D.error "Helpers.Stunnel.restart: failed to restart stunnel" ;
       raise e
+end
+
+module PoolSecret : sig
+  val make : unit -> SecretString.t
+
+  val is_authorized : SecretString.t -> bool
+
+  val refresh_cache_or_create_new : unit -> unit
+end = struct
+  let to_secret x =
+    (* an opaque failure arises when a pool secret
+       contains a newline char, because a newline is
+       not encoded properly when putting the pool secret
+       into an http cookie. we enforce that the pool
+       secret has a certain form to avoid this kind
+       of issue
+    *)
+    let has_valid_chars =
+      Astring.(
+        String.for_all
+          (fun c -> Char.Ascii.is_alphanum c || c = '-' || c = '/')
+          x)
+    in
+    let sufficiently_secret = String.length x > 36 in
+    if has_valid_chars && sufficiently_secret |> not then
+      raise
+        Api_errors.(
+          Server_error
+            ( internal_error
+            , [
+                {|expected pool secret to match the following regex '^[0-9a-f\/\-]{37,}$'|}
+              ] )) ;
+    SecretString.of_string x
+
+  let _make () =
+    (* by default we generate the pool secret using /dev/urandom,
+       but if a script to generate the pool secret exists, use that instead *)
+    let make_urandom () =
+      Stdlib.List.init 3 (fun _ -> Uuid.(make_uuid_urnd () |> to_string))
+      |> String.concat "/"
+    in
+    let make_script () =
+      try call_script ~log_output:Never !Xapi_globs.gen_pool_secret_script []
+      with _ ->
+        info "helpers.ml:PoolSecret._make: script failed, using urandom instead" ;
+        make_urandom ()
+    in
+    let use_script =
+      try
+        Unix.access !Xapi_globs.gen_pool_secret_script [Unix.X_OK] ;
+        true
+      with _ -> false
+    in
+    if use_script then
+      make_script ()
+    else
+      make_urandom ()
+
+  let make () = _make () |> to_secret
+
+  let is_authorized x =
+    List.exists (SecretString.equal x) !Xapi_globs.pool_secrets
+
+  (* here, the caches are the globs.
+     - if pool secret exists on disk, use that
+     - else generate a new one *)
+  let refresh_cache_or_create_new () =
+    let ps =
+      ( try
+          Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
+          Unixext.string_of_file !Xapi_globs.pool_secret_path
+        with _ -> (* No pool secret exists. *)
+                  _make ()
+      )
+      |> to_secret
+    in
+    Xapi_globs.pool_secrets := [ps] ;
+    Db_globs.pool_secret :=
+      ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
+    SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
+    Xapi_psr_util.load_psr_pool_secrets ()
 end

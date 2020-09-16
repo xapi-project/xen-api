@@ -454,7 +454,7 @@ let _ =
   error Api_errors.host_master_cannot_talk_back [ "ip" ]
     ~doc:"The master reports that it cannot talk back to the slave on the supplied management IP address." ();
   error Api_errors.host_unknown_to_master [ "host" ]
-    ~doc:"The master says the host is not known to it. Perhaps the Host was deleted from the master's database? Perhaps the slave is pointing to the wrong master?" ();
+    ~doc:"The master says the server is not known to it. Is the server in the master's database and pointing to the correct master? Are all servers using the same pool secret?" ();
   error Api_errors.host_broken []
     ~doc:"This server failed in the middle of an automatic failover operation and needs to retry the failover action." ();
   error Api_errors.host_has_resident_vms [ "host" ]

@@ -286,7 +286,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~vswitch_controller ~igmp_snooping_enabled ~current_operations
     ~allowed_operations ~restrictions ~other_config ~ha_cluster_stack
     ~guest_agent_config ~cpu_info ~policy_no_vendor_device
-    ~live_patching_disabled ~uefi_certificates ;
+    ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false ;
   pool_ref
 
 let default_sm_features =

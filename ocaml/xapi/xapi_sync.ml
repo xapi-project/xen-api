@@ -38,7 +38,7 @@ let sync_host ~__context host =
           and session =
             Xapi_session.slave_login ~__context
               ~host:(Helpers.get_localhost ~__context)
-              ~psecret:!Xapi_globs.pool_secret
+              ~psecret:(Xapi_globs.pool_secret ())
           in
           Unix.putenv "XSH_SESSION" (Ref.string_of session) ;
           let output, log =
