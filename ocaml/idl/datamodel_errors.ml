@@ -411,6 +411,8 @@ let _ =
     ~doc:"An error occured while restoring the memory image of the specified virtual machine" ();
   error Api_errors.vm_pv_drivers_in_use [ "vm" ]
     ~doc:"VM PV drivers still in use" ();
+  error Api_errors.vcpu_max_not_cores_per_socket_multiple ["vcpu_max"; "cores_per_socket"]
+    ~doc:"VCPUs_max must be a multiple of cores-per-socket" ();
   (* VM appliance errors *)
   error Api_errors.operation_partially_failed [ "operation" ]
     ~doc:"Some VMs belonging to the appliance threw an exception while carrying out the specified operation" ();

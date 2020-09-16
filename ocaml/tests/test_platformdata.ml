@@ -152,28 +152,28 @@ module SanityCheck = Generic.MakeStateless (struct
         ( ([("cores-per-socket", "4")], None, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.invalid_value
+               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
                , [
-                   "platform:cores-per-socket (value 4)"
-                 ; "VCPUs_max (value 6) must be a multiple of cores-per-socket"
+                     "6"
+                   ; "4"
                  ] )) )
       ; (* Check VCPUs configuration - hvm failure scenario*)
         ( ([("cores-per-socket", "0")], None, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.invalid_value
+               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
                , [
-                   "platform:cores-per-socket (value 0)"
-                 ; "VCPUs_max (value 6) must be a multiple of cores-per-socket"
+                   "6"
+                   ; "0"
                  ] )) )
       ; (* Check VCPUs configuration - hvm failure scenario*)
         ( ([("cores-per-socket", "-1")], None, false, 6L, 6L, `hvm)
         , Error
             (Api_errors.Server_error
-               ( Api_errors.invalid_value
+               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
                , [
-                   "platform:cores-per-socket (value -1)"
-                 ; "VCPUs_max (value 6) must be a multiple of cores-per-socket"
+                   "6"
+                   ; "-1"
                  ] )) )
       ; (* Check VCPUs configuration - hvm failure scenario*)
         ( ([("cores-per-socket", "abc")], None, false, 6L, 5L, `hvm)
@@ -181,8 +181,7 @@ module SanityCheck = Generic.MakeStateless (struct
             (Api_errors.Server_error
                ( Api_errors.invalid_value
                , [
-                   "platform:cores-per-socket (value abc)"
-                 ; "Value is not a valid int"
+                 "platform:cores-per-socket"; "abc"
                  ] )) )
       ; (* Check BIOS configuration - qemu trad *)
         make_firmware_ok "qemu-trad" (Some Bios)
