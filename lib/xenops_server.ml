@@ -1917,9 +1917,9 @@ and trigger_cleanup_after_failure op t =
   | VM_receive_memory (id, final_id, _, _) ->
       immediate_operation dbg id (VM_check_state id) ;
       immediate_operation dbg final_id (VM_check_state final_id)
-  | VM_migrate vmm ->
-      immediate_operation dbg vmm.vmm_id (VM_check_state vmm.vmm_id) ;
-      immediate_operation dbg vmm.vmm_id (VM_check_state vmm.vmm_id)
+  | VM_migrate {vmm_id; vmm_tmp_src_id} ->
+      immediate_operation dbg vmm_id (VM_check_state vmm_id) ;
+      immediate_operation dbg vmm_tmp_src_id (VM_check_state vmm_tmp_src_id)
   | VBD_hotplug id | VBD_hotunplug (id, _) ->
       immediate_operation dbg (fst id) (VBD_check_state id)
   | VIF_hotplug id | VIF_hotunplug (id, _) ->
