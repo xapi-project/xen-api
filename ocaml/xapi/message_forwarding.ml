@@ -3183,15 +3183,20 @@ functor
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.disable_external_auth rpc session_id host config)
 
-      let certificate_install ~__context ~host ~name ~cert =
+      let install_ca_certificate ~__context ~host ~name ~cert =
         let local_fn = Local.Host.certificate_install ~host ~name ~cert in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.certificate_install rpc session_id host name cert)
 
-      let certificate_uninstall ~__context ~host ~name =
+      let uninstall_ca_certificate ~__context ~host ~name =
         let local_fn = Local.Host.certificate_uninstall ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.certificate_uninstall rpc session_id host name)
+
+      (* legacy names *)
+      let certificate_install = install_ca_certificate
+
+      let certificate_uninstall = uninstall_ca_certificate
 
       let certificate_list ~__context ~host =
         let local_fn = Local.Host.certificate_list ~host in

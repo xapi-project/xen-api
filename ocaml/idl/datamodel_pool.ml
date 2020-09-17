@@ -457,7 +457,7 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ~lifecycle:
         [Published, rel_george, "List installed TLS CA certificate"
-        ;Deprecated, rel_next, "XXX What use instead?"
+        ;Deprecated, rel_next, "Use openssl to inspect certificate"
         ]
       ()
 
