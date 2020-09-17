@@ -22,7 +22,10 @@ open Api_errors
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let all_operations = [`ha_enable; `ha_disable; `cluster_create]
+(* psr is not included in this list because it can be considered in progress
+   in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
+let all_operations =
+  [`ha_enable; `ha_disable; `cluster_create; `designate_new_master]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' =
@@ -44,6 +47,7 @@ let valid_operations ~__context record _ref' =
       (`ha_enable, Api_errors.ha_enable_in_progress, [])
     ; (`ha_disable, Api_errors.ha_disable_in_progress, [])
     ; (`cluster_create, Api_errors.cluster_create_in_progress, [])
+    ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
     ]
   in
   List.iter
@@ -99,6 +103,10 @@ let throw_error table op =
 
 let assert_operation_valid ~__context ~self ~(op : API.pool_allowed_operations)
     =
+  (* no pool operations allowed during a pending PSR *)
+  if Db.Pool.get_is_psr_pending ~__context ~self:(Helpers.get_pool ~__context)
+  then
+    raise Api_errors.(Server_error (pool_secret_rotation_pending, [])) ;
   let all = Db.Pool.get_record_internal ~__context ~self in
   let table = valid_operations ~__context all self in
   throw_error table op
@@ -128,20 +136,29 @@ let with_pool_operation ~__context ~self ~doc ~op f =
           (Datamodel_common._pool, Ref.string_of self)
       with _ -> ())
 
-(* Checks whether HA enable is in progress *)
-let ha_enable_in_progress ~__context =
+let is_pool_op_in_progress op ~__context =
   let pool = Helpers.get_pool ~__context in
   let current_ops = Db.Pool.get_current_operations ~__context ~self:pool in
-  if List.exists (fun (_, x) -> x = `ha_enable) current_ops then true else false
+  List.exists (fun (_, op') -> op = op') current_ops
 
-(* Checks whether HA disable is in progress *)
-let ha_disable_in_progress ~__context =
+let ha_enable_in_progress = is_pool_op_in_progress `ha_enable
+
+let ha_disable_in_progress = is_pool_op_in_progress `ha_disable
+
+let assert_no_pool_ops ~__context =
   let pool = Helpers.get_pool ~__context in
-  let current_ops = Db.Pool.get_current_operations ~__context ~self:pool in
-  if List.exists (fun (_, x) -> x = `ha_disable) current_ops then
-    true
-  else
-    false
+  match Db.Pool.get_current_operations ~__context ~self:pool with
+  | [] ->
+      ()
+  | ops ->
+      let err =
+        ops
+        |> List.map snd
+        |> List.map Record_util.pool_operation_to_string
+        |> String.concat "; "
+        |> Printf.sprintf "pool operations in progress: [ %s ]"
+      in
+      raise Api_errors.(Server_error (internal_error, [err]))
 
 let get_master_slaves_list_with_fn ~__context fn =
   let _unsorted_hosts = Db.Host.get_all ~__context in

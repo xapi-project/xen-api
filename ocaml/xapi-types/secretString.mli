@@ -37,3 +37,6 @@ val with_cookie : t -> Http.Request.t -> Http.Request.t
 
 val write_to_file : string -> t -> unit
 (** [write_to_file path secret] should be used with caution! *)
+
+val write_to_channel : out_channel -> t -> unit
+(** [write_to_channel chan secret] should be used with caution! *)

@@ -196,22 +196,12 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
         if cps < 1 || vcpus mod cps <> 0 then
           raise
             (Api_errors.Server_error
-               ( Api_errors.invalid_value
-               , [
-                   Printf.sprintf "platform:cores-per-socket (value %d)" cps
-                 ; Printf.sprintf
-                     "VCPUs_max (value %d) must be a multiple of \
-                      cores-per-socket"
-                     vcpus
-                 ] ))
+               ( Api_errors.vcpu_max_not_cores_per_socket_multiple
+               , [string_of_int vcpus; cps_str] ))
       with Failure msg ->
         raise
           (Api_errors.Server_error
-             ( Api_errors.invalid_value
-             , [
-                 Printf.sprintf "platform:cores-per-socket (value %s)" cps_str
-               ; "Value is not a valid int"
-               ] ))
+             (Api_errors.invalid_value, ["platform:cores-per-socket"; cps_str]))
   ) ;
   (* Add usb emulation flags.
      Make sure we don't send usb=false and usb_tablet=true,
