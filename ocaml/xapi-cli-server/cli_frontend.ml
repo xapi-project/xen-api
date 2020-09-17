@@ -378,7 +378,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "List the names of all installed TLS CA certificates."
       ; implementation= No_fd Cli_operations.pool_certificate_list
-      ; flags= [Deprecated ["XXX What use instead"]]
+      ; flags= [Deprecated ["Use openssl to inspect certificate"]]
       } )
   ; ( "pool-crl-install"
     , {

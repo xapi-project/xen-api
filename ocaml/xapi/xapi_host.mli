@@ -272,6 +272,12 @@ val get_uncooperative_resident_VMs :
 val get_uncooperative_domains :
   __context:Context.t -> self:[`host] Ref.t -> string list
 
+val install_ca_certificate :
+  __context:'a -> host:'b -> name:string -> cert:string -> unit
+
+val uninstall_ca_certificate : __context:'a -> host:'b -> name:string -> unit
+
+(* legacy names *)
 val certificate_install :
   __context:'a -> host:'b -> name:string -> cert:string -> unit
 
