@@ -5598,6 +5598,8 @@ let all_relations =
     (_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of");
 
     (_certificate, "host"), (_host, "certificates");
+    (_certificate, "pool"), (_pool, "certificates");
+    (_certificate, "validated_by"), (_certificate, "validates");
   ]
 
 (** the full api specified here *)
