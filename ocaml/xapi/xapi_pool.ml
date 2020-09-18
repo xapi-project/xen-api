@@ -2130,7 +2130,11 @@ let send_test_post = Remote_requests.send_test_post
 
 let certificate_install = Certificates.(pool_install CA_Certificate)
 
+let install_ca_certificate = certificate_install
+
 let certificate_uninstall = Certificates.(pool_uninstall CA_Certificate)
+
+let uninstall_ca_certificate = certificate_uninstall
 
 let certificate_list ~__context = Certificates.(local_list CA_Certificate)
 

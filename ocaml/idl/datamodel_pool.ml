@@ -405,31 +405,60 @@ open Datamodel_types
       ()
 
   let certificate_install = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~name:"certificate_install"
       ~doc:"Install a TLS CA certificate, pool-wide."
       ~params:[String, "name", "A name to give the certificate";
-               String, "cert", "The certificate"]
+               String, "cert", "The certificate in PEM format"]
       ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_george, "Install TLS CA certificate"
+        ;Deprecated, rel_next, "Use Pool.install_ca_certificate instead"
+        ]
       ()
 
+
+  let install_ca_certificate = call
+      ~name:"install_ca_certificate"
+      ~doc:"Install a TLS CA certificate, pool-wide."
+      ~params:[String, "name", "A name to give the certificate";
+               String, "cert", "The certificate in PEM format"]
+      ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_next, "Install TLS CA certificate"
+        ]
+      ()
+
+
   let certificate_uninstall = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~name:"certificate_uninstall"
       ~doc:"Remove a pool-wide TLS CA certificate."
       ~params:[String, "name", "The certificate name"]
       ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_george, "Install TLS CA certificate"
+        ;Deprecated, rel_next, "Use Pool.uninstall_ca_certificate instead"
+        ]
+      ()
+
+  let uninstall_ca_certificate = call
+      ~name:"uninstall_ca_certificate"
+      ~doc:"Remove a pool-wide TLS CA certificate."
+      ~params:[String, "name", "The certificate name"]
+      ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_next, "Uninstall TLS CA certificate"
+        ]
       ()
 
   let certificate_list = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~name:"certificate_list"
       ~doc:"List the names of all installed TLS CA certificates."
       ~result:(Set(String),"All installed certificates")
       ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_george, "List installed TLS CA certificate"
+        ;Deprecated, rel_next, "Use openssl to inspect certificate"
+        ]
       ()
 
   let crl_install = call
@@ -701,6 +730,8 @@ open Datamodel_types
         ; certificate_install
         ; certificate_uninstall
         ; certificate_list
+        ; install_ca_certificate
+        ; uninstall_ca_certificate
         ; crl_install
         ; crl_uninstall
         ; crl_list

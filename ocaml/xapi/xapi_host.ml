@@ -1340,11 +1340,16 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 (* Dummy implementation for a deprecated API method. *)
 let get_uncooperative_domains ~__context ~self = []
 
-let certificate_install ~__context ~host ~name ~cert =
+let install_ca_certificate ~__context ~host ~name ~cert =
   Certificates.(host_install CA_Certificate name cert)
 
-let certificate_uninstall ~__context ~host ~name =
+let uninstall_ca_certificate ~__context ~host ~name =
   Certificates.(host_uninstall CA_Certificate name)
+
+(* legacy names *)
+let certificate_uninstall = uninstall_ca_certificate
+
+let certificate_install = install_ca_certificate
 
 let certificate_list ~__context ~host = Certificates.(local_list CA_Certificate)
 

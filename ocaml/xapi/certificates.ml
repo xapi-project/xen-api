@@ -228,9 +228,9 @@ let sync_certs kind ~__context master_certs host =
         (fun rpc session_id host ->
           Client.Host.certificate_list rpc session_id host)
         (fun rpc session_id host c cert ->
-          Client.Host.certificate_install rpc session_id host c cert)
+          Client.Host.install_ca_certificate rpc session_id host c cert)
         (fun rpc session_id host c ->
-          Client.Host.certificate_uninstall rpc session_id host c)
+          Client.Host.uninstall_ca_certificate rpc session_id host c)
         ~__context master_certs host
   | CRL ->
       sync_certs_crls CRL
