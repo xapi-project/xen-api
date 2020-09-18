@@ -3184,14 +3184,14 @@ functor
             Client.Host.disable_external_auth rpc session_id host config)
 
       let install_ca_certificate ~__context ~host ~name ~cert =
-        let local_fn = Local.Host.certificate_install ~host ~name ~cert in
+        let local_fn = Local.Host.install_ca_certificate ~host ~name ~cert in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_install rpc session_id host name cert)
+            Client.Host.install_ca_certificate rpc session_id host name cert)
 
       let uninstall_ca_certificate ~__context ~host ~name =
-        let local_fn = Local.Host.certificate_uninstall ~host ~name in
+        let local_fn = Local.Host.uninstall_ca_certificate ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_uninstall rpc session_id host name)
+            Client.Host.uninstall_ca_certificate rpc session_id host name)
 
       (* legacy names *)
       let certificate_install = install_ca_certificate
