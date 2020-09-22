@@ -2814,3 +2814,22 @@ let remove_from_guest_agent_config ~__context ~self ~key =
   Xapi_pool_helpers.apply_guest_agent_config ~__context
 
 let rotate_secret = Xapi_psr.start
+
+let alert_failed_login_attempts () =
+  let now = Date.localtime () in
+  let login_failures_between =
+    Printf.sprintf "login failures between '%s' and last check"
+      (Date.to_string now)
+  in
+  match Xapi_session.get_failed_login_stats () with
+  | None ->
+      debug "alert_failed_login_attempts: no %s" login_failures_between
+  | Some stats ->
+      info "alert_failed_login_attempts: there have been %s"
+        login_failures_between ;
+      Server_helpers.exec_with_new_task "alert failed login attempts"
+        (fun __context ->
+          Xapi_alert.add ~msg:Api_messages.failed_login_attempts ~cls:`Pool
+            ~obj_uuid:
+              (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
+            ~body:stats)

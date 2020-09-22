@@ -79,23 +79,10 @@ end = struct
   }
 
   let up_to_3 xs x =
-    let rec merge = function
-      | [] ->
-          [x]
-      | y :: ys ->
-          if x.num_failed_attempts >= y.num_failed_attempts then
-            x :: y :: ys
-          else
-            y :: merge ys
-    in
-    let rec keep ctr xs =
-      match (ctr, xs) with
-      | ctr, x :: xs when ctr > 0 ->
-          x :: keep (ctr - 1) xs
-      | _ ->
-          []
-    in
-    merge xs |> keep 3
+    List.stable_sort
+      (fun a b -> Int.compare b.num_failed_attempts a.num_failed_attempts)
+      (x :: xs)
+    |> Listext.List.take 3
 
   let string_of_client_failed_attempts x =
     Printf.sprintf {|
@@ -129,7 +116,7 @@ end = struct
 <unknown>%i</unknown>|} unknown_client_failed_attempts
     in
     let known_with_total =
-      if List.length top_3_worst_clients = 0 then
+      if top_3_worst_clients = [] then
         ""
       else
         Printf.sprintf {|
