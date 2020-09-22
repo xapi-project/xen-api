@@ -274,3 +274,6 @@ let get_test_rpc context = context.test_rpc
 let set_test_clusterd_rpc context rpc = context.test_clusterd_rpc <- Some rpc
 
 let get_test_clusterd_rpc context = context.test_clusterd_rpc
+
+let get_user_agent context =
+  match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
