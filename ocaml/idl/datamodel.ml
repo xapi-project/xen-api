@@ -5730,11 +5730,15 @@ let http_actions = [
   ("put_import", (Put, Constants.import_uri, true,
                   [Bool_query_arg "restore"; Bool_query_arg "force"; String_query_arg "sr_id"], _R_VM_ADMIN, []));
   ("put_import_metadata", (Put, Constants.import_metadata_uri, true,
-                           [Bool_query_arg "restore"; Bool_query_arg "force"], _R_VM_ADMIN, []));
-  ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
-  ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
-  ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
-  ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
+                           [Bool_query_arg "restore"; Bool_query_arg "force"; Bool_query_arg "dry_run"], _R_VM_ADMIN, []));
+  ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"; String_query_arg "format";
+                                                                    Bool_query_arg "chunked"], _R_VM_ADMIN, []));
+  ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"; String_query_arg "use_compression";
+                                                    Bool_query_arg "preserve_power_state"], _R_VM_ADMIN, []));
+  ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"; Bool_query_arg "all";
+                                                                      Bool_query_arg "include_dom0"; Bool_query_arg "include_vhd_parents";
+                                                                      Bool_query_arg "export_snapshots"], _R_VM_ADMIN, []));
+  ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"; String_query_arg "format"], _R_VM_ADMIN, []));
   ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP,
                        [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
   ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP,
@@ -5744,7 +5748,7 @@ let http_actions = [
   ("get_host_backup", (Get, Constants.host_backup_uri, true, [], _R_POOL_ADMIN, []));
   ("put_host_restore", (Put, Constants.host_restore_uri, true, [], _R_POOL_ADMIN, []));
   ("get_host_logs_download", (Get, Constants.host_logs_download_uri, true, [], _R_POOL_OP, []));
-  ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, [], _R_POOL_OP, []));
+  ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, [String_query_arg "sr_id"], _R_POOL_OP, []));
   ("get_vncsnapshot", (Get, Constants.vncsnapshot_uri, true, [String_query_arg "uuid"], _R_VM_OP,
                        [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can snapshot host/Dom0 console *)
   ("get_pool_xml_db_sync", (Get, Constants.pool_xml_db_sync, true, [], _R_POOL_ADMIN, []));
@@ -5766,7 +5770,7 @@ let http_actions = [
   ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
                       [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, []));
   ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, []));
-  ("get_audit_log", (Get, Constants.audit_log_uri, true, [], _R_READ_ONLY, []));
+  ("get_audit_log", (Get, Constants.audit_log_uri, true, [String_query_arg "since"], _R_READ_ONLY, []));
 
   (* XMLRPC callback *)
   ("post_root", (Post, "/", false, [], _R_READ_ONLY, []));
