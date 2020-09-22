@@ -610,7 +610,38 @@ functor
           Ref.string_of vusb
       with _ -> "invalid"
 
-    module Session = Local.Session
+    module Session = struct
+      include Local.Session
+
+      let login_with_password ~__context ~uname ~pwd ~version ~originator =
+        Xapi_session.record_login_failure ~__context ~uname:(Some uname)
+          ~originator:(Some originator) ~record:`log_and_alert (fun () ->
+            Local.Session.login_with_password ~__context ~uname ~pwd ~version
+              ~originator)
+
+      let slave_login ~__context ~host ~psecret =
+        Xapi_session.record_login_failure ~__context ~uname:None
+          ~record:`log_and_alert ~originator:None (fun () ->
+            Local.Session.slave_login ~__context ~host ~psecret)
+
+      let change_password ~__context ~old_pwd ~new_pwd =
+        Xapi_session.record_login_failure ~__context ~uname:None
+          ~originator:None ~record:`log_and_alert (fun () ->
+            Local.Session.change_password ~__context ~old_pwd ~new_pwd)
+
+      (* for emergency local logins, we just log - we only bother with alerts on the master *)
+
+      let slave_local_login ~__context ~psecret =
+        Xapi_session.record_login_failure ~__context ~uname:None
+          ~originator:(Some "localhost") ~record:`log_only (fun () ->
+            Local.Session.slave_local_login ~__context ~psecret)
+
+      let slave_local_login_with_password ~__context ~uname ~pwd =
+        Xapi_session.record_login_failure ~__context ~uname:(Some uname)
+          ~originator:(Some "localhost") ~record:`log_only (fun () ->
+            Local.Session.slave_local_login_with_password ~__context ~uname ~pwd)
+    end
+
     module Auth = Local.Auth
     module Subject = Local.Subject
     module Role = Local.Role
