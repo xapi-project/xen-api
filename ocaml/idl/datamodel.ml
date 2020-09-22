@@ -5724,7 +5724,6 @@ let http_actions = [
   ("put_services", (Put, Constants.services_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access", (Post, Constants.remote_db_access_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access_v2", (Post, Constants.remote_db_access_uri_v2, false, [], _R_POOL_ADMIN, []));
-  ("connect_migrate", (Connect, Constants.migrate_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("get_services_xenops", (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("post_services_xenops", (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("put_services_xenops", (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
@@ -5749,15 +5748,11 @@ let http_actions = [
   ("put_host_restore", (Put, Constants.host_restore_uri, true, [], _R_POOL_ADMIN, []));
   ("get_host_logs_download", (Get, Constants.host_logs_download_uri, true, [], _R_POOL_OP, []));
   ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, [], _R_POOL_OP, []));
-  ("get_pool_patch_download", (Get, Constants.pool_patch_download_uri, true, [String_query_arg "uuid"], _R_POOL_OP, []));
-  ("put_oem_patch_stream", (Put, Constants.oem_patch_stream_uri, true, [], _R_POOL_OP, []));
   ("get_vncsnapshot", (Get, Constants.vncsnapshot_uri, true, [String_query_arg "uuid"], _R_VM_OP,
                        [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can snapshot host/Dom0 console *)
   ("get_pool_xml_db_sync", (Get, Constants.pool_xml_db_sync, true, [], _R_POOL_ADMIN, []));
   ("put_pool_xml_db_sync", (Put, Constants.pool_xml_db_sync, false, [], _R_POOL_ADMIN, []));
   ("get_config_sync", (Get, Constants.config_sync_uri, false, [], _R_POOL_ADMIN, []));
-  ("get_vm_connect", (Get, Constants.vm_connect_uri, false, [], _R_POOL_ADMIN, []));
-  ("put_vm_connect", (Put, Constants.vm_connect_uri, false, [], _R_POOL_ADMIN, []));
   ("get_system_status", (Get, Constants.system_status_uri, true,
                          [String_query_arg "entries"; String_query_arg "output"], _R_POOL_OP, []));
   (Constants.get_vm_rrd, (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
@@ -5769,7 +5764,6 @@ let http_actions = [
   (Constants.put_rrd, (Put, Constants.put_rrd_uri, false, [], _R_POOL_ADMIN, []));
   ("get_blob", (Get, Constants.blob_uri, false, [], _R_READ_ONLY, []));
   ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"], _R_VM_POWER_ADMIN, []));
-  ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, [], _R_POOL_ADMIN, []));  (* not enabled in xapi *)
   ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
