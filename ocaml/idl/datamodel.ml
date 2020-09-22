@@ -5637,10 +5637,7 @@ let _ = Dm_api.check all_api (List.map (fun (obj,msg) -> obj.name, msg.msg_name)
 (** List of classes to skip generating async handlers for *)
 let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_source; _blob ]
 
-(** List of classes to generate 'get_all' messages for. Currently we don't
- ** allow a user to enumerate all the VBDs or VDIs directly: that must be
- ** through a VM or SR. *)
-(* Note on the above: it looks like we _do_ have {VBD,VDI}.get_all! *)
+(** List of classes to generate 'get_all' messages for. *)
 let expose_get_all_messages_for = [
   _task;
   (* _alert; *)
