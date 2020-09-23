@@ -5637,10 +5637,7 @@ let _ = Dm_api.check all_api (List.map (fun (obj,msg) -> obj.name, msg.msg_name)
 (** List of classes to skip generating async handlers for *)
 let no_async_messages_for = [ _session; _event; (* _alert; *) _task; _data_source; _blob ]
 
-(** List of classes to generate 'get_all' messages for. Currently we don't
- ** allow a user to enumerate all the VBDs or VDIs directly: that must be
- ** through a VM or SR. *)
-(* Note on the above: it looks like we _do_ have {VBD,VDI}.get_all! *)
+(** List of classes to generate 'get_all' messages for. *)
 let expose_get_all_messages_for = [
   _task;
   (* _alert; *)
@@ -5724,7 +5721,6 @@ let http_actions = [
   ("put_services", (Put, Constants.services_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access", (Post, Constants.remote_db_access_uri, false, [], _R_POOL_ADMIN, []));
   ("post_remote_db_access_v2", (Post, Constants.remote_db_access_uri_v2, false, [], _R_POOL_ADMIN, []));
-  ("connect_migrate", (Connect, Constants.migrate_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("get_services_xenops", (Get, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("post_services_xenops", (Post, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("put_services_xenops", (Put, Constants.xenops_uri, false, [], _R_VM_POWER_ADMIN, []));
@@ -5734,11 +5730,15 @@ let http_actions = [
   ("put_import", (Put, Constants.import_uri, true,
                   [Bool_query_arg "restore"; Bool_query_arg "force"; String_query_arg "sr_id"], _R_VM_ADMIN, []));
   ("put_import_metadata", (Put, Constants.import_metadata_uri, true,
-                           [Bool_query_arg "restore"; Bool_query_arg "force"], _R_VM_ADMIN, []));
-  ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
-  ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
-  ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"], _R_VM_ADMIN, []));
-  ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"], _R_VM_ADMIN, []));
+                           [Bool_query_arg "restore"; Bool_query_arg "force"; Bool_query_arg "dry_run"], _R_VM_ADMIN, []));
+  ("put_import_raw_vdi", (Put, Constants.import_raw_vdi_uri, true, [String_query_arg "vdi"; String_query_arg "format";
+                                                                    Bool_query_arg "chunked"], _R_VM_ADMIN, []));
+  ("get_export", (Get, Constants.export_uri, true, [String_query_arg "uuid"; String_query_arg "use_compression";
+                                                    Bool_query_arg "preserve_power_state"], _R_VM_ADMIN, []));
+  ("get_export_metadata", (Get, Constants.export_metadata_uri, true, [String_query_arg "uuid"; Bool_query_arg "all";
+                                                                      Bool_query_arg "include_dom0"; Bool_query_arg "include_vhd_parents";
+                                                                      Bool_query_arg "export_snapshots"], _R_VM_ADMIN, []));
+  ("get_export_raw_vdi", (Get, Constants.export_raw_vdi_uri, true, [String_query_arg "vdi"; String_query_arg "format"], _R_VM_ADMIN, []));
   ("connect_console", (Connect, Constants.console_uri, false, [], _R_VM_OP,
                        [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can access the host/Dom0 console *)
   ("connect_console_ws", (Get, Constants.console_uri, false, [], _R_VM_OP,
@@ -5748,16 +5748,12 @@ let http_actions = [
   ("get_host_backup", (Get, Constants.host_backup_uri, true, [], _R_POOL_ADMIN, []));
   ("put_host_restore", (Put, Constants.host_restore_uri, true, [], _R_POOL_ADMIN, []));
   ("get_host_logs_download", (Get, Constants.host_logs_download_uri, true, [], _R_POOL_OP, []));
-  ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, [], _R_POOL_OP, []));
-  ("get_pool_patch_download", (Get, Constants.pool_patch_download_uri, true, [String_query_arg "uuid"], _R_POOL_OP, []));
-  ("put_oem_patch_stream", (Put, Constants.oem_patch_stream_uri, true, [], _R_POOL_OP, []));
+  ("put_pool_patch_upload", (Put, Constants.pool_patch_upload_uri, true, [String_query_arg "sr_id"], _R_POOL_OP, []));
   ("get_vncsnapshot", (Get, Constants.vncsnapshot_uri, true, [String_query_arg "uuid"], _R_VM_OP,
                        [("host_console", _R_POOL_ADMIN)])); (* only _R_POOL_ADMIN can snapshot host/Dom0 console *)
   ("get_pool_xml_db_sync", (Get, Constants.pool_xml_db_sync, true, [], _R_POOL_ADMIN, []));
   ("put_pool_xml_db_sync", (Put, Constants.pool_xml_db_sync, false, [], _R_POOL_ADMIN, []));
   ("get_config_sync", (Get, Constants.config_sync_uri, false, [], _R_POOL_ADMIN, []));
-  ("get_vm_connect", (Get, Constants.vm_connect_uri, false, [], _R_POOL_ADMIN, []));
-  ("put_vm_connect", (Put, Constants.vm_connect_uri, false, [], _R_POOL_ADMIN, []));
   ("get_system_status", (Get, Constants.system_status_uri, true,
                          [String_query_arg "entries"; String_query_arg "output"], _R_POOL_OP, []));
   (Constants.get_vm_rrd, (Get, Constants.get_vm_rrd_uri, true, [String_query_arg "uuid"], _R_READ_ONLY, []));
@@ -5769,13 +5765,12 @@ let http_actions = [
   (Constants.put_rrd, (Put, Constants.put_rrd_uri, false, [], _R_POOL_ADMIN, []));
   ("get_blob", (Get, Constants.blob_uri, false, [], _R_READ_ONLY, []));
   ("put_blob", (Put, Constants.blob_uri, true, [String_query_arg "ref"], _R_VM_POWER_ADMIN, []));
-  ("get_message_rss_feed", (Get, Constants.message_rss_feed, false, [], _R_POOL_ADMIN, []));  (* not enabled in xapi *)
   ("put_messages", (Put, Constants.message_put_uri, false, [], _R_VM_POWER_ADMIN, []));
   ("connect_remotecmd", (Connect, Constants.remotecmd_uri, false, [], _R_POOL_ADMIN, []));
   ("get_wlb_report", (Get, Constants.wlb_report_uri, true,
                       [String_query_arg "report"; Varargs_query_arg], _R_READ_ONLY, []));
   ("get_wlb_diagnostics", (Get, Constants.wlb_diagnostics_uri, true, [], _R_READ_ONLY, []));
-  ("get_audit_log", (Get, Constants.audit_log_uri, true, [], _R_READ_ONLY, []));
+  ("get_audit_log", (Get, Constants.audit_log_uri, true, [String_query_arg "since"], _R_READ_ONLY, []));
 
   (* XMLRPC callback *)
   ("post_root", (Post, "/", false, [], _R_READ_ONLY, []));

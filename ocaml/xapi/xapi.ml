@@ -752,10 +752,7 @@ let common_http_handlers =
   ; (Constants.put_rrd, Http_svr.FdIO Rrdd_proxy.put_rrd_forwarder)
   ; ("get_blob", Http_svr.FdIO Xapi_blob.handler)
   ; ("put_blob", Http_svr.FdIO Xapi_blob.handler)
-  ; (* disabled RSS feed for release; this is useful for developers, but not reqd for product.
-       [the motivation for disabling it is that it simplifies security audit etc.] *)
-    (* ("get_message_rss_feed", Xapi_message.rss_handler); *)
-    ("put_messages", Http_svr.FdIO Xapi_message.handler)
+  ; ("put_messages", Http_svr.FdIO Xapi_message.handler)
   ; ("connect_remotecmd", Http_svr.FdIO Xapi_remotecmd.handler)
   ; ("get_wlb_report", Http_svr.BufIO Wlb_reports.report_handler)
   ; ("get_wlb_diagnostics", Http_svr.BufIO Wlb_reports.diagnostics_handler)
