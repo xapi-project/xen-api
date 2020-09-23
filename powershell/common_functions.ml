@@ -90,7 +90,6 @@ and exposed_class_name classname =
   | "sr"  -> "SR"
   | "vif" -> "VIF"
   | "pif" -> "PIF"
-  | "url" -> "Url_"
   |  _     -> String.capitalize_ascii classname
 
 and qualified_class_name classname =
