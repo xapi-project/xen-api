@@ -1014,7 +1014,7 @@ let request_backup ~__context ~host ~generation ~force =
   ) else
     let master_address = Helpers.get_main_ip_address () in
     Pool_db_backup.fetch_database_backup ~master_address
-      ~pool_secret:!Xapi_globs.pool_secret
+      ~pool_secret:(Xapi_globs.pool_secret ())
       ~force:(if force then None else Some generation)
 
 (* request_config_file_sync is used to inform a slave that it should consider resyncing dom0 config files
@@ -1023,7 +1023,7 @@ let request_config_file_sync ~__context ~host ~hash =
   debug "Received notification of dom0 config file change" ;
   let master_address = Helpers.get_main_ip_address () in
   Config_file_sync.fetch_config_files ~master_address
-    ~pool_secret:!Xapi_globs.pool_secret
+    ~pool_secret:(Xapi_globs.pool_secret ())
 
 (* Host parameter will just be me, as message forwarding layer ensures this call has been forwarded correctly *)
 let syslog_reconfigure ~__context ~host =
@@ -2373,3 +2373,12 @@ let set_multipathing ~__context ~host ~value =
   Db.Host.add_to_other_config ~__context ~self:host ~key:"multipathing"
     ~value:(string_of_bool value) ;
   Xapi_host_helpers.Configuration.set_multipathing value
+
+let notify_accept_new_pool_secret ~__context ~host ~old_ps ~new_ps =
+  Xapi_psr.notify_new ~__context ~old_ps ~new_ps
+
+let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
+  Xapi_psr.notify_send ~__context ~old_ps ~new_ps
+
+let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
+  Xapi_psr.cleanup ~__context ~old_ps ~new_ps

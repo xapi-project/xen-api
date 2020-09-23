@@ -1651,7 +1651,7 @@ let designate_new_master ~__context ~host =
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
     (* Only the master can sync the *current* database; only the master
-       		   knows the current generation count etc. *)
+       knows the current generation count etc. *)
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.Pool.sync_database rpc session_id) ;
     let all_hosts = Db.Host.get_all ~__context in
@@ -1722,7 +1722,7 @@ let management_reconfigure ~__context ~network =
       debug "Host recovered=%s" (Db.Host.get_uuid ~__context ~self:host))
     hosts_recovered
 
-let initial_auth ~__context = !Xapi_globs.pool_secret
+let initial_auth ~__context = Xapi_globs.pool_secret ()
 
 (** This call is used during master startup so we should check to see whether we need to re-establish our database
     connection and resynchronise lost database state i.e. state which is non-persistent or reverted over a master crash *)
@@ -2802,3 +2802,5 @@ let add_to_guest_agent_config ~__context ~self ~key ~value =
 let remove_from_guest_agent_config ~__context ~self ~key =
   Db.Pool.remove_from_guest_agent_config ~__context ~self ~key ;
   Xapi_pool_helpers.apply_guest_agent_config ~__context
+
+let rotate_secret = Xapi_psr.start

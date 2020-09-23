@@ -66,6 +66,7 @@ type feature =
   | Network_sriov  (** Enable the use of Network SRIOV. *)
   | Corosync  (** Enable the use of corosync. *)
   | Zstd_export  (** Enable the use of VM export with zstd compression. *)
+  | Pool_secret_rotation  (** Enable Pool Secret Rotation *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)

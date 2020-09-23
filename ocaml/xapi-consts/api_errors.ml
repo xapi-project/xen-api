@@ -1192,3 +1192,7 @@ let cluster_host_not_joined = "CLUSTER_HOST_NOT_JOINED"
 let no_cluster_hosts_reachable = "NO_CLUSTER_HOSTS_REACHABLE"
 
 let xen_incompatible = "XEN_INCOMPATIBLE"
+
+let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
+
+let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
