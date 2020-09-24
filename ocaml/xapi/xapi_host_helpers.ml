@@ -392,7 +392,7 @@ module Host_requires_reboot = struct
 end
 
 module Configuration = struct
-  let make_set_initiator_args iqn hostname =
+  let make_initiatorname_config iqn hostname =
     (* CA-18000: there is a 30 character limit to the initiator when talking to
        Dell MD3000i filers, so we limit the size of the initiator name in all cases *)
     let hostname_chopped =
@@ -401,12 +401,14 @@ module Configuration = struct
       else
         hostname
     in
-    [iqn; hostname_chopped]
+    Printf.sprintf "InitiatorName=%s\nInitiatorAlias=%s\n" iqn hostname_chopped
 
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
-    let args = make_set_initiator_args iqn hostname in
-    ignore(Helpers.call_script !Xapi_globs.set_iSCSI_initiator_script args)
+    let config_file = make_initiatorname_config iqn hostname in
+    Unixext.write_string_to_file
+      !Xapi_globs.iscsi_initiator_config_file
+      config_file
 
   let set_multipathing enabled =
     let flag = !Xapi_globs.multipathing_config_file in
