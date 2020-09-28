@@ -54,7 +54,11 @@ let do_external_auth uname pwd =
 
 let do_local_auth uname pwd =
   Mutex.execute serialize_auth (fun () ->
-      Pam.authenticate uname (Bytes.unsafe_to_string pwd))
+      try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
+      with Failure msg ->
+        raise
+          Api_errors.(
+            Server_error (session_authentication_failed, [uname; msg])))
 
 let do_local_change_password uname newpwd =
   Mutex.execute serialize_auth (fun () ->
