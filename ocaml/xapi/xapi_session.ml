@@ -509,13 +509,14 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
               ~db_ref:None
           )
         in
-        let thread_delay_and_raise_error
-            ?(error = Api_errors.session_authentication_failed) uname msg =
+        let thread_delay_and_raise_error ~error uname msg =
           let some_seconds = 5.0 in
           Thread.delay some_seconds ;
           (* sleep a bit to avoid someone brute-forcing the password *)
-          if error = Api_errors.session_authentication_failed (*default*) then
+          if error = Api_errors.session_authentication_failed then
             raise (Api_errors.Server_error (error, [uname; msg]))
+          else if error = Api_errors.session_authorization_failed then
+            raise Api_errors.(Server_error (error, [uname; msg]))
           else
             raise
               (Api_errors.Server_error
@@ -536,7 +537,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
             info "Failed to locally authenticate user %s from %s: %s" uname
               (Context.get_origin __context)
               msg ;
-            thread_delay_and_raise_error uname msg
+            thread_delay_and_raise_error
+              ~error:Api_errors.session_authentication_failed uname msg
         )
         | _ as auth_type -> (
             (* external authentication required *)
@@ -564,7 +566,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       in
                       error "%s" msg ;
                       thread_delay_and_raise_error uname msg
-                        ~error:Api_errors.session_invalid
+                        ~error:Api_errors.internal_error
                     ) else
                       debug "External authentication %s service initializing..."
                         auth_type ;
@@ -590,7 +592,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       uname
                       (Context.get_origin __context)
                       msg ;
-                    thread_delay_and_raise_error uname msg
+                    thread_delay_and_raise_error
+                      ~error:Api_errors.session_authentication_failed uname msg
                 in
                 (* as per tests in CP-827, there should be no need to call is_subject_suspended function here, *)
                 (* because the authentication server in 2.1 will already reflect if account/password expired, *)
@@ -610,7 +613,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       uname subject_identifier
                       (Context.get_origin __context)
                       msg ;
-                    thread_delay_and_raise_error uname msg
+                    thread_delay_and_raise_error
+                      ~error:Api_errors.session_authorization_failed uname msg
                 in
                 if subject_suspended then (
                   let msg =
@@ -621,7 +625,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       (Context.get_origin __context)
                   in
                   debug "%s" msg ;
-                  thread_delay_and_raise_error uname msg
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authorization_failed uname msg
                 ) else
                   (* 2.2. then, we verify if any elements of the the membership closure of the externally *)
                   (* authenticated subject_id is inside our local allowed-to-login subjects list *)
@@ -641,7 +646,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                             subject_identifier
                         in
                         debug "%s" msg ;
-                        thread_delay_and_raise_error uname msg
+                        thread_delay_and_raise_error
+                          ~error:Api_errors.session_authorization_failed uname
+                          msg
                     | Auth_signature.Auth_service_error (errtag, msg) ->
                         debug
                           "Failed to obtain the group membership closure for \
@@ -649,7 +656,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                           uname subject_identifier
                           (Context.get_origin __context)
                           msg ;
-                        thread_delay_and_raise_error uname msg
+                        thread_delay_and_raise_error
+                          ~error:Api_errors.session_authorization_failed uname
+                          msg
                   in
                   (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
                   let subjects_in_db = Db.Subject.get_all ~__context in
@@ -685,7 +694,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                         (Context.get_origin __context)
                     in
                     info "%s" msg ;
-                    thread_delay_and_raise_error uname msg
+                    thread_delay_and_raise_error
+                      ~error:Api_errors.session_authorization_failed uname msg
                   ) else (* compute RBAC structures for the session *)
                     let subject_membership =
                       List.map (fun (subj_ref, sid) -> subj_ref) intersection
@@ -749,7 +759,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                               (Context.get_origin __context)
                           in
                           debug "%s" msg ;
-                          thread_delay_and_raise_error uname msg
+                          thread_delay_and_raise_error
+                            ~error:Api_errors.session_authorization_failed uname
+                            msg
                       in
                       login_no_password_common ~__context ~uname:(Some uname)
                         ~originator
@@ -770,8 +782,15 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     "A function failed to catch this exception for user %s \
                      during external authentication: %s"
                     uname msg ;
-                  thread_delay_and_raise_error uname msg
-              | Auth_signature.Auth_failure msg
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authorization_failed uname msg
+              | Auth_signature.Auth_failure msg ->
+                  debug
+                    "A function failed to catch this exception for user %s. \
+                     Auth_failure: %s"
+                    uname msg ;
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authentication_failed uname msg
               | Auth_signature.Auth_service_error (_, msg) ->
                   debug
                     "A function failed to catch this exception for user %s \
@@ -779,7 +798,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     uname
                     (Context.get_origin __context)
                     msg ;
-                  thread_delay_and_raise_error uname msg
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authorization_failed uname msg
               | Api_errors.Server_error _ as e ->
                   (* bubble up any api_error already generated *)
                   raise e
@@ -792,7 +812,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     uname
                     (Context.get_origin __context)
                     msg ;
-                  thread_delay_and_raise_error uname msg
+                  thread_delay_and_raise_error ~error:Api_errors.internal_error
+                    uname msg
             )
           ))
 
