@@ -43,7 +43,7 @@ let ha_redo_log =
 
 (** Returns the current live set info *)
 let query_liveset () =
-  let txt = call_script ~log_successful_output:false ha_query_liveset [] in
+  let txt = call_script ~log_output:On_failure ha_query_liveset [] in
   Xha_interface.LiveSetInformation.of_xml_string txt
 
 (** Returns true if this node has statefile access *)

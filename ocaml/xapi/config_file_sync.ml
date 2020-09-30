@@ -119,7 +119,7 @@ let fetch_config_files_on_slave_startup () =
   Server_helpers.exec_with_new_task "checking no other known hosts are masters"
     (fun __context ->
       let master_address = Helpers.get_main_ip_address () in
-      let pool_secret = !Xapi_globs.pool_secret in
+      let pool_secret = Xapi_globs.pool_secret () in
       let config_files =
         fetch_config_files_internal ~master_address ~pool_secret
       in

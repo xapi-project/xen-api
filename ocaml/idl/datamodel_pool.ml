@@ -6,7 +6,8 @@ open Datamodel_types
     Enum ("pool_allowed_operations", (* FIXME: This should really be called `pool_operations`, to avoid confusion with the Pool.allowed_operations field *)
           [ "ha_enable", "Indicates this pool is in the process of enabling HA";
             "ha_disable", "Indicates this pool is in the process of disabling HA";
-	    "cluster_create", "Indicates this pool is in the process of creating a cluster";
+            "cluster_create", "Indicates this pool is in the process of creating a cluster";
+            "designate_new_master", "Indicates this pool is in the process of changing master";
           ])
 
   let enable_ha = call
@@ -633,6 +634,19 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
+  let rotate_secret = call
+    ~in_product_since:rel_stockholm_psr
+    ~name:"rotate_secret"
+    ~params:[]
+    ~errs:[ Api_errors.internal_error
+          ; Api_errors.host_is_slave
+          ; Api_errors.cannot_contact_host
+          ; Api_errors.ha_is_enabled
+          ; Api_errors.not_supported_during_upgrade
+          ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -706,6 +720,7 @@ open Datamodel_types
         ; has_extension
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
+        ; rotate_secret
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -748,5 +763,6 @@ open Datamodel_types
          ; field ~qualifier:RW ~in_product_since:rel_ely ~default_value:(Some (VBool false)) ~ty:Bool "live_patching_disabled" "The pool-wide flag to show if the live patching feauture is disabled or not."
          ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
+         ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ])
       ()
