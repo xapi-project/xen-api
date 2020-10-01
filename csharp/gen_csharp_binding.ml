@@ -94,7 +94,7 @@ let rec main() =
   classes |> List.filter (fun x-> x.name <> "session") |> List.iter gen_class_file;
   TypeSet.iter gen_enum !enums;
   gen_maps();
-  gen_http_actions();
+  render_file ("HTTP_actions.mustache", "HTTP_actions.cs") (gen_http_actions()) templdir destdir;
   gen_relations();
   let sorted_members = List.sort String.compare !api_members in
   let json = `O ["api_members", `A (List.map (fun x -> `O ["api_member", `String x];) sorted_members); ] in
@@ -174,89 +174,52 @@ and gen_relation out_chan (manyField, oneClass, oneField) =
 (* ------------------- category: http_actions *)
 
 and gen_http_actions() =
-  let out_chan = open_out (Filename.concat destdir "HTTP_actions.cs") in
-  let print format = fprintf out_chan format in
-
-  let print_header() = print
-      "%s
-
-using System;
-using System.Text;
-using System.Net;
-
-namespace XenAPI
-{
-    public partial class HTTP_actions
-    {
-        private static void Get(HTTP.DataCopiedDelegate dataCopiedDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, string remotePath, IWebProxy proxy, string localPath, params object[] args)
-        {
-            HTTP.Get(dataCopiedDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
-        }
-
-        private static void Put(HTTP.UpdateProgressDelegate progressDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, string remotePath, IWebProxy proxy, string localPath, params object[] args)
-        {
-            HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
-        }"
-      Licence.bsd_two_clause
-  in
-
-  let print_footer() = print "\n    }\n}\n" in
-
+(* Each action has:
+   (unique public name, (HTTP method, URI, whether to expose in SDK, [args to expose in SDK], [allowed_roles], [(sub-action,allowed_roles)]))
+*)
   let decl_of_sdkarg = function
-      String_query_arg s -> "string " ^ (escaped s)
+    | String_query_arg s -> "string " ^ (escaped s)
     | Int64_query_arg s -> "long " ^ (escaped s)
     | Bool_query_arg s -> "bool " ^ (escaped s)
-    | Varargs_query_arg -> "params string[] args /* alternate names & values */"
+    | Varargs_query_arg -> "params string[] args /* alternate names and values */"
   in
-
   let use_of_sdkarg =  function
-      String_query_arg s
+    | String_query_arg s
     | Int64_query_arg s
-    | Bool_query_arg s -> "\"" ^ s ^ "\", " ^ (escaped s)  (* "s", s *)
+    | Bool_query_arg s -> sprintf "\"%s\", %s" s (escaped s)
     | Varargs_query_arg -> "args"
   in
-
-  let string1 = function
-      Get -> "HTTP.DataCopiedDelegate dataCopiedDelegate"
-    | Put -> "HTTP.UpdateProgressDelegate progressDelegate"
+  let delegate_type = function
+    | Get -> "DataCopiedDelegate"
+    | Put -> "UpdateProgressDelegate"
     | _ -> failwith "Unimplemented HTTP method"
   in
-
-  let string2 = function
-      Get -> "Get(dataCopiedDelegate"
-    | Put -> "Put(progressDelegate"
+  let delegate_name = function
+    | Get -> "dataCopiedDelegate"
+    | Put -> "progressDelegate"
     | _ -> failwith "Unimplemented HTTP method"
   in
-
-  let print_one_action_core name meth uri sdkargs =
+  let http_method = function
+    | Get -> "Get"
+    | Put -> "Put"
+    | _ -> failwith "Unimplemented HTTP method"
+  in
+  let action_json (name, (meth, uri, _, sdkargs, _, _)) =
     let enhanced_args = [String_query_arg "task_id"; String_query_arg "session_id"] @ sdkargs in
-    print "
-
-        public static void %s(%s, HTTP.FuncBool cancellingDelegate, int timeout_ms,
-            string hostname, IWebProxy proxy, string path, %s)
-        {
-            %s, cancellingDelegate, timeout_ms, hostname, \"%s\", proxy, path,
-                %s);
-        }"
-      name
-      (string1 meth)
-      (String.concat ", " (List.map decl_of_sdkarg enhanced_args))
-      (string2 meth)
-      uri
-      (String.concat ", " (List.map use_of_sdkarg enhanced_args))
-  in
-
-  let print_one_action(name, (meth, uri, sdk, sdkargs, _, _)) =
-    match sdk with
-    | false -> ()
-    | true -> print_one_action_core name meth uri sdkargs
-  in
-
-  print_header();
-  List.iter print_one_action http_actions;
-  print_footer();
+    `O [
+      "name", `String name;
+      "delegate_type", `String (delegate_type meth);
+      "delegate_name", `String (delegate_name meth);
+      "http_method", `String (http_method meth);
+      "uri", `String uri;
+      "sdkargs_decl", `String (enhanced_args |> List.map decl_of_sdkarg |> String.concat ", ");
+      "sdkargs", `String (enhanced_args |> List.map use_of_sdkarg |> String.concat ", ");
+    ] in
+  let filtered_actions = http_actions |> List.filter (fun (_, (_, _, sdk, _, _, _)) -> sdk) in
+  `O [
+    "licence", `String Licence.bsd_two_clause;
+    "http_actions", `A (List.map action_json filtered_actions);
+  ]
 
   (* ------------------- category: classes *)
 
