@@ -2786,7 +2786,11 @@ module Dm_Common = struct
   let ide = "ide"
 
   let ide_device_of ~trad_compat (index, file, media) =
-    let id = sprintf "ide-disk%d" index in
+    let id =
+      sprintf "ide%d-%s%d" (index / 2)
+        (match media with Media.Cdrom -> "cd" | _ -> "hd")
+        (index mod 2)
+    in
     [
       "-drive"
     ; String.concat ","
