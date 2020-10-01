@@ -1395,8 +1395,8 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   List.iter
     (fun self -> Db.Certificate.destroy ~__context ~self)
     current_server_certs ;
-  Db.Certificate.create ~__context ~ref ~uuid ~host ~not_before ~not_after
-    ~fingerprint ;
+  Db.Certificate.create ~__context ~ref ~uuid ~_type:`host ~host ~pool:Ref.null
+    ~not_before ~not_after ~fingerprint ;
   let task = Context.get_task_id __context in
   (* mark task as done *)
   Db.Task.set_progress ~__context ~self:task ~value:1.0 ;
