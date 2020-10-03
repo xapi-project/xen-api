@@ -87,9 +87,9 @@ def _get_extents(path, exportname, offset, length):
             # Note: There might be consecutive descriptors with the same status
             # value.
             descriptors = reply['descriptors']
-            for i, descriptor in enumerate(descriptors):
+            for i, descriptor in enumerate(descriptors, 1):
                 (extent_length, flags) = descriptor
-                if i == extent_length:
+                if i == (len(descriptors)):
                     # The first N-1 extents must be smaller than the requested
                     # length, but the last extent can exceed the requested
                     # length
