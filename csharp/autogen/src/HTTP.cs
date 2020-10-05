@@ -358,37 +358,31 @@ namespace XenAPI
                     flatargs.Add(arg);
             }
 
-            UriBuilder uri = new UriBuilder();
-            uri.Scheme = "https";
-            uri.Port = DEFAULT_HTTPS_PORT;
-            uri.Host = hostname;
-            uri.Path = path;
-
-            StringBuilder query = new StringBuilder();
+            var query = new StringBuilder();
             for (int i = 0; i < flatargs.Count - 1; i += 2)
             {
-                string kv;
-
-                // If the argument is null, don't include it in the URL
-                if (flatargs[i + 1] == null)
+                if (flatargs[i + 1] == null)//skip null arguments
                     continue;
-
-                // bools are special because some xapi calls use presence/absence and some
-                // use "b=true" (not "True") and "b=false". But all accept "b=true" or absent.
-                if (flatargs[i + 1] is bool)
-                {
-                    if (!((bool)flatargs[i + 1]))
-                        continue;
-                    kv = flatargs[i] + "=true";
-                }
-                else
-                    kv = flatargs[i] + "=" + Uri.EscapeDataString(flatargs[i + 1].ToString());
 
                 if (query.Length != 0)
                     query.Append('&');
-                query.Append(kv);
+
+                query.Append(flatargs[i]).Append("=");
+
+                if (flatargs[i + 1] is bool)
+                    query.Append((bool)flatargs[i + 1] ? "true" : "false");
+                else
+                    query.Append(Uri.EscapeDataString(flatargs[i + 1].ToString()));
             }
-            uri.Query = query.ToString();
+
+            UriBuilder uri = new UriBuilder
+            {
+                Scheme = "https",
+                Port = DEFAULT_HTTPS_PORT,
+                Host = hostname,
+                Path = path,
+                Query = query.ToString()
+            };
 
             return uri.Uri;
         }

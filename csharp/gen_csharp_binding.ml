@@ -178,15 +178,15 @@ and gen_http_actions() =
    (unique public name, (HTTP method, URI, whether to expose in SDK, [args to expose in SDK], [allowed_roles], [(sub-action,allowed_roles)]))
 *)
   let decl_of_sdkarg = function
-    | String_query_arg s -> "string " ^ (escaped s)
-    | Int64_query_arg s -> "long " ^ (escaped s)
-    | Bool_query_arg s -> "bool " ^ (escaped s)
+    | String_query_arg s -> sprintf "string %s = null" (escaped s)
+    | Int64_query_arg s -> sprintf "long? %s = null" (escaped s)
+    | Bool_query_arg s -> sprintf "bool? %s = null" (escaped s)
     | Varargs_query_arg -> "params string[] args /* alternate names and values */"
   in
   let use_of_sdkarg =  function
     | String_query_arg s
     | Int64_query_arg s
-    | Bool_query_arg s -> sprintf "\"%s\", %s" s (escaped s)
+    | Bool_query_arg s -> sprintf {|"%s", %s|} s (escaped s)
     | Varargs_query_arg -> "args"
   in
   let delegate_type = function

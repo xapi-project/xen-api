@@ -191,15 +191,15 @@ and gen_arg_param = function
                             (pascal_case_ x)
   | Int64_query_arg x -> sprintf "
         [Parameter]
-        public long %s { get; set; }\n" (pascal_case_ x)
+        public long? %s { get; set; }\n" (pascal_case_ x)
   | Bool_query_arg x ->
     let y = if x = "host" then "is_host" else x in
     sprintf "
         [Parameter]
-        public bool %s { get; set; }\n" (pascal_case_ y)
+        public bool? %s { get; set; }\n" (pascal_case_ y)
   | Varargs_query_arg -> sprintf "
         ///<summary>
-        /// Alternate names & values
+        /// Alternate names and values
         ///</summary>
         [Parameter]
         public string[] Args { get; set; }\n"
