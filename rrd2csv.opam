@@ -7,13 +7,13 @@ homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 build: [
-  ["dune" "build" "-p" name "-j" jobs]
-  ["dune" "runtest" "-p" name] {with-test}
+  ["dune" "build" "-p" name "-j" jobs ]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
   "ocaml"
   "dune" {build}
-  "threads"
+  "base-threads"
   "xapi-client"
   "xapi-idl"
   "xapi-rrd"

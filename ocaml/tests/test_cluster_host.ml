@@ -50,7 +50,7 @@ let pif_plug_rpc __context call =
       let _session_id = ref_session_of_rpc session_id_rpc in
       let self = ref_PIF_of_rpc self_rpc in
       Db.PIF.set_currently_attached ~__context ~self ~value:true ;
-      Rpc.{success= true; contents= Rpc.String ""}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | "Cluster_host.create", [session_id_rpc; cluster_rpc; host_rpc; pif_rpc] ->
       let open API in
       let _session_id = ref_session_of_rpc session_id_rpc in
@@ -58,7 +58,7 @@ let pif_plug_rpc __context call =
       let host = ref_host_of_rpc host_rpc in
       let pIF = ref_PIF_of_rpc pif_rpc in
       ignore (Test_common.make_cluster_host ~__context ~cluster ~host ~pIF ()) ;
-      Rpc.{success= true; contents= Rpc.String ""}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | _ ->
       failwith "Unexpected RPC"
 
@@ -150,7 +150,7 @@ let test_clusterd_rpc ~__context call =
       let nall = List.length all in
       Printf.printf "dead_members: %d, all: %d\n" ndead nall ;
       if ndead = nall - 1 then
-        Rpc.{success= true; contents= Rpc.rpc_of_unit ()}
+        Rpc.{success= true; contents= Rpc.rpc_of_unit (); is_notification= false}
       else
         let err =
           Cluster_interface.InternalError "Remaining hosts are not all alive"
@@ -168,9 +168,9 @@ let test_rpc ~__context call =
   | "Cluster_host.forget", [_session; self] ->
       let open API in
       Xapi_cluster_host.forget ~__context ~self:(ref_Cluster_host_of_rpc self) ;
-      Rpc.{success= true; contents= Rpc.String ""}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | "host.apply_guest_agent_config", _ ->
-      Rpc.{success= true; contents= Rpc.rpc_of_unit ()}
+      Rpc.{success= true; contents= Rpc.rpc_of_unit (); is_notification= false}
   | name, params ->
       failwith
         (Printf.sprintf "Unexpected RPC: %s(%s)" name
