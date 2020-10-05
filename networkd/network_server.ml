@@ -1388,7 +1388,7 @@ module PVS_proxy = struct
       {
         Rpc.name= "configure_site"
       ; params= [Rpcmarshal.marshal t.ty config]
-      ; notif= false
+      ; is_notification= false
       }
     in
     let _ = do_call call in
@@ -1402,7 +1402,7 @@ module PVS_proxy = struct
           name= "remove_site"
         ; params=
             [Dict [("site_uuid", Rpcmarshal.marshal Rpc.Types.string.ty uuid)]]
-        ; notif= false
+        ; is_notification= false
         }
     in
     let _ = do_call call in
