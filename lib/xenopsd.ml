@@ -190,6 +190,7 @@ let rpc_fn call =
             name= "VM.import_metadata"
           ; params=
               [Rpc.Dict [("debug_info", debug_info); ("metadata", metadata)]]
+          ; is_notification= false
           }
     | "query", [debug_info; unit_p] ->
         debug "Upgrading query" ;
@@ -197,6 +198,7 @@ let rpc_fn call =
           {
             name= "query"
           ; params= [Rpc.Dict [("debug_info", debug_info); ("unit", unit_p)]]
+          ; is_notification= false
           }
     | _ ->
         call

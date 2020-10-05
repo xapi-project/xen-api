@@ -788,6 +788,8 @@ let pp x =
                (List.map (fun (s, t) -> Line (s ^ ": ") :: to_t t) xs))
         ; Line "}"
         ]
+    | Base64 x ->
+        [Line x]
     | Null ->
         []
   in
