@@ -500,3 +500,9 @@ val cleanup_pool_secret :
   -> old_ps:SecretString.t
   -> new_ps:SecretString.t
   -> unit
+
+val set_sched_gran :
+  __context:Context.t -> self:API.ref_host -> value:API.host_sched_gran -> unit
+
+val get_sched_gran :
+  __context:Context.t -> self:API.ref_host -> API.host_sched_gran
