@@ -178,7 +178,7 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
                   | _ ->
                       Rpc.Dict named :: List.rev unnamed
                 in
-                let rpccall = if response_needed then Rpc.notif else Rpc.call in
+                let rpccall = if response_needed then Rpc.notification else Rpc.call in
                 rpccall wire_name args)
               params
           in
