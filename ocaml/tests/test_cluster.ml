@@ -20,9 +20,9 @@ let test_clusterd_rpc ~__context call =
   let test_token = "test_token" in
   match (call.Rpc.name, call.Rpc.params) with
   | "create", _ ->
-      Rpc.{success= true; contents= Rpc.String test_token; notif= false}
+      Rpc.{success= true; contents= Rpc.String test_token; is_notification= false}
   | ("enable" | "disable" | "destroy" | "leave"), _ ->
-      Rpc.{success= true; contents= Rpc.Null; notif= false}
+      Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | "diagnostics", _ ->
       let open Cluster_interface in
       let id = 1l in
@@ -56,7 +56,7 @@ let test_clusterd_rpc ~__context call =
       let contents =
         Rpcmarshal.marshal Cluster_interface.diagnostics.Rpc.Types.ty diag
       in
-      Rpc.{success= true; contents; notif= false}
+      Rpc.{success= true; contents; is_notification= false}
   | name, params ->
       Alcotest.failf "Unexpected RPC: %s(%s)" name
         (String.concat " " (List.map Rpc.to_string params))
@@ -66,11 +66,11 @@ let test_rpc ~__context call =
   | "Cluster_host.destroy", [self] ->
       let open API in
       Xapi_cluster_host.destroy ~__context ~self:(ref_Cluster_host_of_rpc self) ;
-      Rpc.{success= true; contents= Rpc.String ""; notif= false}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | "Cluster.destroy", [_session; self] ->
       let open API in
       Xapi_cluster.destroy ~__context ~self:(ref_Cluster_of_rpc self) ;
-      Rpc.{success= true; contents= Rpc.String ""; notif= false}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | name, params ->
       Alcotest.failf "Unexpected RPC: %s(%s)" name
         (String.concat " " (List.map Rpc.to_string params))
@@ -137,10 +137,10 @@ let test_create_cleanup () =
           ; contents=
               Rpcmarshal.marshal Cluster_interface.error.Rpc.Types.ty
                 Cluster_interface.(InternalError "Cluster.create failed")
-          ; notif= false
+          ; is_notification= false
           }
     | _, _ ->
-        Rpc.{success= true; contents= Rpc.Null; notif= false}
+        Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   in
   try
     create_cluster ~__context ~test_clusterd_rpc () |> ignore ;

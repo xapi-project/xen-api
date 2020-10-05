@@ -36,13 +36,13 @@ let setup_test_oc_watcher () =
         let v = API.string_of_rpc value_rpc in
         Db.Host.set_iscsi_iqn ~__context ~self:host ~value:v ;
         calls := (host, `set_iscsi_iqn v) :: !calls ;
-        Rpc.{success= true; contents= Rpc.String ""; notif= false}
+        Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
     | "host.set_multipathing", [_session_id_rpc; host_rpc; value_rpc] ->
         let host = API.ref_host_of_rpc host_rpc in
         let v = API.bool_of_rpc value_rpc in
         Db.Host.set_multipathing ~__context ~self:host ~value:v ;
         calls := (host, `set_multipathing v) :: !calls ;
-        Rpc.{success= true; contents= Rpc.String ""; notif= false}
+        Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
     | _ ->
         Mock_rpc.rpc __context call
   in
