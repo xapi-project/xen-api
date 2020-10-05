@@ -15,35 +15,40 @@
  *)
 
 module P = Printf
-
 open Core
 open Async
 open Message_switch_async.Protocol_async
 
 let path = ref "/var/run/message-switch/sock"
+
 let name = ref "server"
+
 let shutdown = Ivar.create ()
+
 let process = function
   | "shutdown" ->
-    Ivar.fill shutdown ();
-    return "ok"
+      Ivar.fill shutdown () ; return "ok"
   | x ->
-    return x
+      return x
 
 let main () =
-  let (_: 'a Deferred.t) = Server.listen ~process ~switch:!path ~queue:!name () in
-  Ivar.read shutdown
-  >>= fun () ->
-  Clock.after (Time.Span.of_sec 1.)
-  >>= fun () ->
-  exit 0
+  let (_ : 'a Deferred.t) =
+    Server.listen ~process ~switch:!path ~queue:!name ()
+  in
+  Ivar.read shutdown >>= fun () ->
+  Clock.after (Time.Span.of_sec 1.) >>= fun () -> exit 0
 
 let _ =
-  Arg.parse [
-    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
-    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
-    "Respond to RPCs on a name";
-
-  let (_: 'a Deferred.t) = main () in
+  Arg.parse
+    [
+      ( "-path"
+      , Arg.Set_string path
+      , Printf.sprintf "path broker listens on (default %s)" !path )
+    ; ( "-name"
+      , Arg.Set_string name
+      , Printf.sprintf "name to send message to (default %s)" !name )
+    ]
+    (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Respond to RPCs on a name" ;
+  let (_ : 'a Deferred.t) = main () in
   never_returns (Scheduler.go ())

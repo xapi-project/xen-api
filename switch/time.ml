@@ -16,4 +16,5 @@
 
 type +'a io = 'a Lwt.t
 
-let sleep_ns nanoseconds = Lwt_unix.sleep ((Int64.to_float nanoseconds) *. Mtime.ns_to_s)
+let sleep_ns nanoseconds =
+  Lwt_unix.sleep (Int64.to_float nanoseconds *. Mtime.ns_to_s)

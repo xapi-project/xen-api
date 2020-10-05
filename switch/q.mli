@@ -16,63 +16,72 @@
 
 open Message_switch_core
 
-type t [@@deriving sexp]
 (** a persistent message queue with a well-known name.
     XXX these aren't really queues as messages are removed
     from the middle *)
+type t [@@deriving sexp]
 
-val contents: t -> (Protocol.message_id * Protocol.Entry.t) list
+val contents : t -> (Protocol.message_id * Protocol.Entry.t) list
 (** [contents t] returns the elements within a queue *)
 
-val get_owner: t -> string option
+val get_owner : t -> string option
 (** [get_owner t] returns the owner of [t] where the owner is the entity
     which, when it is destroyed, the queue is also cleaned up. *)
 
-type queues [@@deriving sexp]
 (** A set of message queues *)
+type queues [@@deriving sexp]
 
-val empty: queues
+val empty : queues
 
 module StringSet : Set.S with type elt = string
 
-val owned_queues: queues -> string -> StringSet.t
+val owned_queues : queues -> string -> StringSet.t
 (** [owned_queues owner] returns a list of queue names owned by [owner] *)
 
 module Op : sig
   type t
 
-  val of_cstruct: Cstruct.t -> t option
-  val to_cstruct: t -> Cstruct.t
+  val of_cstruct : Cstruct.t -> t option
+
+  val to_cstruct : t -> Cstruct.t
 end
 
-val do_op: queues -> Op.t -> queues
+val do_op : queues -> Op.t -> queues
 
 module Directory : sig
+  val add : queues -> ?owner:string -> string -> Op.t
 
-  val add: queues -> ?owner:string -> string -> Op.t
+  val remove : queues -> string -> Op.t
 
-  val remove: queues -> string -> Op.t
-
-  val find: queues -> string -> t
+  val find : queues -> string -> t
   (** [find name] returns the queue with name [name].
       	    XXX should we switch to an option type? *)
 
-  val list: queues -> string -> string list
+  val list : queues -> string -> string list
   (** [list prefix] returns the names of non-empty queues whose
       	    names have prefix [prefix] *)
 end
 
-val queue_of_id: Protocol.message_id -> string
+val queue_of_id : Protocol.message_id -> string
 (** [queue_of_id id] returns the name of the queue containing
     message id [id] *)
 
-val ack: queues -> Protocol.message_id -> Op.t
+val ack : queues -> Protocol.message_id -> Op.t
 
-val transfer: queues -> int64 -> string list -> (Protocol.message_id * Protocol.Message.t) list
+val transfer :
+     queues
+  -> int64
+  -> string list
+  -> (Protocol.message_id * Protocol.Message.t) list
 (** [transfer from names] returns all messages which are newer
     than [from] from all queues in [names] *)
 
-val entry: queues -> Protocol.message_id -> Protocol.Entry.t option
+val entry : queues -> Protocol.message_id -> Protocol.Entry.t option
 (** [entry id] returns the entry containing message id [id] *)
 
-val send: queues -> Protocol.origin -> string -> Protocol.Message.t -> (Protocol.message_id * Op.t) option
+val send :
+     queues
+  -> Protocol.origin
+  -> string
+  -> Protocol.Message.t
+  -> (Protocol.message_id * Op.t) option

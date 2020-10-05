@@ -15,29 +15,36 @@
  *)
 
 let path = ref "/var/run/message-switch/sock"
+
 let name = ref "server"
 
 let process = function
   | "shutdown" ->
-    let (_: Thread.t) = Thread.create (fun () ->
-      Thread.delay 1.;
-      exit 0
-    ) () in
-    "ok"
-  | x -> x
+      let (_ : Thread.t) =
+        Thread.create (fun () -> Thread.delay 1. ; exit 0) ()
+      in
+      "ok"
+  | x ->
+      x
 
 let main () =
-  let _ = Message_switch_unix.Protocol_unix.Server.listen ~process ~switch:!path ~queue:!name () in
-  let rec forever () =
-    Thread.delay 3600.;
-    forever () in
+  let _ =
+    Message_switch_unix.Protocol_unix.Server.listen ~process ~switch:!path
+      ~queue:!name ()
+  in
+  let rec forever () = Thread.delay 3600. ; forever () in
   forever ()
 
 let _ =
-  Arg.parse [
-    "-path", Arg.Set_string path, (Printf.sprintf "path switch listens on (default %s)" !path);
-    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-    "Respond to RPCs on a name";
-
+  Arg.parse
+    [
+      ( "-path"
+      , Arg.Set_string path
+      , Printf.sprintf "path switch listens on (default %s)" !path )
+    ; ( "-name"
+      , Arg.Set_string name
+      , Printf.sprintf "name to send message to (default %s)" !name )
+    ]
+    (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Respond to RPCs on a name" ;
   main ()

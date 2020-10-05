@@ -17,24 +17,33 @@
 open Lwt
 
 let path = ref "/var/run/message-switch/sock"
+
 let name = ref "server"
 
 let t, u = Lwt.task ()
 
 let process = function
-  | "shutdown" -> Lwt.wakeup u (); return "ok"
-  | x -> return x
+  | "shutdown" ->
+      Lwt.wakeup u () ; return "ok"
+  | x ->
+      return x
 
 let main () =
-  Message_switch_lwt.Protocol_lwt.Server.listen ~process ~switch:!path ~queue:!name () >>= fun _ ->
-  t >>= fun () ->
-  Lwt_unix.sleep 1.
+  Message_switch_lwt.Protocol_lwt.Server.listen ~process ~switch:!path
+    ~queue:!name ()
+  >>= fun _ ->
+  t >>= fun () -> Lwt_unix.sleep 1.
 
 let _ =
-  Arg.parse [
-    "-path", Arg.Set_string path, (Printf.sprintf "path broker listens on (default %s)" !path);
-    "-name", Arg.Set_string name, (Printf.sprintf "name to send message to (default %s)" !name);
-  ] (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
-    "Respond to RPCs on a name";
-
+  Arg.parse
+    [
+      ( "-path"
+      , Arg.Set_string path
+      , Printf.sprintf "path broker listens on (default %s)" !path )
+    ; ( "-name"
+      , Arg.Set_string name
+      , Printf.sprintf "name to send message to (default %s)" !name )
+    ]
+    (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)
+    "Respond to RPCs on a name" ;
   Lwt_main.run (main ())
