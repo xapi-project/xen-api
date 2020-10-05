@@ -134,7 +134,7 @@ let make_message_switch_server () =
     ()
   >>= fun result ->
   match Server.error_to_msg result with
-  | `Ok t ->
+  | Ok t ->
     Lwt_switch.add_hook (Some shutdown) (fun () ->
         D.debug "Stopping message-switch queue server";
         Server.shutdown ~t () >|= Lwt.wakeup server_stopped );
@@ -144,7 +144,7 @@ let make_message_switch_server () =
         D.warn "Resume failed: %s" (Printexc.to_string e);
         Lwt.return_unit) >>= fun () ->
     wait_server
-  | `Error (`Msg m) ->
+  | Error (`Msg m) ->
     Lwt.fail_with (Printf.sprintf "Failed to listen on message-switch queue: %s" m)
 
 let main log_level =
