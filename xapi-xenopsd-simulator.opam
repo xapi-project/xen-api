@@ -12,7 +12,6 @@ build: [
 depends: [
   "ocaml"
   "dune" {build}
-  "ounit"
   "base-unix"
   "xapi-xenopsd"
 ]
