@@ -287,49 +287,83 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
   wait 0
 
 let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
+  let open Xenctrl in
   let host_info = Xenctrl.physinfo xc in
-  let host_has_hap = Xenctrl.(List.mem CAP_HAP host_info.capabilities) in
-  debug "Host Hardware Assisted Paging is %s"
-    (if host_has_hap then "available" else "N/A") ;
-  let flags =
-    match List.assoc_opt "hap" vm_info.platformdata with
-    | Some "true" when vm_info.hvm ->
-        [CDF_HVM; CDF_HAP]
-    | Some "false" when vm_info.hvm ->
-        [CDF_HVM]
-    | Some unknown ->
-        error "VM = %s; Unrecognized value platform/hap=\"%s\"."
-          (Uuid.to_string uuid) unknown ;
-        invalid_arg ("platform/hap=" ^ unknown)
-    | None when vm_info.hvm && vm_info.hap && host_has_hap ->
-        [CDF_HVM; CDF_HAP]
-    | None when vm_info.hvm ->
-        [CDF_HVM]
-    | None ->
-        []
+
+  (* Confirm that the running hypervisor supports a specific capability. *)
+  let assert_capability cap ~on_error =
+    if not (List.mem cap host_info.capabilities) then (
+      let msgstr = on_error () in
+      error "VM = %s: %s" (Uuid.to_string uuid) msgstr ;
+      invalid_arg msgstr
+    )
   in
-  if List.mem CDF_HAP flags && not host_has_hap then (
-    error "VM = %s: Hardware Assisted Paging requested, but not available"
-      (Uuid.to_string uuid) ;
-    invalid_arg "Hardware assisted paging requested but not available"
-  ) ;
-  info
-    "VM = %s; Hardware Assisted Paging will be %s. Use \
-     platform/hap=(true|false) to override"
-    (Uuid.to_string uuid)
-    (if List.mem CDF_HAP flags then "enabled" else "disabled") ;
+
+  (* Xen has two types of virtualisation.  PV "Para-Virtual" which uses ring
+     deprivileging, and HVM "Hardware Virtual Machine" which use Intel VT-x /
+     AMD SVM hardware extensions.  All hybrid guest types (PVHVM, PVH,
+     PVinPVH, etc) are HVM from Xen's point of view. *)
+  let hvm = vm_info.hvm in
+
+  (* Both PV and HVM may be compiled out of Xen.  HVM may be unavailable
+     because of hardware support or firmware/Xen settings. *)
+  assert_capability
+    (if hvm then CAP_HVM else CAP_PV)
+    ~on_error:(fun () ->
+      sprintf "Guest type %s unavailable" (if hvm then "HVM" else "PV")) ;
+
+  (* HVM guests must select a paging mode of either HAP "Hardware Assisted
+     Paging" or Shadow. *)
+  let hap =
+    if not hvm then
+      false
+    else
+      (* If platform/hap=<bool> is explicitly configured, use the setting
+         unconditionally and raise an error if unavailable.  Otherwise, use
+         HAP if available, falling back to Shadow if not. *)
+      let hap =
+        match List.assoc_opt "hap" vm_info.platformdata with
+        | Some "true" ->
+            true
+        | Some "false" ->
+            false
+        | Some unknown ->
+            error "VM = %s; Unrecognized value platform/hap=\"%s\"."
+              (Uuid.to_string uuid) unknown ;
+            invalid_arg ("platform/hap=" ^ unknown)
+        | None ->
+            List.mem CAP_HAP host_info.capabilities
+      in
+
+      (* HAP depends on 2nd Gen VT-x/SVM, or firmware/Xen settings.  Shadow
+         may be compiled out. *)
+      assert_capability
+        (if hap then CAP_HAP else CAP_Shadow)
+        ~on_error:(fun () ->
+          sprintf "Guest paging mode %s unavailable"
+            (if hap then "HAP" else "Shadow")) ;
+
+      hap
+  in
+
+  (* Any guest using PCI devices needs an IOMMU configuration. *)
+  let iommu = vm_info.pci_passthrough in
+  if iommu then
+    assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
+
+  info "VM = %s; Creating %s%s%s" (Uuid.to_string uuid)
+    (if hvm then "HVM" else "PV")
+    (if hap then " HAP" else "")
+    (if iommu then " IOMMU" else "") ;
+
   let config =
     {
       ssidref= vm_info.ssidref
     ; handle= Uuid.to_string uuid
     ; flags=
-        ( match vm_info.pci_passthrough with
-        | true ->
-            debug "VM %s - using CDF_IOMMU" (Uuid.to_string uuid) ;
-            CDF_IOMMU :: flags
-        | false ->
-            flags
-        )
+        [(hvm, CDF_HVM); (hap, CDF_HAP); (iommu, CDF_IOMMU)]
+        |> List.filter_map (fun (cond, flag) ->
+               if cond then Some flag else None)
     ; iommu_opts=
         ( match no_sharept with
         | true ->
