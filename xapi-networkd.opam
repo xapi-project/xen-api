@@ -6,15 +6,15 @@ dev-repo: "git+https://github.com/xapi-project/xcp-networkd.git"
 bug-reports: "https://github.com/xapi-project/xcp-networkd/issues"
 build: [
   ["dune" "build" "-p" name "-j" jobs]
-  ["dune" "runtest" "-p" name] {with-test}
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 depends: [
-  "astring"          
+  "astring"
+  "alcotest" {with-test}
   "base-threads"
   "forkexec"
   "mtime"
   "netlink"
-  "ounit"
   "re"
   "rpclib"
   "systemd"
