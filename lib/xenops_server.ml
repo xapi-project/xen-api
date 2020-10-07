@@ -139,6 +139,8 @@ type vm_migrate_op = {
   ; vmm_vif_map: (string * Network.t) list
   ; vmm_vgpu_pci_map: (string * Pci.address) list
   ; vmm_url: string
+  ; vmm_tmp_src_id: Vm.id
+  ; vmm_tmp_dest_id: Vm.id
 }
 [@@deriving rpcty]
 
@@ -1915,9 +1917,9 @@ and trigger_cleanup_after_failure op t =
   | VM_receive_memory (id, final_id, _, _) ->
       immediate_operation dbg id (VM_check_state id) ;
       immediate_operation dbg final_id (VM_check_state final_id)
-  | VM_migrate vmm ->
-      immediate_operation dbg vmm.vmm_id (VM_check_state vmm.vmm_id) ;
-      immediate_operation dbg vmm.vmm_id (VM_check_state vmm.vmm_id)
+  | VM_migrate {vmm_id; vmm_tmp_src_id} ->
+      immediate_operation dbg vmm_id (VM_check_state vmm_id) ;
+      immediate_operation dbg vmm_tmp_src_id (VM_check_state vmm_tmp_src_id)
   | VBD_hotplug id | VBD_hotunplug (id, _) ->
       immediate_operation dbg (fst id) (VBD_check_state id)
   | VIF_hotplug id | VIF_hotunplug (id, _) ->
@@ -2046,6 +2048,8 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
     | VM_migrate vmm ->
         debug "VM.migrate %s -> %s" vmm.vmm_id vmm.vmm_url ;
         let id = vmm.vmm_id in
+        let new_src_id = vmm.vmm_tmp_src_id in
+        let new_dest_id = vmm.vmm_tmp_dest_id in
         let vm = VM_DB.read_exn id in
         let dbg = (Xenops_task.to_interface_task t).Task.dbg in
         let url = Uri.of_string vmm.vmm_url in
@@ -2062,8 +2066,6 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               (fun () -> vmm.vmm_url)
         end)) in
         let regexp = Re.Pcre.regexp id in
-        let new_dest_id = String.sub id 0 24 ^ "000000000001" in
-        let new_src_id = String.sub id 0 24 ^ "000000000000" in
         debug "Destination domain will be built with uuid=%s" new_dest_id ;
         debug "Original domain will be moved to uuid=%s" new_src_id ;
         (* Redirect operations on new_src_id to our worker thread. *)
@@ -2153,8 +2155,18 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             let final_handshake () =
               Handshake.send ~verbose:true mem_fd Handshake.Success ;
               debug "VM.migrate: Synchronisation point 3" ;
-              Handshake.recv_success mem_fd ;
-              debug "VM.migrate: Synchronisation point 4"
+              match Handshake.recv mem_fd with
+              | Success ->
+                  debug "VM.migrate: Synchronisation point 4"
+              | Error msg ->
+                  (* at this point, the VM has already been transferred to
+                     the destination host. even though the destination host
+                     failed to respond successfully to our handshake, the VM
+                     should still be running correctly *)
+                  error
+                    "VM.migrate: Failed during Synchronisation point 4. msg: %s"
+                    msg ;
+                  raise (Xenopsd_error (Internal_error msg))
             in
             let save ?vgpu_fd () =
               perform_atomics
@@ -2184,6 +2196,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                     first_handshake () ;
                     save ~vgpu_fd:(FD vgpu_fd) ()) ;
                 final_handshake ()) ;
+        (* cleanup tmp src VM *)
         let atomics =
           [
             VM_hook_script_stable
@@ -2331,13 +2344,16 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
           Handshake.send s Handshake.Success ;
           debug "VM.receive_memory: Synchronisation point 4"
         with e ->
-          Backtrace.is_important e ;
-          Debug.log_backtrace e (Backtrace.get e) ;
-          debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
-          perform_atomics
-            (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
-            t ;
-          Handshake.send s (Handshake.Error (Printexc.to_string e))
+          finally
+            (fun () ->
+              Backtrace.is_important e ;
+              Debug.log_backtrace e (Backtrace.get e) ;
+              debug "Caught %s: cleaning up VM state" (Printexc.to_string e) ;
+              perform_atomics
+                (atomics_of_operation (VM_shutdown (id, None)) @ [VM_remove id])
+                t)
+            (fun () ->
+              Handshake.send s (Handshake.Error (Printexc.to_string e)))
       )
     | VM_check_state id ->
         let vm = VM_DB.read_exn id in
@@ -2997,9 +3013,21 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url =
+    let tmp_uuid_of uuid ~kind =
+      Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
+        (match kind with `dest -> '1' | `src -> '0')
+    in
     queue_operation dbg id
       (VM_migrate
-         {vmm_id= id; vmm_vdi_map; vmm_vif_map; vmm_vgpu_pci_map; vmm_url})
+         {
+           vmm_id= id
+         ; vmm_vdi_map
+         ; vmm_vif_map
+         ; vmm_vgpu_pci_map
+         ; vmm_url
+         ; vmm_tmp_src_id= tmp_uuid_of id ~kind:`src
+         ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
+         })
 
   let migrate_receive_memory _ _ _ _ _ _ = failwith "Unimplemented"
 
