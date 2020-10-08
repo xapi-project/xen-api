@@ -43,7 +43,10 @@ let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env 
 let _ =
   Sys.set_signal Sys.sigpipe (Sys.Signal_ignore);
 
-  let main_sock = Fecomms.open_unix_domain_sock_server "/var/xapi/forker/main" in
+  let test_path = Option.bind (Sys.getenv_opt "FE_TEST") (fun _ -> (Sys.getenv_opt "XDG_RUNTIME_DIR")) in
+ 
+  let runtime_path = Option.value ~default:"/var" test_path in
+  let main_sock = Fecomms.open_unix_domain_sock_server (runtime_path ^ "/xapi/forker/main") in
   Xapi_stdext_unix.Unixext.mkdir_rec (Forkhelpers.temp_dir_server) 0o755;
 
   Daemon.notify Daemon.State.Ready |> ignore;

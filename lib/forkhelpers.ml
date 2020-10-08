@@ -23,6 +23,12 @@
 
 let default_path = [ "/sbin"; "/usr/sbin"; "/bin"; "/usr/bin" ]
 
+(* /var/ may not be writable when testing, use XDG_RUNTIME_DIR instead in that
+   case. Avoid changing the directory unless the code is being tested. *)
+let test_path = Option.bind (Sys.getenv_opt "FE_TEST") (fun _ -> (Sys.getenv_opt "XDG_RUNTIME_DIR"))
+
+let runtime_path = Option.value ~default:"/var" test_path
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type pidty = (Unix.file_descr * int) (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
@@ -75,7 +81,7 @@ let getpid (_sock, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
-let temp_dir_server = "/var/run/nonpersistent/forkexecd/"
+let temp_dir_server = runtime_path ^ "/run/nonpersistent/forkexecd/"
 let temp_dir =
   try
     Unix.access temp_dir_server [Unix.W_OK; Unix.R_OK; Unix.X_OK];
@@ -114,7 +120,7 @@ type syslog_stdout_t =
 let safe_close_and_exec ?env stdin stdout stderr (fds: (string * Unix.file_descr) list) ?(syslog_stdout=NoSyslogging) ?(redirect_stderr_to_stdout = false)
     (cmd: string) (args: string list) =
 
-  let sock = Fecomms.open_unix_domain_sock_client "/var/xapi/forker/main" in
+  let sock = Fecomms.open_unix_domain_sock_client (runtime_path ^ "/xapi/forker/main") in
   let stdinuuid = Uuidm.to_string (Uuidm.create `V4) in
   let stdoutuuid = Uuidm.to_string (Uuidm.create `V4) in
   let stderruuid = Uuidm.to_string (Uuidm.create `V4) in
