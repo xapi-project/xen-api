@@ -295,6 +295,7 @@ let main backend =
   let forwarded_server =
     Xcp_service.make_socket_server (forwarded_path ()) handle_received_fd
   in
+
   (* TODO: this should be indirected through the switch *)
 
   (* Listen for regular API calls *)

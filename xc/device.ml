@@ -525,6 +525,7 @@ module Vbd_Common = struct
       (x : device) =
     debug "Device.Vbd.hard_shutdown %s" (string_of_device x) ;
     request_shutdown ~xs x true ;
+
     (* force *)
 
     (* We don't watch for error nodes *)

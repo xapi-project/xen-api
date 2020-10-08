@@ -7,3 +7,4 @@ break-struct=natural
 break-separators=before
 break-infix=fit-or-vertical
 break-infix-before-func=false
+sequence-blank-line=preserve-one
