@@ -12,51 +12,40 @@
  * GNU Lesser General Public License for more details.
  *)
 
-
 (* state that we incrementally change *)
-type argv =
-  { argv: string list                       (** command line in rev order *)
-  ; fds:  (string * Unix.file_descr) list   (** open files *)
-  }
+type argv = {
+    argv: string list  (** command line in rev order *)
+  ; fds: (string * Unix.file_descr) list  (** open files *)
+}
 
-
-  (* This is a state monad *)
+(* This is a state monad *)
 type 'a t = argv -> 'a * argv
 
-let return x = fun s -> x, s
-let bind m f = fun s -> match m s with x, s' -> f x s'
-let (>>=)    = bind
+let return x s = (x, s)
 
-let empty =
-  { argv = []
-  ; fds  = []
-  }
+let bind m f s = match m s with x, s' -> f x s'
 
-let run t       = t empty
-let argv   argv = List.rev argv.argv
+let ( >>= ) = bind
+
+let empty = {argv= []; fds= []}
+
+let run t = t empty
+
+let argv argv = List.rev argv.argv
+
 let fd_map argv = argv.fds
 
 module Add = struct
+  let arg x s = ((), {s with argv= x :: s.argv})
 
-  let arg x =
-    fun s -> (), { s with argv = x :: s.argv }
+  let many xs s = ((), {s with argv= List.rev xs @ s.argv})
 
-  let many xs =
-    fun s -> (), { s with argv = List.rev xs @ s.argv }
-
-  let each f xs =
-    xs |> List.map f |> List.concat |> many
+  let each f xs = xs |> List.map f |> List.concat |> many
 
   let fmt fmt =
-    Printf.kprintf
-      (fun str -> fun s -> (), { s with argv = str :: s.argv })
-      fmt
+    Printf.kprintf (fun str s -> ((), {s with argv= str :: s.argv})) fmt
 
-  let file_descr uuid fd =
-    fun s -> (), { s with fds = (uuid, fd) :: s.fds }
+  let file_descr uuid fd s = ((), {s with fds= (uuid, fd) :: s.fds})
 
-  let optional f = function
-    | None   -> return ()
-    | Some x -> many (f x)
-
+  let optional f = function None -> return () | Some x -> many (f x)
 end
