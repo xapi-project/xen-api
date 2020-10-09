@@ -281,8 +281,16 @@ let upgrade_bios_strings =
   ; fn=
       (fun ~__context ->
         let oem_manufacturer =
+          let test_path =
+            Option.map
+              (fun _ -> "/tmp/previousInventory")
+              (Sys.getenv_opt "XAPI_TEST")
+          in
+          let inventory_path =
+            Option.value ~default:"/var/tmp/.previousInventory" test_path
+          in
           try
-            let ic = open_in "/var/tmp/.previousInventory" in
+            let ic = open_in inventory_path in
             let rec find_oem_manufacturer () =
               let line = input_line ic in
               match Xapi_inventory.parse_inventory_entry line with
