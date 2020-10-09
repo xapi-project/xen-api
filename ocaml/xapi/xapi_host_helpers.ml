@@ -420,7 +420,9 @@ module Configuration = struct
        the other_config watcher thread will make sure that these functions will
        be called again with the up to date values. *)
     let self = Helpers.get_localhost ~__context in
-    set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self) ;
+    (* when HA is enabled we expect this to fail because there will be an active session on XAPI
+     * startup, and similarly during a toolstack restart. *)
+    log_and_ignore_exn (fun () -> set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self));
     set_multipathing (Db.Host.get_multipathing ~__context ~self)
 
   let watch_other_configs ~__context delay =
