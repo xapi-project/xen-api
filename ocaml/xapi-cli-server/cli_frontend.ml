@@ -678,6 +678,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
             Cli_operations.host_emergency_reset_server_certificate
       ; flags= [Neverforward]
       } )
+  ; ( "host-reset-server-certificate"
+    , {
+        reqd= []
+      ; optn= []
+      ; flags= [Host_selectors]
+      ; help=
+          "Deletes the current TLS server certificate in the host and installs \
+           a new, self-signed one."
+      ; implementation=
+          No_fd_local_session Cli_operations.host_reset_server_certificate
+      } )
   ; ( "host-management-reconfigure"
     , {
         reqd= ["pif-uuid"]

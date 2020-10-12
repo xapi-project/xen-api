@@ -978,9 +978,18 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
+  let reset_server_certificate = call
+      ~flags:[`Session]
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"reset_server_certificate"
+      ~doc:"Delete the current TLS server certificate and replace by a new, self-signed one. This should only be used with extreme care."
+      ~params:[Ref _host, "host", "The host"]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   let emergency_reset_server_certificate = call
       ~flags:[`Session]
-      ~lifecycle:[Published, rel_stockholm, ""]
+      ~lifecycle:[ Published, rel_stockholm, ""]
       ~name:"emergency_reset_server_certificate"
       ~doc:"Delete the current TLS server certificate and replace by a new, self-signed one. This should only be used with extreme care."
       ~versioned_params: []
@@ -1479,6 +1488,7 @@ let host_query_ha = call ~flags:[`Session]
         get_server_certificate;
         install_server_certificate;
         emergency_reset_server_certificate;
+        reset_server_certificate;
         update_pool_secret;
         update_master;
         attach_static_vdis;
