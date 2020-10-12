@@ -3261,6 +3261,11 @@ functor
                     failed."
                  ] ))
 
+      let reset_server_certificate ~__context ~host =
+        let local_fn = Local.Host.reset_server_certificate ~host in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+
       let emergency_reset_server_certificate ~__context =
         Local.Host.emergency_reset_server_certificate ~__context
 
