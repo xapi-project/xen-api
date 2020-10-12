@@ -1234,6 +1234,7 @@ let on_xapi_start ~__context =
       let self, _ = List.assoc ty existing in
       try Db.SM.destroy ~__context ~self with _ -> ())
     (Listext.List.set_difference (List.map fst existing) to_keep) ;
+
   (* Synchronize SMAPIv1 plugins *)
 
   (* Create all missing SMAPIv1 plugins *)
@@ -1253,6 +1254,7 @@ let on_xapi_start ~__context =
       Xapi_sm.update_from_query_result ~__context (List.assoc ty existing)
         query_result)
     (Listext.List.intersect smapiv1_drivers (List.map fst existing)) ;
+
   (* Synchronize SMAPIv2 plugins *)
 
   (* Create all missing SMAPIv2 plugins *)

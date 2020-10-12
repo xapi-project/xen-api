@@ -206,6 +206,7 @@ let revalidate_external_session ~__context ~session =
         let session_lifespan = 60.0 *. 30.0 in
         (* allowed session lifespan = 30 minutes *)
         let random_lifespan = Random.float 60.0 *. 10.0 in
+
         (* extra random (up to 10min) lifespan to spread access to external directory *)
 
         (* 2. has the external session expired/does it need revalidation? *)
@@ -224,6 +225,7 @@ let revalidate_external_session ~__context ~session =
           let authenticated_user_sid =
             Db.Session.get_auth_user_sid ~__context ~self:session
           in
+
           (* 2a. revalidate external authentication *)
 
           (* CP-827: if the user was suspended (disabled,expired,locked-out), then we must destroy the session *)
