@@ -26,19 +26,20 @@ let rpc __context call =
         {
           success= true
         ; contents= contents |> Xmlrpc.to_string |> Xmlrpc.of_string
+        ; is_notification= false
         }
   | "VM.update_allowed_operations", [session_id_rpc; self_rpc] ->
       let open API in
       let _session_id = ref_session_of_rpc session_id_rpc in
       let self = ref_VM_of_rpc self_rpc in
       Xapi_vm_lifecycle.update_allowed_operations ~__context ~self ;
-      Rpc.{success= true; contents= Rpc.String ""}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | "VM.atomic_set_resident_on", [session_id_rpc; vm_rpc; host_rpc] ->
       let open API in
       let _session_id = ref_session_of_rpc session_id_rpc in
       let vm = ref_VM_of_rpc vm_rpc in
       let host = ref_host_of_rpc host_rpc in
       Db.VM.set_resident_on ~__context ~self:vm ~value:host ;
-      Rpc.{success= true; contents= Rpc.String ""}
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | _ ->
       failwith "Unexpected RPC"

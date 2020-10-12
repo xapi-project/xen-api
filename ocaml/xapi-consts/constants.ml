@@ -45,8 +45,6 @@ let import_uri = "/import"
 
 let import_metadata_uri = "/import_metadata"
 
-let migrate_uri = "/migrate"
-
 (* ocaml/xapi/xapi_vm_migrate.ml *)
 
 let console_uri = "/console"
@@ -65,21 +63,9 @@ let pool_patch_upload_uri = "/pool_patch_upload"
 
 (* ocaml/xapi/xapi_pool_patch.ml *)
 
-let oem_patch_stream_uri = "/oem_patch_stream"
-
-(* ocaml/xapi/xapi_pool_patch.ml *)
-
-let pool_patch_download_uri = "/pool_patch_download"
-
-(* ocaml/xapi/xapi_pool_patch.ml *)
-
 let config_sync_uri = "/sync_config_files" (* ocaml/xapi/config_file_sync.ml *)
 
 let pool_xml_db_sync = "/pool/xmldbdump" (* ocaml/xapi/pool_db_backup.ml *)
-
-let vm_connect_uri = "http"
-
-(* ocaml/xapi/xapi_udhcpd.ml *)
 
 let vncsnapshot_uri = "/vncsnapshot" (* ocaml/xapi/xapi_vncsnapshot.ml *)
 
@@ -148,10 +134,6 @@ let blob_uri = "/blob"
 let remotecmd_uri = "/remotecmd"
 
 (* ocaml/xapi/xapi_remotecmd.ml *)
-
-let message_rss_feed = "/rss"
-
-(* ocaml/xapi/xapi_message.ml *)
 
 let message_put_uri = "/messages"
 
