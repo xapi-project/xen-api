@@ -6595,6 +6595,14 @@ let host_emergency_ha_disable printer rpc session_id params =
 let host_emergency_reset_server_certificate printer rpc session_id params =
   Client.Host.emergency_reset_server_certificate ~rpc ~session_id
 
+let host_reset_server_certificate printer rpc session_id params =
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+       params [])
+
 let host_management_reconfigure printer rpc session_id params =
   let pif =
     Client.PIF.get_by_uuid rpc session_id (List.assoc "pif-uuid" params)
