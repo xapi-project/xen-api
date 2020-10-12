@@ -3409,6 +3409,20 @@ functor
         let local_fn = Local.Host.cleanup_pool_secret ~host ~old_ps ~new_ps in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
             Client.Host.cleanup_pool_secret rpc session_id host old_ps new_ps)
+
+      let set_sched_gran ~__context ~self ~value =
+        info "Host.set_sched_gran: host='%s' sched='%s'"
+          (host_uuid ~__context self)
+          (Record_util.host_sched_gran_to_string value) ;
+        let local_fn = Local.Host.set_sched_gran ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.set_sched_gran rpc session_id self value)
+
+      let get_sched_gran ~__context ~self =
+        info "Host.get_sched_gran: host='%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_sched_gran ~self in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.get_sched_gran rpc session_id self)
     end
 
     module Host_crashdump = struct

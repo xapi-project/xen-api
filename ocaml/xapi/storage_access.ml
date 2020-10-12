@@ -1133,7 +1133,7 @@ let check_queue_exists queue_name =
         ~prefix:!Storage_interface.queue_name
         ~filter:`Alive ()
     with
-    | `Ok list ->
+    | Ok list ->
         list
     | _ ->
         failwith "Failed to contact switch"
@@ -1195,10 +1195,10 @@ let on_xapi_start ~__context =
         let open Message_switch_unix.Protocol_unix in
         let ( >>| ) result f =
           match Client.error_to_msg result with
-          | `Error (`Msg x) ->
+          | Error (`Msg x) ->
               error "Error %s while querying message switch queues" x ;
               raise Message_switch_failure
-          | `Ok x ->
+          | Ok x ->
               f x
         in
         Client.connect ~switch:!Xcp_client.switch_path () >>| fun t ->
