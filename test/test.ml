@@ -595,7 +595,7 @@ let vm_test_halt _ =
         | _ ->
             false))
 
-let vm_test_suspend _ =
+let vm_test_suspend_resume _ =
   with_vm example_uuid (fun id ->
       Client.VM.create dbg id |> wait_for_task |> success_task ;
       Client.VM.build dbg id false |> wait_for_task |> success_task ;
@@ -605,10 +605,7 @@ let vm_test_suspend _ =
       Client.VM.unpause dbg id |> wait_for_task |> success_task ;
       Client.VM.suspend dbg id (Local "/tmp/suspend-image")
       |> wait_for_task
-      |> success_task)
-
-let vm_test_resume _ =
-  with_vm example_uuid (fun id ->
+      |> success_task;
       Client.VM.resume dbg id (Local "/tmp/suspend-image")
       |> wait_for_task
       |> success_task ;
@@ -982,8 +979,7 @@ let _ =
         , `Quick
         , VifDeviceTests.add_plug_unplug_many_remove )
       ; ("vif_remove_running", `Quick, VifDeviceTests.remove_running)
-      ; ("vm_test_suspend", `Quick, vm_test_suspend)
-      ; ("vm_test_resume", `Quick, vm_test_resume)
+      ; ("vm_test_suspend_resume", `Quick, vm_test_suspend_resume)
       ; ("ionice_qos_scheduler", `Quick, ionice_qos_scheduler)
       ; ("ionice_output", `Quick, ionice_output)
       ; ("barrier_ordering", `Quick, barrier_ordering)
