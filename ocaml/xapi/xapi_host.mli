@@ -313,6 +313,8 @@ val install_server_certificate :
 
 val emergency_reset_server_certificate : __context:Context.t -> unit
 
+val reset_server_certificate : __context:Context.t -> host:API.ref_host -> unit
+
 val detect_nonhomogeneous_external_auth_in_host :
   __context:Context.t -> host:API.ref_host -> unit
 

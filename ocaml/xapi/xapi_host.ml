@@ -1403,7 +1403,8 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   (* sever all connections done with stunnel *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context
 
-let emergency_reset_server_certificate ~__context =
+let reset_server_certificate ~__context ~host =
+  let self = Helpers.get_localhost ~__context in
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
   let common_name, alt_names =
     match Gencertlib.Lib.hostnames () with
@@ -1416,13 +1417,16 @@ let emergency_reset_server_certificate ~__context =
   Gencertlib.Selfcert.host common_name alt_names xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
-  let self = Helpers.get_localhost ~__context in
   (* Delete records of the server certificate in this host *)
   let expr =
     Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self)))
   in
   Db.Certificate.get_refs_where ~__context ~expr
   |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
+
+let emergency_reset_server_certificate ~__context =
+  let host = Helpers.get_localhost ~__context in
+  reset_server_certificate ~__context ~host
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
