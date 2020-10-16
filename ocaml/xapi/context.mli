@@ -127,3 +127,5 @@ val get_test_rpc : t -> (Rpc.call -> Rpc.response) option
 val set_test_clusterd_rpc : t -> (Rpc.call -> Rpc.response) -> unit
 
 val get_test_clusterd_rpc : t -> (Rpc.call -> Rpc.response) option
+
+val get_user_agent : t -> string option

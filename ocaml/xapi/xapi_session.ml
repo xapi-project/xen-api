@@ -27,6 +27,232 @@ open Client
 open Auth_signature
 open Extauth
 
+module AuthFail : sig
+  (* stats are reset each time you query, so if there hasn't
+     been a failed login attempt since the last time the stats
+     were queried, you won't get any stats *)
+  val get_stats_string : unit -> string option
+
+  val on_fail :
+       __context:Context.t
+    -> now:Date.iso8601
+    -> uname:string option
+    -> originator:string option
+    -> record:[< `log_only | `log_and_alert]
+    -> unit
+end = struct
+  type client = {
+      user_agent: string option
+    ; uname: string option
+    ; originator: string option
+  }
+
+  let client_of_info ~__context ~originator ~uname =
+    let user_agent = Context.get_user_agent __context in
+    (* check to make sure we have at least _some_ information *)
+    if
+      [user_agent; originator; uname]
+      |> List.for_all (function None | Some "" -> true | _ -> false)
+    then
+      None
+    else
+      Some {originator; uname; user_agent}
+
+  let string_of_client x =
+    [
+      ("username", x.uname)
+    ; ("originator", x.originator)
+    ; ("useragent", x.user_agent)
+    ]
+    |> List.filter_map (fun (label, value) ->
+           match value with
+           | None | Some "" ->
+               None
+           | Some value ->
+               Some (Printf.sprintf "<%s>%s</%s>" label value label))
+    |> String.concat "\n"
+
+  type client_failed_attempts = {
+      client: client
+    ; num_failed_attempts: int
+    ; last_failed_attempt: Date.iso8601
+  }
+
+  let up_to_3 xs x =
+    let rec merge = function
+      | [] ->
+          [x]
+      | y :: ys ->
+          if x.num_failed_attempts >= y.num_failed_attempts then
+            x :: y :: ys
+          else
+            y :: merge ys
+    in
+    let rec keep ctr xs =
+      match (ctr, xs) with
+      | ctr, x :: xs when ctr > 0 ->
+          x :: keep (ctr - 1) xs
+      | _ ->
+          []
+    in
+    merge xs |> keep 3
+
+  let string_of_client_failed_attempts x =
+    Printf.sprintf {|
+<known>
+%s
+<number>%i</number>
+<date>%s</date>
+</known>|}
+      (string_of_client x.client)
+      x.num_failed_attempts
+      (Date.to_string x.last_failed_attempt)
+
+  type stats = {
+      total_num_failed_attempts: int
+    ; top_3_worst_clients: client_failed_attempts list
+          (* not necessarily 3, but <=3 *)
+    ; unknown_client_failed_attempts: int
+  }
+
+  let string_of_stats
+      {
+        total_num_failed_attempts
+      ; top_3_worst_clients
+      ; unknown_client_failed_attempts
+      } =
+    let unknown =
+      if unknown_client_failed_attempts = 0 then
+        ""
+      else
+        Printf.sprintf {|
+<unknown>%i</unknown>|} unknown_client_failed_attempts
+    in
+    let known_with_total =
+      if List.length top_3_worst_clients = 0 then
+        ""
+      else
+        Printf.sprintf {|
+<total>%i</total>%s|} total_num_failed_attempts
+          (top_3_worst_clients
+          |> List.map string_of_client_failed_attempts
+          |> String.concat ""
+          )
+    in
+    Printf.sprintf {|<body>%s%s
+</body>|} known_with_total unknown
+
+  module Stats : sig
+    val get : unit -> stats option
+
+    (* returns the number of failures from this client since last call to [ get ] *)
+    val record_client : client -> now:Date.iso8601 -> int
+
+    (* returns number of failures from unknown clients since last call to [ get ] *)
+    val record_unknown : unit -> int
+  end = struct
+    let m = Mutex.create ()
+
+    let unknown_ctr = ref 0
+
+    let record_unknown () =
+      Mutex.execute m (fun () ->
+          let ctr = !unknown_ctr + 1 in
+          unknown_ctr := ctr ;
+          ctr)
+
+    type key = client
+
+    type value = {num_failed_attempts: int; last_failed_attempt: Date.iso8601}
+
+    type table_t = (key, value) Hashtbl.t
+
+    let table = Hashtbl.create 10
+
+    let record_client k ~now =
+      Mutex.execute m (fun () ->
+          match Hashtbl.find_opt table k with
+          | None ->
+              Hashtbl.add table k
+                {num_failed_attempts= 1; last_failed_attempt= now} ;
+              1
+          | Some ({num_failed_attempts} : value) ->
+              let num_failed_attempts = num_failed_attempts + 1 in
+              Hashtbl.replace table k
+                {num_failed_attempts; last_failed_attempt= now} ;
+              num_failed_attempts)
+
+    let get () =
+      let reset () =
+        Hashtbl.reset table ;
+        unknown_ctr := 0
+      in
+      Mutex.execute m (fun () ->
+          let unknown_client_failed_attempts = !unknown_ctr in
+          if Hashtbl.length table = 0 && unknown_client_failed_attempts = 0 then
+            None
+          else
+            let num_known_client_failed_attempts, top_3_worst_clients =
+              Hashtbl.fold
+                (fun client {num_failed_attempts; last_failed_attempt}
+                     (ctr, worst_so_far) ->
+                  ( ctr + num_failed_attempts
+                  , up_to_3 worst_so_far
+                      {client; num_failed_attempts; last_failed_attempt} ))
+                table (0, [])
+            in
+            reset () ;
+            Some
+              {
+                total_num_failed_attempts=
+                  num_known_client_failed_attempts
+                  + unknown_client_failed_attempts
+              ; top_3_worst_clients
+              ; unknown_client_failed_attempts
+              })
+  end
+
+  let get_stats_string () = Stats.get () |> Option.map string_of_stats
+
+  let on_fail ~__context ~now ~uname ~originator ~record =
+    try
+      match (client_of_info ~__context ~uname ~originator, record) with
+      | None, `log_only ->
+          warn "login failure from unknown client"
+      | None, `log_and_alert ->
+          let total_unknown_login_failures = Stats.record_unknown () in
+          warn "login failure from unknown client, total= %i"
+            total_unknown_login_failures
+      | Some client, `log_only ->
+          info "failed login attempt by client: %s" (string_of_client client)
+      | Some client, _ ->
+          let num_failed_attempts = Stats.record_client client ~now in
+          info "failed login attempt #%i by client: %s" num_failed_attempts
+            (string_of_client client)
+    with e ->
+      (* we don't expect this function to fail, but if it does we don't want to block callers *)
+      error "AuthFail.on_fail_with_uname: unexpected error: '%s'"
+        (Printexc.to_string e)
+end
+
+let _record_login_failure ~__context ~now ~uname ~originator ~record f =
+  let on_fail e =
+    AuthFail.on_fail ~__context ~now ~uname ~originator ~record ;
+    raise e
+  in
+  try f () with
+  | Auth_signature.Auth_failure _ as e ->
+      on_fail e
+  | Api_errors.Server_error (code, _) as e
+    when code = Api_errors.session_authentication_failed ->
+      on_fail e
+
+let record_login_failure ~__context ~uname ~originator ~record f =
+  let now = Date.localtime () in
+  _record_login_failure ~__context ~now ~uname ~originator ~record f
+
+let get_failed_login_stats = AuthFail.get_stats_string
+
 let local_superuser = "root"
 
 let xapi_internal_originator = "xapi"
@@ -54,7 +280,11 @@ let do_external_auth uname pwd =
 
 let do_local_auth uname pwd =
   Mutex.execute serialize_auth (fun () ->
-      Pam.authenticate uname (Bytes.unsafe_to_string pwd))
+      try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
+      with Failure msg ->
+        raise
+          Api_errors.(
+            Server_error (session_authentication_failed, [uname; msg])))
 
 let do_local_change_password uname newpwd =
   Mutex.execute serialize_auth (fun () ->
@@ -503,13 +733,14 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
               ~db_ref:None
           )
         in
-        let thread_delay_and_raise_error
-            ?(error = Api_errors.session_authentication_failed) uname msg =
+        let thread_delay_and_raise_error ~error uname msg =
           let some_seconds = 5.0 in
           Thread.delay some_seconds ;
           (* sleep a bit to avoid someone brute-forcing the password *)
-          if error = Api_errors.session_authentication_failed (*default*) then
+          if error = Api_errors.session_authentication_failed then
             raise (Api_errors.Server_error (error, [uname; msg]))
+          else if error = Api_errors.session_authorization_failed then
+            raise Api_errors.(Server_error (error, [uname; msg]))
           else
             raise
               (Api_errors.Server_error
@@ -530,7 +761,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
             info "Failed to locally authenticate user %s from %s: %s" uname
               (Context.get_origin __context)
               msg ;
-            thread_delay_and_raise_error uname msg
+            thread_delay_and_raise_error
+              ~error:Api_errors.session_authentication_failed uname msg
         )
         | _ as auth_type -> (
             (* external authentication required *)
@@ -558,7 +790,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       in
                       error "%s" msg ;
                       thread_delay_and_raise_error uname msg
-                        ~error:Api_errors.session_invalid
+                        ~error:Api_errors.internal_error
                     ) else
                       debug "External authentication %s service initializing..."
                         auth_type ;
@@ -584,7 +816,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       uname
                       (Context.get_origin __context)
                       msg ;
-                    thread_delay_and_raise_error uname msg
+                    thread_delay_and_raise_error
+                      ~error:Api_errors.session_authentication_failed uname msg
                 in
                 (* as per tests in CP-827, there should be no need to call is_subject_suspended function here, *)
                 (* because the authentication server in 2.1 will already reflect if account/password expired, *)
@@ -604,7 +837,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       uname subject_identifier
                       (Context.get_origin __context)
                       msg ;
-                    thread_delay_and_raise_error uname msg
+                    thread_delay_and_raise_error
+                      ~error:Api_errors.session_authorization_failed uname msg
                 in
                 if subject_suspended then (
                   let msg =
@@ -615,7 +849,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                       (Context.get_origin __context)
                   in
                   debug "%s" msg ;
-                  thread_delay_and_raise_error uname msg
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authorization_failed uname msg
                 ) else
                   (* 2.2. then, we verify if any elements of the the membership closure of the externally *)
                   (* authenticated subject_id is inside our local allowed-to-login subjects list *)
@@ -635,7 +870,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                             subject_identifier
                         in
                         debug "%s" msg ;
-                        thread_delay_and_raise_error uname msg
+                        thread_delay_and_raise_error
+                          ~error:Api_errors.session_authorization_failed uname
+                          msg
                     | Auth_signature.Auth_service_error (errtag, msg) ->
                         debug
                           "Failed to obtain the group membership closure for \
@@ -643,7 +880,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                           uname subject_identifier
                           (Context.get_origin __context)
                           msg ;
-                        thread_delay_and_raise_error uname msg
+                        thread_delay_and_raise_error
+                          ~error:Api_errors.session_authorization_failed uname
+                          msg
                   in
                   (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
                   let subjects_in_db = Db.Subject.get_all ~__context in
@@ -679,7 +918,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                         (Context.get_origin __context)
                     in
                     info "%s" msg ;
-                    thread_delay_and_raise_error uname msg
+                    thread_delay_and_raise_error
+                      ~error:Api_errors.session_authorization_failed uname msg
                   ) else (* compute RBAC structures for the session *)
                     let subject_membership =
                       List.map (fun (subj_ref, sid) -> subj_ref) intersection
@@ -743,7 +983,9 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                               (Context.get_origin __context)
                           in
                           debug "%s" msg ;
-                          thread_delay_and_raise_error uname msg
+                          thread_delay_and_raise_error
+                            ~error:Api_errors.session_authorization_failed uname
+                            msg
                       in
                       login_no_password_common ~__context ~uname:(Some uname)
                         ~originator
@@ -764,8 +1006,15 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     "A function failed to catch this exception for user %s \
                      during external authentication: %s"
                     uname msg ;
-                  thread_delay_and_raise_error uname msg
-              | Auth_signature.Auth_failure msg
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authorization_failed uname msg
+              | Auth_signature.Auth_failure msg ->
+                  debug
+                    "A function failed to catch this exception for user %s. \
+                     Auth_failure: %s"
+                    uname msg ;
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authentication_failed uname msg
               | Auth_signature.Auth_service_error (_, msg) ->
                   debug
                     "A function failed to catch this exception for user %s \
@@ -773,7 +1022,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     uname
                     (Context.get_origin __context)
                     msg ;
-                  thread_delay_and_raise_error uname msg
+                  thread_delay_and_raise_error
+                    ~error:Api_errors.session_authorization_failed uname msg
               | Api_errors.Server_error _ as e ->
                   (* bubble up any api_error already generated *)
                   raise e
@@ -786,7 +1036,8 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                     uname
                     (Context.get_origin __context)
                     msg ;
-                  thread_delay_and_raise_error uname msg
+                  thread_delay_and_raise_error ~error:Api_errors.internal_error
+                    uname msg
             )
           ))
 

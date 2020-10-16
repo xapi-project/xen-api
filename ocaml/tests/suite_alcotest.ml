@@ -68,4 +68,5 @@ let () =
     @ Test_helpers.tests
     @ Test_datamodel_utils.tests
     @ Test_psr.tests
+    @ Test_session.tests
     )

@@ -126,17 +126,21 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	Raises auth_failure if authentication is not successful
   *)
 
-  (* call already existing pam.ml *)
   let authenticate_username_password username password =
-    (* first, we try to authenticated against our user database using PAM *)
-    try
-      Pam.authenticate username password ;
-      (* no exception raised, then authentication succeeded, *)
-      (* now we return the authenticated user's id *)
-      get_subject_identifier username
-    with Failure msg ->
-      (*debug "Failed to authenticate user %s: %s" uname msg;*)
-      raise (Auth_signature.Auth_failure msg)
+    (* we try to authenticate against our user database using PAM *)
+    let () =
+      try
+        Pam.authenticate username password
+        (* no exception raised, then authentication succeeded *)
+      with Failure msg -> raise (Auth_signature.Auth_failure msg)
+    in
+    try get_subject_identifier username
+    with Not_found ->
+      raise
+        (Auth_signature.Auth_failure
+           (Printf.sprintf
+              "Could not find either the user id or the group id for '%s'"
+              username))
 
   (* subject_id Authenticate_ticket(string ticket)
 
