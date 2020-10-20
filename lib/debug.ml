@@ -47,9 +47,15 @@ module ThreadLocalTable = struct
     IntMap.find_opt id t.tbl
 end
 
-let names = ThreadLocalTable.make ()
 
-let tasks = ThreadLocalTable.make ()
+type task = {
+    desc: string
+  ; client: string option
+}
+
+let tasks: task ThreadLocalTable.t = ThreadLocalTable.make ()
+
+let names: string ThreadLocalTable.t = ThreadLocalTable.make ()
 
 let gettimestring () =
   let time = Unix.gettimeofday () in
@@ -67,11 +73,13 @@ let escape = Astring.String.Ascii.escape
 
 let format include_time brand priority message =
   let id = get_thread_id () in
-  let name =
-    match ThreadLocalTable.find names with Some x -> x | None -> ""
-  in
-  let task =
-    match ThreadLocalTable.find tasks with Some x -> x | None -> ""
+  let task, name =
+    (* if the task's client is known, attach it to the task's name *)
+    let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
+    match ThreadLocalTable.find tasks with
+    | None -> "", name
+    | Some {desc; client=None} -> desc, name
+    | Some {desc; client=Some client} -> desc, Printf.sprintf "%s->%s" client name
   in
   Printf.sprintf "[%s%5s||%d %s|%s|%s] %s"
     (if include_time then gettimestring () else "")
@@ -214,8 +222,8 @@ let log_backtrace_internal ?level ?msg e _bt =
 
 let log_backtrace e bt = log_backtrace_internal e bt
 
-let with_thread_associated task f x =
-  ThreadLocalTable.add tasks task ;
+let with_thread_associated ?client desc f x =
+  ThreadLocalTable.add tasks {desc; client} ;
   let result = Backtrace.with_backtraces (fun () ->
 	try f x
 	with e -> Backtrace.is_important e; raise e) in
@@ -227,7 +235,7 @@ let with_thread_associated task f x =
       (* This function is a top-level exception handler typically used on fresh
          threads. This is the last chance to do something with the backtrace *)
       output_log "backtrace" Syslog.Err "error"
-        (Printf.sprintf "%s failed with exception %s" task
+        (Printf.sprintf "%s failed with exception %s" desc
            (Printexc.to_string exn)) ;
       log_backtrace_exn exn bt ;
       raise exn
