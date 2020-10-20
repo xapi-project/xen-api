@@ -479,6 +479,7 @@ module Monitor = struct
                   (Db.Pool.get_ha_host_failures_to_tolerate ~__context
                      ~self:pool)
               in
+
               (* let planned_for = Int64.to_int (Db.Pool.get_ha_plan_exists_for ~__context ~self:pool) in *)
 
               (* First consider whether VM failover actions need to happen.
@@ -511,6 +512,7 @@ module Monitor = struct
                      %s"
                     (ExnHelper.string_of_exn e)
               ) ;
+
               (* At this point the hosts not in the liveset have been declared dead *)
 
               (* Next update the Host_metrics.live value to spot hosts coming back *)
@@ -1110,6 +1112,7 @@ let emergency_ha_disable __context soft =
 
 let ha_release_resources __context localhost =
   Monitor.stop () ;
+
   (* Why aren't we calling Xha_statefile.detach_existing_statefiles?
      Does Db.Pool.get_ha_statefiles return a different set of
      statefiles than Xha_statefile.list_existing_statefiles? *)

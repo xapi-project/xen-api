@@ -58,10 +58,9 @@ let upgrade_vm_memory_for_dmc () =
     (r.API.vM_memory_static_min <= r.API.vM_memory_static_max)
 
 let upgrade_bios () =
+  let tmp_filename = "/tmp/previousInventory" in
   let check inventory bios_strings =
-    Xapi_stdext_unix.Unixext.mkdir_safe "/var/tmp" 0o755 ;
-    Xapi_stdext_unix.Unixext.write_string_to_file "/var/tmp/.previousInventory"
-      inventory ;
+    Xapi_stdext_unix.Unixext.write_string_to_file tmp_filename inventory ;
     let __context = T.make_test_database () in
     X.upgrade_bios_strings.fn ~__context ;
     let _, vm_r = List.hd (Db.VM.get_all_records ~__context) in
@@ -71,7 +70,7 @@ let upgrade_bios () =
   check "OEM_MANUFACTURER=Dell" Constants.old_dell_bios_strings ;
   check "OEM_MANUFACTURER=HP" Constants.old_hp_bios_strings ;
   check "" Constants.generic_bios_strings ;
-  Xapi_stdext_unix.Unixext.unlink_safe "/var/tmp/.previousInventory"
+  Xapi_stdext_unix.Unixext.unlink_safe tmp_filename
 
 let update_snapshots () =
   let __context = T.make_test_database () in

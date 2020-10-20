@@ -1078,6 +1078,7 @@ let restart_auto_run_vms ~__context live_set n =
             List.rev_append (f inner) accum)
           [] lst
       in
+
       (* [map_parallel ~order_f f lst] groups objects in [lst] by order number
           (provided by applying [order_f] to each object). For each group of objects
           it then applies [f] to them to produce an 'a TaskChain.t and then executes this

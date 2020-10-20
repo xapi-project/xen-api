@@ -659,6 +659,7 @@ let create_host_cpu ~__context host_info =
                 (XenAPI.Message.create rpc session_id name priority `Host
                    obj_uuid body))
       ) ;
+
       (* Recreate all Host_cpu objects *)
 
       (* Not all /proc/cpuinfo files contain MHz information. *)

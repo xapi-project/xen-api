@@ -276,6 +276,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                 debug "Created process pid %s for cmd %s"
                   (Forkhelpers.string_of_pidty pid)
                   debug_cmd ;
+
                 (* Insert this delay to reproduce the cannot write to stdin bug:
                    Thread.delay 5.; *)
                 (* WARNING: we don't close the in_readme because otherwise in the case where the pbis
