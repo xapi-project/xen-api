@@ -2836,3 +2836,5 @@ let alert_failed_login_attempts () =
             ~obj_uuid:
               (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
             ~body:stats)
+
+let assert_can_enable_tls_verification ~__context = ()

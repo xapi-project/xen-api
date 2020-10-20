@@ -917,6 +917,11 @@ functor
       let rotate_secret ~__context =
         info "Pool.rotate_secret: pool = '%s'" (current_pool_uuid ~__context) ;
         Local.Pool.rotate_secret ~__context
+
+      let assert_can_enable_tls_verification ~__context =
+        info "Pool.assert_can_enable_tls_verification: pool = '%s'"
+          (current_pool_uuid ~__context) ;
+        Local.Pool.assert_can_enable_tls_verification ~__context
     end
 
     module VM = struct
