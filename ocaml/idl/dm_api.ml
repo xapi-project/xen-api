@@ -167,7 +167,7 @@ let map (field : field -> field) (message : message -> message)
 let map_api_fields (f: field -> field) ((system, relations) : api) : api =
   (map_field f system, relations)
 *)
-let make api = (api : api)
+let make api : api = api
 
 let check api emergency_calls =
   let truefn _ = true in
