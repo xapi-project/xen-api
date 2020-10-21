@@ -329,3 +329,5 @@ val remove_from_guest_agent_config :
 val rotate_secret : __context:Context.t -> unit
 
 val alert_failed_login_attempts : unit -> unit
+
+val assert_can_enable_tls_verification : __context:Context.t -> unit

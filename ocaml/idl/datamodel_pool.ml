@@ -497,6 +497,14 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let assert_can_enable_tls_verification = call
+      ~flags:[`Session]
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"assert_can_enable_tls_verification"
+      ~doc:"Check that TLS verification can be enabled"
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
   let enable_redo_log = call
       ~in_oss_since:None
       ~in_product_since:rel_midnight_ride
@@ -736,6 +744,7 @@ open Datamodel_types
         ; crl_uninstall
         ; crl_list
         ; certificate_sync
+        ; assert_can_enable_tls_verification
         ; enable_redo_log
         ; disable_redo_log
         ; audit_log_append

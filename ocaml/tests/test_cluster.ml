@@ -20,7 +20,8 @@ let test_clusterd_rpc ~__context call =
   let test_token = "test_token" in
   match (call.Rpc.name, call.Rpc.params) with
   | "create", _ ->
-      Rpc.{success= true; contents= Rpc.String test_token; is_notification= false}
+      Rpc.
+        {success= true; contents= Rpc.String test_token; is_notification= false}
   | ("enable" | "disable" | "destroy" | "leave"), _ ->
       Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | "diagnostics", _ ->
