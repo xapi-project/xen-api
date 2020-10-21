@@ -48,6 +48,7 @@
    domain-name
    ezxenstore.core
    gencertlib
+   ipaddr
    message-switch-unix
    mtime
    mtime.clock.os
