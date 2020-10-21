@@ -3435,29 +3435,25 @@ let set_memory_dynamic_range ~__context ~self min max =
       |> sync_with_task __context queue_name ;
       Events_from_xenopsd.wait queue_name dbg id ())
 
-let maybe_cleanup_vm ~__context ~self =
+let maybe_refresh_vm ~__context ~self =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
   let id = id_of_vm ~__context ~self in
   if vm_exists_in_xenopsd queue_name dbg id then (
-    warn "Stale VM detected in Xenopsd, flushing outstanding events" ;
+    info "VM detected in Xenopsd, flushing outstanding events" ;
     (* By calling with_events_suppressed we can guarentee that an refresh_vm
-       		 * will be called with events enabled and therefore we get Xenopsd into a
-       		 * consistent state with Xapi *)
-    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ()) ;
-    Xenopsd_metadata.delete ~__context id
+     * will be called with events enabled and therefore we get Xenopsd into a
+     * consistent state with Xapi *)
+    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
   )
 
 let start ~__context ~self paused force =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
-  let vm_id = id_of_vm ~__context ~self in
   transform_xenops_exn ~__context ~vm:self queue_name (fun () ->
-      maybe_cleanup_vm ~__context ~self ;
-      if vm_exists_in_xenopsd queue_name dbg vm_id then
-        raise (Xenopsd_error (Bad_power_state (Running, Halted))) ;
+      maybe_refresh_vm ~__context ~self ;
       (* For all devices which we want xenopsd to manage, set currently_attached = true
-         		   so the metadata is pushed. *)
+         so the metadata is pushed. *)
       let empty_vbds_allowed = Helpers.will_have_qemu ~__context ~self in
       let vbds =
         (* xenopsd only manages empty VBDs for HVM guests *)
@@ -3540,11 +3536,7 @@ let reboot ~__context ~self timeout =
       assert_resident_on ~__context ~self ;
       let id = id_of_vm ~__context ~self in
       let dbg = Context.string_of_task __context in
-      maybe_cleanup_vm ~__context ~self ;
-      (* If Xenopsd no longer knows about the VM after cleanup it was shutdown.
-         			   This also means our caches have been removed. *)
-      if not (vm_exists_in_xenopsd queue_name dbg id) then
-        raise (Xenopsd_error (Bad_power_state (Halted, Running))) ;
+      maybe_refresh_vm ~__context ~self ;
       (* Ensure we have the latest version of the VM metadata before the reboot *)
       Events_from_xapi.wait ~__context ~self ;
       info "xenops: VM.reboot %s" id ;
@@ -3683,9 +3675,7 @@ let resume ~__context ~self ~start_paused ~force =
   let queue_name = queue_of_vm ~__context ~self in
   let vm_id = id_of_vm ~__context ~self in
   transform_xenops_exn ~__context ~vm:self queue_name (fun () ->
-      maybe_cleanup_vm ~__context ~self ;
-      if vm_exists_in_xenopsd queue_name dbg vm_id then
-        raise (Xenopsd_error (Bad_power_state (Running, Suspended))) ;
+      maybe_refresh_vm ~__context ~self ;
       let vdi = Db.VM.get_suspend_VDI ~__context ~self in
       if vdi = Ref.null then (
         info "VM suspend VDI not found; Performing VM hard_shutdown" ;
