@@ -13,18 +13,18 @@
  *)
 open Idl
 
-module D = Debug.Make (struct
-  let name = "varstored-guard rpc"
-end)
+module D = Debug.Make (struct let name = "varstored-guard rpc" end)
 
 let wrap_rpc error f =
   let on_error e =
-    Debug.log_backtrace e Backtrace.empty;
-    D.warn "Got RPC exception %s" (Printexc.to_string e);
+    Debug.log_backtrace e Backtrace.empty ;
+    D.warn "Got RPC exception %s" (Printexc.to_string e) ;
     Lwt.return
     @@
     match error.Error.matcher e with
-    | Some r -> r |> Rpcmarshal.marshal error.Error.def.Rpc.Types.ty |> Rpc.failure
-    | None -> Rpc.failure Rpc.Null
+    | Some r ->
+        r |> Rpcmarshal.marshal error.Error.def.Rpc.Types.ty |> Rpc.failure
+    | None ->
+        Rpc.failure Rpc.Null
   in
   Lwt.catch f on_error

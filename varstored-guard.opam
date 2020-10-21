@@ -14,7 +14,7 @@ depends: [
   "xapi-idl"
   "xen-api-client-lwt"
 ]
-synopsis: "varstored-guard"
+synopsis: "Supervising daemon for varstored daemons"
 description: ""
 url {
   src: "https://github.com/xapi-project/varstored-guard/archive/master.tar.gz"
