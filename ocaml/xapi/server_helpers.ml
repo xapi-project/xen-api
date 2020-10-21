@@ -122,7 +122,8 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
   in
   Locking_helpers.Thread_state.with_named_thread
     (TaskHelper.get_name ~__context) (Context.get_task_id __context) (fun () ->
-      Debug.with_thread_associated
+      let client = Context.get_client __context in
+      Debug.with_thread_associated ?client
         (Context.string_of_task __context)
         (fun () ->
           (* CP-982: promote tracking debug line to info status *)

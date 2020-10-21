@@ -336,3 +336,8 @@ let get_test_rpc context = context.test_rpc
 let set_test_clusterd_rpc context rpc = context.test_clusterd_rpc <- Some rpc
 
 let get_test_clusterd_rpc context = context.test_clusterd_rpc
+
+let get_client context =
+  context.client
+  |> Option.map (fun (http, ip) ->
+         Printf.sprintf "%s %s" (string_of_http_t http) (Ipaddr.to_string ip))
