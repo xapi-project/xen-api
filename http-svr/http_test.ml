@@ -133,6 +133,47 @@ let test_url _ =
     let s = to_string u' in
     assert (s = "https://xapi.xen.org/services/SM/data?foo=bar")
   end
+
+let with_fd input f =
+  let read_fd, write_fd = Unix.pipe () in
+  let _:int = Unix.write write_fd (Bytes.of_string input) 0 (String.length input) in
+  Fun.protect ~finally:(fun () -> Unix.close read_fd ; Unix.close write_fd) (fun () -> f read_fd)
+
+let cross xs ys zs =
+  xs |> List.fold_left (fun acc x ->
+  ys |> List.fold_left (fun acc y ->
+  zs |> List.fold_left (fun acc z -> (x,y,z)::acc) acc) acc) []
+
+let test_read_http_request_header _ =
+  let proxy_str = "TCP6 ::ffff:10.71.152.135 ::ffff:10.71.152.134 53772 443" in
+  let header1 ="\
+POST / HTTP/1.0\r\n\
+content-length: 253\r\n\
+user-agent: xen-api-libs/1.0\r\n\
+connection: keep-alive\r\n\r\n"
+  in
+  let header2 ="\
+GET /rrd_updates?session_id=OpaqueRef%3A26930e89-5c3c-4f80-a578-8a5344281532&start=1601481300&cf=AVERAGE&interval=5&host=true HTTP/1.0\r\n\
+Host: 10.71.152.134\r\n\r\n"
+  in
+  let mk_header_string ~frame ~proxy ~header =
+    let b = Buffer.create 1024 in
+    if proxy then Buffer.add_string b (Printf.sprintf "PROXY %s\r\n" proxy_str);
+    if frame then Buffer.add_string b (Http.make_frame_header header);
+    Buffer.add_string b header ;
+    Buffer.to_bytes b |> Bytes.to_string
+  in
+  let test_cases = cross [true; false] [true; false] [header1; header2] in
+  assert (List.length test_cases = 8) ;
+  test_cases |> List.iter (fun (frame, proxy, header) ->
+    with_fd (mk_header_string ~frame ~proxy ~header) (fun fd ->
+      let actual_frame, actual_header, actual_proxy = Http.read_http_request_header fd in
+      assert (actual_frame = frame) ;
+      assert (actual_header = header) ;
+      assert (actual_proxy = if proxy then Some proxy_str else None)
+    )
+  )
+
 let _ =
   let suite = "HTTP test" >:::
               [
@@ -140,6 +181,7 @@ let _ =
                 "accept_complex" >:: test_accept_complex;
                 "radix1" >:: test_radix_tree1;
                 "radix2" >:: test_radix_tree2;
-                "test_url" >:: test_url
+                "test_url" >:: test_url;
+                "test_read_http_request_header" >:: test_read_http_request_header;
               ] in
   run_test_tt_main suite

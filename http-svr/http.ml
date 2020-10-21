@@ -277,11 +277,26 @@ let read_frame_header buf =
     Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x)
   with _ -> None
 
-let read_http_request_header buf fd =
-  Unixext.really_read fd buf 0 frame_header_length;
-  match read_frame_header buf with
-  | None -> read_up_to buf frame_header_length end_of_headers fd, false
-  | Some length -> Unixext.really_read fd buf 0 length; length, true
+let read_http_request_header fd =
+  let buf = Bytes.create 1024 in
+  Unixext.really_read fd buf 0 6;
+  (* return PROXY header if it exists, and then read up to FRAME header length (which also may not exist) *)
+  let proxy = match Bytes.sub_string buf 0 6 with
+  | "PROXY " ->
+    let proxy_header_length = read_up_to buf 6 "\r\n" fd in
+    (* chop 'PROXY ' from the beginning, and '\r\n' from the end *)
+    let proxy = Bytes.sub_string buf 6 (proxy_header_length -6 -2) in
+    Unixext.really_read fd buf 0 frame_header_length;
+    Some proxy
+  | _ -> Unixext.really_read fd buf 6 (frame_header_length - 6); None
+  in
+  let (frame, headers_length) = match read_frame_header buf with
+  | None -> false, read_up_to buf frame_header_length end_of_headers fd
+  | Some length ->
+    Unixext.really_read fd buf 0 length ;
+    true, length
+  in
+  frame, Bytes.sub_string buf 0 headers_length, proxy
 
 let read_http_response_header buf fd =
   Unixext.really_read fd buf 0 frame_header_length;
