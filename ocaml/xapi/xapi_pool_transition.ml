@@ -142,6 +142,7 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
   debug "Phase 2.1: telling everyone but me to commit" ;
   List.iter tell_host_to_commit peer_addresses ;
   if !hosts_which_failed = [] then set_role Pool_role.Master ;
+
   (* picked up as master on next boot *)
 
   (* If in manual mode then there is an existing master: we must wait for our connection

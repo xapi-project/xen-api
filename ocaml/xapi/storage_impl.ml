@@ -781,7 +781,7 @@ functor
         Impl.VDI.compose context ~dbg ~sr ~vdi1 ~vdi2
 
       let add_to_sm_config context ~dbg ~sr ~vdi ~key ~value =
-        info "VDI.add_to_other_config dbg:%s sr:%s vdi:%s key:%s valu:%s" dbg
+        info "VDI.add_to_sm_config dbg:%s sr:%s vdi:%s key:%s value:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi) key value ;
         Impl.VDI.add_to_sm_config context ~dbg ~sr ~vdi ~key ~value
 

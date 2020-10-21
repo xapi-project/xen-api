@@ -228,6 +228,7 @@ let test_xapi_restart () =
 
 let test_nested_virt_licensing () =
   let __context = make_test_database () in
+
   (* Nested_virt is restricted in the default test database *)
 
   (* List of plaform keys and whether they should be restricted when 'Nested_virt' is restricted.

@@ -1541,6 +1541,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
           (* we persist as much set up configuration now as we can *)
           Db.Host.set_external_auth_service_name ~__context ~self:host
             ~value:service_name ;
+
           (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
           (* filter out any one-time credentials such as the administrator password, so we *)
           (* should not call here 'host.set_external_auth_configuration ~config' *)
@@ -1548,10 +1549,12 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
           (* use the special 'named dispatcher' function to call an extauth plugin function even though we have *)
           (* not yet set up the external_auth_type value that will enable generic access to the extauth plugin. *)
           (Ext_auth.nd auth_type).on_enable config ;
+
           (* from this point on, we have successfully enabled the external authentication services. *)
 
           (* Up to this point, we cannot call external auth functions via extauth's generic dispatcher d(). *)
           Db.Host.set_external_auth_type ~__context ~self:host ~value:auth_type ;
+
           (* From this point on, anyone can call external auth functions via extauth.ml's generic dispatcher d(), which depends on the value of external_auth_type. *)
           (* This enables all functions to the external authentication and directory service that xapi makes available to the user, *)
           (* such as external login, subject id/info queries, group membership etc *)
@@ -1684,6 +1687,7 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
           host_name_label ;
         (* 2.1 if we are still trying to initialize the external auth service in the xapi.on_xapi_initialize thread, we should stop now *)
         Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
+
         (* succeeds because there's no need to initialize anymore *)
 
         (* 3. CP-703: we always revalidate all sessions after the external authentication has been disabled *)

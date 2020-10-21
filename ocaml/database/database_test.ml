@@ -710,6 +710,7 @@ functor
       if Client.read_field t "VM" "other_config" valid_ref <> "(('foo' 'bar'))"
       then
         failwith "process_structure_field expected (('foo' 'bar')) 4" ;
+
       (* Check that non-persistent fields are filled with an empty value *)
 
       (* Event tests *)
@@ -749,6 +750,7 @@ functor
         in
         Printf.printf "Created %d VBD records, %.2f calls/sec\n%!" n create_time ;
         let m = 300000 in
+
         (* multiple of 3 *)
 
         (* Time a benign VM create_row, delete_row, read_record sequence *)
