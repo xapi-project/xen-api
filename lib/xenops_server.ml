@@ -2514,9 +2514,24 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
   in
   one op
 
+and verify_power_state op =
+  let module B = (val get_backend () : S) in
+  let assert_power_state_is vm_id expected =
+    let power = (B.VM.get_state (VM_DB.read_exn vm_id)).Vm.power_state in
+    if not (List.mem power expected) then
+      let expected' = match expected with x :: _ -> x | [] -> failwith "Expectation missing" in
+      raise (Xenopsd_error (Bad_power_state (power, expected')))
+  in
+  match op with
+  | VM_start (id, _) -> assert_power_state_is id [Halted]
+  | VM_reboot (id, _) -> assert_power_state_is id [Running; Paused]
+  | VM_resume (id, _) -> assert_power_state_is id [Suspended]
+  | _ -> ()
+
 and perform ?subtask ?result (op : operation) (t : Xenops_task.task_handle) :
     unit =
   let one op =
+    verify_power_state op;
     try perform_exn ?subtask ?result op t
     with e ->
       Backtrace.is_important e ;
