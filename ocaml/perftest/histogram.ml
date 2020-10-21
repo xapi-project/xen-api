@@ -107,6 +107,7 @@ let _ =
               (List.assoc result max_point)
               1000
           in
+
           (* -- Apply the Weierstrass transform -- *)
 
           (* NB Each call to Hist.convolve (i.e. each VM timing measured) increases the total area under the curve by 1.

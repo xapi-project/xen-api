@@ -392,7 +392,7 @@ module Host_requires_reboot = struct
 end
 
 module Configuration = struct
-  let make_initiatorname_config iqn hostname =
+  let make_set_initiator_args iqn hostname =
     (* CA-18000: there is a 30 character limit to the initiator when talking to
        Dell MD3000i filers, so we limit the size of the initiator name in all cases *)
     let hostname_chopped =
@@ -401,14 +401,12 @@ module Configuration = struct
       else
         hostname
     in
-    Printf.sprintf "InitiatorName=%s\nInitiatorAlias=%s\n" iqn hostname_chopped
+    [iqn; hostname_chopped]
 
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
-    let config_file = make_initiatorname_config iqn hostname in
-    Unixext.write_string_to_file
-      !Xapi_globs.iscsi_initiator_config_file
-      config_file
+    let args = make_set_initiator_args iqn hostname in
+    ignore(Helpers.call_script !Xapi_globs.set_iSCSI_initiator_script args)
 
   let set_multipathing enabled =
     let flag = !Xapi_globs.multipathing_config_file in
@@ -422,7 +420,9 @@ module Configuration = struct
        the other_config watcher thread will make sure that these functions will
        be called again with the up to date values. *)
     let self = Helpers.get_localhost ~__context in
-    set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self) ;
+    (* when HA is enabled we expect this to fail because there will be an active session on XAPI
+     * startup, and similarly during a toolstack restart. *)
+    log_and_ignore_exn (fun () -> set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self));
     set_multipathing (Db.Host.get_multipathing ~__context ~self)
 
   let watch_other_configs ~__context delay =

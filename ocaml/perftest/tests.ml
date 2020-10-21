@@ -84,6 +84,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
   let vms_names_uuids =
     List.map (fun (vm, vmr) -> (vm, vmr.API.vM_name_label, vmr.API.vM_uuid)) vms
   in
+
   (* Manage a set of active tasks using the event system. This could be factored out into a more generic
      service if/when necessary *)
 
