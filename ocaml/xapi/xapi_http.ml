@@ -243,9 +243,9 @@ let bind inetaddr =
   let description =
     match inetaddr with
     | Unix.ADDR_INET (ip, port) ->
-        Printf.sprintf "INET %s:%d" (Unix.string_of_inet_addr ip) port
+        Printf.sprintf "%s:%d" (Unix.string_of_inet_addr ip) port
     | Unix.ADDR_UNIX path ->
-        Printf.sprintf "UNIX %s" path
+        Printf.sprintf "%s" path
   in
   (* Sometimes we see failures which we hope are transient. If this
      happens then we'll retry a couple of times before failing. *)
