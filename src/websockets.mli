@@ -12,35 +12,33 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Wsprotocol :
-  functor (IO : Iteratees.Monad) ->
-  sig
-    type 'a t = 'a Iteratees.Iteratee(IO).t
+module Wsprotocol : functor (IO : Iteratees.Monad) -> sig
+  type 'a t = 'a Iteratees.Iteratee(IO).t
 
-    (** Exposing the writer from the IO Iteratee *)
-    val writer : (string -> unit IO.t) -> string -> unit t
+  val writer : (string -> unit IO.t) -> string -> unit t
+  (** Exposing the writer from the IO Iteratee *)
 
-    (** enumeratee that base64 encodes individual chunks
+  val base64encode : 'a t -> 'a t t
+  (** enumeratee that base64 encodes individual chunks
         and passes them onto the sub-iteratee *)
-    val base64encode : 'a t -> 'a t t
 
-    (** enumeratee that base64 decodes individual chunks
+  val base64decode : 'a t -> 'a t t
+  (** enumeratee that base64 decodes individual chunks
         and passes them onto the sub-iteratee *)
-    val base64decode : 'a t -> 'a t t
 
-    (** enumeratee that websocket-encodes data and
+  val wsframe : 'a t -> 'a t t
+  (** enumeratee that websocket-encodes data and
         passes the encoded data to the sub-iteratee *)
-    val wsframe : 'a t -> 'a t t
 
-    (** enumeratee that old-style websocket-encodes data and
+  val wsframe_old : 'a t -> 'a t t
+  (** enumeratee that old-style websocket-encodes data and
         passes the encoded data to the sub-iteratee *)
-    val wsframe_old : 'a t -> 'a t t
 
-    (** enumeratee that websocket-decodes data and
+  val wsunframe : 'a t -> 'a t t
+  (** enumeratee that websocket-decodes data and
         passes the decoded data to the sub-iteratee *)
-    val wsunframe : 'a t -> 'a t t
 
-    (** enumeratee that old-style websocket-decodes data and
+  val wsunframe_old : 'a t -> 'a t t
+  (** enumeratee that old-style websocket-decodes data and
         passes the decoded data to the sub-iteratee *)
-    val wsunframe_old : 'a t -> 'a t t
-  end
+end

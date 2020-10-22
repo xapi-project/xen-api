@@ -18,32 +18,35 @@ type 'a t = 'a Iteratee(Lwt).t =
   | IE_done of 'a
   | IE_cont of err option * (stream -> ('a t * stream) Lwt.t)
 
-let (>>=) = Lwt.bind
+let ( >>= ) = Lwt.bind
 
 let really_write fd str =
   let len = String.length str in
   let rec inner written =
-    Lwt_unix.write fd (Bytes.unsafe_of_string str) written (len-written)
-    >>= (fun n ->
-        if n < (len-written) then inner (written+n) else Lwt.return ())
-  in inner 0
+    Lwt_unix.write fd (Bytes.unsafe_of_string str) written (len - written)
+    >>= fun n ->
+    if n < len - written then inner (written + n) else Lwt.return ()
+  in
+  inner 0
 
 let lwt_fd_enumerator fd =
   let blocksize = 1024 in
   let buf = Bytes.create blocksize in
   let get_str n =
-    if n=0
-    then (Eof None)
-    else (Chunk (Bytes.sub_string buf 0 n))
+    if n = 0 then
+      Eof None
+    else
+      Chunk (Bytes.sub_string buf 0 n)
   in
   let rec go = function
-    | IE_cont (None,x) ->
-      Lwt_unix.read fd buf 0 blocksize >>= fun n ->
-      x (get_str n)                    >>= fun x ->
-      Lwt.return (fst x)               >>= fun x ->
-      go x
-    | x -> Lwt.return x
-  in go
+    | IE_cont (None, x) ->
+        Lwt_unix.read fd buf 0 blocksize >>= fun n ->
+        x (get_str n) >>= fun x ->
+        Lwt.return (fst x) >>= fun x -> go x
+    | x ->
+        Lwt.return x
+  in
+  go
 
 let lwt_enumerator file iter =
   Lwt_unix.openfile file [Lwt_unix.O_RDONLY] 0o777 >>= fun fd ->
@@ -55,12 +58,11 @@ let with_fd fd ~callback =
   Lwt.finalize
     (fun () -> callback fd)
     (* The Lwt.catch below prevents errors on double close of the fd. *)
-    (fun () -> Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit))
+      (fun () ->
+      Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit))
 
 let with_open_connection_fd addr ~callback =
   let s = Lwt_unix.(socket (Unix.domain_of_sockaddr addr) SOCK_STREAM 0) in
   with_fd s ~callback:(fun fd ->
-        Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true;
-        Lwt_unix.connect fd addr >>= fun () ->
-        callback fd)
-
+      Lwt_unix.setsockopt fd Lwt_unix.SO_KEEPALIVE true ;
+      Lwt_unix.connect fd addr >>= fun () -> callback fd)

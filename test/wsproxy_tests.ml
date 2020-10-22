@@ -15,12 +15,6 @@
 open OUnit
 
 let tests =
-  "tests" >:::
-  [
-    Test_helpers.test;
-    Test_iteratees.test;
-    Test_websockets.test;
-  ]
+  "tests" >::: [Test_helpers.test; Test_iteratees.test; Test_websockets.test]
 
-let () =
-  ounit2_of_ounit1 tests |> OUnit2.run_test_tt_main;
+let () = ounit2_of_ounit1 tests |> OUnit2.run_test_tt_main
