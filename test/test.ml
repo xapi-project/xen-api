@@ -12,28 +12,26 @@
  * GNU Lesser General Public License for more details.
  *)
 
-
 module NoOpMonad = struct
   type 'a t = 'a
 
   let return a = a
+
   let bind x f = f x
 end
 
 module StringMonad = struct
-  type 'a t =
-    { data : 'a;
-      str : string }
-  let return a = { data=a; str=""; }
+  type 'a t = {data: 'a; str: string}
+
+  let return a = {data= a; str= ""}
+
   let bind x f =
     let newstr = f x.data in
-    {newstr with str = x.str ^ newstr.str}
+    {newstr with str= x.str ^ newstr.str}
 
-  let strwr x =
-    { data=(); str=x }
+  let strwr x = {data= (); str= x}
+
   let getstr x = x.str
+
   let getdata x = x.data
 end
-
-
-
