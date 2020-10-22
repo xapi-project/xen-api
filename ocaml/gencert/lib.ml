@@ -94,8 +94,9 @@ let validate_private_key pkcs8_private_key =
                    ~first:(String.length unknown_algorithm)
                    err_msg
                ] )
-         else
-           `Msg (server_certificate_key_invalid, []))
+         else (
+           D.info {|Failed to validate private key because "%s"|} err_msg ;
+           `Msg (server_certificate_key_invalid, [])))
   >>= ensure_key_length
 
 let validate_certificate kind pem now private_key =
@@ -133,7 +134,9 @@ let validate_certificate kind pem now private_key =
   match kind with
   | Leaf ->
       X509.Certificate.decode_pem raw_pem
-      |> R.reword_error (fun _ -> `Msg (server_certificate_invalid, []))
+      |> R.reword_error (fun (`Msg err_msg) ->
+          D.info {|Failed to validate certificate because "%s"|} err_msg ;
+          `Msg (server_certificate_invalid, []))
       >>= ensure_keys_match private_key
       >>= ensure_validity ~time:now
       >>= ensure_sha256_signature_algorithm
@@ -141,7 +144,11 @@ let validate_certificate kind pem now private_key =
       X509.Certificate.decode_pem_multiple raw_pem |> function
       | Ok (cert :: _) ->
           Ok cert
-      | _ ->
+      | Ok [] ->
+          D.info "Rejected certificate chain because it's empty." ;
+          Error (`Msg (server_certificate_chain_invalid, []))
+      | Error (`Msg err_msg) ->
+          D.info {|Failed to validate certificate chain because "%s"|} err_msg ;
           Error (`Msg (server_certificate_chain_invalid, []))
     )
 
