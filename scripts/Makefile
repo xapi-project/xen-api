@@ -64,6 +64,8 @@ install:
 	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
 	$(IDATA) xapi-init-complete.target $(DESTDIR)/usr/lib/systemd/system/xapi-init-complete.target
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
+	$(IDATA) wsproxy.service $(DESTDIR)/usr/lib/systemd/system/wsproxy.service
+	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
 	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
