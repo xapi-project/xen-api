@@ -51,6 +51,7 @@ type t = {
   ; origin: origin
   ; database: Db_ref.t
   ; dbg: string
+  ; client: (http_t * Ipaddr.t) option
   ; mutable test_rpc: (Rpc.call -> Rpc.response) option
   ; mutable test_clusterd_rpc: (Rpc.call -> Rpc.response) option
 }
@@ -101,6 +102,7 @@ let get_initial () =
   ; origin= Internal
   ; database= default_database ()
   ; dbg= "initial_task"
+  ; client= None
   ; test_rpc= None
   ; test_clusterd_rpc= None
   }
@@ -213,6 +215,7 @@ let make_dbg http_other_config task_name task_id =
 
 let from_forwarded_task ?(http_other_config = []) ?session_id
     ?(origin = Internal) task_id =
+  let client = _client_of_origin origin in
   let task_name =
     if Ref.is_dummy task_id then
       Ref.name_of_dummy task_id
@@ -231,6 +234,7 @@ let from_forwarded_task ?(http_other_config = []) ?session_id
   ; origin
   ; database= default_database ()
   ; dbg
+  ; client
   ; test_rpc= None
   ; test_clusterd_rpc= None
   }
@@ -239,6 +243,7 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
     ?(database = default_database ()) ?(task_in_database = false)
     ?task_description ?(origin = Internal) task_name =
   (* create a real or a dummy task *)
+  let client = _client_of_origin origin in
   let task_id, task_uuid =
     if task_in_database then
       !__make_task ~__context:(get_initial ()) ~http_other_config
@@ -274,9 +279,16 @@ let make ?(http_other_config = []) ?(quiet = false) ?subtask_of ?session_id
   ; origin
   ; forwarded_task= false
   ; dbg
+  ; client
   ; test_rpc= None
   ; test_clusterd_rpc= None
   }
+
+let make_subcontext ~__context ?task_in_database task_name =
+  let session_id = __context.session_id in
+  let subtask_of = __context.task_id in
+  let subcontext = make ~subtask_of ?session_id ?task_in_database task_name in
+  {subcontext with client= __context.client}
 
 let get_http_other_config http_req =
   let http_other_config_hdr = "x-http-other-config-" in
