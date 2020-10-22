@@ -385,7 +385,8 @@ let startup_script_hook = ref "xapi-startup-script"
 let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
 
 (* Sets IQN and restarts iSCSI daemon if required *)
-let set_iSCSI_initiator_script =  ref "/opt/xensource/libexec/set-iscsi-initiator"
+let set_iSCSI_initiator_script =
+  ref "/opt/xensource/libexec/set-iscsi-initiator"
 
 (* Executed during startup when the host is authed with AD
  * or the host is joining or leaving AD *)
@@ -1209,8 +1210,9 @@ module Resources = struct
     ; ( "openssl_path"
       , Constants.openssl_path
       , "Path for openssl command to generate RSA keys" )
-    ; ( "set-iscsi-initiator", set_iSCSI_initiator_script
-      , "Path to set-iscsi-initiator script")
+    ; ( "set-iscsi-initiator"
+      , set_iSCSI_initiator_script
+      , "Path to set-iscsi-initiator script" )
     ]
 
   let nonessential_executables =
