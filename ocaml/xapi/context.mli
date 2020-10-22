@@ -59,6 +59,8 @@ val from_forwarded_task :
   -> API.ref_task
   -> t
 
+val make_subcontext : __context:t -> ?task_in_database:bool -> string -> t
+
 (** {6 Accessors} *)
 
 val get_session_id : t -> API.ref_session

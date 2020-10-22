@@ -35,7 +35,6 @@ val exec_with_forwarded_task :
 val exec_with_subtask :
      __context:Context.t
   -> ?task_in_database:bool
-  -> ?task_description:string
   -> string
   -> (__context:Context.t -> 'b)
   -> 'b
