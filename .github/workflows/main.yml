@@ -53,7 +53,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.date }}
 
       - name: Use ocaml
-        uses: avsm/setup-ocaml@v1.1.0
+        uses: avsm/setup-ocaml@v1
         with:
           ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repository: ${{ steps.dotenv.outputs.repository }}
