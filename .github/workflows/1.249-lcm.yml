@@ -63,9 +63,10 @@ jobs:
 
       - name: Install dependencies
         run: |
-          opam upgrade
+          opam update
           opam pin add . --no-action
           opam depext -u ${{ env.package }}
+          opam upgrade
           opam install ${{ env.package }} --deps-only --with-test -v
 
       - name: Build

@@ -60,8 +60,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          opam update
           opam pin add . --no-action
           opam depext -u ${{ env.package }}
+          opam upgrade
           opam install ${{ env.package }} --deps-only --with-test -v
 
       - name: Build
@@ -73,3 +75,8 @@ jobs:
 
       - name: Run tests
         run: opam exec -- make test
+
+      - name: Uninstall unversioned packages
+        # This should purge them from the cache, unversioned package have
+        # 'master' as its version
+        run: opam list | awk -F " " '$2 == "master" { print $1 }' |  xargs opam uninstall
