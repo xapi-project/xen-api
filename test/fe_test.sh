@@ -15,4 +15,4 @@ trap cleanup EXIT
 for _ in $(seq 1 10); do
     test -S ${SOCKET} || sleep 1
 done
-./fe_test.exe 16
+echo "" | ./fe_test.exe 16
