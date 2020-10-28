@@ -84,11 +84,8 @@ let m = Mutex.create ()
 let create_nolock _ vm () =
   debug "Domain.create vm=%s" vm.Vm.id ;
   if DB.exists vm.Vm.id then (
-    let d = DB.read_exn vm.Vm.id in
-    if not d.Domain.suspended then (
-      debug "VM.create_nolock %s: Already_exists" vm.Vm.id ;
-      raise (Xenopsd_error (Already_exists ("domain", vm.Vm.id)))
-    )
+    debug "VM.create_nolock %s: Already_exists" vm.Vm.id ;
+    raise (Xenopsd_error (Already_exists ("domain", vm.Vm.id)))
   ) else
     let open Domain in
     let domain =
@@ -127,7 +124,7 @@ let get_state_nolock vm () =
     let d = DB.read_exn vm.Vm.id in
     {
       halted_vm with
-      Vm.power_state= if d.Domain.suspended then Suspended else Running
+      Vm.power_state= Running
     ; domids= [d.Domain.domid]
     ; vcpu_target= d.Domain.vcpus
     ; last_start_time= d.Domain.last_create_time
@@ -145,11 +142,7 @@ let get_domain_action_request_nolock vm () =
 let destroy_nolock vm () =
   debug "Domain.destroy vm=%s" vm.Vm.id ;
   (* Idempotent *)
-  if DB.exists vm.Vm.id then
-    let d = DB.read_exn vm.Vm.id in
-    (* Preserve the domain state if it has suspended *)
-    if not d.Domain.suspended then
-      DB.delete vm.Vm.id
+  if DB.exists vm.Vm.id then DB.delete vm.Vm.id
 
 let build_nolock vm _vbds _vifs _vgpus _vusbs _extras () =
   debug "Domain.build vm=%s" vm.Vm.id ;
@@ -189,7 +182,7 @@ let save_nolock vm _ _data _vgpu_data () =
   DB.write vm.Vm.id {(DB.read_exn vm.Vm.id) with Domain.suspended= true}
 
 let restore_nolock vm _vbds _vifs _data _vgpu_data _extras () =
-  DB.write vm.Vm.id {(DB.read_exn vm.Vm.id) with Domain.built= true; suspended= false}
+  DB.write vm.Vm.id {(DB.read_exn vm.Vm.id) with Domain.built= true}
 
 let do_pause_unpause_nolock vm paused () =
   let d = DB.read_exn vm.Vm.id in
