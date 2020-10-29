@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Run python tests
-        run: bash .travis-python-nosetests${{ matrix.test }}.sh
+        run: bash .github/python-nosetests${{ matrix.test }}.sh
 
   ocaml-test:
     name: Ocaml tests
