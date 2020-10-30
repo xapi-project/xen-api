@@ -12,7 +12,7 @@ val create : unit -> t
  * [close] when no longer needed.
  *)
 
-val close: t -> unit
+val close : t -> unit
 (** [close t] closes the file descriptor underlying [t] *)
 
 module Events : sig

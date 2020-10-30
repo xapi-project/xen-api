@@ -1792,10 +1792,11 @@ let soft_reset ~xc ~xs domid =
   xs.Xs.write (dom_path ^ "/console/port") (string_of_int console_port) ;
   Xenctrlext.domain_update_channels xc domid store_port console_port ;
   (* reset PV features and disengage balloon driver *)
-  List.iter (fun p -> log_exn_rm ~xs (dom_path ^ "/control/feature-" ^ p))
+  List.iter
+    (fun p -> log_exn_rm ~xs (dom_path ^ "/control/feature-" ^ p))
     ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"; "balloon"] ;
   log_exn_rm ~xs (dom_path ^ "/memory/target") ;
-  xs.Xs.write (dom_path ^ "/data/updated") "1";
+  xs.Xs.write (dom_path ^ "/data/updated") "1" ;
   unpause ~xc domid
 
 let vcpu_affinity_set ~xc domid vcpu cpumap =
