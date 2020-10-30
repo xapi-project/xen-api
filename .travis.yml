@@ -8,12 +8,8 @@ script:
   - wget https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env
   - . xs-opam-ci.env
   - bash -ex .travis-docker.sh
-  - bash .travis-python-nosetests.sh
 env:
   global:
     - PINS="xapi-xenopsd:. xapi-xenopsd-xc:. xapi-xenopsd-simulator:. xapi-xenopsd-cli:."
   jobs:
-    - PACKAGE="xapi-xenopsd"
-    - PACKAGE="xapi-xenopsd-cli"
-    - PACKAGE="xapi-xenopsd-simulator"
     - PACKAGE="xapi-xenopsd-xc"
