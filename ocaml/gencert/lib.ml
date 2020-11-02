@@ -23,14 +23,20 @@ let hostnames () =
   let hostname = Unix.gethostname () in
   let fqdns =
     Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
-    |> List.filter_map (fun addrinfo ->
-           match addrinfo.Unix.ai_canonname with
-           | "" ->
-               None
-           | name ->
-               Some name)
+    |> List.map (fun x -> x.Unix.ai_canonname)
   in
-  match fqdns with [] -> [hostname] | fqdns -> fqdns
+  hostname :: fqdns
+  |> List.filter_map (fun x ->
+         let x = Astring.String.trim x in
+         if
+           String.equal "" x
+           || String.equal "localhost" x
+           || Ipaddr.of_string x |> Stdlib.Result.is_ok
+         then
+           None
+         else
+           Some x)
+  |> Astring.String.uniquify
 
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
