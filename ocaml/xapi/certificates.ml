@@ -273,35 +273,19 @@ let pool_install kind ~__context ~name ~cert =
 let pool_uninstall kind ~__context ~name =
   host_uninstall kind ~name ; pool_sync ~__context
 
-let rec trim_cert = function
-  | x :: xs ->
-      if x = pem_certificate_header then
-        trim_cert' [x] xs
-      else
-        trim_cert xs
-  | [] ->
-      []
-
-and trim_cert' acc = function
-  | x :: xs ->
-      if x = pem_certificate_footer then
-        List.rev (x :: acc)
-      else
-        trim_cert' (x :: acc) xs
-  | [] ->
-      []
-
 (* Extracts the server certificate from the server certificate pem file.
    It strips the private key as well as the rest of the certificate chain. *)
 let get_server_certificate () =
-  try
-    String.concat "\n"
-      (trim_cert
-         (String.split_on_char '\n'
-            (Unixext.string_of_file !Xapi_globs.server_cert_path)))
-  with e ->
-    warn "Exception reading server certificate: %s" (ExnHelper.string_of_exn e) ;
-    raise_library_corrupt ()
+  match Gencertlib.Pem.parse_file !Xapi_globs.server_cert_path with
+  | Ok Gencertlib.Pem.{host_cert; _} ->
+      host_cert
+  | Error e ->
+      warn "Error parsing %s: %s" !Xapi_globs.server_cert_path e ;
+      raise_library_corrupt ()
+  | exception e ->
+      warn "Exception reading server certificate: %s"
+        (ExnHelper.string_of_exn e) ;
+      raise_library_corrupt ()
 
 open Rresult
 

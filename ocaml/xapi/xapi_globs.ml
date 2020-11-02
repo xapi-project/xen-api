@@ -385,7 +385,8 @@ let startup_script_hook = ref "xapi-startup-script"
 let rolling_upgrade_script_hook = ref "xapi-rolling-upgrade"
 
 (* Sets IQN and restarts iSCSI daemon if required *)
-let set_iSCSI_initiator_script =  ref "/opt/xensource/libexec/set-iscsi-initiator"
+let set_iSCSI_initiator_script =
+  ref "/opt/xensource/libexec/set-iscsi-initiator"
 
 (* Executed during startup when the host is authed with AD
  * or the host is joining or leaving AD *)
@@ -729,6 +730,8 @@ let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 
 (* Path to server ssl certificate *)
 let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
+
+let stunnel_cert_path = ref "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
 
 let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
@@ -1209,8 +1212,9 @@ module Resources = struct
     ; ( "openssl_path"
       , Constants.openssl_path
       , "Path for openssl command to generate RSA keys" )
-    ; ( "set-iscsi-initiator", set_iSCSI_initiator_script
-      , "Path to set-iscsi-initiator script")
+    ; ( "set-iscsi-initiator"
+      , set_iSCSI_initiator_script
+      , "Path to set-iscsi-initiator script" )
     ]
 
   let nonessential_executables =
@@ -1274,6 +1278,7 @@ module Resources = struct
     ; ("logconfig", log_config_file, "Configure the logging policy")
     ; ("cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info")
     ; ("server-cert-path", server_cert_path, "Path to server ssl certificate")
+    ; ("stunnel-cert-path", stunnel_cert_path, "Path to CA ssl certificate")
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
       , "Path to the initiatorname.iscsi file" )
