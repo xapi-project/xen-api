@@ -284,6 +284,8 @@ let _ =
     ~doc:"Cannot create a virtual GPU that is incompatible with the existing types on the VM." ();
   error Api_errors.vgpu_destination_incompatible ["reason"; "vgpu"; "host"]
     ~doc:"The VGPU is not compatible with any PGPU in the destination." ();
+  error Api_errors.vgpu_suspension_not_supported ["reason"; "vgpu"; "host"]
+    ~doc:"The VGPU configuration does not support suspension." ();
   error Api_errors.vgpu_guest_driver_limit ["reason"; "vm"; "host"]
     ~doc:"The guest driver does not support VGPU migration." ();
   error Api_errors.nvidia_tools_error ["host"]
