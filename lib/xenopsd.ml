@@ -66,6 +66,9 @@ let numa_placement = ref false
 (* This is for debugging only *)
 let numa_placement_strict = ref false
 
+(* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
+let vm_xenstore_ls_lR_quota = ref 128
+
 let options =
   [
     ( "queue"
@@ -169,6 +172,10 @@ let options =
     , (fun () -> string_of_bool !pci_quarantine)
     , "True if IOMMU contexts of PCI devices are needed to be placed in \
        quarantine" )
+  ; ( "vm-xenstore-ls-lR-quota"
+    , Arg.Set_int vm_xenstore_ls_lR_quota
+    , (fun () -> string_of_int !vm_xenstore_ls_lR_quota)
+    , "Maximum entries in VM xenstore trees watched by xenopsd" )
   ]
 
 let path () = Filename.concat !sockets_path "xenopsd"

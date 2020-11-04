@@ -2591,42 +2591,71 @@ module VM = struct
                      (Uuidm.to_string uuid))
               with Xs_protocol.Enoent _ -> ""
             in
-            let ls_l root dir =
+            let ls_l ~depth root dir =
               let entry = root ^ "/" ^ dir in
               let value_opt =
                 try Some (dir, xs.Xs.read entry) with _ -> None
               in
               let subdirs =
-                try
-                  xs.Xs.directory entry
-                  |> List.filter (fun x -> x <> "")
-                  |> map_tr (fun x -> dir ^ "/" ^ x)
-                with _ -> []
+                if depth < 0 then
+                  []
+                (* depth limit reached, at a depth of 0 we still read entries/values, but stop
+                 * descending into subdirs *)
+                else
+                  try
+                    xs.Xs.directory entry
+                    |> List.filter (fun x -> x <> "")
+                    |> map_tr (fun x -> dir ^ "/" ^ x)
+                  with _ -> []
               in
               (value_opt, subdirs)
             in
-            let rec ls_lR root acc dir =
-              let value_opt, subdirs = ls_l root dir in
-              let acc =
-                match value_opt with Some v -> v :: acc | None -> acc
-              in
-              List.fold_left (ls_lR root) acc subdirs
+            let rec ls_lR ?(depth = 512) root (quota, acc) dir =
+              if quota <= 0 then
+                (quota, acc) (* quota reached, stop listing/reading *)
+              else
+                let value_opt, subdirs = ls_l ~depth root dir in
+                let quota, acc =
+                  match value_opt with
+                  | Some v ->
+                      (quota - 1, v :: acc)
+                  | None ->
+                      (quota, acc)
+                in
+                let depth = depth - 1 in
+                List.fold_left (ls_lR ~depth root) (quota, acc) subdirs
             in
-            let guest_agent =
+            let quota = !Xenopsd.vm_xenstore_ls_lR_quota in
+            let quota, guest_agent =
               [
                 "drivers"; "attr"; "data"; "control"; "feature"; "xenserver/attr"
               ]
               |> List.fold_left
                    (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-                   []
-              |> map_tr (fun (k, v) -> (k, Xenops_utils.utf8_recode v))
+                   (quota, [])
+              |> fun (quota, acc) ->
+              (quota, map_tr (fun (k, v) -> (k, Xenops_utils.utf8_recode v)) acc)
             in
-            let xsdata_state =
+            let quota, xsdata_state =
               Domain.allowed_xsdata_prefixes
               |> List.fold_left
                    (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-                   []
+                   (quota, [])
             in
+            ( if quota <= 0 then
+                let path =
+                  Device_common.xenops_path_of_domain di.Xenctrl.domid
+                  ^ "/ls_lR_quota_reached"
+                in
+                try
+                  let (_ : string) = xs.Xs.read path in
+                  ()
+                with _ -> (
+                  debug "xenstore ls_lR quota reached for domid %d"
+                    di.Xenctrl.domid ;
+                  try xs.Xs.write path "t" with _ -> ()
+                )
+            ) ;
             let shadow_multiplier_target =
               if not di.Xenctrl.hvm_guest then
                 1.
