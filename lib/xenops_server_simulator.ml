@@ -127,7 +127,7 @@ let get_state_nolock vm () =
     let d = DB.read_exn vm.Vm.id in
     {
       halted_vm with
-      Vm.power_state= if d.Domain.suspended then Suspended else Running
+      Vm.power_state= (if d.Domain.suspended then Suspended else Running)
     ; domids= [d.Domain.domid]
     ; vcpu_target= d.Domain.vcpus
     ; last_start_time= d.Domain.last_create_time
@@ -189,7 +189,8 @@ let save_nolock vm _ _data _vgpu_data () =
   DB.write vm.Vm.id {(DB.read_exn vm.Vm.id) with Domain.suspended= true}
 
 let restore_nolock vm _vbds _vifs _data _vgpu_data _extras () =
-  DB.write vm.Vm.id {(DB.read_exn vm.Vm.id) with Domain.built= true; suspended= false}
+  DB.write vm.Vm.id
+    {(DB.read_exn vm.Vm.id) with Domain.built= true; suspended= false}
 
 let do_pause_unpause_nolock vm paused () =
   let d = DB.read_exn vm.Vm.id in

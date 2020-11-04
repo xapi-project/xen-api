@@ -605,7 +605,7 @@ let vm_test_suspend_resume _ =
       Client.VM.unpause dbg id |> wait_for_task |> success_task ;
       Client.VM.suspend dbg id (Local "/tmp/suspend-image")
       |> wait_for_task
-      |> success_task;
+      |> success_task ;
       Client.VM.resume dbg id (Local "/tmp/suspend-image")
       |> wait_for_task
       |> success_task ;
