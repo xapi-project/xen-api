@@ -2592,12 +2592,11 @@ module VM = struct
               with Xs_protocol.Enoent _ -> ""
             in
             let rec ls_lR root dir =
-              let this =
-                try [(dir, xs.Xs.read (root ^ "/" ^ dir))] with _ -> []
-              in
+              let entry = root ^ "/" ^ dir in
+              let this = try [(dir, xs.Xs.read entry)] with _ -> [] in
               let subdirs =
                 try
-                  xs.Xs.directory (root ^ "/" ^ dir)
+                  xs.Xs.directory entry
                   |> List.filter (fun x -> x <> "")
                   |> map_tr (fun x -> dir ^ "/" ^ x)
                 with _ -> []
