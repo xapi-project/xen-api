@@ -2591,9 +2591,9 @@ module VM = struct
                      (Uuidm.to_string uuid))
               with Xs_protocol.Enoent _ -> ""
             in
-            let rec ls_lR root dir =
+            let rec ls_lR root acc dir =
               let entry = root ^ "/" ^ dir in
-              let this = try [(dir, xs.Xs.read entry)] with _ -> [] in
+              let acc = try (dir, xs.Xs.read entry) :: acc with _ -> acc in
               let subdirs =
                 try
                   xs.Xs.directory entry
@@ -2601,22 +2601,22 @@ module VM = struct
                   |> map_tr (fun x -> dir ^ "/" ^ x)
                 with _ -> []
               in
-              this @ List.concat (map_tr (ls_lR root) subdirs)
+              List.fold_left (ls_lR root) acc subdirs
             in
             let guest_agent =
               [
                 "drivers"; "attr"; "data"; "control"; "feature"; "xenserver/attr"
               ]
-              |> map_tr
+              |> List.fold_left
                    (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-              |> List.concat
+                   []
               |> map_tr (fun (k, v) -> (k, Xenops_utils.utf8_recode v))
             in
             let xsdata_state =
               Domain.allowed_xsdata_prefixes
-              |> map_tr
+              |> List.fold_left
                    (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-              |> List.concat
+                   []
             in
             let shadow_multiplier_target =
               if not di.Xenctrl.hvm_guest then
