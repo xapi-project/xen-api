@@ -53,6 +53,7 @@
    gzip
    hex
    http-svr
+   ipaddr
    message-switch-core
    message-switch-unix
    mirage-crypto

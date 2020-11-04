@@ -1,0 +1,5 @@
+[Socket]
+ListenStream=/var/lib/xcp/websockproxy
+
+[Install]
+WantedBy=sockets.target

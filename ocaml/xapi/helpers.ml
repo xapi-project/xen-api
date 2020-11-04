@@ -1718,6 +1718,7 @@ end = struct
                 Printf.sprintf "TIMEOUTidle = %s" x
             )
           ; "debug = authpriv.5"
+          ; "protocol = proxy" (* tells stunnel to include inet address info *)
           ; ""
           ; "[xapi]"
           ; Printf.sprintf "accept = %s" accept
@@ -1836,7 +1837,7 @@ end = struct
     let use_script =
       try
         Unix.access !Xapi_globs.gen_pool_secret_script [Unix.X_OK] ;
-        true
+        Xapi_inventory.lookup ~default:"false" "CC_PREPARATIONS" |> bool_of_string
       with _ -> false
     in
     if use_script then

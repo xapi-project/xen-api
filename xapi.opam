@@ -22,6 +22,7 @@ depends: [
   "ezxenstore"
   "fmt" {with-test}
   "http-svr"
+  "ipaddr"
   "mirage-crypto" {with-test}
   "mirage-crypto-pk"
   "mirage-crypto-rng" {with-test}
