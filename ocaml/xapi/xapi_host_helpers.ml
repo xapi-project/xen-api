@@ -406,7 +406,7 @@ module Configuration = struct
   let set_initiator_name iqn =
     let hostname = Unix.gethostname () in
     let args = make_set_initiator_args iqn hostname in
-    ignore(Helpers.call_script !Xapi_globs.set_iSCSI_initiator_script args)
+    ignore (Helpers.call_script !Xapi_globs.set_iSCSI_initiator_script args)
 
   let set_multipathing enabled =
     let flag = !Xapi_globs.multipathing_config_file in
@@ -422,7 +422,8 @@ module Configuration = struct
     let self = Helpers.get_localhost ~__context in
     (* when HA is enabled we expect this to fail because there will be an active session on XAPI
      * startup, and similarly during a toolstack restart. *)
-    log_and_ignore_exn (fun () -> set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self));
+    log_and_ignore_exn (fun () ->
+        set_initiator_name (Db.Host.get_iscsi_iqn ~__context ~self)) ;
     set_multipathing (Db.Host.get_multipathing ~__context ~self)
 
   let watch_other_configs ~__context delay =

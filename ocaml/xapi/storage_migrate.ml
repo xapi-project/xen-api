@@ -1226,7 +1226,7 @@ let wrap ~dbg f =
   in
   let _ =
     Thread.create
-      (Debug.with_thread_associated dbg (fun () ->
+      (Debug.with_thread_associated ?client:None dbg (fun () ->
            Storage_task.run task ;
            signal (Storage_task.id_of_handle task)))
       ()
