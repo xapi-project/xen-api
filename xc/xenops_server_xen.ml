@@ -2628,10 +2628,19 @@ module VM = struct
             let quota = !Xenopsd.vm_xenstore_ls_lR_quota in
             let quota, guest_agent =
               [
-                "drivers"; "attr"; "data"; "control"; "feature"; "xenserver/attr"
+                ("drivers", 0)
+              ; ("attr", 3) (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr *)
+              ; ("data", 0)
+                (* in particular avoid data/volumes which contains many entries for each disk *)
+              ; ("control", 0)
+              ; ("feature/hotplug", 0)
+              ; ("xenserver/attr", 3) (* xenserver/attr/net-sriov-vf/0/ipv4/1 *)
               ]
               |> List.fold_left
-                   (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
+                   (fun acc (dir, depth) ->
+                     ls_lR ~depth
+                       (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)
+                       acc dir)
                    (quota, [])
               |> fun (quota, acc) ->
               (quota, map_tr (fun (k, v) -> (k, Xenops_utils.utf8_recode v)) acc)
