@@ -917,6 +917,17 @@ functor
       let rotate_secret ~__context =
         info "Pool.rotate_secret: pool = '%s'" (current_pool_uuid ~__context) ;
         Local.Pool.rotate_secret ~__context
+
+      let enable_tls_verification ~__context =
+        info "Pool.enable_tls_verification: pool = '%s'"
+          (current_pool_uuid ~__context) ;
+        let self = Helpers.get_pool ~__context in
+        let local_fn = Local.Pool.enable_tls_verification in
+        Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
+        Xapi_pool_helpers.get_master_slaves_list ~__context
+        |> List.iter (fun host ->
+               do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                   Client.Pool.enable_tls_verification rpc session_id))
     end
 
     module VM = struct

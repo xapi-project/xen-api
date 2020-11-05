@@ -415,6 +415,14 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.pool_certificate_sync
       ; flags= []
       } )
+  ; ( "pool-enable-tls-verification"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Enable TLS certificate verification"
+      ; implementation= No_fd Cli_operations.pool_enable_tls_verification
+      ; flags= []
+      } )
   ; ( "pool-set-vswitch-controller"
     , {
         reqd= ["address"]

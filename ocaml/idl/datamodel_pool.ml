@@ -497,6 +497,14 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let enable_tls_verification = call
+    ~flags:[`Session]
+    ~lifecycle:[Published, rel_next, ""]
+    ~name:"enable_tls_verification"
+    ~doc:"Enable TLS server certificate verification"
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   let enable_redo_log = call
       ~in_oss_since:None
       ~in_product_since:rel_midnight_ride
@@ -736,6 +744,7 @@ open Datamodel_types
         ; crl_uninstall
         ; crl_list
         ; certificate_sync
+        ; enable_tls_verification
         ; enable_redo_log
         ; disable_redo_log
         ; audit_log_append
@@ -795,5 +804,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
+         ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
          ])
       ()

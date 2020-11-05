@@ -1622,6 +1622,9 @@ let pool_disable_ssl_legacy printer rpc session_id params =
 let pool_rotate_secret printer rpc session_id _params =
   Client.Pool.rotate_secret rpc session_id
 
+let pool_enable_tls_verification printer rpc session_id _params =
+  Client.Pool.enable_tls_verification rpc session_id
+
 let vdi_type_of_string = function
   | "system" ->
       `system

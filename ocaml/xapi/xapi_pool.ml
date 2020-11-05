@@ -2837,3 +2837,6 @@ let alert_failed_login_attempts () =
             ~obj_uuid:
               (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
             ~body:stats)
+
+let enable_tls_verification ~__context =
+  Helpers.StunnelClient.set_verify_by_default true
