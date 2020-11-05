@@ -774,14 +774,22 @@ let listen_unix_socket sock_path =
   let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
   ignore (Http_svr.start Xapi_http.server domain_sock)
 
-let set_stunnel_timeout () =
-  try
-    let timeout =
-      int_of_string (Xapi_inventory.lookup Xapi_inventory._stunnel_idle_timeout)
-    in
-    debug "Setting stunnel timeout to %d" timeout ;
-    Stunnel.timeoutidle := Some timeout
-  with _ -> debug "Using default stunnel timeout (usually 43200)"
+let set_stunnel_params () =
+  ( try
+      let timeout =
+        int_of_string
+          (Xapi_inventory.lookup Xapi_inventory._stunnel_idle_timeout)
+      in
+      debug "Setting stunnel timeout to %d" timeout ;
+      Stunnel.timeoutidle := Some timeout
+    with _ -> debug "Using default stunnel timeout (usually 43200)"
+  ) ;
+  let tls_verification_enabled =
+    Localdb.get_with_default Constants.tls_verification_enabled "false"
+    |> bool_of_string
+  in
+  debug "tls_verification_enabled: %b" tls_verification_enabled ;
+  Stunnel.set_verify_tls_certs tls_verification_enabled
 
 let server_init () =
   let print_server_starting_message () =
@@ -923,7 +931,7 @@ let server_init () =
           [
             ("XAPI SERVER STARTING", [], print_server_starting_message)
           ; ("Parsing inventory file", [], Xapi_inventory.read_inventory)
-          ; ("Setting stunnel timeout", [], set_stunnel_timeout)
+          ; ("Setting stunnel params", [], set_stunnel_params)
           ; ("Initialising local database", [], init_local_database)
           ; ("Loading DHCP leases", [], Xapi_udhcpd.init)
           ; ( "Reading pool secret"
