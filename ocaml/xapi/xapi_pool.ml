@@ -2144,7 +2144,11 @@ let certificate_install ~__context ~name ~cert =
        3. modify the db record so it's a self-signed certificate
   *)
   if refs <> [] then
-    raise Api_errors.(Server_error (internal_error, [Printf.sprintf "certificate already exists with name '%s'" name])) ;
+    raise
+      Api_errors.(
+        Server_error
+          ( internal_error
+          , [Printf.sprintf "certificate already exists with name '%s'" name] )) ;
 
   let uuid =
     match Uuidm.of_string name with

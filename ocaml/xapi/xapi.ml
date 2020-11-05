@@ -510,6 +510,17 @@ let server_run_in_emergency_mode () =
   in
   wait_to_die () ; exit 0
 
+let update_certificates ~__context () =
+  match Certificates_sync.update ~__context with
+  | Ok () ->
+      ()
+  | Error (`Msg (msg, _)) ->
+      error "Failed to update host certificates: %s" msg ;
+      server_run_in_emergency_mode ()
+  | exception e ->
+      error "Failed to update host certificates: %s" (Printexc.to_string e) ;
+      server_run_in_emergency_mode ()
+
 (** Once the database is online we make sure our local ha.armed flag is in sync with the
     master's Pool.ha_enabled flag. *)
 let resynchronise_ha_state () =
@@ -978,6 +989,9 @@ let server_init () =
           ; ( "hi-level database upgrade"
             , [Startup.OnlyMaster]
             , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context )
+          ; ( "Update host certificate if changed"
+            , []
+            , update_certificates ~__context )
           ; ( "bringing up management interface"
             , []
             , bring_up_management_if ~__context )
