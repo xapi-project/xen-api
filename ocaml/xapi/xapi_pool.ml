@@ -2839,3 +2839,6 @@ let alert_failed_login_attempts () =
             ~body:stats)
 
 let assert_can_enable_tls_verification ~__context = ()
+
+let enable_tls_verification ~__context =
+  Localdb.put Constants.tls_verification_enabled "true"
