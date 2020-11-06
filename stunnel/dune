@@ -5,13 +5,11 @@
   (flags (:standard -w -37))
   (libraries astring
              forkexec
-             threads
-             fmt
-             ptime
-             logs.fmt
              safe-resources
+             uuidm
+             xapi-idl
+             xapi-inventory
              xapi-stdext-pervasives
              xapi-stdext-threads
-             xapi-stdext-unix
-             xapi-idl)
+             xapi-stdext-unix)
 )

@@ -10,8 +10,12 @@ available: [ os = "linux" ]
 depends: [
   "ocaml"
   "dune" {build}
+  "astring"
   "forkexec"
   "safe-resources"
+  "uuidm"
+  "xapi-idl"
+  "xapi-inventory"
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
