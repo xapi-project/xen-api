@@ -30,6 +30,7 @@ depends: [
   "rpclib"
   "rresult"
   "sexplib0"
+  "uuid"
   "uuidm"
   "xapi-backtrace"
   "xapi-idl"
