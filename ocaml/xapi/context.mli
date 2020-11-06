@@ -134,4 +134,6 @@ val get_test_clusterd_rpc : t -> (Rpc.call -> Rpc.response) option
 
 val get_client : t -> string option
 
+val get_client_ip : t -> string option
+
 val get_user_agent : t -> string option
