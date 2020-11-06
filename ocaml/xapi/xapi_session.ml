@@ -45,24 +45,27 @@ end = struct
       user_agent: string option
     ; uname: string option
     ; originator: string option
+    ; ip: string option
   }
 
   let client_of_info ~__context ~originator ~uname =
     let user_agent = Context.get_user_agent __context in
+    let ip = Context.get_client_ip __context in
     (* check to make sure we have at least _some_ information *)
     if
-      [user_agent; originator; uname]
+      [user_agent; originator; uname; ip]
       |> List.for_all (function None | Some "" -> true | _ -> false)
     then
       None
     else
-      Some {originator; uname; user_agent}
+      Some {originator; uname; user_agent; ip}
 
   let string_of_client x =
     [
       ("username", x.uname)
     ; ("originator", x.originator)
     ; ("useragent", x.user_agent)
+    ; ("ip", x.ip)
     ]
     |> List.filter_map (fun (label, value) ->
            match value with
