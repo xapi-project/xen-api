@@ -2611,7 +2611,7 @@ module VM = struct
               (value_opt, subdirs)
             in
             let rec ls_lR ?(depth = 512) root (quota, acc) dir =
-              if quota <= 0 then
+              if quota <= 0 || dir = "attr/os/hotfixes" then
                 (quota, acc) (* quota reached, stop listing/reading *)
               else
                 let value_opt, subdirs = ls_l ~depth root dir in
