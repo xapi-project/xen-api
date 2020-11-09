@@ -1645,7 +1645,7 @@ module Xenopsd_metadata = struct
             info "xenops: VM.import_metadata %s" txt ;
             maybe_persist_md ~__context ~self txt ;
             let module Client = (val make_client queue_name : XENOPS) in
-            let (_ : Vm.id) = Client.VM.import_metadata dbg txt in
+            let (_ : Task.id) = Client.VM.import_metadata_async dbg txt in
             ()
           ))
 end
