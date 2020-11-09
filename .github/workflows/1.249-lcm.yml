@@ -1,0 +1,80 @@
+name: Build and test (1.249-lcm)
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python-test:
+    name: Python tests
+    runs-on: ubuntu-20.04
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ["", "-3"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Run python tests
+        run: bash .github/python-nosetests${{ matrix.test }}.sh
+
+  ocaml-test:
+    name: Ocaml tests
+    runs-on: ubuntu-20.04
+    env:
+      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/stockholm/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.4
+
+      - name: Retrieve date for cache key (year-week)
+        id: cache-key
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y%W")"
+        shell: bash
+
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache@v2
+        with:
+          path: "~/.opam"
+          # invalidate cache every week, gets built using a scheduled job
+          key: ${{ steps.cache-key.outputs.date }}-1.249
+
+      - name: Use ocaml
+        uses: avsm/setup-ocaml@v1
+        with:
+          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repository: ${{ steps.dotenv.outputs.repository }}
+
+      - name: Install dependencies
+        run: |
+          opam update
+          opam pin add . --no-action
+          opam depext -u ${{ env.package }}
+          opam upgrade
+          opam install ${{ env.package }} --deps-only --with-test -v
+
+      - name: Build
+        run: |
+          opam exec -- ./configure
+          opam exec -- make
+        env:
+          XAPI_VERSION: "v1.249.0-${{ github.sha }}"
+
+      - name: Run tests
+        run: opam exec -- make test
+
+      - name: Avoid built packages to appear in the cache
+        # only packages in this repository follow a branch, the rest point
+        # to a tag
+        run: opam uninstall ${{ env.package }}
