@@ -1728,6 +1728,7 @@ end = struct
                 Printf.sprintf "TIMEOUTidle = %s" x
             )
           ; "debug = authpriv.5"
+          ; "protocol = proxy" (* tells stunnel to include inet address info *)
           ; ""
           ; "[xapi]"
           ; Printf.sprintf "accept = %s" accept

@@ -59,6 +59,8 @@ val from_forwarded_task :
   -> API.ref_task
   -> t
 
+val make_subcontext : __context:t -> ?task_in_database:bool -> string -> t
+
 (** {6 Accessors} *)
 
 val get_session_id : t -> API.ref_session
@@ -88,6 +90,8 @@ val database_of : t -> Db_ref.t
 val destroy : t -> unit
 
 (** {6 Auxiliary functions } *)
+
+val _client_of_rq : Http.Request.t -> Ipaddr.t option
 
 val is_unix_socket : Unix.file_descr -> bool
 (** [is_unix_socket fd] *)
@@ -127,3 +131,5 @@ val get_test_rpc : t -> (Rpc.call -> Rpc.response) option
 val set_test_clusterd_rpc : t -> (Rpc.call -> Rpc.response) -> unit
 
 val get_test_clusterd_rpc : t -> (Rpc.call -> Rpc.response) option
+
+val get_client : t -> string option
