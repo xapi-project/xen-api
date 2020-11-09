@@ -1434,6 +1434,17 @@ let host_query_ha = call ~flags:[`Session]
     ~result:(host_sched_gran, "The host's sched-gran")
     ()
 
+  let emergency_disable_tls_verification = call
+      ~flags:[`Session]
+      ~name:"emergency_disable_tls_verification"
+      ~lifecycle:[Published, rel_next, ""]
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[]
+      ~doc:"Disable TLS verification for this host only"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1560,6 +1571,7 @@ let host_query_ha = call ~flags:[`Session]
         cleanup_pool_secret;
         set_sched_gran;
         get_sched_gran;
+        emergency_disable_tls_verification;
       ]
       ~contents:
         ([ uid _host;

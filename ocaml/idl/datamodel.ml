@@ -5626,6 +5626,7 @@ let emergency_calls =
     (Datamodel_host.t,Datamodel_host.is_in_emergency_mode);
     (Datamodel_host.t,Datamodel_host.shutdown_agent);
     (Datamodel_host.t,Datamodel_host.emergency_reset_server_certificate);
+    (Datamodel_host.t,Datamodel_host.emergency_disable_tls_verification);
   ]
 
 (** Whitelist of calls that will not get forwarded from the slave to master via the unix domain socket *)

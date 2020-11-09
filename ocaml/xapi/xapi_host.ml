@@ -2452,3 +2452,12 @@ let get_sched_gran ~__context ~self =
     error "Failed to get sched-gran: %s" (Printexc.to_string e) ;
     raise
       Api_errors.(Server_error (internal_error, ["Failed to get sched-gran"]))
+
+let emergency_disable_tls_verification ~__context =
+  (* NB: this introduces a discrepancy between state.db and local.db, but
+     this should be fixable by executing Pool.enable_tls_verification again *)
+
+  (* disable verification for next xapi restart *)
+  Localdb.put Constants.tls_verification_enabled "false" ;
+  (* disable verification now *)
+  Stunnel.set_verify_tls_certs false

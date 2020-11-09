@@ -6602,6 +6602,9 @@ let host_emergency_ha_disable printer rpc session_id params =
 let host_emergency_reset_server_certificate printer rpc session_id params =
   Client.Host.emergency_reset_server_certificate ~rpc ~session_id
 
+let host_emergency_disable_tls_verification printer rpc session_id _params =
+  Client.Host.emergency_disable_tls_verification ~rpc ~session_id
+
 let host_reset_server_certificate printer rpc session_id params =
   ignore
     (do_host_op rpc session_id ~multiple:false
