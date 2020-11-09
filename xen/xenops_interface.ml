@@ -811,6 +811,13 @@ module XenopsAPI (R : RPC) = struct
         @-> Param.mk ~name:"metadata" Types.string
         @-> returning vm_id_p err
         )
+
+    let import_metadata_async =
+      declare "VM.import_metadata_async" []
+        (debug_info_p
+        @-> Param.mk ~name:"metadata" Types.string
+        @-> returning task_id_p err
+        )
   end
 
   module PCI = struct
