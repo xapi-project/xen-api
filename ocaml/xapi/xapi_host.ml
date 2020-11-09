@@ -2471,3 +2471,7 @@ let get_sched_gran ~__context ~self =
     error "Failed to get sched-gran: %s" (Printexc.to_string e) ;
     raise
       Api_errors.(Server_error (internal_error, ["Failed to get sched-gran"]))
+
+let emergency_disable_tls_verification ~__context =
+  (* NB: the tls-verification state on this host will no longer agree with state.db *)
+  Helpers.StunnelClient.set_verify_by_default false

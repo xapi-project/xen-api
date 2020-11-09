@@ -703,6 +703,16 @@ let rec cmdtable_data : (string * cmd_spec) list =
             Cli_operations.host_emergency_reset_server_certificate
       ; flags= [Neverforward]
       } )
+  ; ( "host-emergency-disable-tls-verification"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Disable TLS verification for this host only"
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_emergency_disable_tls_verification
+      ; flags= [Neverforward]
+      } )
   ; ( "host-reset-server-certificate"
     , {
         reqd= []
