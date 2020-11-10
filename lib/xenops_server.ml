@@ -127,6 +127,7 @@ type atomic =
       (** takes suspend data, plus optionally vGPU state data *)
   | VM_delay of (Vm.id * float)  (** used to suppress fast reboot loops *)
   | VM_rename of (Vm.id * Vm.id * rename_when)
+  | VM_import_metadata of (Vm.id * Metadata.t)
   | Parallel of Vm.id * string * atomic list
   | Best_effort of atomic
 [@@deriving rpcty]
@@ -1827,6 +1828,10 @@ let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
       fixup vusbs VUSB_DB.remove VUSB_DB.add
         (fun vusb -> vusb.Vusb.id)
         (fun id' vusb -> {vusb with Vusb.id= id'})
+  | VM_import_metadata (id, md) ->
+      debug "VM.import_metadata: overwriting VM metadata for VM: %s" id ;
+      let _ = import_metadata id md in
+      ()
   | PCI_plug (id, qmp_add_device) ->
       debug "PCI.plug %s" (PCI_DB.string_of_id id) ;
       let vm = PCI_DB.vm_of id in
@@ -2191,6 +2196,8 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_rename (id1, id2, _) ->
       immediate_operation dbg id1 (VM_check_state id1) ;
       immediate_operation dbg id2 (VM_check_state id2)
+  | VM_import_metadata _ ->
+      ()
 
 and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
     : unit =
@@ -3282,10 +3289,14 @@ module VM = struct
       (fun () ->
         let id, md = parse_metadata s in
         (* We allow a higher-level toolstack to replace the metadata of a
-           running VM. Any changes will take place on next reboot. *)
+           running VM. Any changes will take place on next reboot.
+           The metadata update will be queued so that ongoing operations
+           do not see unexpected state changes. *)
         if DB.exists id then
-          debug "Overwriting VM metadata for VM: %s" id ;
-        import_metadata id md)
+          let _ = queue_operation_and_wait dbg id (Atomic (VM_import_metadata (id, md))) in
+          id
+        else
+          import_metadata id md)
       ()
 
 end
