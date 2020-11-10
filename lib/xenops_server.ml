@@ -3299,6 +3299,9 @@ module VM = struct
           import_metadata id md)
       ()
 
+  let import_metadata_async _ dbg s =
+    let id, md = parse_metadata s in
+    queue_operation dbg id (Atomic (VM_import_metadata (id, md)))
 end
 
 module DEBUG = struct
@@ -3534,6 +3537,7 @@ let _ =
   Server.VM.s3resume (VM.s3resume ()) ;
   Server.VM.export_metadata (VM.export_metadata ()) ;
   Server.VM.import_metadata (VM.import_metadata ()) ;
+  Server.VM.import_metadata_async (VM.import_metadata_async ()) ;
   Server.VM.generate_state_string (VM.generate_state_string ()) ;
   Server.PCI.add (PCI.add ()) ;
   Server.PCI.remove (PCI.remove ()) ;
