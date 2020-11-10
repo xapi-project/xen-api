@@ -552,6 +552,22 @@ module Validation : sig
   (** [pp_chain_error ppf chain_error] pretty-prints the [chain_error]. *)
   val pp_chain_error : chain_error Fmt.t
 
+  val validate_signature :
+    [> `MD5 | `SHA1 | `SHA224 | `SHA256 | `SHA384 | `SHA512 ] list ->
+    Certificate.t ->
+    Certificate.t ->
+    (unit,
+     [> `Bad_pkcs1_signature of
+          Distinguished_name.t
+      | `Hash_not_whitelisted of
+          Distinguished_name.t *
+          [> `MD5 | `SHA1 | `SHA224 | `SHA256 | `SHA384 | `SHA512 ]
+      | `Unsupported_keytype of
+          Distinguished_name.t * Public_key.t])
+    result
+
+  val validate_path_len : int -> Certificate.t -> bool
+
   (** [verify_chain ~host ~time ~revoked ~hash_whitelist ~anchors chain] is
       [result], either [Ok] and the trust anchor used to verify the chain, or
       [Error] and the chain error.  RFC 5280 describes the implemented
