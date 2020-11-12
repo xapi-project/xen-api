@@ -33,21 +33,3 @@ val install_server_certificate :
      In the case validation fails or the file could not be written an error is
      returned, if the file was successfully written the leaf certificate is
      returned for further inspection, if needed. *)
-
-(** The following functions are exposed exclusively for unit-testing, please
-    do not use them directly, they are not stable *)
-
-type t_certificate = Leaf | Chain
-
-val validate_private_key :
-     string
-  -> ( [> `RSA of Mirage_crypto_pk.Rsa.priv]
-     , [> `Msg of string * string list] )
-     Result.result
-
-val validate_certificate :
-     t_certificate
-  -> string
-  -> Ptime.t
-  -> [> `RSA of Mirage_crypto_pk.Rsa.priv]
-  -> (X509.Certificate.t, [> `Msg of string * string list]) Rresult.result

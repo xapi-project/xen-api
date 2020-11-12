@@ -2,7 +2,7 @@
   (name gencertlib)
   (wrapped true)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
-  (modules lib selfcert pem)
+  (modules lib selfcert validation pem)
   (libraries
     angstrom
     astring
@@ -37,7 +37,7 @@
 (test
   (name test_lib)
   (package xapi)
-  (modules test_lib test_pem)
+  (modules test_lib test_pem test_validation)
   (libraries
     alcotest
     cstruct
