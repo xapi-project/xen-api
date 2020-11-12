@@ -151,8 +151,8 @@ let invalid_keys_tests =
       , Ok (test_invalid_key name error reason) ))
     invalid_private_keys
 
-let test_valid_cert ~kind cert time pkey =
-  match validate_certificate kind cert time pkey with
+let test_valid_cert cert time pkey =
+  match validate_server_certificate cert time pkey with
   | Ok _ ->
       ()
   | Error (`Msg (_, msg)) ->
@@ -161,8 +161,26 @@ let test_valid_cert ~kind cert time pkey =
            Fmt.(Dump.list string)
            msg
 
-let test_invalid_cert ~kind cert time pkey error reason =
-  match validate_certificate kind cert time pkey with
+let test_valid_cert_chain cert time =
+  match decode_certificate_chain cert with
+  | Ok _ ->
+      ()
+  | Error (`Msg (_, msg)) ->
+      Alcotest.fail
+      @@ Format.asprintf "Valid certificate could not be validated: %a"
+           Fmt.(Dump.list string)
+           msg
+
+let test_invalid_cert cert time pkey error reason =
+  match validate_server_certificate cert time pkey with
+  | Ok _ ->
+      Alcotest.fail "Invalid certificate was validated without errors"
+  | Error (`Msg msg) ->
+      Alcotest.(check @@ pair string @@ list string)
+        "Error must match" (error, reason) msg
+
+let test_invalid_cert_chain cert time error reason =
+  match decode_certificate_chain cert with
   | Ok _ ->
       Alcotest.fail "Invalid certificate was validated without errors"
   | Error (`Msg msg) ->
@@ -185,44 +203,42 @@ let sign_cert host_name ~pkey_sign digest pkey_leaf =
 let sign_leaf_cert host_name digest pkey_leaf =
   load_pkcs8 "pkey_rsa_4096" >>= fun pkey_sign ->
   sign_cert host_name ~pkey_sign digest pkey_leaf
-  >>| X509.Certificate.encode_pem
-  >>| Cstruct.to_string
 
 let valid_leaf_cert_tests =
-  let test_valid_leaf_cert cert time pkey () =
-    test_valid_cert ~kind:Leaf cert time pkey
-  in
+  let test_valid_leaf_cert cert time pkey () = test_valid_cert cert time pkey in
   List.map
     (fun (name, pkey_leaf_name, time, digest) ->
       let cert_test =
         load_pkcs8 pkey_leaf_name >>= fun pkey_leaf ->
         sign_leaf_cert host_name digest pkey_leaf >>| fun cert ->
-        test_valid_leaf_cert cert (time_of_rfc3339 time) pkey_leaf
+        let pem = X509.Certificate.encode_pem cert |> Cstruct.to_string in
+        test_valid_leaf_cert pem (time_of_rfc3339 time) pkey_leaf
       in
       ("Validation of a supported certificate: " ^ name, `Quick, cert_test))
     valid_leaf_certificates
 
 let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
-  let cert = load_test_data cert_name in
-  let time = time_of_rfc3339 time in
   let test_cert =
     load_pkcs8 pkey_name >>| fun pkey ->
-    let test () = test_invalid_cert ~kind:Leaf cert time pkey error reason in
+    let cert = load_test_data cert_name in
+    let test () =
+      test_invalid_cert cert (time_of_rfc3339 time) pkey error reason
+    in
     test
   in
   ("Validation of a corrupted certificate", `Quick, test_cert)
 
 let test_invalid_leaf_cert
     (name, pkey_leaf_name, pkey_expected_name, time, digest, error, reason) =
-  let test_invalid_leaf_cert cert time pkey error reason () =
-    test_invalid_cert ~kind:Leaf cert time pkey error reason
-  in
   let test_cert =
     load_pkcs8 pkey_leaf_name >>= fun pkey_leaf ->
     load_pkcs8 pkey_expected_name >>= fun pkey_expected ->
     sign_leaf_cert host_name digest pkey_leaf >>| fun cert ->
-    test_invalid_leaf_cert cert (time_of_rfc3339 time) pkey_expected error
-      reason
+    let pem = X509.Certificate.encode_pem cert |> Cstruct.to_string in
+    let test () =
+      test_invalid_cert pem (time_of_rfc3339 time) pkey_expected error reason
+    in
+    test
   in
   ("Validation of an unsupported certificate: " ^ name, `Quick, test_cert)
 
@@ -230,11 +246,10 @@ let invalid_leaf_cert_tests =
   List.map test_corrupt_leaf_cert corrupt_certificates
   @ List.map test_invalid_leaf_cert invalid_leaf_certificates
 
-let test_valid_cert_chain chain time pkey () =
-  test_valid_cert ~kind:Chain chain time pkey
+let test_valid_cert_chain chain time pkey () = test_valid_cert_chain chain time
 
 let test_invalid_cert_chain cert time pkey error reason () =
-  test_invalid_cert ~kind:Chain cert time pkey error reason
+  test_invalid_cert_chain cert time error reason
 
 let valid_chain_cert_tests =
   let time = time_of_rfc3339 "2020-02-01T00:00:00Z" in

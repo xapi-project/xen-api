@@ -1072,6 +1072,12 @@ let server_certificate_signature_not_supported =
 
 let server_certificate_chain_invalid = "SERVER_CERTIFICATE_CHAIN_INVALID"
 
+let server_certificate_intermediate_not_valid_yet =
+  "SERVER_CERTIFICATE_INTERMEDIATE_NOT_VALID_YET"
+
+let server_certificate_intermediate_expired =
+  "SERVER_CERTIFICATE_INTERMEDIATE_EXPIRED"
+
 let vmpp_has_vm = "VMPP_HAS_VM"
 
 let vmpp_archive_more_frequent_than_backup =

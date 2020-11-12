@@ -67,22 +67,32 @@ open Api_errors
 open Rresult
 open Validation
 
-type t_certificate = Leaf | Chain
-
 let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
-    ~server_cert_path =
+    ~server_cert_path ~ca_cert_bundle_path =
+  let ( let* ) = ( >>= ) in
+
   let now = Ptime_clock.now () in
-  validate_private_key pkcs8_private_key >>= fun priv ->
-  validate_certificate Leaf pem_leaf now priv >>= fun cert ->
-  Option.fold
-    ~none:(Ok [pkcs8_private_key; pem_leaf])
-    ~some:(fun pem_chain ->
-      validate_certificate Chain pem_chain now priv >>= fun _ignored ->
-      Ok [pkcs8_private_key; pem_leaf; pem_chain])
-    pem_chain
-  >>= fun server_cert_components ->
-  server_cert_components
-  |> String.concat "\n\n"
-  |> Selfcert.write_certs server_cert_path
-  |> R.reword_error (function `Msg msg -> `Msg (internal_error, [msg]))
-  >>= fun () -> R.ok cert
+  let pem_intermediates = Option.value ~default:"" pem_chain in
+  let* server, trust_roots =
+    validating_trust_anchors ~pem_leaf ~pkcs8_private_key ~pem_intermediates
+      ~time:now ~ca_cert_bundle_path
+  in
+
+  let root_fingerprints =
+    List.map
+      (X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256))
+      trust_roots
+  in
+
+  (* construct the PKCS12 file contents and write them to disk *)
+  let pem_chain_list = Option.fold ~none:[] ~some:(fun c -> [c]) pem_chain in
+  let server_cert_components =
+    pkcs8_private_key :: pem_leaf :: pem_chain_list
+  in
+  let* () =
+    server_cert_components
+    |> String.concat "\n\n"
+    |> Selfcert.write_certs server_cert_path
+    |> R.reword_error (function `Msg msg -> `Msg (internal_error, [msg]))
+  in
+  Ok (server, root_fingerprints)

@@ -297,12 +297,13 @@ let hostnames_of_pem_cert pem =
 let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
     =
   let server_cert_path = !Xapi_globs.server_cert_path in
+  let ca_cert_bundle_path = !Xapi_globs.stunnel_cert_path in
   let installation =
     Gencertlib.Lib.install_server_certificate ~pem_chain ~pem_leaf
-      ~pkcs8_private_key ~server_cert_path
+      ~pkcs8_private_key ~ca_cert_bundle_path ~server_cert_path
   in
   match installation with
-  | Ok cert ->
-      cert
+  | Ok (leaf_cert, thumbprints) ->
+      leaf_cert
   | Error (`Msg (err, msg)) ->
       raise_server_error msg err
