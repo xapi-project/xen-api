@@ -35,9 +35,9 @@ module Xenops_record = struct
   type t = {
       time: string
     ; word_size: int
-    ; (* All additional fields below should use the sexp_option extension *)
-      vm_str: string sexp_option
-    ; xs_subtree: (string * string) list sexp_option
+    ; (* All additional fields below should use the [@sexp.option] extension *)
+      vm_str: string option [@sexp.option]
+    ; xs_subtree: (string * string) list option [@sexp.option]
   }
   [@@deriving sexp]
 
