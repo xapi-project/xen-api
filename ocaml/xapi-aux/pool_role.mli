@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = Master | Slave of string  (** IP address *) | Broken
+type t = Master | Slave of string  (** IP address or FQDN *) | Broken
 
 val with_pool_role_lock : (unit -> unit) -> unit
 
@@ -41,4 +41,5 @@ exception This_host_is_a_master
 exception This_host_is_broken
 
 val get_master_address : unit -> string
-(** If this node is a slave, returns the IP address of its master *)
+
+(** If this node is a slave, returns the address of its master. *)

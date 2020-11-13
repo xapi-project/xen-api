@@ -221,7 +221,12 @@ let check_no_other_masters () =
         try
           if not (Xapi_host.ask_host_if_it_is_a_slave ~__context ~host:href)
           then (
-            let master_address = Db.Host.get_address ~self:href ~__context in
+            let master_address =
+              Db.Host.get_hostname ~self:href ~__context
+              |> Gencertlib.Lib.fqdn_of_hostname
+              |> Option.value
+                   ~default:(Db.Host.get_address ~self:href ~__context)
+            in
             error
               "Detected another master in my database of known hosts. Aborting \
                xapi startup and restarting as slave of host '%s' (%s)"
@@ -558,6 +563,33 @@ let resynchronise_ha_state () =
     (* Critical that we don't continue as a master and use shared resources *)
     error "Caught exception resynchronising state of HA system: %s"
       (ExnHelper.string_of_exn e)
+
+let maybe_set_fqdn_in_pool_conf () =
+  let open Pool_role in
+  match get_role () with
+  | Slave persisted_master_address ->
+      Server_helpers.exec_with_new_task "Set fqdn in pool.conf"
+        (fun __context ->
+          let master_hostname =
+            Helpers.get_master ~__context |> fun self ->
+            Db.Host.get_hostname ~__context ~self
+          in
+          match Gencertlib.Lib.fqdn_of_hostname master_hostname with
+          | Some master_fqdn ->
+              if persisted_master_address <> master_fqdn then (
+                D.info
+                  "set_fqdn_in_pool_conf: updating pool.conf with master_fqdn: \
+                   %s"
+                  master_fqdn ;
+                Slave master_fqdn |> Xapi_pool_transition.set_role
+              ) else
+                D.info "set_fqdn_in_pool_conf: not modifying pool.conf"
+          | None ->
+              D.error
+                "set_fqdn_in_pool_conf: failed to get fqdn of the master '%s'"
+                master_hostname)
+  | _ ->
+      ()
 
 (** Reset the networking-related metadata for this host if the command [xe-reset-networking]
  *  was executed before the restart. *)
@@ -1066,7 +1098,10 @@ let server_init () =
       (fun __context ->
         Startup.run ~__context
           [
-            ("Checking emergency network reset", [], check_network_reset)
+            ( "Maybe set fqdn in pool.conf"
+            , [Startup.OnlySlave]
+            , maybe_set_fqdn_in_pool_conf )
+          ; ("Checking emergency network reset", [], check_network_reset)
           ; ( "Upgrade bonds to Boston"
             , [Startup.NoExnRaising]
             , Sync_networking.fix_bonds ~__context )
