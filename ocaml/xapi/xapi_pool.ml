@@ -1345,12 +1345,15 @@ let emergency_reset_master ~__context ~master_address =
 
 let recover_slaves ~__context =
   let hosts = Db.Host.get_all ~__context in
+  let self = !Xapi_globs.localhost_ref in
   let my_address =
-    Db.Host.get_address ~__context ~self:!Xapi_globs.localhost_ref
+    Db.Host.get_hostname ~__context ~self
+    |> Gencertlib.Lib.fqdn_of_hostname
+    |> Option.value ~default:(Db.Host.get_address ~__context ~self)
   in
   let recovered_hosts = ref [] in
   let recover_slave hostref =
-    if not (hostref = !Xapi_globs.localhost_ref) then
+    if not (hostref = self) then
       try
         let local_fn = emergency_reset_master ~master_address:my_address in
         (* We have to use a new context here because the slave is currently doing a

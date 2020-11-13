@@ -1021,7 +1021,7 @@ let is_valid_MAC mac =
          acc && String.length s = 2 && validchar s.[0] && validchar s.[1])
        true l
 
-(** Returns true if the supplied IP address looks like one of mine *)
+(** Returns true if the supplied address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
   let inet_addrs =
@@ -1029,7 +1029,12 @@ let this_is_my_address ~__context address =
       (Xapi_inventory.lookup Xapi_inventory._management_interface)
   in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
-  List.mem address addresses
+  let other_names =
+    let hostname = Unix.gethostname () in
+    let fqdns = Gencertlib.Lib.fqdns_of_hostname hostname in
+    hostname :: fqdns
+  in
+  List.mem address (List.append addresses other_names)
 
 (** Returns the list of hosts thought to be live *)
 let get_live_hosts ~__context =
