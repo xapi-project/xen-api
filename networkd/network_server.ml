@@ -666,16 +666,16 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    (* We only apply the DNS settings when in static IPv4 mode
-                       to avoid conflicts with DHCP mode. * The `dns` field
+                    (* We only apply the DNS settings when not in a DHCP mode
+                       to avoid conflicts. * The `dns` field
                        should really be an option type so that we don't have to
                        derive the intention * of the caller by looking at other
                        fields. *)
-                    match ipv4_conf with
-                    | Static4 _ ->
-                        set_dns () dbg ~name ~nameservers ~domains
-                    | _ ->
-                        ()) ;
+                    match (ipv4_conf, ipv6_conf) with
+                    | (Static4 _, _)
+                    | (_, Static6 _)
+                    | (_, Autoconf6) -> set_dns () dbg ~name ~nameservers ~domains
+                    | _ -> ());
                 exec (fun () -> set_ipv4_conf dbg name ipv4_conf) ;
                 exec (fun () ->
                     match ipv4_gateway with
