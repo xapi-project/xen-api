@@ -91,11 +91,16 @@ def failure_message(code, params):
 
 
 def parse_control_package(session, yum_url):
-    if yum_url.startswith('http://'):
-        update_xml = urllib2.urlopen(yum_url + '/update.xml').read()
-        xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
-    else:
-        raise PrecheckFailure('Incorrect yum repo')
+    if not yum_url.startswith('http://'):
+        raise PrecheckFailure('Incorrect yum repo: %s' % yum_url)
+
+    update_xml_url = yum_url + '/update.xml'
+    try:
+        update_xml = urllib2.urlopen(update_xml_url).read()
+    except:
+        raise PrecheckFailure("Couldn't fetch update.xml from '%s'" % update_xml_url)
+    xmldoc = xml.dom.minidom.parse(StringIO.StringIO(update_xml))
+
     items = xmldoc.getElementsByTagName('update')
     if not items:
         raise PrecheckFailure('Missing <update> in update.xml')

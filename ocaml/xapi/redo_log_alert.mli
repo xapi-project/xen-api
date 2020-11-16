@@ -15,7 +15,7 @@
  * @group Redo-log
 *)
 
+val loop : unit -> unit
 (** Runs forever waiting for the redo log's status to change i.e. for
     	it to fail or to recover, generating alerts on transitions if
     Pool.other_config:metadata_lun_alerts is set to "true" *)
-val loop: unit -> unit

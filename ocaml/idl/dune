@@ -27,7 +27,6 @@
    xapi-consts
    xapi-database
    xapi-stdext-date
-   xapi-stdext-monadic
    xapi-stdext-std
    xapi-stdext-unix
   )

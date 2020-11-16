@@ -13,23 +13,31 @@
  *)
 
 module Stubs = struct
-    external getpwd :   string -> string          = "caml_unixpwd_getpwd"
-    external getspw :   string -> string          = "caml_unixpwd_getspw"
-    external get    :   string -> string          = "caml_unixpwd_get"
-    external setpwd :   string -> string -> unit  = "caml_unixpwd_setpwd"
-    external setspw :   string -> string -> unit  = "caml_unixpwd_setspw"
-    external unshadow : unit   -> string          = "caml_unixpwd_unshadow"
+  external getpwd : string -> string = "caml_unixpwd_getpwd"
+
+  external getspw : string -> string = "caml_unixpwd_getspw"
+
+  external get : string -> string = "caml_unixpwd_get"
+
+  external setpwd : string -> string -> unit = "caml_unixpwd_setpwd"
+
+  external setspw : string -> string -> unit = "caml_unixpwd_setspw"
+
+  external unshadow : unit -> string = "caml_unixpwd_unshadow"
 end
 
 exception Error of string
 
 let wrap f = try f () with Failure msg -> raise (Error msg)
 
-let getpwd user     = wrap (fun () -> Stubs.getpwd user)
-let getspw user     = wrap (fun () -> Stubs.getspw user)
-let get    user     = wrap (fun () -> Stubs.get    user)
+let getpwd user = wrap (fun () -> Stubs.getpwd user)
+
+let getspw user = wrap (fun () -> Stubs.getspw user)
+
+let get user = wrap (fun () -> Stubs.get user)
 
 let setpwd user pwd = wrap (fun () -> Stubs.setpwd user pwd)
+
 let setspw user pwd = wrap (fun () -> Stubs.setspw user pwd)
 
-let unshadow ()     = wrap Stubs.unshadow
+let unshadow () = wrap Stubs.unshadow

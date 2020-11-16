@@ -14,16 +14,15 @@
 
 val db_FLUSH_TIMER : float
 
-(** A setter for the master database. Only used by the unit testing code. *)
 val __test_set_master_database : Db_cache_types.Database.t -> unit
+(** A setter for the master database. Only used by the unit testing code. *)
 
 val make : unit -> Db_ref.t
 
 val blow_away_non_persistent_fields :
   Schema.t -> Db_cache_types.Database.t -> Db_cache_types.Database.t
 
-val create_registered_session :
-  (unit -> string) -> Db_ref.t -> string
+val create_registered_session : (unit -> string) -> Db_ref.t -> string
 
 val unregister_session : string -> unit
 

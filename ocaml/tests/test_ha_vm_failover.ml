@@ -12,52 +12,47 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Stdext
 open Test_common
 open Test_highlevel
 
 let ( *** ) = Int64.mul
+
 let kib x = 1024L *** x
+
 let mib x = x |> kib |> kib
+
 let gib x = x |> kib |> kib |> kib
 
-type vbd = {
-  agile : bool;
-}
+type vbd = {agile: bool}
 
-type vif = {
-  agile : bool;
-}
+type vif = {agile: bool}
 
 type vm = {
-  ha_always_run : bool;
-  ha_restart_priority : string;
-  memory : int64;
-  name_label : string;
-  vbds : vbd list;
-  vifs : vif list;
+    ha_always_run: bool
+  ; ha_restart_priority: string
+  ; memory: int64
+  ; name_label: string
+  ; vbds: vbd list
+  ; vifs: vif list
 }
 
-let basic_vm = {
-  ha_always_run = true;
-  ha_restart_priority = "restart";
-  memory = gib 1L;
-  name_label = "vm";
-  vbds = [{agile = true}];
-  vifs = [{agile = true}];
-}
+let basic_vm =
+  {
+    ha_always_run= true
+  ; ha_restart_priority= "restart"
+  ; memory= gib 1L
+  ; name_label= "vm"
+  ; vbds= [{agile= true}]
+  ; vifs= [{agile= true}]
+  }
 
-type host = {
-  memory_total : int64;
-  name_label : string;
-  vms : vm list;
-}
+type host = {memory_total: int64; name_label: string; vms: vm list}
 
 type pool = {
-  master: host;
-  slaves: host list;
-  ha_host_failures_to_tolerate: int64;
-  cluster: int;
+    master: host
+  ; slaves: host list
+  ; ha_host_failures_to_tolerate: int64
+  ; cluster: int
 }
 
 let string_of_vm {memory; name_label} =
@@ -70,53 +65,50 @@ let string_of_host {memory_total; name_label; vms} =
 
 let string_of_pool {master; slaves; ha_host_failures_to_tolerate; cluster} =
   Printf.sprintf
-    "{master = %s; slaves = %s; ha_host_failures_to_tolerate = %Ld; cluster = %d}"
+    "{master = %s; slaves = %s; ha_host_failures_to_tolerate = %Ld; cluster = \
+     %d}"
     (string_of_host master)
     (Test_printers.list string_of_host slaves)
-    ha_host_failures_to_tolerate
-    cluster
+    ha_host_failures_to_tolerate cluster
 
-let load_vm ~__context ~(vm:vm) ~local_sr ~shared_sr ~local_net ~shared_net =
-  let vm_ref = make_vm ~__context
-      ~ha_always_run:vm.ha_always_run
-      ~ha_restart_priority:vm.ha_restart_priority
-      ~memory_static_min:vm.memory
-      ~memory_dynamic_min:vm.memory
-      ~memory_dynamic_max:vm.memory
-      ~memory_static_max:vm.memory
-      ~name_label:vm.name_label ()
+let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
+  let vm_ref =
+    make_vm ~__context ~ha_always_run:vm.ha_always_run
+      ~ha_restart_priority:vm.ha_restart_priority ~memory_static_min:vm.memory
+      ~memory_dynamic_min:vm.memory ~memory_dynamic_max:vm.memory
+      ~memory_static_max:vm.memory ~name_label:vm.name_label ()
   in
   let (_ : API.ref_VIF list) =
     List.mapi
-      (fun index (vif:vif) ->
-         make_vif ~__context ~device:(string_of_int index) ~vM:vm_ref
-           ~network:(if vif.agile then shared_net else local_net) ())
+      (fun index (vif : vif) ->
+        make_vif ~__context ~device:(string_of_int index) ~vM:vm_ref
+          ~network:(if vif.agile then shared_net else local_net)
+          ())
       vm.vifs
   in
   let (_ : API.ref_VBD list) =
     List.mapi
-      (fun index (vbd:vbd) ->
-         let vdi_ref =
-           make_vdi ~__context ~sR:(if vbd.agile then shared_sr else local_sr) ()
-         in
-         make_vbd ~__context ~device:(string_of_int index) ~vM:vm_ref
-           ~vDI:vdi_ref ())
+      (fun index (vbd : vbd) ->
+        let vdi_ref =
+          make_vdi ~__context ~sR:(if vbd.agile then shared_sr else local_sr) ()
+        in
+        make_vbd ~__context ~device:(string_of_int index) ~vM:vm_ref
+          ~vDI:vdi_ref ())
       vm.vbds
   in
   vm_ref
 
 let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
   let host_ref = make_host ~__context ~name_label:host.name_label () in
-  Db.Host.set_enabled ~__context ~self:host_ref ~value:true;
+  Db.Host.set_enabled ~__context ~self:host_ref ~value:true ;
   let metrics = Db.Host.get_metrics ~__context ~self:host_ref in
-  Db.Host_metrics.set_live ~__context ~self:metrics ~value:true;
-  Db.Host_metrics.set_memory_total ~__context
-    ~self:metrics ~value:host.memory_total;
-
+  Db.Host_metrics.set_live ~__context ~self:metrics ~value:true ;
+  Db.Host_metrics.set_memory_total ~__context ~self:metrics
+    ~value:host.memory_total ;
   let (_ : API.ref_VM list) =
     List.map
       (fun vm ->
-         load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net)
+        load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net)
       host.vms
   in
   host_ref
@@ -125,143 +117,156 @@ let setup ~__context {master; slaves; ha_host_failures_to_tolerate; cluster} =
   let shared_sr = make_sr ~__context ~shared:true () in
   let shared_net = make_network ~__context ~bridge:"xenbr0" () in
   (* Remove all hosts added by make_test_database *)
-  List.iter (fun host -> Db.Host.destroy ~__context ~self:host) (Db.Host.get_all ~__context);
-
+  List.iter
+    (fun host -> Db.Host.destroy ~__context ~self:host)
+    (Db.Host.get_all ~__context) ;
   let load_host_and_local_resources host =
     let local_sr = make_sr ~__context ~shared:false () in
     let local_net = make_network ~__context ~bridge:"xapi0" () in
-
     let host_ref =
-      load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net in
-
+      load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net
+    in
     let (_ : API.ref_PBD) =
-      make_pbd ~__context ~host:host_ref ~sR:local_sr () in
+      make_pbd ~__context ~host:host_ref ~sR:local_sr ()
+    in
     let (_ : API.ref_PBD) =
-      make_pbd ~__context ~host:host_ref ~sR:shared_sr () in
-
+      make_pbd ~__context ~host:host_ref ~sR:shared_sr ()
+    in
     let (_ : API.ref_PIF) =
-      make_pif ~__context ~host:host_ref ~network:local_net () in
+      make_pif ~__context ~host:host_ref ~network:local_net ()
+    in
     let (_ : API.ref_PIF) =
-      make_pif ~__context ~host:host_ref ~network:shared_net () in
+      make_pif ~__context ~host:host_ref ~network:shared_net ()
+    in
     host_ref
   in
-
   let master_ref = load_host_and_local_resources master in
   let (_ : API.ref_host list) = List.map load_host_and_local_resources slaves in
-
   if cluster > 0 then
-    Test_common.make_cluster_and_cluster_host ~__context () |> ignore;
-    for i = 0 to (cluster - 1) do
-      let host = List.nth (Db.Host.get_all ~__context) i in
-      Test_common.make_cluster_host ~__context ~host () |> ignore;
-    done;
-
+    Test_common.make_cluster_and_cluster_host ~__context () |> ignore ;
+  for i = 0 to cluster - 1 do
+    let host = List.nth (Db.Host.get_all ~__context) i in
+    Test_common.make_cluster_host ~__context ~host () |> ignore
+  done ;
   let pool = Db.Pool.get_all ~__context |> List.hd in
+  Db.Pool.set_master ~__context ~self:pool ~value:master_ref ;
+  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true ;
+  Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self:pool
+    ~value:ha_host_failures_to_tolerate ;
+  Db.Pool.set_ha_plan_exists_for ~__context ~self:pool
+    ~value:ha_host_failures_to_tolerate
 
-  Db.Pool.set_master ~__context ~self:pool ~value:master_ref;
-  Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true;
-  Db.Pool.set_ha_host_failures_to_tolerate ~__context ~self:pool ~value:ha_host_failures_to_tolerate;
-  Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:ha_host_failures_to_tolerate
+module AllProtectedVms = Generic.MakeStateful (struct
+  module Io = struct
+    type input_t = pool
 
+    type output_t = string list
 
-module AllProtectedVms =
-  Generic.MakeStateful(struct
-    module Io = struct
-      type input_t = pool
-      type output_t = string list
+    let string_of_input_t = string_of_pool
 
-      let string_of_input_t = string_of_pool
-      let string_of_output_t = Test_printers.(list string)
-    end
+    let string_of_output_t = Test_printers.(list string)
+  end
 
-    module State = Test_state.XapiDb
+  module State = Test_state.XapiDb
 
-    let load_input __context input = setup ~__context input
+  let load_input __context input = setup ~__context input
 
-    let extract_output __context _ =
-      Xapi_ha_vm_failover.all_protected_vms ~__context
-      |> List.map (fun (_, vm_rec) -> vm_rec.API.vM_name_label)
-      |> List.sort compare
+  let extract_output __context _ =
+    Xapi_ha_vm_failover.all_protected_vms ~__context
+    |> List.map (fun (_, vm_rec) -> vm_rec.API.vM_name_label)
+    |> List.sort compare
 
-    let tests = `QuickAndAutoDocumented [
-      (* No VMs and a single host. *)
-      {
-        master = {memory_total = gib 256L; name_label = "master"; vms = []};
-        slaves = [];
-        ha_host_failures_to_tolerate = 0L;
-        cluster = 0;
-      },
-      [];
-      (* One unprotected VM. *)
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [{basic_vm with
-                  ha_always_run = false;
-                  ha_restart_priority = "";
-                  }];
-        };
-        slaves = [];
-        ha_host_failures_to_tolerate = 0L;
-        cluster = 0;
-      },
-      [];
-      (* One VM which would be protected if it was running. *)
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [{basic_vm with ha_always_run = false}];
-        };
-        slaves = [];
-        ha_host_failures_to_tolerate = 0L;
-        cluster = 0;
-      },
-      [];
-      (* One protected VM. *)
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [basic_vm];
-        };
-        slaves = [];
-        ha_host_failures_to_tolerate = 0L;
-        cluster = 0;
-      },
-      ["vm"];
-      (* One protected VM and one unprotected VM. *)
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [
-            {basic_vm with name_label = "vm1"};
-            {basic_vm with
-              ha_always_run = false;
-              ha_restart_priority = "";
-              name_label = "vm2"
-            }
-          ];
-        };
-        slaves = [];
-        ha_host_failures_to_tolerate = 0L;
-        cluster = 0;
-      },
-      ["vm1"];
-    ]
-  end)
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* No VMs and a single host. *)
+        ( {
+            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+          ; slaves= []
+          ; ha_host_failures_to_tolerate= 0L
+          ; cluster= 0
+          }
+        , [] )
+      ; (* One unprotected VM. *)
+        ( {
+            master=
+              {
+                memory_total= gib 256L
+              ; name_label= "master"
+              ; vms=
+                  [
+                    {basic_vm with ha_always_run= false; ha_restart_priority= ""}
+                  ]
+              }
+          ; slaves= []
+          ; ha_host_failures_to_tolerate= 0L
+          ; cluster= 0
+          }
+        , [] )
+      ; (* One VM which would be protected if it was running. *)
+        ( {
+            master=
+              {
+                memory_total= gib 256L
+              ; name_label= "master"
+              ; vms= [{basic_vm with ha_always_run= false}]
+              }
+          ; slaves= []
+          ; ha_host_failures_to_tolerate= 0L
+          ; cluster= 0
+          }
+        , [] )
+      ; (* One protected VM. *)
+        ( {
+            master=
+              {memory_total= gib 256L; name_label= "master"; vms= [basic_vm]}
+          ; slaves= []
+          ; ha_host_failures_to_tolerate= 0L
+          ; cluster= 0
+          }
+        , ["vm"] )
+      ; (* One protected VM and one unprotected VM. *)
+        ( {
+            master=
+              {
+                memory_total= gib 256L
+              ; name_label= "master"
+              ; vms=
+                  [
+                    {basic_vm with name_label= "vm1"}
+                  ; {
+                      basic_vm with
+                      ha_always_run= false
+                    ; ha_restart_priority= ""
+                    ; name_label= "vm2"
+                    }
+                  ]
+              }
+          ; slaves= []
+          ; ha_host_failures_to_tolerate= 0L
+          ; cluster= 0
+          }
+        , ["vm1"] )
+      ]
+end)
 
-module PlanForNFailures = Generic.MakeStateful(struct
+module PlanForNFailures = Generic.MakeStateful (struct
   module Io = struct
     open Xapi_ha_vm_failover
 
     type input_t = pool
-    type output_t = result
+
+    type output_t = plan_status
 
     let string_of_input_t = string_of_pool
-    let string_of_output_t = function
-      | Plan_exists_for_all_VMs -> "Plan_exists_for_all_VMs"
-      | Plan_exists_excluding_non_agile_VMs -> "Plan_exists_excluding_non_agile_VMs"
-      | No_plan_exists -> "No_plan_exists"
 
+    let string_of_output_t = function
+      | Plan_exists_for_all_VMs ->
+          "Plan_exists_for_all_VMs"
+      | Plan_exists_excluding_non_agile_VMs ->
+          "Plan_exists_excluding_non_agile_VMs"
+      | No_plan_exists ->
+          "No_plan_exists"
   end
 
   module State = Test_state.XapiDb
@@ -270,115 +275,98 @@ module PlanForNFailures = Generic.MakeStateful(struct
 
   let extract_output __context pool =
     let all_protected_vms = Xapi_ha_vm_failover.all_protected_vms ~__context in
-    Xapi_ha_vm_failover.plan_for_n_failures ~__context
-      ~all_protected_vms (Int64.to_int pool.ha_host_failures_to_tolerate)
+    Xapi_ha_vm_failover.plan_for_n_failures ~__context ~all_protected_vms
+      (Int64.to_int pool.ha_host_failures_to_tolerate)
 
   (* TODO: Add a test which causes plan_for_n_failures to return
         * Plan_exists_excluding_non_agile_VMs. *)
-  let tests = `QuickAndAutoDocumented [
-    (* Two host pool with no VMs. *)
-    (
-      {
-        master = {memory_total = gib 256L; name_label = "master"; vms = []};
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      Xapi_ha_vm_failover.Plan_exists_for_all_VMs
-    );
-    (* Two host pool, with one VM taking up just under half of one host's
-            * memory. *)
-    (
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [{basic_vm with
-                  memory = gib 120L;
-                  name_label = "vm1";
-                }];
-        };
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      Xapi_ha_vm_failover.Plan_exists_for_all_VMs
-    );
-    (* Two host pool, with two VMs taking up almost all of one host's memory. *)
-    (
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm1";
-            };
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm2";
-            };
-          ];
-        };
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      Xapi_ha_vm_failover.Plan_exists_for_all_VMs
-    );
-    (* Two host pool, overcommitted. *)
-    (
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm1";
-            };
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm2";
-            };
-          ];
-        };
-        slaves = [
-          {
-            memory_total = gib 256L; name_label = "slave";
-            vms = [
-              {basic_vm with
-              memory = gib 120L;
-              name_label = "vm3";
-              };
-              {basic_vm with
-              memory = gib 120L;
-              name_label = "vm4";
-              };
-            ];
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* Two host pool with no VMs. *)
+        ( {
+            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+          ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+          ; ha_host_failures_to_tolerate= 1L
+          ; cluster= 0
           }
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      Xapi_ha_vm_failover.No_plan_exists
-    );
-  ]
+        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs )
+      ; (* Two host pool, with one VM taking up just under half of one host's
+                * memory. *)
+        ( {
+            master=
+              {
+                memory_total= gib 256L
+              ; name_label= "master"
+              ; vms= [{basic_vm with memory= gib 120L; name_label= "vm1"}]
+              }
+          ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+          ; ha_host_failures_to_tolerate= 1L
+          ; cluster= 0
+          }
+        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs )
+      ; (* Two host pool, with two VMs taking up almost all of one host's memory. *)
+        ( {
+            master=
+              {
+                memory_total= gib 256L
+              ; name_label= "master"
+              ; vms=
+                  [
+                    {basic_vm with memory= gib 120L; name_label= "vm1"}
+                  ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                  ]
+              }
+          ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+          ; ha_host_failures_to_tolerate= 1L
+          ; cluster= 0
+          }
+        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs )
+      ; (* Two host pool, overcommitted. *)
+        ( {
+            master=
+              {
+                memory_total= gib 256L
+              ; name_label= "master"
+              ; vms=
+                  [
+                    {basic_vm with memory= gib 120L; name_label= "vm1"}
+                  ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                  ]
+              }
+          ; slaves=
+              [
+                {
+                  memory_total= gib 256L
+                ; name_label= "slave"
+                ; vms=
+                    [
+                      {basic_vm with memory= gib 120L; name_label= "vm3"}
+                    ; {basic_vm with memory= gib 120L; name_label= "vm4"}
+                    ]
+                }
+              ]
+          ; ha_host_failures_to_tolerate= 1L
+          ; cluster= 0
+          }
+        , Xapi_ha_vm_failover.No_plan_exists )
+      ]
 end)
 
-module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
+let string_of_unit_result =
+  Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+
+module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
   module Io = struct
     open Xapi_ha_vm_failover
 
-    type input_t = (pool * vm)
-    type output_t = (exn, unit) Either.t
+    type input_t = pool * vm
+
+    type output_t = (unit, exn) result
 
     let string_of_input_t = Test_printers.pair string_of_pool string_of_vm
-    let string_of_output_t = Test_printers.(either Printexc.to_string unit)
+
+    let string_of_output_t = string_of_unit_result
   end
 
   module State = Test_state.XapiDb
@@ -408,122 +396,110 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful(struct
       |> List.hd
     in
     let vm_ref =
-      load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
-    try Either.Right
-          (Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_ref)
-    with e -> Either.Left e
+      load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net
+    in
+    try
+      Ok (Xapi_ha_vm_failover.assert_new_vm_preserves_ha_plan ~__context vm_ref)
+    with e -> Error e
 
   (* n.b. incoming VMs have ha_always_run = false; otherwise they will be
         * included when computing the plan for the already-running VMs. *)
-  let tests = `QuickAndAutoDocumented [
-    (* 2 host pool, one VM using just under half of one host's memory;
-            * test that another VM can be added. *)
-    (
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm1";
-            };
-          ];
-        };
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      {basic_vm with
-      ha_always_run = false;
-      ha_restart_priority = "restart";
-      memory = gib 120L;
-      name_label = "vm2";
-      }
-    ),
-    Either.Right ();
-    (* 2 host pool, two VMs using almost all of one host's memory;
-            * test that another VM cannot be added. *)
-    (
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm1";
-            };
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm2";
-            };
-          ];
-        };
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      {basic_vm with
-      ha_always_run = false;
-      ha_restart_priority = "restart";
-      memory = gib 120L;
-      name_label = "vm2";
-      }
-    ),
-    Either.Left (Api_errors.(Server_error (ha_operation_would_break_failover_plan, [])));
-    (* 2 host pool which is already overcommitted. Attempting to add another VM
-            * should not throw an exception. *)
-    (
-      {
-        master = {
-          memory_total = gib 256L; name_label = "master";
-          vms = [
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm1";
-            };
-            {basic_vm with
-            memory = gib 120L;
-            name_label = "vm2";
-            };
-          ];
-        };
-        slaves = [
-          {
-            memory_total = gib 256L; name_label = "slave";
-            vms = [
-              {basic_vm with
-              memory = gib 120L;
-              name_label = "vm1";
-              };
-            ]
-          };
-        ];
-        ha_host_failures_to_tolerate = 1L;
-        cluster = 0;
-      },
-      {basic_vm with
-      ha_always_run = false;
-      ha_restart_priority = "restart";
-      memory = gib 120L;
-      name_label = "vm2";
-      }
-    ),
-    Either.Right ();
-  ]
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* 2 host pool, one VM using just under half of one host's memory;
+                * test that another VM can be added. *)
+        ( ( {
+              master=
+                {
+                  memory_total= gib 256L
+                ; name_label= "master"
+                ; vms= [{basic_vm with memory= gib 120L; name_label= "vm1"}]
+                }
+            ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+            ; ha_host_failures_to_tolerate= 1L
+            ; cluster= 0
+            }
+          , {
+              basic_vm with
+              ha_always_run= false
+            ; ha_restart_priority= "restart"
+            ; memory= gib 120L
+            ; name_label= "vm2"
+            } )
+        , Ok () )
+      ; (* 2 host pool, two VMs using almost all of one host's memory;
+                * test that another VM cannot be added. *)
+        ( ( {
+              master=
+                {
+                  memory_total= gib 256L
+                ; name_label= "master"
+                ; vms=
+                    [
+                      {basic_vm with memory= gib 120L; name_label= "vm1"}
+                    ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                    ]
+                }
+            ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+            ; ha_host_failures_to_tolerate= 1L
+            ; cluster= 0
+            }
+          , {
+              basic_vm with
+              ha_always_run= false
+            ; ha_restart_priority= "restart"
+            ; memory= gib 120L
+            ; name_label= "vm2"
+            } )
+        , Error
+            Api_errors.(
+              Server_error (ha_operation_would_break_failover_plan, [])) )
+      ; (* 2 host pool which is already overcommitted. Attempting to add another VM
+                * should not throw an exception. *)
+        ( ( {
+              master=
+                {
+                  memory_total= gib 256L
+                ; name_label= "master"
+                ; vms=
+                    [
+                      {basic_vm with memory= gib 120L; name_label= "vm1"}
+                    ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                    ]
+                }
+            ; slaves=
+                [
+                  {
+                    memory_total= gib 256L
+                  ; name_label= "slave"
+                  ; vms= [{basic_vm with memory= gib 120L; name_label= "vm1"}]
+                  }
+                ]
+            ; ha_host_failures_to_tolerate= 1L
+            ; cluster= 0
+            }
+          , {
+              basic_vm with
+              ha_always_run= false
+            ; ha_restart_priority= "restart"
+            ; memory= gib 120L
+            ; name_label= "vm2"
+            } )
+        , Ok () )
+      ]
 end)
 
-module ComputeMaxFailures = Generic.MakeStateful(struct
+module ComputeMaxFailures = Generic.MakeStateful (struct
   module Io = struct
     open Xapi_ha_vm_failover
 
     type input_t = pool
+
     type output_t = int
 
     let string_of_input_t = string_of_pool
+
     let string_of_output_t = string_of_int
   end
 
@@ -532,54 +508,48 @@ module ComputeMaxFailures = Generic.MakeStateful(struct
   let load_input __context = setup ~__context
 
   let extract_output __context pool =
-    let max_hosts = Xapi_ha_vm_failover.compute_max_host_failures_to_tolerate ~__context () in
+    let max_hosts =
+      Xapi_ha_vm_failover.compute_max_host_failures_to_tolerate ~__context ()
+    in
     (* Struct requires input_t but not used here *)
-    pool |> ignore;
-    Int64.to_int max_hosts
+    pool |> ignore ; Int64.to_int max_hosts
 
-  let tests = `QuickAndAutoDocumented [
-    (* Three host pool with no VMs. *)
-    (
-      {
-        master = {memory_total = gib 256L; name_label = "master"; vms = []};
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave1"; vms = []};
-          {memory_total = gib 256L; name_label = "slave2"; vms = []}
-        ];
-        (* Placeholder value that is overridden when we call the compute function *)
-        ha_host_failures_to_tolerate = 3L;
-        cluster = 3;
-      },
-      (* Assert that compute ha host failures to tolerate returns 1 *)
-      1
-    );
-    (* Two hosts pool with no VMs  *)
-    (
-      {
-        master = {memory_total = gib 256L; name_label = "master"; vms = []};
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave1"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 2L;
-        cluster = 2;
-      },
-      (* Assert that compute ha host failures to tolerate returns 0 *)
-      0
-    );
-    (* Two host pool with one down  *)
-    (
-      {
-        master = {memory_total = gib 256L; name_label = "master"; vms = []};
-        slaves = [
-          {memory_total = gib 256L; name_label = "slave1"; vms = []}
-        ];
-        ha_host_failures_to_tolerate = 2L;
-        cluster = 1;
-      },
-      (* Assert that compute ha host failures to tolerate returns 1 *)
-      1
-    );
-  ]
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* Three host pool with no VMs. *)
+        ( {
+            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+          ; slaves=
+              [
+                {memory_total= gib 256L; name_label= "slave1"; vms= []}
+              ; {memory_total= gib 256L; name_label= "slave2"; vms= []}
+              ]
+          ; (* Placeholder value that is overridden when we call the compute function *)
+            ha_host_failures_to_tolerate= 3L
+          ; cluster= 3
+          }
+        , (* Assert that compute ha host failures to tolerate returns 1 *)
+          1 )
+      ; (* Two hosts pool with no VMs  *)
+        ( {
+            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+          ; slaves= [{memory_total= gib 256L; name_label= "slave1"; vms= []}]
+          ; ha_host_failures_to_tolerate= 2L
+          ; cluster= 2
+          }
+        , (* Assert that compute ha host failures to tolerate returns 0 *)
+          0 )
+      ; (* Two host pool with one down  *)
+        ( {
+            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+          ; slaves= [{memory_total= gib 256L; name_label= "slave1"; vms= []}]
+          ; ha_host_failures_to_tolerate= 2L
+          ; cluster= 1
+          }
+        , (* Assert that compute ha host failures to tolerate returns 1 *)
+          1 )
+      ]
 end)
 
-let tests = [ "plan_for_n_failures", PlanForNFailures.tests]
+let tests = [("plan_for_n_failures", PlanForNFailures.tests)]

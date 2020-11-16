@@ -31,44 +31,49 @@
    		request is more than the total free.
 *)
 type host_memory_summary = {
-  (** The maximum amount of memory that guests can use on this host. *)
-  host_maximum_guest_memory_bytes: int64;
-  (** list of VMs which have a domain running here *)
-  resident: API.ref_VM list;
-  (** list of VMs which are in the process of having a domain created here *)
-  scheduled: API.ref_VM list;
+    host_maximum_guest_memory_bytes: int64
+        (** The maximum amount of memory that guests can use on this host. *)
+  ; resident: API.ref_VM list
+        (** list of VMs which have a domain running here *)
+  ; scheduled: API.ref_VM list
+        (** list of VMs which are in the process of having a domain created here *)
 }
 
 (** Different users will wish to use a different VM accounting policy, depending
     on how conservative or liberal they are. *)
 type accounting_policy =
-  | Static_max
-  (** use static_max: conservative: useful for HA. *)
+  | Static_max  (** use static_max: conservative: useful for HA. *)
   | Dynamic_max
-  (** use dynamic_max: fairly conservative: useful for dom0 for HA. *)
+      (** use dynamic_max: fairly conservative: useful for dom0 for HA. *)
   | Dynamic_min
-  (** use dynamic_min: liberal: assumes that guests always co-operate. *)
+      (** use dynamic_min: liberal: assumes that guests always co-operate. *)
 
+val get_host_memory_summary :
+  __context:Context.t -> host:API.ref_host -> host_memory_summary
 (** Return a host's memory summary from live database contents. *)
-val get_host_memory_summary : __context:Context.t -> host:API.ref_host ->
-  host_memory_summary
 
 val vm_compute_required_memory : API.vM_t -> int64 -> int64 * int64
 
-val vm_compute_start_memory : __context:Context.t ->
-  ?policy:accounting_policy -> API.vM_t -> int64 * int64
+val vm_compute_start_memory :
+  __context:Context.t -> ?policy:accounting_policy -> API.vM_t -> int64 * int64
 
-val vm_compute_used_memory : __context:Context.t -> accounting_policy ->
-  [`VM] Ref.t -> int64
+val vm_compute_used_memory :
+  __context:Context.t -> accounting_policy -> [`VM] Ref.t -> int64
 
+val host_compute_free_memory_with_policy :
+  __context:Context.t -> host_memory_summary -> accounting_policy -> int64
 (**
    	Given a host's memory summary and a policy flag (i.e. whether to only
    	consider static_max or to consider dynamic balloon data) it returns a
    	hypothetical amount of free memory on the host.
 *)
-val host_compute_free_memory_with_policy : __context:Context.t ->
-  host_memory_summary -> accounting_policy -> int64
 
+val host_compute_free_memory_with_maximum_compression :
+     ?dump_stats:bool
+  -> __context:Context.t
+  -> host:[`host] Ref.t
+  -> [`VM] Ref.t option
+  -> int64
 (**
    	Compute, from our managed data, how much memory is available on a host; this
    	takes into account both VMs that are resident_on the host and also VMs that
@@ -83,11 +88,8 @@ val host_compute_free_memory_with_policy : __context:Context.t ->
    	If 'dump_stats=true' then we write to the debug log where we think the
    	memory is being used.
 *)
-val host_compute_free_memory_with_maximum_compression : ?dump_stats:bool ->
-  __context:Context.t -> host:[`host] Ref.t -> [`VM] Ref.t option -> int64
 
-val host_compute_memory_overhead : __context:Context.t -> host:[`host] Ref.t ->
-  int64
+val host_compute_memory_overhead :
+  __context:Context.t -> host:[`host] Ref.t -> int64
 
 val vm_compute_memory_overhead : vm_record:API.vM_t -> int64
-

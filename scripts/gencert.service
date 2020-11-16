@@ -4,6 +4,7 @@ Requires=forkexecd.service
 After=forkexecd.service
 
 [Service]
+User=root
 Type=oneshot
 ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem
 RemainAfterExit=yes

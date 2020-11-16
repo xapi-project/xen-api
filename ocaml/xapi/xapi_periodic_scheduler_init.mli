@@ -13,5 +13,5 @@
  *)
 (** Schedule common background tasks. *)
 
-(** Register periodic calls, done by {!Xapi} on start-up. *)
 val register : unit -> unit
+(** Register periodic calls, done by {!Xapi} on start-up. *)

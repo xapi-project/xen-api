@@ -11,20 +11,20 @@
 
 module Pci_dev : sig
   type t = {
-    domain : int;
-    bus : int;
-    dev : int;
-    func : int;
-    vendor_id : int;
-    device_id : int;
-    device_class : int;
-    irq : int;
-    base_addr : nativeint list;
-    size : nativeint list;
-    rom_base_addr : nativeint;
-    rom_size : nativeint;
-    phy_slot : string option;
-    subsystem_id : (int * int) option;
+      domain: int
+    ; bus: int
+    ; dev: int
+    ; func: int
+    ; vendor_id: int
+    ; device_id: int
+    ; device_class: int
+    ; irq: int
+    ; base_addr: nativeint list
+    ; size: nativeint list
+    ; rom_base_addr: nativeint
+    ; rom_size: nativeint
+    ; phy_slot: string option
+    ; subsystem_id: (int * int) option
   }
 end
 
@@ -54,13 +54,15 @@ val lookup_subsystem_vendor_name : Pci_access.t -> int -> string option
 (** [lookup_subsystem_vendor_name a id] is like {!lookup_class_name} but
     returns the name of the PCI vendor with ID [id]. *)
 
-val lookup_subsystem_device_name : Pci_access.t -> int -> int -> int -> int -> string option
+val lookup_subsystem_device_name :
+  Pci_access.t -> int -> int -> int -> int -> string option
 (** [lookup_subsystem_device_name a v_id d_id sv_id sd_id] is like
     {!lookup_class_name} but returns the name of the PCI subsystem of a device
     with ID [d_id] made by vendor with ID [v_id] whose subvendor and subdevice
     IDs are [sv_id] and [sd_id] respectively. *)
 
-val with_access : ?cleanup:bool -> ?from_dump:string -> (Pci_access.t -> 'a) -> 'a
+val with_access :
+  ?cleanup:bool -> ?from_dump:string -> (Pci_access.t -> 'a) -> 'a
 (** [with_access ~cleanup f] wraps the [libpci] calls to [pci_alloc],
     [pci_init] and [pci_cleanup] and constructs [(access:Pci_access.t)] and
     returns [f access]. If [cleanup] is [true] (default), [pci_cleanup] is

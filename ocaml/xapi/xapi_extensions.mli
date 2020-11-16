@@ -15,11 +15,11 @@
 (* The Xapi_globs.xapi_extensions_root contain scripts which are invoked with
    XenAPI XMLRPC on stdin, and must respond with XenAPI XMLRPC on stdout. *)
 
-val find_extension: string -> string
+val find_extension : string -> string
 (** [find_extension] returns the full path to extension [name], or raises
     the API error [message_method_unknown[ *)
 
-val call_extension: Rpc.call -> Rpc.response
+val call_extension : Rpc.call -> Rpc.response
 (** [call_extension call] invokes the named extension, returning the response.
     Note this function never raises; but may return a XenAPI error like
     [message_method_unknown] *)

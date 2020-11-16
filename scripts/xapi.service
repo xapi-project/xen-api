@@ -3,7 +3,6 @@ Description=XenAPI server (XAPI)
 
 After=attach-static-vdis.service
 After=forkexecd.service
-After=genptoken.service
 After=message-switch.service
 After=save-boot-info.service
 After=syslog.target
@@ -20,6 +19,7 @@ After=stunnel@xapi.service
 Conflicts=shutdown.target
 
 [Service]
+User=root
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.1"
 Environment="MALLOC_CONF=narenas:1,tcache:false,lg_dirty_mult:22"
 Type=simple
@@ -29,7 +29,7 @@ ExecStartPost=/usr/bin/touch /var/lock/subsys/xapi
 #ExecStartPost=/usr/bin/rm -f /etc/xensource/boot_time_info_updated
 ExecStop=@LIBEXECDIR@/xapi-init stop
 ExecStopPost=/usr/bin/rm -f /var/lock/subsys/xapi /var/run/xapi.pid /var/run/xapi_startup.cookie /var/run/xapi_init_complete.cookie
-StandardError=null
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

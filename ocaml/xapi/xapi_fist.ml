@@ -17,57 +17,75 @@
 
 open Stdext
 
-module D = Debug.Make(struct let name="xapi_fist" end)
+module D = Debug.Make (struct let name = "xapi_fist" end)
+
 open D
 
 (** {2 (Fill in title!)} *)
 
-let fistpoint name = try Unix.access ("/tmp/fist_" ^ name) [ Unix.F_OK ]; true with _ -> false
+let path_for name =
+  let prefix = "/tmp/fist_" in
+  Printf.sprintf "%s%s" prefix name
+
+let fistpoint name =
+  try
+    Unix.access (path_for name) [Unix.F_OK] ;
+    true
+  with _ -> false
+
+let hang_while name =
+  let rec go ctr =
+    if fistpoint name then (
+      Thread.delay 1.0 ;
+      if ctr mod 10 = 0 then
+        debug "hang_while: waiting for fist '%s' to be removed" name ;
+      (go [@tailcall]) (ctr + 1)
+    )
+  in
+  go 1
 
 let fistpoint_read name =
-  try
-    Some (Unixext.string_of_file ("/tmp/fist_" ^ name))
-  with _ -> None
+  try Some (Unixext.string_of_file (path_for name)) with _ -> None
 
-let delete name = Unixext.unlink_safe ("/tmp/fist_" ^ name)
+let delete name = Unixext.unlink_safe (path_for name)
 
 (** Insert 2 * Xapi_globs.max_clock_skew into the heartbeat messages *)
-let insert_clock_skew             () = fistpoint "insert_clock_skew"
+let insert_clock_skew () = fistpoint "insert_clock_skew"
 
 (** Force the use of the more conservative binpacker *)
-let choose_approximate_planner    () = fistpoint "choose_approximate_planner"
+let choose_approximate_planner () = fistpoint "choose_approximate_planner"
 
 (** Pretend that disabling HA via the statefile (ie via ha_set_pool_state invalid) doesn't work *)
-let disable_ha_via_statefile      () = fistpoint "disable_ha_via_statefile"
+let disable_ha_via_statefile () = fistpoint "disable_ha_via_statefile"
 
 (** Make the current node throw an error during the ha_disable_failover_decisions call *)
-let disable_ha_disable_failover   () = fistpoint "disable_ha_disable_failover"
+let disable_ha_disable_failover () = fistpoint "disable_ha_disable_failover"
 
 (** Make the current node fail during the HA enable step *)
-let fail_healthcheck              () = fistpoint "fail_healthcheck"
+let fail_healthcheck () = fistpoint "fail_healthcheck"
 
-let reconfigure_host              () = fistpoint "reconfigure_host"
+let reconfigure_host () = fistpoint "reconfigure_host"
 
 (** Raise MTC_EXIT_CAN_NOT_ACCESS_STATEFILE *)
-let ha_cannot_access_statefile    () = fistpoint "ha_cannot_access_statefile"
+let ha_cannot_access_statefile () = fistpoint "ha_cannot_access_statefile"
 
 (** Simulate a misc xHA daemon startup failure *)
-let ha_daemon_startup_failed      () = fistpoint "ha_daemon_startup_failed"
+let ha_daemon_startup_failed () = fistpoint "ha_daemon_startup_failed"
 
 (** Make individual HA failover VM.starts fail with a probability of 2/3 *)
-let simulate_restart_failure      () = fistpoint "simulate_restart_failure"
+let simulate_restart_failure () = fistpoint "simulate_restart_failure"
 
 (** Throw an error in the failed VM restart logic when trying to compute a plan (it should fall back to best-effort) *)
 let simulate_planner_failure () = fistpoint "simulate_planner_failure"
 
 (** Skip the check to prevent untagged VLAN PIFs being forgotten (block added in CA-24056; conflicts with repro advice in CA-23042) *)
-let allow_forget_of_vlan_pif      () = fistpoint "allow_forget_of_vlan_pif"
+let allow_forget_of_vlan_pif () = fistpoint "allow_forget_of_vlan_pif"
 
 (** Pretend that VMs need no memory while starting or running.  *)
-let disable_memory_checks         () = fistpoint "disable_memory_checks"
+let disable_memory_checks () = fistpoint "disable_memory_checks"
 
 (** Disable randomisation within the host selection algorithm. *)
-let deterministic_host_selection  () = fistpoint "deterministic_host_selection"
+let deterministic_host_selection () = fistpoint "deterministic_host_selection"
 
 (** Used to simulate a very slow planner to test Pool.ha_prevent_restarts_for *)
 let simulate_blocking_planner () = fistpoint "simulate_blocking_planner"
@@ -89,3 +107,16 @@ let pause_storage_migrate2 () = fistpoint "pause_storage_migrate2"
 let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
 
 let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
+
+let hang_psr psr_checkpoint =
+  ( match psr_checkpoint with
+  | `backup ->
+      "psr_backup"
+  | `notify_new ->
+      "psr_notify_new"
+  | `notify_send ->
+      "psr_notify_send"
+  | `cleanup ->
+      "psr_cleanup"
+  )
+  |> hang_while

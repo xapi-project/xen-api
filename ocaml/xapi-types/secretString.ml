@@ -24,9 +24,13 @@ let with_cookie t request =
 
 let write_to_file = Xapi_stdext_unix.Unixext.write_string_to_file
 
+let write_to_channel c s = output_string c s
+
 let equal = String.equal
 
 let of_request req =
   match List.assoc_opt _pool_secret req.Http.Request.cookie with
-  | Some _ as r -> r
-  | None -> List.assoc_opt _pool_secret req.Http.Request.query
+  | Some _ as r ->
+      r
+  | None ->
+      List.assoc_opt _pool_secret req.Http.Request.query

@@ -1,6 +1,0 @@
-(executable
-  (name genptoken)
-  (public_name genptoken)
-  (package xapi)
-  (libraries uuid)
-)
