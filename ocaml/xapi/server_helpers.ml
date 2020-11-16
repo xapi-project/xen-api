@@ -122,7 +122,8 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
   in
   Locking_helpers.Thread_state.with_named_thread
     (TaskHelper.get_name ~__context) (Context.get_task_id __context) (fun () ->
-      Debug.with_thread_associated
+      let client = Context.get_client __context in
+      Debug.with_thread_associated ?client
         (Context.string_of_task __context)
         (fun () ->
           (* CP-982: promote tracking debug line to info status *)
@@ -197,17 +198,11 @@ let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
       (Context.from_forwarded_task ?http_other_config ?session_id ?origin
          task_id) ~need_complete:true (fun ~__context -> f __context)
 
-let exec_with_subtask ~__context ?task_in_database ?task_description task_name f
-    =
-  let subtask_of = Context.get_task_id __context in
-  let session_id =
-    try Some (Context.get_session_id __context) with _ -> None
+let exec_with_subtask ~__context ?task_in_database task_name f =
+  let subcontext =
+    Context.make_subcontext ~__context ?task_in_database task_name
   in
-  let new_context =
-    Context.make ~subtask_of ?session_id ?task_in_database ?task_description
-      task_name
-  in
-  exec_with_context ~__context:new_context ~need_complete:true f
+  exec_with_context ~__context:subcontext ~need_complete:true f
 
 let forward_extension ~__context rbac call =
   rbac __context (fun () -> Xapi_extensions.call_extension call)
