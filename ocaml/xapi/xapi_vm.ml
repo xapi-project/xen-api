@@ -560,7 +560,6 @@ let suspend ~__context ~vm =
   Db.VM.set_ha_always_run ~__context ~self:vm ~value:false ;
   debug "Setting ha_always_run on vm=%s as false during VM.suspend"
     (Ref.string_of vm) ;
-
   (* CP-35021 test support for NVidia suspend by checking that we could
      migrate to the local host *)
   let host = Helpers.get_localhost ~__context in
@@ -579,7 +578,6 @@ let suspend ~__context ~vm =
          ->
            raise
              Api_errors.(Server_error (vgpu_suspension_not_supported, params))) ;
-
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
   Xapi_xenops.suspend ~__context ~self:vm ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
