@@ -1045,44 +1045,6 @@ let get_live_hosts ~__context =
       try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false)
     hosts
 
-let gethostbyname_family host family =
-  let throw_resolve_error () =
-    failwith (Printf.sprintf "Couldn't resolve hostname: %s" host)
-  in
-  let getaddr x =
-    match x with
-    | Unix.ADDR_INET (addr, port) ->
-        addr
-    | _ ->
-        failwith "Expected ADDR_INET"
-  in
-  let he =
-    Unix.getaddrinfo host ""
-      [Unix.AI_SOCKTYPE Unix.SOCK_STREAM; Unix.AI_FAMILY family]
-  in
-  if List.length he = 0 then
-    throw_resolve_error () ;
-  Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
-
-(** Return the first address we find for a hostname *)
-let gethostbyname host =
-  let throw_resolve_error () =
-    failwith (Printf.sprintf "Couldn't resolve hostname: %s" host)
-  in
-  let pref =
-    Record_util.primary_address_type_of_string
-      (Xapi_inventory.lookup Xapi_inventory._management_address_type)
-  in
-  try
-    gethostbyname_family host
-      (if pref = `IPv4 then Unix.PF_INET else Unix.PF_INET6)
-  with _ -> (
-    try
-      gethostbyname_family host
-        (if pref = `IPv4 then Unix.PF_INET6 else Unix.PF_INET)
-    with _ -> throw_resolve_error ()
-  )
-
 (** Indicate whether VM.clone should be allowed on suspended VMs *)
 let clone_suspended_vm_enabled ~__context =
   try
