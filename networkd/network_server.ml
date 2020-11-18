@@ -667,9 +667,9 @@ module Interface = struct
                 update_config name c ;
                 exec (fun () ->
                     (* We only apply the DNS settings when not in a DHCP mode
-                       to avoid conflicts. * The `dns` field
+                       to avoid conflicts. The `dns` field
                        should really be an option type so that we don't have to
-                       derive the intention * of the caller by looking at other
+                       derive the intention of the caller by looking at other
                        fields. *)
                     match (ipv4_conf, ipv6_conf) with
                     | (Static4 _, _)
