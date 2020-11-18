@@ -76,7 +76,9 @@ jobs:
       - name: Run tests
         run: opam exec -- make test
 
-      - name: Uninstall unversioned packages
+      - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
         # 'master' as its version
-        run: opam list | awk -F " " '$2 == "master" { print $1 }' |  xargs opam uninstall
+        run: |
+          opam list | awk -F " " '$2 == "master" { print $1 }' |  xargs opam uninstall
+          opam pin list | cut -f1 -d "." | xargs opam unpin
