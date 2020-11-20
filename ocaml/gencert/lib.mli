@@ -22,7 +22,10 @@ val install_server_certificate :
   -> pem_leaf:string
   -> pkcs8_private_key:string
   -> server_cert_path:string
-  -> (X509.Certificate.t, [> `Msg of string * string list]) Result.result
+  -> ca_cert_bundle_path:string
+  -> ( X509.Certificate.t * Cstruct.t list
+     , [> `Msg of string * string list] )
+     Result.result
 (** [install_server_certificate pem_chain pem_leaf pkcs8_private_key
      server_cert_path] writes a PKCS12 containing [pkcs8_private_key],
      [pem_leaf] and [pem_chain] to the path [server_cert_path].
@@ -33,21 +36,3 @@ val install_server_certificate :
      In the case validation fails or the file could not be written an error is
      returned, if the file was successfully written the leaf certificate is
      returned for further inspection, if needed. *)
-
-(** The following functions are exposed exclusively for unit-testing, please
-    do not use them directly, they are not stable *)
-
-type t_certificate = Leaf | Chain
-
-val validate_private_key :
-     string
-  -> ( [> `RSA of Mirage_crypto_pk.Rsa.priv]
-     , [> `Msg of string * string list] )
-     Result.result
-
-val validate_certificate :
-     t_certificate
-  -> string
-  -> Ptime.t
-  -> [> `RSA of Mirage_crypto_pk.Rsa.priv]
-  -> (X509.Certificate.t, [> `Msg of string * string list]) Rresult.result
