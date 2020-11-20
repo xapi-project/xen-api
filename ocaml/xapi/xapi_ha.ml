@@ -204,7 +204,8 @@ module Timeouts = struct
     (* All other values are derived from this single parameter *)
     if t < 10 then failwith "constraint violation: timeout >= 10" ;
     (* heart beats are cheap but unreliable b/c of UDP - have many *)
-    let interval = (t + 10)/10 in (* interval used previously *)
+    let interval = (t + 10) / 10 in
+    (* interval used previously *)
     let heart_beat_interval = min interval 3 in
     (* state file is slow but realiable  - have 20 when possible *)
     let state_file_interval = max 2 (t / 20) in
