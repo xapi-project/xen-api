@@ -2625,16 +2625,18 @@ module VM = struct
                 let depth = depth - 1 in
                 List.fold_left (ls_lR ~depth root) (quota, acc) subdirs
             in
-            let quota = !Xenopsd.vm_xenstore_ls_lR_quota in
+            let quota = !Xenopsd.vm_guest_agent_xenstore_quota in
+            (* depth is the number of directories descended into,
+               keys at depth+1 are still read *)
             let quota, guest_agent =
               [
-                ("drivers", 0)
-              ; ("attr", 3) (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr *)
-              ; ("data", 0)
-                (* in particular avoid data/volumes which contains many entries for each disk *)
-              ; ("control", 0)
+                ("control", 0)
               ; ("feature/hotplug", 0)
               ; ("xenserver/attr", 3) (* xenserver/attr/net-sriov-vf/0/ipv4/1 *)
+              ; ("attr", 3) (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr *)
+              ; ("drivers", 0)
+              ; ("data", 0)
+                (* in particular avoid data/volumes which contains many entries for each disk *)
               ]
               |> List.fold_left
                    (fun acc (dir, depth) ->
@@ -2651,19 +2653,46 @@ module VM = struct
                    (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
                    (quota, [])
             in
+            let path =
+              Device_common.xenops_path_of_domain di.Xenctrl.domid
+              ^ "/guest_agent_quota_reached"
+            in
+            (* we don't want the guest controlling how often we warn *)
+            let warned_path =
+              Device_common.get_private_path di.Xenctrl.domid
+              ^ "/guest_agent_quota_warned"
+            in
             ( if quota <= 0 then
-                let path =
-                  Device_common.xenops_path_of_domain di.Xenctrl.domid
-                  ^ "/ls_lR_quota_reached"
-                in
                 try
                   let (_ : string) = xs.Xs.read path in
-                  ()
+                  let now = Unix.gettimeofday () in
+                  let last =
+                    try float_of_string (xs.Xs.read warned_path) with _ -> 0.
+                  in
+                  if
+                    now -. last
+                    > float !Xenopsd.vm_guest_agent_xenstore_quota_warn_interval
+                  then (
+                    (* periodically warn if the quota is still exceeded *)
+                    xs.Xs.write warned_path (string_of_float now) ;
+                    warn
+                      "xenstore guest agent quota is still exceeded for domid \
+                       %d"
+                      di.Xenctrl.domid
+                  )
                 with _ -> (
-                  debug "xenstore ls_lR quota reached for domid %d"
+                  warn
+                    "xenstore guest agent quota reached for domid %d (VM \
+                     metrics and guest agent interaction might be broken, and \
+                     vm-data incomplete!)"
                     di.Xenctrl.domid ;
                   try xs.Xs.write path "t" with _ -> ()
                 )
+            else
+              try
+                let (_ : string) = xs.Xs.read path in
+                xs.Xs.rm path
+              with _ -> () (* do not RM the 'warned' path to prevent flood *)
             ) ;
             let shadow_multiplier_target =
               if not di.Xenctrl.hvm_guest then
