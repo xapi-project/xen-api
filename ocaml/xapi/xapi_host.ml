@@ -1377,7 +1377,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   let pem_chain =
     match certificate_chain with "" -> None | pem_chain -> Some pem_chain
   in
-  let certificate =
+  let certificate, root_fingerprints =
     Certificates.install_server_certificate ~pem_leaf:certificate
       ~pkcs8_private_key:private_key ~pem_chain
   in
@@ -1425,7 +1425,9 @@ let reset_server_certificate ~__context ~host =
         xs
   in
   let cn = ip in
-  Gencertlib.Selfcert.host cn alt_names xapi_ssl_pem ip ;
+  let _certificate, _root_fingerprint =
+    Gencertlib.Selfcert.generate cn alt_names xapi_ssl_pem ip
+  in
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
   (* Delete records of the server certificate in this host *)
