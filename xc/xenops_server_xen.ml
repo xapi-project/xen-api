@@ -25,6 +25,7 @@ module D = Debug.Make (struct let name = service_name end)
 
 open D
 module RRDD = Rrd_client.Client
+module StringSet = Set.Make (String)
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -2610,8 +2611,9 @@ module VM = struct
               in
               (value_opt, subdirs)
             in
-            let rec ls_lR ?(depth = 512) root (quota, acc) dir =
-              if quota <= 0 || dir = "attr/os/hotfixes" then
+            let rec ls_lR ?(excludes = StringSet.empty) ?(depth = 512) root
+                (quota, acc) dir =
+              if quota <= 0 || StringSet.mem dir excludes then
                 (quota, acc) (* quota reached, stop listing/reading *)
               else
                 let value_opt, subdirs = ls_l ~depth root dir in
@@ -2623,24 +2625,29 @@ module VM = struct
                       (quota, acc)
                 in
                 let depth = depth - 1 in
-                List.fold_left (ls_lR ~depth root) (quota, acc) subdirs
+                List.fold_left
+                  (ls_lR ~excludes ~depth root)
+                  (quota, acc) subdirs
             in
             let quota = !Xenopsd.vm_guest_agent_xenstore_quota in
             (* depth is the number of directories descended into,
                keys at depth+1 are still read *)
             let quota, guest_agent =
               [
-                ("control", 0)
-              ; ("feature/hotplug", 0)
-              ; ("xenserver/attr", 3) (* xenserver/attr/net-sriov-vf/0/ipv4/1 *)
-              ; ("attr", 3) (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr *)
-              ; ("drivers", 0)
-              ; ("data", 0)
+                ("control", None, 0)
+              ; ("feature/hotplug", None, 0)
+              ; ("xenserver/attr", None, 3)
+                (* xenserver/attr/net-sriov-vf/0/ipv4/1 *)
+              ; ("attr", Some (StringSet.singleton "attr/os/hotfixes"), 3)
+                (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr,
+                   and exclude hotfixes which can exceed the quota on their own *)
+              ; ("drivers", None, 0)
+              ; ("data", None, 0)
                 (* in particular avoid data/volumes which contains many entries for each disk *)
               ]
               |> List.fold_left
-                   (fun acc (dir, depth) ->
-                     ls_lR ~depth
+                   (fun acc (dir, excludes, depth) ->
+                     ls_lR ?excludes ~depth
                        (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)
                        acc dir)
                    (quota, [])
