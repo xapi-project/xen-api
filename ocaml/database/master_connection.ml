@@ -66,18 +66,17 @@ let force_connection_reset () =
        		   combination, we pop out (remove) its links until Not_found is raised.
        		   Here, we have two such combinations, i.e. verify_cert=true/false, as
        		   host and port are fixed values. *)
-    let rec purge_stunnels verify_cert =
+    let rec purge_stunnels () =
       match
-        Stunnel_cache.with_remove host port verify_cert @@ fun st ->
+        Stunnel_cache.with_remove ~try_all:true host port @@ fun st ->
         try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
       with
       | None ->
           () (* not found in cache: stop *)
       | Some () ->
-          purge_stunnels verify_cert
+          purge_stunnels ()
     in
-    purge_stunnels true ;
-    purge_stunnels false ;
+    purge_stunnels () ;
     info
       "force_connection_reset: all cached connections to the master have been \
        purged"

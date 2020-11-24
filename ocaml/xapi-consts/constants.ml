@@ -383,3 +383,9 @@ let pool_config_file = ref (Filename.concat "/etc/xensource" "pool.conf")
 let gencert = ref "/opt/xensource/libexec/gencert"
 
 let openssl_path = ref "/usr/bin/openssl"
+
+(* we store this locally so that when slaves initially establish connections
+   to the master, they know whether or not to verify certificates.
+   [ Db.Pool.tls_verification_enabled ] is not sufficient because it requires
+   that initial master connection *)
+let tls_verification_enabled = "tls_verification_enabled"
