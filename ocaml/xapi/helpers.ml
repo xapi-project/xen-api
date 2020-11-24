@@ -1024,17 +1024,18 @@ let is_valid_MAC mac =
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
-  let inet4_addrs =
-    Net.Interface.get_ipv4_addr dbg
-      (Xapi_inventory.lookup Xapi_inventory._management_interface)
+  let inet_addrs = match Unixext.domain_of_addr address with
+    | Some x when x = Unix.PF_INET ->
+      Net.Interface.get_ipv4_addr dbg
+        (Xapi_inventory.lookup Xapi_inventory._management_interface)
+    | Some x when x = Unix.PF_INET6 ->
+      Net.Interface.get_ipv6_addr dbg
+        (Xapi_inventory.lookup Xapi_inventory._management_interface)
+    | _ ->
+      []
   in
-  let ipv4s = List.map Unix.string_of_inet_addr (List.map fst inet4_addrs) in
-  let inet6_addrs =
-    Net.Interface.get_ipv6_addr dbg
-      (Xapi_inventory.lookup Xapi_inventory._management_interface)
-  in
-  let ipv6s = List.map Unix.string_of_inet_addr (List.map fst inet6_addrs) in
-  List.mem address (List.append ipv4s ipv6s)
+  let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
+  List.mem address addresses
 
 (** Returns the list of hosts thought to be live *)
 let get_live_hosts ~__context =
