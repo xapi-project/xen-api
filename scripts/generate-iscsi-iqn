@@ -7,6 +7,9 @@ set -e
 export FIRSTBOOT_DATA_DIR=/etc/firstboot.d/data
 export XENSOURCE_INVENTORY=/etc/xensource-inventory
 
+UPGRADE="false"
+[ -r ${FIRSTBOOT_DATA_DIR}/host.conf ] && . ${FIRSTBOOT_DATA_DIR}/host.conf
+
 . ${XENSOURCE_INVENTORY}
 IQN_CONF=${FIRSTBOOT_DATA_DIR}/iqn.conf
 
@@ -38,12 +41,13 @@ geniqn() {
 }
 
 # On upgrade, the host param will already be there - reuse it:
-if [ -n $(xe host-param-get uuid=${INSTALLATION_UUID} param-name=iscsi_iqn 2>/dev/null) ]; then
-    IQN=$(xe host-param-get uuid=${INSTALLATION_UUID} param-name=iscsi_iqn 2>/dev/null)
+IQN_PARAM="$(xe host-param-get uuid=${INSTALLATION_UUID} param-name=iscsi_iqn 2>/dev/null)"
+if [ -n "${IQN_PARAM}" ]; then
+    IQN="${IQN_PARAM}"
 elif xe host-param-get uuid=${INSTALLATION_UUID} param-name=other-config --minimal 2>/dev/null | grep -q "iscsi_iqn:" ; then
     IQN="$(xe host-param-get uuid=${INSTALLATION_UUID} param-name=other-config param-key=iscsi_iqn --minimal)"
-elif [ -n "${IQN_CONF}" ]; then
-    IQN="${IQN_CONF}"
+elif [ -n "${IQN_CONF}" ] && [ -e "${IQN_CONF}" ]; then
+    source "${IQN_CONF}"
 fi
 
 if [ -z "${IQN}" ]; then
@@ -54,7 +58,10 @@ xe host-param-set uuid=${INSTALLATION_UUID} iscsi_iqn="${IQN}"
 echo Set iSCSI IQN: "${IQN}"
 echo IQN=\'"${IQN}"\' >${IQN_CONF}
 
-# Ensure changes are synced to disk
-xe pool-sync-database
+
+if [ "$UPGRADE" != "true" ]; then
+  # Ensure changes are synced to disk
+  xe pool-sync-database
+fi
 
 touch /var/lib/misc/ran-generate-iscsi-iqn

@@ -17,15 +17,23 @@
 type t = XenServer | ESXServer | VirtualCenter | HyperVServer
 
 let of_string = function
-  | "default"
-  | "XenServer" -> XenServer
-  | "ESXServer" -> ESXServer
-  | "VirtualCenter" -> VirtualCenter
-  | "HyperVServer" -> HyperVServer
-  | x -> raise (Api_errors.Server_error (Api_errors.invalid_value, [x]))
+  | "default" | "XenServer" ->
+      XenServer
+  | "ESXServer" ->
+      ESXServer
+  | "VirtualCenter" ->
+      VirtualCenter
+  | "HyperVServer" ->
+      HyperVServer
+  | x ->
+      raise (Api_errors.Server_error (Api_errors.invalid_value, [x]))
 
 let to_string = function
-  | XenServer -> "XenServer"
-  | ESXServer -> "ESXServer"
-  | VirtualCenter -> "VirtualCenter"
-  | HyperVServer -> "HyperVServer"
+  | XenServer ->
+      "XenServer"
+  | ESXServer ->
+      "ESXServer"
+  | VirtualCenter ->
+      "VirtualCenter"
+  | HyperVServer ->
+      "HyperVServer"

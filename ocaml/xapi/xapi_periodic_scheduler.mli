@@ -15,16 +15,15 @@
 
 (** Timer type. *)
 type func_ty =
-  | OneShot				(** Fire just once *)
-  | Periodic of float		(** Fire periodically with a given period in seconds *)
+  | OneShot  (** Fire just once *)
+  | Periodic of float  (** Fire periodically with a given period in seconds *)
 
-(** Start a new timer. *)
 val add_to_queue :
   ?signal:bool -> string -> func_ty -> float -> (unit -> unit) -> unit
+(** Start a new timer. *)
 
-(** Remove a scheduled item by name *)
 val remove_from_queue : string -> unit
+(** Remove a scheduled item by name *)
 
-(** The scheduler's main loop, started by {!Xapi} on start-up. *)
 val loop : unit -> unit
-
+(** The scheduler's main loop, started by {!Xapi} on start-up. *)

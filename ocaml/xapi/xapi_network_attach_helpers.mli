@@ -15,36 +15,32 @@
  * @group Networking
 *)
 
-(** Raises an exception if the network has VIFs in use on the host *)
 val assert_network_has_no_vifs_in_use_on_me :
-  __context:Context.t ->
-  host:[ `host ] Ref.t -> network:[ `network ] Ref.t -> unit
+  __context:Context.t -> host:[`host] Ref.t -> network:[`network] Ref.t -> unit
+(** Raises an exception if the network has VIFs in use on the host *)
 
-(** Raises an exception when the [disallow_unplug] flag is set *)
 val assert_pif_disallow_unplug_not_set :
-  __context:Context.t -> [ `PIF ] Ref.t -> unit
+  __context:Context.t -> [`PIF] Ref.t -> unit
+(** Raises an exception when the [disallow_unplug] flag is set *)
 
-(** Returns a list of PIFs on a given Network and on a given Host *)
 val get_local_pifs :
-  __context:Context.t ->
-  network:[ `network ] Ref.t ->
-  host:[ `host ] Ref.t ->
-  [ `PIF ] Ref.t list
+     __context:Context.t
+  -> network:[`network] Ref.t
+  -> host:[`host] Ref.t
+  -> [`PIF] Ref.t list
+(** Returns a list of PIFs on a given Network and on a given Host *)
 
+val assert_no_slave : __context:Context.t -> [`PIF] Ref.t -> unit
 (** Raises an exception if the PIF is a bond slave *)
-val assert_no_slave :
-  __context:Context.t ->
-  [ `PIF ] Ref.t ->
-  unit
 
-(** Raises an exception if any network cannot be seen *)
 val assert_can_see_named_networks :
-  __context:Context.t ->
-  vm:[ `VM ]Ref.t -> host:[ `host ] Ref.t -> [ `network ] Ref.t list -> unit
+     __context:Context.t
+  -> vm:[`VM] Ref.t
+  -> host:[`host] Ref.t
+  -> [`network] Ref.t list
+  -> unit
+(** Raises an exception if any network cannot be seen *)
 
-(** Raises an exception if the network cannot be attached. *)
 val assert_can_attach_network_on_host :
-  __context:Context.t ->
-  self:[ `network ] Ref.t ->
-  host:[ `host ] Ref.t ->
-  unit
+  __context:Context.t -> self:[`network] Ref.t -> host:[`host] Ref.t -> unit
+(** Raises an exception if the network cannot be attached. *)

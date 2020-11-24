@@ -31,7 +31,12 @@
 
 val watch_networks_for_nbd_changes : unit -> unit
 
-val _watch_networks_for_nbd_changes : Context.t -> update_firewall:(string list -> unit) -> wait_after_event_seconds:float -> wait_after_failure_seconds:float -> unit
+val _watch_networks_for_nbd_changes :
+     Context.t
+  -> update_firewall:(string list -> unit)
+  -> wait_after_event_seconds:float
+  -> wait_after_failure_seconds:float
+  -> unit
 (** This version of {!watch_networks_for_nbd_changes} is for unit testing
     purposes - it calls the [update_firewall] function, instead of invoking a
     script, and how many seconds it waits after failures is specified by

@@ -10,19 +10,18 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
-*)
-(** Create a VUSB. *)
+ *)
+
 val create :
-  __context:Context.t ->
-  vM:[ `VM ] Ref.t ->
-  uSB_group:[ `USB_group ] Ref.t ->
-  other_config:(string * string) list ->
-  [ `VUSB ] Ref.t
+     __context:Context.t
+  -> vM:[`VM] Ref.t
+  -> uSB_group:[`USB_group] Ref.t
+  -> other_config:(string * string) list
+  -> [`VUSB] Ref.t
+(** Create a VUSB. *)
 
+val unplug : __context:Context.t -> self:[`VUSB] API.Ref.t -> unit
 (** Unplug a VUSB from vm. *)
-val unplug:
-  __context:Context.t ->
-  self:[`VUSB] API.Ref.t -> unit
 
+val destroy : __context:Context.t -> self:[`VUSB] Ref.t -> unit
 (** Destroy a VUSB. *)
-val destroy : __context:Context.t -> self:[ `VUSB ] Ref.t -> unit

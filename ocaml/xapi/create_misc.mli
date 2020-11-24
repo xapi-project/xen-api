@@ -13,34 +13,40 @@
  *)
 
 type host_info = {
-  name_label : string;
-  xen_verstring : string option;
-  linux_verstring : string;
-  hostname : string;
-  uuid : string;
-  dom0_uuid : string;
-  oem_manufacturer : string option;
-  oem_model : string option;
-  oem_build_number : string option;
-  machine_serial_number : string option;
-  machine_serial_name : string option;
-  total_memory_mib : int64 option;
-  dom0_static_max : int64 option;
-  cpu_info : Xenops_interface.Host.cpu_info option;
-  chipset_info : Xenops_interface.Host.chipset_info option;
-  hypervisor : Xenops_interface.Host.hypervisor option;
+    name_label: string
+  ; xen_verstring: string option
+  ; linux_verstring: string
+  ; hostname: string
+  ; uuid: string
+  ; dom0_uuid: string
+  ; oem_manufacturer: string option
+  ; oem_model: string option
+  ; oem_build_number: string option
+  ; machine_serial_number: string option
+  ; machine_serial_name: string option
+  ; total_memory_mib: int64 option
+  ; dom0_static_max: int64 option
+  ; cpu_info: Xenops_interface.Host.cpu_info option
+  ; chipset_info: Xenops_interface.Host.chipset_info option
+  ; hypervisor: Xenops_interface.Host.hypervisor option
 }
 
 val read_dom0_memory_usage : unit -> int64 option
+
 val read_localhost_info : __context:Context.t -> host_info
 
-val ensure_domain_zero_records : __context:Context.t -> host:[`host] Ref.t -> host_info -> unit
+val ensure_domain_zero_records :
+  __context:Context.t -> host:[`host] Ref.t -> host_info -> unit
 
 val create_root_user : __context:Context.t -> unit
 
 val create_software_version : __context:Context.t -> host_info -> unit
 
 val create_host_cpu : __context:Context.t -> host_info -> unit
+
 val create_pool_cpuinfo : __context:Context.t -> unit
+
 val create_chipset_info : __context:Context.t -> host_info -> unit
-val create_updates_requiring_reboot_info : __context:Context.t -> host:[`host] Ref.t -> unit
+
+val create_updates_requiring_reboot_info :
+  __context:Context.t -> host:[`host] Ref.t -> unit

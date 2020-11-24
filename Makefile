@@ -4,7 +4,7 @@ XAPIDOC=_build/install/default/xapi/doc
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 
-.PHONY: build clean test doc python reindent install uninstall
+.PHONY: build clean test doc python format install uninstall
 
 build:
 	dune build @install -j $(JOBS) --profile=$(PROFILE)
@@ -37,8 +37,8 @@ doc-json:
 	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir _build/install/default/jekyll
 
-reindent:
-	git ls-files '*.ml*' '**/*.ml*' | xargs ocp-indent --syntax cstruct -i
+format:
+	dune build @fmt --auto-promote
 
 install: build doc
 	mkdir -p $(DESTDIR)$(SBINDIR)
@@ -61,8 +61,6 @@ install: build doc
 	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
 # ocaml/vncproxy
 	scripts/install.sh 755 _build/install/default/bin/vncproxy $(DESTDIR)$(OPTDIR)/debug/vncproxy
-# ocaml/ptoken
-	scripts/install.sh 755 _build/install/default/bin/genptoken $(DESTDIR)$(LIBEXECDIR)/genptoken
 # ocaml/perftest
 	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/perftest
 # ocaml/mpathalert

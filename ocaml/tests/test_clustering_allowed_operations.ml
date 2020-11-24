@@ -21,7 +21,7 @@ let test_pool_cluster_create_not_allowed_when_cluster_exists () =
   let __context = make_test_database () in
   let self = Helpers.get_pool ~__context in
   let _, _ = make_cluster_and_cluster_host ~__context () in
-  Xapi_pool_helpers.update_allowed_operations ~__context ~self;
+  Xapi_pool_helpers.update_allowed_operations ~__context ~self ;
   let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
   assert_true "Pool.allowed_operations should not contain 'cluster_create'"
     (not (List.mem `cluster_create allowed_ops))
@@ -32,16 +32,16 @@ let test_pool_cluster_create_not_allowed_during_pool_ops () =
   let self = Helpers.get_pool ~__context in
   Xapi_pool_helpers.with_pool_operation ~__context ~self ~doc:"" ~op:`ha_enable
     (fun () ->
-       let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
-       assert_true "Pool.allowed_operations should not contain 'cluster_create'"
-         (not (List.mem `cluster_create allowed_ops)))
+      let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
+      assert_true "Pool.allowed_operations should not contain 'cluster_create'"
+        (not (List.mem `cluster_create allowed_ops)))
 
 (** cluster_create is allowed if the pool has no cluster AND there are no pool
     operations in progress *)
 let test_pool_cluster_create_allowed () =
   let __context = make_test_database () in
   let self = Helpers.get_pool ~__context in
-  Xapi_pool_helpers.update_allowed_operations ~__context ~self;
+  Xapi_pool_helpers.update_allowed_operations ~__context ~self ;
   let allowed_ops = Db.Pool.get_allowed_operations ~__context ~self in
   assert_true "Pool.allowed_operations should contain 'cluster_create'"
     (List.mem `cluster_create allowed_ops)
@@ -52,30 +52,33 @@ let test_cluster_ops_not_allowed_during_cluster_op () =
   let self, _ = make_cluster_and_cluster_host ~__context () in
   Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"" ~op:`add
     (fun () ->
-       let allowed_ops = Db.Cluster.get_allowed_operations ~__context ~self in
-       assert_true "Cluster.allowed_operations should be empty" (allowed_ops = []))
+      let allowed_ops = Db.Cluster.get_allowed_operations ~__context ~self in
+      assert_true "Cluster.allowed_operations should be empty" (allowed_ops = []))
 
 (** all cluster operations are allowed if no cluster operations are in progress *)
 let test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress () =
   let __context = make_test_database () in
   let self, _ = make_cluster_and_cluster_host ~__context () in
-  Xapi_cluster_helpers.update_allowed_operations ~__context ~self;
+  Xapi_cluster_helpers.update_allowed_operations ~__context ~self ;
   let allowed_ops = Db.Cluster.get_allowed_operations ~__context ~self in
-  List.iter (fun op ->
-      let msg = Printf.sprintf "Cluster.allowed_operations should contain '%s'"
-          (Record_util.cluster_operation_to_string op) in
-      assert_true msg (List.mem `add allowed_ops)
-    ) Xapi_cluster_helpers.all_cluster_operations
+  List.iter
+    (fun op ->
+      let msg =
+        Printf.sprintf "Cluster.allowed_operations should contain '%s'"
+          (Record_util.cluster_operation_to_string op)
+      in
+      assert_true msg (List.mem `add allowed_ops))
+    Xapi_cluster_helpers.all_cluster_operations
 
 (** if the cluster_host is enabled and there are no cluster_host operations in progress
     then both cluster_host.disable and cluster_host.enable are allowed *)
 let test_cluster_host_disable_allowed () =
   let __context = make_test_database () in
   let _, self = make_cluster_and_cluster_host ~__context () in
-  Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self;
+  Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self ;
   let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
   assert_true "Cluster_host.allowed_operations should contain 'disable'"
-    (List.mem `disable allowed_ops);
+    (List.mem `disable allowed_ops) ;
   assert_true "Cluster_host.allowed_operations should contain 'enable'"
     (List.mem `enable allowed_ops)
 
@@ -84,11 +87,11 @@ let test_cluster_host_disable_allowed () =
 let test_cluster_host_enable_allowed () =
   let __context = make_test_database () in
   let _, self = make_cluster_and_cluster_host ~__context () in
-  Db.Cluster_host.set_enabled ~__context ~self ~value:false;
-  Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self;
+  Db.Cluster_host.set_enabled ~__context ~self ~value:false ;
+  Xapi_cluster_host_helpers.update_allowed_operations ~__context ~self ;
   let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
   assert_true "Cluster_host.allowed_operations should contain 'enable'"
-    (List.mem `enable allowed_ops);
+    (List.mem `enable allowed_ops) ;
   assert_true "Cluster_host.allowed_operations should contain 'disable'"
     (List.mem `disable allowed_ops)
 
@@ -96,94 +99,110 @@ let test_cluster_host_enable_allowed () =
 let test_cluster_host_ops_not_allowed_during_cluster_host_op () =
   let __context = make_test_database () in
   let _, self = make_cluster_and_cluster_host ~__context () in
-  Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"" ~op:`disable
-    (fun () ->
-       let allowed_ops = Db.Cluster_host.get_allowed_operations ~__context ~self in
-       assert_true "Cluster_host.allowed_operations should be empty" (allowed_ops = []))
+  Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:""
+    ~op:`disable (fun () ->
+      let allowed_ops =
+        Db.Cluster_host.get_allowed_operations ~__context ~self
+      in
+      assert_true "Cluster_host.allowed_operations should be empty"
+        (allowed_ops = []))
 
 let with_cluster_op ~__context self op =
   Xapi_cluster_helpers.with_cluster_operation ~__context ~self ~doc:"" ~op
     (fun () -> ())
 
 let with_cluster_host_op ~__context self op =
-  Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:"" ~op
-    (fun () -> ())
+  Xapi_cluster_host_helpers.with_cluster_host_operation ~__context ~self ~doc:""
+    ~op (fun () -> ())
 
 let test_clustering_ops_disallowed_during_rolling_upgrade () =
   let __context = Test_common.make_test_database () in
-
-  (** Helpers for testing clustering operations forbidden during rolling pool upgrade *)
+  (* Helpers for testing clustering operations forbidden during rolling pool upgrade *)
   let test_clustering_ops_should_pass with_cluster_fn self ops =
     List.iter
       (fun op ->
-         Alcotest.(check unit)
-           "Clustering operations should be allowed"
-           () (with_cluster_fn ~__context self op)
-      ) ops
+        Alcotest.(check unit)
+          "Clustering operations should be allowed" ()
+          (with_cluster_fn ~__context self op))
+      ops
   in
   let cluster, cluster_host =
     Test_common.make_cluster_and_cluster_host ~__context ()
   in
   let test_cluster_host_operations_valid () =
-    test_clustering_ops_should_pass
-      with_cluster_host_op
-      cluster_host
+    test_clustering_ops_should_pass with_cluster_host_op cluster_host
       Xapi_cluster_host_helpers.all_cluster_host_operations
   in
-
   (* All clustering operations are valid without RPU in progress
    * and rolling_upgrade is false by default *)
-  test_clustering_ops_should_pass
-    with_cluster_op
-    cluster
-    Xapi_cluster_helpers.all_cluster_operations;
-  test_cluster_host_operations_valid ();
-
+  test_clustering_ops_should_pass with_cluster_op cluster
+    Xapi_cluster_helpers.all_cluster_operations ;
+  test_cluster_host_operations_valid () ;
   (* set rolling upgrade *)
   let key = Xapi_globs.rolling_upgrade_in_progress in
   let self = Helpers.get_pool ~__context in
-  Db.Pool.remove_from_other_config ~__context ~self ~key;
-  Db.Pool.add_to_other_config ~__context ~self ~key ~value:"true";
-
+  Db.Pool.remove_from_other_config ~__context ~self ~key ;
+  Db.Pool.add_to_other_config ~__context ~self ~key ~value:"true" ;
   (* Only cluster_host lifecycle changes valid during RPU, not cluster membership changes *)
   List.iter
     (fun op ->
-       Alcotest.check_raises
-         "Other than cluster_host enable/disable, no clustering operations should be allowed during RPU"
-         Api_errors.(Server_error (not_supported_during_upgrade, []))
-         (fun () -> with_cluster_op ~__context cluster op)
-    ) [ `add ; `remove ; `destroy];
-
-  test_clustering_ops_should_pass
-    with_cluster_op
-    cluster
-    [ `enable ; `disable ];
-
+      Alcotest.check_raises
+        "Other than cluster_host enable/disable, no clustering operations \
+         should be allowed during RPU"
+        Api_errors.(Server_error (not_supported_during_upgrade, []))
+        (fun () -> with_cluster_op ~__context cluster op))
+    [`add; `remove; `destroy] ;
+  test_clustering_ops_should_pass with_cluster_op cluster [`enable; `disable] ;
   test_cluster_host_operations_valid ()
 
 let test_cluster_host_ops_without_join () =
   (* Note that joined:true by default so no need to check *)
   let __context = make_test_database () in
-  let cluster, cluster_host = make_cluster_and_cluster_host ~__context ~host:Helpers.(get_localhost ~__context) () in
-  Db.Cluster_host.set_joined ~__context ~self:cluster_host ~value:false;
-
+  let cluster, cluster_host =
+    make_cluster_and_cluster_host ~__context
+      ~host:Helpers.(get_localhost ~__context)
+      ()
+  in
+  Db.Cluster_host.set_joined ~__context ~self:cluster_host ~value:false ;
   List.iter
     (fun op ->
       Alcotest.check_raises
         "Non-remove cluster operations invalid when not cluster_host.joined"
-        Api_errors.(Server_error (cluster_host_not_joined, [ Ref.string_of cluster_host ]))
-        (fun () -> with_cluster_host_op ~__context cluster_host op)
-    ) Xapi_cluster_host_helpers.all_cluster_host_operations
+        Api_errors.(
+          Server_error (cluster_host_not_joined, [Ref.string_of cluster_host]))
+        (fun () -> with_cluster_host_op ~__context cluster_host op))
+    Xapi_cluster_host_helpers.all_cluster_host_operations
 
 let test =
-  [ "test_pool_cluster_create_not_allowed_when_cluster_exists", `Quick, test_pool_cluster_create_not_allowed_when_cluster_exists
-  ; "test_pool_cluster_create_not_allowed_during_pool_ops", `Quick, test_pool_cluster_create_not_allowed_during_pool_ops
-  ; "test_pool_cluster_create_allowed", `Quick, test_pool_cluster_create_allowed
-  ; "test_cluster_ops_not_allowed_during_cluster_op", `Quick, test_cluster_ops_not_allowed_during_cluster_op
-  ; "test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress", `Quick, test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress
-  ; "test_cluster_host_disable_allowed", `Quick, test_cluster_host_disable_allowed
-  ; "test_cluster_host_enable_allowed", `Quick, test_cluster_host_enable_allowed
-  ; "test_cluster_host_ops_not_allowed_during_cluster_host_op", `Quick, test_cluster_host_ops_not_allowed_during_cluster_host_op
-  ; "test_clustering_ops_disallowed_during_rolling_upgrade", `Quick, test_clustering_ops_disallowed_during_rolling_upgrade
-  ; "test_cluster_host_ops_without_join", `Quick, test_cluster_host_ops_without_join
+  [
+    ( "test_pool_cluster_create_not_allowed_when_cluster_exists"
+    , `Quick
+    , test_pool_cluster_create_not_allowed_when_cluster_exists )
+  ; ( "test_pool_cluster_create_not_allowed_during_pool_ops"
+    , `Quick
+    , test_pool_cluster_create_not_allowed_during_pool_ops )
+  ; ( "test_pool_cluster_create_allowed"
+    , `Quick
+    , test_pool_cluster_create_allowed )
+  ; ( "test_cluster_ops_not_allowed_during_cluster_op"
+    , `Quick
+    , test_cluster_ops_not_allowed_during_cluster_op )
+  ; ( "test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress"
+    , `Quick
+    , test_all_cluster_ops_allowed_when_no_cluster_ops_in_progress )
+  ; ( "test_cluster_host_disable_allowed"
+    , `Quick
+    , test_cluster_host_disable_allowed )
+  ; ( "test_cluster_host_enable_allowed"
+    , `Quick
+    , test_cluster_host_enable_allowed )
+  ; ( "test_cluster_host_ops_not_allowed_during_cluster_host_op"
+    , `Quick
+    , test_cluster_host_ops_not_allowed_during_cluster_host_op )
+  ; ( "test_clustering_ops_disallowed_during_rolling_upgrade"
+    , `Quick
+    , test_clustering_ops_disallowed_during_rolling_upgrade )
+  ; ( "test_cluster_host_ops_without_join"
+    , `Quick
+    , test_cluster_host_ops_without_join )
   ]

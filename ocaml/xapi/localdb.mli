@@ -18,20 +18,20 @@
 (** Thrown when a particular named key could not be found. *)
 exception Missing_key of string
 
+val get : string -> string
 (** Retrieves a value *)
-val get: string -> string
 
+val get_with_default : string -> string -> string
 (** [get_with_default key default] returns the value associated with [key],
     	or [default] if the key is missing. *)
-val get_with_default: string -> string -> string
 
+val put : string -> string -> unit
 (** Inserts a value into the database, only returns when the insertion has
     been persisted. *)
-val put: string -> string -> unit
 
+val putv : (string * string) list -> unit
 (** Insert a set of values into the database, only returns when the insertions
     have been persisted. *)
-val putv: (string * string) list -> unit
 
+val del : string -> unit
 (** Delete a key from the local database *)
-val del: string -> unit
