@@ -84,8 +84,17 @@ let refresh_console_urls ~__context =
             | "" ->
                 ""
             | address ->
-                Printf.sprintf "https://%s%s?ref=%s" address
-                  Constants.console_uri (Ref.string_of console)
+              let address =
+                match Xapi_stdext_unix.Unixext.domain_of_addr address with
+                | Some x when x = Unix.PF_INET ->
+                  address
+                | Some x when x = Unix.PF_INET6 ->
+                  "[" ^ address ^ "]"
+                | _ ->
+                  ""
+              in
+              Printf.sprintf "https://%s%s?ref=%s" address
+                Constants.console_uri (Ref.string_of console)
           in
           Db.Console.set_location ~__context ~self:console ~value:url_should_be)
         ())
