@@ -130,7 +130,7 @@ let selfsign cn alt_names length days certfile ip =
     String.concat "\n\n" [Cstruct.to_string key_pem; Cstruct.to_string cert_pem]
   in
   write_certs certfile pkcs12 >>= fun () ->
-  Ok (cert, X509.Certificate.fingerprint `SHA256 cert)
+  Ok (cert, [X509.Certificate.fingerprint `SHA256 cert])
 
 let generate cn alt_names pemfile ip =
   let expire_days = 3650 in

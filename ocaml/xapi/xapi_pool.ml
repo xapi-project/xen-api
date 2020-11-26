@@ -2130,7 +2130,62 @@ let retrieve_wlb_recommendations ~__context = get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
 
-let certificate_install = Certificates.(pool_install CA_Certificate)
+(* Installs a CA certificate pool-wide as a trust anchor.
+   If the given name is a UUID, use it as the certficate's record uuid,
+   this allows to install self-signed certificates with a given UUID.
+   The name is the basename of the file written to disk. *)
+let certificate_install ~__context ~name ~cert =
+  let expr = Db_filter.(Eq (Field "uuid", Literal name)) in
+  let refs = Db.Certificate.get_refs_where ~__context ~expr in
+  (* Do not allow users to overwrite certificates installed by xapi
+     To install a self signed:
+       1. write to filesystem
+       2. distribute cert & add to db (here)
+       3. modify the db record so it's a self-signed certificate
+  *)
+  if refs <> [] then
+    raise Api_errors.(Server_error (internal_error, [Printf.sprintf "certificate already exists with name '%s'" name])) ;
+
+  let uuid =
+    match Uuidm.of_string name with
+    | None ->
+        Uuid.(to_string (make_uuid ()))
+    | Some _ ->
+        name
+  in
+  (* Ensure users cannot override xapi-installed certificates by using the
+     name parameter as the basename of the filename. *)
+  let name = name ^ ".pem" in
+  let certificate_result =
+    Cstruct.of_string cert |> X509.Certificate.decode_pem
+  in
+
+  let certificate =
+    match certificate_result with
+    | Error _ ->
+        raise Api_errors.(Server_error (certificate_corrupt, []))
+    | Ok c ->
+        c
+  in
+
+  let () = Certificates.(pool_install CA_Certificate) ~__context ~name ~cert in
+
+  let add_certificate_to_db certificate =
+    let pool = Helpers.get_pool ~__context in
+    let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+    let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+    let not_before, not_after =
+      dates_of_ptimes (X509.Certificate.validity certificate)
+    in
+    let fingerprint =
+      X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
+      |> Certificates.pp_hash
+    in
+    let ref = Ref.make () in
+    Db.Certificate.create ~__context ~ref ~uuid ~_type:`pool ~host:Ref.null
+      ~pool ~not_before ~not_after ~fingerprint
+  in
+  add_certificate_to_db certificate
 
 let install_ca_certificate = certificate_install
 
