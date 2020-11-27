@@ -84,15 +84,7 @@ let refresh_console_urls ~__context =
             | "" ->
                 ""
             | address ->
-              let address =
-                match Xapi_stdext_unix.Unixext.domain_of_addr address with
-                | Some x when x = Unix.PF_INET ->
-                  address
-                | Some x when x = Unix.PF_INET6 ->
-                  "[" ^ address ^ "]"
-                | _ ->
-                  ""
-              in
+              let address = Http.Url.maybe_wrap_IPv6_literal address in
               Printf.sprintf "https://%s%s?ref=%s" address
                 Constants.console_uri (Ref.string_of console)
           in
