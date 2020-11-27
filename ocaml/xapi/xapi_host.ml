@@ -2246,20 +2246,45 @@ let migrate_receive ~__context ~host ~network ~options =
            ( Api_errors.host_cannot_attach_network
            , [Ref.string_of host; Ref.string_of network] ))
   in
-  let ip = Db.PIF.get_IP ~__context ~self:pif in
-  ( if String.length ip = 0 then
-      match Db.PIF.get_ip_configuration_mode ~__context ~self:pif with
-      | `None ->
-          raise
-            (Api_errors.Server_error
-               (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif]))
-      | `DHCP ->
-          raise
-            (Api_errors.Server_error
-               (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
-      | _ ->
-          failwith "No IP address on PIF"
+  let primary_address_type =
+    Db.PIF.get_primary_address_type ~__context ~self:pif
+  in
+  let ip, configuration_mode =
+    match primary_address_type with
+    | `IPv4 ->
+      ( Db.PIF.get_IP ~__context ~self:pif,
+      Db.PIF.get_ip_configuration_mode ~__context ~self:pif )
+    | `IPv6 ->
+      let configuration_mode =
+        Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
+      in
+      match Db.PIF.get_IPv6 ~__context ~self:pif with
+      | [] -> ("", configuration_mode)
+      | ip::_ ->
+        (* The CIDR is also stored in the IPv6 field of a PIF. *))
+        let ipv6 =
+          match String.split_on_char '/' ip with
+          | hd::_ -> hd
+          | _ -> ""
+        in
+        (ipv6, configuration_mode)
+  in
+  ( if ip = "" then
+    match configuration_mode with
+    | `None ->
+      raise
+        (Api_errors.Server_error
+          (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif]))
+    | _ ->
+      raise
+        (Api_errors.Server_error
+          (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
   ) ;
+  let ip =
+    match primary_address_type with
+    | `IPv4 -> ip
+    | `IPv6 -> Http.Url.maybe_wrap_IPv6_literal ip
+  in
   let sm_url =
     Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id
   in
@@ -2270,6 +2295,13 @@ let migrate_receive ~__context ~host ~network ~options =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
+  in
+  let master_address =
+    match Xapi_stdext_unix.Unixext.domain_of_addr master_address with
+    | Some Unix.PF_INET6 ->
+      Http.Url.maybe_wrap_IPv6_literal master_address
+    | _ ->
+      master_address
   in
   let master_url = Printf.sprintf "http://%s/" master_address in
   [
