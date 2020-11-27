@@ -60,6 +60,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # HACK: the repo should be set already by the 'Use ocaml' step, but it is not
+          # (this might be because of the cache)
+          opam repo set-url default ${{ steps.dotenv.outputs.repository }}
+
           opam update
           opam pin add . --no-action
           opam depext -u ${{ env.package }}
