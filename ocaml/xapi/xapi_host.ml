@@ -2475,3 +2475,33 @@ let get_sched_gran ~__context ~self =
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
   Helpers.StunnelClient.set_verify_by_default false
+
+let alert_if_tls_verification_was_emergency_disabled ~__context =
+  let tls_verification_enabled_locally =
+    Helpers.StunnelClient.get_verify_by_default ()
+  in
+  let tls_verification_enabled_pool_wide =
+    Db.Pool.get_tls_verification_enabled ~__context
+      ~self:(Helpers.get_pool ~__context)
+  in
+  (* Only add an alert if (a) we found a problem and (b) an alert doesn't already exist *)
+  if
+    tls_verification_enabled_pool_wide
+    && tls_verification_enabled_pool_wide <> tls_verification_enabled_locally
+  then
+    let alert_exists =
+      Helpers.call_api_functions ~__context (fun rpc session ->
+          Client.Client.Message.get_all_records rpc session
+          |> List.exists (fun (_, record) ->
+                 record.API.message_name
+                 = fst Api_messages.tls_verification_emergency_disabled))
+    in
+
+    if not alert_exists then
+      let self = Helpers.get_localhost ~__context in
+      let host = Db.Host.get_name_label ~__context ~self in
+      let body = Printf.sprintf "<body><host>%s</host></body>" host in
+      Xapi_alert.add ~msg:Api_messages.tls_verification_emergency_disabled
+        ~cls:`Host
+        ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
+        ~body

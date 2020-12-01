@@ -516,3 +516,6 @@ val get_sched_gran :
   __context:Context.t -> self:API.ref_host -> API.host_sched_gran
 
 val emergency_disable_tls_verification : __context:'a -> unit
+
+val alert_if_tls_verification_was_emergency_disabled :
+  __context:Context.t -> unit
