@@ -570,19 +570,19 @@ namespace XenAPI
                                 throw new ProxyServerAuthenticationException("Stale nonce in Digest authentication attempt.");
                             break;
                         case "realm=":
-                            authenticationFieldReply += $", realm=\"{directives[++i]}\"";
+                            authenticationFieldReply += string.Format(", realm=\"{0}\"", directives[++i]);
                             realm = directives[i];
                             break;
                         case "nonce=":
-                            authenticationFieldReply += $", nonce=\"{directives[++i]}\"";
+                            authenticationFieldReply += string.Format(", nonce=\"{0}\"", directives[++i]);
                             nonce = directives[i];
                             break;
                         case "opaque=":
-                            authenticationFieldReply += $", opaque=\"{directives[++i]}\"";
+                            authenticationFieldReply += string.Format(", opaque=\"{0}\"", directives[++i]);
                             opaque = directives[i];
                             break;
                         case "algorithm=":
-                            authenticationFieldReply += $", algorithm={directives[++i]}"; //unquoted; see RFC7616-3.4
+                            authenticationFieldReply += string.Format(", algorithm={0}", directives[++i]); //unquoted; see RFC7616-3.4
                             algorithm = directives[i];
                             break;
                         case "qop=":
@@ -593,7 +593,7 @@ namespace XenAPI
                                       qops.FirstOrDefault(q => q.ToLowerInvariant() == "auth-int") ??
                                       throw new ProxyServerAuthenticationException(
                                           "Digest authentication's quality-of-protection directive is not supported.");
-                                authenticationFieldReply += $", qop={qop}"; //unquoted; see RFC7616-3.4
+                                authenticationFieldReply += string.Format(", qop={0}", qop); //unquoted; see RFC7616-3.4
                             }
                             break;
                     }
@@ -601,11 +601,11 @@ namespace XenAPI
 
                 string clientNonce = GenerateNonce();
                 if (qop != null)
-                    authenticationFieldReply += $", cnonce=\"{clientNonce}\"";
+                    authenticationFieldReply += string.Format(", cnonce=\"{0}\"", clientNonce);
 
                 string nonceCount = "00000001"; // todo: track nonces and their corresponding nonce counts
                 if (qop != null)
-                    authenticationFieldReply += $", nc={nonceCount}"; //unquoted; see RFC7616-3.4
+                    authenticationFieldReply += string.Format(", nc={0}", nonceCount); //unquoted; see RFC7616-3.4
 
                 Func<string, string> algFunc;
                 var scratch1 = string.Join(":", credentials.UserName, realm, credentials.Password);
@@ -643,7 +643,7 @@ namespace XenAPI
                     : new[] {HA1, nonce, nonceCount, clientNonce, qop, HA2};
                 var response = algFunc(string.Join(":", array3));
 
-                authenticationFieldReply += $", response=\"{response}\"";
+                authenticationFieldReply += string.Format(", response=\"{0}\"", response);
 
                 WriteLine(header, stream);
                 WriteLine(authenticationFieldReply, stream);
