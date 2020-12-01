@@ -324,9 +324,11 @@ namespace XenAPI
 
             using (var hasher = HashAlgorithm.Create(method))
             {
-                byte[] hash = hasher?.ComputeHash(bytes);
-                if (hash != null)
+                if (hasher != null)
+                {
+                    byte[] hash = hasher.ComputeHash(bytes);
                     return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                }
             }
 
             return null;
@@ -590,7 +592,8 @@ namespace XenAPI
                             if (qops.Length > 0)
                             {
                                 qop = qops.FirstOrDefault(q => q.ToLowerInvariant() == "auth") ??
-                                      qops.FirstOrDefault(q => q.ToLowerInvariant() == "auth-int") ??
+                                      qops.FirstOrDefault(q => q.ToLowerInvariant() == "auth-int");
+                                if (qop == null)
                                       throw new ProxyServerAuthenticationException(
                                           "Digest authentication's quality-of-protection directive is not supported.");
                                 authenticationFieldReply += string.Format(", qop={0}", qop); //unquoted; see RFC7616-3.4
