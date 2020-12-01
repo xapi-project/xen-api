@@ -2461,3 +2461,38 @@ let emergency_disable_tls_verification ~__context =
   Localdb.put Constants.tls_verification_enabled "false" ;
   (* disable verification now *)
   Stunnel.set_verify_tls_certs false
+
+let health_check ~__context =
+  let tls_verification_enabled_locally =
+    Localdb.get_with_default Constants.tls_verification_enabled "false"
+    |> bool_of_string
+  in
+  let tls_verification_enabled_pool_wide =
+    Db.Pool.get_tls_verification_enabled ~__context
+      ~self:(Helpers.get_pool ~__context)
+  in
+  (* Only add an alert if (a) we found a problem and (b) an alert doesn't already exist *)
+  if
+    tls_verification_enabled_pool_wide
+    && tls_verification_enabled_pool_wide <> tls_verification_enabled_locally
+  then
+    let alert_exists =
+      Helpers.call_api_functions ~__context (fun rpc session ->
+          Client.Client.Message.get_all_records rpc session
+          |> List.exists (fun (_, record) ->
+                 record.API.message_name = fst Api_messages.local_health_check))
+    in
+
+    if not alert_exists then
+      let self = Helpers.get_localhost ~__context in
+      let host = Db.Host.get_name_label ~__context ~self in
+      let msg =
+        "TLS verification is enabled on the pool but overriden on a host"
+      in
+      let body =
+        Printf.sprintf "<body><message>%s</message><host>%s</host></body>" msg
+          host
+      in
+      Xapi_alert.add ~msg:Api_messages.local_health_check ~cls:`Host
+        ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
+        ~body
