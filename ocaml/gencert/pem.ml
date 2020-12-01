@@ -69,8 +69,8 @@ let read_file path =
   really_input_string ic (in_channel_length ic)
 
 let parse_string str =
-  (* let consume = Consume.Prefix in *)
-  parse_string pem str
+  let consume = Consume.Prefix in
+  parse_string ~consume pem str
 
 let parse_file path =
   try read_file path |> parse_string
