@@ -135,7 +135,7 @@ let get_strings name keys key_values =
 
 let get_dmidecode_strings e_type name =
   let output = get_output_of_type e_type in
-  match Angstrom.parse_string P.records output with
+  match Angstrom.parse_string ~consume:Prefix P.records output with
   | Ok (r :: _) ->
       r.values
   | Ok [] ->

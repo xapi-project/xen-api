@@ -108,8 +108,10 @@ let check_values = Alcotest.(check @@ list @@ pair string string)
 
 let check_records = Alcotest.(check @@ result (list alco_record) string)
 
+let parse_string = Angstrom.parse_string ~consume:Prefix P.records
+
 let values_from_string str =
-  match Angstrom.parse_string P.records str with
+  match parse_string str with
   | Ok (r :: _) ->
       r.values
   | Ok [] ->
@@ -118,15 +120,14 @@ let values_from_string str =
       []
 
 let test_parser () =
-  check_records "Empty string produces an empty list" (Ok [])
-    (Angstrom.parse_string P.records "") ;
+  check_records "Empty string produces an empty list" (Ok []) (parse_string "") ;
   check_records "Invalid records must be discarded and stop the parser" (Ok [])
-    (Angstrom.parse_string P.records invalid_string) ;
+    (parse_string invalid_string) ;
   check_records "Two records with same name is valid input"
     (Ok baseboard_two_record)
-    (Angstrom.parse_string P.records baseboard_two_string) ;
+    (parse_string baseboard_two_string) ;
   check_records "Arrays must be parsed as multi-line values" (Ok with_array)
-    (Angstrom.parse_string P.records with_array_string)
+    (parse_string with_array_string)
 
 let test_baseboard () =
   check_values "Baseboard values must have empty values when input is empty"
