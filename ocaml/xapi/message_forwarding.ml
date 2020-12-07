@@ -923,6 +923,9 @@ functor
           (current_pool_uuid ~__context) ;
         Local.Pool.assert_can_enable_tls_verification ~__context
 
+      (* this ought to be
+         (a) idempotent
+         (b) capable of re-enabling verification on hosts who have had verification emergency disabled *)
       let enable_tls_verification ~__context =
         info "Pool.enable_tls_verification: pool = '%s'"
           (current_pool_uuid ~__context) ;
@@ -3476,6 +3479,10 @@ functor
         let local_fn = Local.Host.get_sched_gran ~self in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.get_sched_gran rpc session_id self)
+
+      let emergency_disable_tls_verification ~__context =
+        info "Host.emergency_disable_tls_verification" ;
+        Local.Host.emergency_disable_tls_verification ~__context
     end
 
     module Host_crashdump = struct

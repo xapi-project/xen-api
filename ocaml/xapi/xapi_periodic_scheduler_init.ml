@@ -96,4 +96,8 @@ let register () =
   if master then
     Xapi_periodic_scheduler.add_to_queue "Periodic alert failed login attempts"
       (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
-      Xapi_pool.alert_failed_login_attempts
+      Xapi_pool.alert_failed_login_attempts ;
+  Xapi_periodic_scheduler.add_to_queue "Local health check"
+    (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
+      Server_helpers.exec_with_new_task "Local health check" (fun __context ->
+          Xapi_host.health_check ~__context))
