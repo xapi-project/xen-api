@@ -1366,6 +1366,55 @@ let certificate_sync ~__context ~host = Certificates.local_sync ()
 let get_server_certificate ~__context ~host =
   Certificates.get_server_certificate ()
 
+let add_certificate_to_db ~__context ~host certificate root_fingerprints =
+  let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+  let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+  let not_before, not_after =
+    dates_of_ptimes (X509.Certificate.validity certificate)
+  in
+  let raw_fingerprint =
+    X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
+  in
+  let fingerprint = Certificates.pp_hash raw_fingerprint in
+  let uuid = Uuid.(to_string (make_uuid ())) in
+  let ref = Ref.make () in
+  let _type =
+    if List.mem raw_fingerprint root_fingerprints then `host_and_pool else `host
+  in
+  Db.Certificate.create ~__context ~ref ~uuid ~_type ~host ~pool:Ref.null
+    ~not_before ~not_after ~fingerprint ;
+  (* Link host to trust anchors *)
+  let root_certs =
+    root_fingerprints
+    |> List.map (fun root_fingerprint ->
+           let expr =
+             Db_filter_types.(
+               Eq
+                 ( Field "fingerprint"
+                 , Literal (Certificates.pp_hash root_fingerprint) ))
+           in
+           Db.Certificate.get_refs_where ~__context ~expr)
+    |> List.flatten
+    |> List.sort_uniq Stdlib.compare
+  in
+  Db.Certificate.set_validated_by ~__context ~self:ref ~value:root_certs ;
+  ref
+
+let uninstall_host_certificates ~__context certs =
+  (* uninstall self-signed cert from CA certs and remove host certificates
+     from the database *)
+  List.iter
+    (fun (self, record) ->
+      ( match record.API.certificate_type with
+      | `host_and_pool ->
+          let name = record.API.certificate_uuid in
+          Certificates.(pool_uninstall CA_Certificate) ~__context ~name
+      | _ ->
+          ()
+      ) ;
+      Db.Certificate.destroy ~__context ~self)
+    certs
+
 let install_server_certificate ~__context ~host ~certificate ~private_key
     ~certificate_chain =
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
@@ -1373,38 +1422,35 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   let expr =
     Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))
   in
-  let current_server_certs = Db.Certificate.get_refs_where ~__context ~expr in
+  let current_server_certs =
+    Db.Certificate.get_records_where ~__context ~expr
+  in
   let pem_chain =
     match certificate_chain with "" -> None | pem_chain -> Some pem_chain
   in
-  let certificate =
+  let certificate, root_fingerprints =
     Certificates.install_server_certificate ~pem_leaf:certificate
       ~pkcs8_private_key:private_key ~pem_chain
   in
-  let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
-  let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
-  let not_before, not_after =
-    dates_of_ptimes (X509.Certificate.validity certificate)
+  let _cert_ref =
+    add_certificate_to_db ~__context ~host certificate root_fingerprints
   in
-  let fingerprint =
-    X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
-    |> Certificates.pp_hash
-  in
-  let uuid = Uuid.(to_string (make_uuid ())) in
-  let ref = Ref.make () in
-  List.iter
-    (fun self -> Db.Certificate.destroy ~__context ~self)
-    current_server_certs ;
-  Db.Certificate.create ~__context ~ref ~uuid ~_type:`host ~host ~pool:Ref.null
-    ~not_before ~not_after ~fingerprint ;
+
   let task = Context.get_task_id __context in
   (* mark task as done *)
   Db.Task.set_progress ~__context ~self:task ~value:1.0 ;
   (* sever all connections done with stunnel *)
-  Xapi_mgmt_iface.reconfigure_stunnel ~__context
+  Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
+  uninstall_host_certificates ~__context current_server_certs
 
 let reset_server_certificate ~__context ~host =
   let self = Helpers.get_localhost ~__context in
+  let expr =
+    Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self)))
+  in
+  let current_server_certs =
+    Db.Certificate.get_records_where ~__context ~expr
+  in
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
   let ip =
     match Helpers.get_management_ip_addr ~__context with
@@ -1425,15 +1471,30 @@ let reset_server_certificate ~__context ~host =
         xs
   in
   let cn = ip in
-  Gencertlib.Selfcert.host cn alt_names xapi_ssl_pem ip ;
+  let certificate, root_fingerprint =
+    Gencertlib.Selfcert.generate cn alt_names xapi_ssl_pem ip
+  in
+
+  let cert = X509.Certificate.encode_pem certificate |> Cstruct.to_string in
+
+  (* install self-signed certificate to the pool's trusted CA certs.
+     Uses a uuid as name to avoid duplicate names. This creates a
+     certificate records to the database as a pool certificate.
+     Since we just generated the private key randomly we know the fingerptint
+     in the database will be unique and we can replace it. *)
+  let name = Uuid.(to_string (make_uuid ())) in
+
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Client.Client.Pool.install_ca_certificate rpc session_id name cert) ;
+
+  let self = Db.Certificate.get_by_uuid ~__context ~uuid:name in
+  Db.Certificate.set_type ~__context ~self ~value:`host_and_pool ;
+  Db.Certificate.set_host ~__context ~self ~value:host ;
+  Db.Certificate.set_validated_by ~__context ~self ~value:[self] ;
+
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
-  (* Delete records of the server certificate in this host *)
-  let expr =
-    Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self)))
-  in
-  Db.Certificate.get_refs_where ~__context ~expr
-  |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
+  uninstall_host_certificates ~__context current_server_certs
 
 let emergency_reset_server_certificate ~__context =
   let host = Helpers.get_localhost ~__context in

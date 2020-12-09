@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module C = Cmdliner
 module Rsa = Mirage_crypto_pk.Rsa
 module UX = Xapi_stdext_unix.Unixext
 open Rresult (* introduces >>= >>| and R *)
@@ -130,9 +129,10 @@ let selfsign cn alt_names length days certfile ip =
   let pkcs12 =
     String.concat "\n\n" [Cstruct.to_string key_pem; Cstruct.to_string cert_pem]
   in
-  write_certs certfile pkcs12
+  write_certs certfile pkcs12 >>= fun () ->
+  Ok (cert, [X509.Certificate.fingerprint `SHA256 cert])
 
-let host cn alt_names pemfile ip =
+let generate cn alt_names pemfile ip =
   let expire_days = 3650 in
   let length = 2048 in
   (* make sure name is part of alt_names because CN is deprecated and

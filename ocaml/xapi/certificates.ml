@@ -304,6 +304,6 @@ let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
   in
   match installation with
   | Ok (leaf_cert, thumbprints) ->
-      leaf_cert
+      (leaf_cert, thumbprints)
   | Error (`Msg (err, msg)) ->
       raise_server_error msg err
