@@ -62,6 +62,16 @@ let iso8601_tests =
     Alcotest.(check bool) "localtime string does not contain a Z" false (String.contains localtime_string 'Z')
   in
 
+  let test_xsi894 () =
+    let missing_tz_no_dash = "20201210T17:19:20" in
+    let missing_tz_dash = "2020-12-10T17:19:20" in
+    check_string "can process missing tz no dash" missing_tz_no_dash (missing_tz_no_dash |> of_string |> to_string) ;
+    check_string "can process missing tz with dashes, but return without dashes" missing_tz_no_dash (missing_tz_dash |> of_string |> to_string) ;
+
+    let localtime' = localtime () in
+    check_string "to_string inverts of_string for localtime" (localtime' |> to_string) (localtime' |> to_string |> of_string |> to_string) ;
+  in
+
   [ "test_of_float_invertible", `Quick, test_of_float_invertible
   ; "test_only_utc", `Quick, test_only_utc
   ; "test_ca333908", `Quick, test_ca333908
@@ -69,6 +79,7 @@ let iso8601_tests =
   ; "test_to_string_backwards_compatibility", `Quick, test_to_string_backwards_compatibility
   ; "test_localtime_string", `Quick, test_localtime_string
   ; "test_ca342171", `Quick, test_ca342171
+  ; "test_xsi894", `Quick, test_xsi894
   ]
 
 let () = Alcotest.run "Date" [ "ISO 8601", iso8601_tests ]
