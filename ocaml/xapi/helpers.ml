@@ -1021,15 +1021,16 @@ let is_valid_MAC mac =
          acc && String.length s = 2 && validchar s.[0] && validchar s.[1])
        true l
 
-(** Returns true if the supplied IP address looks like one of mine *)
+(** Returns true if the supplied address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
-  let inet_addrs =
+  let ipv4s =
     Net.Interface.get_ipv4_addr dbg
       (Xapi_inventory.lookup Xapi_inventory._management_interface)
   in
-  let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
-  List.mem address addresses
+  let addresses = List.map Unix.string_of_inet_addr (List.map fst ipv4s) in
+  let hostnames = Gencertlib.Lib.dns_sans () in
+  List.mem address (List.append addresses hostnames)
 
 (** Returns the list of hosts thought to be live *)
 let get_live_hosts ~__context =
@@ -1039,44 +1040,6 @@ let get_live_hosts ~__context =
       let metrics = Db.Host.get_metrics ~__context ~self in
       try Db.Host_metrics.get_live ~__context ~self:metrics with _ -> false)
     hosts
-
-let gethostbyname_family host family =
-  let throw_resolve_error () =
-    failwith (Printf.sprintf "Couldn't resolve hostname: %s" host)
-  in
-  let getaddr x =
-    match x with
-    | Unix.ADDR_INET (addr, port) ->
-        addr
-    | _ ->
-        failwith "Expected ADDR_INET"
-  in
-  let he =
-    Unix.getaddrinfo host ""
-      [Unix.AI_SOCKTYPE Unix.SOCK_STREAM; Unix.AI_FAMILY family]
-  in
-  if List.length he = 0 then
-    throw_resolve_error () ;
-  Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
-
-(** Return the first address we find for a hostname *)
-let gethostbyname host =
-  let throw_resolve_error () =
-    failwith (Printf.sprintf "Couldn't resolve hostname: %s" host)
-  in
-  let pref =
-    Record_util.primary_address_type_of_string
-      (Xapi_inventory.lookup Xapi_inventory._management_address_type)
-  in
-  try
-    gethostbyname_family host
-      (if pref = `IPv4 then Unix.PF_INET else Unix.PF_INET6)
-  with _ -> (
-    try
-      gethostbyname_family host
-        (if pref = `IPv4 then Unix.PF_INET6 else Unix.PF_INET)
-    with _ -> throw_resolve_error ()
-  )
 
 (** Indicate whether VM.clone should be allowed on suspended VMs *)
 let clone_suspended_vm_enabled ~__context =

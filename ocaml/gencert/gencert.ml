@@ -41,9 +41,9 @@ let main ~dbg ~path =
         x
   in
   let sans =
-    match Lib.hostnames () with
+    match Lib.dns_sans () with
     | [] ->
-        D.error "could not find any hostnames" ;
+        D.error "could not find any SANs" ;
         exit 1
     | xs ->
         xs

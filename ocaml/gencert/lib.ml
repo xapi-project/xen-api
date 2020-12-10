@@ -18,14 +18,12 @@ module D = Debug.Make (struct let name = "gencert_lib" end)
 
 exception Unexpected_address_type of string
 
-(* Try to get all FQDNs, use the hostname if none are available *)
-let hostnames () =
-  let hostname = Unix.gethostname () in
-  let fqdns =
-    Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
-    |> List.map (fun x -> x.Unix.ai_canonname)
-  in
-  hostname :: fqdns
+let _fqdns_of_hostname hostname =
+  Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
+  |> List.map (fun x -> x.Unix.ai_canonname)
+
+let _filter_and_cleanup_names names =
+  names
   |> List.filter_map (fun x ->
          let x = Astring.String.trim x in
          if
@@ -37,6 +35,16 @@ let hostnames () =
          else
            Some x)
   |> Astring.String.uniquify
+
+let fqdns_of_hostname hostname =
+  _fqdns_of_hostname hostname |> _filter_and_cleanup_names
+
+let fqdn_of_hostname hostname =
+  fqdns_of_hostname hostname |> function [] -> None | x :: _ -> Some x
+
+let dns_sans () =
+  let hostname = Unix.gethostname () in
+  hostname :: _fqdns_of_hostname hostname |> _filter_and_cleanup_names
 
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in

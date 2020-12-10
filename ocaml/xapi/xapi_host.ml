@@ -1464,7 +1464,7 @@ let reset_server_certificate ~__context ~host =
         ip
   in
   let alt_names =
-    match Gencertlib.Lib.hostnames () with
+    match Gencertlib.Lib.dns_sans () with
     | [] ->
         (* should never happen *) [Helper_hostname.get_hostname ()]
     | xs ->

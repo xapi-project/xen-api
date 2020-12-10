@@ -23,11 +23,7 @@ module D = Debug.Make (struct let name = "pool_role" end)
 open D
 
 (** The role of this node *)
-type t =
-  | Master
-  | Slave of string
-  (* IP address *)
-  | Broken
+type t = Master | Slave of string | Broken
 
 let role = ref None
 
@@ -101,8 +97,8 @@ exception This_host_is_broken
 
 let get_master_address () =
   match get_role () with
-  | Slave ip ->
-      ip
+  | Slave addr ->
+      addr
   | Master ->
       raise This_host_is_a_master
   | Broken ->

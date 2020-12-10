@@ -78,36 +78,51 @@ let local_failover_decisions_are_ok () =
   try not (bool_of_string (Localdb.get Constants.ha_disable_failover_decisions))
   with _ -> true
 
-(** Since the liveset info doesn't include the host IP address, we persist these ourselves *)
-let write_uuid_to_ip_mapping ~__context =
-  let table =
-    List.map
-      (fun (_, host) -> (host.API.host_uuid, host.API.host_address))
-      (Db.Host.get_all_records ~__context)
+(** Since the liveset info doesn't include the host address, we persist these ourselves *)
+let write_uuid_to_address_mapping ~__context =
+  let uuid_fqdn_of_host (_, host) =
+    let uuid = host.API.host_uuid in
+    let hostname = host.API.host_hostname in
+    match Gencertlib.Lib.fqdn_of_hostname hostname with
+    | None ->
+        raise
+          Api_errors.(
+            Server_error
+              ( internal_error
+              , [
+                  Printf.sprintf
+                    "cannot determine fqdn, hostuuid='%s', hostname='%s'" uuid
+                    hostname
+                ] ))
+    | Some fqdn ->
+        (uuid, fqdn)
   in
+  let table = List.map uuid_fqdn_of_host (Db.Host.get_all_records ~__context) in
   let v = String_marshall_helper.map (fun x -> x) (fun x -> x) table in
   Localdb.put Constants.ha_peers v
 
-(** Since the liveset info doesn't include the host IP address, we persist these ourselves *)
-let get_uuid_to_ip_mapping () =
+(** Since the liveset info doesn't include the host address, we persist these ourselves *)
+let get_uuid_to_address_mapping () =
   let v = Localdb.get Constants.ha_peers in
   String_unmarshall_helper.map (fun x -> x) (fun x -> x) v
 
-(** Without using the Pool's database, returns the IP address of a particular host
+(** Without using the Pool's database, returns the address of a particular host
     named by UUID. *)
 let address_of_host_uuid uuid =
-  let table = get_uuid_to_ip_mapping () in
+  let table = get_uuid_to_address_mapping () in
   if not (List.mem_assoc uuid table) then (
-    error "Failed to find the IP address of host UUID %s" uuid ;
+    error "Failed to find the address of host UUID %s" uuid ;
     raise Not_found
   ) else
     List.assoc uuid table
 
 (** Without using the Pool's database, returns the UUID of a particular host named by
-    heartbeat IP address. This is only necesary because the liveset info doesn't include
-    the host IP address *)
+    heartbeat address. This is only necesary because the liveset info doesn't include
+    the host address *)
 let uuid_of_host_address address =
-  let table = List.map (fun (k, v) -> (v, k)) (get_uuid_to_ip_mapping ()) in
+  let table =
+    List.map (fun (k, v) -> (v, k)) (get_uuid_to_address_mapping ())
+  in
   if not (List.mem_assoc address table) then (
     error "Failed to find the UUID address of host with address %s" address ;
     raise Not_found
@@ -1298,7 +1313,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
     (* It's unnecessary to remember the path since this can be queried dynamically *)
     ignore (attach_metadata_vdi ~__context metadata_vdi)
   ) ;
-  write_uuid_to_ip_mapping ~__context ;
+  write_uuid_to_address_mapping ~__context ;
   let base_t = Timeouts.get_base_t ~__context in
   Localdb.put Constants.ha_base_t (string_of_int base_t)
 
