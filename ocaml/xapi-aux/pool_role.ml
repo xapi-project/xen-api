@@ -92,6 +92,8 @@ let set_role_for_next_boot r =
   Unixext.write_string_to_file !Constants.pool_config_file (string_of r) ;
   current
 
+let unsafe_set_role_ref r = with_pool_role_lock (fun () -> role := Some r)
+
 let is_master () = get_role () = Master
 
 let is_slave () = match get_role () with Slave _ -> true | _ -> false

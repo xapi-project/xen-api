@@ -23,6 +23,12 @@ val get_role : unit -> t
 val set_role_for_next_boot : t -> t
 (** Returns the current role *)
 
+val unsafe_set_role_ref : t -> unit
+(** Sets the value returned by [get_role].
+ *  This is unsafe because the role ref is intended to reflect
+ *  a host's current role, which will not change until you
+ *  restart xapi *)
+
 val is_master : unit -> bool
 (** Returns true if this node is a master *)
 
