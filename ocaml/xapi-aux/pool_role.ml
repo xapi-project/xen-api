@@ -75,15 +75,22 @@ let read_pool_role () =
       Broken
     )
 
-let get_role () =
-  with_pool_role_lock (fun _ ->
-      match !role with
-      | Some x ->
-          x
-      | None ->
-          let r = read_pool_role () in
-          role := Some r ;
-          r)
+let get_role_without_lock () =
+  match !role with
+  | Some x ->
+      x
+  | None ->
+      let r = read_pool_role () in
+      role := Some r ;
+      r
+
+let get_role () = with_pool_role_lock get_role_without_lock
+
+let set_role_for_next_boot r =
+  with_pool_role_lock @@ fun () ->
+  let current = get_role_without_lock () in
+  Unixext.write_string_to_file !Constants.pool_config_file (string_of r) ;
+  current
 
 let is_master () = get_role () = Master
 

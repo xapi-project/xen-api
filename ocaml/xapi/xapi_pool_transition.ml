@@ -23,13 +23,11 @@ module D = Debug.Make (struct let name = "xapi_pool_transition" end)
 open D
 
 (** Reset the role on disk, takes effect on next server restart only! *)
-let set_role r =
-  let open Pool_role in
-  let old_role = get_role () in
-  with_pool_role_lock (fun () ->
-      Unixext.write_string_to_file !Constants.pool_config_file (string_of r)) ;
-  Localdb.put Constants.this_node_just_became_master
-    (string_of_bool (old_role <> Master && r = Master))
+let set_role next_boot_role =
+  let current_runtime_role = Pool_role.set_role_for_next_boot next_boot_role in
+  (current_runtime_role <> Master && next_boot_role = Master)
+  |> string_of_bool
+  |> Localdb.put Constants.this_node_just_became_master
 
 (** Execute scripts in the "master-scripts" dir when changing role from master
     to slave or back again. Remember whether the scripts have been run using
