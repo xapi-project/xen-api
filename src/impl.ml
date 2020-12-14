@@ -596,7 +596,7 @@ let endpoint_of_string = function
 
 let socket sockaddr =
   let family = match sockaddr with
-  | Lwt_unix.ADDR_INET(_, _) -> Unix.PF_INET
+  | Lwt_unix.ADDR_INET(addr, port) -> Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, port))
   | Lwt_unix.ADDR_UNIX _ -> Unix.PF_UNIX in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
@@ -715,8 +715,18 @@ let write_stream common s destination _source_protocol destination_protocol prez
       (* TODO: https is not currently implemented *)
       let port = match Uri.port uri' with None -> (if use_ssl then 443 else 80) | Some port -> port in
       let host = match Uri.host uri' with None -> failwith "Please supply a host in the URI" | Some host -> host in
-      Lwt_unix.gethostbyname host >>= fun host_entry ->
-      let sockaddr = Lwt_unix.ADDR_INET(host_entry.Lwt_unix.h_addr_list.(0), port) in
+      let host =
+        match String.split_on_char '[' host with
+        | ""::[elem] ->
+          match String.split_on_char ']' elem with
+          | elem::[""] -> elem
+          | _ -> host
+        | _ -> host
+      in
+      Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
+      if List.length he = 0 then raise Not_found
+
+      let sockaddr = (List.hd he).Unix.ai_addr in
       let sock = socket sockaddr in
       Lwt.catch (fun () ->
           Lwt_unix.connect sock sockaddr
