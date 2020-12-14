@@ -577,9 +577,11 @@ let endpoint_of_string = function
       return (File_descr (fd |> int_of_string |> file_descr_of_int |> Lwt_unix.of_unix_file_descr))
     | Some "tcp", _ ->
       let host = match Uri.host uri' with None -> failwith "Please supply a host in the URI" | Some host -> host in
+      let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" (fun elem -> elem) in
       let port = match Uri.port uri' with None -> failwith "Please supply a port in the URI" | Some port -> port in
-      Lwt_unix.gethostbyname host >>= fun host_entry ->
-      return (Sockaddr(Lwt_unix.ADDR_INET(host_entry.Lwt_unix.h_addr_list.(0), port)))
+      Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
+      if List.length he = 0 then begin raise Not_found end;
+      return (Sockaddr((List.hd he).Unix.ai_addr))
     | Some "unix", _ ->
       return (Sockaddr(Lwt_unix.ADDR_UNIX(Uri.path uri')))
     | Some "file", _ ->
@@ -597,7 +599,7 @@ let endpoint_of_string = function
 let socket sockaddr =
   let family = match sockaddr with
   | Lwt_unix.ADDR_INET(addr, port) ->
-    Lwt_unix.domain_of_sockaddr (Lwt_unix.ADDR_INET (addr, port))
+    Unix.domain_of_sockaddr (Lwt_unix.ADDR_INET (addr, port))
   | Lwt_unix.ADDR_UNIX _ -> Unix.PF_UNIX in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
@@ -718,7 +720,7 @@ let write_stream common s destination _source_protocol destination_protocol prez
       let host = match Uri.host uri' with None -> failwith "Please supply a host in the URI" | Some host -> host in
       let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" (fun elem -> elem) in
       Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
-      if List.length he = 0 then raise Not_found
+      if List.length he = 0 then begin raise Not_found end;
 
       let sockaddr = (List.hd he).Unix.ai_addr in
       let sock = socket sockaddr in
