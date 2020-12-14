@@ -37,19 +37,37 @@ type iso8601 = Ptime.date * Ptime.time * print_type
 let of_dt print_type dt = let (date, time) = dt in (date, time, print_type)
 let to_dt (date, time, _) = (date, time)
 
-let of_string x =
+let best_effort_iso8601_to_rfc3339 x =
+  (* (a) add dashes
+   * (b) add UTC tz if no tz provided *)
   let x =
     try
-      (* if x doesn't contain dashes, insert them, so that ptime can parse x *)
-      Scanf.sscanf x "%04d%02d%02dT%s" (fun y mon d rest ->
-        Printf.sprintf "%04d-%02d-%02dT%s" y mon d rest
-      )
-    with _ -> x
+      Scanf.sscanf x "%04d%02d%02dT%s"
+        (fun y mon d rest ->
+          Printf.sprintf "%04d-%02d-%02dT%s" y mon d rest)
+    with _ ->
+      x
   in
-  match x |> Ptime.of_rfc3339 |> Ptime.rfc3339_error_to_msg with
-  | Error (`Msg e) -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" e)
+  let tz =
+    try
+      Scanf.sscanf x "%04d-%02d-%02dT%02d:%02d:%02d%s"
+        (fun _ _ _ _ _ _ tz -> Some tz)
+    with _ -> None
+  in
+  match tz with
+  | None | Some "" ->
+    (* the caller didn't specify a tz. we must try to add one so that ptime can at least attempt to parse *)
+    (Printf.sprintf "%sZ" x, PrintLocal)
+  | Some _ ->
+    (* the caller specified a tz. we assume it's UTC because we don't accept anything else *)
+    (x, PrintUTC)
+
+let of_string x =
+  let (rfc3339, print_type) = best_effort_iso8601_to_rfc3339 x in
+  match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
+  | Error (`Msg e) -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
   | Ok (t, tz, _)  -> match tz with
-                      | None | Some 0 -> Ptime.to_date_time t |> of_dt PrintUTC
+                      | None | Some 0 -> Ptime.to_date_time t |> of_dt print_type
                       | Some _        -> invalid_arg (Printf.sprintf "date.ml:of_string: %s" x)
 
 let to_string ((y,mon,d), ((h,min,s), _), print_type) =
