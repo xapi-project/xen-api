@@ -577,10 +577,10 @@ let endpoint_of_string = function
       return (File_descr (fd |> int_of_string |> file_descr_of_int |> Lwt_unix.of_unix_file_descr))
     | Some "tcp", _ ->
       let host = match Uri.host uri' with None -> failwith "Please supply a host in the URI" | Some host -> host in
-      let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" (fun elem -> elem) in
+      let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
       let port = match Uri.port uri' with None -> failwith "Please supply a port in the URI" | Some port -> port in
       Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
-      if List.length he = 0 then begin raise Not_found end;
+      if he = [] then begin raise Not_found end;
       return (Sockaddr((List.hd he).Unix.ai_addr))
     | Some "unix", _ ->
       return (Sockaddr(Lwt_unix.ADDR_UNIX(Uri.path uri')))
@@ -718,9 +718,9 @@ let write_stream common s destination _source_protocol destination_protocol prez
       (* TODO: https is not currently implemented *)
       let port = match Uri.port uri' with None -> (if use_ssl then 443 else 80) | Some port -> port in
       let host = match Uri.host uri' with None -> failwith "Please supply a host in the URI" | Some host -> host in
-      let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" (fun elem -> elem) in
+      let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
       Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
-      if List.length he = 0 then begin raise Not_found end;
+      if he = [] then begin raise Not_found end;
 
       let sockaddr = (List.hd he).Unix.ai_addr in
       let sock = socket sockaddr in
