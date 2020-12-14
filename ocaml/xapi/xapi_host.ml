@@ -2261,7 +2261,7 @@ let migrate_receive ~__context ~host ~network ~options =
       match Db.PIF.get_IPv6 ~__context ~self:pif with
       | [] -> ("", configuration_mode)
       | ip::_ ->
-        (* The CIDR is also stored in the IPv6 field of a PIF. *))
+        (* The CIDR is also stored in the IPv6 field of a PIF. *)
         let ipv6 =
           match String.split_on_char '/' ip with
           | hd::_ -> hd
