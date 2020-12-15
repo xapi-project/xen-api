@@ -295,6 +295,13 @@ val certificate_sync : __context:'a -> host:'b -> unit
 
 val get_server_certificate : __context:'a -> host:'b -> string
 
+val add_certificate_to_db :
+     __context:Context.t
+  -> host:[`host] API.Ref.t
+  -> X509.Certificate.t
+  -> Cstruct.t list
+  -> [`Certificate] Ref.t
+
 val install_server_certificate :
      __context:Context.t
   -> host:[`host] Ref.t
