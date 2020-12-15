@@ -1833,3 +1833,14 @@ end = struct
     SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
     Xapi_psr_util.load_psr_pool_secrets ()
 end
+
+let pingable addr =
+  let timeout = "1" in
+  let number_replies = "1" in
+  try
+    let (_ : string * string) =
+      Forkhelpers.execute_command_get_output "/bin/ping"
+        ["-c"; number_replies; "-w"; timeout; addr]
+    in
+    true
+  with _ -> false

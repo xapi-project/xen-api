@@ -580,6 +580,27 @@ let resynchronise_ha_state () =
 
 let maybe_set_fqdn_in_pool_conf () =
   let open Pool_role in
+  let tries = 5 in
+  let assert_can_ping x =
+    let rec go n =
+      if n <= 0 then
+        raise
+          Api_errors.(
+            Server_error
+              ( internal_error
+              , [Printf.sprintf "unable to ping master FQDN '%s'" x] )) ;
+      if Helpers.pingable x then
+        ()
+      else (
+        D.warn "master FQDN '%s' not responding to ping! retrying (%i/%i)" x
+          (tries - n + 1)
+          tries ;
+        Thread.delay 1. ;
+        go (n - 1)
+      )
+    in
+    go tries
+  in
   match get_role () with
   | Slave persisted_master_address ->
       Server_helpers.exec_with_new_task "Set fqdn in pool.conf"
@@ -591,6 +612,7 @@ let maybe_set_fqdn_in_pool_conf () =
           match Gencertlib.Lib.fqdn_of_hostname master_hostname with
           | Some master_fqdn ->
               if persisted_master_address <> master_fqdn then (
+                assert_can_ping master_fqdn ;
                 D.info
                   "set_fqdn_in_pool_conf: updating pool.conf with master_fqdn: \
                    %s"
@@ -1119,7 +1141,7 @@ let server_init () =
         Startup.run ~__context
           [
             ( "Maybe set fqdn in pool.conf"
-            , [Startup.OnlySlave]
+            , [Startup.OnlySlave; Startup.OnThread]
             , maybe_set_fqdn_in_pool_conf )
           ; ("Checking emergency network reset", [], check_network_reset)
           ; ( "Upgrade bonds to Boston"
