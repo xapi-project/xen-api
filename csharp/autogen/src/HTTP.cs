@@ -288,12 +288,6 @@ namespace XenAPI
             return true;
         }
 
-        [Obsolete]
-        public static string MD5Hash(string str)
-        {
-            return _MD5Hash(str);
-        }
-
         /// <summary>
         /// Returns a secure MD5 hash of the given input string.
         /// </summary>
@@ -791,28 +785,6 @@ namespace XenAPI
                 File.Delete(tmpFile);
             }
         }
-
-
-        [Obsolete("Use HttpConnectStream(Uri, IWebProxy, String, int) instead.")]
-        public static Stream CONNECT(Uri uri, IWebProxy proxy, string session, int timeoutMs)
-        {
-            return HttpConnectStream(uri,proxy,session, timeoutMs);
-        }
-
-#pragma warning disable 3005
-        [Obsolete("Use HttpPutStream(Uri, IWebProxy, long, int) instead.")]
-        public static Stream PUT(Uri uri, IWebProxy proxy, long contentLength, int timeoutMs)
-        {
-            return HttpPutStream(uri, proxy, contentLength, timeoutMs);
-        }
-
-        [Obsolete("Use HttpGetStream(Uri, IWebProxy, int) instead.")]
-        public static Stream GET(Uri uri, IWebProxy proxy, int timeoutMs)
-        {
-            return HttpGetStream(uri, proxy, timeoutMs);
-        }
-#pragma warning restore 3005
-
 
         private const int FILE_MOVE_MAX_RETRIES = 5;
         private const int FILE_MOVE_SLEEP_BETWEEN_RETRIES = 100;

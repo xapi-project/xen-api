@@ -253,24 +253,9 @@ namespace XenAPI
             throw new Exception("The method or operation is not implemented.");
         }
 
-#pragma warning disable 3005
-        [Obsolete("Use XmlRpcProxy instead.")]
-        public Proxy proxy
-        {
-            get { return XmlRpcProxy; }
-            private set { XmlRpcProxy = value; }
-        }
-#pragma warning restore 3005
-
         public Proxy XmlRpcProxy { get; private set; }
 
         public JsonRpcClient JsonRpcClient { get; private set; }
-
-        [Obsolete("Use opaque_ref instead.")]
-        public string uuid
-        {
-            get { return opaque_ref; }
-        }
 
         public string Url
         {
@@ -320,16 +305,6 @@ namespace XenAPI
         /// Filled in after successful session_login_with_password for 1.6 or newer connections
         /// </summary>
         public virtual bool IsLocalSuperuser { get; private set; }
-
-#pragma warning disable 3005
-        [Obsolete("Use SessionSubject instead.")]
-        [JsonConverter(typeof(XenRefConverter<Subject>))]
-        public XenRef<Subject> Subject
-        {
-            get { return SessionSubject; }
-            private set { SessionSubject = value; }
-        }
-#pragma warning restore 3005
 
         /// <summary>
         /// The OpaqueRef for the Subject under whose authority the current user is logged in;

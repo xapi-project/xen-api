@@ -233,13 +233,6 @@ namespace XenAPI
             }
         }
 
-        [Obsolete("This method is used internally and should not be called directly from the implementing code. "+
-                  "If you need to modify this instance's fields, construct a new instance instead.")]
-        public void Setup()
-        {
-            ParseExceptionMessage();
-        }
-
         public override string ToString()
         {
             return Message;

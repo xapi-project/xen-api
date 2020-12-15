@@ -49,14 +49,6 @@ import com.xensource.xenapi.Types.XenAPIException;
  */
 public class Connection
 {
-    /**
-     * The version of the bindings that this class belongs to.
-     *
-     * @deprecated This field is not used any more.
-     */
-    @Deprecated
-    public static final String BINDINGS_VERSION = "";
-
     private APIVersion apiVersion;
 
     /**
@@ -68,24 +60,6 @@ public class Connection
      * Default connection timeout for xml-rpc calls in seconds
      */
     protected static final int DEFAULT_CONNECTION_TIMEOUT = 5;
-
-    /**
-     * Reply timeout for xml-rpc calls. The default value is 10 minutes.
-     *
-     * @deprecated This field is not used any more. To set the reply timeout
-     * for xml-rpc calls, please use the appropriate Connection constructor.
-     */
-    @Deprecated
-    protected int _replyWait = 600;
-
-    /**
-     * Connection timeout for xml-rpc calls. The default value is 5 seconds.
-     *
-     * @deprecated This field is not used any more. To set the connection timeout
-     * for xml-rpc calls, please use the appropriate Connection constructor.
-     */
-    @Deprecated
-    protected int _connWait = 5;
 
     /**
      * Updated when Session.login_with_password() is called.

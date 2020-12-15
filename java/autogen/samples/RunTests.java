@@ -80,7 +80,6 @@ public class RunTests
         tests.add(new AsyncVMCreate());
         tests.add(new VdiAndSrOps());
         tests.add(new CreateVM());
-        tests.add(new DeprecatedMethod());
         tests.add(new GetAllRecordsOfAllTypes());
         tests.add(new Https());
         tests.add(new SharedStorage(nfsServer, nfsPath));
