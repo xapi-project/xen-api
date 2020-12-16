@@ -49,6 +49,7 @@ type field = {
   ; set_in_map: (string -> string -> unit) option
   ; (* Change the value of an existing map field, without using add/remove *)
     set_map: ((string * string) list -> unit) option
+  ; clear_map: (unit -> unit) option (* clear a map *)
   ; (* Set the (key, value) pairs to an existing map field *)
     expensive: bool
   ; (* Simply means an extra API call is required to get it *)
@@ -67,7 +68,7 @@ type ('a, 'b) record = {
 }
 
 let make_field ?add_to_set ?remove_from_set ?add_to_map ?remove_from_map
-    ?set_in_map ?set_map ?set ?get_set ?get_map ?(expensive = false)
+    ?clear_map ?set_in_map ?set_map ?set ?get_set ?get_map ?(expensive = false)
     ?(hidden = false) ?(deprecated = false) ?(case_insensitive = false) ~name
     ~get () =
   {
@@ -80,6 +81,7 @@ let make_field ?add_to_set ?remove_from_set ?add_to_map ?remove_from_map
   ; remove_from_map
   ; set_in_map
   ; set_map
+  ; clear_map
   ; get_set
   ; get_map
   ; expensive
@@ -1908,6 +1910,7 @@ let vm_record rpc session_id vm =
             Record_util.s2sm_to_string "; " (x ()).API.vM_xenstore_data)
           ~add_to_map:(fun k v ->
             Client.VM.add_to_xenstore_data rpc session_id vm k v)
+          ~clear_map:(fun () -> Client.VM.set_xenstore_data ~rpc ~session_id ~self:vm ~value:[])
           ~remove_from_map:(fun k ->
             Client.VM.remove_from_xenstore_data rpc session_id vm k)
           ~get_map:(fun () -> (x ()).API.vM_xenstore_data)
@@ -2845,6 +2848,7 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () ->
             Record_util.s2sm_to_string "; " (x ()).API.vDI_xenstore_data)
           ~get_map:(fun () -> (x ()).API.vDI_xenstore_data)
+          ~clear_map:(fun () -> Client.VDI.set_xenstore_data ~rpc ~session_id ~self:vdi ~value:[])
           ()
       ; make_field ~name:"sm-config"
           ~get:(fun () ->

@@ -722,6 +722,10 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
     match field_lookup record param_name with
     | {get_set= Some f; remove_from_set= Some g} ->
         List.iter g (f ())
+    | {clear_map= Some g; _} ->
+        g ()
+    | {set_map= Some g; _} ->
+        g []
     | {get_map= Some f; remove_from_map= Some g} ->
         List.iter g (List.map fst (f ()))
     | {set= Some f} -> (
