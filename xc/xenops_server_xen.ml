@@ -25,6 +25,7 @@ module D = Debug.Make (struct let name = service_name end)
 
 open D
 module RRDD = Rrd_client.Client
+module StringSet = Set.Make (String)
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -2591,34 +2592,115 @@ module VM = struct
                      (Uuidm.to_string uuid))
               with Xs_protocol.Enoent _ -> ""
             in
-            let rec ls_lR root dir =
-              let this =
-                try [(dir, xs.Xs.read (root ^ "/" ^ dir))] with _ -> []
+            let ls_l ~depth root dir =
+              let entry = root ^ "/" ^ dir in
+              let value_opt =
+                try Some (dir, xs.Xs.read entry) with _ -> None
               in
               let subdirs =
-                try
-                  xs.Xs.directory (root ^ "/" ^ dir)
-                  |> List.filter (fun x -> x <> "")
-                  |> map_tr (fun x -> dir ^ "/" ^ x)
-                with _ -> []
+                if depth < 0 then
+                  []
+                (* depth limit reached, at a depth of 0 we still read entries/values, but stop
+                 * descending into subdirs *)
+                else
+                  try
+                    xs.Xs.directory entry
+                    |> List.filter (fun x -> x <> "")
+                    |> map_tr (fun x -> dir ^ "/" ^ x)
+                  with _ -> []
               in
-              this @ List.concat (map_tr (ls_lR root) subdirs)
+              (value_opt, subdirs)
             in
-            let guest_agent =
+            let rec ls_lR ?(excludes = StringSet.empty) ?(depth = 512) root
+                (quota, acc) dir =
+              if quota <= 0 || StringSet.mem dir excludes then
+                (quota, acc) (* quota reached, stop listing/reading *)
+              else
+                let value_opt, subdirs = ls_l ~depth root dir in
+                let quota, acc =
+                  match value_opt with
+                  | Some v ->
+                      (quota - 1, v :: acc)
+                  | None ->
+                      (quota, acc)
+                in
+                let depth = depth - 1 in
+                List.fold_left
+                  (ls_lR ~excludes ~depth root)
+                  (quota, acc) subdirs
+            in
+            let quota = !Xenopsd.vm_guest_agent_xenstore_quota in
+            (* depth is the number of directories descended into,
+               keys at depth+1 are still read *)
+            let quota, guest_agent =
               [
-                "drivers"; "attr"; "data"; "control"; "feature"; "xenserver/attr"
+                ("control", None, 0)
+              ; ("feature/hotplug", None, 0)
+              ; ("xenserver/attr", None, 3)
+                (* xenserver/attr/net-sriov-vf/0/ipv4/1 *)
+              ; ("attr", Some (StringSet.singleton "attr/os/hotfixes"), 3)
+                (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr,
+                   and exclude hotfixes which can exceed the quota on their own *)
+              ; ("drivers", None, 0)
+              ; ("data", None, 0)
+                (* in particular avoid data/volumes which contains many entries for each disk *)
               ]
-              |> map_tr
-                   (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-              |> List.concat
-              |> map_tr (fun (k, v) -> (k, Xenops_utils.utf8_recode v))
+              |> List.fold_left
+                   (fun acc (dir, excludes, depth) ->
+                     ls_lR ?excludes ~depth
+                       (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)
+                       acc dir)
+                   (quota, [])
+              |> fun (quota, acc) ->
+              (quota, map_tr (fun (k, v) -> (k, Xenops_utils.utf8_recode v)) acc)
             in
-            let xsdata_state =
+            let quota, xsdata_state =
               Domain.allowed_xsdata_prefixes
-              |> map_tr
+              |> List.fold_left
                    (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-              |> List.concat
+                   (quota, [])
             in
+            let path =
+              Device_common.xenops_path_of_domain di.Xenctrl.domid
+              ^ "/guest_agent_quota_reached"
+            in
+            (* we don't want the guest controlling how often we warn *)
+            let warned_path =
+              Device_common.get_private_path di.Xenctrl.domid
+              ^ "/guest_agent_quota_warned"
+            in
+            ( if quota <= 0 then
+                try
+                  let (_ : string) = xs.Xs.read path in
+                  let now = Unix.gettimeofday () in
+                  let last =
+                    try float_of_string (xs.Xs.read warned_path) with _ -> 0.
+                  in
+                  if
+                    now -. last
+                    > float !Xenopsd.vm_guest_agent_xenstore_quota_warn_interval
+                  then (
+                    (* periodically warn if the quota is still exceeded *)
+                    xs.Xs.write warned_path (string_of_float now) ;
+                    warn
+                      "xenstore guest agent quota is still exceeded for domid \
+                       %d"
+                      di.Xenctrl.domid
+                  )
+                with _ -> (
+                  warn
+                    "xenstore guest agent quota reached for domid %d (VM \
+                     metrics and guest agent interaction might be broken, and \
+                     vm-data incomplete!)"
+                    di.Xenctrl.domid ;
+                  try xs.Xs.write path "t" with _ -> ()
+                )
+            else
+              try
+                let (_ : string) = xs.Xs.read path in
+                xs.Xs.rm path
+              with _ -> () (* do not RM the 'warned' path to prevent flood *)
+            ) ;
             let shadow_multiplier_target =
               if not di.Xenctrl.hvm_guest then
                 1.
