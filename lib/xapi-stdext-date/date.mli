@@ -21,7 +21,8 @@ type iso8601
 (** Convert calendar time [x] (as returned by e.g. Unix.time), to time in UTC. *)
 val of_float : float -> iso8601
 
-(** Convert date/time to a float value: the number of seconds since 00:00:00 UTC, 1 Jan 1970. *)
+(** Convert date/time to a float value: the number of seconds since 00:00:00 UTC, 1 Jan 1970.
+  * Assumes the underlying iso8601 is in UTC *)
 val to_float : iso8601 -> float
 
 (** Convert date/time to an ISO 8601 formatted string. *)

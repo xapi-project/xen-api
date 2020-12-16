@@ -87,15 +87,7 @@ let of_float s =
   | None -> invalid_arg (Printf.sprintf "date.ml:of_float: %f" s)
   | Some t -> Ptime.to_date_time t |> of_dt PrintUTC
 
-(* Convert tm in UTC back into calendar time x (using offset between above
-   UTC and localtime fns to determine offset between UTC and localtime, then
-   correcting for this)
-*)
-let to_float t =
-  let (_, _, print_type) = t in
-  match print_type with
-  | PrintLocal -> invalid_arg "date.ml:to_float: expected utc"
-  | PrintUTC   -> to_ptime_t t |> Ptime.to_float_s
+let to_float t = to_ptime_t t |> Ptime.to_float_s
 
 let _localtime current_tz_offset t =
   let tz_offset_s = current_tz_offset |> Option.value ~default:0 in
