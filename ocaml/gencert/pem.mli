@@ -15,9 +15,22 @@
 (** the content of a PEM file *)
 type t = {private_key: string; host_cert: string; other_certs: string list}
 
+val key : string Angstrom.t
+(** parsers for various cert components *)
+
+val cert : string Angstrom.t
+
+val host_pem : t Angstrom.t
+
+val parse_string_using : 'a Angstrom.t -> string -> ('a, string) result
+(** parse a string using a parser *)
+
+val parse_file_using : 'a Angstrom.t -> string -> ('a, string) result
+(** parse a file using a parser *)
+
 val parse_string : string -> (t, string) result
 (** [parse_string str] parses a PEM encoded sequence of certificates and
-privates keys into components *)
+privates keys into components. *)
 
 val parse_file : string -> (t, string) result
 (** [parse_file path] parses a PEM encoded sequence of certificates from
