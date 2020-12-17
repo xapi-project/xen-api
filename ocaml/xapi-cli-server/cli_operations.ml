@@ -6238,6 +6238,7 @@ let pool_dump_db fd printer rpc session_id params =
     let pool = List.hd (Client.Pool.get_all rpc session_id) in
     let master = Client.Pool.get_master rpc session_id pool in
     let master_address = Client.Host.get_address rpc session_id master in
+    let master_address = Http.Url.maybe_wrap_IPv6_literal master_address in
     let uri =
       Printf.sprintf "https://%s%s?session_id=%s&task_id=%s" master_address
         Constants.pool_xml_db_sync (Ref.string_of session_id)

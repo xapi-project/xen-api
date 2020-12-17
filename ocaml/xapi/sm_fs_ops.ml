@@ -43,7 +43,9 @@ let import_vdi_url ~__context ?(prefer_slaves = false) rpc session_id task_id
   (* Find a suitable host for the SR containing the VDI *)
   let sr = Db.VDI.get_SR ~__context ~self:vdi in
   let host = Importexport.find_host_for_sr ~__context ~prefer_slaves sr in
-  let address = Db.Host.get_address ~__context ~self:host in
+  let address =
+    Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host)
+  in
   Printf.sprintf "https://%s%s?vdi=%s&session_id=%s&task_id=%s" address
     Constants.import_raw_vdi_uri (Ref.string_of vdi) (Ref.string_of session_id)
     (Ref.string_of task_id)

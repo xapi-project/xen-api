@@ -828,7 +828,10 @@ let handler (req : Request.t) s _ =
         (* task when it exits, and we don't want to do that *)
         try
           let host = find_host_for_VM ~__context vm_ref in
-          let address = Db.Host.get_address ~__context ~self:host in
+          let address =
+            Http.Url.maybe_wrap_IPv6_literal
+              (Db.Host.get_address ~__context ~self:host)
+          in
           let url =
             Printf.sprintf "https://%s%s?%s" address req.Request.uri
               (String.concat "&"
