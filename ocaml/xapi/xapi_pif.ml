@@ -79,7 +79,7 @@ let refresh_internal ~__context ~self =
         ~device:pif.API.pIF_device)
     Ref.string_of ;
   maybe_update_database "MTU" pif.API.pIF_MTU Db.PIF.set_MTU
-    (Int64.of_int ++ fun () -> Net.Interface.get_mtu dbg bridge)
+    (fun () -> Int64.of_int (Net.Interface.get_mtu dbg bridge))
     Int64.to_string ;
   if pif.API.pIF_physical then
     maybe_update_database "capabilities" pif.API.pIF_capabilities

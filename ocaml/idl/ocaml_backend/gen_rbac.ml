@@ -15,11 +15,9 @@
 (* permissions in the datamodel. *)
 (* marcusg 21/07/2009*)
 
-module O = Ocaml_syntax
 module DT = Datamodel_types
 module DU = Datamodel_utils
 module DM = Datamodel
-module OU = Ocaml_utils
 module Client = Gen_client
 open DT
 
@@ -149,11 +147,6 @@ let writer_role name nroles =
   ^ Printf.sprintf "  role_subroles = get_refs %s;\n" (permissions_label name)
   ^ Printf.sprintf "  }\n"
 
-(*
-let get_ref name =
-	List.map (fun p->(*Ref.of_string*) (role_ref name)) permissions
-*)
-
 (* the output of this function generates ocaml/autogen/rbac-static.ml *)
 let writer_stdout static_roles_permissions static_permissions_roles =
   let nperms = List.length static_permissions_roles in
@@ -258,12 +251,11 @@ let get_http_permissions_roles =
     (fun acc (http_permission, (_, _, _, _, some_roles, sub_actions)) ->
       acc
       @
-      let open Xapi_stdext_pervasives in
-      let roles = Pervasiveext.default [] some_roles in
+      let roles = Option.value ~default:[] some_roles in
       (Datamodel.rbac_http_permission_prefix ^ http_permission, roles)
       :: List.map (* sub_actions for this http_permission *)
            (fun (sub_action, some_roles) ->
-             let roles = Pervasiveext.default [] some_roles in
+             let roles = Option.value ~default:[] some_roles in
              ( Datamodel.rbac_http_permission_prefix
                ^ http_permission
                ^ "/"
@@ -273,9 +265,8 @@ let get_http_permissions_roles =
     [] Datamodel.http_actions
 
 let get_extra_permissions_roles =
-  let open Xapi_stdext_pervasives in
   List.map
-    (fun (p, rs) -> (p, Pervasiveext.default [] rs))
+    (fun (p, rs) -> (p, Option.value ~default:[] rs))
     Datamodel.extra_permissions
 
 (* Returns a (permission, static_role list) list generated from datamodel.ml *)
