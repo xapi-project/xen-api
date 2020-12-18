@@ -309,4 +309,4 @@ let host_server_certificate_expired =
 
 let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 
-let local_health_check = addMessage "LOCAL_HEALTH_CHECK" 3L
+let tls_verification_emergency_disabled = addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L

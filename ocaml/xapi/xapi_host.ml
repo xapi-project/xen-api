@@ -2541,19 +2541,14 @@ let health_check ~__context =
       Helpers.call_api_functions ~__context (fun rpc session ->
           Client.Client.Message.get_all_records rpc session
           |> List.exists (fun (_, record) ->
-                 record.API.message_name = fst Api_messages.local_health_check))
+                 record.API.message_name
+                 = fst Api_messages.tls_verification_emergency_disabled))
     in
 
     if not alert_exists then
       let self = Helpers.get_localhost ~__context in
       let host = Db.Host.get_name_label ~__context ~self in
-      let msg =
-        "TLS verification is enabled on the pool but overriden on a host"
-      in
-      let body =
-        Printf.sprintf "<body><message>%s</message><host>%s</host></body>" msg
-          host
-      in
-      Xapi_alert.add ~msg:Api_messages.local_health_check ~cls:`Host
+      let body = Printf.sprintf "<body><host>%s</host></body>" host in
+      Xapi_alert.add ~msg:Api_messages.tls_verification_emergency_disabled ~cls:`Host
         ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
         ~body
