@@ -68,6 +68,8 @@ let iso8601_tests =
     check_string "can process missing tz no dash" missing_tz_no_dash (missing_tz_no_dash |> of_string |> to_string) ;
     check_string "can process missing tz with dashes, but return without dashes" missing_tz_no_dash (missing_tz_dash |> of_string |> to_string) ;
 
+    check_float "to_float assumes UTC" 1607620760. (missing_tz_no_dash |> of_string |> to_float) ;
+
     let localtime' = localtime () in
     check_string "to_string inverts of_string for localtime" (localtime' |> to_string) (localtime' |> to_string |> of_string |> to_string) ;
   in
