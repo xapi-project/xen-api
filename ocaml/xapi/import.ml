@@ -2261,7 +2261,10 @@ let handler (req : Request.t) s _ =
           if not (check_sr_availability ~__context sr) then (
             debug "sr not available - redirecting" ;
             let host = find_host_for_sr ~__context sr in
-            let address = Db.Host.get_address ~__context ~self:host in
+            let address =
+              Http.Url.maybe_wrap_IPv6_literal
+                (Db.Host.get_address ~__context ~self:host)
+            in
             let url =
               Printf.sprintf "https://%s%s?%s" address req.Request.uri
                 (String.concat "&"
