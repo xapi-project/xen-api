@@ -516,6 +516,21 @@ let server_run_in_emergency_mode () =
   wait_to_die () ; exit 0
 
 let update_certificates ~__context () =
+  let module GencertService = Helpers.SystemdService (struct
+    let name = "gencert"
+  end) in
+  let rec wait_gencert () : unit =
+    if GencertService.is_active () then
+      ()
+    else
+      D.warn "waiting for server's certificate '%s' ..."
+        !Xapi_globs.server_cert_path ;
+    Thread.delay 2. ;
+    (wait_gencert [@tailcall]) ()
+  in
+  (* if we don't wait for gencert.service to run, then we'll end up
+   * putting the host in emergency mode on first boot *)
+  wait_gencert () ;
   match Certificates_sync.update ~__context with
   | Ok () ->
       ()
@@ -1021,12 +1036,12 @@ let server_init () =
           ; ( "hi-level database upgrade"
             , [Startup.OnlyMaster]
             , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context )
-          ; ( "Update host certificate if changed"
-            , []
-            , update_certificates ~__context )
           ; ( "bringing up management interface"
             , []
             , bring_up_management_if ~__context )
+          ; ( "Update host certificate if changed"
+            , [Startup.OnThread]
+            , update_certificates ~__context )
           ; ( "Starting periodic scheduler"
             , [Startup.OnThread]
             , Xapi_periodic_scheduler.loop )

@@ -1634,6 +1634,8 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
 module SystemdService (Name : sig
   val name : string
 end) : sig
+  val is_active : unit -> bool
+
   val ensure_enabled_and_restart : unit -> unit
 end = struct
   let name = Name.name
@@ -1650,6 +1652,8 @@ end = struct
       )
     in
     exit_code = 0
+
+  let is_active () = is_cmd "is-active"
 
   let is_enabled () = is_cmd "is-enabled"
 
