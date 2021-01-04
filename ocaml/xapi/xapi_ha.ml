@@ -997,7 +997,7 @@ let on_server_restart () =
           info
             "Assuming HA is still enabled on the Pool and that our storage \
              system has failed: will retry in 10s" ;
-          Xapi_globs.slave_emergency_mode := true ;
+          Xapi_globs.host_emergency_mode := true ;
           Xapi_globs.emergency_mode_error :=
             Api_errors.Server_error
               (Api_errors.ha_host_cannot_access_statefile, []) ;
@@ -1007,7 +1007,7 @@ let on_server_restart () =
           error
             "ha_start_daemon failed with unexpected error %s: will retry in 10s"
             (Xha_errno.to_string errno) ;
-          Xapi_globs.slave_emergency_mode := true ;
+          Xapi_globs.host_emergency_mode := true ;
           Xapi_globs.emergency_mode_error :=
             Api_errors.Server_error
               (Api_errors.ha_heartbeat_daemon_startup_failed, []) ;
@@ -1018,7 +1018,7 @@ let on_server_restart () =
             "ha_start_daemon failed with unexpected exception: %s -- retrying \
              in 10s"
             (ExnHelper.string_of_exn e) ;
-          Xapi_globs.slave_emergency_mode := true ;
+          Xapi_globs.host_emergency_mode := true ;
           Xapi_globs.emergency_mode_error :=
             Api_errors.Server_error
               (Api_errors.ha_heartbeat_daemon_startup_failed, []) ;

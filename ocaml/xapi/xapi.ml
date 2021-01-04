@@ -496,8 +496,8 @@ let cache_metadata_vdis () =
 
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
-  info "Cannot contact master: running in slave emergency mode" ;
-  Xapi_globs.slave_emergency_mode := true ;
+  info "enabling emergency mode on this host" ;
+  Xapi_globs.host_emergency_mode := true ;
   (* signal the init script that it should succeed even though we're bust *)
   Helpers.touch_file !Xapi_globs.ready_file ;
   let emergency_reboot_delay =
@@ -1054,7 +1054,7 @@ let server_init () =
         | Pool_role.Slave _ ->
             info "Running in 'Pool Slave' mode" ;
             (* Set emergency mode until we actually talk to the master *)
-            Xapi_globs.slave_emergency_mode := true ;
+            Xapi_globs.host_emergency_mode := true ;
             (* signal the init script that it should succeed even though we're bust *)
             Helpers.touch_file !Xapi_globs.ready_file ;
             (* Keep trying to log into master *)
@@ -1080,7 +1080,7 @@ let server_init () =
                   Thread.delay !Db_globs.permanent_master_failure_retry_interval
             done ;
             debug "Startup successful" ;
-            Xapi_globs.slave_emergency_mode := false ;
+            Xapi_globs.host_emergency_mode := false ;
             Master_connection.connection_timeout := initial_connection_timeout ;
             ( try
                 (* We can't tolerate an exception in db synchronization so fall back into emergency mode
