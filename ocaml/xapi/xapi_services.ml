@@ -17,7 +17,9 @@
 module D = Debug.Make (struct let name = "xapi_services" end)
 
 open D
-open Xapi_stdext_pervasives.Pervasiveext
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 open Constants
@@ -27,7 +29,7 @@ type driver_list = Storage_interface.query_result list [@@deriving rpcty]
 let list_sm_drivers ~__context =
   let all =
     List.map
-      (Smint.query_result_of_sr_driver_info ++ Sm.info_of_driver)
+      (fun x -> Smint.query_result_of_sr_driver_info (Sm.info_of_driver x))
       (Sm.supported_drivers ())
   in
   Storage_interface.rpc_of driver_list all

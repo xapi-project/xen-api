@@ -22,7 +22,6 @@ module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
 open Create_misc
 open Client
-open Xapi_stdext_pervasives.Pervasiveext
 open Network
 
 module D = Debug.Make (struct let name = "dbsync" end)
@@ -149,7 +148,7 @@ let record_host_memory_properties ~__context info =
             (Printexc.to_string e) ;
           None
       in
-      maybe
+      Option.iter
         (fun boot_memory_bytes ->
           (* Host memory overhead comes from multiple sources:         *)
           (* 1. obvious overhead: (e.g. Xen, crash kernel).            *)
