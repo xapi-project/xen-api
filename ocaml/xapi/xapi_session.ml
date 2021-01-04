@@ -251,7 +251,7 @@ let _record_login_failure ~__context ~now ~uname ~originator ~record f =
       on_fail e
 
 let record_login_failure ~__context ~uname ~originator ~record f =
-  let now = Date.localtime () in
+  let now = Unix.time () |> Date.of_float in
   _record_login_failure ~__context ~now ~uname ~originator ~record f
 
 let get_failed_login_stats = AuthFail.get_stats_string
