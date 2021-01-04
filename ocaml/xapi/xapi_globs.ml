@@ -85,8 +85,7 @@ let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
 
 let local_database = Filename.concat "/var/lib/xcp" "local.db"
 
-(* if a slave in emergency "cannot see master mode" then this flag is set *)
-let slave_emergency_mode = ref false
+let host_emergency_mode = ref false
 
 (** Whenever in emergency mode we stash an error here so the user can determine what's wrong
     without trawling through logfiles *)
