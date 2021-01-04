@@ -1631,6 +1631,49 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
           info "try_internal_async: destroying task: t = ( %s )" ref ;
           TaskHelper.destroy ~__context t)
 
+module SystemdService (Name : sig
+  val name : string
+end) : sig
+  val ensure_enabled_and_restart : unit -> unit
+end = struct
+  let name = Name.name
+
+  let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; name]
+
+  let systemctl_ cmd = systemctl cmd |> ignore
+
+  let is_enabled () =
+    let is_enabled_stdout =
+      try systemctl "is-enabled"
+      with
+      (* systemctl is-enabled appears to return error code 1 when the service is disabled *)
+      | Forkhelpers.Spawn_internal_error (stderr, stdout, status) as e -> (
+        match status with
+        | Unix.WEXITED n
+          when n = 1
+               && Astring.String.is_prefix ~affix:"disabled" stdout
+               && Astring.String.is_empty stderr ->
+            "disabled"
+        | _ ->
+            raise e
+      )
+    in
+    is_enabled_stdout |> Astring.String.trim |> function
+    | "enabled" ->
+        true
+    | "disabled" ->
+        false
+    | unknown ->
+        D.error
+          "Stunnel.is_enabled: expected 'enabled' or 'disabled', but got: %s"
+          unknown ;
+        false
+
+  let ensure_enabled_and_restart () =
+    if not @@ is_enabled () then systemctl_ "enable" ;
+    systemctl_ "restart"
+end
+
 (** wrapper around the stunnel@xapi systemd service.
   * there exist scripts (e.g. xe-toolstack-restart) which also manipulate
     the stunnel daemon but they do this directly (not via ocaml). *)
@@ -1638,6 +1681,8 @@ module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
   (** restart stunnel, possibly changing the config file *)
 end = struct
+  module Service = SystemdService (struct let name = "stunnel@xapi" end)
+
   let cert = !Xapi_globs.server_cert_path
 
   (** protect ourselves from concurrent writes to files *)
@@ -1709,43 +1754,11 @@ end = struct
               rewrite_xapi_ssl_config_file ~accept)
   end
 
-  let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
-
-  let systemctl_ cmd = systemctl cmd |> ignore
-
-  let is_enabled () =
-    let is_enabled_stdout =
-      try systemctl "is-enabled"
-      with
-      (* systemctl is-enabled appears to return error code 1 when the service is disabled *)
-      | Forkhelpers.Spawn_internal_error (stderr, stdout, status) as e -> (
-        match status with
-        | Unix.WEXITED n
-          when n = 1
-               && Astring.String.is_prefix ~affix:"disabled" stdout
-               && Astring.String.is_empty stderr ->
-            "disabled"
-        | _ ->
-            raise e
-      )
-    in
-    is_enabled_stdout |> Astring.String.trim |> function
-    | "enabled" ->
-        true
-    | "disabled" ->
-        false
-    | unknown ->
-        D.error
-          "Stunnel.is_enabled: expected 'enabled' or 'disabled', but got: %s"
-          unknown ;
-        false
-
   let restart ~__context ~accept =
     try
       Config.update ~accept ;
       (* we do not worry about generating certificates here, because systemd will handle this for us, via the gencert service *)
-      if not @@ is_enabled () then systemctl_ "enable" ;
-      systemctl_ "restart"
+      Service.ensure_enabled_and_restart ()
     with e ->
       Backtrace.is_important e ;
       D.error "Helpers.Stunnel.restart: failed to restart stunnel" ;
