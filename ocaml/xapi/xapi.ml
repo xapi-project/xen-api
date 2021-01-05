@@ -314,44 +314,6 @@ let init_local_database () =
   if !Xapi_globs.on_system_boot then
     Localdb.put Constants.host_disabled_until_reboot "false"
 
-let bring_up_management_if ~__context () =
-  try
-    let management_if =
-      Xapi_inventory.lookup Xapi_inventory._management_interface
-    in
-    let management_address_type =
-      Record_util.primary_address_type_of_string
-        (Xapi_inventory.lookup Xapi_inventory._management_address_type)
-    in
-    if management_if = "" then (
-      debug "No management interface defined (management is disabled)" ;
-      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false
-    ) else (
-      Xapi_mgmt_iface.change management_if management_address_type ;
-      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true ;
-      match Helpers.get_management_ip_addr ~__context with
-      | Some "127.0.0.1" ->
-          debug "Received 127.0.0.1 as a management IP address; ignoring"
-      | Some ip ->
-          debug "Management IP address is: %s" ip ;
-          (* Make sure everyone is up to speed *)
-          ignore
-            (Thread.create
-               (fun () ->
-                 Server_helpers.exec_with_new_task "dom0 networking update"
-                   ~subtask_of:(Context.get_task_id __context) (fun __context ->
-                     Xapi_mgmt_iface.on_dom0_networking_change ~__context))
-               ())
-      | None ->
-          warn "Failed to acquire a management IP address"
-    ) ;
-    (* Start the Host Internal Management Network, if needed. *)
-    Xapi_network.check_himn ~__context ;
-    Helpers.update_getty ()
-  with e ->
-    debug "Caught exception bringing up management interface: %s"
-      (ExnHelper.string_of_exn e)
-
 (** Assuming a management interface is defined, return the IP address. Note this
     	call may block for a long time. *)
 let wait_for_management_ip_address ~__context =
@@ -525,6 +487,44 @@ let update_certificates ~__context () =
   | exception e ->
       error "Failed to update host certificates: %s" (Printexc.to_string e) ;
       server_run_in_emergency_mode ()
+
+let bring_up_management_if ~__context () =
+  try
+    let management_if =
+      Xapi_inventory.lookup Xapi_inventory._management_interface
+    in
+    let management_address_type =
+      Record_util.primary_address_type_of_string
+        (Xapi_inventory.lookup Xapi_inventory._management_address_type)
+    in
+    if management_if = "" then (
+      debug "No management interface defined (management is disabled)" ;
+      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false
+    ) else (
+      Xapi_mgmt_iface.change management_if management_address_type ;
+      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true ;
+      match Helpers.get_management_ip_addr ~__context with
+      | Some "127.0.0.1" ->
+          debug "Received 127.0.0.1 as a management IP address; ignoring"
+      | Some ip ->
+          debug "Management IP address is: %s" ip ;
+          (* Make sure everyone is up to speed *)
+          ignore
+            (Thread.create
+               (fun () ->
+                 Server_helpers.exec_with_new_task "dom0 networking update"
+                   ~subtask_of:(Context.get_task_id __context) (fun __context ->
+                     Xapi_mgmt_iface.on_dom0_networking_change ~__context))
+               ())
+      | None ->
+          warn "Failed to acquire a management IP address"
+    ) ;
+    (* Start the Host Internal Management Network, if needed. *)
+    Xapi_network.check_himn ~__context ;
+    Helpers.update_getty ()
+  with e ->
+    debug "Caught exception bringing up management interface: %s"
+      (ExnHelper.string_of_exn e)
 
 (** Once the database is online we make sure our local ha.armed flag is in sync with the
     master's Pool.ha_enabled flag. *)
