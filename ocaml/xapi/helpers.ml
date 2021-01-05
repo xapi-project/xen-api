@@ -1642,32 +1642,16 @@ end = struct
 
   let systemctl_ cmd = systemctl cmd |> ignore
 
-  let is_enabled () =
-    let is_enabled_stdout =
-      try systemctl "is-enabled"
-      with
-      (* systemctl is-enabled appears to return error code 1 when the service is disabled *)
-      | Forkhelpers.Spawn_internal_error (stderr, stdout, status) as e -> (
-        match status with
-        | Unix.WEXITED n
-          when n = 1
-               && Astring.String.is_prefix ~affix:"disabled" stdout
-               && Astring.String.is_empty stderr ->
-            "disabled"
-        | _ ->
-            raise e
+  let is_cmd cmd =
+    let exit_code =
+      try systemctl_ cmd ; 0
+      with Forkhelpers.Spawn_internal_error (_, _, status) as e -> (
+        match status with Unix.WEXITED n -> n | _ -> raise e
       )
     in
-    is_enabled_stdout |> Astring.String.trim |> function
-    | "enabled" ->
-        true
-    | "disabled" ->
-        false
-    | unknown ->
-        D.error
-          "Stunnel.is_enabled: expected 'enabled' or 'disabled', but got: %s"
-          unknown ;
-        false
+    exit_code = 0
+
+  let is_enabled () = is_cmd "is-enabled"
 
   let ensure_enabled_and_restart () =
     if not @@ is_enabled () then systemctl_ "enable" ;
