@@ -41,12 +41,6 @@ let generate_alert epoch (host, expiry) =
     (host, Some (message, alert))
 
 let execute rpc session existing_messages (host, alert) =
-  let host_uuid = XenAPI.Host.get_uuid rpc session host in
-  let messages_in_host =
-    List.filter
-      (fun (_, record) -> record.API.message_obj_uuid = host_uuid)
-      existing_messages
-  in
   (* CA-342551: messages need to be deleted if the pending alert regard the
      same host and has newer, updated information.
      If the pending alert has the same metadata as the existing host message
@@ -56,6 +50,12 @@ let execute rpc session existing_messages (host, alert) =
      they are not destroyed since no alert is automatically dismissed. *)
   match alert with
   | Some (message, (alert, priority)) ->
+      let host_uuid = XenAPI.Host.get_uuid rpc session host in
+      let messages_in_host =
+        List.filter
+          (fun (_, record) -> record.API.message_obj_uuid = host_uuid)
+          existing_messages
+      in
       let is_outdated (ref, record) =
         record.API.message_body <> message
         || record.API.message_name <> alert
