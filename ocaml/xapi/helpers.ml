@@ -1024,15 +1024,16 @@ let is_valid_MAC mac =
 (** Returns true if the supplied IP address looks like one of mine *)
 let this_is_my_address ~__context address =
   let dbg = Context.string_of_task __context in
-  let inet_addrs = match Unixext.domain_of_addr address with
+  let inet_addrs =
+    match Unixext.domain_of_addr address with
     | Some x when x = Unix.PF_INET ->
-      Net.Interface.get_ipv4_addr dbg
-        (Xapi_inventory.lookup Xapi_inventory._management_interface)
+        Net.Interface.get_ipv4_addr dbg
+          (Xapi_inventory.lookup Xapi_inventory._management_interface)
     | Some x when x = Unix.PF_INET6 ->
-      Net.Interface.get_ipv6_addr dbg
-        (Xapi_inventory.lookup Xapi_inventory._management_interface)
+        Net.Interface.get_ipv6_addr dbg
+          (Xapi_inventory.lookup Xapi_inventory._management_interface)
     | _ ->
-      []
+        []
   in
   let addresses = List.map Unix.string_of_inet_addr (List.map fst inet_addrs) in
   List.mem address addresses
@@ -1843,7 +1844,8 @@ end = struct
     let use_script =
       try
         Unix.access !Xapi_globs.gen_pool_secret_script [Unix.X_OK] ;
-        Xapi_inventory.lookup ~default:"false" "CC_PREPARATIONS" |> bool_of_string
+        Xapi_inventory.lookup ~default:"false" "CC_PREPARATIONS"
+        |> bool_of_string
       with _ -> false
     in
     if use_script then

@@ -757,7 +757,7 @@ let handler (req : Http.Request.t) fd _ =
           let url =
             Printf.sprintf "https://%s%s?%s"
               (Http.Url.maybe_wrap_IPv6_literal
-                (Pool_role.get_master_address ()))
+                 (Pool_role.get_master_address ()))
               req.Http.Request.uri
               (String.concat "&" (List.map (fun (a, b) -> a ^ "=" ^ b) query))
           in
