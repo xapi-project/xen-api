@@ -2814,3 +2814,97 @@ let remove_from_guest_agent_config ~__context ~self ~key =
   Xapi_pool_helpers.apply_guest_agent_config ~__context
 
 let rotate_secret = Xapi_psr.start
+
+let set_repository ~__context ~value =
+  let prefix = !Xapi_globs.repository_prefix in
+  let pool = Helpers.get_pool ~__context in
+  Xapi_pool_helpers.with_pool_operation
+    ~__context
+    ~self:pool
+    ~doc:"pool.set_repository"
+    ~op:`set_repository
+    (fun () ->
+      let pool = Helpers.get_pool ~__context in
+      match Db.Pool.get_repository ~__context ~self:pool with
+      | ref when ref = value -> ()
+      | _ as ref ->
+        let open Repository in
+        if ref <> value then
+          with_reposync_lock (fun () -> cleanup ~__context ~self:ref ~prefix);
+        Db.Pool.set_repository ~__context ~self:pool ~value;
+        Db.Repository.set_hash ~__context ~self:value ~value:"";
+        Db.Repository.set_up_to_date ~__context ~self:value ~value:false)
+
+let updates_sync ~__context ~force =
+  let prefix = !Xapi_globs.repository_prefix in
+  let pool = Helpers.get_pool ~__context in
+  let open Repository in
+  let hash =
+    Xapi_pool_helpers.with_pool_operation
+      ~__context
+      ~self:pool
+      ~doc:"pool.updates_sync"
+      ~op:`updates_sync
+      (fun () ->
+        let repository = get_enabled_repository ~__context in
+        if reposync_try_lock () then (
+            match force with
+            | true ->
+              finally
+                (fun () ->
+                  cleanup ~__context ~self:repository ~prefix;
+                  sync ~__context ~self:repository ~prefix;
+                  create_pool_repository ~__context ~self:repository ~prefix;
+                  let h = with_pool_repository ~__context ~self:repository ~prefix (fun () ->
+                       try_set_available_updates ~__context ~self:repository ~prefix)
+                  in
+                  Some h)
+                (fun () -> reposync_unlock ())
+            | false -> None (* still hold the reposync lock *))
+        else raise Api_errors.(Server_error (reposync_in_progress, [])))
+  in
+  match hash with
+  | None ->
+    finally
+      (fun () ->
+         let repository = get_enabled_repository ~__context in
+         sync ~__context ~self:repository ~prefix;
+         Xapi_pool_helpers.with_pool_operation
+           ~__context
+           ~self:pool
+           ~doc:"pool.updates_sync"
+           ~op:`updates_sync
+           (fun () ->
+             create_pool_repository ~__context ~self:repository ~prefix;
+             with_pool_repository ~__context ~self:repository ~prefix (fun () ->
+                 try_set_available_updates ~__context ~self:repository ~prefix)))
+      (fun () -> reposync_unlock ())
+  | Some h -> h
+
+let get_updates_handler (req : Http.Request.t) s _ =
+  debug "Pool.get_updates_handler: received reqeust";
+  req.Http.Request.close <- true;
+  let query = req.Http.Request.query in
+  let prefix = !Xapi_globs.repository_prefix in
+  Xapi_http.with_context "Getting available updates" req s (fun __context ->
+      let hosts = match List.assoc "host_refs" query with
+          | v ->
+              List.map (fun ref_str -> Ref.of_string ref_str) (Str.split (Str.regexp " +") v)
+          | exception Not_found -> Db.Host.get_all ~__context
+      in
+      let repository = Repository.get_enabled_repository ~__context in
+      Xapi_pool_helpers.with_pool_operation
+        ~__context
+        ~self:(Helpers.get_pool ~__context)
+        ~doc:"pool.updates_list"
+        ~op:`updates_list
+        (fun () ->
+          Repository.with_pool_repository ~__context ~self:repository ~prefix
+            (fun () ->
+              let json_str = Yojson.Basic.pretty_to_string
+                  (Repository.get_pool_updates_in_json ~__context ~prefix ~hosts)
+              in
+              let size = Int64.of_int (String.length json_str) in
+              Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
+                  @ [Http.Hdr.content_type ^ ": application/json"]);
+              Unixext.really_write_string s json_str |> ignore)))

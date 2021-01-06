@@ -1201,3 +1201,35 @@ let vcpu_max_not_cores_per_socket_multiple =
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
+
+let set_repository_in_progress = "SET_REPOSITORY_IN_PROGRESS"
+
+let updates_sync_in_progress = "UPDATES_SYNC_IN_PROGRESS"
+
+let updates_get_in_progress = "UPDATES_GET_IN_PROGRESS"
+
+let invalid_updateinfo_xml = "INVALID_UPDATEINFO_XML"
+
+let invalid_repository_name = "INVALID_REPOSITORY_NAME"
+
+let invalid_base_url = "INVALID_BASE_URL"
+
+let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
+
+let repository_is_in_use = "REPOSITORY_IS_IN_USE"
+
+let no_repository_enabled = "NO_REPOSITORY_ENABLED"
+
+let get_host_updates_failed = "GET_HOST_UPDATES_FAILED"
+
+let local_pool_repo_cleanup_failed = "LOCAL_POOL_REPO_CLEANUP_FAILED"
+
+let invalid_repomd_xml = "INVALID_REPOMD_XML"
+
+let no_updateinfo_xml = "NO_UPDATEINDO_XML"
+
+let reposync_in_progress = "REPOSYNC_IN_PROGGRESS"
+
+let reposync_failed = "REPOSYNC_FAILED"
+
+let no_local_pool_repository = "NO_LOCAL_POOL_REPOSITORY"

@@ -506,3 +506,9 @@ val set_sched_gran :
 
 val get_sched_gran :
   __context:Context.t -> self:API.ref_host -> API.host_sched_gran
+
+val get_host_updates_handler :
+     Http.Request.t
+  -> Unix.file_descr
+  -> 'a
+  -> unit

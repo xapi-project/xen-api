@@ -5500,6 +5500,7 @@ let all_system =
     Datamodel_cluster_host.t;
     Datamodel_certificate.t;
     Datamodel_diagnostics.t;
+    Datamodel_repository.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -5695,6 +5696,7 @@ let expose_get_all_messages_for = [
   _cluster;
   _cluster_host;
   _certificate;
+  _repository;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]
@@ -5781,6 +5783,9 @@ let http_actions = [
   ("post_jsonrpc", (Post, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
   ("post_jsonrpc_options", (Options, Constants.jsonrpc_uri, false, [], _R_READ_ONLY, []));
   ("get_pool_update_download", (Get, Constants.get_pool_update_download_uri, false, [], _R_READ_ONLY, []));
+  ("get_repository", (Get, Constants.get_repository_uri, false, [], _R_READ_ONLY, []));
+  ("get_host_updates", (Get, Constants.get_host_updates_uri, false, [], _R_POOL_OP, []));
+  ("get_updates", (Get, Constants.get_updates_uri, true, [], _R_POOL_OP, []));
 ]
 
 (* these public http actions will NOT be checked by RBAC *)
@@ -5799,6 +5804,7 @@ let public_http_actions_with_no_rbac_check =
     "post_jsonrpc";
     "post_jsonrpc_options";
     "get_pool_update_download";
+    "get_repository";
   ]
 
 (* permissions not associated with any object message or field *)

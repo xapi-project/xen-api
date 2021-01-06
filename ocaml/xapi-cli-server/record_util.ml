@@ -145,6 +145,12 @@ let pool_operation_to_string = function
       "cluster_create"
   | `designate_new_master ->
       "designate_new_master"
+  | `set_repository ->
+      "set_repository"
+  | `updates_sync ->
+      "updates_sync"
+  | `updates_list ->
+      "updates_list"
 
 let host_operation_to_string = function
   | `provision ->

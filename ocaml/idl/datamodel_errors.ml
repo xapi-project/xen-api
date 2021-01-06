@@ -1198,7 +1198,41 @@ let _ =
     ~doc:"No other cluster host was reachable when joining" ();
 
   error Api_errors.xen_incompatible []
-    ~doc:"The current version of Xen or its control libraries is incompatible with the Toolstack." ()
+    ~doc:"The current version of Xen or its control libraries is incompatible with the Toolstack." ();
+
+  (* repository and updates errors *)
+  error Api_errors.set_repository_in_progress []
+    ~doc:"The operation could not be performed because setting repository is in progress." ();
+  error Api_errors.updates_sync_in_progress []
+    ~doc:"The operation could not be performed because updates syncing is in progress." ();
+  error Api_errors.updates_get_in_progress []
+    ~doc:"The operation could not be performed because updates getting is in progress." ();
+  error Api_errors.invalid_updateinfo_xml []
+    ~doc:"The content of updateinfo.xml is invalid." ();
+  error Api_errors.invalid_repository_name ["name"]
+    ~doc:"The name of repository is invalid." ();
+  error Api_errors.invalid_base_url ["url"]
+    ~doc:"The base url in the repository is invalid." ();
+  error Api_errors.repository_already_exists []
+    ~doc:"The repository already exists." ();
+  error Api_errors.repository_is_in_use []
+    ~doc:"The repository is in use." ();
+  error Api_errors.no_repository_enabled []
+    ~doc:"There is no repository being enabled." ();
+  error Api_errors.get_host_updates_failed ["uuid"]
+    ~doc:"Failed to get available updates from a host." ();
+  error Api_errors.local_pool_repo_cleanup_failed []
+    ~doc:"Failed to clean up local pool repository on master." ();
+  error Api_errors.invalid_repomd_xml []
+    ~doc:"The content of repomd.xml is invalid." ();
+  error Api_errors.no_updateinfo_xml []
+    ~doc:"No updateinfo.xml." ();
+  error Api_errors.reposync_in_progress []
+    ~doc:"The pool is syncing with remote YUM repository." ();
+  error Api_errors.reposync_failed []
+    ~doc:"Syning with remote YUM repository failed." ();
+  error Api_errors.no_local_pool_repository []
+    ~doc:"Local pool repository does not exist." ()
 
 
 

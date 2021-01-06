@@ -322,3 +322,19 @@ val remove_from_guest_agent_config :
   __context:Context.t -> self:API.ref_pool -> key:string -> unit
 
 val rotate_secret : __context:Context.t -> unit
+
+val set_repository :
+     __context:Context.t
+  -> value:[`Repository] API.Ref.t
+  -> unit
+
+val updates_sync :
+    __context:Context.t
+  -> force:bool
+  -> string
+
+val get_updates_handler :
+     Http.Request.t
+  -> Unix.file_descr
+  -> 'a
+  -> unit

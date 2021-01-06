@@ -1198,6 +1198,18 @@ let gen_cmds rpc session_id =
           "certificate" []
           ["uuid"; "host"; "fingerprint"]
           rpc session_id)
+    ; Client.Repository.(
+        mk get_all get_all_records_where get_by_uuid repository_record
+          "repository" []
+          [
+            "uuid"
+          ; "name-label"
+          ; "binary-url"
+          ; "source-url"
+          ; "hash"
+          ; "up-to-date"
+          ]
+          rpc session_id)
     ]
 
 let message_create printer rpc session_id params =
@@ -1621,6 +1633,11 @@ let pool_disable_ssl_legacy printer rpc session_id params =
 
 let pool_rotate_secret printer rpc session_id _params =
   Client.Pool.rotate_secret rpc session_id
+
+let pool_updates_sync fd printer rpc session_id params =
+  let force = get_bool_param params "force" in
+  let hash = Client.Pool.updates_sync ~rpc ~session_id ~force in
+  printer (Cli_printer.PList [hash])
 
 let vdi_type_of_string = function
   | "system" ->
@@ -7329,4 +7346,18 @@ module Cluster_host = struct
     let uuid = List.assoc "uuid" params in
     let ref = Client.Cluster_host.get_by_uuid rpc session_id uuid in
     Client.Cluster_host.force_destroy rpc session_id ref
+end
+
+module Repository = struct
+  let introduce printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let binary_url = List.assoc "binary-url" params in
+    let source_url = List.assoc "source-url" params in
+    let ref = Client.Repository.introduce ~rpc ~session_id ~name_label ~binary_url ~source_url in
+    let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let forget printer rpc session_id params =
+    let ref = Client.Repository.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+    Client.Repository.forget ~rpc ~session_id ~self:ref
 end

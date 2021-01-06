@@ -708,6 +708,9 @@ let master_only_http_handlers =
     ("post_remote_db_access", Http_svr.BufIO remote_database_access_handler)
   ; ( "post_remote_db_access_v2"
     , Http_svr.BufIO remote_database_access_handler_v2 )
+  ; ( "get_repository"
+    , Http_svr.FdIO Repository.get_repository_handler)
+  ; ("get_updates", Http_svr.FdIO Xapi_pool.get_updates_handler)
   ]
 
 let common_http_handlers =
@@ -765,6 +768,7 @@ let common_http_handlers =
   ; ("post_jsonrpc_options", Http_svr.BufIO Api_server.options_callback)
   ; ( "get_pool_update_download"
     , Http_svr.FdIO Xapi_pool_update.pool_update_download_handler )
+  ; ("get_host_updates", Http_svr.FdIO Xapi_host.get_host_updates_handler)
   ]
 
 let listen_unix_socket sock_path =

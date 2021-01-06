@@ -8,6 +8,9 @@ open Datamodel_types
             "ha_disable", "Indicates this pool is in the process of disabling HA";
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
+            "set_repository", "Indicates this pool is in the process of setting repository";
+            "updates_sync", "Indicates this pool is in the process of syncing updates";
+            "updates_list", "Indicates this pool is in the process of listing updates";
           ])
 
   let enable_ha = call
@@ -647,6 +650,25 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let set_repository = call
+      ~name:"set_repository"
+      ~in_product_since:rel_next
+      ~doc:"Set the enabled repository for updates"
+      ~params:[Ref _repository, "value", "The repository to be enabled"]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let updates_sync = call
+      ~name:"updates_sync"
+      ~in_product_since:rel_next
+      ~doc:"Sync with the enabled repository"
+      ~params:[
+        Bool, "force", "If true local mirroring repo will be removed before syncing"
+      ]
+      ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -721,6 +743,8 @@ open Datamodel_types
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
         ; rotate_secret
+        ; set_repository
+        ; updates_sync
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -764,5 +788,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Ref _repository) ~default_value:(Some (VRef null_ref)) "repository" "The enabled repository for updates"
          ])
       ()

@@ -422,6 +422,14 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.pool_rotate_secret
       ; flags= []
       } )
+  ; ( "pool-updates-sync"
+    , {
+        reqd= []
+      ; optn= ["force"]
+      ; help= "Sync with remote YUM repository, pool-wide."
+      ; implementation= With_fd Cli_operations.pool_updates_sync
+      ; flags= []
+      } )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
@@ -3091,6 +3099,22 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Destroy a cluster host object forcefully, effectively leaving the \
            cluster"
       ; implementation= No_fd Cli_operations.Cluster_host.force_destroy
+      ; flags= []
+      } )
+  ; ( "repository-introduce"
+    , {
+        reqd= ["name-label"; "binary-url"; "source-url"]
+      ; optn= []
+      ; help= "Create a repository object representing a YUM repository."
+      ; implementation= No_fd Cli_operations.Repository.introduce
+      ; flags= []
+      } )
+  ; ( "repository-forget"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Forget about a repository."
+      ; implementation= No_fd Cli_operations.Repository.forget
       ; flags= []
       } )
   ]

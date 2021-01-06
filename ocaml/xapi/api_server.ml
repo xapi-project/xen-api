@@ -130,6 +130,7 @@ module Actions = struct
   module Cluster_host = Xapi_cluster_host
   module Certificate = Certificates
   module Diagnostics = Xapi_diagnostics
+  module Repository = Repository
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)
