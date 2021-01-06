@@ -54,8 +54,9 @@ let install ~__context ~host cert =
         ( match pool_size ~__context with
         | 1 ->
             let uuid = Db.Certificate.get_uuid ~__context ~self:ref in
+            let name = Astring.String.append uuid ".pem" in
             Certificates.(
-              pool_install CA_Certificate ~__context ~name:uuid ~cert:pem)
+              pool_install CA_Certificate ~__context ~name ~cert:pem)
         | _ ->
             debug "Not installing updated self-signed host cert in pool"
         ) ;
@@ -92,7 +93,9 @@ let install ~__context ~host cert =
                enabled)" ;
             R.ok ()
       )
-  with e -> Error (`Msg ("installation of host certificate failed", []))
+  with e ->
+    error "certificates_sync.install exception: %s" (Printexc.to_string e) ;
+    Error (`Msg ("installation of host certificate failed", []))
 
 (** determine if the database is up to date by comparing the fingerprint
   of xapi-ssl.pem with the entry in the database *)
