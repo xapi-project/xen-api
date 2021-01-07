@@ -2280,30 +2280,22 @@ let migrate_receive ~__context ~host ~network ~options =
         (Api_errors.Server_error
           (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
   ) ;
-  let ip =
-    match primary_address_type with
-    | `IPv4 -> ip
-    | `IPv6 -> Http.Url.maybe_wrap_IPv6_literal ip
-  in
   let sm_url =
-    Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id
+    Printf.sprintf "http://%s/services/SM?session_id=%s"
+      (Http.Url.maybe_wrap_IPv6_literal ip) new_session_id
   in
   let xenops_url =
-    Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id
+    Printf.sprintf "http://%s/services/xenops?session_id=%s"
+      (Http.Url.maybe_wrap_IPv6_literal ip) new_session_id
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_address =
-    match Xapi_stdext_unix.Unixext.domain_of_addr master_address with
-    | Some Unix.PF_INET6 ->
-      Http.Url.maybe_wrap_IPv6_literal master_address
-    | _ ->
-      master_address
+  let master_url = Printf.sprintf "http://%s/"
+    (Http.Url.maybe_wrap_IPv6_literal master_address)
   in
-  let master_url = Printf.sprintf "http://%s/" master_address in
   [
     (Xapi_vm_migrate._sm, sm_url)
   ; (Xapi_vm_migrate._host, Ref.string_of host)
