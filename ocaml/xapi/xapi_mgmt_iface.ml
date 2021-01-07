@@ -28,6 +28,34 @@ let update_mh_info interface =
   in
   ()
 
+module StunnelCb : sig
+  val add : (unit -> unit) -> unit
+
+  val execute : unit -> unit
+end = struct
+  let m = Mutex.create ()
+
+  let stunnel_cb = ref `unset
+
+  let add cb =
+    Mutex.execute m @@ fun () ->
+    match !stunnel_cb with
+    | `unset ->
+        stunnel_cb := `primed cb
+    | `primed _ | `used ->
+        warn "add_stunnel_cb has been called more than once"
+
+  let execute () =
+    Mutex.execute m @@ fun () ->
+    match !stunnel_cb with
+    | `unset | `used ->
+        ()
+    | `primed cb ->
+        Fun.protect ~finally:(fun () -> stunnel_cb := `used) (fun () -> cb ())
+end
+
+let add_stunnel_cb = StunnelCb.add
+
 module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
 
@@ -39,7 +67,19 @@ end = struct
 
   let _restart_no_cache ~__context ~accept =
     let (_ : Thread.t) =
-      Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) ()
+      (* we do not expect stunnel to be slow to start, (especially since systemd
+       * will start it in a thread, as it has type 'forking').
+       * however in CC mode, it may take a while to generate certificates if there is
+       * low system entropy, so we leave this extra fork here *)
+      Thread.create
+        (fun () ->
+          debug "asking stunnel to start/restart" ;
+          Helpers.Stunnel.restart ~__context ~accept ;
+          debug "stunnel restart successfully triggered" ;
+          (* at this point, the host certificate is guaranteed to exist due to
+           * stunnel@xapi's systemd dependencies *)
+          StunnelCb.execute ())
+        ()
     in
     ()
 

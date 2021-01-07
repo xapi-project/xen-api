@@ -38,7 +38,7 @@ let local_assert_healthy ~__context =
   | Pool_role.Broken ->
       raise !Xapi_globs.emergency_mode_error
   | Pool_role.Slave _ ->
-      if !Xapi_globs.slave_emergency_mode then
+      if !Xapi_globs.host_emergency_mode then
         raise !Xapi_globs.emergency_mode_error
 
 let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
@@ -1058,7 +1058,7 @@ let change_management_interface ~__context interface primary_address_type =
 let local_management_reconfigure ~__context ~interface =
   (* Only let this one through if we are in emergency mode, otherwise use
      	 Host.management_reconfigure *)
-  if not !Xapi_globs.slave_emergency_mode then
+  if not !Xapi_globs.host_emergency_mode then
     raise (Api_errors.Server_error (Api_errors.pool_not_in_emergency_mode, [])) ;
   change_management_interface ~__context interface
     (Record_util.primary_address_type_of_string
@@ -1213,7 +1213,7 @@ let set_ssl_legacy ~__context ~self ~value =
   else
     D.info "set_ssl_legacy: called with value: %b - doing nothing" value
 
-let is_in_emergency_mode ~__context = !Xapi_globs.slave_emergency_mode
+let is_in_emergency_mode ~__context = !Xapi_globs.host_emergency_mode
 
 let compute_free_memory ~__context ~host =
   (*** XXX: Use a more appropriate free memory calculation here. *)

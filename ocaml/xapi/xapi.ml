@@ -314,44 +314,6 @@ let init_local_database () =
   if !Xapi_globs.on_system_boot then
     Localdb.put Constants.host_disabled_until_reboot "false"
 
-let bring_up_management_if ~__context () =
-  try
-    let management_if =
-      Xapi_inventory.lookup Xapi_inventory._management_interface
-    in
-    let management_address_type =
-      Record_util.primary_address_type_of_string
-        (Xapi_inventory.lookup Xapi_inventory._management_address_type)
-    in
-    if management_if = "" then (
-      debug "No management interface defined (management is disabled)" ;
-      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false
-    ) else (
-      Xapi_mgmt_iface.change management_if management_address_type ;
-      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true ;
-      match Helpers.get_management_ip_addr ~__context with
-      | Some "127.0.0.1" ->
-          debug "Received 127.0.0.1 as a management IP address; ignoring"
-      | Some ip ->
-          debug "Management IP address is: %s" ip ;
-          (* Make sure everyone is up to speed *)
-          ignore
-            (Thread.create
-               (fun () ->
-                 Server_helpers.exec_with_new_task "dom0 networking update"
-                   ~subtask_of:(Context.get_task_id __context) (fun __context ->
-                     Xapi_mgmt_iface.on_dom0_networking_change ~__context))
-               ())
-      | None ->
-          warn "Failed to acquire a management IP address"
-    ) ;
-    (* Start the Host Internal Management Network, if needed. *)
-    Xapi_network.check_himn ~__context ;
-    Helpers.update_getty ()
-  with e ->
-    debug "Caught exception bringing up management interface: %s"
-      (ExnHelper.string_of_exn e)
-
 (** Assuming a management interface is defined, return the IP address. Note this
     	call may block for a long time. *)
 let wait_for_management_ip_address ~__context =
@@ -496,8 +458,8 @@ let cache_metadata_vdis () =
 
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
-  info "Cannot contact master: running in slave emergency mode" ;
-  Xapi_globs.slave_emergency_mode := true ;
+  info "enabling emergency mode on this host" ;
+  Xapi_globs.host_emergency_mode := true ;
   (* signal the init script that it should succeed even though we're bust *)
   Helpers.touch_file !Xapi_globs.ready_file ;
   let emergency_reboot_delay =
@@ -516,15 +478,56 @@ let server_run_in_emergency_mode () =
   wait_to_die () ; exit 0
 
 let update_certificates ~__context () =
+  info "syncing certificates on xapi start" ;
   match Certificates_sync.update ~__context with
   | Ok () ->
-      ()
+      info "successfully synced certificates"
   | Error (`Msg (msg, _)) ->
       error "Failed to update host certificates: %s" msg ;
       server_run_in_emergency_mode ()
   | exception e ->
       error "Failed to update host certificates: %s" (Printexc.to_string e) ;
       server_run_in_emergency_mode ()
+
+let bring_up_management_if ~__context () =
+  update_certificates ~__context |> Xapi_mgmt_iface.add_stunnel_cb ;
+  try
+    let management_if =
+      Xapi_inventory.lookup Xapi_inventory._management_interface
+    in
+    let management_address_type =
+      Record_util.primary_address_type_of_string
+        (Xapi_inventory.lookup Xapi_inventory._management_address_type)
+    in
+    if management_if = "" then (
+      (* we enter this branch during first boot *)
+      debug "No management interface defined (management is disabled)" ;
+      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false
+    ) else (
+      Xapi_mgmt_iface.change management_if management_address_type ;
+      Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true ;
+      match Helpers.get_management_ip_addr ~__context with
+      | Some "127.0.0.1" ->
+          debug "Received 127.0.0.1 as a management IP address; ignoring"
+      | Some ip ->
+          debug "Management IP address is: %s" ip ;
+          (* Make sure everyone is up to speed *)
+          ignore
+            (Thread.create
+               (fun () ->
+                 Server_helpers.exec_with_new_task "dom0 networking update"
+                   ~subtask_of:(Context.get_task_id __context) (fun __context ->
+                     Xapi_mgmt_iface.on_dom0_networking_change ~__context))
+               ())
+      | None ->
+          warn "Failed to acquire a management IP address"
+    ) ;
+    (* Start the Host Internal Management Network, if needed. *)
+    Xapi_network.check_himn ~__context ;
+    Helpers.update_getty ()
+  with e ->
+    debug "Caught exception bringing up management interface: %s"
+      (ExnHelper.string_of_exn e)
 
 (** Once the database is online we make sure our local ha.armed flag is in sync with the
     master's Pool.ha_enabled flag. *)
@@ -603,7 +606,9 @@ let maybe_set_fqdn_in_pool_conf () =
       ()
 
 (** Reset the networking-related metadata for this host if the command [xe-reset-networking]
- *  was executed before the restart. *)
+ *  was executed before the restart.
+ *  This also gets executed on firstboot, and variables such as MANAGEMENT_INTERFACE are set
+ *  for the first time here *)
 let check_network_reset () =
   try
     (* Raises exception if the file is not there and no reset is required *)
@@ -1021,9 +1026,6 @@ let server_init () =
           ; ( "hi-level database upgrade"
             , [Startup.OnlyMaster]
             , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context )
-          ; ( "Update host certificate if changed"
-            , []
-            , update_certificates ~__context )
           ; ( "bringing up management interface"
             , []
             , bring_up_management_if ~__context )
@@ -1054,7 +1056,7 @@ let server_init () =
         | Pool_role.Slave _ ->
             info "Running in 'Pool Slave' mode" ;
             (* Set emergency mode until we actually talk to the master *)
-            Xapi_globs.slave_emergency_mode := true ;
+            Xapi_globs.host_emergency_mode := true ;
             (* signal the init script that it should succeed even though we're bust *)
             Helpers.touch_file !Xapi_globs.ready_file ;
             (* Keep trying to log into master *)
@@ -1080,7 +1082,7 @@ let server_init () =
                   Thread.delay !Db_globs.permanent_master_failure_retry_interval
             done ;
             debug "Startup successful" ;
-            Xapi_globs.slave_emergency_mode := false ;
+            Xapi_globs.host_emergency_mode := false ;
             Master_connection.connection_timeout := initial_connection_timeout ;
             ( try
                 (* We can't tolerate an exception in db synchronization so fall back into emergency mode

@@ -18,6 +18,9 @@
 val himn_addr : unit -> string option
 (** Local IP address of the HIMN (if any) *)
 
+val add_stunnel_cb : (unit -> unit) -> unit
+(** This will be executed only once, immediately after the trigger of the next stunnel restart *)
+
 val wait_for_management_ip : __context:Context.t -> string
 (** Block until an IP address appears on the management interface *)
 

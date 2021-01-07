@@ -202,7 +202,7 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   let whitelisted = List.mem call.Rpc.name whitelist in
   let emergency_call = List.mem call.Rpc.name emergency_call_list in
   let is_slave = not (Pool_role.is_master ()) in
-  if !Xapi_globs.slave_emergency_mode && not emergency_call then
+  if !Xapi_globs.host_emergency_mode && not emergency_call then
     raise !Xapi_globs.emergency_mode_error ;
   if
     is_slave
