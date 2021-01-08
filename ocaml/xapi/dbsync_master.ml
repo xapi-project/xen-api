@@ -84,9 +84,9 @@ let refresh_console_urls ~__context =
             | "" ->
                 ""
             | address ->
-              let address = Http.Url.maybe_wrap_IPv6_literal address in
-              Printf.sprintf "https://%s%s?ref=%s" address
-                Constants.console_uri (Ref.string_of console)
+                let address = Http.Url.maybe_wrap_IPv6_literal address in
+                Printf.sprintf "https://%s%s?ref=%s" address
+                  Constants.console_uri (Ref.string_of console)
           in
           Db.Console.set_location ~__context ~self:console ~value:url_should_be)
         ())
