@@ -56,7 +56,7 @@ let cert =
   data >>= fun body ->
   cert_footer >>= fun tl -> ws *> return (String.concat "" [hd; body; tl])
 
-let pem =
+let host_pem =
   key >>= fun private_key ->
   cert >>= fun host_cert ->
   many cert >>= fun other_certs -> return {private_key; host_cert; other_certs}
@@ -68,11 +68,15 @@ let read_file path =
   defer (fun () -> close_in ic) @@ fun () ->
   really_input_string ic (in_channel_length ic)
 
-let parse_string str =
+let parse_string_using parser str =
   let consume = Consume.Prefix in
-  parse_string ~consume pem str
+  parse_string ~consume parser str
 
-let parse_file path =
-  try read_file path |> parse_string
+let parse_file_using parser path =
+  try read_file path |> parse_string_using parser
   with e ->
     Error (Printf.sprintf "Can't process %s: %s" path (Printexc.to_string e))
+
+let parse_string = parse_string_using host_pem
+
+let parse_file = parse_file_using host_pem

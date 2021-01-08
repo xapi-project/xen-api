@@ -2549,6 +2549,7 @@ let health_check ~__context =
       let self = Helpers.get_localhost ~__context in
       let host = Db.Host.get_name_label ~__context ~self in
       let body = Printf.sprintf "<body><host>%s</host></body>" host in
-      Xapi_alert.add ~msg:Api_messages.tls_verification_emergency_disabled ~cls:`Host
+      Xapi_alert.add ~msg:Api_messages.tls_verification_emergency_disabled
+        ~cls:`Host
         ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
         ~body
