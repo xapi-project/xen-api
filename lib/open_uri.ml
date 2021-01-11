@@ -20,12 +20,22 @@ open Xapi_stdext_pervasives.Pervasiveext
 let handle_socket f s = try f s with e -> Backtrace.is_important e ; raise e
 
 let open_tcp f host port =
+  Printf.fprintf stderr "*** BRS: open_tcp host: %s\n" host ;
   let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
+  Printf.fprintf stderr "*** BRS: open_tcp unwrapped host: %s\n" host ;
   let he = Unix.getaddrinfo host (string_of_int port) [] in
-  if he = [] then begin raise Not_found end;
+  Printf.fprintf stderr "*** BRS: getAddrInfo \n" ;
+  if he = [] then raise Not_found ;
 
+  Printf.fprintf stderr "*** BRS: not empty\n" ;
   let sockaddr = (List.hd he).Unix.ai_addr in
-  let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+  let family =
+    match sockaddr with
+    | Unix.ADDR_INET(addr, port) ->
+      Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, port))
+    | Unix.ADDR_UNIX _ -> Unix.PF_UNIX
+  in
+  let s = Unix.socket family Unix.SOCK_STREAM 0 in
   finally
     (fun () -> Unix.connect s sockaddr ; handle_socket f s)
     (fun () -> Unix.close s)
