@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Core
+open Core_kernel
 open Async
 
 open Xen_api_async_unix
@@ -76,7 +76,7 @@ let watch_events rpc session_id =
     let open Event_types in
     Event.from ~rpc ~session_id ~classes:["*"] ~token:"" ~timeout:0. >>= fun rpc ->
     let e = event_from_of_rpc rpc in
-    if e.events = [] then error "Empty list of events";
+    if List.length e.events = 0 then error "Empty list of events";
     let current = List.fold_left ~init:StringMap.empty ~f:update e.events in
     Sequence.iter ~f:(fun (key, diff) -> match key, diff with
         | key, `Left _ -> error "Replica has extra table: %s" key
@@ -93,7 +93,7 @@ let watch_events rpc session_id =
               | r, `Left rpc -> error "Replica has extra object: %s: %s" r (Jsonrpc.to_string rpc)
               | r, `Right rpc -> error "Replica has missing object: %s: %s" r (Jsonrpc.to_string rpc)
               | r, `Unequal(rpc1, rpc2) -> error "Replica has out-of-sync object: %s: %s <> %s" r (Jsonrpc.to_string rpc1) (Jsonrpc.to_string rpc2)
-            ) (StringMap.symmetric_diff root_table current_table ~data_equal:(fun a b -> a = b))
+            ) (StringMap.symmetric_diff root_table current_table ~data_equal:(fun a b -> Base.Poly.equal a b))
       ) (StringMap.keys current);
     return () in
 
