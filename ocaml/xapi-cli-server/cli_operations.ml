@@ -18,7 +18,6 @@
 open Cli_protocol
 open Cli_util
 open Cli_cmdtable
-open Xapi_stdext_pervasives.Pervasiveext
 module Date = Xapi_stdext_date.Date
 module Listext = Xapi_stdext_std.Listext.List
 module Unixext = Xapi_stdext_unix.Unixext
@@ -722,6 +721,10 @@ let make_param_funs getall getallrecs getbyuuid record class_name def_filters
     match field_lookup record param_name with
     | {get_set= Some f; remove_from_set= Some g} ->
         List.iter g (f ())
+    | {clear_map= Some g; _} ->
+        g ()
+    | {set_map= Some g; _} ->
+        g []
     | {get_map= Some f; remove_from_map= Some g} ->
         List.iter g (List.map fst (f ()))
     | {set= Some f} -> (
@@ -1765,8 +1768,10 @@ let vdi_clone printer rpc session_id params =
     try Some (List.assoc "new-name-description" params) with Not_found -> None
   in
   let newvdi = Client.VDI.clone rpc session_id vdi driver_params in
-  maybe (fun x -> Client.VDI.set_name_label rpc session_id newvdi x) name_label ;
-  maybe
+  Option.iter
+    (fun x -> Client.VDI.set_name_label rpc session_id newvdi x)
+    name_label ;
+  Option.iter
     (fun x -> Client.VDI.set_name_description rpc session_id newvdi x)
     name_description ;
   let newuuid = Client.VDI.get_uuid rpc session_id newvdi in
@@ -3818,11 +3823,10 @@ let vm_clone_aux clone_op cloned_string printer include_template_vms rpc
       params
       ["new-name-label"; "new-name-description"]
   in
-  ignore
-    (may
-       (fun desc ->
-         Client.VM.set_name_description rpc session_id (List.hd new_vms) desc)
-       desc) ;
+  Option.iter
+    (fun desc ->
+      Client.VM.set_name_description rpc session_id (List.hd new_vms) desc)
+    desc ;
   printer
     (Cli_printer.PList
        (List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) new_vms))
@@ -3872,10 +3876,9 @@ let snapshot_op op printer rpc session_id params =
   let uuid = get_snapshot_uuid params in
   let ref = get_snapshotVM_by_uuid rpc session_id uuid in
   let new_ref = op ~rpc ~session_id ~vm:ref ~new_name in
-  ignore
-    (may
-       (fun desc -> Client.VM.set_name_description rpc session_id new_ref desc)
-       desc) ;
+  Option.iter
+    (fun desc -> Client.VM.set_name_description rpc session_id new_ref desc)
+    desc ;
   let new_uuid = Client.VM.get_uuid ~rpc ~session_id ~self:new_ref in
   printer (Cli_printer.PList [new_uuid])
 
@@ -3920,11 +3923,10 @@ let vm_copy printer rpc session_id params =
       params
       ["new-name-label"; "sr-uuid"; "new-name-description"]
   in
-  ignore
-    (may
-       (fun desc ->
-         Client.VM.set_name_description rpc session_id (List.hd new_vms) desc)
-       desc) ;
+  Option.iter
+    (fun desc ->
+      Client.VM.set_name_description rpc session_id (List.hd new_vms) desc)
+    desc ;
   printer
     (Cli_printer.PList
        (List.map (fun vm -> Client.VM.get_uuid rpc session_id vm) new_vms))
@@ -6239,7 +6241,10 @@ let pool_dump_db fd printer rpc session_id params =
   let make_command task_id =
     let pool = List.hd (Client.Pool.get_all rpc session_id) in
     let master = Client.Pool.get_master rpc session_id pool in
-    let master_address = Client.Host.get_address rpc session_id master in
+    let master_address =
+      Http.Url.maybe_wrap_IPv6_literal
+        (Client.Host.get_address rpc session_id master)
+    in
     let uri =
       Printf.sprintf "https://%s%s?session_id=%s&task_id=%s" master_address
         Constants.pool_xml_db_sync (Ref.string_of session_id)
