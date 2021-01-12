@@ -37,7 +37,7 @@ let _ =
   if !vm = "" then failwith "Must supply a VM uuid or name-label" ;
   let unwrapped_ip = Scanf.ksscanf !ip (fun _ _ -> !ip) "[%s@]" Fun.id in
   let sockaddr = Unix.ADDR_INET (Unix.inet_addr_of_string unwrapped_ip, 0) in
-  let family = Unix.domain_of_sockaddr addr in
+  let family = Unix.domain_of_sockaddr sockaddr in
   let sock = Unix.socket family Unix.SOCK_STREAM 0 in
   Unix.setsockopt sock Unix.SO_REUSEADDR true ;
   Unix.bind sock sockaddr ;
