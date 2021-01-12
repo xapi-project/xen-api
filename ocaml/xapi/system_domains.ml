@@ -167,14 +167,7 @@ let wait_for ?(timeout = 120.) f =
   done ;
   !success
 
-let pingable ip () =
-  try
-    let (_ : string * string) =
-      Forkhelpers.execute_command_get_output "/bin/ping"
-        ["-c"; "1"; "-w"; "1"; ip]
-    in
-    true
-  with _ -> false
+let pingable ip () = Helpers.pingable ip
 
 let queryable ~__context transport () =
   let open Xmlrpc_client in
