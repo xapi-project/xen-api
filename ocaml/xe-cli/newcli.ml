@@ -324,7 +324,7 @@ let with_open_tcp server f =
   else
     let host = Scanf.ksscanf server (fun _ _ -> server) "[%s@]" Fun.id in
     let addr =
-      match Unix.getaddrinfo host 0 [] with
+      match Unix.getaddrinfo host "" [] with
       | [] ->
         error "No addrinfo found for host: %s" host ;
         raise Not_found
