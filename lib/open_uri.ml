@@ -17,18 +17,24 @@
 
 open Xapi_stdext_pervasives.Pervasiveext
 
+module D = Debug.Make (struct let name = "open_uri" end)
+open D
+
 let handle_socket f s = try f s with e -> Backtrace.is_important e ; raise e
 
 let open_tcp f host port =
-  Printf.fprintf stderr "*** BRS: open_tcp host: %s\n" host ;
+  debug "*** BRS: open_tcp host: %s\n" host ;
   let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
-  Printf.fprintf stderr "*** BRS: open_tcp unwrapped host: %s\n" host ;
-  let he = Unix.getaddrinfo host (string_of_int port) [] in
-  Printf.fprintf stderr "*** BRS: getAddrInfo \n" ;
-  if he = [] then raise Not_found ;
+  debug "*** BRS: open_tcp unwrapped host: %s\n" host ;
+  let sockaddr =
+    match Unix.getaddrinfo host (string_of_int port) [] with
+    | [] ->
+      error "No addrinfo found for host: %s on port: %d" host port ;
+      raise Not_found
+    | addrinfo::_ -> addrinfo.Unix.ai_addr
+  in
+  debug "*** BRS: getAddrInfo success \n" ;
 
-  Printf.fprintf stderr "*** BRS: not empty\n" ;
-  let sockaddr = (List.hd he).Unix.ai_addr in
   let family =
     match sockaddr with
     | Unix.ADDR_INET(addr, port) ->
@@ -41,6 +47,7 @@ let open_tcp f host port =
     (fun () -> Unix.close s)
 
 let with_open_uri uri f =
+  debug "*** BRS: with_open_uri uri: %s\n" (Uri.to_string uri) ;
   match Uri.scheme uri with
   | Some "http" -> (
     match (Uri.host uri, Uri.port uri) with
