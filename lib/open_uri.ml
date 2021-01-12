@@ -23,9 +23,7 @@ open D
 let handle_socket f s = try f s with e -> Backtrace.is_important e ; raise e
 
 let open_tcp f host port =
-  debug "*** BRS: open_tcp host: %s\n" host ;
   let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
-  debug "*** BRS: open_tcp unwrapped host: %s\n" host ;
   let sockaddr =
     match Unix.getaddrinfo host (string_of_int port) [] with
     | [] ->
@@ -33,21 +31,13 @@ let open_tcp f host port =
       raise Not_found
     | addrinfo::_ -> addrinfo.Unix.ai_addr
   in
-  debug "*** BRS: getAddrInfo success \n" ;
-
-  let family =
-    match sockaddr with
-    | Unix.ADDR_INET(addr, port) ->
-      Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, port))
-    | Unix.ADDR_UNIX _ -> Unix.PF_UNIX
-  in
+  let family = Unix.domain_of_sockaddr sockaddr in
   let s = Unix.socket family Unix.SOCK_STREAM 0 in
   finally
     (fun () -> Unix.connect s sockaddr ; handle_socket f s)
     (fun () -> Unix.close s)
 
 let with_open_uri uri f =
-  debug "*** BRS: with_open_uri uri: %s\n" (Uri.to_string uri) ;
   match Uri.scheme uri with
   | Some "http" -> (
     match (Uri.host uri, Uri.port uri) with
