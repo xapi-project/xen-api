@@ -35,8 +35,10 @@ let _ =
     (fun x -> Printf.fprintf stderr "Ignoring: %s\n" x)
     "Proxy VNC traffic" ;
   if !vm = "" then failwith "Must supply a VM uuid or name-label" ;
-  let sockaddr = Unix.ADDR_INET (Unix.inet_addr_of_string !ip, 0) in
-  let sock = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+  let unwrapped_ip = Scanf.ksscanf !ip (fun _ _ -> !ip) "[%s@]" Fun.id in
+  let sockaddr = Unix.ADDR_INET (Unix.inet_addr_of_string unwrapped_ip, 0) in
+  let family = Unix.domain_of_sockaddr addr in
+  let sock = Unix.socket family Unix.SOCK_STREAM 0 in
   Unix.setsockopt sock Unix.SO_REUSEADDR true ;
   Unix.bind sock sockaddr ;
   Unix.listen sock 5 ;
