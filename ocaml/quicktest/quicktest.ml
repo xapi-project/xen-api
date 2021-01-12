@@ -33,6 +33,7 @@ let () =
           , Quicktest_vdi_ops_data_integrity.tests () )
         ; ("Quicktest_max_vdi_size", Quicktest_max_vdi_size.tests ())
         ; ("Quicktest_static_vdis", Quicktest_static_vdis.tests ())
+        ; ("Quicktest_date", Quicktest_date.tests ())
         ]
         @
         if not !Quicktest_args.using_unix_domain_socket then
