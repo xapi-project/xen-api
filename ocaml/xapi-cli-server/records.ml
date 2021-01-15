@@ -1212,6 +1212,10 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"uefi-certificates" ~hidden:true
           ~get:(fun () -> (x ()).API.pool_uefi_certificates)
           ()
+      ; make_field ~name:"tls-verification-enabled"
+          ~get:(fun () ->
+            (x ()).API.pool_tls_verification_enabled |> string_of_bool)
+          ()
       ]
   }
 
