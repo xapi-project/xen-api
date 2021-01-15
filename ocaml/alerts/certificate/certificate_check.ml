@@ -41,21 +41,6 @@ let generate_alert epoch (host, expiry) =
     (host, Some (message, alert))
 
 let execute rpc session existing_messages (host, alert) =
-  let host_uuid = XenAPI.Host.get_uuid rpc session host in
-  let messages_in_host =
-    List.filter
-      (fun (_, record) -> record.API.message_obj_uuid = host_uuid)
-      existing_messages
-  in
-  let is_outdated (ref, record) =
-    match alert with
-    | None ->
-        true
-    | Some (body, (name, priority)) ->
-        record.API.message_body <> body
-        || record.API.message_name <> name
-        || record.API.message_priority <> priority
-  in
   (* CA-342551: messages need to be deleted if the pending alert regard the
      same host and has newer, updated information.
      If the pending alert has the same metadata as the existing host message
@@ -63,17 +48,31 @@ let execute rpc session existing_messages (host, alert) =
      prevents changing the message UUID.
      In the case there are alerts regarding the host but no alert is pending
      they are not destroyed since no alert is automatically dismissed. *)
-  let outdated_messages = List.filter is_outdated messages_in_host in
-  let replacement_is_pending = List.exists is_outdated messages_in_host in
-  match (alert, replacement_is_pending) with
-  | Some (message, (alert, priority)), true ->
+  match alert with
+  | Some (message, (alert, priority)) ->
+      let host_uuid = XenAPI.Host.get_uuid rpc session host in
+      let messages_in_host =
+        List.filter
+          (fun (_, record) -> record.API.message_obj_uuid = host_uuid)
+          existing_messages
+      in
+      let is_outdated (ref, record) =
+        record.API.message_body <> message
+        || record.API.message_name <> alert
+        || record.API.message_priority <> priority
+      in
+      let outdated, current = List.partition is_outdated messages_in_host in
+
       List.iter
         (fun (self, _) -> XenAPI.Message.destroy rpc session self)
-        outdated_messages ;
-      ignore
-        (XenAPI.Message.create rpc session alert priority `Host host_uuid
-           message)
-  | _ ->
+        outdated ;
+      if current = [] then
+        let (_ : [> `message] Client.Id.t API.Ref.t) =
+          XenAPI.Message.create rpc session alert priority `Host host_uuid
+            message
+        in
+        ()
+  | None ->
       ()
 
 let alert rpc session =

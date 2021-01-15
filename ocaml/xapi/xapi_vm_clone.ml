@@ -16,7 +16,6 @@
 *)
 
 open Client
-open Xapi_stdext_pervasives.Pervasiveext
 module Date = Xapi_stdext_date.Date
 open Event_types
 
@@ -49,12 +48,12 @@ let wait_for_subtask ?progress_minmax ~__context task =
       let process_copy_task task_rec =
         (* Update progress *)
         let myprogress =
-          may
+          Option.map
             (fun (min, max) ->
               min +. ((max -. min) *. task_rec.API.task_progress))
             progress_minmax
         in
-        maybe
+        Option.iter
           (fun value ->
             Db_actions.DB_Action.Task.set_progress ~__context ~self:main_task
               ~value)
@@ -152,7 +151,7 @@ let clone_single_vdi ?progress rpc session_id disk_op ~__context vdi
   in
   (* This particular clone takes overall progress from startprogress to endprogress *)
   let progress_minmax =
-    may
+    Option.map
       (fun (done_so_far, size, total) ->
         let startprogress = Int64.to_float done_so_far /. total in
         let endprogress =

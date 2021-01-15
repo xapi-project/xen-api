@@ -2009,7 +2009,8 @@ let update_vm ~__context id =
                   (fun (_, state) ->
                     let localhost = Helpers.get_localhost ~__context in
                     let address =
-                      Db.Host.get_address ~__context ~self:localhost
+                      Http.Url.maybe_wrap_IPv6_literal
+                        (Db.Host.get_address ~__context ~self:localhost)
                     in
                     let uri =
                       Printf.sprintf "https://%s%s" address

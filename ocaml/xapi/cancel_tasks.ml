@@ -212,9 +212,11 @@ let cancel_tasks_on_host ~__context ~host_opt =
              Xapi_host_helpers.cancel_tasks ~__context ~self
                ~all_tasks_in_db:tasks ~task_ids))
         all_hosts ;
-      let open Xapi_stdext_pervasives.Pervasiveext in
       let hosts =
-        default (Db.Host.get_all ~__context) (may (fun x -> [x]) host_opt)
+        Option.fold
+          ~none:(Db.Host.get_all ~__context)
+          ~some:(fun x -> [x])
+          host_opt
       in
       List.iter
         (safe_wrapper "host_helpers - cancel tasks" (fun self ->

@@ -13,8 +13,6 @@
  *)
 (* Session checking **********************************************************)
 
-open Xapi_stdext_pervasives.Pervasiveext
-
 exception Non_master_login_on_slave
 
 module D = Debug.Make (struct let name = "session_check" end)
@@ -25,8 +23,9 @@ open D
 let check_local_session_hook = ref None
 
 let is_local_session __context session_id =
-  default false
-    (may (fun f -> f ~__context ~session_id) !check_local_session_hook)
+  Option.fold ~none:false
+    ~some:(fun f -> f ~__context ~session_id)
+    !check_local_session_hook
 
 (* intra_pool_only is true iff the call that's invoking this check can only be called from host<->host intra-pool communication *)
 let check ~intra_pool_only ~session_id =

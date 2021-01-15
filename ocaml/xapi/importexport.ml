@@ -429,6 +429,7 @@ module Format = struct
 end
 
 let return_302_redirect (req : Http.Request.t) s address =
+  let address = Http.Url.maybe_wrap_IPv6_literal address in
   let url =
     Printf.sprintf "https://%s%s?%s" address req.Http.Request.uri
       (String.concat "&"
