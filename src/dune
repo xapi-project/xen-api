@@ -8,7 +8,7 @@
   lwt
   lwt.unix
   mirage-block-unix
-  nbd-lwt-unix
+  nbd-unix
   uri
   uuidm
   vbd_store
