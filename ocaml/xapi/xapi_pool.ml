@@ -2814,3 +2814,21 @@ let remove_from_guest_agent_config ~__context ~self ~key =
   Xapi_pool_helpers.apply_guest_agent_config ~__context
 
 let rotate_secret = Xapi_psr.start
+
+let set_repository ~__context ~self ~value =
+  let prefix = !Xapi_globs.repository_prefix in
+  Xapi_pool_helpers.with_pool_operation
+    ~__context
+    ~self
+    ~doc:"pool.set_repository"
+    ~op:`set_repository
+    (fun () ->
+      match Db.Pool.get_repository ~__context ~self with
+      | ref when ref = value -> ()
+      | ref ->
+        let open Repository in
+        if ref <> Ref.null then
+          with_reposync_lock (fun () -> cleanup ~__context ~self:ref ~prefix);
+        Db.Pool.set_repository ~__context ~self ~value;
+        Db.Repository.set_hash ~__context ~self:value ~value:"";
+        Db.Repository.set_up_to_date ~__context ~self:value ~value:false)
