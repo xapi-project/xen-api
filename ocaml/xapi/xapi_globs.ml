@@ -856,7 +856,7 @@ let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 
 let repository_domain_name_allowlist = ref []
 
-let repository_prefix = ref "repository"
+let yum_cmd = ref "/usr/bin/yum"
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
@@ -1140,10 +1140,6 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       repository_domain_name_allowlist
-  ; ( "repository-prefix"
-    , Arg.Set_string repository_prefix
-    , (fun () -> !repository_prefix)
-    , "Prefix of repository name" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1228,6 +1224,9 @@ module Resources = struct
     ; ( "set-iscsi-initiator"
       , set_iSCSI_initiator_script
       , "Path to set-iscsi-initiator script" )
+    ; ( "yum-cmd"
+      , yum_cmd
+      , "Path to yum command" )
     ]
 
   let nonessential_executables =

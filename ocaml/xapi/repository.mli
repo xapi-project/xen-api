@@ -29,14 +29,6 @@ val get_enabled_repository :
      __context:Context.t
   -> [`Repository] API.Ref.t
 
-val cleanup :
-     __context:Context.t
-  -> self:[`Repository] API.Ref.t
-  -> prefix:string
-  -> unit
+val cleanup_pool_repo  : unit -> unit
 
 val with_reposync_lock : (unit -> 'a) -> 'a
-
-val reposync_try_lock : unit -> bool
-
-val reposync_unlock : unit -> unit

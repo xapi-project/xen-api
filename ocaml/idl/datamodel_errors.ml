@@ -1203,18 +1203,16 @@ let _ =
   (* repository and updates errors *)
   error Api_errors.set_repository_in_progress []
     ~doc:"The operation could not be performed because a repository setup is in progress." ();
-  error Api_errors.invalid_repository_name ["name"]
-    ~doc:"The name of the repository is invalid." ();
   error Api_errors.invalid_base_url ["url"]
     ~doc:"The base url in the repository is invalid." ();
-  error Api_errors.repository_already_exists []
+  error Api_errors.repository_already_exists ["ref"]
     ~doc:"The repository already exists." ();
   error Api_errors.repository_is_in_use []
     ~doc:"The repository is in use." ();
   error Api_errors.reposync_in_progress []
     ~doc:"The pool is syncing with the enabled remote YUM repository." ();
-  error Api_errors.local_pool_repo_cleanup_failed []
-    ~doc:"Failed to clean up local pool repository on master." ();
+  error Api_errors.repository_cleanup_failed []
+    ~doc:"Failed to clean up local repository on master." ();
   error Api_errors.no_repository_enabled []
     ~doc:"There is no repository being enabled." ()
 
