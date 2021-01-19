@@ -17,7 +17,7 @@ open D
 
 open Xmlrpc_client
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_pervasives.Pervasiveext
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let one request fromfd s =
   let open Xapi_stdext_unix in
@@ -67,7 +67,7 @@ let http_proxy src_ip src_port transport =
     Mutex.execute m
       (fun () ->
          (* shutdown any server which currently exists *)
-         maybe (fun server -> server.Server_io.shutdown ()) !server;
+         Option.iter (fun server -> server.Server_io.shutdown ()) !server;
          (* Make sure we don't try to double-close the server *)
          server := None;
          let handler = { Server_io.name = "http_proxy"; body = tcp_connection } in

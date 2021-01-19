@@ -14,7 +14,6 @@
 
 (* A very very simple HTTP server! *)
 
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
 
 exception Http_parse_failure
@@ -452,15 +451,15 @@ module Request = struct
     Printf.sprintf "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; subtask_of = %s; content-type = %s; host = %s; user_agent = %s }"
       x.frame (string_of_method_t x.m) x.uri
       (kvpairs x.query)
-      (default "" (may Int64.to_string x.content_length))
-      (default "" x.transfer_encoding)
+      (Option.fold ~none:"" ~some:Int64.to_string x.content_length)
+      (Option.value ~default:"" x.transfer_encoding)
       x.version
       "(value filtered)" (* cookies *)
-      (default "" x.task)
-      (default "" x.subtask_of)
-      (default "" x.content_type)
-      (default "" x.host)
-      (default "" x.user_agent)
+      (Option.value ~default:"" x.task)
+      (Option.value ~default:"" x.subtask_of)
+      (Option.value ~default:"" x.content_type)
+      (Option.value ~default:"" x.host)
+      (Option.value ~default:"" x.user_agent)
 
   let to_header_list x =
     let kvpairs x = String.concat "&" (List.map (fun (k, v) -> urlencode k ^ "=" ^ (urlencode v)) x) in
