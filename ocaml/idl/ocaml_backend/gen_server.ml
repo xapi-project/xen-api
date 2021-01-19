@@ -262,11 +262,9 @@ let operation (obj : obj) (x : message) =
       let key_names = List.map fst x.msg_map_keys_roles in
       [
         Printf.sprintf "let arg_names_values = %s in" (serialize_args args)
-      ; (* This incurs a runtime cost *)
-        "let arg_names, arg_values = List.split arg_names_values in"
       ; Printf.sprintf "let key_names = %s in" (serialize_name_list key_names)
       ; "let rbac __context fn = Rbac.check session_id __call \
-         ~args:(arg_names, arg_values) ~keys:key_names ~__context ~fn in"
+         ~args:arg_names_values ~keys:key_names ~__context ~fn in"
       ]
     else
       ["let rbac __context fn = fn () in"]
@@ -542,14 +540,13 @@ let gen_module api : O.Module.t =
                  ; "      Session_check.check false session_id;"
                  ; "      (* based on the Host.call_extension call *)"
                  ; "      let call_rpc = Rpc.String __call in "
-                 ; "      let arg_names, arg_values ="
+                 ; "      let arg_names_values ="
                  ; "        [(\"session_id\", session_id_rpc); (__call, \
                     call_rpc)]"
-                 ; "        |> List.split"
                  ; "      in"
                  ; "      let key_names = [] in"
                  ; "      let rbac __context fn = Rbac.check session_id \
-                    \"Host.call_extension\" ~args:(arg_names, arg_values) \
+                    \"Host.call_extension\" ~args:arg_names_values \
                     ~keys:key_names ~__context ~fn in"
                  ; "      Server_helpers.forward_extension ~__context rbac { \
                     call with Rpc.name = __call }"

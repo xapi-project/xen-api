@@ -77,10 +77,8 @@ let append_to_master_audit_log __context action line =
       )
 
 let rbac_audit_params_of (req : Request.t) =
-  let all = req.Request.cookie @ req.Request.query in
-  List.fold_right
-    (fun (n, v) (acc_n, acc_v) -> (n :: acc_n, Rpc.String v :: acc_v))
-    all ([], [])
+  req.Request.cookie @ req.Request.query
+  |> List.map (fun (n, v) -> (n, Rpc.String v))
 
 let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     (req : Request.t) ic =
