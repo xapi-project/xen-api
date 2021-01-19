@@ -211,7 +211,7 @@ let operation (obj : obj) (x : message) =
   let rbac_check_begin =
     if has_session_arg then
       [
-        "let arg_names = "
+        "let arg_name_params = List.combine ("
         ^ List.fold_right
             (fun arg args -> "\"" ^ arg ^ "\"::" ^ args)
             orig_string_args
@@ -223,7 +223,7 @@ let operation (obj : obj) (x : message) =
             else
               "[]"
             )
-        ^ " in"
+        ^ ") __params in"
       ; "let key_names = "
         ^ List.fold_right
             (fun arg args -> "\"" ^ arg ^ "\"::" ^ args)
@@ -231,7 +231,7 @@ let operation (obj : obj) (x : message) =
             "[]"
         ^ " in"
       ; "let rbac __context fn = Rbac.check session_id __call \
-         ~args:(arg_names,__params) ~keys:key_names ~__context ~fn in"
+         ~args:arg_name_params ~keys:key_names ~__context ~fn in"
       ]
     else
       ["let rbac __context fn = fn() in"]
@@ -525,10 +525,11 @@ let gen_module api : O.Module.t =
                  ; "      let session_id = ref_session_of_rpc session_id_rpc in"
                  ; "      Session_check.check false session_id;"
                  ; "      (* based on the Host.call_extension call *)"
-                 ; "      let arg_names = \"session_id\"::__call::[] in"
+                 ; "      let arg_name_params = List.combine \
+                    (\"session_id\"::__call::[]) __params in"
                  ; "      let key_names = [] in"
                  ; "      let rbac __context fn = Rbac.check session_id \
-                    \"Host.call_extension\" ~args:(arg_names,__params) \
+                    \"Host.call_extension\" ~args:arg_name_params \
                     ~keys:key_names ~__context ~fn in"
                  ; "      Server_helpers.forward_extension ~__context rbac { \
                     call with Rpc.name = __call }"
