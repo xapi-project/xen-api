@@ -5500,6 +5500,7 @@ let all_system =
     Datamodel_cluster_host.t;
     Datamodel_certificate.t;
     Datamodel_diagnostics.t;
+    Datamodel_repository.t;
   ]
 
 (** These are the pairs of (object, field) which are bound together in the database schema *)
@@ -5696,6 +5697,7 @@ let expose_get_all_messages_for = [
   _cluster;
   _cluster_host;
   _certificate;
+  _repository;
 ]
 
 let no_task_id_for = [ _task; (* _alert; *) _event ]

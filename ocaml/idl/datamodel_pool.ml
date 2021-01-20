@@ -8,6 +8,7 @@ open Datamodel_types
             "ha_disable", "Indicates this pool is in the process of disabling HA";
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
+            "set_repository", "Indicates this pool is in the process of configuring repository";
           ])
 
   let enable_ha = call
@@ -684,6 +685,17 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let set_repository = call
+      ~name:"set_repository"
+      ~in_product_since:rel_next
+      ~doc:"Set the enabled repository for updates"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be enabled"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -761,6 +773,7 @@ open Datamodel_types
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
         ; rotate_secret
+        ; set_repository
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -808,5 +821,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Ref _repository) ~default_value:(Some (VRef null_ref)) "repository" "The enabled repository for updates"
          ])
       ()

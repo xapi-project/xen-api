@@ -152,6 +152,7 @@ let audit_log_uri = "/audit_log"
 let get_pool_update_download_uri = "/update/"
 
 (* ocaml/xapi/xapi_pool_update.ml *)
+
 let default_usb_speed = -1.
 
 let use_compression = "use_compression"

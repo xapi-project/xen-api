@@ -610,6 +610,14 @@ functor
           Ref.string_of vusb
       with _ -> "invalid"
 
+     let repository_uuid ~__context repository =
+       try
+         if Pool_role.is_master () then
+           Db.Repository.get_uuid __context repository
+         else
+           Ref.string_of repository
+       with _ -> "invalid"
+
     module Session = struct
       include Local.Session
 
@@ -931,6 +939,11 @@ functor
         |> List.iter (fun host ->
                do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                    Client.Pool.enable_tls_verification rpc session_id))
+
+      let set_repository ~__context ~self ~value =
+        info "Pool.set_repository : pool = '%s'; value = %s"
+          (pool_uuid ~__context self) (repository_uuid ~__context value);
+        Local.Pool.set_repository ~__context ~self ~value
     end
 
     module VM = struct
@@ -5728,4 +5741,16 @@ functor
     end
 
     module Certificate = struct end
+
+    module Repository = struct
+      let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
+        info "Repository.introduce: \
+              name = '%s'; name_description = '%s'; binary_url = '%s'; source_url = '%s'"
+          name_label name_description binary_url source_url;
+        Local.Repository.introduce ~__context ~name_label ~name_description ~binary_url ~source_url
+
+      let forget ~__context ~self =
+        info "Repository.forget: self = '%s'" (repository_uuid ~__context self);
+        Local.Repository.forget ~__context ~self
+    end
   end

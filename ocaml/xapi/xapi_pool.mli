@@ -331,3 +331,9 @@ val rotate_secret : __context:Context.t -> unit
 val alert_failed_login_attempts : unit -> unit
 
 val enable_tls_verification : __context:Context.t -> unit
+
+val set_repository :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:[`Repository] API.Ref.t
+  -> unit

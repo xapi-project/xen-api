@@ -25,7 +25,13 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 (* psr is not included in this list because it can be considered in progress
    in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
 let all_operations =
-  [`ha_enable; `ha_disable; `cluster_create; `designate_new_master]
+  [
+    `ha_enable
+  ; `ha_disable
+  ; `cluster_create
+  ; `designate_new_master
+  ; `set_repository
+  ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' =
@@ -48,6 +54,7 @@ let valid_operations ~__context record _ref' =
     ; (`ha_disable, Api_errors.ha_disable_in_progress, [])
     ; (`cluster_create, Api_errors.cluster_create_in_progress, [])
     ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
+    ; (`set_repository, Api_errors.set_repository_in_progress, [])
     ]
   in
   List.iter

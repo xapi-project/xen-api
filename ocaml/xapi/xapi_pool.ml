@@ -2840,3 +2840,20 @@ let alert_failed_login_attempts () =
 
 let enable_tls_verification ~__context =
   Helpers.StunnelClient.set_verify_by_default true
+
+let set_repository ~__context ~self ~value =
+  Xapi_pool_helpers.with_pool_operation
+    ~__context
+    ~self
+    ~doc:"pool.set_repository"
+    ~op:`set_repository
+    (fun () ->
+      match Db.Pool.get_repository ~__context ~self with
+      | ref when ref = value -> ()
+      | ref ->
+        let open Repository in
+        with_reposync_lock (fun () ->
+            cleanup_pool_repo ();
+            Db.Pool.set_repository ~__context ~self ~value;
+            Db.Repository.set_hash ~__context ~self:value ~value:"";
+            Db.Repository.set_up_to_date ~__context ~self:value ~value:false))
