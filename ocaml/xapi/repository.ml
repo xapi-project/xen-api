@@ -18,10 +18,8 @@ module D = Debug.Make (struct let name = "repository" end)
 
 open D
 
-let cmd_rm = "/usr/bin/rm"
 let yum_repos_config_dir  = "/etc/yum.repos.d"
 let pool_repo_name = "pool-repo"
-
 
 let reposync_mutex = Mutex.create ()
 
@@ -41,21 +39,28 @@ let create_repository_record ~__context ~name_label ~name_description ~binary_ur
   ref
 
 let assert_url_is_valid ~url =
-  match !Xapi_globs.repository_domain_name_allowlist with
-  | [] -> ()
-  | l ->
-    let result = l |> List.exists (fun domain_name ->
-        let r = Re.Str.regexp
-            (Printf.sprintf
-               "^https?://[A-Za-z0-9\\-]+\\.%s\\(:[0-9]+\\)?/[A-Za-z0-9\\-/\\$]+$"
-               domain_name)
-        in
-        Re.Str.string_match r url 0)
-    in
-    begin match result with
-      | true -> ()
-      | false -> raise Api_errors.(Server_error (invalid_base_url, [url]))
-    end
+  try
+    let uri = Uri.of_string url in
+    match Uri.scheme uri with
+    | Some "http" | Some "https" -> 
+      begin match Uri.host uri with
+        | Some h ->
+          begin match !Xapi_globs.repository_domain_name_allowlist with
+            | [] -> ()
+            | l ->
+              begin match List.exists (fun d -> Astring.String.is_suffix ("." ^ d) h) l with
+                | true -> ()
+                | false ->
+                  let msg = "host is not in allowlist" in
+                  raise Api_errors.(Server_error (internal_error, [msg]))
+              end
+          end
+        | None -> raise Api_errors.(Server_error (internal_error, ["invalid host in url"]))
+      end
+    | _ -> raise Api_errors.(Server_error (internal_error, ["invalid scheme in url"]))
+  with e ->
+    error "Invalid url %s: %s" url (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (invalid_base_url, [url]))
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
   assert_url_is_valid ~url:binary_url;
@@ -106,8 +111,8 @@ let clean_yum_cache name =
 let cleanup_pool_repo () =
   try
     clean_yum_cache pool_repo_name;
-    Unix.unlink (Printf.sprintf "%s/%s.repo" yum_repos_config_dir pool_repo_name);
-    ignore (Helpers.call_script cmd_rm ["-rf"; !Xapi_globs.local_pool_repo_dir])
+    Unixext.unlink_safe (Filename.concat yum_repos_config_dir pool_repo_name);
+    Helpers.rmtree !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to cleanup pool repository: %s" (ExnHelper.string_of_exn e);
     raise Api_errors.(Server_error (repository_cleanup_failed, []))

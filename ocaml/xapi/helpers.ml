@@ -1301,6 +1301,25 @@ let force_loopback_vbd ~__context =
    about this. *)
 let compute_hash () = ""
 
+(** [rmtree path] removes a file or directory recursively without following
+    symbolic links. It may raise [Failure] *)
+let rmtree path =
+  let ( // ) = Filename.concat in
+  let rec rm path =
+    let st = Unix.lstat path in
+    match st.Unix.st_kind with
+    | Unix.S_DIR ->
+        Sys.readdir path |> Array.iter (fun file -> rm (path // file)) ;
+        Unix.rmdir path
+    | _ ->
+        Unix.unlink path
+  in
+  try rm path
+  with exn ->
+    let exn' = Printexc.to_string exn in
+    let msg = Printf.sprintf "failed to remove %s: %s" path exn' in
+    failwith msg
+
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
 
