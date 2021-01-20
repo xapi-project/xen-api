@@ -3093,6 +3093,22 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.Cluster_host.force_destroy
       ; flags= []
       } )
+  ; ( "repository-introduce"
+    , {
+        reqd= ["name-label"; "binary-url"; "source-url"]
+      ; optn= ["name-description"]
+      ; help= "Add the configuration for a new repository."
+      ; implementation= No_fd Cli_operations.Repository.introduce
+      ; flags= []
+      } )
+  ; ( "repository-forget"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Remove the repository record from the database."
+      ; implementation= No_fd Cli_operations.Repository.forget
+      ; flags= []
+      } )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50

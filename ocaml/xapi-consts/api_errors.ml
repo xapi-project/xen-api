@@ -1201,3 +1201,17 @@ let vcpu_max_not_cores_per_socket_multiple =
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
+
+let set_repository_in_progress = "SET_REPOSITORY_IN_PROGRESS"
+
+let invalid_base_url = "INVALID_BASE_URL"
+
+let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
+
+let repository_is_in_use = "REPOSITORY_IS_IN_USE"
+
+let reposync_in_progress = "REPOSYNC_IN_PROGRESS"
+
+let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
+
+let no_repository_enabled = "NO_REPOSITORY_ENABLED"

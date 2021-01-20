@@ -830,6 +830,8 @@ let modprobe_path = ref "/usr/sbin/modprobe"
 
 let usb_path = "usb_path"
 
+let local_pool_repo_dir = ref "/var/lib/yum-mirror"
+
 (* The bfs-interfaces script returns boot from SAN NICs.
  * All ISCSI Boot Firmware Table (ibft) NICs should be marked
  * with PIF.managed = false and all FCoE boot from SAN * NICs
@@ -851,6 +853,14 @@ let sr_health_check_task_label = "SR Recovering"
 let domain_zero_domain_type = `pv
 
 let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
+
+let repository_domain_name_allowlist = ref []
+
+let yum_cmd = ref "/usr/bin/yum"
+
+let yum_repos_config_dir  = ref "/etc/yum.repos.d"
+
+let pool_repo_name = ref "remote"
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
@@ -1129,6 +1139,11 @@ let other_options =
     , Arg.Set allow_host_sched_gran_modification
     , (fun () -> string_of_bool !allow_host_sched_gran_modification)
     , "Allows to modify the host's scheduler granularity" )
+  ; gen_list_option "repository-domain-name-allowlist"
+      "space-separated list of allowed domain name in base URL in repository."
+      (fun s -> s)
+      (fun s -> s)
+      repository_domain_name_allowlist
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1213,6 +1228,9 @@ module Resources = struct
     ; ( "set-iscsi-initiator"
       , set_iSCSI_initiator_script
       , "Path to set-iscsi-initiator script" )
+    ; ( "yum-cmd"
+      , yum_cmd
+      , "Path to yum command" )
     ]
 
   let nonessential_executables =

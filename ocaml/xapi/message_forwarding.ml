@@ -610,6 +610,14 @@ functor
           Ref.string_of vusb
       with _ -> "invalid"
 
+     let repository_uuid ~__context repository =
+       try
+         if Pool_role.is_master () then
+           Db.Repository.get_uuid __context repository
+         else
+           Ref.string_of repository
+       with _ -> "invalid"
+
     module Session = Local.Session
     module Auth = Local.Auth
     module Subject = Local.Subject
@@ -886,6 +894,11 @@ functor
       let rotate_secret ~__context =
         info "Pool.rotate_secret: pool = '%s'" (current_pool_uuid ~__context) ;
         Local.Pool.rotate_secret ~__context
+
+      let set_repository ~__context ~self ~value =
+        info "Pool.set_repository : pool = '%s'; value = %s"
+          (pool_uuid ~__context self) (repository_uuid ~__context value);
+        Local.Pool.set_repository ~__context ~self ~value
     end
 
     module VM = struct
@@ -5647,4 +5660,16 @@ functor
     end
 
     module Certificate = struct end
+
+    module Repository = struct
+      let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
+        info "Repository.introduce: \
+              name = '%s'; name_description = '%s'; binary_url = '%s'; source_url = '%s'"
+          name_label name_description binary_url source_url;
+        Local.Repository.introduce ~__context ~name_label ~name_description ~binary_url ~source_url
+
+      let forget ~__context ~self =
+        info "Repository.forget: self = '%s'" (repository_uuid ~__context self);
+        Local.Repository.forget ~__context ~self
+    end
   end
