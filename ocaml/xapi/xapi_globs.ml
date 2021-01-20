@@ -862,6 +862,22 @@ let yum_repos_config_dir  = ref "/etc/yum.repos.d"
 
 let pool_repo_name = ref "remote"
 
+let local_repo_name = ref "local"
+
+let yum_config_manager_cmd = ref "/usr/bin/yum-config-manager"
+
+let reposync_cmd = ref "/usr/bin/reposync"
+
+let createrepo_cmd = ref "/usr/bin/createrepo_c"
+
+let modifyrepo_cmd = ref "/usr/bin/modifyrepo_c"
+
+let rpm_cmd = ref "/usr/bin/rpm"
+
+let gpgkey_path = ref "/etc/pki/rpm-gpg/RPM-GPG-KEY-Citrix"
+
+let repository_gpgcheck = ref true
+
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let xapi_globs_spec =
@@ -1144,6 +1160,10 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       repository_domain_name_allowlist
+  ; ( "repository-gpgcheck"
+    , Arg.Set repository_gpgcheck
+    , (fun () -> string_of_bool !repository_gpgcheck)
+    , "turn gpgcheck on/off" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1231,6 +1251,21 @@ module Resources = struct
     ; ( "yum-cmd"
       , yum_cmd
       , "Path to yum command" )
+    ; ( "reposync-cmd"
+      , reposync_cmd
+      , "Path to reposync command" )
+    ; ( "createrepo-cmd"
+      , createrepo_cmd
+      , "Path to createrepo command" )
+    ; ( "modifyrepo-cmd"
+      , modifyrepo_cmd
+      , "Path to modifyrepo command" )
+    ; ( "rpm-cmd"
+      , rpm_cmd
+      , "Path to rpm command" )
+    ; ( "yum-config-manager-cmd"
+      , yum_config_manager_cmd
+      , "Path to yum-config-manager command" )
     ]
 
   let nonessential_executables =

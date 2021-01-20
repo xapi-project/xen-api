@@ -1214,7 +1214,17 @@ let _ =
   error Api_errors.repository_cleanup_failed []
     ~doc:"Failed to clean up local repository on master." ();
   error Api_errors.no_repository_enabled []
-    ~doc:"There is no repository being enabled." ()
+    ~doc:"There is no repository being enabled." ();
+  error Api_errors.sync_updates_in_progress []
+    ~doc:"The operation could not be performed because syncing updates is in progress." ();
+  error Api_errors.reposync_failed []
+    ~doc:"Syning with remote YUM repository failed." ();
+  error Api_errors.invalid_repomd_xml []
+    ~doc:"The repomd.xml is invalid." ();
+  error Api_errors.invalid_updateinfo_xml []
+    ~doc:"The updateinfo.xml is invalid." ();
+  error Api_errors.get_host_updates_failed ["uuid"]
+    ~doc:"Failed to get available updates from a host." ()
 
 
 let _ =

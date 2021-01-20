@@ -1320,6 +1320,20 @@ let rmtree path =
     let msg = Printf.sprintf "failed to remove %s: %s" path exn' in
     failwith msg
 
+let resolve_uri_path ~root ~uri_path =
+  let open Xapi_stdext_std.Xstringext in
+  uri_path
+  |> Filename.concat root
+  |> Uri.pct_decode
+  |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
+  |> (fun x -> match (String.startswith (root^"/") x), (Sys.file_exists x) with
+      | true, true -> x
+      | _ ->
+        let msg =
+          Printf.sprintf "Failed to resolve uri path '%s' under '%s': %s" uri_path root x
+        in
+        raise Api_errors.(Server_error (internal_error, [msg])))
+
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
 

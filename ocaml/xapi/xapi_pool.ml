@@ -2831,3 +2831,29 @@ let set_repository ~__context ~self ~value =
             Db.Pool.set_repository ~__context ~self ~value;
             Db.Repository.set_hash ~__context ~self:value ~value:"";
             Db.Repository.set_up_to_date ~__context ~self:value ~value:false))
+
+let sync_updates ~__context ~self ~force =
+  let open Repository in
+  match force with
+  | true ->
+    Xapi_pool_helpers.with_pool_operation
+      ~__context
+      ~self
+      ~doc:"pool.sync_updates"
+      ~op:`sync_updates
+      (fun () ->
+        with_reposync_lock (fun () ->
+            let repository = get_enabled_repository ~__context in
+            cleanup_pool_repo ();
+            sync ~__context ~self:repository;
+            create_pool_repository ~__context ~self:repository))
+  | false ->
+    with_reposync_lock (fun () ->
+      let repository = get_enabled_repository ~__context in
+      sync ~__context ~self:repository;
+      Xapi_pool_helpers.with_pool_operation
+        ~__context
+        ~self
+        ~doc:"pool.sync_updates"
+        ~op:`sync_updates
+        (fun () -> create_pool_repository ~__context ~self:repository))

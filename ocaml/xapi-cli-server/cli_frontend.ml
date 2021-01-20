@@ -422,6 +422,14 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.pool_rotate_secret
       ; flags= []
       } )
+  ; ( "pool-sync-updates"
+    , {
+        reqd= []
+      ; optn= ["force"]
+      ; help= "Sync updates from remote YUM repository, pool-wide."
+      ; implementation= With_fd Cli_operations.pool_sync_updates
+      ; flags= []
+      } )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
