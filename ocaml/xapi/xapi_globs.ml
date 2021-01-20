@@ -858,6 +858,10 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
+let yum_repos_config_dir  = ref "/etc/yum.repos.d"
+
+let pool_repo_name = ref "remote"
+
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let xapi_globs_spec =

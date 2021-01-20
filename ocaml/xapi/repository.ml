@@ -18,9 +18,6 @@ module D = Debug.Make (struct let name = "repository" end)
 
 open D
 
-let yum_repos_config_dir  = "/etc/yum.repos.d"
-let pool_repo_name = "pool-repo"
-
 let reposync_mutex = Mutex.create ()
 
 let create_repository_record ~__context ~name_label ~name_description ~binary_url ~source_url =
@@ -110,8 +107,9 @@ let clean_yum_cache name =
 
 let cleanup_pool_repo () =
   try
-    clean_yum_cache pool_repo_name;
-    Unixext.unlink_safe (Filename.concat yum_repos_config_dir pool_repo_name);
+    clean_yum_cache !Xapi_globs.pool_repo_name;
+    Unixext.unlink_safe (Filename.concat !Xapi_globs.yum_repos_config_dir
+                           !Xapi_globs.pool_repo_name);
     Helpers.rmtree !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to cleanup pool repository: %s" (ExnHelper.string_of_exn e);
