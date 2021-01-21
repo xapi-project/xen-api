@@ -18,6 +18,10 @@ module D = Debug.Make (struct let name = "repository" end)
 
 open D
 
+module UpdateIdSet = Set.Make (String)
+
+module GuidanceStrSet = Set.Make (String)
+
 let capacity_in_parallel = 16
 
 let reposync_mutex = Mutex.create ()
@@ -34,6 +38,121 @@ type pkg = {
   ; release: string
   ; arch: string
 }
+
+type guidance =
+  | RebootHost
+  | RestartToolstack
+  | EvacuateHost
+  | RestartDeviceModel
+
+type guidance_kind = Absolute | Recommended
+
+let string_of_guidance = function
+  | RebootHost -> "RebootHost"
+  | RestartToolstack -> "RestartToolstack"
+  | EvacuateHost -> "EvacuateHost"
+  | RestartDeviceModel -> "RestartDeviceModel"
+
+exception Unknown_guidance
+
+let guidance_of_string = function
+  | "RebootHost" -> RebootHost
+  | "RestartToolstack" -> RestartToolstack
+  | "EvacuateHost" -> EvacuateHost
+  | "RestartDeviceModel" -> RestartDeviceModel
+  | _ -> raise Unknown_guidance
+
+type inequality = Lt | Eq | Gt
+
+let string_of_inequality = function
+  | Lt -> "<"
+  | Eq -> "="
+  | Gt -> ">"
+
+exception Invalid_inequalities
+
+let inequalities_of_string = function
+  | "gte" -> [Gt; Eq]
+  | "lte" -> [Lt; Eq]
+  | "gt"  -> [Gt]
+  | "lt"  -> [Lt]
+  | "eq"  -> [Eq]
+  | _ -> raise Invalid_inequalities
+
+let string_of_inequalities = function
+  | [Gt; Eq] | [Eq; Gt] -> ">="
+  | [Lt; Eq] | [Eq; Lt] -> "<="
+  | [Gt] -> ">"
+  | [Lt] -> "<"
+  | [Eq] -> "="
+  | _ -> raise Invalid_inequalities
+
+type segment_of_version =
+  | Int of int
+  | Str of string
+
+type applicability = {
+    name: string
+  ; arch: string
+  ; inequalities: inequality list
+  ; epoch: string
+  ; version: string
+  ; release: string
+}
+
+let string_of_applicability a =
+  Printf.sprintf "%s%s%s-%s"
+    a.name (string_of_inequalities a.inequalities) a.version a.release
+
+type updateinfo = {
+    id: string
+  ; summary: string
+  ; description: string
+  ; rec_guidances: guidance list
+  ; abs_guidances: guidance list
+  ; guidance_applicabilities: applicability list
+  ; spec_info: string
+  ; url: string
+  ; update_type: string
+}
+
+let json_of_updateinfo ui =
+  `Assoc [
+    ("id", `String ui.id);
+    ("summary", `String ui.summary);
+    ("description", `String ui.description);
+    ("special-info", `String ui.spec_info);
+    ("URL", `String ui.url);
+    ("type", `String ui.update_type);
+    ("recommended-guidance", `List (List.map (fun g ->
+         `String (string_of_guidance g)) ui.rec_guidances));
+    ("absolute-guidance", `List (List.map (fun g ->
+         `String (string_of_guidance g)) ui.abs_guidances))
+  ]
+
+type update = {
+    name: string
+  ; arch: string
+  ; old_version: string option
+  ; old_release: string option
+  ; new_version: string
+  ; new_release: string
+  ; update_id: string option
+}
+
+let update_of_json j =
+  let open Yojson.Basic.Util in
+  {
+    name = (member "name" j |> to_string);
+    arch = (member "arch" j |> to_string);
+    new_version = (member "newVerRel" j |> member "version" |> to_string);
+    new_release = (member "newVerRel" j |> member "release" |> to_string);
+    old_version = (try Some (member "oldVerRel" j |> member "version" |> to_string)
+                   with _ -> None);
+    old_release = (try Some (member "oldVerRel" j |> member "release" |> to_string)
+                   with _ -> None);
+    update_id = (member "updateId" j |> to_string_option)
+  }
 
 let create_repository_record ~__context ~name_label ~name_description ~binary_url ~source_url =
   let ref = Ref.make () in
@@ -446,13 +565,13 @@ let pkg_of_fullname s =
        raise Api_errors.(Server_error (internal_error, [msg])))
   | false -> None
 
-let json_of_pkg pkg =
+let json_of_pkg (pkg: pkg) =
   `Assoc [
     ("version", `String pkg.version);
     ("release", `String pkg.release);
   ]
 
-let name_arch_of_pkg pkg =
+let name_arch_of_pkg (pkg: pkg) =
   pkg.name ^ "." ^ pkg.arch
 
 let get_updates_from_updateinfo () =
@@ -583,3 +702,291 @@ let get_repository_handler (req : Http.Request.t) s _ =
   else
     (error "Rejecting request: local pool repository is not enabled";
      Http_svr.response_forbidden ~req s)
+
+let string_of_updateinfo ui =
+  Printf.sprintf "id=%s rec_guidances=%s abs_guidances=%s guidance_applicabilities=%s"
+    ui.id
+    (String.concat ";" (List.map string_of_guidance ui.rec_guidances))
+    (String.concat ";" (List.map string_of_guidance ui.abs_guidances))
+    (String.concat ";" (List.map string_of_applicability ui.guidance_applicabilities))
+
+let parse_guidances gs =
+  List.map (fun g ->
+      match g with
+      | Xml.Element ("guidance", _, [Xml.PCData v]) ->
+        guidance_of_string v
+      | _ ->
+        error "Unknown node in <absolute|recommended_guidances>";
+        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+  ) gs
+
+let parse_applicabilities apps =
+  let empty_applicability = {
+      name = ""
+    ; arch = ""
+    ; inequalities = []
+    ; epoch = ""
+    ; version = ""
+    ; release = ""
+    }
+  in
+  List.map (fun a ->
+      match a with
+      | Xml.Element ("applicability", _, children) ->
+        List.fold_left (fun a n ->
+            match n with
+            | Xml.Element ("inequality", _, [Xml.PCData v]) ->
+              { a with inequalities = (inequalities_of_string v) }
+            | Xml.Element ("epoch", _, [Xml.PCData v]) ->
+              { a with epoch = v }
+            | Xml.Element ("version", _, [Xml.PCData v]) ->
+              { a with version = v }
+            | Xml.Element ("release", _, [Xml.PCData v]) ->
+              { a with release = v }
+            | Xml.Element ("name", _, [Xml.PCData v]) ->
+              { a with name = v }
+            | Xml.Element ("arch", _, [Xml.PCData v]) ->
+              { a with arch = v }
+            | _ ->
+              error "Unknown node in <applicability>";
+              raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        ) empty_applicability children
+      | _ ->
+        error "Unknown node in <guidance_applicabilities>";
+        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+  ) apps
+
+let parse_updateinfo_xml_file xml_file_path =
+  let empty_updateinfo = {
+      id = ""
+    ; summary = ""
+    ; description = ""
+    ; rec_guidances = []
+    ; abs_guidances = []
+    ; guidance_applicabilities = []
+    ; spec_info = ""
+    ; url = ""
+    ; update_type = ""
+    }
+  in
+  let assert_valid_updateinfo = function
+    | { id = ""; _}
+    | { summary = ""; _}
+    | { description = ""; _}
+    | { update_type = ""; _} ->
+      error "One or more of 'id', 'summary', 'description' and 'update_type' is/are missing";
+      raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+    | ui -> ui
+  in
+  match Xml.parse_file xml_file_path with
+  | Xml.Element  ("updates", _, children) ->
+    List.filter_map (fun n ->
+        match n with
+        | Xml.Element ("update", attr, update_nodes) ->
+          let ty =
+            match List.assoc_opt "type" attr with
+            | Some ty -> ty
+            | None -> ""
+          in
+          let ui = List.fold_left (fun acc node ->
+              match node with
+              | Xml.Element ("id", _, [Xml.PCData v]) ->
+                { acc with id = v }
+              | Xml.Element ("url", _, [Xml.PCData v]) ->
+                { acc with url = v }
+              | Xml.Element ("special_info", _, [Xml.PCData v]) ->
+                { acc with spec_info = v }
+              | Xml.Element ("summary", _, [Xml.PCData v]) ->
+                { acc with summary = v }
+              | Xml.Element ("description", _, [Xml.PCData v]) ->
+                { acc with description = v }
+              | Xml.Element ("recommended_guidances", _, gs) ->
+                { acc with rec_guidances = (parse_guidances gs) }
+              | Xml.Element ("absolute_guidances", _, gs) ->
+                { acc with abs_guidances = (parse_guidances gs) }
+              | Xml.Element ("guidance_applicabilities", _, apps) ->
+                { acc with guidance_applicabilities = (parse_applicabilities apps) }
+              | _ -> acc
+            ) { empty_updateinfo with update_type = ty } update_nodes
+            |> assert_valid_updateinfo
+          in
+          debug "updateinfo: %s" (string_of_updateinfo ui);
+          Some ui
+        | _ -> None
+    ) children
+    |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
+  | _ ->
+    error "Failed to parse updateinfo.xml: missing <updates>";
+    raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+  | exception e ->
+    error "Failed to parse updateinfo.xml: %s" (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+
+let parse_updateinfo ~hash =
+  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir !Xapi_globs.pool_repo_name in
+  let repodata_dir = Filename.concat repo_dir "repodata" in
+  let repomd_xml_path = Filename.concat repodata_dir "repomd.xml" in
+  let md = parse_repomd repomd_xml_path in
+  if hash <> md.checksum then
+    (error "Unexpected mismatch between XAPI DB and YUM DB. Need to do pool.sync-updates again.";
+     raise Api_errors.(Server_error (createrepo_failed, [])));
+  let updateinfo_xml_gz_path = Filename.concat repo_dir md.location in
+  match Sys.file_exists updateinfo_xml_gz_path with
+  | false ->
+    error "File %s doesn't exist" updateinfo_xml_gz_path;
+    raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+  | true ->
+    with_updateinfo_xml updateinfo_xml_gz_path parse_updateinfo_xml_file
+
+let compare_segment s1 s2 =
+  let normalize v =
+    v
+    |> Astring.String.cuts ~sep:"."
+    |> List.map (fun s -> try Int (int_of_string s) with _ -> Str s)
+  in
+  let compare_str s1 s2 f =
+    let r = String.compare s1 s2 in
+    if r < 0 then Lt
+    else if r > 0 then Gt
+    else f ()
+  in
+  let rec compare_segments l1 l2 =
+    match l1, l2 with
+    | c1 :: t1, c2 :: t2 ->
+      let f () = compare_segments t1 t2 in
+      (match c1, c2 with
+       | Int s1, Int s2 ->
+         if s1 > s2 then Gt
+         else if s1 = s2 then f ()
+         else Lt
+       | Int s1, Str s2 -> compare_str (string_of_int s1) s2 f
+       | Str s1, Int s2 -> compare_str s1 (string_of_int s2) f
+       | Str s1, Str s2 -> compare_str s1 s2 f)
+    | c1 :: t1, [] -> Gt
+    | [], c2 :: t2 -> Lt
+    | [], [] -> Eq
+  in
+  compare_segments (normalize s1) (normalize s2)
+
+let eval_applicability ~version ~release ~applicability =
+  let ver = applicability.version in
+  let rel = applicability.release in
+  let eval_applicability' inequality =
+    match inequality, (compare_segment version ver), (compare_segment release rel) with
+    | Lt, Lt, _ | Lt, Eq, Lt | Eq, Eq, Eq | Gt, Gt, _ | Gt, Eq, Gt -> true
+    | _ -> false
+  in
+  List.exists eval_applicability' applicability.inequalities
+
+let eval_guidance_for_one_update ~updates_info ~update ~kind =
+  match update.update_id with
+  | Some uid ->
+    begin match List.assoc_opt uid updates_info with
+      | Some updateinfo ->
+        let is_applicable (a : applicability) =
+          match update.name = a.name with
+          | true ->
+            begin match update.old_version, update.old_release with
+              | Some old_version, Some old_release ->
+                eval_applicability ~version:old_version ~release:old_release ~applicability:a
+              | _ ->
+                warn "No installed version or release for package %s.%s"
+                  update.name update.arch;
+                false
+            end
+          | _ -> false
+        in
+        let dbg_msg r =
+            Printf.sprintf
+              "Evaluating applicability for package %s.%s in update %s returned '%s'"
+              update.name update.arch uid (string_of_bool r)
+        in
+        let apps = updateinfo.guidance_applicabilities in
+        begin match (List.exists is_applicable apps), apps with
+          | true, _ | false, [] ->
+            debug "%s" (dbg_msg true);
+            begin match kind with
+              | Absolute -> List.map string_of_guidance updateinfo.abs_guidances
+              | Recommended -> List.map string_of_guidance updateinfo.rec_guidances
+            end
+            |> GuidanceStrSet.of_list
+          | _ ->
+            debug "%s" (dbg_msg false);
+            GuidanceStrSet.empty
+        end
+      | None ->
+        let msg = Printf.sprintf "Can't find update ID %s from updateinfo.xml" uid in
+        raise Api_errors.(Server_error (internal_error, [msg]))
+    end
+  | None ->
+    warn "Ignore evaluating against package %s.%s as its update ID is missing"
+      update.name update.arch;
+    GuidanceStrSet.empty
+
+let resort_guidances gs=
+  match GuidanceStrSet.find_opt "RebootHost" gs with
+  | Some _ -> GuidanceStrSet.singleton "RebootHost"
+  | None -> gs
+
+let eval_guidances ~updates_info ~updates ~kind =
+  List.fold_left (fun acc u ->
+      GuidanceStrSet.union acc
+        (eval_guidance_for_one_update ~updates_info ~update:u ~kind)
+  ) GuidanceStrSet.empty updates
+  |> resort_guidances
+  |> GuidanceStrSet.elements
+
+let get_pool_updates_in_json ~__context ~hosts =
+  let ref = get_enabled_repository ~__context in
+  let hash = Db.Repository.get_hash ~__context ~self:ref in
+  try
+    let updates_info = parse_updateinfo ~hash in
+    let funs = List.map (fun host ->
+        fun () ->
+          ( host, (http_get_host_updates_in_json ~__context ~host ~installed:true) )
+      ) hosts
+    in
+    let updates_of_hosts, ids_of_updates =
+      Helpers.run_in_parallel funs capacity_in_parallel
+      |> List.fold_left (fun (acc1, acc2) (host, ret_of_host) ->
+          let updates =
+            ret_of_host
+            |> Yojson.Basic.Util.member "updates"
+            |> Yojson.Basic.Util.to_list
+            |> List.map update_of_json
+          in
+          let rpms, uids = List.fold_left (fun (acc_rpms, acc_uids) u ->
+              ( ((Printf.sprintf "%s-%s-%s.%s.rpm"
+                    u.name u.new_version u.new_release u.arch) :: acc_rpms),
+                match u.update_id with
+                | Some id -> (UpdateIdSet.add id acc_uids)
+                | None -> acc_uids )
+            ) ([], UpdateIdSet.empty) updates
+          in
+          let rec_guidances = List.map (fun g -> `String g)
+              (eval_guidances ~updates_info ~updates ~kind:Recommended)
+          in
+          let abs_guidances = List.map (fun g -> `String g)
+              (eval_guidances ~updates_info ~updates ~kind:Absolute)
+          in
+          let json_of_host = `Assoc [
+              ("ref", `String (Ref.string_of host));
+              ("recommended-guidance", `List rec_guidances);
+              ("absolute-guidance", `List abs_guidances);
+              ("RPMS", `List (List.map (fun r -> `String r) rpms));
+              ("updates", `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids)))]
+          in
+          ( (json_of_host :: acc1), (UpdateIdSet.union uids acc2) )
+      ) ([], UpdateIdSet.empty)
+    in
+    `Assoc [
+      ("hosts", `List updates_of_hosts);
+      ("updates", `List (UpdateIdSet.elements ids_of_updates |> List.map (fun uid  ->
+           json_of_updateinfo (List.assoc uid updates_info))));
+      ("hash", `String hash)]
+  with
+  | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
+    raise e
+  | e ->
+    error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (get_updates_failed, []))

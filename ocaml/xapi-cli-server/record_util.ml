@@ -149,6 +149,8 @@ let pool_operation_to_string = function
       "set_repository"
   | `sync_updates ->
       "sync_updates"
+  | `get_updates ->
+      "get_updates"
 
 let host_operation_to_string = function
   | `provision ->
