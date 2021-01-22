@@ -874,7 +874,9 @@ let modifyrepo_cmd = ref "/usr/bin/modifyrepo_c"
 
 let rpm_cmd = ref "/usr/bin/rpm"
 
-let gpgkey_path = ref "/etc/pki/rpm-gpg/RPM-GPG-KEY-Citrix"
+let rpm_gpgkey_dir = ref "/etc/pki/rpm-gpg"
+
+let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
@@ -1164,6 +1166,10 @@ let other_options =
     , Arg.Set repository_gpgcheck
     , (fun () -> string_of_bool !repository_gpgcheck)
     , "turn gpgcheck on/off" )
+  ; ( "repository-gpgkey-name"
+    , Arg.Set_string repository_gpgkey_name
+    , (fun () -> !repository_gpgkey_name)
+    , "The name of gpg key used by RPM to verify metadata and packages in repository" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options

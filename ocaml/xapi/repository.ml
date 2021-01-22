@@ -136,6 +136,15 @@ let remove_repo_conf_file repo_name =
 
 let write_yum_config ?(source_url=None) binary_url repo_name =
   let file_path = Filename.concat !Xapi_globs.yum_repos_config_dir (repo_name ^ ".repo") in
+  let gpgkey_path =
+    Filename.concat !Xapi_globs.rpm_gpgkey_dir !Xapi_globs.repository_gpgkey_name
+  in
+  if !Xapi_globs.repository_gpgcheck then
+    (if not (Sys.file_exists gpgkey_path) then
+       raise Api_errors.(Server_error (internal_error, ["gpg key file does not exist"]));
+     if not ( (Unix.lstat gpgkey_path).Unix.st_kind = Unix.S_REG ) then
+       raise Api_errors.(Server_error (internal_error,
+                                       ["gpg key file is not a regular file"])));
   let content_of_binary =
     [
       Printf.sprintf "[%s]" repo_name;
@@ -143,7 +152,9 @@ let write_yum_config ?(source_url=None) binary_url repo_name =
       Printf.sprintf "baseurl=%s" binary_url;
       "enabled=0";
       if !Xapi_globs.repository_gpgcheck then "gpgcheck=1" else "gpgcheck=0";
-      Printf.sprintf "gpgkey=file://%s" !Xapi_globs.gpgkey_path
+      if !Xapi_globs.repository_gpgcheck then
+        Printf.sprintf "gpgkey=file://%s" gpgkey_path
+      else ""
     ]
   in
   let content_of_source =
@@ -157,7 +168,9 @@ let write_yum_config ?(source_url=None) binary_url repo_name =
         Printf.sprintf "baseurl=%s" url;
         "enabled=0";
         if !Xapi_globs.repository_gpgcheck then "gpgcheck=1" else "gpgcheck=0";
-        Printf.sprintf "gpgkey=file://%s" !Xapi_globs.gpgkey_path
+        if !Xapi_globs.repository_gpgcheck then
+          Printf.sprintf "gpgkey=file://%s" gpgkey_path
+        else ""
       ]
   in
   let content = String.concat "\n" (content_of_binary @ content_of_source) in
