@@ -709,7 +709,14 @@ let reconfigure_ipv6 ~__context ~self ~mode ~iPv6 ~gateway ~dNS =
   Db.PIF.set_ipv6_configuration_mode ~__context ~self ~value:mode ;
   Db.PIF.set_ipv6_gateway ~__context ~self ~value:gateway ;
   Db.PIF.set_IPv6 ~__context ~self ~value:[iPv6] ;
-  if dNS <> "" then Db.PIF.set_DNS ~__context ~self ~value:dNS ;
+  (* Keep IPv4 DNS entries *)
+  let pif_dns =
+    List.filter
+      (fun dns_addr ->
+        Xapi_stdext_unix.Unixext.domain_of_addr dns_addr = Some Unix.PF_INET)
+      (String.split_on_char ',' (Db.PIF.get_DNS ~__context ~self))
+  in
+  Db.PIF.set_DNS ~__context ~self ~value:(String.concat "," (dNS :: pif_dns)) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \
@@ -755,7 +762,14 @@ let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
   Db.PIF.set_IP ~__context ~self ~value:iP ;
   Db.PIF.set_netmask ~__context ~self ~value:netmask ;
   Db.PIF.set_gateway ~__context ~self ~value:gateway ;
-  Db.PIF.set_DNS ~__context ~self ~value:dNS ;
+  (* Keep IPv6 DNS entries *)
+  let pif_dns =
+    List.filter
+      (fun dns_addr ->
+        Xapi_stdext_unix.Unixext.domain_of_addr dns_addr = Some Unix.PF_INET6)
+      (String.split_on_char ',' (Db.PIF.get_DNS ~__context ~self))
+  in
+  Db.PIF.set_DNS ~__context ~self ~value:(String.concat "," (dNS :: pif_dns)) ;
   if Db.PIF.get_currently_attached ~__context ~self then (
     debug
       "PIF %s is currently_attached and the configuration has changed; calling \

@@ -141,7 +141,13 @@ let determine_gateway_and_dns_ifs ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of localhost))
-           , Not (Eq (Field "ip_configuration_mode", Literal "None")) ))
+           , Or
+               ( And
+                   ( Not (Eq (Field "ip_configuration_mode", Literal "None"))
+                   , Eq (Field "primary_address_type", Literal "IPv4") )
+               , And
+                   ( Not (Eq (Field "ipv6_configuration_mode", Literal "None"))
+                   , Eq (Field "primary_address_type", Literal "IPv6") ) ) ))
   in
   if ip_pifs = [] then
     (None, None)

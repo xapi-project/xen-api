@@ -15,7 +15,7 @@ module D = Debug.Make (struct let name = "nm" end)
 
 open D
 open Xapi_stdext_std.Xstringext
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_threads.Threadext
 open Db_filter_types
 open Network
@@ -100,7 +100,8 @@ let determine_other_config ~__context pif_rc net_rc =
     Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context)
   in
   let additional = [("network-uuids", net_rc.API.network_uuid)] in
-  (pool_oc |> List.update_assoc net_oc |> List.update_assoc pif_oc) @ additional
+  (pool_oc |> Listext.update_assoc net_oc |> Listext.update_assoc pif_oc)
+  @ additional
 
 let create_bond ~__context bond mtu persistent =
   (* Get all information we need from the DB before doing anything that may drop our
@@ -264,7 +265,7 @@ let create_vlan ~__context vlan persistent =
     determine_other_config ~__context master_rc master_network_rc
   in
   let other_config =
-    List.replace_assoc "network-uuids"
+    Listext.replace_assoc "network-uuids"
       (master_network_rc.API.network_uuid
       ^ ";"
       ^ slave_network_rc.API.network_uuid
@@ -512,6 +513,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                   bond_record.API.bond_slaves ;
                 maybe_update_master_pif_mac ~__context bond_record rc pif
           in
+          let address_type = rc.API.pIF_primary_address_type in
           Network.transform_networkd_exn pif (fun () ->
               let persistent = is_dom0_interface rc in
               let gateway_if, dns_if =
@@ -536,12 +538,12 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               Net.Bridge.make_config dbg false bridge_config ;
               Net.Interface.make_config dbg false interface_config ;
               (* Configure IPv4 parameters and DNS *)
-              let ipv4_conf, ipv4_gateway, dns =
+              let ipv4_conf, ipv4_gateway =
                 match rc.API.pIF_ip_configuration_mode with
                 | `None ->
-                    (None4, None, ([], []))
+                    (None4, None)
                 | `DHCP ->
-                    (DHCP4, None, ([], []))
+                    (DHCP4, None)
                 | `Static ->
                     let conf =
                       Static4
@@ -556,30 +558,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                       else
                         None
                     in
-                    let dns =
-                      if rc.API.pIF_DNS <> "" then
-                        let nameservers =
-                          List.map Unix.inet_addr_of_string
-                            (String.split ',' rc.API.pIF_DNS)
-                        in
-                        let domains =
-                          if List.mem_assoc "domain" rc.API.pIF_other_config
-                          then (
-                            let domains =
-                              List.assoc "domain" rc.API.pIF_other_config
-                            in
-                            try String.split ',' domains
-                            with _ ->
-                              warn "Invalid DNS search domains: %s" domains ;
-                              []
-                          ) else
-                            []
-                        in
-                        (nameservers, domains)
-                      else
-                        ([], [])
-                    in
-                    (conf, gateway, dns)
+                    (conf, gateway)
               in
               let ipv4_routes = determine_static_routes net_rc in
               (* Configure IPv6 parameters *)
@@ -618,6 +597,37 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     in
                     (conf, gateway)
               in
+              let static =
+                match address_type with
+                | `IPv4 ->
+                    rc.API.pIF_ip_configuration_mode = `Static
+                | `IPv6 ->
+                    rc.API.pIF_ipv6_configuration_mode = `Static
+              in
+              let dns =
+                if static then
+                  if rc.API.pIF_DNS <> "" then
+                    let nameservers =
+                      List.map Unix.inet_addr_of_string
+                        (String.split ',' rc.API.pIF_DNS)
+                    in
+                    let domains =
+                      match List.assoc_opt "domain" rc.API.pIF_other_config with
+                      | None ->
+                          []
+                      | Some domains -> (
+                        try String.split ',' domains
+                        with _ ->
+                          warn "Invalid DNS search domains: %s" domains ;
+                          []
+                      )
+                    in
+                    (nameservers, domains)
+                  else
+                    ([], [])
+                else
+                  ([], [])
+              in
               let mtu = determine_mtu rc net_rc in
               let ethtool_settings, ethtool_offload =
                 determine_ethtool_settings rc.API.pIF_properties
@@ -642,13 +652,33 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               in
               Net.Interface.make_config dbg false interface_config) ;
           let new_ip =
-            match Net.Interface.get_ipv4_addr dbg bridge with
+            let addr =
+              match address_type with
+              | `IPv4 ->
+                  Net.Interface.get_ipv4_addr dbg bridge
+              | `IPv6 ->
+                  Net.Interface.get_ipv6_addr dbg bridge
+            in
+            match addr with
             | (ip, _) :: _ ->
                 Unix.string_of_inet_addr ip
             | [] ->
                 ""
           in
-          if new_ip <> rc.API.pIF_IP then (
+          let pif_ip =
+            match address_type with
+            | `IPv4 ->
+                rc.API.pIF_IP
+            | `IPv6 -> (
+              match rc.API.pIF_IPv6 with
+              | [] ->
+                  ""
+              | hd :: _ -> (
+                match String.split_on_char '/' hd with [ip; _] -> ip | _ -> ""
+              )
+            )
+          in
+          if new_ip <> pif_ip then (
             warn "An IP address of dom0 was changed" ;
             warn "About to kill idle client stunnels" ;
             (* The master_connection would otherwise try to take a broken stunnel from the cache *)
