@@ -899,6 +899,11 @@ functor
         info "Pool.set_repository : pool = '%s'; value = %s"
           (pool_uuid ~__context self) (repository_uuid ~__context value);
         Local.Pool.set_repository ~__context ~self ~value
+
+      let sync_updates ~__context ~self ~force =
+        info "Pool.sync_updates: pool = '%s'; false = %s"
+          (pool_uuid ~__context self) (string_of_bool force);
+        Local.Pool.sync_updates ~__context ~self ~force
     end
 
     module VM = struct

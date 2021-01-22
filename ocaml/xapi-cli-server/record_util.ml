@@ -147,6 +147,8 @@ let pool_operation_to_string = function
       "designate_new_master"
   | `set_repository ->
       "set_repository"
+  | `sync_updates ->
+      "sync_updates"
 
 let host_operation_to_string = function
   | `provision ->
