@@ -519,3 +519,9 @@ val emergency_disable_tls_verification : __context:'a -> unit
 
 val alert_if_tls_verification_was_emergency_disabled :
   __context:Context.t -> unit
+
+val get_host_updates_handler :
+     Http.Request.t
+  -> Unix.file_descr
+  -> 'a
+  -> unit

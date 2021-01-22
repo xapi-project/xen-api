@@ -9,6 +9,7 @@ open Datamodel_types
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
             "set_repository", "Indicates this pool is in the process of configuring repository";
+            "sync_updates", "Indicates this pool is in the process of syncing updates";
           ])
 
   let enable_ha = call
@@ -696,6 +697,18 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
+  let sync_updates = call
+      ~name:"sync_updates"
+      ~in_product_since:rel_next
+      ~doc:"Sync with the enabled repository"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Bool, "force", "If true local mirroring repo will be removed before syncing"
+      ]
+      ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -774,6 +787,7 @@ open Datamodel_types
         ; remove_from_guest_agent_config
         ; rotate_secret
         ; set_repository
+        ; sync_updates
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @

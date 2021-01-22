@@ -337,3 +337,9 @@ val set_repository :
   -> self:API.ref_pool
   -> value:[`Repository] API.Ref.t
   -> unit
+
+val sync_updates :
+    __context:Context.t
+  -> self:API.ref_pool
+  -> force:bool
+  -> string

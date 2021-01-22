@@ -1638,6 +1638,12 @@ let pool_rotate_secret printer rpc session_id _params =
 let pool_enable_tls_verification printer rpc session_id _params =
   Client.Pool.enable_tls_verification rpc session_id
 
+let pool_sync_updates printer rpc session_id params =
+  let pool = List.hd (Client.Pool.get_all rpc session_id) in
+  let force = get_bool_param params "force" in
+  let hash = Client.Pool.sync_updates rpc session_id pool force in
+  printer (Cli_printer.PList [hash])
+
 let vdi_type_of_string = function
   | "system" ->
       `system

@@ -153,6 +153,10 @@ let get_pool_update_download_uri = "/update/"
 
 (* ocaml/xapi/xapi_pool_update.ml *)
 
+let get_repository_uri = "/repository" (* ocaml/xapi/repository.ml *)
+
+let get_host_updates_uri = "/host_updates" (* ocaml/xapi/repository.ml *)
+
 let default_usb_speed = -1.
 
 let use_compression = "use_compression"

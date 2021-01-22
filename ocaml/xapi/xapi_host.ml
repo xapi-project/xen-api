@@ -2505,3 +2505,21 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
         ~cls:`Host
         ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
         ~body
+
+let get_host_updates_handler (req : Http.Request.t) s _ =
+  let uuid = Helpers.get_localhost_uuid () in
+  debug "Xapi_host: received request to get available updates on host uuid = '%s'" uuid;
+  req.Http.Request.close <- true;
+  let query = req.Http.Request.query in
+  Xapi_http.with_context "Getting available updates on host" req s (fun __context ->
+      let installed = match List.assoc "installed" query with
+          | v -> bool_of_string v
+          | exception Not_found -> false
+      in
+      let json_str = Yojson.Basic.pretty_to_string
+          (Repository.get_host_updates_in_json ~__context ~installed)
+      in
+      let size = Int64.of_int (String.length json_str) in
+      Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
+          @ [Http.Hdr.content_type ^ ": application/json"]);
+      Unixext.really_write_string s json_str |> ignore)

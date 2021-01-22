@@ -1217,3 +1217,15 @@ let reposync_in_progress = "REPOSYNC_IN_PROGRESS"
 let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
 
 let no_repository_enabled = "NO_REPOSITORY_ENABLED"
+
+let sync_updates_in_progress = "SYNC_UPDATES_IN_PROGRESS"
+
+let reposync_failed = "REPOSYNC_FAILED"
+
+let createrepo_failed = "CREATEREPO_FAILED"
+
+let invalid_updateinfo_xml = "INVALID_UPDATEINFO_XML"
+
+let get_host_updates_failed = "GET_HOST_UPDATES_FAILED"
+
+let invalid_repomd_xml = "INVALID_REPOMD_XML"
