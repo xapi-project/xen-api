@@ -2252,49 +2252,52 @@ let migrate_receive ~__context ~host ~network ~options =
   let ip, configuration_mode =
     match primary_address_type with
     | `IPv4 ->
-      ( Db.PIF.get_IP ~__context ~self:pif,
-      Db.PIF.get_ip_configuration_mode ~__context ~self:pif )
-    | `IPv6 ->
-      let configuration_mode =
-        Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
-      in
-      match Db.PIF.get_IPv6 ~__context ~self:pif with
-      | [] -> ("", configuration_mode)
-      | ip::_ ->
-        (* The CIDR is also stored in the IPv6 field of a PIF. *)
-        let ipv6 =
-          match String.split_on_char '/' ip with
-          | hd::_ -> hd
-          | _ -> ""
+        ( Db.PIF.get_IP ~__context ~self:pif
+        , Db.PIF.get_ip_configuration_mode ~__context ~self:pif )
+    | `IPv6 -> (
+        let configuration_mode =
+          Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
         in
-        (ipv6, configuration_mode)
+        match Db.PIF.get_IPv6 ~__context ~self:pif with
+        | [] ->
+            ("", configuration_mode)
+        | ip :: _ ->
+            (* The CIDR is also stored in the IPv6 field of a PIF. *)
+            let ipv6 =
+              match String.split_on_char '/' ip with hd :: _ -> hd | _ -> ""
+            in
+            (ipv6, configuration_mode)
+      )
   in
   ( if ip = "" then
-    match configuration_mode with
-    | `None ->
-      raise
-        (Api_errors.Server_error
-          (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif]))
-    | _ ->
-      raise
-        (Api_errors.Server_error
-          (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
+      match configuration_mode with
+      | `None ->
+          raise
+            (Api_errors.Server_error
+               (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif]))
+      | _ ->
+          raise
+            (Api_errors.Server_error
+               (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
   ) ;
   let sm_url =
     Printf.sprintf "http://%s/services/SM?session_id=%s"
-      (Http.Url.maybe_wrap_IPv6_literal ip) new_session_id
+      (Http.Url.maybe_wrap_IPv6_literal ip)
+      new_session_id
   in
   let xenops_url =
     Printf.sprintf "http://%s/services/xenops?session_id=%s"
-      (Http.Url.maybe_wrap_IPv6_literal ip) new_session_id
+      (Http.Url.maybe_wrap_IPv6_literal ip)
+      new_session_id
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_url = Printf.sprintf "http://%s/"
-    (Http.Url.maybe_wrap_IPv6_literal master_address)
+  let master_url =
+    Printf.sprintf "http://%s/"
+      (Http.Url.maybe_wrap_IPv6_literal master_address)
   in
   [
     (Xapi_vm_migrate._sm, sm_url)
