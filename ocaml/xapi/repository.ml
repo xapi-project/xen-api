@@ -1024,3 +1024,128 @@ let get_pool_updates_in_json ~__context ~hosts =
   | e ->
     error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
     raise Api_errors.(Server_error (get_updates_failed, []))
+
+let apply ~__context ~host =
+  (* This function runs on slave host *)
+  with_local_repository ~__context (fun () ->
+      let params =
+          [
+            "-y"; "--disablerepo=*";
+            Printf.sprintf "--enablerepo=%s" !Xapi_globs.local_repo_name;
+            "upgrade"
+          ]
+      in
+      try ignore (Helpers.call_script !Xapi_globs.yum_cmd params)
+      with e ->
+        let ref = Ref.string_of host in
+        error "Failed to apply updates on host ref='%s': %s" ref (ExnHelper.string_of_exn e);
+        raise Api_errors.(Server_error (apply_updates_failed, [ref])))
+
+let set_of_list l =
+  l
+  |> List.map string_of_guidance
+  |> GuidanceStrSet.of_list
+
+let set1 = set_of_list [EvacuateHost; RestartToolstack]
+
+let set2 = set_of_list [RestartDeviceModel; RestartToolstack]
+
+let set3 = set_of_list [RestartDeviceModel; EvacuateHost]
+
+let set4 = set_of_list [EvacuateHost; RestartToolstack; EvacuateHost]
+
+let assert_valid_guidances gs =
+  match List.map (fun x -> guidance_of_string x) gs with
+  | [RebootHost]
+  | [EvacuateHost]
+  | [RestartToolstack]
+  | [RestartDeviceModel] -> ()
+  | l when GuidanceStrSet.equal (set_of_list l) set1 -> ()
+  | l when GuidanceStrSet.equal (set_of_list l) set2 -> ()
+  | l when GuidanceStrSet.equal (set_of_list l) set3 -> ()
+  | l when GuidanceStrSet.equal (set_of_list l) set4 -> ()
+  | l ->
+    let msg =
+      Printf.sprintf "Found wrong guidance(s) before applying updates: %s"
+        (String.concat ";" (List.map (fun x -> string_of_guidance x) l))
+    in
+    raise Api_errors.(Server_error (internal_error, [msg]))
+
+let apply_immediate_guidances ~__context ~host guidances =
+  try
+    let num_of_host = List.length (Db.Host.get_all ~__context) in
+    let open Client in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        match guidances with
+        | ["RebootHost"] ->
+          Client.Host.reboot ~rpc ~session_id ~host
+        | ["EvacuateHost"] -> ()
+        | ["RestartDeviceModel"] ->
+          Client.Host.restart_device_models ~rpc ~session_id ~self:host
+        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set1 ->
+          Client.Host.restart_agent ~rpc ~session_id ~host
+        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set2 ->
+          Client.Host.restart_device_models ~rpc ~session_id ~self:host;
+          Client.Host.restart_agent ~rpc ~session_id ~host
+        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set3 ->
+          (* Evacuating host restarts device models *)
+          if num_of_host = 1 then Client.Host.restart_device_models ~rpc ~session_id ~self:host;
+          ()
+        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set4 ->
+          (* Evacuating host restarts device models *)
+          if num_of_host = 1 then Client.Host.restart_device_models ~rpc ~session_id ~self:host;
+          Client.Host.restart_agent ~rpc ~session_id ~host
+        | l ->
+          let msg =
+            Printf.sprintf
+              "Found wrong guidance(s) after applying updates: %s" (String.concat ";" l)
+          in
+          raise Api_errors.(Server_error (internal_error, [msg])))
+  with e ->
+    let ref = Ref.string_of host in
+    error "applying immediate guidances on host ref='%s' failed: %s"
+      ref (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (apply_guidance_failed, [ref]))
+
+let with_host_in_updating ~__context ~host f =
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+       Db.Host.add_to_other_config ~__context ~self:host
+           ~key:Xapi_globs.host_in_updating ~value:"true";
+       f ())
+    (fun () ->
+       Db.Host.remove_from_other_config ~__context ~self:host
+         ~key:Xapi_globs.host_in_updating)
+
+let apply_updates ~__context ~self ~host ~hash =
+  (* This function runs on master host *)
+  try
+    with_host_in_updating ~__context ~host (fun () ->
+        with_pool_repository (fun () ->
+            let updates =
+              http_get_host_updates_in_json ~__context ~host ~installed:true
+              |> Yojson.Basic.Util.member "updates"
+              |> Yojson.Basic.Util.to_list
+              |> List.map update_of_json
+            in
+            match updates with
+            | [] ->
+              let ref = Ref.string_of host in
+              info "Host ref='%s' is already up to date." ref
+            | l ->
+              let updates_info = parse_updateinfo ~hash in
+              let immediate_guidances =
+                eval_guidances ~updates_info ~updates:l ~kind:Recommended
+              in
+              assert_valid_guidances immediate_guidances;
+              Helpers.call_api_functions ~__context (fun rpc session_id ->
+                  Client.Client.Repository.apply ~rpc ~session_id ~host);
+              (* TODO: absolute guidances *)
+              apply_immediate_guidances ~__context ~host immediate_guidances))
+  with
+  | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
+    raise e
+  | e ->
+    let ref = Ref.string_of host in
+    error "applying updates on host ref='%s' failed: %s" ref (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (apply_updates_failed, [ref]))

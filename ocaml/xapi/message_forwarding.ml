@@ -3436,6 +3436,24 @@ functor
         let local_fn = Local.Host.get_sched_gran ~self in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.get_sched_gran rpc session_id self)
+
+      let apply_updates ~__context ~self ~hash =
+        let uuid = host_uuid ~__context self in
+        info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash;
+        Xapi_pool_helpers.with_pool_operation
+          ~__context
+          ~self:(Helpers.get_pool ~__context)
+          ~doc:"Host.apply_updates"
+          ~op:`apply_updates
+          (fun () -> Local.Host.apply_updates ~__context ~self ~hash)
+
+      let restart_device_models ~__context ~self =
+        let uuid = host_uuid ~__context self in
+        info "Host.restart_device_models : host = '%s'" uuid;
+        let local_fn = Local.Host.restart_device_models ~self in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.restart_device_models rpc session_id self)
+
     end
 
     module Host_crashdump = struct
@@ -5676,5 +5694,11 @@ functor
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self);
         Local.Repository.forget ~__context ~self
+
+      let apply ~__context ~host =
+        info "Repository.apply: host = '%s'" (host_uuid ~__context host);
+        let local_fn = Local.Repository.apply ~host in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Repository.apply rpc session_id host)
     end
   end

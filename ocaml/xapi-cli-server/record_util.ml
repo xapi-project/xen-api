@@ -151,6 +151,8 @@ let pool_operation_to_string = function
       "sync_updates"
   | `get_updates ->
       "get_updates"
+  | `apply_updates ->
+      "apply_updates"
 
 let host_operation_to_string = function
   | `provision ->

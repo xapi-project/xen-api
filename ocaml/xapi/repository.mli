@@ -58,3 +58,15 @@ val get_pool_updates_in_json :
      __context:Context.t
   -> hosts:[`host] API.Ref.t list
   -> Yojson.Basic.t
+
+val apply :
+     __context:Context.t
+  -> host:[`host] API.Ref.t
+  -> unit
+
+val apply_updates :
+     __context:Context.t
+  -> self:[`Repository] API.Ref.t
+  -> host:[`host] API.Ref.t
+  -> hash:string
+  -> unit

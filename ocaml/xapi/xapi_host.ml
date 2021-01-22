@@ -2450,3 +2450,24 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
       Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
           @ [Http.Hdr.content_type ^ ": application/json"]);
       Unixext.really_write_string s json_str |> ignore)
+
+let apply_updates ~__context ~self ~hash =
+  (* This function runs on master host *)
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_ha_enabled ~__context ~self:pool then
+    raise Api_errors.(Server_error (ha_is_enabled, []));
+  let ref = Repository.get_enabled_repository ~__context in
+  if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:ref then
+     raise Api_errors.(Server_error (updateinfo_hash_mismatch, []));
+  Repository.apply_updates ~__context ~self:ref ~host:self ~hash
+
+let restart_device_models ~__context ~self =
+  (* Restart device models of all running HVM VMs on this (self) host by
+   * doing local migrations.
+   * Assume all VMs (except dom0) are HVM *)
+  Db.Host.get_resident_VMs ~__context ~self
+  |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
+  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
+  |> List.iter (fun (ref, _) ->
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.VM.pool_migrate rpc session_id ref self [("live", "true")]))

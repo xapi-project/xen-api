@@ -201,7 +201,8 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
 let become_another_masters_slave master_address =
   let new_role = Pool_role.Slave master_address in
   if Pool_role.get_role () = new_role then
-    debug "We are already a slave of %s; nothing to do" master_address
+    (Repository.cleanup_pool_repo ();
+     debug "We are already a slave of %s; nothing to do" master_address)
   else (
     debug "Setting pool.conf to point to %s" master_address ;
     set_role new_role ;

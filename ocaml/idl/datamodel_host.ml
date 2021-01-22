@@ -1392,6 +1392,31 @@ let host_query_ha = call ~flags:[`Session]
     ~result:(host_sched_gran, "The host's sched-gran")
     ()
 
+  let apply_updates = call
+    ~name:"apply_updates"
+    ~in_oss_since:None
+    ~in_product_since:rel_next
+    ~doc:"apply updates from current enabled repository on a host"
+    ~params:[
+      Ref _host, "self", "The host where updates will be applied";
+      String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+  let restart_device_models = call
+    ~name:"restart_device_models"
+    ~in_oss_since:None
+    ~in_product_since:rel_next
+    ~doc:"Restart device models of all HVM VMs running on this host"
+    ~pool_internal:true
+    ~hide_from_docs:true
+    ~params:[
+      Ref _host, "self", "The host where device models of running VMs will be restarted";
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1515,6 +1540,8 @@ let host_query_ha = call ~flags:[`Session]
         cleanup_pool_secret;
         set_sched_gran;
         get_sched_gran;
+        apply_updates;
+        restart_device_models;
       ]
       ~contents:
         ([ uid _host;
