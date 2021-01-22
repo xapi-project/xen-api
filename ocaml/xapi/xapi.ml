@@ -581,37 +581,41 @@ let check_network_reset () =
             args
         in
         let device = List.assoc "DEVICE" args in
-        let vlan =
-          if List.mem_assoc "VLAN" args then
-            Some (List.assoc "VLAN" args)
-          else
-            None
-        in
+        let vlan = List.assoc_opt "VLAN" args in
         let mode =
-          match List.assoc "MODE" args with
-          | "static" ->
-              `Static
-          | "dhcp" | _ ->
-              `DHCP
+          match List.assoc_opt "MODE" args with
+          | Some "static" ->
+              Some `Static
+          | Some "dhcp" | Some _ ->
+              Some `DHCP
+          | None ->
+              None
         in
-        let iP =
-          if List.mem_assoc "IP" args then List.assoc "IP" args else ""
-        in
+        let iP = Option.value ~default:"" (List.assoc_opt "IP" args) in
         let netmask =
-          if List.mem_assoc "NETMASK" args then
-            List.assoc "NETMASK" args
-          else
-            ""
+          Option.value ~default:"" (List.assoc_opt "NETMASK" args)
         in
         let gateway =
-          if List.mem_assoc "GATEWAY" args then
-            List.assoc "GATEWAY" args
-          else
-            ""
+          Option.value ~default:"" (List.assoc_opt "GATEWAY" args)
         in
-        let dNS =
-          if List.mem_assoc "DNS" args then List.assoc "DNS" args else ""
+        let mode_v6 =
+          match List.assoc_opt "MODE_V6" args with
+          | Some "static" ->
+              Some `Static
+          | Some "autoconf" ->
+              Some `Autoconf
+          | Some "dhcp" | Some _ ->
+              Some `DHCP
+          | None ->
+              None
         in
+        (* This field is in the format: <ipv6>/<cidr> *)
+        let iPv6 = Option.value ~default:"" (List.assoc_opt "IPV6" args) in
+        let gateway_v6 =
+          Option.value ~default:"" (List.assoc_opt "GATEWAY_V6" args)
+        in
+        let dNS = Option.value ~default:"" (List.assoc_opt "DNS" args) in
+
         (* Get the existing network for management vlan *)
         let existing_network =
           match vlan with
@@ -675,8 +679,16 @@ let check_network_reset () =
               | None ->
                   phy_pif
             in
-            Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask
-              ~gateway ~dNS ;
+            Option.iter
+              (fun mode ->
+                Xapi_pif.reconfigure_ip ~__context ~self:pif ~mode ~iP ~netmask
+                  ~gateway ~dNS)
+              mode ;
+            Option.iter
+              (fun mode ->
+                Xapi_pif.reconfigure_ipv6 ~__context ~self:pif ~mode ~iPv6
+                  ~gateway:gateway_v6 ~dNS)
+              mode_v6 ;
             Xapi_host.management_reconfigure ~__context ~pif) ;
     (* Remove trigger file *)
     Unix.unlink Xapi_globs.network_reset_trigger
