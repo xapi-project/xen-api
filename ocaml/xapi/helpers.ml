@@ -1326,13 +1326,46 @@ let resolve_uri_path ~root ~uri_path =
   |> Filename.concat root
   |> Uri.pct_decode
   |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
-  |> (fun x -> match (String.startswith (root^"/") x), (Sys.file_exists x) with
+  |> (fun x -> match (Astring.String.is_prefix ~affix:(root^"/") x), (Sys.file_exists x) with
       | true, true -> x
       | _ ->
         let msg =
           Printf.sprintf "Failed to resolve uri path '%s' under '%s': %s" uri_path root x
         in
         raise Api_errors.(Server_error (internal_error, [msg])))
+
+let run_in_parallel ~funs ~capacity =
+  let rec run_in_parallel' acc funs capacity =
+    let rec split_for_first_n acc n l =
+      match n, l with
+      | n, h::t when n > 0 -> split_for_first_n (h :: acc) (n - 1) t
+      | _ -> acc, l
+    in
+    let run f =
+      let result = ref `Not_started in
+      let wrapper r = try r := `Succ (f ()) with e -> r := `Fail e in
+      let th = Thread.create wrapper result in
+      th, result
+    in
+    let get_result (th, result) =
+      Thread.join th;
+      match !result with
+      | `Not_started -> `Error (Failure "The thread in run_in_parallel is not started")
+      | `Succ s -> `Ok s
+      | `Fail e -> `Error e
+    in
+    let to_be_run, remaining = split_for_first_n [] capacity funs in
+    match to_be_run with
+    | [] -> acc
+    | _ ->
+      let finished =
+        List.map run to_be_run
+        |> List.map get_result
+        |> List.map (function `Ok s -> s | `Error e -> raise e)
+      in
+      run_in_parallel' (List.rev_append finished acc) remaining capacity
+  in
+  run_in_parallel' [] funs capacity
 
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)

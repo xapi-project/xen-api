@@ -427,7 +427,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= []
       ; optn= ["force"]
       ; help= "Sync updates from remote YUM repository, pool-wide."
-      ; implementation= With_fd Cli_operations.pool_sync_updates
+      ; implementation= No_fd Cli_operations.pool_sync_updates
       ; flags= []
       } )
   ; ( "host-is-in-emergency-mode"

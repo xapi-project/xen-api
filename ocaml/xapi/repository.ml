@@ -251,39 +251,6 @@ let parse_repomd xml_path =
        raise Api_errors.(Server_error (invalid_repomd_xml, []))
     end
 
-let run_in_parallel ~funs ~capacity =
-  let rec run_in_parallel' acc funs capacity =
-    let rec split_for_first_n acc n l =
-      match n, l with
-      | n, h::t when n > 0 -> split_for_first_n (h :: acc) (n - 1) t
-      | _ -> acc, l
-    in
-    let run f =
-      let result = ref `Not_started in
-      let wrapper r = try r := `Succ (f ()) with e -> r := `Fail e in
-      let th = Thread.create wrapper result in
-      th, result
-    in
-    let get_result (th, result) =
-      Thread.join th;
-      match !result with
-      | `Not_started -> `Error (Failure "The thread in run_in_parallel is not started")
-      | `Succ s -> `Ok s
-      | `Fail e -> `Error e
-    in
-    let to_be_run, remaining = split_for_first_n [] capacity funs in
-    match to_be_run with
-    | [] -> acc
-    | _ ->
-      let finished =
-        List.map run to_be_run
-        |> List.map get_result
-        |> List.map (function `Ok s -> s | `Error e -> raise e)
-      in
-      run_in_parallel' (List.rev_append finished acc) remaining capacity
-  in
-  run_in_parallel' [] funs capacity
-
 let http_get_host_updates_in_json ~__context ~host ~installed =
   let host_session_id =
     Xapi_session.login_no_password ~__context ~uname:None ~host ~pool:true
@@ -311,9 +278,9 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
         debug "host %s returned updates: %s" host_name json_str;
         Yojson.Basic.from_string json_str
       with e ->
-        let uuid = Db.Host.get_uuid ~__context ~self:host in
-        error "Failed to get updates from host uuid='%s': %s" uuid (ExnHelper.string_of_exn e);
-        raise Api_errors.(Server_error (get_host_updates_failed, [uuid])))
+        let ref = Ref.string_of host in
+        error "Failed to get updates from host ref='%s': %s" ref (ExnHelper.string_of_exn e);
+        raise Api_errors.(Server_error (get_host_updates_failed, [ref])))
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:host_session_id)
 
 let set_available_updates ~__context ~self =
@@ -331,12 +298,12 @@ let set_available_updates ~__context ~self =
     | `List [] -> false
     | _ -> true
     | exception e ->
-      let uuid = Db.Host.get_uuid ~__context ~self:host in
-      error "Invalid updates from host uuid='%s': %s" uuid (ExnHelper.string_of_exn e);
-      raise Api_errors.(Server_error (get_host_updates_failed, [uuid]))
+      let ref = Ref.string_of host in
+      error "Invalid updates from host ref='%s': %s" ref (ExnHelper.string_of_exn e);
+      raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
   in
   let funs = List.map (fun h -> are_updates_available h) hosts in
-  let rets_of_hosts = run_in_parallel funs capacity_in_parallel in
+  let rets_of_hosts = Helpers.run_in_parallel funs capacity_in_parallel in
   let is_all_up_to_date = not (List.exists (fun b -> b) rets_of_hosts) in
   Db.Repository.set_up_to_date ~__context ~self ~value:is_all_up_to_date;
   Db.Repository.set_hash ~__context ~self ~value:(md.checksum);
@@ -439,9 +406,8 @@ let with_local_repository ~__context f =
 
 let assert_yum_error output =
   let errors = ["Updateinfo file is not valid XML"] in
-  let open Xapi_stdext_std.Xstringext in
   List.iter (fun err ->
-    if String.has_substr output err then (
+    if Astring.String.is_infix ~affix:err output then (
       error "Error from 'yum updateinfo list': %s" err;
       raise Api_errors.(Server_error (invalid_updateinfo_xml, [])))
     else ()) errors;
@@ -563,24 +529,26 @@ let get_host_updates_in_json ~__context ~installed =
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
     raise e
   | e ->
-    let uuid = Helpers.get_localhost_uuid () in
-    error "Failed to get host updates: %s" (ExnHelper.string_of_exn e);
-    raise Api_errors.(Server_error (get_host_updates_failed, [uuid]))
+    let ref = Ref.string_of (Helpers.get_localhost ~__context) in
+    error "Failed to get host updates on host ref=%s: %s" ref (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
 
 let is_local_pool_repo_enabled () =
-  match Mutex.try_lock exposing_pool_repo_mutex with
-  | true ->
-    Mutex.unlock exposing_pool_repo_mutex;
-    false
-  | false -> true
+  if Mutex.try_lock exposing_pool_repo_mutex then
+    (Mutex.unlock exposing_pool_repo_mutex;
+     false)
+  else true
 
+(* This handler hosts HTTP endpoint '/repository' which will be available iif
+ * 'is_local_pool_repo_enabled' returns true with 'with_pool_repository' being called by
+ * others.
+ *)
 let get_repository_handler (req : Http.Request.t) s _ =
   let open Http in
   let open Xapi_stdext_std.Xstringext in
   debug "Repository.get_repository_handler URL %s" req.Request.uri ;
   req.Request.close <- true ;
-  match is_local_pool_repo_enabled () with
-  | true ->
+  if is_local_pool_repo_enabled () then
     (try
         let len = String.length Constants.get_repository_uri in
         begin match String.sub_to_end req.Request.uri len with
@@ -599,6 +567,6 @@ let get_repository_handler (req : Http.Request.t) s _ =
       error
         "Failed to serve for request on uri %s: %s" req.Request.uri (ExnHelper.string_of_exn e);
       Http_svr.response_forbidden ~req s)
-  | false ->
-    error "Rejecting request: local pool repository is not enabled";
-    Http_svr.response_forbidden ~req s
+  else
+    (error "Rejecting request: local pool repository is not enabled";
+     Http_svr.response_forbidden ~req s)

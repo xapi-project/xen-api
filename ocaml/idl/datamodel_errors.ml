@@ -1223,7 +1223,7 @@ let _ =
     ~doc:"The repomd.xml is invalid." ();
   error Api_errors.invalid_updateinfo_xml []
     ~doc:"The updateinfo.xml is invalid." ();
-  error Api_errors.get_host_updates_failed ["uuid"]
+  error Api_errors.get_host_updates_failed ["ref"]
     ~doc:"Failed to get available updates from a host." ()
 
 

@@ -1635,7 +1635,7 @@ let pool_disable_ssl_legacy printer rpc session_id params =
 let pool_rotate_secret printer rpc session_id _params =
   Client.Pool.rotate_secret rpc session_id
 
-let pool_sync_updates fd printer rpc session_id params =
+let pool_sync_updates printer rpc session_id params =
   let pool = List.hd (Client.Pool.get_all rpc session_id) in
   let force = get_bool_param params "force" in
   let hash = Client.Pool.sync_updates rpc session_id pool force in
