@@ -71,7 +71,13 @@ let make __context rpc session_id srid (vms, vdis) =
             other_platform
       in
       let hVM_boot_policy = if vm.is_hvm then "BIOS order" else "" in
-      let hVM_boot_params = if vm.is_hvm then [("order", "cd")] else [] in
+      let hVM_boot_params =
+        if vm.is_hvm then
+          let open Constants in
+          [(hvm_boot_params_order, hvm_default_boot_order)]
+        else
+          []
+      in
       let domain_type = Xapi_vm_helpers.derive_domain_type ~hVM_boot_policy in
       let vm_ref =
         Client.VM.create ~rpc ~session_id ~name_label:(vm.vm_name ^ " import")

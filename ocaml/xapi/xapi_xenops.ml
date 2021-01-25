@@ -198,6 +198,14 @@ let find f map default feature =
 
 let string = find (fun x -> x)
 
+let assume_default_if_null_empty map default feature =
+  match List.assoc_opt feature map with
+  | None | Some "" ->
+      D.info "assuming default setting %s=%s" feature default ;
+      default
+  | Some x ->
+      x
+
 let int = find int_of_string
 
 let bool = find (function "1" -> true | "0" -> false | x -> bool_of_string x)
@@ -401,7 +409,12 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     ; vnc_ip= None (*None PR-1255*)
     ; pci_emulations
     ; pci_passthrough
-    ; boot_order= string vm.API.vM_HVM_boot_params "cd" "order"
+    ; boot_order=
+        (* XSI-804 avoid boot orders which are the empty string, as qemu
+         * will silently fail to start the VM *)
+        (let open Constants in
+        assume_default_if_null_empty vm.API.vM_HVM_boot_params
+          hvm_default_boot_order hvm_boot_params_order)
     ; qemu_disk_cmdline= bool vm.API.vM_platform false "qemu_disk_cmdline"
     ; qemu_stubdom= false
     ; (* Obsolete: implementation removed *)
