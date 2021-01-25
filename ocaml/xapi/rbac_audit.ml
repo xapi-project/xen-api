@@ -222,43 +222,7 @@ let action_params_whitelist =
   ; ("subject.create.other_config", ["subject-name"])
   ; (* used for VMPP alert logs *)
     ("message.create", ["name"; "body"])
-  ; ("VMPP.create_alert", ["name"; "data"])
   ]
-
-let action_params_zip =
-  [(* params that should be compressed *) ("VMPP.create_alert", ["data"])]
-
-let zip data =
-  (* todo: remove i/o, make this more efficient *)
-  try
-    let tmp_path = Filename.temp_file "zip-" ".dat" in
-    let zdata = ref Bytes.empty in
-    Xapi_stdext_pervasives.Pervasiveext.finally
-      (fun () ->
-        Xapi_stdext_unix.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
-            Gzip.compress fd (fun fd ->
-                let len = String.length data in
-                let written = Unix.write_substring fd data 0 len in
-                if written <> len then
-                  failwith
-                    (Printf.sprintf "zip: wrote only %i bytes of %i" written
-                       len))) ;
-        let fd_in = Unix.openfile tmp_path [Unix.O_RDONLY] 0o400 in
-        Xapi_stdext_pervasives.Pervasiveext.finally
-          (fun () ->
-            let cin = Unix.in_channel_of_descr fd_in in
-            let cin_len = in_channel_length cin in
-            zdata := Bytes.create cin_len ;
-            for i = 1 to cin_len do
-              Bytes.set !zdata (i - 1) (input_char cin)
-            done)
-          (fun () -> Unix.close fd_in))
-      (fun () -> Sys.remove tmp_path) ;
-    let b64zdata = Base64.encode_string (Bytes.unsafe_to_string !zdata) in
-    b64zdata
-  with e ->
-    D.debug "error %s zipping data: %s" (ExnHelper.string_of_exn e) data ;
-    ""
 
 (* manual ref getters *)
 let get_subject_other_config_subject_name __context self =
@@ -350,14 +314,7 @@ let rec sexpr_args_of __context name rpc_value action =
   then
     match rpc_value with
     | Rpc.String value ->
-        Some
-          (get_sexpr_arg name
-             ( if is_selected_action_param action_params_zip then
-                 zip value
-             else
-               value
-             )
-             "" "")
+        Some (get_sexpr_arg name value "" "")
     | Rpc.Dict _ ->
         Some
           (SExpr.Node
