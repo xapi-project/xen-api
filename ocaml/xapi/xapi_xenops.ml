@@ -412,7 +412,9 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     ; boot_order=
         (* XSI-804 avoid boot orders which are the empty string, as qemu
          * will silently fail to start the VM *)
-        assume_default_if_null_empty vm.API.vM_HVM_boot_params "cd" "order"
+        (let open Constants in
+        assume_default_if_null_empty vm.API.vM_HVM_boot_params
+          hvm_default_boot_order hvm_boot_params_order)
     ; qemu_disk_cmdline= bool vm.API.vM_platform false "qemu_disk_cmdline"
     ; qemu_stubdom= false
     ; (* Obsolete: implementation removed *)
