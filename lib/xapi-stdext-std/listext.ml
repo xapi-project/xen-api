@@ -22,7 +22,6 @@ module List = struct include List
   let subset s1 s2 = List.fold_left (&&) true (List.map (fun s->List.mem s s2) s1)
   let set_equiv s1 s2 = (subset s1 s2) && (subset s2 s1)
 
-  let iteri f list = ignore (fold_left (fun i x -> f i x; i+1) 0 list)
   let iteri_right f list = ignore (fold_right (fun x i -> f i x; i+1) list 0)
 
   let rec inv_assoc k = function
@@ -39,12 +38,6 @@ module List = struct include List
   let position pred l =
     let aux (i, is) e = i + 1, if pred e then i :: is else is in
     snd (fold_left aux (0, []) l)
-
-  let mapi f l =
-    let rec aux n = function
-      | h :: t -> let h = f n h in h :: aux (n + 1) t
-      | [] -> [] in
-    aux 0 l
 
   let rev_mapi f l =
     let rec aux n accu = function
@@ -166,9 +159,6 @@ module List = struct include List
   let map_assoc_with_key op al =
     List.map (fun (k, v1) -> (k, op k v1)) al
 
-  (* Like the Lisp cons *)
-  let cons a b = a :: b
-
   (* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
   (* ToDo: This is complicated enough to warrant a test. *)
   (* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
@@ -200,9 +190,6 @@ module List = struct include List
   let make_assoc op l = map (fun key -> key, op key) l
 
   let unbox_list l = List.filter_map Fun.id l
-
-  let filter_map f list =
-    unbox_list (map f list)
 
   let restrict_with_default default keys al =
     make_assoc (fun k -> assoc_default k al default) keys
