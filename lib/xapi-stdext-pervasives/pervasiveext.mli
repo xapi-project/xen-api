@@ -35,7 +35,8 @@ val maybe : ('a -> unit) -> 'a option -> unit
 
 val reraise_if : bool -> (unit -> unit) -> unit
   [@@ocaml.deprecated "Use ignore_exn instead"]
-(** [reraise bool fct] runs [fct ()]. If [not bool] ignores raised exceptions *)
+(** [reraise_if bool fct] runs [fct ()]. If [not bool] ignores raised exceptions *)
+
 val ignore_exn : (unit -> unit) -> unit
 
 val ignore_int : int -> unit
