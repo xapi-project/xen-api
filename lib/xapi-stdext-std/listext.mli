@@ -16,48 +16,48 @@ sig
   val setify : 'a list -> 'a list
   val subset : 'a list -> 'a list -> bool
   val set_equiv : 'a list -> 'a list -> bool
-  val length : 'a list -> int
-  val hd : 'a list -> 'a
-  val tl : 'a list -> 'a list
-  val nth : 'a list -> int -> 'a
-  val rev : 'a list -> 'a list
-  val append : 'a list -> 'a list -> 'a list
-  val rev_append : 'a list -> 'a list -> 'a list
-  val concat : 'a list list -> 'a list
-  val flatten : 'a list list -> 'a list
-  val iter : ('a -> unit) -> 'a list -> unit
-  val map : ('a -> 'b) -> 'a list -> 'b list
-  val rev_map : ('a -> 'b) -> 'a list -> 'b list
-  val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a
-  val fold_right : ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b
-  val iter2 : ('a -> 'b -> unit) -> 'a list -> 'b list -> unit
-  val map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list
-  val rev_map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list
-  val fold_left2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b list -> 'c list -> 'a
+  val length : 'a list -> int [@@deprecated "Use Stdlib.List instead"]
+  val hd : 'a list -> 'a [@@deprecated "Use Stdlib.List instead"]
+  val tl : 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val nth : 'a list -> int -> 'a [@@deprecated "Use Stdlib.List instead"]
+  val rev : 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val append : 'a list -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val rev_append : 'a list -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val concat : 'a list list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val flatten : 'a list list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val iter : ('a -> unit) -> 'a list -> unit [@@deprecated "Use Stdlib.List instead"]
+  val map : ('a -> 'b) -> 'a list -> 'b list [@@deprecated "Use Stdlib.List instead"]
+  val rev_map : ('a -> 'b) -> 'a list -> 'b list [@@deprecated "Use Stdlib.List instead"]
+  val fold_left : ('a -> 'b -> 'a) -> 'a -> 'b list -> 'a [@@deprecated "Use Stdlib.List instead"]
+  val fold_right : ('a -> 'b -> 'b) -> 'a list -> 'b -> 'b [@@deprecated "Use Stdlib.List instead"]
+  val iter2 : ('a -> 'b -> unit) -> 'a list -> 'b list -> unit [@@deprecated "Use Stdlib.List instead"]
+  val map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list [@@deprecated "Use Stdlib.List instead"]
+  val rev_map2 : ('a -> 'b -> 'c) -> 'a list -> 'b list -> 'c list [@@deprecated "Use Stdlib.List instead"]
+  val fold_left2 : ('a -> 'b -> 'c -> 'a) -> 'a -> 'b list -> 'c list -> 'a [@@deprecated "Use Stdlib.List instead"]
   val fold_right2 :
-    ('a -> 'b -> 'c -> 'c) -> 'a list -> 'b list -> 'c -> 'c
-  val for_all : ('a -> bool) -> 'a list -> bool
-  val exists : ('a -> bool) -> 'a list -> bool
-  val for_all2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool
-  val exists2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool
-  val mem : 'a -> 'a list -> bool
-  val memq : 'a -> 'a list -> bool
-  val find : ('a -> bool) -> 'a list -> 'a
-  val filter : ('a -> bool) -> 'a list -> 'a list
-  val find_all : ('a -> bool) -> 'a list -> 'a list
-  val partition : ('a -> bool) -> 'a list -> 'a list * 'a list
-  val assoc : 'a -> ('a * 'b) list -> 'b
-  val assq : 'a -> ('a * 'b) list -> 'b
-  val mem_assoc : 'a -> ('a * 'b) list -> bool
-  val mem_assq : 'a -> ('a * 'b) list -> bool
-  val remove_assoc : 'a -> ('a * 'b) list -> ('a * 'b) list
-  val remove_assq : 'a -> ('a * 'b) list -> ('a * 'b) list
-  val split : ('a * 'b) list -> 'a list * 'b list
-  val combine : 'a list -> 'b list -> ('a * 'b) list
-  val sort : ('a -> 'a -> int) -> 'a list -> 'a list
-  val stable_sort : ('a -> 'a -> int) -> 'a list -> 'a list
-  val fast_sort : ('a -> 'a -> int) -> 'a list -> 'a list
-  val merge : ('a -> 'a -> int) -> 'a list -> 'a list -> 'a list
+    ('a -> 'b -> 'c -> 'c) -> 'a list -> 'b list -> 'c -> 'c [@@deprecated "Use Stdlib.List instead"]
+  val for_all : ('a -> bool) -> 'a list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val exists : ('a -> bool) -> 'a list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val for_all2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val exists2 : ('a -> 'b -> bool) -> 'a list -> 'b list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val mem : 'a -> 'a list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val memq : 'a -> 'a list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val find : ('a -> bool) -> 'a list -> 'a [@@deprecated "Use Stdlib.List instead"]
+  val filter : ('a -> bool) -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val find_all : ('a -> bool) -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val partition : ('a -> bool) -> 'a list -> 'a list * 'a list [@@deprecated "Use Stdlib.List instead"]
+  val assoc : 'a -> ('a * 'b) list -> 'b [@@deprecated "Use Stdlib.List instead"]
+  val assq : 'a -> ('a * 'b) list -> 'b [@@deprecated "Use Stdlib.List instead"]
+  val mem_assoc : 'a -> ('a * 'b) list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val mem_assq : 'a -> ('a * 'b) list -> bool [@@deprecated "Use Stdlib.List instead"]
+  val remove_assoc : 'a -> ('a * 'b) list -> ('a * 'b) list [@@deprecated "Use Stdlib.List instead"]
+  val remove_assq : 'a -> ('a * 'b) list -> ('a * 'b) list [@@deprecated "Use Stdlib.List instead"]
+  val split : ('a * 'b) list -> 'a list * 'b list [@@deprecated "Use Stdlib.List instead"]
+  val combine : 'a list -> 'b list -> ('a * 'b) list [@@deprecated "Use Stdlib.List instead"]
+  val sort : ('a -> 'a -> int) -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val stable_sort : ('a -> 'a -> int) -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val fast_sort : ('a -> 'a -> int) -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
+  val merge : ('a -> 'a -> int) -> 'a list -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
 
   (** Perform a lookup on an association list of (value, key) pairs. *)
   val inv_assoc : 'a -> ('b * 'a) list -> 'b
@@ -73,9 +73,9 @@ sig
 
   (** Map the given function over a list, supplying the integer
       	    index as well as the element value. *)
-  val mapi : (int -> 'a -> 'b) -> 'a list -> 'b list
+  val mapi : (int -> 'a -> 'b) -> 'a list -> 'b list [@@deprecated "Use Stdlib.List instead"]
 
-  val iteri : (int -> 'a -> unit) -> 'a list -> unit
+  val iteri : (int -> 'a -> unit) -> 'a list -> unit [@@deprecated "Use Stdlib.List instead"]
 
   val iteri_right : (int -> 'a -> unit) -> 'a list -> unit
 
@@ -153,7 +153,7 @@ sig
       	    non-optional values B [b1; ...; bn], with m >= n. For each value
       	    a in list A, list B contains a corresponding value b if and only
       	    if the application of (f a) results in Some b.  *)
-  val filter_map : ('a -> 'b option) -> 'a list -> 'b list
+  val filter_map : ('a -> 'b option) -> 'a list -> 'b list [@@deprecated "Use Stdlib.List instead"]
 
   (** Returns true if and only if the given list is in sorted order
       	    according to the given comparison function.  *)
@@ -174,7 +174,7 @@ sig
   val map_assoc_with_key : ('k -> 'v1 -> 'v2) -> ('k * 'v1) list -> ('k * 'v2) list
 
   (* Like Lisp cons*)
-  val cons : 'a -> 'a list -> 'a list
+  val cons : 'a -> 'a list -> 'a list [@@deprecated "Use Stdlib.List instead"]
 
   (** [take n list] returns the first [n] elements of [list] (or less if list
       	    is shorter).*)
