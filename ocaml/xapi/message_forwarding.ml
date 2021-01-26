@@ -3204,11 +3204,18 @@ functor
             Client.Host.disable_external_auth rpc session_id host config)
 
       let install_ca_certificate ~__context ~host ~name ~cert =
+        info
+          "Host.install_ca_certificate: host = '%s'; name = '%s'; cert = '%s'"
+          (host_uuid ~__context host)
+          name cert ;
         let local_fn = Local.Host.install_ca_certificate ~host ~name ~cert in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.install_ca_certificate rpc session_id host name cert)
 
       let uninstall_ca_certificate ~__context ~host ~name =
+        info "Host.uninstall_ca_certificate: host = '%s'; name = '%s'"
+          (host_uuid ~__context host)
+          name ;
         let local_fn = Local.Host.uninstall_ca_certificate ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.uninstall_ca_certificate rpc session_id host name)
@@ -3219,37 +3226,51 @@ functor
       let certificate_uninstall = uninstall_ca_certificate
 
       let certificate_list ~__context ~host =
+        info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_list ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.certificate_list rpc session_id host)
 
       let crl_install ~__context ~host ~name ~crl =
+        info "Host.crl_install: host = '%s'; name = '%s'; crl = '%s'"
+          (host_uuid ~__context host)
+          name crl ;
         let local_fn = Local.Host.crl_install ~host ~name ~crl in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.crl_install rpc session_id host name crl)
 
       let crl_uninstall ~__context ~host ~name =
+        info "Host.crl_uninstall: host = '%s'; name = '%s'"
+          (host_uuid ~__context host)
+          name ;
         let local_fn = Local.Host.crl_uninstall ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.crl_uninstall rpc session_id host name)
 
       let crl_list ~__context ~host =
+        info "Host.crl_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.crl_list ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.crl_list rpc session_id host)
 
       let certificate_sync ~__context ~host =
+        info "Host.certificate_sync: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_sync ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.certificate_sync rpc session_id host)
 
       let get_server_certificate ~__context ~host =
+        info "Host.get_server_certificate: host = '%s'"
+          (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_server_certificate ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.get_server_certificate rpc session_id host)
 
       let install_server_certificate ~__context ~host ~certificate ~private_key
           ~certificate_chain =
+        info "Host.install_server_certificate: host = '%s'; certificate = '%s'"
+          (host_uuid ~__context host)
+          certificate ;
         let task = Context.get_task_id __context in
         let local_fn =
           Local.Host.install_server_certificate ~host ~certificate ~private_key
@@ -3282,11 +3303,14 @@ functor
                  ] ))
 
       let reset_server_certificate ~__context ~host =
+        info "Host.reset_server_certificate: host = '%s'"
+          (host_uuid ~__context host) ;
         let local_fn = Local.Host.reset_server_certificate ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.reset_server_certificate ~rpc ~session_id ~host)
 
       let emergency_reset_server_certificate ~__context =
+        info "Host.emergency_reset_server_certificate" ;
         Local.Host.emergency_reset_server_certificate ~__context
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
