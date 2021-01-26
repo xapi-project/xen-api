@@ -22,7 +22,7 @@ module List = struct include List
   let subset s1 s2 = List.fold_left (&&) true (List.map (fun s->List.mem s s2) s1)
   let set_equiv s1 s2 = (subset s1 s2) && (subset s2 s1)
 
-  let iteri_right f list = ignore (fold_right (fun x i -> f i x; i+1) list 0)
+  let iteri_right f list = iteri f (rev list)
 
   let rec inv_assoc k = function
     | [] -> raise Not_found
@@ -47,13 +47,37 @@ module List = struct include List
 
   let mapi_tr f l = rev (rev_mapi f l)
 
+  let take n list =
+    let rec loop i acc = function
+      | x :: xs when i < n ->
+          loop (i + 1) (x :: acc) xs
+      | _ ->
+          List.rev acc
+    in
+    loop 0 [] list
+
+  let drop n list =
+    let rec loop i = function
+      | x :: xs when i < n ->
+          loop (i + 1) xs
+      | l ->
+          l
+    in
+    loop 0 list
+
+  let sub i j l = drop i l |> take (j - (max i 0))
+
   let rec chop i l = match i, l with
+    | j, _ when j < 0 ->
+        invalid_arg "chop: index cannot be negative"
     | 0, l -> [], l
-    | i, h :: t -> (fun (fr, ba) -> h :: fr, ba) (chop (i - 1) t)
-    | _ -> invalid_arg "chop"
+    | _, h :: t -> (fun (fr, ba) -> h :: fr, ba) (chop (i - 1) t)
+    | _, [] -> invalid_arg "chop: index not in list"
 
   let rev_chop i l =
     let rec aux i fr ba = match i, fr, ba with
+      | i, _, _ when i < 0 ->
+          invalid_arg "rev_chop: index cannot be negative"
       | 0, fr, ba -> (fr, ba)
       | i, fr, h :: t -> aux (i - 1) (h :: fr) t
       | _ -> invalid_arg "rev_chop" in
@@ -65,9 +89,6 @@ module List = struct include List
   let rec dice m l = match chop m l with
     | l, [] -> [l]
     | l1, l2 -> l1 :: dice m l2
-
-  let sub i j l =
-    fst (chop_tr (j - i) (snd (rev_chop i l)))
 
   let remove i l = match rev_chop i l with
     | rfr, _ :: t -> rev_append rfr t
@@ -159,27 +180,12 @@ module List = struct include List
   let map_assoc_with_key op al =
     List.map (fun (k, v1) -> (k, op k v1)) al
 
-  (* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
-  (* ToDo: This is complicated enough to warrant a test. *)
-  (* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
-     Pro: Would mask fewer bugs.
-     Con: Less robust.
-  *)
-  let take n list =
-    let rec helper i acc list =
-      if i <= 0 || list = []
-      then acc
-      else helper (i-1)  (List.hd list :: acc) (List.tl list)
-    in List.rev (helper n [] list)
-
   (* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
   let rec tails = function
     | [] -> [[]]
     | (_::xs) as l -> l :: tails xs
 
-  let safe_hd = function
-    | a::_ -> Some a
-    | [] -> None
+  let safe_hd l = List.nth_opt l 0
 
   let replace_assoc key new_value existing =
     (key, new_value) :: (List.filter (fun (k, _) -> k <> key) existing)

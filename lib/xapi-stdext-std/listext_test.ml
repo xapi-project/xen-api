@@ -84,6 +84,31 @@ let test_take =
   let tests = List.map test specs in
   ("take", tests)
 
+let test_drop =
+  let specs =
+    [
+      ([], -1, [])
+    ; ([], 0, [])
+    ; ([], 1, [])
+    ; ([1; 2; 3], -1, [1; 2; 3])
+    ; ([1; 2; 3], 0, [1; 2; 3])
+    ; ([1; 2; 3], 1, [2; 3])
+    ; ([1; 2; 3], 2, [3])
+    ; ([1; 2; 3], 3, [])
+    ; ([1; 2; 3], 4, [])
+    ; ([1; 2; 3], 5, [])
+    ]
+  in
+  let test (whole, number, expected) =
+    let name =
+      Printf.sprintf "drop %i from [%s]" number
+        (String.concat "; " (List.map string_of_int whole))
+    in
+    test_list (Listext.drop number) (name, whole, expected)
+  in
+  let tests = List.map test specs in
+  ("drop", tests)
+
 let test_chop =
   let specs =
     [
@@ -96,7 +121,10 @@ let test_chop =
     ]
   in
   let error_specs =
-    [([0], -1, Invalid_argument "chop"); ([0], 2, Invalid_argument "chop")]
+    [
+      ([0], -1, Invalid_argument "chop: index cannot be negative")
+    ; ([0], 2, Invalid_argument "chop: index not in list")
+    ]
   in
   let test (whole, number, expected) =
     let name =
@@ -124,22 +152,21 @@ let test_sub =
   let specs =
     [
       ([], 0, 0, [])
+    ; ([], 0, 1, [])
     ; ([0], 0, 0, [])
     ; ([0], 0, 1, [0])
     ; ([0], 1, 1, [])
+    ; ([0], 0, 2, [0])
     ; ([0; 1], 0, 0, [])
     ; ([0; 1], 0, 1, [0])
     ; ([0; 1], 0, 2, [0; 1])
     ; ([0; 1], 1, 1, [])
     ; ([0; 1], 1, 2, [1])
     ; ([0; 1], 2, 2, [])
-    ]
-  in
-  let error_specs =
-    [
-      ([0], -1, 0, Invalid_argument "rev_chop")
-    ; ([0], 0, -1, Invalid_argument "rev_chop")
-    ; ([0; 1], 1, 0, Invalid_argument "rev_chop")
+      (* test_cases below used to fail *) [@ocamlformat "disable"]
+    ; ([0], -1, 0, [])
+    ; ([0], 0, -1, [])
+    ; ([0; 1], 1, 0, [])
     ]
   in
   let test (whole, from, until, expected) =
@@ -151,18 +178,7 @@ let test_sub =
     test_list (Listext.sub from until) (name, whole, expected)
   in
   let tests = List.map test specs in
-  let error_test (whole, from, until, error) =
-    let name =
-      Printf.sprintf "sub [%s] from %i to %i fails"
-        (String.concat "; " (List.map string_of_int whole))
-        from until
-    in
-    test_error
-      (fun ls () -> ignore (Listext.sub from until ls))
-      (name, whole, error)
-  in
-  let error_tests = List.map error_test error_specs in
-  ("sub", tests @ error_tests)
+  ("sub", tests)
 
 let test_safe_hd =
   let specs = [([], None); ([0], Some 0); ([0; 1], Some 0)] in
@@ -178,4 +194,4 @@ let test_safe_hd =
 
 let () =
   Alcotest.run "Listext"
-    [test_iteri_right; test_take; test_chop; test_sub; test_safe_hd]
+    [test_iteri_right; test_take; test_drop; test_chop; test_sub; test_safe_hd]

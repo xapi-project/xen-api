@@ -85,20 +85,26 @@ sig
   (** Tail-recursive [mapi]. *)
   val mapi_tr : (int -> 'a -> 'b) -> 'a list -> 'b list
 
-  (** Split a list at the given index to give a pair of lists. *)
+  (** [chop k l] splits [l] at index [k] to return a pair of lists. Raises
+      invalid_arg when [i] is negative or greater than the length of [l]. *)
   val chop : int -> 'a list -> 'a list * 'a list
 
-  (** Split a list at the given index to give a pair of lists, the first in
-      		  reverse order. *)
+  (** [rev_chop k l] splits [l] at index [k] to return a pair of lists, the
+      first in reverse order. Raises invalid_arg when [i] is negative or
+      greater than the length of [l]. *)
   val rev_chop : int -> 'a list -> 'a list * 'a list
 
   (** Tail-recursive [chop]. *)
   val chop_tr : int -> 'a list -> 'a list * 'a list
 
-  (** Split a list into lists with the given number of elements. *)
+  (** [dice k l] splits [l] into lists with [k] elements each. Raises
+      invalid_arg if [List.length l] is not divisible by [k]. *)
   val dice : int -> 'a list -> 'a list list
 
-  (** Extract the sub-list between the given indices. *)
+  (** [sub from to l] returns the sub-list of [l] that starts at index [from]
+      and ends at [to] or an empty list if [to] is equal or less than [from].
+      Negative indices are treated as 0 and indeces higher than [List.length l
+      - 1] are treated as [List.length l - 1]. *)
   val sub : int -> int -> 'a list -> 'a list
 
   (** Remove the element at the given index. *)
@@ -180,8 +186,13 @@ sig
       	    is shorter).*)
   val take : int -> 'a list -> 'a list
 
+  (** [drop n list] returns the list without the first [n] elements of [list]
+      (or [] if list is shorter). *)
+  val drop : int -> 'a list -> 'a list
+
   val tails : 'a list -> ('a list) list
   val safe_hd : 'a list -> 'a option
+    [@@deprecated "Use List.nth_opt list 0 instead"]
 
   (** Replace the value belonging to a key in an association list. Adds the key/value pair
       	 *  if it does not yet exist in the list. If the same key occurs multiple time in the original
