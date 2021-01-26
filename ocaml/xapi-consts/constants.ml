@@ -157,7 +157,7 @@ let default_usb_speed = -1.
 let use_compression = "use_compression"
 
 (* If VM.HVM_boot_policy is set to this then we boot using qemu-dm *)
-let hvm_boot_policy_bios_order = "BIOS order"
+let hvm_default_boot_policy = "BIOS order"
 
 (* Key we expect to find in VM.HVM_boot_params if VM.HVM_boot_policy = BIOS_order.
    Value is the boot string we send to qemu-dm (eg cd, dc, dcn, etc) *)
