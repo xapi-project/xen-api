@@ -1407,7 +1407,7 @@ let uninstall_host_certificates ~__context certs =
     (fun (self, record) ->
       ( match record.API.certificate_type with
       | `host_and_pool ->
-          let name = record.API.certificate_uuid in
+          let name = record.API.certificate_uuid ^ ".pem" in
           Certificates.(pool_uninstall CA_Certificate) ~__context ~name
       | _ ->
           ()
