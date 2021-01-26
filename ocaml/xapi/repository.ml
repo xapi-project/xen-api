@@ -711,8 +711,7 @@ let string_of_updateinfo ui =
     (String.concat ";" (List.map string_of_applicability ui.guidance_applicabilities))
 
 let parse_guidances gs =
-  List.map (fun g ->
-      match g with
+  List.map (function
       | Xml.Element ("guidance", _, [Xml.PCData v]) ->
         guidance_of_string v
       | _ ->
@@ -838,10 +837,42 @@ let parse_updateinfo ~hash =
   | true ->
     with_updateinfo_xml updateinfo_xml_gz_path parse_updateinfo_xml_file
 
-let compare_segment s1 s2 =
+let compare_version_strings s1 s2 =
+  (* Compare versions or releases of RPM packages
+   * I.E. for "libpath-utils-0.2.1-29.el7.x86_64" and "libpath-utils-0.2.1a-30.el7.x86_64",
+   * this function compares:
+   * versions between "0.2.1" and "0.2.1a", or
+   * releases between "29.el7" and "30.el7".
+   * More examples:
+   *  "1.2.3" "<" "1.2.4"
+   *  "1.2.3" "=" "1.2.3"
+   *  "1.2.3" ">" "1.2"
+   *  "1.0011" ">" "1.9"
+   *  "1.05" "=" "1.5"
+   *  "1.0" ">" "1"
+   *  "1.0" ">" "1.a"
+   *  "2.50" ">" "2.5"
+   *  "XS3" "<" "xs2"
+   *  "1.2.3" ">" "1.2.3a"
+   *  "xs4" "=" "xs.4"
+   *  "2a" "<" "2.0"
+   *  "2a" "<" "2b"
+   *  "1.0" ">" "1.xs2"
+   *  "1.0_xs" "=" "1.0.xs"
+   *)
   let normalize v =
+    let split_letters_and_numbers s =
+      let r = Re.Str.regexp "^\\([^0-9]+\\)\\([0-9]+\\)$" in
+      if Re.Str.string_match r s 0 then
+        [(Re.Str.replace_first r "\\1" s); (Re.Str.replace_first r "\\2" s)]
+      else [s]
+    in
     v
     |> Astring.String.cuts ~sep:"."
+    |> List.map (fun s -> Astring.String.cuts ~sep:"_" s)
+    |> List.flatten
+    |> List.map (fun s -> split_letters_and_numbers s)
+    |> List.flatten
     |> List.map (fun s -> try Int (int_of_string s) with _ -> Str s)
   in
   let compare_str s1 s2 f =
@@ -859,8 +890,8 @@ let compare_segment s1 s2 =
          if s1 > s2 then Gt
          else if s1 = s2 then f ()
          else Lt
-       | Int s1, Str s2 -> compare_str (string_of_int s1) s2 f
-       | Str s1, Int s2 -> compare_str s1 (string_of_int s2) f
+       | Int s1, Str s2 -> Gt
+       | Str s1, Int s2 -> Lt
        | Str s1, Str s2 -> compare_str s1 s2 f)
     | c1 :: t1, [] -> Gt
     | [], c2 :: t2 -> Lt
@@ -872,7 +903,9 @@ let eval_applicability ~version ~release ~applicability =
   let ver = applicability.version in
   let rel = applicability.release in
   let eval_applicability' inequality =
-    match inequality, (compare_segment version ver), (compare_segment release rel) with
+    match inequality,
+          (compare_version_strings version ver),
+          (compare_version_strings release rel) with
     | Lt, Lt, _ | Lt, Eq, Lt | Eq, Eq, Eq | Gt, Gt, _ | Gt, Eq, Gt -> true
     | _ -> false
   in
@@ -940,14 +973,18 @@ let get_pool_updates_in_json ~__context ~hosts =
   let ref = get_enabled_repository ~__context in
   let hash = Db.Repository.get_hash ~__context ~self:ref in
   try
-    let updates_info = parse_updateinfo ~hash in
     let funs = List.map (fun host ->
         fun () ->
           ( host, (http_get_host_updates_in_json ~__context ~host ~installed:true) )
       ) hosts
     in
+    let rets =
+      with_pool_repository (fun () ->
+          Helpers.run_in_parallel funs capacity_in_parallel)
+    in
+    let updates_info = parse_updateinfo ~hash in
     let updates_of_hosts, ids_of_updates =
-      Helpers.run_in_parallel funs capacity_in_parallel
+      rets
       |> List.fold_left (fun (acc1, acc2) (host, ret_of_host) ->
           let updates =
             ret_of_host

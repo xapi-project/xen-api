@@ -2883,8 +2883,7 @@ let get_updates_handler (req : Http.Request.t) s _ =
             List.map (fun ref_str -> Ref.of_string ref_str) (Astring.String.cuts ~sep:";" v)
             |> (fun l ->
                 let is_invalid ref =
-                    if not (Db.is_valid_ref __context ref && List.mem ref all_hosts) then true
-                    else false
+                  not (Db.is_valid_ref __context ref && List.mem ref all_hosts)
                 in
                 match (List.exists is_invalid l), l with
                 | true, _ | false, [] -> None
@@ -2907,18 +2906,16 @@ let get_updates_handler (req : Http.Request.t) s _ =
           ~op:`get_updates
           (fun () ->
              try
-               Repository.with_pool_repository
-                 (fun () ->
-                    let json_str = Yojson.Basic.pretty_to_string
-                        (Repository.get_pool_updates_in_json ~__context ~hosts)
-                    in
-                    let size = Int64.of_int (String.length json_str) in
-                    Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
-                        @ [Http.Hdr.content_type ^ ": application/json"]);
-                    Unixext.really_write_string s json_str |> ignore)
+               let json_str = Yojson.Basic.to_string
+                   (Repository.get_pool_updates_in_json ~__context ~hosts)
+               in
+               let size = Int64.of_int (String.length json_str) in
+               Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
+                   @ [Http.Hdr.content_type ^ ": application/json"]);
+               Unixext.really_write_string s json_str |> ignore
              with
              | Api_errors.(Server_error (code, _)) as e when (List.mem code codes_of_404) ->
-                 error "404: no updates for pool: %s" (ExnHelper.string_of_exn e);
+                 error "404: can't get updates for pool: %s" (ExnHelper.string_of_exn e);
                  Http_svr.headers s (Http.http_404_missing ())
              | e ->
                (* http_500_internal_server_error *)
