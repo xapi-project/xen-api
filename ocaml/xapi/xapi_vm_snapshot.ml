@@ -409,14 +409,28 @@ let extended_do_not_copy =
 
 let domain_type_to_string = function `pv -> "pv" | `hvm -> "hvm"
 
-(* Update the domain_type field if it does not match the HVM_boot_policy *)
+(* Update the domain_type field if it does not match the HVM boot policy *)
 let ensure_domain_type_is_consistent ~__context ~snap_metadata =
+  let hvm_boot_policy () =
+    (* XSI-828 the HVM boot policy is actually stored in the database as HVM__boot_policy
+     * we keep the check for HVM_boot_policy 'just in case' *)
+    let if_none f x = if Option.is_none x then f () else x in
+    let module List = Stdlib.List in
+    List.assoc_opt "HVM__boot_policy" snap_metadata
+    |> if_none (fun () -> List.assoc_opt "HVM_boot_policy" snap_metadata)
+    |> if_none (fun () ->
+           D.error "couldn't find HVM boot policy in snapshot metadata" ;
+           raise
+             Api_errors.(
+               Server_error
+                 (invalid_value, ["snapshot_metadata:HVM__boot_policy"; "null"])))
+    |> Option.get
+  in
   match Stdlib.List.assoc_opt "domain_type" snap_metadata with
   | Some "unspecified" | None ->
+      let policy = hvm_boot_policy () in
       ( "domain_type"
-      , domain_type_to_string
-          (Xapi_vm_helpers.derive_domain_type
-             (List.assoc "HVM_boot_policy" snap_metadata)) )
+      , domain_type_to_string (Xapi_vm_helpers.derive_domain_type policy) )
       :: List.remove_assoc "domain_type" snap_metadata
   | _ ->
       snap_metadata

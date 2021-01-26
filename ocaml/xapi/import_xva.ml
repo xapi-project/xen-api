@@ -70,7 +70,9 @@ let make __context rpc session_id srid (vms, vdis) =
         | _ ->
             other_platform
       in
-      let hVM_boot_policy = if vm.is_hvm then "BIOS order" else "" in
+      let hVM_boot_policy =
+        if vm.is_hvm then Constants.hvm_default_boot_policy else ""
+      in
       let hVM_boot_params =
         if vm.is_hvm then
           let open Constants in
