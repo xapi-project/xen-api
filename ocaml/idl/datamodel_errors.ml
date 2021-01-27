@@ -1224,7 +1224,11 @@ let _ =
   error Api_errors.invalid_updateinfo_xml []
     ~doc:"The updateinfo.xml is invalid." ();
   error Api_errors.get_host_updates_failed ["ref"]
-    ~doc:"Failed to get available updates from a host." ()
+    ~doc:"Failed to get available updates from a host." ();
+  error Api_errors.get_updates_failed []
+    ~doc:"Failed to get available updates from the pool." ();
+  error Api_errors.get_updates_in_progress []
+    ~doc:"The operation could not be performed because getting updates is in progress." ()
 
 
 let _ =
