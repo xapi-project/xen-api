@@ -617,3 +617,51 @@ let chunks size lst =
 let best_effort txt f =
   try f ()
   with e -> info "%s: ignoring exception %s" txt (Printexc.to_string e)
+
+(* used only during startup *)
+let json_length rpc = rpc |> Jsonrpc.to_string |> String.length
+
+let xml_length rpc =
+  let xml = rpc |> Xmlrpc.to_string in
+  let length = ref (String.length xml) in
+  (* protect_fn in xml_spaces in XAPI escapes some additional characters *)
+  String.iter
+    (function ' ' | '\t' | '\n' | '\r' | '%' -> incr length | _ -> ())
+    xml ;
+  !length
+
+(* It is stored as Json in internal communication, but as xml in the database *)
+let char_max_encoded_length =
+  Array.init 256 (fun i ->
+      if i >= 0x80 then
+        3 (* Uutf.u_rep, see utf8_recode *)
+      else
+        let s = String.init 1 (fun _ -> Char.chr i) in
+        let rpc = Rpc.String s in
+        let empty = Rpc.String "" in
+        max
+          (json_length rpc - json_length empty)
+          (xml_length rpc - xml_length empty))
+
+let str_max_encoded_length str =
+  let s = ref 0 in
+  String.iter (fun c -> s := !s + char_max_encoded_length.(Char.code c)) str ;
+  !s
+
+let longest_encoded_char = Array.fold_left max 0 char_max_encoded_length
+
+let entry_overhead = String.length "(''%.'')%."
+
+let xenstore_encoded_entry_size_bytes key value =
+  (* The largest amount of memory used by a xenstore-data entry:
+     - in XAPI's database (encoded as an S-expression and then as XML)
+     - in the JSON-RPC format
+
+     Both of these have some constant per-entry overhead, e.g.:
+        ('xenstore-key'%.'xenstore-value')%.('k2'%.'v2')...
+        {"xenstore-key":"xenstore-value","k2":"v2"},...
+     For calculating the overhead I used the S-expression encoding since that is larger.
+     For individual bytes either the XML or JSON encoding could be larger,
+     hence the `char_max_encoded_length` table above to determine the largest encoding among the two.
+  *)
+  entry_overhead + str_max_encoded_length key + str_max_encoded_length value

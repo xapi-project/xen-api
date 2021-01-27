@@ -71,6 +71,20 @@ let vm_guest_agent_xenstore_quota = ref 128
 
 let vm_guest_agent_xenstore_quota_warn_interval = ref 3600
 
+(* for backward compatibility compute how much memory N entries
+   would've taken *)
+let max_bytes_of_xenstore_entries entries =
+  (* defaults from oxenstored.conf *)
+  let default_path_max = 1024 (* maximum size in bytes of a xenstore path *) in
+  let default_maxsize = 2048 (* maximum size in bytes of a xenstore value *) in
+  entries
+  * (Xenops_utils.entry_overhead
+    + default_path_max
+    + (Xenops_utils.longest_encoded_char * default_maxsize)
+    )
+
+let vm_guest_agent_xenstore_quota_bytes = ref (max_bytes_of_entries 128)
+
 let options =
   [
     ( "queue"
@@ -175,13 +189,22 @@ let options =
     , "True if IOMMU contexts of PCI devices are needed to be placed in \
        quarantine" )
   ; ( "vm-guest-agent-xenstore-quota"
-    , Arg.Set_int vm_guest_agent_xenstore_quota
-    , (fun () -> string_of_int !vm_guest_agent_xenstore_quota)
-    , "Maximum entries in VM xenstore trees watched by xenopsd" )
+    , Arg.String
+        (fun s ->
+          if s <> "N/A" then
+            vm_guest_agent_xenstore_quota_bytes :=
+              max_bytes_of_xenstore_entries (int_of_string s))
+    , (fun () -> "N/A")
+    , "(Deprecated, use vm-xenstore-data-quota-bytes instead)" )
   ; ( "vm-guest-agent-xenstore-quota-warn-interval"
     , Arg.Set_int vm_guest_agent_xenstore_quota_warn_interval
     , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_warn_interval)
     , "How often to warn that a VM is still over its xenstore quota" )
+  ; ( "vm-guest-agent-xenstore-quota-bytes"
+    , Arg.Set_int vm_guest_agent_xenstore_quota_bytes
+    , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_bytes)
+    , "Maximum size in bytes of VM xenstore-data field, and guest metrics \
+       copied from guest's vm-data/ and data/ xenstore tree" )
   ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
