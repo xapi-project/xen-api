@@ -49,7 +49,8 @@ let execute rpc session existing_messages (host, alert) =
      In the case there are alerts regarding the host but no alert is pending
      they are not destroyed since no alert is automatically dismissed. *)
   match alert with
-  | Some (message, (alert, priority)) ->
+  | Some (message, (alert, priority)) -> (
+    try
       let host_uuid = XenAPI.Host.get_uuid rpc session host in
       let messages_in_host =
         List.filter
@@ -72,6 +73,10 @@ let execute rpc session existing_messages (host, alert) =
             message
         in
         ()
+    with Api_errors.(Server_error (handle_invalid, _)) ->
+      (* this happens when the host reference is invalid *)
+      ()
+  )
   | None ->
       ()
 
