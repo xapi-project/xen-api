@@ -2879,20 +2879,20 @@ let get_updates_handler (req : Http.Request.t) s _ =
       let all_hosts = Db.Host.get_all ~__context in
       let hs =
         match List.assoc "host_refs" query with
-          | v ->
-            List.map (fun ref_str -> Ref.of_string ref_str) (Astring.String.cuts ~sep:";" v)
-            |> (fun l ->
-                let is_invalid ref =
-                  not (Db.is_valid_ref __context ref && List.mem ref all_hosts)
-                in
-                match (List.exists is_invalid l), l with
-                | true, _ | false, [] -> None
-                | false, l -> Some l)
-          | exception Not_found -> Some all_hosts
+        | v ->
+          List.map (fun ref_str -> Ref.of_string ref_str) (Astring.String.cuts ~sep:";" v)
+          |> (fun l ->
+              let is_invalid ref =
+                not (Db.is_valid_ref __context ref && List.mem ref all_hosts)
+              in
+              match (List.exists is_invalid l), l with
+              | true, _ | false, [] -> []
+              | false, l -> l)
+        | exception Not_found -> all_hosts
       in
       match hs with
-      | Some hosts ->
-        let codes_of_404 =
+      | _ :: _ as hosts ->
+        let failures_of_404 =
           [
             Api_errors.no_repository_enabled;
             Api_errors.invalid_repomd_xml;
@@ -2914,14 +2914,15 @@ let get_updates_handler (req : Http.Request.t) s _ =
                    @ [Http.Hdr.content_type ^ ": application/json"]);
                Unixext.really_write_string s json_str |> ignore
              with
-             | Api_errors.(Server_error (code, _)) as e when (List.mem code codes_of_404) ->
+             | Api_errors.(Server_error (failure, _)) as e
+               when (List.mem failure failures_of_404) ->
                  error "404: can't get updates for pool: %s" (ExnHelper.string_of_exn e);
                  Http_svr.headers s (Http.http_404_missing ())
              | e ->
                (* http_500_internal_server_error *)
                error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
                raise Api_errors.(Server_error (get_updates_failed, [])))
-      | None ->
+      | [] ->
         error "400: Invalid 'host_refs' in query";
         Http_svr.headers s (Http.http_400_badrequest ())
     )

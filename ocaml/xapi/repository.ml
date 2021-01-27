@@ -867,34 +867,31 @@ let compare_version_strings s1 s2 =
         [(Re.Str.replace_first r "\\1" s); (Re.Str.replace_first r "\\2" s)]
       else [s]
     in
+    let concat_map f l = List.concat (List.map f l) in
     v
     |> Astring.String.cuts ~sep:"."
-    |> List.map (fun s -> Astring.String.cuts ~sep:"_" s)
-    |> List.flatten
-    |> List.map (fun s -> split_letters_and_numbers s)
-    |> List.flatten
+    |> concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
+    |> concat_map (fun s -> split_letters_and_numbers s)
     |> List.map (fun s -> try Int (int_of_string s) with _ -> Str s)
-  in
-  let compare_str s1 s2 f =
-    let r = String.compare s1 s2 in
-    if r < 0 then Lt
-    else if r > 0 then Gt
-    else f ()
   in
   let rec compare_segments l1 l2 =
     match l1, l2 with
     | c1 :: t1, c2 :: t2 ->
-      let f () = compare_segments t1 t2 in
-      (match c1, c2 with
-       | Int s1, Int s2 ->
-         if s1 > s2 then Gt
-         else if s1 = s2 then f ()
-         else Lt
-       | Int s1, Str s2 -> Gt
-       | Str s1, Int s2 -> Lt
-       | Str s1, Str s2 -> compare_str s1 s2 f)
-    | c1 :: t1, [] -> Gt
-    | [], c2 :: t2 -> Lt
+      begin match c1, c2 with
+        | Int s1, Int s2 ->
+          if s1 > s2 then Gt
+          else if s1 = s2 then compare_segments t1 t2
+          else Lt
+        | Int s1, Str s2 -> Gt
+        | Str s1, Int s2 -> Lt
+        | Str s1, Str s2 ->
+          let r = String.compare s1 s2 in
+          if r < 0 then Lt
+          else if r > 0 then Gt
+          else compare_segments t1 t2
+      end
+    | _ :: _, [] -> Gt
+    | [], _ :: _ -> Lt
     | [], [] -> Eq
   in
   compare_segments (normalize s1) (normalize s2)
