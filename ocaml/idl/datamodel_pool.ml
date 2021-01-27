@@ -10,6 +10,7 @@ open Datamodel_types
             "designate_new_master", "Indicates this pool is in the process of changing master";
             "set_repository", "Indicates this pool is in the process of configuring repository";
             "sync_updates", "Indicates this pool is in the process of syncing updates";
+            "get_updates", "Indicates this pool is in the process of getting updates";
           ])
 
   let enable_ha = call

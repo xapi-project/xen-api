@@ -32,6 +32,7 @@ let all_operations =
   ; `designate_new_master
   ; `set_repository
   ; `sync_updates
+  ; `get_updates
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -57,6 +58,7 @@ let valid_operations ~__context record _ref' =
     ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
     ; (`set_repository, Api_errors.set_repository_in_progress, [])
     ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
+    ; (`get_updates, Api_errors.get_updates_in_progress, [])
     ]
   in
   List.iter

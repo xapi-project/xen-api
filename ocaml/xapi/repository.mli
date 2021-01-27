@@ -53,3 +53,8 @@ val get_host_updates_in_json :
      __context:Context.t
   -> installed:bool
   -> Yojson.Basic.t
+
+val get_pool_updates_in_json :
+     __context:Context.t
+  -> hosts:[`host] API.Ref.t list
+  -> Yojson.Basic.t

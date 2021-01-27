@@ -5785,6 +5785,7 @@ let http_actions = [
   ("get_pool_update_download", (Get, Constants.get_pool_update_download_uri, false, [], _R_READ_ONLY, []));
   ("get_repository", (Get, Constants.get_repository_uri, false, [], _R_READ_ONLY, []));
   ("get_host_updates", (Get, Constants.get_host_updates_uri, false, [], _R_POOL_OP, []));
+  ("get_updates", (Get, Constants.get_updates_uri, true, [], _R_POOL_OP, []));
 ]
 
 (* these public http actions will NOT be checked by RBAC *)
