@@ -709,6 +709,7 @@ let master_only_http_handlers =
   ; ( "post_remote_db_access_v2"
     , Http_svr.BufIO remote_database_access_handler_v2 )
   ; ( "get_repository", Http_svr.FdIO Repository.get_repository_handler)
+  ; ("get_updates", Http_svr.FdIO Xapi_pool.get_updates_handler)
   ]
 
 let common_http_handlers =

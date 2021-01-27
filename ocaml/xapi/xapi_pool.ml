@@ -2860,6 +2860,19 @@ let set_repository ~__context ~self ~value =
 
 let sync_updates ~__context ~self ~force =
   let open Repository in
+  (* Two locks are used here:
+   * 1. with_pool_operation: this is used by following repository operations:
+   *    'set_repository', 'sync_updates', 'get_updates' and 'apply_updates'.
+   *
+   * 2. with_reposync_lock: this is used by 'set_repository' and 'sync_updates' only.
+   *    With this extra lock, 'sync_updates' could download the metadata and packages
+   *    from remote YUM repository without failing operations 'get_updates' and
+   *    'apply_updates'. Meanwhile this lock protects 'sync_updates' and 'set_repository'
+   *    from concurrent conflict between them.
+   *
+   * The 'get_updates' and 'apply_updates' don't modify the local pool repository.
+   * But the 'set_repository' and 'sync_updates' may do the change.
+   *)
   match force with
   | true ->
     Xapi_pool_helpers.with_pool_operation
@@ -2883,3 +2896,59 @@ let sync_updates ~__context ~self ~force =
         ~doc:"pool.sync_updates"
         ~op:`sync_updates
         (fun () -> create_pool_repository ~__context ~self:repository))
+
+let get_updates_handler (req : Http.Request.t) s _ =
+  debug "Pool.get_updates_handler: received request";
+  req.Http.Request.close <- true;
+  let query = req.Http.Request.query in
+  Xapi_http.with_context "Getting available updates" req s (fun __context ->
+      let all_hosts = Db.Host.get_all ~__context in
+      let hs =
+        match List.assoc "host_refs" query with
+        | v ->
+          List.map (fun ref_str -> Ref.of_string ref_str) (Astring.String.cuts ~sep:";" v)
+          |> (fun l ->
+              let is_invalid ref =
+                not (Db.is_valid_ref __context ref && List.mem ref all_hosts)
+              in
+              match (List.exists is_invalid l), l with
+              | true, _ | false, [] -> []
+              | false, l -> l)
+        | exception Not_found -> all_hosts
+      in
+      match hs with
+      | _ :: _ as hosts ->
+        let failures_of_404 =
+          [
+            Api_errors.no_repository_enabled;
+            Api_errors.invalid_repomd_xml;
+            Api_errors.invalid_updateinfo_xml
+          ]
+        in
+        Xapi_pool_helpers.with_pool_operation
+          ~__context
+          ~self:(Helpers.get_pool ~__context)
+          ~doc:"pool.get_updates"
+          ~op:`get_updates
+          (fun () ->
+             try
+               let json_str = Yojson.Basic.to_string
+                   (Repository.get_pool_updates_in_json ~__context ~hosts)
+               in
+               let size = Int64.of_int (String.length json_str) in
+               Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
+                   @ [Http.Hdr.content_type ^ ": application/json"]);
+               Unixext.really_write_string s json_str |> ignore
+             with
+             | Api_errors.(Server_error (failure, _)) as e
+               when (List.mem failure failures_of_404) ->
+                 error "404: can't get updates for pool: %s" (ExnHelper.string_of_exn e);
+                 Http_svr.headers s (Http.http_404_missing ())
+             | e ->
+               (* http_500_internal_server_error *)
+               error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
+               raise Api_errors.(Server_error (get_updates_failed, [])))
+      | [] ->
+        error "400: Invalid 'host_refs' in query";
+        Http_svr.headers s (Http.http_400_badrequest ())
+    )

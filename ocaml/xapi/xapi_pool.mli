@@ -343,3 +343,9 @@ val sync_updates :
   -> self:API.ref_pool
   -> force:bool
   -> string
+
+val get_updates_handler :
+     Http.Request.t
+  -> Unix.file_descr
+  -> 'a
+  -> unit
