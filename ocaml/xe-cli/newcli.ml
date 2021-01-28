@@ -327,13 +327,14 @@ let with_open_tcp server f =
     let addr =
       match Unix.getaddrinfo host (string_of_int port) [] with
       | [] ->
-        error "No addrinfo found for host: %s, port: %d" host port ;
-        raise Not_found
-      | addrinfo::_ -> addrinfo.Unix.ai_addr
+          error "No addrinfo found for host: %s, port: %d" host port ;
+          raise Not_found
+      | addrinfo :: _ ->
+          addrinfo.Unix.ai_addr
     in
     let open Safe_resources in
-    Unixfd.with_open_connection ~loc:__LOC__ addr
-    @@ fun ufd -> Unixfd.with_channels ufd f
+    Unixfd.with_open_connection ~loc:__LOC__ addr @@ fun ufd ->
+    Unixfd.with_channels ufd f
 
 let with_open_channels f =
   let wrap chs =
