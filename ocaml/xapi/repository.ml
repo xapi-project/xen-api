@@ -1055,15 +1055,16 @@ let set3 = set_of_list [RestartDeviceModel; EvacuateHost]
 let set4 = set_of_list [EvacuateHost; RestartToolstack; EvacuateHost]
 
 let assert_valid_guidances gs =
+  let eq l s = GuidanceStrSet.equal (set_of_list l) s in
   match List.map (fun x -> guidance_of_string x) gs with
   | [RebootHost]
   | [EvacuateHost]
   | [RestartToolstack]
   | [RestartDeviceModel] -> ()
-  | l when GuidanceStrSet.equal (set_of_list l) set1 -> ()
-  | l when GuidanceStrSet.equal (set_of_list l) set2 -> ()
-  | l when GuidanceStrSet.equal (set_of_list l) set3 -> ()
-  | l when GuidanceStrSet.equal (set_of_list l) set4 -> ()
+  | l when eq l set1 -> ()
+  | l when eq l set2 -> ()
+  | l when eq l set3 -> ()
+  | l when eq l set4 -> ()
   | l ->
     let msg =
       Printf.sprintf "Found wrong guidance(s) before applying updates: %s"
