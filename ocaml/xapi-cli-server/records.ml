@@ -14,10 +14,8 @@
 (* String-based interface to the API *)
 
 open Client
-open Db_cache (* eek! *)
 
 module Date = Xapi_stdext_date.Date
-open Xapi_stdext_std.Xstringext
 
 let nullref = Ref.string_of Ref.null
 
@@ -28,34 +26,35 @@ let unknown_time = "<unknown time>"
 let string_of_float f = Printf.sprintf "%.3f" f
 
 (* Splitting an empty string gives a list containing the empty string, which
- * is usually not what we want. *)
+   is usually not what we want. *)
 let get_words separator = function
   | "" ->
       []
   | str ->
-      String.split separator str
+      String.split_on_char separator str
 
 type field = {
     name: string
   ; get: unit -> string
   ; set: (string -> unit) option
   ; get_set: (unit -> string list) option
-  ; (* gets the string list that is a representation of a set *)
-    add_to_set: (string -> unit) option
+        (* gets the string list that is a representation of a set *)
+  ; add_to_set: (string -> unit) option
   ; remove_from_set: (string -> unit) option
   ; get_map: (unit -> (string * string) list) option
   ; add_to_map: (string -> string -> unit) option
   ; remove_from_map: (string -> unit) option
   ; set_in_map: (string -> string -> unit) option
-  ; (* Change the value of an existing map field, without using add/remove *)
-    set_map: ((string * string) list -> unit) option
-  ; clear_map: (unit -> unit) option (* clear a map *)
-  ; (* Set the (key, value) pairs to an existing map field *)
-    expensive: bool
-  ; (* Simply means an extra API call is required to get it *)
-    hidden: bool
-  ; (* Meaning we don't show it unless it's *explicitly* asked for (i.e. hidden from *-list and *-param-list *)
-    deprecated: bool
+        (* Change the value of an existing map field, without using add/remove *)
+  ; set_map: ((string * string) list -> unit) option
+  ; clear_map: (unit -> unit) option
+        (* clear a map *)
+        (* Set the (key, value) pairs to an existing map field *)
+  ; expensive: bool (* Simply means an extra API call is required to get it *)
+  ; hidden: bool
+        (* Meaning we don't show it unless it's *explicitly* asked for (i.e.
+           hidden from *-list and *-param-list *)
+  ; deprecated: bool
   ; case_insensitive: bool (* Use case-insensitive matching when selecting *)
 }
 
@@ -841,8 +840,7 @@ let vif_record rpc session_id vif =
           ~remove_from_set:(fun value ->
             Client.VIF.remove_ipv4_allowed rpc session_id vif value)
           ~set:(fun value ->
-            Client.VIF.set_ipv4_allowed rpc session_id vif
-              (String.split ',' value))
+            Client.VIF.set_ipv4_allowed rpc session_id vif (get_words ',' value))
           ()
       ; make_field ~name:"ipv6-allowed"
           ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv6_allowed)
@@ -852,8 +850,7 @@ let vif_record rpc session_id vif =
           ~remove_from_set:(fun value ->
             Client.VIF.remove_ipv6_allowed rpc session_id vif value)
           ~set:(fun value ->
-            Client.VIF.set_ipv6_allowed rpc session_id vif
-              (String.split ',' value))
+            Client.VIF.set_ipv6_allowed rpc session_id vif (get_words ',' value))
           ()
       ; make_field ~name:"ipv4-configuration-mode"
           ~get:(fun () ->
@@ -1388,44 +1385,8 @@ let role_record rpc session_id role =
       ; make_field ~name:"description"
           ~get:(fun () -> (x ()).API.role_name_description)
           ()
-        (*make_field ~name:"subroles"
-           ~get:(fun () -> String.concat "; "
-             (try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref)) with _ -> [])
-            )
-           ~expensive:true
-           ~get_set:(fun () -> try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref))
-             with _ -> [])
-          ();*)
-        (*make_field ~name:"is_complete"             ~get:(fun () -> string_of_bool (x ()).API.role_is_complete) ();*)
-        (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)
       ]
   }
-
-(*
-let alert_record rpc session_id pool =
-  let _ref = ref pool in
-  let record = ref None in
-  let x () = match !record with
-    | Some x -> x
-    | None ->
-	let x = Client.Alert.get_record rpc session_id !_ref in
-	record := Some x;
-	x
-  in
-  { setref=(fun r -> _ref := r; record := None );
-    setrefrec=(fun (a,b) -> _ref := a; record := Some b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-[
-  make_field ~name:"uuid"    ~get:(fun () -> (x ()).API.alert_uuid) ();
-  make_field ~name:"message" ~get:(fun () -> (x ()).API.alert_message) ();
-  make_field ~name:"level"   ~get:(fun () -> Record_util.alert_level_to_string (x ()).API.alert_level) ();
-  make_field ~name:"timestamp" ~get:(fun () -> Date.to_string (x ()).API.alert_timestamp) ();
-  make_field ~name:"system"  ~get:(fun () -> string_of_bool (x ()).API.alert_system) ();
-  make_field ~name:"task" ~get:(fun () -> get_uuid_from_ref (x ()).API.alert_task) ();
-]}
-*)
 
 let console_record rpc session_id console =
   let _ref = ref console in
