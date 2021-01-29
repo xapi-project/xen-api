@@ -14,7 +14,6 @@
 (* String-based interface to the API *)
 
 open Client
-
 module Date = Xapi_stdext_date.Date
 
 let nullref = Ref.string_of Ref.null
@@ -4307,8 +4306,18 @@ let certificate_record rpc session_id certificate =
   ; fields=
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.certificate_uuid) ()
+      ; make_field ~name:"type"
+          ~get:(fun () ->
+            (x ()).API.certificate_type
+            |> Record_util.certificate_type_to_string)
+          ()
       ; make_field ~name:"host"
-          ~get:(fun () -> (x ()).API.certificate_host |> get_uuid_from_ref)
+          ~get:(fun () ->
+            (x ()).API.certificate_host |> get_uuid_from_ref_or_null)
+          ()
+      ; make_field ~name:"pool"
+          ~get:(fun () ->
+            (x ()).API.certificate_pool |> get_uuid_from_ref_or_null)
           ()
       ; make_field ~name:"not-before"
           ~get:(fun () -> (x ()).API.certificate_not_before |> Date.to_string)
@@ -4318,6 +4327,14 @@ let certificate_record rpc session_id certificate =
           ()
       ; make_field ~name:"fingerprint"
           ~get:(fun () -> (x ()).API.certificate_fingerprint)
+          ()
+      ; make_field ~name:"validates"
+          ~get:(fun () ->
+            (x ()).API.certificate_validates |> get_uuids_from_refs)
+          ()
+      ; make_field ~name:"validated_by"
+          ~get:(fun () ->
+            (x ()).API.certificate_validated_by |> get_uuids_from_refs)
           ()
       ]
   }
