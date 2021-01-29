@@ -75,13 +75,14 @@ module Lwt_result = struct
   let ( >>= ) m f = m >>= fun x -> f (Stdlib.Result.get_ok x)
 end
 
-let make_server config =
+let make_server config trace_config =
   let open Config in
   info "Started server on %s" config.path ;
   let (_ : 'a) = logging_thread () in
   let _dump_file = "queues.sexp" in
   let _redo_log = "redo-log" in
   let redo_log_size = 1024 * 1024 in
+  let trace = Traceext.init trace_config in
   let with_file path flags mode f =
     Lwt_unix.openfile path flags mode >>= fun fd ->
     Lwt.catch
@@ -249,7 +250,7 @@ let make_server config =
         )
         >>= fun () ->
         Lwt_mutex.with_lock Switch_main_helper.m (fun () ->
-            process_request conn_id_s !queues session request
+            process_request conn_id_s !queues session request trace
             >>= fun (op_opt, response) ->
             let op = match op_opt with None -> [] | Some x -> [x] in
             perform op >>= fun () -> return response)
@@ -307,7 +308,7 @@ exception Not_a_directory of string
 
 exception Does_not_exist of string
 
-let main (Config.{pidfile; _} as config) =
+let main (Config.{pidfile; _} as config) trace_config =
   info "Starting with configuration:" ;
   info "%s" (Sexplib.Sexp.to_string (Config.sexp_of_t config)) ;
   try
@@ -333,7 +334,7 @@ let main (Config.{pidfile; _} as config) =
               Lwt_io.write oc (Printf.sprintf "%d" (Unix.getpid ()))
               >>= fun () -> Lwt_io.flush oc)
     in
-    Lwt_main.run (make_server config) ;
+    Lwt_main.run (make_server config trace_config) ;
     `Ok ()
   with
   | Not_a_directory dir ->
@@ -354,6 +355,7 @@ let cmd =
          using simple HTTP requests."
     ]
   in
-  (Term.(ret (pure main $ Config.term)), Term.info "main" ~doc ~man)
+  ( Term.(ret (pure main $ Config.term $ Traceext.term))
+  , Term.info "main" ~doc ~man )
 
 let _ = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0

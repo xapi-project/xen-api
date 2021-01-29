@@ -16,23 +16,35 @@
 
 open Lwt
 
-let size = 128
+type t = (int64 * Message_switch_core.Protocol.Event.t) option array
 
-let buffer : (int64 * Message_switch_core.Protocol.Event.t) option array =
-  Array.make size None
+type config = {trace_entries: int}
+
+let term =
+  let open Cmdliner in
+  let config trace_entries = {trace_entries} in
+  let trace_entries =
+    let doc = "Maximum number of trace entries buffer (for message-cli tail)" in
+    Arg.(value & opt int 128 & info ["trace-entries"] ~doc)
+  in
+  Term.(pure config $ trace_entries)
+
+let init config = Array.make config.trace_entries None
 
 let c = Lwt_condition.create ()
 
 let next_id = ref 0L
 
-let add event =
+let add buffer event =
+  let size = Array.length buffer in
   let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
   buffer.(next_slot) <- Some (!next_id, event) ;
   next_id := Int64.succ !next_id ;
   Lwt_condition.broadcast c ()
 
 (* fold [f] over buffered items in chronological order *)
-let fold f acc =
+let fold buffer f acc =
+  let size = Array.length buffer in
   let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
   let rec range start finish acc =
     if start > finish then
@@ -42,8 +54,8 @@ let fold f acc =
   in
   range 0 (next_slot - 1) (range next_slot (size - 1) acc)
 
-let get from timeout : (int64 * Message_switch_core.Protocol.Event.t) list Lwt.t
-    =
+let get buffer from timeout :
+    (int64 * Message_switch_core.Protocol.Event.t) list Lwt.t =
   let sleep = Lwt_unix.sleep timeout in
   let rec wait_for_data () =
     if !next_id <= from then
@@ -56,7 +68,7 @@ let get from timeout : (int64 * Message_switch_core.Protocol.Event.t) list Lwt.t
   (* start from next_slot, looking for non-None entries which
      	   are > from *)
   let reversed_results =
-    fold
+    fold buffer
       (fun x acc ->
         match x with
         | None ->
