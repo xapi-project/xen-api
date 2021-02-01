@@ -1084,6 +1084,8 @@ let apply_immediate_guidances ~__context ~host guidances =
         | [EvacuateHost] -> ()
         | [RestartDeviceModel] ->
           Client.Host.restart_device_models ~rpc ~session_id ~self:host
+        | [RestartToolstack] ->
+          Client.Host.restart_agent ~rpc ~session_id ~host
         | l when eq l set1 ->
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l when eq l set2 ->
