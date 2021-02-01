@@ -965,6 +965,7 @@ let eval_guidances ~updates_info ~updates ~kind =
   ) GuidanceStrSet.empty updates
   |> resort_guidances
   |> GuidanceStrSet.elements
+  |> List.map guidance_of_string
 
 let get_pool_updates_in_json ~__context ~hosts =
   let ref = get_enabled_repository ~__context in
@@ -997,10 +998,10 @@ let get_pool_updates_in_json ~__context ~hosts =
                 | None -> acc_uids )
             ) ([], UpdateIdSet.empty) updates
           in
-          let rec_guidances = List.map (fun g -> `String g)
+          let rec_guidances = List.map (fun g -> `String (string_of_guidance g))
               (eval_guidances ~updates_info ~updates ~kind:Recommended)
           in
-          let abs_guidances = List.map (fun g -> `String g)
+          let abs_guidances = List.map (fun g -> `String (string_of_guidance g))
               (eval_guidances ~updates_info ~updates ~kind:Absolute)
           in
           let json_of_host = `Assoc [
@@ -1046,17 +1047,17 @@ let set_of_list l =
   |> List.map string_of_guidance
   |> GuidanceStrSet.of_list
 
-let set1 = set_of_list [EvacuateHost; RestartToolstack]
+let set1 = [EvacuateHost; RestartToolstack]
 
-let set2 = set_of_list [RestartDeviceModel; RestartToolstack]
+let set2 = [RestartDeviceModel; RestartToolstack]
 
-let set3 = set_of_list [RestartDeviceModel; EvacuateHost]
+let set3 = [RestartDeviceModel; EvacuateHost]
 
-let set4 = set_of_list [EvacuateHost; RestartToolstack; EvacuateHost]
+let set4 = [EvacuateHost; RestartToolstack; RestartDeviceModel]
 
-let assert_valid_guidances gs =
-  let eq l s = GuidanceStrSet.equal (set_of_list l) s in
-  match List.map (fun x -> guidance_of_string x) gs with
+let eq l s = GuidanceStrSet.equal (set_of_list l) (set_of_list s)
+
+let assert_valid_guidances = function
   | [RebootHost]
   | [EvacuateHost]
   | [RestartToolstack]
@@ -1068,7 +1069,7 @@ let assert_valid_guidances gs =
   | l ->
     let msg =
       Printf.sprintf "Found wrong guidance(s) before applying updates: %s"
-        (String.concat ";" (List.map (fun x -> string_of_guidance x) l))
+        (String.concat ";" (List.map string_of_guidance l))
     in
     raise Api_errors.(Server_error (internal_error, [msg]))
 
@@ -1078,28 +1079,29 @@ let apply_immediate_guidances ~__context ~host guidances =
     let open Client in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         match guidances with
-        | ["RebootHost"] ->
+        | [RebootHost] ->
           Client.Host.reboot ~rpc ~session_id ~host
-        | ["EvacuateHost"] -> ()
-        | ["RestartDeviceModel"] ->
+        | [EvacuateHost] -> ()
+        | [RestartDeviceModel] ->
           Client.Host.restart_device_models ~rpc ~session_id ~self:host
-        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set1 ->
+        | l when eq l set1 ->
           Client.Host.restart_agent ~rpc ~session_id ~host
-        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set2 ->
+        | l when eq l set2 ->
           Client.Host.restart_device_models ~rpc ~session_id ~self:host;
           Client.Host.restart_agent ~rpc ~session_id ~host
-        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set3 ->
+        | l when eq l set3 ->
           (* Evacuating host restarts device models *)
           if num_of_host = 1 then Client.Host.restart_device_models ~rpc ~session_id ~self:host;
           ()
-        | l when GuidanceStrSet.equal (GuidanceStrSet.of_list l) set4 ->
+        | l when eq l set4 ->
           (* Evacuating host restarts device models *)
           if num_of_host = 1 then Client.Host.restart_device_models ~rpc ~session_id ~self:host;
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l ->
           let msg =
             Printf.sprintf
-              "Found wrong guidance(s) after applying updates: %s" (String.concat ";" l)
+              "Found wrong guidance(s) after applying updates: %s"
+              (String.concat ";" (List.map string_of_guidance l))
           in
           raise Api_errors.(Server_error (internal_error, [msg])))
   with e ->
@@ -1121,28 +1123,28 @@ let with_host_in_updating ~__context ~host f =
 let apply_updates ~__context ~self ~host ~hash =
   (* This function runs on master host *)
   try
-    with_host_in_updating ~__context ~host (fun () ->
-        with_pool_repository (fun () ->
-            let updates =
-              http_get_host_updates_in_json ~__context ~host ~installed:true
-              |> Yojson.Basic.Util.member "updates"
-              |> Yojson.Basic.Util.to_list
-              |> List.map update_of_json
-            in
-            match updates with
-            | [] ->
-              let ref = Ref.string_of host in
-              info "Host ref='%s' is already up to date." ref
-            | l ->
-              let updates_info = parse_updateinfo ~hash in
-              let immediate_guidances =
-                eval_guidances ~updates_info ~updates:l ~kind:Recommended
-              in
-              assert_valid_guidances immediate_guidances;
-              Helpers.call_api_functions ~__context (fun rpc session_id ->
-                  Client.Client.Repository.apply ~rpc ~session_id ~host);
-              (* TODO: absolute guidances *)
-              apply_immediate_guidances ~__context ~host immediate_guidances))
+    with_host_in_updating ~__context ~host @@ fun () ->
+    with_pool_repository @@ fun () ->
+    let updates =
+      http_get_host_updates_in_json ~__context ~host ~installed:true
+      |> Yojson.Basic.Util.member "updates"
+      |> Yojson.Basic.Util.to_list
+      |> List.map update_of_json
+    in
+    match updates with
+    | [] ->
+      let ref = Ref.string_of host in
+      info "Host ref='%s' is already up to date." ref
+    | l ->
+      let updates_info = parse_updateinfo ~hash in
+      let immediate_guidances =
+        eval_guidances ~updates_info ~updates:l ~kind:Recommended
+      in
+      assert_valid_guidances immediate_guidances;
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Client.Repository.apply ~rpc ~session_id ~host);
+      (* TODO: absolute guidances *)
+      apply_immediate_guidances ~__context ~host immediate_guidances
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
     raise e
