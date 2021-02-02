@@ -1313,7 +1313,8 @@ let rmtree path =
     | _ ->
         Unix.unlink path
   in
-  try rm path
+  try
+    if Sys.file_exists path then rm path
   with exn ->
     let exn' = Printexc.to_string exn in
     let msg = Printf.sprintf "failed to remove %s: %s" path exn' in
