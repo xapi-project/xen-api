@@ -40,26 +40,40 @@ let generate_alert epoch (host, expiry) =
     in
     (host, Some (message, alert))
 
-let execute rpc session previous_messages (host, alert) =
-  let host_uuid = XenAPI.Host.get_uuid rpc session host in
-  let obsolete_messages =
-    previous_messages
-    |> List.filter_map (fun (ref, record) ->
-           if record.API.message_obj_uuid = host_uuid then
-             Some ref
-           else
-             None)
-  in
-  List.iter
-    (fun self -> XenAPI.Message.destroy rpc session self)
-    obsolete_messages ;
+let execute rpc session existing_messages (host, alert) =
+  (* CA-342551: messages need to be deleted if the pending alert regard the
+     same host and has newer, updated information.
+     If the pending alert has the same metadata as the existing host message
+     it must not be emmited and the existing message must be retained, this
+     prevents changing the message UUID.
+     In the case there are alerts regarding the host but no alert is pending
+     they are not destroyed since no alert is automatically dismissed. *)
   match alert with
+  | Some (message, (alert, priority)) ->
+      let host_uuid = XenAPI.Host.get_uuid rpc session host in
+      let messages_in_host =
+        List.filter
+          (fun (_, record) -> record.API.message_obj_uuid = host_uuid)
+          existing_messages
+      in
+      let is_outdated (ref, record) =
+        record.API.message_body <> message
+        || record.API.message_name <> alert
+        || record.API.message_priority <> priority
+      in
+      let outdated, current = List.partition is_outdated messages_in_host in
+
+      List.iter
+        (fun (self, _) -> XenAPI.Message.destroy rpc session self)
+        outdated ;
+      if current = [] then
+        let (_ : [> `message] Client.Id.t API.Ref.t) =
+          XenAPI.Message.create rpc session alert priority `Host host_uuid
+            message
+        in
+        ()
   | None ->
       ()
-  | Some (message, (alert, priority)) ->
-      ignore
-        (XenAPI.Message.create rpc session alert priority `Host host_uuid
-           message)
 
 let alert rpc session =
   let now = Unix.time () in
