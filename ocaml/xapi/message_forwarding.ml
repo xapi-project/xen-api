@@ -3445,15 +3445,17 @@ functor
           ~self:(Helpers.get_pool ~__context)
           ~doc:"Host.apply_updates"
           ~op:`apply_updates
-          (fun () -> Local.Host.apply_updates ~__context ~self ~hash)
-
-      let restart_device_models ~__context ~self =
-        let uuid = host_uuid ~__context self in
-        info "Host.restart_device_models : host = '%s'" uuid;
-        let local_fn = Local.Host.restart_device_models ~self in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.restart_device_models rpc session_id self)
-
+          (fun () ->
+             let reboot_host =
+               with_host_operation ~__context ~self
+                 ~doc:"Host.apply_updates" ~op:`apply_updates (fun () ->
+                     Local.Host.apply_updates ~__context ~self ~hash)
+             in
+             if reboot_host then (
+               let local_fn = Local.Host.reboot ~host:self in
+               do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+                   Client.Host.reboot rpc session_id self));
+             reboot_host)
     end
 
     module Host_crashdump = struct

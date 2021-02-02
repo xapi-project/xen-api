@@ -517,9 +517,4 @@ val apply_updates :
      __context:Context.t
   -> self:API.ref_host
   -> hash:string
-  -> unit
-
-val restart_device_models :
-     __context:Context.t
-  -> self:API.ref_host
-  -> unit
+  -> bool

@@ -2459,15 +2459,4 @@ let apply_updates ~__context ~self ~hash =
   let ref = Repository.get_enabled_repository ~__context in
   if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:ref then
      raise Api_errors.(Server_error (updateinfo_hash_mismatch, []));
-  Repository.apply_updates ~__context ~self:ref ~host:self ~hash
-
-let restart_device_models ~__context ~self =
-  (* Restart device models of all running HVM VMs on this (self) host by
-   * doing local migrations.
-   * Assume all VMs (except dom0) are HVM *)
-  Db.Host.get_resident_VMs ~__context ~self
-  |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
-  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.iter (fun (ref, _) ->
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.pool_migrate rpc session_id ref self [("live", "true")]))
+  Repository.apply_updates ~__context ~host:self ~hash

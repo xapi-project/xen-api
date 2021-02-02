@@ -665,17 +665,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
            ( Api_errors.license_restriction
            , [Features.name_of_feature Features.Pool_size] ))
   in
-  let assert_pool_master_not_in_updating () =
-    let master = get_master ~rpc ~session_id in
-    if List.mem_assoc Xapi_globs.host_in_updating
-        (Client.Host.get_other_config ~rpc ~session_id ~self:master) then
+  let assert_no_hosts_in_updating () =
+    let pool = List.hd (Client.Pool.get_all rpc session_id) in
+    if List.exists (fun (_, op) -> op = `apply_updates)
+        (Client.Pool.get_current_operations ~rpc ~session_id ~self:pool) then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
   in
 
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
-  assert_pool_master_not_in_updating () ;
   ha_is_not_enable_on_me () ;
   clustering_is_not_enabled_on_me () ;
   ha_is_not_enable_on_the_distant_pool () ;
@@ -699,7 +698,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_db_schema_matches () ;
   assert_homogeneous_updates () ;
   assert_homogeneous_primary_address_type () ;
-  assert_compatible_network_purpose ()
+  assert_compatible_network_purpose () ;
+  assert_no_hosts_in_updating ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
     API.ref_host =
@@ -1397,9 +1397,9 @@ let eject ~__context ~host =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
-  if List.mem_assoc Xapi_globs.host_in_updating
-      (Db.Host.get_other_config ~__context ~self:host) then
-    raise Api_errors.(Server_error (not_supported_during_upgrade, []));
+  if List.exists (fun (_, op) -> op = `apply_updates)
+      (Db.Pool.get_current_operations ~__context ~self:pool) then
+    raise Api_errors.(Server_error (not_supported_during_upgrade, [])) ;
   if Pool_role.is_master () then
     raise Cannot_eject_master
   else (* Fail the operation if any VMs are running here (except dom0) *)

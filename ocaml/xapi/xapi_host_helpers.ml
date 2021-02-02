@@ -35,6 +35,7 @@ let all_operations =
   ; `vm_resume
   ; `vm_migrate
   ; `power_on
+  ; `apply_updates
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -70,15 +71,19 @@ let valid_operations ~__context record _ref' =
           ["host"; _ref; host_operation_to_string (List.hd current_ops)]
           [op])
     (List.filter (fun x -> x <> `power_on) all_operations) ;
-  (* reboot and shutdown cannot run concurrently *)
+  (* reboot, shutdown and apply_updates cannot run concurrently *)
   if List.mem `reboot current_ops then
     set_errors Api_errors.other_operation_in_progress
       ["host"; _ref; host_operation_to_string `reboot]
-      [`shutdown] ;
+      [`shutdown; `apply_updates] ;
   if List.mem `shutdown current_ops then
     set_errors Api_errors.other_operation_in_progress
       ["host"; _ref; host_operation_to_string `shutdown]
-      [`reboot] ;
+      [`reboot; `apply_updates] ;
+  if List.mem `apply_updates current_ops then
+    set_errors Api_errors.other_operation_in_progress
+      ["host"; _ref; host_operation_to_string `apply_updates]
+      [`reboot; `shutdown] ;
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
      template we can relax this. *)
@@ -88,7 +93,7 @@ let valid_operations ~__context record _ref' =
       [`provision] ;
   (* The host must be disabled before reboots or shutdowns are permitted *)
   if record.Db_actions.host_enabled then
-    set_errors Api_errors.host_not_disabled [] [`reboot; `shutdown] ;
+    set_errors Api_errors.host_not_disabled [] [`reboot; `shutdown; `apply_updates] ;
   (* The host must be (thought to be down) before power_on is possible *)
   ( try
       if
@@ -136,7 +141,7 @@ let valid_operations ~__context record _ref' =
     then
       set_errors Api_errors.clustered_sr_degraded
         [List.hd plugged_clustered_srs |> Ref.string_of]
-        [`shutdown; `reboot] ;
+        [`shutdown; `reboot; `apply_updates] ;
     let recovering_tasks =
       List.map
         (fun sr -> Helpers.find_health_check_task ~__context ~sr)
@@ -149,7 +154,7 @@ let valid_operations ~__context record _ref' =
           Db.Task.get_name_description ~__context
             ~self:(List.hd recovering_tasks)
         ]
-        [`shutdown; `reboot]
+        [`shutdown; `reboot; `apply_updates]
   ) ;
   (* All other operations may be parallelised *)
   table

@@ -7180,11 +7180,12 @@ let update_resync_host printer rpc session_id params =
 
 let host_apply_updates printer rpc session_id params =
   let hash = Listext.assoc "hash" params in
-  let host = match (select_hosts rpc session_id params ["hash"]) with
-    | [host] -> host.getref ()
-    | _ -> failwith "Single host is required"
-  in
-  Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.apply_updates rpc session_id host hash)
+       params ["hash"])
 
 module SDN_controller = struct
   let introduce printer rpc session_id params =

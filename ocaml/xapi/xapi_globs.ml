@@ -880,8 +880,6 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
-let host_in_updating = "host_in_updating"
-
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let xapi_globs_spec =

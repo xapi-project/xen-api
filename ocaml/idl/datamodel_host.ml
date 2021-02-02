@@ -1015,6 +1015,7 @@ let host_query_ha = call ~flags:[`Session]
             "vm_start", "This host is starting a VM";
             "vm_resume", "This host is resuming a VM";
             "vm_migrate", "This host is the migration target of a VM";
+            "apply_updates", "Indicates this host is being updated";
           ])
 
   let enable_external_auth = call ~flags:[`Session]
@@ -1402,19 +1403,7 @@ let host_query_ha = call ~flags:[`Session]
       String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
     ]
     ~allowed_roles:_R_POOL_ADMIN
-    ()
-
-  let restart_device_models = call
-    ~name:"restart_device_models"
-    ~in_oss_since:None
-    ~in_product_since:rel_next
-    ~doc:"Restart device models of all HVM VMs running on this host"
-    ~pool_internal:true
-    ~hide_from_docs:true
-    ~params:[
-      Ref _host, "self", "The host where device models of running VMs will be restarted";
-    ]
-    ~allowed_roles:_R_POOL_ADMIN
+    ~result:(Bool, "True if the host rebooted")
     ()
 
   (** Hosts *)
@@ -1541,7 +1530,6 @@ let host_query_ha = call ~flags:[`Session]
         set_sched_gran;
         get_sched_gran;
         apply_updates;
-        restart_device_models;
       ]
       ~contents:
         ([ uid _host;

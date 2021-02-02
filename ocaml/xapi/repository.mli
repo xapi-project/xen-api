@@ -66,7 +66,6 @@ val apply :
 
 val apply_updates :
      __context:Context.t
-  -> self:[`Repository] API.Ref.t
   -> host:[`host] API.Ref.t
   -> hash:string
-  -> unit
+  -> bool
