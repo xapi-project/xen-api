@@ -1087,9 +1087,9 @@ let restart_device_models ~__context host =
   Db.Host.get_resident_VMs ~__context ~self:host
   |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
   |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.filter_map (fun (ref, _) ->
-      match Db.VM.get_power_state ~__context ~self:ref,
-            Helpers.has_qemu_currently ~__context ~self:ref  with
+  |> List.filter_map (fun (ref, record) ->
+      match record.API.vM_power_state,
+            Helpers.has_qemu_currently ~__context ~self:ref with
       | `Running, true ->
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Client.VM.pool_migrate rpc session_id ref host [("live", "true")]);
@@ -1106,15 +1106,15 @@ let restart_device_models ~__context host =
     let msg = "Can't restart device models for some VMs" in
     raise Api_errors.(Server_error (internal_error, [msg]))
 
-let apply_immediate_guidances ~__context ~host guidances =
+let apply_immediate_guidances ~__context ~host ~guidances =
+  (* This function runs on master host *)
   try
-    let num_of_host = List.length (Db.Host.get_all ~__context) in
+    let num_of_hosts = List.length (Db.Host.get_all ~__context) in
     let open Client in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         match guidances with
         | [RebootHost] ->
-          (* will delay to out of apply_updates *)
-          ()
+          Client.Host.reboot ~rpc ~session_id ~host
         | [EvacuateHost] ->
           (* EvacuatHost should be done before applying updates by XAPI users.
            * Here only the guidances to be applied after applying updates are handled.
@@ -1134,20 +1134,18 @@ let apply_immediate_guidances ~__context ~host guidances =
         | l when eq l set3 ->
           (* RestartDeviceModel and EvacuateHost *)
           (* Evacuating host restarted device models already *)
-          if num_of_host = 1 then restart_device_models ~__context host;
+          if num_of_hosts = 1 then restart_device_models ~__context host;
           ()
         | l when eq l set4 ->
           (* EvacuateHost, RestartToolstack and RestartDeviceModel *)
           (* Evacuating host restarted device models already *)
-          if num_of_host = 1 then restart_device_models ~__context host;
+          if num_of_hosts = 1 then restart_device_models ~__context host;
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l ->
-          let msg =
-            Printf.sprintf
-              "Found wrong guidance(s) after applying updates: %s"
-              (String.concat ";" (List.map string_of_guidance l))
-          in
-          raise Api_errors.(Server_error (internal_error, [msg])))
+          let ref = Ref.string_of host in
+          error "Found wrong guidance(s) after applying updates on host ref='%s': %s"
+            ref (String.concat ";" (List.map string_of_guidance l));
+          raise Api_errors.(Server_error (apply_guidance_failed, [ref])))
   with e ->
     let ref = Ref.string_of host in
     error "applying immediate guidances on host ref='%s' failed: %s"
@@ -1168,7 +1166,7 @@ let apply_updates ~__context ~host ~hash =
         | [] ->
           let ref = Ref.string_of host in
           info "Host ref='%s' is already up to date." ref;
-          false
+          []
         | l ->
           let updates_info = parse_updateinfo ~hash in
           let immediate_guidances =
@@ -1178,8 +1176,7 @@ let apply_updates ~__context ~host ~hash =
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               Client.Client.Repository.apply ~rpc ~session_id ~host);
           (* TODO: absolute guidances *)
-          apply_immediate_guidances ~__context ~host immediate_guidances;
-          List.mem RebootHost immediate_guidances)
+          immediate_guidances)
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
     raise e

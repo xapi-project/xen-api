@@ -2453,10 +2453,22 @@ let get_host_updates_handler (req : Http.Request.t) s _ =
 
 let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
-  let pool = Helpers.get_pool ~__context in
-  if Db.Pool.get_ha_enabled ~__context ~self:pool then
-    raise Api_errors.(Server_error (ha_is_enabled, []));
-  let ref = Repository.get_enabled_repository ~__context in
-  if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:ref then
-     raise Api_errors.(Server_error (updateinfo_hash_mismatch, []));
-  Repository.apply_updates ~__context ~host:self ~hash
+  let guidances =
+    Xapi_pool_helpers.with_pool_operation
+      ~__context
+      ~self:(Helpers.get_pool ~__context)
+      ~doc:"Host.apply_updates"
+      ~op:`apply_updates @@ fun () ->
+    let pool = Helpers.get_pool ~__context in
+    if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      raise Api_errors.(Server_error (ha_is_enabled, []));
+    let ref = Repository.get_enabled_repository ~__context in
+    if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:ref then
+      raise Api_errors.(Server_error (updateinfo_hash_mismatch, []));
+    Xapi_host_helpers.with_host_operation
+      ~__context ~self
+      ~doc:"Host.apply_updates"
+      ~op:`apply_updates @@ fun () ->
+    Repository.apply_updates ~__context ~host:self ~hash
+  in
+  Repository.apply_immediate_guidances ~__context ~host:self ~guidances

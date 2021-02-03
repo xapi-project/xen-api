@@ -25,6 +25,8 @@ open Record_util (* for host_operation_to_string *)
 
 open Xapi_stdext_threads.Threadext
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 let all_operations =
   [
     `provision
@@ -200,6 +202,43 @@ let update_allowed_operations ~__context ~self : unit =
 let update_allowed_operations_all_hosts ~__context : unit =
   let hosts = Db.Host.get_all ~__context in
   List.iter (fun self -> update_allowed_operations ~__context ~self) hosts
+
+(** Add to the Host's current operations, call a function and then remove from the
+  current operations. Ensure the allowed_operations are kept up to date. *)
+let with_host_operation ~__context ~self ~doc ~op f =
+  let task_id = Ref.string_of (Context.get_task_id __context) in
+  (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
+  let operation_allowed ~op =
+    false
+    || (not (Helpers.rolling_upgrade_in_progress ~__context))
+    || List.mem op Xapi_globs.host_operations_miami
+  in
+  Helpers.retry_with_global_lock ~__context ~doc (fun () ->
+      assert_operation_valid ~__context ~self ~op ;
+      if operation_allowed ~op then
+        Db.Host.add_to_current_operations ~__context ~self ~key:task_id
+          ~value:op ;
+      update_allowed_operations ~__context ~self) ;
+  (* Then do the action with the lock released *)
+  finally f (* Make sure to clean up at the end *) (fun () ->
+      try
+        if operation_allowed ~op then (
+          Db.Host.remove_from_current_operations ~__context ~self
+            ~key:task_id ;
+          Helpers.Early_wakeup.broadcast
+            (Datamodel_common._host, Ref.string_of self)
+        ) ;
+        let clustered_srs =
+          Db.SR.get_refs_where ~__context
+            ~expr:(Eq (Field "clustered", Literal "true"))
+        in
+        if clustered_srs <> [] then
+          (* Host powerstate operations on one host may affect all other hosts if
+           * a clustered SR is in use, so update all hosts' allowed operations. *)
+          update_allowed_operations_all_hosts ~__context
+        else
+          update_allowed_operations ~__context ~self
+      with _ -> ())
 
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.Host.get_current_operations ~__context ~self in

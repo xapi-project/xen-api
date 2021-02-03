@@ -1403,7 +1403,6 @@ let host_query_ha = call ~flags:[`Session]
       String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
     ]
     ~allowed_roles:_R_POOL_ADMIN
-    ~result:(Bool, "True if the host rebooted")
     ()
 
   (** Hosts *)
