@@ -976,7 +976,14 @@ end = struct
     try
       ignore
         (call_script dhclient
-           ["-r"; "-pf"; pid_file ~ipv6 interface; interface]) ;
+           [
+             "-r"
+           ; "-pf"
+           ; pid_file ~ipv6 interface
+           ; "-lf"
+           ; lease_file ~ipv6 interface
+           ; interface
+           ]) ;
       Unix.unlink (pid_file ~ipv6 interface)
     with _ -> ()
 
