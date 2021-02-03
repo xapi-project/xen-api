@@ -43,6 +43,17 @@ val update_allowed_operations_all_hosts : __context:Context.t -> unit
 (** [update_allowd_operations_all_hosts ~__context] runs
     [update_alloed_operations] for each host *)
 
+val with_host_operation :
+     __context:Context.t
+  -> self:API.ref_host
+  -> doc:string
+  -> op:API.host_allowed_operations
+  -> (unit -> 'a)
+  -> 'a
+(** [with_host_operation ~__context ~self ~doc ~op f] adds op into
+    current_operations of the host, calls the function f and then removes
+    op from current_operations of the host. *)
+
 val cancel_tasks :
      __context:Context.t
   -> self:API.ref_host

@@ -2617,43 +2617,6 @@ functor
     end
 
     module Host = struct
-      (** Add to the Host's current operations, call a function and then remove from the
-        current operations. Ensure the allowed_operations are kept up to date. *)
-      let with_host_operation ~__context ~self ~doc ~op f =
-        let task_id = Ref.string_of (Context.get_task_id __context) in
-        (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
-        let operation_allowed ~op =
-          false
-          || (not (Helpers.rolling_upgrade_in_progress ~__context))
-          || List.mem op Xapi_globs.host_operations_miami
-        in
-        Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            Xapi_host_helpers.assert_operation_valid ~__context ~self ~op ;
-            if operation_allowed ~op then
-              Db.Host.add_to_current_operations ~__context ~self ~key:task_id
-                ~value:op ;
-            Xapi_host_helpers.update_allowed_operations ~__context ~self) ;
-        (* Then do the action with the lock released *)
-        finally f (* Make sure to clean up at the end *) (fun () ->
-            try
-              if operation_allowed ~op then (
-                Db.Host.remove_from_current_operations ~__context ~self
-                  ~key:task_id ;
-                Helpers.Early_wakeup.broadcast
-                  (Datamodel_common._host, Ref.string_of self)
-              ) ;
-              let clustered_srs =
-                Db.SR.get_refs_where ~__context
-                  ~expr:(Eq (Field "clustered", Literal "true"))
-              in
-              if clustered_srs <> [] then
-                (* Host powerstate operations on one host may affect all other hosts if
-                 * a clustered SR is in use, so update all hosts' allowed operations. *)
-                Xapi_host_helpers.update_allowed_operations_all_hosts ~__context
-              else
-                Xapi_host_helpers.update_allowed_operations ~__context ~self
-            with _ -> ())
-
       let create ~__context ~uuid ~name_label ~name_description ~hostname
           ~address ~external_auth_type ~external_auth_service_name
           ~external_auth_configuration =
@@ -2857,7 +2820,7 @@ functor
       let shutdown ~__context ~host =
         info "Host.shutdown: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.shutdown ~host in
-        with_host_operation ~__context ~self:host ~doc:"Host.shutdown"
+        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.shutdown"
           ~op:`shutdown (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                 Client.Host.shutdown rpc session_id host))
@@ -2865,7 +2828,7 @@ functor
       let reboot ~__context ~host =
         info "Host.reboot: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.reboot ~host in
-        with_host_operation ~__context ~self:host ~doc:"Host.reboot" ~op:`reboot
+        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.reboot" ~op:`reboot
           (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                 Client.Host.reboot rpc session_id host))
@@ -2880,7 +2843,7 @@ functor
 
       let power_on ~__context ~host =
         info "Host.power_on: host = '%s'" (host_uuid ~__context host) ;
-        with_host_operation ~__context ~self:host ~doc:"Host.power_on"
+        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.power_on"
           ~op:`power_on (fun () ->
             (* Always executed on the master *)
             Local.Host.power_on ~__context ~host)
@@ -2963,7 +2926,7 @@ functor
         (* Block call if this would break our VM restart plan (because the body of this sets enabled to false) *)
         Xapi_ha_vm_failover.assert_host_disable_preserves_ha_plan ~__context
           host ;
-        with_host_operation ~__context ~self:host ~doc:"Host.evacuate"
+        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.evacuate"
           ~op:`evacuate (fun () -> Local.Host.evacuate ~__context ~host)
 
       let retrieve_wlb_evacuate_recommendations ~__context ~self =
@@ -3436,6 +3399,11 @@ functor
         let local_fn = Local.Host.get_sched_gran ~self in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.get_sched_gran rpc session_id self)
+
+      let apply_updates ~__context ~self ~hash =
+        let uuid = host_uuid ~__context self in
+        info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash;
+        Local.Host.apply_updates ~__context ~self ~hash
     end
 
     module Host_crashdump = struct
@@ -5676,5 +5644,11 @@ functor
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self);
         Local.Repository.forget ~__context ~self
+
+      let apply ~__context ~host =
+        info "Repository.apply: host = '%s'" (host_uuid ~__context host);
+        let local_fn = Local.Repository.apply ~host in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Repository.apply rpc session_id host)
     end
   end
