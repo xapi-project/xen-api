@@ -151,6 +151,8 @@ let pool_operation_to_string = function
       "sync_updates"
   | `get_updates ->
       "get_updates"
+  | `apply_updates ->
+      "apply_updates"
 
 let host_operation_to_string = function
   | `provision ->
@@ -169,6 +171,8 @@ let host_operation_to_string = function
       "VM.resume"
   | `vm_migrate ->
       "VM.migrate"
+  | `apply_updates ->
+      "apply_updates"
 
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->

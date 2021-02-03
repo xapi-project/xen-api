@@ -883,6 +883,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.host_disable_display
       ; flags= []
       } )
+  ; ( "host-apply-updates"
+    , {
+        reqd= ["hash"]
+      ; optn= []
+      ; help= "Apply updates from enabled repository on specified host."
+      ; implementation= No_fd Cli_operations.host_apply_updates
+      ; flags= [Host_selectors]
+      } )
+
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]

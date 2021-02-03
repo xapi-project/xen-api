@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type guidance = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
+
 val introduce :
      __context:Context.t
   -> name_label:string
@@ -58,3 +60,20 @@ val get_pool_updates_in_json :
      __context:Context.t
   -> hosts:[`host] API.Ref.t list
   -> Yojson.Basic.t
+
+val apply :
+     __context:Context.t
+  -> host:[`host] API.Ref.t
+  -> unit
+
+val apply_updates :
+     __context:Context.t
+  -> host:[`host] API.Ref.t
+  -> hash:string
+  -> guidance list
+
+val apply_immediate_guidances :
+     __context:Context.t
+  -> host:[`host] API.Ref.t
+  -> guidances:guidance list
+  -> unit

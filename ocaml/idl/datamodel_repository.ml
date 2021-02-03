@@ -42,6 +42,17 @@ let forget = call
     ~allowed_roles:_R_POOL_OP
     ()
 
+let apply = call
+    ~name:"apply"
+    ~in_oss_since:None
+    ~lifecycle
+    ~doc:"Apply updates on a host"
+    ~params:[Ref _host, "host", "The host to be updated"]
+    ~pool_internal:true
+    ~hide_from_docs:true
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
 let t =
   create_obj
     ~name: _repository
@@ -54,7 +65,7 @@ let t =
     ~persist:PersistEverything
     ~in_oss_since:None
     ~messages_default_allowed_roles:_R_POOL_OP
-    ~messages: [introduce; forget]
+    ~messages: [introduce; forget; apply]
 
     ~contents:
       [ uid       _repository ~lifecycle;
