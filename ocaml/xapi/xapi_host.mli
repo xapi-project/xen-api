@@ -512,3 +512,9 @@ val get_host_updates_handler :
   -> Unix.file_descr
   -> 'a
   -> unit
+
+val apply_updates :
+     __context:Context.t
+  -> self:API.ref_host
+  -> hash:string
+  -> unit

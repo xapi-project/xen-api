@@ -11,6 +11,7 @@ open Datamodel_types
             "set_repository", "Indicates this pool is in the process of configuring repository";
             "sync_updates", "Indicates this pool is in the process of syncing updates";
             "get_updates", "Indicates this pool is in the process of getting updates";
+            "apply_updates", "Indicates this pool is in the process of applying updates";
           ])
 
   let enable_ha = call
