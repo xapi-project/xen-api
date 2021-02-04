@@ -25,7 +25,7 @@ let term =
   let config trace_entries = {trace_entries} in
   let trace_entries =
     let doc = "Maximum number of trace entries buffer (for message-cli tail)" in
-    Arg.(value & opt int 128 & info ["trace-entries"] ~doc)
+    Arg.(value & opt int 16 & info ["trace-entries"] ~doc)
   in
   Term.(pure config $ trace_entries)
 
