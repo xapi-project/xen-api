@@ -16,20 +16,142 @@
 
 open Lwt
 
-type t = (int64 * Message_switch_core.Protocol.Event.t) option array
+type message_id = string * int64
 
-type config = {trace_entries: int}
+module CompactMessage : sig
+  type t
+
+  val of_message : Message_switch_core.Protocol.Message.t -> t
+
+  val to_message : t -> Message_switch_core.Protocol.Message.t
+
+  val truncate_at : int ref
+end = struct
+  open Message_switch_core.Protocol
+
+  let truncate_at = ref 0
+
+  type kind = Message.kind
+
+  type payload = Raw of string | Rpc of Rpc.t
+
+  type t = {payload: payload; kind: Message.kind}
+
+  let to_message t =
+    {
+      Message.payload=
+        (match t.payload with Rpc rpc -> Jsonrpc.to_string rpc | Raw s -> s)
+    ; kind= t.kind
+    }
+
+  let truncated = "…"
+
+  let truncate s =
+    if String.length s < !truncate_at then
+      s
+    else
+      String.sub s 0 !truncate_at ^ truncated
+
+  let rec truncate_rpc = function
+    | (Rpc.Int _ | Int32 _ | Bool _ | Float _ | DateTime _ | Null) as orig ->
+        orig
+    | Rpc.Enum l ->
+        Rpc.Enum (List.rev_map truncate_rpc l |> List.rev)
+    | Rpc.Base64 s ->
+        Rpc.Base64 (truncate s)
+    | Rpc.Dict d ->
+        Rpc.Dict (List.rev_map truncate_rpc_kv d |> List.rev)
+    | Rpc.String s ->
+        Rpc.String (truncate s)
+
+  and truncate_rpc_kv (k, v) = (truncate k, truncate_rpc v)
+
+  let of_message m =
+    {
+      payload=
+        ( try Rpc (m.Message.payload |> Jsonrpc.of_string |> truncate_rpc)
+          with _ -> Raw (truncate m.Message.payload)
+        )
+    ; kind= m.kind
+    }
+end
+
+module CompactEvent : sig
+  type t
+
+  val of_event : Message_switch_core.Protocol.Event.t -> t
+
+  val to_event : t -> Message_switch_core.Protocol.Event.t
+end = struct
+  open Message_switch_core.Protocol
+
+  type message = Message of message_id * CompactMessage.t | Ack of message_id
+
+  let to_message = function
+    | Message (id, cm) ->
+        Event.Message (id, CompactMessage.to_message cm)
+    | Ack id ->
+        Ack id
+
+  let of_message = function
+    | Event.Message (id, m) ->
+        Message (id, CompactMessage.of_message m)
+    | Ack id ->
+        Ack id
+
+  type t = {
+      time: float
+    ; input: string option
+    ; queue: string
+    ; output: string option
+    ; message: message
+    ; processing_time: int64 option
+  }
+
+  let to_event (t : t) =
+    {
+      Event.time= t.time
+    ; input= t.input
+    ; queue= t.queue
+    ; output= t.output
+    ; message= to_message t.message
+    ; processing_time= t.processing_time
+    }
+
+  let of_event t =
+    {
+      time= t.Event.time
+    ; input= t.input
+    ; queue= t.queue
+    ; output= t.output
+    ; message= of_message t.message
+    ; processing_time= t.processing_time
+    }
+end
+
+type t = (int64 * CompactEvent.t) option array
+
+type config = {trace_entries: int; trace_truncate: int}
 
 let term =
   let open Cmdliner in
-  let config trace_entries = {trace_entries} in
+  let config trace_entries trace_truncate = {trace_entries; trace_truncate} in
   let trace_entries =
     let doc = "Maximum number of trace entries buffer (for message-cli tail)" in
     Arg.(value & opt int 16 & info ["trace-entries"] ~doc)
   in
-  Term.(pure config $ trace_entries)
+  let trace_truncate =
+    let doc =
+      "Maximum size of strings in trace buffer prior to truncation (for \
+       message-cli tail)"
+    in
+    Arg.(value & opt int 256 & info ["trace-truncate"] ~doc)
+  in
+  Term.(pure config $ trace_entries $ trace_truncate)
 
-let init config = Array.make config.trace_entries None
+let init config =
+  CompactMessage.truncate_at := config.trace_truncate ;
+  Array.make config.trace_entries None
 
 let c = Lwt_condition.create ()
 
@@ -38,7 +160,7 @@ let next_id = ref 0L
 let add buffer event =
   let size = Array.length buffer in
   let next_slot = Int64.(to_int (rem !next_id (of_int size))) in
-  buffer.(next_slot) <- Some (!next_id, event) ;
+  buffer.(next_slot) <- Some (!next_id, CompactEvent.of_event event) ;
   next_id := Int64.succ !next_id ;
   Lwt_condition.broadcast c ()
 
@@ -76,7 +198,7 @@ let get buffer from timeout :
         | Some (id, _) when id < from ->
             acc
         | Some (id, x) ->
-            (id, x) :: acc)
+            (id, CompactEvent.to_event x) :: acc)
       []
   in
   return (List.rev reversed_results)
