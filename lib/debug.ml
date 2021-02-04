@@ -47,15 +47,11 @@ module ThreadLocalTable = struct
     IntMap.find_opt id t.tbl
 end
 
+type task = {desc: string; client: string option}
 
-type task = {
-    desc: string
-  ; client: string option
-}
+let tasks : task ThreadLocalTable.t = ThreadLocalTable.make ()
 
-let tasks: task ThreadLocalTable.t = ThreadLocalTable.make ()
-
-let names: string ThreadLocalTable.t = ThreadLocalTable.make ()
+let names : string ThreadLocalTable.t = ThreadLocalTable.make ()
 
 let gettimestring () =
   let time = Unix.gettimeofday () in
@@ -75,11 +71,16 @@ let format include_time brand priority message =
   let id = get_thread_id () in
   let task, name =
     (* if the task's client is known, attach it to the task's name *)
-    let name = match ThreadLocalTable.find names with Some x -> x | None -> "" in
+    let name =
+      match ThreadLocalTable.find names with Some x -> x | None -> ""
+    in
     match ThreadLocalTable.find tasks with
-    | None -> "", name
-    | Some {desc; client=None} -> desc, name
-    | Some {desc; client=Some client} -> desc, Printf.sprintf "%s->%s" client name
+    | None ->
+        ("", name)
+    | Some {desc; client= None} ->
+        (desc, name)
+    | Some {desc; client= Some client} ->
+        (desc, Printf.sprintf "%s->%s" client name)
   in
   Printf.sprintf "[%s%5s||%d %s|%s|%s] %s"
     (if include_time then gettimestring () else "")
@@ -217,16 +218,17 @@ let log_backtrace_exn ?(level = Syslog.Err) ?(msg = "error") exn bt =
   List.iter (output_log "backtrace" level msg) all
 
 let log_backtrace_internal ?level ?msg e _bt =
- Backtrace.is_important e;
- log_backtrace_exn ?level ?msg e (Backtrace.remove e)
+  Backtrace.is_important e ;
+  log_backtrace_exn ?level ?msg e (Backtrace.remove e)
 
 let log_backtrace e bt = log_backtrace_internal e bt
 
 let with_thread_associated ?client desc f x =
   ThreadLocalTable.add tasks {desc; client} ;
-  let result = Backtrace.with_backtraces (fun () ->
-	try f x
-	with e -> Backtrace.is_important e; raise e) in
+  let result =
+    Backtrace.with_backtraces (fun () ->
+        try f x with e -> Backtrace.is_important e ; raise e)
+  in
   ThreadLocalTable.remove tasks ;
   match result with
   | `Ok result ->
