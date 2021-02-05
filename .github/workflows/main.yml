@@ -24,8 +24,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-xenopsd xapi-xenopsd-simulator xapi-xenopsd-cli" # xapi-xenopsd-xc
-      modules: "xapi-xenopsd,xapi-xenopsd-simulator,xapi-xenopsd-cli" # xapi-xenopsd-xc
+      package: "xapi-xenopsd xapi-xenopsd-simulator xapi-xenopsd-cli xapi-xenopsd-xc"
 
     steps:
       - name: Checkout code
@@ -74,10 +73,10 @@ jobs:
       - name: Build
         run: |
           opam exec -- ./configure
-          opam exec -- dune build --profile=release -p ${{ env.modules }}
+          opam exec -- make
 
       - name: Run tests
-        run: opam exec -- dune runtest -p ${{ env.modules }}
+        run: opam exec -- make test
 
       - name: Uninstall unversioned packages
         # This should purge them from the cache, unversioned package have
