@@ -2363,11 +2363,27 @@ module Dm_Common = struct
 
     let lba_of = function
       | Disk ->
-          "force-lba=on"
+          ["bios-chs-trans=forcelba"]
       | Cdrom ->
-          "force-lba=off"
+          []
+      | Floppy ->
+          []
+
+    let device_driver_of = function
+      | Disk ->
+          "ide-hd"
+      | Cdrom ->
+          "ide-cd"
       | Floppy ->
           ""
+
+    let readonly_of = function
+      | Disk ->
+          []
+      | Cdrom ->
+          ["read-only=on"]
+      | Floppy ->
+          []
   end
 
   type info = {
@@ -2770,19 +2786,32 @@ module Dm_Common = struct
   let ide = "ide"
 
   let ide_device_of ~trad_compat (index, file, media) =
+    let id =
+      sprintf "ide%d-%s%d" (index / 2)
+        (match media with Media.Cdrom -> "cd" | _ -> "hd")
+        (index mod 2)
+    in
     [
       "-drive"
     ; String.concat ","
         (List.concat
            [
-             [
-               sprintf "file=%s" file
-             ; "if=ide"
-             ; sprintf "index=%d" index
-             ; sprintf "media=%s" (Media.to_string media)
-             ]
-           ; (if trad_compat then [Media.lba_of media] else [])
+             [sprintf "file=%s" file; "if=none"; sprintf "id=%s" id]
+           ; (if file <> "" then ["auto-read-only=off"] else [])
+           ; Media.readonly_of media
            ; Media.format_of media file
+           ])
+    ; "-device"
+    ; String.concat ","
+        (List.concat
+           [
+             [
+               Media.device_driver_of media
+             ; sprintf "drive=%s" id
+             ; sprintf "bus=ide.%d" (index / 2)
+             ; sprintf "unit=%d" (index mod 2)
+             ]
+           ; (if trad_compat then Media.lba_of media else [])
            ])
     ]
 
@@ -2799,6 +2828,7 @@ module Dm_Common = struct
          ; sprintf "file=%s" file
          ; sprintf "media=%s" (Media.to_string media)
          ]
+        @ (if file <> "" then ["auto-read-only=off"] else [])
         @ Media.format_of media file
         )
     ; "-device"

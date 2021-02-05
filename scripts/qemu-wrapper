@@ -302,7 +302,7 @@ def main(argv):
 
         uid = pwd.getpwnam('qemu_base').pw_uid + domid
         gid = grp.getgrnam('qemu_base').gr_gid + domid
-        qemu_args += ["-runas", "%d.%d" % (uid, gid)]
+        qemu_args += ["-runas", "%d:%d" % (uid, gid)]
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
