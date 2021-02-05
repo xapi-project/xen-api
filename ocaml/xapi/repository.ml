@@ -244,8 +244,7 @@ let cleanup_pool_repo () =
     clean_yum_cache !Xapi_globs.pool_repo_name;
     Unixext.unlink_safe (Filename.concat !Xapi_globs.yum_repos_config_dir
                            !Xapi_globs.pool_repo_name);
-    if Sys.file_exists !Xapi_globs.local_pool_repo_dir then
-      Helpers.rmtree !Xapi_globs.local_pool_repo_dir
+    Helpers.rmtree !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to cleanup pool repository: %s" (ExnHelper.string_of_exn e);
     raise Api_errors.(Server_error (repository_cleanup_failed, []))
