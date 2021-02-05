@@ -71,19 +71,65 @@ let vm_guest_agent_xenstore_quota = ref 128
 
 let vm_guest_agent_xenstore_quota_warn_interval = ref 3600
 
+let oxenstored_conf = ref "/etc/xen/oxenstored.conf"
+
+let for_each_line path f =
+  let ic = open_in path in
+  log_and_ignore_exn (fun () ->
+      try
+        while true do
+          f ic
+        done
+      with End_of_file -> ()) ;
+  close_in_noerr ic
+
+let parse_oxenstored_conf path =
+  D.debug "Parsing %s" path ;
+  let config = ref [] in
+  log_and_ignore_exn (fun () ->
+      for_each_line path @@ fun ic ->
+      match ic |> input_line |> Xcp_service.Config_file.parse_line with
+      | Some (k, v) ->
+          config := (k, v) :: !config
+      | None ->
+          ()) ;
+  D.debug "%s: %d config entries" path (List.length !config) ;
+  !config
+
 (* for backward compatibility compute how much memory N entries
    would've taken *)
 let max_bytes_of_xenstore_entries entries =
   (* defaults from oxenstored.conf *)
-  let default_path_max = 1024 (* maximum size in bytes of a xenstore path *) in
-  let default_maxsize = 2048 (* maximum size in bytes of a xenstore value *) in
-  entries
-  * (Xenops_utils.entry_overhead
-    + default_path_max
-    + (Xenops_utils.longest_encoded_char * default_maxsize)
-    )
+  let conf = parse_oxenstored_conf !oxenstored_conf in
+  let get key default conv =
+    try List.assoc key conf |> conv with _ -> default
+  in
+  if not (get "quota-activate" true bool_of_string) then (
+    warn
+      "Quotas are turned off in oxenstored. This is insecure and not a \
+       supported configuration!" ;
+    max_int
+  ) else
+    let default_path_max =
+      get "quota-path-max" 1024 int_of_string
+      (* maximum size in bytes of a xenstore path *)
+    in
+    let default_maxsize =
+      get "quota-maxsize" 2048 int_of_string
+      (* maximum size in bytes of a xenstore value *)
+    in
+    D.debug "entry_overhead = %d" Xenops_utils.entry_overhead ;
+    D.debug "default_path_max = %d" default_path_max;
+    D.debug "longest_encoded_char = %d" Xenops_utils.longest_encoded_char;
+    D.debug "default_maxsize = %d" default_maxsize;
+    D.debug "entries = %d" entries ;
+    entries
+    * (Xenops_utils.entry_overhead
+      + default_path_max
+      + (Xenops_utils.longest_encoded_char * default_maxsize)
+      )
 
-let vm_guest_agent_xenstore_quota_bytes = ref (max_bytes_of_entries 128)
+let vm_guest_agent_xenstore_quota_bytes = ref (25 * 1024 * 1024)
 
 let options =
   [
@@ -200,6 +246,10 @@ let options =
     , Arg.Set_int vm_guest_agent_xenstore_quota_warn_interval
     , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_warn_interval)
     , "How often to warn that a VM is still over its xenstore quota" )
+  ; ( "oxenstored-conf"
+    , Arg.Set_string oxenstored_conf
+    , (fun () -> !oxenstored_conf)
+    , "Path to oxenstored conf (for reading quotas)" )
   ; ( "vm-guest-agent-xenstore-quota-bytes"
     , Arg.Set_int vm_guest_agent_xenstore_quota_bytes
     , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_bytes)
