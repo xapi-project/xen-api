@@ -206,7 +206,8 @@ let become_another_masters_slave master_address =
     debug "Setting pool.conf to point to %s" master_address ;
     set_role new_role ;
     run_external_scripts false ;
-    Xapi_fuse.light_fuse_and_run ()
+    Xapi_fuse.light_fuse_and_run () ;
+    Repository.cleanup_pool_repo () (* For simplicity, it's safe to cleanup on all slaves *)
   )
 
 (** If we just transitioned slave -> master (as indicated by the localdb flag) then generate a single alert *)
