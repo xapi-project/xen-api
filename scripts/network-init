@@ -36,14 +36,14 @@ prepare_networking() {
             else
                 PIF="${PHYSICAL_PIF}"
             fi
+            isStatic=false
             case $MODE in
                 dhcp|none)
                     $XE pif-reconfigure-ip uuid=${PIF} mode=${MODE} || true
                     ;;
                 static)
-                    domain=`echo $DOMAIN | tr ' ' ','`
+                    isStatic=true
                     $XE pif-reconfigure-ip uuid=${PIF} mode=static IP=${IP} netmask=${NETMASK} gateway=${GATEWAY} ${DNS+DNS=$DNS} || true
-                    [ $domain ] && $XE pif-param-set uuid=${PIF} other-config:domain=$domain || true
                     ;;
             esac
             case $MODEV6 in
@@ -51,9 +51,14 @@ prepare_networking() {
                     $XE pif-reconfigure-ipv6 uuid=${PIF} mode=${MODEV6} || true
                     ;;
                 static)
-                    $XE pif-reconfigure-ipv6 uuid=${PIF} mode=static IPv6=${IPv6} gateway=${IPv6_GATEWAY} || true
+                    isStatic=true
+                    $XE pif-reconfigure-ipv6 uuid=${PIF} mode=static IPv6=${IPv6} gateway=${IPv6_GATEWAY} ${DNS+DNS=$DNS} || true
                     ;;
             esac
+            if [ $isStatic = true ] ; then
+                domain=`echo $DOMAIN | tr ' ' ','`
+                [ $domain ] && $XE pif-param-set uuid=${PIF} other-config:domain=$domain || true
+            fi
             if [ "${MANAGEMENT_ADDRESS_TYPE}" = "IPv6" ] ; then
                     $XE host-management-disable
                     $XE pif-set-primary-address-type uuid="${PIF}" primary_address_type=${MANAGEMENT_ADDRESS_TYPE}
@@ -97,6 +102,7 @@ rename_network_label() {
             name_label="Guest Network $((${device_id} - 2))"
             pif_uuid=$(${XE} pif-list device=${device} params=uuid --minimal)
             ${XE} pif-reconfigure-ip uuid="${pif_uuid}" mode=none
+            ${XE} pif-reconfigure-ipv6 uuid="${pif_uuid}" mode=none
         else
             echo "Warning: found unsupported device ${device}"
             continue
