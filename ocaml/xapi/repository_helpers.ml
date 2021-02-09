@@ -30,6 +30,9 @@ module Pkg = struct
     ; arch: string
   }
 
+  let error_msg =
+    Printf.sprintf "Failed to split RPM full name '%s'"
+
   let of_fullname s =
     (* s I.E. "libpath-utils-0.2.1-29.el7.x86_64" *)
     let r = Re.Str.regexp "^\\(.+\\)\\.\\(noarch\\|x86_64\\)$" in
@@ -45,8 +48,8 @@ module Pkg = struct
          let name = String.sub pkg 0 pos2 in
          Some { name; version; release; arch }
        with e ->
-         let msg =
-           Printf.sprintf "Failed to split rpm name '%s': %s" s (ExnHelper.string_of_exn e) in
+         let msg = error_msg s in
+         error "%s: %s" msg (ExnHelper.string_of_exn e);
          raise Api_errors.(Server_error (internal_error, [msg])))
     | false -> None
 
@@ -132,6 +135,9 @@ module Guidance = struct
 
   let eq_set4 = eq [EvacuateHost; RestartToolstack; RestartDeviceModel]
 
+  let error_msg l =
+    Printf.sprintf "Found wrong guidance(s): %s" (String.concat ";" (List.map to_string l))
+
   let assert_valid_guidances = function
     | [RebootHost]
     | [EvacuateHost]
@@ -150,10 +156,7 @@ module Guidance = struct
       (* EvacuateHost, RestartToolstack and RestartDeviceModel *)
       ()
     | l ->
-      let msg =
-        Printf.sprintf "Found wrong guidance(s) before applying updates: %s"
-          (String.concat ";" (List.map to_string l))
-      in
+      let msg = error_msg l in
       raise Api_errors.(Server_error (internal_error, [msg]))
 
   let resort_guidances gs=
@@ -340,7 +343,7 @@ module Applicability = struct
 
   let gte v1 r1 v2 r2 = gt v1 r1 v2 r2 || eq v1 r1 v2 r2
 
-  let eval_applicability ~version ~release ~applicability =
+  let eval ~version ~release ~applicability =
     let ver = applicability.version in
     let rel = applicability.release in
     match applicability.inequality with
@@ -364,51 +367,55 @@ module UpdateInfoMetaData = struct
     ; location: string
   }
 
+  let assert_valid_repomd = function
+    | { checksum = ""; _ } | { location = ""; _ } ->
+      error "Missing 'checksum' or 'location' in updateinfo in repomod.xml";
+      raise Api_errors.(Server_error (invalid_repomd_xml, []))
+    | umd -> umd
+
+  let of_xml = function
+    | Xml.Element ("repomd", _, children) ->
+      let get_updateinfo_node = function
+        | Xml.Element ("data", attrs, nodes) ->
+          (match List.assoc_opt "type" attrs with
+           | Some "updateinfo" -> Some nodes
+           | _ -> None)
+        | _ -> None
+      in
+      begin match List.filter_map get_updateinfo_node children with
+       | [l] ->
+         List.fold_left (fun md n ->
+             begin match n with
+               | Xml.Element ("checksum", _, [Xml.PCData v]) -> {md with checksum = v}
+               | Xml.Element ("location", attrs, _) ->
+                 (try {md with location = (List.assoc "href" attrs)}
+                  with _ ->
+                    error "Failed to get location of updateinfo.xml.gz";
+                    raise Api_errors.(Server_error (invalid_repomd_xml, [])))
+               | _ -> md
+             end
+           ) { checksum = ""; location = "" } l
+         |> assert_valid_repomd
+       | _ ->
+         error "Missing or multiple 'updateinfo' node(s)";
+         raise Api_errors.(Server_error (invalid_repomd_xml, []))
+      end
+    | _ ->
+      error "Missing 'repomd' node";
+      raise Api_errors.(Server_error (invalid_repomd_xml, []))
+
   let of_xml_file xml_path =
-    let assert_valid_repomd = function
-      | { checksum = ""; _ } | { location = ""; _ } ->
-        error "Missing 'checksum' or 'location' in updateinfo in repomod.xml";
-        raise Api_errors.(Server_error (invalid_repomd_xml, []))
-      | umd -> umd
-    in
     match Sys.file_exists xml_path with
     | false ->
       error "No repomd.xml found: %s" xml_path;
       raise Api_errors.(Server_error (invalid_repomd_xml, []))
     | true ->
       begin match Xml.parse_file xml_path with
-       | Xml.Element ("repomd", _, children) ->
-         let get_updateinfo_node = function
-           | Xml.Element ("data", attrs, nodes) ->
-             (match List.assoc_opt "type" attrs with
-              | Some "updateinfo" -> Some nodes
-              | _ -> None)
-           | _ -> None
-         in
-         begin match List.filter_map get_updateinfo_node children with
-          | [l] ->
-            List.fold_left (fun md n ->
-                begin match n with
-                  | Xml.Element ("checksum", _, [Xml.PCData v]) -> {md with checksum = v}
-                  | Xml.Element ("location", attrs, _) ->
-                    (try {md with location = (List.assoc "href" attrs)}
-                     with _ ->
-                       error "Failed to get location of updateinfo.xml.gz";
-                       raise Api_errors.(Server_error (invalid_repomd_xml, [])))
-                  | _ -> md
-                end
-              ) { checksum = ""; location = "" } l
-            |> assert_valid_repomd
-          | _ ->
-            error "Missing or multiple 'updateinfo' node(s)";
-            raise Api_errors.(Server_error (invalid_repomd_xml, []))
-         end
-       | _ ->
-         error "Missing 'repomd' node";
-         raise Api_errors.(Server_error (invalid_repomd_xml, []))
-       | exception e ->
-         error "Failed to parse repomd.xml: %s" (ExnHelper.string_of_exn e);
-         raise Api_errors.(Server_error (invalid_repomd_xml, []))
+        | xml ->
+          of_xml xml
+        | exception e ->
+          error "Failed to parse repomd.xml: %s" (ExnHelper.string_of_exn e);
+          raise Api_errors.(Server_error (invalid_repomd_xml, []))
       end
 end
 
@@ -467,8 +474,14 @@ module UpdateInfo = struct
       raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
     | ui -> ui
 
-  let of_xml_file xml_file_path =
-    match Xml.parse_file xml_file_path with
+  let assert_no_dup_update_id l =
+    let comp x y = compare x.id y.id in
+    if List.length (List.sort_uniq comp l) = List.length (List.sort comp l) then l
+    else (
+      error "Found updates with same upadte ID";
+      raise Api_errors.(Server_error (invalid_updateinfo_xml, [])))
+
+  let of_xml = function
     | Xml.Element  ("updates", _, children) ->
       List.filter_map (fun n ->
           match n with
@@ -504,10 +517,16 @@ module UpdateInfo = struct
             Some ui
           | _ -> None
       ) children
+      |> assert_no_dup_update_id
       |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
     | _ ->
       error "Failed to parse updateinfo.xml: missing <updates>";
       raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+
+  let of_xml_file xml_file_path =
+    match Xml.parse_file xml_file_path with
+    | xml ->
+      of_xml xml
     | exception e ->
       error "Failed to parse updateinfo.xml: %s" (ExnHelper.string_of_exn e);
       raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
@@ -732,8 +751,7 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
           | true ->
             begin match update.old_version, update.old_release with
               | Some old_version, Some old_release ->
-                Applicability.eval_applicability
-                  ~version:old_version ~release:old_release ~applicability:a
+                Applicability.eval ~version:old_version ~release:old_release ~applicability:a
               | _ ->
                 warn "No installed version or release for package %s.%s"
                   update.name update.arch;
