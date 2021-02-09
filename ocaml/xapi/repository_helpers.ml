@@ -165,12 +165,12 @@ end
 module Applicability = struct
   type inequality = Lt | Eq | Gt | Lte | Gte | Invalid
 
-  type order = Lt_ | Eq_ | Gt_
+  type order = LT | EQ | GT
 
   let string_of_order = function
-    | Lt_ -> "<"
-    | Eq_ -> "="
-    | Gt_ -> ">"
+    | LT -> "<"
+    | EQ -> "="
+    | GT -> ">"
 
   type t = {
       name: string
@@ -290,36 +290,36 @@ module Applicability = struct
       | c1 :: t1, c2 :: t2 ->
         begin match c1, c2 with
           | Int s1, Int s2 ->
-            if s1 > s2 then Gt_
+            if s1 > s2 then GT
             else if s1 = s2 then compare_segments t1 t2
-            else Lt_
-          | Int s1, Str s2 -> Gt_
-          | Str s1, Int s2 -> Lt_
+            else LT
+          | Int s1, Str s2 -> GT
+          | Str s1, Int s2 -> LT
           | Str s1, Str s2 ->
             let r = String.compare s1 s2 in
-            if r < 0 then Lt_
-            else if r > 0 then Gt_
+            if r < 0 then LT
+            else if r > 0 then GT
             else compare_segments t1 t2
         end
-      | _ :: _, [] -> Gt_
-      | [], _ :: _ -> Lt_
-      | [], [] -> Eq_
+      | _ :: _, [] -> GT
+      | [], _ :: _ -> LT
+      | [], [] -> EQ
     in
     compare_segments (normalize s1) (normalize s2)
 
   let lt v1 r1 v2 r2 =
     match (compare_version_strings v1 v2), (compare_version_strings r1 r2) with
-    | Lt_, _ | Eq_, Lt_ -> true
+    | LT, _ | EQ, LT -> true
     | _ -> false
 
   let gt v1 r1 v2 r2 =
     match (compare_version_strings v1 v2), (compare_version_strings r1 r2) with
-    | Gt_, _ | Eq_, Gt_ -> true
+    | GT, _ | EQ, GT -> true
     | _ -> false
 
   let eq v1 r1 v2 r2 =
     match (compare_version_strings v1 v2), (compare_version_strings r1 r2) with
-    | Eq_, Eq_ -> true
+    | EQ, EQ -> true
     | _ -> false
 
   let lte v1 r1 v2 r2 = lt v1 r1 v2 r2 || eq v1 r1 v2 r2
