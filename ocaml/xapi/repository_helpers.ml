@@ -163,12 +163,19 @@ module Guidance = struct
 end
 
 module Applicability = struct
-  type inequality = Lt | Eq | Gt
+  type inequality = Lt | Eq | Gt | Lte | Gte | Invalid
+
+  type order = Lt_ | Eq_ | Gt_
+
+  let string_of_order = function
+    | Lt_ -> "<"
+    | Eq_ -> "="
+    | Gt_ -> ">"
 
   type t = {
       name: string
     ; arch: string
-    ; inequalities: inequality list
+    ; inequality: inequality
     ; epoch: string
     ; version: string
     ; release: string
@@ -178,33 +185,28 @@ module Applicability = struct
     | Int of int
     | Str of string
 
+  exception Invalid_inequality
+
   let string_of_inequality = function
     | Lt -> "<"
     | Eq -> "="
     | Gt -> ">"
+    | Gte -> ">="
+    | Lte -> "<="
+    | _ -> raise Invalid_inequality
 
-  exception Invalid_inequalities
-
-  let inequalities_of_string = function
-    | "gte" -> [Gt; Eq]
-    | "lte" -> [Lt; Eq]
-    | "gt"  -> [Gt]
-    | "lt"  -> [Lt]
-    | "eq"  -> [Eq]
-    | _ -> raise Invalid_inequalities
-
-  let string_of_inequalities = function
-    | [Gt; Eq] | [Eq; Gt] -> ">="
-    | [Lt; Eq] | [Eq; Lt] -> "<="
-    | [Gt] -> ">"
-    | [Lt] -> "<"
-    | [Eq] -> "="
-    | _ -> raise Invalid_inequalities
+  let inequality_of_string = function
+    | "gte" -> Gte
+    | "lte" -> Lte
+    | "gt"  -> Gt
+    | "lt"  -> Lt
+    | "eq"  -> Eq
+    | _ -> raise Invalid_inequality
 
   let default = {
       name = ""
     ; arch = ""
-    ; inequalities = []
+    ; inequality = Invalid
     ; epoch = ""
     ; version = ""
     ; release = ""
@@ -215,7 +217,7 @@ module Applicability = struct
       List.fold_left (fun a n ->
           match n with
           | Xml.Element ("inequality", _, [Xml.PCData v]) ->
-            { a with inequalities = (inequalities_of_string v) }
+            { a with inequality = (inequality_of_string v) }
           | Xml.Element ("epoch", _, [Xml.PCData v]) ->
             { a with epoch = v }
           | Xml.Element ("version", _, [Xml.PCData v]) ->
@@ -236,7 +238,7 @@ module Applicability = struct
 
   let to_string a =
     Printf.sprintf "%s%s%s-%s"
-      a.name (string_of_inequalities a.inequalities) a.version a.release
+      a.name (string_of_inequality a.inequality) a.version a.release
 
   let compare_version_strings s1 s2 =
     (* Compare versions or releases of RPM packages
@@ -273,41 +275,73 @@ module Applicability = struct
       |> Astring.String.cuts ~sep:"."
       |> concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
       |> concat_map (fun s -> split_letters_and_numbers s)
-      |> List.map (fun s -> try Int (int_of_string s) with _ -> Str s)
+      |> List.map (fun s ->
+          match int_of_string s with
+          | i ->
+            let startswith x =
+              Astring.String.is_prefix ~affix:x (String.lowercase_ascii s)
+            in
+            if List.exists startswith ["0x"; "0b"; "0o"] then Str s else Int i
+          | exception _  ->
+            Str s)
     in
     let rec compare_segments l1 l2 =
       match l1, l2 with
       | c1 :: t1, c2 :: t2 ->
         begin match c1, c2 with
           | Int s1, Int s2 ->
-            if s1 > s2 then Gt
+            if s1 > s2 then Gt_
             else if s1 = s2 then compare_segments t1 t2
-            else Lt
-          | Int s1, Str s2 -> Gt
-          | Str s1, Int s2 -> Lt
+            else Lt_
+          | Int s1, Str s2 -> Gt_
+          | Str s1, Int s2 -> Lt_
           | Str s1, Str s2 ->
             let r = String.compare s1 s2 in
-            if r < 0 then Lt
-            else if r > 0 then Gt
+            if r < 0 then Lt_
+            else if r > 0 then Gt_
             else compare_segments t1 t2
         end
-      | _ :: _, [] -> Gt
-      | [], _ :: _ -> Lt
-      | [], [] -> Eq
+      | _ :: _, [] -> Gt_
+      | [], _ :: _ -> Lt_
+      | [], [] -> Eq_
     in
     compare_segments (normalize s1) (normalize s2)
+
+  let lt v1 r1 v2 r2 =
+    match (compare_version_strings v1 v2), (compare_version_strings r1 r2) with
+    | Lt_, _ | Eq_, Lt_ -> true
+    | _ -> false
+
+  let gt v1 r1 v2 r2 =
+    match (compare_version_strings v1 v2), (compare_version_strings r1 r2) with
+    | Gt_, _ | Eq_, Gt_ -> true
+    | _ -> false
+
+  let eq v1 r1 v2 r2 =
+    match (compare_version_strings v1 v2), (compare_version_strings r1 r2) with
+    | Eq_, Eq_ -> true
+    | _ -> false
+
+  let lte v1 r1 v2 r2 = lt v1 r1 v2 r2 || eq v1 r1 v2 r2
+
+  let gte v1 r1 v2 r2 = gt v1 r1 v2 r2 || eq v1 r1 v2 r2
 
   let eval_applicability ~version ~release ~applicability =
     let ver = applicability.version in
     let rel = applicability.release in
-    let eval_applicability' inequality =
-      match inequality,
-            (compare_version_strings version ver),
-            (compare_version_strings release rel) with
-      | Lt, Lt, _ | Lt, Eq, Lt | Eq, Eq, Eq | Gt, Gt, _ | Gt, Eq, Gt -> true
-      | _ -> false
-    in
-    List.exists eval_applicability' applicability.inequalities
+    match applicability.inequality with
+    | Lt ->
+      lt version release ver rel
+    | Lte ->
+      lte version release ver rel
+    | Gt ->
+      gt version release ver rel
+    | Gte ->
+      gte version release ver rel
+    | Eq ->
+      eq version release ver rel
+    | _ ->
+      raise Invalid_inequality
 end
 
 module UpdateInfoMetaData = struct
