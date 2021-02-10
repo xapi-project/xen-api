@@ -222,43 +222,7 @@ let action_params_whitelist =
   ; ("subject.create.other_config", ["subject-name"])
   ; (* used for VMPP alert logs *)
     ("message.create", ["name"; "body"])
-  ; ("VMPP.create_alert", ["name"; "data"])
   ]
-
-let action_params_zip =
-  [(* params that should be compressed *) ("VMPP.create_alert", ["data"])]
-
-let zip data =
-  (* todo: remove i/o, make this more efficient *)
-  try
-    let tmp_path = Filename.temp_file "zip-" ".dat" in
-    let zdata = ref Bytes.empty in
-    Xapi_stdext_pervasives.Pervasiveext.finally
-      (fun () ->
-        Xapi_stdext_unix.Unixext.atomic_write_to_file tmp_path 0o600 (fun fd ->
-            Gzip.compress fd (fun fd ->
-                let len = String.length data in
-                let written = Unix.write_substring fd data 0 len in
-                if written <> len then
-                  failwith
-                    (Printf.sprintf "zip: wrote only %i bytes of %i" written
-                       len))) ;
-        let fd_in = Unix.openfile tmp_path [Unix.O_RDONLY] 0o400 in
-        Xapi_stdext_pervasives.Pervasiveext.finally
-          (fun () ->
-            let cin = Unix.in_channel_of_descr fd_in in
-            let cin_len = in_channel_length cin in
-            zdata := Bytes.create cin_len ;
-            for i = 1 to cin_len do
-              Bytes.set !zdata (i - 1) (input_char cin)
-            done)
-          (fun () -> Unix.close fd_in))
-      (fun () -> Sys.remove tmp_path) ;
-    let b64zdata = Base64.encode_string (Bytes.unsafe_to_string !zdata) in
-    b64zdata
-  with e ->
-    D.debug "error %s zipping data: %s" (ExnHelper.string_of_exn e) data ;
-    ""
 
 (* manual ref getters *)
 let get_subject_other_config_subject_name __context self =
@@ -327,11 +291,11 @@ let get_db_namevalue __context name action _ref =
 *)
 let rec sexpr_args_of __context name rpc_value action =
   let is_selected_action_param action_params =
-    if List.mem_assoc action action_params then
-      let params = List.assoc action action_params in
-      List.mem name params
-    else
-      false
+    match List.assoc_opt action action_params with
+    | Some params ->
+        List.mem name params
+    | None ->
+        false
   in
   (* heuristic 1: print descriptive arguments in the xapi call *)
   if
@@ -350,14 +314,7 @@ let rec sexpr_args_of __context name rpc_value action =
   then
     match rpc_value with
     | Rpc.String value ->
-        Some
-          (get_sexpr_arg name
-             ( if is_selected_action_param action_params_zip then
-                 zip value
-             else
-               value
-             )
-             "" "")
+        Some (get_sexpr_arg name value "" "")
     | Rpc.Dict _ ->
         Some
           (SExpr.Node
@@ -366,7 +323,7 @@ let rec sexpr_args_of __context name rpc_value action =
              ; SExpr.Node
                  (sexpr_of_parameters __context
                     (action ^ "." ^ name)
-                    (Some (["__structure"], [rpc_value])))
+                    (Some [("__structure", rpc_value)]))
              ; SExpr.String ""
              ; SExpr.String ""
              ])
@@ -408,53 +365,29 @@ let rec sexpr_args_of __context name rpc_value action =
 and
     (* Given an action and its parameters, *)
     (* return the marshalled uuid params and corresponding names *)
-    (*let rec*) sexpr_of_parameters __context action args : SExpr.t list =
+    sexpr_of_parameters __context action args : SExpr.t list =
   match args with
   | None ->
       []
-  | Some (str_names, rpc_values) ->
-      if List.length str_names <> List.length rpc_values then (
-        (* debug mode *)
-        D.warn
-          "cannot marshall arguments for the action %s: name and value list \
-           lengths don't match. str_names=[%s], xml_values=[%s]"
-          action
-          (List.fold_left (fun ss s -> ss ^ s ^ ",") "" str_names)
-          (List.fold_left
-             (fun ss s -> ss ^ Rpc.to_string s ^ ",")
-             "" rpc_values) ;
-        []
-      ) else
-        List.fold_right2
-          (fun str_name rpc_value (params : SExpr.t list) ->
-            if str_name = "session_id" then
+  | Some names_rpc_values ->
+      List.fold_right
+        (fun (str_name, rpc_value) (params : SExpr.t list) ->
+          match (str_name, rpc_value) with
+          | "session_id", _ ->
               params (* ignore session_id param *)
-            else if
+          | "__structure", Rpc.Dict d ->
               (* if it is a constructor structure, need to rewrap params *)
-              str_name = "__structure"
-            then
-              match rpc_value with
-              | Rpc.Dict d ->
-                  let names = List.map fst d in
-                  let values = List.map snd d in
-                  let myparam =
-                    sexpr_of_parameters __context action (Some (names, values))
-                  in
-                  myparam @ params
-              | rpc_value -> (
-                match sexpr_args_of __context str_name rpc_value action with
-                | None ->
-                    params
-                | Some p ->
-                    p :: params
-              )
-            else (* the expected list of xml arguments *)
-              match sexpr_args_of __context str_name rpc_value action with
-              | None ->
-                  params
-              | Some p ->
-                  p :: params)
-          str_names rpc_values []
+              let myparam = sexpr_of_parameters __context action (Some d) in
+              myparam @ params
+          | _ -> (
+            (* the expected list of xml arguments *)
+            match sexpr_args_of __context str_name rpc_value action with
+            | None ->
+                params
+            | Some p ->
+                p :: params
+          ))
+        names_rpc_values []
 
 let has_to_audit action =
   let has_side_effect action =
@@ -495,37 +428,28 @@ let add_dummy_args __context action args =
   match args with
   | None ->
       args
-  | Some (str_names, rpc_values) -> (
-      let rec find_self str_names rpc_values =
-        match (str_names, rpc_values) with
-        | "self" :: _, rpc :: _ ->
-            rpc
-        | _ :: str_names', _ :: rpc_values' ->
-            find_self str_names' rpc_values'
-        | _, _ ->
-            raise Not_found
-      in
-      match action with
-      (* Add VDI info for VBD.destroy *)
-      | "VBD.destroy" -> (
-        try
-          let vbd = API.ref_VBD_of_rpc (find_self str_names rpc_values) in
-          let vdi = DB_Action.VBD.get_VDI __context vbd in
-          Some (str_names @ ["VDI"], rpc_values @ [API.rpc_of_ref_VDI vdi])
-        with e ->
-          D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e) ;
-          args
-      )
-      | _ ->
-          args
+  | Some names_rpc -> (
+    match action with
+    (* Add VDI info for VBD.destroy *)
+    | "VBD.destroy" -> (
+      try
+        let vbd = API.ref_VBD_of_rpc (List.assoc "self" names_rpc) in
+        let vdi = DB_Action.VBD.get_VDI ~__context ~self:vbd in
+        let params = names_rpc @ [("VDI", API.rpc_of_ref_VDI vdi)] in
+        Some params
+      with e ->
+        D.debug "couldn't get VDI ref for VBD: %s" (ExnHelper.string_of_exn e) ;
+        args
     )
+    | _ ->
+        args
+  )
 
 let sexpr_of __context session_id allowed_denied ok_error result_error ?args
     ?sexpr_of_args action permission =
   let result_error =
     if result_error = "" then result_error else ":" ^ result_error
   in
-  (*let (params:SExpr.t list) = (string_of_parameters action args) in*)
   SExpr.Node
     [
       SExpr.String (trackid session_id)
@@ -534,8 +458,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args
     ; SExpr.String allowed_denied
     ; SExpr.String (ok_error ^ result_error)
     ; SExpr.String (call_type_of action)
-    ; (*SExpr.String (Helper_hostname.get_hostname ())::*)
-      SExpr.String action
+    ; SExpr.String action
     ; SExpr.Node
         ( match sexpr_of_args with
         | None ->
