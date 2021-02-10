@@ -227,7 +227,7 @@ module List = struct
 
   let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 
-  let assoc_default k l d = if List.mem_assoc k l then List.assoc k l else d
+  let assoc_default k l d = Option.value ~default:d (List.assoc_opt k l)
 
   let map_assoc_with_key op al = List.map (fun (k, v1) -> (k, op k v1)) al
 
