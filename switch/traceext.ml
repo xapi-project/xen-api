@@ -16,8 +16,6 @@
 
 open Lwt
 
-type message_id = string * int64
-
 module CompactMessage : sig
   type t
 
@@ -30,8 +28,6 @@ end = struct
   open Message_switch_core.Protocol
 
   let truncate_at = ref 0
-
-  type kind = Message.kind
 
   type payload = Raw of string | Rpc of Rpc.t
 
