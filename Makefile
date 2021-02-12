@@ -6,7 +6,7 @@ PROFILE=release
 XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
 MANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall
+.PHONY: build clean test doc python format list-hd install uninstall
 
 build:
 	XAPI_VERSION=$(XAPI_VERSION) dune build @install -j $(JOBS) --profile=$(PROFILE)
@@ -41,6 +41,13 @@ doc-json:
 
 format:
 	dune build @fmt --auto-promote
+
+list-hd:
+	LIST_HD=$$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc) ;\
+	echo counted $$LIST_HD usages ;\
+	test $$LIST_HD -eq 302
+
+quality-gate: list-hd ;
 
 install: build doc
 	mkdir -p $(DESTDIR)$(SBINDIR)
