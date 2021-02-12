@@ -672,10 +672,10 @@ module Interface = struct
                        derive the intention of the caller by looking at other
                        fields. *)
                     match (ipv4_conf, ipv6_conf) with
-                    | (Static4 _, _)
-                    | (_, Static6 _)
-                    | (_, Autoconf6) -> set_dns () dbg ~name ~nameservers ~domains
-                    | _ -> ());
+                    | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
+                        set_dns () dbg ~name ~nameservers ~domains
+                    | _ ->
+                        ()) ;
                 exec (fun () -> set_ipv4_conf dbg name ipv4_conf) ;
                 exec (fun () ->
                     match ipv4_gateway with
