@@ -763,6 +763,8 @@ let checkpoint_in_progress ~__context ~vm =
     cleaned
     2. Called on update VM when the power state changes *)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
+  (* First update the power_state. Some operations below indirectly rely on this. *)
+  Db.VM.set_power_state ~__context ~self ~value:state ;
   if state = `Halted then (
     (* mark all devices as disconnected *)
     List.iter
@@ -838,7 +840,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
             ~value:Ref.null)
       (Db.PCI.get_all ~__context)
   ) ;
-  Db.VM.set_power_state ~__context ~self ~value:state ;
   update_allowed_operations ~__context ~self ;
   if state = `Halted then (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
