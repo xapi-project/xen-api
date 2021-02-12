@@ -484,7 +484,18 @@ module Ip = struct
 
   let get_mtu dev = int_of_string (List.hd (link dev "mtu"))
 
-  let get_mac dev = List.hd (link dev "link/ether")
+  let get_mac dev =
+    match link dev "link/ether" with
+    | [] -> (
+      match link dev "link/infiniband" with
+      | m :: _ ->
+          m
+      | [] ->
+          error "can't find mac address for %s" dev ;
+          ""
+    )
+    | m :: _ ->
+        m
 
   let set_mac dev mac =
     try ignore (link_set dev ["address"; mac]) with _ -> ()
