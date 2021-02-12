@@ -1026,3 +1026,11 @@ let mac_from_int_array macs =
 (* generate a random mac that is locally administered *)
 let random_mac_local () =
   mac_from_int_array (Array.init 6 (fun i -> Random.int 0x100))
+
+let certificate_type_to_string = function
+  | `host ->
+      "Host"
+  | `pool ->
+      "Pool"
+  | `host_and_pool ->
+      "Host_and_Pool"
