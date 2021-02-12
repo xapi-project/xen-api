@@ -60,7 +60,7 @@ let get_management_ip_addr ~dbg =
       let addrs =
         List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs
       in
-      Some (List.hd addrs)
+      List.nth_opt addrs 0
   with _ -> None
 
 open Api_errors
