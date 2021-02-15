@@ -491,8 +491,11 @@ module Ip = struct
       | m :: _ ->
           m
       | [] ->
-          error "can't find mac address for %s" dev ;
-          ""
+          let msg =
+            Printf.sprintf "can't find mac address for %s (%s)" dev __LOC__
+          in
+          error "%s" msg ;
+          raise (Network_error (Internal_error msg))
     )
     | m :: _ ->
         m
