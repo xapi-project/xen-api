@@ -540,11 +540,11 @@ module Ip = struct
 
   let get_ipv4 dev =
     let addrs = addr dev "inet" in
-    Xapi_stdext_std.Listext.List.filter_map split_addr addrs
+    List.filter_map split_addr addrs
 
   let get_ipv6 dev =
     let addrs = addr dev "inet6" in
-    Xapi_stdext_std.Listext.List.filter_map split_addr addrs
+    List.filter_map split_addr addrs
 
   let set_ip_addr dev (ip, prefixlen) =
     let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
@@ -815,7 +815,7 @@ module Linux_bonding = struct
           debug "Failed to get property \"%s\" on bond %s" prop master ;
           None
       in
-      Xapi_stdext_std.Listext.List.filter_map get_prop known_props
+      List.filter_map get_prop known_props
     else (
       debug "Bond %s does not exist; cannot get properties" master ;
       []
@@ -1495,7 +1495,7 @@ module Ovs = struct
             | None ->
                 None
           in
-          Xapi_stdext_std.Listext.List.filter_map parse lines
+          List.filter_map parse lines
         in
         List.flatten
           (List.map
@@ -1699,7 +1699,7 @@ module Ovs = struct
              ; ("lacp-actor-key", "other-config:lacp-actor-key")
              ])
       and other_args =
-        Xapi_stdext_std.Listext.List.filter_map
+        List.filter_map
           (fun (k, v) ->
             if List.mem k known_props then
               None
@@ -1915,7 +1915,6 @@ module Modprobe = struct
   *)
   let get_config_from_comments driver =
     try
-      let open Xapi_stdext_std.Listext in
       Unixext.read_lines ~path:(getpath driver)
       |> List.filter_map (fun x ->
              let line = String.trim x in

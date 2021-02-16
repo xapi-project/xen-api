@@ -1286,14 +1286,8 @@ module Bridge = struct
                 (fun (bridge, _, _) -> List.mem bridge ifaces)
                 (Proc.get_vlans ())
             in
-            let bond_ifaces =
-              List.filter
-                (fun iface -> Linux_bonding.is_bond_device iface)
-                ifaces
-            in
-            let physical_ifaces =
-              List.filter (fun iface -> Sysfs.is_physical iface) ifaces
-            in
+            let bond_ifaces = List.filter Linux_bonding.is_bond_device ifaces in
+            let physical_ifaces = List.filter Sysfs.is_physical ifaces in
             match (vlan_ifaces, bond_ifaces) with
             | (_, _, parent) :: _, _ when Linux_bonding.is_bond_device parent ->
                 Linux_bonding.get_bond_slaves parent
@@ -1335,7 +1329,7 @@ module Bridge = struct
               (String.concat ", "
                  (List.map (fun (name, _) -> name) persistent_config)) ;
             let vlan_parents =
-              Xapi_stdext_std.Listext.List.filter_map
+              List.filter_map
                 (function
                   | _, {vlan= Some (parent, _); _} ->
                       if not (List.mem_assoc parent persistent_config) then
