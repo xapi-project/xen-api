@@ -161,8 +161,7 @@ module Sysfs = struct
 
   let read_one_line file =
     try
-      Unixext.string_of_file file |> String.split_on_char '\n' |> List.hd
-      (* Note: the list returned by split_on_char is guaranteed to be non-empty *)
+      Unixext.string_of_file file |> Astring.String.take ~sat:(( <> ) '\n')
     with
     | End_of_file ->
         ""
@@ -204,7 +203,7 @@ module Sysfs = struct
   let get_pcibuspath name =
     try
       let devpath = Unix.readlink (getpath name "device") in
-      List.hd (List.rev (Astring.String.cuts ~empty:false ~sep:"/" devpath))
+      Filename.basename devpath
     with _ -> "N/A"
 
   let get_pci_ids name =
@@ -785,9 +784,7 @@ module Linux_bonding = struct
       let master_path = Unix.readlink master_symlink in
       let slaves_path = Filename.concat master_symlink "bonding/slaves" in
       Unix.access slaves_path [Unix.F_OK] ;
-      Some
-        (List.hd
-           (List.rev (Astring.String.cuts ~empty:false ~sep:"/" master_path)))
+      Some (Filename.basename master_path)
     with _ -> None
 
   let get_bond_active_slave master =
@@ -806,9 +803,12 @@ module Linux_bonding = struct
             Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop))
           in
           if prop = "mode" then
-            Some
-              ( prop
-              , List.hd (Astring.String.cuts ~empty:false ~sep:" " bond_prop) )
+            let get_mode line =
+              let a_space char = char = ' ' in
+              Astring.String.(
+                line |> drop ~sat:a_space |> take ~sat:(Fun.negate a_space))
+            in
+            Some (prop, get_mode bond_prop)
           else
             Some (prop, bond_prop)
         with _ ->

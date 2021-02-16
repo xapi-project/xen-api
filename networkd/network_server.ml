@@ -903,13 +903,25 @@ module Bridge = struct
                 ()
             | Some (parent, vlan) ->
                 let bridge_interfaces = Sysfs.bridge_to_interfaces name in
+                let parent_bridge_interfaces =
+                  List.filter
+                    (fun n ->
+                      Astring.String.is_prefix ~affix:"eth" n
+                      || Astring.String.is_prefix ~affix:"bond" n)
+                    (Sysfs.bridge_to_interfaces parent)
+                in
                 let parent_bridge_interface =
-                  List.hd
-                    (List.filter
-                       (fun n ->
-                         Astring.String.is_prefix ~affix:"eth" n
-                         || Astring.String.is_prefix ~affix:"bond" n)
-                       (Sysfs.bridge_to_interfaces parent))
+                  match parent_bridge_interfaces with
+                  | [] ->
+                      let msg =
+                        Printf.sprintf
+                          {|Interface for bridge parent "%s" of vlan %i not found|}
+                          parent vlan
+                      in
+                      error "%s" msg ;
+                      raise (Network_error (Internal_error msg))
+                  | iface :: _ ->
+                      iface
                 in
                 let parent_interface =
                   if need_enic_workaround () then (
@@ -1130,16 +1142,17 @@ module Bridge = struct
       =
     match !backend_kind with
     | Openvswitch -> (
-        if List.length interfaces = 1 then (
-          List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces ;
-          ignore (Ovs.create_port (List.hd interfaces) bridge)
-        ) else (
-          if bond_mac = None then
-            warn "No MAC address specified for the bond" ;
-          ignore
-            (Ovs.create_bond ?mac:bond_mac name interfaces bridge
-               bond_properties) ;
-          List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
+        ( match interfaces with
+        | [iface] ->
+            Interface.bring_up () dbg ~name:iface ;
+            ignore (Ovs.create_port iface bridge)
+        | _ ->
+            if bond_mac = None then
+              warn "No MAC address specified for the bond" ;
+            ignore
+              (Ovs.create_bond ?mac:bond_mac name interfaces bridge
+                 bond_properties) ;
+            List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
         ) ;
         if List.mem bridge !add_default then
           let mac =
@@ -1160,39 +1173,39 @@ module Bridge = struct
                  no MAC address was specified"
                 name bridge
       )
-    | Bridge ->
-        if List.length interfaces = 1 then
-          List.iter (fun name -> Interface.bring_up () dbg ~name) interfaces
-        else (
-          Linux_bonding.add_bond_master name ;
-          let bond_properties =
-            if
-              List.mem_assoc "mode" bond_properties
-              && List.assoc "mode" bond_properties = "lacp"
-            then
-              Xapi_stdext_std.Listext.List.replace_assoc "mode" "802.3ad"
-                bond_properties
-            else
-              bond_properties
-          in
-          Linux_bonding.set_bond_properties name bond_properties ;
-          Linux_bonding.set_bond_slaves name interfaces ;
-          ( match bond_mac with
-          | Some mac ->
-              Ip.set_mac name mac
-          | None ->
-              warn "No MAC address specified for the bond"
+    | Bridge -> (
+      match interfaces with
+      | [iface] ->
+          Interface.bring_up () dbg ~name:iface
+      | _ ->
+          ( Linux_bonding.add_bond_master name ;
+            let bond_properties =
+              match List.assoc_opt "mode" bond_properties with
+              | Some "lacp" ->
+                  Xapi_stdext_std.Listext.List.replace_assoc "mode" "802.3ad"
+                    bond_properties
+              | _ ->
+                  bond_properties
+            in
+            Linux_bonding.set_bond_properties name bond_properties ;
+            Linux_bonding.set_bond_slaves name interfaces ;
+            ( match bond_mac with
+            | Some mac ->
+                Ip.set_mac name mac
+            | None ->
+                warn "No MAC address specified for the bond"
+            ) ;
+            Interface.bring_up () dbg ~name
           ) ;
-          Interface.bring_up () dbg ~name
-        ) ;
-        if need_enic_workaround () then (
-          debug "Applying enic workaround: adding VLAN0 device to bridge" ;
-          Ip.create_vlan name 0 ;
-          let vlan0 = Ip.vlan_name name 0 in
-          Interface.bring_up () dbg ~name:vlan0 ;
-          ignore (Brctl.create_port bridge vlan0)
-        ) else
-          ignore (Brctl.create_port bridge name)
+          if need_enic_workaround () then (
+            debug "Applying enic workaround: adding VLAN0 device to bridge" ;
+            Ip.create_vlan name 0 ;
+            let vlan0 = Ip.vlan_name name 0 in
+            Interface.bring_up () dbg ~name:vlan0 ;
+            ignore (Brctl.create_port bridge vlan0)
+          ) else
+            ignore (Brctl.create_port bridge name)
+    )
 
   let add_pvs_proxy_port dbg bridge name _port =
     match !backend_kind with
@@ -1266,7 +1279,7 @@ module Bridge = struct
             Ovs.get_real_bridge name
             |> Ovs.bridge_to_interfaces
             |> List.filter Sysfs.is_physical
-        | Bridge ->
+        | Bridge -> (
             let ifaces = Sysfs.bridge_to_interfaces name in
             let vlan_ifaces =
               List.filter
@@ -1281,16 +1294,16 @@ module Bridge = struct
             let physical_ifaces =
               List.filter (fun iface -> Sysfs.is_physical iface) ifaces
             in
-            if vlan_ifaces <> [] then
-              let _, _, parent = List.hd vlan_ifaces in
-              if Linux_bonding.is_bond_device parent then
+            match (vlan_ifaces, bond_ifaces) with
+            | (_, _, parent) :: _, _ when Linux_bonding.is_bond_device parent ->
                 Linux_bonding.get_bond_slaves parent
-              else
+            | (_, _, parent) :: _, _ ->
                 [parent]
-            else if bond_ifaces <> [] then
-              Linux_bonding.get_bond_slaves (List.hd bond_ifaces)
-            else
-              physical_ifaces)
+            | _, bond_iface :: _ ->
+                Linux_bonding.get_bond_slaves bond_iface
+            | [], [] ->
+                physical_ifaces
+          ))
       ()
 
   let set_persistent dbg name value =
