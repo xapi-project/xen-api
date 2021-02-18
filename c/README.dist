@@ -1,26 +1,13 @@
 libxenserver
 ============
 
-Version @SDK_VERSION@
-
 libxenserver is a complete SDK for Citrix Hypervisor exposing the Citrix
-Hypervisor API to C programmers.
-
-It is available in the CitrixHypervisor-SDK-@SDK_VERSION@.zip, which can be downloaded
-from https://www.citrix.com/downloads/citrix-hypervisor/
-
-For Citrix Hypervisor documentation, see https://docs.citrix.com/en-us/citrix-hypervisor/
+Hypervisor API to C developers.
 
 libxenserver includes a C function call for each API call, so API
 documentation and examples written for for other languages can be easily
 mapped to C. In particular, the SDK Guide and the Management API Guide are ideal
 for developers wishing to use libxenserver.
-
-For community content, blogs, and downloads, visit
-https://www.citrix.com/community/citrix-developer/
-
-To network with other developers using Citrix Hypervisor visit
-https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 
 libxenserver is free software. You can redistribute and modify it under the
 terms of the BSD 2-Clause license. See COPYING for details.
@@ -31,6 +18,24 @@ for redistribution and modification under the BSD 2-Clause license. libxenserver
 comes with the usual complexities inherent with programming in C, and it is
 recommended that you study these examples carefully to understand the approach
 to error reporting and memory management taken by this library.
+
+
+Reference
+---------
+
+For Citrix Hypervisor documentation see https://docs.citrix.com/en-us/citrix-hypervisor/
+
+The Citrix Hypervisor Management API Reference is available at
+https://developer-docs.citrix.com/projects/citrix-hypervisor-management-api/en/latest/
+
+The Citrix Hypervisor Software Development Kit Guide is available at
+https://developer-docs.citrix.com/projects/citrix-hypervisor-sdk/en/latest/
+
+For community content, blogs, and downloads, visit
+https://www.citrix.com/community/citrix-developer/
+
+To network with other developers using Citrix Hypervisor visit
+https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 
 
 Dependencies
@@ -54,8 +59,7 @@ on all systems.)
 Folder structure
 ----------------
 
-The CitrixHypervisor-SDK-@SDK_VERSION@.zip contains the following folders that
-are relevant to C programmers:
+This archive contains the following folders that are relevant to C developers:
 - libxenserver/bin: contains the compiled binaries
 - libxenserver/src: contains the source code and tests.
 

@@ -10,11 +10,18 @@
   (action (copy %{deps} %{targets}))
 )
 
+(rule
+  (targets README.txt)
+  (deps ../README.dist)
+  (action (copy %{deps} %{targets}))
+)
+
 (alias
   (name generate)
   (deps
     LICENSE.txt
     LICENSE.Apache-2.0.txt
+    README.txt
     (source_tree .)
   )
 )

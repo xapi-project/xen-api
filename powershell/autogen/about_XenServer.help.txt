@@ -1,6 +1,5 @@
-
-XenServer PowerShell Module v@SDK_VERSION@
-----------------------------------
+XenServer PowerShell Module
+===========================
 
 This document provides a high level walk-through of the XenServer PowerShell Module
 and the structure of its cmdlets.

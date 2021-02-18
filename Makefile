@@ -55,26 +55,21 @@ reindent:
 
 c:
 	dune build --profile=$(PROFILE) -f @c/generate
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' c/README.dist > _build/default/c/autogen/README
 
 csharp:
 	dune build --profile=$(PROFILE) -f @csharp/generate
 	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' _build/default/csharp/autogen/src/Properties/AssemblyInfo.cs
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' csharp/README.dist > _build/default/csharp/autogen/README.txt
 	sh windows-line-endings.sh _build/default/csharp/autogen
 
 java:
 	dune build --profile=$(PROFILE) -f @java/generate
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/Makefile.dist > _build/default/java/autogen/Makefile
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/README.dist > _build/default/java/autogen/README.txt
 
 powershell:
 	dune build --profile=$(PROFILE) -f @powershell/generate
 	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' _build/default/powershell/autogen/src/Properties/AssemblyInfo.cs
 	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' -e "s/@PRODUCT_GUID@/$(PRODUCT_GUID)/g" \
 	    powershell/XenServerPSModule.psd1 > _build/default/powershell/autogen/XenServerPSModule.psd1
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' powershell/about_XenServer.help.txt > _build/default/powershell/autogen/about_XenServer.help.txt
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' powershell/README.dist > _build/default/powershell/autogen/README.txt
 	sh windows-line-endings.sh _build/default/powershell/autogen
 
 
