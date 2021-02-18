@@ -28,6 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ package com.xensource.xenapi.samples;
+
 import java.lang.Thread.State;
 import java.net.URL;
 import java.util.Date;

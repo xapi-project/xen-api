@@ -1,19 +1,19 @@
 /*
  * Copyright (c) Citrix Systems, Inc.
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- *
+ * 
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- *
+ * 
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -28,51 +28,29 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.util.HashSet;
-import java.util.Set;
+ package com.xensource.xenapi.samples;
 
-import com.xensource.xenapi.Event;
-import com.xensource.xenapi.EventBatch;
+import java.util.Date;
+import java.util.Random;
 
-/**
- * Listens for events on a connection and prints each event out as it is received.
- */
-public class EventMonitor extends TestBase
+import com.xensource.xenapi.Network;
+
+public class AddNetwork extends TestBase
 {
-    private static final int MAX_TRIES = 10;
-    private static final double TIMEOUT_SEC = 30;
-    private static final int INTERVAL = 10;
-
     public String getTestName() {
-        return "EventMonitor";
+        return "AddNetwork";
     }
 
-    protected void TestCore() throws Exception
-    {
-        Set<String> eventTypes = new HashSet<String>();
-        eventTypes.add("*");
+    /**
+     * Adds a new internal network not attached to any NICs.
+     */
+    protected void TestCore() throws Exception {
 
-        int tries = 0;
-        String token = "";
+        Network.Record networkRecord = new Network.Record();
+        networkRecord.nameLabel = "TestNetwork" + new Random().nextInt(10000);
+        networkRecord.nameDescription = "Created by AddNetwork.java at " + new Date().toString();
 
-        while (tries <= MAX_TRIES)
-        {
-            tries++;
-            EventBatch eventBatch = Event.from(connection, eventTypes, token, TIMEOUT_SEC);
-            token = eventBatch.token;
-            announce("Poll %d out of %d: %d event(s) received", tries, MAX_TRIES, eventBatch.events.size());
-
-            // print the events out in a nice format
-            String format = "%-10s %-10s %-10s %-50s%n";
-            logf(format, "class", "id", "operation", "reference");
-            for (Event.Record e : eventBatch.events)
-            {
-                logf(format, e.clazz, e.id, e.operation, e.ref);
-                log("associated snapshot:\n" + e.snapshot);
-            }
-
-            logf("Waiting %d seconds before next poll...", INTERVAL);
-            Thread.sleep(INTERVAL * 1000);
-        }
+        log("Adding new network: " + networkRecord.nameLabel);
+        Network.create(connection, networkRecord);
     }
 }

@@ -28,6 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ package com.xensource.xenapi.samples;
+
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 

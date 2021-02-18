@@ -28,6 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ package com.xensource.xenapi.samples;
+
 import java.net.URL;
 import java.util.Map;
 import java.util.Set;

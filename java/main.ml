@@ -39,9 +39,6 @@ module DT = Datamodel_types
 module DU = Datamodel_utils
 
 
-let destdir = "autogen"
-let templdir = "templates"
-
 (*Filter out all the bits of the data model we don't want to put in the api.
   For instance we don't want the things which are marked internal only, or the
   ones marked hide_from_docs*)
@@ -967,10 +964,10 @@ public class Types
 
 (* Now run it *)
 
-let populate_releases class_dir =
+let populate_releases templdir class_dir =
   render_file ("APIVersion.mustache", "APIVersion.java") json_releases templdir class_dir
 
-let gen_get_all_records_test classes =
+let gen_get_all_records_test classes templdir sample_dir =
   let class_records =
     classes |>
     List.filter (fun {obj_lifecycle; _} ->
@@ -981,11 +978,19 @@ let gen_get_all_records_test classes =
     List.sort String.compare
   in
   let json =`O ["api_class_records", `A (List.map (fun x -> `O ["api_class_record", `String x];) class_records); ] in
-  render_file ("GetAllRecordsOfAllTypes.mustache", "samples/GetAllRecordsOfAllTypes.java") json templdir destdir
+  render_file ("GetAllRecordsOfAllTypes.mustache", "GetAllRecordsOfAllTypes.java") json templdir sample_dir
 
 let _ =
-  let class_dir = Filename.concat destdir "com/xensource/xenapi" in
+  let templdir = "templates" in
+  let class_dir = "autogen/xen-api/src/main/java/com/xensource/xenapi" in
+  let sample_dir = "autogen/xen-api-samples/src/main/java/com/xensource/xenapi/samples" in
   List.iter (fun x-> gen_class x class_dir) classes;
   gen_types_class class_dir;
-  populate_releases class_dir;
-  gen_get_all_records_test classes
+  populate_releases templdir class_dir;
+  gen_get_all_records_test classes templdir sample_dir;
+
+  let uncommented_license = string_of_file "LICENSE" in
+  let class_license = open_out "autogen/xen-api/src/main/resources/LICENSE" in
+  let sample_license = open_out "autogen/xen-api-samples/src/main/resources/LICENSE" in
+  output_string class_license uncommented_license;
+  output_string sample_license uncommented_license

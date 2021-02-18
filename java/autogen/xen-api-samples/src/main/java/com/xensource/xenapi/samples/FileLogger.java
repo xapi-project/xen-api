@@ -28,27 +28,45 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.util.Date;
-import java.util.Random;
+ package com.xensource.xenapi.samples;
 
-import com.xensource.xenapi.Network;
+import java.io.FileWriter;
+import java.io.IOException;
 
-public class AddNetwork extends TestBase
-{
-    public String getTestName() {
-        return "AddNetwork";
+public abstract class FileLogger {
+    private FileWriter w;
+
+    protected FileLogger(String path) {
+        try {
+            w = new FileWriter(path);
+        }
+        catch (IOException e) {
+            System.err.print("Couldn't open " + path + " for log output.");
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * Adds a new internal network not attached to any NICs.
-     */
-    protected void TestCore() throws Exception {
+    public abstract void logTestStart(TestBase test);
 
-        Network.Record networkRecord = new Network.Record();
-        networkRecord.nameLabel = "TestNetwork" + new Random().nextInt(10000);
-        networkRecord.nameDescription = "Created by AddNetwork.java at " + new Date().toString();
+    public abstract void logTestResult(TestBase test, RunTests.Result result);
 
-        log("Adding new network: " + networkRecord.nameLabel);
-        Network.create(connection, networkRecord);
+    public abstract void logException(Exception e);
+
+    public void log(String s) {
+        if (w != null) {
+            try {
+                s += "\n";
+                w.write(s);
+                w.flush();
+            }
+            catch (IOException e) {
+                System.err.print("Couldn't write to log file!");
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void logf(String s, Object... args) {
+        log(String.format(s, args));
     }
 }

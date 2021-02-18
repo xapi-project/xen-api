@@ -28,6 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ package com.xensource.xenapi.samples;
+
 import java.net.URL;
 
 import javax.net.ssl.HostnameVerifier;
@@ -45,11 +47,11 @@ import com.xensource.xenapi.*;
  * 2. Run 'openssl x509 -inform PEM -outform DER -in xapi-ssl.pem -out xapi-ssl.jks'
  *    This converts the certificate into a form that Java's keytool can understand.
  * 3. Run keytool (found in Java's bin directory) as follows:
- *    'keytool -importcert -file xapi-ssl.jks -alias <hostname>'
+ *    'keytool -importcert -file xapi-ssl.jks -alias &lt;hostname&gt;'
  *    You can optionally pass the -keystore argument if you want to specify the location of your keystore.
  * 4. To tell the JVM the location and password of your keystore, run it with the additional parameters
  *    (Sun's keytool seems to insist on using private key and keystore passwords):
- *    -Djavax.net.ssl.trustStore="<path to keystore>" -Djavax.net.ssl.trustStorePassword=<password>
+ *    -Djavax.net.ssl.trustStore="&lt;path to keystore&gt;" -Djavax.net.ssl.trustStorePassword=&lt;password&gt;
  *    For extra debug info, try:
  *    -Djavax.net.debug=ssl
  */

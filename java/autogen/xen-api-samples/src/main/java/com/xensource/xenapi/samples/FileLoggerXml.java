@@ -28,6 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ package com.xensource.xenapi.samples;
+
 public class FileLoggerXml extends FileLogger {
     protected FileLoggerXml(String path) {
         super(path);

@@ -28,6 +28,8 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+ package com.xensource.xenapi.samples;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,9 +42,9 @@ import com.xensource.xenapi.Types.XenAPIException;
 
 /**
  * Creates a shared NFS SR.
- * 
- * java equivalent to the cli command: xe sr-create type=nfs name-label=<name> device-config-server=<nfsServer>
- * device-config-serverpath=<serverPath> shared=true
+ *
+ * java equivalent to the cli command: xe sr-create type=nfs name-label=&lt;name&gt; device-config-server=&lt;nfsServer&gt;
+ * device-config-serverpath=&lt;serverPath&gt; shared=true
  */
 public class SharedStorage extends TestBase
 {
@@ -106,8 +108,6 @@ public class SharedStorage extends TestBase
             logf("Received expected exception: %s", ex.toString());
         }
 
-        /*
-        comment this out until CA-182929 is fixed
         log("now trying to create one with a bad 'type' field - should throw a different exception");
         try {
             SR.create(connection, host, new HashMap<String, String>(), 100000L, "bad_sr_type", "description", "made_up",
@@ -116,6 +116,5 @@ public class SharedStorage extends TestBase
         catch (XenAPIException ex) {
             logf("Received expected exception: %s", ex.toString());
         }
-        */
     }
 }

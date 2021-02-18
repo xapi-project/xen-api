@@ -59,7 +59,6 @@ csharp:
 
 java:
 	dune build --profile=$(PROFILE) -f @java/generate
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' java/Makefile.dist > _build/default/java/autogen/Makefile
 
 powershell:
 	dune build --profile=$(PROFILE) -f @powershell/generate
