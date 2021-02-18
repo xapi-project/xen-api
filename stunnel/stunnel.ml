@@ -25,6 +25,7 @@ exception Stunnel_error of string
 exception Stunnel_verify_error of string
 
 let certificates_bundle_path = "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+
 let crl_path = "/etc/stunnel/crls"
 let verify_certificates_ctrl = "/var/xapi/verify_certificates"
 
@@ -134,9 +135,17 @@ let config_file verify_cert extended_diagnosis host port =
     ]
   ; if is_fips then ["fips=yes"] else ["fips=no"]
   ; if extended_diagnosis then ["debug=authpriv.7"] else ["debug=authpriv.5"]
+  ; [ "sslVersion = TLSv1.2"
+    ; "ciphers = " ^ Xcp_const.good_ciphersuites
+    ; "curve = secp384r1"
+    ]
   ; if verify_cert then
-      ["verify=2"
-      ; sprintf "checkHost=%s" host
+      [ ""
+      ; "# use SNI to request a specific cert. CAfile contains"
+      ; "# public certs of all hosts in the pool and must contain"
+      ; "# the cert of the server we connect to"
+      ; "sni = pool"
+      ; "verifyPeer=yes"
       ; sprintf "CAfile=%s" certificates_bundle_path
       ; (match Sys.readdir crl_path with
          | [| |] -> ""
@@ -144,11 +153,7 @@ let config_file verify_cert extended_diagnosis host port =
          | exception _ -> "")
       ]
     else []
-  ; [ "sslVersion = TLSv1.2"
-    ; "ciphers = " ^ Xcp_const.good_ciphersuites
-    ]
-  ; ["curve = secp384r1"]
-  ; [""]
+    ; [""]
   ]
 
 let ignore_exn f x = try f x with _ -> ()
