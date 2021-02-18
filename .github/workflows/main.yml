@@ -1,0 +1,70 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # run daily, this refreshes the cache
+    - cron: '30 4 * * *'
+
+jobs:
+  ocaml-test:
+    name: Ocaml tests
+    runs-on: ubuntu-20.04
+    env:
+      package: "xapi-networkd"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.4
+
+      - name: Retrieve date for cache key
+        id: cache-key
+        run: echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
+
+      - name: Restore opam cache
+        id: opam-cache
+        uses: actions/cache@v2
+        with:
+          path: "~/.opam"
+          # invalidate cache daily, gets built daily using a scheduled job
+          key: ${{ steps.cache-key.outputs.date }}
+
+      - name: Use ocaml
+        uses: avsm/setup-ocaml@v1
+        with:
+          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repository: ${{ steps.dotenv.outputs.repository }}
+
+      - name: Update opam metadata
+        run: |
+          opam update
+          opam pin add . --no-action
+
+      - name: Install external dependencies
+        run: opam depext -u ${{ env.package }}
+
+      - name: Install dependencies
+        run: |
+          opam upgrade
+          opam install ${{ env.package }} --deps-only --with-test -v
+
+      - name: Build
+        run: opam exec -- make
+
+      - name: Run tests
+        run: opam exec -- make test
+
+      - name: Uninstall unversioned packages
+        # This should purge them from the cache, unversioned package have
+        # 'master' as its version
+        run: opam list | awk -F " " '$2 == "master" { print $1 }' |  xargs opam uninstall
