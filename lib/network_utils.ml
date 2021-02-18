@@ -161,8 +161,7 @@ module Sysfs = struct
 
   let read_one_line file =
     try
-      Unixext.string_of_file file |> String.split_on_char '\n' |> List.hd
-      (* Note: the list returned by split_on_char is guaranteed to be non-empty *)
+      Unixext.string_of_file file |> Astring.String.take ~sat:(( <> ) '\n')
     with
     | End_of_file ->
         ""
@@ -204,7 +203,7 @@ module Sysfs = struct
   let get_pcibuspath name =
     try
       let devpath = Unix.readlink (getpath name "device") in
-      List.hd (List.rev (Astring.String.cuts ~empty:false ~sep:"/" devpath))
+      Filename.basename devpath
     with _ -> "N/A"
 
   let get_pci_ids name =
@@ -541,11 +540,11 @@ module Ip = struct
 
   let get_ipv4 dev =
     let addrs = addr dev "inet" in
-    Xapi_stdext_std.Listext.List.filter_map split_addr addrs
+    List.filter_map split_addr addrs
 
   let get_ipv6 dev =
     let addrs = addr dev "inet6" in
-    Xapi_stdext_std.Listext.List.filter_map split_addr addrs
+    List.filter_map split_addr addrs
 
   let set_ip_addr dev (ip, prefixlen) =
     let addr = Printf.sprintf "%s/%d" (Unix.string_of_inet_addr ip) prefixlen in
@@ -785,9 +784,7 @@ module Linux_bonding = struct
       let master_path = Unix.readlink master_symlink in
       let slaves_path = Filename.concat master_symlink "bonding/slaves" in
       Unix.access slaves_path [Unix.F_OK] ;
-      Some
-        (List.hd
-           (List.rev (Astring.String.cuts ~empty:false ~sep:"/" master_path)))
+      Some (Filename.basename master_path)
     with _ -> None
 
   let get_bond_active_slave master =
@@ -806,16 +803,19 @@ module Linux_bonding = struct
             Sysfs.read_one_line (Sysfs.getpath master ("bonding/" ^ prop))
           in
           if prop = "mode" then
-            Some
-              ( prop
-              , List.hd (Astring.String.cuts ~empty:false ~sep:" " bond_prop) )
+            let get_mode line =
+              let a_space char = char = ' ' in
+              Astring.String.(
+                line |> drop ~sat:a_space |> take ~sat:(Fun.negate a_space))
+            in
+            Some (prop, get_mode bond_prop)
           else
             Some (prop, bond_prop)
         with _ ->
           debug "Failed to get property \"%s\" on bond %s" prop master ;
           None
       in
-      Xapi_stdext_std.Listext.List.filter_map get_prop known_props
+      List.filter_map get_prop known_props
     else (
       debug "Bond %s does not exist; cannot get properties" master ;
       []
@@ -1495,7 +1495,7 @@ module Ovs = struct
             | None ->
                 None
           in
-          Xapi_stdext_std.Listext.List.filter_map parse lines
+          List.filter_map parse lines
         in
         List.flatten
           (List.map
@@ -1699,7 +1699,7 @@ module Ovs = struct
              ; ("lacp-actor-key", "other-config:lacp-actor-key")
              ])
       and other_args =
-        Xapi_stdext_std.Listext.List.filter_map
+        List.filter_map
           (fun (k, v) ->
             if List.mem k known_props then
               None
@@ -1915,7 +1915,6 @@ module Modprobe = struct
   *)
   let get_config_from_comments driver =
     try
-      let open Xapi_stdext_std.Listext in
       Unixext.read_lines ~path:(getpath driver)
       |> List.filter_map (fun x ->
              let line = String.trim x in
