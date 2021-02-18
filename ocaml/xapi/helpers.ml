@@ -1736,6 +1736,12 @@ end = struct
           ; "TIMEOUTclose = 1"
           ; "options = CIPHER_SERVER_PREFERENCE"
           ; "sslVersion = TLSv1.2"
+          ; ""
+          ; "# xapi connections use SNI 'pool' to request a cert"
+          ; "[pool]"
+          ; "connect = 80"
+          ; "sni = xapi:pool"
+          ; Printf.sprintf "cert = %s" cert
           ]
       in
       let len = String.length conf_contents in
