@@ -33,7 +33,7 @@
 #Module Info
 ModuleVersion = '@SDK_VERSION@'
 Description = 'XenServer PowerShell Module'
-GUID = '@PRODUCT_GUID@'
+GUID = 'D695A8B9-039A-443C-99A4-0D48D7C6AD76'
 
 #Copyright
 Author = ''
