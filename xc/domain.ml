@@ -1935,7 +1935,7 @@ let move_xstree ~xs domid olduuid newuuid =
       let path' = String.concat "/" path in
       try t.Xs.directory path'
       with Xs_protocol.Invalid ->
-        info "ignored: xenstore EINVAL on 'directory %s'" path';
+        info "ignored: xenstore EINVAL on 'directory %s'" path' ;
         []
     in
     let subtrees = subtrees |> List.filter (fun s -> s <> "") in

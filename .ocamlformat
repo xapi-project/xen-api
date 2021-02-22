@@ -1,5 +1,4 @@
 profile=ocamlformat
-version=0.14.1
 indicate-multiline-delimiters=closing-on-separate-line
 if-then-else=fit-or-vertical
 dock-collection-brackets=true
