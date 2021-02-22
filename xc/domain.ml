@@ -1286,7 +1286,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
   let open Suspend_image in
   let hvm = domain_type = `hvm in
   match read_save_signature main_fd with
-  | `Ok Legacy ->
+  | Ok Legacy ->
       debug "Detected legacy suspend image! Piping through conversion tool." ;
       let store_mfn, console_mfn =
         match
@@ -1295,9 +1295,9 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 ~console_port ~extras manager_path domid uuid pipe_r vgpu_fd
                 (fun cnx -> restore_libxc_record cnx domid uuid))
         with
-        | `Ok (s, c) ->
+        | Ok (s, c) ->
             (s, c)
-        | `Error e ->
+        | Error e ->
             error "Caught error when using converison script: %s"
               (Printexc.to_string e) ;
             Xenops_task.cancel task ;
@@ -1308,9 +1308,9 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
         debug "Reading legacy (Xenops-level) QEMU record signature" ;
         let length =
           match read_legacy_qemu_header main_fd with
-          | `Ok length ->
+          | Ok length ->
               length
-          | `Error e ->
+          | Error e ->
               error "VM = %s; domid = %d; Error reading QEMU signature: %s"
                 (Uuid.to_string uuid) domid e ;
               raise Suspend_image_failure
@@ -1319,7 +1319,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
         consume_qemu_record main_fd length domid uuid
       ) ;
       (store_mfn, console_mfn)
-  | `Ok Structured ->
+  | Ok Structured ->
       let open Suspend_image.M in
       let open Emu_manager in
       let fds =
@@ -1401,7 +1401,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                 debug "Read suspend image footer" ;
                 res
             | (Libxl | Qemu_xen), _ ->
-                `Error Suspend_image_failure
+                Error Suspend_image_failure
           in
           let handle_results () =
             (* Wait for results coming in from emu-manager, and match them up
@@ -1426,7 +1426,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
                   List.iter
                     (fun (emu, wakeup) -> Event.send wakeup () |> Event.sync)
                     !thread_requests ;
-                  `Error Domain_restore_failed
+                  Error Domain_restore_failed
                 )
               with End_of_file ->
                 debug "Finished emu-manager result processing" ;
@@ -1448,9 +1448,9 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
           let cancel_on_error result =
             let () =
               match result with
-              | `Ok _ ->
+              | Ok _ ->
                   ()
-              | `Error e ->
+              | Error e ->
                   Debug.log_backtrace e (Backtrace.get e) ;
                   warn "Canceling task %s, error during resume: %s"
                     (Xenops_task.get_dbg task) (Printexc.to_string e) ;
@@ -1509,15 +1509,15 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
             thread_status >>= fun () -> return result
           in
           match res with
-          | `Ok (Some (store_mfn, console_mfn)) ->
+          | Ok (Some (store_mfn, console_mfn)) ->
               debug "VM = %s; domid = %d; store_mfn = %nd; console_mfn = %nd"
                 (Uuid.to_string uuid) domid store_mfn console_mfn ;
               (store_mfn, console_mfn)
-          | `Ok None ->
+          | Ok None ->
               failwith "Well formed, but useless stream"
-          | `Error e ->
+          | Error e ->
               raise e)
-  | `Error e ->
+  | Error e ->
       error "VM = %s; domid = %d; Error reading save signature: %s"
         (Uuid.to_string uuid) domid e ;
       raise Suspend_image_failure
@@ -1683,7 +1683,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
               send_done cnx ;
               wait_for_message ()
           | None ->
-              `Error
+              Error
                 (Emu_manager_failure
                    "Received prepare:vgpu from emu-manager, but there is no \
                     vGPU fd")
@@ -1695,13 +1695,13 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc ~xs ~domain_type
         | Error x ->
             error "VM = %s; domid = %d; emu-manager failed: \"%s\""
               (Uuid.to_string uuid) domid x ;
-            `Error
+            Error
               (Emu_manager_failure
                  (Printf.sprintf "Received error from emu-manager: %s" x))
         | _ ->
             error "VM = %s; domid = %d; unexpected message from emu-manager"
               (Uuid.to_string uuid) domid ;
-            `Error Emu_manager_protocol_failure
+            Error Emu_manager_protocol_failure
       in
       wait_for_message ())
 
@@ -1800,9 +1800,9 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     fold (fun fd () -> write_header fd (End_of_image, 0L)) fds ()
   in
   ( match res with
-  | `Error e ->
+  | Error e ->
       raise e
-  | `Ok () ->
+  | Ok () ->
       debug "VM = %s; domid = %d; suspend complete" (Uuid.to_string uuid) domid
   ) ;
   if hvm then Device.Dm.after_suspend_image ~xs ~dm ~qemu_domid domid

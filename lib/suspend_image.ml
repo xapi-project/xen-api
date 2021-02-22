@@ -13,18 +13,18 @@
  *)
 
 module M = struct
-  type ('a, 'b) t = [`Ok of 'a | `Error of 'b]
+  type ('a, 'b) t = ('a, 'b) Result.t
 
-  let ( >>= ) m f = match m with `Ok x -> f x | `Error x -> `Error x
+  let ( >>= ) = Result.bind
 
-  let return x = `Ok x
+  let return = Result.ok
 
   let fold f l a = List.fold_left (fun c b -> c >>= f b) (return a) l
 end
 
 open M
 
-let wrap_exn f = try f () with e -> Backtrace.is_important e ; `Error e
+let wrap_exn f = try f () with e -> Backtrace.is_important e ; Error e
 
 let wrap f = wrap_exn (fun () -> return (f ()))
 
@@ -68,25 +68,25 @@ exception Invalid_header_type
 
 let header_type_of_int64 = function
   | 0x000fL ->
-      `Ok Xenops
+      Ok Xenops
   | 0x00f0L ->
-      `Ok Libxc
+      Ok Libxc
   | 0x00f1L ->
-      `Ok Libxl
+      Ok Libxl
   | 0x00f2L ->
-      `Ok Libxc_legacy
+      Ok Libxc_legacy
   | 0x0f00L ->
-      `Ok Qemu_trad
+      Ok Qemu_trad
   | 0x0f01L ->
-      `Ok Qemu_xen
+      Ok Qemu_xen
   | 0x0f10L ->
-      `Ok Demu
+      Ok Demu
   | 0x0f11L ->
-      `Ok Varstored
+      Ok Varstored
   | 0xffffL ->
-      `Ok End_of_image
+      Ok End_of_image
   | _ ->
-      `Error Invalid_header_type
+      Error Invalid_header_type
 
 let int64_of_header_type = function
   | Xenops ->
@@ -149,20 +149,20 @@ let _write_save_signature fd = Io.write fd save_signature
 let read_save_signature fd =
   match Io.read fd (String.length save_signature) with
   | x when x = save_signature ->
-      `Ok Structured
+      Ok Structured
   | x when x = legacy_save_signature ->
-      `Ok Legacy
+      Ok Legacy
   | x ->
-      `Error (Printf.sprintf "Not a valid signature: \"%s\"" x)
+      Error (Printf.sprintf "Not a valid signature: \"%s\"" x)
 
 let read_legacy_qemu_header fd =
   try
     match Io.read fd (String.length legacy_qemu_save_signature) with
     | x when x = legacy_qemu_save_signature ->
-        `Ok (Int64.of_int (Io.read_int ~endianness:`big fd))
+        Ok (Int64.of_int (Io.read_int ~endianness:`big fd))
     | _ ->
-        `Error "Read invalid legacy qemu save signature"
-  with e -> `Error ("Failed to read signature: " ^ Printexc.to_string e)
+        Error "Read invalid legacy qemu save signature"
+  with e -> Error ("Failed to read signature: " ^ Printexc.to_string e)
 
 let write_qemu_header_for_legacy_libxc fd size =
   wrap (fun () -> Io.write fd qemu_save_signature_legacy_libxc) >>= fun () ->
@@ -182,7 +182,7 @@ let check_conversion_script () =
   let open Unix in
   try return (access !Resources.legacy_conv_tool [X_OK])
   with _ ->
-    `Error
+    Error
       (Failure
          (Printf.sprintf "Executable not found: %s" !Resources.legacy_conv_tool))
 
@@ -251,28 +251,28 @@ let with_conversion_script task name hvm fd f =
       | Forkhelpers.Spawn_internal_error (_, _, status) -> (
         match status with
         | Unix.WEXITED n ->
-            `Error
+            Error
               (Failure
                  (Printf.sprintf "Conversion script exited with code %d" n))
         | Unix.WSIGNALED n ->
-            `Error
+            Error
               (Failure
                  (Printf.sprintf "Conversion script exited with signal %s"
                     (Unixext.string_of_signal n)))
         | Unix.WSTOPPED n ->
-            `Error
+            Error
               (Failure
                  (Printf.sprintf "Conversion script stopped with signal %s"
                     (Unixext.string_of_signal n)))
       )
       | _ ->
-          `Error
+          Error
             (Failure
                (Printf.sprintf "Conversion script thread caught exception: %s"
                   (Printexc.to_string e)))
     )
     | _, Thread_failure e ->
-        `Error
+        Error
           (Failure
              (Printf.sprintf "Thread executing %s caught exception: %s" name
                 (Printexc.to_string e)))
@@ -283,6 +283,6 @@ let with_conversion_script task name hvm fd f =
         Thread.join conv_th ;
         debug "Waiting for xenguest thread to join" ;
         Thread.join f_th ;
-        `Ok res
+        Ok res
   in
   Mutex.execute m handle_threads
