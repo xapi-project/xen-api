@@ -27,6 +27,7 @@ let create_internal ~__context ~physical_PIF ~physical_rec ~network =
   let metrics = physical_rec.API.pIF_metrics in
   let device = physical_rec.API.pIF_device in
   let host = physical_rec.API.pIF_host in
+  let primary_address_type = physical_rec.API.pIF_primary_address_type in
   Db.PIF.create ~__context ~ref:logical_PIF
     ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
     ~device ~device_name:device ~network ~host ~mAC:network_sriov_mac ~mTU
@@ -35,7 +36,7 @@ let create_internal ~__context ~physical_PIF ~physical_rec ~network =
     ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null
     ~vLAN_master_of:Ref.null ~management:false ~other_config:[]
     ~disallow_unplug:false ~ipv6_configuration_mode:`None ~iPv6:[]
-    ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true ~properties:[]
+    ~ipv6_gateway:"" ~primary_address_type ~managed:true ~properties:[]
     ~capabilities:[] ~pCI:Ref.null ;
   info "network-sriov create uuid=%s" sriov_uuid ;
   Db.Network_sriov.create ~__context ~ref:sriov ~uuid:sriov_uuid ~physical_PIF
