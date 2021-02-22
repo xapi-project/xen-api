@@ -379,8 +379,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       in
       let pifs_with_ip_conf =
         List.filter
-          (fun self ->
-            Db.PIF.get_ip_configuration_mode ~__context ~self <> `None)
+          (fun self -> match Db.PIF.get_primary_address_type ~__context ~self with
+            | `IPv4 -> Db.PIF.get_ip_configuration_mode ~__context ~self <> `None
+            | `IPv6 -> Db.PIF.get_ipv6_configuration_mode ~__context ~self <> `None)
           members
       in
       (* The primary slave is the management PIF, or the first member with
@@ -396,6 +397,14 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         | None, [], [] ->
             raise Api_errors.(Server_error (pif_bond_needs_more_members, []))
       in
+      let primary_slave_address_type =
+        Db.PIF.get_primary_address_type ~__context ~self:primary_slave
+      in
+      (List.iter
+          (fun self -> if (Db.PIF.get_primary_address_type ~__context ~self) <> primary_slave_address_type then
+            raise Api_errors.(Server_error
+              (pif_incompatible_primary_address_type, [Ref.string_of self])))
+          members);
       let mAC, auto_update_mac =
         if did_user_specify_MAC then
           (mAC, false)
@@ -468,7 +477,7 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         ~ip_configuration_mode:`None ~iP:"" ~netmask:"" ~gateway:"" ~dNS:""
         ~bond_slave_of:Ref.null ~vLAN_master_of:Ref.null ~management:false
         ~other_config:[] ~disallow_unplug:false ~ipv6_configuration_mode:`None
-        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:`IPv4 ~managed:true
+        ~iPv6:[""] ~ipv6_gateway:"" ~primary_address_type:primary_slave_address_type ~managed:true
         ~properties:pif_properties ~capabilities:[] ~pCI:Ref.null ;
       Db.Bond.create ~__context ~ref:bond
         ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
