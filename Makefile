@@ -30,10 +30,6 @@
 
 PROFILE=release
 
-ifndef SDK_VERSION
-	SDK_VERSION=0.0.0
-endif
-
 build:
 	dune build --profile=$(PROFILE) \
 		c/gen_c_binding.exe \
@@ -54,7 +50,6 @@ c:
 
 csharp:
 	dune build --profile=$(PROFILE) -f @csharp/generate
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION).0/g' _build/default/csharp/autogen/src/Properties/AssemblyInfo.cs
 	sh windows-line-endings.sh _build/default/csharp/autogen
 
 java:
@@ -62,9 +57,6 @@ java:
 
 powershell:
 	dune build --profile=$(PROFILE) -f @powershell/generate
-	sed -i -e 's/1\.0\.0\.0/$(SDK_VERSION)/g' -e 's/1000/$(SDK_VERSION).0/g' _build/default/powershell/autogen/src/Properties/AssemblyInfo.cs
-	sed -e 's/@SDK_VERSION@/$(SDK_VERSION)/g' \
-	    powershell/XenServerPSModule.psd1 > _build/default/powershell/autogen/XenServerPSModule.psd1
 	sh windows-line-endings.sh _build/default/powershell/autogen
 
 
