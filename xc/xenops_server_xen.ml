@@ -2199,7 +2199,7 @@ module VM = struct
               let is_raw_image =
                 Unixext.with_file path [Unix.O_RDONLY] 0o400 (fun fd ->
                     match Suspend_image.read_save_signature fd with
-                    | `Ok _ ->
+                    | Ok _ ->
                         true
                     | _ ->
                         false)
