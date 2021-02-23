@@ -322,3 +322,5 @@ val remove_from_guest_agent_config :
   __context:Context.t -> self:API.ref_pool -> key:string -> unit
 
 val rotate_secret : __context:Context.t -> unit
+
+val alert_failed_login_attempts : unit -> unit

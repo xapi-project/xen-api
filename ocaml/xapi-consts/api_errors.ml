@@ -60,6 +60,8 @@ let field_type_error = "FIELD_TYPE_ERROR"
 
 let session_authentication_failed = "SESSION_AUTHENTICATION_FAILED"
 
+let session_authorization_failed = "SESSION_AUTHORIZATION_FAILED"
+
 let session_invalid = "SESSION_INVALID"
 
 let change_password_rejected = "CHANGE_PASSWORD_REJECTED"

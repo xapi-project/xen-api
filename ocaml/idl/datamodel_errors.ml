@@ -115,6 +115,8 @@ let _ =
   (* Session errors *)
   error Api_errors.session_authentication_failed []
     ~doc:"The credentials given by the user are incorrect, so access has been denied, and you have not been issued a session handle." ();
+  error Api_errors.session_authorization_failed ["username"; "msg"]
+    ~doc:"The credentials given by the user are correct, but the user could not be authorized, so access has been denied, and you have not been issued a session handle." ();
   error Api_errors.session_invalid ["handle"]
     ~doc:"You gave an invalid session reference. It may have been invalidated by a server restart, or timed out. You should get a new session handle, using one of the session.login_ calls. This error does not invalidate the current connection. The handle parameter echoes the bad value given." ();
   error Api_errors.change_password_rejected [ "msg" ]
