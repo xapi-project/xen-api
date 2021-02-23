@@ -434,6 +434,8 @@ let has_to_audit action =
           ; (* spam *)
             "http/get_rrd_updates"
           ; (* spam *)
+            "http/rrd_updates"
+          ; (* spam *)
             "http/post_remote_db_access"
           ; (* spam *)
             "host.tickle_heartbeat"
