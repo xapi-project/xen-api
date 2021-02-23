@@ -69,9 +69,6 @@ let session_permissions_tbl = Hashtbl.create 256 (* initial 256 sessions *)
 
 module Permission_set = Set.Make (String)
 
-(* This flag enables efficient look-up of the permission set *)
-let use_efficient_permission_set = true
-
 let permission_set permission_list =
   List.fold_left
     (fun set r -> Permission_set.add r set)
@@ -79,7 +76,7 @@ let permission_set permission_list =
 
 let create_session_permissions_tbl ~session_id ~rbac_permissions =
   if
-    use_efficient_permission_set && Pool_role.is_master ()
+    Pool_role.is_master ()
     (* Create this structure on the master only, *)
     (* so as to avoid heap-leaking on the slaves *)
   then (
@@ -92,8 +89,7 @@ let create_session_permissions_tbl ~session_id ~rbac_permissions =
     None
 
 let destroy_session_permissions_tbl ~session_id =
-  if use_efficient_permission_set then
-    Hashtbl.remove session_permissions_tbl session_id
+  Hashtbl.remove session_permissions_tbl session_id
 
 (* create a key permission name that can be in the session *)
 let get_key_permission_name permission key_name =
@@ -152,21 +148,17 @@ let permission_of_action ?args ~keys _action =
 let is_permission_in_session ~session_id ~permission ~session =
   let find_linear elem set = List.exists (fun e -> e = elem) set in
   let find_log elem set = Permission_set.mem elem set in
-  if use_efficient_permission_set then
-    (* use efficient log look-up of permissions *)
-    let permission_tree =
-      try Some (Hashtbl.find session_permissions_tbl session_id)
-      with Not_found ->
-        create_session_permissions_tbl ~session_id
-          ~rbac_permissions:session.API.session_rbac_permissions
-    in
-    match permission_tree with
-    | Some permission_tree ->
-        find_log permission permission_tree
-    | None ->
-        find_linear permission session.API.session_rbac_permissions
-  else (* use linear look-up of permissions *)
-    find_linear permission session.API.session_rbac_permissions
+  let permission_tree =
+    try Some (Hashtbl.find session_permissions_tbl session_id)
+    with Not_found ->
+      create_session_permissions_tbl ~session_id
+        ~rbac_permissions:session.API.session_rbac_permissions
+  in
+  match permission_tree with
+  | Some permission_tree ->
+      find_log permission permission_tree
+  | None ->
+      find_linear permission session.API.session_rbac_permissions
 
 open Db_actions
 
