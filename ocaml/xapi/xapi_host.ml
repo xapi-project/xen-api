@@ -1410,7 +1410,7 @@ let emergency_reset_server_certificate ~__context =
         ip
   in
   let alt_names =
-    match Gencertlib.Lib.hostnames () with
+    match Networking_info.hostnames () with
     | [] ->
         (* should never happen *) [Networking_info.get_hostname ()]
     | xs ->

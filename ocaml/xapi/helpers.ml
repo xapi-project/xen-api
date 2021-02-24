@@ -109,7 +109,7 @@ let get_management_iface_is_connected ~__context =
 
 let get_management_ip_addr ~__context =
   let dbg = Context.string_of_task __context in
-  Gencertlib.Lib.get_management_ip_addr ~dbg
+  Networking_info.get_management_ip_addr ~dbg
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid

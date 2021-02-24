@@ -12,62 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Net = Network_client.Client
-
 module D = Debug.Make (struct let name = "gencert_lib" end)
-
-exception Unexpected_address_type of string
-
-(* Try to get all FQDNs, use the hostname if none are available *)
-let hostnames () =
-  let hostname = Unix.gethostname () in
-  let fqdns =
-    Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
-    |> List.map (fun x -> x.Unix.ai_canonname)
-  in
-  hostname :: fqdns
-  |> List.filter_map (fun x ->
-         let x = Astring.String.trim x in
-         if
-           String.equal "" x
-           || String.equal "localhost" x
-           || Ipaddr.of_string x |> Stdlib.Result.is_ok
-         then
-           None
-         else
-           Some x)
-  |> Astring.String.uniquify
-
-let get_management_ip_addr ~dbg =
-  let iface = Inventory.lookup Inventory._management_interface in
-  try
-    if iface = "" || (not @@ Net.Interface.exists dbg iface) then
-      None
-    else
-      let addrs =
-        match
-          String.lowercase_ascii
-            (Inventory.lookup Inventory._management_address_type
-               ~default:"ipv4")
-        with
-        | "ipv4" ->
-            Net.Interface.get_ipv4_addr dbg iface
-        | "ipv6" ->
-            Net.Interface.get_ipv6_addr dbg iface
-        | s ->
-            raise
-              (Unexpected_address_type
-                 (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s))
-      in
-      let addrs =
-        List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs
-      in
-      (* Filter out link-local addresses *)
-      let addrs =
-        List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs
-      in
-      List.nth_opt addrs 0
-  with _ -> None
 
 open Api_errors
 open Rresult

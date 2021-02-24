@@ -33,7 +33,7 @@ let main ~dbg ~path =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
   let ip =
-    match Lib.get_management_ip_addr ~dbg with
+    match Networking_info.get_management_ip_addr ~dbg with
     | None ->
         D.error "gencert.ml: cannot get management ip address!" ;
         exit 1
@@ -41,7 +41,7 @@ let main ~dbg ~path =
         x
   in
   let sans =
-    match Lib.hostnames () with
+    match Networking_info.hostnames () with
     | [] ->
         D.error "could not find any hostnames" ;
         exit 1

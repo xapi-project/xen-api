@@ -5,9 +5,11 @@
    astring
    cstruct
    forkexec
+   ipaddr
    tar
    xapi-consts
    xapi-idl
+   xapi-idl.network
    xapi-stdext-threads
    xapi-stdext-unix
    xapi-types
