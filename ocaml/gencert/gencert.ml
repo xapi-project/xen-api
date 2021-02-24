@@ -20,8 +20,8 @@ module Lib = Gencertlib.Lib
 
 module D = Debug.Make (struct let name = "gencert" end)
 
-let generate_cert_or_fail ~path ~cn ~sans ~ip =
-  Gencertlib.Selfcert.host cn sans path ip ;
+let generate_cert_or_fail ~generator ~path =
+  generator path ;
   if Sys.file_exists path then
     D.info "file exists (%s), assuming cert was created" path
   else (
@@ -40,9 +40,11 @@ let main ~dbg ~path =
     | Some x ->
         x
   in
-  let sans = Networking_info.hostnames () in
+  let dns_names = Networking_info.hostnames () in
   let cn = ip in
-  generate_cert_or_fail ~path ~cn ~sans ~ip
+  let ips = [ip] in
+  let generator = Gencertlib.Selfcert.host ~cn ~dns_names ~ips in
+  generate_cert_or_fail ~generator ~path
 
 let () =
   let program_name = Sys.argv.(0) in

@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module C = Cmdliner
 module Rsa = Mirage_crypto_pk.Rsa
 module UX = Xapi_stdext_unix.Unixext
 open Rresult (* introduces >>= >>| and R *)
@@ -43,8 +42,8 @@ let expire_in days =
   | None ->
       R.error_msgf "can't represent %d as time span" days
 
-let sans alt_names ip =
-  let ip_cstruct =
+let sans dns_names ips =
+  let ip_cstruct ip =
     Ipaddr.of_string ip
     |> Stdlib.Result.to_option
     |> Option.map (function
@@ -53,25 +52,25 @@ let sans alt_names ip =
          | Ipaddr.V6 addr ->
              Cstruct.of_string (Ipaddr.V6.to_octets addr))
   in
-  let sans =
-    X509.General_name.(
-      singleton DNS alt_names
-      |>
-      match ip_cstruct with
-      | None ->
-          D.error "selfcert.ml: failed to convert ip='%s' to cstruct" ip ;
-          Fun.id
-      | Some ip ->
-          add IP [ip])
+  let ip_bytes = List.map ip_cstruct ips in
+  let ip_action =
+    if List.exists Option.is_none ip_bytes then (
+      D.error "selfcert.ml: failed to convert all ips in [%s] to cstruct"
+        (String.concat "; " ips) ;
+      Fun.id
+    ) else
+      X509.General_name.(add IP (List.filter_map Fun.id ip_bytes))
   in
+
+  let sans = X509.General_name.(singleton DNS dns_names |> ip_action) in
   X509.Extension.(add Subject_alt_name (false, sans) X509.Extension.empty)
 
-let sign days privkey pubkey issuer req alt_names ip =
+let sign days privkey pubkey issuer req dns_names ips =
   expire_in days >>= fun (valid_from, valid_until) ->
   match (privkey, pubkey) with
   | `RSA priv, `RSA pub when Rsa.pub_of_priv priv = pub ->
       X509.Signing_request.sign ~valid_from ~valid_until
-        ~extensions:(sans alt_names ip) req privkey issuer
+        ~extensions:(sans dns_names ips) req privkey issuer
       |> R.reword_error (fun _ -> Printf.sprintf "signing failed" |> R.msg)
   | _ ->
       R.error_msgf "public/private keys don't match (%s)" __LOC__
@@ -101,7 +100,7 @@ let generate_private_key length =
   let stdout, _stderr = call_openssl args in
   stdout
 
-let selfsign cn alt_names length days certfile ip =
+let selfsign cn dns_names ips length days certfile =
   let rsa =
     try
       generate_private_key length
@@ -124,7 +123,7 @@ let selfsign cn alt_names length days certfile ip =
     [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
   in
   let req = X509.Signing_request.create issuer privkey in
-  sign days privkey pubkey issuer req alt_names ip >>= fun cert ->
+  sign days privkey pubkey issuer req dns_names ips >>= fun cert ->
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
   let pkcs12 =
@@ -132,9 +131,9 @@ let selfsign cn alt_names length days certfile ip =
   in
   write_certs certfile pkcs12
 
-let host cn alt_names pemfile ip =
+let host ~cn ~dns_names ~ips pemfile =
   let expire_days = 3650 in
   let length = 2048 in
   (* make sure name is part of alt_names because CN is deprecated and
      that there are no duplicates *)
-  selfsign cn alt_names length expire_days pemfile ip |> R.failwith_error_msg
+  selfsign cn dns_names ips length expire_days pemfile |> R.failwith_error_msg

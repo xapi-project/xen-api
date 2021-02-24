@@ -1409,9 +1409,10 @@ let emergency_reset_server_certificate ~__context =
     | Some ip ->
         ip
   in
-  let alt_names = Networking_info.hostnames () in
+  let dns_names = Networking_info.hostnames () in
   let cn = ip in
-  Gencertlib.Selfcert.host cn alt_names xapi_ssl_pem ip ;
+  let ips = [ip] in
+  Gencertlib.Selfcert.host ~cn ~dns_names ~ips xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
   let self = Helpers.get_localhost ~__context in
