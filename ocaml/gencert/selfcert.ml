@@ -44,14 +44,14 @@ let expire_in days =
 
 let sans dns_names ips =
   let sans = X509.General_name.(singleton DNS dns_names |> add IP ips) in
-  X509.Extension.(add Subject_alt_name (false, sans) X509.Extension.empty)
+  X509.Extension.(singleton Subject_alt_name (false, sans))
 
-let sign days privkey pubkey issuer req dns_names ips =
+let sign days privkey pubkey issuer req extensions =
   expire_in days >>= fun (valid_from, valid_until) ->
   match (privkey, pubkey) with
   | `RSA priv, `RSA pub when Rsa.pub_of_priv priv = pub ->
-      X509.Signing_request.sign ~valid_from ~valid_until
-        ~extensions:(sans dns_names ips) req privkey issuer
+      X509.Signing_request.sign ~valid_from ~valid_until ~extensions req privkey
+        issuer
       |> R.reword_error (fun _ -> Printf.sprintf "signing failed" |> R.msg)
   | _ ->
       R.error_msgf "public/private keys don't match (%s)" __LOC__
@@ -104,7 +104,8 @@ let selfsign cn dns_names ips length days certfile =
     [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
   in
   let req = X509.Signing_request.create issuer privkey in
-  sign days privkey pubkey issuer req dns_names ips >>= fun cert ->
+  let extensions = sans dns_names ips in
+  sign days privkey pubkey issuer req extensions >>= fun cert ->
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
   let pkcs12 =
