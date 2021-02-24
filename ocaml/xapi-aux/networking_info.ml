@@ -69,6 +69,11 @@ let hostnames () =
          else
            Some x)
   |> Astring.String.uniquify
+  |> function
+  | [] ->
+      [get_hostname ()]
+  | hostnames ->
+      hostnames
 
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in

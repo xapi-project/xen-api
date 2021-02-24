@@ -1409,13 +1409,7 @@ let emergency_reset_server_certificate ~__context =
     | Some ip ->
         ip
   in
-  let alt_names =
-    match Networking_info.hostnames () with
-    | [] ->
-        (* should never happen *) [Networking_info.get_hostname ()]
-    | xs ->
-        xs
-  in
+  let alt_names = Networking_info.hostnames () in
   let cn = ip in
   Gencertlib.Selfcert.host cn alt_names xapi_ssl_pem ip ;
   (* Reset stunnel to try to restablish TLS connections *)

@@ -40,14 +40,7 @@ let main ~dbg ~path =
     | Some x ->
         x
   in
-  let sans =
-    match Networking_info.hostnames () with
-    | [] ->
-        D.error "could not find any hostnames" ;
-        exit 1
-    | xs ->
-        xs
-  in
+  let sans = Networking_info.hostnames () in
   let cn = ip in
   generate_cert_or_fail ~path ~cn ~sans ~ip
 
