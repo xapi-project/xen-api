@@ -4,6 +4,7 @@
  (libraries
    astring
    cstruct
+   forkexec
    tar
    xapi-consts
    xapi-idl

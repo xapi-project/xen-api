@@ -152,7 +152,7 @@ let read_localhost_info ~__context =
   let lookup_inventory_nofail k =
     try Some (Xapi_inventory.lookup k) with _ -> None
   in
-  let this_host_name = Helpers.get_hostname () in
+  let this_host_name = Networking_info.get_hostname () in
   let dom0_static_max =
     match (read_dom0_memory_usage (), total_memory_mib) with
     | Some x, _ ->

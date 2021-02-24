@@ -26,7 +26,6 @@ open Db_filter
 open Db_filter_types
 open Xmlrpc_sexpr
 open Api_errors
-include Helper_hostname
 include Helper_process
 open Network
 
