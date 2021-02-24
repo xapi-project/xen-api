@@ -163,7 +163,7 @@ module Guidance = struct
 end
 
 module Applicability = struct
-  type inequality = Lt | Eq | Gt | Lte | Gte | Invalid
+  type inequality = Lt | Eq | Gt | Lte | Gte
 
   type order = LT | EQ | GT
 
@@ -175,7 +175,7 @@ module Applicability = struct
   type t = {
       name: string
     ; arch: string
-    ; inequality: inequality
+    ; inequality: inequality option
     ; epoch: string
     ; version: string
     ; release: string
@@ -188,29 +188,40 @@ module Applicability = struct
   exception Invalid_inequality
 
   let string_of_inequality = function
-    | Lt -> "<"
-    | Eq -> "="
-    | Gt -> ">"
-    | Gte -> ">="
-    | Lte -> "<="
-    | _ -> raise Invalid_inequality
+    | Some Lt -> "<"
+    | Some Eq -> "="
+    | Some Gt -> ">"
+    | Some Gte -> ">="
+    | Some Lte -> "<="
+    | _ -> "InvalidInequality"
 
   let inequality_of_string = function
-    | "gte" -> Gte
-    | "lte" -> Lte
-    | "gt"  -> Gt
-    | "lt"  -> Lt
-    | "eq"  -> Eq
-    | _ -> raise Invalid_inequality
+    | "gte" -> Some Gte
+    | "lte" -> Some Lte
+    | "gt"  -> Some Gt
+    | "lt"  -> Some Lt
+    | "eq"  -> Some Eq
+    | _ -> None
 
   let default = {
       name = ""
     ; arch = ""
-    ; inequality = Invalid
+    ; inequality = None
     ; epoch = ""
     ; version = ""
     ; release = ""
     }
+
+  let assert_valid = function
+    | { name = ""; _ }
+    | { arch = ""; _ }
+    | { inequality = None; _ }
+    | { epoch = ""; _ }
+    | { version = ""; _ }
+    | { release = ""; _ } ->
+      error "Invalid applicability";
+      raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+    | a -> a
 
   let of_xml = function
     | Xml.Element ("applicability", _, children) ->
@@ -232,13 +243,14 @@ module Applicability = struct
             error "Unknown node in <applicability>";
             raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
       ) default children
+      |> assert_valid
     | _ ->
       error "Unknown node in <guidance_applicabilities>";
       raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
 
   let to_string a =
-    Printf.sprintf "%s%s%s-%s"
-      a.name (string_of_inequality a.inequality) a.version a.release
+    Printf.sprintf "%s %s %s-%s (epoch: %s)"
+      a.name (string_of_inequality a.inequality) a.version a.release a.epoch
 
   let compare_version_strings s1 s2 =
     (* Compare versions or releases of RPM packages
@@ -276,14 +288,14 @@ module Applicability = struct
       |> concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
       |> concat_map (fun s -> split_letters_and_numbers s)
       |> List.map (fun s ->
-          match int_of_string s with
-          | i ->
-            let startswith x =
-              Astring.String.is_prefix ~affix:x (String.lowercase_ascii s)
-            in
-            if List.exists startswith ["0x"; "0b"; "0o"] then Str s else Int i
-          | exception _  ->
-            Str s)
+          let r = Re.Str.regexp "^[0-9]+$" in
+          if Re.Str.string_match r s 0 then (
+            match int_of_string s with
+            | i ->
+              Int i
+            | exception _ ->
+              Str s)
+          else Str s)
     in
     let rec compare_segments l1 l2 =
       match l1, l2 with
@@ -330,15 +342,15 @@ module Applicability = struct
     let ver = applicability.version in
     let rel = applicability.release in
     match applicability.inequality with
-    | Lt ->
+    | Some Lt ->
       lt version release ver rel
-    | Lte ->
+    | Some Lte ->
       lte version release ver rel
-    | Gt ->
+    | Some Gt ->
       gt version release ver rel
-    | Gte ->
+    | Some Gte ->
       gte version release ver rel
-    | Eq ->
+    | Some Eq ->
       eq version release ver rel
     | _ ->
       raise Invalid_inequality
