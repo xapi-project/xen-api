@@ -141,6 +141,7 @@ module Guidance = struct
     Printf.sprintf "Found wrong guidance(s): %s" (String.concat ";" (List.map to_string l))
 
   let assert_valid_guidances = function
+    | []
     | [RebootHost]
     | [EvacuateHost]
     | [RestartToolstack]
