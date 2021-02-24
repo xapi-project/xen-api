@@ -7,7 +7,6 @@
     astring
     cstruct
     forkexec
-    ipaddr
     mirage-crypto
     mirage-crypto-pk
     mirage-crypto-rng.unix

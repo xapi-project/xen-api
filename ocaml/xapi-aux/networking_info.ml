@@ -75,6 +75,15 @@ let hostnames () =
   | hostnames ->
       hostnames
 
+let ip_addr_of_string ip =
+  Ipaddr.of_string ip
+  |> Stdlib.Result.to_option
+  |> Option.map (function
+       | Ipaddr.V4 addr ->
+           Cstruct.of_string (Ipaddr.V4.to_octets addr)
+       | Ipaddr.V6 addr ->
+           Cstruct.of_string (Ipaddr.V6.to_octets addr))
+
 let get_management_ip_addr ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
   try
@@ -97,11 +106,12 @@ let get_management_ip_addr ~dbg =
                  (Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s))
       in
       let addrs =
-        List.map (fun (addr, _) -> Unix.string_of_inet_addr addr) addrs
+        addrs
+        |> List.map (fun (addr, _) -> Unix.string_of_inet_addr addr)
+        |> (* Filter out link-local addresses *)
+        List.filter (fun addr -> String.sub addr 0 4 <> "fe80")
+        |> List.map (fun str ->
+               Option.map (fun bytes -> (str, bytes)) (ip_addr_of_string str))
       in
-      (* Filter out link-local addresses *)
-      let addrs =
-        List.filter (fun addr -> String.sub addr 0 4 <> "fe80") addrs
-      in
-      List.nth_opt addrs 0
+      Option.join (List.nth_opt addrs 0)
   with _ -> None

@@ -32,7 +32,7 @@ let generate_cert_or_fail ~generator ~path =
 let main ~dbg ~path =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
-  let ip =
+  let cn, ip =
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
         D.error "gencert.ml: cannot get management ip address!" ;
@@ -41,7 +41,6 @@ let main ~dbg ~path =
         x
   in
   let dns_names = Networking_info.hostnames () in
-  let cn = ip in
   let ips = [ip] in
   let generator = Gencertlib.Selfcert.host ~cn ~dns_names ~ips in
   generate_cert_or_fail ~generator ~path

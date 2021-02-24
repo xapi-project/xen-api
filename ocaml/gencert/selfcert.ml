@@ -43,26 +43,7 @@ let expire_in days =
       R.error_msgf "can't represent %d as time span" days
 
 let sans dns_names ips =
-  let ip_cstruct ip =
-    Ipaddr.of_string ip
-    |> Stdlib.Result.to_option
-    |> Option.map (function
-         | Ipaddr.V4 addr ->
-             Cstruct.of_string (Ipaddr.V4.to_octets addr)
-         | Ipaddr.V6 addr ->
-             Cstruct.of_string (Ipaddr.V6.to_octets addr))
-  in
-  let ip_bytes = List.map ip_cstruct ips in
-  let ip_action =
-    if List.exists Option.is_none ip_bytes then (
-      D.error "selfcert.ml: failed to convert all ips in [%s] to cstruct"
-        (String.concat "; " ips) ;
-      Fun.id
-    ) else
-      X509.General_name.(add IP (List.filter_map Fun.id ip_bytes))
-  in
-
-  let sans = X509.General_name.(singleton DNS dns_names |> ip_action) in
+  let sans = X509.General_name.(singleton DNS dns_names |> add IP ips) in
   X509.Extension.(add Subject_alt_name (false, sans) X509.Extension.empty)
 
 let sign days privkey pubkey issuer req dns_names ips =

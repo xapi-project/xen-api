@@ -1400,8 +1400,9 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
 
 let emergency_reset_server_certificate ~__context =
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
-  let ip =
-    match Helpers.get_management_ip_addr ~__context with
+  let cn, ip =
+    let dbg = Context.string_of_task __context in
+    match Networking_info.get_management_ip_addr ~dbg with
     | None ->
         let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
         D.error "%s" msg ;
@@ -1410,7 +1411,6 @@ let emergency_reset_server_certificate ~__context =
         ip
   in
   let dns_names = Networking_info.hostnames () in
-  let cn = ip in
   let ips = [ip] in
   Gencertlib.Selfcert.host ~cn ~dns_names ~ips xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
