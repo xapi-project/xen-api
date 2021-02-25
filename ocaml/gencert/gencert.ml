@@ -40,7 +40,7 @@ let main ~dbg ~path =
     | Some x ->
         x
   in
-  let dns_names = Networking_info.hostnames () in
+  let dns_names = Networking_info.dns_names () in
   let ips = [ip] in
   let generator = Gencertlib.Selfcert.host ~cn ~dns_names ~ips in
   generate_cert_or_fail ~generator ~path

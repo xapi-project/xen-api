@@ -11,19 +11,14 @@
    GNU Lesser General Public License for more details. *)
 
 val get_hostname : unit -> string
-(** [get_hostname ()] returns the hostname as returned by the command
-    [hostname]. The result may be cached. *)
-
-val reget_hostname : unit -> string
-(** [reget_hostname ()] returns the hostname as returned by the command
-    [hostname]. The result is never cached and the command is called every
-    time. *)
+(** [get_hostname ()] returns the hostname as returned by Unix.gethostname.
+    If there is an error "" is returned. *)
 
 exception Unexpected_address_type of string
 
-val hostnames : unit -> string list
-(** [hostnames ()] return a list of all the hostnames that the host may have.
-    If none are found the list contains a single value with [get_hostname ()] *)
+val dns_names : unit -> string list
+(** [dns_names ()] returns a list of the hostnames that the host may have.
+    Ignores empty names as well as "localhost" *)
 
 val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
 (** [get_management_ip_addr ~dbg] returns the IP of the management network.

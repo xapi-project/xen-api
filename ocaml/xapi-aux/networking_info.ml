@@ -11,48 +11,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xapi_stdext_threads.Threadext
-open Helper_process
 module Net = Network_client.Client
 
-let filter_newline s =
-  let l = String.length s in
-  let rec count_newlines i =
-    if i = 0 then
-      0
-    else
-      let chr = s.[i] in
-      if chr = '\n' || chr = '\r' then
-        count_newlines (i - 1)
-      else
-        i
-  in
-  let newline_end = count_newlines (l - 1) in
-  String.sub s 0 (newline_end + 1)
-
-let _cached_hostname = ref ""
-
-let _cached_hostname_m = Mutex.create ()
-
-let get_hostname () =
-  Mutex.execute _cached_hostname_m (fun () ->
-      ( if !_cached_hostname = "" then
-          _cached_hostname :=
-            try filter_newline (get_process_output "/bin/hostname")
-            with _ -> "unknown"
-      ) ;
-      !_cached_hostname)
-
-(* Fetch the hostname again in case it has changed beneath us *)
-let reget_hostname () =
-  Mutex.execute _cached_hostname_m (fun () -> _cached_hostname := "") ;
-  get_hostname ()
+let get_hostname () = try Unix.gethostname () with _ -> ""
 
 exception Unexpected_address_type of string
 
-(* Try to get all FQDNs, use the hostname if none are available *)
-let hostnames () =
-  let hostname = Unix.gethostname () in
+(* Try to get all FQDNs, avoid localhost *)
+let dns_names () =
+  let hostname = get_hostname () in
   let fqdns =
     Unix.getaddrinfo hostname "" [Unix.AI_CANONNAME]
     |> List.map (fun x -> x.Unix.ai_canonname)
@@ -69,11 +36,6 @@ let hostnames () =
          else
            Some x)
   |> Astring.String.uniquify
-  |> function
-  | [] ->
-      [get_hostname ()]
-  | hostnames ->
-      hostnames
 
 let ip_addr_of_string ip =
   Ipaddr.of_string ip
