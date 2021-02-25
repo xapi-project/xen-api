@@ -141,15 +141,6 @@ let fork_script ?on_error ?log script args =
   check_n_run ?on_error ?log fork_script_internal script args
 
 module Sysfs = struct
-  let list () =
-    let all = Array.to_list (Sys.readdir "/sys/class/net") in
-    List.filter (fun name -> Sys.is_directory ("/sys/class/net/" ^ name)) all
-
-  let exists dev = List.mem dev @@ list ()
-
-  let assert_exists dev =
-    if not @@ exists dev then
-      raise (Network_error (Interface_does_not_exist dev))
 
   let list_drivers () =
     try Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
@@ -194,6 +185,29 @@ module Sysfs = struct
         (List.mem "xen-backend"
            (Astring.String.cuts ~empty:false ~sep:"/" driver_link))
     with _ -> false
+
+  (* device types are defined in linux/if_arp.h *)
+  let is_ether_device name =
+    match int_of_string (read_one_line (getpath name "type")) with
+    | 1 ->
+        true
+    | _ ->
+        false
+    | exception _ ->
+        false
+
+  let list () =
+    let is_dir name = Sys.is_directory ("/sys/class/net/" ^ name) in
+    Sys.readdir "/sys/class/net"
+    |> Array.to_list
+    |> List.filter (fun name -> is_dir name && is_ether_device name)
+
+  let exists dev = List.mem dev @@ list ()
+
+  let assert_exists dev =
+    if not @@ exists dev then
+      raise (Network_error (Interface_does_not_exist dev))
+
 
   let get_carrier name =
     try
