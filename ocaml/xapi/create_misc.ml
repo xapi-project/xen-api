@@ -585,7 +585,8 @@ let make_software_version ~__context host_info =
   @ option_to_list "kernel_livepatches" (make_kpatch_list ())
   @ make_packs_info ()
 
-let create_software_version ~__context host_info =
+let create_software_version ~__context ?(info = None) () =
+  let host_info = Option.value ~default:(read_localhost_info ~__context) info in
   let software_version = make_software_version ~__context host_info in
   let host = Helpers.get_localhost ~__context in
   Db.Host.set_software_version ~__context ~self:host ~value:software_version
