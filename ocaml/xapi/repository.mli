@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type guidance = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
-
 val introduce :
      __context:Context.t
   -> name_label:string
@@ -70,10 +68,10 @@ val apply_updates :
      __context:Context.t
   -> host:[`host] API.Ref.t
   -> hash:string
-  -> guidance list
+  -> Repository_helpers.Guidance.t list
 
 val apply_immediate_guidances :
      __context:Context.t
   -> host:[`host] API.Ref.t
-  -> guidances:guidance list
+  -> guidances:Repository_helpers.Guidance.t list
   -> unit
