@@ -14,10 +14,7 @@
 (* String-based interface to the API *)
 
 open Client
-open Db_cache (* eek! *)
-
 module Date = Xapi_stdext_date.Date
-open Xapi_stdext_std.Xstringext
 
 let nullref = Ref.string_of Ref.null
 
@@ -28,34 +25,35 @@ let unknown_time = "<unknown time>"
 let string_of_float f = Printf.sprintf "%.3f" f
 
 (* Splitting an empty string gives a list containing the empty string, which
- * is usually not what we want. *)
+   is usually not what we want. *)
 let get_words separator = function
   | "" ->
       []
   | str ->
-      String.split separator str
+      String.split_on_char separator str
 
 type field = {
     name: string
   ; get: unit -> string
   ; set: (string -> unit) option
   ; get_set: (unit -> string list) option
-  ; (* gets the string list that is a representation of a set *)
-    add_to_set: (string -> unit) option
+        (* gets the string list that is a representation of a set *)
+  ; add_to_set: (string -> unit) option
   ; remove_from_set: (string -> unit) option
   ; get_map: (unit -> (string * string) list) option
   ; add_to_map: (string -> string -> unit) option
   ; remove_from_map: (string -> unit) option
   ; set_in_map: (string -> string -> unit) option
-  ; (* Change the value of an existing map field, without using add/remove *)
-    set_map: ((string * string) list -> unit) option
-  ; clear_map: (unit -> unit) option (* clear a map *)
-  ; (* Set the (key, value) pairs to an existing map field *)
-    expensive: bool
-  ; (* Simply means an extra API call is required to get it *)
-    hidden: bool
-  ; (* Meaning we don't show it unless it's *explicitly* asked for (i.e. hidden from *-list and *-param-list *)
-    deprecated: bool
+        (* Change the value of an existing map field, without using add/remove *)
+  ; set_map: ((string * string) list -> unit) option
+  ; clear_map: (unit -> unit) option
+        (* clear a map *)
+        (* Set the (key, value) pairs to an existing map field *)
+  ; expensive: bool (* Simply means an extra API call is required to get it *)
+  ; hidden: bool
+        (* Meaning we don't show it unless it's *explicitly* asked for (i.e.
+           hidden from *-list and *-param-list *)
+  ; deprecated: bool
   ; case_insensitive: bool (* Use case-insensitive matching when selecting *)
 }
 
@@ -162,6 +160,18 @@ let get_name_from_ref r =
     )
   with _ -> nid
 
+let get_uuid_from_ref_or_null r =
+  if r = Ref.null then
+    nullref
+  else
+    get_uuid_from_ref r
+
+let concat_with_semi = String.concat "; "
+
+let map_and_concat f rs = concat_with_semi (List.map f rs)
+
+let get_uuids_from_refs rs = map_and_concat get_uuid_from_ref rs
+
 (** If the given list is of length 1, get a ref for the PBD's host,
     otherwise return Ref.null *)
 let get_pbds_host rpc session_id pbds =
@@ -201,9 +211,7 @@ let bond_record rpc session_id bond =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.bond_master)
           ()
       ; make_field ~name:"slaves"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.bond_slaves))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.bond_slaves)
           ()
       ; make_field ~name:"mode"
           ~get:(fun () -> Record_util.bond_mode_to_string (x ()).API.bond_mode)
@@ -441,38 +449,26 @@ let pif_record rpc session_id pif =
           ~get:(fun () -> Int64.to_string (x ()).API.pIF_VLAN)
           ()
       ; make_field ~name:"bond-master-of"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pif -> get_uuid_from_ref pif)
-                 (x ()).API.pIF_bond_master_of))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pIF_bond_master_of)
           ()
       ; make_field ~name:"bond-slave-of"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.pIF_bond_slave_of)
           ()
       ; make_field ~name:"sriov-physical-PIF-of"
           ~get:(fun () ->
-            String.concat ";"
-              (List.map get_uuid_from_ref (x ()).API.pIF_sriov_physical_PIF_of))
+            get_uuids_from_refs (x ()).API.pIF_sriov_physical_PIF_of)
           ()
       ; make_field ~name:"sriov-logical-PIF-of"
           ~get:(fun () ->
-            String.concat ";"
-              (List.map get_uuid_from_ref (x ()).API.pIF_sriov_logical_PIF_of))
+            get_uuids_from_refs (x ()).API.pIF_sriov_logical_PIF_of)
           ()
       ; make_field ~name:"tunnel-access-PIF-of"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pif -> get_uuid_from_ref pif)
-                 (x ()).API.pIF_tunnel_access_PIF_of))
+            get_uuids_from_refs (x ()).API.pIF_tunnel_access_PIF_of)
           ()
       ; make_field ~name:"tunnel-transport-PIF-of"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pif -> get_uuid_from_ref pif)
-                 (x ()).API.pIF_tunnel_transport_PIF_of))
+            get_uuids_from_refs (x ()).API.pIF_tunnel_transport_PIF_of)
           ()
       ; make_field ~name:"management"
           ~get:(fun () -> string_of_bool (x ()).API.pIF_management)
@@ -507,7 +503,7 @@ let pif_record rpc session_id pif =
               (x ()).API.pIF_ipv6_configuration_mode)
           ()
       ; make_field ~name:"IPv6"
-          ~get:(fun () -> String.concat "; " (x ()).API.pIF_IPv6)
+          ~get:(fun () -> concat_with_semi (x ()).API.pIF_IPv6)
           ()
       ; make_field ~name:"IPv6-gateway"
           ~get:(fun () -> (x ()).API.pIF_ipv6_gateway)
@@ -526,7 +522,7 @@ let pif_record rpc session_id pif =
             Client.PIF.set_property rpc session_id pif k v)
           ()
       ; make_field ~name:"capabilities"
-          ~get:(fun () -> String.concat "; " (x ()).API.pIF_capabilities)
+          ~get:(fun () -> concat_with_semi (x ()).API.pIF_capabilities)
           ~get_set:(fun () -> (x ()).API.pIF_capabilities)
           ()
       ; make_field ~name:"io_read_kbs"
@@ -660,9 +656,7 @@ let task_record rpc session_id task =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.task_subtask_of)
           ()
       ; make_field ~name:"subtasks"
-          ~get:(fun () ->
-            String.concat ";"
-              (List.map get_uuid_from_ref (x ()).API.task_subtasks))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.task_subtasks)
           ()
       ; make_field ~name:"resident-on"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.task_resident_on)
@@ -683,20 +677,18 @@ let task_record rpc session_id task =
           ~get:(fun () -> Date.to_string (x ()).API.task_finished)
           ()
       ; make_field ~name:"error_info"
-          ~get:(fun () -> String.concat "; " (x ()).API.task_error_info)
+          ~get:(fun () -> concat_with_semi (x ()).API.task_error_info)
           ()
       ; make_field ~name:"allowed_operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.task_allowed_operations_to_string
-                 (x ()).API.task_allowed_operations))
+            map_and_concat Record_util.task_allowed_operations_to_string
+              (x ()).API.task_allowed_operations)
           ()
       ; make_field ~name:"current_operations"
           ~get:(fun () ->
-            (x ()).API.task_current_operations
-            |> List.map (fun (_, op) ->
-                   Record_util.task_allowed_operations_to_string op)
-            |> String.concat "; ")
+            map_and_concat
+              (fun (_, op) -> Record_util.task_allowed_operations_to_string op)
+              (x ()).API.task_current_operations)
           ()
       ; make_field ~name:"other-config"
           ~get:(fun () ->
@@ -739,19 +731,17 @@ let vif_record rpc session_id vif =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.vif_operation_to_string
-                 (x ()).API.vIF_allowed_operations))
+            map_and_concat Record_util.vif_operation_to_string
+              (x ()).API.vIF_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.vif_operation_to_string
               (x ()).API.vIF_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.vif_operation_to_string b)
-                 (x ()).API.vIF_current_operations))
+            map_and_concat
+              (fun (a, b) -> Record_util.vif_operation_to_string b)
+              (x ()).API.vIF_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.vif_operation_to_string b)
@@ -786,7 +776,7 @@ let vif_record rpc session_id vif =
           ()
       ; make_field ~name:"qos_supported_algorithms"
           ~get:(fun () ->
-            String.concat "; " (x ()).API.vIF_qos_supported_algorithms)
+            concat_with_semi (x ()).API.vIF_qos_supported_algorithms)
           ~get_set:(fun () -> (x ()).API.vIF_qos_supported_algorithms)
           ()
       ; make_field ~name:"other-config"
@@ -834,26 +824,24 @@ let vif_record rpc session_id vif =
               (Record_util.string_to_vif_locking_mode value))
           ()
       ; make_field ~name:"ipv4-allowed"
-          ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv4_allowed)
+          ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv4_allowed)
           ~get_set:(fun () -> (x ()).API.vIF_ipv4_allowed)
           ~add_to_set:(fun value ->
             Client.VIF.add_ipv4_allowed rpc session_id vif value)
           ~remove_from_set:(fun value ->
             Client.VIF.remove_ipv4_allowed rpc session_id vif value)
           ~set:(fun value ->
-            Client.VIF.set_ipv4_allowed rpc session_id vif
-              (String.split ',' value))
+            Client.VIF.set_ipv4_allowed rpc session_id vif (get_words ',' value))
           ()
       ; make_field ~name:"ipv6-allowed"
-          ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv6_allowed)
+          ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv6_allowed)
           ~get_set:(fun () -> (x ()).API.vIF_ipv6_allowed)
           ~add_to_set:(fun value ->
             Client.VIF.add_ipv6_allowed rpc session_id vif value)
           ~remove_from_set:(fun value ->
             Client.VIF.remove_ipv6_allowed rpc session_id vif value)
           ~set:(fun value ->
-            Client.VIF.set_ipv6_allowed rpc session_id vif
-              (String.split ',' value))
+            Client.VIF.set_ipv6_allowed rpc session_id vif (get_words ',' value))
           ()
       ; make_field ~name:"ipv4-configuration-mode"
           ~get:(fun () ->
@@ -861,7 +849,7 @@ let vif_record rpc session_id vif =
               (x ()).API.vIF_ipv4_configuration_mode)
           ()
       ; make_field ~name:"ipv4-addresses"
-          ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv4_addresses)
+          ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv4_addresses)
           ()
       ; make_field ~name:"ipv4-gateway"
           ~get:(fun () -> (x ()).API.vIF_ipv4_gateway)
@@ -872,7 +860,7 @@ let vif_record rpc session_id vif =
               (x ()).API.vIF_ipv6_configuration_mode)
           ()
       ; make_field ~name:"ipv6-addresses"
-          ~get:(fun () -> String.concat "; " (x ()).API.vIF_ipv6_addresses)
+          ~get:(fun () -> concat_with_semi (x ()).API.vIF_ipv6_addresses)
           ()
       ; make_field ~name:"ipv6-gateway"
           ~get:(fun () -> (x ()).API.vIF_ipv6_gateway)
@@ -911,20 +899,12 @@ let net_record rpc session_id net =
             Client.Network.set_name_description rpc session_id net x)
           ()
       ; make_field ~name:"VIF-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun vif -> get_uuid_from_ref vif)
-                 (x ()).API.network_VIFs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.network_VIFs)
           ~get_set:(fun () ->
             List.map (fun vif -> get_uuid_from_ref vif) (x ()).API.network_VIFs)
           ()
       ; make_field ~name:"PIF-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pif -> get_uuid_from_ref pif)
-                 (x ()).API.network_PIFs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.network_PIFs)
           ~get_set:(fun () ->
             List.map (fun pif -> get_uuid_from_ref pif) (x ()).API.network_PIFs)
           ()
@@ -952,7 +932,7 @@ let net_record rpc session_id net =
               (x ()).API.network_blobs)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.network_tags)
+          ~get:(fun () -> concat_with_semi (x ()).API.network_tags)
           ~get_set:(fun () -> (x ()).API.network_tags)
           ~add_to_set:(fun tag ->
             Client.Network.add_tags rpc session_id net tag)
@@ -969,9 +949,8 @@ let net_record rpc session_id net =
           ()
       ; make_field ~name:"purpose"
           ~get:(fun () ->
-            (x ()).API.network_purpose
-            |> List.map Record_util.network_purpose_to_string
-            |> String.concat ", ")
+            map_and_concat Record_util.network_purpose_to_string
+              (x ()).API.network_purpose)
           ~get_set:(fun () ->
             (x ()).API.network_purpose
             |> List.map Record_util.network_purpose_to_string)
@@ -1052,7 +1031,7 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"supported-sr-types"
           ~get:(fun () ->
-            String.concat "; " (Client.SR.get_supported_types rpc session_id))
+            concat_with_semi (Client.SR.get_supported_types rpc session_id))
           ~expensive:true ()
       ; make_field ~name:"other-config"
           ~get:(fun () ->
@@ -1065,19 +1044,17 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.pool_operation_to_string
-                 (x ()).API.pool_allowed_operations))
+            map_and_concat Record_util.pool_operation_to_string
+              (x ()).API.pool_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.pool_operation_to_string
               (x ()).API.pool_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.pool_operation_to_string b)
-                 (x ()).API.pool_current_operations))
+            map_and_concat
+              (fun (a, b) -> Record_util.pool_operation_to_string b)
+              (x ()).API.pool_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.pool_operation_to_string b)
@@ -1092,10 +1069,9 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"ha-statefiles"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun x -> get_uuid_from_ref (Ref.of_string x))
-                 (x ()).API.pool_ha_statefiles))
+            map_and_concat
+              (fun x -> get_uuid_from_ref (Ref.of_string x))
+              (x ()).API.pool_ha_statefiles)
           ()
       ; make_field ~name:"ha-host-failures-to-tolerate"
           ~get:(fun () ->
@@ -1170,7 +1146,7 @@ let pool_record rpc session_id pool =
             Record_util.s2sm_to_string "; " (x ()).API.pool_restrictions)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.pool_tags)
+          ~get:(fun () -> concat_with_semi (x ()).API.pool_tags)
           ~get_set:(fun () -> (x ()).API.pool_tags)
           ~add_to_set:(fun tag -> Client.Pool.add_tags rpc session_id pool tag)
           ~remove_from_set:(fun tag ->
@@ -1286,14 +1262,12 @@ let vmss_record rpc session_id vmss =
           ()
       ; make_field ~name:"VMs"
           ~get:(fun () ->
-            String.concat "; "
-              ( try
-                  List.map
-                    (fun self ->
-                      try Client.VM.get_uuid rpc session_id self with _ -> nid)
-                    (Client.VMSS.get_VMs rpc session_id vmss)
-                with _ -> []
-              ))
+            try
+              map_and_concat
+                (fun self ->
+                  try Client.VM.get_uuid rpc session_id self with _ -> nid)
+                (Client.VMSS.get_VMs rpc session_id vmss)
+            with _ -> "")
           ~expensive:false
           ~get_set:(fun () ->
             try
@@ -1337,15 +1311,13 @@ let subject_record rpc session_id subject =
           ()
       ; make_field ~name:"roles"
           ~get:(fun () ->
-            String.concat "; "
-              ( try
-                  List.map
-                    (fun self ->
-                      try Client.Role.get_name_label rpc session_id self
-                      with _ -> nid)
-                    (Client.Subject.get_roles rpc session_id subject)
-                with _ -> []
-              ))
+            try
+              map_and_concat
+                (fun self ->
+                  try Client.Role.get_name_label rpc session_id self
+                  with _ -> nid)
+                (Client.Subject.get_roles rpc session_id subject)
+            with _ -> "")
           ~expensive:false
           ~get_set:(fun () ->
             try
@@ -1384,44 +1356,8 @@ let role_record rpc session_id role =
       ; make_field ~name:"description"
           ~get:(fun () -> (x ()).API.role_name_description)
           ()
-        (*make_field ~name:"subroles"
-           ~get:(fun () -> String.concat "; "
-             (try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref)) with _ -> [])
-            )
-           ~expensive:true
-           ~get_set:(fun () -> try (Client.Role.get_permissions_name_label ~rpc ~session_id ~self:(!_ref))
-             with _ -> [])
-          ();*)
-        (*make_field ~name:"is_complete"             ~get:(fun () -> string_of_bool (x ()).API.role_is_complete) ();*)
-        (*make_field ~name:"is_basic"             ~get:(fun () -> string_of_bool (x ()).API.role_is_basic) ();*)
       ]
   }
-
-(*
-let alert_record rpc session_id pool =
-  let _ref = ref pool in
-  let record = ref None in
-  let x () = match !record with
-    | Some x -> x
-    | None ->
-	let x = Client.Alert.get_record rpc session_id !_ref in
-	record := Some x;
-	x
-  in
-  { setref=(fun r -> _ref := r; record := None );
-    setrefrec=(fun (a,b) -> _ref := a; record := Some b);
-    record=x;
-    getref=(fun () -> !_ref);
-    fields =
-[
-  make_field ~name:"uuid"    ~get:(fun () -> (x ()).API.alert_uuid) ();
-  make_field ~name:"message" ~get:(fun () -> (x ()).API.alert_message) ();
-  make_field ~name:"level"   ~get:(fun () -> Record_util.alert_level_to_string (x ()).API.alert_level) ();
-  make_field ~name:"timestamp" ~get:(fun () -> Date.to_string (x ()).API.alert_timestamp) ();
-  make_field ~name:"system"  ~get:(fun () -> string_of_bool (x ()).API.alert_system) ();
-  make_field ~name:"task" ~get:(fun () -> get_uuid_from_ref (x ()).API.alert_task) ();
-]}
-*)
 
 let console_record rpc session_id console =
   let _ref = ref console in
@@ -1576,9 +1512,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_of)
           ()
       ; make_field ~name:"snapshots"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.vM_snapshots))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_snapshots)
           ()
       ; make_field ~name:"snapshot-time"
           ~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time)
@@ -1594,9 +1528,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_parent)
           ()
       ; make_field ~name:"children"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.vM_children))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_children)
           ()
       ; make_field ~name:"is-control-domain"
           ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain)
@@ -1707,9 +1639,7 @@ let vm_record rpc session_id vm =
               (Record_util.string_to_on_crash_behaviour x))
           ()
       ; make_field ~name:"console-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.vM_consoles))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_consoles)
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_consoles)
           ()
       ; make_field ~name:"hvm"
@@ -1741,19 +1671,17 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.vm_operation_to_string
-                 (x ()).API.vM_allowed_operations))
+            map_and_concat Record_util.vm_operation_to_string
+              (x ()).API.vM_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.vm_operation_to_string
               (x ()).API.vM_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.vm_operation_to_string b)
-                 (x ()).API.vM_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.vm_operation_to_string b)
+              (x ()).API.vM_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.vm_operation_to_string b)
@@ -1780,7 +1708,7 @@ let vm_record rpc session_id vm =
       ; (* These two don't work on Dom-0 at the moment, so catch the exception *)
         make_field ~name:"allowed-VBD-devices"
           ~get:(fun () ->
-            String.concat "; "
+            concat_with_semi
               ( try Client.VM.get_allowed_VBD_devices rpc session_id vm
                 with _ -> []
               ))
@@ -1791,7 +1719,7 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"allowed-VIF-devices"
           ~get:(fun () ->
-            String.concat "; "
+            concat_with_semi
               ( try Client.VM.get_allowed_VIF_devices rpc session_id vm
                 with _ -> []
               ))
@@ -1802,9 +1730,7 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"possible-hosts"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref
-                 (Client.VM.get_possible_hosts rpc session_id vm)))
+            get_uuids_from_refs (Client.VM.get_possible_hosts rpc session_id vm))
           ~expensive:true ()
       ; make_field ~name:"domain-type"
           ~get:(fun () ->
@@ -1952,7 +1878,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () ->
             try
               let info = get_vcpus_utilisation () in
-              String.concat "; "
+              concat_with_semi
                 (List.map (fun (a, b) -> Printf.sprintf "%s: %s" a b) info)
             with _ -> "")
           ~get_map:(fun () -> try get_vcpus_utilisation () with _ -> [])
@@ -2011,8 +1937,7 @@ let vm_record rpc session_id vm =
               (xgm ()))
           ()
       ; make_field ~name:"VBDs"
-          ~get:(fun () ->
-            String.concat "; " (List.map get_uuid_from_ref (x ()).API.vM_VBDs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VBDs)
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_VBDs)
           ()
       ; make_field ~name:"networks"
@@ -2079,7 +2004,7 @@ let vm_record rpc session_id vm =
               (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
           ~expensive:true ~deprecated:true ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.vM_tags)
+          ~get:(fun () -> concat_with_semi (x ()).API.vM_tags)
           ~get_set:(fun () -> (x ()).API.vM_tags)
           ~add_to_set:(fun tag -> Client.VM.add_tags rpc session_id vm tag)
           ~remove_from_set:(fun tag ->
@@ -2264,10 +2189,10 @@ let pool_patch_record rpc session_id patch =
           ~get:(fun () -> Int64.to_string (x ()).API.pool_patch_size)
           ()
       ; make_field ~name:"hosts"
-          ~get:(fun () -> String.concat ", " (get_hosts ()))
+          ~get:(fun () -> concat_with_semi (get_hosts ()))
           ~get_set:get_hosts ()
       ; make_field ~name:"after-apply-guidance"
-          ~get:(fun () -> String.concat ", " (after_apply_guidance ()))
+          ~get:(fun () -> concat_with_semi (after_apply_guidance ()))
           ~get_set:after_apply_guidance ()
       ; make_field ~name:"update"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_patch_pool_update)
@@ -2336,10 +2261,10 @@ let pool_update_record rpc session_id update =
             Int64.to_string (x ()).API.pool_update_installation_size)
           ()
       ; make_field ~name:"hosts"
-          ~get:(fun () -> String.concat ", " (get_hosts ()))
+          ~get:(fun () -> concat_with_semi (get_hosts ()))
           ~get_set:get_hosts ()
       ; make_field ~name:"after-apply-guidance"
-          ~get:(fun () -> String.concat ", " (after_apply_guidance ()))
+          ~get:(fun () -> concat_with_semi (after_apply_guidance ()))
           ~get_set:after_apply_guidance ()
       ; make_field ~name:"enforce-homogeneity"
           ~get:(fun () ->
@@ -2469,19 +2394,17 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.host_operation_to_string
-                 (x ()).API.host_allowed_operations))
+            map_and_concat Record_util.host_operation_to_string
+              (x ()).API.host_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.host_operation_to_string
               (x ()).API.host_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.host_operation_to_string b)
-                 (x ()).API.host_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.host_operation_to_string b)
+              (x ()).API.host_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.host_operation_to_string b)
@@ -2544,7 +2467,7 @@ let host_record rpc session_id host =
           ~get_map:(fun () -> (x ()).API.host_software_version)
           ()
       ; make_field ~name:"capabilities"
-          ~get:(fun () -> String.concat "; " (x ()).API.host_capabilities)
+          ~get:(fun () -> concat_with_semi (x ()).API.host_capabilities)
           ~get_set:(fun () -> (x ()).API.host_capabilities)
           ()
       ; make_field ~name:"other-config"
@@ -2570,7 +2493,7 @@ let host_record rpc session_id host =
       ; make_field ~name:"address" ~get:(fun () -> (x ()).API.host_address) ()
       ; make_field ~name:"supported-bootloaders"
           ~get:(fun () ->
-            String.concat "; " (x ()).API.host_supported_bootloaders)
+            concat_with_semi (x ()).API.host_supported_bootloaders)
           ~get_set:(fun () -> (x ()).API.host_supported_bootloaders)
           ()
       ; make_field ~name:"blobs"
@@ -2605,20 +2528,19 @@ let host_record rpc session_id host =
               (xm ()))
           ()
       ; make_field ~name:"patches" ~deprecated:true
-          ~get:(fun () -> String.concat ", " (get_patches ()))
+          ~get:(fun () -> concat_with_semi (get_patches ()))
           ~get_set:get_patches ()
       ; make_field ~name:"updates"
-          ~get:(fun () -> String.concat ", " (get_updates ()))
+          ~get:(fun () -> concat_with_semi (get_updates ()))
           ~get_set:get_updates ()
       ; make_field ~name:"ha-statefiles"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun x -> get_uuid_from_ref (Ref.of_string x))
-                 (x ()).API.host_ha_statefiles))
+            map_and_concat
+              (fun x -> get_uuid_from_ref (Ref.of_string x))
+              (x ()).API.host_ha_statefiles)
           ()
       ; make_field ~name:"ha-network-peers"
-          ~get:(fun () -> String.concat "; " (x ()).API.host_ha_network_peers)
+          ~get:(fun () -> concat_with_semi (x ()).API.host_ha_network_peers)
           ()
       ; make_field ~name:"external-auth-type"
           ~get:(fun () -> (x ()).API.host_external_auth_type)
@@ -2650,7 +2572,7 @@ let host_record rpc session_id host =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.host_local_cache_sr)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.host_tags)
+          ~get:(fun () -> concat_with_semi (x ()).API.host_tags)
           ~get_set:(fun () -> (x ()).API.host_tags)
           ~add_to_set:(fun tag -> Client.Host.add_tags rpc session_id host tag)
           ~remove_from_set:(fun tag ->
@@ -2673,9 +2595,8 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"virtual-hardware-platform-versions"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Int64.to_string
-                 (x ()).API.host_virtual_hardware_platform_versions))
+            map_and_concat Int64.to_string
+              (x ()).API.host_virtual_hardware_platform_versions)
           ~get_set:(fun () ->
             List.map Int64.to_string
               (x ()).API.host_virtual_hardware_platform_versions)
@@ -2684,24 +2605,18 @@ let host_record rpc session_id host =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.host_control_domain)
           ()
       ; make_field ~name:"resident-vms"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.host_resident_VMs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.host_resident_VMs)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.host_resident_VMs)
           ()
       ; make_field ~name:"updates-requiring-reboot"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref
-                 (x ()).API.host_updates_requiring_reboot))
+            get_uuids_from_refs (x ()).API.host_updates_requiring_reboot)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.host_updates_requiring_reboot)
           ()
       ; make_field ~name:"features"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.host_features))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.host_features)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.host_features)
           ()
@@ -2760,28 +2675,24 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vDI_snapshot_of)
           ()
       ; make_field ~name:"snapshots"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.vDI_snapshots))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vDI_snapshots)
           ()
       ; make_field ~name:"snapshot-time"
           ~get:(fun () -> Date.to_string (x ()).API.vDI_snapshot_time)
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.vdi_operation_to_string
-                 (x ()).API.vDI_allowed_operations))
+            map_and_concat Record_util.vdi_operation_to_string
+              (x ()).API.vDI_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.vdi_operation_to_string
               (x ()).API.vDI_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.vdi_operation_to_string b)
-                 (x ()).API.vDI_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.vdi_operation_to_string b)
+              (x ()).API.vDI_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.vdi_operation_to_string b)
@@ -2794,14 +2705,11 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () -> get_name_from_ref (x ()).API.vDI_SR)
           ()
       ; make_field ~name:"vbd-uuids"
-          ~get:(fun () ->
-            String.concat "; " (List.map get_uuid_from_ref (x ()).API.vDI_VBDs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vDI_VBDs)
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vDI_VBDs)
           ()
       ; make_field ~name:"crashdump-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.vDI_crash_dumps))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vDI_crash_dumps)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.vDI_crash_dumps)
           ()
@@ -2887,7 +2795,7 @@ let vdi_record rpc session_id vdi =
                   pool_uuid)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
+          ~get:(fun () -> concat_with_semi (x ()).API.vDI_tags)
           ~get_set:(fun () -> (x ()).API.vDI_tags)
           ~add_to_set:(fun tag -> Client.VDI.add_tags rpc session_id vdi tag)
           ~remove_from_set:(fun tag ->
@@ -2938,19 +2846,17 @@ let vbd_record rpc session_id vbd =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.vbd_operation_to_string
-                 (x ()).API.vBD_allowed_operations))
+            map_and_concat Record_util.vbd_operation_to_string
+              (x ()).API.vBD_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.vbd_operation_to_string
               (x ()).API.vBD_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.vbd_operation_to_string b)
-                 (x ()).API.vBD_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.vbd_operation_to_string b)
+              (x ()).API.vBD_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.vbd_operation_to_string b)
@@ -3032,7 +2938,7 @@ let vbd_record rpc session_id vbd =
           ()
       ; make_field ~name:"qos_supported_algorithms"
           ~get:(fun () ->
-            String.concat "; " (x ()).API.vBD_qos_supported_algorithms)
+            concat_with_semi (x ()).API.vBD_qos_supported_algorithms)
           ~get_set:(fun () -> (x ()).API.vBD_qos_supported_algorithms)
           ()
       ; make_field ~name:"other-config"
@@ -3137,7 +3043,7 @@ let sm_record rpc session_id sm =
           ~get:(fun () -> (x ()).API.sM_required_api_version)
           ()
       ; make_field ~name:"capabilities" ~deprecated:true
-          ~get:(fun () -> String.concat "; " (x ()).API.sM_capabilities)
+          ~get:(fun () -> concat_with_semi (x ()).API.sM_capabilities)
           ()
       ; make_field ~name:"features"
           ~get:(fun () ->
@@ -3153,8 +3059,7 @@ let sm_record rpc session_id sm =
           ~get:(fun () -> (x ()).API.sM_driver_filename)
           ()
       ; make_field ~name:"required-cluster-stack"
-          ~get:(fun () ->
-            String.concat ", " (x ()).API.sM_required_cluster_stack)
+          ~get:(fun () -> concat_with_semi (x ()).API.sM_required_cluster_stack)
           ()
       ]
   }
@@ -3199,32 +3104,28 @@ let sr_record rpc session_id sr =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.sr_operation_to_string
-                 (x ()).API.sR_allowed_operations))
+            map_and_concat Record_util.sr_operation_to_string
+              (x ()).API.sR_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.sr_operation_to_string
               (x ()).API.sR_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.sr_operation_to_string b)
-                 (x ()).API.sR_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.sr_operation_to_string b)
+              (x ()).API.sR_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.sr_operation_to_string b)
               (x ()).API.sR_current_operations)
           ()
       ; make_field ~name:"VDIs"
-          ~get:(fun () ->
-            String.concat "; " (List.map get_uuid_from_ref (x ()).API.sR_VDIs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.sR_VDIs)
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.sR_VDIs)
           ()
       ; make_field ~name:"PBDs"
-          ~get:(fun () ->
-            String.concat "; " (List.map get_uuid_from_ref (x ()).API.sR_PBDs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.sR_PBDs)
           ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.sR_PBDs)
           ()
       ; make_field ~name:"virtual-allocation"
@@ -3275,7 +3176,7 @@ let sr_record rpc session_id sr =
           ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.sR_tags)
+          ~get:(fun () -> concat_with_semi (x ()).API.sR_tags)
           ~get_set:(fun () -> (x ()).API.sR_tags)
           ~add_to_set:(fun tag -> Client.SR.add_tags rpc session_id sr tag)
           ~remove_from_set:(fun tag ->
@@ -3405,27 +3306,23 @@ let vm_appliance_record rpc session_id vm_appliance =
             Client.VM_appliance.set_name_description rpc session_id !_ref x)
           ()
       ; make_field ~name:"VMs"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_appliance_VMs)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.vM_appliance_VMs)
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.vm_appliance_operation_to_string
-                 (x ()).API.vM_appliance_allowed_operations))
+            map_and_concat Record_util.vm_appliance_operation_to_string
+              (x ()).API.vM_appliance_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.vm_appliance_operation_to_string
               (x ()).API.vM_appliance_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.vm_appliance_operation_to_string b)
-                 (x ()).API.vM_appliance_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.vm_appliance_operation_to_string b)
+              (x ()).API.vM_appliance_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.vm_appliance_operation_to_string b)
@@ -3456,9 +3353,7 @@ let dr_task_record rpc session_id dr_task =
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.dR_task_uuid) ()
       ; make_field ~name:"introduced-SRs"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.dR_task_introduced_SRs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.dR_task_introduced_SRs)
           ()
       ]
   }
@@ -3529,10 +3424,9 @@ let pgpu_record rpc session_id pgpu =
           ()
       ; make_field ~name:"dependencies"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pci -> (xp0 pci).API.pCI_pci_id)
-                 (xp ()).API.pCI_dependencies))
+            map_and_concat
+              (fun pci -> (xp0 pci).API.pCI_pci_id)
+              (xp ()).API.pCI_dependencies)
           ~get_set:(fun () ->
             List.map
               (fun pci -> (xp0 pci).API.pCI_pci_id)
@@ -3549,13 +3443,11 @@ let pgpu_record rpc session_id pgpu =
           ()
       ; make_field ~name:"supported-VGPU-types"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.pGPU_supported_VGPU_types))
+            get_uuids_from_refs (x ()).API.pGPU_supported_VGPU_types)
           ()
       ; make_field ~name:"enabled-VGPU-types"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.pGPU_enabled_VGPU_types))
+            get_uuids_from_refs (x ()).API.pGPU_enabled_VGPU_types)
           ~get_set:(fun () ->
             List.map
               (fun vgpu_type -> get_uuid_from_ref vgpu_type)
@@ -3574,9 +3466,7 @@ let pgpu_record rpc session_id pgpu =
                  (get_words ',' vgpu_type_uuids)))
           ()
       ; make_field ~name:"resident-VGPUs"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref (x ()).API.pGPU_resident_VGPUs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pGPU_resident_VGPUs)
           ()
       ]
   }
@@ -3613,22 +3503,14 @@ let gpu_group_record rpc session_id gpu_group =
             Client.GPU_group.set_name_description rpc session_id gpu_group x)
           ()
       ; make_field ~name:"VGPU-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun vgpu -> get_uuid_from_ref vgpu)
-                 (x ()).API.gPU_group_VGPUs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.gPU_group_VGPUs)
           ~get_set:(fun () ->
             List.map
               (fun vgpu -> get_uuid_from_ref vgpu)
               (x ()).API.gPU_group_VGPUs)
           ()
       ; make_field ~name:"PGPU-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pgpu -> get_uuid_from_ref pgpu)
-                 (x ()).API.gPU_group_PGPUs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.gPU_group_PGPUs)
           ~get_set:(fun () ->
             List.map
               (fun pgpu -> get_uuid_from_ref pgpu)
@@ -3645,17 +3527,14 @@ let gpu_group_record rpc session_id gpu_group =
           ()
       ; make_field ~name:"enabled-VGPU-types"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref
-                 (Client.GPU_group.get_enabled_VGPU_types rpc session_id
-                    gpu_group)))
+            get_uuids_from_refs
+              (Client.GPU_group.get_enabled_VGPU_types rpc session_id gpu_group))
           ()
       ; make_field ~name:"supported-VGPU-types"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map get_uuid_from_ref
-                 (Client.GPU_group.get_supported_VGPU_types rpc session_id
-                    gpu_group)))
+            get_uuids_from_refs
+              (Client.GPU_group.get_supported_VGPU_types rpc session_id
+                 gpu_group))
           ()
       ; make_field ~name:"allocation-algorithm"
           ~get:(fun () ->
@@ -3736,10 +3615,9 @@ let vgpu_record rpc session_id vgpu =
           ()
       ; make_field ~name:"compatibility-metadata"
           ~get:(fun () ->
-            (x ()).API.vGPU_compatibility_metadata
-            |> List.map (fun (k, v) ->
-                   Printf.sprintf "%s:(%d bytes)" k (String.length v))
-            |> String.concat "; ")
+            map_and_concat
+              (fun (k, v) -> Printf.sprintf "%s:(%d bytes)" k (String.length v))
+              (x ()).API.vGPU_compatibility_metadata)
           ()
       ; make_field ~name:"extra_args"
           ~get:(fun () -> (x ()).API.vGPU_extra_args)
@@ -3795,48 +3673,29 @@ let vgpu_type_record rpc session_id vgpu_type =
           ()
       ; make_field ~name:"supported-on-PGPUs"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun p -> get_uuid_from_ref p)
-                 (x ()).API.vGPU_type_supported_on_PGPUs))
+            get_uuids_from_refs (x ()).API.vGPU_type_supported_on_PGPUs)
           ()
       ; make_field ~name:"enabled-on-PGPUs"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun p -> get_uuid_from_ref p)
-                 (x ()).API.vGPU_type_enabled_on_PGPUs))
+            get_uuids_from_refs (x ()).API.vGPU_type_enabled_on_PGPUs)
           ()
       ; make_field ~name:"supported-on-GPU-groups"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun p -> get_uuid_from_ref p)
-                 (x ()).API.vGPU_type_supported_on_GPU_groups))
+            get_uuids_from_refs (x ()).API.vGPU_type_supported_on_GPU_groups)
           ()
       ; make_field ~name:"enabled-on-GPU-groups"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun p -> get_uuid_from_ref p)
-                 (x ()).API.vGPU_type_enabled_on_GPU_groups))
+            get_uuids_from_refs (x ()).API.vGPU_type_enabled_on_GPU_groups)
           ()
       ; make_field ~name:"VGPU-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun v -> get_uuid_from_ref v)
-                 (x ()).API.vGPU_type_VGPUs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vGPU_type_VGPUs)
           ()
       ; make_field ~name:"experimental"
           ~get:(fun () -> string_of_bool (x ()).API.vGPU_type_experimental)
           ()
       ; make_field ~name:"compatible-types-in-vm"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun p -> get_uuid_from_ref p)
-                 (x ()).API.vGPU_type_compatible_types_in_vm))
+            get_uuids_from_refs (x ()).API.vGPU_type_compatible_types_in_vm)
           ()
       ]
   }
@@ -3876,26 +3735,17 @@ let pvs_site_record rpc session_id pvs_site =
           ~set:(fun x -> Client.PVS_site.set_PVS_uuid rpc session_id !_ref x)
           ()
       ; make_field ~name:"pvs-cache-storage-uuids"
-          ~get:(fun () ->
-            (x ()).API.pVS_site_cache_storage
-            |> List.map get_uuid_from_ref
-            |> String.concat "; ")
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pVS_site_cache_storage)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.pVS_site_cache_storage)
           ()
       ; make_field ~name:"pvs-server-uuids"
-          ~get:(fun () ->
-            (x ()).API.pVS_site_servers
-            |> List.map get_uuid_from_ref
-            |> String.concat "; ")
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pVS_site_servers)
           ~get_set:(fun () ->
             (x ()).API.pVS_site_servers |> List.map get_uuid_from_ref)
           ()
       ; make_field ~name:"pvs-proxy-uuids"
-          ~get:(fun () ->
-            (x ()).API.pVS_site_proxies
-            |> List.map get_uuid_from_ref
-            |> String.concat "; ")
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pVS_site_proxies)
           ~get_set:(fun () ->
             (x ()).API.pVS_site_proxies |> List.map get_uuid_from_ref)
           ()
@@ -3924,7 +3774,7 @@ let pvs_server_record rpc session_id pvs_site =
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pVS_server_uuid) ()
       ; make_field ~name:"addresses"
-          ~get:(fun () -> String.concat "; " (x ()).API.pVS_server_addresses)
+          ~get:(fun () -> concat_with_semi (x ()).API.pVS_server_addresses)
           ~get_set:(fun () -> (x ()).API.pVS_server_addresses)
           ()
       ; make_field ~name:"first-port"
@@ -4194,22 +4044,14 @@ let usb_group_record rpc session_id usb_group =
             Client.USB_group.set_name_description rpc session_id usb_group x)
           ()
       ; make_field ~name:"VUSB-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun vusb -> get_uuid_from_ref vusb)
-                 (x ()).API.uSB_group_VUSBs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.uSB_group_VUSBs)
           ~get_set:(fun () ->
             List.map
               (fun vusb -> get_uuid_from_ref vusb)
               (x ()).API.uSB_group_VUSBs)
           ()
       ; make_field ~name:"PUSB-uuids"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun pusb -> get_uuid_from_ref pusb)
-                 (x ()).API.uSB_group_PUSBs))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.uSB_group_PUSBs)
           ~get_set:(fun () ->
             List.map
               (fun pusb -> get_uuid_from_ref pusb)
@@ -4276,19 +4118,17 @@ let vusb_record rpc session_id vusb =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.vusb_operation_to_string
-                 (x ()).API.vUSB_allowed_operations))
+            map_and_concat Record_util.vusb_operation_to_string
+              (x ()).API.vUSB_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.vusb_operation_to_string
               (x ()).API.vUSB_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (a, b) -> Record_util.vusb_operation_to_string b)
-                 (x ()).API.vUSB_current_operations))
+            map_and_concat
+              (fun (_, b) -> Record_util.vusb_operation_to_string b)
+              (x ()).API.vUSB_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (a, b) -> Record_util.vusb_operation_to_string b)
@@ -4319,11 +4159,7 @@ let cluster_record rpc session_id cluster =
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.cluster_uuid) ()
       ; make_field ~name:"cluster-hosts"
-          ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun r -> get_uuid_from_ref r)
-                 (x ()).API.cluster_cluster_hosts))
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.cluster_cluster_hosts)
           ~get_set:(fun () ->
             List.map get_uuid_from_ref (x ()).API.cluster_cluster_hosts)
           ()
@@ -4341,24 +4177,22 @@ let cluster_record rpc session_id cluster =
             string_of_float (x ()).API.cluster_token_timeout_coefficient)
           ()
       ; make_field ~name:"pending-forget" ~hidden:true
-          ~get:(fun () -> String.concat "; " (x ()).API.cluster_pending_forget)
+          ~get:(fun () -> concat_with_semi (x ()).API.cluster_pending_forget)
           ~get_set:(fun () -> (x ()).API.cluster_pending_forget)
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.cluster_operation_to_string
-                 (x ()).API.cluster_allowed_operations))
+            map_and_concat Record_util.cluster_operation_to_string
+              (x ()).API.cluster_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.cluster_operation_to_string
               (x ()).API.cluster_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (task, op) -> Record_util.cluster_operation_to_string op)
-                 (x ()).API.cluster_current_operations))
+            map_and_concat
+              (fun (_, op) -> Record_util.cluster_operation_to_string op)
+              (x ()).API.cluster_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (task, op) -> Record_util.cluster_operation_to_string op)
@@ -4422,20 +4256,17 @@ let cluster_host_record rpc session_id cluster_host =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map Record_util.cluster_host_operation_to_string
-                 (x ()).API.cluster_host_allowed_operations))
+            map_and_concat Record_util.cluster_host_operation_to_string
+              (x ()).API.cluster_host_allowed_operations)
           ~get_set:(fun () ->
             List.map Record_util.cluster_host_operation_to_string
               (x ()).API.cluster_host_allowed_operations)
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
-            String.concat "; "
-              (List.map
-                 (fun (task, op) ->
-                   Record_util.cluster_host_operation_to_string op)
-                 (x ()).API.cluster_host_current_operations))
+            map_and_concat
+              (fun (_, op) -> Record_util.cluster_host_operation_to_string op)
+              (x ()).API.cluster_host_current_operations)
           ~get_set:(fun () ->
             List.map
               (fun (task, op) ->
