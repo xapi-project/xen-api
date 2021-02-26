@@ -20,8 +20,8 @@ module Lib = Gencertlib.Lib
 
 module D = Debug.Make (struct let name = "gencert" end)
 
-let generate_cert_or_fail ~path ~cn ~sans =
-  Gencertlib.Selfcert.host cn sans path ;
+let generate_cert_or_fail ~generator ~path =
+  generator path ;
   if Sys.file_exists path then
     D.info "file exists (%s), assuming cert was created" path
   else (
@@ -32,24 +32,18 @@ let generate_cert_or_fail ~path ~cn ~sans =
 let main ~dbg ~path =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
-  let hostname, sans =
-    match Lib.hostnames () with
-    | [] ->
-        D.error "can't infer hostname for SSL certificate" ;
+  let cn, ip =
+    match Networking_info.get_management_ip_addr ~dbg with
+    | None ->
+        D.error "gencert.ml: cannot get management ip address!" ;
         exit 1
-    | hostname :: rest ->
-        (hostname, rest)
+    | Some x ->
+        x
   in
-  let cn =
-    if Astring.String.is_prefix ~affix:"localhost" hostname then
-      Lib.get_management_ip_addr ~dbg
-    else if Astring.String.is_infix ~affix:"." hostname then
-      None
-    else
-      Lib.get_management_ip_addr ~dbg
-  in
-  let cn = Option.value ~default:hostname cn in
-  generate_cert_or_fail ~path ~cn ~sans
+  let dns_names = Networking_info.dns_names () in
+  let ips = [ip] in
+  let generator = Gencertlib.Selfcert.host ~cn ~dns_names ~ips in
+  generate_cert_or_fail ~generator ~path
 
 let () =
   let program_name = Sys.argv.(0) in

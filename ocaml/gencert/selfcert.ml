@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module C = Cmdliner
 module Rsa = Mirage_crypto_pk.Rsa
 module UX = Xapi_stdext_unix.Unixext
 open Rresult (* introduces >>= >>| and R *)
@@ -43,21 +42,15 @@ let expire_in days =
   | None ->
       R.error_msgf "can't represent %d as time span" days
 
-let add_dns_names extension = function
-  | [] ->
-      extension
-  | names ->
-      X509.Extension.(
-        add Subject_alt_name
-          (false, X509.General_name.(singleton DNS names))
-          extension)
+let sans dns_names ips =
+  let sans = X509.General_name.(singleton DNS dns_names |> add IP ips) in
+  X509.Extension.(singleton Subject_alt_name (false, sans))
 
-let sign days key pubkey issuer req alt_names =
+let sign days privkey pubkey issuer req extensions =
   expire_in days >>= fun (valid_from, valid_until) ->
-  match (key, pubkey) with
+  match (privkey, pubkey) with
   | `RSA priv, `RSA pub when Rsa.pub_of_priv priv = pub ->
-      let extensions = add_dns_names X509.Extension.empty alt_names in
-      X509.Signing_request.sign ~valid_from ~valid_until ~extensions req key
+      X509.Signing_request.sign ~valid_from ~valid_until ~extensions req privkey
         issuer
       |> R.reword_error (fun _ -> Printf.sprintf "signing failed" |> R.msg)
   | _ ->
@@ -88,7 +81,7 @@ let generate_private_key length =
   let stdout, _stderr = call_openssl args in
   stdout
 
-let selfsign name alt_names length days certfile =
+let selfsign cn dns_names ips length days certfile =
   let rsa =
     try
       generate_private_key length
@@ -108,10 +101,11 @@ let selfsign name alt_names length days certfile =
   let privkey = `RSA rsa in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
   let issuer =
-    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN name))]
+    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
   in
   let req = X509.Signing_request.create issuer privkey in
-  sign days privkey pubkey issuer req alt_names >>= fun cert ->
+  let extensions = sans dns_names ips in
+  sign days privkey pubkey issuer req extensions >>= fun cert ->
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
   let pkcs12 =
@@ -119,10 +113,9 @@ let selfsign name alt_names length days certfile =
   in
   write_certs certfile pkcs12
 
-let host name alt_names pemfile =
+let host ~cn ~dns_names ~ips pemfile =
   let expire_days = 3650 in
   let length = 2048 in
   (* make sure name is part of alt_names because CN is deprecated and
      that there are no duplicates *)
-  let alt = Astring.String.uniquify (name :: alt_names) in
-  selfsign name alt length expire_days pemfile |> R.failwith_error_msg
+  selfsign cn dns_names ips length expire_days pemfile |> R.failwith_error_msg

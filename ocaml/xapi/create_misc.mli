@@ -34,13 +34,21 @@ type host_info = {
 val read_dom0_memory_usage : unit -> int64 option
 
 val read_localhost_info : __context:Context.t -> host_info
+(** [read_localhost_info ~__context] creates a [host_info] record with fresh
+    information from the system. Use the database to query information instead
+    unless you're absolutely necessary. There is no guarantee the information
+    gathered by this function the same as the one in the database. *)
 
 val ensure_domain_zero_records :
   __context:Context.t -> host:[`host] Ref.t -> host_info -> unit
 
 val create_root_user : __context:Context.t -> unit
 
-val create_software_version : __context:Context.t -> host_info -> unit
+val create_software_version :
+  __context:Context.t -> ?info:host_info option -> unit -> unit
+(** [create_software_version ~__context ?info ()] creates a version of the
+    distribution using [info] if [info] is [Some value]. Otherwise it creates
+    the version using fresh information from the system. *)
 
 val create_host_cpu : __context:Context.t -> host_info -> unit
 

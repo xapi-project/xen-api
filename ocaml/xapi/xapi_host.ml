@@ -1400,15 +1400,19 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
 
 let emergency_reset_server_certificate ~__context =
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
-  let common_name, alt_names =
-    match Gencertlib.Lib.hostnames () with
-    | cn :: alt ->
-        (cn, alt)
-    | [] ->
-        (Helper_hostname.get_hostname (), [])
-    (* should never happen *)
+  let cn, ip =
+    let dbg = Context.string_of_task __context in
+    match Networking_info.get_management_ip_addr ~dbg with
+    | None ->
+        let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
+        D.error "%s" msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
+    | Some ip ->
+        ip
   in
-  Gencertlib.Selfcert.host common_name alt_names xapi_ssl_pem ;
+  let dns_names = Networking_info.dns_names () in
+  let ips = [ip] in
+  Gencertlib.Selfcert.host ~cn ~dns_names ~ips xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
   let self = Helpers.get_localhost ~__context in
@@ -1893,8 +1897,7 @@ let license_remove ~__context ~host =
 
 let refresh_pack_info ~__context ~host =
   debug "Refreshing software_version" ;
-  let host_info = Create_misc.read_localhost_info ~__context in
-  Create_misc.create_software_version ~__context host_info
+  Create_misc.create_software_version ~__context ()
 
 (* Network reset *)
 
