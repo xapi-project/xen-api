@@ -28,13 +28,32 @@ prepare_networking() {
 
     if [ -e ${MANAGEMENT_CONF} ] ; then
         source ${MANAGEMENT_CONF}
-        if PHYSICAL_PIF="$($XE pif-list host-uuid=${INSTALLATION_UUID} device=${LABEL} params=uuid --minimal)" ; then
-            if [ ! -z "${VLAN}" ] ; then
+        if [ -n "${BOND_MODE}" ] ; then
+            BOND_NETWORK="$($XE network-create name-label='Bonded pool-wide network with mode '${BOND_MODE}' and devices '${BOND_MEMBERS})"
+            IFS=',' read -r -a MEMBERS <<< "${BOND_MEMBERS}"
+            for MEMBER_DEVICE in "${MEMBERS[@]}"
+            do :
+                if MEMBER_PIF="$($XE pif-list host-uuid=${INSTALLATION_UUID} device=${MEMBER_DEVICE} params=uuid --minimal)" ; then
+                    if [ -z "${PIFS}" ] ; then
+                        PIFS=${MEMBER_PIF}
+                    else
+                        PIFS+=",${MEMBER_PIF}"
+                    fi
+                else
+                    logger "Warning: cannot find ${MEMBER_DEVICE} for adding to bond ${LABEL}'s members"
+                fi
+            done
+            BOND_UUID="$($XE bond-create network-uuid=${BOND_NETWORK} mode=${BOND_MODE} pif-uuids=${PIFS})"
+            BOND_PIF="$($XE bond-param-get param-name=master uuid=${BOND_UUID})"
+            PIF="${BOND_PIF}"
+        else
+            PIF="$($XE pif-list host-uuid=${INSTALLATION_UUID} device=${LABEL} params=uuid --minimal)"
+        fi
+        if [ -n "$PIF" ] ; then
+            if [ -n "${VLAN}" ] ; then
                 VLAN_NETWORK="$($XE network-create name-label='Pool-wide network associated with '${LABEL}' on VLAN'${VLAN})"
-                VLAN_PIF="$($XE vlan-create pif-uuid=${PHYSICAL_PIF} network-uuid=${VLAN_NETWORK} vlan=${VLAN})"
+                VLAN_PIF="$($XE vlan-create pif-uuid=${PIF} network-uuid=${VLAN_NETWORK} vlan=${VLAN})"
                 PIF="${VLAN_PIF}"
-            else
-                PIF="${PHYSICAL_PIF}"
             fi
             isStatic=false
             case $MODE in
