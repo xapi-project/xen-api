@@ -18,6 +18,8 @@ exception Stunnel_verify_error of string
 
 val crl_path : string
 
+val verify_certificates_ctrl : string
+
 val timeoutidle : int option ref
 
 type pid =

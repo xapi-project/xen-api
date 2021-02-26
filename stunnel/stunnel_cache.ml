@@ -201,7 +201,8 @@ let flush () =
        info "Flushed!")
 
 
-let with_connect ?use_fork_exec_helper ?write_to_log host port verify_cert f =
+let with_connect ?use_fork_exec_helper ?write_to_log ?verify_cert host port f =
+  let verify_cert = Stunnel.must_verify_cert verify_cert in
   match with_remove host port verify_cert f with
   | Some r -> r
   | None ->
