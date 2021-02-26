@@ -208,46 +208,12 @@ let get_host_updates_in_json ~__context ~installed =
           "list"; "updates";
         ]
       in
-      let sep = Re.Str.regexp " +" in
       let updates =
         clean_yum_cache !Xapi_globs.local_repo_name;
         Helpers.call_script !Xapi_globs.yum_cmd params_of_list
         |> Astring.String.cuts ~sep:"\n"
-        |> List.filter_map (fun line ->
-            match Re.Str.split sep line with
-            | "Updated" :: "Packages" :: [] -> None
-            | name_arch :: ver_rel :: repo :: [] when repo = !Xapi_globs.local_repo_name ->
-              (* xsconsole.x86_64  10.1.11-34  local-normal *)
-              begin match Astring.String.cuts ~sep:"." name_arch,
-                          Astring.String.cuts ~sep:"-" ver_rel with
-                | name :: arch :: [], version :: release :: [] ->
-                  let open Pkg in
-                  let new_pkg = { name; version; release; arch } in
-                  let uid_in_json =
-                    match List.assoc_opt name_arch rpm2updates with
-                    | Some s -> `String s
-                    | None ->
-                      warn "No update ID found for %s" name_arch;
-                      `Null
-                  in
-                  let l1 = [("name", `String name);
-                            ("arch", `String arch);
-                            ("newVerRel", (to_ver_rel_json new_pkg));
-                            ("updateId", uid_in_json)]
-                  in
-                  let l2 = match List.assoc_opt name_arch installed_pkgs with
-                    | Some old_pkg ->
-                      [("oldVerRel", (to_ver_rel_json old_pkg))]
-                    | None -> []
-                  in
-                  Some (`Assoc (l1 @ l2))
-                | _ ->
-                  warn "Can't parse %s and %s" name_arch ver_rel;
-                  None
-              end
-            | _ ->
-              debug "Ignore unrecognized line '%s' in parsing updates list" line;
-              None)
+        |> List.filter_map
+          (Repository_helpers.get_rpm_update_in_json ~rpm2updates ~installed_pkgs)
       in
       (* TODO: live patches *)
       `Assoc [("updates", `List updates)])
@@ -313,7 +279,8 @@ let get_pool_updates_in_json ~__context ~hosts =
   try
     let funs = List.map (fun host ->
         fun () ->
-          ( host, (http_get_host_updates_in_json ~__context ~host ~installed:true) )
+          ( (Ref.string_of host),
+            (http_get_host_updates_in_json ~__context ~host ~installed:true) )
       ) hosts
     in
     let rets =
@@ -324,33 +291,8 @@ let get_pool_updates_in_json ~__context ~hosts =
     let updates_of_hosts, ids_of_updates =
       rets
       |> List.fold_left (fun (acc1, acc2) (host, ret_of_host) ->
-          let updates =
-            ret_of_host
-            |> Yojson.Basic.Util.member "updates"
-            |> Yojson.Basic.Util.to_list
-            |> List.map Update.of_json
-          in
-          let open Update in
-          let rpms, uids = List.fold_left (fun (acc_rpms, acc_uids) u ->
-              ( ((Printf.sprintf "%s-%s-%s.%s.rpm"
-                    u.name u.new_version u.new_release u.arch) :: acc_rpms),
-                match u.update_id with
-                | Some id -> (UpdateIdSet.add id acc_uids)
-                | None -> acc_uids )
-            ) ([], UpdateIdSet.empty) updates
-          in
-          let rec_guidances = List.map (fun g -> `String (Guidance.to_string g))
-              (eval_guidances ~updates_info ~updates ~kind:Recommended)
-          in
-          let abs_guidances = List.map (fun g -> `String (Guidance.to_string g))
-              (eval_guidances ~updates_info ~updates ~kind:Absolute)
-          in
-          let json_of_host = `Assoc [
-              ("ref", `String (Ref.string_of host));
-              ("recommended-guidance", `List rec_guidances);
-              ("absolute-guidance", `List abs_guidances);
-              ("RPMS", `List (List.map (fun r -> `String r) rpms));
-              ("updates", `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids)))]
+          let json_of_host, uids =
+            consolidate_updates_of_host ~updates_info host ret_of_host
           in
           ( (json_of_host :: acc1), (UpdateIdSet.union uids acc2) )
       ) ([], UpdateIdSet.empty)
