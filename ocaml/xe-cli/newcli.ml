@@ -322,12 +322,19 @@ let with_open_tcp server f =
   if !xeusessl && not (is_localhost server) then (* never use SSL on-host *)
     with_open_tcp_ssl server f
   else
-    let host = Unix.gethostbyname server in
-    let addr = host.Unix.h_addr_list.(0) in
+    let host = Scanf.ksscanf server (fun _ _ -> server) "[%s@]" Fun.id in
+    let port = get_xapiport false in
+    let addr =
+      match Unix.getaddrinfo host (string_of_int port) [] with
+      | [] ->
+          error "No addrinfo found for host: %s, port: %d" host port ;
+          raise Not_found
+      | addrinfo :: _ ->
+          addrinfo.Unix.ai_addr
+    in
     let open Safe_resources in
-    Unixfd.with_open_connection ~loc:__LOC__
-      (Unix.ADDR_INET (addr, get_xapiport false))
-    @@ fun ufd -> Unixfd.with_channels ufd f
+    Unixfd.with_open_connection ~loc:__LOC__ addr @@ fun ufd ->
+    Unixfd.with_channels ufd f
 
 let with_open_channels f =
   let wrap chs =
