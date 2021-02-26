@@ -188,20 +188,19 @@ module Applicability = struct
   exception Invalid_inequality
 
   let string_of_inequality = function
-    | Some Lt -> "<"
-    | Some Eq -> "="
-    | Some Gt -> ">"
-    | Some Gte -> ">="
-    | Some Lte -> "<="
-    | _ -> "InvalidInequality"
+    | Lt -> "lt"
+    | Eq -> "eq"
+    | Gt -> "gt"
+    | Gte -> "gte"
+    | Lte -> "lte"
 
   let inequality_of_string = function
-    | "gte" -> Some Gte
-    | "lte" -> Some Lte
-    | "gt"  -> Some Gt
-    | "lt"  -> Some Lt
-    | "eq"  -> Some Eq
-    | _ -> None
+    | "gte" -> Gte
+    | "lte" -> Lte
+    | "gt"  -> Gt
+    | "lt"  -> Lt
+    | "eq"  -> Eq
+    | _ -> raise Invalid_inequality
 
   let default = {
       name = ""
@@ -228,7 +227,8 @@ module Applicability = struct
       List.fold_left (fun a n ->
           match n with
           | Xml.Element ("inequality", _, [Xml.PCData v]) ->
-            { a with inequality = (inequality_of_string v) }
+            { a with inequality =
+                       (try Some (inequality_of_string v) with Invalid_inequality -> None) }
           | Xml.Element ("epoch", _, [Xml.PCData v]) ->
             { a with epoch = v }
           | Xml.Element ("version", _, [Xml.PCData v]) ->
@@ -250,7 +250,9 @@ module Applicability = struct
 
   let to_string a =
     Printf.sprintf "%s %s %s-%s (epoch: %s)"
-      a.name (string_of_inequality a.inequality) a.version a.release a.epoch
+      a.name
+      (Option.value (Option.map string_of_inequality a.inequality) ~default:"InvalidInequality")
+      a.version a.release a.epoch
 
   let compare_version_strings s1 s2 =
     (* Compare versions or releases of RPM packages
