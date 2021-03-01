@@ -542,7 +542,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
       send_failure client failure_mesg excstr
 
 (* Perform a "writedelta" operation. *)
-let action_writedelta block_dev_fd client datasock target_response_time =
+let action_writedelta block_dev_fd client _datasock target_response_time =
   let failure_mesg = "writedelta|nack" in
   let success_mesg = "writedelta|ack_" in
   (* Read marker, generation count, length and delta from client *)
@@ -628,7 +628,7 @@ let action_writedelta block_dev_fd client datasock target_response_time =
       send_failure client failure_mesg excstr
 
 (* Perform an "empty" operation, which invalidates the redo log. *)
-let action_empty block_dev_fd client datasock target_response_time =
+let action_empty block_dev_fd client _datasock target_response_time =
   let success_mesg = "empty|ack_" in
   let failure_mesg = "empty|nack" in
   R.info "Received command to initialise block device" ;
@@ -782,7 +782,7 @@ let _ =
             Printf.printf
               "*** [Half %s] Database with generation count [%Ld] and length %d:\n"
               (half_to_string half) generation_count length ;
-            db_fn (fun chunk len -> print_string chunk) ;
+            db_fn (fun chunk _ -> print_string chunk) ;
             Printf.printf "\n" ;
             Printf.printf "*** [Half %s] Marker [%s]\n" (half_to_string half)
               marker ;
