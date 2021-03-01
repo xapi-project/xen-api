@@ -783,8 +783,9 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
             GuidanceStrSet.empty
         end
       | None ->
-        let msg = Printf.sprintf "Can't find update ID %s from updateinfo.xml" uid in
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        warn "Can't find update ID %s from updateinfo.xml for update %s.%s"
+          uid update.name update.arch;
+        GuidanceStrSet.empty
     end
   | None ->
     warn "Ignore evaluating against package %s.%s as its update ID is missing"
