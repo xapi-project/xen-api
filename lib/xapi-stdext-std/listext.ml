@@ -12,23 +12,30 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module List = struct include List
+module List = struct
+  include List
 
   (** Turn a list into a set *)
   let rec setify = function
-    | [] -> []
-    | (x::xs) -> if mem x xs then setify xs else x::(setify xs)
+    | [] ->
+        []
+    | x :: xs ->
+        if mem x xs then setify xs else x :: setify xs
 
-  let subset s1 s2 = List.fold_left (&&) true (List.map (fun s->List.mem s s2) s1)
-  let set_equiv s1 s2 = (subset s1 s2) && (subset s2 s1)
+  let subset s1 s2 =
+    List.fold_left ( && ) true (List.map (fun s -> List.mem s s2) s1)
 
-  let iteri f list = ignore (fold_left (fun i x -> f i x; i+1) 0 list)
-  let iteri_right f list = ignore (fold_right (fun x i -> f i x; i+1) list 0)
+  let set_equiv s1 s2 = subset s1 s2 && subset s2 s1
+
+  let iteri_right f list = iteri f (rev list)
 
   let rec inv_assoc k = function
-    | [] -> raise Not_found
-    | (v, k') :: _ when k = k' -> v
-    | _ :: t -> inv_assoc k t
+    | [] ->
+        raise Not_found
+    | (v, k') :: _ when k = k' ->
+        v
+    | _ :: t ->
+        inv_assoc k t
 
   (* Tail-recursive map. *)
   let map_tr f l = rev (rev_map f l)
@@ -37,111 +44,170 @@ module List = struct include List
     fold_left (fun count e -> count + if pred e then 1 else 0) 0 l
 
   let position pred l =
-    let aux (i, is) e = i + 1, if pred e then i :: is else is in
+    let aux (i, is) e = (i + 1, if pred e then i :: is else is) in
     snd (fold_left aux (0, []) l)
-
-  let mapi f l =
-    let rec aux n = function
-      | h :: t -> let h = f n h in h :: aux (n + 1) t
-      | [] -> [] in
-    aux 0 l
 
   let rev_mapi f l =
     let rec aux n accu = function
-      | h :: t -> aux (n + 1) (f n h :: accu) t
-      | [] -> accu in
+      | h :: t ->
+          aux (n + 1) (f n h :: accu) t
+      | [] ->
+          accu
+    in
     aux 0 [] l
 
   let mapi_tr f l = rev (rev_mapi f l)
 
-  let rec chop i l = match i, l with
-    | 0, l -> [], l
-    | i, h :: t -> (fun (fr, ba) -> h :: fr, ba) (chop (i - 1) t)
-    | _ -> invalid_arg "chop"
+  let take n list =
+    let rec loop i acc = function
+      | x :: xs when i < n ->
+          loop (i + 1) (x :: acc) xs
+      | _ ->
+          List.rev acc
+    in
+    loop 0 [] list
+
+  let drop n list =
+    let rec loop i = function
+      | x :: xs when i < n ->
+          loop (i + 1) xs
+      | l ->
+          l
+    in
+    loop 0 list
+
+  let sub i j l = drop i l |> take (j - max i 0)
+
+  let rec chop i l =
+    match (i, l) with
+    | j, _ when j < 0 ->
+        invalid_arg "chop: index cannot be negative"
+    | 0, l ->
+        ([], l)
+    | _, h :: t ->
+        (fun (fr, ba) -> (h :: fr, ba)) (chop (i - 1) t)
+    | _, [] ->
+        invalid_arg "chop: index not in list"
 
   let rev_chop i l =
-    let rec aux i fr ba = match i, fr, ba with
-      | 0, fr, ba -> (fr, ba)
-      | i, fr, h :: t -> aux (i - 1) (h :: fr) t
-      | _ -> invalid_arg "rev_chop" in
+    let rec aux i fr ba =
+      match (i, fr, ba) with
+      | i, _, _ when i < 0 ->
+          invalid_arg "rev_chop: index cannot be negative"
+      | 0, fr, ba ->
+          (fr, ba)
+      | i, fr, h :: t ->
+          aux (i - 1) (h :: fr) t
+      | _ ->
+          invalid_arg "rev_chop"
+    in
     aux i [] l
 
-  let chop_tr i l =
-    (fun (fr, ba) -> rev fr, ba) (rev_chop i l)
+  let chop_tr i l = (fun (fr, ba) -> (rev fr, ba)) (rev_chop i l)
 
-  let rec dice m l = match chop m l with
-    | l, [] -> [l]
-    | l1, l2 -> l1 :: dice m l2
+  let rec dice m l =
+    match chop m l with l, [] -> [l] | l1, l2 -> l1 :: dice m l2
 
-  let sub i j l =
-    fst (chop_tr (j - i) (snd (rev_chop i l)))
+  let remove i l =
+    match rev_chop i l with
+    | rfr, _ :: t ->
+        rev_append rfr t
+    | _ ->
+        invalid_arg "remove"
 
-  let remove i l = match rev_chop i l with
-    | rfr, _ :: t -> rev_append rfr t
-    | _ -> invalid_arg "remove"
+  let extract i l =
+    match rev_chop i l with
+    | rfr, h :: t ->
+        (h, rev_append rfr t)
+    | _ ->
+        invalid_arg "extract"
 
-  let extract i l = match rev_chop i l with
-    | rfr, h :: t -> h, rev_append rfr t
-    | _ -> invalid_arg "extract"
+  let insert i e l =
+    match rev_chop i l with rfr, ba -> rev_append rfr (e :: ba)
 
-  let insert i e l = match rev_chop i l with
-      rfr, ba -> rev_append rfr (e :: ba)
+  let replace i e l =
+    match rev_chop i l with
+    | rfr, _ :: t ->
+        rev_append rfr (e :: t)
+    | _ ->
+        invalid_arg "replace"
 
-  let replace i e l = match rev_chop i l with
-    | rfr, _ :: t -> rev_append rfr (e :: t)
-    | _ -> invalid_arg "replace"
-
-  let morph i f l = match rev_chop i l with
-    | rfr, h :: t -> rev_append rfr (f h :: t)
-    | _ -> invalid_arg "morph"
+  let morph i f l =
+    match rev_chop i l with
+    | rfr, h :: t ->
+        rev_append rfr (f h :: t)
+    | _ ->
+        invalid_arg "morph"
 
   let rec between e = function
-    | [] -> []
-    | [h] -> [h]
-    | h :: t -> h :: e :: between e t
-
+    | [] ->
+        []
+    | [h] ->
+        [h]
+    | h :: t ->
+        h :: e :: between e t
 
   let between_tr e l =
     let rec aux accu e = function
-      | [] -> rev accu
-      | [h] -> rev (h :: accu)
-      | h :: t -> aux (e :: h :: accu) e t in
+      | [] ->
+          rev accu
+      | [h] ->
+          rev (h :: accu)
+      | h :: t ->
+          aux (e :: h :: accu) e t
+    in
     aux [] e l
 
   let randomize l =
     let extract_rand l = extract (Random.int (length l)) l in
     let rec aux accu = function
-      | [] -> accu
-      | l -> (fun (h, t) -> aux (h :: accu) t) (extract_rand l) in
+      | [] ->
+          accu
+      | l ->
+          (fun (h, t) -> aux (h :: accu) t) (extract_rand l)
+    in
     aux [] l
 
   let rec distribute e = function
-    | (h :: t) as l ->
-      (e :: l) :: (map (fun x -> h :: x) (distribute e t))
-    | [] -> [ [ e ] ]
+    | h :: t as l ->
+        (e :: l) :: map (fun x -> h :: x) (distribute e t)
+    | [] ->
+        [[e]]
 
   let rec permute = function
-    | e :: rest -> flatten (map (distribute e) (permute rest))
-    | [] -> [ [] ]
+    | e :: rest ->
+        flatten (map (distribute e) (permute rest))
+    | [] ->
+        [[]]
 
   let rec aux_rle_eq eq l2 x n = function
-    | [] -> rev ((x, n) :: l2)
-    | h :: t when eq x h -> aux_rle_eq eq l2 x (n + 1) t
-    | h :: t -> aux_rle_eq eq ((x, n) :: l2) h 1 t
+    | [] ->
+        rev ((x, n) :: l2)
+    | h :: t when eq x h ->
+        aux_rle_eq eq l2 x (n + 1) t
+    | h :: t ->
+        aux_rle_eq eq ((x, n) :: l2) h 1 t
 
-  let rle_eq eq l =
-    match l with [] -> [] | h :: t -> aux_rle_eq eq [] h 1 t
+  let rle_eq eq l = match l with [] -> [] | h :: t -> aux_rle_eq eq [] h 1 t
 
   let rle l = rle_eq ( = ) l
 
   let unrle l =
-    let rec aux2 accu i c = match i with
-      | 0 -> accu
-      | i when i>0 -> aux2 (c :: accu) (i - 1) c
-      | _ -> invalid_arg "unrle" in
+    let rec aux2 accu i c =
+      match i with
+      | 0 ->
+          accu
+      | i when i > 0 ->
+          aux2 (c :: accu) (i - 1) c
+      | _ ->
+          invalid_arg "unrle"
+    in
     let rec aux accu = function
-      | [] -> rev accu
-      | (i, c) :: t -> aux (aux2 accu i c) t in
+      | [] ->
+          rev accu
+      | (i, c) :: t ->
+          aux (aux2 accu i c) t
+    in
     aux [] l
 
   let inner fold_left2 base f l1 l2 g =
@@ -150,68 +216,45 @@ module List = struct include List
   let rec is_sorted compare list =
     match list with
     | x :: y :: list ->
-      if compare x y <= 0
-      then is_sorted compare (y :: list)
-      else false
+        if compare x y <= 0 then
+          is_sorted compare (y :: list)
+        else
+          false
     | _ ->
-      true
+        true
 
   let intersect xs ys = List.filter (fun x -> List.mem x ys) xs
 
-  let set_difference a b = List.filter (fun x -> not(List.mem x b)) a
+  let set_difference a b = List.filter (fun x -> not (List.mem x b)) a
 
-  let assoc_default k l d =
-    if List.mem_assoc k l then List.assoc k l else d
+  let assoc_default k l d = Option.value ~default:d (List.assoc_opt k l)
 
-  let map_assoc_with_key op al =
-    List.map (fun (k, v1) -> (k, op k v1)) al
-
-  (* Like the Lisp cons *)
-  let cons a b = a :: b
-
-  (* Could use fold_left to get the same value, but that would necessarily go through the whole list everytime, instead of the first n items, only. *)
-  (* ToDo: This is complicated enough to warrant a test. *)
-  (* Is it wise to fail silently on negative values?  (They are treated as zero, here.)
-     Pro: Would mask fewer bugs.
-     Con: Less robust.
-  *)
-  let take n list =
-    let rec helper i acc list =
-      if i <= 0 || list = []
-      then acc
-      else helper (i-1)  (List.hd list :: acc) (List.tl list)
-    in List.rev (helper n [] list)
+  let map_assoc_with_key op al = List.map (fun (k, v1) -> (k, op k v1)) al
 
   (* Thanks to sharing we only use linear space. (Roughly double the space needed for the spine of the original list) *)
-  let rec tails = function
-    | [] -> [[]]
-    | (_::xs) as l -> l :: tails xs
+  let rec tails = function [] -> [[]] | _ :: xs as l -> l :: tails xs
 
-  let safe_hd = function
-    | a::_ -> Some a
-    | [] -> None
+  let safe_hd l = List.nth_opt l 0
 
   let replace_assoc key new_value existing =
-    (key, new_value) :: (List.filter (fun (k, _) -> k <> key) existing)
+    (key, new_value) :: List.filter (fun (k, _) -> k <> key) existing
 
   let update_assoc update existing =
-    update @ (List.filter (fun (k, _) -> not (List.mem_assoc k update)) existing)
+    update @ List.filter (fun (k, _) -> not (List.mem_assoc k update)) existing
 
-  let make_assoc op l = map (fun key -> key, op key) l
+  let make_assoc op l = map (fun key -> (key, op key)) l
 
   let unbox_list l = List.filter_map Fun.id l
-
-  let filter_map f list =
-    unbox_list (map f list)
 
   let restrict_with_default default keys al =
     make_assoc (fun k -> assoc_default k al default) keys
 
   let range lower =
     let rec aux accu upper =
-      if lower >= upper
-      then accu
-      else aux (upper-1::accu) (upper-1) in
+      if lower >= upper then
+        accu
+      else
+        aux ((upper - 1) :: accu) (upper - 1)
+    in
     aux []
-
 end
