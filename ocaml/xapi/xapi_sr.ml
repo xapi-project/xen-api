@@ -266,8 +266,7 @@ let probe =
         let srs =
           probe_results
           (* We return the SRs found by probe *)
-          |> Xapi_stdext_std.Listext.List.filter_map (fun r ->
-                 r.Storage_interface.sr)
+          |> List.filter_map (fun r -> r.Storage_interface.sr)
         in
         let sr_info
             Storage_interface.

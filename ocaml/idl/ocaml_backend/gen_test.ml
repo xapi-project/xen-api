@@ -17,6 +17,7 @@ module DT = Datamodel_types
 module DU = Datamodel_utils
 module OU = Ocaml_utils
 module O = Ocaml_syntax
+module Listext = Xapi_stdext_std.Listext.List
 
 let print s = output_string stdout (s ^ "\n")
 
@@ -66,12 +67,11 @@ and gen_record_type highapi record =
   sprintf "{ %s }" (map_fields regular_def)
 
 let gen_test highapi =
-  let open Xapi_stdext_std.Listext in
   let all_types = DU.Types.of_objects (Dm_api.objects_of_api highapi) in
   let all_types = Gen_api.add_set_enums all_types in
   ignore all_types ;
   List.iter (List.iter print)
-    (List.between [""]
+    (Listext.between [""]
        [
          ["open API"]
        ; ["let _ ="]

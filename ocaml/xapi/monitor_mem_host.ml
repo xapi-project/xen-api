@@ -13,7 +13,6 @@
  *)
 
 module Mtxext = Xapi_stdext_threads.Threadext.Mutex
-module Lstext = Xapi_stdext_std.Listext.List
 module Mcache = Monitor_dbcalls_cache
 
 module D = Debug.Make (struct let name = "monitor_mem_host" end)
@@ -31,7 +30,7 @@ let get_changes rrd_files =
              in
              Mcache.log_errors_from filename ;
              datasources
-             |> Lstext.filter_map (function
+             |> List.filter_map (function
                   | Rrd.Host, ds
                     when List.mem ds.Ds.ds_name
                            ["memory_total_kib"; "memory_free_kib"] ->

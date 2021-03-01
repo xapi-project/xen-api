@@ -114,7 +114,7 @@ let ensure_no_vms ~__context ~rpc ~session_id ~evacuate_timeout =
   in
   log_and_ignore_exn (fun () ->
       Client.Host.get_vms_which_prevent_evacuation ~rpc ~session_id ~self:host
-      |> Xapi_stdext_std.Listext.List.filter_map (fun (vm, _) ->
+      |> List.filter_map (fun (vm, _) ->
              if self_managed_poweroff vm then
                None
              else

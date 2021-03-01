@@ -15,7 +15,7 @@ module D = Debug.Make (struct let name = "nm" end)
 
 open D
 open Xapi_stdext_std.Xstringext
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_threads.Threadext
 open Db_filter_types
 open Network
@@ -100,7 +100,8 @@ let determine_other_config ~__context pif_rc net_rc =
     Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context)
   in
   let additional = [("network-uuids", net_rc.API.network_uuid)] in
-  (pool_oc |> List.update_assoc net_oc |> List.update_assoc pif_oc) @ additional
+  (pool_oc |> Listext.update_assoc net_oc |> Listext.update_assoc pif_oc)
+  @ additional
 
 let create_bond ~__context bond mtu persistent =
   (* Get all information we need from the DB before doing anything that may drop our
@@ -264,7 +265,7 @@ let create_vlan ~__context vlan persistent =
     determine_other_config ~__context master_rc master_network_rc
   in
   let other_config =
-    List.replace_assoc "network-uuids"
+    Listext.replace_assoc "network-uuids"
       (master_network_rc.API.network_uuid
       ^ ";"
       ^ slave_network_rc.API.network_uuid
