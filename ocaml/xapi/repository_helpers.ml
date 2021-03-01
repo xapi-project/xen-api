@@ -749,8 +749,8 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
     begin match List.assoc_opt uid updates_info with
       | Some updateinfo ->
         let is_applicable (a : Applicability.t) =
-          match update.name = a.Applicability.name with
-          | true ->
+          match update.name = a.Applicability.name, update.arch = a.Applicability.arch with
+          | true, true ->
             begin match update.old_version, update.old_release with
               | Some old_version, Some old_release ->
                 Applicability.eval ~version:old_version ~release:old_release ~applicability:a
