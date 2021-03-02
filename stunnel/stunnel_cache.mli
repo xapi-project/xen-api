@@ -26,8 +26,8 @@
     will be used, otherwise we make a fresh one. *)
 val with_connect :
   ?use_fork_exec_helper:bool ->
-  ?write_to_log:(string -> unit) -> string -> int -> bool ->
-   (Stunnel.t -> 'b) -> 'b
+  ?write_to_log:(string -> unit) ->
+  ?verify_cert:bool -> string -> int -> (Stunnel.t -> 'b) -> 'b
 
 (** Adds a reusable stunnel to the cache *)
 val add : Stunnel.t -> unit
