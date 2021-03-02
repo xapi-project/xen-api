@@ -1704,6 +1704,8 @@ module Stunnel : sig
 end = struct
   let cert = !Xapi_globs.server_cert_path
 
+  let pool_cert = !Xapi_globs.server_cert_internal_path
+
   (** protect ourselves from concurrent writes to files *)
   module Config : sig
     val update : accept:string -> unit
@@ -1761,7 +1763,7 @@ end = struct
           ; "[pool]"
           ; "connect = 80"
           ; "sni = xapi:pool"
-          ; Printf.sprintf "cert = %s" cert
+          ; Printf.sprintf "cert = %s" pool_cert
           ]
       in
       let len = String.length conf_contents in
