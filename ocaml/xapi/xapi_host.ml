@@ -1406,7 +1406,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
 let reset_server_certificate ~__context ~host =
   let self = Helpers.get_localhost ~__context in
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
-  let cn, ip =
+  let name, ip =
     let dbg = Context.string_of_task __context in
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
@@ -1418,7 +1418,7 @@ let reset_server_certificate ~__context ~host =
   in
   let dns_names = Networking_info.dns_names () in
   let ips = [ip] in
-  Gencertlib.Selfcert.host ~cn ~dns_names ~ips xapi_ssl_pem ;
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
   (* Delete records of the server certificate in this host *)
