@@ -96,4 +96,10 @@ let register () =
   if master then
     Xapi_periodic_scheduler.add_to_queue "Periodic alert failed login attempts"
       (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
-      Xapi_pool.alert_failed_login_attempts
+      Xapi_pool.alert_failed_login_attempts ;
+  Xapi_periodic_scheduler.add_to_queue
+    "Period alert if TLS verification emergency disabled"
+    (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
+      Server_helpers.exec_with_new_task
+        "Period alert if TLS verification emergency disabled" (fun __context ->
+          Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context))

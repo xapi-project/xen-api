@@ -1340,11 +1340,16 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 (* Dummy implementation for a deprecated API method. *)
 let get_uncooperative_domains ~__context ~self = []
 
-let certificate_install ~__context ~host ~name ~cert =
+let install_ca_certificate ~__context ~host ~name ~cert =
   Certificates.(host_install CA_Certificate name cert)
 
-let certificate_uninstall ~__context ~host ~name =
+let uninstall_ca_certificate ~__context ~host ~name =
   Certificates.(host_uninstall CA_Certificate name)
+
+(* legacy names *)
+let certificate_uninstall = uninstall_ca_certificate
+
+let certificate_install = install_ca_certificate
 
 let certificate_list ~__context ~host = Certificates.(local_list CA_Certificate)
 
@@ -1398,7 +1403,8 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   (* sever all connections done with stunnel *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context
 
-let emergency_reset_server_certificate ~__context =
+let reset_server_certificate ~__context ~host =
+  let self = Helpers.get_localhost ~__context in
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
   let cn, ip =
     let dbg = Context.string_of_task __context in
@@ -1415,13 +1421,16 @@ let emergency_reset_server_certificate ~__context =
   Gencertlib.Selfcert.host ~cn ~dns_names ~ips xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
-  let self = Helpers.get_localhost ~__context in
   (* Delete records of the server certificate in this host *)
   let expr =
     Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self)))
   in
   Db.Certificate.get_refs_where ~__context ~expr
   |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
+
+let emergency_reset_server_certificate ~__context =
+  let host = Helpers.get_localhost ~__context in
+  reset_server_certificate ~__context ~host
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
@@ -2462,3 +2471,37 @@ let get_sched_gran ~__context ~self =
     error "Failed to get sched-gran: %s" (Printexc.to_string e) ;
     raise
       Api_errors.(Server_error (internal_error, ["Failed to get sched-gran"]))
+
+let emergency_disable_tls_verification ~__context =
+  (* NB: the tls-verification state on this host will no longer agree with state.db *)
+  Helpers.StunnelClient.set_verify_by_default false
+
+let alert_if_tls_verification_was_emergency_disabled ~__context =
+  let tls_verification_enabled_locally =
+    Helpers.StunnelClient.get_verify_by_default ()
+  in
+  let tls_verification_enabled_pool_wide =
+    Db.Pool.get_tls_verification_enabled ~__context
+      ~self:(Helpers.get_pool ~__context)
+  in
+  (* Only add an alert if (a) we found a problem and (b) an alert doesn't already exist *)
+  if
+    tls_verification_enabled_pool_wide
+    && tls_verification_enabled_pool_wide <> tls_verification_enabled_locally
+  then
+    let alert_exists =
+      Helpers.call_api_functions ~__context (fun rpc session ->
+          Client.Client.Message.get_all_records rpc session
+          |> List.exists (fun (_, record) ->
+                 record.API.message_name
+                 = fst Api_messages.tls_verification_emergency_disabled))
+    in
+
+    if not alert_exists then
+      let self = Helpers.get_localhost ~__context in
+      let host = Db.Host.get_name_label ~__context ~self in
+      let body = Printf.sprintf "<body><host>%s</host></body>" host in
+      Xapi_alert.add ~msg:Api_messages.tls_verification_emergency_disabled
+        ~cls:`Host
+        ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
+        ~body

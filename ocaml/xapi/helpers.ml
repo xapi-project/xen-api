@@ -1674,6 +1674,27 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
           info "try_internal_async: destroying task: t = ( %s )" ref ;
           TaskHelper.destroy ~__context t)
 
+module StunnelClient : sig
+  val get_verify_by_default : unit -> bool
+
+  val set_verify_by_default : bool -> unit
+end = struct
+  module D = Debug.Make (struct let name = "StunnelClient" end)
+
+  let get_verify_by_default () =
+    Sys.file_exists Stunnel.verify_certificates_ctrl
+
+  let set_verify_by_default = function
+    | false -> (
+        D.info "disabling default tls verification" ;
+        try Sys.remove Stunnel.verify_certificates_ctrl with _ -> ()
+      )
+    | true -> (
+        D.info "enabling default tls verification" ;
+        try Unixext.touch_file Stunnel.verify_certificates_ctrl with _ -> ()
+      )
+end
+
 (** wrapper around the stunnel@xapi systemd service.
   * there exist scripts (e.g. xe-toolstack-restart) which also manipulate
     the stunnel daemon but they do this directly (not via ocaml). *)

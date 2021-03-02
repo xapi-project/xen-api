@@ -2132,7 +2132,11 @@ let send_test_post = Remote_requests.send_test_post
 
 let certificate_install = Certificates.(pool_install CA_Certificate)
 
+let install_ca_certificate = certificate_install
+
 let certificate_uninstall = Certificates.(pool_uninstall CA_Certificate)
+
+let uninstall_ca_certificate = certificate_uninstall
 
 let certificate_list ~__context = Certificates.(local_list CA_Certificate)
 
@@ -2833,3 +2837,6 @@ let alert_failed_login_attempts () =
             ~obj_uuid:
               (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
             ~body:stats)
+
+let enable_tls_verification ~__context =
+  Helpers.StunnelClient.set_verify_by_default true

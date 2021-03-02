@@ -405,31 +405,60 @@ open Datamodel_types
       ()
 
   let certificate_install = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~name:"certificate_install"
       ~doc:"Install a TLS CA certificate, pool-wide."
       ~params:[String, "name", "A name to give the certificate";
-               String, "cert", "The certificate"]
+               String, "cert", "The certificate in PEM format"]
       ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_george, "Install TLS CA certificate"
+        ;Deprecated, rel_next, "Use Pool.install_ca_certificate instead"
+        ]
       ()
 
+
+  let install_ca_certificate = call
+      ~name:"install_ca_certificate"
+      ~doc:"Install a TLS CA certificate, pool-wide."
+      ~params:[String, "name", "A name to give the certificate";
+               String, "cert", "The certificate in PEM format"]
+      ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_next, "Install TLS CA certificate"
+        ]
+      ()
+
+
   let certificate_uninstall = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~name:"certificate_uninstall"
       ~doc:"Remove a pool-wide TLS CA certificate."
       ~params:[String, "name", "The certificate name"]
       ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_george, "Install TLS CA certificate"
+        ;Deprecated, rel_next, "Use Pool.uninstall_ca_certificate instead"
+        ]
+      ()
+
+  let uninstall_ca_certificate = call
+      ~name:"uninstall_ca_certificate"
+      ~doc:"Remove a pool-wide TLS CA certificate."
+      ~params:[String, "name", "The certificate name"]
+      ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_next, "Uninstall TLS CA certificate"
+        ]
       ()
 
   let certificate_list = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~name:"certificate_list"
       ~doc:"List the names of all installed TLS CA certificates."
       ~result:(Set(String),"All installed certificates")
       ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [Published, rel_george, "List installed TLS CA certificate"
+        ;Deprecated, rel_next, "Use openssl to inspect certificate"
+        ]
       ()
 
   let crl_install = call
@@ -467,6 +496,14 @@ open Datamodel_types
       ~doc:"Copy the TLS CA certificates and CRLs of the master to all slaves."
       ~allowed_roles:_R_POOL_OP
       ()
+
+  let enable_tls_verification = call
+    ~flags:[`Session]
+    ~lifecycle:[Published, rel_next, ""]
+    ~name:"enable_tls_verification"
+    ~doc:"Enable TLS server certificate verification"
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
 
   let enable_redo_log = call
       ~in_oss_since:None
@@ -701,10 +738,13 @@ open Datamodel_types
         ; certificate_install
         ; certificate_uninstall
         ; certificate_list
+        ; install_ca_certificate
+        ; uninstall_ca_certificate
         ; crl_install
         ; crl_uninstall
         ; crl_list
         ; certificate_sync
+        ; enable_tls_verification
         ; enable_redo_log
         ; disable_redo_log
         ; audit_log_append
@@ -747,6 +787,9 @@ open Datamodel_types
          ; field ~in_product_since:rel_george ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password" "Password for accessing the workload balancing host"
          ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_enabled" "true if workload balancing is enabled on the pool, false otherwise"
          ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "wlb_verify_cert" "true if communication with the WLB server should enforce TLS certificate verification."
+             ~lifecycle:[
+               Published, rel_george, "";
+               Deprecated, rel_next, "Deprecated: to enable TLS verification use Pool.enable_tls_verification instead";]
          ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "redo_log_enabled" "true a redo-log is to be used other than when HA is enabled, false otherwise"
          ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride ~qualifier:DynamicRO ~ty:(Ref _vdi) ~default_value:(Some (VRef null_ref)) "redo_log_vdi" "indicates the VDI to use for the redo-log other than when HA is enabled"
          ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString "")) "vswitch_controller" "address of the vswitch controller"
@@ -764,5 +807,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false)) "igmp_snooping_enabled" "true if IGMP snooping is enabled in the pool, false otherwise."
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
+         ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
          ])
       ()

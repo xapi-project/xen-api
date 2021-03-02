@@ -345,15 +345,31 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["filename"]
       ; optn= []
       ; help= "Install a TLS CA certificate, pool-wide."
-      ; implementation= With_fd Cli_operations.pool_certificate_install
-      ; flags= []
+      ; implementation= With_fd Cli_operations.pool_install_ca_certificate
+      ; flags= [Deprecated ["Use pool-install-ca-certificate"]]
       } )
   ; ( "pool-certificate-uninstall"
     , {
         reqd= ["name"]
       ; optn= []
       ; help= "Uninstall a pool-wide TLS CA certificate."
-      ; implementation= No_fd Cli_operations.pool_certificate_uninstall
+      ; implementation= No_fd Cli_operations.pool_uninstall_ca_certificate
+      ; flags= [Deprecated ["Use pool-uninstall-ca-certificate"]]
+      } )
+  ; ( "pool-install-ca-certificate"
+    , {
+        reqd= ["filename"]
+      ; optn= []
+      ; help= "Install a TLS CA certificate, pool-wide."
+      ; implementation= With_fd Cli_operations.pool_install_ca_certificate
+      ; flags= []
+      } )
+  ; ( "pool-uninstall-ca-certificate"
+    , {
+        reqd= ["name"]
+      ; optn= []
+      ; help= "Uninstall a pool-wide TLS CA certificate."
+      ; implementation= No_fd Cli_operations.pool_uninstall_ca_certificate
       ; flags= []
       } )
   ; ( "pool-certificate-list"
@@ -362,13 +378,13 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "List the names of all installed TLS CA certificates."
       ; implementation= No_fd Cli_operations.pool_certificate_list
-      ; flags= []
+      ; flags= [Deprecated ["Use certificate-list type=ca"]]
       } )
   ; ( "pool-crl-install"
     , {
         reqd= ["filename"]
       ; optn= []
-      ; help= "Install a TLS Certificate Revocation List, pool-wide."
+      ; help= "Install a TLS CA-issued Certificate Revocation List, pool-wide."
       ; implementation= With_fd Cli_operations.pool_crl_install
       ; flags= []
       } )
@@ -376,7 +392,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= ["name"]
       ; optn= []
-      ; help= "Uninstall a pool-wide TLS Certificate Revocation List."
+      ; help= "Uninstall a pool-wide TLS CA-issued Certificate Revocation List."
       ; implementation= No_fd Cli_operations.pool_crl_uninstall
       ; flags= []
       } )
@@ -385,7 +401,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= []
       ; optn= []
       ; help=
-          "List the names of all installed TLS Certificate Revocation Lists."
+          "List the names of all installed TLS CA-issued Certificate \
+           Revocation Lists."
       ; implementation= No_fd Cli_operations.pool_crl_list
       ; flags= []
       } )
@@ -396,6 +413,14 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help=
           "Copy the TLS CA certificates and CRLs of the master to all slaves."
       ; implementation= No_fd Cli_operations.pool_certificate_sync
+      ; flags= []
+      } )
+  ; ( "pool-enable-tls-verification"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Enable TLS certificate verification"
+      ; implementation= No_fd Cli_operations.pool_enable_tls_verification
       ; flags= []
       } )
   ; ( "pool-set-vswitch-controller"
@@ -677,6 +702,27 @@ let rec cmdtable_data : (string * cmd_spec) list =
           No_fd_local_session
             Cli_operations.host_emergency_reset_server_certificate
       ; flags= [Neverforward]
+      } )
+  ; ( "host-emergency-disable-tls-verification"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Disable TLS verification for this host only"
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_emergency_disable_tls_verification
+      ; flags= [Neverforward]
+      } )
+  ; ( "host-reset-server-certificate"
+    , {
+        reqd= []
+      ; optn= []
+      ; flags= [Host_selectors]
+      ; help=
+          "Deletes the current TLS server certificate in the host and installs \
+           a new, self-signed one."
+      ; implementation=
+          No_fd_local_session Cli_operations.host_reset_server_certificate
       } )
   ; ( "host-management-reconfigure"
     , {
