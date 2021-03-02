@@ -45,7 +45,7 @@ format:
 list-hd:
 	LIST_HD=$$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc) ;\
 	echo counted $$LIST_HD usages ;\
-	test $$LIST_HD -eq 301
+	test $$LIST_HD -eq 300
 
 quality-gate: list-hd ;
 

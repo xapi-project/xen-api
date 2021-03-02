@@ -18,7 +18,7 @@ open D
 module L = Debug.Make (struct let name = "license" end)
 
 open Db_filter_types
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_std.Xstringext
 open Xapi_stdext_threads.Threadext
@@ -549,10 +549,10 @@ let update_management_flags ~__context ~host =
     in
     (* Set management flag of PIFs that are now management PIFs, and do not have this flag set *)
     List.iter (set_management true)
-      (List.set_difference current_management_pifs management_pifs_in_db) ;
+      (Listext.set_difference current_management_pifs management_pifs_in_db) ;
     (* Clear management flag of PIFs that are no longer management PIFs *)
     List.iter (set_management false)
-      (List.set_difference management_pifs_in_db current_management_pifs)
+      (Listext.set_difference management_pifs_in_db current_management_pifs)
   with Xapi_inventory.Missing_inventory_key _ ->
     error "Missing field MANAGEMENT_INTERFACE in inventory file"
 
@@ -568,7 +568,7 @@ let introduce ~__context ~host ~mAC ~device ~managed =
   *)
   let mAC =
     if mAC = "" then
-      List.assoc_default device t.device_to_mac_table ""
+      Listext.assoc_default device t.device_to_mac_table ""
     else
       mAC
   in
@@ -636,7 +636,7 @@ let scan ~__context ~host =
   Mutex.execute scan_m (fun () ->
       let t = make_tables ~__context ~host in
       let devices_not_yet_represented_by_pifs =
-        List.set_difference
+        Listext.set_difference
           (List.map fst t.device_to_mac_table)
           (List.map snd t.pif_to_device_table)
       in

@@ -15,7 +15,7 @@
 module D = Debug.Make (struct let name = "agility" end)
 
 open D
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 
 (* Only returns true if the SR is marked as shared, all hosts have PBDs and all PBDs are currently_attached.
    Is used to prevent a non-shared disk being added to a protected VM *)
@@ -31,7 +31,7 @@ let is_sr_properly_shared ~__context ~self =
         pbds
     in
     let plugged_hosts =
-      List.setify
+      Listext.setify
         (List.map
            (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
            plugged_pbds)
@@ -42,7 +42,7 @@ let is_sr_properly_shared ~__context ~self =
         (fun host -> Db.Host.get_enabled ~__context ~self:host)
         all_hosts
     in
-    if not (List.subset enabled_hosts plugged_hosts) then (
+    if not (Listext.subset enabled_hosts plugged_hosts) then (
       warn
         "SR %s not shared properly: Not all enabled hosts have a \
          currently_attached PBD"
@@ -74,7 +74,7 @@ let is_network_properly_shared ~__context ~self =
       pifs_rc
   in
   let hosts_with_pif =
-    List.setify
+    Listext.setify
       (List.map
          (fun (_, pif_rec) -> pif_rec.API.pIF_host)
          non_slave_and_down_sriov_pifs)
@@ -85,7 +85,7 @@ let is_network_properly_shared ~__context ~self =
       (fun host -> Db.Host.get_enabled ~__context ~self:host)
       all_hosts
   in
-  let properly_shared = List.subset enabled_hosts hosts_with_pif in
+  let properly_shared = Listext.subset enabled_hosts hosts_with_pif in
   if not properly_shared then
     warn "Network %s not shared properly: Not all hosts have PIFs"
       (Ref.string_of self) ;

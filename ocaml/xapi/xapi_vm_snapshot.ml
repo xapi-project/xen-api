@@ -16,7 +16,7 @@
 *)
 
 open Client
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 
 module D = Debug.Make (struct let name = "xapi_vm_snapshot" end)
 
@@ -94,7 +94,7 @@ let checkpoint ~__context ~vm ~new_name =
               try Some (Db.VDI.get_SR ~__context ~self:vdi) with _ -> None)
             vdis
         in
-        let vdi_sr = List.setify vdi_sr in
+        let vdi_sr = Listext.setify vdi_sr in
         let sr_records =
           List.map
             (fun self -> Db.SR.get_record_internal ~__context ~self)

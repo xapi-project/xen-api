@@ -168,7 +168,7 @@ let get_permit_filenames args =
   List.filter_map
     (fun arg ->
       match Astring.String.cut ~sep:"=" arg with
-      | Some (k, v) -> (
+      | Some (_, v) -> (
         match String.trim v with "" -> None | _ -> Some (v |> canonicalize)
       )
       | _ ->
@@ -508,7 +508,7 @@ let main_loop ifd ofd permitted_filenames =
         | Unix.Unix_error (Unix.EPIPE, _, _) ->
             raise
               (ClientSideError (Printf.sprintf "Failed to upload file %s" x))
-        | e ->
+        | _ ->
             marshal ofd (Response Failed)
       )
     | Command (HttpConnect url) -> (
@@ -626,7 +626,7 @@ let main_loop ifd ofd permitted_filenames =
               Printf.fprintf stderr
                 "Server replied with HTTP 404: the console is not available\n" ;
               marshal ofd (Response Failed)
-          | x ->
+          | _ ->
               Printf.fprintf stderr "Server said: %s" resultline ;
               marshal ofd (Response Failed)
         in
@@ -790,7 +790,7 @@ let main () =
     try
       Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
       Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 1)) ;
-      let xe, args =
+      let _xe, args =
         match Array.to_list Sys.argv with h :: t -> (h, t) | _ -> assert false
       in
       if List.mem "-version" args then (

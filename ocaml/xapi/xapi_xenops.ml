@@ -19,7 +19,7 @@ module StringSet = Set.Make (String)
 open Network
 open Xapi_stdext_std.Xstringext
 module Date = Xapi_stdext_date.Date
-module Listext = Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 module Mutex = Xapi_stdext_threads.Threadext.Mutex
 module Unixext = Xapi_stdext_unix.Unixext
 module XenAPI = Client.Client
@@ -475,9 +475,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
           ; legacy_args= l
           ; bootloader_args= p
           ; devices=
-              Listext.List.filter_map
-                (fun x -> disk_of_vdi ~__context ~self:x)
-                vdis
+              List.filter_map (fun x -> disk_of_vdi ~__context ~self:x) vdis
           }
     ; framebuffer= bool vm.API.vM_platform false "pvfb"
     ; framebuffer_ip= None
@@ -515,7 +513,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
 let list_net_sriov_vf_pcis ~__context ~vm =
   vm.API.vM_VIFs
   |> List.filter (fun self -> Db.VIF.get_currently_attached ~__context ~self)
-  |> Listext.List.filter_map (fun vif ->
+  |> List.filter_map (fun vif ->
          match backend_of_vif ~__context ~vif with
          | Network.Sriov {domain; bus; dev; fn} ->
              Some (domain, bus, dev, fn)
@@ -1816,7 +1814,7 @@ let update_vm ~__context id =
                 dir
             in
             let results =
-              Listext.List.filter_map
+              List.filter_map
                 (fun (path, value) ->
                   if String.startswith dir path then
                     let rest =
@@ -1833,7 +1831,7 @@ let update_vm ~__context id =
                   else
                     None)
                 state.Vm.guest_agent
-              |> Listext.List.setify
+              |> Listext.setify
             in
             results
           in
@@ -2055,7 +2053,7 @@ let update_vm ~__context id =
                       (fun protocol ->
                         let self = List.assoc protocol current_protocols in
                         Db.Console.destroy ~__context ~self)
-                      (Listext.List.set_difference
+                      (Listext.set_difference
                          (List.map fst current_protocols)
                          (List.map fst new_protocols)) ;
                     (* Create consoles that have appeared *)
@@ -2076,7 +2074,7 @@ let update_vm ~__context id =
                         Db.Console.create ~__context ~ref ~uuid
                           ~protocol:(to_xenapi_console_protocol protocol)
                           ~location ~vM:self ~other_config:[] ~port)
-                      (Listext.List.set_difference
+                      (Listext.set_difference
                          (List.map fst new_protocols)
                          (List.map fst current_protocols)))
                   info
