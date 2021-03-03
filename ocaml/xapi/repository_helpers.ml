@@ -721,6 +721,37 @@ let get_installed_pkgs () =
   |> List.filter_map Pkg.of_fullname
   |> List.map (fun pkg -> ((Pkg.to_name_arch_string pkg), pkg))
 
+let parse_updateinfo_list acc line =
+  let sep = Re.Str.regexp " +" in
+  match Re.Str.split sep line with
+  | update_id :: _ :: full_name :: []  ->
+    begin match Pkg.of_fullname full_name with
+      | Some pkg ->
+        (* Found same package in more than 1 update *)
+        let name_arch = Pkg.to_name_arch_string pkg in
+        begin match List.assoc_opt name_arch acc with
+          | Some (v, r, _) ->
+            let open Applicability in
+            (* Select the latest update by comparing version and release  *)
+            begin match (compare_version_strings v pkg.Pkg.version),
+                        (compare_version_strings r pkg.Pkg.release) with
+              | LT, _ | EQ, LT | EQ, EQ ->
+                let latest_so_far =
+                  (name_arch, (pkg.Pkg.version, pkg.Pkg.release, update_id))
+                in
+                latest_so_far :: (List.remove_assoc name_arch acc)
+              | _ ->
+                acc
+            end
+          | None ->
+            (name_arch, (pkg.Pkg.version, pkg.Pkg.release, update_id)) :: acc
+        end
+      | None -> acc
+    end
+  | _ ->
+    debug "Ignore unrecognized line '%s' in parsing updateinfo list" line;
+    acc
+
 let get_updates_from_updateinfo () =
   let params_of_updateinfo_list =
     [
@@ -728,20 +759,11 @@ let get_updates_from_updateinfo () =
       "updateinfo"; "list"; "updates";
     ]
   in
-  let sep = Re.Str.regexp " +" in
   Helpers.call_script !Xapi_globs.yum_cmd params_of_updateinfo_list
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
-  |> List.filter_map (fun line ->
-      match Re.Str.split sep line with
-      | update_id :: _ :: full_name :: []  ->
-        begin match Pkg.of_fullname full_name with
-          | Some pkg -> Some ((Pkg.to_name_arch_string pkg), update_id)
-          | None -> None
-        end
-      | _ ->
-        debug "Ignore unrecognized line '%s' in parsing updateinfo list" line;
-        None)
+  |> List.fold_left parse_updateinfo_list []
+  |> List.map (fun (name_arch, (_, _, update_id)) -> (name_arch, update_id))
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind =
   let open Update in
