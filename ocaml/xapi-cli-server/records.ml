@@ -160,9 +160,23 @@ let get_name_from_ref r =
     )
   with _ -> nid
 
-let get_list_from_refs f rs = String.concat "; " (List.map f rs)
+let get_uuid_from_ref_or_null r =
+  if r = Ref.null then
+    nullref
+  else
+    get_uuid_from_ref r
 
-let get_uuids_from_refs rs = get_list_from_refs get_uuid_from_ref rs
+let concat_with_semi = String.concat "; "
+
+(* Some lists are separated with commas and cannot be changed to preserve
+   backwards compatibility. Do not use this function on new fields. *)
+let concat_with_comma = String.concat ", "
+
+let map_and_concat f rs = concat_with_semi (List.map f rs)
+
+let map_and_concat_compat f rs = concat_with_comma (List.map f rs)
+
+let get_uuids_from_refs rs = map_and_concat get_uuid_from_ref rs
 
 (** If the given list is of length 1, get a ref for the PBD's host,
     otherwise return Ref.null *)
@@ -928,7 +942,7 @@ let net_record rpc session_id net =
               (x ()).API.network_blobs)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.network_tags)
+          ~get:(fun () -> concat_with_comma (x ()).API.network_tags)
           ~get_set:(fun () -> (x ()).API.network_tags)
           ~add_to_set:(fun tag ->
             Client.Network.add_tags rpc session_id net tag)
@@ -945,9 +959,8 @@ let net_record rpc session_id net =
           ()
       ; make_field ~name:"purpose"
           ~get:(fun () ->
-            (x ()).API.network_purpose
-            |> List.map Record_util.network_purpose_to_string
-            |> String.concat ", ")
+            map_and_concat_compat Record_util.network_purpose_to_string
+              (x ()).API.network_purpose)
           ~get_set:(fun () ->
             (x ()).API.network_purpose
             |> List.map Record_util.network_purpose_to_string)
@@ -1146,7 +1159,7 @@ let pool_record rpc session_id pool =
             Record_util.s2sm_to_string "; " (x ()).API.pool_restrictions)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.pool_tags)
+          ~get:(fun () -> concat_with_comma (x ()).API.pool_tags)
           ~get_set:(fun () -> (x ()).API.pool_tags)
           ~add_to_set:(fun tag -> Client.Pool.add_tags rpc session_id pool tag)
           ~remove_from_set:(fun tag ->
@@ -2014,7 +2027,7 @@ let vm_record rpc session_id vm =
               (try Client.VM.get_cooperative rpc session_id vm with _ -> true))
           ~expensive:true ~deprecated:true ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.vM_tags)
+          ~get:(fun () -> concat_with_comma (x ()).API.vM_tags)
           ~get_set:(fun () -> (x ()).API.vM_tags)
           ~add_to_set:(fun tag -> Client.VM.add_tags rpc session_id vm tag)
           ~remove_from_set:(fun tag ->
@@ -2199,10 +2212,10 @@ let pool_patch_record rpc session_id patch =
           ~get:(fun () -> Int64.to_string (x ()).API.pool_patch_size)
           ()
       ; make_field ~name:"hosts"
-          ~get:(fun () -> String.concat ", " (get_hosts ()))
+          ~get:(fun () -> concat_with_comma (get_hosts ()))
           ~get_set:get_hosts ()
       ; make_field ~name:"after-apply-guidance"
-          ~get:(fun () -> String.concat ", " (after_apply_guidance ()))
+          ~get:(fun () -> concat_with_comma (after_apply_guidance ()))
           ~get_set:after_apply_guidance ()
       ; make_field ~name:"update"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_patch_pool_update)
@@ -2271,10 +2284,10 @@ let pool_update_record rpc session_id update =
             Int64.to_string (x ()).API.pool_update_installation_size)
           ()
       ; make_field ~name:"hosts"
-          ~get:(fun () -> String.concat ", " (get_hosts ()))
+          ~get:(fun () -> concat_with_comma (get_hosts ()))
           ~get_set:get_hosts ()
       ; make_field ~name:"after-apply-guidance"
-          ~get:(fun () -> String.concat ", " (after_apply_guidance ()))
+          ~get:(fun () -> concat_with_comma (after_apply_guidance ()))
           ~get_set:after_apply_guidance ()
       ; make_field ~name:"enforce-homogeneity"
           ~get:(fun () ->
@@ -2540,10 +2553,10 @@ let host_record rpc session_id host =
               (xm ()))
           ()
       ; make_field ~name:"patches" ~deprecated:true
-          ~get:(fun () -> String.concat ", " (get_patches ()))
+          ~get:(fun () -> concat_with_comma (get_patches ()))
           ~get_set:get_patches ()
       ; make_field ~name:"updates"
-          ~get:(fun () -> String.concat ", " (get_updates ()))
+          ~get:(fun () -> concat_with_comma (get_updates ()))
           ~get_set:get_updates ()
       ; make_field ~name:"ha-statefiles"
           ~get:(fun () ->
@@ -2585,7 +2598,7 @@ let host_record rpc session_id host =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.host_local_cache_sr)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.host_tags)
+          ~get:(fun () -> concat_with_comma (x ()).API.host_tags)
           ~get_set:(fun () -> (x ()).API.host_tags)
           ~add_to_set:(fun tag -> Client.Host.add_tags rpc session_id host tag)
           ~remove_from_set:(fun tag ->
@@ -2811,7 +2824,7 @@ let vdi_record rpc session_id vdi =
                   pool_uuid)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.vDI_tags)
+          ~get:(fun () -> concat_with_comma (x ()).API.vDI_tags)
           ~get_set:(fun () -> (x ()).API.vDI_tags)
           ~add_to_set:(fun tag -> Client.VDI.add_tags rpc session_id vdi tag)
           ~remove_from_set:(fun tag ->
@@ -3078,7 +3091,7 @@ let sm_record rpc session_id sm =
           ()
       ; make_field ~name:"required-cluster-stack"
           ~get:(fun () ->
-            String.concat ", " (x ()).API.sM_required_cluster_stack)
+            concat_with_comma (x ()).API.sM_required_cluster_stack)
           ()
       ]
   }
@@ -3197,7 +3210,7 @@ let sr_record rpc session_id sr =
           ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled)
           ()
       ; make_field ~name:"tags"
-          ~get:(fun () -> String.concat ", " (x ()).API.sR_tags)
+          ~get:(fun () -> concat_with_comma (x ()).API.sR_tags)
           ~get_set:(fun () -> (x ()).API.sR_tags)
           ~add_to_set:(fun tag -> Client.SR.add_tags rpc session_id sr tag)
           ~remove_from_set:(fun tag ->
