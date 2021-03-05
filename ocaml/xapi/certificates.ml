@@ -39,6 +39,15 @@ let pem_certificate_footer = "-----END CERTIFICATE-----"
 
 let ca_certificates_path = "/etc/stunnel/certs"
 
+let pem_of_string x =
+  match Cstruct.of_string x |> X509.Certificate.decode_pem with
+  | Error _ ->
+      D.error "pem_of_string: failed to parse certificate string" ;
+      raise
+        Api_errors.(Server_error (invalid_value, ["certificate"; "<omitted>"]))
+  | Ok x ->
+      x
+
 let library_path = function
   | CA_Certificate ->
       ca_certificates_path
@@ -144,6 +153,98 @@ let raise_corrupt kind n =
 
 let raise_library_corrupt () =
   raise (Server_error (certificate_library_corrupt, []))
+
+module Db_util : sig
+  type name = string
+
+  val add_cert :
+       __context:Context.t
+    -> type':[< `host of API.ref_host | `ca of name]
+    -> X509.Certificate.t
+    -> API.ref_Certificate
+
+  val remove_cert_by_ref : __context:Context.t -> API.ref_Certificate -> unit
+
+  val remove_ca_cert_by_name : __context:Context.t -> name -> unit
+
+  val get_host_certs :
+    __context:Context.t -> host:API.ref_host -> API.ref_Certificate list
+  (** [get_host_certs ~__context ~host] gets all the host certs in the database
+    * belonging to [host] (the term 'host' is overloaded here) *)
+end = struct
+  module Date = Xapi_stdext_date.Date
+
+  type name = string
+
+  let add_cert ~__context ~type' certificate =
+    let name, host, _type =
+      match type' with
+      | `host host ->
+          ("", host, `host)
+      | `ca name ->
+          (name, Ref.null, `ca)
+    in
+    let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+    let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
+    let not_before, not_after =
+      dates_of_ptimes (X509.Certificate.validity certificate)
+    in
+    let fingerprint =
+      X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
+      |> pp_hash
+    in
+    let uuid = Uuid.(to_string (make_uuid ())) in
+    let ref' = Ref.make () in
+    Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
+      ~not_after ~fingerprint ~name ~_type ;
+    ref'
+
+  let get_host_certs ~__context ~host =
+    let open Db_filter_types in
+    let type' = Eq (Field "type", Literal "host") in
+    let host' = Eq (Field "host", Literal (Ref.string_of host)) in
+    let expr = And (type', host') in
+    Db.Certificate.get_refs_where ~__context ~expr
+
+  let remove_cert_by_ref ~__context self =
+    Db.Certificate.destroy ~__context ~self
+
+  let remove_ca_cert_by_name ~__context name =
+    let expr =
+      let open Db_filter_types in
+      let type' = Eq (Field "type", Literal "ca") in
+      let name' = Eq (Field "type", Literal name) in
+      And (type', name')
+    in
+    let self =
+      match Db.Certificate.get_refs_where ~__context ~expr with
+      | [x] ->
+          x
+      | [] ->
+          D.error "unable to find certificate with name='%s'" name ;
+          raise
+            Api_errors.(
+              Server_error (invalid_value, ["certificate:name"; name]))
+      | xs ->
+          let ref_str =
+            xs |> List.map Ref.short_string_of |> String.concat ", "
+          in
+          D.error
+            "expected 1 certificate with name='%s', but found multiple: [ %s ]"
+            name ref_str ;
+          raise
+            Api_errors.(
+              Server_error
+                ( internal_error
+                , [
+                    Printf.sprintf
+                      "more than one certificate with name='%s' in the database"
+                      name
+                  ] ))
+    in
+
+    Db.Certificate.destroy ~__context ~self
+end
 
 let local_list kind =
   mkdir_cert_path kind ;

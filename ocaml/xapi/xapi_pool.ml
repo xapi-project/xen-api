@@ -2130,11 +2130,21 @@ let retrieve_wlb_recommendations ~__context = get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
 
-let certificate_install = Certificates.(pool_install CA_Certificate)
+let certificate_install ~__context ~name ~cert =
+  let open Certificates in
+  let certificate = pem_of_string cert in
+  pool_install CA_Certificate ~__context ~name ~cert ;
+  let (_ : API.ref_Certificate) =
+    Db_util.add_cert ~__context ~type':(`ca name) certificate
+  in
+  ()
 
 let install_ca_certificate = certificate_install
 
-let certificate_uninstall = Certificates.(pool_uninstall CA_Certificate)
+let certificate_uninstall ~__context ~name =
+  let open Certificates in
+  pool_uninstall CA_Certificate ~__context ~name ;
+  Db_util.remove_ca_cert_by_name ~__context name
 
 let uninstall_ca_certificate = certificate_uninstall
 

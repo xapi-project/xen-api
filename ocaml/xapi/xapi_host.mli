@@ -273,9 +273,10 @@ val get_uncooperative_domains :
   __context:Context.t -> self:[`host] Ref.t -> string list
 
 val install_ca_certificate :
-  __context:'a -> host:'b -> name:string -> cert:string -> unit
+  __context:Context.t -> host:API.ref_host -> name:string -> cert:string -> unit
 
-val uninstall_ca_certificate : __context:'a -> host:'b -> name:string -> unit
+val uninstall_ca_certificate :
+  __context:Context.t -> host:API.ref_host -> name:string -> unit
 
 val certificate_list : __context:'a -> host:'b -> string list
 
@@ -305,7 +306,7 @@ val install_server_certificate :
     remote. This is done to refresh the server certificate used in the
     connections. *)
 
-val emergency_reset_server_certificate : __context:Context.t -> unit
+val emergency_reset_server_certificate : __context:'a -> unit
 
 val reset_server_certificate : __context:Context.t -> host:API.ref_host -> unit
 

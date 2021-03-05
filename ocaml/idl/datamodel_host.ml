@@ -983,7 +983,6 @@ let host_query_ha = call ~flags:[`Session]
       ()
 
   let reset_server_certificate = call
-      ~flags:[`Session]
       ~lifecycle:[Published, rel_next, ""]
       ~name:"reset_server_certificate"
       ~doc:"Delete the current TLS server certificate and replace by a new, self-signed one. This should only be used with extreme care."
