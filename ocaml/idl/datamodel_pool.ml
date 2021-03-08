@@ -861,6 +861,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
-         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) "repositories" "The set of currently enabled repositories"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories" ~default_value:(Some (VSet [])) "The set of currently enabled repositories"
          ])
       ()

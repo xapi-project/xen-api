@@ -4382,6 +4382,9 @@ let repository_record rpc session_id repository =
       ; make_field ~name:"source-url"
           ~get:(fun () -> (x ()).API.repository_source_url)
           ()
+      ; make_field ~name:"update"
+          ~get:(fun () -> string_of_bool (x ()).API.repository_update)
+          ()
       ; make_field ~name:"hash"
           ~get:(fun () -> (x ()).API.repository_hash)
           ()

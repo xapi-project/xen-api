@@ -536,7 +536,7 @@ module UpdateInfo = struct
 end
 
 let create_repository_record
-    ~__context ~name_label ~name_description ~binary_url ~source_url =
+    ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.Repository.create
@@ -547,6 +547,7 @@ let create_repository_record
     ~name_description
     ~binary_url
     ~source_url
+    ~update
     ~hash:""
     ~up_to_date:false;
   ref

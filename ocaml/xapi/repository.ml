@@ -25,7 +25,7 @@ module UpdateIdSet = Set.Make (String)
 let capacity_in_parallel = 16
 let reposync_mutex = Mutex.create ()
 
-let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
+let introduce ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
   assert_url_is_valid ~url:binary_url;
   assert_url_is_valid ~url:source_url;
   Db.Repository.get_all ~__context
@@ -34,7 +34,7 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
       || binary_url = Db.Repository.get_binary_url ~__context ~self:ref then
         raise Api_errors.( Server_error (repository_already_exists, [(Ref.string_of ref)]) ));
   create_repository_record
-    ~__context ~name_label ~name_description ~binary_url ~source_url
+    ~__context ~name_label ~name_description ~binary_url ~source_url ~update
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in

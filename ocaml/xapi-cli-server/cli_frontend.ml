@@ -3158,7 +3158,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       } )
   ; ( "repository-introduce"
     , {
-        reqd= ["name-label"; "binary-url"; "source-url"]
+        reqd= ["name-label"; "binary-url"; "source-url"; "update"]
       ; optn= ["name-description"]
       ; help= "Add the configuration for a new repository."
       ; implementation= No_fd Cli_operations.Repository.introduce

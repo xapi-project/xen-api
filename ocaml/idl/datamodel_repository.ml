@@ -28,6 +28,7 @@ let introduce = call
       String, "name_description", "The description of the repository";
       String, "binary_url", "Base URL of binary packages in this repository";
       String, "source_url", "Base URL of source packages in this repository";
+      Bool, "update", "True if the repository is an update repository. This means that updateinfo.xml will be parsed";
     ]
     ~result:(Ref _repository, "The ref of the created repository record.")
     ~allowed_roles:_R_POOL_OP
@@ -70,9 +71,6 @@ let t =
     ~contents:
       [ uid       _repository ~lifecycle;
         namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP None RW) ();
-        field   ~qualifier:DynamicRO ~lifecycle
-          ~ty:(Set (Ref _pool)) "enabled_on"
-          "The pools where the repository is enabled on";
         field     ~qualifier:StaticRO ~lifecycle
           ~ty:String
           ~default_value:(Some (VString ""))
@@ -83,11 +81,16 @@ let t =
           ~default_value:(Some (VString ""))
           "source_url"
           "Base URL of source packages in this repository";
+        field     ~qualifier:StaticRO ~lifecycle
+           ~ty:Bool
+           ~default_value:(Some (VBool false))
+           "update"
+           "True if updateinfo.xml in this repository needs to be parsed";
         field     ~qualifier:DynamicRO ~lifecycle
           ~ty:String
           ~default_value:(Some (VString ""))
           "hash"
-          "SHA256 checksum of latest updateinfo.xml.gz in this repository";
+          "SHA256 checksum of latest updateinfo.xml.gz in this repository if its 'update' is true";
         field     ~qualifier:DynamicRO ~lifecycle
           ~ty:Bool
           ~default_value:(Some (VBool false))

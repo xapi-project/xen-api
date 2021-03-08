@@ -5727,11 +5727,13 @@ functor
     module Certificate = struct end
 
     module Repository = struct
-      let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
+      let introduce ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
         info "Repository.introduce: \
-              name = '%s'; name_description = '%s'; binary_url = '%s'; source_url = '%s'"
-          name_label name_description binary_url source_url;
-        Local.Repository.introduce ~__context ~name_label ~name_description ~binary_url ~source_url
+              name = '%s'; name_description = '%s'; binary_url = '%s'; source_url = '%s'; \
+              update = '%s'"
+          name_label name_description binary_url source_url (string_of_bool update) ;
+        Local.Repository.introduce
+          ~__context ~name_label ~name_description ~binary_url ~source_url ~update
 
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self);
