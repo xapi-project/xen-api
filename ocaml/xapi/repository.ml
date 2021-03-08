@@ -89,32 +89,34 @@ let cleanup_pool_repo ~__context ~self =
 
 let sync ~__context ~self =
   try
-    remove_repo_conf_file !Xapi_globs.pool_repo_name;
+    let repo_name = get_remote_repository_name ~__context ~self in
+    remove_repo_conf_file repo_name;
     let binary_url = Db.Repository.get_binary_url  ~__context ~self in
     let source_url = Db.Repository.get_source_url  ~__context ~self in
-    write_yum_config ~source_url:(Some source_url) binary_url !Xapi_globs.pool_repo_name;
+    write_yum_config ~source_url:(Some source_url) binary_url repo_name;
     let config_params =
-        [
-          "--save";
-          if !Xapi_globs.repository_gpgcheck then "--setopt=repo_gpgcheck=1"
-          else "--setopt=repo_gpgcheck=0";
-          Printf.sprintf "%s" !Xapi_globs.pool_repo_name;
-        ]
+      [
+        "--save"
+      ; if !Xapi_globs.repository_gpgcheck then "--setopt=repo_gpgcheck=1"
+        else "--setopt=repo_gpgcheck=0"
+      ; repo_name
+      ]
     in
     ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params);
     (* sync with remote repository *)
     let sync_params =
-        [
-          "-p"; !Xapi_globs.local_pool_repo_dir;
-          "--downloadcomps";
-          "--download-metadata";
-          if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else "";
-          "--delete";
-          Printf.sprintf "--repoid=%s" !Xapi_globs.pool_repo_name;
-        ]
+      [
+        "-p"
+      ; !Xapi_globs.local_pool_repo_dir
+      ; "--downloadcomps"
+      ; "--download-metadata"
+      ; if !Xapi_globs.repository_gpgcheck then "--gpgcheck" else ""
+      ; "--delete"
+      ; Printf.sprintf "--repoid=%s" repo_name
+      ]
     in
     Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700;
-    clean_yum_cache !Xapi_globs.pool_repo_name;
+    clean_yum_cache repo_name;
     ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
   with e ->
     error "Failed to sync with remote YUM repository: %s" (ExnHelper.string_of_exn e);
@@ -152,57 +154,116 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
         raise Api_errors.(Server_error (get_host_updates_failed, [ref])))
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:host_session_id)
 
-let set_available_updates ~__context ~self =
+let get_host_updates_by_repository ~__context enabled host () =
+  (* Return updates grouped by repository. Example:
+   * [ ("repo-00", [u0, u1]);
+   *   ("repo-01", [u3, u4]);
+   *   ... ...
+   * ]
+   *)
+  let json = http_get_host_updates_in_json ~__context ~host ~installed:false in
+  (* TODO: live patches *)
+  match Yojson.Basic.Util.member "updates" json with
+  | `List updates ->
+    List.fold_left
+      (fun acc update ->
+         let upd = Update.of_json update in
+         begin match
+             Db.Repository.get_by_name_label ~__context ~label:(upd.Update.repository)
+           with
+           | [repository] when (List.mem repository enabled) ->
+             append_by_key acc repository upd
+           | [repository] when not (List.mem repository enabled) ->
+             let msg =
+               Printf.sprintf "Found update (%s) from a disabled repository"
+                 (Update.to_string upd)
+             in
+             raise Api_errors.(Server_error (internal_error, [msg]))
+           | _ ->
+             let msg =
+               Printf.sprintf "Found update (%s) from an unmanaged repository"
+                 (Update.to_string upd)
+             in
+             raise Api_errors.(Server_error (internal_error, [msg]))
+         end
+      )
+      [] updates
+  | _ ->
+    let ref = Ref.string_of host in
+    error "Invalid updates from host ref='%s': No 'updates'" ref ;
+    raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
+  | exception e ->
+    let ref = Ref.string_of host in
+    error "Invalid updates from host ref='%s': %s" ref (ExnHelper.string_of_exn e) ;
+    raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
+
+let set_available_updates ~__context =
+  with_pool_repositories @@ fun () ->
   let hosts = Db.Host.get_all ~__context in
-  let xml_path =
-    "repodata/repomd.xml"
-    |> Filename.concat !Xapi_globs.pool_repo_name
-    |> Filename.concat !Xapi_globs.local_pool_repo_dir
+  let enabled = get_enabled_repositories ~__context in
+  let funs =
+    List.map
+      (fun h -> get_host_updates_by_repository ~__context enabled h)
+      hosts
   in
-  let md = UpdateInfoMetaData.of_xml_file xml_path in
-  let are_updates_available host () =
-    let json = http_get_host_updates_in_json ~__context ~host ~installed:false in
-    (* TODO: live patches *)
-    match Yojson.Basic.Util.member "updates" json with
-    | `List [] -> false
-    | _ -> true
-    | exception e ->
-      let ref = Ref.string_of host in
-      error "Invalid updates from host ref='%s': %s" ref (ExnHelper.string_of_exn e);
-      raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
-  in
-  let funs = List.map (fun h -> are_updates_available h) hosts in
   let rets_of_hosts = Helpers.run_in_parallel funs capacity_in_parallel in
-  let is_all_up_to_date = not (List.exists (fun b -> b) rets_of_hosts) in
-  Db.Repository.set_up_to_date ~__context ~self ~value:is_all_up_to_date;
-  Db.Repository.set_hash ~__context ~self ~value:(md.UpdateInfoMetaData.checksum);
-  md.UpdateInfoMetaData.checksum
+  (* Group updates by repository for all hosts *)
+  let updates_by_repository =
+    List.fold_left
+      (fun acc l -> List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l)
+      [] rets_of_hosts
+  in
+  let checksums =
+    List.filter_map
+      (fun repository ->
+         let up_to_date =
+           match List.assoc_opt repository updates_by_repository with
+           | Some (_::_) -> false
+           | _ -> true
+         in
+         Db.Repository.set_up_to_date ~__context ~self:repository ~value:up_to_date ;
+         if (Db.Repository.get_update ~__context ~self:repository) then (
+           let repo_name = get_remote_repository_name ~__context ~self:repository in
+           let xml_path =
+             "repodata/repomd.xml"
+             |> Filename.concat repo_name
+             |> Filename.concat !Xapi_globs.local_pool_repo_dir
+           in
+           let md = UpdateInfoMetaData.of_xml_file xml_path in
+           Db.Repository.set_hash ~__context ~self:repository
+             ~value:(md.UpdateInfoMetaData.checksum) ;
+           Some md.UpdateInfoMetaData.checksum)
+         else None)
+      enabled
+  in
+  get_singleton checksums
 
 let create_pool_repository ~__context ~self =
-  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir !Xapi_globs.pool_repo_name in
+  let repo_name = get_remote_repository_name ~__context ~self in
+  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
   match Sys.file_exists repo_dir with
   | true ->
     (try
-       let cachedir = get_cachedir !Xapi_globs.pool_repo_name in
-       let md = UpdateInfoMetaData.of_xml_file (Filename.concat cachedir "repomd.xml") in
-       let updateinfo_xml_gz_path =
-         Filename.concat repo_dir (md.UpdateInfoMetaData.checksum ^ "-updateinfo.xml.gz")
-       in
        ignore (Helpers.call_script !Xapi_globs.createrepo_cmd [repo_dir]);
-       begin match Sys.file_exists updateinfo_xml_gz_path with
-         | true ->
-           with_updateinfo_xml updateinfo_xml_gz_path (fun xml_file_path ->
-               let repodata_dir = Filename.concat repo_dir "repodata" in
-               ignore (Helpers.call_script !Xapi_globs.modifyrepo_cmd
-                         ["--remove"; "updateinfo"; repodata_dir]);
-               ignore (Helpers.call_script !Xapi_globs.modifyrepo_cmd
-                         ["--mdtype"; "updateinfo"; xml_file_path; repodata_dir]));
-           with_pool_repositories (fun () ->
-               set_available_updates ~__context ~self)
-         | false ->
-           error "No updateinfo.xml.gz found: %s" updateinfo_xml_gz_path;
-           raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-       end
+       if (Db.Repository.get_update ~__context ~self) then (
+         let cachedir = get_cachedir repo_name in
+         let md = UpdateInfoMetaData.of_xml_file (Filename.concat cachedir "repomd.xml") in
+         let updateinfo_xml_gz_path =
+           Filename.concat repo_dir (md.UpdateInfoMetaData.checksum ^ "-updateinfo.xml.gz")
+         in
+         begin match Sys.file_exists updateinfo_xml_gz_path with
+           | true ->
+             with_updateinfo_xml updateinfo_xml_gz_path (fun xml_file_path ->
+                 let repodata_dir = Filename.concat repo_dir "repodata" in
+                 ignore (Helpers.call_script !Xapi_globs.modifyrepo_cmd
+                           ["--remove"; "updateinfo"; repodata_dir]);
+                 ignore (Helpers.call_script !Xapi_globs.modifyrepo_cmd
+                           ["--mdtype"; "updateinfo"; xml_file_path; repodata_dir]))
+           | false ->
+             error "No updateinfo.xml.gz found: %s" updateinfo_xml_gz_path;
+             raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+         end
+       )
      with
      | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
        raise e
@@ -215,24 +276,27 @@ let create_pool_repository ~__context ~self =
 
 let get_host_updates_in_json ~__context ~installed =
   try
-    with_local_repository ~__context (fun () ->
-      let rpm2updates = get_updates_from_updateinfo () in
+    with_local_repositories ~__context (fun repositories ->
+      let rpm2updates = get_updates_from_updateinfo ~__context repositories in
       let installed_pkgs = match installed with
         | true -> get_installed_pkgs ()
         | false -> []
       in
       let params_of_list =
         [
-          "-q"; "--disablerepo=*"; Printf.sprintf "--enablerepo=%s" !Xapi_globs.local_repo_name;
-          "list"; "updates";
+          "-q"
+        ; "--disablerepo=*"
+        ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+        ; "list"
+        ; "updates"
         ]
       in
+      List.iter (fun r -> clean_yum_cache r) repositories ;
       let updates =
-        clean_yum_cache !Xapi_globs.local_repo_name;
         Helpers.call_script !Xapi_globs.yum_cmd params_of_list
         |> Astring.String.cuts ~sep:"\n"
         |> List.filter_map
-          (Repository_helpers.get_rpm_update_in_json ~rpm2updates ~installed_pkgs)
+          (get_rpm_update_in_json ~rpm2updates ~installed_pkgs)
       in
       (* TODO: live patches *)
       `Assoc [("updates", `List updates)])
@@ -245,7 +309,7 @@ let get_host_updates_in_json ~__context ~installed =
     raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
 
 (* This handler hosts HTTP endpoint '/repository' which will be available iif
- * 'is_local_pool_repo_enabled' returns true with 'with_pool_repository' being called by
+ * 'is_local_pool_repo_enabled' returns true with 'with_pool_repositories' being called by
  * others.
  *)
 let get_repository_handler (req : Http.Request.t) s _ =
@@ -258,9 +322,7 @@ let get_repository_handler (req : Http.Request.t) s _ =
         let len = String.length Constants.get_repository_uri in
         begin match String.sub_to_end req.Request.uri len with
           | uri_path ->
-            let root = Filename.concat
-                !Xapi_globs.local_pool_repo_dir !Xapi_globs.pool_repo_name
-            in
+            let root = !Xapi_globs.local_pool_repo_dir in
             Fileserver.response_file s (Helpers.resolve_uri_path ~root ~uri_path)
           | exception e ->
             let msg =
@@ -330,11 +392,11 @@ let get_pool_updates_in_json ~__context ~hosts =
 
 let apply ~__context ~host =
   (* This function runs on slave host *)
-  with_local_repository ~__context (fun () ->
+  with_local_repositories ~__context (fun repositories ->
       let params =
           [
             "-y"; "--disablerepo=*";
-            Printf.sprintf "--enablerepo=%s" !Xapi_globs.local_repo_name;
+            Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
             "upgrade"
           ]
       in

@@ -47,7 +47,7 @@ val sync:
 val create_pool_repository :
      __context:Context.t
   -> self:[`Repository] API.Ref.t
-  -> string
+  -> unit
 
 val get_repository_handler :
      Http.Request.t
@@ -81,3 +81,7 @@ val apply_immediate_guidances :
   -> host:[`host] API.Ref.t
   -> guidances:Repository_helpers.Guidance.t list
   -> unit
+
+val set_available_updates :
+     __context:Context.t
+  -> string
