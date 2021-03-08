@@ -2852,37 +2852,74 @@ let alert_failed_login_attempts () =
 let enable_tls_verification ~__context =
   Helpers.StunnelClient.set_verify_by_default true
 
-let set_repository ~__context ~self ~value =
+let set_repositories ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation
     ~__context
     ~self
-    ~doc:"pool.set_repository"
-    ~op:`set_repository
-    (fun () ->
-      match Db.Pool.get_repository ~__context ~self with
-      | ref when ref = value -> ()
-      | ref ->
-        let open Repository in
-        with_reposync_lock (fun () ->
-            cleanup_pool_repo ();
-            Db.Pool.set_repository ~__context ~self ~value;
-            Db.Repository.set_hash ~__context ~self:value ~value:"";
-            Db.Repository.set_up_to_date ~__context ~self:value ~value:false))
+    ~doc:"pool.set_repositories"
+    ~op:`configure_repositories
+    @@ fun () ->
+    Repository.with_reposync_lock @@ fun () ->
+    let existings = Db.Pool.get_repositories ~__context ~self in
+    (* To be removed *)
+    List.iter
+      (fun x ->
+         if not (List.mem x value) then
+           Repository.cleanup_pool_repo ~__context ~self:x)
+      existings;
+    (* To be added *)
+    List.iter
+      (fun x ->
+         if not (List.mem x existings) then (
+             Db.Repository.set_hash ~__context ~self:x ~value:"";
+             Db.Repository.set_up_to_date ~__context ~self:x ~value:false
+         ))
+      value ;
+    Db.Pool.set_repositories ~__context ~self ~value
+
+let add_repository ~__context ~self ~value =
+  Xapi_pool_helpers.with_pool_operation
+    ~__context
+    ~self
+    ~doc:"pool.add_repository"
+    ~op:`configure_repositories
+    @@ fun () ->
+    Repository.with_reposync_lock @@ fun () ->
+    let existings = Db.Pool.get_repositories ~__context ~self in
+    if not (List.mem value existings) then (
+      Db.Pool.add_repositories ~__context ~self ~value ;
+      Db.Repository.set_hash ~__context ~self:value ~value:"" ;
+      Db.Repository.set_up_to_date ~__context ~self:value ~value:false
+    )
+
+let remove_repository ~__context ~self ~value =
+  Xapi_pool_helpers.with_pool_operation
+    ~__context
+    ~self
+    ~doc:"pool.remove_repository"
+    ~op:`configure_repositories
+    @@ fun () ->
+    Repository.with_reposync_lock @@ fun () ->
+    List.iter
+      (fun x ->
+         if x = value then Repository.cleanup_pool_repo ~__context ~self:x)
+      (Db.Pool.get_repositories ~__context ~self) ;
+    Db.Pool.remove_repositories ~__context ~self ~value
 
 let sync_updates ~__context ~self ~force =
   let open Repository in
   (* Two locks are used here:
    * 1. with_pool_operation: this is used by following repository operations:
-   *    'set_repository', 'sync_updates', 'get_updates' and 'apply_updates'.
+   *    'configure_repositories', 'sync_updates', 'get_updates' and 'apply_updates'.
    *
-   * 2. with_reposync_lock: this is used by 'set_repository' and 'sync_updates' only.
+   * 2. with_reposync_lock: this is used by 'configure_repositories' and 'sync_updates' only.
    *    With this extra lock, 'sync_updates' could download the metadata and packages
    *    from remote YUM repository without failing operations 'get_updates' and
-   *    'apply_updates'. Meanwhile this lock protects 'sync_updates' and 'set_repository'
+   *    'apply_updates'. Meanwhile this lock protects 'sync_updates' and 'configure_repositories'
    *    from concurrent conflict between them.
    *
    * The 'get_updates' and 'apply_updates' don't modify the local pool repository.
-   * But the 'set_repository' and 'sync_updates' may do the change.
+   * But the 'configure_repositories' and 'sync_updates' may do the change.
    *)
   match force with
   | true ->
@@ -2894,7 +2931,7 @@ let sync_updates ~__context ~self ~force =
       (fun () ->
         with_reposync_lock (fun () ->
             let repository = get_enabled_repository ~__context in
-            cleanup_pool_repo ();
+            cleanup_pool_repo ~__context ~self:repository;
             sync ~__context ~self:repository;
             create_pool_repository ~__context ~self:repository))
   | false ->

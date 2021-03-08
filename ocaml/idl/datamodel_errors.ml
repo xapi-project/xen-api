@@ -1203,8 +1203,8 @@ let _ =
     ~doc:"The current version of Xen or its control libraries is incompatible with the Toolstack." ();
 
   (* repository and updates errors *)
-  error Api_errors.set_repository_in_progress []
-    ~doc:"The operation could not be performed because a repository setup is in progress." ();
+  error Api_errors.configure_repositories_in_progress []
+    ~doc:"The operation could not be performed because other repository(ies) is(are) already being configured." ();
   error Api_errors.invalid_base_url ["url"]
     ~doc:"The base url in the repository is invalid." ();
   error Api_errors.repository_already_exists ["ref"]
@@ -1217,6 +1217,8 @@ let _ =
     ~doc:"Failed to clean up local repository on master." ();
   error Api_errors.no_repository_enabled []
     ~doc:"There is no repository being enabled." ();
+  error Api_errors.multiple_update_repositories_enabled []
+    ~doc:"There is more than one update repository being enabled." ();
   error Api_errors.sync_updates_in_progress []
     ~doc:"The operation could not be performed because syncing updates is in progress." ();
   error Api_errors.reposync_failed []

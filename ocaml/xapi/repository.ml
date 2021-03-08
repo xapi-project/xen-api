@@ -33,12 +33,13 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url =
       if name_label = Db.Repository.get_name_label ~__context ~self:ref
       || binary_url = Db.Repository.get_binary_url ~__context ~self:ref then
         raise Api_errors.( Server_error (repository_already_exists, [(Ref.string_of ref)]) ));
-  create_repository_record ~__context ~name_label ~name_description ~binary_url ~source_url
+  create_repository_record
+    ~__context ~name_label ~name_description ~binary_url ~source_url
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
-  let enabled = Db.Pool.get_repository ~__context ~self:pool in
-  if enabled = self then
+  let enabled = Db.Pool.get_repositories ~__context ~self:pool in
+  if List.mem self enabled then
     raise Api_errors.(Server_error (repository_is_in_use, []))
   else
     Db.Repository.destroy ~__context ~self
@@ -52,20 +53,38 @@ let with_reposync_lock f =
     raise Api_errors.(Server_error (reposync_in_progress, []))
 
 let get_enabled_repository ~__context =
-  let pool = Helpers.get_pool ~__context in
-  match Db.Pool.get_repository ~__context ~self:pool with
-  | ref when ref <> Ref.null -> ref
-  | _ ->
+  match get_enabled_repositories ~__context with
+  | [ref] -> ref
+  | []  ->
     raise Api_errors.(Server_error (no_repository_enabled, []))
+  | _  ->
+    raise Api_errors.(Server_error (multiple_update_repositories_enabled, []))
 
-let cleanup_pool_repo () =
+let cleanup_all_pool_repositories () =
   try
-    clean_yum_cache !Xapi_globs.pool_repo_name;
-    Unixext.unlink_safe (Filename.concat !Xapi_globs.yum_repos_config_dir
-                           !Xapi_globs.pool_repo_name);
+    clean_yum_cache "*" ;
+    let prefix = !Xapi_globs.remote_repository_prefix ^ "-" in
+    Sys.readdir !Xapi_globs.yum_repos_config_dir
+    |> Array.iter (fun file ->
+        let open Astring.String in
+        if ( (is_prefix ~affix:prefix file) && (is_suffix ~affix:".repo" file) ) then (
+          let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
+          Unixext.unlink_safe path)) ;
     Helpers.rmtree !Xapi_globs.local_pool_repo_dir
   with e ->
-    error "Failed to cleanup pool repository: %s" (ExnHelper.string_of_exn e);
+    error "Failed to clean up all pool repositories: %s" (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (repository_cleanup_failed, []))
+
+let cleanup_pool_repo ~__context ~self =
+  let repo_name = get_remote_repository_name ~__context ~self in
+  try
+    clean_yum_cache repo_name;
+    Unixext.unlink_safe (Filename.concat
+                           !Xapi_globs.yum_repos_config_dir
+                           (repo_name ^ ".repo"));
+    Helpers.rmtree (Filename.concat !Xapi_globs.local_pool_repo_dir repo_name)
+  with e ->
+    error "Failed to clean up pool repository %s: %s" repo_name (ExnHelper.string_of_exn e);
     raise Api_errors.(Server_error (repository_cleanup_failed, []))
 
 let sync ~__context ~self =
@@ -178,7 +197,7 @@ let create_pool_repository ~__context ~self =
                          ["--remove"; "updateinfo"; repodata_dir]);
                ignore (Helpers.call_script !Xapi_globs.modifyrepo_cmd
                          ["--mdtype"; "updateinfo"; xml_file_path; repodata_dir]));
-           with_pool_repository (fun () ->
+           with_pool_repositories (fun () ->
                set_available_updates ~__context ~self)
          | false ->
            error "No updateinfo.xml.gz found: %s" updateinfo_xml_gz_path;
@@ -284,7 +303,7 @@ let get_pool_updates_in_json ~__context ~hosts =
       ) hosts
     in
     let rets =
-      with_pool_repository (fun () ->
+      with_pool_repositories (fun () ->
           Helpers.run_in_parallel funs capacity_in_parallel)
     in
     let updates_info = parse_updateinfo ~hash in
@@ -400,7 +419,7 @@ let apply_immediate_guidances ~__context ~host ~guidances =
 let apply_updates ~__context ~host ~hash =
   (* This function runs on master host *)
   try
-    with_pool_repository (fun () ->
+    with_pool_repositories (fun () ->
         let updates =
           http_get_host_updates_in_json ~__context ~host ~installed:true
           |> Yojson.Basic.Util.member "updates"

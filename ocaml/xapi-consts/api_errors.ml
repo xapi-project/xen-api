@@ -1204,7 +1204,7 @@ let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
 
-let set_repository_in_progress = "SET_REPOSITORY_IN_PROGRESS"
+let configure_repositories_in_progress = "CONFIGURE_REPOSITORIES_IN_PROGRESS"
 
 let invalid_base_url = "INVALID_BASE_URL"
 
@@ -1217,6 +1217,8 @@ let reposync_in_progress = "REPOSYNC_IN_PROGRESS"
 let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
 
 let no_repository_enabled = "NO_REPOSITORY_ENABLED"
+
+let multiple_update_repositories_enabled = "MULTIPLE_UPDATE_REPOSITORIES_ENABLED"
 
 let sync_updates_in_progress = "SYNC_UPDATES_IN_PROGRESS"
 

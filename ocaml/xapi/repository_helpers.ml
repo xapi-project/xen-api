@@ -535,7 +535,8 @@ module UpdateInfo = struct
       raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
 end
 
-let create_repository_record ~__context ~name_label ~name_description ~binary_url ~source_url =
+let create_repository_record
+    ~__context ~name_label ~name_description ~binary_url ~source_url =
   let ref = Ref.make () in
   let uuid = Uuidm.to_string (Uuidm.create `V4) in
   Db.Repository.create
@@ -574,7 +575,7 @@ let assert_url_is_valid ~url =
     error "Invalid url %s: %s" url (ExnHelper.string_of_exn e);
     raise Api_errors.(Server_error (invalid_base_url, [url]))
 
-let with_pool_repository f =
+let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
         Mutex.lock exposing_pool_repo_mutex;
@@ -683,6 +684,13 @@ let get_cachedir repo_name =
       | _ ->
         let msg = Printf.sprintf "Not found cachedir for repository %s" repo_name in
         raise Api_errors.(Server_error (internal_error, [msg])))
+
+let get_remote_repository_name ~__context ~self =
+    !Xapi_globs.remote_repository_prefix ^ (Db.Repository.get_name_label ~__context ~self)
+
+let get_enabled_repositories ~__context =
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.get_repositories ~__context ~self:pool
 
 let with_local_repository ~__context f =
   let master_addr =

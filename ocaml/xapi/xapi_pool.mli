@@ -332,7 +332,19 @@ val alert_failed_login_attempts : unit -> unit
 
 val enable_tls_verification : __context:Context.t -> unit
 
-val set_repository :
+val set_repositories :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:[`Repository] API.Ref.t list
+  -> unit
+
+val add_repository :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:[`Repository] API.Ref.t
+  -> unit
+
+val remove_repository :
      __context:Context.t
   -> self:API.ref_pool
   -> value:[`Repository] API.Ref.t

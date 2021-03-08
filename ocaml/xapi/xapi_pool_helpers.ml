@@ -30,7 +30,7 @@ let all_operations =
   ; `ha_disable
   ; `cluster_create
   ; `designate_new_master
-  ; `set_repository
+  ; `configure_repositories
   ; `sync_updates
   ; `get_updates
   ; `apply_updates
@@ -57,7 +57,7 @@ let valid_operations ~__context record _ref' =
     ; (`ha_disable, Api_errors.ha_disable_in_progress, [])
     ; (`cluster_create, Api_errors.cluster_create_in_progress, [])
     ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
-    ; (`set_repository, Api_errors.set_repository_in_progress, [])
+    ; (`configure_repositories, Api_errors.configure_repositories_in_progress, [])
     ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
     ; (`get_updates, Api_errors.get_updates_in_progress, [])
     ; (`apply_updates, Api_errors.apply_updates_in_progress, [])

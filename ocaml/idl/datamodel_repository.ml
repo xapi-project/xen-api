@@ -70,6 +70,9 @@ let t =
     ~contents:
       [ uid       _repository ~lifecycle;
         namespace ~name:"name" ~contents:(names ~writer_roles:_R_POOL_OP None RW) ();
+        field   ~qualifier:DynamicRO ~lifecycle
+          ~ty:(Set (Ref _pool)) "enabled_on"
+          "The pools where the repository is enabled on";
         field     ~qualifier:StaticRO ~lifecycle
           ~ty:String
           ~default_value:(Some (VString ""))

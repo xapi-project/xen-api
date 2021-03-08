@@ -43,7 +43,7 @@ let create_pool_record ~__context =
       ~ha_cluster_stack:"xhad" ~guest_agent_config:[] ~cpu_info:[]
       ~policy_no_vendor_device:false ~live_patching_disabled:false
       ~uefi_certificates:"" ~is_psr_pending:false
-      ~tls_verification_enabled:false ~repository:Ref.null
+      ~tls_verification_enabled:false
 
 let set_master_ip ~__context =
   let ip =

@@ -1200,14 +1200,22 @@ let pool_record rpc session_id pool =
           ~get:(fun () ->
             (x ()).API.pool_tls_verification_enabled |> string_of_bool)
           ()
-      ; make_field ~name:"repository"
-          ~get:(fun () -> get_uuid_from_ref (x ()).API.pool_repository)
-          ~set:(fun x ->
-            let ref =
-              if x = "" then Ref.null
-              else Client.Repository.get_by_uuid rpc session_id x
-            in
-            Client.Pool.set_repository rpc session_id pool ref)
+      ; make_field ~name:"repositories"
+          ~get:(fun () ->
+              get_uuids_from_refs (x ()).API.pool_repositories)
+          ~get_set:(fun () ->
+              List.map get_uuid_from_ref (x ()).API.pool_repositories)
+          ~set:(fun uuids ->
+              Client.Pool.set_repositories rpc session_id pool
+                (List.map
+                   (fun uuid -> Client.Repository.get_by_uuid rpc session_id uuid)
+                   (get_words ',' uuids)))
+          ~add_to_set:(fun uuid ->
+              Client.Pool.add_repository rpc session_id pool
+                (Client.Repository.get_by_uuid rpc session_id uuid))
+          ~remove_from_set:(fun uuid ->
+              Client.Pool.remove_repository rpc session_id pool
+                (Client.Repository.get_by_uuid rpc session_id uuid))
           ()
       ]
   }

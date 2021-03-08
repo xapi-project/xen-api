@@ -8,7 +8,7 @@ open Datamodel_types
             "ha_disable", "Indicates this pool is in the process of disabling HA";
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
-            "set_repository", "Indicates this pool is in the process of configuring repository";
+            "configure_repositories", "Indicates this pool is in the process of configuring repositories";
             "sync_updates", "Indicates this pool is in the process of syncing updates";
             "get_updates", "Indicates this pool is in the process of getting updates";
             "apply_updates", "Indicates this pool is in the process of applying updates";
@@ -688,13 +688,35 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
-  let set_repository = call
-      ~name:"set_repository"
+  let set_repositories = call
+      ~name:"set_repositories"
       ~in_product_since:rel_next
-      ~doc:"Set the enabled repository for updates"
+      ~doc:"Set enabled set of repositories"
       ~params:[
         Ref _pool, "self", "The pool";
-        Ref _repository, "value", "The repository to be enabled"
+        Set (Ref _repository), "value", "The set of repositories to be enabled"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let add_repository = call
+      ~name:"add_repository"
+      ~in_product_since:rel_next
+      ~doc:"Add a repository to the enabled set"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be added to the enabled set"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let remove_repository = call
+      ~name:"remove_repository"
+      ~in_product_since:rel_next
+      ~doc:"Remove a repository from the enabled set"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be removed"
       ]
       ~allowed_roles:_R_POOL_ADMIN
       ()
@@ -788,7 +810,9 @@ open Datamodel_types
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
         ; rotate_secret
-        ; set_repository
+        ; set_repositories
+        ; add_repository
+        ; remove_repository
         ; sync_updates
         ]
       ~contents:
@@ -837,6 +861,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
-         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Ref _repository) ~default_value:(Some (VRef null_ref)) "repository" "The enabled repository for updates"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) "repositories" "The set of currently enabled repositories"
          ])
       ()
