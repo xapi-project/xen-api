@@ -26,10 +26,6 @@ val forget :
   -> self:[`Repository] API.Ref.t
   -> unit
 
-val get_enabled_repository :
-     __context:Context.t
-  -> [`Repository] API.Ref.t
-
 val cleanup_all_pool_repositories : unit -> unit
 
 val cleanup_pool_repo  :

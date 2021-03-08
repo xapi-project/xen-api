@@ -866,8 +866,6 @@ let yum_cmd = ref "/usr/bin/yum"
 
 let yum_repos_config_dir  = ref "/etc/yum.repos.d"
 
-let pool_repo_name = ref "remote"
-
 let remote_repository_prefix = ref "remote"
 
 let local_repository_prefix = ref "local"
