@@ -18,6 +18,11 @@ open Rresult (* introduces >>= >>| and R *)
 
 module D = Debug.Make (struct let name = "gencert_selfcert" end)
 
+(** initialize the random number generator at program startup when this
+module is loaded. *)
+let () = Mirage_crypto_rng_unix.initialize ()
+
+
 (** [write_cert] writes a PKCS12 file to [path]. The typical file
  extension would be ".pem". It attempts to do that atomically by
  writing to a temporary file in the same directory first and renaming
