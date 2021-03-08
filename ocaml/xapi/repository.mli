@@ -18,6 +18,7 @@ val introduce :
   -> name_description:string
   -> binary_url:string
   -> source_url:string
+  -> update:bool
   -> [`Repository] API.Ref.t
 
 val forget :

@@ -1207,6 +1207,7 @@ let gen_cmds rpc session_id =
           ; "name-description"
           ; "binary-url"
           ; "source-url"
+          ; "update"
           ; "hash"
           ; "up-to-date"
           ]
@@ -7381,8 +7382,9 @@ module Repository = struct
     in
     let binary_url = List.assoc "binary-url" params in
     let source_url = List.assoc "source-url" params in
+    let update = get_bool_param params "update" in
     let ref = Client.Repository.introduce ~rpc ~session_id
-        ~name_label ~name_description ~binary_url ~source_url
+        ~name_label ~name_description ~binary_url ~source_url ~update
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
