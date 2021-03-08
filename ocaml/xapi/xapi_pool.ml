@@ -2921,6 +2921,7 @@ let sync_updates ~__context ~self ~force =
    * The 'get_updates' and 'apply_updates' don't modify the local pool repository.
    * But the 'configure_repositories' and 'sync_updates' may do the change.
    *)
+  let enabled = Repository_helpers.get_enabled_repositories ~__context in
   match force with
   | true ->
     Xapi_pool_helpers.with_pool_operation
@@ -2928,22 +2929,26 @@ let sync_updates ~__context ~self ~force =
       ~self
       ~doc:"pool.sync_updates"
       ~op:`sync_updates
-      (fun () ->
-        with_reposync_lock (fun () ->
-            let repository = get_enabled_repository ~__context in
-            cleanup_pool_repo ~__context ~self:repository;
-            sync ~__context ~self:repository;
-            create_pool_repository ~__context ~self:repository))
+      @@ fun () ->
+      with_reposync_lock @@ fun () ->
+      enabled
+      |> List.iter
+        (fun x ->
+           cleanup_pool_repo ~__context ~self:x;
+           sync ~__context ~self:x;
+           create_pool_repository ~__context ~self:x) ;
+      set_available_updates ~__context
   | false ->
-    with_reposync_lock (fun () ->
-      let repository = get_enabled_repository ~__context in
-      sync ~__context ~self:repository;
-      Xapi_pool_helpers.with_pool_operation
-        ~__context
-        ~self
-        ~doc:"pool.sync_updates"
-        ~op:`sync_updates
-        (fun () -> create_pool_repository ~__context ~self:repository))
+    with_reposync_lock @@ fun () ->
+    enabled |> List.iter (fun x -> sync ~__context ~self:x) ;
+    Xapi_pool_helpers.with_pool_operation
+    ~__context
+    ~self
+    ~doc:"pool.sync_updates"
+    ~op:`sync_updates
+    @@ fun () ->
+    List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled;
+    set_available_updates ~__context
 
 let get_updates_handler (req : Http.Request.t) s _ =
   debug "Pool.get_updates_handler: received request";

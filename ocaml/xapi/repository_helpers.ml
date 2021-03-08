@@ -74,6 +74,7 @@ module Update = struct
     ; new_version: string
     ; new_release: string
     ; update_id: string option
+    ; repository: string
   }
 
   let of_json j =
@@ -87,8 +88,19 @@ module Update = struct
                      with _ -> None);
       old_release = (try Some (member "oldVerRel" j |> member "release" |> to_string)
                      with _ -> None);
-      update_id = (member "updateId" j |> to_string_option)
+      update_id = (member "updateId" j |> to_string_option);
+      repository = (member "repository" j |> to_string)
     }
+
+  let to_string u =
+    Printf.sprintf "%s.%s %s-%s -> %s-%s from %s:%s"
+      u.name u.arch
+      (Option.value u.old_version ~default:"unknown")
+      (Option.value u.old_release ~default:"unknown")
+      u.new_version
+      u.new_release
+      (Option.value u.update_id ~default:"unknown")
+      u.repository
 end
 
 module Guidance = struct
@@ -686,34 +698,56 @@ let get_cachedir repo_name =
         let msg = Printf.sprintf "Not found cachedir for repository %s" repo_name in
         raise Api_errors.(Server_error (internal_error, [msg])))
 
-let get_remote_repository_name ~__context ~self =
-    !Xapi_globs.remote_repository_prefix ^ (Db.Repository.get_name_label ~__context ~self)
-
 let get_enabled_repositories ~__context =
   let pool = Helpers.get_pool ~__context in
   Db.Pool.get_repositories ~__context ~self:pool
 
-let with_local_repository ~__context f =
+let get_remote_repository_name ~__context ~self =
+    !Xapi_globs.remote_repository_prefix ^ "-" ^ (Db.Repository.get_name_label ~__context ~self)
+
+let get_local_repository_name ~__context ~self =
+    !Xapi_globs.local_repository_prefix ^ "-" ^ (Db.Repository.get_name_label ~__context ~self)
+
+let with_local_repositories ~__context f =
   let master_addr =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let url = Printf.sprintf "https://%s/repository/" master_addr in
+  let enabled = get_enabled_repositories ~__context in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      remove_repo_conf_file !Xapi_globs.local_repo_name;
-      write_yum_config url !Xapi_globs.local_repo_name;
-      let config_params =
-          [
-            "--save";
-            Printf.sprintf "--setopt=%s.sslverify=false" !Xapi_globs.local_repo_name;
-            !Xapi_globs.local_repo_name
-          ]
-      in
-      ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params);
-      f ())
-    (fun () -> remove_repo_conf_file !Xapi_globs.local_repo_name)
+       let repositories =
+         List.map
+           (fun repository ->
+              let repo_name = get_local_repository_name ~__context ~self:repository in
+              let url =
+                Printf.sprintf "https://%s/repository/%s/"
+                  master_addr
+                  (get_remote_repository_name ~__context ~self:repository)
+              in
+              remove_repo_conf_file repo_name ;
+              write_yum_config url repo_name ;
+              clean_yum_cache repo_name ;
+              let config_params =
+                [
+                  "--save"
+                ; Printf.sprintf "--setopt=%s.sslverify=false" repo_name
+                ; repo_name
+                ]
+              in
+              ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
+              repo_name)
+           enabled
+       in
+       f repositories)
+    (fun () ->
+       enabled
+       |> List.iter
+         (fun repository ->
+            let repo_name = get_local_repository_name ~__context ~self:repository in
+            clean_yum_cache repo_name ;
+            remove_repo_conf_file repo_name))
 
 let assert_yum_error output =
   let errors = ["Updateinfo file is not valid XML"] in
@@ -761,11 +795,15 @@ let parse_updateinfo_list acc line =
     debug "Ignore unrecognized line '%s' in parsing updateinfo list" line;
     acc
 
-let get_updates_from_updateinfo () =
+let get_updates_from_updateinfo ~__context repositories =
   let params_of_updateinfo_list =
     [
-      "-q"; "--disablerepo=*"; Printf.sprintf "--enablerepo=%s" !Xapi_globs.local_repo_name;
-      "updateinfo"; "list"; "updates";
+      "-q"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "updateinfo"
+    ; "list"
+    ; "updates"
     ]
   in
   Helpers.call_script !Xapi_globs.yum_cmd params_of_updateinfo_list
@@ -836,37 +874,52 @@ let get_rpm_update_in_json ~rpm2updates ~installed_pkgs line =
   let sep = Re.Str.regexp " +" in
   match Re.Str.split sep line with
   | "Updated" :: "Packages" :: [] -> None
-  | name_arch :: ver_rel :: repo :: [] when repo = !Xapi_globs.local_repo_name ->
+  | name_arch :: ver_rel :: repo :: [] ->
     (* xsconsole.x86_64  10.1.11-34  local-normal *)
-    begin match Astring.String.cuts ~sep:"." name_arch,
-                Astring.String.cuts ~sep:"-" ver_rel with
-      | name :: arch :: [], version :: release :: [] ->
-        let open Pkg in
-        let new_pkg = { name; version; release; arch } in
-        let uid_in_json =
-          match List.assoc_opt name_arch rpm2updates with
-          | Some s -> `String s
-          | None ->
-            warn "No update ID found for %s" name_arch;
-            `Null
-        in
-        let l1 = [("name", `String name);
-                  ("arch", `String arch);
-                  ("newVerRel", (to_ver_rel_json new_pkg));
-                  ("updateId", uid_in_json)]
-        in
-        let l2 = match List.assoc_opt name_arch installed_pkgs with
-          | Some old_pkg ->
-            [("oldVerRel", (to_ver_rel_json old_pkg))]
-          | None -> []
-        in
-        Some (`Assoc (l1 @ l2))
-      | _ ->
-        warn "Can't parse %s and %s" name_arch ver_rel;
-        None
+    let remove_prefix prefix s =
+      match Astring.String.cut ~sep:prefix s with
+      | Some ("", s') when s' <> "" -> Some s'
+      | _ -> None
+    in
+    begin match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
+      | Some repo_name ->
+        begin match Astring.String.cuts ~sep:"." name_arch,
+                  Astring.String.cuts ~sep:"-" ver_rel with
+        | name :: arch :: [], version :: release :: [] ->
+          let open Pkg in
+          let new_pkg = { name; version; release; arch } in
+          let uid_in_json =
+            match List.assoc_opt name_arch rpm2updates with
+            | Some s -> `String s
+            | None ->
+              warn "No update ID found for %s" name_arch ;
+              `Null
+          in
+          let l = [
+                ("name", `String name)
+              ; ("arch", `String arch)
+              ; ("newVerRel", (to_ver_rel_json new_pkg))
+              ; ("updateId", uid_in_json)
+              ; ("repository", `String repo_name)
+              ]
+          in
+          begin match List.assoc_opt name_arch installed_pkgs with
+            | Some old_pkg ->
+              Some ( `Assoc (l @ [("oldVerRel", (to_ver_rel_json old_pkg))]) )
+            | None ->
+              Some ( `Assoc l )
+          end
+        | _ ->
+          warn "Can't parse %s and %s" name_arch ver_rel ;
+          None
+        end
+      | None ->
+        let msg = "Found update from unmanaged repository" in
+        error "%s: %s" msg line ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
     end
   | _ ->
-    debug "Ignore unrecognized line '%s' in parsing updates list" line;
+    debug "Ignore unrecognized line '%s' in parsing updates list" line ;
     None
 
 let consolidate_updates_of_host ~updates_info host updates_of_host =
@@ -899,3 +952,24 @@ let consolidate_updates_of_host ~updates_info host updates_of_host =
       ("updates", `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids)))]
   in
   (json_of_host, uids)
+
+let append_by_key l k v =
+  (* Append a (k, v) into a assoc list l [ (k1, [v1]); (k2, [...]); ... ] as
+   * [ (k1, [v1; v]); (k2, [...]); ... ] if k1 = k.
+   * Otherwise, if no key in l is equal to k, add a new element (k, [v]) into l. *)
+  let vals, others =
+    List.fold_left
+      (fun (acc_vals_of_k, acc_others) (x, y) ->
+         if x = k then ( (List.rev_append y acc_vals_of_k), acc_others )
+         else (acc_vals_of_k, (x, y) :: acc_others)
+      )
+      ([v], []) l
+  in
+  (k, vals) :: others
+
+let get_singleton = function
+  | [s] -> s
+  | [] ->
+    raise Api_errors.(Server_error (no_repository_enabled, []))
+  | _ ->
+    raise Api_errors.(Server_error (multiple_update_repositories_enabled, []))
