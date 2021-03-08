@@ -52,14 +52,6 @@ let with_reposync_lock f =
   else
     raise Api_errors.(Server_error (reposync_in_progress, []))
 
-let get_enabled_repository ~__context =
-  match get_enabled_repositories ~__context with
-  | [ref] -> ref
-  | []  ->
-    raise Api_errors.(Server_error (no_repository_enabled, []))
-  | _  ->
-    raise Api_errors.(Server_error (multiple_update_repositories_enabled, []))
-
 let cleanup_all_pool_repositories () =
   try
     clean_yum_cache "*" ;
@@ -199,6 +191,7 @@ let get_host_updates_by_repository ~__context enabled host () =
 
 let set_available_updates ~__context =
   with_pool_repositories @@ fun () ->
+  ignore (get_single_enabled_update_repository ~__context) ;
   let hosts = Db.Host.get_all ~__context in
   let enabled = get_enabled_repositories ~__context in
   let funs =
@@ -338,14 +331,23 @@ let get_repository_handler (req : Http.Request.t) s _ =
     (error "Rejecting request: local pool repository is not enabled";
      Http_svr.response_forbidden ~req s)
 
-let parse_updateinfo ~hash =
-  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir !Xapi_globs.pool_repo_name in
+let parse_updateinfo ~__context ~self =
+  let hash = Db.Repository.get_hash ~__context ~self in
+  let repo_name = get_remote_repository_name ~__context ~self in
+  let repo_dir = Filename.concat !Xapi_globs.local_pool_repo_dir repo_name in
   let repodata_dir = Filename.concat repo_dir "repodata" in
   let repomd_xml_path = Filename.concat repodata_dir "repomd.xml" in
   let md = UpdateInfoMetaData.of_xml_file repomd_xml_path in
-  if hash <> md.UpdateInfoMetaData.checksum then
-    (error "Unexpected mismatch between XAPI DB and YUM DB. Need to do pool.sync-updates again.";
-     raise Api_errors.(Server_error (createrepo_failed, [])));
+  if hash <> md.UpdateInfoMetaData.checksum then (
+    let msg =
+      Printf.sprintf
+        "Unexpected mismatch between XAPI DB (%s) and YUM DB (%s). \
+         Need to do pool.sync-updates again."
+        hash md.UpdateInfoMetaData.checksum
+    in
+    error "%s: %s" repo_name msg;
+    raise Api_errors.(Server_error (internal_error, [msg]))
+  );
   let updateinfo_xml_gz_path = Filename.concat repo_dir md.UpdateInfoMetaData.location in
   match Sys.file_exists updateinfo_xml_gz_path with
   | false ->
@@ -355,34 +357,36 @@ let parse_updateinfo ~hash =
     with_updateinfo_xml updateinfo_xml_gz_path UpdateInfo.of_xml_file
 
 let get_pool_updates_in_json ~__context ~hosts =
-  let ref = get_enabled_repository ~__context in
-  let hash = Db.Repository.get_hash ~__context ~self:ref in
   try
-    let funs = List.map (fun host ->
-        fun () ->
-          ( (Ref.string_of host),
-            (http_get_host_updates_in_json ~__context ~host ~installed:true) )
-      ) hosts
+    let repository = get_single_enabled_update_repository ~__context in
+    let funs =
+      List.map (fun host ->
+          fun () ->
+            ( (Ref.string_of host),
+              (http_get_host_updates_in_json ~__context ~host ~installed:true) )
+        ) hosts
     in
     let rets =
       with_pool_repositories (fun () ->
           Helpers.run_in_parallel funs capacity_in_parallel)
     in
-    let updates_info = parse_updateinfo ~hash in
+    let repository_name = Db.Repository.get_name_label ~__context ~self:repository in
+    let updates_info = parse_updateinfo ~__context ~self:repository in
     let updates_of_hosts, ids_of_updates =
       rets
       |> List.fold_left (fun (acc1, acc2) (host, ret_of_host) ->
           let json_of_host, uids =
-            consolidate_updates_of_host ~updates_info host ret_of_host
+            consolidate_updates_of_host ~repository_name ~updates_info host ret_of_host
           in
           ( (json_of_host :: acc1), (UpdateIdSet.union uids acc2) )
-      ) ([], UpdateIdSet.empty)
+        ) ([], UpdateIdSet.empty)
     in
     `Assoc [
       ("hosts", `List updates_of_hosts);
-      ("updates", `List (UpdateIdSet.elements ids_of_updates |> List.map (fun uid  ->
-           UpdateInfo.to_json (List.assoc uid updates_info))));
-      ("hash", `String hash)]
+      ("updates", `List (UpdateIdSet.elements ids_of_updates
+                         |> List.map (fun uid  ->
+                             UpdateInfo.to_json (List.assoc uid updates_info))));
+      ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))]
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
     raise e
@@ -394,11 +398,12 @@ let apply ~__context ~host =
   (* This function runs on slave host *)
   with_local_repositories ~__context (fun repositories ->
       let params =
-          [
-            "-y"; "--disablerepo=*";
-            Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-            "upgrade"
-          ]
+        [
+          "-y"
+        ; "--disablerepo=*"
+        ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+        ; "upgrade"
+        ]
       in
       try ignore (Helpers.call_script !Xapi_globs.yum_cmd params)
       with e ->
@@ -481,22 +486,29 @@ let apply_immediate_guidances ~__context ~host ~guidances =
 let apply_updates ~__context ~host ~hash =
   (* This function runs on master host *)
   try
+    let repository = get_single_enabled_update_repository ~__context in
+    if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:repository then
+      raise Api_errors.(Server_error (updateinfo_hash_mismatch, []));
     with_pool_repositories (fun () ->
-        let updates =
+        let all_updates =
           http_get_host_updates_in_json ~__context ~host ~installed:true
           |> Yojson.Basic.Util.member "updates"
           |> Yojson.Basic.Util.to_list
           |> List.map Update.of_json
         in
-        match updates with
+        match all_updates with
         | [] ->
           let ref = Ref.string_of host in
           info "Host ref='%s' is already up to date." ref;
           []
         | l ->
-          let updates_info = parse_updateinfo ~hash in
+          let repository_name = Db.Repository.get_name_label ~__context ~self:repository in
+          let updates =
+            List.filter (fun u -> u.Update.repository = repository_name) l
+          in
+          let updates_info = parse_updateinfo ~__context ~self:repository in
           let immediate_guidances =
-            eval_guidances ~updates_info ~updates:l ~kind:Recommended
+            eval_guidances ~updates_info ~updates ~kind:Recommended
           in
           Guidance.assert_valid_guidances immediate_guidances;
           Helpers.call_api_functions ~__context (fun rpc session_id ->

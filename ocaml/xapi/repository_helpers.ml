@@ -922,21 +922,28 @@ let get_rpm_update_in_json ~rpm2updates ~installed_pkgs line =
     debug "Ignore unrecognized line '%s' in parsing updates list" line ;
     None
 
-let consolidate_updates_of_host ~updates_info host updates_of_host =
-  let updates =
+let consolidate_updates_of_host ~repository_name ~updates_info host updates_of_host =
+  let all_updates =
     updates_of_host
     |> Yojson.Basic.Util.member "updates"
     |> Yojson.Basic.Util.to_list
     |> List.map Update.of_json
   in
   let open Update in
-  let rpms, uids = List.fold_left (fun (acc_rpms, acc_uids) u ->
-      ( ((Printf.sprintf "%s-%s-%s.%s.rpm"
-            u.name u.new_version u.new_release u.arch) :: acc_rpms),
-        match u.update_id with
-        | Some id -> (UpdateIdSet.add id acc_uids)
-        | None -> acc_uids )
-    ) ([], UpdateIdSet.empty) updates
+  let rpms, uids, updates =
+    List.fold_left
+      (fun (acc_rpms, acc_uids, acc_updates) u ->
+         let rpms =
+           (Printf.sprintf "%s-%s-%s.%s.rpm"
+              u.name u.new_version u.new_release u.arch) :: acc_rpms
+         in
+         match u.update_id, (u.repository = repository_name) with
+         | Some id, true ->
+           ( rpms, (UpdateIdSet.add id acc_uids), (u :: acc_updates) )
+         | _ ->
+           ( rpms, acc_uids, acc_updates ))
+      ([], UpdateIdSet.empty, [])
+      all_updates
   in
   let rec_guidances = List.map (fun g -> `String (Guidance.to_string g))
       (eval_guidances ~updates_info ~updates ~kind:Recommended)
@@ -973,3 +980,11 @@ let get_singleton = function
     raise Api_errors.(Server_error (no_repository_enabled, []))
   | _ ->
     raise Api_errors.(Server_error (multiple_update_repositories_enabled, []))
+
+let get_single_enabled_update_repository ~__context =
+  let enabled_update_repositories =
+    List.filter
+      (fun r -> Db.Repository.get_update ~__context ~self:r)
+      (get_enabled_repositories ~__context)
+  in
+  get_singleton enabled_update_repositories
