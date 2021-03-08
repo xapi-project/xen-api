@@ -5599,6 +5599,8 @@ let all_relations =
     (_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of");
 
     (_certificate, "host"), (_host, "certificates");
+
+    (_pool, "repositories"), (_repository, "enabled_on");
   ]
 
 (** the full api specified here *)

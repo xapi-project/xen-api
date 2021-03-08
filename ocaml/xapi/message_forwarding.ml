@@ -940,13 +940,24 @@ functor
                do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                    Client.Pool.enable_tls_verification rpc session_id))
 
-      let set_repository ~__context ~self ~value =
-        info "Pool.set_repository : pool = '%s'; value = %s"
-          (pool_uuid ~__context self) (repository_uuid ~__context value);
-        Local.Pool.set_repository ~__context ~self ~value
+      let set_repositories ~__context ~self ~value =
+        info "Pool.set_repositories : pool = '%s'; value = [ %s ]"
+          (pool_uuid ~__context self)
+          (String.concat "; " (List.map (repository_uuid ~__context) value)) ;
+        Local.Pool.set_repositories ~__context ~self ~value
+
+      let add_repository ~__context ~self ~value =
+        info "Pool.add_repository : pool = '%s'; repo_uuid = %s"
+          (pool_uuid ~__context self) (repository_uuid ~__context value) ;
+        Local.Pool.add_repository ~__context ~self ~value
+
+      let remove_repository ~__context ~self ~value =
+        info "Pool.remove_repository : pool = '%s'; repo_uuid = %s"
+          (pool_uuid ~__context self) (repository_uuid ~__context value) ;
+        Local.Pool.remove_repository ~__context ~self ~value
 
       let sync_updates ~__context ~self ~force =
-        info "Pool.sync_updates: pool = '%s'; false = %s"
+        info "Pool.sync_updates: pool = '%s'; force = %s"
           (pool_uuid ~__context self) (string_of_bool force);
         Local.Pool.sync_updates ~__context ~self ~force
     end

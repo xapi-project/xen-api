@@ -206,7 +206,7 @@ let become_another_masters_slave master_address =
     debug "Setting pool.conf to point to %s" master_address ;
     set_role new_role ;
     run_external_scripts false ;
-    Repository.cleanup_pool_repo () ; (* For simplicity, it's safe to cleanup on all slaves *)
+    Repository.cleanup_all_pool_repositories () ; (* For simplicity, it's safe to cleanup on all slaves *)
     Xapi_fuse.light_fuse_and_run ()
   )
 
