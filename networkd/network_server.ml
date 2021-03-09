@@ -1173,12 +1173,12 @@ module Bridge = struct
                  no MAC address was specified"
                 name bridge
       )
-    | Bridge -> (
-      match interfaces with
-      | [iface] ->
-          Interface.bring_up () dbg ~name:iface
-      | _ ->
-          ( Linux_bonding.add_bond_master name ;
+    | Bridge ->
+        ( match interfaces with
+        | [iface] ->
+            Interface.bring_up () dbg ~name:iface
+        | _ ->
+            Linux_bonding.add_bond_master name ;
             let bond_properties =
               match List.assoc_opt "mode" bond_properties with
               | Some "lacp" ->
@@ -1196,16 +1196,15 @@ module Bridge = struct
                 warn "No MAC address specified for the bond"
             ) ;
             Interface.bring_up () dbg ~name
-          ) ;
-          if need_enic_workaround () then (
-            debug "Applying enic workaround: adding VLAN0 device to bridge" ;
-            Ip.create_vlan name 0 ;
-            let vlan0 = Ip.vlan_name name 0 in
-            Interface.bring_up () dbg ~name:vlan0 ;
-            ignore (Brctl.create_port bridge vlan0)
-          ) else
-            ignore (Brctl.create_port bridge name)
-    )
+        ) ;
+        if need_enic_workaround () then (
+          debug "Applying enic workaround: adding VLAN0 device to bridge" ;
+          Ip.create_vlan name 0 ;
+          let vlan0 = Ip.vlan_name name 0 in
+          Interface.bring_up () dbg ~name:vlan0 ;
+          ignore (Brctl.create_port bridge vlan0)
+        ) else
+          ignore (Brctl.create_port bridge name)
 
   let add_pvs_proxy_port dbg bridge name _port =
     match !backend_kind with
