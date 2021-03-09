@@ -20,23 +20,26 @@
      the connection should be kept-alive.
 *)
 
-
+val with_connect :
+     ?use_fork_exec_helper:bool
+  -> ?write_to_log:(string -> unit)
+  -> ?verify_cert:bool
+  -> string
+  -> int
+  -> (Stunnel.t -> 'b)
+  -> 'b
 (** Connects via stunnel (optionally via an external 'fork/exec helper') to
     a host and port. If there is a suitable stunnel in the cache then this 
     will be used, otherwise we make a fresh one. *)
-val with_connect :
-  ?use_fork_exec_helper:bool ->
-  ?write_to_log:(string -> unit) ->
-  ?verify_cert:bool -> string -> int -> (Stunnel.t -> 'b) -> 'b
 
-(** Adds a reusable stunnel to the cache *)
 val add : Stunnel.t -> unit
+(** Adds a reusable stunnel to the cache *)
 
-(** Given a host and port call a function with a cached stunnel, or return None. *)
 val with_remove : string -> int -> bool -> (Stunnel.t -> 'b) -> 'b option
+(** Given a host and port call a function with a cached stunnel, or return None. *)
 
-(** Empty the cache of all stunnels *)
 val flush : unit -> unit
+(** Empty the cache of all stunnels *)
 
-(** GCs old stunnels *)
 val gc : unit -> unit
+(** GCs old stunnels *)

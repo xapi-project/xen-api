@@ -14,6 +14,6 @@
 
 exception MissingHeader of string
 
-type protocol = | Hixie76 | Hybi10
+type protocol = Hixie76 | Hybi10
 
 val upgrade : Http.Request.t -> Unix.file_descr -> protocol

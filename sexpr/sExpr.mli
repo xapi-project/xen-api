@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 type t =
-    Node of t list
+  | Node of t list
   | Symbol of string
   | String of string
   | WeirdString of string * string
