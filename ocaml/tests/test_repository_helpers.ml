@@ -95,6 +95,7 @@ let fields_of_update = Fmt.Dump.([
   ; field "new_version" (fun (r:Update.t) -> r.new_version) string
   ; field "new_release" (fun (r:Update.t) -> r.new_release) string
   ; field "update_id" (fun (r:Update.t) -> r.update_id) (option string)
+  ; field "repository" (fun (r:Update.t) -> r.repository) string
   ])
 
 module UpdateOfJsonTest = Generic.MakeStateless (struct
@@ -128,7 +129,8 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               "version": "0.2.2",
               "release": "10.el7"
             },
-            "updateId": "UPDATE-0000"
+            "updateId": "UPDATE-0000",
+            "repository": "regular"
           }
           |},
           Ok Update.{
@@ -139,6 +141,7 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               ; new_version="0.2.2"
               ; new_release="10.el7"
               ; update_id=Some "UPDATE-0000"
+              ; repository="regular"
               }
         )
       ; (* No old version, old release and updateId *)
@@ -149,7 +152,8 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
             "newVerRel": {
               "version": "0.2.2",
               "release": "10.el7"
-            }
+            },
+            "repository": "regular"
           }
           |},
           Ok Update.{
@@ -160,6 +164,7 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               ; new_version="0.2.2"
               ; new_release="10.el7"
               ; update_id=None
+              ; repository="regular"
               }
         )
       ; (* Missing arch *)
@@ -174,7 +179,8 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               "version": "0.2.2",
               "release": "10.el7"
             },
-            "updateId": "UPDATE-0000"
+            "updateId": "UPDATE-0000",
+            "repository": "regular"
           }
           |},
           Error Yojson.Basic.Util.(
@@ -926,6 +932,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = (Some "UPDATE-0000")
+            ; repository = "regular"
             }
           ),
           GuidanceStrSet.empty)
@@ -966,6 +973,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = (Some "UPDATE-0002") (* This ID can't be found in above *)
+            ; repository = "regular"
             }
           ),
           GuidanceStrSet.empty
@@ -994,6 +1002,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = None (* This is None *)
+            ; repository = "regular"
             }
           ),
           GuidanceStrSet.empty
@@ -1035,6 +1044,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = (Some "UPDATE-0001")
+            ; repository = "regular"
             }
           ),
           (GuidanceStrSet.of_list ["EvacuateHost"])
@@ -1085,6 +1095,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = (Some "UPDATE-0001")
+            ; repository = "regular"
             }
           ),
           (GuidanceStrSet.of_list ["EvacuateHost"; "RestartDeviceModel"])
@@ -1143,6 +1154,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = (Some "UPDATE-0001")
+            ; repository = "regular"
             }
           ),
           (GuidanceStrSet.of_list ["EvacuateHost"; "RestartDeviceModel"])
@@ -1193,6 +1205,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = (Some "UPDATE-0001")
+            ; repository = "regular"
             }
           ),
           GuidanceStrSet.empty
@@ -1243,6 +1256,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
             ; new_version = "0.2.2"
             ; new_release = "10.el7"
             ; update_id = Some "UPDATE-0001"
+            ; repository = "regular"
             }
           ),
           GuidanceStrSet.empty
@@ -1257,7 +1271,7 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
      * string: output line of "yum list updates" *)
     type input_t = ((string * string) list * (string * Pkg.t) list) * string
 
-    type output_t = Yojson.Basic.t option
+    type output_t = (Yojson.Basic.t option, exn) result
 
     let string_of_input_t =
       Fmt.(str "%a" Dump.(
@@ -1268,14 +1282,18 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
             string
         ))
 
-    let string_of_output_t j =
-      Fmt.(str "%a" Dump.(option string)) (Option.map Yojson.Basic.to_string j)
+    let string_of_output_t = function
+      | Ok j ->
+        Fmt.(str "%a" Dump.(option string)) (Option.map Yojson.Basic.to_string j)
+      | Error e ->
+        Fmt.(str "%a" exn) e
   end
 
   let transform ((rpm2updates, installed_pkgs), line) =
-    get_rpm_update_in_json ~rpm2updates ~installed_pkgs line
-
-  let repo_name = !Xapi_globs.local_repo_name
+    try
+      Ok (get_rpm_update_in_json ~rpm2updates ~installed_pkgs line)
+    with e ->
+      Error e
 
   let tests =
     `QuickAndAutoDocumented
@@ -1304,7 +1322,8 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
             ),
             "libpath-utils.noarch    0.2.2-1.el7      epel" (* repository name is "epel" *)
           ),
-          None
+          Error Api_errors.(Server_error(
+              internal_error, ["Found update from unmanaged repository"]))
         )
 
       ; (* A normal case in which installed packages are not required *)
@@ -1313,20 +1332,24 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
               ],
               [] (* No installed packages provided *)
             ),
-            "xsconsole.x86_64  0.2.2-9.el7    " ^ repo_name
+            "xsconsole.x86_64  0.2.2-9.el7    local-regular"
           ),
-          Some (
-            `Assoc [
-                ("name", `String "xsconsole")
-              ; ("arch", `String "x86_64")
-              ; ( "newVerRel",
-                  `Assoc [
-                    ("version", `String "0.2.2")
-                  ; ("release", `String "9.el7")
-                  ]
-                )
-              ; ("updateId", `String "UPDATE-0000")
-              ])
+          Ok ( Some
+                 (`Assoc
+                    [
+                      ( "name", `String "xsconsole" )
+                    ; ( "arch", `String "x86_64" )
+                    ; ( "newVerRel", `Assoc
+                          [
+                            ( "version", `String "0.2.2" )
+                          ; ( "release", `String "9.el7" )
+                          ]
+                      )
+                    ; ( "updateId", `String "UPDATE-0000" )
+                    ; ( "repository", `String "regular" )
+                    ]
+                 )
+             )
         )
 
       ; (* A normal case *)
@@ -1351,26 +1374,31 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             ),
-            "xsconsole.x86_64  0.2.2-9.el7    " ^ repo_name
+            "xsconsole.x86_64  0.2.2-9.el7    local-regular"
           ),
-          Some (
-            `Assoc [
-                ( "name", `String "xsconsole" )
-              ; ( "arch", `String "x86_64" )
-              ; ( "newVerRel",
-                  `Assoc [
-                    ("version", `String "0.2.2")
-                  ; ("release", `String "9.el7")
-                  ]
-                )
-              ; ( "updateId", `String "UPDATE-0000" )
-              ; ( "oldVerRel",
-                  `Assoc [
-                    ("version", `String "0.2.1")
-                  ; ("release", `String "29.el7")
-                  ]
-                )
-              ])
+          Ok ( Some
+                 (
+                   `Assoc
+                     [
+                       ( "name", `String "xsconsole" )
+                     ; ( "arch", `String "x86_64" )
+                     ; ( "newVerRel", `Assoc
+                           [
+                             ( "version", `String "0.2.2" )
+                           ; ( "release", `String "9.el7" )
+                           ]
+                       )
+                     ; ( "updateId", `String "UPDATE-0000" )
+                     ; ( "repository", `String "regular" )
+                     ; ( "oldVerRel", `Assoc
+                           [
+                             ( "version", `String "0.2.1" )
+                           ; ( "release", `String "29.el7" )
+                           ]
+                       )
+                     ]
+                 )
+             )
         )
 
       ; (* A package to be updated is not in updateinfo.xml *)
@@ -1393,26 +1421,31 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             ),
-            "xsconsole.x86_64  0.2.2-9.el7    " ^ repo_name
+            "xsconsole.x86_64  0.2.2-9.el7    local-regular"
           ),
-          Some (
-            `Assoc [
-                ( "name", `String "xsconsole" )
-              ; ( "arch", `String "x86_64" )
-              ; ( "newVerRel",
-                  `Assoc [
-                    ("version", `String "0.2.2")
-                  ; ("release", `String "9.el7")
-                  ]
-                )
-              ; ( "updateId", `Null )
-              ; ( "oldVerRel",
-                  `Assoc [
-                    ("version", `String "0.2.1")
-                  ; ("release", `String "29.el7")
-                  ]
-                )
-              ])
+          Ok ( Some
+                 (
+                   `Assoc
+                     [
+                       ( "name", `String "xsconsole" )
+                     ; ( "arch", `String "x86_64" )
+                     ; ( "newVerRel", `Assoc
+                           [
+                             ( "version", `String "0.2.2" )
+                           ; ( "release", `String "9.el7" )
+                           ]
+                       )
+                     ; ( "updateId", `Null )
+                     ; ( "repository", `String "regular" )
+                     ; ( "oldVerRel", `Assoc
+                           [
+                             ( "version", `String "0.2.1" )
+                           ; ( "release", `String "29.el7" )
+                           ]
+                       )
+                     ]
+                 )
+             )
         )
       ]
 end)
@@ -1453,7 +1486,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
   let host = "string_of_host_ref"
 
   let transform updates =
-    consolidate_updates_of_host ~updates_info host (Yojson.Basic.from_string updates)
+    consolidate_updates_of_host
+      ~repository_name:"regular" ~updates_info host (Yojson.Basic.from_string updates)
 
   let tests =
     `QuickAndAutoDocumented
@@ -1489,7 +1523,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
-                  "updateId": "UPDATE-0000"
+                  "updateId": "UPDATE-0000",
+                  "repository": "regular"
                 },
                 {
                   "name": "libpath-utils",
@@ -1502,7 +1537,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
-                  "updateId": "UPDATE-0001"
+                  "updateId": "UPDATE-0001",
+                  "repository": "regular"
                 }
               ]
             }
@@ -1535,7 +1571,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
-                  "updateId": "UPDATE-0001"
+                  "updateId": "UPDATE-0001",
+                  "repository": "regular"
                 }
               ]
             }
@@ -1567,7 +1604,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
-                  "updateId": "UPDATE-0003"
+                  "updateId": "UPDATE-0003",
+                  "repository": "regular"
                 }
               ]
             }
@@ -1599,7 +1637,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
-                  "updateId": null
+                  "updateId": null,
+                  "repository": "regular"
                 }
               ]
             }
@@ -1612,6 +1651,54 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
               ; ("updates", `List [])
               ],
             UpdateIdSet.empty
+          )
+        )
+
+        ; (* Two updates: one from update, another from non-update *)
+        ( {|
+            {
+              "updates":
+              [
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "oldVerRel": {
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newVerRel": {
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": "UPDATE-0000",
+                  "repository": "base"
+                },
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "oldVerRel": {
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newVerRel": {
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": "UPDATE-0001",
+                  "repository": "regular"
+                }
+              ]
+            }
+          |},
+          ( `Assoc [
+                ("ref", `String host)
+              ; ("recommended-guidance", `List [])
+              ; ("absolute-guidance", `List [])
+              ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm";
+                                `String "xsconsole-0.2.2-9.el7.x86_64.rpm"])
+              ; ("updates", `List [`String "UPDATE-0001"])
+              ],
+            (UpdateIdSet.of_list ["UPDATE-0001"])
           )
         )
       ]
