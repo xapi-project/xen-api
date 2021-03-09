@@ -1,0 +1,112 @@
+#
+# Copyright (c) Citrix Systems, Inc.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+#   1) Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#
+#   2) Redistributions in binary form must reproduce the above
+#      copyright notice, this list of conditions and the following
+#      disclaimer in the documentation and/or other materials
+#      provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+# FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+# COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+DESTDIR=/usr/local
+
+ifeq ($(CYGWIN), 1)
+	CYGWIN_LIBXML = -L/bin -lxml2-2
+	CYGWIN_CURL = -L/bin -lcurl-4
+	POS_FLAG = -U__STRICT_ANSI__
+	TEST_LDFLAGS = -L . libxenserver.so $(CYGWIN_CURL)
+else
+	POS_FLAG = -fPIC
+	TEST_LDFLAGS = -L . -lxenserver
+endif
+
+CFLAGS = -g -Iinclude \
+         $(shell xml2-config --cflags) \
+         $(shell curl-config --cflags) \
+         -W -Wall -Wmissing-prototypes -Werror -std=c99 $(POS_FLAG)
+
+LDFLAGS = -g $(shell xml2-config --libs) \
+             $(shell curl-config --libs) \
+          -Wl,-rpath,$(shell pwd) $(CYGWIN_LIBXML)
+
+# -h for Solaris
+SONAME_LDFLAG ?= -soname
+# -R /usr/sfw/lib -shared for Solaris
+SHLIB_CFLAGS ?= -shared
+
+# ginstall for Solaris
+INSTALL_DIR  = install -d -m0755 -p
+INSTALL_DATA = install -m0644 -p
+
+LIBXENAPI_HDRS_INT = $(wildcard include/*.h)
+LIBXENAPI_HDRS = $(wildcard include/xen/api/*.h)
+LIBXENAPI_OBJS = $(patsubst %.c, %.o, $(wildcard src/*.c))
+
+TEST_PROGRAMS = $(patsubst %.c, %, $(wildcard test/*.c))
+
+%.o: %.c %.h
+	$(CC) -o $@ $<
+
+libxenserver.so: libxenserver.so.{{API_VERSION_MAJOR}}
+	ln -sf $< $@
+
+libxenserver.so.{{API_VERSION_MAJOR}}: libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}}
+	ln -sf $< $@
+
+libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}}: $(LIBXENAPI_OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenserver.so.{{API_VERSION_MAJOR}} $(SHLIB_CFLAGS) -o $@ $^
+
+libxenserver.a: $(LIBXENAPI_OBJS)
+	$(AR) rcs libxenserver.a $^
+
+test/%: test/%.o libxenserver.so
+	$(CC) -o $@ $< $(TEST_LDFLAGS) $(LDFLAGS)
+
+build: libxenserver.so libxenserver.a
+
+tests: $(TEST_PROGRAMS)
+
+install: libxenserver.so libxenserver.a
+	$(INSTALL_DIR) $(DESTDIR)/include/xen/api
+	$(INSTALL_DIR) $(DESTDIR)/lib
+	$(INSTALL_DATA) libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib
+	ln -sf libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib/libxenserver.so.{{API_VERSION_MAJOR}}
+	ln -sf libxenserver.so.{{API_VERSION_MAJOR}} $(DESTDIR)/lib/libxenserver.so
+	$(INSTALL_DATA) libxenserver.a $(DESTDIR)/lib
+	for i in $(LIBXENAPI_HDRS_INT); do \
+	    $(INSTALL_DATA) $$i $(DESTDIR)/include/; \
+	done
+	for i in $(LIBXENAPI_HDRS); do \
+	    $(INSTALL_DATA) $$i $(DESTDIR)/include/xen/api; \
+	done
+
+clean: cleantests
+	rm -f `find -name *.o`
+	rm -f libxenserver.so*
+	rm -f libxenserver.a
+
+cleantests:
+	rm -f $(TEST_PROGRAMS)
+
+.PHONY: clean cleantests build tests install
+.DEFAULT_GOAL := tests
