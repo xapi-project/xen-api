@@ -31,7 +31,7 @@
   (deps
     (:x friendly_error_names.exe)
     FriendlyErrorNames.resx
-    (:y %{env:SR_XML=../XE_SR_ERRORCODES.xml})
+    (:y XE_SR_ERRORCODES.xml)
     (source_tree templates)
   )
   (action (run %{x} -s %{y}))
