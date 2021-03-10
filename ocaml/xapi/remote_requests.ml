@@ -46,7 +46,7 @@ type response = Success | Exception of exn | NoResponse
 
 type queued_request = {
     task: API.ref_task
-  ; verify_cert: bool
+  ; verify_cert: Stunnel.config option
   ; host: string
   ; port: int
   ; request: Http.Request.t
@@ -108,7 +108,7 @@ let handle_request req =
     let open Xmlrpc_client in
     let transport =
       SSL
-        ( SSL.make ~verify_cert:req.verify_cert
+        ( SSL.make ?verify_cert:req.verify_cert
             ~task_id:(Ref.string_of req.task) ()
         , req.host
         , req.port )
@@ -150,7 +150,7 @@ let queue_request req =
       request_queue := req :: !request_queue ;
       Condition.signal request_cond)
 
-let perform_request ~__context ~timeout ~verify_cert ~host ~port ~request
+let perform_request ~__context ~timeout ?verify_cert ~host ~port ~request
     ~handler ~enable_log =
   let task = Context.get_task_id __context in
   let resp = ref NoResponse in
@@ -192,7 +192,7 @@ let send_test_post ~__context ~host ~port ~body =
       Xapi_http.http_request ~keep_alive:false ~body ~headers:[("Host", host)]
         Http.Post "/"
     in
-    perform_request ~__context ~timeout:30.0 ~verify_cert:true ~host
+    perform_request ~__context ~timeout:30.0 ~verify_cert:Stunnel.pool ~host
       ~port:(Int64.to_int port) ~request ~handler:(read_response result)
       ~enable_log:true ;
     !result

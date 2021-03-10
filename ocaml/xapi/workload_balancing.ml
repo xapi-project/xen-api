@@ -295,7 +295,13 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
   let body = wlb_body meth params in
   let request = wlb_request host meth body auth in
   let pool = Helpers.get_pool ~__context in
-  let verify_cert = Db.Pool.get_wlb_verify_cert ~__context ~self:pool in
+  let verify_cert =
+    match Db.Pool.get_wlb_verify_cert ~__context ~self:pool with
+    | true ->
+        Some Stunnel.appliance
+    | false ->
+        None
+  in
   let pool_other_config = Db.Pool.get_other_config ~__context ~self:pool in
   let timeout =
     try
@@ -311,7 +317,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
          (filtered_headers (Http.Request.to_header_list request)))
       body ;
   try
-    Remote_requests.perform_request ~__context ~timeout ~verify_cert ~host ~port
+    Remote_requests.perform_request ~__context ~timeout ?verify_cert ~host ~port
       ~request ~handler ~enable_log
   with
   | Remote_requests.Timed_out ->

@@ -76,8 +76,9 @@ let force_connection_reset () =
       | Some () ->
           purge_stunnels verify_cert
     in
-    purge_stunnels true ;
-    purge_stunnels false ;
+    purge_stunnels None ;
+    purge_stunnels (Some Stunnel.pool) ;
+    purge_stunnels (Some Stunnel.appliance) ;
     info
       "force_connection_reset: all cached connections to the master have been \
        purged"
