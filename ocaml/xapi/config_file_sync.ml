@@ -100,7 +100,10 @@ let fetch_config_files_internal ~master_address ~pool_secret =
           in
           let open Xmlrpc_client in
           let transport =
-            SSL (SSL.make (), master_address, !Constants.https_port)
+            SSL
+              ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+              , master_address
+              , !Constants.https_port )
           in
           with_transport transport
             (with_http request (fun (response, fd) ->

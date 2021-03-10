@@ -55,7 +55,9 @@ let remote_rpc_no_retry context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ?task_id:(Option.map Ref.string_of task_opt) ()
+      ( SSL.make ~verify_cert:(Stunnel_client.pool ())
+          ?task_id:(Option.map Ref.string_of task_opt)
+          ()
       , hostname
       , !Constants.https_port )
   in
@@ -69,7 +71,7 @@ let remote_rpc_retry context hostname (task_opt : API.ref_task option) xml =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ~use_stunnel_cache:true
+      ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ~use_stunnel_cache:true
           ?task_id:(Option.map Ref.string_of task_opt)
           ()
       , hostname

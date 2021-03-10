@@ -2849,4 +2849,4 @@ let alert_failed_login_attempts () =
             ~body:stats)
 
 let enable_tls_verification ~__context =
-  Helpers.StunnelClient.set_verify_by_default true
+  Stunnel_client.set_verify_by_default true

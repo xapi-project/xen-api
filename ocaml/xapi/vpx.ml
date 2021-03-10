@@ -323,6 +323,8 @@ let array_of_jobInstances_of_rpc lr =
 
 let vpxrpc ip call =
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make (), ip, 443) in
+  let transport =
+    SSL (SSL.make ~verify_cert:(Stunnel_client.pool ()) (), ip, 443)
+  in
   (*	debug "call = %s" (Xmlrpc.string_of_call call); *)
   XMLRPC_protocol.rpc ~transport ~http:(xmlrpc ~version:"1.0" "/") call

@@ -73,11 +73,12 @@ let proxy (ain : Unix.file_descr) (aout : Unix.file_descr)
 
 let with_open_tcp_ssl server f =
   let port = 443 in
+  let verify_cert = None (* CL *) in
   (* We don't bother closing fds since this requires our close_and_exec wrapper *)
   let open Safe_resources in
   Stunnel.with_connect ~use_fork_exec_helper:false
     ~write_to_log:(fun _ -> ())
-    server port
+    ~verify_cert server port
   @@ fun x -> f Unixfd.(!(x.Stunnel.fd))
 
 let _ =

@@ -2468,11 +2468,11 @@ let get_sched_gran ~__context ~self =
 
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
-  Helpers.StunnelClient.set_verify_by_default false
+  Stunnel_client.set_verify_by_default false
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =
-    Helpers.StunnelClient.get_verify_by_default ()
+    Stunnel_client.get_verify_by_default ()
   in
   let tls_verification_enabled_pool_wide =
     Db.Pool.get_tls_verification_enabled ~__context

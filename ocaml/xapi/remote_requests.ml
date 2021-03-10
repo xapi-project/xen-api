@@ -46,7 +46,7 @@ type response = Success | Exception of exn | NoResponse
 
 type queued_request = {
     task: API.ref_task
-  ; verify_cert: bool
+  ; verify_cert: Stunnel.config option
   ; host: string
   ; port: int
   ; request: Http.Request.t
@@ -188,11 +188,12 @@ let read_response result response s =
 let send_test_post ~__context ~host ~port ~body =
   try
     let result = ref "" in
+    let verify_cert = Stunnel_client.pool () in
     let request =
       Xapi_http.http_request ~keep_alive:false ~body ~headers:[("Host", host)]
         Http.Post "/"
     in
-    perform_request ~__context ~timeout:30.0 ~verify_cert:true ~host
+    perform_request ~__context ~timeout:30.0 ~verify_cert ~host
       ~port:(Int64.to_int port) ~request ~handler:(read_response result)
       ~enable_log:true ;
     !result

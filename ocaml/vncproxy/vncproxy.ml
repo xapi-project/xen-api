@@ -73,7 +73,11 @@ let _ =
           ~http xml
     | host ->
         XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi"
-          ~transport:(SSL (SSL.make ~use_fork_exec_helper:false (), host, 443))
+          ~transport:
+            (SSL
+               ( SSL.make ~verify_cert:None ~use_fork_exec_helper:false ()
+               , host
+               , 443 ))
           ~http xml
   in
   let find_vm rpc session_id vm =
@@ -94,7 +98,11 @@ let _ =
           (Printf.sprintf "%s?ref=%s" Constants.console_uri (Ref.string_of vm))
       in
       let transport =
-        SSL (SSL.make ~use_fork_exec_helper:false (), address, 443)
+        SSL
+          ( SSL.make ~verify_cert:(Stunnel_client.pool ())
+              ~use_fork_exec_helper:false ()
+          , address
+          , 443 )
       in
       with_transport transport
         (with_http http (fun (response, fd) ->

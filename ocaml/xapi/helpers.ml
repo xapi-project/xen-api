@@ -334,7 +334,8 @@ let make_rpc ~__context rpc : Rpc.response =
       Unix Xapi_globs.unix_domain_socket
     else
       SSL
-        ( SSL.make ~use_stunnel_cache:true ()
+        ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ())
+            ()
         , Pool_role.get_master_address ()
         , !Constants.https_port )
   in
@@ -363,8 +364,8 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
           Unix Xapi_globs.unix_domain_socket
         else
           SSL
-            ( SSL.make ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id)
-                ()
+            ( SSL.make ~verify_cert:(Stunnel_client.pool ())
+                ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) ()
             , Pool_role.get_master_address ()
             , !Constants.https_port )
       in
@@ -394,7 +395,12 @@ let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
 (* This one uses rpc-light *)
 let make_remote_rpc remote_address xml =
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make (), remote_address, !Constants.https_port) in
+  let transport =
+    SSL
+      ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+      , remote_address
+      , !Constants.https_port )
+  in
   let http = xmlrpc ~version:"1.0" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
@@ -460,7 +466,12 @@ let call_api_functions ~__context f =
 
 let call_emergency_mode_functions hostname f =
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make (), hostname, !Constants.https_port) in
+  let transport =
+    SSL
+      ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+      , hostname
+      , !Constants.https_port )
+  in
   let http = xmlrpc ~version:"1.0" "/" in
   let rpc =
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http
@@ -1673,27 +1684,6 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
         (fun () ->
           info "try_internal_async: destroying task: t = ( %s )" ref ;
           TaskHelper.destroy ~__context t)
-
-module StunnelClient : sig
-  val get_verify_by_default : unit -> bool
-
-  val set_verify_by_default : bool -> unit
-end = struct
-  module D = Debug.Make (struct let name = "StunnelClient" end)
-
-  let get_verify_by_default () =
-    Sys.file_exists Stunnel.verify_certificates_ctrl
-
-  let set_verify_by_default = function
-    | false -> (
-        D.info "disabling default tls verification" ;
-        try Sys.remove Stunnel.verify_certificates_ctrl with _ -> ()
-      )
-    | true -> (
-        D.info "enabling default tls verification" ;
-        try Unixext.touch_file Stunnel.verify_certificates_ctrl with _ -> ()
-      )
-end
 
 (** wrapper around the stunnel@xapi systemd service.
   * there exist scripts (e.g. xe-toolstack-restart) which also manipulate
