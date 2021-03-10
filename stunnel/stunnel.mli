@@ -21,8 +21,6 @@ exception Stunnel_verify_error of string
 
 val crl_path : string
 
-val verify_certificates_ctrl : string
-
 val timeoutidle : int option ref
 
 type pid =
@@ -31,6 +29,10 @@ type pid =
   | Nopid
 
 val getpid : pid -> int
+
+type verify = VerifyPeer | CheckHost
+
+type config = {sni: string option; verify: verify; cert_bundle_path: string}
 
 (** Represents an active stunnel connection *)
 type t = {
@@ -42,14 +44,18 @@ type t = {
         (** time when the connection opened, for 'early retirement' *)
   ; unique_id: int option
   ; mutable logfile: string
-  ; verified: bool
+  ; verified: config option
 }
+
+val appliance : config
+
+val pool : config
 
 val with_connect :
      ?unique_id:int
   -> ?use_fork_exec_helper:bool
   -> ?write_to_log:(string -> unit)
-  -> ?verify_cert:bool
+  -> verify_cert:config option
   -> ?extended_diagnosis:bool
   -> string
   -> int
@@ -67,8 +73,6 @@ val disconnect : ?wait:bool -> ?force:bool -> t -> unit
 val diagnose_failure : t -> unit
 
 val test : string -> int -> unit
-
-val must_verify_cert : bool option -> bool
 
 val move_out_exn : t -> t
 

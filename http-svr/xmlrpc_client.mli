@@ -27,7 +27,7 @@ module SSL : sig
   val make :
        ?use_fork_exec_helper:bool
     -> ?use_stunnel_cache:bool
-    -> ?verify_cert:bool
+    -> verify_cert:Stunnel.config option
     -> ?task_id:string
     -> unit
     -> t

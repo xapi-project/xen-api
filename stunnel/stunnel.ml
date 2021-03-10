@@ -26,11 +26,7 @@ exception Stunnel_error of string
 
 exception Stunnel_verify_error of string
 
-let certificates_bundle_path = "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
-
 let crl_path = "/etc/stunnel/crls"
-
-let verify_certificates_ctrl = "/var/xapi/verify_certificates"
 
 let cached_stunnel_path = ref None
 
@@ -126,6 +122,10 @@ let getpid ty =
   | Nopid ->
       failwith "No pid!"
 
+type verify = VerifyPeer | CheckHost
+
+type config = {sni: string option; verify: verify; cert_bundle_path: string}
+
 type t = {
     mutable pid: pid
   ; fd: Unixfd.t
@@ -134,10 +134,34 @@ type t = {
   ; connected_time: float
   ; unique_id: int option
   ; mutable logfile: string
-  ; verified: bool
+  ; verified: config option
 }
 
-let config_file verify_cert extended_diagnosis host port =
+let appliance =
+  {
+    sni= None
+  ; verify= CheckHost
+  ; cert_bundle_path= "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+  }
+
+let pool =
+  {
+    sni= Some "pool"
+  ; verify= VerifyPeer
+  ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
+  }
+
+let config_file config extended_diagnosis host port =
+  ( match config with
+  | None ->
+      D.debug "client cert verification %s:%d: None" host port
+  | Some {sni= Some x; cert_bundle_path; _} ->
+      D.debug "client cert verification %s:%d: SNI=%s path=%s" host port x
+        cert_bundle_path
+  | Some {sni= None; cert_bundle_path; _} ->
+      D.debug "client cert verification %s:%d: path=%s" host port
+        cert_bundle_path
+  ) ;
   let is_fips =
     Inventory.inventory_filename := "/etc/xensource-inventory" ;
     try bool_of_string (Inventory.lookup ~default:"false" "CC_PREPARATIONS")
@@ -171,15 +195,24 @@ let config_file verify_cert extended_diagnosis host port =
          ; "ciphers = " ^ Xcp_const.good_ciphersuites
          ; "curve = secp384r1"
          ]
-       ; ( if verify_cert then
+       ; ( match config with
+         | None ->
+             []
+         | Some {sni; verify; cert_bundle_path} ->
              [
                ""
              ; "# use SNI to request a specific cert. CAfile contains"
              ; "# public certs of all hosts in the pool and must contain"
              ; "# the cert of the server we connect to"
-             ; "sni = pool"
+             ; (match sni with None -> "" | Some s -> sprintf "sni = %s" s)
+             ; ( match verify with
+               | VerifyPeer ->
+                   ""
+               | CheckHost ->
+                   sprintf "checkHost=%s" host
+               )
              ; "verifyPeer=yes"
-             ; sprintf "CAfile=%s" certificates_bundle_path
+             ; sprintf "CAfile=%s" cert_bundle_path
              ; ( match Sys.readdir crl_path with
                | [||] ->
                    ""
@@ -189,8 +222,6 @@ let config_file verify_cert extended_diagnosis host port =
                    ""
                )
              ]
-         else
-           []
          )
        ; [""]
        ]
@@ -348,20 +379,12 @@ let rec retry f = function
       retry f (n - 1)
   )
 
-let must_verify_cert verify_cert =
-  match verify_cert with
-  | Some x ->
-      x
-  | None ->
-      Sys.file_exists verify_certificates_ctrl
-
 (** Establish a fresh stunnel to a (host, port)
     @param extended_diagnosis If true, the stunnel log file will not be
     deleted.  Instead, it is the caller's responsibility to delete it.  This
     allows the caller to use diagnose_failure below if stunnel fails.  *)
-let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ?verify_cert
+let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
     ?(extended_diagnosis = false) host port f =
-  let _verify_cert = must_verify_cert verify_cert in
   let _ =
     match write_to_log with
     | Some logger ->
@@ -372,7 +395,7 @@ let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ?verify_cert
   retry
     (fun () ->
       with_attempt_one_connect ?unique_id ?use_fork_exec_helper ?write_to_log
-        _verify_cert extended_diagnosis host port f)
+        verify_cert extended_diagnosis host port f)
     5
 
 let check_verify_error line =
@@ -419,7 +442,8 @@ let diagnose_failure st_proc =
 let test host port =
   let counter = ref 0 in
   while true do
-    with_connect ~write_to_log:print_endline host port disconnect ;
+    with_connect ~write_to_log:print_endline host ~verify_cert:None port
+      disconnect ;
     incr counter ;
     if !counter mod 100 = 0 then (
       Printf.printf "Ran stunnel %d times\n" !counter ;

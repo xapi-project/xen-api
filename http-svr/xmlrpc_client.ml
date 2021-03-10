@@ -178,7 +178,6 @@ let assert_dest_is_ok host =
 let with_reusable_stunnel ?use_fork_exec_helper ?write_to_log ?verify_cert host
     port f =
   (* 1. First check if there is a suitable stunnel in the cache. *)
-  let verify_cert = Stunnel.must_verify_cert verify_cert in
   let rec loop () =
     match
       Stunnel_cache.with_remove host port verify_cert @@ fun x ->
@@ -260,12 +259,12 @@ module SSL = struct
   type t = {
       use_fork_exec_helper: bool
     ; use_stunnel_cache: bool
-    ; verify_cert: bool option
+    ; verify_cert: Stunnel.config option
     ; task_id: string option
   }
 
   let make ?(use_fork_exec_helper = true) ?(use_stunnel_cache = false)
-      ?verify_cert ?task_id () =
+      ~verify_cert ?task_id () =
     {use_fork_exec_helper; use_stunnel_cache; verify_cert; task_id}
 
   let to_string (x : t) =
@@ -273,7 +272,7 @@ module SSL = struct
       "{ use_fork_exec_helper = %b; use_stunnel_cache = %b; verify_cert = %s; \
        task_id = %s }"
       x.use_fork_exec_helper x.use_stunnel_cache
-      (Option.fold ~none:"None" ~some:(fun x -> string_of_bool x) x.verify_cert)
+      (Option.fold ~none:"None" ~some:(fun _ -> "Yes") x.verify_cert)
       (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ x) x.task_id)
 end
 
@@ -300,7 +299,7 @@ let transport_of_url (scheme, _) =
       TCP (h.host, port)
   | Http ({ssl= true; _} as h) ->
       let port = Option.value ~default:443 h.port in
-      SSL (SSL.make (), h.host, port)
+      SSL (SSL.make ~verify_cert:None (), h.host, port)
 
 let with_transport transport f =
   match transport with
@@ -325,7 +324,7 @@ let with_transport transport f =
         else
           let unique_id = get_new_stunnel_id () in
           Stunnel.with_connect ~use_fork_exec_helper ~write_to_log ~unique_id
-            ?verify_cert ~extended_diagnosis:true host port f
+            ~verify_cert ~extended_diagnosis:true host port f
       in
       st_proc' @@ fun st_proc ->
       let s = st_proc.Stunnel.fd in

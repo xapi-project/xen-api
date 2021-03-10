@@ -23,7 +23,7 @@
 val with_connect :
      ?use_fork_exec_helper:bool
   -> ?write_to_log:(string -> unit)
-  -> ?verify_cert:bool
+  -> verify_cert:Stunnel.config option
   -> string
   -> int
   -> (Stunnel.t -> 'b)
@@ -35,7 +35,8 @@ val with_connect :
 val add : Stunnel.t -> unit
 (** Adds a reusable stunnel to the cache *)
 
-val with_remove : string -> int -> bool -> (Stunnel.t -> 'b) -> 'b option
+val with_remove :
+  string -> int -> Stunnel.config option -> (Stunnel.t -> 'b) -> 'b option
 (** Given a host and port call a function with a cached stunnel, or return None. *)
 
 val flush : unit -> unit
