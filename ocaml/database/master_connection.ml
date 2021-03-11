@@ -158,9 +158,11 @@ let on_database_connection_established = ref (fun () -> ())
 let open_secure_connection () =
   let host = !get_master_address () in
   let port = !Db_globs.https_port in
+  let verify_cert = None in
+  (* CL *)
   Stunnel.with_connect ~use_fork_exec_helper:true ~extended_diagnosis:true
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x)
-    host port
+    ~verify_cert host port
   @@ fun st_proc ->
   let fd_closed = Thread.wait_timed_read Unixfd.(!(st_proc.Stunnel.fd)) 5. in
   let proc_quit =
