@@ -306,3 +306,8 @@ let host_server_certificate_expiring_07 =
 
 let host_server_certificate_expired =
   addMessage "HOST_SERVER_CERTIFICATE_EXPIRED" 1L
+
+let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
+
+let tls_verification_emergency_disabled =
+  addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L

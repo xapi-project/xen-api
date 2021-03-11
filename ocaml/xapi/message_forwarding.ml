@@ -618,7 +618,38 @@ functor
            Ref.string_of repository
        with _ -> "invalid"
 
-    module Session = Local.Session
+    module Session = struct
+      include Local.Session
+
+      let login_with_password ~__context ~uname ~pwd ~version ~originator =
+        Xapi_session.record_login_failure ~__context ~uname:(Some uname)
+          ~originator:(Some originator) ~record:`log_and_alert (fun () ->
+            Local.Session.login_with_password ~__context ~uname ~pwd ~version
+              ~originator)
+
+      let slave_login ~__context ~host ~psecret =
+        Xapi_session.record_login_failure ~__context ~uname:None
+          ~record:`log_and_alert ~originator:None (fun () ->
+            Local.Session.slave_login ~__context ~host ~psecret)
+
+      let change_password ~__context ~old_pwd ~new_pwd =
+        Xapi_session.record_login_failure ~__context ~uname:None
+          ~originator:None ~record:`log_and_alert (fun () ->
+            Local.Session.change_password ~__context ~old_pwd ~new_pwd)
+
+      (* for emergency local logins, we just log - we only bother with alerts on the master *)
+
+      let slave_local_login ~__context ~psecret =
+        Xapi_session.record_login_failure ~__context ~uname:None
+          ~originator:(Some "localhost") ~record:`log_only (fun () ->
+            Local.Session.slave_local_login ~__context ~psecret)
+
+      let slave_local_login_with_password ~__context ~uname ~pwd =
+        Xapi_session.record_login_failure ~__context ~uname:(Some uname)
+          ~originator:(Some "localhost") ~record:`log_only (fun () ->
+            Local.Session.slave_local_login_with_password ~__context ~uname ~pwd)
+    end
+
     module Auth = Local.Auth
     module Subject = Local.Subject
     module Role = Local.Role
@@ -894,6 +925,20 @@ functor
       let rotate_secret ~__context =
         info "Pool.rotate_secret: pool = '%s'" (current_pool_uuid ~__context) ;
         Local.Pool.rotate_secret ~__context
+
+      (* this ought to be
+         (a) idempotent
+         (b) capable of re-enabling verification on hosts who have had verification emergency disabled *)
+      let enable_tls_verification ~__context =
+        info "Pool.enable_tls_verification: pool = '%s'"
+          (current_pool_uuid ~__context) ;
+        let self = Helpers.get_pool ~__context in
+        let local_fn = Local.Pool.enable_tls_verification in
+        Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
+        Xapi_pool_helpers.get_master_slaves_list ~__context
+        |> List.iter (fun host ->
+               do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                   Client.Pool.enable_tls_verification rpc session_id))
 
       let set_repository ~__context ~self ~value =
         info "Pool.set_repository : pool = '%s'; value = %s"
@@ -3133,48 +3178,72 @@ functor
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.disable_external_auth rpc session_id host config)
 
-      let certificate_install ~__context ~host ~name ~cert =
-        let local_fn = Local.Host.certificate_install ~host ~name ~cert in
+      let install_ca_certificate ~__context ~host ~name ~cert =
+        info "Host.install_ca_certificate: host = '%s'; name = '%s'"
+          (host_uuid ~__context host)
+          name ;
+        let local_fn = Local.Host.install_ca_certificate ~host ~name ~cert in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_install rpc session_id host name cert)
+            Client.Host.install_ca_certificate rpc session_id host name cert)
 
-      let certificate_uninstall ~__context ~host ~name =
-        let local_fn = Local.Host.certificate_uninstall ~host ~name in
+      let uninstall_ca_certificate ~__context ~host ~name =
+        info "Host.uninstall_ca_certificate: host = '%s'; name = '%s'"
+          (host_uuid ~__context host)
+          name ;
+        let local_fn = Local.Host.uninstall_ca_certificate ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_uninstall rpc session_id host name)
+            Client.Host.uninstall_ca_certificate rpc session_id host name)
+
+      (* legacy names *)
+      let certificate_install = install_ca_certificate
+
+      let certificate_uninstall = uninstall_ca_certificate
 
       let certificate_list ~__context ~host =
+        info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_list ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.certificate_list rpc session_id host)
 
       let crl_install ~__context ~host ~name ~crl =
+        info "Host.crl_install: host = '%s'; name = '%s'"
+          (host_uuid ~__context host)
+          name ;
         let local_fn = Local.Host.crl_install ~host ~name ~crl in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.crl_install rpc session_id host name crl)
 
       let crl_uninstall ~__context ~host ~name =
+        info "Host.crl_uninstall: host = '%s'; name = '%s'"
+          (host_uuid ~__context host)
+          name ;
         let local_fn = Local.Host.crl_uninstall ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.crl_uninstall rpc session_id host name)
 
       let crl_list ~__context ~host =
+        info "Host.crl_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.crl_list ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.crl_list rpc session_id host)
 
       let certificate_sync ~__context ~host =
+        info "Host.certificate_sync: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_sync ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.certificate_sync rpc session_id host)
 
       let get_server_certificate ~__context ~host =
+        info "Host.get_server_certificate: host = '%s'"
+          (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_server_certificate ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.get_server_certificate rpc session_id host)
 
       let install_server_certificate ~__context ~host ~certificate ~private_key
           ~certificate_chain =
+        info "Host.install_server_certificate: host = '%s'"
+          (host_uuid ~__context host) ;
         let task = Context.get_task_id __context in
         let local_fn =
           Local.Host.install_server_certificate ~host ~certificate ~private_key
@@ -3206,7 +3275,15 @@ functor
                     failed."
                  ] ))
 
+      let reset_server_certificate ~__context ~host =
+        info "Host.reset_server_certificate: host = '%s'"
+          (host_uuid ~__context host) ;
+        let local_fn = Local.Host.reset_server_certificate ~host in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+
       let emergency_reset_server_certificate ~__context =
+        info "Host.emergency_reset_server_certificate" ;
         Local.Host.emergency_reset_server_certificate ~__context
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
@@ -3399,6 +3476,10 @@ functor
         let local_fn = Local.Host.get_sched_gran ~self in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.get_sched_gran rpc session_id self)
+
+      let emergency_disable_tls_verification ~__context =
+        info "Host.emergency_disable_tls_verification" ;
+        Local.Host.emergency_disable_tls_verification ~__context
 
       let apply_updates ~__context ~self ~hash =
         let uuid = host_uuid ~__context self in

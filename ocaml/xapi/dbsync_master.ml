@@ -42,7 +42,8 @@ let create_pool_record ~__context =
       ~other_config:[Xapi_globs.memory_ratio_hvm; Xapi_globs.memory_ratio_pv]
       ~ha_cluster_stack:"xhad" ~guest_agent_config:[] ~cpu_info:[]
       ~policy_no_vendor_device:false ~live_patching_disabled:false
-      ~uefi_certificates:"" ~is_psr_pending:false ~repository:Ref.null
+      ~uefi_certificates:"" ~is_psr_pending:false
+      ~tls_verification_enabled:false ~repository:Ref.null
 
 let set_master_ip ~__context =
   let ip =

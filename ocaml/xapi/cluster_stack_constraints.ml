@@ -1,5 +1,5 @@
 open Db_filter_types
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 
 module D = Debug.Make (struct let name = "cluster_stack_constraints" end)
 
@@ -16,7 +16,7 @@ let required_cluster_stack ~__context =
     List.map
       (fun cluster -> Db.Cluster.get_cluster_stack ~__context ~self:cluster)
       (Db.Cluster.get_all ~__context)
-    |> List.setify
+    |> Listext.setify
   in
   (* Check which PBDs are attached on the master (assume this is running on the master) *)
   let localhost = Helpers.get_localhost ~__context in
@@ -67,7 +67,7 @@ let required_cluster_stack ~__context =
   | hd :: tl -> (
     (* There are multiple attached SRs with constraints. The intersection of
          * the sets of alternatives captures which cluster stacks are possible. *)
-    match List.fold_left List.intersect hd tl with
+    match List.fold_left Listext.intersect hd tl with
     | [] ->
         (* This must be avoided by the PBD.plug code *)
         failwith_cluster_stack_conflict ()

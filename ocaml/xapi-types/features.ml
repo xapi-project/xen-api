@@ -60,6 +60,7 @@ type feature =
   | Corosync
   | Zstd_export
   | Pool_secret_rotation
+  | Certificate_verification
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -116,6 +117,9 @@ let keys_of_features =
   ; (Zstd_export, ("restrict_zstd_export", Negative, "Zstd_export"))
   ; ( Pool_secret_rotation
     , ("restrict_pool_secret_rotation", Negative, "Pool_secret_rotation") )
+  ; ( Certificate_verification
+    , ("restrict_certificate_verification", Negative, "Certificate_verification")
+    )
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

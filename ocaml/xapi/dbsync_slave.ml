@@ -87,7 +87,7 @@ let refresh_localhost_info ~__context info =
   (* Xapi_ha_flags.resync_host_armed_flag __context host; *)
   debug "Updating host software_version and updates_requiring_reboot" ;
   Create_misc.create_updates_requiring_reboot_info ~__context ~host ;
-  Create_misc.create_software_version ~__context info ;
+  Create_misc.create_software_version ~__context ~info:(Some info) () ;
   Db.Host.set_API_version_major ~__context ~self:host
     ~value:Datamodel_common.api_version_major ;
   Db.Host.set_API_version_minor ~__context ~self:host

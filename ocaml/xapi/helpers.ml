@@ -26,7 +26,6 @@ open Db_filter
 open Db_filter_types
 open Xmlrpc_sexpr
 open Api_errors
-include Helper_hostname
 include Helper_process
 open Network
 
@@ -110,7 +109,7 @@ let get_management_iface_is_connected ~__context =
 
 let get_management_ip_addr ~__context =
   let dbg = Context.string_of_task __context in
-  Gencertlib.Lib.get_management_ip_addr ~dbg
+  Option.map fst (Networking_info.get_management_ip_addr ~dbg)
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
@@ -1742,6 +1741,27 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
           info "try_internal_async: destroying task: t = ( %s )" ref ;
           TaskHelper.destroy ~__context t)
 
+module StunnelClient : sig
+  val get_verify_by_default : unit -> bool
+
+  val set_verify_by_default : bool -> unit
+end = struct
+  module D = Debug.Make (struct let name = "StunnelClient" end)
+
+  let get_verify_by_default () =
+    Sys.file_exists Stunnel.verify_certificates_ctrl
+
+  let set_verify_by_default = function
+    | false -> (
+        D.info "disabling default tls verification" ;
+        try Sys.remove Stunnel.verify_certificates_ctrl with _ -> ()
+      )
+    | true -> (
+        D.info "enabling default tls verification" ;
+        try Unixext.touch_file Stunnel.verify_certificates_ctrl with _ -> ()
+      )
+end
+
 (** wrapper around the stunnel@xapi systemd service.
   * there exist scripts (e.g. xe-toolstack-restart) which also manipulate
     the stunnel daemon but they do this directly (not via ocaml). *)
@@ -1750,6 +1770,8 @@ module Stunnel : sig
   (** restart stunnel, possibly changing the config file *)
 end = struct
   let cert = !Xapi_globs.server_cert_path
+
+  let pool_cert = !Xapi_globs.server_cert_internal_path
 
   (** protect ourselves from concurrent writes to files *)
   module Config : sig
@@ -1803,6 +1825,12 @@ end = struct
           ; "TIMEOUTclose = 1"
           ; "options = CIPHER_SERVER_PREFERENCE"
           ; "sslVersion = TLSv1.2"
+          ; ""
+          ; "# xapi connections use SNI 'pool' to request a cert"
+          ; "[pool]"
+          ; "connect = 80"
+          ; "sni = xapi:pool"
+          ; Printf.sprintf "cert = %s" pool_cert
           ]
       in
       let len = String.length conf_contents in

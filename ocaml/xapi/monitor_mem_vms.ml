@@ -13,7 +13,6 @@
  *)
 
 module Mtxext = Xapi_stdext_threads.Threadext.Mutex
-module Lstext = Xapi_stdext_std.Listext.List
 module Mcache = Monitor_dbcalls_cache
 
 module D = Debug.Make (struct let name = "monitor_mem_vms" end)
@@ -27,7 +26,7 @@ let get_changes rrd_files =
         let datasources = Monitor_types.datasources_from_filename filename in
         Mcache.log_errors_from filename ;
         datasources
-        |> Lstext.filter_map (function
+        |> List.filter_map (function
              | Rrd.VM vm_uuid, ds when ds.Ds.ds_name = "memory" ->
                  Some (vm_uuid, ds)
              | _ ->

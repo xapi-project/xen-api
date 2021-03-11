@@ -272,6 +272,12 @@ val get_uncooperative_resident_VMs :
 val get_uncooperative_domains :
   __context:Context.t -> self:[`host] Ref.t -> string list
 
+val install_ca_certificate :
+  __context:'a -> host:'b -> name:string -> cert:string -> unit
+
+val uninstall_ca_certificate : __context:'a -> host:'b -> name:string -> unit
+
+(* legacy names *)
 val certificate_install :
   __context:'a -> host:'b -> name:string -> cert:string -> unit
 
@@ -306,6 +312,8 @@ val install_server_certificate :
     connections. *)
 
 val emergency_reset_server_certificate : __context:Context.t -> unit
+
+val reset_server_certificate : __context:Context.t -> host:API.ref_host -> unit
 
 val detect_nonhomogeneous_external_auth_in_host :
   __context:Context.t -> host:API.ref_host -> unit
@@ -506,6 +514,11 @@ val set_sched_gran :
 
 val get_sched_gran :
   __context:Context.t -> self:API.ref_host -> API.host_sched_gran
+
+val emergency_disable_tls_verification : __context:'a -> unit
+
+val alert_if_tls_verification_was_emergency_disabled :
+  __context:Context.t -> unit
 
 val get_host_updates_handler :
      Http.Request.t

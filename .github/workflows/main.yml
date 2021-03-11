@@ -82,3 +82,17 @@ jobs:
         run: |
           opam list | awk -F " " '$2 == "master" { print $1 }' |  xargs opam uninstall
           opam pin list | cut -f1 -d "." | xargs opam unpin
+
+  deprecation-test:
+    name: Deprecation tests
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Generate empty configuration for make to be happy
+        run: touch config.mk
+
+      - name: Number of List.hd usages has not changed
+        run: make list-hd

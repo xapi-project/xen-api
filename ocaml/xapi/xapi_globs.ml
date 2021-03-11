@@ -731,6 +731,12 @@ let pool_secret_path = ref (Filename.concat "/etc/xensource" "ptoken")
 (* Path to server ssl certificate *)
 let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 
+(* Path to server certificate used for host-to-host TLS connections *)
+let server_cert_internal_path =
+  ref (Filename.concat "/etc/xensource" "xapi-pool-tls.pem")
+
+let stunnel_cert_path = ref "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+
 let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
@@ -1335,6 +1341,10 @@ module Resources = struct
     ; ("logconfig", log_config_file, "Configure the logging policy")
     ; ("cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info")
     ; ("server-cert-path", server_cert_path, "Path to server ssl certificate")
+    ; ( "server-cert-internal-path"
+      , server_cert_internal_path
+      , "Path to server certificate used for host-to-host TLS connections" )
+    ; ("stunnel-cert-path", stunnel_cert_path, "Path to CA ssl certificate")
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
       , "Path to the initiatorname.iscsi file" )

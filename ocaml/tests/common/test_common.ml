@@ -133,7 +133,8 @@ let make_vm ~__context ?(name_label = "name_label")
     ?(actions_after_shutdown = `destroy) ?(actions_after_reboot = `restart)
     ?(actions_after_crash = `destroy) ?(pV_bootloader = "") ?(pV_kernel = "")
     ?(pV_ramdisk = "") ?(pV_args = "") ?(pV_bootloader_args = "")
-    ?(pV_legacy_args = "") ?(hVM_boot_policy = "BIOS order")
+    ?(pV_legacy_args = "")
+    ?(hVM_boot_policy = Constants.hvm_default_boot_policy)
     ?(hVM_boot_params = []) ?(hVM_shadow_multiplier = 1.) ?(platform = [])
     ?(pCI_bus = "") ?(other_config = []) ?(xenstore_data = [])
     ?(recommendations = "") ?(ha_always_run = false) ?(ha_restart_priority = "")
@@ -286,7 +287,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~vswitch_controller ~igmp_snooping_enabled ~current_operations
     ~allowed_operations ~restrictions ~other_config ~ha_cluster_stack
     ~guest_agent_config ~cpu_info ~policy_no_vendor_device
-    ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false ~repository;
+    ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false
+    ~tls_verification_enabled:false ~repository ;
   pool_ref
 
 let default_sm_features =

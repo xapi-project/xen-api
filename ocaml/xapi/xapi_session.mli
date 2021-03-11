@@ -83,3 +83,23 @@ val create_readonly_session :
 
 val create_from_db_file :
   __context:Context.t -> filename:string -> API.ref_session
+
+(* for unit testing *)
+val _record_login_failure :
+     __context:Context.t
+  -> now:Xapi_stdext_date.Date.iso8601
+  -> uname:string option
+  -> originator:string option
+  -> record:[< `log_only | `log_and_alert]
+  -> (unit -> 'a)
+  -> 'a
+
+val record_login_failure :
+     __context:Context.t
+  -> uname:string option
+  -> originator:string option
+  -> record:[< `log_only | `log_and_alert]
+  -> (unit -> 'a)
+  -> 'a
+
+val get_failed_login_stats : unit -> string option

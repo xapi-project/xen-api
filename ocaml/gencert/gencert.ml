@@ -12,16 +12,28 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Usage: gencert <path> *)
-
 let inventory = "/etc/xensource-inventory"
 
 module Lib = Gencertlib.Lib
 
 module D = Debug.Make (struct let name = "gencert" end)
 
-let generate_cert_or_fail ~path ~cn ~sans =
-  Gencertlib.Selfcert.host cn sans path ;
+(* There are two types of certificates that can be generated, each one is
+   served depending on the SNI of the petition being received *)
+module SNI = struct
+  type t = Default | Xapi_pool
+
+  let of_string = function
+    | "default" ->
+        Some Default
+    | "xapi:pool" ->
+        Some Xapi_pool
+    | _ ->
+        None
+end
+
+let generate_cert_or_fail ~generator ~path =
+  generator path ;
   if Sys.file_exists path then
     D.info "file exists (%s), assuming cert was created" path
   else (
@@ -29,27 +41,28 @@ let generate_cert_or_fail ~path ~cn ~sans =
     exit 1
   )
 
-let main ~dbg ~path =
+let main ~dbg ~path ~sni =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
-  let hostname, sans =
-    match Lib.hostnames () with
-    | [] ->
-        D.error "can't infer hostname for SSL certificate" ;
-        exit 1
-    | hostname :: rest ->
-        (hostname, rest)
+  let generator =
+    match sni with
+    | SNI.Default ->
+        let name, ip =
+          match Networking_info.get_management_ip_addr ~dbg with
+          | None ->
+              D.error "gencert.ml: cannot get management ip address!" ;
+              exit 1
+          | Some x ->
+              x
+        in
+        let dns_names = Networking_info.dns_names () in
+        let ips = [ip] in
+        Gencertlib.Selfcert.host ~name ~dns_names ~ips
+    | SNI.Xapi_pool ->
+        let uuid = Inventory.lookup Inventory._installation_uuid in
+        Gencertlib.Selfcert.xapi_pool ~uuid
   in
-  let cn =
-    if Astring.String.is_prefix ~affix:"localhost" hostname then
-      Lib.get_management_ip_addr ~dbg
-    else if Astring.String.is_infix ~affix:"." hostname then
-      None
-    else
-      Lib.get_management_ip_addr ~dbg
-  in
-  let cn = Option.value ~default:hostname cn in
-  generate_cert_or_fail ~path ~cn ~sans
+  generate_cert_or_fail ~generator ~path
 
 let () =
   let program_name = Sys.argv.(0) in
@@ -57,11 +70,17 @@ let () =
   (* if necessary use Unix.localtime to debug *)
   D.debug "%s" dbg ;
   match Sys.argv with
-  | [|_; path|] when Sys.file_exists path ->
+  | [|_; path; _|] when Sys.file_exists path ->
       D.info "file already exists at path (%s) - doing nothing" path ;
       exit 0
-  | [|_; path|] ->
-      main ~dbg ~path
+  | [|_; path; sni|] -> (
+    match SNI.of_string sni with
+    | Some sni ->
+        main ~dbg ~path ~sni
+    | None ->
+        D.error "SNI must be default or xapi:pool, but got '%s'" sni ;
+        exit 1
+  )
   | _ ->
-      D.error "Usage: %s PATH" program_name ;
+      D.error "Usage: %s PATH (default|xapi:pool)" program_name ;
       exit 1

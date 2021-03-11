@@ -1,12 +1,13 @@
 [Unit]
-Description=Generate xapi ssl certificate
+Description=Generate TLS certificates for xapi
 Requires=forkexecd.service
 After=forkexecd.service
 
 [Service]
 User=root
 Type=oneshot
-ExecStart=/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem
+ExecStart=/bin/sh -c '/opt/xensource/libexec/gencert /etc/xensource/xapi-ssl.pem default \
+                   && /opt/xensource/libexec/gencert /etc/xensource/xapi-pool-tls.pem xapi:pool'
 RemainAfterExit=yes
 
 [Install]

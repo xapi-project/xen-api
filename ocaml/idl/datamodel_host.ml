@@ -873,8 +873,6 @@ let host_query_ha = call ~flags:[`Session]
       ()
 
   let certificate_install = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_install"
@@ -883,11 +881,27 @@ let host_query_ha = call ~flags:[`Session]
                String, "name", "A name to give the certificate";
                String, "cert", "The certificate"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:
+        [Published, rel_george, "Install TLS CA certificate"
+        ;Deprecated, rel_next, "Use Host.install_ca_certificate instead"
+        ]
+      ()
+
+  let install_ca_certificate = call
+      ~pool_internal:true
+      ~hide_from_docs:true
+      ~name:"install_ca_certificate"
+      ~doc:"Install a TLS CA certificate on this host."
+      ~params:[Ref _host, "host", "The host";
+               String, "name", "A name to give the certificate";
+               String, "cert", "The certificate"]
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:
+        [Published, rel_next, "Install TLS CA certificate"
+        ]
       ()
 
   let certificate_uninstall = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_uninstall"
@@ -895,11 +909,26 @@ let host_query_ha = call ~flags:[`Session]
       ~params:[Ref _host, "host", "The host";
                String, "name", "The certificate name"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:
+        [Published, rel_george, "Install TLS CA certificate"
+        ;Deprecated, rel_next, "Use Host.uninstall_ca_certificate instead"
+        ]
+      ()
+
+  let uninstall_ca_certificate = call
+      ~pool_internal:true
+      ~hide_from_docs:true
+      ~name:"uninstall_ca_certificate"
+      ~doc:"Remove a TLS CA certificate from this host."
+      ~params:[Ref _host, "host", "The host";
+               String, "name", "The certificate name"]
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:
+        [Published, rel_next, "Uninstall TLS CA certificate"
+        ]
       ()
 
   let certificate_list = call
-      ~in_oss_since:None
-      ~in_product_since:rel_george
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"certificate_list"
@@ -907,6 +936,10 @@ let host_query_ha = call ~flags:[`Session]
       ~params:[Ref _host, "host", "The host"]
       ~result:(Set(String),"All installed certificates")
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:
+        [Published, rel_george, "List installed TLS CA certificate"
+        ;Deprecated, rel_next, "Use openssl to inspect certificate?"
+        ]
       ()
 
   let crl_install = call
@@ -915,7 +948,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"crl_install"
-      ~doc:"Install a TLS Certificate Revocation List to this host."
+      ~doc:"Install a TLS CA-issued Certificate Revocation List to this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "A name to give the CRL";
                String, "crl", "The CRL"]
@@ -928,7 +961,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"crl_uninstall"
-      ~doc:"Uninstall a TLS certificate revocation list from this host."
+      ~doc:"Uninstall a TLS CA-issued certificate revocation list from this host."
       ~params:[Ref _host, "host", "The host";
                String, "name", "The CRL name"]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -940,7 +973,7 @@ let host_query_ha = call ~flags:[`Session]
       ~pool_internal:true
       ~hide_from_docs:true
       ~name:"crl_list"
-      ~doc:"List the filenames of all installed TLS Certificate Revocation Lists."
+      ~doc:"List the filenames of all installed TLS CA-issued Certificate Revocation Lists."
       ~params:[Ref _host, "host", "The host"]
       ~result:(Set(String),"All installed CRLs")
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
@@ -978,9 +1011,18 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_POOL_ADMIN
       ()
 
+  let reset_server_certificate = call
+      ~flags:[`Session]
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"reset_server_certificate"
+      ~doc:"Delete the current TLS server certificate and replace by a new, self-signed one. This should only be used with extreme care."
+      ~params:[Ref _host, "host", "The host"]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   let emergency_reset_server_certificate = call
       ~flags:[`Session]
-      ~lifecycle:[Published, rel_stockholm, ""]
+      ~lifecycle:[ Published, rel_stockholm, ""]
       ~name:"emergency_reset_server_certificate"
       ~doc:"Delete the current TLS server certificate and replace by a new, self-signed one. This should only be used with extreme care."
       ~versioned_params: []
@@ -1393,6 +1435,17 @@ let host_query_ha = call ~flags:[`Session]
     ~result:(host_sched_gran, "The host's sched-gran")
     ()
 
+  let emergency_disable_tls_verification = call
+      ~flags:[`Session]
+      ~name:"emergency_disable_tls_verification"
+      ~lifecycle:[Published, rel_next, ""]
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[]
+      ~doc:"Disable TLS verification for this host only"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
   let apply_updates = call
     ~name:"apply_updates"
     ~in_oss_since:None
@@ -1482,6 +1535,8 @@ let host_query_ha = call ~flags:[`Session]
         enable_external_auth;
         disable_external_auth;
         retrieve_wlb_evacuate_recommendations;
+        install_ca_certificate;
+        uninstall_ca_certificate;
         certificate_install;
         certificate_uninstall;
         certificate_list;
@@ -1492,6 +1547,7 @@ let host_query_ha = call ~flags:[`Session]
         get_server_certificate;
         install_server_certificate;
         emergency_reset_server_certificate;
+        reset_server_certificate;
         update_pool_secret;
         update_master;
         attach_static_vdis;
@@ -1528,6 +1584,7 @@ let host_query_ha = call ~flags:[`Session]
         cleanup_pool_secret;
         set_sched_gran;
         get_sched_gran;
+        emergency_disable_tls_verification;
         apply_updates;
       ]
       ~contents:

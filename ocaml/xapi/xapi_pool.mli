@@ -240,7 +240,12 @@ val send_test_post :
 val certificate_install :
   __context:Context.t -> name:string -> cert:string -> unit
 
+val install_ca_certificate :
+  __context:Context.t -> name:string -> cert:string -> unit
+
 val certificate_uninstall : __context:Context.t -> name:string -> unit
+
+val uninstall_ca_certificate : __context:Context.t -> name:string -> unit
 
 val certificate_list : __context:'a -> string list
 
@@ -322,6 +327,10 @@ val remove_from_guest_agent_config :
   __context:Context.t -> self:API.ref_pool -> key:string -> unit
 
 val rotate_secret : __context:Context.t -> unit
+
+val alert_failed_login_attempts : unit -> unit
+
+val enable_tls_verification : __context:Context.t -> unit
 
 val set_repository :
      __context:Context.t

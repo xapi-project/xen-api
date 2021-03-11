@@ -680,8 +680,7 @@ let resync_host ~__context ~host =
           ~key:"enforce_homogeneity")
       update_refs ;
     Create_misc.create_updates_requiring_reboot_info ~__context ~host ;
-    let host_info = Create_misc.read_localhost_info ~__context in
-    Create_misc.create_software_version ~__context host_info
+    Create_misc.create_software_version ~__context ()
   ) else
     Db.Host.set_updates ~__context ~self:host ~value:[] ;
   (* Clean up existing patches and updates if rolling upgrade has actually finished *)

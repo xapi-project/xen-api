@@ -1340,11 +1340,16 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 (* Dummy implementation for a deprecated API method. *)
 let get_uncooperative_domains ~__context ~self = []
 
-let certificate_install ~__context ~host ~name ~cert =
+let install_ca_certificate ~__context ~host ~name ~cert =
   Certificates.(host_install CA_Certificate name cert)
 
-let certificate_uninstall ~__context ~host ~name =
+let uninstall_ca_certificate ~__context ~host ~name =
   Certificates.(host_uninstall CA_Certificate name)
+
+(* legacy names *)
+let certificate_uninstall = uninstall_ca_certificate
+
+let certificate_install = install_ca_certificate
 
 let certificate_list ~__context ~host = Certificates.(local_list CA_Certificate)
 
@@ -1398,26 +1403,34 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   (* sever all connections done with stunnel *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context
 
-let emergency_reset_server_certificate ~__context =
+let reset_server_certificate ~__context ~host =
+  let self = Helpers.get_localhost ~__context in
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
-  let common_name, alt_names =
-    match Gencertlib.Lib.hostnames () with
-    | cn :: alt ->
-        (cn, alt)
-    | [] ->
-        (Helper_hostname.get_hostname (), [])
-    (* should never happen *)
+  let name, ip =
+    let dbg = Context.string_of_task __context in
+    match Networking_info.get_management_ip_addr ~dbg with
+    | None ->
+        let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
+        D.error "%s" msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
+    | Some ip ->
+        ip
   in
-  Gencertlib.Selfcert.host common_name alt_names xapi_ssl_pem ;
+  let dns_names = Networking_info.dns_names () in
+  let ips = [ip] in
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips xapi_ssl_pem ;
   (* Reset stunnel to try to restablish TLS connections *)
   Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
-  let self = Helpers.get_localhost ~__context in
   (* Delete records of the server certificate in this host *)
   let expr =
     Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self)))
   in
   Db.Certificate.get_refs_where ~__context ~expr
   |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
+
+let emergency_reset_server_certificate ~__context =
+  let host = Helpers.get_localhost ~__context in
+  reset_server_certificate ~__context ~host
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
@@ -1893,8 +1906,7 @@ let license_remove ~__context ~host =
 
 let refresh_pack_info ~__context ~host =
   debug "Refreshing software_version" ;
-  let host_info = Create_misc.read_localhost_info ~__context in
-  Create_misc.create_software_version ~__context host_info
+  Create_misc.create_software_version ~__context ()
 
 (* Network reset *)
 
@@ -2246,32 +2258,59 @@ let migrate_receive ~__context ~host ~network ~options =
            ( Api_errors.host_cannot_attach_network
            , [Ref.string_of host; Ref.string_of network] ))
   in
-  let ip = Db.PIF.get_IP ~__context ~self:pif in
-  ( if String.length ip = 0 then
-      match Db.PIF.get_ip_configuration_mode ~__context ~self:pif with
+  let primary_address_type =
+    Db.PIF.get_primary_address_type ~__context ~self:pif
+  in
+  let ip, configuration_mode =
+    match primary_address_type with
+    | `IPv4 ->
+        ( Db.PIF.get_IP ~__context ~self:pif
+        , Db.PIF.get_ip_configuration_mode ~__context ~self:pif )
+    | `IPv6 -> (
+        let configuration_mode =
+          Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
+        in
+        match Db.PIF.get_IPv6 ~__context ~self:pif with
+        | [] ->
+            ("", configuration_mode)
+        | ip :: _ ->
+            (* The CIDR is also stored in the IPv6 field of a PIF. *)
+            let ipv6 =
+              match String.split_on_char '/' ip with hd :: _ -> hd | _ -> ""
+            in
+            (ipv6, configuration_mode)
+      )
+  in
+  ( if ip = "" then
+      match configuration_mode with
       | `None ->
           raise
             (Api_errors.Server_error
                (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif]))
-      | `DHCP ->
+      | _ ->
           raise
             (Api_errors.Server_error
                (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
-      | _ ->
-          failwith "No IP address on PIF"
   ) ;
   let sm_url =
-    Printf.sprintf "http://%s/services/SM?session_id=%s" ip new_session_id
+    Printf.sprintf "http://%s/services/SM?session_id=%s"
+      (Http.Url.maybe_wrap_IPv6_literal ip)
+      new_session_id
   in
   let xenops_url =
-    Printf.sprintf "http://%s/services/xenops?session_id=%s" ip new_session_id
+    Printf.sprintf "http://%s/services/xenops?session_id=%s"
+      (Http.Url.maybe_wrap_IPv6_literal ip)
+      new_session_id
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_url = Printf.sprintf "http://%s/" master_address in
+  let master_url =
+    Printf.sprintf "http://%s/"
+      (Http.Url.maybe_wrap_IPv6_literal master_address)
+  in
   [
     (Xapi_vm_migrate._sm, sm_url)
   ; (Xapi_vm_migrate._host, Ref.string_of host)
@@ -2432,6 +2471,40 @@ let get_sched_gran ~__context ~self =
     error "Failed to get sched-gran: %s" (Printexc.to_string e) ;
     raise
       Api_errors.(Server_error (internal_error, ["Failed to get sched-gran"]))
+
+let emergency_disable_tls_verification ~__context =
+  (* NB: the tls-verification state on this host will no longer agree with state.db *)
+  Helpers.StunnelClient.set_verify_by_default false
+
+let alert_if_tls_verification_was_emergency_disabled ~__context =
+  let tls_verification_enabled_locally =
+    Helpers.StunnelClient.get_verify_by_default ()
+  in
+  let tls_verification_enabled_pool_wide =
+    Db.Pool.get_tls_verification_enabled ~__context
+      ~self:(Helpers.get_pool ~__context)
+  in
+  (* Only add an alert if (a) we found a problem and (b) an alert doesn't already exist *)
+  if
+    tls_verification_enabled_pool_wide
+    && tls_verification_enabled_pool_wide <> tls_verification_enabled_locally
+  then
+    let alert_exists =
+      Helpers.call_api_functions ~__context (fun rpc session ->
+          Client.Client.Message.get_all_records rpc session
+          |> List.exists (fun (_, record) ->
+                 record.API.message_name
+                 = fst Api_messages.tls_verification_emergency_disabled))
+    in
+
+    if not alert_exists then
+      let self = Helpers.get_localhost ~__context in
+      let host = Db.Host.get_name_label ~__context ~self in
+      let body = Printf.sprintf "<body><host>%s</host></body>" host in
+      Xapi_alert.add ~msg:Api_messages.tls_verification_emergency_disabled
+        ~cls:`Host
+        ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
+        ~body
 
 let get_host_updates_handler (req : Http.Request.t) s _ =
   let uuid = Helpers.get_localhost_uuid () in

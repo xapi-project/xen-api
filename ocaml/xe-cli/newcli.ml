@@ -168,7 +168,7 @@ let get_permit_filenames args =
   List.filter_map
     (fun arg ->
       match Astring.String.cut ~sep:"=" arg with
-      | Some (k, v) -> (
+      | Some (_, v) -> (
         match String.trim v with "" -> None | _ -> Some (v |> canonicalize)
       )
       | _ ->
@@ -322,12 +322,19 @@ let with_open_tcp server f =
   if !xeusessl && not (is_localhost server) then (* never use SSL on-host *)
     with_open_tcp_ssl server f
   else
-    let host = Unix.gethostbyname server in
-    let addr = host.Unix.h_addr_list.(0) in
+    let host = Scanf.ksscanf server (fun _ _ -> server) "[%s@]" Fun.id in
+    let port = get_xapiport false in
+    let addr =
+      match Unix.getaddrinfo host (string_of_int port) [] with
+      | [] ->
+          error "No addrinfo found for host: %s, port: %d" host port ;
+          raise Not_found
+      | addrinfo :: _ ->
+          addrinfo.Unix.ai_addr
+    in
     let open Safe_resources in
-    Unixfd.with_open_connection ~loc:__LOC__
-      (Unix.ADDR_INET (addr, get_xapiport false))
-    @@ fun ufd -> Unixfd.with_channels ufd f
+    Unixfd.with_open_connection ~loc:__LOC__ addr @@ fun ufd ->
+    Unixfd.with_channels ufd f
 
 let with_open_channels f =
   let wrap chs =
@@ -501,7 +508,7 @@ let main_loop ifd ofd permitted_filenames =
         | Unix.Unix_error (Unix.EPIPE, _, _) ->
             raise
               (ClientSideError (Printf.sprintf "Failed to upload file %s" x))
-        | e ->
+        | _ ->
             marshal ofd (Response Failed)
       )
     | Command (HttpConnect url) -> (
@@ -619,7 +626,7 @@ let main_loop ifd ofd permitted_filenames =
               Printf.fprintf stderr
                 "Server replied with HTTP 404: the console is not available\n" ;
               marshal ofd (Response Failed)
-          | x ->
+          | _ ->
               Printf.fprintf stderr "Server said: %s" resultline ;
               marshal ofd (Response Failed)
         in
@@ -783,7 +790,7 @@ let main () =
     try
       Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
       Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 1)) ;
-      let xe, args =
+      let _xe, args =
         match Array.to_list Sys.argv with h :: t -> (h, t) | _ -> assert false
       in
       if List.mem "-version" args then (
