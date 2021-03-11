@@ -150,7 +150,7 @@ let queue_request req =
       request_queue := req :: !request_queue ;
       Condition.signal request_cond)
 
-let perform_request ~__context ~timeout ?verify_cert ~host ~port ~request
+let perform_request ~__context ~timeout ~verify_cert ~host ~port ~request
     ~handler ~enable_log =
   let task = Context.get_task_id __context in
   let resp = ref NoResponse in
@@ -188,11 +188,13 @@ let read_response result response s =
 let send_test_post ~__context ~host ~port ~body =
   try
     let result = ref "" in
+    let verify_cert = None in
+    (* CL *)
     let request =
       Xapi_http.http_request ~keep_alive:false ~body ~headers:[("Host", host)]
         Http.Post "/"
     in
-    perform_request ~__context ~timeout:30.0 ~verify_cert:Stunnel.pool ~host
+    perform_request ~__context ~timeout:30.0 ~verify_cert ~host
       ~port:(Int64.to_int port) ~request ~handler:(read_response result)
       ~enable_log:true ;
     !result

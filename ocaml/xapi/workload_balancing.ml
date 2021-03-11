@@ -317,7 +317,7 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
          (filtered_headers (Http.Request.to_header_list request)))
       body ;
   try
-    Remote_requests.perform_request ~__context ~timeout ?verify_cert ~host ~port
+    Remote_requests.perform_request ~__context ~timeout ~verify_cert ~host ~port
       ~request ~handler ~enable_log
   with
   | Remote_requests.Timed_out ->
