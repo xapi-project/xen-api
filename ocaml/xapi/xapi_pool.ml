@@ -666,7 +666,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
            , [Features.name_of_feature Features.Pool_size] ))
   in
   let assert_no_hosts_in_updating () =
-    let pool = List.hd (Client.Pool.get_all rpc session_id) in
+    let pool = Helpers.get_pool ~__context in
     if List.exists (fun (_, op) -> op = `apply_updates)
         (Client.Pool.get_current_operations ~rpc ~session_id ~self:pool) then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
