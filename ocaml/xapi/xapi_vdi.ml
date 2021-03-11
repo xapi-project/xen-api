@@ -852,7 +852,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
             (fun event -> event.Event_types.snapshot)
             events_from_newest_to_oldest
         in
-        Xapi_stdext_std.Listext.List.safe_hd snapshots_from_newest_to_oldest
+        List.nth_opt snapshots_from_newest_to_oldest 0
       in
       Option.map
         (fun snapshot ->

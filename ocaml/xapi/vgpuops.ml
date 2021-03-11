@@ -14,7 +14,7 @@
 module D = Debug.Make (struct let name = "vgpuops" end)
 
 open D
-open Xapi_stdext_std.Listext
+module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_std.Xstringext
 
 type vgpu_t = {
@@ -69,7 +69,7 @@ let allocate_vgpu_to_gpu ?(dry_run = false) ?(pre_allocate_list = []) ~__context
   (* Make a asso list as follows
    * [(p1,capacity1);(p2,capacity2)...] *)
   let pgpu_capacity_assoc =
-    List.intersect compatible_pgpus available_pgpus
+    Listext.intersect compatible_pgpus available_pgpus
     |> List.filter (fun pgpu ->
            Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~pgpu
              ~vgpu:vgpu.vgpu_ref)

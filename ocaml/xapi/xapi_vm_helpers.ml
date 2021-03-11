@@ -60,7 +60,7 @@ let ensure_domain_type_is_specified ~__context ~self =
 
 let derive_hvm_boot_policy ~domain_type =
   if domain_type = `hvm then
-    Constants.hvm_boot_policy_bios_order
+    Constants.hvm_default_boot_policy
   else
     ""
 

@@ -20,12 +20,12 @@ let disc_inserted name =
   match ret with
   | Unix.WEXITED 0 ->
       oldnotify := false
-  | Unix.WEXITED n ->
+  | Unix.WEXITED _ ->
       oldnotify := true
   | _ ->
       oldnotify := true
 
-let disc_removed name =
+let disc_removed (_ : string) =
   (* we don't need to do anything *)
   oldnotify := false
 

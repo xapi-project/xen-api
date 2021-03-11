@@ -76,7 +76,7 @@ let join_internal ~__context ~self =
       in
       let ip = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) in
       let ip_list =
-        Xapi_stdext_std.Listext.List.filter_map
+        List.filter_map
           (fun self ->
             let p_ref = Db.Cluster_host.get_PIF ~__context ~self in
             let p_rec = Db.PIF.get_record ~__context ~self:p_ref in

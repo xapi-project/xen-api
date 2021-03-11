@@ -287,4 +287,5 @@ let all_tests =
 let certificate_test = List.map load_test all_tests
 
 let () =
-  Alcotest.run "Gencert Library" [("Certificate tests", certificate_test)]
+  Alcotest.run "Gencert Library"
+    [("Certificate tests", certificate_test); ("Pem tests", Test_pem.all)]

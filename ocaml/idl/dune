@@ -51,3 +51,9 @@
    xapi-datamodel
   )
 )
+
+(test
+  (name schematest)
+  (modules schematest)
+  (libraries xapi_datamodel)
+)

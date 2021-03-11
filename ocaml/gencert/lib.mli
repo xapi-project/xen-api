@@ -12,11 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val get_management_ip_addr : dbg:string -> string option
-
-val hostnames : unit -> string list
-(** Try to get all FQDNs, use the hostname if none are available *)
-
 val install_server_certificate :
      ?pem_chain:string option
   -> pem_leaf:string

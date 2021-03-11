@@ -2,8 +2,9 @@
   (name gencertlib)
   (wrapped true)
   (flags (:standard -warn-error +a-3-4-6-9-27-28-29-52))
-  (modules lib selfcert)
+  (modules lib selfcert pem)
   (libraries
+    angstrom
     astring
     cstruct
     forkexec
@@ -15,9 +16,9 @@
     result
     rresult
     x509
+    xapi_aux
     xapi-consts
     xapi-idl
-    xapi-idl.network
     xapi-inventory
     xapi-stdext-unix)
 )
@@ -36,7 +37,7 @@
 (test
   (name test_lib)
   (package xapi)
-  (modules test_lib)
+  (modules test_lib test_pem)
   (libraries
     alcotest
     cstruct

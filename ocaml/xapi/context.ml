@@ -339,3 +339,9 @@ let get_client context =
   context.client
   |> Option.map (fun (http, ip) ->
          Printf.sprintf "%s %s" (string_of_http_t http) (Ipaddr.to_string ip))
+
+let get_client_ip context =
+  context.client |> Option.map (fun (_, ip) -> Ipaddr.to_string ip)
+
+let get_user_agent context =
+  match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent

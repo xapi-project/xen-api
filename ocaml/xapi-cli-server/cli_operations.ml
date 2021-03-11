@@ -1579,20 +1579,20 @@ let pool_send_test_post printer rpc session_id params =
     (Cli_printer.PMsg
        (Client.Pool.send_test_post ~rpc ~session_id ~host ~port ~body))
 
-let pool_certificate_install fd printer rpc session_id params =
+let pool_install_ca_certificate fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
   match get_client_file fd filename with
   | Some cert ->
-      Client.Pool.certificate_install ~rpc ~session_id
+      Client.Pool.install_ca_certificate ~rpc ~session_id
         ~name:(Filename.basename filename)
         ~cert
   | None ->
       marshal fd (Command (PrintStderr "Failed to read certificate\n")) ;
       raise (ExitWithError 1)
 
-let pool_certificate_uninstall printer rpc session_id params =
+let pool_uninstall_ca_certificate printer rpc session_id params =
   let name = List.assoc "name" params in
-  Client.Pool.certificate_uninstall ~rpc ~session_id ~name
+  Client.Pool.uninstall_ca_certificate ~rpc ~session_id ~name
 
 let pool_certificate_list printer rpc session_id params =
   printer (Cli_printer.PList (Client.Pool.certificate_list ~rpc ~session_id))
@@ -1635,8 +1635,11 @@ let pool_disable_ssl_legacy printer rpc session_id params =
 let pool_rotate_secret printer rpc session_id _params =
   Client.Pool.rotate_secret rpc session_id
 
+let pool_enable_tls_verification printer rpc session_id _params =
+  Client.Pool.enable_tls_verification rpc session_id
+
 let pool_sync_updates printer rpc session_id params =
-  let pool = List.hd (Client.Pool.get_all rpc session_id) in
+  let pool = get_pool_with_default rpc session_id params "uuid" in
   let force = get_bool_param params "force" in
   let hash = Client.Pool.sync_updates rpc session_id pool force in
   printer (Cli_printer.PList [hash])
@@ -6619,6 +6622,17 @@ let host_emergency_ha_disable printer rpc session_id params =
 
 let host_emergency_reset_server_certificate printer rpc session_id params =
   Client.Host.emergency_reset_server_certificate ~rpc ~session_id
+
+let host_emergency_disable_tls_verification printer rpc session_id _params =
+  Client.Host.emergency_disable_tls_verification ~rpc ~session_id
+
+let host_reset_server_certificate printer rpc session_id params =
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+       params [])
 
 let host_management_reconfigure printer rpc session_id params =
   let pif =
