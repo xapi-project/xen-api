@@ -55,7 +55,7 @@
         <dependency>
             <groupId>com.citrix.hypervisor</groupId>
             <artifactId>xen-api</artifactId>
-            <version>@SDK_VERSION@</version>
+            <version>${revision}</version>
         </dependency>
     </dependencies>
     <distributionManagement>
