@@ -66,9 +66,6 @@ let get_devnode_dir ctx =
   let d = Printf.sprintf "%s/dev/xen/blktap-2" ctx.host_local_dir in
   Unixext.mkdir_rec d 0o755 ; d
 
-let get_blktapstem ctx =
-  Printf.sprintf "%s/dev/xen/blktap-2/blktap" ctx.host_local_dir
-
 let get_tapdevstem ctx =
   Printf.sprintf "%s/dev/xen/blktap-2/tapdev" ctx.host_local_dir
 
@@ -305,7 +302,7 @@ module Dummy = struct
                 None)
           list)
 
-  let stats ctx t =
+  let stats t =
     let open Stats in
     {
       name= "none"
@@ -333,24 +330,24 @@ let canonicalise x =
       List.fold_left
         (fun found path ->
           match found with
-          | Some hit ->
-              found
           | None ->
               let possibility = Filename.concat path x in
               if Sys.file_exists possibility then
                 Some possibility
               else
-                None)
+                None
+          | _ ->
+              found)
         None (xen_paths @ paths)
     in
     match first_hit with None -> x | Some hit -> hit
 
 let tap_ctl = canonicalise "tap-ctl"
 
-let invoke_tap_ctl ctx cmd args =
+let invoke_tap_ctl _ cmd args =
   let find x = try [x ^ "=" ^ Sys.getenv x] with _ -> [] in
   let env = Array.of_list (find "PATH" @ find "TAPDISK" @ find "TAPDISK2") in
-  let stdout, stderr = execute_command_get_output ~env tap_ctl (cmd :: args) in
+  let stdout, _ = execute_command_get_output ~env tap_ctl (cmd :: args) in
   stdout
 
 let allocate ctx =
@@ -479,18 +476,18 @@ let list ?t ctx =
 let is_paused ctx t =
   let result = list ~t ctx in
   match result with
-  | [(tapdev, state, args)] ->
+  | [(_, state, _)] ->
       state = "0x2a"
   | _ ->
       failwith "Unknown device"
 
 let is_active ctx t =
   let result = list ~t ctx in
-  match result with [(tapdev, state, Some _)] -> true | _ -> false
+  match result with [(_, _, Some _)] -> true | _ -> false
 
 let stats ctx t =
   if ctx.dummy then
-    Dummy.stats ctx t
+    Dummy.stats t
   else
     Stats.t_of_rpc (Jsonrpc.of_string (invoke_tap_ctl ctx "stats" (args t)))
 
