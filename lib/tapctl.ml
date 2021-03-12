@@ -1,6 +1,5 @@
 open Forkhelpers
 open Xapi_stdext_unix
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
 
@@ -284,7 +283,7 @@ module Dummy = struct
         List.filter_map
           (fun e ->
             let args =
-              match Option.map (String.split ':') e.d_args with
+              match Option.map (String.split_on_char ':') e.d_args with
               | Some (ty :: arguments) ->
                   Some (ty, String.concat ":" arguments)
               | _ ->
@@ -357,7 +356,7 @@ let allocate ctx =
     let result = invoke_tap_ctl ctx "allocate" [] in
     let stem = get_tapdevstem ctx in
     let stemlen = String.length stem in
-    assert (String.startswith stem result) ;
+    assert (Astring.String.is_prefix ~affix:stem result) ;
     let minor_str =
       String.sub result stemlen (String.length result - stemlen)
     in
@@ -437,17 +436,19 @@ let list ?t ctx =
   else
     let args = match t with Some tapdev -> args tapdev | None -> [] in
     let result = invoke_tap_ctl ctx "list" args in
-    let lines = String.split '\n' result in
+    let lines = String.split_on_char '\n' result in
     List.filter_map
       (fun line ->
         (* Note the filename can include spaces, for example: *)
         (* pid=855 minor=0 state=0 args=aio:/run/sr-mount/dev/disk/by-id/ata-WDC_WD2502ABYS-18B7A0_WD-WCAT1H334077-part3/win8 0 *)
         try
-          let fields = String.split ~limit:4 ' ' line in
+          let fields =
+            Xapi_stdext_std.Xstringext.String.split ~limit:4 ' ' line
+          in
           let assoc =
             List.filter_map
               (fun field ->
-                match String.split '=' field with
+                match String.split_on_char '=' field with
                 | x :: ys ->
                     Some (x, String.concat "=" ys)
                 | _ ->
@@ -456,7 +457,7 @@ let list ?t ctx =
           in
           let args =
             try
-              match String.split ':' (List.assoc "args" assoc) with
+              match String.split_on_char ':' (List.assoc "args" assoc) with
               | ty :: arguments ->
                   Some (ty, String.concat ":" arguments)
               | _ ->
@@ -494,7 +495,7 @@ let stats ctx t =
 (* We need to be able to check that a given device's major number corresponds to the right driver *)
 let read_proc_devices () : (int * string) list =
   let parse_line x =
-    match List.filter (fun x -> x <> "") (String.split ' ' x) with
+    match List.filter (fun x -> x <> "") (String.split_on_char ' ' x) with
     | [x; y] -> (
       try Some (int_of_string x, y) with _ -> None
     )
