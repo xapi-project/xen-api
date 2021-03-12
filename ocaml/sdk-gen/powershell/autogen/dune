@@ -1,0 +1,20 @@
+(rule
+  (targets LICENSE.txt)
+  (deps ../../LICENSE)
+  (action (copy %{deps} %{targets}))
+)
+
+(rule
+  (targets README.txt)
+  (deps ../README.dist)
+  (action (copy %{deps} %{targets}))
+)
+
+(alias
+  (name generate)
+  (deps
+    LICENSE.txt
+    README.txt
+    (source_tree .)
+  )
+)

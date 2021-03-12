@@ -1,0 +1,47 @@
+{{{licence}}}
+
+using System;
+using System.Text;
+using System.Net;
+
+namespace XenAPI
+{
+    public partial class HTTP_actions
+    {
+        private static void Get(HTTP.DataCopiedDelegate dataCopiedDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
+            string hostname, string remotePath, IWebProxy proxy, string localPath, params object[] args)
+        {
+            HTTP.Get(dataCopiedDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
+        }
+
+        private static void Put(HTTP.UpdateProgressDelegate progressDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
+            string hostname, string remotePath, IWebProxy proxy, string localPath, params object[] args)
+        {
+            HTTP.Put(progressDelegate, cancellingDelegate, HTTP.BuildUri(hostname, remotePath, args), proxy, localPath, timeout_ms);
+        }
+
+{{#http_actions}}
+        public static void {{name}}(HTTP.{{delegate_type}} {{delegate_name}}, HTTP.FuncBool cancellingDelegate, int timeout_ms,
+            string hostname, IWebProxy proxy, string path, {{{sdkargs_decl}}})
+        {
+            {{http_method}}({{delegate_name}}, cancellingDelegate, timeout_ms, hostname, "{{uri}}", proxy, path,
+                {{{sdkargs}}});
+        }
+
+{{/http_actions}}
+
+        public static void get_pool_patch_download(HTTP.DataCopiedDelegate dataCopiedDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
+            string hostname, IWebProxy proxy, string path, string task_id, string session_id, string uuid)
+        {
+            Get(dataCopiedDelegate, cancellingDelegate, timeout_ms, hostname, "/pool_patch_download", proxy, path,
+                "task_id", task_id, "session_id", session_id, "uuid", uuid);
+        }
+
+        public static void put_oem_patch_stream(HTTP.UpdateProgressDelegate progressDelegate, HTTP.FuncBool cancellingDelegate, int timeout_ms,
+            string hostname, IWebProxy proxy, string path, string task_id, string session_id)
+        {
+            Put(progressDelegate, cancellingDelegate, timeout_ms, hostname, "/oem_patch_stream", proxy, path,
+                "task_id", task_id, "session_id", session_id);
+        }
+    }
+}

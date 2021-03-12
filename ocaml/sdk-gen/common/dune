@@ -1,0 +1,8 @@
+(library
+  (name CommonFunctions)
+  (wrapped false)
+  (libraries
+    xapi-datamodel
+    mustache
+  )
+)

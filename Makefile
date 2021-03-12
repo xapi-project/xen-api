@@ -1,6 +1,7 @@
 include config.mk
 
 XAPIDOC=_build/install/default/xapi/doc
+XAPISDK=_build/install/default/xapi/sdk
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 XAPI_VERSION ?= $(shell git describe --always --dirty || echo "NO_GIT")
@@ -32,6 +33,32 @@ doc:
 	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
 
+sdk:
+	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
+	dune build --profile=$(PROFILE) \
+		ocaml/sdk-gen/c/gen_c_binding.exe \
+		ocaml/sdk-gen/csharp/gen_csharp_binding.exe \
+		ocaml/sdk-gen/java/main.exe \
+		ocaml/sdk-gen/powershell/gen_powershell_binding.exe
+	dune build --profile=$(PROFILE) -f\
+		@ocaml/sdk-gen/c/generate \
+		@ocaml/sdk-gen/csharp/generate \
+		@ocaml/sdk-gen/java/generate \
+		@ocaml/sdk-gen/powershell/generate
+	mkdir -p $(XAPISDK)/c
+	mkdir -p $(XAPISDK)/csharp
+	mkdir -p $(XAPISDK)/java
+	mkdir -p $(XAPISDK)/powershell
+	mkdir -p $(XAPISDK)/python/samples
+	cp -r _build/default/ocaml/sdk-gen/c/autogen/* $(XAPISDK)/c
+	cp -r _build/default/ocaml/sdk-gen/csharp/autogen/* $(XAPISDK)/csharp
+	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
+	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
+	cp -r ocaml/sdk-gen/python/samples/*.py $(XAPISDK)/python/samples
+	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
+	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
+	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
+
 python:
 	$(MAKE) -C scripts/examples/python build
 
@@ -49,7 +76,7 @@ list-hd:
 
 quality-gate: list-hd ;
 
-install: build doc
+install: build doc sdk
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(MANDIR)
@@ -100,6 +127,10 @@ install: build doc
 	cp -r $(XAPIDOC)/html $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/markdown $(DESTDIR)$(DOCDIR)
 	cp $(XAPIDOC)/*.dot $(XAPIDOC)/doc-convert.sh $(DESTDIR)$(DOCDIR)
+# sdk
+	mkdir -p $(DESTDIR)$(SDKDIR)
+	cp -r $(XAPISDK)/* $(DESTDIR)$(SDKDIR)
+	find $(DESTDIR)$(SDKDIR) -type f -exec chmod 644 {} \;
 
 uninstall:
 	# only removes the libraries, which were installed with `dune install`

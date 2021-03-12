@@ -1,0 +1,94 @@
+/*
+ * Copyright (c) Citrix Systems, Inc.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
+
+
+namespace XenAPI
+{
+    public partial class JsonRpcClient
+    {
+        public Event event_get_record(string session, string _event)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            return Rpc<Event>("event.get_record", new JArray(session, _event ?? ""), serializer);
+        }
+
+        public string event_get_by_uuid(string session, string _uuid)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            return Rpc<string>("event.get_by_uuid", new JArray(session, _uuid ?? ""), serializer);
+        }
+
+        public long event_get_id(string session, string _event)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            return Rpc<long>("event.get_id", new JArray(session, _event ?? ""), serializer);
+        }
+
+        public void event_set_id(string session, string _event, long _id)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            Rpc("event.set_id", new JArray(session, _event ?? "", _id), serializer);
+        }
+
+        public void event_register(string session, string[] _classes)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            Rpc("event.register", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
+        }
+
+        public void event_unregister(string session, string[] _classes)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            Rpc("event.unregister", new JArray(session, JArray.FromObject(_classes ?? new string[] {})), serializer);
+        }
+
+        public EventBatch event_from(string session, string[] _classes, string _token, double _timeout)
+        {
+            var converters = new List<JsonConverter> {};
+            var serializer = CreateSerializer(converters);
+            return Rpc<EventBatch>("event.from", new JArray(session, JArray.FromObject(_classes ?? new string[] {}), _token ?? "", _timeout), serializer);
+        }
+{{#client_methods}}
+{{{client_method}}}
+{{/client_methods}}
+    }
+}

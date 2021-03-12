@@ -60,6 +60,8 @@ let udevdir = dir "udevdir" "/etc/udev" "UDEVDIR" "udev scripts"
 
 let docdir = dir "docdir" "/usr/share/xapi/doc" "DOCDIR" "XenAPI documentation"
 
+let sdkdir = dir "sdkdir" "/usr/share/xapi/sdk" "SDKDIR" "XenAPI SDK"
+
 let info =
   let doc = "Configures a package" in
   Term.info "configure" ~version:"0.1" ~doc
@@ -74,7 +76,7 @@ let yesno_of_bool = function true -> "YES" | false -> "NO"
 
 let configure coverage disable_warn_error varpatchdir etcdir optdir plugindir
     extensiondir hooksdir inventory xapiconf libexecdir scriptsdir sharedir
-    webdir cluster_stack_root bindir sbindir udevdir docdir =
+    webdir cluster_stack_root bindir sbindir udevdir docdir sdkdir =
   (* Write config.mk *)
   let vars =
     [
@@ -97,6 +99,7 @@ let configure coverage disable_warn_error varpatchdir etcdir optdir plugindir
     ; ("SBINDIR", sbindir)
     ; ("UDEVDIR", udevdir)
     ; ("DOCDIR", docdir)
+    ; ("SDKDIR", sdkdir)
     ]
   in
   let lines = List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v) vars in
@@ -137,7 +140,8 @@ let configure_t =
     $ bindir
     $ sbindir
     $ udevdir
-    $ docdir)
+    $ docdir
+    $ sdkdir)
 
 let () =
   match Term.eval (configure_t, info) with `Error _ -> exit 1 | _ -> exit 0
