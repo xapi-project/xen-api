@@ -1,7 +1,7 @@
 open Forkhelpers
 open Xapi_stdext_unix
-open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
+module IntSet = Set.Make (Int)
 
 (* Tapdisk stats *)
 module Stats = struct
@@ -107,13 +107,13 @@ module Dummy = struct
     let str = Jsonrpc.to_string (rpc_of_dummy_tap_list list) in
     Unixext.write_string_to_file filename str
 
+  (* Return the lowest successor that is not present in the list, or 0. *)
   let find_next_unused_number list =
-    if List.length list = 0 then
-      0
-    else
-      let list_plus_one = List.map (( + ) 1) list in
-      let diff = List.set_difference list_plus_one list in
-      List.hd diff
+    let numbers = IntSet.of_list list in
+    let next n = n + 1 in
+    let next_unused n = not (IntSet.mem (next n) numbers) in
+    IntSet.find_first_opt next_unused numbers
+    |> Option.fold ~none:0 ~some:next
 
   let find_next_unused_minor list =
     let minors = List.filter_map (fun t -> t.d_minor) list in
