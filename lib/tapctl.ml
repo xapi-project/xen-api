@@ -441,37 +441,24 @@ let list ?t ctx =
       (fun line ->
         (* Note the filename can include spaces, for example: *)
         (* pid=855 minor=0 state=0 args=aio:/run/sr-mount/dev/disk/by-id/ata-WDC_WD2502ABYS-18B7A0_WD-WCAT1H334077-part3/win8 0 *)
-        try
-          let fields =
-            Xapi_stdext_std.Xstringext.String.split ~limit:4 ' ' line
-          in
-          let assoc =
-            List.filter_map
-              (fun field ->
-                match String.split_on_char '=' field with
-                | x :: ys ->
-                    Some (x, String.concat "=" ys)
-                | _ ->
-                    None)
-              fields
-          in
-          let args =
-            try
-              match String.split_on_char ':' (List.assoc "args" assoc) with
-              | ty :: arguments ->
-                  Some (ty, String.concat ":" arguments)
-              | _ ->
-                  None
-            with _ -> None
-          in
-          Some
-            ( {
-                tapdisk_pid= int_of_string (List.assoc "pid" assoc)
-              ; minor= int_of_string (List.assoc "minor" assoc)
-              }
-            , List.assoc "state" assoc
-            , args )
-        with _ -> None)
+        (* fields is invoked with empty:true to account for consecutive spaces
+           in the filename no more than a single space is expected between the
+           key-values. *)
+        match Astring.String.fields ~empty:true ~is_sep:(( = ) ' ') line with
+        | pid :: minor :: state :: args_list ->
+            let ( let* ) = Option.bind in
+            let scanf = Scanf.ksscanf in
+            let or_none _ _ = None in
+            let* tapdisk_pid = scanf pid or_none "pid=%u" Option.some in
+            let* minor = scanf minor or_none "minor=%u" Option.some in
+            let* state = scanf state or_none "state=%s" Option.some in
+            let* _, args =
+              Astring.String.cut ~sep:"args=" (String.concat " " args_list)
+            in
+            let args = Astring.String.cut ~sep:":" args in
+            Some ({tapdisk_pid; minor}, state, args)
+        | _ ->
+            None)
       lines
 
 let is_paused ctx t =

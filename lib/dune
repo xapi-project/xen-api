@@ -10,7 +10,6 @@
     threads
     forkexec
     xapi-stdext-unix
-    xapi-stdext-std
     xapi-stdext-threads
   )
 )
