@@ -336,7 +336,14 @@ let host_query_ha = call ~flags:[`Session]
       ~in_product_since:rel_miami
       ~name:"evacuate"
       ~doc:"Migrate all VMs off of this host, where possible."
-      ~params:[Ref _host, "host", "The host to evacuate"]
+      ~lifecycle:[
+        Published, rel_miami, "";
+        Extended, rel_next, "Enable migration network selection."
+      ]
+      ~versioned_params:[
+        {param_type=Ref _host; param_name="host"; param_doc="The host to evacuate"; param_release=miami_release; param_default=None};
+        {param_type=Ref _network; param_name="network"; param_doc="Optional preferred network for migration"; param_release=next_release; param_default=(Some (VRef null_ref))}
+      ]
       ~allowed_roles:_R_POOL_OP
       ()
 

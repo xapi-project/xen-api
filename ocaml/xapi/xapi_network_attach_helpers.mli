@@ -44,3 +44,6 @@ val assert_can_see_named_networks :
 val assert_can_attach_network_on_host :
   __context:Context.t -> self:[`network] Ref.t -> host:[`host] Ref.t -> unit
 (** Raises an exception if the network cannot be attached. *)
+
+val assert_valid_ip_configuration_on_network_for_host :
+  __context:Context.t -> self:[`network] Ref.t -> host:[`host] Ref.t -> string

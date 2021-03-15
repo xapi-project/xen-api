@@ -2987,13 +2987,14 @@ functor
           (host_uuid ~__context self) ;
         Local.Host.get_vms_which_prevent_evacuation ~__context ~self
 
-      let evacuate ~__context ~host =
+      let evacuate ~__context ~host ~network =
         info "Host.evacuate: host = '%s'" (host_uuid ~__context host) ;
         (* Block call if this would break our VM restart plan (because the body of this sets enabled to false) *)
         Xapi_ha_vm_failover.assert_host_disable_preserves_ha_plan ~__context
           host ;
         with_host_operation ~__context ~self:host ~doc:"Host.evacuate"
-          ~op:`evacuate (fun () -> Local.Host.evacuate ~__context ~host)
+          ~op:`evacuate (fun () ->
+            Local.Host.evacuate ~__context ~host ~network)
 
       let retrieve_wlb_evacuate_recommendations ~__context ~self =
         info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'"
