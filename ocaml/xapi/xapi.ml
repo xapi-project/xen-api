@@ -783,6 +783,13 @@ let set_stunnel_timeout () =
     Stunnel.timeoutidle := Some timeout
   with _ -> debug "Using default stunnel timeout (usually 43200)"
 
+let init_tls_verification ~__context () =
+  (* set global flag based on database entry *)
+  let pool = Helpers.get_pool ~__context in
+  let default = Db.Pool.get_tls_verification_enabled ~__context ~self:pool in
+  info "TLS verification by default is %b" default ;
+  Stunnel_client.set_verify_by_default default
+
 let server_init () =
   let print_server_starting_message () =
     debug "(Re)starting xapi" ;
@@ -973,6 +980,7 @@ let server_init () =
           ; ( "bringing up management interface"
             , []
             , bring_up_management_if ~__context )
+          ; ("Initialise TLS verification", [], init_tls_verification ~__context)
           ; ( "Starting periodic scheduler"
             , [Startup.OnThread]
             , Xapi_periodic_scheduler.loop )
