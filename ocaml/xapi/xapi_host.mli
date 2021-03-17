@@ -277,12 +277,6 @@ val install_ca_certificate :
 
 val uninstall_ca_certificate : __context:'a -> host:'b -> name:string -> unit
 
-(* legacy names *)
-val certificate_install :
-  __context:'a -> host:'b -> name:string -> cert:string -> unit
-
-val certificate_uninstall : __context:'a -> host:'b -> name:string -> unit
-
 val certificate_list : __context:'a -> host:'b -> string list
 
 val crl_install : __context:'a -> host:'b -> name:string -> crl:string -> unit

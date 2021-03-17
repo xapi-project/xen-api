@@ -872,21 +872,6 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let certificate_install = call
-      ~pool_internal:true
-      ~hide_from_docs:true
-      ~name:"certificate_install"
-      ~doc:"Install a TLS CA certificate on this host."
-      ~params:[Ref _host, "host", "The host";
-               String, "name", "A name to give the certificate";
-               String, "cert", "The certificate"]
-      ~allowed_roles:_R_LOCAL_ROOT_ONLY
-      ~lifecycle:
-        [Published, rel_george, "Install TLS CA certificate"
-        ;Deprecated, rel_next, "Use Host.install_ca_certificate instead"
-        ]
-      ()
-
   let install_ca_certificate = call
       ~pool_internal:true
       ~hide_from_docs:true
@@ -898,20 +883,6 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ~lifecycle:
         [Published, rel_next, "Install TLS CA certificate"
-        ]
-      ()
-
-  let certificate_uninstall = call
-      ~pool_internal:true
-      ~hide_from_docs:true
-      ~name:"certificate_uninstall"
-      ~doc:"Remove a TLS CA certificate from this host."
-      ~params:[Ref _host, "host", "The host";
-               String, "name", "The certificate name"]
-      ~allowed_roles:_R_LOCAL_ROOT_ONLY
-      ~lifecycle:
-        [Published, rel_george, "Install TLS CA certificate"
-        ;Deprecated, rel_next, "Use Host.uninstall_ca_certificate instead"
         ]
       ()
 
@@ -1524,8 +1495,6 @@ let host_query_ha = call ~flags:[`Session]
         retrieve_wlb_evacuate_recommendations;
         install_ca_certificate;
         uninstall_ca_certificate;
-        certificate_install;
-        certificate_uninstall;
         certificate_list;
         crl_install;
         crl_uninstall;

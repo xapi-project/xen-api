@@ -1346,11 +1346,6 @@ let install_ca_certificate ~__context ~host ~name ~cert =
 let uninstall_ca_certificate ~__context ~host ~name =
   Certificates.(host_uninstall CA_Certificate name)
 
-(* legacy names *)
-let certificate_uninstall = uninstall_ca_certificate
-
-let certificate_install = install_ca_certificate
-
 let certificate_list ~__context ~host = Certificates.(local_list CA_Certificate)
 
 let crl_install ~__context ~host ~name ~crl =
