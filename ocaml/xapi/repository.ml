@@ -161,17 +161,18 @@ let get_host_updates_by_repository ~__context enabled host () =
       (fun acc update ->
          let upd = Update.of_json update in
          begin match
-             Db.Repository.get_by_name_label ~__context ~label:(upd.Update.repository)
+             Db.Repository.get_by_uuid ~__context ~uuid:(upd.Update.repository)
            with
-           | [repository] when (List.mem repository enabled) ->
+           | repository when (List.mem repository enabled) ->
              append_by_key acc repository upd
-           | [repository] when not (List.mem repository enabled) ->
+           | repository when not (List.mem repository enabled) ->
              let msg =
                Printf.sprintf "Found update (%s) from a disabled repository"
                  (Update.to_string upd)
              in
              raise Api_errors.(Server_error (internal_error, [msg]))
-           | _ ->
+           | _
+           | exception _  ->
              let msg =
                Printf.sprintf "Found update (%s) from an unmanaged repository"
                  (Update.to_string upd)
@@ -370,7 +371,7 @@ let get_pool_updates_in_json ~__context ~hosts =
       with_pool_repositories (fun () ->
           Helpers.run_in_parallel funs capacity_in_parallel)
     in
-    let repository_name = Db.Repository.get_name_label ~__context ~self:repository in
+    let repository_name = get_repository_name  ~__context ~self:repository in
     let updates_info = parse_updateinfo ~__context ~self:repository in
     let updates_of_hosts, ids_of_updates =
       rets
@@ -502,7 +503,7 @@ let apply_updates ~__context ~host ~hash =
           info "Host ref='%s' is already up to date." ref;
           []
         | l ->
-          let repository_name = Db.Repository.get_name_label ~__context ~self:repository in
+          let repository_name = get_repository_name  ~__context ~self:repository in
           let updates =
             List.filter (fun u -> u.Update.repository = repository_name) l
           in
