@@ -51,6 +51,13 @@ let get_master ~rpc ~session_id =
 let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I cannot join a Pool unless my management interface exists in the db, otherwise
      	   Pool.eject will fail to rewrite network interface files. *)
+  let remote_pool =
+    match Client.Pool.get_all rpc session_id with
+    | [pool] ->
+      pool
+    | _ ->
+      raise Api_errors.(Server_error (internal_error, ["Should get only one pool"]))
+  in
   let assert_management_interface_exists () =
     try
       let (_ : API.ref_PIF) =
@@ -665,10 +672,15 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
            ( Api_errors.license_restriction
            , [Features.name_of_feature Features.Pool_size] ))
   in
-  let assert_no_hosts_in_updating () =
+  let assert_not_in_updating_on_me () =
     let pool = Helpers.get_pool ~__context in
     if List.exists (fun (_, op) -> op = `apply_updates)
-        (Client.Pool.get_current_operations ~rpc ~session_id ~self:pool) then
+        (Db.Pool.get_current_operations ~__context ~self:pool) then
+      raise Api_errors.(Server_error (not_supported_during_upgrade, []))
+  in
+  let assert_no_hosts_in_updating () =
+    if List.exists (fun (_, op) -> op = `apply_updates)
+        (Client.Pool.get_current_operations ~rpc ~session_id ~self:remote_pool) then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
   in
 
@@ -699,6 +711,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_homogeneous_updates () ;
   assert_homogeneous_primary_address_type () ;
   assert_compatible_network_purpose () ;
+  assert_not_in_updating_on_me () ;
   assert_no_hosts_in_updating ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
