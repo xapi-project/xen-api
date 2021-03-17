@@ -702,11 +702,14 @@ let get_enabled_repositories ~__context =
   let pool = Helpers.get_pool ~__context in
   Db.Pool.get_repositories ~__context ~self:pool
 
+let get_repository_name ~__context ~self =
+  Db.Repository.get_uuid ~__context ~self
+
 let get_remote_repository_name ~__context ~self =
-    !Xapi_globs.remote_repository_prefix ^ "-" ^ (Db.Repository.get_name_label ~__context ~self)
+    !Xapi_globs.remote_repository_prefix ^ "-" ^ (get_repository_name ~__context ~self)
 
 let get_local_repository_name ~__context ~self =
-    !Xapi_globs.local_repository_prefix ^ "-" ^ (Db.Repository.get_name_label ~__context ~self)
+    !Xapi_globs.local_repository_prefix ^ "-" ^ (get_repository_name ~__context ~self)
 
 let with_local_repositories ~__context f =
   let master_addr =
