@@ -19,6 +19,8 @@ module D = Debug.Make (struct let name = "certificates" end)
 
 open D
 
+let () = Mirage_crypto_rng_unix.initialize ()
+
 (* Certificate locations:
   * a) stunnel external             = /etc/xensource/xapi-ssl.pem
   * b) stunnel SNI (internal)       = /etc/xensource/xapi-pool-tls.pem

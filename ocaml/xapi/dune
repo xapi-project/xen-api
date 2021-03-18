@@ -57,6 +57,7 @@
    message-switch-core
    message-switch-unix
    mirage-crypto
+   mirage-crypto-rng.unix
    mtime
    mtime.clock.os
    pam
