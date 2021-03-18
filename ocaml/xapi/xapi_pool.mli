@@ -158,14 +158,6 @@ val create_VLAN_from_PIF :
   -> vLAN:int64
   -> [`PIF] Ref.t list
 
-val slave_network_report :
-     __context:'a
-  -> phydevs:'b
-  -> dev_to_mac:'c
-  -> dev_to_mtu:'d
-  -> slave_host:'e
-  -> 'f list
-
 (** {2 High availability (HA)} *)
 
 val enable_disable_m : Mutex.t

@@ -2288,10 +2288,6 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
       vlan_pifs
   )
 
-let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host
-    =
-  []
-
 (*
   Dbsync_slave.create_physical_networks ~__context phydevs dev_to_mac dev_to_mtu slave_host
 *)
