@@ -2498,3 +2498,6 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
         ~cls:`Host
         ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
         ~body
+
+let cert_distrib_atom ~__context ~host ~command =
+  Cert_distrib.local_exec ~__context ~command
