@@ -1,4 +1,0 @@
-(executable
- (name main)
- ; (public_name "polly-test")
- (libraries cmdliner polly))
