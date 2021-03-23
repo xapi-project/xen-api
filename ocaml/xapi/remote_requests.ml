@@ -46,7 +46,7 @@ type response = Success | Exception of exn | NoResponse
 
 type queued_request = {
     task: API.ref_task
-  ; verify_cert: Stunnel.config option
+  ; verify_cert: Stunnel.verification_config option
   ; host: string
   ; port: int
   ; request: Http.Request.t
