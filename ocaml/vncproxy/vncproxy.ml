@@ -75,7 +75,8 @@ let _ =
         XMLRPC_protocol.rpc ~srcstr:"vncproxy" ~dststr:"xapi"
           ~transport:
             (SSL
-               ( SSL.make ~verify_cert:None ~use_fork_exec_helper:false ()
+               ( SSL.make ~verify_cert:(Stunnel_client.pool ())
+                   ~use_fork_exec_helper:false ()
                , host
                , 443 ))
           ~http xml
