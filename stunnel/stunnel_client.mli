@@ -16,6 +16,6 @@ val get_verify_by_default : unit -> bool
 
 val set_verify_by_default : bool -> unit
 
-val pool : unit -> Stunnel.config option
+val pool : unit -> Stunnel.verification_config option
 
-val appliance : unit -> Stunnel.config option
+val appliance : unit -> Stunnel.verification_config option

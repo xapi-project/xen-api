@@ -32,7 +32,11 @@ val getpid : pid -> int
 
 type verify = VerifyPeer | CheckHost
 
-type config = {sni: string option; verify: verify; cert_bundle_path: string}
+type verification_config = {
+    sni: string option
+  ; verify: verify
+  ; cert_bundle_path: string
+}
 
 (** Represents an active stunnel connection *)
 type t = {
@@ -44,18 +48,18 @@ type t = {
         (** time when the connection opened, for 'early retirement' *)
   ; unique_id: int option
   ; mutable logfile: string
-  ; verified: config option
+  ; verified: verification_config option
 }
 
-val appliance : config
+val appliance : verification_config
 
-val pool : config
+val pool : verification_config
 
 val with_connect :
      ?unique_id:int
   -> ?use_fork_exec_helper:bool
   -> ?write_to_log:(string -> unit)
-  -> verify_cert:config option
+  -> verify_cert:verification_config option
   -> ?extended_diagnosis:bool
   -> string
   -> int

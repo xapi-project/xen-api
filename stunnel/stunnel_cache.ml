@@ -37,7 +37,11 @@ let ignore_log fmt = Printf.ksprintf (fun _ -> ()) fmt
 (* Use and overlay the definition from D. *)
 let debug = if debug_enabled then debug else ignore_log
 
-type endpoint = {host: string; port: int; verified: Stunnel.config option}
+type endpoint = {
+    host: string
+  ; port: int
+  ; verified: Stunnel.verification_config option
+}
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
 let max_stunnel = 70

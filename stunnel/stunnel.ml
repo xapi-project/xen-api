@@ -124,7 +124,11 @@ let getpid ty =
 
 type verify = VerifyPeer | CheckHost
 
-type config = {sni: string option; verify: verify; cert_bundle_path: string}
+type verification_config = {
+    sni: string option
+  ; verify: verify
+  ; cert_bundle_path: string
+}
 
 type t = {
     mutable pid: pid
@@ -134,7 +138,7 @@ type t = {
   ; connected_time: float
   ; unique_id: int option
   ; mutable logfile: string
-  ; verified: config option
+  ; verified: verification_config option
 }
 
 let appliance =

@@ -259,7 +259,7 @@ module SSL = struct
   type t = {
       use_fork_exec_helper: bool
     ; use_stunnel_cache: bool
-    ; verify_cert: Stunnel.config option
+    ; verify_cert: Stunnel.verification_config option
     ; task_id: string option
   }
 
