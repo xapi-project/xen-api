@@ -74,7 +74,12 @@ list-hd:
 	echo counted $$LIST_HD usages ;\
 	test $$LIST_HD -eq 300
 
-quality-gate: list-hd ;
+verify-cert:
+	@NONE=$$( git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc) ;\
+	echo "counted $$NONE usages of verify_cert:None" ;\
+	test $$NONE -eq 6
+
+quality-gate: list-hd verify-cert ;
 
 install: build doc sdk
 	mkdir -p $(DESTDIR)$(SBINDIR)
