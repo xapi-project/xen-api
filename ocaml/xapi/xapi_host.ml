@@ -2468,7 +2468,8 @@ let get_sched_gran ~__context ~self =
 
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
-  Stunnel_client.set_verify_by_default false
+  Stunnel_client.set_verify_by_default false ;
+  Unixext.unlink_safe Xapi_globs.verify_certificates_path
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =
