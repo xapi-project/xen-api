@@ -3259,25 +3259,25 @@ functor
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.get_server_certificate rpc session_id host)
 
+      let _success ~__context () =
+        let task = Context.get_task_id __context in
+        let progress = Db.Task.get_progress ~__context ~self:task in
+        if progress = 1. then Some () else None
+
       let install_server_certificate ~__context ~host ~certificate ~private_key
           ~certificate_chain =
         info "Host.install_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
-        let task = Context.get_task_id __context in
         let local_fn =
           Local.Host.install_server_certificate ~host ~certificate ~private_key
             ~certificate_chain
-        in
-        let success () =
-          let progress = Db.Task.get_progress ~__context ~self:task in
-          if progress = 1. then Some () else None
         in
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
               Client.Host.install_server_certificate rpc session_id host
                 certificate private_key certificate_chain)
         in
-        tolerate_connection_loss fn success 30. ;
+        tolerate_connection_loss fn (_success ~__context) 30. ;
         try
           let _, _ =
             Forkhelpers.execute_command_get_output
@@ -3298,8 +3298,11 @@ functor
         info "Host.reset_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.reset_server_certificate ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+        let fn () =
+          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+              Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+        in
+        tolerate_connection_loss fn (_success ~__context) 30.
 
       let emergency_reset_server_certificate ~__context =
         info "Host.emergency_reset_server_certificate" ;
