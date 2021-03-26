@@ -161,7 +161,8 @@ module Db_util : sig
 
   val add_cert :
        __context:Context.t
-    -> type':[< `host of API.ref_host | `ca of name]
+    -> type':
+         [< `host of API.ref_host | `host_internal of API.ref_host | `ca of name]
     -> X509.Certificate.t
     -> API.ref_Certificate
 
@@ -170,9 +171,12 @@ module Db_util : sig
   val remove_ca_cert_by_name : __context:Context.t -> name -> unit
 
   val get_host_certs :
-    __context:Context.t -> host:API.ref_host -> API.ref_Certificate list
-  (** [get_host_certs ~__context ~host] gets all the host certs in the database
-    * belonging to [host] (the term 'host' is overloaded here) *)
+       __context:Context.t
+    -> type':[< `host | `host_internal]
+    -> host:API.ref_host
+    -> API.ref_Certificate list
+  (** [get_host_certs ~__context ~type' ~host] gets all the host certs in the database
+    * of type [type'] belonging to [host] (the term 'host' is overloaded here) *)
 end = struct
   module Date = Xapi_stdext_date.Date
 
@@ -183,6 +187,8 @@ end = struct
       match type' with
       | `host host ->
           ("", host, `host)
+      | `host_internal host ->
+          ("", host, `host_internal)
       | `ca name ->
           (name, Ref.null, `ca)
     in
@@ -201,9 +207,11 @@ end = struct
       ~not_after ~fingerprint ~name ~_type ;
     ref'
 
-  let get_host_certs ~__context ~host =
+  let get_host_certs ~__context ~type' ~host =
     let open Db_filter_types in
-    let type' = Eq (Field "type", Literal "host") in
+    let type' =
+      Eq (Field "type", Literal (Record_util.certificate_type_to_string type'))
+    in
     let host' = Eq (Field "host", Literal (Ref.string_of host)) in
     let expr = And (type', host') in
     Db.Certificate.get_refs_where ~__context ~expr
