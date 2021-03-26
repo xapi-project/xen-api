@@ -107,10 +107,12 @@ let rrd_of_gzip path =
 
 (* Send rrds to a remote host. If the host is on another pool, you must pass the
    session_id parameter, and optionally the __context. *)
-let send_rrd ?(session_id : string option) ~(address : string)
-    ~(to_archive : bool) ~(uuid : string) ~(rrd : Rrd.rrd) () =
+let send_rrd ?(session_id : string option)
+    ~(transport : Xmlrpc_client.transport) ~(to_archive : bool) ~(uuid : string)
+    ~(rrd : Rrd.rrd) () =
   debug "Sending RRD for object uuid=%s archiving=%b to address: %s" uuid
-    to_archive address ;
+    to_archive
+    (Xmlrpc_client.string_of_transport transport) ;
   let arch_query = if to_archive then [("archive", "true")] else [] in
   let sid_query =
     match session_id with None -> [] | Some id -> [("session_id", id)]
@@ -124,14 +126,13 @@ let send_rrd ?(session_id : string option) ~(address : string)
       ~cookie Http.Put Rrdd_libs.Constants.put_rrd_uri
   in
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make ~verify_cert:None (), address, !https_port) in
   with_transport transport
     (with_http request (fun (_response, fd) ->
          try Rrd_unix.to_fd rrd fd with _ -> log_backtrace ())) ;
   debug "Sending RRD complete."
 
-let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
-  match remote_address with
+let archive_rrd_internal ?(transport = None) ~uuid ~rrd () =
+  match transport with
   | None -> (
       debug "Archiving RRD for object uuid=%s to local disk" uuid ;
       try
@@ -156,8 +157,9 @@ let archive_rrd_internal ?(remote_address = None) ~uuid ~rrd () =
           debug "No local storage: not persisting RRDs"
       with _ -> log_backtrace ()
     )
-  | Some x ->
+  | Some transport ->
       (* Stream it to the master to store, or maybe to a host in the migrate
          case *)
-      debug "Archiving RRD for object uuid=%s to remote master" uuid ;
-      send_rrd ~address:x ~to_archive:true ~uuid ~rrd ()
+      debug "Archiving RRD for object uuid=%s to %s" uuid
+        (Xmlrpc_client.string_of_transport transport) ;
+      send_rrd ~transport ~to_archive:true ~uuid ~rrd ()

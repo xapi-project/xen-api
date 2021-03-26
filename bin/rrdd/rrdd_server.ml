@@ -65,22 +65,37 @@ let push_sr_rrd (sr_uuid : string) (path : string) : unit =
 let has_vm_rrd (vm_uuid : string) =
   Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
-let archive_rrd vm_uuid remote_address : unit =
+let archive_rrd vm_uuid (remote_address : string option) : unit =
+  let transport =
+    Option.map
+      (fun address ->
+        Xmlrpc_client.(
+          SSL (SSL.make ~verify_cert:None (), address, !https_port)))
+      remote_address
+  in
   Mutex.execute mutex (fun () ->
       try
         let rrd = (Hashtbl.find vm_rrds vm_uuid).rrd in
         Hashtbl.remove vm_rrds vm_uuid ;
-        archive_rrd_internal ~remote_address ~uuid:vm_uuid ~rrd ()
+        archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd ()
       with Not_found -> ())
 
 let backup_rrds (remote_address : string option) () : unit =
-  debug "backing up rrds %s"
-    ( match remote_address with
+  let transport =
+    Option.map
+      (fun address ->
+        Xmlrpc_client.(
+          SSL (SSL.make ~verify_cert:None (), address, !https_port)))
+      remote_address
+  in
+  let destination =
+    match remote_address with
     | None ->
-        "locally"
-    | Some x ->
-        Printf.sprintf "remotely at %s" x
-    ) ;
+        "to local disk"
+    | Some address ->
+        Printf.sprintf "to host %s" address
+  in
+  debug "backing up rrds %s" destination ;
   let total_cycles = 5 in
   let cycles_tried = ref 0 in
   while !cycles_tried < total_cycles do
@@ -95,7 +110,7 @@ let backup_rrds (remote_address : string option) () : unit =
         (fun (uuid, rrd) ->
           debug "Backup: saving RRD for VM uuid=%s to local disk" uuid ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-          archive_rrd_internal ~remote_address ~uuid ~rrd ())
+          archive_rrd_internal ~transport ~uuid ~rrd ())
         vrrds ;
       Mutex.lock mutex ;
       let srrds =
@@ -113,7 +128,7 @@ let backup_rrds (remote_address : string option) () : unit =
       | Some rrdi ->
           debug "Backup: saving RRD for host to local disk" ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-          archive_rrd_internal ~remote_address
+          archive_rrd_internal ~transport
             ~uuid:(Inventory.lookup Inventory._installation_uuid)
             ~rrd ()
       | None ->
@@ -150,7 +165,10 @@ module Deprecated = struct
     in
     let open Xmlrpc_client in
     let transport =
-      SSL (SSL.make ~verify_cert:(Stunnel_client.pool ()) (), master_address, !Rrdd_shared.https_port)
+      SSL
+        ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+        , master_address
+        , !Rrdd_shared.https_port )
     in
     with_transport transport
       (with_http request (fun (response, s) ->
@@ -222,12 +240,20 @@ let push_rrd_local vm_uuid domid : unit =
         Hashtbl.replace vm_rrds vm_uuid {rrd; dss= []; domid})
   with _ -> ()
 
-let push_rrd_remote vm_uuid remote_address : unit =
+let push_rrd_remote vm_uuid member_address : unit =
   try
     let rrd = get_rrd ~vm_uuid in
-    debug "Pushing RRD for VM uuid=%s remotely" vm_uuid ;
-    send_rrd ~address:remote_address ~to_archive:false ~uuid:vm_uuid
-      ~rrd:(Rrd.copy_rrd rrd) ()
+    let transport =
+      let open Xmlrpc_client in
+      SSL
+        ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+        , member_address
+        , !Rrdd_shared.https_port )
+    in
+    debug "Pushing RRD for VM uuid=%s to another pool member with %s" vm_uuid
+      (Xmlrpc_client.string_of_transport transport) ;
+    send_rrd ~transport ~to_archive:false ~uuid:vm_uuid ~rrd:(Rrd.copy_rrd rrd)
+      ()
   with _ -> ()
 
 (** Remove an RRD from the local filesystem, if it exists. *)
@@ -252,7 +278,11 @@ let migrate_rrd (session_id : string option) (remote_address : string)
           Hashtbl.remove vm_rrds vm_uuid ;
           rrdi)
     in
-    send_rrd ?session_id ~address:remote_address ~to_archive:false ~uuid:vm_uuid
+    let transport =
+      Xmlrpc_client.(
+        SSL (SSL.make ~verify_cert:None (), remote_address, !https_port))
+    in
+    send_rrd ?session_id ~transport ~to_archive:false ~uuid:vm_uuid
       ~rrd:rrdi.rrd ()
   with
   | Not_found ->
@@ -266,9 +296,16 @@ let migrate_rrd (session_id : string option) (remote_address : string)
 let send_host_rrd_to_master master_address =
   match !host_rrd with
   | Some rrdi ->
+      let transport =
+        let open Xmlrpc_client in
+        SSL
+          ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+          , master_address
+          , !Rrdd_shared.https_port )
+      in
       debug "sending host RRD to master" ;
       let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-      send_rrd ~address:master_address ~to_archive:true
+      send_rrd ~transport ~to_archive:true
         ~uuid:(Inventory.lookup Inventory._installation_uuid)
         ~rrd ()
   | None ->
