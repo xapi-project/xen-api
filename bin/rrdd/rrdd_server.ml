@@ -150,7 +150,7 @@ module Deprecated = struct
     in
     let open Xmlrpc_client in
     let transport =
-      SSL (SSL.make (), master_address, !Rrdd_shared.https_port)
+      SSL (SSL.make ~verify_cert:(Stunnel_client.pool ()) (), master_address, !Rrdd_shared.https_port)
     in
     with_transport transport
       (with_http request (fun (response, s) ->

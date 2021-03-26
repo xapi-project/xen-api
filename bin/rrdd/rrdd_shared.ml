@@ -124,7 +124,7 @@ let send_rrd ?(session_id : string option) ~(address : string)
       ~cookie Http.Put Rrdd_libs.Constants.put_rrd_uri
   in
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make (), address, !https_port) in
+  let transport = SSL (SSL.make ~verify_cert:None (), address, !https_port) in
   with_transport transport
     (with_http request (fun (_response, fd) ->
          try Rrd_unix.to_fd rrd fd with _ -> log_backtrace ())) ;
