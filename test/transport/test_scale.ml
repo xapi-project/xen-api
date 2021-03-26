@@ -1,4 +1,3 @@
-open OUnit
 open Test_common
 
 let sync_string = "ready"
@@ -91,7 +90,7 @@ let run_tests shared_file_count protocol =
       (* Child - we will be the writer. *)
       Unix.close reader_sock ;
       write_payloads deliveries protocol writer_sock
-  | child_pid ->
+  | _child_pid ->
       (* Parent - we will be the reader. *)
       Unix.close writer_sock ;
       read_payloads deliveries protocol reader_sock

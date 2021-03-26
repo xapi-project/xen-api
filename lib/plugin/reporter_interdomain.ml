@@ -13,7 +13,6 @@
  *)
 
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_unix
 open Reporter
 
 let start_interdomain (module D : Debug.DEBUG) ~reporter ~uid ~backend_domid

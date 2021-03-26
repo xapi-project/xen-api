@@ -13,7 +13,6 @@
  *)
 
 open Xapi_stdext_threads.Threadext
-open Xapi_stdext_unix
 
 (* This exception is setup to be raised on sigint by Process.initialise,
  * and is used to cancel the synchronous function Reporter.start. *)

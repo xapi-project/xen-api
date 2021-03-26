@@ -14,9 +14,11 @@
 
 type interdomain_id = {backend_domid: int; shared_page_count: int}
 
-module Page = struct
-  open Gnt
+module Gntshr = Gnt.Gntshr
 
+let with_gntshr = Gntshr.with_gntshr [@@ocaml.warning "-3"]
+
+module Page = struct
   type id_t = interdomain_id
 
   (** list of shared pages *)
@@ -26,13 +28,13 @@ module Page = struct
 
   let init {backend_domid; shared_page_count} =
     let share =
-      Gntshr.with_gntshr (fun gntshr ->
+      with_gntshr (fun gntshr ->
           Gntshr.share_pages_exn gntshr backend_domid shared_page_count false)
     in
     (share.Gntshr.refs, share)
 
   let cleanup _ _ share =
-    Gntshr.with_gntshr (fun gntshr -> Gntshr.munmap_exn gntshr share)
+    with_gntshr (fun gntshr -> Gntshr.munmap_exn gntshr share)
 
   (** The allocator returns a Cstruct mapping all of the shared memory, unless
       	 *  the size requested is greater than the size of this memory in which case

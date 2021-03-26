@@ -66,7 +66,7 @@ let test_reader_cleanup protocol =
       in
       writer.Rrd_writer.write_payload test_payload ;
       (shared_file, writer))
-    (fun (shared_file, writer) ->
+    (fun (shared_file, _writer) ->
       let reader = Rrd_reader.FileReader.create shared_file protocol in
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
       reader.Rrd_reader.cleanup () ;
