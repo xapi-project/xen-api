@@ -108,7 +108,7 @@ let backup_rrds (remote_address : string option) () : unit =
       Mutex.unlock mutex ;
       List.iter
         (fun (uuid, rrd) ->
-          debug "Backup: saving RRD for VM uuid=%s to local disk" uuid ;
+          debug "Backup: saving RRD for VM uuid=%s %s" uuid destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
           archive_rrd_internal ~transport ~uuid ~rrd ())
         vrrds ;
@@ -120,13 +120,13 @@ let backup_rrds (remote_address : string option) () : unit =
       Mutex.unlock mutex ;
       List.iter
         (fun (uuid, rrd) ->
-          debug "Backup: saving RRD for SR uuid=%s to local disk" uuid ;
+          debug "Backup: saving RRD for SR uuid=%s %s" uuid destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrd) in
-          archive_rrd_internal ~uuid ~rrd ())
+          archive_rrd_internal ~transport ~uuid ~rrd ())
         srrds ;
       match !host_rrd with
       | Some rrdi ->
-          debug "Backup: saving RRD for host to local disk" ;
+          debug "Backup: saving RRD for host %s" destination ;
           let rrd = Mutex.execute mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
           archive_rrd_internal ~transport
             ~uuid:(Inventory.lookup Inventory._installation_uuid)
