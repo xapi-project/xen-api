@@ -266,10 +266,10 @@ let suite_create_multi =
   let module RU = Rrd_updates in
 
   let assert_size t =
-    (** we can't to check that the number of rows is consistent,
-        since this is defined purely by the number of rows
-      * the number of columns should match the number of items in the legend -
-        each element in the legend array defines the contents for one column *)
+    (* we can't to check that the number of rows is consistent,
+       since this is defined purely by the number of rows
+       the number of columns should match the number of items in the legend -
+       each element in the legend array defines the contents for one column *)
     let num_cols_in_legend = Array.length t.RU.legend in
     t.RU.data |> Array.iteri (fun i r ->
       Alcotest.(check int)
@@ -281,9 +281,9 @@ let suite_create_multi =
   let test_no_rrds () =
     Alcotest.check_raises "should raise error" (Failure "hd") (fun () -> let _ = RU.create_multi [] 0L 1L None in ())
   in
-  (** confusingly, rows in an rra are used to define the cols in the rrd_updates/ xml...
-    * essentially we usually expect 'rows' in each rrd to be the same (test_rows_with_same_num_cols)
-    * however, we should also handle the case where they are not (test_rows_with_different_num_cols) *)
+  (* confusingly, rows in an rra are used to define the cols in the rrd_updates/ xml...
+     essentially we usually expect 'rows' in each rrd to be the same (test_rows_with_same_num_cols)
+     however, we should also handle the case where they are not (test_rows_with_different_num_cols) *)
   let valid_rrd_tests =
     [ "one_rrd",                      [ create_rrd ~rows:2 [0L; 5L; 10L] 0. 1.
                                       ]

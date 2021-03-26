@@ -18,6 +18,5 @@ test:
 clean:
 	dune clean
 
-reindent:
-	git ls-files '**/*.ml' | xargs ocp-indent --inplace
-
+format:
+	dune build @fmt --auto-promote

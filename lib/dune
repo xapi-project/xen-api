@@ -1,7 +1,7 @@
 (library
   (name rrd)
   (public_name xapi-rrd)
-  (flags (:standard -w -34-39))
+  (flags (:standard -w -39))
   (wrapped false)
   (libraries
     bigarray

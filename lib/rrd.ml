@@ -58,12 +58,6 @@ let cf_type_to_string = function
   | CF_Min -> "MIN"
   | CF_Last -> "LAST"
 
-let cf_init_value = function
-  | CF_Average -> 0.0
-  | CF_Min -> infinity
-  | CF_Max -> neg_infinity
-  | CF_Last -> nan
-
 let ds_value_to_string = function
   | VT_Float x -> Utils.f_to_s x
   | VT_Int64 x -> Printf.sprintf "%Ld" x
@@ -161,7 +155,7 @@ let copy_rra x =
 
 let copy_ds x =
   {
-    ds_name = x.ds_name; (* not mutable *)
+    ds_name = x.ds_name (* not mutable *) ;
     ds_ty = x.ds_ty;
     ds_min = x.ds_min;
     ds_max = x.ds_max;
@@ -382,9 +376,9 @@ let rra_create cf row_cnt pdp_cnt xff =
     rra_row_cnt=row_cnt;
     rra_pdp_cnt=pdp_cnt;
     rra_xff=xff;
-    rra_data=[| |]; (* defer creation of the data until we know how many dss we're storing *)
-    rra_cdps=[| |]; (* defer creation of the data until we know how many dss we're storing *)
-    rra_updatehook = None; (* DEPRECATED *)
+    rra_data=[| |] (* defer creation of the data until we know how many dss we're storing *) ;
+    rra_cdps=[| |] (* defer creation of the data until we know how many dss we're storing *) ;
+    rra_updatehook = None (* DEPRECATED *) ;
   }
 
 let ds_create name ty ?(min=neg_infinity) ?(max=infinity) ?(mrhb=infinity) init =
@@ -433,7 +427,7 @@ let rrd_add_ds rrd now newds =
     let npdps = Int64.of_float now /// rrd.timestep in
     {rrd with
      rrd_dss = Array.append rrd.rrd_dss [|newds|];
-     rrd_rras = Array.mapi (fun i rra ->
+     rrd_rras = Array.map (fun rra ->
         let cdp_init = cf_init_value rra.rra_cf newds in
         let fring = Fring.make rra.rra_row_cnt nan newds.ds_min newds.ds_max in
          let nunknowns = Int64.to_int (Int64.rem npdps (Int64.of_int rra.rra_pdp_cnt)) in
@@ -466,7 +460,7 @@ let find_best_rras rrd pdp_interval cf start =
     match cf with
     | Some realcf -> List.filter (fun rra -> rra.rra_cf=realcf) (Array.to_list rrd.rrd_rras)
     | None -> Array.to_list rrd.rrd_rras in
-  (if List.length rras = 0 then raise No_RRA_Available);
+  (if rras = [] then raise No_RRA_Available);
   let (last_pdp_time, _age) = get_times rrd.last_updated rrd.timestep in
   let contains_time t rra =
     let lasttime = last_pdp_time --- rrd.timestep *** (Int64.of_int (rra.rra_row_cnt * rra.rra_pdp_cnt)) in
