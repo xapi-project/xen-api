@@ -16,24 +16,20 @@
  * are available, to avoid clients having to already know or guess.
  *)
 
+type t = {name: string; num_intervals: int; interval_in_steps: int}
 
-type t = {
-	name: string;
-	num_intervals: int;
-	interval_in_steps: int;
-}
+val make :
+  name:string -> num_intervals:int -> interval_in_steps:int -> unit -> t
 
-val make: name:string -> num_intervals:int -> interval_in_steps:int -> unit -> t
+val name_of : t -> string
 
-val name_of: t -> string
-
-val to_span: t -> int
+val to_span : t -> int
 (** Total length of time covered by the archive *)
 
-val interval_to_span: t -> int
+val interval_to_span : t -> int
 (** Length of time in one interval (clients requesting updates should poll at
     most every interval) *)
 
-val to_json: t list -> string
+val to_json : t list -> string
 
-val of_json: string -> t list
+val of_json : string -> t list

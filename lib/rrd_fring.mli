@@ -18,37 +18,37 @@ module BoundedFloat = Rrd_utils.BoundedFloat
 
 type t
 
+val make : int -> float -> float -> float -> t
 (** create a ring structure with [size] record; records initialised to [init]
     @param size number of elements the ring holds (constant)
     @param init value all the elements are initialized to
     *)
-val make : int -> float -> float -> float -> t
 
-(** create a duplicate ring structure *)
 val copy : t -> t
+(** create a duplicate ring structure *)
 
-(** length (size) of the ring, it is constant *)
 val length : t -> int
+(** length (size) of the ring, it is constant *)
 
-(** push into the ring one element *)
 val push : t -> float -> unit
+(** push into the ring one element *)
 
-(** get the i{^th} old element from the ring *)
 val peek : t -> int -> float
+(** get the i{^th} old element from the ring *)
 
-(** get the top element of the ring *)
 val top : t -> float
+(** get the top element of the ring *)
 
-(** iterate over nb element of the ring, starting from the top *)
 val iter_nb : t -> (float -> unit) -> int -> unit
+(** iterate over nb element of the ring, starting from the top *)
 
 val raw_iter : t -> (float -> unit) -> unit
 
-(** iterate over all elements of the ring, starting from the top *)
 val iter : t -> (float -> unit) -> unit
+(** iterate over all elements of the ring, starting from the top *)
 
-(** get array of latest [nb] value *)
 val get_nb : t -> int -> float array
+(** get array of latest [nb] value *)
 
-(** get an array with all the values in the ring *)
 val get : t -> float array
+(** get an array with all the values in the ring *)
