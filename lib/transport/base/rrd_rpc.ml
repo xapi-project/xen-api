@@ -22,24 +22,34 @@ let list_of_rpc ~(rpc : Rpc.t) : Rpc.t list =
 
 (* [assoc_opt ~key ~default l] gets string value associated with [key] in
  * [l], returning [default] if no mapping is found. *)
-let assoc_opt ~(key : string) ~(default : string)
-    (l : (string * Rpc.t) list) : string =
+let assoc_opt ~(key : string) ~(default : string) (l : (string * Rpc.t) list) :
+    string =
   try Rpc.string_of_rpc (List.assoc key l) with
-  | Not_found -> default
-  | e -> raise e
+  | Not_found ->
+      default
+  | e ->
+      raise e
 
 (* Converts string to the corresponding datasource type. *)
 let ds_ty_of_string (s : string) : Rrd.ds_type =
   match String.lowercase_ascii s with
-  | "gauge" -> Rrd.Gauge
-  | "absolute" -> Rrd.Absolute
-  | "derive" -> Rrd.Derive
-  | _ -> raise Rrd_protocol.Invalid_payload
+  | "gauge" ->
+      Rrd.Gauge
+  | "absolute" ->
+      Rrd.Absolute
+  | "derive" ->
+      Rrd.Derive
+  | _ ->
+      raise Rrd_protocol.Invalid_payload
 
 (* Converts a string to value of datasource owner type. *)
 let owner_of_string (s : string) : Rrd.ds_owner =
   match Astring.String.cuts ~sep:" " (String.lowercase_ascii s) with
-  | ["host"] -> Rrd.Host
-  | ["vm"; uuid] -> Rrd.VM uuid
-  | ["sr"; uuid] -> Rrd.SR uuid
-  | _ -> raise Rrd_protocol.Invalid_payload
+  | ["host"] ->
+      Rrd.Host
+  | ["vm"; uuid] ->
+      Rrd.VM uuid
+  | ["sr"; uuid] ->
+      Rrd.SR uuid
+  | _ ->
+      raise Rrd_protocol.Invalid_payload

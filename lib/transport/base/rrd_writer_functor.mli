@@ -19,18 +19,18 @@ module type TRANSPORT = sig
 
   type state_t
 
-  val init: id_t -> info_t * state_t
+  val init : id_t -> info_t * state_t
 
-  val cleanup: id_t -> info_t -> state_t -> unit
+  val cleanup : id_t -> info_t -> state_t -> unit
 
-  val get_allocator: state_t -> (int -> Cstruct.t)
+  val get_allocator : state_t -> int -> Cstruct.t
 end
 
 type writer = {
-  write_payload: Rrd_protocol.payload -> unit;
-  cleanup: unit -> unit;
+    write_payload: Rrd_protocol.payload -> unit
+  ; cleanup: unit -> unit
 }
 
-module Make (T: TRANSPORT) : sig
-  val create: T.id_t -> Rrd_protocol.protocol -> T.info_t * writer
+module Make (T : TRANSPORT) : sig
+  val create : T.id_t -> Rrd_protocol.protocol -> T.info_t * writer
 end

@@ -12,10 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type interdomain_id = {
-  backend_domid: int;
-  shared_page_count: int;
-}
+type interdomain_id = {backend_domid: int; shared_page_count: int}
 
 module Page = struct
   open Gnt
@@ -24,19 +21,18 @@ module Page = struct
 
   (** list of shared pages *)
   type info_t = int list
+
   type state_t = Gntshr.share
 
   let init {backend_domid; shared_page_count} =
     let share =
-      Gntshr.with_gntshr
-        (fun gntshr ->
-           Gntshr.share_pages_exn gntshr backend_domid shared_page_count false)
+      Gntshr.with_gntshr (fun gntshr ->
+          Gntshr.share_pages_exn gntshr backend_domid shared_page_count false)
     in
-    share.Gntshr.refs, share
+    (share.Gntshr.refs, share)
 
   let cleanup _ _ share =
-    Gntshr.with_gntshr
-      (fun gntshr -> Gntshr.munmap_exn gntshr share)
+    Gntshr.with_gntshr (fun gntshr -> Gntshr.munmap_exn gntshr share)
 
   (** The allocator returns a Cstruct mapping all of the shared memory, unless
       	 *  the size requested is greater than the size of this memory in which case
@@ -45,10 +41,10 @@ module Page = struct
     let alloc_cstruct size =
       let c = Io_page.to_cstruct share.Gntshr.mapping in
       if size > Cstruct.len c then
-        failwith "not enough memory";
+        failwith "not enough memory" ;
       c
     in
     alloc_cstruct
 end
 
-include Rrd_writer_functor.Make(Page)
+include Rrd_writer_functor.Make (Page)

@@ -16,18 +16,9 @@ open Xapi_stdext_threads.Threadext
 open Xapi_stdext_unix
 open Reporter
 
-let start_interdomain
-    (module D : Debug.DEBUG)
-    ~reporter
-    ~uid
-    ~backend_domid
-    ~page_count
-    ~protocol
-    ~dss_f =
-  let id = Rrd_page_writer.({
-      backend_domid = backend_domid;
-      shared_page_count = page_count;
-    }) in
+let start_interdomain (module D : Debug.DEBUG) ~reporter ~uid ~backend_domid
+    ~page_count ~protocol ~dss_f =
+  let id = Rrd_page_writer.{backend_domid; shared_page_count= page_count} in
   let shared_page_refs, writer =
     Rrd_page_writer.create id (choose_protocol protocol)
   in
@@ -35,26 +26,25 @@ let start_interdomain
   Xs.transaction xs_state.Xs.client (fun xs ->
       Xs.write xs
         (Printf.sprintf "%s/%s/grantrefs" xs_state.Xs.root_path uid)
-        (List.map string_of_int shared_page_refs |> String.concat ",");
+        (List.map string_of_int shared_page_refs |> String.concat ",") ;
       Xs.write xs
         (Printf.sprintf "%s/%s/protocol" xs_state.Xs.root_path uid)
-        (Rrd_interface.string_of_protocol protocol);
+        (Rrd_interface.string_of_protocol protocol) ;
       Xs.write xs
         (Printf.sprintf "%s/%s/ready" xs_state.Xs.root_path uid)
-        "true");
+        "true") ;
   let report () =
-    let payload = Rrd_protocol.({
-        timestamp = Utils.now ();
-        datasources = dss_f ();
-      }) in
-    writer.Rrd_writer_functor.write_payload payload;
+    let payload =
+      Rrd_protocol.{timestamp= Utils.now (); datasources= dss_f ()}
+    in
+    writer.Rrd_writer_functor.write_payload payload ;
     Thread.delay 5.0
   in
   let cleanup () =
     Xs.immediate xs_state.Xs.client (fun xs ->
         Xs.write xs
           (Printf.sprintf "%s/%s/shutdown" xs_state.Xs.root_path uid)
-          "true");
+          "true") ;
     writer.Rrd_writer_functor.cleanup ()
   in
   loop (module D) ~reporter ~report ~cleanup
