@@ -41,3 +41,14 @@ jobs:
 
       - name: Run tests
         run: opam exec -- make test
+
+  deprecation-test:
+    name: Deprecation tests
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Number of verify_cert:None usages has not changed
+        run: make verify-cert
