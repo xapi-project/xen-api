@@ -22,16 +22,19 @@ type xmlrpc = Xml.xml
 
 (** An XML-RPC response: *)
 type response =
-  | Success of xmlrpc list           (** normal result *)
-  | Failure of string * (string list) (** failure/ exception in high-level code *)
-  | Fault of (int32 * string)         (** error in the XMLRPC handling *)
+  | Success of xmlrpc list  (** normal result *)
+  | Failure of string * string list
+      (** failure/ exception in high-level code *)
+  | Fault of (int32 * string)  (** error in the XMLRPC handling *)
   | Raw of xmlrpc list
 
 (** Functions to marshal some ocaml values to strings, suitable for
     keys in XMLRPC structs *)
 module ToString : sig
   val int64 : int64 -> string
+
   val double : float -> string
+
   val string : string -> string
 end
 
@@ -39,78 +42,80 @@ end
     keys in XMLRPC structs *)
 module FromString : sig
   val int64 : string -> int64
+
   val double : string -> float
+
   val string : string -> string
 end
 
 (** Functions to marshal OCaml values to our subset of XML-RPC. *)
 module To : sig
-  (** Marshal a nil value *)
   val nil : unit -> xmlrpc
+  (** Marshal a nil value *)
 
-  (** Marshal a homogeneous array. *)
   val array : xmlrpc list -> xmlrpc
+  (** Marshal a homogeneous array. *)
 
-  (** Marshal a boolean. *)
   val boolean : bool -> xmlrpc
+  (** Marshal a boolean. *)
 
-  (** Marshal a date-time. *)
   val datetime : Xapi_stdext_date.Date.iso8601 -> xmlrpc
+  (** Marshal a date-time. *)
 
-  (** Marshal a double. *)
   val double : float -> xmlrpc
+  (** Marshal a double. *)
 
-  (** Marshal a int. *)
   val int : int32 -> xmlrpc
+  (** Marshal a int. *)
 
-  (** Marshal a method call. *)
   val methodCall : string -> xmlrpc list -> xmlrpc
+  (** Marshal a method call. *)
 
-  (** Marshal a string. *)
   val string : string -> xmlrpc
+  (** Marshal a string. *)
 
-  (** Marshal a struct. *)
   val structure : (string * xmlrpc) list -> xmlrpc
+  (** Marshal a struct. *)
 
-  (** Marshal a method response. *)
   val methodResponse : response -> xmlrpc
-
+  (** Marshal a method response. *)
 end
 
 (** Higher-order functions to marshal values from our subset of XML-RPC. *)
 module From : sig
-  (** Parse a homogeneous array, applying f to the XML in element. *)
   val array : (xmlrpc -> 'a) -> xmlrpc -> 'a list
+  (** Parse a homogeneous array, applying f to the XML in element. *)
 
   val id : 'a -> 'a
+
   val pcdata : (string -> 'a) -> xmlrpc -> 'a
+
   val value : (xmlrpc -> 'a) -> xmlrpc -> 'a
 
-  (** Parse a nil (XMLRPC extension) *)
   val nil : xmlrpc -> unit
+  (** Parse a nil (XMLRPC extension) *)
 
-  (** Parse a boolean. *)
   val boolean : xmlrpc -> bool
+  (** Parse a boolean. *)
 
-  (** Parse a date-time. *)
   val datetime : xmlrpc -> Xapi_stdext_date.Date.iso8601
+  (** Parse a date-time. *)
 
-  (** Parse a double. *)
   val double : xmlrpc -> float
+  (** Parse a double. *)
 
-  (** Parse a int. *)
   val int : xmlrpc -> int32
+  (** Parse a int. *)
 
-  (** Parse a method call. *)
   val methodCall : xmlrpc -> string * xmlrpc list
+  (** Parse a method call. *)
 
-  (** Parse a string. *)
   val string : xmlrpc -> string
+  (** Parse a string. *)
 
-  (** Parse a struct. *)
   val structure : xmlrpc -> (string * xmlrpc) list
+  (** Parse a struct. *)
 
-  (** Parse a method response. *)
   val methodResponse : xmlrpc -> response
-
+  (** Parse a method response. *)
 end

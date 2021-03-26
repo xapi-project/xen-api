@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,16 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type t =
-  | Node of t list
-  | Symbol of string
-  | String of string
-  | WeirdString of string * string
 
-val mkstring : string -> t
+val get_verify_by_default : unit -> bool
 
-val string_of : t -> string
+val set_verify_by_default : bool -> unit
 
-val weird_of_string : string -> t
+val pool : unit -> Stunnel.verification_config option
 
-val output_fmt : Format.formatter -> t -> unit
+val appliance : unit -> Stunnel.verification_config option

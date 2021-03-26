@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,16 +11,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-type t =
-  | Node of t list
-  | Symbol of string
-  | String of string
-  | WeirdString of string * string
 
-val mkstring : string -> t
+module D = Debug.Make (struct let name = "Stunnel_client" end)
 
-val string_of : t -> string
+let verify = ref false
 
-val weird_of_string : string -> t
+let get_verify_by_default () = !verify
 
-val output_fmt : Format.formatter -> t -> unit
+let set_verify_by_default = function
+  | false ->
+      D.info "disabling default tls verification" ;
+      verify := false
+  | true ->
+      D.info "enabling default tls verification" ;
+      verify := true
+
+let pool () = match !verify with true -> Some Stunnel.pool | false -> None
+
+let appliance () =
+  match !verify with true -> Some Stunnel.appliance | false -> None
