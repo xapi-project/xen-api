@@ -59,7 +59,10 @@ let forward args s session =
          (Api_errors.host_is_slave, [Pool_role.get_master_address ()])) ;
   let open Xmlrpc_client in
   let transport =
-    SSL (SSL.make (), Pool_role.get_master_address (), !Constants.https_port)
+    SSL
+      ( SSL.make ~verify_cert:None ()
+      , Pool_role.get_master_address ()
+      , !Constants.https_port )
   in
   let body =
     let args =

@@ -149,7 +149,7 @@ let forward req call is_json =
   let open Xmlrpc_client in
   let transport =
     SSL
-      ( SSL.make ~use_stunnel_cache:true ()
+      ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ()) ()
       , Pool_role.get_master_address ()
       , !Constants.https_port )
   in

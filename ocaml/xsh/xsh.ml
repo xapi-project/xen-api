@@ -77,7 +77,7 @@ let with_open_tcp_ssl server f =
   let open Safe_resources in
   Stunnel.with_connect ~use_fork_exec_helper:false
     ~write_to_log:(fun _ -> ())
-    server port
+    ~verify_cert:None server port
   @@ fun x -> f Unixfd.(!(x.Stunnel.fd))
 
 let _ =

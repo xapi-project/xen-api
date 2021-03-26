@@ -310,7 +310,7 @@ let with_open_tcp_ssl server f =
   let open Safe_resources in
   Stunnel.with_connect ~use_fork_exec_helper:false
     ~write_to_log:(fun x -> debug "stunnel: %s\n%!" x)
-    ~extended_diagnosis:(!debug_file <> None) server port
+    ~verify_cert:None ~extended_diagnosis:(!debug_file <> None) server port
   @@ fun x ->
   let x = Stunnel.move_out_exn x in
   let ic = Unix.in_channel_of_descr (Unix.dup Unixfd.(!(x.Stunnel.fd))) in

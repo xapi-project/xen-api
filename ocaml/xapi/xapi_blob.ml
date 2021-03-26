@@ -65,7 +65,10 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
         in
         let open Xmlrpc_client in
         let transport =
-          SSL (SSL.make (), remote_address, !Constants.https_port)
+          SSL
+            ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+            , remote_address
+            , !Constants.https_port )
         in
         with_transport transport
           (with_http request (fun (response, put_fd) ->

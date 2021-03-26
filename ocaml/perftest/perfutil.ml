@@ -25,7 +25,7 @@ let rpc xml =
 let remoterpc host xml =
   let open Xmlrpc_client in
   XMLRPC_protocol.rpc ~srcstr:"perftest" ~dststr:"remotexapi"
-    ~transport:(SSL (SSL.make (), host, 443))
+    ~transport:(SSL (SSL.make ~verify_cert:None (), host, 443))
     ~http:(xmlrpc ~version:"1.1" "/")
     xml
 
