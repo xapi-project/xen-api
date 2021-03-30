@@ -34,31 +34,37 @@ let list_directory_entries_unsafe dir =
   List.filter (fun x -> x <> "." && x <> "..") dirlist
 
 let exec_cmd (module D : Debug.DEBUG) ~cmdstring ~(f : string -> 'a option) =
-  D.debug "Forking command %s" cmdstring;
+  D.debug "Forking command %s" cmdstring ;
   (* create pipe for reading from the command's output *)
-  let (out_readme, out_writeme) = Unix.pipe () in
-  let cmd, args = match Astring.String.cuts ~empty:false ~sep:" " cmdstring with [] -> assert false | h::t -> h,t in
-  let pid = Forkhelpers.safe_close_and_exec None (Some out_writeme) None [] cmd args in
-  Unix.close out_writeme;
+  let out_readme, out_writeme = Unix.pipe () in
+  let cmd, args =
+    match Astring.String.cuts ~empty:false ~sep:" " cmdstring with
+    | [] ->
+        assert false
+    | h :: t ->
+        (h, t)
+  in
+  let pid =
+    Forkhelpers.safe_close_and_exec None (Some out_writeme) None [] cmd args
+  in
+  Unix.close out_writeme ;
   let in_channel = Unix.in_channel_of_descr out_readme in
   let vals = ref [] in
   let rec loop () =
     let line = input_line in_channel in
     let ret = f line in
-    begin
-      match ret with
-      | None -> ()
-      | Some v -> vals := v :: !vals
-    end;
+    (match ret with None -> () | Some v -> vals := v :: !vals) ;
     loop ()
   in
-  (try loop () with End_of_file -> ());
-  Unix.close out_readme;
-  let (pid, status) = Forkhelpers.waitpid pid in
-  begin
-    match status with
-    | Unix.WEXITED n   -> D.debug "Process %d exited normally with code %d" pid n
-    | Unix.WSIGNALED s -> D.debug "Process %d was killed by signal %d" pid s
-    | Unix.WSTOPPED s  -> D.debug "Process %d was stopped by signal %d" pid s
-  end;
+  (try loop () with End_of_file -> ()) ;
+  Unix.close out_readme ;
+  let pid, status = Forkhelpers.waitpid pid in
+  ( match status with
+  | Unix.WEXITED n ->
+      D.debug "Process %d exited normally with code %d" pid n
+  | Unix.WSIGNALED s ->
+      D.debug "Process %d was killed by signal %d" pid s
+  | Unix.WSTOPPED s ->
+      D.debug "Process %d was stopped by signal %d" pid s
+  ) ;
   List.rev !vals

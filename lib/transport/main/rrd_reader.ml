@@ -13,12 +13,11 @@
  *)
 
 type reader = Rrd_reader_functor.reader = {
-  read_payload: unit -> Rrd_protocol.payload;
-  cleanup: unit -> unit;
+    read_payload: unit -> Rrd_protocol.payload
+  ; cleanup: unit -> unit
 }
 
 include Rrd_file_reader
 include Rrd_page_reader
-
 module FileReader = Rrd_file_reader
 module PageReader = Rrd_page_reader

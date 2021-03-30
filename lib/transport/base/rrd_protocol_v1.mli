@@ -12,4 +12,4 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val protocol: Rrd_protocol.protocol
+val protocol : Rrd_protocol.protocol

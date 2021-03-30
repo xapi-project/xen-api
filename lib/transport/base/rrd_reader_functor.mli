@@ -17,18 +17,18 @@ module type TRANSPORT = sig
 
   type state_t
 
-  val init: id_t -> state_t
+  val init : id_t -> state_t
 
-  val cleanup: id_t -> state_t -> unit
+  val cleanup : id_t -> state_t -> unit
 
-  val expose: state_t -> Cstruct.t
+  val expose : state_t -> Cstruct.t
 end
 
 type reader = {
-  read_payload: unit -> Rrd_protocol.payload;
-  cleanup: unit -> unit;
+    read_payload: unit -> Rrd_protocol.payload
+  ; cleanup: unit -> unit
 }
 
-module Make (T: TRANSPORT) : sig
-  val create: T.id_t -> Rrd_protocol.protocol -> reader
+module Make (T : TRANSPORT) : sig
+  val create : T.id_t -> Rrd_protocol.protocol -> reader
 end

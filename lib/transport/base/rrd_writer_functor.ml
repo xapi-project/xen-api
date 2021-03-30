@@ -23,40 +23,42 @@ module type TRANSPORT = sig
   (** Internal state relating to the open resource. *)
   type state_t
 
+  val init : id_t -> info_t * state_t
   (** Open a resource for writing, given its identifier. *)
-  val init: id_t -> (info_t * state_t)
 
+  val cleanup : id_t -> info_t -> state_t -> unit
   (** Cleanup an open resource when it is no longer needed. *)
-  val cleanup: id_t -> info_t -> state_t -> unit
 
+  val get_allocator : state_t -> int -> Cstruct.t
   (** Get a function which, when given an integer representing a number of
       	 *  bytes to be written, will return a Cstruct of that size (or potentially
       	 *  throw an exception if the transport method determines that that size is
       	 *  too large. *)
-  val get_allocator: state_t -> (int -> Cstruct.t)
 end
 
 type writer = {
-  write_payload: Rrd_protocol.payload -> unit;
-  cleanup: unit -> unit;
+    write_payload: Rrd_protocol.payload -> unit
+  ; cleanup: unit -> unit
 }
 
-module Make (T: TRANSPORT) = struct
+module Make (T : TRANSPORT) = struct
   let create id protocol =
-    let (info, state) = T.init id in
+    let info, state = T.init id in
     let writer = protocol.Rrd_protocol.make_payload_writer () in
     let is_open = ref true in
     let write_payload payload =
-      if !is_open then begin
+      if !is_open then
         let allocator = T.get_allocator state in
         writer allocator payload
-      end else raise Rrd_io.Resource_closed
+      else
+        raise Rrd_io.Resource_closed
     in
     let cleanup () =
-      if !is_open then begin
-        T.cleanup id info state;
+      if !is_open then (
+        T.cleanup id info state ;
         is_open := false
-      end else raise Rrd_io.Resource_closed
+      ) else
+        raise Rrd_io.Resource_closed
     in
-    info, {write_payload; cleanup;}
+    (info, {write_payload; cleanup})
 end
