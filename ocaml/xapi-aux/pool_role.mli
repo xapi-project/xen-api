@@ -42,3 +42,7 @@ exception This_host_is_broken
 
 val get_master_address : unit -> string
 (** If this node is a slave, returns the IP address of its master *)
+
+val get_master_address_opt : unit -> string option
+(** [get_master_address_opt ()] returns None if the current host is the master
+    or it's broken, and Some (address of the pool master) otherwise *)

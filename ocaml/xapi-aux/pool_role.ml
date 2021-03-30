@@ -107,3 +107,6 @@ let get_master_address () =
       raise This_host_is_a_master
   | Broken ->
       raise This_host_is_broken
+
+let get_master_address_opt () =
+  match get_role () with Slave ip -> Some ip | Master | Broken -> None
