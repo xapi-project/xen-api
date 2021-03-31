@@ -10,7 +10,7 @@ open Rresult
 
 let ( let* ) = ( >>= )
 
-let remove_cert ~__context cert =
+let uninstall ~__context cert =
   info "Removing certificate %s" (Ref.string_of cert) ;
   Db.Certificate.destroy ~__context ~self:cert
 
@@ -75,7 +75,7 @@ let update ~__context =
       ) else (
         info "Server certificate for host %s changed - updating" host_uuid ;
         let* () = install ~__context ~host cert in
-        remove_cert ~__context cert_ref ;
+        uninstall ~__context cert_ref ;
         Ok ()
       )
   | cert_refs ->
@@ -83,5 +83,5 @@ let update ~__context =
         (String.concat ", " (List.map Ref.string_of cert_refs)) ;
       info "Server certificate for host %s changed - updating" host_uuid ;
       let* () = install ~__context ~host cert in
-      List.iter (remove_cert ~__context) cert_refs ;
+      List.iter (uninstall ~__context) cert_refs ;
       Ok ()
