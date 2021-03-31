@@ -13,9 +13,16 @@ let days_until_expiry epoch expiry =
 
 let get_certificate_attributes rpc session =
   XenAPI.Certificate.get_all_records rpc session
-  |> List.map (fun (_, certificate) ->
-         ( certificate.API.certificate_host
-         , certificate.API.certificate_not_after ))
+  |> List.filter_map (fun (_, certificate) ->
+         (* don't create alerts for `host_internal or `ca
+          * certificates *)
+         match certificate.API.certificate_type with
+         | `host ->
+             Some
+               ( certificate.API.certificate_host
+               , certificate.API.certificate_not_after )
+         | `ca | `host_internal ->
+             None)
 
 let generate_alert epoch (host, expiry) =
   let days = days_until_expiry epoch (Date.to_float expiry) in
@@ -68,7 +75,7 @@ let execute rpc session existing_messages (host, alert) =
         (fun (self, _) -> XenAPI.Message.destroy rpc session self)
         outdated ;
       if current = [] then
-        let (_ : [> `message] Client.Id.t API.Ref.t) =
+        let (_ : [> `message] API.Ref.t) =
           XenAPI.Message.create rpc session alert priority `Host host_uuid
             message
         in
