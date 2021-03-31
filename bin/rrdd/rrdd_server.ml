@@ -65,12 +65,17 @@ let push_sr_rrd (sr_uuid : string) (path : string) : unit =
 let has_vm_rrd (vm_uuid : string) =
   Mutex.execute mutex (fun _ -> Hashtbl.mem vm_rrds vm_uuid)
 
+(** [archive_rrd] is used exclusively to send rrds to the pool master when
+    suspending/halting vms *)
 let archive_rrd vm_uuid (remote_address : string option) : unit =
   let transport =
     Option.map
       (fun address ->
         Xmlrpc_client.(
-          SSL (SSL.make ~verify_cert:None (), address, !https_port)))
+          SSL
+            ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+            , address
+            , !https_port )))
       remote_address
   in
   Mutex.execute mutex (fun () ->
@@ -80,12 +85,18 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
         archive_rrd_internal ~transport ~uuid:vm_uuid ~rrd ()
       with Not_found -> ())
 
+(** This functionality is used by xapi to backup rrds to local disk or to the
+    master host, exclusively. Any attempt to send the rrds to pools outside
+    the host will fail. *)
 let backup_rrds (remote_address : string option) () : unit =
   let transport =
     Option.map
       (fun address ->
         Xmlrpc_client.(
-          SSL (SSL.make ~verify_cert:None (), address, !https_port)))
+          SSL
+            ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+            , address
+            , !https_port )))
       remote_address
   in
   let destination =
