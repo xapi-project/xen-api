@@ -237,8 +237,8 @@ let push_rrd ~__context ~(vm_uuid : string) : unit =
     let domid = vm_uuid_to_domid ~__context ~uuid:vm_uuid in
     log_and_ignore_exn (fun () -> Rrdd.push_rrd_local vm_uuid domid)
   else
-    let remote_address = Db.Host.get_address ~__context ~self:vm_host in
-    log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote vm_uuid remote_address)
+    let member_address = Db.Host.get_address ~__context ~self:vm_host in
+    log_and_ignore_exn (fun () -> Rrdd.push_rrd_remote vm_uuid member_address)
 
 let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
   let remote_address =
@@ -259,9 +259,7 @@ module Deprecated = struct
     with _ -> 0
 
   let load_rrd ~__context ~uuid =
-    let master_address =
-      try Some (Pool_role.get_master_address ()) with _ -> None
-    in
+    let master_address = Pool_role.get_master_address_opt () in
     let timescale = get_timescale ~__context in
     log_and_ignore_exn (fun () ->
         Rrdd.Deprecated.load_rrd uuid timescale master_address)
