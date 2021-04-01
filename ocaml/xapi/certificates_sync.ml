@@ -39,7 +39,7 @@ let is_unchanged ~__context cert_ref cert =
     X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) cert
     |> Certificates.pp_hash
   in
-  Ok (cert_hash = ref_hash)
+  cert_hash = ref_hash
 
 (** [get_server_cert] loads xapi-ssl.pem from the file system and
   returns it decoded *)
@@ -68,7 +68,7 @@ let update ~__context =
       info "Host %s has no active server certificate" host_uuid ;
       install ~__context ~host cert
   | [cert_ref] ->
-      let* unchanged = is_unchanged ~__context cert_ref cert in
+      let unchanged = is_unchanged ~__context cert_ref cert in
       if unchanged then (
         info "Active server certificate for host %s is unchanged" host_uuid ;
         Ok ()
