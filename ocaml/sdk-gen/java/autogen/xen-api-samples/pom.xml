@@ -1,0 +1,115 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.citrix.hypervisor</groupId>
+    <artifactId>xen-api-samples</artifactId>
+    <version>${revision}</version>
+    <packaging>jar</packaging>
+    <name>Citrix Hypervisor Java SDK Samples</name>
+    <description>Example integrations of Citrix Hypervisor SDK for Java.</description>
+    <url>https://www.citrix.com/community/citrix-developer/citrix-hypervisor-developer</url>
+    <organization>
+        <name>Citrix Systems, Inc.</name>
+        <url>https://www.citrix.com</url>
+    </organization>
+    <licenses>
+        <license>
+        <name>BSD 2-Clause License</name>
+        <url>http://opensource.org/licenses/BSD-2-Clause</url>
+        <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <connection>https://github.com/xapi-project/xen-api-sdk</connection>
+        <developerConnection>https://github.com/xapi-project/xen-api-sdk</developerConnection>
+        <url>https://github.com/xapi-project/xen-api-sdk</url>
+    </scm>
+    <mailingLists>
+        <mailingList>
+            <name>Xen-API - User and development list for XCP and XAPI</name>
+            <post>xen-api@list.xen.org</post>
+            <archive>http://lists.xen.org/archives/html/xen-api/</archive>
+        </mailingList>
+        <mailingList>
+            <name>XenServer General Development List</name>
+            <post>xs-devel@lists.xenserver.org</post>
+            <archive>https://lists.xenserver.org/sympa/arc/xs-devel</archive>
+        </mailingList>
+    </mailingLists>
+    <developers>
+        <developer>
+            <name>Citrix Systems, Inc.</name>
+            <email>xen-api@lists.xenproject.org</email>
+        </developer>
+    </developers>
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/xapi-project/xen-api-sdk/issues</url>
+    </issueManagement>
+    <properties>
+        <revision>1.0.0-SNAPSHOT</revision>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>com.citrix.hypervisor</groupId>
+            <artifactId>xen-api</artifactId>
+            <version>${revision}</version>
+        </dependency>
+    </dependencies>
+    <distributionManagement>
+        <repository>
+            <id>vcc-releases</id>
+            <name>VCC Release Repository</name>
+            <url>http://oss.sonatype.org/content/repositories/java-net-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>vcc-snapshots</id>
+            <name>VCC Snapshot Repository</name>
+            <url>http://oss.sonatype.org/content/repositories/java-net-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <compilerArgument>-Xlint:unchecked</compilerArgument>
+                        <source>1.8</source>
+                        <target>1.8</target>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.2.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
