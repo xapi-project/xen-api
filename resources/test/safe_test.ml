@@ -80,8 +80,8 @@ let test_release_after_move t =
 let tests =
   List.map
     (fun (loc, f) ->
-       let t = SafeCounting.create () in
-       (loc, `Quick, fun () -> f t))
+      let t = SafeCounting.create () in
+      (loc, `Quick, fun () -> f t))
     [
       (__LOC__, test_can_borrow)
     ; (__LOC__, test_can_release)

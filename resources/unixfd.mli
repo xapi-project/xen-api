@@ -23,7 +23,7 @@ val with_pipe : unit -> loc:string -> (t -> t -> 'b) -> 'b
     always closed. *)
 
 val with_socketpair :
-  Unix.socket_domain
+     Unix.socket_domain
   -> Unix.socket_type
   -> int
   -> loc:string

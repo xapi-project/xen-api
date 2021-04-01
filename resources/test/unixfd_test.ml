@@ -67,11 +67,12 @@ let test_unixfd_leak_detected () =
 let noleak2 () =
   let moved1, moved2 =
     count0 := count_fds () ;
-    Unixfd.with_pipe ~loc:__LOC__ () (fun p1 p2 -> (Safe.move_exn p1, Safe.move_exn p2))
+    Unixfd.with_pipe ~loc:__LOC__ () (fun p1 p2 ->
+        (Safe.move_exn p1, Safe.move_exn p2))
   in
   count1 := count_fds () ;
-  Safe.within (Safe.move_exn moved1) @@ ignore;
-  Safe.within (Safe.move_exn moved2) @@ ignore;
+  Safe.within (Safe.move_exn moved1) @@ ignore ;
+  Safe.within (Safe.move_exn moved2) @@ ignore ;
   count2 := count_fds ()
 
 let test_unixfd_noleak2 () =
