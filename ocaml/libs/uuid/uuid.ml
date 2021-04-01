@@ -15,13 +15,53 @@
 (* Internally, a UUID is simply a string. *)
 type 'a t = string
 
-type cookie = string
-
 let null = ""
 
-let string_of_cookie s = s
+let pp = Format.pp_print_string
 
-let cookie_of_string s = s
+let equal = String.equal
+
+let of_int_array uuid =
+  try
+    Some
+      (Printf.sprintf
+         "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+         uuid.(0) uuid.(1) uuid.(2) uuid.(3) uuid.(4) uuid.(5) uuid.(6) uuid.(7)
+         uuid.(8) uuid.(9) uuid.(10) uuid.(11) uuid.(12) uuid.(13) uuid.(14)
+         uuid.(15)
+      )
+  with _ -> None
+
+let to_int_array s =
+  try
+    let l = ref [] in
+    Scanf.sscanf s
+      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
+        l :=
+          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
+    ) ;
+    Array.of_list !l
+  with _ -> invalid_arg "Uuid.int_array_of_uuid"
+
+let of_string s =
+  (* Scanf cannot impose a minimum amount of characters per capture *)
+  if String.length s < 36 then
+    None
+  else
+    Scanf.ksscanf s
+      (fun _ _ -> None)
+      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
+      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
+        of_int_array
+          [|
+             a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15
+          |]
+        )
+
+let to_string s = s
+
+let is_uuid str = match of_string str with None -> false | Some _ -> true
 
 let dev_random = "/dev/random"
 
@@ -71,67 +111,29 @@ let read_array dev n =
     )
     (fun () -> Unix.close fd)
 
-let uuid_of_int_array uuid =
-  try
-    Some
-      (Printf.sprintf
-         "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-         uuid.(0) uuid.(1) uuid.(2) uuid.(3) uuid.(4) uuid.(5) uuid.(6) uuid.(7)
-         uuid.(8) uuid.(9) uuid.(10) uuid.(11) uuid.(12) uuid.(13) uuid.(14)
-         uuid.(15)
-      )
-  with _ -> None
+let make_uuid_prng () = of_int_array (rnd_array 16) |> Option.get
 
-let of_string s =
-  (* Scanf cannot impose a minimum amount of characters per capture *)
-  if String.length s < 36 then
-    None
-  else
-    Scanf.ksscanf s
-      (fun _ _ -> None)
-      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
-        uuid_of_int_array
-          [|
-             a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15
-          |]
-        )
+let make_uuid_urnd () = of_int_array (read_array dev_urandom 16) |> Option.get
 
-let to_string s = s
-
-let make_uuid_prng () = uuid_of_int_array (rnd_array 16) |> Option.get
-
-let make_uuid_urnd () =
-  uuid_of_int_array (read_array dev_urandom 16) |> Option.get
-
-let make_uuid_rnd () =
-  uuid_of_int_array (read_array dev_random 16) |> Option.get
+let make_uuid_rnd () = of_int_array (read_array dev_random 16) |> Option.get
 
 let make_uuid = make_uuid_urnd
+
+type cookie = string
 
 let make_cookie () =
   let bytes = Array.to_list (read_array dev_urandom 64) in
   String.concat "" (List.map (Printf.sprintf "%1x") bytes)
 
-let int_array_of_uuid s =
-  try
-    let l = ref [] in
-    Scanf.sscanf s
-      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
-        l :=
-          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
-    ) ;
-    Array.of_list !l
-  with _ -> invalid_arg "Uuid.int_array_of_uuid"
+let string_of_cookie s = s
 
-let is_uuid str = match of_string str with None -> false | Some _ -> true
-
-let pp = Format.pp_print_string
-
-let equal = String.equal
+let cookie_of_string s = s
 
 (* deprecated: we don't need to duplicate the uuid prefix/suffix *)
 let uuid_of_string = of_string
 
 let string_of_uuid = to_string
+
+let uuid_of_int_array = of_int_array
+
+let int_array_of_uuid = to_int_array
