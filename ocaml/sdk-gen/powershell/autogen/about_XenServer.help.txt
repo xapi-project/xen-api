@@ -1,0 +1,155 @@
+XenServer PowerShell Module
+===========================
+
+This document provides a high level walk-through of the XenServer PowerShell Module
+and the structure of its cmdlets.
+
+
+XenServer sessions
+------------------
+
+The first cmdlet you will need is Connect-XenServer to open a session to a server:
+
+    PS> Connect-XenServer -Url https://<servername> -UserName user -Password pwd
+
+It is possible to connect to multiple servers using the same credentials as well
+as open more than one sessions to the same server. All open sessions can be listed
+using the cmdlet Get-XenSession. If more than one sessions are to be used, you can
+set the most frequently used session as the default one as follows:
+
+    PS> Connect-XenServer -Server srv -UserName usr -Password pwd -SetDefaultSession
+or
+    PS> $XenServer_Default_Session = Get-XenSession -Server srv
+
+All XenAPI calls are executed in the context of a login session, so all cmdlets
+accept the parameter -SessionOpaqueRef which allows you to specify which of the
+open XenServer sessions to use:
+
+    PS> Verb-Noun [-SessionOpaqueRef [<String>]]
+
+This parameter is not necessary when only one open session exists or when a
+default session has been specified.
+
+Once you have finished interacting with a server, it is good practice to log out
+using the cmdlet Disconnect-XenServer:
+
+    PS> Get-XenSession | Disconnect-XenServer
+
+
+Managing XenAPI objects
+-----------------------
+
+The cmdlets fall into the following categories:
+
+1.  Class Getters
+
+    These retrieve a XenAPI object and have names such as Get-XenT, where T is an
+    exposed XenAPI class. The object to get can be specified by -Ref or, for those
+    that have a uuid or name, -Name or -Uuid. If no parameters are specified, all
+    objects of this type are returned. Example:
+
+        PS> Get-XenHost -Name "Demo Host"
+
+2.  Constructors
+
+    These create a new XenAPI object and have names such as New-XenT, where T is
+    an exposed XenAPI class. Example:
+
+        PS> $vm = Get-XenVM -Name "Demo VM"
+        PS> New-XenVBD -VM $vm -VDI $null -Userdevice 3 -Bootable $false -Mode RO `
+            -Type CD -Unpluggable $true -Empty $true -OtherConfig @{} `
+            -QosAlgorithmType "" -QosAlgorithmParams @{}
+
+3.  Class Removers
+
+    These destroy a XenAPI object and have names such as Remove-XenT, where T is
+    an exposed XenAPI class.  To specify the object to remove use the parameter
+    -T, where T is the exposed XenAPI class, or -Ref or, for those objects that
+    have a uuid or name, -UUID or -Name. Example:
+
+        PS> Get-XenSR -Name "Demo SR" | Remove-XenSR
+
+4.  Property Setters
+
+    These set a field of a XenAPI object and have names such as Set-XenT, where
+    T is an exposed XenAPI class. To specify the object use the parameter -T, where
+    T is the exposed XenAPI class, or -Ref or, for those objects that have a uuid
+    or name, -UUID or -Name. The field to set can be specified as an accordingly
+    named parameter. Note that more than one fields at a time can be set in a
+    synchronous call. Example:
+
+        PS> Get-XenVM -Name "Demo VM" |`
+            Set-XenVM -NameLabel "New name" -NameDescription "New description"
+
+5.  Property Adders
+
+    These add an element to a field of a XenAPI object and have names such as
+    Add-XenT, where T is an exposed XenAPI class.  To specify the object use the
+    parameter -T, where T is the exposed XenAPI class, or -Ref or, for those objects
+    that have a uuid or name, -UUID or -Name. The field to which the element
+    will be added can be specified as an accordingly named parameter. Note that
+    elements can be added to more than one fields at a time in a synchronous call.
+    Example:
+
+        PS> Add-XenHost -Name "Demo Host" -Tags "Tag1"
+
+6.  Property Removers
+
+    These remove an element from a field of a XenAPI object and have names such
+    as Remove-XenTProperty, where T is an exposed XenAPI class.  To specify the
+    object use the parameter -T, where T is the exposed XenAPI class, or -Ref or,
+    for those objects that have a uuid or name, -UUID or -Name. The field from
+    which the element will be removed can be specified as an accordingly named
+    parameter. Note that elements can be removed from more than one fields at a
+    time in a synchronous call. Example:
+
+        PS> Remove-XenHostProperty -Name "myHost" -Tags "tag1" -OtherConfig "myKey"
+
+7.  Property Getters
+
+    These retrieve the value of a field of a XenAPI object and have names such as
+    Get-XenTProperty, where T is an exposed XenAPI class. To specify the object
+    use the parameters -T, where T is the exposed XenAPI class, or -Ref. To specify
+    the field use the enum parameter -XenProperty. Example:
+
+        PS> Get-XenPIFProperty -Ref OpaqueRef:f433bf7b-2b0c-5f53-7018-7d195addb3ca `
+            -XenProperty Network
+
+8.  Invokers
+
+    These invoke operations on XenAPI objects and have names such as Invoke-XenT,
+    where T is an exposed XenAPI class. To specify the object use the parameter
+    -T, where T is the exposed XenAPI class, or -Ref or, for those objects that
+    have a uuid or name, -UUID or -Name. To specify the call to invoke, use the
+    enum parameter -XenAction. Example:
+
+    PS> Get-XenPBD -Uuid 1871ac51-ce6b-efc3-7fd0-28bc65aa39ff |`
+        Invoke-XenPBD -XenAction Unplug
+
+
+Most of the XenAPI calls can be run synchronously or asynchronously. To run a
+cmdlet asynchronously use the parameter -Async where available.
+
+Note that, in the case of the setters, only one field can be set asynchronously
+at a time, and in the case of the adders and removers, elements can be added or
+removed asynchronously to only one field at a time.
+
+Also, note that the cmdlets that are not explicit "getters" but return objects,
+do so only when the standard parameter -PassThru is specified. These cmdlets are
+Connect-XenServer, the constructors, adders, setters, certain invokers,
+the property removers, as well as all the asynchronous calls from any category.
+In the latter case, the cmdlet returns a Task object, the progress of which can
+be tracked by piping it into the cmdlet Wait-XenTask:
+
+    PS> Invoke-XenVM -Name $vm_name -XenAction Start -Async -PassThru |`
+        Wait-XenTask -ShowProgress
+
+Wait-XenTask, too, can be used with the -PassThru parameter and, where applicable,
+it returns the opaque reference of the object that would be returned if the call
+were run synchronously.
+
+Finally, as many of the cmdlets handle objects of type XenRef<T>, where T is an
+exposed API class, the cmldet ConvertTo-XenRef can be used to aid conversion
+between the two. Example:
+
+    PS> Get-XenVM -Name "Demo VM" | ConvertTo-XenRef
