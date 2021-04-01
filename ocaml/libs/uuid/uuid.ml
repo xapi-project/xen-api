@@ -118,3 +118,7 @@ let is_uuid str =
       (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true
     )
   with _ -> false
+
+let pp = Format.pp_print_string
+
+let equal = String.equal

@@ -1,8 +1,14 @@
 (library
   (name uuid)
   (public_name uuid)
+  (modules uuid)
   (libraries
     unix
   )
 )
 
+(test
+  (name uuid_test)
+  (modules uuid_test)
+  (libraries uuid alcotest)
+  )

@@ -59,6 +59,10 @@ val int_array_of_uuid : 'a t -> int array
 val is_uuid : string -> bool
 (** Check whether a string is a UUID. *)
 
+val pp : Format.formatter -> 'a t -> unit
+
+val equal : 'a t -> 'a t -> bool
+
 (** A 512-bit cookie. *)
 type cookie
 
