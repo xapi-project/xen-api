@@ -3,7 +3,7 @@
   (public_name uuid)
   (modules uuid)
   (libraries
-    unix
+    unix uuidm
   )
 )
 

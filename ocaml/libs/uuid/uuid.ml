@@ -12,54 +12,25 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* Internally, a UUID is simply a string. *)
-type 'a t = string
+type 'a t = Uuidm.t
 
-let null = ""
+let null = Uuidm.nil
 
-let pp = Format.pp_print_string
+let pp = Uuidm.pp
 
-let equal = String.equal
+let equal = Uuidm.equal
 
-let of_int_array uuid =
-  try
-    Some
-      (Printf.sprintf
-         "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-         uuid.(0) uuid.(1) uuid.(2) uuid.(3) uuid.(4) uuid.(5) uuid.(6) uuid.(7)
-         uuid.(8) uuid.(9) uuid.(10) uuid.(11) uuid.(12) uuid.(13) uuid.(14)
-         uuid.(15)
-      )
-  with _ -> None
+let of_bytes u = Uuidm.of_bytes ~pos:0 u
 
-let to_int_array s =
-  try
-    let l = ref [] in
-    Scanf.sscanf s
-      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
-        l :=
-          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
-    ) ;
-    Array.of_list !l
-  with _ -> invalid_arg "Uuid.int_array_of_uuid"
+let of_int_array arr =
+  arr |> Array.to_seq |> Seq.map char_of_int |> String.of_seq |> of_bytes
 
-let of_string s =
-  (* Scanf cannot impose a minimum amount of characters per capture *)
-  if String.length s < 36 then
-    None
-  else
-    Scanf.ksscanf s
-      (fun _ _ -> None)
-      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
-        of_int_array
-          [|
-             a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15
-          |]
-        )
+let to_int_array u =
+  Uuidm.to_bytes u |> String.to_seq |> Seq.map int_of_char |> Array.of_seq
 
-let to_string s = s
+let of_string = Uuidm.of_string ~pos:0
+
+let to_string = Uuidm.to_string ~upper:false
 
 let is_uuid str = match of_string str with None -> false | Some _ -> true
 
@@ -67,7 +38,7 @@ let dev_random = "/dev/random"
 
 let dev_urandom = "/dev/urandom"
 
-let rnd_array n =
+let rnd_bytes n =
   let fstbyte i = 0xff land i in
   let sndbyte i = fstbyte (i lsr 8) in
   let thdbyte i = sndbyte (i lsr 8) in
@@ -90,9 +61,9 @@ let rnd_array n =
         let b3 = thdbyte r in
         rnd_list (n - 3) (b1 :: b2 :: b3 :: acc)
   in
-  Array.of_list (rnd_list n [])
+  rnd_list n [] |> List.to_seq |> Seq.map char_of_int |> String.of_seq
 
-let read_array dev n =
+let read_bytes dev n =
   let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
   let finally body_f clean_f =
     try
@@ -107,23 +78,26 @@ let read_array dev n =
       if read <> n then
         raise End_of_file
       else
-        Array.init n (fun i -> Char.code (Bytes.get buf i))
+        Bytes.to_string buf
     )
     (fun () -> Unix.close fd)
 
-let make_uuid_prng () = of_int_array (rnd_array 16) |> Option.get
+let make_uuid_prng () = of_bytes (rnd_bytes 16) |> Option.get
 
-let make_uuid_urnd () = of_int_array (read_array dev_urandom 16) |> Option.get
+let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
 
-let make_uuid_rnd () = of_int_array (read_array dev_random 16) |> Option.get
+let make_uuid_rnd () = of_bytes (read_bytes dev_random 16) |> Option.get
 
 let make_uuid = make_uuid_urnd
 
 type cookie = string
 
 let make_cookie () =
-  let bytes = Array.to_list (read_array dev_urandom 64) in
-  String.concat "" (List.map (Printf.sprintf "%1x") bytes)
+  read_bytes dev_urandom 64
+  |> String.to_seq
+  |> Seq.map (fun c -> Printf.sprintf "%1x" (int_of_char c))
+  |> List.of_seq
+  |> String.concat ""
 
 let string_of_cookie s = s
 
