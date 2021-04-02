@@ -41,7 +41,7 @@ let http_101_websocket_upgrade_76 origin host protocol uri =
         []
   in
   [
-    "HTTP/1.0 101 WebSocket Protocol Handshake"
+    "HTTP/1.1 101 WebSocket Protocol Handshake"
   ; "Upgrade: WebSocket"
   ; "Connection: Upgrade"
   ; Printf.sprintf "Sec-WebSocket-Origin: %s" origin
@@ -52,7 +52,7 @@ let http_101_websocket_upgrade_76 origin host protocol uri =
 
 let http_101_websocket_upgrade_15 key =
   [
-    "HTTP/1.0 101 Switching Protocols"
+    "HTTP/1.1 101 Switching Protocols"
   ; "Upgrade: websocket"
   ; "Connection: Upgrade"
   ; Printf.sprintf "Sec-WebSocket-Accept: %s" key
