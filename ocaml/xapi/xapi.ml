@@ -309,8 +309,42 @@ let init_local_database () =
   if !Xapi_globs.on_system_boot then
     Localdb.put Constants.host_disabled_until_reboot "false"
 
+(* Called if we cannot contact master at init time *)
+let server_run_in_emergency_mode () =
+  info "Cannot contact master: running in slave emergency mode" ;
+  Xapi_globs.slave_emergency_mode := true ;
+  (* signal the init script that it should succeed even though we're bust *)
+  Helpers.touch_file !Xapi_globs.ready_file ;
+  let emergency_reboot_delay =
+    !Xapi_globs.emergency_reboot_delay_base
+    +. Random.float !Xapi_globs.emergency_reboot_delay_extra
+  in
+  info "Will restart management software in %.1f seconds" emergency_reboot_delay ;
+  (* in emergency mode we reboot to try reconnecting every "emergency_reboot_timer" period *)
+  let (* reboot_thread *) _ =
+    Thread.create
+      (fun () ->
+        Thread.delay emergency_reboot_delay ;
+        exit Xapi_globs.restart_return_code)
+      ()
+  in
+  wait_to_die () ; exit 0
+
+let update_certificates ~__context () =
+  info "syncing certificates on xapi start" ;
+  match Certificates_sync.update ~__context with
+  | Ok () ->
+      info "successfully synced certificates"
+  | Error (`Msg (msg, _)) ->
+      error "Failed to update host certificates: %s" msg ;
+      server_run_in_emergency_mode ()
+  | exception e ->
+      error "Failed to update host certificates: %s" (Printexc.to_string e) ;
+      server_run_in_emergency_mode ()
+
 let bring_up_management_if ~__context () =
   try
+    update_certificates ~__context () ;
     let management_if =
       Xapi_inventory.lookup Xapi_inventory._management_interface
     in
@@ -488,27 +522,6 @@ let cache_metadata_vdis () =
           (Db.VDI.get_all ~__context)
       in
       Xapi_dr.add_vdis_to_cache ~__context ~vdis:metadata_vdis)
-
-(* Called if we cannot contact master at init time *)
-let server_run_in_emergency_mode () =
-  info "Cannot contact master: running in slave emergency mode" ;
-  Xapi_globs.slave_emergency_mode := true ;
-  (* signal the init script that it should succeed even though we're bust *)
-  Helpers.touch_file !Xapi_globs.ready_file ;
-  let emergency_reboot_delay =
-    !Xapi_globs.emergency_reboot_delay_base
-    +. Random.float !Xapi_globs.emergency_reboot_delay_extra
-  in
-  info "Will restart management software in %.1f seconds" emergency_reboot_delay ;
-  (* in emergency mode we reboot to try reconnecting every "emergency_reboot_timer" period *)
-  let (* reboot_thread *) _ =
-    Thread.create
-      (fun () ->
-        Thread.delay emergency_reboot_delay ;
-        exit Xapi_globs.restart_return_code)
-      ()
-  in
-  wait_to_die () ; exit 0
 
 (** Once the database is online we make sure our local ha.armed flag is in sync with the
     master's Pool.ha_enabled flag. *)
