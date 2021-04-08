@@ -2,10 +2,7 @@ let uuid_strings =
   [
     "deadbeef-dead-beef-dead-beef00000075"
   ; "deadbeef-dead-beef-dead-beef00000075-extra-characters"
-  ; (* This valid uuid gets changed to lowercase when converted back to strings,
-       this breaks UUID equality when comparing the the original with the one
-       converted back to UUID *)
-    "DEADBEEF-DEAD-BEEF-DEAD-BEEF00000075"
+  ; "DEADBEEF-DEAD-BEEF-DEAD-BEEF00000075"
   ]
 
 let non_uuid_strings =
@@ -38,15 +35,15 @@ let pp_array arr =
     (Array.to_list arr |> List.map string_of_int |> String.concat "; ")
 
 let roundtrip_tests testing_uuid =
-  let expected = testing_uuid in
+  let expected = Some testing_uuid in
   let test_string () =
     let result = Uuid.(to_string testing_uuid |> of_string) in
-    Alcotest.(check @@ uuid_testable)
+    Alcotest.(check @@ option uuid_testable)
       "Roundtrip string conversion" expected result
   in
   let test_array () =
     let result = Uuid.(int_array_of_uuid testing_uuid |> uuid_of_int_array) in
-    Alcotest.(check @@ uuid_testable)
+    Alcotest.(check @@ option uuid_testable)
       "Roundtrip array conversion" expected result
   in
   [
@@ -55,7 +52,14 @@ let roundtrip_tests testing_uuid =
   ]
 
 let string_roundtrip_tests testing_string =
-  let testing_uuid = Uuid.of_string testing_string in
+  let testing_uuid =
+    match Uuid.of_string testing_string with
+    | Some uuid ->
+        uuid
+    | None ->
+        Alcotest.fail
+          (Printf.sprintf "Couldn't convert to UUID: %s" testing_string)
+  in
   let test () =
     let expected = String.lowercase_ascii (String.sub testing_string 0 36) in
     let result = Uuid.to_string testing_uuid in
@@ -66,7 +70,15 @@ let string_roundtrip_tests testing_string =
   )
 
 let array_roundtrip_tests testing_array =
-  let testing_uuid = Uuid.uuid_of_int_array testing_array in
+  let testing_uuid =
+    match Uuid.uuid_of_int_array testing_array with
+    | Some uuid ->
+        uuid
+    | None ->
+        Alcotest.fail
+          (Printf.sprintf "Couldn't convert to UUID: %s" (pp_array testing_array)
+          )
+  in
   let test () =
     let expected = Array.init 16 (fun i -> testing_array.(i)) in
     let result = Uuid.int_array_of_uuid testing_uuid in
@@ -78,16 +90,16 @@ let array_roundtrip_tests testing_array =
 
 let invalid_string_tests testing_string =
   let test () =
-    Alcotest.(check @@ uuid_testable)
-      "Must not be converted to UUID" Uuid.null
+    Alcotest.(check @@ option uuid_testable)
+      "Must not be converted to UUID" None
       (Uuid.of_string testing_string)
   in
   (testing_string, [("Fail to convert from string", `Quick, test)])
 
 let invalid_array_tests testing_array =
   let test () =
-    Alcotest.(check @@ uuid_testable)
-      "Must not be converted to UUID" Uuid.null
+    Alcotest.(check @@ option uuid_testable)
+      "Must not be converted to UUID" None
       (Uuid.uuid_of_int_array testing_array)
   in
   (pp_array testing_array, [("Fail to convert from array", `Quick, test)])

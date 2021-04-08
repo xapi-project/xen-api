@@ -34,7 +34,7 @@ val make_uuid_urnd : unit -> 'a t
 
 val make_uuid_rnd : unit -> 'a t
 
-val of_string : string -> 'a t
+val of_string : string -> 'a t option
 (** Create a UUID from a string. *)
 
 val to_string : 'a t -> string
@@ -44,13 +44,13 @@ val null : 'a t
 (** A null UUID, as if such a thing actually existed.  It turns out to be
  * useful though. *)
 
-val uuid_of_string : string -> 'a t
+val uuid_of_string : string -> 'a t option
 (** Deprecated alias for {! Uuid.of_string} *)
 
 val string_of_uuid : 'a t -> string
 (** Deprecated alias for {! Uuid.to_string} *)
 
-val uuid_of_int_array : int array -> 'a t
+val uuid_of_int_array : int array -> 'a t option
 (** Convert an array to a UUID. *)
 
 val int_array_of_uuid : 'a t -> int array
