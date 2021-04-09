@@ -107,7 +107,7 @@ let selfsign issuer extensions key_length days certfile =
   let pkcs12 =
     String.concat "\n\n" [Cstruct.to_string key_pem; Cstruct.to_string cert_pem]
   in
-  write_certs certfile pkcs12
+  write_certs certfile pkcs12 >>| fun () -> cert
 
 let host ~name ~dns_names ~ips pemfile =
   let expire_days = 3650 in
@@ -129,4 +129,5 @@ let xapi_pool ~uuid pemfile =
   in
   let extensions = X509.Extension.empty in
   selfsign issuer extensions key_length expire_days pemfile
+  >>| (fun _ -> ())
   |> R.failwith_error_msg

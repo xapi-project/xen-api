@@ -1307,10 +1307,8 @@ let sync_data ~__context ~host = Xapi_sync.sync_host __context host
 let backup_rrds ~__context ~host ~delay =
   Xapi_periodic_scheduler.add_to_queue "RRD backup"
     Xapi_periodic_scheduler.OneShot delay (fun _ ->
-      let remote_address =
-        try Some (Pool_role.get_master_address ()) with _ -> None
-      in
-      log_and_ignore_exn (Rrdd.backup_rrds remote_address) ;
+      let master_address = Pool_role.get_master_address_opt () in
+      log_and_ignore_exn (Rrdd.backup_rrds master_address) ;
       log_and_ignore_exn (fun () ->
           List.iter
             (fun sr -> Xapi_sr.maybe_copy_sr_rrds ~__context ~sr)
@@ -1341,15 +1339,12 @@ let get_uncooperative_resident_VMs ~__context ~self = []
 let get_uncooperative_domains ~__context ~self = []
 
 let install_ca_certificate ~__context ~host ~name ~cert =
+  (* don't modify db - Pool.install_ca_certificate will handle that *)
   Certificates.(host_install CA_Certificate name cert)
 
 let uninstall_ca_certificate ~__context ~host ~name =
+  (* don't modify db - Pool.uninstall_ca_certificate will handle that *)
   Certificates.(host_uninstall CA_Certificate name)
-
-(* legacy names *)
-let certificate_uninstall = uninstall_ca_certificate
-
-let certificate_install = install_ca_certificate
 
 let certificate_list ~__context ~host = Certificates.(local_list CA_Certificate)
 
@@ -1366,48 +1361,46 @@ let certificate_sync ~__context ~host = Certificates.local_sync ()
 let get_server_certificate ~__context ~host =
   Certificates.get_server_certificate ()
 
+let with_cert_lock : (unit -> 'a) -> 'a =
+  let cert_m = Mutex.create () in
+  Mutex.execute cert_m
+
+let replace_host_certificate ~__context ~host
+    (write_cert_fs : unit -> X509.Certificate.t) : unit =
+  (* a) create new cert. [write_cert_fs] is assumed to generate a cert,
+   *    replace the old cert on the fs, and return an ocaml representation of it
+   * b) add new cert to db
+   * c) remove old cert from db
+   * d) complete task
+   * e) restart stunnel *)
+  let open Certificates in
+  with_cert_lock @@ fun () ->
+  let old_certs = Db_util.get_host_certs ~__context ~host in
+  let new_cert = write_cert_fs () in
+  let (_ : API.ref_Certificate) =
+    Db_util.add_cert ~__context ~type':(`host host) new_cert
+  in
+  List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
+  let task = Context.get_task_id __context in
+  Db.Task.set_progress ~__context ~self:task ~value:1.0 ;
+  Xapi_mgmt_iface.reconfigure_stunnel ~__context
+
 let install_server_certificate ~__context ~host ~certificate ~private_key
     ~certificate_chain =
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
     raise Api_errors.(Server_error (ha_is_enabled, [])) ;
-  let expr =
-    Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))
-  in
-  let current_server_certs = Db.Certificate.get_refs_where ~__context ~expr in
-  let pem_chain =
-    match certificate_chain with "" -> None | pem_chain -> Some pem_chain
-  in
-  let certificate =
+  let write_cert_fs () =
+    let pem_chain =
+      match certificate_chain with "" -> None | pem_chain -> Some pem_chain
+    in
     Certificates.install_server_certificate ~pem_leaf:certificate
       ~pkcs8_private_key:private_key ~pem_chain
   in
-  let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
-  let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
-  let not_before, not_after =
-    dates_of_ptimes (X509.Certificate.validity certificate)
-  in
-  let fingerprint =
-    X509.Certificate.fingerprint Mirage_crypto.Hash.(`SHA256) certificate
-    |> Certificates.pp_hash
-  in
-  let uuid = Uuid.(to_string (make_uuid ())) in
-  let ref = Ref.make () in
-  List.iter
-    (fun self -> Db.Certificate.destroy ~__context ~self)
-    current_server_certs ;
-  Db.Certificate.create ~__context ~ref ~uuid ~host ~not_before ~not_after
-    ~fingerprint ;
-  let task = Context.get_task_id __context in
-  (* mark task as done *)
-  Db.Task.set_progress ~__context ~self:task ~value:1.0 ;
-  (* sever all connections done with stunnel *)
-  Xapi_mgmt_iface.reconfigure_stunnel ~__context
+  replace_host_certificate ~__context ~host write_cert_fs
 
-let reset_server_certificate ~__context ~host =
-  let self = Helpers.get_localhost ~__context in
+let _new_host_cert ~dbg : X509.Certificate.t =
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
   let name, ip =
-    let dbg = Context.string_of_task __context in
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
         let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
@@ -1418,19 +1411,18 @@ let reset_server_certificate ~__context ~host =
   in
   let dns_names = Networking_info.dns_names () in
   let ips = [ip] in
-  Gencertlib.Selfcert.host ~name ~dns_names ~ips xapi_ssl_pem ;
-  (* Reset stunnel to try to restablish TLS connections *)
-  Xapi_mgmt_iface.reconfigure_stunnel ~__context ;
-  (* Delete records of the server certificate in this host *)
-  let expr =
-    Db_filter_types.(Eq (Field "host", Literal (Ref.string_of self)))
-  in
-  Db.Certificate.get_refs_where ~__context ~expr
-  |> List.iter (fun self -> Db.Certificate.destroy ~__context ~self)
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips xapi_ssl_pem
 
-let emergency_reset_server_certificate ~__context =
-  let host = Helpers.get_localhost ~__context in
-  reset_server_certificate ~__context ~host
+let reset_server_certificate ~__context ~host =
+  let dbg = Context.string_of_task __context in
+  let write_cert_fs () = _new_host_cert ~dbg in
+  replace_host_certificate ~__context ~host write_cert_fs
+
+let emergency_reset_server_certificate ~(__context : 'a) =
+  let (_ : X509.Certificate.t) =
+    _new_host_cert ~dbg:"emergency_reset_certificate"
+  in
+  ()
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
@@ -2474,11 +2466,12 @@ let get_sched_gran ~__context ~self =
 
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
-  Helpers.StunnelClient.set_verify_by_default false
+  Stunnel_client.set_verify_by_default false ;
+  Unixext.unlink_safe Xapi_globs.verify_certificates_path
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =
-    Helpers.StunnelClient.get_verify_by_default ()
+    Stunnel_client.get_verify_by_default ()
   in
   let tls_verification_enabled_pool_wide =
     Db.Pool.get_tls_verification_enabled ~__context

@@ -1196,7 +1196,7 @@ let gen_cmds rpc session_id =
     ; Client.Certificate.(
         mk get_all get_all_records_where get_by_uuid certificate_record
           "certificate" []
-          ["uuid"; "host"; "fingerprint"]
+          ["uuid"; "type"; "name"; "host"; "fingerprint"]
           rpc session_id)
     ; Client.Repository.(
         mk get_all get_all_records_where get_by_uuid repository_record
@@ -4102,7 +4102,9 @@ let vm_migrate printer rpc session_id params =
       let open Xmlrpc_client in
       let http = xmlrpc ~version:"1.0" "/" in
       XMLRPC_protocol.rpc ~srcstr:"cli" ~dststr:"dst_xapi"
-        ~transport:(SSL (SSL.make ~use_fork_exec_helper:false (), ip, 443))
+        ~transport:
+          (SSL
+             (SSL.make ~verify_cert:None ~use_fork_exec_helper:false (), ip, 443))
         ~http xml
     in
     let username = List.assoc "remote-username" params in
@@ -5201,7 +5203,7 @@ let vm_import fd printer rpc session_id params =
               let open Xmlrpc_client in
               let transport =
                 SSL
-                  ( SSL.make ~use_stunnel_cache:true
+                  ( SSL.make ~use_stunnel_cache:true ~verify_cert:None
                       ~task_id:(Ref.string_of importtask) ()
                   , address
                   , !Constants.https_port )

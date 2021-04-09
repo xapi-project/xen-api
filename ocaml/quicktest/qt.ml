@@ -24,7 +24,11 @@ let http request f =
     if !Quicktest_args.using_unix_domain_socket then
       Unix Xapi_globs.unix_domain_socket
     else
-      SSL (SSL.make ~use_fork_exec_helper:false (), !Quicktest_args.host, 443)
+      SSL
+        ( SSL.make ~use_fork_exec_helper:false
+            ~verify_cert:(Stunnel_client.pool ()) ()
+        , !Quicktest_args.host
+        , 443 )
   in
   with_transport transport (with_http request f)
 

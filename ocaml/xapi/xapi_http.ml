@@ -38,7 +38,10 @@ let inet_rpc xml =
     if Pool_role.is_master () then
       TCP ("127.0.0.1", http)
     else
-      SSL (SSL.make (), Pool_role.get_master_address (), https)
+      SSL
+        ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+        , Pool_role.get_master_address ()
+        , https )
   in
   let http = xmlrpc ~version path in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
