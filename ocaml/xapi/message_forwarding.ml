@@ -928,8 +928,12 @@ functor
           (current_pool_uuid ~__context) ;
         let self = Helpers.get_pool ~__context in
         let local_fn = Local.Pool.enable_tls_verification in
+        let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
         Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
-        Xapi_pool_helpers.get_master_slaves_list ~__context
+        Cert_distrib.(
+          go ~__context ~existing_cert_strategy:Erase_old ~from_hosts:all_hosts
+            ~to_hosts:all_hosts) ;
+        all_hosts
         |> List.iter (fun host ->
                do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                    Client.Pool.enable_tls_verification rpc session_id))
@@ -3309,6 +3313,12 @@ functor
       let emergency_reset_server_certificate ~__context =
         info "Host.emergency_reset_server_certificate" ;
         Local.Host.emergency_reset_server_certificate ~__context
+
+      let cert_distrib_atom ~__context ~host ~command =
+        info "Host.cert_distrib_atom" ;
+        let local_fn = Local.Host.cert_distrib_atom ~host ~command in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command)
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"
