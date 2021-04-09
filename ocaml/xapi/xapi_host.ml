@@ -1365,7 +1365,7 @@ let with_cert_lock : (unit -> 'a) -> 'a =
   let cert_m = Mutex.create () in
   Mutex.execute cert_m
 
-let replace_host_certificate ~__context ~host
+let replace_host_certificate ~__context ~type' ~host
     (write_cert_fs : unit -> X509.Certificate.t) : unit =
   (* a) create new cert. [write_cert_fs] is assumed to generate a cert,
    *    replace the old cert on the fs, and return an ocaml representation of it
@@ -1375,7 +1375,7 @@ let replace_host_certificate ~__context ~host
    * e) restart stunnel *)
   let open Certificates in
   with_cert_lock @@ fun () ->
-  let old_certs = Db_util.get_host_certs ~__context ~host in
+  let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
   let (_ : API.ref_Certificate) =
     Db_util.add_cert ~__context ~type':(`host host) new_cert
@@ -1396,7 +1396,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
     Certificates.install_server_certificate ~pem_leaf:certificate
       ~pkcs8_private_key:private_key ~pem_chain
   in
-  replace_host_certificate ~__context ~host write_cert_fs
+  replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let _new_host_cert ~dbg : X509.Certificate.t =
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
@@ -1416,7 +1416,7 @@ let _new_host_cert ~dbg : X509.Certificate.t =
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
   let write_cert_fs () = _new_host_cert ~dbg in
-  replace_host_certificate ~__context ~host write_cert_fs
+  replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let emergency_reset_server_certificate ~(__context : 'a) =
   let (_ : X509.Certificate.t) =
