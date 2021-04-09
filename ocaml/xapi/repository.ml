@@ -128,7 +128,7 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
   let host_name = (Db.Host.get_hostname ~__context ~self:host) in
   let host_addr = Db.Host.get_address ~__context ~self:host in
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make () ~verify_cert:false, host_addr, !Constants.https_port) in
+  let transport = SSL (SSL.make () ~verify_cert:(Stunnel_client.pool ()), host_addr, !Constants.https_port) in
   debug "getting host updates on %s (addr %s) by HTTP GET" host_name host_addr;
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
