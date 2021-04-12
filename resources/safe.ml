@@ -1,9 +1,9 @@
 exception UseAfterMoveOrRelease
 
 type 'a wrapped = {
-  raw: 'a
-; release: 'a -> unit
-; on_finalise_leaked: ('a -> unit) option
+    raw: 'a
+  ; release: 'a -> unit
+  ; on_finalise_leaked: ('a -> unit) option
 }
 
 (* a bool could've been used here to track whether we already called
@@ -16,7 +16,7 @@ let leaked wrapped =
 let finalise t =
   ( try Option.iter leaked !t
     with _ -> (* this is a finaliser, do not let exceptions escape *)
-      ()
+              ()
   ) ;
   (* make sure finalizer doesn't get run again *)
   t := None
@@ -39,12 +39,12 @@ let move_exn t =
 let safe_release t =
   match !t with
   | None ->
-    ()
+      ()
   | Some wrapped ->
-    (* make sure [release] cannot be called again, even if [relase] fails
-       below *)
-    t := None ;
-    wrapped.release wrapped.raw
+      (* make sure [release] cannot be called again, even if [relase] fails
+         below *)
+      t := None ;
+      wrapped.release wrapped.raw
 
 (* give access directly to the value wrapped above: *)
 let borrow_exn t = (borrow_exn t).raw

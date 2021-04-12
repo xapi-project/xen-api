@@ -29,7 +29,8 @@ let on_finalise_leaked (chan, loc) =
   with e ->
     if enabled then (
       Printexc.print_backtrace stderr ;
-      Printf.eprintf "[unix_fd]: close failed: %s (allocated at %s)\n%!" (Printexc.to_string e) loc
+      Printf.eprintf "[unix_fd]: close failed: %s (allocated at %s)\n%!"
+        (Printexc.to_string e) loc
     )
 
 let within chan ~loc =
@@ -55,15 +56,15 @@ let with_open_connection addr ~loc f =
 let with_ic fd =
   (* A file descriptor cannot be safely shared between an [in] and [out] channel.
    * Unix.open_connection does this but if you close both channels you get EBADF.
-  *)
+   *)
   Safe.within
   @@ Safe.create ~release:close_in_noerr
-    (Unix.in_channel_of_descr (Unix.dup fd))
+       (Unix.in_channel_of_descr (Unix.dup fd))
 
 let with_oc fd =
   Safe.within
   @@ Safe.create ~release:close_out_noerr
-    (Unix.out_channel_of_descr (Unix.dup fd))
+       (Unix.out_channel_of_descr (Unix.dup fd))
 
 let with_channels t f =
   let fd = !t in
