@@ -819,10 +819,13 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
              ~value:Ref.null ;
            Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null) ;
-    (* release PCIs *)
-    List.iter
-      (fun pci -> Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self)
-      (Db.VM.get_attached_PCIs ~__context ~self) ;
+    Db.VM.get_attached_PCIs ~__context ~self
+    |> List.iter (fun pci ->
+           if Db.is_valid_ref __context pci then
+             Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
+           else
+             (* XSI-995 pci does not exist, so remove it from the vm record *)
+             Db.VM.remove_attached_PCIs ~__context ~self ~value:pci) ;
     List.iter
       (fun pci ->
         (* The following should not be necessary if many-to-many relations in the DB
