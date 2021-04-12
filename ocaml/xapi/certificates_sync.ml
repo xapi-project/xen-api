@@ -97,3 +97,44 @@ let update ~__context =
   let* () = sync ~__context ~type':`host in
   let* () = sync ~__context ~type':`host_internal in
   Ok ()
+
+let internal_error fmt =
+  fmt
+  |> Printf.kprintf @@ fun msg ->
+     error "%s" msg ;
+     raise Api_errors.(Server_error (internal_error, [msg]))
+
+let remove_from_db ~__context cert =
+  try
+    Db.Certificate.destroy ~__context ~self:cert ;
+    info "removed host certificate %s from db" (Ref.string_of cert)
+  with e ->
+    internal_error "failed to remove cert %s: %s" (Ref.string_of cert)
+      (Printexc.to_string e)
+
+let path host_uuid =
+  let prefix = !Xapi_globs.trusted_pool_certs_dir in
+  Filename.concat prefix (Printf.sprintf "%s.pem" host_uuid)
+
+let host_certs_of ~__context host =
+  List.concat
+    [
+      Certificates.Db_util.get_host_certs ~__context ~host ~type':`host
+    ; Certificates.Db_util.get_host_certs ~__context ~host ~type':`host_internal
+    ]
+
+let eject_certs_from_db ~__context certs =
+  certs |> List.iter (remove_from_db ~__context)
+
+let eject_certs_from_fs_for ~__context host =
+  (* the cert is not identified by its UUID in the file system but
+     by the UUID of the host it belongs to *)
+  let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+  let file = path host_uuid in
+  try
+    Sys.remove file ;
+    Certificates.update_ca_bundle () ;
+    info "removed host certificate %s" file
+  with e ->
+    internal_error "failed to remove cert %s on pool eject" file
+      (Printexc.to_string e)

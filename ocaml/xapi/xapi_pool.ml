@@ -1410,7 +1410,7 @@ let unplug_pbds ~__context host =
       List.iter (fun sr -> Client.SR.forget ~rpc ~session_id ~sr) srs_to_delete)
 
 (* This means eject me, since will have been forwarded from master  *)
-let eject ~__context ~host =
+let eject_self ~__context ~host =
   (* If HA is enabled then refuse *)
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
@@ -1574,8 +1574,6 @@ let eject ~__context ~host =
     Net.reset_state () ;
     Xapi_inventory.update Xapi_inventory._current_interfaces "" ;
     debug "Pool.eject: deleting Host record (the point of no return)" ;
-    (* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
-    Db.Host.destroy ~__context ~self:host ;
     Create_misc.create_pool_cpuinfo ~__context ;
     (* Update pool features, in case this host had a different license to the
        		 * rest of the pool. *)
@@ -1645,6 +1643,27 @@ let eject ~__context ~host =
              ["--reset-to-install"]))
       (fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject ()) ;
     Xapi_hooks.pool_eject_hook ~__context
+
+(** eject [host] from the pool. This code is run on all hosts in the
+pool but only [host] will eject itself. *)
+let eject ~__context ~host =
+  let local = Helpers.get_localhost ~__context in
+  let master = Helpers.get_master ~__context in
+  match (host = local, local = master) with
+  | true, false ->
+      eject_self ~__context ~host
+  | false, false ->
+      Certificates_sync.eject_certs_from_fs_for ~__context host
+  | false, true ->
+      let certs = Certificates_sync.host_certs_of ~__context host in
+      info "about to eject certs of host %s on the master (1/2)"
+        (Ref.string_of host) ;
+      Certificates_sync.eject_certs_from_fs_for ~__context host ;
+      Certificates_sync.eject_certs_from_db ~__context certs ;
+      Db.Host.destroy ~__context ~self:host ;
+      info "ejected certs of host %s on the master (2/2)" (Ref.string_of host)
+  | true, true ->
+      raise Cannot_eject_master
 
 (* Prohibit parallel flushes since they're so expensive *)
 let sync_m = Mutex.create ()
