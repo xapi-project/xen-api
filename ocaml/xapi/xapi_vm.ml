@@ -582,10 +582,8 @@ let suspend ~__context ~vm =
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
   Xapi_xenops.suspend ~__context ~self:vm ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  let remote_address =
-    try Some (Pool_role.get_master_address ()) with _ -> None
-  in
-  log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid remote_address)
+  let master_address = Pool_role.get_master_address_opt () in
+  log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid master_address)
 
 let resume ~__context ~vm ~start_paused ~force =
   if Db.VM.get_ha_restart_priority ~__context ~self:vm = Constants.ha_restart

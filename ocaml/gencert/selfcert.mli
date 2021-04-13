@@ -3,7 +3,11 @@ val write_certs : string -> string -> (unit, [> Rresult.R.msg]) result
 [pkcs12] should contain a components of a PKCS12 Certificate *)
 
 val host :
-  name:string -> dns_names:string list -> ips:Cstruct.t list -> string -> unit
+     name:string
+  -> dns_names:string list
+  -> ips:Cstruct.t list
+  -> string
+  -> X509.Certificate.t
 (** [host name dns_names ip path] creates (atomically) a PEM file at
     [path] with [name] as CN, and the following SANs: [dns_names] + [ip] *)
 

@@ -18,7 +18,11 @@ let http = Xmlrpc_client.xmlrpc ~version:"1.1" "/"
 
 let rpc_remote xml =
   Xmlrpc_client.XMLRPC_protocol.rpc ~srcstr:"quicktest" ~dststr:"xapi"
-    ~transport:(SSL (Xmlrpc_client.SSL.make (), !host, 443))
+    ~transport:
+      (SSL
+         ( Xmlrpc_client.SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+         , !host
+         , 443 ))
     ~http xml
 
 let rpc_unix_domain xml =

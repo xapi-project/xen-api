@@ -44,7 +44,7 @@ let generate_cert_or_fail ~generator ~path =
 let main ~dbg ~path ~sni =
   let init_inventory () = Inventory.inventory_filename := inventory in
   init_inventory () ;
-  let generator =
+  let generator path =
     match sni with
     | SNI.Default ->
         let name, ip =
@@ -57,10 +57,13 @@ let main ~dbg ~path ~sni =
         in
         let dns_names = Networking_info.dns_names () in
         let ips = [ip] in
-        Gencertlib.Selfcert.host ~name ~dns_names ~ips
+        let (_ : X509.Certificate.t) =
+          Gencertlib.Selfcert.host ~name ~dns_names ~ips path
+        in
+        ()
     | SNI.Xapi_pool ->
         let uuid = Inventory.lookup Inventory._installation_uuid in
-        Gencertlib.Selfcert.xapi_pool ~uuid
+        Gencertlib.Selfcert.xapi_pool ~uuid path
   in
   generate_cert_or_fail ~generator ~path
 

@@ -18,6 +18,13 @@ open Datamodel_roles
 
 let lifecycle = [Published, rel_stockholm, ""]
 
+let certificate_type =
+  Enum ( "certificate_type",
+         [ "ca", "Certificate that is trusted by the whole pool"
+         ; "host", "Certificate that identifies a single host"
+         ]
+       )
+
 let t =
   create_obj
     ~name: _certificate
@@ -32,6 +39,16 @@ let t =
     ~messages_default_allowed_roles:_R_READ_ONLY
     ~contents:
       [ uid   _certificate ~lifecycle
+      ; field ~qualifier:DynamicRO ~lifecycle:[Published, rel_next, ""]
+          (* Any cert records existing before the introduction of the 'name' field
+           * have no name, because they are of type 'host' *)
+          ~ty:String "name" ~default_value:(Some (VString ""))
+          "The name of the certificate, only present on certificates of type 'ca'"
+      ; field ~qualifier:DynamicRO ~lifecycle:[Published, rel_next, ""]
+          (* Any cert records existing before the introduction of the 'host' field
+           * are of type host *)
+          ~ty:certificate_type "type"  ~default_value:(Some (VEnum "host"))
+          "The type of the certificate, either 'ca' or 'host'"
       ; field   ~qualifier:StaticRO ~lifecycle
           ~ty:(Ref _host) "host" ~default_value:(Some (VRef null_ref))
           "The host where the certificate is installed"

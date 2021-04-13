@@ -17,6 +17,8 @@ exception Record_failure of string
 
 let to_str = function Rpc.String x -> x | _ -> failwith "Invalid"
 
+let certificate_type_to_string = function `host -> "host" | `ca -> "ca"
+
 let class_to_string cls =
   match cls with
   | `VM ->

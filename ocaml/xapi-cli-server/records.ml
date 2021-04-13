@@ -4330,6 +4330,12 @@ let certificate_record rpc session_id certificate =
   ; fields=
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.certificate_uuid) ()
+      ; make_field ~name:"type"
+          ~get:(fun () ->
+            (x ()).API.certificate_type
+            |> Record_util.certificate_type_to_string)
+          ()
+      ; make_field ~name:"name" ~get:(fun () -> (x ()).API.certificate_name) ()
       ; make_field ~name:"host"
           ~get:(fun () -> (x ()).API.certificate_host |> get_uuid_from_ref)
           ()

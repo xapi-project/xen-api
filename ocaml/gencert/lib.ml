@@ -19,6 +19,8 @@ open Rresult
 
 type t_certificate = Leaf | Chain
 
+let () = Mirage_crypto_rng_unix.initialize ()
+
 let validate_private_key pkcs8_private_key =
   let ensure_key_length = function
     | `RSA priv ->

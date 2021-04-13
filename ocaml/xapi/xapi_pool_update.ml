@@ -746,7 +746,10 @@ let proxy_request req s host_uuid =
       match host with
       | Some host ->
           let ip = Db.Host.get_address ~__context ~self:host in
-          let transport = Xmlrpc_client.(SSL (SSL.make (), ip, 443)) in
+          let transport =
+            Xmlrpc_client.(
+              SSL (SSL.make ~verify_cert:(Stunnel_client.pool ()) (), ip, 443))
+          in
           Xmlrpc_client.with_transport transport (fun fd ->
               Unixext.really_write_string fd (Http.Request.to_wire_string req) ;
               Unixext.proxy (Unix.dup s) (Unix.dup fd))

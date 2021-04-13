@@ -257,7 +257,12 @@ let http_fetch_db ~master_address ~pool_secret =
     |> SecretString.with_cookie pool_secret
   in
   let open Xmlrpc_client in
-  let transport = SSL (SSL.make (), master_address, !Constants.https_port) in
+  let transport =
+    SSL
+      ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
+      , master_address
+      , !Constants.https_port )
+  in
   with_transport transport
     (with_http request (fun (response, fd) ->
          (* no content length since it's streaming *)
