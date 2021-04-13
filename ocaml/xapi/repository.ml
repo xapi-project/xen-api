@@ -445,6 +445,8 @@ let apply_immediate_guidances ~__context ~host ~guidances =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         let open Guidance in
         match guidances with
+        | [] ->
+          ()
         | [RebootHost] ->
           Client.Host.reboot ~rpc ~session_id ~host
         | [EvacuateHost] ->
