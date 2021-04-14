@@ -1196,7 +1196,15 @@ let gen_cmds rpc session_id =
     ; Client.Certificate.(
         mk get_all get_all_records_where get_by_uuid certificate_record
           "certificate" []
-          ["uuid"; "type"; "name"; "host"; "fingerprint"]
+          [
+            "uuid"
+          ; "type"
+          ; "name"
+          ; "host"
+          ; "not-before"
+          ; "not-after"
+          ; "fingerprint"
+          ]
           rpc session_id)
     ]
 
