@@ -9,6 +9,7 @@ build:
 install:
 	# rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd
+	install -D _build/install/default/bin/rrddump $(DESTDIR)$(BINDIR)/rrddump
 	# transport
 	dune install rrd-transport
 	install -D _build/install/default/bin/rrdreader $(DESTDIR)$(BINDIR)/rrdreader
@@ -21,6 +22,7 @@ uninstall:
 	rm -f $(DESTDIR)$(SBINDIR)/xcp-rrdd
 	# transport
 	dune uninstall --libdir=$(OPAM_LIBDIR)
+	rm -f $(DESTDIR)$(BINDIR)/rrddump
 	rm -f $(DESTDIR)$(BINDIR)/rrdreader
 	rm -f $(DESTDIR)$(BINDIR)/rrdwriter
 
