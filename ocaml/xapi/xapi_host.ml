@@ -1148,7 +1148,7 @@ let set_hostname_live ~__context ~host ~hostname =
         Db.Host.get_external_auth_type ~__context ~self:host
       in
       (* the AD/Likewise extauth plugin is incompatible with a hostname change *)
-      ( if current_auth_type = Xapi_globs.auth_type_AD_Likewise then
+      ( if current_auth_type = Xapi_globs.auth_type_AD then
           let current_service_name =
             Db.Host.get_external_auth_service_name ~__context ~self:host
           in
@@ -1522,8 +1522,8 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 
         (* we try to use the configuration to set up the new external authentication service *)
         try
-          if auth_type = Xapi_globs.auth_type_AD_Likewise then
-            Extauth_plugin_ADpbis.Lwsmd.start ~wait_until_success:true ;
+          if auth_type = Xapi_globs.auth_type_AD then
+            Extauth_ad.start_backend_daemon ~wait_until_success:true ;
           (* we persist as much set up configuration now as we can *)
           Db.Host.set_external_auth_service_name ~__context ~self:host
             ~value:service_name ;
@@ -1683,9 +1683,9 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
           (* CA-28168 *)
           (* CA-24856: detect non-homogeneous external-authentication config in this host *)
           detect_nonhomogeneous_external_auth_in_host ~__context ~host ;
-        (* stop lwsmd if necessary *)
-        if auth_type = Xapi_globs.auth_type_AD_Likewise then
-          Extauth_plugin_ADpbis.Lwsmd.stop ~wait_until_success:false ;
+        (* stop AD backend if necessary *)
+        if auth_type = Xapi_globs.auth_type_AD then
+          Extauth_ad.stop_backend_daemon ~wait_until_success:false ;
         match plugin_disable_failure with
         | None ->
             ()
