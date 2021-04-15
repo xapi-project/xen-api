@@ -336,15 +336,12 @@ let update_certificates ~__context () =
   | Ok () ->
       info "successfully synced certificates"
   | Error (`Msg (msg, _)) ->
-      error "Failed to update host certificates: %s" msg ;
-      server_run_in_emergency_mode ()
+      error "Failed to update host certificates: %s" msg
   | exception e ->
-      error "Failed to update host certificates: %s" (Printexc.to_string e) ;
-      server_run_in_emergency_mode ()
+      error "Failed to update host certificates: %s" (Printexc.to_string e)
 
 let bring_up_management_if ~__context () =
   try
-    update_certificates ~__context () ;
     let management_if =
       Xapi_inventory.lookup Xapi_inventory._management_interface
     in
@@ -364,6 +361,7 @@ let bring_up_management_if ~__context () =
       | Some ip ->
           debug "Management IP address is: %s" ip ;
           (* Make sure everyone is up to speed *)
+          update_certificates ~__context () ;
           ignore
             (Thread.create
                (fun () ->
