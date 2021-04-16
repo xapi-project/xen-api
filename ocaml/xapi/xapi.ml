@@ -330,16 +330,6 @@ let server_run_in_emergency_mode () =
   in
   wait_to_die () ; exit 0
 
-let update_certificates ~__context () =
-  info "syncing certificates on xapi start" ;
-  match Certificates_sync.update ~__context with
-  | Ok () ->
-      info "successfully synced certificates"
-  | Error (`Msg (msg, _)) ->
-      error "Failed to update host certificates: %s" msg
-  | exception e ->
-      error "Failed to update host certificates: %s" (Printexc.to_string e)
-
 let bring_up_management_if ~__context () =
   try
     let management_if =
@@ -361,7 +351,6 @@ let bring_up_management_if ~__context () =
       | Some ip ->
           debug "Management IP address is: %s" ip ;
           (* Make sure everyone is up to speed *)
-          update_certificates ~__context () ;
           ignore
             (Thread.create
                (fun () ->
