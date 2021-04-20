@@ -665,6 +665,26 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
            ( Api_errors.license_restriction
            , [Features.name_of_feature Features.Pool_size] ))
   in
+  let assert_tls_verification_matches () =
+    let remote_pool = List.hd (Client.Pool.get_all rpc session_id) in
+    let joiner_pool = Helpers.get_pool ~__context in
+    let tls_enabled_pool =
+      Client.Pool.get_tls_verification_enabled ~rpc ~session_id
+        ~self:remote_pool
+    in
+    let tls_enabled_joiner =
+      Db.Pool.get_tls_verification_enabled ~__context ~self:joiner_pool
+    in
+    if tls_enabled_pool <> tls_enabled_joiner then (
+      let pp_bool = function true -> "enabled" | false -> "disabled" in
+      error "Remote pool has TLS verification %s while this host has it %s"
+        (pp_bool tls_enabled_pool)
+        (pp_bool tls_enabled_joiner) ;
+      raise
+        Api_errors.(
+          Server_error (pool_joining_host_tls_verification_mismatch, []))
+    )
+  in
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -691,7 +711,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_db_schema_matches () ;
   assert_homogeneous_updates () ;
   assert_homogeneous_primary_address_type () ;
-  assert_compatible_network_purpose ()
+  assert_compatible_network_purpose () ;
+  assert_tls_verification_matches ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
     API.ref_host =
