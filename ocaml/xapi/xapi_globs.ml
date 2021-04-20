@@ -582,7 +582,7 @@ let serialize_pool_enable_disable_extauth = Mutex.create ()
 (* Auth types *)
 let auth_type_NONE = ""
 
-let auth_type_AD_Likewise = "AD"
+let auth_type_AD = "AD"
 
 let auth_type_PAM = "PAM"
 
@@ -868,6 +868,8 @@ let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 
 type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
+let extauth_ad_backend = ref "winbind"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1143,6 +1145,10 @@ let other_options =
     , Arg.Set allow_host_sched_gran_modification
     , (fun () -> string_of_bool !allow_host_sched_gran_modification)
     , "Allows to modify the host's scheduler granularity" )
+  ; ( "extauth_ad_backend"
+    , Arg.Set_string extauth_ad_backend
+    , (fun () -> !extauth_ad_backend)
+    , "Which AD backend used to talk to DC" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
