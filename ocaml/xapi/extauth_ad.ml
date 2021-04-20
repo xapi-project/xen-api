@@ -15,8 +15,6 @@
  * @AD group Access Control
 *)
 
-open Db_actions
-
 module D = Debug.Make (struct let name = "extauth_ad" end)
 
 open D
