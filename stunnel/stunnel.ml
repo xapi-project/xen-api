@@ -155,7 +155,14 @@ let pool =
   ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
   }
 
-let config_file config extended_diagnosis host port =
+let debug_conf_of_bool verbose : string =
+  if verbose then "debug=authpriv.7" else "debug=authpriv.5"
+
+let debug_conf_of_env () : string =
+  (try Unix.getenv "debug_stunnel" with _ -> "") |> String.lowercase_ascii
+  |> fun x -> List.mem x ["yes"; "true"; "1"] |> debug_conf_of_bool
+
+let config_file config host port =
   ( match config with
   | None ->
       D.debug "client cert verification %s:%d: None" host port
@@ -189,11 +196,7 @@ let config_file config extended_diagnosis host port =
          ; Printf.sprintf "connect=%s:%d" host port
          ]
        ; (if is_fips then ["fips=yes"] else ["fips=no"])
-       ; ( if extended_diagnosis then
-             ["debug=authpriv.7"]
-         else
-           ["debug=authpriv.5"]
-         )
+       ; [debug_conf_of_env ()]
        ; [
            "sslVersion = TLSv1.2"
          ; "ciphers = " ^ Xcp_const.good_ciphersuites
@@ -340,7 +343,7 @@ let with_attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
           ) ;
         Unixfd.safe_close config_out ;
         Unixfd.safe_close data_in ;
-        let config = config_file verify_cert extended_diagnosis host port in
+        let config = config_file verify_cert host port in
         (* Catch the occasional initialisation failure of stunnel: *)
         try
           let len = String.length config in
