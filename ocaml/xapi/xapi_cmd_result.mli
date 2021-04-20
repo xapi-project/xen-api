@@ -12,8 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* start a service with systemctl *)
-val start : ?timeout:float -> wait_until_success:bool -> string -> unit
+(* Module to parse result from command line output
+ * The result should be key value pairs seperated by sep like ':' *)
 
-(* stop a service with systemctl *)
-val stop : ?timeout:float -> wait_until_success:bool -> string -> unit
+type t
+
+(* Empty result set *)
+val empty : t
+
+(* Add one line to the result set *)
+val add : ?sep:char -> string -> t -> t
+
+(* Find result from the result set *)
+val find : string -> t -> string option
+
+(* find result from the whole result lines *)
+val of_output_opt : sep:char -> key:string -> lines:string -> string option
