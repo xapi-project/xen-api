@@ -24,6 +24,7 @@ module UpdateIdSet = Set.Make (String)
 
 let capacity_in_parallel = 16
 let reposync_mutex = Mutex.create ()
+(* The cache below is protected by pool's current_operations locking mechanism *)
 let updates_in_cache = ref None
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
