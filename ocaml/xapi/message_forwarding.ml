@@ -3514,6 +3514,10 @@ functor
       let emergency_disable_tls_verification ~__context =
         info "Host.emergency_disable_tls_verification" ;
         Local.Host.emergency_disable_tls_verification ~__context
+
+      let emergency_reenable_tls_verification ~__context =
+        info "Host.emergency_reenable_tls_verification" ;
+        Local.Host.emergency_reenable_tls_verification ~__context
     end
 
     module Host_crashdump = struct
