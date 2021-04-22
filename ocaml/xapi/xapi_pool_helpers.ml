@@ -25,7 +25,13 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 (* psr is not included in this list because it can be considered in progress
    in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
 let all_operations =
-  [`ha_enable; `ha_disable; `cluster_create; `designate_new_master]
+  [
+    `ha_enable
+  ; `ha_disable
+  ; `cluster_create
+  ; `designate_new_master
+  ; `tls_verification_enable
+  ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' =
@@ -48,6 +54,9 @@ let valid_operations ~__context record _ref' =
     ; (`ha_disable, Api_errors.ha_disable_in_progress, [])
     ; (`cluster_create, Api_errors.cluster_create_in_progress, [])
     ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
+    ; ( `tls_verification_enable
+      , Api_errors.tls_verification_enable_in_progress
+      , [] )
     ]
   in
   List.iter
@@ -63,13 +72,18 @@ let valid_operations ~__context record _ref' =
   let current_stack =
     Db.Pool.get_ha_cluster_stack ~__context ~self:(Helpers.get_pool ~__context)
   in
-  if ha_enabled then
-    set_errors Api_errors.ha_is_enabled [] [`ha_enable]
-  else
+  if ha_enabled then (
+    set_errors Api_errors.ha_is_enabled [] [`ha_enable] ;
+    (* TLS verification is not allowed to run if HA is enabled *)
+    set_errors Api_errors.ha_is_enabled [] [`tls_verification_enable]
+  ) else
     set_errors Api_errors.ha_not_enabled [] [`ha_disable] ;
   (* cluster create cannot run during a rolling pool upgrade *)
-  if Helpers.rolling_upgrade_in_progress ~__context then
+  if Helpers.rolling_upgrade_in_progress ~__context then (
     set_errors Api_errors.not_supported_during_upgrade [] [`cluster_create] ;
+    set_errors Api_errors.not_supported_during_upgrade []
+      [`tls_verification_enable]
+  ) ;
   (* cluster create cannot run if a cluster already exists on the pool *)
   ( match Db.Cluster.get_all ~__context with
   | [_] ->

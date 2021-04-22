@@ -929,14 +929,18 @@ functor
         let self = Helpers.get_pool ~__context in
         let local_fn = Local.Pool.enable_tls_verification in
         let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
-        Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
-        Cert_distrib.(
-          go ~__context ~existing_cert_strategy:Erase_old ~from_hosts:all_hosts
-            ~to_hosts:all_hosts) ;
-        all_hosts
-        |> List.iter (fun host ->
-               do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                   Client.Pool.enable_tls_verification rpc session_id))
+
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~doc:"Pool.enable_tls_verification" ~self ~op:`tls_verification_enable
+          (fun () ->
+            Cert_distrib.(
+              go ~__context ~existing_cert_strategy:Erase_old
+                ~from_hosts:all_hosts ~to_hosts:all_hosts) ;
+            all_hosts
+            |> List.iter (fun host ->
+                   do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                       Client.Pool.enable_tls_verification rpc session_id)) ;
+            Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true)
     end
 
     module VM = struct

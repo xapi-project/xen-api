@@ -1203,3 +1203,5 @@ let vcpu_max_not_cores_per_socket_multiple =
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
+
+let tls_verification_enable_in_progress = "TLS_VERIFICATION_ENABLE_IN_PROGRESS"
