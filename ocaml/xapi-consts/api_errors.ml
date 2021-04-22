@@ -696,6 +696,9 @@ let pool_joining_host_has_tunnels = "POOL_JOINING_HOST_HAS_TUNNELS"
 let pool_joining_host_has_network_sriovs =
   "POOL_JOINING_HOST_HAS_NETWORK_SRIOVS"
 
+let pool_joining_host_tls_verification_mismatch =
+  "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
+
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
 

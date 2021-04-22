@@ -43,8 +43,16 @@ let rpc host_address xml =
       (Api_errors.Server_error
          (Api_errors.pool_joining_host_connection_failed, []))
 
+let get_pool ~rpc ~session_id =
+  match Client.Pool.get_all ~rpc ~session_id with
+  | [] ->
+      let err_msg = "Remote host does not belong to a pool." in
+      raise Api_errors.(Server_error (internal_error, [err_msg]))
+  | pool :: _ ->
+      pool
+
 let get_master ~rpc ~session_id =
-  let pool = List.hd (Client.Pool.get_all rpc session_id) in
+  let pool = get_pool ~rpc ~session_id in
   Client.Pool.get_master rpc session_id pool
 
 (* Pre-join asserts *)
@@ -75,7 +83,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   in
   (* I Cannot join a Pool if it has HA enabled on it *)
   let ha_is_not_enable_on_the_distant_pool () =
-    let pool = List.hd (Client.Pool.get_all rpc session_id) in
+    let pool = get_pool ~rpc ~session_id in
     if Client.Pool.get_ha_enabled rpc session_id pool then (
       error "Cannot join pool which already has HA enabled" ;
       raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
@@ -240,28 +248,25 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
           updates_on ~rpc ~session_id local_host)
     in
     (* compare updates on host and pool master *)
-    Client.Pool.get_all rpc session_id
-    |> List.iter (fun pool ->
-           let pool_host = Client.Pool.get_master rpc session_id pool in
-           let remote_updates = updates_on rpc session_id pool_host in
-           if not (S.equal local_updates remote_updates) then (
-             let remote_uuid = Client.Host.get_uuid rpc session_id pool_host in
-             let diff xs ys = S.diff xs ys |> S.elements |> String.concat "," in
-             let reason =
-               Printf.sprintf "Updates on local host %s and pool host %s differ"
-                 (Db.Host.get_name_label ~__context ~self:local_host)
-                 (Client.Host.get_name_label rpc session_id pool_host)
-             in
-             error
-               "Pool join: Updates differ. Only on pool host %s: {%s} -- only \
-                on local host %s: {%s}"
-               remote_uuid
-               (diff remote_updates local_updates)
-               local_uuid
-               (diff local_updates remote_updates) ;
-             raise
-               Api_errors.(Server_error (pool_hosts_not_homogeneous, [reason]))
-           ))
+    let pool_host = get_master ~rpc ~session_id in
+    let remote_updates = updates_on rpc session_id pool_host in
+    if not (S.equal local_updates remote_updates) then (
+      let remote_uuid = Client.Host.get_uuid rpc session_id pool_host in
+      let diff xs ys = S.diff xs ys |> S.elements |> String.concat "," in
+      let reason =
+        Printf.sprintf "Updates on local host %s and pool host %s differ"
+          (Db.Host.get_name_label ~__context ~self:local_host)
+          (Client.Host.get_name_label rpc session_id pool_host)
+      in
+      error
+        "Pool join: Updates differ. Only on pool host %s: {%s} -- only on \
+         local host %s: {%s}"
+        remote_uuid
+        (diff remote_updates local_updates)
+        local_uuid
+        (diff local_updates remote_updates) ;
+      raise Api_errors.(Server_error (pool_hosts_not_homogeneous, [reason]))
+    )
   in
   (* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
   (* that of master of pool-to-join *)
@@ -513,7 +518,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       Db.Host.get_cpu_info ~__context ~self:me |> List.assoc "vendor"
     in
     let pool_cpu_vendor =
-      let pool = List.hd (Client.Pool.get_all rpc session_id) in
+      let pool = get_pool rpc session_id in
       Client.Pool.get_cpu_info rpc session_id pool |> List.assoc "vendor"
     in
     debug "Pool pre-join CPU homogeneity check:" ;
@@ -545,7 +550,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let dbg = Context.string_of_task __context in
     let my_backend' = Net.Bridge.get_kind dbg () in
     let my_backend = Network_interface.string_of_kind my_backend' in
-    let pool = List.hd (Client.Pool.get_all rpc session_id) in
+    let pool = get_pool ~rpc ~session_id in
     let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
     let remote_masters_backend =
       let v =
@@ -665,6 +670,26 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
            ( Api_errors.license_restriction
            , [Features.name_of_feature Features.Pool_size] ))
   in
+  let assert_tls_verification_matches () =
+    let remote_pool = get_pool ~rpc ~session_id in
+    let joiner_pool = Helpers.get_pool ~__context in
+    let tls_enabled_pool =
+      Client.Pool.get_tls_verification_enabled ~rpc ~session_id
+        ~self:remote_pool
+    in
+    let tls_enabled_joiner =
+      Db.Pool.get_tls_verification_enabled ~__context ~self:joiner_pool
+    in
+    if tls_enabled_pool <> tls_enabled_joiner then (
+      let pp_bool = function true -> "enabled" | false -> "disabled" in
+      error "Remote pool has TLS verification %s while this host has it %s"
+        (pp_bool tls_enabled_pool)
+        (pp_bool tls_enabled_joiner) ;
+      raise
+        Api_errors.(
+          Server_error (pool_joining_host_tls_verification_mismatch, []))
+    )
+  in
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -691,7 +716,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_db_schema_matches () ;
   assert_homogeneous_updates () ;
   assert_homogeneous_primary_address_type () ;
-  assert_compatible_network_purpose ()
+  assert_compatible_network_purpose () ;
+  assert_tls_verification_matches ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
     API.ref_host =
