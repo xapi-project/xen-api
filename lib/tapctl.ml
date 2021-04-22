@@ -1,8 +1,7 @@
 open Forkhelpers
 open Xapi_stdext_unix
-open Xapi_stdext_std.Xstringext
-open Xapi_stdext_std.Listext
 open Xapi_stdext_threads.Threadext
+module IntSet = Set.Make (Int)
 
 (* Tapdisk stats *)
 module Stats = struct
@@ -66,9 +65,6 @@ let get_devnode_dir ctx =
   let d = Printf.sprintf "%s/dev/xen/blktap-2" ctx.host_local_dir in
   Unixext.mkdir_rec d 0o755 ; d
 
-let get_blktapstem ctx =
-  Printf.sprintf "%s/dev/xen/blktap-2/blktap" ctx.host_local_dir
-
 let get_tapdevstem ctx =
   Printf.sprintf "%s/dev/xen/blktap-2/tapdev" ctx.host_local_dir
 
@@ -111,13 +107,13 @@ module Dummy = struct
     let str = Jsonrpc.to_string (rpc_of_dummy_tap_list list) in
     Unixext.write_string_to_file filename str
 
+  (* Return the lowest successor that is not present in the list, or 0. *)
   let find_next_unused_number list =
-    if List.length list = 0 then
-      0
-    else
-      let list_plus_one = List.map (( + ) 1) list in
-      let diff = List.set_difference list_plus_one list in
-      List.hd diff
+    let numbers = IntSet.of_list list in
+    let next n = n + 1 in
+    let next_unused n = not (IntSet.mem (next n) numbers) in
+    IntSet.find_first_opt next_unused numbers
+    |> Option.fold ~none:0 ~some:next
 
   let find_next_unused_minor list =
     let minors = List.filter_map (fun t -> t.d_minor) list in
@@ -287,7 +283,7 @@ module Dummy = struct
         List.filter_map
           (fun e ->
             let args =
-              match Option.map (String.split ':') e.d_args with
+              match Option.map (String.split_on_char ':') e.d_args with
               | Some (ty :: arguments) ->
                   Some (ty, String.concat ":" arguments)
               | _ ->
@@ -305,7 +301,7 @@ module Dummy = struct
                 None)
           list)
 
-  let stats ctx t =
+  let stats t =
     let open Stats in
     {
       name= "none"
@@ -333,24 +329,24 @@ let canonicalise x =
       List.fold_left
         (fun found path ->
           match found with
-          | Some hit ->
-              found
           | None ->
               let possibility = Filename.concat path x in
               if Sys.file_exists possibility then
                 Some possibility
               else
-                None)
+                None
+          | _ ->
+              found)
         None (xen_paths @ paths)
     in
     match first_hit with None -> x | Some hit -> hit
 
 let tap_ctl = canonicalise "tap-ctl"
 
-let invoke_tap_ctl ctx cmd args =
+let invoke_tap_ctl _ cmd args =
   let find x = try [x ^ "=" ^ Sys.getenv x] with _ -> [] in
   let env = Array.of_list (find "PATH" @ find "TAPDISK" @ find "TAPDISK2") in
-  let stdout, stderr = execute_command_get_output ~env tap_ctl (cmd :: args) in
+  let stdout, _ = execute_command_get_output ~env tap_ctl (cmd :: args) in
   stdout
 
 let allocate ctx =
@@ -360,7 +356,7 @@ let allocate ctx =
     let result = invoke_tap_ctl ctx "allocate" [] in
     let stem = get_tapdevstem ctx in
     let stemlen = String.length stem in
-    assert (String.startswith stem result) ;
+    assert (Astring.String.is_prefix ~affix:stem result) ;
     let minor_str =
       String.sub result stemlen (String.length result - stemlen)
     in
@@ -440,64 +436,53 @@ let list ?t ctx =
   else
     let args = match t with Some tapdev -> args tapdev | None -> [] in
     let result = invoke_tap_ctl ctx "list" args in
-    let lines = String.split '\n' result in
+    let lines = String.split_on_char '\n' result in
     List.filter_map
       (fun line ->
         (* Note the filename can include spaces, for example: *)
         (* pid=855 minor=0 state=0 args=aio:/run/sr-mount/dev/disk/by-id/ata-WDC_WD2502ABYS-18B7A0_WD-WCAT1H334077-part3/win8 0 *)
-        try
-          let fields = String.split ~limit:4 ' ' line in
-          let assoc =
-            List.filter_map
-              (fun field ->
-                match String.split '=' field with
-                | x :: ys ->
-                    Some (x, String.concat "=" ys)
-                | _ ->
-                    None)
-              fields
-          in
-          let args =
-            try
-              match String.split ':' (List.assoc "args" assoc) with
-              | ty :: arguments ->
-                  Some (ty, String.concat ":" arguments)
-              | _ ->
-                  None
-            with _ -> None
-          in
-          Some
-            ( {
-                tapdisk_pid= int_of_string (List.assoc "pid" assoc)
-              ; minor= int_of_string (List.assoc "minor" assoc)
-              }
-            , List.assoc "state" assoc
-            , args )
-        with _ -> None)
+        (* fields is invoked with empty:true to account for consecutive spaces
+           in the filename no more than a single space is expected between the
+           key-values. *)
+        match Astring.String.fields ~empty:true ~is_sep:(( = ) ' ') line with
+        | pid :: minor :: state :: args_list ->
+            let ( let* ) = Option.bind in
+            let scanf = Scanf.ksscanf in
+            let or_none _ _ = None in
+            let* tapdisk_pid = scanf pid or_none "pid=%u" Option.some in
+            let* minor = scanf minor or_none "minor=%u" Option.some in
+            let* state = scanf state or_none "state=%s" Option.some in
+            let* _, args =
+              Astring.String.cut ~sep:"args=" (String.concat " " args_list)
+            in
+            let args = Astring.String.cut ~sep:":" args in
+            Some ({tapdisk_pid; minor}, state, args)
+        | _ ->
+            None)
       lines
 
 let is_paused ctx t =
   let result = list ~t ctx in
   match result with
-  | [(tapdev, state, args)] ->
+  | [(_, state, _)] ->
       state = "0x2a"
   | _ ->
       failwith "Unknown device"
 
 let is_active ctx t =
   let result = list ~t ctx in
-  match result with [(tapdev, state, Some _)] -> true | _ -> false
+  match result with [(_, _, Some _)] -> true | _ -> false
 
 let stats ctx t =
   if ctx.dummy then
-    Dummy.stats ctx t
+    Dummy.stats t
   else
     Stats.t_of_rpc (Jsonrpc.of_string (invoke_tap_ctl ctx "stats" (args t)))
 
 (* We need to be able to check that a given device's major number corresponds to the right driver *)
 let read_proc_devices () : (int * string) list =
   let parse_line x =
-    match List.filter (fun x -> x <> "") (String.split ' ' x) with
+    match List.filter (fun x -> x <> "") (String.split_on_char ' ' x) with
     | [x; y] -> (
       try Some (int_of_string x, y) with _ -> None
     )
