@@ -109,6 +109,14 @@ let extract_sid_from_group_list group_list =
       sid)
     (List.filter (fun (n, v) -> n = "") group_list)
 
+let start_damon () =
+  try Lwsmd.start ~timeout:5. ~wait_until_success:true
+  with _ ->
+    raise
+      (Auth_signature.Auth_service_error
+         ( Auth_signature.E_GENERIC
+         , Printf.sprintf "Failed to start %s" lwsmd_service ))
+
 module AuthADlw : Auth_signature.AUTH_MODULE = struct
   (*
    * External Authentication Plugin component
@@ -838,6 +846,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     (* but in the ldap plugin, we should 'join the AD/kerberos domain', i.e. we should*)
     (* basically: (1) create a machine account in the kerberos realm,*)
     (* (2) store the machine account password somewhere locally (in a keytab) *)
+    start_damon () ;
     if
       not
         (List.mem_assoc "user" config_params

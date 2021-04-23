@@ -25,6 +25,19 @@ open Auth_signature
 
 let net_cmd = !Xapi_globs.net_cmd
 
+let winbind_service = "winbind"
+
+module Winbind = struct
+  let start ~timeout ~wait_until_success =
+    Xapi_systemctl.start ~timeout ~wait_until_success winbind_service
+
+  let stop ~timeout ~wait_until_success =
+    Xapi_systemctl.stop ~timeout ~wait_until_success winbind_service
+
+  let init_service ~__context =
+    debug "init_service To be implemented in CP-36085"
+end
+
 let get_service_name () =
   (fun __context ->
     Helpers.get_localhost ~__context |> fun host ->
@@ -46,7 +59,7 @@ let query_domain_workgroup domain =
         raise (Auth_service_error (E_LOOKUP, err_msg))
   with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
 
-let config_winbind_damon domain workgroup =
+let config_winbind_damon ~domain ~workgroup =
   let open Xapi_stdext_unix in
   let smb_config = "/etc/samba/smb.conf" in
   let conf_contents =
@@ -66,7 +79,6 @@ let config_winbind_damon domain workgroup =
       ; "idmap config * : range = 3000000-3999999"
       ; Printf.sprintf "idmap config %s: backend = rid" domain
       ; Printf.sprintf "idmap config %s: range = 2000000-2999999" domain
-      ; "winbind use krb5 enterprise principals = yes"
       ; "idmap config * : backend = tdb"
       ; "" (* Empty line at the end *)
       ]
@@ -76,29 +88,14 @@ let config_winbind_damon domain workgroup =
       let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
       ())
 
-module Winbind = struct
-  let winbind_service = "winbind"
-
-  let start ~timeout ~wait_until_success =
-    let service_name = get_service_name () in
-    let workgroup = query_domain_workgroup service_name in
-    config_winbind_damon service_name workgroup ;
-
-    Xapi_systemctl.start ~timeout ~wait_until_success winbind_service
-
-  let stop ~timeout ~wait_until_success =
-    Xapi_systemctl.stop ~timeout ~wait_until_success winbind_service
-
-  let init_service ~__context =
-    debug "init_service To be implemented in CP-36085"
-end
-
 let from_config ~name ~err_msg ~config_params =
   match List.assoc_opt name config_params with
   | Some v ->
       v
   | _ ->
       raise (Auth_service_error (E_GENERIC, err_msg))
+
+let all_number_re = Re.Perl.re {|^\d+$|} |> Re.Perl.compile
 
 let assert_hostname_valid () =
   let hostname =
@@ -107,10 +104,7 @@ let assert_hostname_valid () =
       Db.Host.get_hostname ~__context ~self:host)
     |> Server_helpers.exec_with_new_task "retrieving hostname"
   in
-  let all_numbers hostname =
-    Re.Perl.re {|^\d+$|} |> Re.Perl.compile |> fun re ->
-    Re.matches re hostname <> []
-  in
+  let all_numbers hostname = Re.matches all_number_re hostname <> [] in
   if all_numbers hostname then
     raise
       (Auth_service_error
@@ -122,12 +116,11 @@ let assert_domain_equal_service_name ~service_name ~config_params =
   (* For legeacy support, if domain exist in config_params, it must be equal to service_name *)
   let domain_key = "domain" in
   match List.assoc_opt domain_key config_params with
-  | Some domain ->
-      if domain <> service_name then
-        raise
-          (Auth_service_error
-             (E_GENERIC, "if present, config:domain must match service-name."))
-  | None ->
+  | Some domain when domain <> service_name ->
+      raise
+        (Auth_service_error
+           (E_GENERIC, "if present, config:domain must match service-name."))
+  | _ ->
       ()
 
 let extract_ou_config ~config_params =
@@ -143,17 +136,19 @@ let clean_machine_account ~service_name = function
       let args = ["ads"; "leave"; "-U"; u] in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
-        debug "Clean machine account in domain %s successfully" service_name
+        debug "Cleaning the machine account for domain %s succeeded"
+          service_name
       with _ ->
         let msg =
-          Printf.sprintf "Failed to clean machine account in domain  %s"
+          Printf.sprintf "Cleaning the machine account for domain %s failed"
             service_name
         in
         debug "%s" msg ;
         raise (Auth_service_error (E_GENERIC, msg))
     )
   | _ ->
-      debug "username or password not provided, skip clean machine account"
+      debug
+        "username or password not provided, skip cleaning the machine account"
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   (* subject_id Authenticate_username_password(string username, string password)
@@ -241,6 +236,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let service_name = get_service_name () in
     assert_domain_equal_service_name ~service_name ~config_params ;
 
+    query_domain_workgroup service_name |> fun workgroup ->
+    config_winbind_damon ~domain:service_name ~workgroup ;
+
     let ou_config, ou_param = extract_ou_config ~config_params in
 
     let args =
@@ -250,11 +248,15 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let env = [|Printf.sprintf "PASSWD=%s" pass|] in
     try
       Helpers.call_script ~env net_cmd args |> ignore ;
-      debug "Joined domain %s successfully" service_name
-    with _ ->
-      let msg = Printf.sprintf "Failed to join domain %s" service_name in
-      debug "%s" msg ;
-      raise (Auth_service_error (E_GENERIC, msg))
+      debug "Joined domain %s successfully" service_name ;
+      Winbind.start ~timeout:5. ~wait_until_success:false
+    with
+    | Xapi_systemctl.Systemctl_fail _ ->
+        let msg = Printf.sprintf "Failed to start %s" winbind_service in
+        raise (Auth_service_error (E_GENERIC, msg))
+    | _ ->
+        let msg = Printf.sprintf "Failed to join domain %s" service_name in
+        raise (Auth_service_error (E_GENERIC, msg))
 
   (* unit on_disable()
 

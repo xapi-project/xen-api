@@ -1527,9 +1527,6 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
           Db.Host.set_external_auth_service_name ~__context ~self:host
             ~value:service_name ;
 
-          if auth_type = Xapi_globs.auth_type_AD then
-            Extauth_ad.start_backend_daemon ~wait_until_success:true ;
-
           (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
           (* filter out any one-time credentials such as the administrator password, so we *)
           (* should not call here 'host.set_external_auth_configuration ~config' *)
