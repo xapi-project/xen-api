@@ -12,6 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(* Exception about systemctl operation like start/stop failed *)
+exception Systemctl_fail of string
+
 (* start a service with systemctl *)
 val start : ?timeout:float -> wait_until_success:bool -> string -> unit
 
