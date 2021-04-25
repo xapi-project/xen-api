@@ -25,7 +25,8 @@ module UpdateIdSet = Set.Make (String)
 let capacity_in_parallel = 16
 let reposync_mutex = Mutex.create ()
 (* The cache below is protected by pool's current_operations locking mechanism *)
-let updates_in_cache = ref None
+let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
+  Hashtbl.create 64
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
   assert_url_is_valid ~url:binary_url;
@@ -203,7 +204,6 @@ let set_available_updates ~__context =
   let rets = with_pool_repositories (fun () ->
       Helpers.run_in_parallel funs capacity_in_parallel)
   in
-  updates_in_cache := Some rets ;
   let enabled = get_enabled_repositories ~__context in
   (* Group updates by repository for each host *)
   let updates_of_hosts =
@@ -239,6 +239,8 @@ let set_available_updates ~__context =
          else None)
       enabled
   in
+  Hashtbl.clear updates_in_cache ;
+  Hashtbl.add_seq updates_in_cache (List.to_seq rets) ;
   get_singleton checksums
 
 let create_pool_repository ~__context ~self =
@@ -369,29 +371,31 @@ let parse_updateinfo ~__context ~self =
 let get_pool_updates_in_json ~__context ~hosts =
   try
     let repository = get_single_enabled_update_repository ~__context in
-    (match !updates_in_cache with
-     | None ->
-         raise Api_errors.(Server_error (updates_require_sync, []))
-     | Some updates ->
-         let repository_name = get_repository_name  ~__context ~self:repository in
-         let updates_info = parse_updateinfo ~__context ~self:repository in
-         let updates_of_hosts, ids_of_updates =
-           updates
-           |> List.filter (fun (h, _) -> List.mem h hosts)
-           |> List.fold_left (fun (acc1, acc2) (host, updates_of_host) ->
-               let json_of_host, uids =
-                 consolidate_updates_of_host ~repository_name ~updates_info
-                   (Ref.string_of host) updates_of_host
-               in
-               ( (json_of_host :: acc1), (UpdateIdSet.union uids acc2) )
-             ) ([], UpdateIdSet.empty)
-         in
-         `Assoc [
-           ("hosts", `List updates_of_hosts);
-           ("updates", `List (UpdateIdSet.elements ids_of_updates
-                              |> List.map (fun uid  ->
-                                  UpdateInfo.to_json (List.assoc uid updates_info))));
-           ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))])
+    if Hashtbl.length updates_in_cache > 0 then (
+      let repository_name = get_repository_name  ~__context ~self:repository in
+      let updates_info = parse_updateinfo ~__context ~self:repository in
+      let updates_of_hosts, ids_of_updates =
+        Hashtbl.fold
+          (fun host updates_of_host (acc1, acc2) ->
+            if List.mem host hosts then (
+              let json_of_host, uids =
+                consolidate_updates_of_host ~repository_name ~updates_info
+                  (Ref.string_of host) updates_of_host
+              in
+              ( (json_of_host :: acc1), (UpdateIdSet.union uids acc2) ))
+            else
+              (acc1, acc2))
+          updates_in_cache
+          ([], UpdateIdSet.empty)
+      in
+      `Assoc [
+        ("hosts", `List updates_of_hosts);
+        ("updates", `List (UpdateIdSet.elements ids_of_updates
+                           |> List.map (fun uid  ->
+                               UpdateInfo.to_json (List.assoc uid updates_info))));
+        ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))])
+    else
+      raise Api_errors.(Server_error (updates_require_sync, []))
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
     raise e
@@ -521,13 +525,8 @@ let apply_updates ~__context ~host ~hash =
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               Client.Client.Repository.apply ~rpc ~session_id ~host);
           (* TODO: absolute guidances *)
-          updates_in_cache :=
-            (match !updates_in_cache with
-             | Some updates ->
-                 Some ( (host,
-                         `Assoc [("updates", `List [])]) :: (List.remove_assoc host updates) ) ;
-             | None ->
-                 None) ;
+
+          Hashtbl.replace updates_in_cache host (`Assoc [("updates", `List [])]) ;
           immediate_guidances)
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
@@ -538,4 +537,4 @@ let apply_updates ~__context ~host ~hash =
     raise Api_errors.(Server_error (apply_updates_failed, [ref]))
 
 let reset_updates_in_cache () =
-  updates_in_cache := None
+  Hashtbl.clear updates_in_cache
