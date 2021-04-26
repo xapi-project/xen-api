@@ -50,6 +50,12 @@ let set_is_system_domain ~__context ~self ~value =
       Db.VM.add_to_other_config ~__context ~self ~key:system_domain_key ~value)
     ()
 
+let set_is_control_domain ~__context ~self ~value =
+  Helpers.log_exn_continue
+    (Printf.sprintf "set_is_control_domain self = %s" (Ref.string_of self))
+    (fun () -> Db.VM.set_is_control_domain ~__context ~self ~value)
+    ()
+
 (** If a VM is a driver domain then it hosts backends for either disk or network
     devices. We link PBD.other_config:storage_driver_domain_key to
     VM.other_config:storage_driver_domain_key and we ensure the VM is marked as
@@ -78,13 +84,6 @@ let vm_set_storage_driver_domain ~__context ~self ~value =
         ~value)
     ()
 
-let record_pbd_storage_driver_domain ~__context ~pbd ~domain =
-  set_is_system_domain ~__context ~self:domain ~value:"true" ;
-  pbd_set_storage_driver_domain ~__context ~self:pbd
-    ~value:(Ref.string_of domain) ;
-  vm_set_storage_driver_domain ~__context ~self:domain
-    ~value:(Ref.string_of pbd)
-
 let pbd_of_vm ~__context ~vm =
   let other_config = Db.VM.get_other_config ~__context ~self:vm in
   if List.mem_assoc storage_driver_domain_key other_config then
@@ -111,6 +110,7 @@ let storage_driver_domain_of_pbd ~__context ~pbd =
 let storage_driver_domain_of_pbd ~__context ~pbd =
   let domain = storage_driver_domain_of_pbd ~__context ~pbd in
   set_is_system_domain ~__context ~self:domain ~value:"true" ;
+  set_is_control_domain ~__context ~self:domain ~value:true ;
   pbd_set_storage_driver_domain ~__context ~self:pbd
     ~value:(Ref.string_of domain) ;
   vm_set_storage_driver_domain ~__context ~self:domain

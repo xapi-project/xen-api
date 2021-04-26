@@ -31,11 +31,6 @@ val storage_driver_domain_of_vbd :
 (** [storage_driver_domain_of_vbd __context pbd] returns the VM which is hosting
     the storage backends for [vbd] on this host *)
 
-val record_pbd_storage_driver_domain :
-  __context:Context.t -> pbd:API.ref_PBD -> domain:API.ref_VM -> unit
-(** [record_pbd_storage_driver_domain __context pbd domain] persists [domain]
-    as the driver domain for [pbd]. *)
-
 val storage_driver_domain_of_sr_type :
   __context:Context.t -> _type:string -> API.ref_VM
 (** [storage_driver_domain_of_sr_type __context _type] returns the default VM which is hosting
