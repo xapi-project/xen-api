@@ -75,6 +75,7 @@ let config_winbind_damon ~domain ~workgroup =
       ; "winbind refresh tickets = Yes"
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
+      ; "kerberos encryption types = strong"
       ; Printf.sprintf "workgroup = %s" workgroup
       ; "idmap config * : range = 3000000-3999999"
       ; Printf.sprintf "idmap config %s: backend = rid" domain
@@ -104,8 +105,8 @@ let assert_hostname_valid () =
       Db.Host.get_hostname ~__context ~self:host)
     |> Server_helpers.exec_with_new_task "retrieving hostname"
   in
-  let all_numbers hostname = Re.matches all_number_re hostname <> [] in
-  if all_numbers hostname then
+  let all_numbers = Re.matches all_number_re hostname <> [] in
+  if all_numbers then
     raise
       (Auth_service_error
          ( E_GENERIC
@@ -128,6 +129,15 @@ let extract_ou_config ~config_params =
     let ou = from_config ~name:"ou" ~err_msg:"" ~config_params in
     ([("ou", ou)], [Printf.sprintf "createcomputer=%s" ou])
   with Auth_service_error _ -> ([], [])
+
+let persist_extauth_config ~domain ~user ~ou_conf =
+  let value = [("domain", domain); ("user", user)] @ ou_conf in
+  (fun __context ->
+    Helpers.get_localhost ~__context |> fun self ->
+    Db.Host.set_external_auth_configuration ~__context ~self ~value ;
+    Db.Host.get_name_label ~__context ~self
+    |> debug "added external_auth_configuration for host %s")
+  |> Server_helpers.exec_with_new_task "storing external_auth_configuration"
 
 let clean_machine_account ~service_name = function
   | Some u, Some p -> (
@@ -239,7 +249,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     query_domain_workgroup service_name |> fun workgroup ->
     config_winbind_damon ~domain:service_name ~workgroup ;
 
-    let ou_config, ou_param = extract_ou_config ~config_params in
+    let ou_conf, ou_param = extract_ou_config ~config_params in
 
     let args =
       ["ads"; "join"; service_name; "-U"; user; "--no-dns-updates"] @ ou_param
@@ -249,13 +259,22 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     try
       Helpers.call_script ~env net_cmd args |> ignore ;
       debug "Joined domain %s successfully" service_name ;
-      Winbind.start ~timeout:5. ~wait_until_success:false
+      Winbind.start ~timeout:5. ~wait_until_success:true ;
+      persist_extauth_config ~domain:service_name ~user ~ou_conf
     with
+    | Forkhelpers.Spawn_internal_error _ ->
+        let msg = Printf.sprintf "Failed to join domain %s" service_name in
+        raise (Auth_service_error (E_GENERIC, msg))
     | Xapi_systemctl.Systemctl_fail _ ->
         let msg = Printf.sprintf "Failed to start %s" winbind_service in
         raise (Auth_service_error (E_GENERIC, msg))
-    | _ ->
-        let msg = Printf.sprintf "Failed to join domain %s" service_name in
+    | e ->
+        let msg =
+          Printf.sprintf
+            "Failed to enable extauth for domain %s with user %s, error: %s"
+            service_name user
+            (ExnHelper.string_of_exn e)
+        in
         raise (Auth_service_error (E_GENERIC, msg))
 
   (* unit on_disable()
