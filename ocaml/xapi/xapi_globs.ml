@@ -870,6 +870,8 @@ type xapi_globs_spec_ty = Float of float ref | Int of int ref
 
 let extauth_ad_backend = ref "winbind"
 
+let net_cmd = ref "/usr/bin/net"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1277,6 +1279,9 @@ module Resources = struct
     ; ( "gen_pool_secret_script"
       , gen_pool_secret_script
       , "Generates new pool secrets" )
+    ; ( "winbind client tool"
+      , net_cmd
+      , "Executed to manage external auth with AD like join and leave domain" )
     ]
 
   let essential_files =

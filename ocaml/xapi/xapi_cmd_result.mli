@@ -12,14 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* start AD external auth backend daemon *)
-val start_backend_daemon : wait_until_success:bool -> unit
+(* Module to parse result from command line output
+ * The result should be key value pairs seperated by sep like ':' *)
 
-(* stop AD external auth backend daemon *)
-val stop_backend_daemon : wait_until_success:bool -> unit
+type t
 
-(* init AD external auth backend service *)
-val init_service : __context:Context.t -> unit
+(* Empty result set *)
+val empty : t
 
-(* methods to implement auth signature *)
-val methods : Auth_signature.t
+(* Add one line to the result set *)
+val add : ?sep:char -> string -> t -> t
+
+(* Find result from the result set *)
+val find : string -> t -> string option
+
+(* find result from the whole result lines *)
+val of_output_opt : sep:char -> key:string -> lines:string -> string option
