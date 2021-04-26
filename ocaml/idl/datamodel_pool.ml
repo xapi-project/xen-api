@@ -8,6 +8,7 @@ open Datamodel_types
             "ha_disable", "Indicates this pool is in the process of disabling HA";
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
+            "tls_verification_enable", "Indicates this pool is in the process of enabling TLS verification";
           ])
 
   let enable_ha = call
