@@ -26,6 +26,9 @@ val storage_driver_domain_of_pbd :
 (** [storage_driver_domain_of_pbd __context pbd] returns the VM which is hosting
     the storage backends for [pbd] *)
 
+val driver_domain_ssid : int32 ref
+(** [driver_domain_ssid] is the XSM/Flask SSID for driver domains *)
+
 val storage_driver_domain_of_vbd :
   __context:Context.t -> vbd:API.ref_VBD -> API.ref_VM
 (** [storage_driver_domain_of_vbd __context pbd] returns the VM which is hosting
