@@ -21,6 +21,9 @@ val is_system_domain : API.vM_t -> bool
 val get_is_system_domain : __context:Context.t -> self:API.ref_VM -> bool
 (** [get_is_system_domain __context self] returns true if [vm] is a special system domain *)
 
+val driver_domain_ssid : int32 ref
+(** [driver_domain_ssid] is the XSM/Flask SSID for driver domains *)
+
 val storage_driver_domain_of_pbd :
   __context:Context.t -> pbd:API.ref_PBD -> API.ref_VM
 (** [storage_driver_domain_of_pbd __context pbd] returns the VM which is hosting

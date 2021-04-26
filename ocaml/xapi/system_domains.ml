@@ -91,6 +91,8 @@ let pbd_of_vm ~__context ~vm =
   else
     None
 
+let driver_domain_ssid = ref 123000l
+
 let storage_driver_domain_of_pbd ~__context ~pbd =
   let other_config = Db.PBD.get_other_config ~__context ~self:pbd in
   let dom0 = Helpers.get_domain_zero ~__context in
