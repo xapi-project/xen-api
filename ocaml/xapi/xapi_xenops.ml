@@ -1991,23 +1991,23 @@ let update_vm ~__context id =
                     match state.Vm.domids with
                     | value :: _ ->
                         Db.VM.set_domid ~__context ~self
-                          ~value:(Int64.of_int value)
+                          ~value:(Int64.of_int value) ;
+                        (* If this is a storage domain, attempt to plug the PBD *)
+                        Option.iter
+                          (fun pbd ->
+                            let (_ : Thread.t) =
+                              Thread.create
+                                (fun () ->
+                                  (* Don't block the database update thread *)
+                                  Xapi_pbd.plug ~__context ~self:pbd)
+                                ()
+                            in
+                            ())
+                          (System_domains.pbd_of_vm ~__context ~vm:self)
                     | [] ->
                         ()
                     (* happens when the VM is shutdown *))
-                  info ;
-                (* If this is a storage domain, attempt to plug the PBD *)
-                Option.iter
-                  (fun pbd ->
-                    let (_ : Thread.t) =
-                      Thread.create
-                        (fun () ->
-                          (* Don't block the database update thread *)
-                          Xapi_pbd.plug ~__context ~self:pbd)
-                        ()
-                    in
-                    ())
-                  (System_domains.pbd_of_vm ~__context ~vm:self)
+                  info
               with e ->
                 error "Caught %s: while updating VM %s domids"
                   (Printexc.to_string e) id
