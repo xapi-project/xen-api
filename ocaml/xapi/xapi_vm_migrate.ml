@@ -312,9 +312,18 @@ let pool_migrate ~__context ~vm ~host ~options =
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module XenopsAPI = (val make_client queue_name : XENOPS) in
   let session_id = Ref.string_of (Context.get_session_id __context) in
-  let ip =
-    Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host)
+  (* If `network` provided in `options`, try to get `xenops_url` on this network *)
+  let address =
+    match List.assoc_opt "network" options with
+    | None ->
+        Db.Host.get_address ~__context ~self:host
+    | Some network_ref ->
+        let network = Ref.of_string network_ref in
+        Xapi_network_attach_helpers
+        .assert_valid_ip_configuration_on_network_for_host ~__context
+          ~self:network ~host
   in
+  let ip = Http.Url.maybe_wrap_IPv6_literal address in
   let xenops_url =
     Printf.sprintf "http://%s/services/xenops?session_id=%s" ip session_id
   in

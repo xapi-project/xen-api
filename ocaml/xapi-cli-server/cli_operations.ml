@@ -4775,10 +4775,16 @@ let host_all_editions printer rpc session_id params =
   printer (Cli_printer.PList editions)
 
 let host_evacuate printer rpc session_id params =
+  let network =
+    List.assoc_opt "network-uuid" params
+    |> Option.fold ~none:Ref.null ~some:(fun uuid ->
+           Client.Network.get_by_uuid rpc session_id uuid)
+  in
   ignore
     (do_host_op rpc session_id ~multiple:false
-       (fun _ host -> Client.Host.evacuate rpc session_id (host.getref ()))
-       params [])
+       (fun _ host ->
+         Client.Host.evacuate rpc session_id (host.getref ()) network)
+       params ["network-uuid"])
 
 let host_get_vms_which_prevent_evacuation printer rpc session_id params =
   let uuid = List.assoc "uuid" params in

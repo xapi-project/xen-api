@@ -82,6 +82,26 @@ let assert_can_attach_network_on_host ~__context ~self ~host =
   let local_pifs = get_local_pifs ~__context ~network:self ~host in
   List.iter (fun pif -> assert_no_slave ~__context pif) local_pifs
 
+let assert_valid_ip_configuration_on_network_for_host ~__context ~self ~host =
+  match get_local_pifs ~__context ~network:self ~host with
+  | [] ->
+      raise
+        Api_errors.(
+          Server_error
+            (pif_not_present, [Ref.string_of host; Ref.string_of self]))
+  | pif :: _ -> (
+      if not (Db.PIF.get_currently_attached ~__context ~self:pif) then
+        raise
+          Api_errors.(
+            Server_error (required_pif_is_unplugged, [Ref.string_of pif])) ;
+      match Xapi_pif_helpers.get_primary_address ~__context ~pif with
+      | Some ip ->
+          ip
+      | None ->
+          raise
+            Api_errors.(Server_error (interface_has_no_ip, [Ref.string_of pif]))
+    )
+
 let assert_can_see_named_networks ~__context ~vm ~host reqd_nets =
   let is_network_available_on host net =
     (* has the network been actualised by one or more PIFs, or is managed by xapi?*)
