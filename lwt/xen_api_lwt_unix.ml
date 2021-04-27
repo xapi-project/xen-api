@@ -62,30 +62,13 @@ module Lwt_unix_IO = struct
     Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context
 
   let open_connection uri =
-    let domain_addr_t = match Uri.host uri with
-      | Some host ->
-        Lwt.catch
-          (fun () ->
-             Lwt_unix.gethostbyname host >>= fun host_entry ->
-             return (host_entry.Lwt_unix.h_addrtype, host_entry.Lwt_unix.h_addr_list.(0)))
-          (fun _ -> fail (Failed_to_resolve_hostname host))
-      | None -> fail (Failed_to_resolve_hostname "") in
-    (match Uri.scheme uri with
-     | Some "http" -> return false
-     | Some "https" -> return true
-     | Some "file" -> return false
-     | Some x -> fail (Unsupported_scheme x)
-     | None -> fail (Unsupported_scheme "")) >>= fun ssl ->
-    let port = match Uri.port uri with
-      | Some x -> x
-      | None -> if ssl then 443 else 80 in
     (match Uri.scheme uri with
      | Some "file" ->
-       return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri))
+       return (Unix.PF_UNIX, Unix.ADDR_UNIX (Uri.path uri), false)
      | Some "http" | Some "https" ->
-       domain_addr_t >>= fun (domain, addr) ->
-       return (domain, Unix.ADDR_INET(addr, port))
-     | _ -> assert false) >>= fun (domain, sockaddr) ->
+      Util.sockaddr_of_uri uri >|= fun (sockaddr, ssl) -> ((Unix.domain_of_sockaddr sockaddr), sockaddr, ssl)
+     | Some x -> fail (Unsupported_scheme x)
+     | None -> fail (Unsupported_scheme "")) >>= fun (domain, sockaddr, ssl) ->
 
     if ssl then begin
       let fd = Lwt_unix.socket domain Unix.SOCK_STREAM 0 in
@@ -159,4 +142,3 @@ let make_json ?(timeout=30.) uri call =
 
 module Client = Client.ClientF(Lwt)
 include Client
-

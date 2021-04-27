@@ -37,20 +37,13 @@ let uri ~pool ~authentication ~vdi =
 
 let socket sockaddr =
   let family = match sockaddr with
-    | Lwt_unix.ADDR_INET(_, _) -> Unix.PF_INET
+    | Lwt_unix.ADDR_INET(_, _) ->
+      Unix.domain_of_sockaddr sockaddr
     | Lwt_unix.ADDR_UNIX _ -> Unix.PF_UNIX in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
 let start_upload ~chunked ~uri =
-  let use_ssl = match Uri.scheme uri with
-    | Some "https" -> true
-    | Some "http" -> false
-    | x -> failwith (Printf.sprintf "Unsupported URI scheme: %s" (match x with None -> "None" | Some x -> x)) in
-  let port = match Uri.port uri with None -> (if use_ssl then 443 else 80) | Some port -> port in
-  let host = match Uri.host uri with None -> failwith "Please supply a host in the URI" | Some host -> host in
-
-  Lwt_unix.gethostbyname host >>= fun host_entry ->
-  let sockaddr = Lwt_unix.ADDR_INET(host_entry.Lwt_unix.h_addr_list.(0), port) in
+  Util.sockaddr_of_uri uri >>= fun (sockaddr, use_ssl) ->
   let sock = socket sockaddr in
   Lwt.catch (fun () ->
      Lwt_unix.connect sock sockaddr
@@ -89,4 +82,3 @@ let start_upload ~chunked ~uri =
       then return c
       else fail (Failure (Code.reason_phrase_of_code code))
   end
-
