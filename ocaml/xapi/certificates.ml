@@ -223,7 +223,7 @@ end = struct
     let expr =
       let open Db_filter_types in
       let type' = Eq (Field "type", Literal "ca") in
-      let name' = Eq (Field "type", Literal name) in
+      let name' = Eq (Field "name", Literal name) in
       And (type', name')
     in
     let self =
