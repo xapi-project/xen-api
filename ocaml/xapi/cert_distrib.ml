@@ -76,6 +76,14 @@ module Worker : sig
     existing_cert_strategy -> WireProtocol.cert list -> unit remote_call
 
   val remote_regen_bundle : unit remote_call
+
+  val local_write_cert_fs :
+       __context:Context.t
+    -> existing_cert_strategy
+    -> WireProtocol.cert list
+    -> unit
+
+  val local_regen_bundle : __context:Context.t -> unit
 end = struct
   open WireProtocol
 
@@ -203,6 +211,22 @@ end = struct
         ()
     | r ->
         unexpected_result "remote_regen_bundle" r
+
+  let local_write_cert_fs ~__context strategy certs =
+    let command = WireProtocol.string_of_command (Write (strategy, certs)) in
+    match result_or_fail (local_exec ~__context ~command) with
+    | WriteResult ->
+        ()
+    | r ->
+        unexpected_result "local_write_certs_fs" r
+
+  let local_regen_bundle ~__context =
+    let command = WireProtocol.string_of_command GenBundle in
+    match result_or_fail (local_exec ~__context ~command) with
+    | GenBundleResult ->
+        ()
+    | r ->
+        unexpected_result "local_regen_bundle" r
 end
 
 let local_exec = Worker.local_exec
@@ -245,3 +269,37 @@ let go ~__context ~from_hosts ~to_hosts ~existing_cert_strategy =
   List.iter
     (fun host -> Worker.remote_regen_bundle host rpc session_id)
     to_hosts
+
+let collect_pool_certs ~__context ~all_hosts =
+  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  all_hosts
+  |> List.map (fun host ->
+         let uuid = Db.Host.get_uuid ~__context ~self:host in
+         let blob = Worker.remote_collect_cert host rpc session_id in
+         (uuid, blob))
+
+let import_joiner ~__context ~uuid ~certificate ~to_hosts =
+  let joiner_certificate = WireProtocol.{uuid; blob= certificate} in
+  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  List.iter
+    (fun host ->
+      Worker.remote_write_certs_fs Merge [joiner_certificate] host rpc
+        session_id)
+    to_hosts ;
+  List.iter
+    (fun host -> Worker.remote_regen_bundle host rpc session_id)
+    to_hosts
+
+(* This function is called on the host that is joining a pool *)
+let import_joining_pool_certs ~__context ~pool_certs =
+  let pool_certs =
+    List.map (fun (uuid, blob) -> WireProtocol.{uuid; blob}) pool_certs
+  in
+  Worker.local_write_cert_fs ~__context Merge pool_certs ;
+  Worker.local_regen_bundle ~__context
+
+(* This function is called in the pool where a new host being introduced *)
+let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
+  let all_hosts = Db.Host.get_all ~__context in
+  import_joiner ~__context ~uuid ~certificate ~to_hosts:all_hosts ;
+  collect_pool_certs ~__context ~all_hosts

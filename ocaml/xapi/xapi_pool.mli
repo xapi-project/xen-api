@@ -17,8 +17,6 @@
 
 (** {2 (Fill in Title!)} *)
 
-val rpc : string -> Rpc.call -> Rpc.response
-
 val get_master :
   rpc:(Rpc.call -> Rpc.response) -> session_id:API.ref_session -> API.ref_host
 
@@ -100,6 +98,12 @@ val join_force :
   -> master_username:string
   -> master_password:string
   -> unit
+
+val exchange_certificates_on_join :
+     __context:Context.t
+  -> uuid:string
+  -> certificate:string
+  -> API.string_to_string_map
 
 val emergency_transition_to_master : __context:'a -> unit
 
