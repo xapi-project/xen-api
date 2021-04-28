@@ -30,6 +30,10 @@ type pid =
 
 val getpid : pid -> int
 
+val debug_conf_of_bool : bool -> string
+
+val debug_conf_of_env : unit -> string
+
 type verify = VerifyPeer | CheckHost
 
 type verification_config = {
