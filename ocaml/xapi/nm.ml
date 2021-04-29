@@ -605,11 +605,12 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     rc.API.pIF_ipv6_configuration_mode = `Static
               in
               let dns =
-                if static then
-                  if rc.API.pIF_DNS <> "" then
+                match static, rc.API.pIF_DNS with
+                | false, _ | true, "" -> ([], [])
+                | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
-                        (String.split ',' rc.API.pIF_DNS)
+                        (String.split ',' pif_dns)
                     in
                     let domains =
                       match List.assoc_opt "domain" rc.API.pIF_other_config with
@@ -623,10 +624,6 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                       )
                     in
                     (nameservers, domains)
-                  else
-                    ([], [])
-                else
-                  ([], [])
               in
               let mtu = determine_mtu rc net_rc in
               let ethtool_settings, ethtool_offload =
