@@ -851,6 +851,8 @@ let extauth_ad_backend = ref "winbind"
 
 let net_cmd = ref "/usr/bin/net"
 
+let tdb_tool = ref "/usr/bin/tdbtool"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1251,6 +1253,9 @@ module Resources = struct
     ; ( "winbind client tool"
       , net_cmd
       , "Executed to manage external auth with AD like join and leave domain" )
+    ; ( "Samba TDB (Trivial Database) management tool"
+      , tdb_tool
+      , "Executed to manage Samba Database" )
     ]
 
   let essential_files =
