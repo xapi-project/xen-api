@@ -35,6 +35,6 @@ jobs:
           opam install ${{ env.package }} --deps-only --with-test -v
       - name: Build
         run: |
-          opam exec -- make build
+          opam exec -- make all
       - name: Run tests
         run: opam exec -- make test
