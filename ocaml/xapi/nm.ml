@@ -671,6 +671,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               | [] ->
                   ""
               | hd :: _ -> (
+                (* IPv6 addresses are stored with this format: <ipv6>/<cidr> *)
                 match String.split_on_char '/' hd with [ip; _] -> ip | _ -> ""
               )
             )
