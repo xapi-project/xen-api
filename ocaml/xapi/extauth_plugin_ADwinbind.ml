@@ -25,6 +25,8 @@ open Auth_signature
 
 let net_cmd = !Xapi_globs.net_cmd
 
+let tdb_tool = !Xapi_globs.tdb_tool
+
 let winbind_service = "winbind"
 
 module Winbind = struct
@@ -131,13 +133,19 @@ let extract_ou_config ~config_params =
   with Auth_service_error _ -> ([], [])
 
 let persist_extauth_config ~domain ~user ~ou_conf =
-  let value = [("domain", domain); ("user", user)] @ ou_conf in
+  let value =
+    match (domain, user) with
+    | "", "" ->
+        []
+    | _ ->
+        [("domain", domain); ("user", user)] @ ou_conf
+  in
   (fun __context ->
     Helpers.get_localhost ~__context |> fun self ->
     Db.Host.set_external_auth_configuration ~__context ~self ~value ;
     Db.Host.get_name_label ~__context ~self
-    |> debug "added external_auth_configuration for host %s")
-  |> Server_helpers.exec_with_new_task "storing external_auth_configuration"
+    |> debug "update external_auth_configuration for host %s")
+  |> Server_helpers.exec_with_new_task "update external_auth_configuration"
 
 let clean_machine_account ~service_name = function
   | Some u, Some p -> (
@@ -159,6 +167,20 @@ let clean_machine_account ~service_name = function
   | _ ->
       debug
         "username or password not provided, skip cleaning the machine account"
+
+(* Clean local resources like machine password *)
+let clean_local_resources () : unit =
+  let folder = "/var/lib/samba/private" in
+  let secrets_tdb = Filename.concat folder "secrets.tdb" in
+  try
+    (* Erase secrets database before clean the files *)
+    Helpers.call_script tdb_tool [secrets_tdb; "erase"] |> ignore ;
+    (* Clean local resource files *)
+    Helpers.FileSys.rmrf ~rm_top:false folder
+  with e ->
+    let msg = "Failed to clean local samba resources" in
+    error "%s : %s" msg (ExnHelper.string_of_exn e) ;
+    raise (Auth_service_error (E_GENERIC, msg))
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   (* subject_id Authenticate_username_password(string username, string password)
@@ -285,13 +307,14 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       within the body of the on_disable method)
   *)
   let on_disable config_params =
-    debug "on_disable To be implemented in CP-36086" ;
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let service_name = get_service_name () in
     clean_machine_account ~service_name (user, pass) ;
     (* Clean local resources *)
-    debug "Te be implemented"
+    clean_local_resources () ;
+    (* Clean extauth config *)
+    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[]
 
   (* unit on_xapi_initialize(bool system_boot)
 
