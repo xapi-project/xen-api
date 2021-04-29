@@ -605,8 +605,9 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     rc.API.pIF_ipv6_configuration_mode = `Static
               in
               let dns =
-                match static, rc.API.pIF_DNS with
-                | false, _ | true, "" -> ([], [])
+                match (static, rc.API.pIF_DNS) with
+                | false, _ | true, "" ->
+                    ([], [])
                 | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
@@ -672,7 +673,11 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                   ""
               | hd :: _ -> (
                 (* IPv6 addresses are stored with this format: <ipv6>/<cidr> *)
-                match String.split_on_char '/' hd with [ip; _] -> ip | _ -> ""
+                match String.split_on_char '/' hd with
+                | [ip; _] ->
+                    ip
+                | _ ->
+                    ""
               )
             )
           in
