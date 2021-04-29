@@ -2486,6 +2486,13 @@ let emergency_disable_tls_verification ~__context =
   Stunnel_client.set_verify_by_default false ;
   Unixext.unlink_safe Xapi_globs.verify_certificates_path
 
+let emergency_reenable_tls_verification ~__context =
+  (* NB: Should only be used after running emergency_disable_tls_verification.
+     Xapi_pool.enable_tls_verification is not used because it introduces a
+     dependency cycle. *)
+  Stunnel_client.set_verify_by_default true ;
+  Helpers.touch_file Xapi_globs.verify_certificates_path
+
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =
     Stunnel_client.get_verify_by_default ()
