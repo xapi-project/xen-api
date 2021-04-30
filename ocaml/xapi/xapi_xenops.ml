@@ -3752,12 +3752,12 @@ let vbd_plug ~__context ~self =
   let queue_name = queue_of_vm ~__context ~self:vm in
   transform_xenops_exn ~__context ~vm queue_name (fun () ->
       assert_resident_on ~__context ~self:vm ;
-      Events_from_xapi.wait ~__context ~self:vm ;
       (* Set currently_attached to true before calling VBD.add, so that any
          following metadata push would not rip out the new VBD metadata again.
          Not a great design, but it follows what `start` does. We have plans
          to improve this more generally. *)
       Db.VBD.set_currently_attached ~__context ~self ~value:true ;
+      Events_from_xapi.wait ~__context ~self:vm ;
       let vbd = md_of_vbd ~__context ~self in
       let dbg = Context.string_of_task __context in
       let module Client = (val make_client queue_name : XENOPS) in
@@ -3917,12 +3917,12 @@ let vif_plug ~__context ~self =
   let queue_name = queue_of_vm ~__context ~self:vm in
   transform_xenops_exn ~__context ~vm queue_name (fun () ->
       assert_resident_on ~__context ~self:vm ;
-      Events_from_xapi.wait ~__context ~self:vm ;
       (* Set currently_attached to true before calling VIF.add, so that any
          following metadata push would not rip out the new VIF metadata again.
          Not a great design, but it follows what `start` does. We have plans
          to improve this more generally. *)
       Db.VIF.set_currently_attached ~__context ~self ~value:true ;
+      Events_from_xapi.wait ~__context ~self:vm ;
       let vif = md_of_vif ~__context ~self in
       let dbg = Context.string_of_task __context in
       let module Client = (val make_client queue_name : XENOPS) in
