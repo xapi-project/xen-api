@@ -1136,7 +1136,7 @@ module Xenopsd_metadata = struct
                maybe_persist_md ~__context ~self txt;
                Xapi_cache.update_nolock id (Some txt);
                let module Client = (val make_client queue_name : XENOPS) in
-               let (_: Vm.id) = Client.VM.import_metadata dbg txt in
+               let (_ : Task.id) = Client.VM.import_metadata_async dbg txt in
                ()
            end
       )
@@ -2476,7 +2476,7 @@ let set_memory_dynamic_range ~__context ~self min max =
        Events_from_xenopsd.wait queue_name dbg id ()
     )
 
-let maybe_cleanup_vm ~__context ~self =
+let maybe_refresh_vm ~__context ~self =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
   let id = id_of_vm ~__context ~self in
@@ -2486,17 +2486,13 @@ let maybe_cleanup_vm ~__context ~self =
        		 * will be called with events enabled and therefore we get Xenopsd into a
        		 * consistent state with Xapi *)
     Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ());
-    Xenopsd_metadata.delete ~__context id;
   end
 
 let start ~__context ~self paused force =
   let dbg = Context.string_of_task __context in
   let queue_name = queue_of_vm ~__context ~self in
-  let vm_id = id_of_vm ~__context ~self in
   transform_xenops_exn ~__context ~vm:self queue_name (fun () ->
-      maybe_cleanup_vm ~__context ~self;
-      if vm_exists_in_xenopsd queue_name dbg vm_id then
-        raise (Bad_power_state (Running, Halted));
+      maybe_refresh_vm ~__context ~self;
       (* For all devices which we want xenopsd to manage, set currently_attached = true
          		   so the metadata is pushed. *)
       let vbds =
@@ -2570,11 +2566,7 @@ let reboot ~__context ~self timeout =
        assert_resident_on ~__context ~self;
        let id = id_of_vm ~__context ~self in
        let dbg = Context.string_of_task __context in
-       maybe_cleanup_vm ~__context ~self;
-       (* If Xenopsd no longer knows about the VM after cleanup it was shutdown.
-          			   This also means our caches have been removed. *)
-       if not (vm_exists_in_xenopsd queue_name dbg id) then
-         raise (Bad_power_state (Halted, Running));
+       maybe_refresh_vm ~__context ~self;
        (* Ensure we have the latest version of the VM metadata before the reboot *)
        Events_from_xapi.wait ~__context ~self;
        info "xenops: VM.reboot %s" id;
@@ -2676,9 +2668,7 @@ let resume ~__context ~self ~start_paused ~force =
   let vm_id = id_of_vm ~__context ~self in
   transform_xenops_exn ~__context ~vm:self queue_name
     (fun () ->
-       maybe_cleanup_vm ~__context ~self;
-       if vm_exists_in_xenopsd queue_name dbg vm_id then
-         raise (Bad_power_state (Running, Suspended));
+       maybe_refresh_vm ~__context ~self;
        let vdi = Db.VM.get_suspend_VDI ~__context ~self in
        let disk = disk_of_vdi ~__context ~self:vdi |> Opt.unbox in
        let module Client = (val make_client queue_name : XENOPS) in
@@ -2760,6 +2750,11 @@ let vbd_plug ~__context ~self =
   transform_xenops_exn ~__context ~vm queue_name
     (fun () ->
        assert_resident_on ~__context ~self:vm;
+       (* Set currently_attached to true before calling VBD.add, so that any
+          following metadata push would not rip out the new VBD metadata again.
+          Not a great design, but it follows what `start` does. We have plans
+          to improve this more generally. *)
+       Db.VBD.set_currently_attached ~__context ~self ~value:true;
        Events_from_xapi.wait ~__context ~self:vm;
        let vbd = md_of_vbd ~__context ~self in
        let dbg = Context.string_of_task __context in
@@ -2882,6 +2877,11 @@ let vif_plug ~__context ~self =
   transform_xenops_exn ~__context ~vm queue_name
     (fun () ->
        assert_resident_on ~__context ~self:vm;
+       (* Set currently_attached to true before calling VIF.add, so that any
+          following metadata push would not rip out the new VIF metadata again.
+          Not a great design, but it follows what `start` does. We have plans
+          to improve this more generally. *)
+       Db.VIF.set_currently_attached ~__context ~self ~value:true;
        Events_from_xapi.wait ~__context ~self:vm;
        let vif = md_of_vif ~__context ~self in
        let dbg = Context.string_of_task __context in
