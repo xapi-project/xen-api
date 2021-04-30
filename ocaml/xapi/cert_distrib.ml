@@ -66,7 +66,7 @@ let raise_internal ?e ?details msg : 'a =
   raise Api_errors.(Server_error (internal_error, [msg]))
 
 (* eventually the remote calls should probably become API calls in the datamodel
- * but they remain here for quick development *)
+   but they remain here for quick development *)
 module Worker : sig
   val local_exec : __context:Context.t -> command:string -> string
 
@@ -233,33 +233,30 @@ let local_exec = Worker.local_exec
 
 let go ~__context ~from_hosts ~to_hosts ~existing_cert_strategy =
   (* here we coordinate the certificate distribution. from a high level
-   * we do the following:
-   * a) collect certs from [from_hosts], aggregating them on the master.
-   *    the cert collected will be [Worker.my_cert]
-   * b) tell [to_hosts] to write the certs collected in (a) to [Worker.pool_certs]).
-   *    the original contents of [Worker.pool_certs] will either be removed or
-   *    simply added to, depending on [existing_cert_strategy]
-   * c) tell [to_hosts] to regenerate their trust bundles. the old bundle is
-   *    removed completely. see 'update-ca-bundle.sh'. only at this point would we
-   *    expect 'things to go wrong', e.g. new connections fail, if the certs have not
-   *    been set up correctly
-   * NB: if any individual call fails, then we don't continue with the distribution.
-   *     for example: suppose that the master is unable to obtain the cert from a host,
-   *     then we are guaranteed not to modify the trusted certs on any hosts. however
-   *     we do not guarantee 'atomicity', so if regenerating the bundle on one host
-   *     fails, then state across the pool will most likely become inconsistent, and
-   *     manual intervention may be required *)
-  let uuid host = Db.Host.get_uuid ~__context ~self:host in
-
+     we do the following:
+     a) collect certs from [from_hosts], aggregating them on the master.
+        the cert collected will be [Worker.my_cert]
+     b) tell [to_hosts] to write the certs collected in (a) to [Worker.pool_certs]).
+        the original contents of [Worker.pool_certs] will either be removed or
+        simply added to, depending on [existing_cert_strategy]
+     c) tell [to_hosts] to regenerate their trust bundles. the old bundle is
+        removed completely. see 'update-ca-bundle.sh'. only at this point would we
+        expect 'things to go wrong', e.g. new connections fail, if the certs have not
+        been set up correctly
+     NB: if any individual call fails, then we don't continue with the distribution.
+         for example: suppose that the master is unable to obtain the cert from a host,
+         then we are guaranteed not to modify the trusted certs on any hosts. however
+         we do not guarantee 'atomicity', so if regenerating the bundle on one host
+         fails, then state across the pool will most likely become inconsistent, and
+         manual intervention may be required *)
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  let blobs =
-    List.map
-      (fun host -> Worker.remote_collect_cert host rpc session_id)
-      from_hosts
-  in
   let certs =
-    List.combine blobs from_hosts
-    |> List.map (fun (blob, host) -> WireProtocol.{uuid= uuid host; blob})
+    List.map
+      (fun host ->
+        let blob = Worker.remote_collect_cert host rpc session_id in
+        let uuid = Db.Host.get_uuid ~__context ~self:host in
+        WireProtocol.{uuid; blob})
+      from_hosts
   in
   List.iter
     (fun host ->
