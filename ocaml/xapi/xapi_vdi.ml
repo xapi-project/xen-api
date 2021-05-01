@@ -179,7 +179,7 @@ let check_operation_error ~__context ?(sr_records=[]) ?(pbd_records=[]) ?(vbd_re
           else None
         | `snapshot when record.Db_actions.vDI_sharable ->
           Some (Api_errors.vdi_is_sharable, [ _ref ])
-        | `snapshot when reset_on_boot ->
+        | `snapshot | `copy when reset_on_boot ->
           Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
         | `snapshot ->
           if List.exists (fun (_, op) -> op = `copy) current_ops
