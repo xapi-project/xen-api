@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Store and retrieve some host-specific data as key-value pairs. This can
-   be used in emergency mode since every slave has its own copy. *)
+(* Store and retrieve some host-specific data as key-value pairs. This can be
+   used in emergency mode since every supporter has its own copy. *)
 
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext

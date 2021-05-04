@@ -106,7 +106,7 @@ let pifs_update_fn () =
         bond_changes ;
       set_bond_changes ~except:!keeps () ;
       ( try
-          Monitor_master.update_pifs ~__context host pif_changes ;
+          Monitor_coordinator.update_pifs ~__context host pif_changes ;
           set_pif_changes ()
         with e -> issues := e :: !issues
       ) ;

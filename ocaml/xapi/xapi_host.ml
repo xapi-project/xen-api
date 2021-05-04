@@ -30,12 +30,12 @@ let set_emergency_mode_error code params =
 
 let local_assert_healthy ~__context =
   match Pool_role.get_role () with
-  | Pool_role.Master ->
+  | Pool_role.Coordinator ->
       ()
   | Pool_role.Broken ->
       raise !Xapi_globs.emergency_mode_error
-  | Pool_role.Slave _ ->
-      if !Xapi_globs.slave_emergency_mode then
+  | Pool_role.Supporter _ ->
+      if !Xapi_globs.supporter_emergency_mode then
         raise !Xapi_globs.emergency_mode_error
 
 let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
@@ -713,23 +713,24 @@ let prepare_for_poweroff_precheck ~__context ~host =
 let prepare_for_poweroff ~__context ~host =
   (* Do not run assert_host_disabled here, continue even if the host is
       enabled: the host is already shutting down when this function gets called *)
-  let i_am_master = Pool_role.is_master () in
-  if i_am_master then
+  let i_am_coordinator = Pool_role.is_coordinator () in
+  if i_am_coordinator then
     (* We are the master and we are about to shutdown HA and redo log:
-       prevent slaves from sending (DB) requests.
-          If we are the slave we cannot shutdown the request thread yet
-          because we might need it when unplugging the PBDs
+       prevent supporters from sending (DB) requests. If we are a supporter we
+       cannot shutdown the request thread yet because we might need it when
+       unplugging the PBDs
     *)
     Remote_requests.stop_request_thread () ;
   Vm_evacuation.ensure_no_vms ~__context ~evacuate_timeout:0. ;
   Xapi_ha.before_clean_shutdown_or_reboot ~__context ~host ;
   Xapi_pbd.unplug_all_pbds ~__context ;
-  if not i_am_master then
+  if not i_am_coordinator then
     Remote_requests.stop_request_thread () ;
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
-  if not (Pool_role.is_master ()) then
+  if not (Pool_role.is_coordinator ()) then
     log_and_ignore_exn (fun () ->
-        Rrdd.send_host_rrd_to_master (Pool_role.get_master_address ())
+        Rrdd.send_host_rrd_to_master
+          (Pool_role.get_address_of_coordinator_exn ())
     ) ;
   (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
   log_and_ignore_exn (Rrdd.backup_rrds None) ;
@@ -815,7 +816,7 @@ let send_debug_keys ~__context ~host:_ ~keys =
 let list_methods ~__context =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["list_method"]))
 
-let is_slave ~__context ~host:_ = not (Pool_role.is_master ())
+let is_slave ~__context ~host:_ = not (Pool_role.is_coordinator ())
 
 let ask_host_if_it_is_a_slave ~__context ~host =
   let ask_and_warn_when_slow ~__context =
@@ -828,10 +829,8 @@ let ask_host_if_it_is_a_slave ~__context ~host =
       )
     in
     let rec log_host_slow_to_respond timeout () =
-      D.warn
-        "ask_host_if_it_is_a_slave: host taking a long time to respond - IP: \
-         %s; uuid: %s"
-        ip uuid ;
+      D.warn "%s: host taking a long time to respond - IP: %s; uuid: %s"
+        __FUNCTION__ ip uuid ;
       Xapi_periodic_scheduler.add_to_queue task_name
         Xapi_periodic_scheduler.OneShot timeout
         (log_host_slow_to_respond (min (2. *. timeout) 300.))
@@ -848,7 +847,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
     Xapi_periodic_scheduler.remove_from_queue task_name ;
     res
   in
-  Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave"
+  Server_helpers.exec_with_subtask ~__context __FUNCTION__
     ask_and_warn_when_slow
 
 let is_host_alive ~__context ~host =
@@ -1055,43 +1054,44 @@ let ha_join_liveset ~__context ~host =
         )
 
 let propose_new_master ~__context ~address ~manual =
-  Xapi_ha.propose_new_master ~__context ~address ~manual
+  Xapi_ha.propose_new_coordinator ~__context ~address ~manual
 
 let commit_new_master ~__context ~address =
-  Xapi_ha.commit_new_master ~__context ~address
+  Xapi_ha.commit_new_coordinator ~__context ~address
 
 let abort_new_master ~__context ~address =
-  Xapi_ha.abort_new_master ~__context ~address
+  Xapi_ha.abort_new_coordinator ~__context ~address
 
 let update_master ~__context ~host:_ ~master_address:_ = assert false
 
 let emergency_ha_disable ~__context ~soft =
   Xapi_ha.emergency_ha_disable __context soft
 
-(* This call can be used to _instruct_ a slave that it has to take a persistent backup (force=true).
-   If force=false then this is a hint from the master that the client may want to take a backup; in this
-   latter case the slave applies its write-limiting policy and compares generation counts to determine whether
-   it really should take a backup *)
+(* This call can be used to _instruct_ a supporter that it has to take a
+   persistent backup (force=true). If force=false then this is a hint from the
+   coordinator that the client may want to take a backup; in this latter case
+   the supporter applies its write-limiting policy and compares generation
+   counts to determine whether it really should take a backup *)
 
 let request_backup ~__context ~host ~generation ~force =
   if Helpers.get_localhost ~__context <> host then
     failwith "Forwarded to the wrong host" ;
-  if Pool_role.is_master () then (
+  if Pool_role.is_coordinator () then (
     debug "Requesting database backup on master: Using direct sync" ;
     let connections = Db_conn_store.read_db_connections () in
     Db_cache_impl.sync connections (Db_ref.get_database (Db_backend.make ()))
   ) else
-    let master_address = Helpers.get_main_ip_address ~__context in
-    Pool_db_backup.fetch_database_backup ~master_address
+    let coordinator_address = Helpers.get_main_ip_address ~__context in
+    Pool_db_backup.fetch_database_backup ~coordinator_address
       ~pool_secret:(Xapi_globs.pool_secret ())
       ~force:(if force then None else Some generation)
 
-(* request_config_file_sync is used to inform a slave that it should consider resyncing dom0 config files
-   (currently only /etc/passwd) *)
+(* request_config_file_sync is used to inform a supporter that it should
+   consider resyncing dom0 config files (currently only /etc/passwd) *)
 let request_config_file_sync ~__context ~host:_ ~hash:_ =
   debug "Received notification of dom0 config file change" ;
-  let master_address = Helpers.get_main_ip_address ~__context in
-  Config_file_sync.fetch_config_files ~master_address
+  let coordinator_address = Helpers.get_main_ip_address ~__context in
+  Config_file_sync.fetch_config_files ~coordinator_address
 
 (* Host parameter will just be me, as message forwarding layer ensures this call has been forwarded correctly *)
 let syslog_reconfigure ~__context ~host:_ =
@@ -1128,8 +1128,8 @@ let change_management_interface ~__context interface primary_address_type =
 
 let local_management_reconfigure ~__context ~interface =
   (* Only let this one through if we are in emergency mode, otherwise use
-     	 Host.management_reconfigure *)
-  if not !Xapi_globs.slave_emergency_mode then
+     Host.management_reconfigure *)
+  if not !Xapi_globs.supporter_emergency_mode then
     raise (Api_errors.Server_error (Api_errors.pool_not_in_emergency_mode, [])) ;
   change_management_interface ~__context interface
     (Record_util.primary_address_type_of_string
@@ -1183,8 +1183,9 @@ let management_disable ~__context =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
-  (* Make sure we aren't about to disable our management interface on a slave *)
-  if Pool_role.is_slave () then
+  (* Make sure we aren't about to disable our management interface on a
+     supporter *)
+  if Pool_role.is_supporter () then
     raise
       (Api_errors.Server_error (Api_errors.slave_requires_management_iface, [])) ;
   (* Reset the management server *)
@@ -1299,7 +1300,7 @@ let set_ssl_legacy ~__context ~self:_ ~value =
   else
     D.info "set_ssl_legacy: called with value: %b - doing nothing" value
 
-let is_in_emergency_mode ~__context = !Xapi_globs.slave_emergency_mode
+let is_in_emergency_mode ~__context = !Xapi_globs.supporter_emergency_mode
 
 let compute_free_memory ~__context ~host =
   (*** XXX: Use a more appropriate free memory calculation here. *)
@@ -1395,7 +1396,7 @@ let sync_data ~__context ~host = Xapi_sync.sync_host ~__context host
 let backup_rrds ~__context ~host:_ ~delay =
   Xapi_periodic_scheduler.add_to_queue "RRD backup"
     Xapi_periodic_scheduler.OneShot delay (fun _ ->
-      let master_address = Pool_role.get_master_address_opt () in
+      let master_address = Pool_role.get_address_of_coordinator () in
       log_and_ignore_exn (Rrdd.backup_rrds master_address) ;
       log_and_ignore_exn (fun () ->
           List.iter
@@ -1544,43 +1545,47 @@ let refresh_server_certificate ~__context ~host =
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let pool = List.hd (Client.Client.Pool.get_all ~rpc ~session_id) in
-      let master = Client.Client.Pool.get_master ~rpc ~session_id ~self:pool in
-      let master_rec =
-        Client.Client.Host.get_record ~rpc ~session_id ~self:master
+      let coordinator =
+        Client.Client.Pool.get_master ~rpc ~session_id ~self:pool
+      in
+      let coordinator_rec =
+        Client.Client.Host.get_record ~rpc ~session_id ~self:coordinator
       in
       let host_rec =
         Client.Client.Host.get_record ~rpc ~session_id ~self:host
       in
-      (* if this host being verified is the master, then we need to verify homogeneity for all slaves in the pool *)
-      if host_rec.API.host_uuid = master_rec.API.host_uuid then
+      (* if this host being verified is the coordinator, then we need to verify
+         homogeneity for all supporters in the pool *)
+      if host_rec.API.host_uuid = coordinator_rec.API.host_uuid then
         Client.Client.Pool.detect_nonhomogeneous_external_auth ~rpc ~session_id
           ~pool
       else
-        (* this host is a slave, let's check if it is homogeneous to the master *)
-        let master_external_auth_type =
-          master_rec.API.host_external_auth_type
+        (* this host is a supporter, let's check if it is homogeneous to the
+           coordinator *)
+        let coordinator_external_auth_type =
+          coordinator_rec.API.host_external_auth_type
         in
         let master_external_auth_service_name =
-          master_rec.API.host_external_auth_service_name
+          coordinator_rec.API.host_external_auth_service_name
         in
         let host_external_auth_type = host_rec.API.host_external_auth_type in
         let host_external_auth_service_name =
           host_rec.API.host_external_auth_service_name
         in
         if
-          host_external_auth_type <> master_external_auth_type
+          host_external_auth_type <> coordinator_external_auth_type
           || host_external_auth_service_name
              <> master_external_auth_service_name
         then (
-          (* ... this slave has non-homogeneous external-authentication data *)
+          (* This supporter has non-homogeneous external-authentication data *)
           debug
             "Detected non-homogeneous external authentication in host %s: \
-             host_auth_type=%s, host_service_name=%s, master_auth_type=%s, \
-             master_service_name=%s"
+             host_auth_type=%s, host_service_name=%s, \
+             coordinator_auth_type=%s, coordinator_service_name=%s"
             (Ref.string_of host) host_external_auth_type
-            host_external_auth_service_name master_external_auth_type
+            host_external_auth_service_name coordinator_external_auth_type
             master_external_auth_service_name ;
-          (* raise alert about this non-homogeneous slave in the pool *)
+          (* raise alert about this non-homogeneous supporter in the pool *)
           let host_uuid = host_rec.API.host_uuid in
           let name, priority =
             Api_messages.auth_external_pool_non_homogeneous
@@ -1594,7 +1599,7 @@ let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
                  ^ ", host_external_auth_service_name="
                  ^ host_external_auth_service_name
                  ^ ", master_external_auth_type="
-                 ^ master_external_auth_type
+                 ^ coordinator_external_auth_type
                  ^ ", master_external_auth_service_name="
                  ^ master_external_auth_service_name
                  )
@@ -2468,8 +2473,8 @@ let migrate_receive ~__context ~host ~network ~options:_ =
       new_session_id
   in
   let master_address =
-    try Pool_role.get_master_address ()
-    with Pool_role.This_host_is_a_master ->
+    try Pool_role.get_address_of_coordinator_exn ()
+    with Pool_role.This_host_is_coordinator ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
   let master_url =

@@ -243,7 +243,7 @@ let assert_not_management_pif ~__context ~self =
 let assert_not_slave_management_pif ~__context ~self =
   if
     true
-    && Pool_role.is_slave ()
+    && Pool_role.is_supporter ()
     && Db.PIF.get_currently_attached ~__context ~self
     && Db.PIF.get_management ~__context ~self
   then

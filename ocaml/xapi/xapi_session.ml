@@ -421,8 +421,10 @@ let revalidate_external_session ~__context ~session =
         )
     then (
       (* 1. is the external authentication disabled in the pool? *)
-      let master = Helpers.get_master ~__context in
-      let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
+      let coordinator = Helpers.get_coordinator ~__context in
+      let auth_type =
+        Db.Host.get_external_auth_type ~__context ~self:coordinator
+      in
       if auth_type = "" then (
         (* if so, we must immediatelly destroy this external session *)
         let msg =
@@ -671,24 +673,24 @@ let consider_touching_session rpc session_id =
     )
 
 (* Make sure the pool secret matches *)
-let slave_login_common ~__context ~host_str ~psecret =
+let supporter_login_common ~__context ~host_str ~psecret =
   if not (Helpers.PoolSecret.is_authorized psecret) then (
     let msg = "Pool credentials invalid" in
-    debug "Failed to authenticate slave %s: %s" host_str msg ;
+    debug "Failed to authenticate supporter %s: %s" host_str msg ;
     raise
       Api_errors.(Server_error (session_authentication_failed, [host_str; msg]))
   )
 
 (* Normal login, uses the master's database *)
 let slave_login ~__context ~host ~psecret =
-  slave_login_common ~__context ~host_str:(Ref.string_of host) ~psecret ;
+  supporter_login_common ~__context ~host_str:(Ref.string_of host) ~psecret ;
   login_no_password ~__context ~uname:None ~host ~pool:true
     ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
     ~auth_user_name:(Ref.string_of host) ~rbac_permissions:[]
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login ~__context ~psecret =
-  slave_login_common ~__context ~host_str:"localhost" ~psecret ;
+  supporter_login_common ~__context ~host_str:"localhost" ~psecret ;
   debug "Add session to local storage" ;
   Xapi_local_session.create ~__context ~pool:true
 
@@ -759,10 +761,12 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
             ~db_ref:None ~client_certificate:true
       | None -> (
           let () =
-            if Pool_role.is_slave () then
+            if Pool_role.is_supporter () then
               raise
                 (Api_errors.Server_error
-                   (Api_errors.host_is_slave, [Pool_role.get_master_address ()])
+                   ( Api_errors.host_its_own_supporter
+                   , [Pool_role.get_address_of_coordinator_exn ()]
+                   )
                 )
           in
           let login_as_local_superuser auth_type =
@@ -1305,9 +1309,9 @@ let create_readonly_session ~__context ~uname ~db_ref =
   let rbac_permissions =
     Xapi_role.get_permissions_name_label ~__context ~self:role
   in
-  let master = Helpers.get_master ~__context in
+  let coordinator = Helpers.get_coordinator ~__context in
   login_no_password_common ~__context ~uname:(Some uname)
-    ~originator:xapi_internal_originator ~host:master ~pool:false
+    ~originator:xapi_internal_originator ~host:coordinator ~pool:false
     ~is_local_superuser:false ~subject:Ref.null ~auth_user_sid:"readonly-sid"
     ~auth_user_name:uname ~rbac_permissions ~db_ref ~client_certificate:false
 

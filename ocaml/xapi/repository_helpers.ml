@@ -364,9 +364,9 @@ let get_local_repository_name ~__context ~self =
 
 let with_local_repositories ~__context f =
   let master_addr =
-    try Pool_role.get_master_address ()
-    with Pool_role.This_host_is_a_master ->
-      Option.get (Helpers.get_management_ip_addr ~__context)
+    Option.value
+      ~default:(Option.get (Helpers.get_management_ip_addr ~__context))
+      (Pool_role.get_address_of_coordinator ())
   in
   Stunnel.with_client_proxy ~verify_cert:(Stunnel_client.pool ())
     ~remote_host:master_addr ~remote_port:Constants.default_ssl_port

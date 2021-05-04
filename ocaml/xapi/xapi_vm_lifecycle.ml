@@ -885,8 +885,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   update_allowed_operations ~__context ~self ;
   if state = `Halted then (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
-    let master_address = Pool_role.get_master_address_opt () in
-    log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid master_address)
+    let coordinator_address = Pool_role.get_address_of_coordinator () in
+    log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid coordinator_address)
 
 (** Called on new VMs (clones, imports) and on server start to manually refresh
     the power state, allowed_operations field etc.  Clean current-operations

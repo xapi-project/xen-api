@@ -131,7 +131,10 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   }
 
 let redirect _sr =
-  raise (Storage_error (Redirect (Some (Pool_role.get_master_address ()))))
+  raise
+    (Storage_error
+       (Redirect (Some (Pool_role.get_address_of_coordinator_exn ())))
+    )
 
 module SMAPIv1 = struct
   (** xapi's builtin ability to call local SM plugins using the existing

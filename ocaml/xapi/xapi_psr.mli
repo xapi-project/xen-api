@@ -70,8 +70,8 @@ module type Impl = sig
 
   val tell_cleanup_old_pool_secret : pool_secrets -> host -> unit
 
-  (* cleanup master _after_ the members *)
-  val cleanup_master : pool_secrets -> unit
+  (* cleanup coordinator _after_ the supporters *)
+  val cleanup_coordinator : pool_secrets -> unit
 end
 
 module Make : functor (Impl : Impl) -> sig
@@ -79,5 +79,5 @@ module Make : functor (Impl : Impl) -> sig
 
   (* we model a pool as a list of hosts.
      we accept pool_secrets as a parameter to avoid non-determinism *)
-  val start : pool_secrets -> master:host -> members:host list -> host r
+  val start : pool_secrets -> coordinator:host -> supporters:host list -> host r
 end

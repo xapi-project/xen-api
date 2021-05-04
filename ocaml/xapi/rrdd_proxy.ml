@@ -72,7 +72,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           Http_svr.headers s (Http.http_302_redirect url)
         in
         let unarchive_at_master () =
-          let address = Pool_role.get_master_address () in
+          let address = Pool_role.get_address_of_coordinator_exn () in
           let query = (Constants.rrd_unarchive, "") :: query in
           let url = make_url_from_query ~address ~uri:req.uri ~query in
           Http_svr.headers s (Http.http_302_redirect url)
@@ -88,7 +88,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
         let is_unarchive_request =
           List.mem_assoc Constants.rrd_unarchive query
         in
-        let is_master = Pool_role.is_master () in
+        let is_master = Pool_role.is_coordinator () in
         let is_owner_online owner = Db.is_valid_ref __context owner in
         let is_xapi_initialising = List.mem_assoc "dbsync" query in
         (* The logic. *)
@@ -203,12 +203,12 @@ let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
   req.Http.Request.close <- true ;
   let has_uuid = List.mem_assoc "uuid" query in
   let should_archive = List.mem_assoc "archive" query in
-  let is_master = Pool_role.is_master () in
+  let is_master = Pool_role.is_coordinator () in
   if not has_uuid then
     fail_req_with s "put_rrd: missing the 'uuid' parameter"
       Http.http_400_badrequest
   else if should_archive && not is_master then
-    let address = Pool_role.get_master_address () in
+    let address = Pool_role.get_address_of_coordinator_exn () in
     let url = make_url ~address ~req in
     Http_svr.headers s (Http.http_302_redirect url)
   else
@@ -271,7 +271,7 @@ module Deprecated = struct
     with _ -> 0
 
   let load_rrd ~__context ~uuid =
-    let master_address = Pool_role.get_master_address_opt () in
+    let master_address = Pool_role.get_address_of_coordinator () in
     let timescale = get_timescale ~__context in
     log_and_ignore_exn (fun () ->
         Rrdd.Deprecated.load_rrd uuid timescale master_address

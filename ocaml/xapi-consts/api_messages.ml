@@ -122,7 +122,7 @@ let host_clock_went_backwards = addMessage "HOST_CLOCK_WENT_BACKWARDS" 1L
 
 (* Unused in xen-api *)
 
-let pool_master_transition = addMessage "POOL_MASTER_TRANSITION" 4L
+let pool_coordinator_transition = addMessage "POOL_MASTER_TRANSITION" 4L
 
 let pbd_plug_failed_on_server_start =
   addMessage "PBD_PLUG_FAILED_ON_SERVER_START" 3L

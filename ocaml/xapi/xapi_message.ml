@@ -421,9 +421,10 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   let _ref = Ref.make () in
   let uuid = Uuid.to_string (Uuid.make ()) in
   let timestamp = Mutex.execute event_mutex (fun () -> Unix.gettimeofday ()) in
-  (* During rolling upgrade, upgraded master might have a alerts grading
-     	   system different from the not yet upgraded slaves, during that process we
-     	   transform the priority of received messages as a special case. *)
+  (* During rolling upgrade, upgraded coordinator might have a alerts grading
+     system different from the not yet upgraded supporters, during that
+     process we transform the priority of received messages as a special case.
+  *)
   let priority =
     if
       Helpers.rolling_upgrade_in_progress ~__context
@@ -778,11 +779,11 @@ let handler (req : Http.Request.t) fd _ =
     (fun __context ->
       try
         (* Redirect if we're not master *)
-        if not (Pool_role.is_master ()) then
+        if not (Pool_role.is_coordinator ()) then
           let url =
             Printf.sprintf "https://%s%s?%s"
               (Http.Url.maybe_wrap_IPv6_literal
-                 (Pool_role.get_master_address ())
+                 (Pool_role.get_address_of_coordinator_exn ())
               )
               req.Http.Request.uri
               (String.concat "&" (List.map (fun (a, b) -> a ^ "=" ^ b) query))

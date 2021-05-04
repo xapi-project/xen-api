@@ -205,7 +205,7 @@ let sync ~__context ipv6_enabled =
     let client_auth_name =
       let pool = Helpers.get_pool ~__context in
       if
-        Pool_role.is_master ()
+        Pool_role.is_coordinator ()
         && Db.Pool.get_client_certificate_auth_enabled ~__context ~self:pool
       then
         Some (Db.Pool.get_client_certificate_auth_name ~__context ~self:pool)

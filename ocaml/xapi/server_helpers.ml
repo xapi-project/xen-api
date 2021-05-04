@@ -66,14 +66,15 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
   (* Execute fn f in specified __context, marshalling result with "marshaller" *)
   let exec () =
     (* NB:
-       1. If we are a slave we process the call locally assuming the locks have
-       already been taken by the master
-       2. If we are the master, locks are only necessary for the potentially-forwarded
-       (ie side-effecting) operations and not things like the database layer *)
+       1. If we are a supporter we process the call locally assuming the locks
+       have already been taken by the coordinator
+       2. If we are the coordinator, locks are only necessary for the
+       potentially-forwarded (ie side-effecting) operations and not things like
+       the database layer *)
     try
       let result =
-        if not (Pool_role.is_master ()) then
-          f ~__context (* slaves process everything locally *)
+        if not (Pool_role.is_coordinator ()) then
+          f ~__context (* supporters process everything locally *)
         else
           match f_forward with
           | None ->

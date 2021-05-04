@@ -56,13 +56,15 @@ let forward args s session =
   if not (is_unix_socket s) then
     raise
       (Api_errors.Server_error
-         (Api_errors.host_is_slave, [Pool_role.get_master_address ()])
+         ( Api_errors.host_is_supporter
+         , [Pool_role.get_address_of_coordinator_exn ()]
+         )
       ) ;
   let open Xmlrpc_client in
   let transport =
     SSL
       ( SSL.make ~verify_cert:None ()
-      , Pool_role.get_master_address ()
+      , Pool_role.get_address_of_coordinator_exn ()
       , !Constants.https_port
       )
   in
@@ -129,9 +131,9 @@ let do_rpcs _req s username password minimal cmd session args =
       error "Rethrowing Not_found as Unknown_command %s" cmdname ;
       Backtrace.reraise e (Unknown_command cmdname)
   in
-  (* Forward if we're not the master, and if the cspec doesn't contain the key 'neverforward' *)
+  (* Forward if we're a supporter, and if the cspec doesn't contain the key 'neverforward' *)
   let do_forward =
-    (not (Pool_role.is_master ())) && not (List.mem Neverforward cspec.flags)
+    Pool_role.is_supporter () && not (List.mem Neverforward cspec.flags)
   in
   let _ = check_required_keys cmd cspec.reqd in
   try

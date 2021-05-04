@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Lock shared between client/slave implementations *)
+(* Lock shared between client/supporter implementations *)
 
 open Xapi_stdext_threads.Threadext
 open Xapi_stdext_pervasives.Pervasiveext

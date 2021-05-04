@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Code to handle local sessions, used so that slaves can communicate even when
-    the master is down. *)
+(** Code to handle local sessions, used so that supporters can communicate
+    even when the coordinator is down. *)
 
 type t = {
     r: API.ref_session

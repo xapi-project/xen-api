@@ -22,7 +22,7 @@ let run_test vm =
   Db.VM.set_is_control_domain ~__context ~self:vm ~value:isControlDomain ;
   Db.VM.set_power_state ~__context ~self:vm ~value:powerState ;
   Db.VM.set_resident_on ~__context ~self:vm ~value:Ref.null ;
-  Dbsync_master.reset_vms_running_on_missing_hosts ~__context ;
+  Dbsync_coordinator.reset_vms_running_on_missing_hosts ~__context ;
   Alcotest.check alco_power_state
     (Printf.sprintf "The VM %s is not halted" nameLabel)
     (Db.VM.get_power_state ~__context ~self:vm)

@@ -842,7 +842,7 @@ let rotate_secret =
     ~errs:
       [
         Api_errors.internal_error
-      ; Api_errors.host_is_slave
+      ; Api_errors.host_is_supporter
       ; Api_errors.cannot_contact_host
       ; Api_errors.ha_is_enabled
       ; Api_errors.not_supported_during_upgrade

@@ -63,7 +63,8 @@ let update_allowed_operations ~__context ~self =
 let assert_can_boot_here ~__context ~self ~host =
   let snapshot = Db.VM.get_record ~__context ~self in
   if Helpers.rolling_upgrade_in_progress ~__context then
-    Helpers.assert_platform_version_is_same_on_master ~__context ~host ~self ;
+    Helpers.assert_platform_version_is_same_on_coordinator ~__context ~host
+      ~self ;
   assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check:true ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
@@ -556,7 +557,7 @@ let suspend ~__context ~vm =
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
   Xapi_xenops.suspend ~__context ~self:vm ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  let master_address = Pool_role.get_master_address_opt () in
+  let master_address = Pool_role.get_address_of_coordinator () in
   log_and_ignore_exn (fun () -> Rrdd.archive_rrd vm_uuid master_address)
 
 let resume ~__context ~vm ~start_paused ~force =
@@ -970,7 +971,7 @@ let get_cooperative ~__context ~self:_ = true
 let set_HVM_shadow_multiplier ~__context ~self ~value =
   set_HVM_shadow_multiplier ~__context ~self ~value
 
-(** Sets the HVM shadow multiplier for a {b Running} VM. Runs on the slave. *)
+(** Sets the HVM shadow multiplier for a {b Running} VM. Runs on supporters. *)
 let set_shadow_multiplier_live ~__context ~self ~multiplier =
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
     ~expected:`Running ;
@@ -1351,12 +1352,10 @@ let set_suspend_VDI ~__context ~self ~value =
   let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
   let dst_vdi = value in
   if src_vdi <> dst_vdi then (
-    (*
-	 * We don't care if the future host can see current suspend VDI or not, but
-	 * we want to make sure there's at least a host can see all the VDIs of the
-	 * VM + the new suspend VDI. We raise an exception if there's no suitable
-	 * host.
-	 *)
+    (* We don't care if the future host can see current suspend VDI or not, but
+       we want to make sure there's at least a host can see all the VDIs of the
+       VM + the new suspend VDI. We raise an exception if there's no suitable
+       host. *)
     let vbds = Db.VM.get_VBDs ~__context ~self in
     let vbds =
       List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) vbds

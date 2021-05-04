@@ -419,7 +419,7 @@ let exchange_certificates_in_pool ~__context =
           List.iteri (fun i (desc, _) -> D.debug "%d. %s" i desc) ops' ;
           ops'
   in
-  let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  let all_hosts = Xapi_pool_helpers.get_members_coordinator_first ~__context in
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
   let certs =
     collect_pool_certs ~__context ~rpc ~session_id ~from_hosts:all_hosts
@@ -530,12 +530,12 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
     [joiner_certificate] ;
   Worker.local_regen_bundle ~__context ;
   let () =
-    (* now that the primary host trusts the joiner, perform best effort
-     * distribution to remaining hosts (this is not strictly necessary,
-     * as the 'am i missing certs thread' should pick up missing certs) *)
-    let secondary_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
+    (* now that the coordinator trusts the joiner, perform best effort
+       distribution to remaining hosts (this is not strictly necessary,
+       as the 'am i missing certs thread' should pick up missing certs) *)
+    let _, supporters = Xapi_pool_helpers.get_members ~__context in
     Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-    secondary_hosts
+    supporters
     |> List.iter (fun host ->
            try
              Worker.remote_write_certs_fs HostPoolCertificate Merge
@@ -547,7 +547,7 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
                (Ref.short_string_of host) (Printexc.to_string e)
        ) ;
 
-    secondary_hosts
+    supporters
     |> List.iter (fun host ->
            try Worker.remote_regen_bundle host rpc session_id
            with e ->

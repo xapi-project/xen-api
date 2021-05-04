@@ -191,11 +191,11 @@ let check_sr_availability ~__context sr =
   let localhost = Helpers.get_localhost ~__context in
   check_sr_availability_host ~__context sr localhost
 
-let find_host_for_sr ~__context ?(prefer_slaves = false) sr =
+let find_host_for_sr ~__context ?(prefer_supporters = false) sr =
   let choose_fn ~host =
     Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host
   in
-  Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
+  Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_supporters ()
 
 let check_vm_host_SRs ~__context vm host =
   try

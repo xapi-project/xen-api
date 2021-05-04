@@ -35,12 +35,12 @@ let inet_rpc xml =
      is disabled. *)
   let open Xmlrpc_client in
   let transport =
-    if Pool_role.is_master () then
+    if Pool_role.is_coordinator () then
       TCP ("127.0.0.1", http)
     else
       SSL
         ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
-        , Pool_role.get_master_address ()
+        , Pool_role.get_address_of_coordinator_exn ()
         , https
         )
   in
@@ -74,7 +74,7 @@ let append_to_master_audit_log __context action line =
   if
     Astring.String.is_prefix ~affix:Datamodel.rbac_http_permission_prefix action
   then
-    if Pool_role.is_slave () then
+    if Pool_role.is_supporter () then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Pool.audit_log_append ~rpc ~session_id ~line
       )

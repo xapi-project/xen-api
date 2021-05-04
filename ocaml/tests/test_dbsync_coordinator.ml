@@ -62,7 +62,7 @@ module CreateToolsSR = Generic.MakeStateful (struct
           )
       )
       srs ;
-    Dbsync_master.create_tools_sr __context name description sr_introduce
+    Dbsync_coordinator.create_tools_sr __context name description sr_introduce
       maybe_create_pbd
 
   let extract_output __context _ =

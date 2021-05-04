@@ -34,17 +34,21 @@ module L = Debug.Make (struct let name = "license" end)
 module W = Debug.Make (struct let name = "watchdog" end)
 
 let _ =
-  Master_connection.is_slave := Pool_role.is_slave ;
-  Master_connection.get_master_address := Pool_role.get_master_address ;
-  Master_connection.master_rpc_path := Constants.remote_db_access_uri
+  Coordinator_connection.is_supporter := Pool_role.is_supporter ;
+  Coordinator_connection.get_address_of_coordinator :=
+    Pool_role.get_address_of_coordinator_exn ;
+  Coordinator_connection.coordinator_rpc_path := Constants.remote_db_access_uri
 
-(** Perform some startup sanity checks. Note that we nolonger look for processes using 'ps':
-    instead we rely on the init.d scripts to start other services. *)
+(** Perform some startup sanity checks. Note that we nolonger look for
+    processes using 'ps': instead we rely on the init.d scripts to start other
+    services. *)
 let startup_check () = Sanitycheck.check_for_bad_link ()
 
-(* Parse db conf file from disk and use this to initialise database connections. This is done on
-   both master and slave. On masters the parsed data is used to flush databases to and to populate
-   cache; on the slave the parsed data is used to determine where to put backups.
+(* Parse db conf file from disk and use this to initialise database
+   connections. This is done on both the coordinator and supporters. On the
+   coordinator the parsed data is used to flush databases to and to populate
+   cache; on the supporters the parsed data is used to determine where to put
+   backups.
 *)
 let setup_db_conf () =
   debug "parsing db config file" ;
@@ -138,7 +142,7 @@ let cleanup_handler _ =
   debug "Executing cleanup handler" ;
   (*  Monitor_rrds.cleanup ();*)
   Db_connections.exit_on_next_flush := true ;
-  if not (Pool_role.is_master ()) then exit 0 ;
+  if not (Pool_role.is_coordinator ()) then exit 0 ;
   debug "cleanup handler exiting"
 
 let signals_handling () =
@@ -214,28 +218,30 @@ let wait_to_die () =
     Thread.delay 20000.
   done
 
-(* Go through hosts in db. If they're up then just check that no-one else thinks they're the master.
-   If someone else thinks they're the master then we switch to a slave and restart. *)
-let check_no_other_masters () =
-  Server_helpers.exec_with_new_task "checking no other known hosts are masters"
-    (fun __context ->
-      let assert_is_slave href =
+(* Go through hosts in db. If they're up then just check that no-one else
+   thinks they're the coordinator. If someone else thinks they're the
+   coordinator then we switch to a supporter and restart. *)
+let check_no_other_coordinators () =
+  Server_helpers.exec_with_new_task __FUNCTION__ (fun __context ->
+      let assert_supporter href =
         try
           if not (Xapi_host.ask_host_if_it_is_a_slave ~__context ~host:href)
           then (
-            let master_address = Db.Host.get_address ~self:href ~__context in
+            let coordinator_address =
+              Db.Host.get_address ~self:href ~__context
+            in
             error
               "Detected another master in my database of known hosts. Aborting \
-               xapi startup and restarting as slave of host '%s' (%s)"
+               xapi startup and restarting as supporter of host '%s' (%s)"
               (Db.Host.get_uuid ~self:href ~__context)
-              master_address ;
-            (* transition to slave and restart *)
+              coordinator_address ;
+            (* transition to supporter and restart *)
             ( try
-                (* now become a slave of the new master we found... *)
-                Xapi_pool_transition.set_role (Pool_role.Slave master_address)
+                Xapi_pool_transition.set_role
+                  (Pool_role.Supporter coordinator_address)
               with e ->
                 error
-                  "Could not transition to slave '%s': xapi will abort \
+                  "Could not transition to supporter '%s': xapi will abort \
                    completely and not start"
                   (Printexc.to_string e) ;
                 exit 1
@@ -243,34 +249,36 @@ let check_no_other_masters () =
             exit Xapi_globs.restart_return_code
           )
         with e ->
-          (* if we couldn't contact slave then carry on regardless
-             		       --- this is just a sanity check, not a guarantee... *)
-          debug "Couldn't contact slave on startup check: %s"
+          (* if we couldn't contact supporter then carry on regardless ---
+             this is just a sanity check, not a guarantee... *)
+          debug "Couldn't contact supporter host on startup check: %s"
             (Printexc.to_string e)
       in
       let hosts = Db.Host.get_all ~__context in
       let me = Helpers.get_localhost ~__context in
       let all_hosts_but_me = List.filter (fun h -> h <> me) hosts in
-      List.iter assert_is_slave all_hosts_but_me
+      List.iter assert_supporter all_hosts_but_me
   )
 
-(** Called when the master restarts and any other time when the database connection restarts.
-    XXX Unfortunately the database connection restarts periodically due to the HTTP persistent connection
-    timeout -- we should remove this this *)
-let on_master_restart ~__context =
+(** Called when the coordinator restarts and any other time when the database
+    connection restarts.
+  *)
+
+let on_coordinator_restart ~__context =
   debug
-    "master might have just restarted: refreshing non-persistent data in the \
-     master's database" ;
+    "coordinator might have just restarted: refreshing non-persistent data in \
+     the coordinator's database" ;
   Xapi_host_helpers.consider_enabling_host_request ~__context ;
   debug "triggering an immediate refresh of non-persistent fields (eg memory)" ;
   Monitor_dbcalls_cache.clear_cache () ;
-  (* To make the slave appear live we need to set the live flag AND send a heartbeat otherwise the master
-     will mark the slave offline again before the regular heartbeat turns up. *)
+  (* To make the supporter appear live we need to set the live flag AND send a
+     heartbeat otherwise the coordinator will mark the supporter offline again
+     before the regular heartbeat turns up. *)
   debug "sending an immediate heartbeat" ;
   Helpers.log_exn_continue "sending an immediate heartbeat"
     (fun () ->
       Helpers.call_emergency_mode_functions
-        (Pool_role.get_master_address ())
+        (Pool_role.get_address_of_coordinator_exn ())
         (Db_gc.send_one_heartbeat ~__context)
     )
     () ;
@@ -325,17 +333,19 @@ let init_local_database () =
   (* Add the local session check hook *)
   Session_check.check_local_session_hook :=
     Some Xapi_local_session.local_session_hook ;
-  (* Resynchronise the master_scripts flag if this is the first start since system boot *)
+  (* Resynchronise the coordinator_scripts flag if this is the first start
+     since system boot *)
   if !Xapi_globs.on_system_boot then
-    Localdb.put Constants.master_scripts "false" ;
-  (* We've just rebooted, so we clear the flag that stops the host being disabled during the reboot *)
+    Localdb.put Constants.coordinator_scripts "false" ;
+  (* We've just rebooted, so we clear the flag that stops the host being
+     disabled during the reboot *)
   if !Xapi_globs.on_system_boot then
     Localdb.put Constants.host_disabled_until_reboot "false"
 
 (* Called if we cannot contact master at init time *)
 let server_run_in_emergency_mode () =
-  info "Cannot contact master: running in slave emergency mode" ;
-  Xapi_globs.slave_emergency_mode := true ;
+  info "Cannot contact master: running in supporter emergency mode" ;
+  Xapi_globs.supporter_emergency_mode := true ;
   (* signal the init script that it should succeed even though we're bust *)
   Helpers.touch_file !Xapi_globs.ready_file ;
   let emergency_reboot_delay =
@@ -403,14 +413,14 @@ let wait_for_management_ip_address ~__context =
   let ip = Xapi_mgmt_iface.wait_for_management_ip ~__context in
   debug "Acquired management IP address: %s" ip ;
   Xapi_host.set_emergency_mode_error Api_errors.host_still_booting [] ;
-  (* Check whether I am my own slave. *)
+  (* Check whether I think I'm supporter to myself. *)
   ( match Pool_role.get_role () with
-  | Pool_role.Slave masters_ip ->
+  | Pool_role.Supporter masters_ip ->
       if masters_ip = "127.0.0.1" || masters_ip = ip then (
-        debug "Realised that I am my own slave!" ;
-        Xapi_host.set_emergency_mode_error Api_errors.host_its_own_slave []
+        debug "Realised that I am supporter to myself!" ;
+        Xapi_host.set_emergency_mode_error Api_errors.host_its_own_supporter []
       )
-  | Pool_role.Master | Pool_role.Broken ->
+  | Pool_role.Coordinator | Pool_role.Broken ->
       ()
   ) ;
   ip
@@ -425,8 +435,8 @@ type hello_error =
 let attempt_pool_hello my_ip =
   let localhost_uuid = Helpers.get_localhost_uuid () in
   try
-    Helpers.call_emergency_mode_functions (Pool_role.get_master_address ())
-      (fun rpc session_id ->
+    Helpers.call_emergency_mode_functions
+      (Pool_role.get_address_of_coordinator_exn ()) (fun rpc session_id ->
         match
           Client.Client.Pool.hello ~rpc ~session_id ~host_uuid:localhost_uuid
             ~host_address:my_ip
@@ -437,9 +447,9 @@ let attempt_pool_hello my_ip =
               Api_errors.host_master_cannot_talk_back [my_ip] ;
             Some Temporary
         | `unknown_host ->
-            debug "Master claims he has no record of us being a slave" ;
-            Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master
-              [localhost_uuid] ;
+            debug "Coordinator claims he has no record of us being a supporter" ;
+            Xapi_host.set_emergency_mode_error
+              Api_errors.host_unknown_to_coordinator [localhost_uuid] ;
             Some Permanent
         | `ok ->
             None
@@ -450,7 +460,7 @@ let attempt_pool_hello my_ip =
       debug
         "Master did not recognise our pool secret: we must be pointing at the \
          wrong master." ;
-      Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_master
+      Xapi_host.set_emergency_mode_error Api_errors.host_unknown_to_coordinator
         [localhost_uuid] ;
       Some Permanent
   | Api_errors.Server_error (code, params) as exn ->
@@ -477,7 +487,7 @@ let start_ha () =
 let start_redo_log () =
   try
     if
-      Pool_role.is_master ()
+      Pool_role.is_coordinator ()
       && bool_of_string
            (Localdb.get_with_default Constants.redo_log_enabled "false")
       && not (bool_of_string (Localdb.get Constants.ha_armed))
@@ -580,13 +590,13 @@ let resynchronise_ha_state () =
             Xapi_ha.ha_release_resources __context localhost
         | false, true ->
             info "HA has been disabled on localhost but not the Pool." ;
-            if Pool_role.is_master () then (
+            if Pool_role.is_coordinator () then (
               info "We are the master: disabling HA on the Pool." ;
               Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false
             ) else (
               info
-                "We are a slave: we cannot join an HA-enabled Pool after being \
-                 locally disarmed. Entering emergency mode." ;
+                "We are a supporter: we cannot join an HA-enabled Pool after \
+                 being locally disarmed. Entering emergency mode." ;
               Xapi_host.set_emergency_mode_error
                 Api_errors.ha_pool_is_enabled_but_host_is_disabled [] ;
               server_run_in_emergency_mode ()
@@ -764,7 +774,7 @@ let startup_script () =
 
 let master_only_http_handlers =
   [
-    (* CA-26044: don't let people DoS random slaves *)
+    (* CA-26044: don't let people DoS random supporters *)
     ("post_remote_db_access", Http_svr.BufIO remote_database_access_handler)
   ; ( "post_remote_db_access_v2"
     , Http_svr.BufIO remote_database_access_handler_v2
@@ -875,10 +885,11 @@ let server_init () =
       (Pool_role.string_of (Pool_role.get_role ()))
   in
   Unixext.unlink_safe "/etc/xensource/boot_time_info_updated" ;
-  (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
-     has just started up we want to wait forever for the master to appear. (See CA-25481) *)
-  let initial_connection_timeout = !Master_connection.connection_timeout in
-  Master_connection.connection_timeout := -1. ;
+  (* Record the initial value of Coordinator_connection.connection_timeout and set
+     it to 'never'. When we are a supporter who has just started up we want to
+     wait forever for the master to appear. (See CA-25481) *)
+  let initial_connection_timeout = !Coordinator_connection.connection_timeout in
+  Coordinator_connection.connection_timeout := -1. ;
   (* never timeout *)
   let call_extauth_hook_script_after_xapi_initialize ~__context =
     (* CP-709 *)
@@ -1023,9 +1034,12 @@ let server_init () =
           ; ("Initialising random number generator", [], random_setup)
           ; ("Initialise TLS verification", [], init_tls_verification)
           ; ("Running startup check", [], startup_check)
-          ; ("Registering SMAPIv1 plugins", [Startup.OnlyMaster], Sm.register)
+          ; ( "Registering SMAPIv1 plugins"
+            , [Startup.OnlyCoordinator]
+            , Sm.register
+            )
           ; ( "Starting SMAPIv1 proxies"
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , Storage_access.start_smapiv1_servers
             )
           ; ("Initialising SM state", [], Storage_impl.initialise)
@@ -1037,7 +1051,7 @@ let server_init () =
             , fun () -> List.iter Xapi_http.add_handler (common_http_handlers ())
             )
           ; ( "Registering master-only http handlers"
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , fun () ->
                 List.iter Xapi_http.add_handler master_only_http_handlers
             )
@@ -1046,7 +1060,7 @@ let server_init () =
             , fun () -> listen_unix_socket Xapi_globs.unix_domain_socket
             )
           ; ( "Metadata VDI liveness monitor"
-            , [Startup.OnlyMaster; Startup.OnThread]
+            , [Startup.OnlyCoordinator; Startup.OnThread]
             , fun () -> Redo_log_alert.loop ()
             )
           ; ("Checking HA configuration", [], start_ha)
@@ -1060,11 +1074,11 @@ let server_init () =
                then try and bring up networking again (now racing with itself since dhclient will already be
                running etc.) -- see CA-11087 *)
             ( "starting up database engine"
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , start_database_engine
             )
           ; ( "hi-level database upgrade"
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context
             )
           ; ( "bringing up management interface"
@@ -1081,7 +1095,7 @@ let server_init () =
                 Xapi_host_helpers.Configuration.sync_config_files ~__context
             )
           ; ( "Starting Host other-config watcher"
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , fun () ->
                 Xapi_host_helpers.Configuration.start_watcher_thread ~__context
             )
@@ -1095,17 +1109,17 @@ let server_init () =
             )
           ] ;
         match Pool_role.get_role () with
-        | Pool_role.Master ->
+        | Pool_role.Coordinator ->
             ()
         | Pool_role.Broken ->
             info "This node is broken; moving straight to emergency mode" ;
             Xapi_host.set_emergency_mode_error Api_errors.host_broken [] ;
             (* XXX: consider not restarting here *)
             server_run_in_emergency_mode ()
-        | Pool_role.Slave _ ->
-            info "Running in 'Pool Slave' mode" ;
+        | Pool_role.Supporter _ ->
+            info "Running in 'Supporter' mode" ;
             (* Set emergency mode until we actually talk to the master *)
-            Xapi_globs.slave_emergency_mode := true ;
+            Xapi_globs.supporter_emergency_mode := true ;
             (* signal the init script that it should succeed even though we're bust *)
             Helpers.touch_file !Xapi_globs.ready_file ;
             (* Keep trying to log into master *)
@@ -1114,7 +1128,8 @@ let server_init () =
               (* Grab the management IP address (wait forever for it if necessary) *)
               let ip = wait_for_management_ip_address ~__context in
               debug "Start master_connection watchdog" ;
-              ignore (Master_connection.start_master_connection_watchdog ()) ;
+              ignore
+                (Coordinator_connection.start_coordinator_connection_watchdog ()) ;
               debug "Attempting to communicate with master" ;
               (* Try to say hello to the pool *)
               match attempt_pool_hello ip with
@@ -1131,35 +1146,36 @@ let server_init () =
                   Thread.delay !Db_globs.permanent_master_failure_retry_interval
             done ;
             debug "Startup successful" ;
-            Xapi_globs.slave_emergency_mode := false ;
-            Master_connection.connection_timeout := initial_connection_timeout ;
+            Xapi_globs.supporter_emergency_mode := false ;
+            Coordinator_connection.connection_timeout :=
+              initial_connection_timeout ;
             ( try
                 (* We can't tolerate an exception in db synchronization so fall back into emergency mode
                    if this happens and try again later.. *)
-                Master_connection.restart_on_connection_timeout := false ;
-                Master_connection.connection_timeout := 10. ;
+                Coordinator_connection.restart_on_connection_timeout := false ;
+                Coordinator_connection.connection_timeout := 10. ;
                 (* give up retrying after 10s *)
                 Db_cache_impl.initialise () ;
                 Sm.register () ;
                 Startup.run ~__context
                   [
                     ( "Starting SMAPIv1 proxies"
-                    , [Startup.OnlySlave]
+                    , [Startup.OnlySupporter]
                     , Storage_access.start_smapiv1_servers
                     )
                   ] ;
                 Dbsync.setup ()
               with _ ->
                 debug
-                  "Failure in slave dbsync; slave will pause and then restart \
-                   to try again. Entering emergency mode." ;
+                  "Failure in suppporter dbsync; supporter will pause and then \
+                   restart to try again. Entering emergency mode." ;
                 server_run_in_emergency_mode ()
             ) ;
-            Master_connection.connection_timeout :=
+            Coordinator_connection.connection_timeout :=
               !Db_globs.master_connection_retry_timeout ;
-            Master_connection.restart_on_connection_timeout := true ;
-            Master_connection.on_database_connection_established :=
-              fun () -> on_master_restart ~__context
+            Coordinator_connection.restart_on_connection_timeout := true ;
+            Coordinator_connection.on_database_connection_established :=
+              fun () -> on_coordinator_restart ~__context
     ) ;
     Server_helpers.exec_with_new_task "server_init" ~task_in_database:true
       (fun __context ->
@@ -1172,7 +1188,7 @@ let server_init () =
             )
           ; ( "Initialise monitor configuration"
             , []
-            , Monitor_master.update_configuration_from_master
+            , Monitor_coordinator.update_configuration_from_coordinator
             )
           ; ("Initialising licensing", [], handle_licensing)
           ; ( "message_hook_thread"
@@ -1184,7 +1200,7 @@ let server_init () =
             , Db_gc.start_heartbeat_thread
             )
           ; ( "trust root synchronization with coordinator"
-            , [Startup.OnlySlave; Startup.NoExnRaising]
+            , [Startup.OnlySupporter; Startup.NoExnRaising]
             , fun () -> synchronize_certificates_with_coordinator ~__context
             )
           ; ( "resynchronising HA state"
@@ -1192,7 +1208,7 @@ let server_init () =
             , resynchronise_ha_state
             )
           ; ( "pool db backup"
-            , [Startup.OnlyMaster; Startup.OnThread]
+            , [Startup.OnlyCoordinator; Startup.OnThread]
             , Pool_db_backup.pool_db_backup_thread
             )
           ; ( "monitor_dbcalls"
@@ -1205,8 +1221,8 @@ let server_init () =
             )
           ; (* -- CRITICAL: this check must be performed before touching shared storage *)
             ( "Performing no-other-masters check"
-            , [Startup.OnlyMaster]
-            , check_no_other_masters
+            , [Startup.OnlyCoordinator]
+            , check_no_other_coordinators
             )
           ; ( "Registering periodic functions"
             , []
@@ -1217,14 +1233,15 @@ let server_init () =
             , []
             , fun () ->
                 Xapi_pool_transition.run_external_scripts
-                  (Pool_role.is_master ())
+                  (Pool_role.is_coordinator ())
             )
           ; ( "creating networks"
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , Create_networks.create_networks_localhost
             )
-          ; (* CA-22417: bring up all non-bond slaves so that the SM backends can use storage NIC IP addresses (if the routing
-               	 table happens to be right) *)
+          ; (* CA-22417: bring up all non-bond supporters so that the SM
+               backends can use storage NIC IP addresses (if the routing
+               table happens to be right) *)
             ( "Best-effort bring up of physical and sriov NICs"
             , [Startup.NoExnRaising]
             , Xapi_pif.start_of_day_best_effort_bring_up
@@ -1257,24 +1274,24 @@ let server_init () =
             , Network_event_loop.watch_networks_for_nbd_changes
             )
           ; (* CA-175353: moving VIFs between networks requires VMs to be resynced *)
-            ( "Synchronising bonds on slave with master"
-            , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_bonds_from_master ~__context
+            ( "Synchronising bonds on supporter host with coordinator"
+            , [Startup.OnlySupporter; Startup.NoExnRaising]
+            , Sync_networking.copy_bonds_from_coordinator ~__context
             )
-          ; ( "Synchronising network sriovs on slave with master"
-            , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_network_sriovs_from_master ~__context
+          ; ( "Synchronising network sriovs on supporter host with coordinator"
+            , [Startup.OnlySupporter; Startup.NoExnRaising]
+            , Sync_networking.copy_network_sriovs_from_coordinator ~__context
             )
-          ; ( "Synchronising VLANs on slave with master"
-            , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_vlans_from_master ~__context
+          ; ( "Synchronising VLANs on supporter host with coordinator"
+            , [Startup.OnlySupporter; Startup.NoExnRaising]
+            , Sync_networking.copy_vlans_from_coordinator ~__context
             )
-          ; ( "Synchronising tunnels on slave with master"
-            , [Startup.OnlySlave; Startup.NoExnRaising]
-            , Sync_networking.copy_tunnels_from_master ~__context
+          ; ( "Synchronising tunnels on supporter with coordinator"
+            , [Startup.OnlySupporter; Startup.NoExnRaising]
+            , Sync_networking.copy_tunnels_from_coordinator ~__context
             )
           ; ( "SR scanning"
-            , [Startup.OnlyMaster; Startup.OnThread]
+            , [Startup.OnlyCoordinator; Startup.OnThread]
             , Xapi_sr.scanning_thread
             )
           ; ("PUSB scanning", [], fun () -> Xapi_pusb.scan_thread ~__context)
@@ -1287,13 +1304,16 @@ let server_init () =
             , fun () -> Helpers.touch_file !Xapi_globs.init_complete
             )
           ; (*      "Synchronising HA state with Pool", [ Startup.NoExnRaising ], Xapi_ha.synchronise_ha_state_with_pool; *)
-            ("Starting DR redo-logs", [Startup.OnlyMaster], start_dr_redo_logs)
+            ( "Starting DR redo-logs"
+            , [Startup.OnlyCoordinator]
+            , start_dr_redo_logs
+            )
           ; ( "Starting SR physical utilisation scanning"
             , [Startup.OnThread]
             , Xapi_sr.physical_utilisation_thread ~__context
             )
           ; ( "Caching metadata VDIs created by foreign pools."
-            , [Startup.OnlyMaster]
+            , [Startup.OnlyCoordinator]
             , cache_metadata_vdis
             )
           ; ("Stats reporting thread", [], Xapi_stats.start)
@@ -1302,7 +1322,7 @@ let server_init () =
           Startup.run ~__context
             [
               ( "populating db with dummy data"
-              , [Startup.OnlyMaster; Startup.NoExnRaising]
+              , [Startup.OnlyCoordinator; Startup.NoExnRaising]
               , fun () ->
                   Debug_populate.do_populate ~vms:1000 ~vdis_per_vm:3
                     ~networks:10 ~srs:10 ~tasks:1000
@@ -1347,10 +1367,11 @@ let server_init () =
         Startup.run ~__context
           [
             ( "fetching database backup"
-            , [Startup.OnlySlave; Startup.NoExnRaising]
+            , [Startup.OnlySupporter; Startup.NoExnRaising]
             , fun () ->
                 Pool_db_backup.fetch_database_backup
-                  ~master_address:(Pool_role.get_master_address ())
+                  ~coordinator_address:
+                    (Pool_role.get_address_of_coordinator_exn ())
                   ~pool_secret:(Xapi_globs.pool_secret ())
                   ~force:None
             )
@@ -1375,7 +1396,7 @@ let server_init () =
                 log_and_ignore_exn (fun () -> maybe_wait_for_clustering_ip ())
             )
           ; ( "considering sending a master transition alert"
-            , [Startup.NoExnRaising; Startup.OnlyMaster]
+            , [Startup.NoExnRaising; Startup.OnlyCoordinator]
             , Xapi_pool_transition.consider_sending_alert __context
             )
           ; ( "Cancelling in-progress storage migrations"

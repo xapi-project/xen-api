@@ -237,22 +237,22 @@ let choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () =
   let pbds = PBDSet.of_list pbds_to_consider in
   let pbd_candidates =
     if Helpers.is_sr_shared ~__context ~self then
-      let master = Helpers.get_master ~__context in
-      let master_pbds =
-        PBDSet.of_list (Db.Host.get_PBDs ~__context ~self:master)
+      let coordinator = Helpers.get_coordinator ~__context in
+      let coordinator_pbds =
+        PBDSet.of_list (Db.Host.get_PBDs ~__context ~self:coordinator)
       in
       (* Operation run on shared SRs depend on the first pbd of the list to be
          on the master. *)
-      let sr_master_pbds, rest_pbds =
-        PBDSet.partition (fun pbd -> PBDSet.mem pbd master_pbds) pbds
+      let sr_coordinator_pbds, supporters_pbds =
+        PBDSet.partition (fun pbd -> PBDSet.mem pbd coordinator_pbds) pbds
       in
-      if PBDSet.is_empty sr_master_pbds then
+      if PBDSet.is_empty sr_coordinator_pbds then
         Error `Sr_no_pbds
       else
         Ok
           (List.rev_append
-             (PBDSet.elements sr_master_pbds)
-             (PBDSet.elements rest_pbds)
+             (PBDSet.elements sr_coordinator_pbds)
+             (PBDSet.elements supporters_pbds)
           )
     else
       Ok pbds_to_consider
@@ -360,7 +360,7 @@ functor
 
     let pool_uuid ~__context pool =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           let name = Db.Pool.get_name_label ~__context ~self:pool in
           Printf.sprintf "%s%s"
             (Db.Pool.get_uuid ~__context ~self:pool)
@@ -370,7 +370,7 @@ functor
       with _ -> "invalid"
 
     let current_pool_uuid ~__context =
-      if Pool_role.is_master () then
+      if Pool_role.is_coordinator () then
         let _, pool = List.hd (Db.Pool.get_all_records ~__context) in
         Printf.sprintf "%s%s" pool.API.pool_uuid
           (add_brackets pool.API.pool_name_label)
@@ -379,7 +379,7 @@ functor
 
     let host_uuid ~__context host =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           let name = Db.Host.get_name_label ~__context ~self:host in
           Printf.sprintf "%s%s"
             (Db.Host.get_uuid ~__context ~self:host)
@@ -390,7 +390,7 @@ functor
 
     let vm_uuid ~__context vm =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           let name = Db.VM.get_name_label ~__context ~self:vm in
           Printf.sprintf "%s%s"
             (Db.VM.get_uuid ~__context ~self:vm)
@@ -401,7 +401,7 @@ functor
 
     let vm_appliance_uuid ~__context vm_appliance =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           let name =
             Db.VM_appliance.get_name_label ~__context ~self:vm_appliance
           in
@@ -414,7 +414,7 @@ functor
 
     let sr_uuid ~__context sr =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           let name = Db.SR.get_name_label ~__context ~self:sr in
           Printf.sprintf "%s%s"
             (Db.SR.get_uuid ~__context ~self:sr)
@@ -425,7 +425,7 @@ functor
 
     let vdi_uuid ~__context vdi =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VDI.get_uuid ~__context ~self:vdi
         else
           Ref.string_of vdi
@@ -433,7 +433,7 @@ functor
 
     let vif_uuid ~__context vif =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VIF.get_uuid ~__context ~self:vif
         else
           Ref.string_of vif
@@ -441,7 +441,7 @@ functor
 
     let vlan_uuid ~__context vlan =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VLAN.get_uuid ~__context ~self:vlan
         else
           Ref.string_of vlan
@@ -449,7 +449,7 @@ functor
 
     let tunnel_uuid ~__context tunnel =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Tunnel.get_uuid ~__context ~self:tunnel
         else
           Ref.string_of tunnel
@@ -457,7 +457,7 @@ functor
 
     let bond_uuid ~__context bond =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Bond.get_uuid ~__context ~self:bond
         else
           Ref.string_of bond
@@ -465,7 +465,7 @@ functor
 
     let network_sriov_uuid ~__context sriov =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Network_sriov.get_uuid ~__context ~self:sriov
         else
           Ref.string_of sriov
@@ -473,7 +473,7 @@ functor
 
     let pif_uuid ~__context pif =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.PIF.get_uuid ~__context ~self:pif
         else
           Ref.string_of pif
@@ -481,7 +481,7 @@ functor
 
     let vbd_uuid ~__context vbd =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VBD.get_uuid ~__context ~self:vbd
         else
           Ref.string_of vbd
@@ -489,7 +489,7 @@ functor
 
     let pbd_uuid ~__context pbd =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.PBD.get_uuid ~__context ~self:pbd
         else
           Ref.string_of pbd
@@ -497,7 +497,7 @@ functor
 
     let task_uuid ~__context task =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Task.get_uuid ~__context ~self:task
         else
           Ref.string_of task
@@ -505,7 +505,7 @@ functor
 
     let crashdump_uuid ~__context cd =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Crashdump.get_uuid ~__context ~self:cd
         else
           Ref.string_of cd
@@ -513,7 +513,7 @@ functor
 
     let host_crashdump_uuid ~__context hcd =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Host_crashdump.get_uuid ~__context ~self:hcd
         else
           Ref.string_of hcd
@@ -521,7 +521,7 @@ functor
 
     let network_uuid ~__context network =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Network.get_uuid ~__context ~self:network
         else
           Ref.string_of network
@@ -529,7 +529,7 @@ functor
 
     let host_patch_uuid ~__context patch =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Host_patch.get_uuid ~__context ~self:patch
         else
           Ref.string_of patch
@@ -537,7 +537,7 @@ functor
 
     let pool_patch_uuid ~__context patch =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Pool_patch.get_uuid ~__context ~self:patch
         else
           Ref.string_of patch
@@ -545,7 +545,7 @@ functor
 
     let pool_update_uuid ~__context update =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Pool_update.get_uuid ~__context ~self:update
         else
           Ref.string_of update
@@ -553,7 +553,7 @@ functor
 
     let pci_uuid ~__context pci =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.PCI.get_uuid ~__context ~self:pci
         else
           Ref.string_of pci
@@ -561,7 +561,7 @@ functor
 
     let pgpu_uuid ~__context pgpu =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.PGPU.get_uuid ~__context ~self:pgpu
         else
           Ref.string_of pgpu
@@ -569,7 +569,7 @@ functor
 
     let gpu_group_uuid ~__context gpu_group =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.GPU_group.get_uuid ~__context ~self:gpu_group
         else
           Ref.string_of gpu_group
@@ -577,7 +577,7 @@ functor
 
     let vgpu_uuid ~__context vgpu =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VGPU.get_uuid ~__context ~self:vgpu
         else
           Ref.string_of vgpu
@@ -585,7 +585,7 @@ functor
 
     let vgpu_type_uuid ~__context vgpu_type =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VGPU_type.get_uuid ~__context ~self:vgpu_type
         else
           Ref.string_of vgpu_type
@@ -593,7 +593,7 @@ functor
 
     let sdn_controller_uuid ~__context sdn_controller =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.SDN_controller.get_uuid ~__context ~self:sdn_controller
         else
           Ref.string_of sdn_controller
@@ -601,7 +601,7 @@ functor
 
     let pusb_uuid ~__context pusb =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.PUSB.get_uuid ~__context ~self:pusb
         else
           Ref.string_of pusb
@@ -609,7 +609,7 @@ functor
 
     let usb_group_uuid ~__context usb_group =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.USB_group.get_uuid ~__context ~self:usb_group
         else
           Ref.string_of usb_group
@@ -617,7 +617,7 @@ functor
 
     let vusb_uuid ~__context vusb =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.VUSB.get_uuid ~__context ~self:vusb
         else
           Ref.string_of vusb
@@ -625,7 +625,7 @@ functor
 
     let repository_uuid ~__context repository =
       try
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Db.Repository.get_uuid ~__context ~self:repository
         else
           Ref.string_of repository
@@ -776,7 +776,7 @@ functor
         info "Pool.eject: pool = '%s'; host = '%s'"
           (current_pool_uuid ~__context)
           (host_uuid ~__context host) ;
-        let master = Helpers.get_master ~__context in
+        let master = Helpers.get_coordinator ~__context in
         let local_fn = Local.Pool.eject ~host in
         let other =
           Db.Host.get_all ~__context
@@ -995,7 +995,9 @@ functor
           (current_pool_uuid ~__context) ;
         let self = Helpers.get_pool ~__context in
         let local_fn = Local.Pool.enable_tls_verification in
-        let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+        let all_hosts =
+          Xapi_pool_helpers.get_members_coordinator_first ~__context
+        in
 
         Xapi_pool_helpers.with_pool_operation ~__context
           ~doc:"Pool.enable_tls_verification" ~self ~op:`tls_verification_enable
@@ -4691,14 +4693,15 @@ functor
         Not_found exception will be raised.
         WARNING: this may forward the call to a host that is NOT the SR master. *)
       let forward_sr_multiple_op ~local_fn ~__context ~srs
-          ?(prefer_slaves = false) op =
+          ?(prefer_supporters = false) op =
         let choose_fn ~host =
           Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs
             ~host
         in
         let host =
           try
-            Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
+            Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_supporters
+              ()
           with _ -> raise Not_found
         in
         do_op_on ~local_fn ~__context ~host op
@@ -5270,10 +5273,10 @@ functor
           (fun () ->
             try
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr]
-                ~prefer_slaves:true op
+                ~prefer_supporters:true op
             with Not_found ->
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr]
-                ~prefer_slaves:true op
+                ~prefer_supporters:true op
           )
 
       let pool_migrate ~__context ~vdi ~sr ~options =
@@ -6203,7 +6206,7 @@ functor
         let host =
           match Db.Cluster_host.get_all ~__context with
           | [] ->
-              Helpers.get_master ~__context
+              Helpers.get_coordinator ~__context
           | cluster_hosts when List.exists is_local_cluster_host cluster_hosts
             ->
               localhost
@@ -6263,7 +6266,9 @@ functor
       let pool_resync ~__context ~self =
         (* iterates Cluster_host.enable and Cluster_host where necessary*)
         info "Cluster.pool_resync cluster: %s" (Ref.string_of self) ;
-        let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+        let hosts =
+          Xapi_pool_helpers.get_members_coordinator_first ~__context
+        in
         let local_fn = Local.Cluster.pool_resync ~self in
         hosts
         |> List.iter (fun host ->

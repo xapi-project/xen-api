@@ -11,11 +11,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* Manages persistent connection from slave->master over which the db is accessed.
+(* Manages persistent connection from supporter to coordinator over which the
+   db is accessed.
 
-   The state of this connection is used by the slave to determine whether it can see its
-   master or not. After the slave has not been able to see the master for a while, xapi
-   restarts in emergency mode.
+   The state of this connection is used by the supporter to determine whether
+   it can see the coordinator or not. After the supporter has not been able to
+   see the coordinator for a while, xapi restarts in emergency mode.
 *)
 
 open Xapi_stdext_threads.Threadext
@@ -23,7 +24,7 @@ open Safe_resources
 
 type db_record = (string * string) list * (string * string list) list
 
-module D = Debug.Make (struct let name = "master_connection" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
@@ -31,37 +32,36 @@ let my_connection : Stunnel.t option ref = ref None
 
 exception Uninitialised
 
-let is_slave : (unit -> bool) ref =
+let is_supporter : (unit -> bool) ref =
   ref (fun () ->
-      error "is_slave called without having been set. This is a fatal error." ;
+      error "%s called without having been set. This is a fatal error."
+        __FUNCTION__ ;
       raise Uninitialised
   )
 
-let get_master_address =
+let get_address_of_coordinator =
   ref (fun () ->
-      error
-        "get_master_address called without having been set. This is a fatal \
-         error" ;
+      error "%s called without having been set. This is a fatal error"
+        __FUNCTION__ ;
       raise Uninitialised
   )
 
-let master_rpc_path = ref "<invalid>"
+let coordinator_rpc_path = ref "<invalid>"
 
-exception Cannot_connect_to_master
+exception Cannot_connect_to_coordinator
 
-(* kill the stunnel underlying the connection.. When the master dies
-   then read/writes to the connection block for ages waiting for the
-   TCP timeout. By killing the stunnel, we can get these calls to
-   unblock. (We do not clean up after killing stunnel, it is still the
-   duty of the person who initiated the stunnel connection to call
-   Stunnel.disconnect which closes the relevant fds and does wait_pid on
-   the (now dead!) stunnel process.
+(* kill the stunnel underlying the connection.. When the coordinator dies then
+   read/writes to the connection block for ages waiting for the TCP timeout. By
+   killing the stunnel, we can get these calls to unblock. (We do not clean up
+   after killing stunnel, it is still the duty of the person who initiated the
+   stunnel connection to call Stunnel.disconnect which closes the relevant fds
+   and does wait_pid on the (now dead!) stunnel process.
 *)
 let force_connection_reset () =
-  (* Cleanup cached stunnel connections to the master, so that future API
-     	   calls won't be blocked. *)
-  if !is_slave () then (
-    let host = !get_master_address () in
+  (* Cleanup cached stunnel connections to the coordinator, so that future API
+     calls won't be blocked. *)
+  if !is_supporter () then (
+    let host = !get_address_of_coordinator () in
     let port = !Db_globs.https_port in
     (* We don't currently have a method to enumerate all the stunnel links
        		   to an address in the cache. The easiest way is, for each valid config
@@ -82,8 +82,8 @@ let force_connection_reset () =
     purge_stunnels (Some Stunnel.pool) ;
     purge_stunnels (Some Stunnel.appliance) ;
     info
-      "force_connection_reset: all cached connections to the master have been \
-       purged"
+      "force_connection_reset: all cached connections to the coordinator have \
+       been purged"
   ) ;
   match !my_connection with
   | None ->
@@ -96,29 +96,29 @@ let force_connection_reset () =
         ) ;
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
 
-(* whenever a call is made that involves read/write to the master connection, a timestamp is
-   written into this global: *)
-let last_master_connection_call : float option ref = ref None
+(* whenever a call is made that involves read/write to the coordinator connection,
+   a timestamp is written into this global: *)
+let last_coordinator_connection_call : float option ref = ref None
 
-(* the master_connection_watchdog uses this time to determine whether the master connection
-   should be reset *)
+(* the coordinator_connection_watchdog uses this time to determine whether the
+   coordinator connection should be reset *)
 
 (* Set and unset the timestamp global. (No locking required since we are operating under
    mutual exclusion provided by the database lock here anyway) *)
 let with_timestamp f =
-  last_master_connection_call := Some (Unix.gettimeofday ()) ;
+  last_coordinator_connection_call := Some (Unix.gettimeofday ()) ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      last_master_connection_call := None
+      last_coordinator_connection_call := None
   )
 
-(* call force_connection_reset if we detect that a master-connection is blocked for too long.
-   One common way this can happen is if we end up blocked waiting for a TCP timeout when the
-   master goes away unexpectedly... *)
+(* call force_connection_reset if we detect that a coordinator-connection is
+   blocked for too long. One common way this can happen is if we end up blocked
+   waiting for a TCP timeout when the coordinator goes away unexpectedly... *)
 let watchdog_start_mutex = Mutex.create ()
 
 let my_watchdog : Thread.t option ref = ref None
 
-let start_master_connection_watchdog () =
+let start_coordinator_connection_watchdog () =
   Mutex.execute watchdog_start_mutex (fun () ->
       match !my_watchdog with
       | None ->
@@ -128,7 +128,7 @@ let start_master_connection_watchdog () =
                  (fun () ->
                    while true do
                      try
-                       ( match !last_master_connection_call with
+                       ( match !last_coordinator_connection_call with
                        | None ->
                            ()
                        | Some t ->
@@ -139,8 +139,8 @@ let start_master_connection_watchdog () =
                              > !Db_globs.master_connection_reset_timeout
                            then (
                              debug
-                               "Master connection timeout: forcibly resetting \
-                                master connection" ;
+                               "Coordinator connection timeout: forcibly \
+                                resetting coordinator connection" ;
                              force_connection_reset ()
                            )
                        ) ;
@@ -158,12 +158,13 @@ module StunnelDebug = Debug.Make (struct let name = "stunnel" end)
 
 exception Goto_handler
 
-(** Called when the connection to the master is (re-)established. This will be called once
-    on slave start and then every time after the master restarts and we reconnect. *)
+(** Called when the connection to the coordinator is (re-)established. This
+    will be called once on supporter start and then every time after the
+    coordinator restarts and we reconnect. *)
 let on_database_connection_established = ref (fun () -> ())
 
 let open_secure_connection () =
-  let host = !get_master_address () in
+  let host = !get_address_of_coordinator () in
   let port = !Db_globs.https_port in
   let verify_cert = Stunnel_client.pool () in
   Stunnel.with_connect ~use_fork_exec_helper:true ~extended_diagnosis:true
@@ -261,11 +262,13 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
           Db_globs.http_limit_max_rpc_size ;
         debug "Re-raising exception to caller." ;
         raise Http_svr.Client_requested_size_over_limit
-    (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
+    (* TODO: This http exception handler caused CA-36936 and can probably be
+       removed now that there's backoff delay in the generic handler _ below *)
     | Http_client.Http_error (http_code, err_msg) ->
         error
-          "Received HTTP error %s (%s) from master. This suggests our master \
-           address is wrong. Sleeping for %.0fs and then executing restart_fn."
+          "Received HTTP error %s (%s) from coordinator. This suggests our \
+           coordinator address is wrong. Sleeping for %.0fs and then executing \
+           restart_fn."
           http_code err_msg
           !Db_globs.permanent_master_failure_retry_interval ;
         Thread.delay !Db_globs.permanent_master_failure_retry_interval ;
@@ -286,17 +289,17 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
         if !connection_timeout < 0. then (
           if not !surpress_no_timeout_logs then (
             debug
-              "Connection to master died. I will continue to retry \
+              "Connection to coordinator terminated. I will continue to retry \
                indefinitely (supressing future logging of this message)." ;
             error
-              "Connection to master died. I will continue to retry \
+              "Connection to coordinator terminated. I will continue to retry \
                indefinitely (supressing future logging of this message)."
           ) ;
           surpress_no_timeout_logs := true
         ) else
           debug
-            "Connection to master died: time taken so far in this call '%f'; \
-             will %s"
+            "Connection to coordinator died: time taken so far in this call \
+             '%f'; will %s"
             time_sofar
             ( if !connection_timeout < 0. then
                 "never timeout"
@@ -306,15 +309,16 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
         if time_sofar > !connection_timeout && !connection_timeout >= 0. then
           if !restart_on_connection_timeout then (
             debug
-              "Exceeded timeout for retrying master connection: restarting xapi" ;
+              "Exceeded timeout for retrying coordinator connection: \
+               restarting xapi" ;
             !Db_globs.restart_fn ()
           ) else (
             debug
-              "Exceeded timeout for retrying master connection: raising \
-               Cannot_connect_to_master" ;
-            raise Cannot_connect_to_master
+              "Exceeded timeout for retrying coordinator connection: raising \
+               exception" ;
+            raise Cannot_connect_to_coordinator
           ) ;
-        debug "Sleeping %f seconds before retrying master connection..."
+        debug "Sleeping %f seconds before retrying coordinator connection..."
           !backoff_delay ;
         Thread.delay !backoff_delay ;
         update_backoff_delay () ;
@@ -325,8 +329,9 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
   !result
 
 let execute_remote_fn string =
-  let host = !get_master_address () in
+  let host = !get_address_of_coordinator () in
   Db_lock.with_lock (fun () ->
       (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
-      do_db_xml_rpc_persistent_with_reopen ~host ~path:!master_rpc_path string
+      do_db_xml_rpc_persistent_with_reopen ~host ~path:!coordinator_rpc_path
+        string
   )

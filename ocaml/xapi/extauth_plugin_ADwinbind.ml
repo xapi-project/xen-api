@@ -1075,17 +1075,16 @@ module ClosestKdc = struct
     with e -> error "Failed to update domain kdc %s" (Printexc.to_string e)
 
   let trigger_update ~start =
-    if Pool_role.is_master () then (
+    if Pool_role.is_coordinator () then
       debug "Trigger task: %s" periodic_update_task_name ;
-      Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
-        (Xapi_periodic_scheduler.Periodic
-           !Xapi_globs.winbind_update_closest_kdc_interval
-        )
-        start update
-    )
+    Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
+      (Xapi_periodic_scheduler.Periodic
+         !Xapi_globs.winbind_update_closest_kdc_interval
+      )
+      start update
 
   let stop_update () =
-    if Pool_role.is_master () then
+    if Pool_role.is_coordinator () then
       Xapi_periodic_scheduler.remove_from_queue periodic_update_task_name
 end
 

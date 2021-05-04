@@ -725,8 +725,8 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
             warn "About to kill idle client stunnels" ;
             (* The master_connection would otherwise try to take a broken stunnel from the cache *)
             Stunnel_cache.flush () ;
-            warn "About to forcibly reset the master connection" ;
-            Master_connection.force_connection_reset ()
+            warn "About to forcibly reset the primary connection" ;
+            Coordinator_connection.force_connection_reset ()
           ) ;
           if rc.API.pIF_currently_attached = false || management_interface then (
             if management_interface then (

@@ -478,7 +478,7 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
     ~xenserver_password =
   assert_wlb_licensed ~__context ;
   let pool = Helpers.get_pool ~__context in
-  let master = Db.Pool.get_master ~__context ~self:pool in
+  let coordinator = Db.Pool.get_master ~__context ~self:pool in
   let params =
     sprintf "%s\n%s\n%s\n%s\n"
       (generate_safe_param "Password" xenserver_password)
@@ -491,12 +491,14 @@ let init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
                  ~default:"ipv4"
               )
           in
-          let master_address = Db.Host.get_address ~__context ~self:master in
+          let coordinator_address =
+            Db.Host.get_address ~__context ~self:coordinator
+          in
           if address_type = `IPv4 then
-            sprintf "http://%s:80/" master_address
+            sprintf "http://%s:80/" coordinator_address
           else
             (*This is an ipv6 address, put [] around the address so that WLB can properly parse the url*)
-            sprintf "http://[%s]:80/" master_address
+            sprintf "http://[%s]:80/" coordinator_address
          )
       )
   in

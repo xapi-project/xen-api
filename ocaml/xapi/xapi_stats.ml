@@ -14,7 +14,7 @@
 
 module D = Debug.Make (struct let name = "xapi_stats" end)
 
-let generate_master_stats ~__context =
+let generate_coordinator_stats ~__context =
   let session_count =
     Db.Session.get_all ~__context |> List.length |> Int64.of_int
   in
@@ -113,10 +113,10 @@ let generate_other_stats () =
   in
   [open_fds_ds]
 
-let generate_stats ~__context ~master =
-  let master_only_stats =
-    if master then
-      generate_master_stats ~__context
+let generate_stats ~__context ~coordinator =
+  let coordinator_only_stats =
+    if coordinator then
+      generate_coordinator_stats ~__context
     else
       []
   in
@@ -125,19 +125,19 @@ let generate_stats ~__context ~master =
   List.fold_left
     (fun acc stats -> List.rev_append acc stats)
     []
-    [master_only_stats; gc_stats; other_stats]
+    [coordinator_only_stats; gc_stats; other_stats]
 
 let reporter_cache : Reporter.t option ref = ref None
 
 let reporter_m = Mutex.create ()
 
-(* xapi currently exports 5 datasources if a slave or 7 if a master; this
- * comfortably fits into a single page. *)
+(* xapi currently exports 5 datasources if is run as a supporter or 7 if it's
+   run as a coordinator; this comfortably fits into a single page. *)
 let shared_page_count = 1
 
 let start () =
   let __context = Context.make "xapi_stats" in
-  let master = Pool_role.is_master () in
+  let coordinator = Pool_role.is_coordinator () in
   Xapi_stdext_threads.Threadext.Mutex.execute reporter_m (fun () ->
       match !reporter_cache with
       | Some _ ->
@@ -152,7 +152,7 @@ let start () =
                     (module D : Debug.DEBUG)
                     ~reporter:(Some reporter) ~uid:"xapi-stats" ~neg_shift:0.5
                     ~page_count:shared_page_count ~protocol:Rrd_interface.V2
-                    ~dss_f:(fun () -> generate_stats ~__context ~master)
+                    ~dss_f:(fun () -> generate_stats ~__context ~coordinator)
                 )
                 ()
             in

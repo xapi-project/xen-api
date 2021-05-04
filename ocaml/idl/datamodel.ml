@@ -67,7 +67,8 @@ module Session = struct
           ; param_default= Some (VString "")
           }
         ]
-      ~errs:[Api_errors.session_authentication_failed; Api_errors.host_is_slave]
+      ~errs:
+        [Api_errors.session_authentication_failed; Api_errors.host_is_supporter]
       ~secret:true
       ~allowed_roles:_R_ALL (*any static role can try to create a user session*)
       ()

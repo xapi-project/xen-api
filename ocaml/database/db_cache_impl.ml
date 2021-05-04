@@ -300,11 +300,10 @@ let process_structured_field_locked t (key, value) tblname fld objref
       | AddMap | AddMapLegacy -> (
         try
           (* We use the idempotent map add if we're using the non-legacy
-             process function, or if the global field 'idempotent_map' has
-             been set. By default, the Db calls on the master use the
-             legacy functions, but those on the slave use the new one.
-             This means xapi code should always assume idempotent_map is
-             true *)
+             process function, or if the global field 'idempotent_map' has been
+             set. By default, the Db calls on the coordinator use the legacy
+             functions, but those on the supporter use the new one. This means
+             xapi code should always assume idempotent_map is true *)
           let idempotent =
             proc_fn_selector = AddMap || !Db_globs.idempotent_map
           in

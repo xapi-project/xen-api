@@ -2,9 +2,9 @@ open Xapi_stdext_unix
 open Xapi_stdext_threads.Threadext
 
 type mode =
-  | Slave of string
-  (* master IP *)
-  | Master of string
+  | Supporter of string
+  (* IP of coordinator *)
+  | Coordinator of string
 
 (* database filename *)
 
@@ -45,12 +45,12 @@ let _ =
   Arg.parse
     [
       ( "--slave-of"
-      , Arg.String (fun master -> mode := Some (Slave master))
-      , "run as a slave of a remote db"
+      , Arg.String (fun coordinator -> mode := Some (Supporter coordinator))
+      , "run as a supporter of a remote db"
       )
     ; ( "--master"
-      , Arg.String (fun db -> mode := Some (Master db))
-      , "run as a master from the given db filename"
+      , Arg.String (fun db -> mode := Some (Coordinator db))
+      , "run as a coordinator from the given db filename"
       )
     ; ( "--listen-on"
       , Arg.Set_string listen_path
@@ -65,9 +65,9 @@ let _ =
       failwith "Requires either --slave-of or --master arguments"
   | Some mode -> (
     match mode with
-    | Slave _ ->
+    | Supporter _ ->
         failwith "unimplemented"
-    | Master db_filename ->
+    | Coordinator db_filename ->
         Printf.printf "Database path: %s\n%!" db_filename ;
         let db = Parse_db_conf.make db_filename in
         Db_conn_store.initialise_db_connections [db] ;

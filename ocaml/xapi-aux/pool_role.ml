@@ -24,8 +24,8 @@ open D
 
 (** The role of this node *)
 type t =
-  | Master
-  | Slave of string
+  | Coordinator
+  | Supporter of string
   (* IP address *)
   | Broken
 
@@ -39,16 +39,16 @@ let with_pool_role_lock f = Mutex.execute role_m f
 
 let set_pool_role_for_test () =
   with_pool_role_lock (fun _ ->
-      role := Some Master ;
+      role := Some Coordinator ;
       role_unit_tests := true
   )
 
 let is_unit_test () = with_pool_role_lock (fun _ -> !role_unit_tests)
 
 let string_of = function
-  | Master ->
+  | Coordinator ->
       "master"
-  | Slave x ->
+  | Supporter x ->
       "slave:" ^ x
   | Broken ->
       "broken"
@@ -60,9 +60,9 @@ let read_pool_role () =
     in
     match Astring.String.cuts ~sep:":" s with
     | ["master"] ->
-        Master
+        Coordinator
     | "slave" :: m_ip ->
-        Slave (String.concat ":" m_ip)
+        Supporter (String.concat ":" m_ip)
     | ["broken"] ->
         Broken
     | _ ->
@@ -73,8 +73,8 @@ let read_pool_role () =
     if "xapi" <> Filename.basename Sys.executable_name then (
       debug
         "Executable name is not 'xapi', so we must be running in unit-test \
-         mode; setting pool-role to 'Master'" ;
-      Master
+         mode; setting pool-role to 'Coordinator'" ;
+      Coordinator
     ) else (
       error "Failed to read pool role from %s" !Constants.pool_config_file ;
       Broken
@@ -91,24 +91,28 @@ let get_role () =
           r
   )
 
-let is_master () = get_role () = Master
+let is_coordinator () = get_role () = Coordinator
 
-let is_slave () = match get_role () with Slave _ -> true | _ -> false
+let is_supporter () = match get_role () with Supporter _ -> true | _ -> false
 
 let is_broken () = get_role () = Broken
 
-exception This_host_is_a_master
+exception This_host_is_coordinator
 
 exception This_host_is_broken
 
-let get_master_address () =
+let get_address_of_coordinator_exn () =
   match get_role () with
-  | Slave ip ->
+  | Supporter ip ->
       ip
-  | Master ->
-      raise This_host_is_a_master
+  | Coordinator ->
+      raise This_host_is_coordinator
   | Broken ->
       raise This_host_is_broken
 
-let get_master_address_opt () =
-  match get_role () with Slave ip -> Some ip | Master | Broken -> None
+let get_address_of_coordinator () =
+  match get_role () with
+  | Supporter ip ->
+      Some ip
+  | Coordinator | Broken ->
+      None

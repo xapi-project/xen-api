@@ -207,9 +207,9 @@ let add_vgpus_to_vm ~__context host vm vgpus =
 (* The two functions below are the main entry points of this module *)
 
 (* Note that this function is called from Message_forwarding.allocate_vm_to_host,
- * only on the pool master, and with the global lock held. We therefore do not
- * need any further locking in any of the functions above, where resources are
- * reserved. *)
+   only on the coordinator, and with the global lock held. We therefore do not
+   need any further locking in any of the functions above, where resources are
+   reserved. *)
 let create_vgpus ~__context host (vm, vm_r) hvm =
   let vgpus = vgpus_of_vm ~__context vm_r in
   if vgpus <> [] && not hvm then
@@ -221,7 +221,8 @@ let create_vgpus ~__context host (vm, vm_r) hvm =
       ) ;
   add_vgpus_to_vm ~__context host vm vgpus
 
-(* This function is called from Xapi_xenops, after forwarding, so possibly on a slave. *)
+(* This function is called from Xapi_xenops, after forwarding, so possibly on a
+   supporter. *)
 let list_pcis_for_passthrough ~__context ~vm :
     (int * (int * int * int * int)) list =
   let pcis_of_vgpu = function

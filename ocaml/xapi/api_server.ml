@@ -139,7 +139,8 @@ module Forwarder = Message_forwarding.Forward (Actions)
 
 module Server = Server.Make (Actions) (Forwarder)
 
-(** Here are the functions to forward calls made on the unix domain socket on a slave to a master *)
+(** Here are the functions to forward calls made on the unix domain socket on
+    a supporter to a coordinator *)
 module D = Debug.Make (struct
   let name = "api_server"
 end)
@@ -150,7 +151,7 @@ let forward req call is_json =
   let transport =
     SSL
       ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ()) ()
-      , Pool_role.get_master_address ()
+      , Pool_role.get_address_of_coordinator_exn ()
       , !Constants.https_port
       )
   in
@@ -202,11 +203,11 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   (* in the whitelist, then forward *)
   let whitelisted = List.mem call.Rpc.name whitelist in
   let emergency_call = List.mem call.Rpc.name emergency_call_list in
-  let is_slave = not (Pool_role.is_master ()) in
-  if !Xapi_globs.slave_emergency_mode && not emergency_call then
+  let is_supporter = Pool_role.is_supporter () in
+  if !Xapi_globs.supporter_emergency_mode && not emergency_call then
     raise !Xapi_globs.emergency_mode_error ;
   if
-    is_slave
+    is_supporter
     && ((Context.is_unix_socket fd && not whitelisted)
        || (is_himn_req req && not emergency_call)
        )

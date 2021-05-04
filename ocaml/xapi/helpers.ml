@@ -122,7 +122,7 @@ let checknull f = try f () with _ -> "<not in database>"
 
 let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
 
-let get_master ~__context =
+let get_coordinator ~__context =
   Db.Pool.get_master ~__context ~self:(get_pool ~__context)
 
 (** [get_bridge_is_connected ~__context bridge] checks whether at least one of the physical
@@ -378,13 +378,13 @@ let make_rpc ~__context rpc : Rpc.response =
   let open Xmlrpc_client in
   let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
   let transport =
-    if Pool_role.is_master () then
+    if Pool_role.is_coordinator () then
       Unix Xapi_globs.unix_domain_socket
     else
       SSL
         ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ())
             ()
-        , Pool_role.get_master_address ()
+        , Pool_role.get_address_of_coordinator_exn ()
         , !Constants.https_port
         )
   in
@@ -409,13 +409,13 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
       Xapi_periodic_scheduler.add_to_queue (Ref.string_of task_id)
         Xapi_periodic_scheduler.OneShot timeout cancel ;
       let transport =
-        if Pool_role.is_master () then
+        if Pool_role.is_coordinator () then
           Unix Xapi_globs.unix_domain_socket
         else
           SSL
             ( SSL.make ~verify_cert:(Stunnel_client.pool ())
                 ~use_stunnel_cache:true ~task_id:(Ref.string_of task_id) ()
-            , Pool_role.get_master_address ()
+            , Pool_role.get_address_of_coordinator_exn ()
             , !Constants.https_port
             )
       in
@@ -457,21 +457,21 @@ type 'a api_object =
   | LocalObject of 'a Ref.t
   | RemoteObject of ((Rpc.call -> Rpc.response) * API.ref_session * 'a Ref.t)
 
-(** Log into pool master using the client code, call a function
+(** Log into pool coordinator using the client code, call a function
     passing it the rpc function and session id, logout when finished. *)
 let call_api_functions_internal ~__context f =
   let rpc = make_rpc ~__context in
-  (* let () = debug "logging into master" in *)
-  (* If we're the master then our existing session may be a client one without 'pool' flag set, so
-     we consider making a new one.
-     If we're a slave then our existing session (if we have one) may have the 'pool' flag set
-     because it would have been created for us in the message forwarding layer in the master,
-     so we just re-use it. However sometimes the session is directly created in slave without 'pool'
-     flag set (e.g. cross pool VM import).
-     So no matter we are master or slave we have to make sure get a session with 'pool' flag set.
-     If we haven't got an existing session in our context then we always make a new one *)
+  (* If we're the coordinator then our existing session may be a client one without
+     'pool' flag set, so we consider making a new one. If we're a secondary
+     then our existing session (if we have one) may have the 'pool' flag set
+     because it would have been created for us in the message forwarding layer
+     in the coordinator, so we just re-use it. However sometimes the session is
+     directly created in secondary without 'pool' flag set (e.g. cross pool VM
+     import). So no matter we are coordinator or secondary we have to make sure get
+     a session with 'pool' flag set. If we haven't got an existing session in
+     our context then we always make a new one *)
   let require_explicit_logout = ref false in
-  let do_master_login () =
+  let do_coordinator_login () =
     let session =
       Client.Client.Session.slave_login ~rpc ~host:(get_localhost ~__context)
         ~psecret:(Xapi_globs.pool_secret ())
@@ -490,9 +490,9 @@ let call_api_functions_internal ~__context f =
     | session_id, true ->
         session_id
     | _ ->
-        do_master_login ()
+        do_coordinator_login ()
     | exception _ ->
-        do_master_login ()
+        do_coordinator_login ()
   in
   (* let () = debug "login done" in *)
   finally
@@ -636,9 +636,11 @@ type boot_method =
 let rolling_upgrade_in_progress_of_oc oc =
   List.mem_assoc Xapi_globs.rolling_upgrade_in_progress oc
 
-(* Note: the reason it's OK to trap exceptions and return false is that -- an exn will only happen if the pool record
-   is not present in the database; that only happens on firstboot (when you're a master with no db and you're creating
-   the db for the first time). In that context you cannot be in rolling upgrade mode *)
+(* Note: the reason it's OK to trap exceptions and return false is that -- an
+   exn will only happen if the pool record is not present in the database; that
+   only happens on firstboot (when you're a coordinator with no db and you're
+   creating the db for the first time). In that context you cannot be in
+   rolling upgrade mode *)
 let rolling_upgrade_in_progress ~__context =
   try
     let pool = get_pool ~__context in
@@ -774,13 +776,13 @@ let is_sr_shared ~__context ~self =
   List.length (Db.SR.get_PBDs ~__context ~self) > 1
 
 let get_main_ip_address ~__context =
-  try Pool_role.get_master_address () with _ -> "127.0.0.1"
+  Option.value ~default:"127.0.0.1" (Pool_role.get_address_of_coordinator ())
 
-let is_pool_master ~__context ~host =
+let is_coordinator ~__context ~host =
   let host_id = Db.Host.get_uuid ~__context ~self:host in
-  let master = get_master ~__context in
-  let master_id = Db.Host.get_uuid ~__context ~self:master in
-  host_id = master_id
+  let coordinator = get_coordinator ~__context in
+  let coordinator_id = Db.Host.get_uuid ~__context ~self:coordinator in
+  host_id = coordinator_id
 
 (* Host version compare helpers *)
 let compare_int_lists : int list -> int list -> int =
@@ -878,17 +880,17 @@ let host_has_highest_version_in_pool :
 let host_versions_not_decreasing ~__context ~host_from ~host_to =
   compare_host_platform_versions ~__context host_from host_to <= 0
 
-let is_platform_version_same_on_master ~__context ~host =
-  if is_pool_master ~__context ~host then
+let is_platform_version_same_on_coordinator ~__context ~host =
+  if is_coordinator ~__context ~host then
     true
   else
-    let master = get_master ~__context in
-    compare_host_platform_versions ~__context (LocalObject master)
+    let coordinator = get_coordinator ~__context in
+    compare_host_platform_versions ~__context (LocalObject coordinator)
       (LocalObject host)
     = 0
 
-let assert_platform_version_is_same_on_master ~__context ~host ~self =
-  if not (is_platform_version_same_on_master ~__context ~host) then
+let assert_platform_version_is_same_on_coordinator ~__context ~host ~self =
+  if not (is_platform_version_same_on_coordinator ~__context ~host) then
     raise
       (Api_errors.Server_error
          ( Api_errors.vm_host_incompatible_version
@@ -1269,7 +1271,7 @@ let get_srmaster ~__context ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let pbds = Db.SR.get_PBDs ~__context ~self:sr in
   if shared then
-    get_master ~__context
+    get_coordinator ~__context
   else
     match List.length pbds with
     | 0 ->
@@ -1455,8 +1457,9 @@ let run_in_parallel ~funs ~capacity =
   in
   run_in_parallel' [] funs capacity
 
-(**************************************************************************************)
-(* The master uses a global mutex to mark database records before forwarding messages *)
+(****************************************************************************)
+(* The coordinator uses a global mutex to mark database records before
+   forwarding messages *)
 
 (** All must fear the global mutex *)
 let __internal_mutex = Mutex.create ()

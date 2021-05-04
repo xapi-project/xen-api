@@ -134,42 +134,49 @@ let update_all_allowed_operations ~__context =
       debug "Finished updating allowed operations: pool"
   )
 
-(* !!! This code was written in a world when tasks, current_operations and allowed_operations were persistent.
-   This is no longer the case (we changed this to reduce writes to flash for OEM case + to simplify xapi logic elsewhere).
-   The case where the slave calls the master to cancel its tasks is still useful; however, when the master restarts
-   then all the current-operations,allowed-operations and tasks for the whole pool will have been lost. We rely on the
-   resyncing code + persistent fields such as "currently-attached" etc. to provide enough lock-state across xapi restart
-   to ensure safe storage access. However, long-running xapi managed tasks are going to float off into the ether over a
-   master restart... *)
+(* !!! This code was written in a world when tasks, current_operations and
+   allowed_operations were persistent. This is no longer the case (we changed
+   this to reduce writes to flash for OEM case + to simplify xapi logic
+   elsewhere). The case where the supporter calls the coordinator to cancel
+   its tasks is still useful; however, when the coordinator restarts then all
+   the current-operations, allowed-operations and tasks for the whole pool will
+   have been lost. We rely on the resyncing code + persistent fields such as
+   "currently-attached" etc. to provide enough lock-state across xapi restart
+   to ensure safe storage access. However, long-running xapi managed tasks are
+   going to float off into the ether over a coordinator restart... *)
 
-(* When the master restarts, it updates all allowed_operations. The first time a slave says Pool.hello, it is not
-   necessary to update the allowed_operations again. The next time the slave says hello (eg after a slave but not master restart)
-   we do need to update the allowed_operations. This optimises the cold-boot/master-failover case. *)
+(* When the coordinator restarts, it updates all allowed_operations. The first
+   time a supporter calls Pool.hello, it is not necessary to update the
+   allowed_operations again. The next time it calls hello (eg after a supporter
+   but not coordinator restart) we do need to update the allowed_operations.
+   This optimises the cold-boot/coordinator-failover case. *)
 let hosts_already_cancelled = ref []
 
-let master_finished_initial_cancel = ref false
+let coordinator_finished_initial_cancel = ref false
 
 let cancelled_c = Condition.create ()
 
 let cancelled_m = Mutex.create ()
 
-(** Mark tasks that are pending or cancelling on this host as cancelled
-    This function is called by master on behalf of slave, when slave sends a "Pool.hello" msg on reconnect *)
+(** Mark tasks that are pending or cancelling on this host as cancelled. This
+    function is called by the coordinator on behalf of the supporter, when the
+    latter calls "Pool.hello" msg on reconnect *)
 let cancel_tasks_on_host ~__context ~host_opt =
   Xapi_stdext_threads.Threadext.Mutex.execute cancelled_m (fun () ->
-      (* Block Pool.hello on behalf of slaves until the master has finished the initial resync *)
+      (* Block Pool.hello on behalf of supporters until the coordinator has
+         finished the initial resync *)
       if host_opt = None (* initial sync, not Pool.hello *) then (
-        master_finished_initial_cancel := true ;
+        coordinator_finished_initial_cancel := true ;
         Condition.broadcast cancelled_c
       ) else
-        while not !master_finished_initial_cancel do
+        while not !coordinator_finished_initial_cancel do
           Condition.wait cancelled_c cancelled_m
         done ;
       let tasks = Db.Task.get_all ~__context in
       let this_host_tasks, should_update_all_allowed_operations =
         match host_opt with
         | None ->
-            debug "cancel_tasks_on_host: master will cancel all tasks" ;
+            debug "cancel_tasks_on_host: coordinator will cancel all tasks" ;
             (tasks, true)
         | Some host ->
             debug "cancel_tasks_on_host: host = %s" (Ref.string_of host) ;

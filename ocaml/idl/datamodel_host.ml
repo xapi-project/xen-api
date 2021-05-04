@@ -90,7 +90,7 @@ let local_assert_healthy =
         Api_errors.host_still_booting
       ; Api_errors.host_has_no_management_ip
       ; Api_errors.host_master_cannot_talk_back
-      ; Api_errors.host_unknown_to_master
+      ; Api_errors.host_unknown_to_coordinator
       ; Api_errors.host_broken
       ; Api_errors.license_restriction
       ; Api_errors.license_does_not_support_pooling
@@ -146,7 +146,7 @@ let request_backup =
     ~params:
       [
         (Ref _host, "host", "The Host to send the request to")
-      ; (Int, "generation", "The generation count of the master's database")
+      ; (Int, "generation", "The generation count of the coordinator's database")
       ; ( Bool
         , "force"
         , "If this is true then the client _has_ to take a backup, otherwise \
@@ -162,7 +162,10 @@ let request_config_file_sync =
     ~params:
       [
         (Ref _host, "host", "The Host to send the request to")
-      ; (String, "hash", "The hash of the master's dom0 config files package")
+      ; ( String
+        , "hash"
+        , "The hash of the coordinator's dom0 config files package"
+        )
       ]
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
@@ -973,7 +976,8 @@ let tickle_heartbeat =
         , "Anything else we want to let the master know"
         )
       ]
-    ~result:(Map (String, String), "Anything the master wants to tell the slave")
+    ~result:
+      (Map (String, String), "Anything the master wants to tell the supporter")
     ~doc:
       "Needs to be called every 30 seconds for the master to believe the host \
        is alive"
@@ -1715,12 +1719,12 @@ let apply_updates =
 let copy_primary_host_certs =
   call ~name:"copy_primary_host_certs" ~in_oss_since:None
     ~in_product_since:"1.307.0"
-    ~doc:"useful for secondary hosts that are missing some certs"
+    ~doc:"useful for supporters that are missing some certs"
     ~params:
       [
         ( Ref _host
         , "host"
-        , "this host receives a copy of the primary host's trusted certificates"
+        , "this host receives a copy of the coordinator's trusted certificates"
         )
       ]
     ~allowed_roles:_R_POOL_ADMIN ~hide_from_docs:true ~pool_internal:true ()

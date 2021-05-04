@@ -169,7 +169,7 @@ let checkpoint ~__context ~vm ~new_name =
 
 (* The following code have to run on the master as it manipulates the DB cache directly. *)
 let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
-  if not (Pool_role.is_master ()) then
+  if not (Pool_role.is_coordinator ()) then
     raise
       Api_errors.(
         Server_error

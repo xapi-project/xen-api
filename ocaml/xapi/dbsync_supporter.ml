@@ -24,7 +24,7 @@ open Create_misc
 open Client
 open Network
 
-module D = Debug.Make (struct let name = "dbsync" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
@@ -176,23 +176,6 @@ let record_host_memory_properties ~__context info =
               (obvious_overhead_memory_bytes ++ nonobvious_overhead_memory_bytes)
         )
         boot_memory_bytes
-
-(* -- used this for testing uniqueness constraints executed on slave do not kill connection.
-   Committing commented out vsn of this because it might be useful again..
-   let test_uniqueness_doesnt_kill_us ~__context =
-   let duplicate_uuid = Uuid.to_string (Uuid.make_uuid()) in
-    Db.Network.create ~__context ~ref:(Ref.make()) ~uuid:duplicate_uuid
-      ~current_operations:[] ~allowed_operations:[]
-      ~name_label:"Test uniqueness constraint"
-      ~name_description:"Testing"
-      ~bridge:"bridge" ~other_config:[] ~purpose:[];
-    Db.Network.create ~__context ~ref:(Ref.make()) ~uuid:duplicate_uuid
-      ~current_operations:[] ~allowed_operations:[]
-      ~name_label:"Test uniqueness constraint"
-      ~name_description:"Testing"
-      ~bridge:"bridge" ~other_config:[] ~purpose:[];
-    ()
-*)
 
 (* CA-23803:
  * As well as marking the management interface as attached, mark any other important

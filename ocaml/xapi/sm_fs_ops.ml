@@ -38,11 +38,11 @@ let with_open_block_attached_device __context rpc session_id vdi mode f =
   )
 
 (** Return a URL suitable for passing to the sparse_dd process *)
-let import_vdi_url ~__context ?(prefer_slaves = false) _rpc session_id task_id
-    vdi =
+let import_vdi_url ~__context ?(prefer_supporters = false) _rpc session_id
+    task_id vdi =
   (* Find a suitable host for the SR containing the VDI *)
   let sr = Db.VDI.get_SR ~__context ~self:vdi in
-  let host = Importexport.find_host_for_sr ~__context ~prefer_slaves sr in
+  let host = Importexport.find_host_for_sr ~__context ~prefer_supporters sr in
   let address =
     Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host)
   in
@@ -146,19 +146,19 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
                 )
               else
                 (* Create a new subtask for the inter-host sparse_dd. Without
-                   							 * this there was a race in VM.copy, as both VDI.copy and VM.copy
-                   							 * would be waiting on the same VDI.copy task.
-                   							 *
-                   							 * Now, VDI.copy waits for the sparse_dd task, and VM.copy in turn
-                   							 * waits for the VDI.copy task.
-                   							 *
-                   							 * Note that progress updates are still applied directly to the
-                   							 * VDI.copy task. *)
+                   this there was a race in VM.copy, as both VDI.copy and VM.copy
+                   would be waiting on the same VDI.copy task.
+
+                   Now, VDI.copy waits for the sparse_dd task, and VM.copy in turn
+                   waits for the VDI.copy task.
+
+                   Note that progress updates are still applied directly to the
+                   VDI.copy task. *)
                 Server_helpers.exec_with_subtask ~__context
                   ~task_in_database:true "sparse_dd" (fun ~__context ->
                     let import_task_id = Context.get_task_id __context in
                     let remote_uri =
-                      import_vdi_url ~__context ~prefer_slaves:true rpc
+                      import_vdi_url ~__context ~prefer_supporters:true rpc
                         session_id import_task_id vdi_dst
                     in
                     debug "remote_uri = %s" remote_uri ;

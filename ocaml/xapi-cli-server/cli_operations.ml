@@ -1602,7 +1602,7 @@ let pool_emergency_reset_master printer rpc session_id params =
 
 let pool_emergency_transition_to_master printer rpc session_id params =
   let force = get_bool_param params "force" in
-  if (not (Pool_role.is_master ())) || force then (
+  if (not (Pool_role.is_coordinator ())) || force then (
     Client.Pool.emergency_transition_to_master ~rpc ~session_id ;
     printer
       (Cli_printer.PList

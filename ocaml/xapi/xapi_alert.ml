@@ -50,7 +50,7 @@ let alert_queue_push =
 (** Function which guarantees not to block and creates the message on a 'best-effort' basis *)
 let add ~msg:(name, priority) ~cls ~obj_uuid ~body =
   let sent =
-    if Pool_role.is_master () then
+    if Pool_role.is_coordinator () then
       Server_helpers.exec_with_new_task "Sending an alert"
         ~task_in_database:false (fun __context ->
           let (_ : 'a Ref.t) =

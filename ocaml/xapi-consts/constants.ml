@@ -200,15 +200,15 @@ let default_smapiv3_cluster_stack = "corosync"
 (* Note: default without clustering is in !Xapi_globs.default_cluster_stack *)
 let supported_smapiv3_cluster_stacks = ["corosync"]
 
-(* Set in the local db to cause us to emit an alert when we come up as a master after
-   a transition or HA failover *)
-let this_node_just_became_master = "this_node_just_became_master"
+(* Set in the local db to cause us to emit an alert when we come up as a
+   coordinator after a transition or HA failover *)
+let this_node_just_became_coordinator = "this_node_just_became_master"
 
 (* Environment variables used to communicate with HA reconfigure script *)
 let ha_peers = "ha_peers"
 
-(* Stores whether we've executed the master scripts *)
-let master_scripts = "master_scripts"
+(* Stores whether we've executed the coordinator scripts *)
+let coordinator_scripts = "master_scripts"
 
 (* This flag is set when we commit to rebooting or shutting down the host when HA is enabled.
    This will prevent anyone from re-enabling the host and starting VMs on it during shutdown. *)

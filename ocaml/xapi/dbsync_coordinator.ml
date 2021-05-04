@@ -15,7 +15,7 @@
  * @group Main Loop and Start-up
 *)
 
-module D = Debug.Make (struct let name = "dbsync" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 open Client

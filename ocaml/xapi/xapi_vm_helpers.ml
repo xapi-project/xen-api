@@ -864,18 +864,18 @@ let possible_hosts ~__context ?vm ~choose_fn () =
     argument is present, then this function additionally prints a debug message
     that includes the names of the given VM and the subset of all hosts that
     satisfy the given function [choose_fn]. *)
-let choose_host ~__context ?vm ~choose_fn ?(prefer_slaves = false) () =
+let choose_host ~__context ?vm ~choose_fn ?(prefer_supporters = false) () =
   let choices = possible_hosts ~__context ?vm ~choose_fn () in
   match choices with
   | [] ->
-      raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+      raise Api_errors.(Server_error (no_hosts_available, []))
   | [h] ->
       h
   | _ ->
       let choices =
-        if prefer_slaves then
-          let master = Helpers.get_master ~__context in
-          List.filter (( <> ) master) choices
+        if prefer_supporters then
+          let coordinator = Helpers.get_coordinator ~__context in
+          List.filter (( <> ) coordinator) choices
         else
           choices
       in

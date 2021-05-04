@@ -62,13 +62,13 @@ let i_have_statefile_access () =
       (ExnHelper.string_of_exn e) ;
     false
 
-(** Returns true if this node is allowed to be the master *)
-let propose_master () =
+(** Returns true if this node is allowed to be the coordinator *)
+let propose_coordinator () =
   try
-    let result = call_script ha_propose_master [] in
+    let result = call_script ha_propose_coordinator [] in
     Xapi_stdext_std.Xstringext.String.rtrim result = "TRUE"
   with Xha_error e ->
-    error "ha_propose_master threw unexpected exception: %s"
+    error "%s threw unexpected exception: %s" __FUNCTION__
       (Xha_errno.to_string e) ;
     false
 
@@ -121,25 +121,26 @@ let uuid_of_host_address address =
   )
 
 (** Called in two circumstances:
-    1. When I started up I thought I was the master but my proposal was rejected by the
-    heartbeat component.
-    2. I was happily running as someone's slave but they left the liveset.
+    1. When I started up I thought I was the coordinator but my proposal was
+    rejected by the heartbeat component.
+    2. I was happily running as a supporter but they left the liveset.
 *)
-let on_master_failure () =
-  (* The plan is: keep asking if I should be the master. If I'm rejected then query the
-     live set and see if someone else has been marked as master, if so become a slave of them. *)
-  let become_master () =
-    info "This node will become the master" ;
-    Xapi_pool_transition.become_master () ;
+let on_coordinator_failure () =
+  (* The plan is: keep asking if I should be the coordinator. If I'm rejected
+     then query the live set and see if someone else has been marked as
+     coordinator, if so become their supporter. *)
+  let become_coordinator () =
+    info "This node will become the coordinator" ;
+    Xapi_pool_transition.become_coordinator () ;
     info "Waiting for server restart" ;
     while true do
       Thread.delay 3600.
     done
   in
-  let become_slave_of uuid =
+  let become_supporter_of uuid =
     let address = address_of_host_uuid uuid in
-    info "This node will become the slave of host %s (%s)" uuid address ;
-    Xapi_pool_transition.become_another_masters_slave address ;
+    info "This node will become a supporter of host %s (%s)" uuid address ;
+    Xapi_pool_transition.become_supporter_to address ;
     (* XXX CA-16388: prevent blocking *)
     Thread.delay 15. ;
     error "Failed to flush and exit properly; forcibly exiting" ;
@@ -147,20 +148,20 @@ let on_master_failure () =
   in
   let finished = ref false in
   while not !finished do
-    (* When HA is disabled without the statefile we set a flag to indicate that this node
-       cannot transition to master automatically on boot. This is to prevent failures during
-       the 'disarm fencing' step which cause some nodes to not fence themselves when they should. *)
-    if local_failover_decisions_are_ok () && propose_master () then (
-      info "ha_propose_master succeeded" ;
-      become_master () ;
+    (* When HA is disabled without the statefile we set a flag to indicate that
+       this node cannot transition to coordinator automatically on boot. This
+       is to prevent failures during the 'disarm fencing' step which cause some
+       nodes to not fence themselves when they should. *)
+    if local_failover_decisions_are_ok () && propose_coordinator () then (
+      info "%s: becoming coordinator" __FUNCTION__ ;
+      become_coordinator () ;
       finished := true
     ) else (
       if local_failover_decisions_are_ok () then
-        info "ha_propose_master failed: looking for another master"
+        info "%s: looking for another coordinator" __FUNCTION__
       else
-        info
-          "ha_can_not_be_master_on_next_boot set: I cannot be master; looking \
-           for another master" ;
+        info "%s: I cannot be coordinator; looking for another coordinator"
+          __FUNCTION__ ;
       let liveset = query_liveset () in
       match
         Hashtbl.fold
@@ -168,7 +169,7 @@ let on_master_failure () =
             if
               host.Xha_interface.LiveSetInformation.Host.master
               && host.Xha_interface.LiveSetInformation.Host.liveness
-              (* CP-25481: a dead host may still have the master lock *)
+              (* CP-25481: a dead host may still have the coordinator lock *)
             then
               uuid :: acc
             else
@@ -177,15 +178,15 @@ let on_master_failure () =
           liveset.Xha_interface.LiveSetInformation.hosts []
       with
       | [] ->
-          info "no other master exists yet; waiting 5 seconds and retrying" ;
+          info "no other coordinator exists yet; waiting 5 seconds and retrying" ;
           Thread.delay 5.
       | [uuid] ->
-          become_slave_of (Uuid.to_string uuid)
+          become_supporter_of (Uuid.to_string uuid)
       | xs ->
           (* should never happen *)
-          error "multiple masters reported: [ %s ]; failing"
+          error "multiple coordinators reported: [ %s ]; failing"
             (String.concat "; " (List.map Uuid.to_string xs)) ;
-          failwith "multiple masters"
+          failwith "multiple coordinators"
     )
   done
 
@@ -293,10 +294,10 @@ module Monitor = struct
   (** Background thread which monitors the membership set and takes action if HA is
       armed and something goes wrong *)
   let ha_monitor () : unit =
-    Debug.with_thread_named "ha_monitor"
+    Debug.with_thread_named __FUNCTION__
       (fun () ->
         debug "initialising HA background thread" ;
-        (* NB we may be running this code on a slave in emergency mode *)
+        (* NB we may be running this code on a supporter in emergency mode *)
         Server_helpers.exec_with_new_task "HA monitor" (fun __context ->
             let statefiles = Xha_statefile.list_existing_statefiles () in
             debug "HA background thread starting" ;
@@ -347,8 +348,10 @@ module Monitor = struct
                    )
                 )
             in
-            (* Pool-wide warning which is logged by the master *and* generates an alert. Since this call is only ever made on the master we're
-               ok to make database calls to compute the message body without worrying about the db call blocking: *)
+            (* Pool-wide warning which is logged by the coordinator *and*
+               generates an alert. Since this call is only ever made on the
+               coordinator we're ok to make database calls to compute the
+               message body without worrying about the db call blocking: *)
             let warning_all_live_nodes_lost_statefile =
               boolean_warning Api_messages.ha_statefile_lost
                 (Some
@@ -451,30 +454,31 @@ module Monitor = struct
               debug "Done with warnings" ;
               liveset
             in
-            (* Slaves monitor the master                                    *)
-            (* WARNING: must not touch the database or perform blocking I/O *)
-            let process_liveset_on_slave liveset =
-              let address = Pool_role.get_master_address () in
-              let master_uuid = uuid_of_host_address address in
-              let master_info =
+            (* Supporters monitor the coordinator
+               WARNING: must not touch the database or perform blocking I/O *)
+            let process_liveset_on_supporter liveset =
+              let address = Pool_role.get_address_of_coordinator_exn () in
+              let coordinator_uuid = uuid_of_host_address address in
+              let coordinator_info =
                 Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-                  master_uuid
+                  coordinator_uuid
               in
               if
                 true
-                && master_info.Xha_interface.LiveSetInformation.Host.liveness
-                && master_info.Xha_interface.LiveSetInformation.Host.master
+                && coordinator_info
+                     .Xha_interface.LiveSetInformation.Host.liveness
+                && coordinator_info.Xha_interface.LiveSetInformation.Host.master
               then
                 debug
-                  "The node we think is the master is still alive and marked \
-                   as master; this is OK"
+                  "The node we think is the coordinator is still alive and \
+                   marked as coordinator; this is OK"
               else (
                 warn
-                  "We think node %s (%s) is the master but the liveset \
+                  "We think node %s (%s) is the coordinator but the liveset \
                    disagrees"
-                  (Uuid.to_string master_uuid)
+                  (Uuid.to_string coordinator_uuid)
                   address ;
-                on_master_failure ()
+                on_coordinator_failure ()
               )
             in
             (* Return the host UUIDs of all nodes in the liveset *)
@@ -488,9 +492,10 @@ module Monitor = struct
                 )
                 liveset.Xha_interface.LiveSetInformation.hosts []
             in
-            (* Master performs VM restart and keeps track of the recovery plan *)
-            (* WARNING: database is ok but must not perform blocking I/O       *)
-            let process_liveset_on_master liveset =
+            (* Coordinator performs VM restart and keeps track of the recovery
+               plan.
+               WARNING: database is ok but must not perform blocking I/O *)
+            let process_liveset_on_coordinator liveset =
               let pool = Helpers.get_pool ~__context in
               let to_tolerate =
                 Int64.to_int
@@ -715,10 +720,10 @@ module Monitor = struct
               )
             in
             (* Wait for all hosts in the liveset to become enabled so we can start VMs on them. We wait for up to ha_monitor_startup_timeout. *)
-            let wait_for_slaves_on_master () =
+            let wait_for_supporters_on_coordinator () =
               (* CA-17849: need to make sure that, in the xapi startup case, all hosts have been set to dead and disabled initially *)
               info
-                "Master HA startup waiting for explicit signal that the \
+                "Coordinator HA startup waiting for explicit signal that the \
                  database state is valid" ;
               Mutex.execute thread_m (fun () ->
                   while not !database_state_valid do
@@ -726,8 +731,8 @@ module Monitor = struct
                   done
               ) ;
               info
-                "Master HA startup waiting for up to %.2f for slaves in the \
-                 liveset to report in and enable themselves"
+                "Coordinator HA startup waiting for up to %.2f for supporters \
+                 in the liveset to report in and enable themselves"
                 !Xapi_globs.ha_monitor_startup_timeout ;
               let start = Unix.gettimeofday () in
               let finished = ref false in
@@ -760,8 +765,8 @@ module Monitor = struct
                       (String.concat "; " (List.map fst disabled)) ;
                     if disabled = [] then (
                       info
-                        "Master HA startup: All live hosts are now enabled: [ \
-                         %s ]"
+                        "Coordinator HA startup: All live hosts are now \
+                         enabled: [ %s ]"
                         (String.concat "; " (List.map fst enabled)) ;
                       finished := true
                     ) ;
@@ -771,33 +776,38 @@ module Monitor = struct
                       && disabled <> []
                     then (
                       info
-                        "Master HA startup: Timed out waiting for all live \
-                         slaves to enable themselves (have some hosts failed \
-                         to attach storage?) Live but disabled hosts: [ %s ]"
+                        "Coordinator HA startup: Timed out waiting for all \
+                         live supporters to enable themselves (have some hosts \
+                         failed to attach storage?) Live but disabled hosts: [ \
+                         %s ]"
                         (String.concat "; " (List.map fst disabled)) ;
                       finished := true
                     )
                   )
                 with e ->
                   debug
-                    "Exception in HA monitor thread while waiting for slaves: \
-                     %s"
+                    "Exception in HA monitor thread while waiting for \
+                     supporters: %s"
                     (ExnHelper.string_of_exn e) ;
                   Thread.delay !Xapi_globs.ha_monitor_interval
               done
             in
-            (* If we're the master we must wait for our live slaves to turn up before we consider restarting VMs etc *)
-            if Pool_role.is_master () then wait_for_slaves_on_master () ;
+            (* If we're the coordinator we must wait for our live supporters
+               to turn up before we consider restarting VMs etc *)
+            if Pool_role.is_coordinator () then
+              wait_for_supporters_on_coordinator () ;
             (* Monitoring phase: we must assume the worst and not touch the database here *)
             while Mutex.execute m (fun () -> not !request_shutdown) do
               try
                 ignore (Delay.wait delay !Xapi_globs.ha_monitor_interval) ;
                 if Mutex.execute m (fun () -> not !request_shutdown) then (
                   let liveset = query_liveset_on_all_hosts () in
-                  if Pool_role.is_slave () then process_liveset_on_slave liveset ;
-                  if Pool_role.is_master () then
-                    (* CA-23998: allow MTC to block master failover actions (ie VM restart) for a
-                       certain period of time while their Level 2 VMs are being restarted. *)
+                  if Pool_role.is_supporter () then
+                    process_liveset_on_supporter liveset ;
+                  if Pool_role.is_coordinator () then
+                    (* CA-23998: allow MTC to block coordinator failover
+                       actions (ie VM restart) for a certain period of time
+                       while their Level 2 VMs are being restarted. *)
                     finally
                       (fun () ->
                         let until =
@@ -818,7 +828,7 @@ module Monitor = struct
                              %.0f seconds"
                             (until -. now)
                         else
-                          process_liveset_on_master liveset
+                          process_liveset_on_coordinator liveset
                       )
                       (fun () ->
                         (* Safe to unblock callers of 'delay' now *)
@@ -948,14 +958,15 @@ let redo_log_ha_disabled_during_runtime __context =
  * the DB backend is initialised. Read the latest DB from the block-device, and
  * make future DB changes get written as deltas. *)
 let redo_log_ha_enabled_at_startup () =
-  (* If we are still the master, extract any HA metadata database so we can consider population from it *)
-  if Pool_role.is_master () then (
+  (* If we are still the coordinator, extract any HA metadata database so we
+     can consider population from it *)
+  if Pool_role.is_coordinator () then (
     debug "HA is enabled, so enabling writing to redo-log" ;
     Redo_log.enable ha_redo_log Xapi_globs.ha_metadata_vdi_reason ;
     (* enable the use of the redo log *)
     debug
-      "This node is a master; attempting to extract a database from a metadata \
-       VDI" ;
+      "This node is a coordinator; attempting to extract a database from a \
+       metadata VDI" ;
     let db_ref = Db_backend.make () in
     Redo_log_usage.read_from_redo_log ha_redo_log Db_globs.ha_metadata_db db_ref
     (* best effort only: does not raise any exceptions *)
@@ -1007,11 +1018,13 @@ let on_server_restart () =
       | Xha_error Xha_errno.Mtc_exit_can_not_access_statefile as e ->
           warn
             "ha_start_daemon failed with MTC_EXIT_CAN_NOT_ACCESS_STATEFILE: \
-             will contact existing master and check if HA is still enabled" ;
-          (* check the Pool.ha_enabled on the master... assuming we can find the master. If we can't we stay here forever. *)
-          let master_can_confirm_ha_is_disabled () =
+             will contact existing coordinator and check if HA is still \
+             enabled" ;
+          (* check the Pool.ha_enabled on the coordinator... assuming we can
+             find the it. If we can't we stay here forever. *)
+          let coordinator_can_confirm_ha_is_disabled () =
             try
-              let address = Pool_role.get_master_address () in
+              let address = Pool_role.get_address_of_coordinator_exn () in
               Helpers.call_emergency_mode_functions address
                 (fun rpc session_id ->
                   let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
@@ -1021,9 +1034,9 @@ let on_server_restart () =
               (* there's no-one for us to ask about whether HA is enabled or not *)
               false
           in
-          if master_can_confirm_ha_is_disabled () then (
+          if coordinator_can_confirm_ha_is_disabled () then (
             info
-              "Existing master confirmed that HA is disabled pool-wide: \
+              "Existing coordinator confirmed that HA is disabled pool-wide: \
                disabling HA on this host" ;
             Localdb.put Constants.ha_armed "false" ;
             raise e
@@ -1031,7 +1044,7 @@ let on_server_restart () =
           info
             "Assuming HA is still enabled on the Pool and that our storage \
              system has failed: will retry in 10s" ;
-          Xapi_globs.slave_emergency_mode := true ;
+          Xapi_globs.supporter_emergency_mode := true ;
           Xapi_globs.emergency_mode_error :=
             Api_errors.Server_error
               (Api_errors.ha_host_cannot_access_statefile, []) ;
@@ -1041,7 +1054,7 @@ let on_server_restart () =
           error
             "ha_start_daemon failed with unexpected error %s: will retry in 10s"
             (Xha_errno.to_string errno) ;
-          Xapi_globs.slave_emergency_mode := true ;
+          Xapi_globs.supporter_emergency_mode := true ;
           Xapi_globs.emergency_mode_error :=
             Api_errors.Server_error
               (Api_errors.ha_heartbeat_daemon_startup_failed, []) ;
@@ -1052,23 +1065,23 @@ let on_server_restart () =
             "ha_start_daemon failed with unexpected exception: %s -- retrying \
              in 10s"
             (ExnHelper.string_of_exn e) ;
-          Xapi_globs.slave_emergency_mode := true ;
+          Xapi_globs.supporter_emergency_mode := true ;
           Xapi_globs.emergency_mode_error :=
             Api_errors.Server_error
               (Api_errors.ha_heartbeat_daemon_startup_failed, []) ;
           Helpers.touch_file !Xapi_globs.ready_file ;
           Thread.delay 10.
     done ;
-    if Pool_role.is_master () then
+    if Pool_role.is_coordinator () then
       if not (local_failover_decisions_are_ok ()) then (
         warn
           "ha.disable_failover_decisions flag set: not proposing myself as \
-           master" ;
-        on_master_failure ()
-      ) else if propose_master () then
+           coordinator" ;
+        on_coordinator_failure ()
+      ) else if propose_coordinator () then
         info "ha_propose_master succeeded; continuing"
       else
-        on_master_failure () ;
+        on_coordinator_failure () ;
     (* Start up the redo-log if appropriate. *)
     redo_log_ha_enabled_at_startup () ;
     debug "About to start the monitor" ;
@@ -1347,9 +1360,9 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
   Localdb.put Constants.ha_cluster_stack cluster_stack ;
   Db.Host.set_ha_statefiles ~__context ~self:localhost
     ~value:(List.map Ref.string_of statevdis) ;
-  (* The master has already attached the statefile VDIs and written the
+  (* The coordinator has already attached the statefile VDIs and written the
      configuration file. *)
-  if not (Pool_role.is_master ()) then (
+  if not (Pool_role.is_coordinator ()) then (
     let statefiles = attach_statefiles ~__context statevdis in
     write_config_file ~__context statefiles generation ;
     (* It's unnecessary to remember the path since this can be queried dynamically *)
@@ -1365,24 +1378,25 @@ let join_liveset __context host =
   Localdb.put Constants.ha_disable_failover_decisions "false" ;
   Localdb.put Constants.ha_armed "true" ;
   info "Local flag ha_armed <- true" ;
-  (* If this host is the current master then it must assert its authority as master;
-     otherwise another host's heartbeat thread might conclude that the master has gone
-     and propose itself. This would lead the xHA notion of master to immediately diverge
-     from the XenAPI notion. *)
-  ( if Pool_role.is_master () then (
-      if not (propose_master ()) then
-        failwith "failed to propose the current master as master" ;
+  (* If this host is the current coordinator then it must assert its authority;
+     otherwise another host's heartbeat thread might conclude that the
+     coordinator has gone and propose itself. This would lead the xHA notion of
+     coordinator to immediately diverge from the XenAPI notion. *)
+  ( if Pool_role.is_coordinator () then (
+      if not (propose_coordinator ()) then
+        failwith "failed to propose the current coordinator as coordinator" ;
       info "ha_propose_master succeeded; continuing"
     ) else
-      (* If this host is a slave then we must wait to confirm that the master manages to
-         assert itself, otherwise our monitoring thread might attempt a hostile takeover *)
-      let master_address = Pool_role.get_master_address () in
-      let master_uuid = uuid_of_host_address master_address in
-      let master_found = ref false in
-      while not !master_found do
-        (* It takes a non-trivial amount of time for the master to assert itself: we might
-           as well wait here rather than enumerating all the if/then/else branches where we
-           should wait. *)
+      (* If this host is a supporter then we must wait to confirm that the
+         coordinator manages to assert itself, otherwise our monitoring thread
+         might attempt a hostile takeover *)
+      let coordinator_address = Pool_role.get_address_of_coordinator_exn () in
+      let coordinator_uuid = uuid_of_host_address coordinator_address in
+      let coordinator_found = ref false in
+      while not !coordinator_found do
+        (* It takes a non-trivial amount of time for the coordinator to assert
+           itself: we might as well wait here rather than enumerating all the
+           if/then/else branches where we should wait. *)
         Thread.delay 5. ;
         let liveset = query_liveset () in
         debug "Liveset: %s"
@@ -1391,30 +1405,32 @@ let join_liveset __context host =
           liveset.Xha_interface.LiveSetInformation.status
           = Xha_interface.LiveSetInformation.Status.Online
         then
-          (* 'master' is the node we believe should become the xHA-level master initially *)
-          let master =
+          (* 'coordinator' is the node we believe should become the xHA-level
+             coordinator initially *)
+          let coordinator =
             Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-              master_uuid
+              coordinator_uuid
           in
-          if master.Xha_interface.LiveSetInformation.Host.master then (
-            info "existing master has successfully asserted itself" ;
-            master_found := true (* loop will terminate *)
+          if coordinator.Xha_interface.LiveSetInformation.Host.master then (
+            info "existing coordinator has successfully asserted itself" ;
+            coordinator_found := true (* loop will terminate *)
           ) else if
               false
-              || (not master.Xha_interface.LiveSetInformation.Host.liveness)
-              || master
+              || (not coordinator.Xha_interface.LiveSetInformation.Host.liveness)
+              || coordinator
                    .Xha_interface.LiveSetInformation.Host.state_file_corrupted
               || (not
-                    master
+                    coordinator
                       .Xha_interface.LiveSetInformation.Host.state_file_access
                  )
-              || master.Xha_interface.LiveSetInformation.Host.excluded
+              || coordinator.Xha_interface.LiveSetInformation.Host.excluded
             then (
-            error "Existing master has failed during HA enable process" ;
-            failwith "Existing master failed during HA enable process"
+            error "Existing coordinator has failed during HA enable process" ;
+            failwith "Existing coordinator failed during HA enable process"
           ) else
             debug
-              "existing master has not yet asserted itself: looking again in 5s"
+              "existing coordinator has not yet asserted itself: looking again \
+               in 5s"
         else
           debug "liveset is not yet online: looking again in 5s"
       done
@@ -1424,58 +1440,59 @@ let join_liveset __context host =
   Monitor.signal_database_state_valid ()
 
 (* The last proposal received *)
-let proposed_master : string option ref = ref None
+let proposed_coordinator : string option ref = ref None
 
-(* The time the proposal was received. XXX need to be quite careful with timeouts to handle
-   the case where the proposed new master dies in the middle of the protocol. Once we believe
-   it has self-fenced then we can abort the transaction. *)
-let proposed_master_time = ref 0.
+(* The time the proposal was received. XXX need to be quite careful with
+   timeouts to handle the case where the proposed new coordinator becomes
+   offline in the middle of the protocol. Once we believe it has self-fenced
+   then we can abort the transaction. *)
+let proposed_coordinator_time = ref 0.
 
-let proposed_master_m = Mutex.create ()
+let proposed_coordinator_m = Mutex.create ()
 
 (* This should be called under proposed_master_m *)
-let rec propose_new_master_internal ~__context ~address ~manual =
+let rec propose_new_coordinator_internal ~__context ~address ~manual =
   (* Handy function to throw the right API error *)
   let issue_abort reason =
     raise (Api_errors.Server_error (Api_errors.ha_abort_new_master, [reason]))
   in
-  match !proposed_master with
+  match !proposed_coordinator with
   | Some x when address = x ->
-      proposed_master_time := Unix.gettimeofday ()
+      proposed_coordinator_time := Unix.gettimeofday ()
   | Some x ->
       (* XXX: check if we're past the fencing time *)
       let now = Unix.gettimeofday () in
-      let diff = now -. !proposed_master_time in
+      let diff = now -. !proposed_coordinator_time in
       let ten_minutes = 10. *. 60. in
       (* TO TEST: change to 60 secs *)
       if diff > ten_minutes then (
-        proposed_master := None ;
-        propose_new_master_internal ~__context ~address ~manual
+        proposed_coordinator := None ;
+        propose_new_coordinator_internal ~__context ~address ~manual
       ) else
         issue_abort
           (Printf.sprintf
              "Already agreed to commit host address '%s' at %s ('%f' secs ago)"
              x
-             (Date.to_string (Date.of_float !proposed_master_time))
+             (Date.to_string (Date.of_float !proposed_coordinator_time))
              diff
           )
   | None ->
       (* XXX no more automatic transititions *)
-      proposed_master := Some address ;
-      proposed_master_time := Unix.gettimeofday ()
+      proposed_coordinator := Some address ;
+      proposed_coordinator_time := Unix.gettimeofday ()
 
-let propose_new_master ~__context ~address ~manual =
-  Mutex.execute proposed_master_m (fun () ->
-      propose_new_master_internal ~__context ~address ~manual
+let propose_new_coordinator ~__context ~address ~manual =
+  Mutex.execute proposed_coordinator_m (fun () ->
+      propose_new_coordinator_internal ~__context ~address ~manual
   )
 
-let commit_new_master ~__context ~address =
-  ( match !proposed_master with
+let commit_new_coordinator ~__context ~address =
+  ( match !proposed_coordinator with
   | Some x when x <> address ->
       let msg =
         Printf.sprintf
-          "Received commit_new_master(%s) but previously received proposal for \
-           %s"
+          "Received commit_new_coordinator(%s) but previously received \
+           proposal for %s"
           address x
       in
       error "%s" msg ;
@@ -1483,29 +1500,31 @@ let commit_new_master ~__context ~address =
   | None ->
       let msg =
         Printf.sprintf
-          "Received commit_new_master(%s) but never received a proposal" address
+          "Received commit_new_coordinator(%s) but never received a proposal"
+          address
       in
       error "%s" msg ;
       raise (Api_errors.Server_error (Api_errors.ha_abort_new_master, [msg]))
   | Some _ ->
-      debug "Setting new master address to: %s" address
+      debug "Setting new coordinator address to: %s" address
   ) ;
-  Mutex.execute proposed_master_m (fun () ->
+  Mutex.execute proposed_coordinator_m (fun () ->
       (* NB we might not be in emergency mode yet, so not identical to
-         			   Xapi_pool.emergency_reset_master *)
+         Xapi_pool.emergency_reset_master *)
       if Helpers.this_is_my_address ~__context address then
-        Xapi_pool_transition.become_master ()
+        Xapi_pool_transition.become_coordinator ()
       else
-        Xapi_pool_transition.become_another_masters_slave address
+        Xapi_pool_transition.become_supporter_to address
   )
 
-let abort_new_master ~__context ~address =
-  Mutex.execute proposed_master_m (fun () ->
-      if !proposed_master = None then
+let abort_new_coordinator ~__context ~address =
+  Mutex.execute proposed_coordinator_m (fun () ->
+      if !proposed_coordinator = None then
         error
-          "Received abort_new_master %s but we never saw the original proposal"
+          "Received abort_new_coordinator %s but we never saw the original \
+           proposal"
           address ;
-      proposed_master := None
+      proposed_coordinator := None
   )
 
 (*********************************************************************************************)
@@ -1529,16 +1548,19 @@ let disable_internal __context =
   in
   redo_log_ha_disabled_during_runtime __context ;
   (* Steps from 8.6 Disabling HA
-     If the master has access to the state file (how do we determine this)?
+     If the coordinator has access to the state file:
      * ha_set_pool_state(invalid)
-     If the master hasn't access to the state file but all hosts are available via heartbeat
-     * set the flag "cannot be master and no VM failover decision on next boot"
+
+     If the coordinator hasn't access to the state file but all hosts
+     are available via heartbeat:
+     * set the flag "cannot be coordinator and no VM failover decision on next
+       boot"
      * ha_disarm_fencing()
      * ha_stop_daemon()
      * Otherwise we'll be fenced *)
   let hosts = Db.Host.get_all ~__context in
   (* Attempt the HA disable via the statefile, returning true if successful and false
-      		otherwise. If false then we'll retry with the no-statefile procedure *)
+     otherwise. If false then we'll retry with the no-statefile procedure *)
   let attempt_disable_through_statefile () =
     info "I have statefile access -- setting pool state to invalid" ;
     (* FIST *)
@@ -1565,11 +1587,12 @@ let disable_internal __context =
        We can prevent this by explicitly stopping our HA daemon now -- this will cause remaining
        nodes to self-fence if the statefile disappears. *)
     Helpers.log_exn_continue
-      "stopping HA daemon on the master after setting pool state to invalid"
+      "stopping HA daemon on the coordinator after setting pool state to \
+       invalid"
       (fun () -> ha_stop_daemon __context (Helpers.get_localhost ~__context))
       () ;
-    (* No node may become the master automatically without the statefile so we can safely change
-       		   the Pool state to disabled *)
+    (* No node may become the coordinator automatically without the statefile
+       so we can safely change the Pool state to disabled *)
     Db.Pool.set_ha_plan_exists_for ~__context ~self:pool ~value:0L ;
     Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false ;
     info "Pool.ha_enabled <- false" ;
@@ -1631,16 +1654,19 @@ let disable_internal __context =
           )
           errors ;
         if errors <> [] then raise (snd (List.hd errors)) ;
-        (* From this point no host will attempt to become the new master so no split-brain.
+        (* From this point no host will attempt to become the new coordinator
+           so no split-brain.
 
-           This also means that we own the pool database and can safely set ha_enabled to false,
-           knowing that, although each slave has a backup database where ha_enabled is still true,
-           they won't be able to rollback our change because they cannot become the master.
+           This also means that we own the pool database and can safely set
+           ha_enabled to false, knowing that, although each supporter has a
+           backup database where ha_enabled is still true, they won't be able
+           to rollback our change because they cannot become the coordinator.
 
-           NB even if we fail to disarm fencing on individuals then the worst that will happen
-           is that they will fail and fence themselves. When they come back they will either
-           resynchronise HA state with us and disarm themselves, or if we've failed the situation
-           is equivalent to a master failure without HA. *)
+           NB even if we fail to disarm fencing on individuals then the worst
+           that will happen is that they will fail and fence themselves. When
+           they come back they will either resynchronise HA state with us and
+           disarm themselves, or if we've failed the situation is equivalent
+           to a coordinator failure without HA. *)
         Db.Pool.set_ha_enabled ~__context ~self:pool ~value:false ;
         info "Pool.ha_enabled <- false" ;
         let errors =
@@ -1847,10 +1873,11 @@ let enable __context heartbeat_srs configuration =
   Db.Pool.set_ha_cluster_stack ~__context ~self:pool ~value:cluster_stack ;
   Localdb.put Constants.ha_cluster_stack cluster_stack ;
   (* Steps from 8.7 Enabling HA in Marathon spec:
-   * 1. Bring up state file VDI(s)
-   * 2. Clear the flag "cannot be master and no VM failover decision on next boot"
-   * 3. XAPI stops its internal heartbeats with other hosts in the pool
-   * 4. ha_set_pool_state(init) *)
+     1. Bring up state file VDI(s)
+     2. Clear the flag "cannot be coordinator and no VM failover decision on
+        next boot"
+     3. XAPI stops its internal heartbeats with other hosts in the pool
+     4. ha_set_pool_state(init) *)
   let statefile_vdis = ref [] in
   let database_vdis = ref [] in
   try
@@ -1888,7 +1915,7 @@ let enable __context heartbeat_srs configuration =
     let (_ : bool) = Xapi_ha_vm_failover.update_pool_status ~__context () in
     let generation = Uuid.to_string (Uuid.make ()) in
     let hosts = Db.Host.get_all ~__context in
-    (* This code always runs on the master *)
+    (* This code always runs on the coordinator *)
     let statefiles = attach_statefiles ~__context !statefile_vdis in
     write_config_file ~__context statefiles generation ;
     let (_ : string) = call_script ha_set_pool_state ["init"] in

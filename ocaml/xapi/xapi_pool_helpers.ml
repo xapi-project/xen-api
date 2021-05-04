@@ -205,28 +205,21 @@ let assert_no_pool_ops ~__context =
       in
       raise Api_errors.(Server_error (internal_error, [err]))
 
-let get_master_slaves_list_with_fn ~__context fn =
-  let _unsorted_hosts = Db.Host.get_all ~__context in
-  let master = Helpers.get_master ~__context in
-  let slaves = List.filter (fun h -> h <> master) _unsorted_hosts in
-  (* anything not a master *)
-  debug "MASTER=%s, SLAVES=%s"
-    (Db.Host.get_name_label ~__context ~self:master)
-    (List.fold_left
-       (fun str h -> str ^ "," ^ Db.Host.get_name_label ~__context ~self:h)
-       "" slaves
-    ) ;
-  fn master slaves
+let get_members ~__context =
+  let all_hosts = Db.Host.get_all ~__context in
+  let coordinator = Helpers.get_coordinator ~__context in
+  let supporters = List.filter (fun h -> h <> coordinator) all_hosts in
+  let pp_host self = Db.Host.get_name_label ~__context ~self in
+  debug "COORDINATOR=%s, SUPPORTERS=%s" (pp_host coordinator)
+    (String.concat "; " (List.map pp_host supporters)) ;
+  (coordinator, supporters)
 
-(* returns the list of hosts in the pool, with the master being the first element of the list *)
-let get_master_slaves_list ~__context =
-  get_master_slaves_list_with_fn ~__context (fun master slaves ->
-      master :: slaves
-  )
+let get_members_coordinator_first ~__context =
+  let coordinator, supporters = get_members ~__context in
+  coordinator :: supporters
 
-(* returns the list of slaves in the pool *)
-let get_slaves_list ~__context =
-  get_master_slaves_list_with_fn ~__context (fun _ slaves -> slaves)
+let get_members_coordinator_last ~__context =
+  List.rev (get_members_coordinator_first ~__context)
 
 let call_fn_on_hosts ~__context hosts f =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -247,17 +240,15 @@ let call_fn_on_hosts ~__context hosts f =
       match errs with [] -> () | (_, first_exn) :: _ -> raise first_exn
   )
 
-let call_fn_on_master_then_slaves ~__context f =
-  let hosts = get_master_slaves_list ~__context in
+let call_fn_on_members_coordinator_first ~__context f =
+  let hosts = get_members_coordinator_first ~__context in
   call_fn_on_hosts ~__context hosts f
 
-(* Note: fn exposed in .mli *)
-
-(** Call the function on the slaves first. When those calls have all
- *  returned, call the function on the master. *)
-let call_fn_on_slaves_then_master ~__context f =
-  (* Get list with master as LAST element: important for ssl_legacy calls *)
-  let hosts = List.rev (get_master_slaves_list ~__context) in
+(** Call the function on the secondary hosts first. When those calls have all
+    returned, call the function on the coordinator. *)
+let call_fn_on_members_coordinator_last ~__context f =
+  (* Get coordinator as LAST element: important for ssl_legacy calls *)
+  let hosts = get_members_coordinator_last ~__context in
   call_fn_on_hosts ~__context hosts f
 
 let apply_guest_agent_config ~__context =
@@ -268,4 +259,4 @@ let apply_guest_agent_config ~__context =
         (Db.Host.get_uuid ~__context ~self:host)
         (Printexc.to_string e)
   in
-  call_fn_on_slaves_then_master ~__context f
+  call_fn_on_members_coordinator_last ~__context f

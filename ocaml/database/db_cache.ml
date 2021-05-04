@@ -24,10 +24,10 @@ module Local_db : DB_ACCESS = Db_cache_impl
 (** Slaves will use this to call the master by XMLRPC *)
 module Remote_db : DB_ACCESS = Db_rpc_client_v1.Make (struct
   let initialise () =
-    ignore (Master_connection.start_master_connection_watchdog ()) ;
-    ignore (Master_connection.open_secure_connection ())
+    ignore (Coordinator_connection.start_coordinator_connection_watchdog ()) ;
+    ignore (Coordinator_connection.open_secure_connection ())
 
-  let rpc request = Master_connection.execute_remote_fn request
+  let rpc request = Coordinator_connection.execute_remote_fn request
 end)
 
 let get = function

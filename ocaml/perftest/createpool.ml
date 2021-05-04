@@ -510,13 +510,13 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   done ;
   debug "All hosts are ready." ;
   let mypool = List.hd (Client.Pool.get_all ~rpc:poolrpc ~session_id:poolses) in
-  let master =
+  let coordinator =
     Client.Pool.get_master ~rpc:poolrpc ~session_id:poolses ~self:mypool
   in
   let iscsi_vm_ip = CreateVM.make_iscsi_ip pool in
   let xml =
     try
-      Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
+      Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:coordinator
         ~device_config:[("target", iscsi_vm_ip)] ~sm_config:[]
         ~_type:"lvmoiscsi"
     with Api_errors.Server_error ("SR_BACKEND_FAILURE_96", [xml; _]) -> xml
@@ -527,7 +527,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let iqn = List.hd iqns in
   let xml =
     try
-      Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:master
+      Client.SR.probe ~rpc:poolrpc ~session_id:poolses ~host:coordinator
         ~device_config:[("target", iscsi_vm_ip); ("targetIQN", iqn)]
         ~sm_config:[] ~_type:"lvmoiscsi"
     with Api_errors.Server_error ("SR_BACKEND_FAILURE_107", [xml; _]) -> xml
@@ -546,7 +546,7 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
     Array.init pool.iscsi_luns (fun i ->
         Printf.printf " - Creating shared LVMoISCSI SR %d...\n%!" i ;
         let name_label = Printf.sprintf "LVMoISCSI-%d" i in
-        Client.SR.create ~rpc:poolrpc ~session_id:poolses ~host:master
+        Client.SR.create ~rpc:poolrpc ~session_id:poolses ~host:coordinator
           ~device_config:
             [
               ("target", iscsi_vm_ip)
@@ -592,14 +592,14 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
          )
       )
   in
-  (* Reconfigure the master's networking last as this will be the most destructive *)
-  let master_uuid =
-    Client.Host.get_uuid ~rpc:poolrpc ~session_id:poolses ~self:master
+  (* Reconfigure the coordinator's networking last as this will be the most *)
+  let coordinator_uuid =
+    Client.Host.get_uuid ~rpc:poolrpc ~session_id:poolses ~self:coordinator
   in
-  let slave_uuids =
-    List.filter (fun x -> x <> master_uuid) (Array.to_list host_uuids)
+  let supporter_uuids =
+    List.filter (fun x -> x <> coordinator_uuid) (Array.to_list host_uuids)
   in
-  let host_uuids = Array.of_list (slave_uuids @ [master_uuid]) in
+  let host_uuids = Array.of_list (supporter_uuids @ [coordinator_uuid]) in
   let (_ : API.ref_Bond array array) =
     Array.map
       (fun host_uuid ->

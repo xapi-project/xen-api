@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(* This data is accessible only on the pool master, since the data all lives there.
-   Unlike the "first-class" db calls, these are not marshalled over the wire if called
-   on a slave -- so don't ever call them on slaves! :) *)
+(* This data is accessible only on the coordinator, since the data all lives
+   there. Unlike the "first-class" db calls, these are not marshalled over the
+   wire if called on a supporter -- so don't ever call these on supporters! *)
 
 open Db_cache_types
 

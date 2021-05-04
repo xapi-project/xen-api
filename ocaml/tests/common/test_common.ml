@@ -93,7 +93,7 @@ let make_localhost ~__context ?(features = Features.all_features) () =
     ; chipset_info= None
     }
   in
-  Dbsync_slave.create_localhost ~__context host_info ;
+  Dbsync_supporter.create_localhost ~__context host_info ;
   (* We'd like to be able to call refresh_localhost_info, but
      	   create_misc is giving me too many headaches right now. Do the
      	   simple thing first and just set localhost_ref instead. *)
@@ -108,7 +108,7 @@ let make_localhost ~__context ?(features = Features.all_features) () =
     ~value:Network_interface.(string_of_kind Openvswitch) ;
   Create_misc.ensure_domain_zero_records ~__context
     ~host:!Xapi_globs.localhost_ref host_info ;
-  Dbsync_master.create_pool_record ~__context ;
+  Dbsync_coordinator.create_pool_record ~__context ;
   let pool = Helpers.get_pool ~__context in
   Db.Pool.set_restrictions ~__context ~self:pool
     ~value:(Features.to_assoc_list features) ;

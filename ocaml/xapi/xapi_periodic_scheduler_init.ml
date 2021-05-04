@@ -19,7 +19,7 @@ open D
 
 let register () =
   debug "Registering periodic calls" ;
-  let master = Pool_role.is_master () in
+  let coordinator = Pool_role.is_coordinator () in
   (* blob/message/rrd file syncing - sync once a day *)
   let sync_timer =
     if Xapi_fist.reduce_blob_sync_interval () then
@@ -75,20 +75,20 @@ let register () =
   in
   let update_all_subjects_delay = 10.0 in
   (* initial delay = 10 seconds *)
-  if master then
+  if coordinator then
     Xapi_periodic_scheduler.add_to_queue "Synchronising RRDs/messages"
       (Xapi_periodic_scheduler.Periodic sync_timer) sync_delay sync_func ;
-  if master then
+  if coordinator then
     Xapi_periodic_scheduler.add_to_queue "Backing up RRDs"
       (Xapi_periodic_scheduler.Periodic rrdbackup_timer) rrdbackup_delay
       rrdbackup_func ;
-  if master then
+  if coordinator then
     Xapi_periodic_scheduler.add_to_queue
       "Revalidating externally-authenticated sessions"
       (Xapi_periodic_scheduler.Periodic
          !Xapi_globs.session_revalidation_interval
       ) session_revalidation_delay session_revalidation_func ;
-  if master then
+  if coordinator then
     Xapi_periodic_scheduler.add_to_queue
       "Trying to update subjects' info using external directory service (if \
        any)"
@@ -98,8 +98,8 @@ let register () =
     (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func ;
   Xapi_periodic_scheduler.add_to_queue "Update monitor configuration"
     (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
-    Monitor_master.update_configuration_from_master ;
-  ( if master then
+    Monitor_coordinator.update_configuration_from_coordinator ;
+  ( if coordinator then
       let freq = !Xapi_globs.failed_login_alert_freq |> float_of_int in
       Xapi_periodic_scheduler.add_to_queue
         "Periodic alert failed login attempts"

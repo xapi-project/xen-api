@@ -76,11 +76,11 @@ let prepare_database_for_restore ~old_context ~new_context =
         "no other masters" check we remove all hosts from the backup except the master. *)
 
   (* Look up the pool master: *)
-  let master = Helpers.get_master ~__context:new_context in
-  (* Remove all slaves from the database *)
+  let coordinator = Helpers.get_coordinator ~__context:new_context in
+  (* Remove all supporters from the database *)
   List.iter
     (fun self ->
-      if self <> master then (
+      if self <> coordinator then (
         List.iter
           (fun self -> Db.PIF.destroy ~__context:new_context ~self)
           (Db.Host.get_PIFs ~__context:new_context ~self) ;
@@ -92,13 +92,15 @@ let prepare_database_for_restore ~old_context ~new_context =
   let my_installation_uuid =
     Xapi_inventory.lookup Xapi_inventory._installation_uuid
   in
-  Db.Host.set_uuid ~__context:new_context ~self:master
+  Db.Host.set_uuid ~__context:new_context ~self:coordinator
     ~value:my_installation_uuid ;
   (* Set the master's dom0 to ours *)
   let my_control_uuid =
     Xapi_inventory.lookup Xapi_inventory._control_domain_uuid
   in
-  let dom0 = Db.Host.get_control_domain ~__context:new_context ~self:master in
+  let dom0 =
+    Db.Host.get_control_domain ~__context:new_context ~self:coordinator
+  in
   Db.VM.set_uuid ~__context:new_context ~self:dom0 ~value:my_control_uuid ;
 
   (* Rewrite this host's PIFs' MAC addresses based on device name. *)
@@ -175,7 +177,7 @@ let prepare_database_for_restore ~old_context ~new_context =
         is_mgmt
         (Db.PIF.get_MAC ~__context:new_context ~self)
     )
-    (Db.Host.get_PIFs ~__context:new_context ~self:master) ;
+    (Db.Host.get_PIFs ~__context:new_context ~self:coordinator) ;
   (* Check that management interface was synced up *)
   if (not !found_mgmt_if) && mgmt_dev <> None then
     raise
@@ -242,8 +244,8 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
           restore_from_xml __context dry_run tmp_xml_file ;
           Unixext.unlink_safe tmp_xml_file ;
           if not dry_run then (
-            (* We will restart as a master *)
-            Xapi_pool_transition.set_role Pool_role.Master ;
+            (* We will restart as coordinator *)
+            Xapi_pool_transition.set_role Pool_role.Coordinator ;
             (* now restart *)
             debug
               "xapi has received new database via xml; will reboot and use \
@@ -256,7 +258,7 @@ let push_database_restore_handler (req : Http.Request.t) s _ =
           )
   )
 
-let http_fetch_db ~master_address ~pool_secret =
+let http_fetch_db ~coordinator_address ~pool_secret =
   let request =
     Xapi_http.http_request Http.Get Constants.pool_xml_db_sync
     |> SecretString.with_cookie pool_secret
@@ -265,7 +267,7 @@ let http_fetch_db ~master_address ~pool_secret =
   let transport =
     SSL
       ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
-      , master_address
+      , coordinator_address
       , !Constants.https_port
       )
   in
@@ -285,7 +287,7 @@ let http_fetch_db ~master_address ~pool_secret =
    we're not trying to delete these backup files concurrently with making more! *)
 let slave_backup_m = Mutex.create ()
 
-let fetch_database_backup ~master_address ~pool_secret ~force =
+let fetch_database_backup ~coordinator_address ~pool_secret ~force =
   let connections =
     match force with
     | None ->
@@ -295,7 +297,7 @@ let fetch_database_backup ~master_address ~pool_secret ~force =
   in
   (* if there's nothing to do then we don't even bother requesting backup *)
   if connections <> [] then
-    let db = http_fetch_db ~master_address ~pool_secret in
+    let db = http_fetch_db ~coordinator_address ~pool_secret in
     (* flush backup to each of our database connections *)
     List.iter
       (fun dbconn ->

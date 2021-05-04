@@ -48,7 +48,7 @@ end)
 
 let unreachable_hosts ~__context =
   let live = Helpers.get_live_hosts ~__context in
-  let pool = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  let pool = Xapi_pool_helpers.get_members_coordinator_first ~__context in
   HostSet.(diff (of_list pool) (of_list live))
 
 let maybe_update_clustering_tls_config ~__context =

@@ -78,7 +78,7 @@ let try_create_sr_from_record ~__context ~_type ~device_config ~dr_task
       in
       try
         (* Create and plug PBDs. *)
-        Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context
+        Xapi_pool_helpers.call_fn_on_members_coordinator_first ~__context
           (fun ~rpc ~session_id ~host ->
             debug "Attaching SR %s to host %s" sr_record.uuid
               (Db.Host.get_name_label ~__context ~self:host) ;
@@ -119,7 +119,7 @@ let create ~__context ~_type ~device_config ~whitelist =
          )
       ) ;
   (* Probe the specified device for SRs. *)
-  let master = Helpers.get_master ~__context in
+  let master = Helpers.get_coordinator ~__context in
   let probe_result =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.SR.probe ~rpc ~session_id ~host:master ~device_config ~_type

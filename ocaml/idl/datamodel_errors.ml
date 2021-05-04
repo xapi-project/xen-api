@@ -697,7 +697,7 @@ let _ =
        disabled."
     () ;
 
-  error Api_errors.host_its_own_slave []
+  error Api_errors.host_its_own_supporter []
     ~doc:
       "The host is its own supporter. Please use \
        pool-emergency-transition-to-master or pool-emergency-reset-master."
@@ -716,7 +716,7 @@ let _ =
       "The coordinator reports that it cannot talk back to the supporter on \
        the supplied management IP address."
     () ;
-  error Api_errors.host_unknown_to_master ["host"]
+  error Api_errors.host_unknown_to_coordinator ["host"]
     ~doc:
       "The coordinator says the server is not known to it. Is the server in \
        the coordinator's database and pointing to the correct coordinator? Are \
@@ -1499,7 +1499,8 @@ let _ =
     () ;
 
   (* Pool errors *)
-  error Api_errors.host_is_slave ["Master IP address"]
+  error Api_errors.host_is_supporter
+    ["Coordinator's IP address"]
     ~doc:
       "You cannot make regular API calls directly on a supporter. Please pass \
        API calls via the coordinator host."
@@ -1974,7 +1975,7 @@ let _ =
     (fst Api_messages.vcpu_qos_failed)
     ~doc:"Applying QoS to VCPU failed." () ;
   message
-    (fst Api_messages.pool_master_transition)
+    (fst Api_messages.pool_coordinator_transition)
     ~doc:"Host has become the new Pool coordinator." () ;
   message
     (fst Api_messages.pbd_plug_failed_on_server_start)

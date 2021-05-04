@@ -302,23 +302,23 @@ module Construction = struct
     ; memory_static_max= Int64.of_int memory_static_max
     }
 
-  let host_snapshot id is_pool_master guests_resident guests_scheduled
+  let host_snapshot id is_coordinator guests_resident guests_scheduled
       memory_overhead memory_total =
     {
       Vm_placement.HS.id
-    ; is_pool_master
+    ; is_coordinator
     ; guests_resident
     ; guests_scheduled
     ; memory_overhead= Int64.of_int memory_overhead
     ; memory_total= Int64.of_int memory_total
     }
 
-  let host_snapshot_summary id is_pool_master memory_available_sum
+  let host_snapshot_summary id is_coordinator memory_available_sum
       memory_static_min_sum memory_dynamic_min_sum memory_dynamic_max_sum
       memory_static_max_sum =
     {
       Vm_placement.HSS.id
-    ; is_pool_master
+    ; is_coordinator
     ; memory_available_sum= Int64.of_int memory_available_sum
     ; memory_static_min_sum= Int64.of_int memory_static_min_sum
     ; memory_dynamic_min_sum= Int64.of_int memory_dynamic_min_sum
@@ -334,15 +334,15 @@ module Summarisation = struct
   let rec summarise_host_snapshot_input_output_data =
     [
       (*
-	(---------------------------------------------------), (-------------)
-	(                     INPUT:                        ), (   OUTPUT:   )
-	(---------------------------------------------------), (-------------)
-	(                 host snapshot                     ), (   host      )
-	([-------------],[-------------],[-------------]    ), (   snapshot  )
-	([  guests     ],[  guests     ],[  guests     ]    ), (   summary   )
-	([  resident   ],[  scheduled  ],[  extra      ]    ), (             )
-	([-------------],[-------------],[-------------]    ), (-------------)
-	([ xpqrs; xpqrs],[ xpqrs; xpqrs],[ xpqrs; xpqrs],x,t), (A, P, Q, R, S)*)
+    (---------------------------------------------------), (-------------)
+    (                     INPUT:                        ), (   OUTPUT:   )
+    (---------------------------------------------------), (-------------)
+    (                 host snapshot                     ), (   host      )
+    ([-------------],[-------------],[-------------]    ), (   snapshot  )
+    ([  guests     ],[  guests     ],[  guests     ]    ), (   summary   )
+    ([  resident   ],[  scheduled  ],[  extra      ]    ), (             )
+    ([-------------],[-------------],[-------------]    ), (-------------)
+    ([ xpqrs; xpqrs],[ xpqrs; xpqrs],[ xpqrs; xpqrs],x,t), (A, P, Q, R, S)*)
       (([], [], [], 0, 0), (0, 0, 0, 0, 0))
     ; (([], [], [], 0, 8), (8, 0, 0, 0, 0))
     ; (([], [], [], 1, 8), (7, 0, 0, 0, 0))

@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = Master | Slave of string  (** IP address *) | Broken
+type t = Coordinator | Supporter of string  (** IP address *) | Broken
 
 val with_pool_role_lock : (unit -> unit) -> unit
 
@@ -22,11 +22,11 @@ val string_of : t -> string
 val get_role : unit -> t
 (** Returns the role of this node *)
 
-val is_master : unit -> bool
-(** Returns true if this node is a master *)
+val is_coordinator : unit -> bool
+(** [is_coordinator ()] returns true if this node is the pool coordinator *)
 
-val is_slave : unit -> bool
-(** Returns true if this node is a slave *)
+val is_supporter : unit -> bool
+(** [is_supporter ()] returns true if this node is a supporter *)
 
 val is_broken : unit -> bool
 (** Returns true if this node is broken *)
@@ -36,13 +36,15 @@ val is_unit_test : unit -> bool
 
 val set_pool_role_for_test : unit -> unit
 
-exception This_host_is_a_master
+exception This_host_is_coordinator
 
 exception This_host_is_broken
 
-val get_master_address : unit -> string
-(** If this node is a slave, returns the IP address of its master *)
+val get_address_of_coordinator_exn : unit -> string
+(** [get_address_of_coordinator_exn ()] returns the IP of the pool coordinator
+    if this node is a supporter, otherwise fails *)
 
-val get_master_address_opt : unit -> string option
-(** [get_master_address_opt ()] returns None if the current host is the master
-    or it's broken, and Some (address of the pool master) otherwise *)
+val get_address_of_coordinator : unit -> string option
+(** [get_address_of_coordinator ()] returns None if the current host the pool
+    coordinator or the host is broken, and Some (address of the pool's
+    coordinator) otherwise *)

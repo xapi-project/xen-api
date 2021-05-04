@@ -82,13 +82,13 @@ end = struct
     in
     Http_svr.start Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
-    if Pool_role.is_master () && addr = None then
+    if Pool_role.is_coordinator () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)
       Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
-          Dbsync_master.set_master_ip ~__context ;
+          Dbsync_coordinator.set_master_ip ~__context ;
           Helpers.update_getty () ;
-          Dbsync_master.refresh_console_urls ~__context
+          Dbsync_coordinator.refresh_console_urls ~__context
       )
 
   type listening_mode = Off | Any | Local of Addresses.t
@@ -128,7 +128,7 @@ module Client_certificate_auth_server = struct
   let must_be_running ~__context ~mgmt_enabled =
     (* Note: no DB calls can be made here, except on the coordinator *)
     mgmt_enabled
-    && Pool_role.is_master ()
+    && Pool_role.is_coordinator ()
     && Db.Pool.get_client_certificate_auth_enabled ~__context
          ~self:(Helpers.get_pool ~__context)
 
@@ -256,7 +256,7 @@ let on_dom0_networking_change ~__context =
         Db.Host.set_address ~__context ~self:localhost ~value:ip ;
         debug "Refreshing console URIs" ;
         Helpers.update_getty () ;
-        Dbsync_master.refresh_console_urls ~__context
+        Dbsync_coordinator.refresh_console_urls ~__context
       )
   | None ->
       if Db.Host.get_address ~__context ~self:localhost <> "" then (

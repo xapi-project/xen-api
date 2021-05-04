@@ -73,8 +73,10 @@ let detect_clock_skew ~__context host skew =
   if skew < Xapi_globs.max_clock_skew /. 2. then
     Hashtbl.remove already_sent_clock_skew_warnings host
 
-(* Master compares the database with the in-memory host heartbeat table and sets the live flag accordingly.
-   Called with the use_host_heartbeat_for_liveness_m and use_host_heartbeat_for_liveness is true (ie non-HA mode) *)
+(* Coordinator compares the database with the in-memory host heartbeat table
+   and sets the live flag accordingly. Called with the
+   use_host_heartbeat_for_liveness_m and use_host_heartbeat_for_liveness is
+   true (ie non-HA mode) *)
 let check_host_liveness ~__context =
   (* Check for rolling upgrade mode - if so, use host metrics for liveness else use hashtbl *)
   let rum =
@@ -154,14 +156,18 @@ let check_host_liveness ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   List.iter check_host all_hosts
 
-(* Compare this host's (the master's) version with that reported by all other hosts
-   and mark the Pool with an other_config key if we are in a rolling upgrade mode. If
-   we detect the beginning or end of a rolling upgrade, call out to an external script. *)
+(* Compare this host's (the coordinator) version with that reported by all
+   supporters and mark the Pool with an other_config key if we are in a
+   rolling upgrade mode. If we detect the beginning or end of a rolling
+   upgrade, call out to an external script. *)
 let detect_rolling_upgrade ~__context =
   try
-    (* If my platform version is different to any host (including myself) then we're in a rolling upgrade mode *)
-    (* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
-       		   is the only time at which the master's Version will be out of sync with its database record *)
+    (* If my platform version is different to any host (including myself) then
+       we're in a rolling upgrade mode.
+
+       NB: it is critical this code runs once in the pool's coordinator before
+       the dbsync, since this is the only time at which the coordinator's
+       version will be out of sync with its database record *)
     let actually_in_progress =
       Helpers.pool_has_different_host_platform_versions ~__context
     in
@@ -260,8 +266,8 @@ let tickle_heartbeat ~__context host stuff =
         (* compute the clock skew for later analysis *)
         if List.mem_assoc _time stuff then
           try
-            let slave = float_of_string (List.assoc _time stuff) in
-            let skew = abs_float (now -. slave) in
+            let supporter = float_of_string (List.assoc _time stuff) in
+            let skew = abs_float (now -. supporter) in
             Hashtbl.replace host_skew_table host skew
           with _ -> ()
   ) ;
@@ -320,16 +326,14 @@ let send_one_heartbeat ~__context ?(shutting_down = false) rpc session_id =
   in
   ()
 
-(* debug "Master responded with [ %s ]" (String.concat ";" (List.map (fun (a, b) -> a ^ "=" ^ b) response)); *)
-
 let start_heartbeat_thread () =
   Debug.with_thread_named "heartbeat"
     (fun () ->
       Server_helpers.exec_with_new_task "Heartbeat" (fun __context ->
           let localhost = Helpers.get_localhost ~__context in
-          let master = Helpers.get_master ~__context in
-          let address = Db.Host.get_address ~__context ~self:master in
-          if localhost = master then
+          let coordinator = Helpers.get_coordinator ~__context in
+          let address = Db.Host.get_address ~__context ~self:coordinator in
+          if localhost = coordinator then
             ()
           else
             while true do
@@ -354,8 +358,8 @@ let start_heartbeat_thread () =
               | Api_errors.Server_error (code, _)
                 when code = Api_errors.session_authentication_failed ->
                   debug
-                    "Master did not recognise our pool secret: we must be \
-                     pointing at the wrong master. Restarting." ;
+                    "Coordinator did not recognise our pool secret: we must be \
+                     pointing at the wrong coordinator. Restarting." ;
                   exit Xapi_globs.restart_return_code
               | e ->
                   debug "Caught %s - logging in again"

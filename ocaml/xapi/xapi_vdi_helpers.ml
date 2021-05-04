@@ -58,9 +58,9 @@ let metadata_replication :
     (API.ref_VDI, API.ref_VBD * Redo_log.redo_log) Hashtbl.t =
   Hashtbl.create Xapi_globs.redo_log_max_instances
 
-let get_master_dom0 ~__context =
-  let master = Helpers.get_master ~__context in
-  Db.Host.get_control_domain ~__context ~self:master
+let get_coordinator_dom0 ~__context =
+  let coordinator = Helpers.get_coordinator ~__context in
+  Db.Host.get_control_domain ~__context ~self:coordinator
 
 (* Unplug and destroy any existing VBDs owned by the VDI. *)
 let destroy_all_vbds ~__context ~vdi =
@@ -105,7 +105,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
         debug "Metadata is already being replicated to VDI %s" vdi_uuid
       else (
         debug "Attempting to enable metadata replication to VDI %s" vdi_uuid ;
-        let dom0 = get_master_dom0 ~__context in
+        let dom0 = get_coordinator_dom0 ~__context in
         (* We've established that metadata is not being replicated to this VDI, so it should be safe to do this. *)
         destroy_all_vbds ~__context ~vdi ;
         (* Create and plug vbd *)

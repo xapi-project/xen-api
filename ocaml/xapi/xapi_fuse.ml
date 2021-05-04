@@ -64,7 +64,10 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
          try
            let dbconn = Db_connections.preferred_write_db () in
            let lock_db =
-             if Pool_role.is_master () then Db_lock.with_lock else fun f -> f ()
+             if Pool_role.is_coordinator () then
+               Db_lock.with_lock
+             else
+               fun f -> f ()
            in
            lock_db (fun () ->
                Db_cache_impl.flush_and_exit dbconn
@@ -119,7 +122,10 @@ let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
          log_and_ignore_exn (Rrdd.backup_rrds None) ;
          Thread.delay fuse_length ;
          let lock_db =
-           if Pool_role.is_master () then Db_lock.with_lock else fun f -> f ()
+           if Pool_role.is_coordinator () then
+             Db_lock.with_lock
+           else
+             fun f -> f ()
          in
          lock_db (fun () ->
              Db_cache_impl.flush_and_exit

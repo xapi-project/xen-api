@@ -37,16 +37,17 @@ val on_server_restart : unit -> unit
 (** Called when xapi restarts: server may be in emergency mode at this point.
     We need to inspect the local configuration and if HA is supposed to be armed
     we need to set everything up.
-    Note that the master shouldn't be able to activate HA while we are offline
-    since that would cause us to come up with a broken configuration (the
-    enable-HA stage has the critical task of synchronising the HA configuration
-    on all the hosts). So really we only want to notice if the Pool has had
-    HA disabled while we were offline. *)
+    Note that the coordinator shouldn't be able to activate HA while we are
+    offline since that would cause us to come up with a broken configuration
+    (the enable-HA stage has the critical task of synchronising the HA
+    configuration on all the hosts). So really we only want to notice if the
+    Pool has had HA disabled while we were offline. *)
 
 val on_database_engine_ready : unit -> unit
-(** Called in the master xapi startup when the database is ready. We set all
-    hosts (including this one) to disabled, then signal the monitor thread to look.
-    It can then wait for slaves to turn up before trying to restart VMs. *)
+(** Called in the coordinator xapi startup when the database is ready. We set
+    all hosts (including this one) to disabled, then signal the monitor thread
+    to look. It can then wait for supporters to turn up before trying to
+    restart VMs. *)
 
 (******************************************************************************)
 (** {2 Internal API calls to configure individual hosts} *)
@@ -90,13 +91,14 @@ val preconfigure_host :
 
 val join_liveset : 'a -> 'b Ref.t -> unit
 
-val propose_new_master : __context:'a -> address:string -> manual:'b -> unit
-(** First phase of a two-phase commit of a new master *)
+val propose_new_coordinator :
+  __context:'a -> address:string -> manual:'b -> unit
+(** First phase of a two-phase commit of a new coordinator *)
 
-val commit_new_master : __context:Context.t -> address:string -> unit
-(** Second phase of a two-phase commit of a new master *)
+val commit_new_coordinator : __context:Context.t -> address:string -> unit
+(** Second phase of a two-phase commit of a new coordinator *)
 
-val abort_new_master : __context:'a -> address:string -> unit
+val abort_new_coordinator : __context:'a -> address:string -> unit
 
 (******************************************************************************)
 (** {2 External API calls} *)

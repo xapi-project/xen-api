@@ -119,7 +119,7 @@ let host_offline = "HOST_OFFLINE"
 
 let host_cannot_destroy_self = "HOST_CANNOT_DESTROY_SELF"
 
-let host_is_slave = "HOST_IS_SLAVE"
+let host_is_supporter = "HOST_IS_SLAVE"
 
 let host_name_invalid = "HOST_NAME_INVALID"
 
@@ -132,7 +132,7 @@ let hosts_failed_to_disable_caching = "HOSTS_FAILED_TO_DISABLE_CACHING"
 let host_cannot_see_SR = "HOST_CANNOT_SEE_SR"
 
 (* Host errors which explain why the host is in emergency mode *)
-let host_its_own_slave = "HOST_ITS_OWN_SLAVE"
+let host_its_own_supporter = "HOST_ITS_OWN_SLAVE"
 
 let host_still_booting = "HOST_STILL_BOOTING"
 
@@ -141,7 +141,7 @@ let host_has_no_management_ip = "HOST_HAS_NO_MANAGEMENT_IP"
 
 let host_master_cannot_talk_back = "HOST_MASTER_CANNOT_TALK_BACK"
 
-let host_unknown_to_master = "HOST_UNKNOWN_TO_MASTER"
+let host_unknown_to_coordinator = "HOST_UNKNOWN_TO_MASTER"
 
 (* should be fenced *)
 let host_broken = "HOST_BROKEN"

@@ -50,22 +50,22 @@ let transmit_config_files s =
 
 (* We still need to respect older XenServer hosts which are expecting
    the entire /etc/password file. We need to make sure we send the
-   "un-shadowed" passwd file, so that slaves don't overwrite root's
+   "un-shadowed" passwd file, so that supporters don't overwrite root's
    password with an 'x'. *)
 
 (* This was introduced in 8c4d3d93f8c0e069b8b0de9c2e2df02a391aa2ef xapi
- * version 1.9.41 and can be removed when during rolling pool
- * upgrade the config_sync_version is always passed from slave to
- * master. We believe that Dundee is the first version where this code
- * shipped. Hence, it can be removed once RPU from pre-Dundee is no
- * longer supported.
- *)
+   version 1.9.41 and can be removed when during rolling pool upgrade the
+   config_sync_version is always passed from supporters to coordinator. We
+   believe that Dundee is the first version where this code shipped. Hence, it
+   can be removed once RPU from pre-Dundee is no longer supported.
+*)
 
 let legacy_transmit_passwd s =
   debug "Updating /etc/passwd (%s)" __LOC__ ;
   Unixpwd.unshadow () |> write_to_fd s
 
-(** URL used by slaves to fetch dom0 config files (currently just root's password) *)
+(** URL used by supporters to fetch dom0 config files (currently just root's
+    password) *)
 let config_file_sync_handler (req : Http.Request.t) s _ =
   let current version =
     let version = try int_of_string version with _ -> -1 in
@@ -91,7 +91,7 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
           debug "finished writing legacy dom0 config files"
   )
 
-let fetch_config_files_internal ~master_address =
+let fetch_config_files_internal ~coordinator_address =
   Server_helpers.exec_with_new_task "fetch_config_files" (fun __context ->
       Helpers.call_api_functions ~__context (fun _ session_id ->
           let request =
@@ -103,7 +103,7 @@ let fetch_config_files_internal ~master_address =
           let transport =
             SSL
               ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
-              , master_address
+              , coordinator_address
               , !Constants.https_port
               )
           in
@@ -115,19 +115,20 @@ let fetch_config_files_internal ~master_address =
       )
   )
 
-(* Invoked on slave as a notification that config files may have changed. Slaves can use
-   this to decide whether to sync the new config files if the hash is different from the
-   files they currently have. We do the hash thing to minimize flash writes on OEM build.. *)
-let fetch_config_files ~master_address =
-  (* fetch new config files from master and write them *)
-  let config_files = fetch_config_files_internal ~master_address in
+(* Invoked on supporters as a notification that config files may have
+   changed. Supporters can use this to decide whether to sync the new config
+   files if the hash is different from the files they currently have. We do the
+   hash thing to minimize flash writes on OEM build.. *)
+let fetch_config_files ~coordinator_address =
+  (* fetch new config files from the coordinator and write them *)
+  let config_files = fetch_config_files_internal ~coordinator_address in
   rewrite_config_files config_files
 
-(* Called by slave on each startup to sync master's config files. *)
-let fetch_config_files_on_slave_startup () =
-  Server_helpers.exec_with_new_task "checking no other known hosts are masters"
-    (fun __context ->
-      let master_address = Helpers.get_main_ip_address ~__context in
-      let config_files = fetch_config_files_internal ~master_address in
+(* Called by supporters on each startup to sync 's config files. *)
+let fetch_config_files_on_supporter_startup () =
+  Server_helpers.exec_with_new_task
+    "checking no other known hosts are coordinators" (fun __context ->
+      let coordinator_address = Helpers.get_main_ip_address ~__context in
+      let config_files = fetch_config_files_internal ~coordinator_address in
       rewrite_config_files config_files
   )

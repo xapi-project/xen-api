@@ -81,7 +81,7 @@ let is_unix_socket s =
       false
 
 let default_database () =
-  if Pool_role.is_master () then
+  if Pool_role.is_coordinator () then
     Db_backend.make ()
   else
     Db_ref.Remote

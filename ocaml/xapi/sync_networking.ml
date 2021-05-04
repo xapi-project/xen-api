@@ -55,16 +55,17 @@ let fix_bonds ~__context () =
   in
   List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) my_bonds
 
-(** Copy Bonds from master *)
-let copy_bonds_from_master ~__context () =
-  (* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
+(** Copy Bonds from the coordinator *)
+let copy_bonds_from_coordinator ~__context () =
+  (* if supporter: then inherit network config (bonds and vlans) from the
+     coordinator (if we don't already have them) *)
   let me = !Xapi_globs.localhost_ref in
-  let master = Helpers.get_master ~__context in
-  let master_bond_pifs =
+  let coordinator = Helpers.get_coordinator ~__context in
+  let coordinator_bond_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
-           ( Eq (Field "host", Literal (Ref.string_of master))
+           ( Eq (Field "host", Literal (Ref.string_of coordinator))
            , Not (Eq (Field "bond_master_of", Literal "()"))
            )
         )
@@ -74,7 +75,7 @@ let copy_bonds_from_master ~__context () =
       (fun (_, pif) ->
         Db.Bond.get_record ~__context ~self:(List.hd pif.API.pIF_bond_master_of)
       )
-      master_bond_pifs
+      coordinator_bond_pifs
   in
   let my_bond_pifs =
     Db.PIF.get_records_where ~__context
@@ -237,10 +238,11 @@ let copy_bonds_from_master ~__context () =
     )
     master_bonds
 
-(* This is now executed fully on the master, once asked by the slave when the slave's Xapi starts up *)
+(* This is now executed fully on the coordinator, once asked by the supporter
+   when the supporter's Xapi starts up *)
 
-(** Copy VLANs from master *)
-let copy_vlans_from_master ~__context () =
+(** Copy VLANs from the coordinator *)
+let copy_vlans_from_coordinator ~__context () =
   let host = !Xapi_globs.localhost_ref in
   let oc = Db.Host.get_other_config ~__context ~self:host in
   if
@@ -255,18 +257,18 @@ let copy_vlans_from_master ~__context () =
     )
   )
 
-(** Copy tunnels from master *)
-let copy_tunnels_from_master ~__context () =
+(** Copy tunnels from the coordinator *)
+let copy_tunnels_from_coordinator ~__context () =
   debug "Resynchronising tunnels" ;
   let host = !Xapi_globs.localhost_ref in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.Host.sync_tunnels ~rpc ~session_id ~host
   )
 
-(** Copy network-sriovs from master *)
-let copy_network_sriovs_from_master ~__context () =
+(** Copy network-sriovs from the coordinator *)
+let copy_network_sriovs_from_coordinator ~__context () =
   let me = !Xapi_globs.localhost_ref in
-  let master = Helpers.get_master ~__context in
+  let master = Helpers.get_coordinator ~__context in
   let master_sriov_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:

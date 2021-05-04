@@ -120,11 +120,11 @@ let create ~__context ~sr ~cluster_stack =
         ~tags:[]
   )
 
-(** Return a reference to a valid statefile VDI in the given SR.
-    This function prefers to reuse existing VDIs to avoid confusing the heartbeat component:
-    it expects to see a poisoned VDI but not necessarily a stale or corrupted one. Consider that
-    when using LVM-based SRs the VDI could be deleted on the master but the slaves would still
-    have access to stale data. *)
+(** Return a reference to a valid statefile VDI in the given SR. This function
+    prefers to reuse existing VDIs to avoid confusing the heartbeat component:
+    it expects to see a poisoned VDI but not necessarily a stale or corrupted
+    one. Consider that when using LVM-based SRs the VDI could be deleted on the
+    coordinator but the supporters would still have access to stale data. *)
 let find_or_create ~__context ~sr ~cluster_stack =
   assert_sr_can_host_statefile ~__context ~sr ~cluster_stack ;
   let size = minimum_size in

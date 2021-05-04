@@ -39,7 +39,7 @@ end
 module Host_snapshot = struct
   type t = {
       id: string
-    ; is_pool_master: bool
+    ; is_coordinator: bool
     ; guests_resident: Guest_snapshot.t list
     ; guests_scheduled: Guest_snapshot.t list
     ; memory_overhead: int64
@@ -60,7 +60,7 @@ module PS = Pool_snapshot
 module Host_snapshot_summary = struct
   type t = {
       id: string
-    ; is_pool_master: bool
+    ; is_coordinator: bool
     ; memory_static_min_sum: int64
     ; memory_dynamic_min_sum: int64
     ; memory_dynamic_max_sum: int64
@@ -87,7 +87,7 @@ let summarise_host_snapshot extra_guests host =
   in
   {
     HSS.id= host.HS.id
-  ; HSS.is_pool_master= host.HS.is_pool_master
+  ; HSS.is_coordinator= host.HS.is_coordinator
   ; HSS.memory_static_min_sum= sum 0L (fun g -> g.GS.memory_static_min)
   ; HSS.memory_dynamic_min_sum= sum 0L (fun g -> g.GS.memory_dynamic_min)
   ; HSS.memory_dynamic_max_sum= sum 0L (fun g -> g.GS.memory_dynamic_max)
@@ -202,27 +202,27 @@ type host_category = Host_snapshot_summary.t -> int64
 let compression_ratio_resolution = 1000L
 
 (** Transforms the given host category into a derived host category with bias
-    against the pool master. The derived category function assigns the pool master
-    a value v' = (v - 1) / 2, where v is the value assigned by the original category
-    function. *)
-let bias_away_from_pool_master : host_category -> host_category =
+    against the coordinator. The derived category function assigns the
+    coordinator a value v' = (v - 1) / 2, where v is the value assigned by the
+    original category function. *)
+let bias_away_from_coordinator : host_category -> host_category =
  fun host_category host ->
   let value = host_category host in
-  if host.HSS.is_pool_master then (value -- 1L) // 2L else value
+  if host.HSS.is_coordinator then (value -- 1L) // 2L else value
 
 (** The {b definite} host category. Includes:
     {ul
     	{- hosts that don't need to compress their guests.}}
     This function values each host according to:
     {ul
-    	{- slaves: (available_memory - Σ memory_static_max)}
-    	{- master: (available_memory - Σ memory_static_max - 1) / 2}}
+    	{- supporters: (available_memory - Σ memory_static_max)}
+    	{- supporters: (available_memory - Σ memory_static_max - 1) / 2}}
 *)
 let definite_host_category : host_category =
   let unbiased_category host =
     host.HSS.memory_available_sum -- host.HSS.memory_static_max_sum
   in
-  bias_away_from_pool_master unbiased_category
+  bias_away_from_coordinator unbiased_category
 
 (** The {b probable} host category. Includes the union of:
     {ul
@@ -231,22 +231,22 @@ let definite_host_category : host_category =
     }
     This function values each host according to:
     {ul
-    	{- slaves: (available_memory - Σ memory_dynamic_max)}
-    	{- master: (available_memory - Σ memory_dynamic_max - 1) / 2}}
+    	{- supporters: (available_memory - Σ memory_dynamic_max)}
+    	{- coordinator: (available_memory - Σ memory_dynamic_max - 1) / 2}}
 *)
 let probable_host_category : host_category =
   let unbiased_category host =
     host.HSS.memory_available_sum -- host.HSS.memory_dynamic_max_sum
   in
-  bias_away_from_pool_master unbiased_category
+  bias_away_from_coordinator unbiased_category
 
 (** The {b possible} host category. Includes the union of:
     {ul
     	{- hosts that do need to compress their guests.}
     	{- hosts included in the {b probable} category.}
     }
-    This function values masters and slaves identically: in proportion to their
-    projected memory compression ratios. *)
+    This function values the coordinator and supporters identically: in
+    proportion to their projected memory compression ratios. *)
 let possible_host_category : host_category =
  fun host ->
   let ceiling = compression_ratio_resolution in
@@ -272,8 +272,8 @@ let possible_host_category : host_category =
     	{- hosts with identifiers in the given host identifier list.}
     	{- hosts included in the {b possible} category.}
     }
-    This function values masters and slaves identically: in proportion to their
-    projected memory compression ratios. *)
+    This function values the coordinator and supporters identically: in
+    proportion to their projected memory compression ratios. *)
 let affinity_host_category affinity_host_ids : host_category =
  fun host ->
   if List.mem host.HSS.id affinity_host_ids then

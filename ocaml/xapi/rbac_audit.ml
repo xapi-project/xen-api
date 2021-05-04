@@ -80,9 +80,10 @@ let get_subject_name __context session_id =
   get_subject_common ~__context ~session_id ~fnname:"get_subject_name"
     ~fn_if_local_session:(fun () ->
       (* we are in emergency mode here, do not call DB_Action:
-         			 - local sessions are not in the normal DB
-         			 - local sessions do not have a username field
-         			 - DB_Action will block forever trying to access an inaccessible master
+         - local sessions are not in the normal DB
+         - local sessions do not have a username field
+         - DB_Action will block forever trying to access the inaccessible
+           coordinator
       *)
       ""
     )
@@ -124,7 +125,7 @@ let get_sexpr_arg name name_of_ref uuid_of_ref ref_value : SExpr.t =
 
 (* given a list of (name,'',ref-value) triplets, *)
 (* map '' -> friendly-value of ref-value. *)
-(* used on the master to map missing reference names from slaves *)
+(* used on the coordinator to map missing reference names from supporters *)
 let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
   List.map
     (fun obj_ref ->
@@ -156,9 +157,9 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
     )
     obj_ref_list
 
-(* unwrap the audit record and add names to the arg refs *)
-(* this is necessary because we can only obtain the ref names *)
-(* on the master, and http audit records can come from slaves *)
+(* unwrap the audit record and add names to the arg refs. This is necessary
+   because we can only obtain the ref names on the coordinator, and http audit
+   records can come from supporters *)
 let populate_audit_record_with_obj_names_of_refs line =
   try
     let sexpr_idx = String.index line ']' + 1 in
@@ -528,7 +529,7 @@ let sexpr_of __context session_id allowed_denied ok_error result_error ?args
 
 let append_line = Audit.audit
 
-let fn_append_to_master_audit_log = ref None
+let fn_append_to_coordinator_audit_log = ref None
 
 let audit_line_of __context session_id allowed_denied ok_error result_error
     action permission ?args ?sexpr_of_args () =
@@ -544,7 +545,7 @@ let audit_line_of __context session_id allowed_denied ok_error result_error
   (* no \r in line *)
   let audit_line = append_line "%s" line in
   (*D.debug "line=%s, audit_line=%s" line audit_line;*)
-  match !fn_append_to_master_audit_log with
+  match !fn_append_to_coordinator_audit_log with
   | None ->
       ()
   | Some fn ->

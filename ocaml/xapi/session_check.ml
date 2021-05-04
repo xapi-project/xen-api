@@ -13,7 +13,7 @@
  *)
 (* Session checking **********************************************************)
 
-exception Non_master_login_on_slave
+exception Non_coordinator_login_on_supporter
 
 module D = Debug.Make (struct let name = "session_check" end)
 
@@ -34,7 +34,7 @@ let check ~intra_pool_only ~session_id =
       (* First see if this is a "local" session *)
       if is_local_session __context session_id then
         () (* debug "Session is in the local database" *)
-      else (* Assuming we're in master mode *)
+      else (* Assuming we're the coordinator *)
         try
           let pool =
             Db_actions.DB_Action.Session.get_pool ~__context ~self:session_id
@@ -50,10 +50,10 @@ let check ~intra_pool_only ~session_id =
                    ]
                  )
               ) ;
-          (* If the session isn't a pool login, and we're a slave, fail *)
-          if (not pool) && not (Pool_role.is_master ()) then
-            raise Non_master_login_on_slave ;
-          if Pool_role.is_master () then
+          (* If the session isn't a pool login, and we're a supporter, fail *)
+          if (not pool) && not (Pool_role.is_coordinator ()) then
+            raise Non_coordinator_login_on_supporter ;
+          if Pool_role.is_coordinator () then
             Db_actions.DB_Action.Session.set_last_active ~__context
               ~self:session_id
               ~value:(Xapi_stdext_date.Date.of_float (Unix.time ()))
@@ -63,15 +63,15 @@ let check ~intra_pool_only ~session_id =
               tblname reference ;
             raise
               (Api_errors.Server_error (Api_errors.session_invalid, [reference]))
-        | Non_master_login_on_slave ->
-            let master =
+        | Non_coordinator_login_on_supporter ->
+            let coordinator =
               Db_actions.DB_Action.Pool.get_master ~__context
                 ~self:(List.hd (Db_actions.DB_Action.Pool.get_all ~__context))
             in
             let address =
-              Db_actions.DB_Action.Host.get_address ~__context ~self:master
+              Db_actions.DB_Action.Host.get_address ~__context ~self:coordinator
             in
-            raise (Api_errors.Server_error (Api_errors.host_is_slave, [address]))
+            raise Api_errors.(Server_error (host_is_supporter, [address]))
         | Api_errors.Server_error (code, params) as e ->
             debug "Session check failed: unexpected exception %s %s" code
               (String.concat " " params) ;

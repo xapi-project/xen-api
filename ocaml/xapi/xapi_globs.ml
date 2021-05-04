@@ -87,8 +87,9 @@ let storage_unix_domain_socket = Filename.concat "/var/lib/xcp" "storage"
 
 let local_database = Filename.concat "/var/lib/xcp" "local.db"
 
-(* if a slave in emergency "cannot see master mode" then this flag is set *)
-let slave_emergency_mode = ref false
+(* if a supporter is in emergency "cannot see coordinator mode" then this flag
+   is set *)
+let supporter_emergency_mode = ref false
 
 (** Whenever in emergency mode we stash an error here so the user can determine what's wrong
     without trawling through logfiles *)
@@ -302,9 +303,9 @@ let max_sessions_per_user_name = 500
 (* Place where database XML backups are kept *)
 let backup_db_xml = Filename.concat "/var/lib/xcp" "state-backup.xml"
 
-(* Directory containing scripts which are executed when a node becomes master
-   and when a node gives up the master role *)
-let master_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
+(* Directory containing scripts which are executed when a node becomes coordinator
+   and when a node gives up the coordinator role *)
+let coordinator_scripts_dir = ref (Filename.concat "/etc/xensource" "master.d")
 
 (* Indicates whether we should allow clones of suspended VMs via VM.clone *)
 let pool_allow_clone_suspended_vm = "allow_clone_suspended_vm"
@@ -335,7 +336,7 @@ let sync_switch_off = "nosync"
 
 (* Set the following keys to this value to disable the dbsync operation *)
 
-(* dbsync_slave *)
+(* dbsync_supporter *)
 let sync_local_vdi_activations = "sync_local_vdi_activations"
 
 let sync_create_localhost = "sync_create_localhost"
@@ -375,7 +376,7 @@ let disable_dbsync_for = ref []
 (* create_storage *)
 let sync_create_pbds = "sync_create_pbds"
 
-(* sync VLANs on slave with master *)
+(* sync VLANs on supporter host with coordinator *)
 let sync_vlans = "sync_vlans"
 
 (* Set on the Pool.other_config to signal that the pool is currently in a mixed-mode
@@ -1576,7 +1577,7 @@ module Resources = struct
   let nonessential_dirs =
     [
       ( "master-scripts-dir"
-      , master_scripts_dir
+      , coordinator_scripts_dir
       , "Scripts to execute when transitioning pool role"
       )
     ; ("packs-dir", packs_dir, "Directory containing supplemental pack data")

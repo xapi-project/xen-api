@@ -47,7 +47,7 @@ let create_host_snapshot __context host =
   in
   {
     HS.id= host_id
-  ; HS.is_pool_master= Helpers.is_pool_master ~__context ~host
+  ; HS.is_coordinator= Helpers.is_coordinator ~__context ~host
   ; HS.guests_resident= guest_snapshots "resident_on"
   ; HS.guests_scheduled= guest_snapshots "scheduled_to_be_resident_on"
   ; HS.memory_overhead

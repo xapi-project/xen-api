@@ -221,8 +221,10 @@ let make ~__context ~host:_ ~device_config:_ ~physical_size:_ ~name_label:_
   raise (Api_errors.Server_error (Api_errors.message_deprecated, []))
 
 let get_pbds ~__context ~self ~attached ~master_pos =
-  let master = Helpers.get_master ~__context in
-  let master_condition = Eq (Field "host", Literal (Ref.string_of master)) in
+  let coordinator = Helpers.get_coordinator ~__context in
+  let coordinator_condition =
+    Eq (Field "host", Literal (Ref.string_of coordinator))
+  in
   let sr_condition = Eq (Field "SR", Literal (Ref.string_of self)) in
   let plugged_condition =
     Eq (Field "currently_attached", Literal (string_of_bool attached))
@@ -230,11 +232,11 @@ let get_pbds ~__context ~self ~attached ~master_pos =
   let all = List.fold_left (fun acc p -> And (acc, p)) True in
   let master_pbds =
     Db.PBD.get_refs_where ~__context
-      ~expr:(all [master_condition; sr_condition; plugged_condition])
+      ~expr:(all [coordinator_condition; sr_condition; plugged_condition])
   in
   let slave_pbds =
     Db.PBD.get_refs_where ~__context
-      ~expr:(all [Not master_condition; sr_condition; plugged_condition])
+      ~expr:(all [Not coordinator_condition; sr_condition; plugged_condition])
   in
   match master_pos with
   | `First ->
@@ -404,10 +406,8 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
               Xapi_pbd.create ~__context ~sR:sr_ref ~device_config ~host
                 ~other_config:[]
             in
-            let master = Helpers.get_master ~__context in
             let hosts =
-              master
-              :: List.filter (fun x -> x <> master) (Db.Host.get_all ~__context)
+              Xapi_pool_helpers.get_members_coordinator_first ~__context
             in
             List.map create_on_host hosts
           else

@@ -18,13 +18,12 @@ open Monitor_types
 open Db_filter_types
 open Network
 
-module D = Debug.Make (struct let name = "monitor_master" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
-let update_configuration_from_master () =
-  Server_helpers.exec_with_new_task "update_configuration_from_master"
-    (fun __context ->
+let update_configuration_from_coordinator () =
+  Server_helpers.exec_with_new_task __FUNCTION__ (fun __context ->
       let oc =
         Db.Pool.get_other_config ~__context ~self:(Helpers.get_pool ~__context)
       in
@@ -73,8 +72,8 @@ let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
   Db.PIF_metrics.set_last_updated ~__context ~self
     ~value:(Date.of_float (Unix.gettimeofday ()))
 
-(* Note that the following function is actually called on the slave most of the
- * time now but only when the PIF information changes. *)
+(* Note that the following function is actually called on supporters most of
+   the time now but only when the PIF information changes. *)
 let update_pifs ~__context host pifs =
   match List.length pifs with
   | 0 ->

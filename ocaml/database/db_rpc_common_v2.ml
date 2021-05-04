@@ -38,7 +38,7 @@ module Request = struct
         * Db_cache_types.structured_op_t
   [@@deriving rpc]
 
-  (* Make sure the slave only ever uses the idempotent version *)
+  (* Make sure supporters only ever use the idempotent version *)
   let rpc_of_t t =
     let t' =
       match t with

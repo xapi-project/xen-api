@@ -1626,7 +1626,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     if host <> Ref.null then
       host
     else
-      Helpers.get_master ~__context
+      Helpers.get_coordinator ~__context
   in
   (* Check that all VDIs are mapped. *)
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in

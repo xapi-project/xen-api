@@ -79,7 +79,7 @@ let permission_set permission_list =
 
 let create_session_permissions_tbl ~session_id ~rbac_permissions =
   if
-    use_efficient_permission_set && Pool_role.is_master ()
+    use_efficient_permission_set && Pool_role.is_coordinator ()
     (* Create this structure on the master only, *)
     (* so as to avoid heap-leaking on the slaves *)
   then (

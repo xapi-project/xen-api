@@ -17,12 +17,12 @@
 *)
 
 (** This module implements the saving of properties for various objects (e.g.
- * VIFs, CPUs) into xapi's database. It is also used to regularly update
- * some simple configuration from the master. *)
+    VIFs, CPUs) into xapi's database. It is also used to regularly update
+    some simple configuration from the coordinator. *)
 
-val update_configuration_from_master : unit -> unit
+val update_configuration_from_coordinator : unit -> unit
 (** Used on a regular interval to update rrdd's use_min_max and xenops'
- * pass_through_pif_carrier. *)
+    pass_through_pif_carrier. *)
 
 val update_pifs :
   __context:Context.t -> 'a Ref.t -> Monitor_types.pif list -> unit

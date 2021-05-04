@@ -28,7 +28,7 @@ let ha_stop_daemon = "ha_stop_daemon"
 
 let ha_query_liveset = "ha_query_liveset"
 
-let ha_propose_master = "ha_propose_master"
+let ha_propose_coordinator = "ha_propose_master"
 
 let ha_disarm_fencing = "ha_disarm_fencing"
 

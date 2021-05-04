@@ -32,7 +32,7 @@ val ha_enable_in_progress : __context:Context.t -> bool
    that no pool operations are running. *)
 val assert_no_pool_ops : __context:Context.t -> unit
 
-val call_fn_on_master_then_slaves :
+val call_fn_on_members_coordinator_first :
      __context:Context.t
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
@@ -40,10 +40,11 @@ val call_fn_on_master_then_slaves :
       -> unit
      )
   -> unit
-(** Call the function on the master, then on each of the slaves in turn. Useful
-    when attaching an SR to all hosts in the pool. *)
+(** [call_fn_on_members_coordinator_first] Executes a [Client.Client.Host] operation
+    on all members in the pool. The operation is done first on the coordinator.
+    Useful when attaching an SR to all hosts in the pool. *)
 
-val call_fn_on_slaves_then_master :
+val call_fn_on_members_coordinator_last :
      __context:Context.t
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
@@ -51,14 +52,18 @@ val call_fn_on_slaves_then_master :
       -> unit
      )
   -> unit
-(** Call the function on the slaves first. When those calls have all
- *  returned, call the function on the master. *)
+(** [call_fn_on_members_coordinator_first] Executes a [Client.Client.Host] operation
+    on all members in the pool. The operation is done last on the coordinator. *)
 
-val get_master_slaves_list_with_fn :
-  __context:Context.t -> ([`host] Ref.t -> [`host] Ref.t list -> unit) -> unit
+val get_members : __context:Context.t -> [`host] Ref.t * [`host] Ref.t list
+(** [get_members] returns the coordinator and the list of supporters. *)
 
-val get_master_slaves_list : __context:Context.t -> [`host] Ref.t list
+val get_members_coordinator_first : __context:Context.t -> [`host] Ref.t list
+(** [get_members_coordinator_first] returns a list of pool members, with the
+    head of the list being the coordinator. *)
 
-val get_slaves_list : __context:Context.t -> [`host] Ref.t list
+val get_members_coordinator_last : __context:Context.t -> [`host] Ref.t list
+(** [get_members_coordinator_last] returns a list of pool members, with the
+    last element being the coordinator. *)
 
 val apply_guest_agent_config : __context:Context.t -> unit
