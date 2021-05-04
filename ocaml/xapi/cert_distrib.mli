@@ -9,14 +9,10 @@ type existing_cert_strategy = Erase_old | Merge
 val local_exec : __context:Context.t -> command:string -> string
 (** execute a string encoded job, returning a string encoded result *)
 
-val go :
-     __context:Context.t
-  -> from_hosts:API.ref_host list
-  -> to_hosts:API.ref_host list
-  -> existing_cert_strategy:existing_cert_strategy
-  -> unit
-(** Certificates are collected from [from_hosts] and installed on [to_hosts].
-    On success, new bundles will have been generated on all [to_hosts] *)
+val exchange_certificates_among_all_members : __context:Context.t -> unit
+(** [exchange_certificates_among_all_members ~__context] collects internal
+    certificates from all members in a pool and installed on all of them. On
+    success, new bundles will have been generated on the members. *)
 
 val exchange_certificates_with_joiner :
      __context:Context.t
