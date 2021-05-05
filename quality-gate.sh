@@ -14,10 +14,10 @@ list-hd () {
 
 verify-cert () {
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
-  if [ "$NONE" -eq 6 ]; then
+  if [ "$NONE" -eq 7 ]; then
     echo "OK counted $NONE usages of verify_cert:None"
   else
-    echo "ERROR expected 6 verify_cert:None usages, got $NONE" 1>&2
+    echo "ERROR expected 7 verify_cert:None usages, got $NONE" 1>&2
     exit 1
   fi
 }
