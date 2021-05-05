@@ -34,7 +34,14 @@ let positive =
   |> List.map (fun path -> ("positive", `Quick, fun () -> passing path))
 
 let negative =
-  ["fail-01.pem"; "fail-02.pem"; "fail-03.pem"; "fail-04.pem"; "fail-05.pem"]
+  [
+    "fail-01.pem"
+  ; "fail-02.pem"
+  ; "fail-03.pem"
+  ; "fail-04.pem"
+  ; "fail-05.pem"
+  ; "fail-06.pem"
+  ]
   |> List.map (fun pem -> Filename.concat "test_data/pems" pem)
   |> List.map (fun path -> ("negative", `Quick, fun () -> failing path))
 
