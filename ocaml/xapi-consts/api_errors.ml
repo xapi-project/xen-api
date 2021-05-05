@@ -1243,3 +1243,5 @@ let apply_updates_failed = "APPLY_UPDATES_FAILED"
 let apply_guidance_failed = "APPLY_GUIDANCE_FAILED"
 
 let updateinfo_hash_mismatch = "UPDATEINFO_HASH_MISMATCH"
+
+let updates_require_sync = "UPDATES_REQUIRE_SYNC"

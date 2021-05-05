@@ -81,3 +81,5 @@ val apply_immediate_guidances :
 val set_available_updates :
      __context:Context.t
   -> string
+
+val reset_updates_in_cache : unit -> unit

@@ -2888,15 +2888,18 @@ let set_repositories ~__context ~self ~value =
     (* To be removed *)
     List.iter
       (fun x ->
-         if not (List.mem x value) then
-           Repository.cleanup_pool_repo ~__context ~self:x)
+         if not (List.mem x value) then (
+           Repository.cleanup_pool_repo ~__context ~self:x ;
+           Repository.reset_updates_in_cache ()
+         ))
       existings;
     (* To be added *)
     List.iter
       (fun x ->
          if not (List.mem x existings) then (
              Db.Repository.set_hash ~__context ~self:x ~value:"";
-             Db.Repository.set_up_to_date ~__context ~self:x ~value:false
+             Db.Repository.set_up_to_date ~__context ~self:x ~value:false ;
+             Repository.reset_updates_in_cache ()
          ))
       value ;
     Db.Pool.set_repositories ~__context ~self ~value
@@ -2913,7 +2916,8 @@ let add_repository ~__context ~self ~value =
     if not (List.mem value existings) then (
       Db.Pool.add_repositories ~__context ~self ~value ;
       Db.Repository.set_hash ~__context ~self:value ~value:"" ;
-      Db.Repository.set_up_to_date ~__context ~self:value ~value:false
+      Db.Repository.set_up_to_date ~__context ~self:value ~value:false ;
+      Repository.reset_updates_in_cache ()
     )
 
 let remove_repository ~__context ~self ~value =
@@ -2926,7 +2930,10 @@ let remove_repository ~__context ~self ~value =
     Repository.with_reposync_lock @@ fun () ->
     List.iter
       (fun x ->
-         if x = value then Repository.cleanup_pool_repo ~__context ~self:x)
+         if x = value then (
+           Repository.cleanup_pool_repo ~__context ~self:x ;
+           Repository.reset_updates_in_cache ()
+         ))
       (Db.Pool.get_repositories ~__context ~self) ;
     Db.Pool.remove_repositories ~__context ~self ~value
 
@@ -3021,6 +3028,10 @@ let get_updates_handler (req : Http.Request.t) s _ =
                when (List.mem failure failures_of_404) ->
                  error "404: can't get updates for pool: %s" (ExnHelper.string_of_exn e);
                  Http_svr.headers s (Http.http_404_missing ())
+             | Api_errors.(Server_error (failure, _)) as e
+               when not (List.mem failure failures_of_404) ->
+                 error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
+                 raise e
              | e ->
                (* http_500_internal_server_error *)
                error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);

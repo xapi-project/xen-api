@@ -1240,7 +1240,9 @@ let _ =
   error Api_errors.apply_guidance_failed ["ref"]
     ~doc:"Failed to apply guidance on a host after updating." ();
   error Api_errors.updateinfo_hash_mismatch []
-    ~doc:"The hash of updateinfo doesn't match with current one. There may be newer available updates." ()
+    ~doc:"The hash of updateinfo doesn't match with current one. There may be newer available updates." ();
+  error Api_errors.updates_require_sync []
+    ~doc:"A call to pool.sync_updates is required before this operation." ()
 
 
 let _ =
