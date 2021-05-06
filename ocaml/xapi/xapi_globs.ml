@@ -839,6 +839,8 @@ let sm_dir = ref "/opt/xensource/sm"
 
 let web_dir = ref "/opt/xensource/www"
 
+let website_https_only = ref true
+
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 let cluster_stack_default = ref "xhad"
 
@@ -1052,6 +1054,9 @@ let other_options = [
 
   "kpatch_list", Arg.Set_string kpatch_list,
   (fun () -> !kpatch_list), "Command to query current kernel patch list";
+
+  "website-https-only", Arg.Set website_https_only,
+  (fun () -> string_of_bool !website_https_only), "Allow access to the internal website using HTTPS only (no HTTP)";
 ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
