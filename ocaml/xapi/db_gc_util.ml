@@ -178,7 +178,7 @@ let gc_PGPUs ~__context =
 
 let gc_VGPU_types ~__context =
   (* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
-     	 * of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
+     of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
   let open Db_filter_types in
   let garbage =
     Db.VGPU_type.get_records_where ~__context
@@ -221,6 +221,22 @@ let gc_host_metrics ~__context =
       if not (List.mem hmetric host_metrics) then
         Db.Host_metrics.destroy ~__context ~self:hmetric)
     all_host_metrics
+
+let gc_certificates ~__context =
+  let all_certificates = Db.Certificate.get_all_records ~__context in
+  let host_certificates =
+    List.concat_map
+      (fun host -> Db.Host.get_certificates ~__context ~self:host)
+      (Db.Host.get_all ~__context)
+  in
+  (* Remove all the certificates that are related to host that no longer exist
+     in the database. CA certificates are treated differently as they are not
+     related to any single host *)
+  all_certificates
+  |> List.filter (fun (cert, record) ->
+         record.API.certificate_type <> `ca
+         && not (List.mem cert host_certificates))
+  |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)
 
 let probation_pending_tasks = Hashtbl.create 53
 
@@ -561,6 +577,7 @@ let gc_subtask_list =
   ; ("PVS proxies", gc_PVS_proxies)
   ; ("PVS servers", gc_PVS_servers)
   ; ("PVS cache storage", gc_PVS_cache_storage)
+  ; ("Certificates", gc_certificates)
   ; (* timeout_alerts; *)
     (* CA-29253: wake up all blocked clients *)
     ("Heartbeat", Xapi_event.heartbeat)

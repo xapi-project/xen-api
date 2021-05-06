@@ -336,7 +336,14 @@ let host_query_ha = call ~flags:[`Session]
       ~in_product_since:rel_miami
       ~name:"evacuate"
       ~doc:"Migrate all VMs off of this host, where possible."
-      ~params:[Ref _host, "host", "The host to evacuate"]
+      ~lifecycle:[
+        Published, rel_miami, "";
+        Extended, rel_next, "Enable migration network selection."
+      ]
+      ~versioned_params:[
+        {param_type=Ref _host; param_name="host"; param_doc="The host to evacuate"; param_release=miami_release; param_default=None};
+        {param_type=Ref _network; param_name="network"; param_doc="Optional preferred network for migration"; param_release=next_release; param_default=(Some (VRef null_ref))}
+      ]
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -999,6 +1006,19 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
+  (* this internal call is used to process values of type [Cert_distrib.Wire.command] *)
+  let cert_distrib_atom = call
+      ~pool_internal:true
+      ~hide_from_docs:true
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"cert_distrib_atom"
+      ~doc:""
+      ~params:[Ref _host, "host", "The host";
+               String, "command", "The string encoded command"]
+      ~result:(String, "The string encoded result")
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
   let get_server_certificate = call
       ~in_oss_since:None
       ~lifecycle:[Published, rel_george, ""; Changed, rel_inverness, "Now available to all RBAC roles."]
@@ -1553,6 +1573,7 @@ let host_query_ha = call ~flags:[`Session]
         set_sched_gran;
         get_sched_gran;
         emergency_disable_tls_verification;
+        cert_distrib_atom;
         apply_updates;
       ]
       ~contents:

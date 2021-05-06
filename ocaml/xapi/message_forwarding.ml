@@ -936,11 +936,19 @@ functor
           (current_pool_uuid ~__context) ;
         let self = Helpers.get_pool ~__context in
         let local_fn = Local.Pool.enable_tls_verification in
-        Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
-        Xapi_pool_helpers.get_master_slaves_list ~__context
-        |> List.iter (fun host ->
-               do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                   Client.Pool.enable_tls_verification rpc session_id))
+        let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
+
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~doc:"Pool.enable_tls_verification" ~self ~op:`tls_verification_enable
+          (fun () ->
+            Cert_distrib.(
+              go ~__context ~existing_cert_strategy:Erase_old
+                ~from_hosts:all_hosts ~to_hosts:all_hosts) ;
+            all_hosts
+            |> List.iter (fun host ->
+                   do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                       Client.Pool.enable_tls_verification rpc session_id)) ;
+            Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true)
 
       let set_repositories ~__context ~self ~value =
         info "Pool.set_repositories : pool = '%s'; value = [ %s ]"
@@ -2979,13 +2987,14 @@ functor
           (host_uuid ~__context self) ;
         Local.Host.get_vms_which_prevent_evacuation ~__context ~self
 
-      let evacuate ~__context ~host =
+      let evacuate ~__context ~host ~network =
         info "Host.evacuate: host = '%s'" (host_uuid ~__context host) ;
         (* Block call if this would break our VM restart plan (because the body of this sets enabled to false) *)
         Xapi_ha_vm_failover.assert_host_disable_preserves_ha_plan ~__context
           host ;
         Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.evacuate"
-          ~op:`evacuate (fun () -> Local.Host.evacuate ~__context ~host)
+          ~op:`evacuate (fun () ->
+            Local.Host.evacuate ~__context ~host ~network)
 
       let retrieve_wlb_evacuate_recommendations ~__context ~self =
         info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'"
@@ -3301,6 +3310,12 @@ functor
       let emergency_reset_server_certificate ~__context =
         info "Host.emergency_reset_server_certificate" ;
         Local.Host.emergency_reset_server_certificate ~__context
+
+      let cert_distrib_atom ~__context ~host ~command =
+        info "Host.cert_distrib_atom" ;
+        let local_fn = Local.Host.cert_distrib_atom ~host ~command in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command)
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"

@@ -21,7 +21,8 @@ let lifecycle = [Published, rel_stockholm, ""]
 let certificate_type =
   Enum ( "certificate_type",
          [ "ca", "Certificate that is trusted by the whole pool"
-         ; "host", "Certificate that identifies a single host"
+         ; "host", "Certificate that identifies a single host to entities outside the pool"
+         ; "host_internal", "Certificate that identifies a single host to other pool members"
          ]
        )
 
@@ -48,7 +49,7 @@ let t =
           (* Any cert records existing before the introduction of the 'host' field
            * are of type host *)
           ~ty:certificate_type "type"  ~default_value:(Some (VEnum "host"))
-          "The type of the certificate, either 'ca' or 'host'"
+          "The type of the certificate, either 'ca', 'host' or 'host_internal'"
       ; field   ~qualifier:StaticRO ~lifecycle
           ~ty:(Ref _host) "host" ~default_value:(Some (VRef null_ref))
           "The host where the certificate is installed"

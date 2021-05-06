@@ -548,7 +548,7 @@ let compute_evacuation_plan ~__context ~host =
            Using original algorithm" ;
         compute_evacuation_plan_no_wlb ~__context ~host
 
-let evacuate ~__context ~host =
+let evacuate ~__context ~host ~network =
   let task = Context.get_task_id __context in
   let plans = compute_evacuation_plan ~__context ~host in
   (* Check there are no errors in this list *)
@@ -566,9 +566,26 @@ let evacuate ~__context ~host =
     match plan with
     | Migrate host ->
         ( try
+            ( if network <> Ref.null then
+                let hosts = Db.Host.get_all ~__context in
+                List.iter
+                  (fun host ->
+                    ignore
+                    @@ Xapi_network_attach_helpers
+                       .assert_valid_ip_configuration_on_network_for_host
+                         ~__context ~self:network ~host)
+                  hosts
+            ) ;
+            let with_network_option =
+              if network <> Ref.null then
+                [("network", Ref.string_of network)]
+              else
+                []
+            in
+            let options = ("live", "true") :: with_network_option in
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host
-                  ~options:[("live", "true")])
+                  ~options)
           with
         | Api_errors.Server_error (code, params)
           when code = Api_errors.vm_bad_power_state ->
@@ -1365,7 +1382,7 @@ let with_cert_lock : (unit -> 'a) -> 'a =
   let cert_m = Mutex.create () in
   Mutex.execute cert_m
 
-let replace_host_certificate ~__context ~host
+let replace_host_certificate ~__context ~type' ~host
     (write_cert_fs : unit -> X509.Certificate.t) : unit =
   (* a) create new cert. [write_cert_fs] is assumed to generate a cert,
    *    replace the old cert on the fs, and return an ocaml representation of it
@@ -1375,7 +1392,7 @@ let replace_host_certificate ~__context ~host
    * e) restart stunnel *)
   let open Certificates in
   with_cert_lock @@ fun () ->
-  let old_certs = Db_util.get_host_certs ~__context ~host in
+  let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
   let (_ : API.ref_Certificate) =
     Db_util.add_cert ~__context ~type':(`host host) new_cert
@@ -1396,7 +1413,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
     Certificates.install_server_certificate ~pem_leaf:certificate
       ~pkcs8_private_key:private_key ~pem_chain
   in
-  replace_host_certificate ~__context ~host write_cert_fs
+  replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let _new_host_cert ~dbg : X509.Certificate.t =
   let xapi_ssl_pem = !Xapi_globs.server_cert_path in
@@ -1416,7 +1433,7 @@ let _new_host_cert ~dbg : X509.Certificate.t =
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
   let write_cert_fs () = _new_host_cert ~dbg in
-  replace_host_certificate ~__context ~host write_cert_fs
+  replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let emergency_reset_server_certificate ~(__context : 'a) =
   let (_ : X509.Certificate.t) =
@@ -2498,6 +2515,9 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
         ~cls:`Host
         ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
         ~body
+
+let cert_distrib_atom ~__context ~host ~command =
+  Cert_distrib.local_exec ~__context ~command
 
 let get_host_updates_handler (req : Http.Request.t) s _ =
   let uuid = Helpers.get_localhost_uuid () in

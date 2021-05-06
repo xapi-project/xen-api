@@ -17,7 +17,13 @@ exception Record_failure of string
 
 let to_str = function Rpc.String x -> x | _ -> failwith "Invalid"
 
-let certificate_type_to_string = function `host -> "host" | `ca -> "ca"
+let certificate_type_to_string = function
+  | `host ->
+      "host"
+  | `host_internal ->
+      "host_internal"
+  | `ca ->
+      "ca"
 
 let class_to_string cls =
   match cls with
@@ -147,6 +153,8 @@ let pool_operation_to_string = function
       "cluster_create"
   | `designate_new_master ->
       "designate_new_master"
+  | `tls_verification_enable ->
+      "tls_verification_enable"
   | `configure_repositories ->
       "configure_repositories"
   | `sync_updates ->
