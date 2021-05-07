@@ -77,9 +77,14 @@ let plug ~__context ~self =
   let domid = Int64.to_int (Db.VM.get_domid ~__context ~self:vm) in
   let force_loopback_vbd = Helpers.force_loopback_vbd ~__context in
   let hvm = Helpers.has_qemu_currently ~__context ~self:vm in
-  if
-    System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm
-    && not force_loopback_vbd
+  if domid = 0
+  then (
+    (* SDS vm support *)
+    Xapi_xenops.vbd_plug ~__context ~self
+  )
+  else if
+    (System_domains.storage_driver_domain_of_vbd ~__context ~vbd:self = vm
+    && not force_loopback_vbd)
   then (
     debug "VBD.plug of loopback VBD '%s'" (Ref.string_of self) ;
     Storage_access.attach_and_activate ~__context ~vbd:self ~domid
