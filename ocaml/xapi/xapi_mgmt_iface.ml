@@ -28,6 +28,16 @@ let update_mh_info interface =
   in
   ()
 
+let update_certificates ~__context () =
+  info "syncing certificates on xapi start" ;
+  match Certificates_sync.update ~__context with
+  | Ok () ->
+      info "successfully synced certificates"
+  | Error (`Msg (msg, _)) ->
+      error "Failed to update host certificates: %s" msg
+  | exception e ->
+      error "Failed to update host certificates: %s" (Printexc.to_string e)
+
 module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
 
@@ -39,7 +49,11 @@ end = struct
 
   let _restart_no_cache ~__context ~accept =
     let (_ : Thread.t) =
-      Thread.create (fun () -> Helpers.Stunnel.restart ~__context ~accept) ()
+      Thread.create
+        (fun () ->
+          Helpers.Stunnel.restart ~__context ~accept ;
+          update_certificates ~__context ())
+        ()
     in
     ()
 

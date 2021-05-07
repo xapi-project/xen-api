@@ -242,3 +242,11 @@ let is_device_underneath_same_type ~__context pif1 pif2 =
     (pci_rec.Db_actions.pCI_vendor_id, pci_rec.Db_actions.pCI_device_id)
   in
   get_device_info pif1 = get_device_info pif2
+
+let get_primary_address ~__context ~pif =
+  match Db.PIF.get_primary_address_type ~__context ~self:pif with
+  | `IPv4 -> (
+    match Db.PIF.get_IP ~__context ~self:pif with "" -> None | ip -> Some ip
+  )
+  | `IPv6 ->
+      List.nth_opt (Db.PIF.get_IPv6 ~__context ~self:pif) 0

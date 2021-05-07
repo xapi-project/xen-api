@@ -75,6 +75,7 @@
    rrdd-plugin.base
    rrdd-plugin.local
    sexplib
+   sexplib0
    sexpr
    sha
    stunnel
@@ -130,7 +131,7 @@
    yojson
    zstd
   )
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
 
 (executable

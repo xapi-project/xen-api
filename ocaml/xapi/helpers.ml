@@ -1962,3 +1962,58 @@ end = struct
     SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
     Xapi_psr_util.load_psr_pool_secrets ()
 end
+
+module FileSys : sig
+  (* bash-like interface for manipulating files *)
+  type path = string
+
+  val rmrf : path -> unit
+
+  val mv : src:path -> dest:path -> unit
+
+  val cpr : src:path -> dest:path -> unit
+
+  val redirect : string -> fname:path -> unit
+end = struct
+  type path = string
+
+  let rmrf path =
+    let ( // ) = Filename.concat in
+    let rec rm path =
+      let st = Unix.lstat path in
+      match st.Unix.st_kind with
+      | Unix.S_DIR ->
+          Sys.readdir path |> Array.iter (fun file -> rm (path // file)) ;
+          Unix.rmdir path
+      | _ ->
+          Unix.unlink path
+    in
+    try rm path
+    with e ->
+      error "failed to remove %s" path ;
+      raise e
+
+  let mv ~src ~dest =
+    try Sys.rename src dest
+    with e ->
+      error "mv: failed to mv %s to %s" src dest ;
+      raise e
+
+  let cpr ~src ~dest =
+    (* todo: implement in ocaml *)
+    try
+      let (_ : string) =
+        get_process_output (Printf.sprintf {|/bin/cp -r "%s" "%s"|} src dest)
+      in
+      ()
+    with e ->
+      error "cpr: failed to copy %s to %s" src dest ;
+      raise e
+
+  let redirect blob ~fname =
+    (try Sys.remove fname with _ -> ()) ;
+    try Unixext.write_string_to_file fname blob
+    with e ->
+      error "redirect: failed to write to %s" fname ;
+      raise e
+end

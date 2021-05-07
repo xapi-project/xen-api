@@ -26,4 +26,13 @@ fi
 
 echo "Resetting state and rebooting"
 rm -f /var/lib/misc/ran-*
+echo "Removing host certificates in /etc/xensource and /etc/stunnel"
+# remove pool-internal certs
+rm -f  /etc/xensource/xapi-pool-tls.pem
+rm -f  /etc/stunnel/xapi-pool-ca-bundle.pem
+rm -fr /etc/stunnel/certs-pool
+# keep potentially user-installed certs (as in CH 8.2)
+# rm -f  /etc/xensource/xapi-ssl.pem
+# rm -f  /etc/stunnel/xapi-stunnel-ca-bundle.pem
+# rm -fr /etc/stunnel/certs
 /sbin/reboot

@@ -735,7 +735,13 @@ let server_cert_path = ref (Filename.concat "/etc/xensource" "xapi-ssl.pem")
 let server_cert_internal_path =
   ref (Filename.concat "/etc/xensource" "xapi-pool-tls.pem")
 
-let stunnel_cert_path = ref "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+let trusted_certs_dir = ref "/etc/stunnel/certs"
+
+let trusted_pool_certs_dir = ref "/etc/stunnel/certs-pool"
+
+let stunnel_bundle_path = ref "/etc/stunnel/xapi-stunnel-ca-bundle.pem"
+
+let pool_bundle_path = ref "/etc/stunnel/xapi-pool-ca-bundle.pem"
 
 let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
@@ -1346,7 +1352,10 @@ module Resources = struct
     ; ( "server-cert-internal-path"
       , server_cert_internal_path
       , "Path to server certificate used for host-to-host TLS connections" )
-    ; ("stunnel-cert-path", stunnel_cert_path, "Path to CA ssl certificate")
+    ; ( "stunnel-bundle-path"
+      , stunnel_bundle_path
+      , "Path to stunnel trust bundle" )
+    ; ("pool-bundle-path", pool_bundle_path, "Path to pool trust bundle")
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
       , "Path to the initiatorname.iscsi file" )
@@ -1383,6 +1392,12 @@ module Resources = struct
       , Db_globs.static_vdis_dir
       , "Optional directory for configuring static VDIs" )
     ; ("tools-sr-dir", tools_sr_dir, "Directory containing tools ISO")
+    ; ( "trusted-pool-certs-dir"
+      , trusted_pool_certs_dir
+      , "Directory containing certs of trusted hosts" )
+    ; ( "trusted-certs-dir"
+      , trusted_certs_dir
+      , "Directory containing certs of other trusted entities" )
     ]
 
   let xcp_resources =

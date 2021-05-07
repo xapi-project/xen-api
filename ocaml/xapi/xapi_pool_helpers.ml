@@ -30,6 +30,7 @@ let all_operations =
   ; `ha_disable
   ; `cluster_create
   ; `designate_new_master
+  ; `tls_verification_enable
   ; `configure_repositories
   ; `sync_updates
   ; `get_updates
@@ -57,6 +58,9 @@ let valid_operations ~__context record _ref' =
     ; (`ha_disable, Api_errors.ha_disable_in_progress, [])
     ; (`cluster_create, Api_errors.cluster_create_in_progress, [])
     ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
+    ; ( `tls_verification_enable
+      , Api_errors.tls_verification_enable_in_progress
+      , [] )
     ; (`configure_repositories, Api_errors.configure_repositories_in_progress, [])
     ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
     ; (`get_updates, Api_errors.get_updates_in_progress, [])
@@ -76,13 +80,18 @@ let valid_operations ~__context record _ref' =
   let current_stack =
     Db.Pool.get_ha_cluster_stack ~__context ~self:(Helpers.get_pool ~__context)
   in
-  if ha_enabled then
-    set_errors Api_errors.ha_is_enabled [] [`ha_enable]
-  else
+  if ha_enabled then (
+    set_errors Api_errors.ha_is_enabled [] [`ha_enable] ;
+    (* TLS verification is not allowed to run if HA is enabled *)
+    set_errors Api_errors.ha_is_enabled [] [`tls_verification_enable]
+  ) else
     set_errors Api_errors.ha_not_enabled [] [`ha_disable] ;
   (* cluster create cannot run during a rolling pool upgrade *)
-  if Helpers.rolling_upgrade_in_progress ~__context then
+  if Helpers.rolling_upgrade_in_progress ~__context then (
     set_errors Api_errors.not_supported_during_upgrade [] [`cluster_create] ;
+    set_errors Api_errors.not_supported_during_upgrade []
+      [`tls_verification_enable]
+  ) ;
   (* cluster create cannot run if a cluster already exists on the pool *)
   ( match Db.Cluster.get_all ~__context with
   | [_] ->

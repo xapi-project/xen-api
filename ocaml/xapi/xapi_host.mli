@@ -54,7 +54,8 @@ val assert_can_evacuate : __context:Context.t -> host:API.ref_host -> unit
 val get_vms_which_prevent_evacuation :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
 
-val evacuate : __context:Context.t -> host:API.ref_host -> unit
+val evacuate :
+  __context:Context.t -> host:API.ref_host -> network:API.ref_network -> unit
 
 val retrieve_wlb_evacuate_recommendations :
   __context:Context.t -> self:API.ref_host -> (API.ref_VM * string list) list
@@ -514,6 +515,9 @@ val emergency_disable_tls_verification : __context:'a -> unit
 
 val alert_if_tls_verification_was_emergency_disabled :
   __context:Context.t -> unit
+
+val cert_distrib_atom :
+  __context:Context.t -> host:API.ref_host -> command:string -> string
 
 val get_host_updates_handler :
      Http.Request.t
