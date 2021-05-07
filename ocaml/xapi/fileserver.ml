@@ -64,15 +64,19 @@ let response_file s file_path =
     default application_octet_stream (map mime_of_extension ext) in
   Http_svr.response_file ~mime_content_type s file_path
 
+let access_forbidden req s =
+  (* Reject external non-TLS requests (depending on config) *)
+  !Xapi_globs.website_https_only
+  && (not (Context.is_unix_socket s))
+  && Context._client_of_rq req = None
+
 let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) _ =
   let uri_base_len = String.length uri_base in
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio;
-  match Context._client_of_rq req with
-  | None when !Xapi_globs.website_https_only ->
-    (* reject non-tls requests *)
+  if access_forbidden req s then
     Http_svr.response_forbidden ~req s
-  | _ -> (
+  else
     let uri = req.Request.uri in
     try
       let relative_url = String.sub uri uri_base_len (String.length uri - uri_base_len) in
@@ -92,4 +96,3 @@ let send_file (uri_base: string) (dir: string) (req: Request.t) (bio: Buf_io.t) 
       end
     with
       _ -> Http_svr.response_missing s (missing uri)
-  )
