@@ -716,7 +716,48 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
   in
-
+  let assert_ca_certificates_compatible () =
+    (* When both pools trust a different certificate using the same name
+       joining is blocked. The conflict could be resolved by renaming one of
+       the two certificates but this might break the assumptions of the
+       tooling that installed the certificate. Instead make the user solve it
+       before communications are broken.
+       The code assumes different certificates have different fingerprints.
+    *)
+    let conflicting_names = ref [] in
+    let module CertMap = Map.Make (String) in
+    let expr = {|field "type"="ca"|} in
+    let map_of_list list =
+      list
+      |> List.to_seq
+      |> Seq.map (fun (_, record) ->
+             (record.API.certificate_name, record.API.certificate_fingerprint))
+      |> CertMap.of_seq
+    in
+    let remote_certs =
+      Client.Certificate.get_all_records_where ~rpc ~session_id ~expr
+      |> map_of_list
+    in
+    let local_certs =
+      Db.Certificate.get_all_records_where ~__context ~expr |> map_of_list
+    in
+    let record_on_conflict key fprint = function
+      | fprint' when String.equal fprint fprint' ->
+          Some fprint
+      | _ ->
+          conflicting_names := key :: !conflicting_names ;
+          None
+    in
+    let _ = CertMap.union record_on_conflict local_certs remote_certs in
+    match !conflicting_names with
+    | [] ->
+        ()
+    | _ ->
+        raise
+          Api_errors.(
+            Server_error
+              (pool_joining_host_ca_certificates_conflict, !conflicting_names))
+  in
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -745,6 +786,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_homogeneous_primary_address_type () ;
   assert_compatible_network_purpose () ;
   assert_tls_verification_matches () ;
+  assert_ca_certificates_compatible () ;
   assert_not_in_updating_on_me () ;
   assert_no_hosts_in_updating ()
 

@@ -701,6 +701,9 @@ let pool_joining_host_has_network_sriovs =
 let pool_joining_host_tls_verification_mismatch =
   "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
 
+let pool_joining_host_ca_certificates_conflict =
+  "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
+
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
 
