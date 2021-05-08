@@ -1,11 +1,3 @@
-type existing_cert_strategy = Erase_old | Merge
-
-(** [existing_cert_strategy] is used to determine how to treat existing
-    certs in /etc/stunnel/certs-pool
-    Erase_old => existing certs in the trusted certs dir will be removed
-    Merge     => merge incoming certs with certs in the trusted certs dir,
-                 resolving conflicts by taking the incoming cert *)
-
 val local_exec : __context:Context.t -> command:string -> string
 (** execute a string encoded job, returning a string encoded result *)
 
@@ -22,7 +14,8 @@ val exchange_certificates_with_joiner :
 (** [exchange_certificates_with_joiner ~__context ~uuid ~certificate]
     distributes [certificate] to all hosts in a pool and makes the pool trust
     it by installing it as the pool certificate for the host with [uuid] into
-    the filesystem. This function was designed as part of pool join and is
+    the filesystem. Returns a list of internal certificates of all hosts in
+    the pool. This function was designed as part of pool join and is
     unlikely to be useful elsewhere. *)
 
 val import_joining_pool_certs :
