@@ -1727,7 +1727,7 @@ end = struct
             | Some x ->
                 Printf.sprintf "TIMEOUTidle = %s" x
             )
-          ; "debug = authpriv.5"
+          ; Stunnel.debug_conf_of_env ()
           ; "protocol = proxy" (* tells stunnel to include inet address info *)
           ; ""
           ; "[xapi]"
