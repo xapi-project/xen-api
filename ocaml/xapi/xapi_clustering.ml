@@ -431,3 +431,31 @@ let compute_corosync_max_host_failures ~__context =
     ((nhosts - disabled_hosts - 1) / 2) + disabled_hosts
   in
   corosync_ha_max_hosts
+
+let enable_tls_verification_prechecks ~__context ~self =
+  let dbg = Context.string_of_task __context in
+  let all_members = Addr.all_members ~__context ~cluster:self in
+  let res =
+    Cluster_client.LocalClient.enable_tls_verification_prechecks
+      (rpc ~__context) dbg all_members
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get res with
+  | Ok () ->
+      D.debug
+        "enable_tls_verification_prechecks: prechecks on self=%s were \
+         successful"
+        (Ref.short_string_of self)
+  | Error e ->
+      let err_str = match e with InternalError s -> s | Unix_error s -> s in
+      D.error
+        "enable_tls_verification_prechecks: prechecks on self=%s failed. ex: %s"
+        (Ref.short_string_of self) err_str ;
+      raise
+        Api_errors.(
+          Server_error
+            ( internal_error
+            , [
+                "Failed to enable TLS verification because prechecks failed on \
+                 the pool's cluster. It may be easiest to destroy your cluster \
+                 and try again"
+              ] ))

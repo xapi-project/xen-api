@@ -950,6 +950,13 @@ functor
             Cert_distrib.(
               go ~__context ~existing_cert_strategy:Erase_old
                 ~from_hosts:all_hosts ~to_hosts:all_hosts) ;
+
+            (* check clusterds are set up correctly *)
+            Db.Cluster.get_all ~__context
+            |> List.iter (fun self ->
+                   Xapi_clustering.enable_tls_verification_prechecks ~__context
+                     ~self) ;
+
             all_hosts
             |> List.iter (fun host ->
                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
