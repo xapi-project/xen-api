@@ -18,6 +18,67 @@ module D = Debug.Make (struct let name = "xapi_clustering" end)
 
 open D
 
+module Addr = struct
+  (* we factor cluster address related details here, in particular those of
+   * hostnames. a host's hostname should match the CN of the certificate
+   * served by the cluster daemon. we assume this is the host uuid *)
+
+  (* there are multiple ways of getting a [cluster_address], we implement
+   * several, for performance / convenience *)
+
+  let assert_ip_ok ((pifref, pifrec) : API.ref_PIF * API.pIF_t) : unit =
+    if pifrec.API.pIF_IP = "" then
+      raise
+        Api_errors.(
+          Server_error (pif_has_no_network_configuration, [Ref.string_of pifref]))
+
+  let of_ip_host ~__context ~host ~ip : Cluster_interface.address =
+    let hostname = Db.Host.get_uuid ~__context ~self:host in
+    IP_with_hostname {ip; hostname}
+
+  let of_pif_host ~__context ~host (ref, record) : Cluster_interface.address =
+    assert_ip_ok (ref, record) ;
+    let ip = record.API.pIF_IP in
+    of_ip_host ~__context ~host ~ip
+
+  let of_pif_cluster_host ~__context ~cluster_host (pifref, pifrec) :
+      Cluster_interface.address =
+    let host = Db.Cluster_host.get_host ~__context ~self:cluster_host in
+    of_pif_host ~__context ~host (pifref, pifrec)
+
+  let of_cluster_host ~__context ~cluster_host =
+    let pifref = Db.Cluster_host.get_PIF ~__context ~self:cluster_host in
+    let pifrec = Db.PIF.get_record ~__context ~self:pifref in
+    of_pif_cluster_host ~__context ~cluster_host (pifref, pifrec)
+
+  let all_members ~__context ~cluster =
+    Db.Cluster.get_cluster_hosts ~__context ~self:cluster
+    |> List.map @@ fun self -> of_cluster_host ~__context ~cluster_host:self
+
+  let _string_of_address (x : Cluster_interface.address) : string =
+    Rpcmarshal.marshal Cluster_interface.typ_of_address x |> Jsonrpc.to_string
+
+  let _address_of_string (x : string) : Cluster_interface.address option =
+    match
+      x
+      |> Jsonrpc.of_string
+      |> Rpcmarshal.unmarshal Cluster_interface.typ_of_address
+    with
+    | Error _ | (exception _) ->
+        None
+    | Ok x ->
+        Some x
+
+  let get_pending_forgets ~__context ~cluster : Cluster_interface.address list =
+    Db.Cluster.get_pending_forget ~__context ~self:cluster
+    |> List.map @@ fun s ->
+       match _address_of_string s with None -> IPv4 s | Some x -> x
+
+  let set_pending_forgets ~__context ~cluster xs : unit =
+    Db.Cluster.set_pending_forget ~__context ~self:cluster
+      ~value:(List.map _string_of_address xs)
+end
+
 (* Called by Cluster.create/destroy *)
 let set_ha_cluster_stack ~__context =
   let self = Helpers.get_pool ~__context in
@@ -64,14 +125,6 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
       debug "%s" msg ;
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let ip_of_pif (ref, record) =
-  let ip = record.API.pIF_IP in
-  if ip = "" then
-    raise
-      Api_errors.(
-        Server_error (pif_has_no_network_configuration, [Ref.string_of ref])) ;
-  Cluster_interface.IPv4 ip
-
 (** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
     the prerequisites of using a PIF for clustering are unmet. These
     prerequisites are:
@@ -92,7 +145,7 @@ let assert_pif_prerequisites pif =
           Server_error (required_pif_is_unplugged, [Ref.string_of pif_ref]))
   in
   assert_pif_permaplugged pif ;
-  ignore (ip_of_pif pif) ;
+  Addr.assert_ip_ok pif ;
   debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
 
 let assert_pif_attached_to ~__context ~host ~pIF =

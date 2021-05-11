@@ -48,14 +48,14 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let host = Helpers.get_master ~__context in
       let pifrec = Db.PIF.get_record ~__context ~self:pIF in
       assert_pif_prerequisites (pIF, pifrec) ;
-      let ip = ip_of_pif (pIF, pifrec) in
+      let addr = Addr.of_pif_host ~__context ~host (pIF, pifrec) in
       let token_timeout_ms = Int64.of_float (token_timeout *. 1000.0) in
       let token_timeout_coefficient_ms =
         Int64.of_float (token_timeout_coefficient *. 1000.0)
       in
       let init_config =
         {
-          Cluster_interface.local_ip= ip
+          Cluster_interface.local_ip= addr
         ; token_timeout_ms= Some token_timeout_ms
         ; token_coefficient_ms= Some token_timeout_coefficient_ms
         ; name= None

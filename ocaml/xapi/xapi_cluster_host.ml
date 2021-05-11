@@ -28,7 +28,7 @@ let fix_pif_prerequisites ~__context (self : API.ref_PIF) =
      avoids making any changes to the PIF if there's something we
      simply can't fix. *)
   let pif_rec self = Db.PIF.get_record ~__context ~self in
-  ip_of_pif (self, pif_rec self) |> ignore ;
+  Addr.assert_ip_ok (self, pif_rec self) ;
   if not (pif_rec self).API.pIF_currently_attached then
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         Client.Client.PIF.plug ~rpc ~session_id ~self) ;
@@ -74,31 +74,31 @@ let join_internal ~__context ~self =
       let cluster_token =
         Db.Cluster.get_cluster_token ~__context ~self:cluster
       in
-      let ip = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) in
-      let ip_list =
+      let addr = Addr.of_cluster_host ~__context ~cluster_host:self in
+      let addr_list =
         List.filter_map
           (fun self ->
-            let p_ref = Db.Cluster_host.get_PIF ~__context ~self in
-            let p_rec = Db.PIF.get_record ~__context ~self:p_ref in
             (* parallel join: some hosts may not have an IP yet *)
             try
-              let other_ip = ip_of_pif (p_ref, p_rec) in
-              if other_ip <> ip then
-                Some other_ip
+              let other_addr =
+                Addr.of_cluster_host ~__context ~cluster_host:self
+              in
+              if other_addr <> addr then
+                Some other_addr
               else
                 None
             with _ -> None)
           (Db.Cluster.get_cluster_hosts ~__context ~self:cluster)
       in
-      if ip_list = [] then
+      if addr_list = [] then
         raise
           Api_errors.(
             Server_error (no_cluster_hosts_reachable, [Ref.string_of cluster])) ;
       debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self) ;
       Xapi_clustering.Daemon.enable ~__context ;
       let result =
-        Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip
-          ip_list
+        Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token addr
+          addr_list
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -191,20 +191,23 @@ let destroy ~__context ~self =
   in
   destroy_op ~__context ~self ~force:false
 
-let ip_of_str str = Cluster_interface.IPv4 str
-
 let forget ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
+      let module Addr = Xapi_clustering.Addr in
       let dbg = Context.string_of_task __context in
       let cluster = Db.Cluster_host.get_cluster ~__context ~self in
-      let pif = Db.Cluster_host.get_PIF ~__context ~self in
-      let ip = Db.PIF.get_IP ~__context ~self:pif in
-      let pending =
-        ip :: Db.Cluster.get_pending_forget ~__context ~self:cluster
+      let new_pending_forget =
+        Addr.of_cluster_host ~__context ~cluster_host:self
       in
-      debug "Setting pending forget to %s" (String.concat "," pending) ;
-      Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:pending ;
-      let pending = List.map ip_of_str pending in
+      let pending =
+        new_pending_forget :: Addr.get_pending_forgets ~__context ~cluster
+      in
+      debug "Setting pending_forget_hosts to '%s'"
+        (pending
+        |> List.map (Cluster_interface.printaddr ())
+        |> String.concat ","
+        ) ;
+      Addr.set_pending_forgets ~__context ~cluster pending ;
       let result =
         Cluster_client.LocalClient.declare_dead (rpc ~__context) dbg pending
       in
@@ -233,10 +236,12 @@ let enable ~__context ~self =
       let pifref = Db.Cluster_host.get_PIF ~__context ~self in
       let pifrec = Db.PIF.get_record ~__context ~self:pifref in
       assert_pif_prerequisites (pifref, pifrec) ;
-      let ip = ip_of_pif (pifref, pifrec) in
+      let addr =
+        Addr.of_pif_cluster_host ~__context ~cluster_host:self (pifref, pifrec)
+      in
       let init_config =
         {
-          Cluster_interface.local_ip= ip
+          Cluster_interface.local_ip= addr
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None

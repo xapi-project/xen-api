@@ -172,9 +172,13 @@ let t =
           ~ty:(Set (Ref _cluster_host)) "cluster_hosts"
           "A list of the cluster_host objects associated with the Cluster"
 
-      ; field ~qualifier:DynamicRO ~lifecycle:[ Prototyped, rel_lima, "" ]
+      ; field ~qualifier:DynamicRO
+          ~lifecycle:[ Prototyped, rel_lima, "" ; Changed, rel_next, "allow encoding of IP_with_hostname" ]
+          (* this column stores addresses
+           * the old encoding is to store the IP directly as a string
+           * the new encoding is to store rpc string rep of the address *)
           ~ty:(Set String) "pending_forget" ~default_value:(Some (VSet []))
-          "Internal field used by Host.destroy to store the IP of cluster members \
+          "Internal field used by Host.destroy to store the address of cluster members \
            marked as permanently dead but not yet removed"
 
       ; field   ~qualifier:StaticRO ~lifecycle
