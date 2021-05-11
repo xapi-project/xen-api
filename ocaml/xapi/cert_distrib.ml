@@ -403,3 +403,34 @@ let import_joining_pool_certs ~__context ~pool_certs =
   let pool_certs = List.map WireProtocol.certificate_file_of_pair pool_certs in
   Worker.local_write_cert_fs ~__context HostPoolCertificate Merge pool_certs ;
   Worker.local_regen_bundle ~__context
+
+let collect_ca_certs ~__context ~names =
+  Worker.local_collect_certs ApplianceCertificate ~__context names
+  |> List.map WireProtocol.pair_of_certificate_file
+
+(* This function is called on the pool that is incorporating a new host *)
+let exchange_ca_certificates_with_joiner ~__context ~import ~export =
+  let all_hosts = Db.Host.get_all ~__context in
+  let appliance_certs = List.map WireProtocol.certificate_file_of_pair import in
+
+  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  List.iter
+    (fun host ->
+      Worker.remote_write_certs_fs ApplianceCertificate Merge appliance_certs
+        host rpc session_id)
+    all_hosts ;
+
+  List.iter
+    (fun host -> Worker.remote_regen_bundle host rpc session_id)
+    all_hosts ;
+
+  collect_ca_certs ~__context ~names:export
+
+(* This function is called on the host that is joining a pool *)
+let import_joining_pool_ca_certificates ~__context ~ca_certs =
+  let appliance_certs =
+    List.map WireProtocol.certificate_file_of_pair ca_certs
+  in
+  Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
+    appliance_certs ;
+  Worker.local_regen_bundle ~__context

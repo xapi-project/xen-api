@@ -80,7 +80,7 @@ open Datamodel_types
       ()
 
   (* This is a map of uuid -> cert_blob *)
-  let pool_certs = Map (String, String)
+  let certs = Map (String, String)
 
   let exchange_certificates_on_join = call
       ~name:"exchange_certificates_on_join"
@@ -89,8 +89,22 @@ open Datamodel_types
       ~params:[String, "uuid", "The uuid of the joining host";
                String, "certificate", "The contents of the joiner's certificate";
               ]
-      ~result:(pool_certs, "The contents of the pool's certificates")
+      ~result:(certs, "The contents of the pool's certificates")
       ~doc:"Install the pool certificate of a joiner and return the pool's certificates"
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let exchange_ca_certificates_on_join = call
+      ~name:"exchange_ca_certificates_on_join"
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[certs, "import", "The CA certificates that are to be installed";
+               Set (Ref _certificate), "export", "The CA certificates that will be returned, \
+                                                  ready to be installed";
+              ]
+      ~result:(certs, "The contents of the CA certificates requested")
+      ~doc:"Install the CA certificates of a joiner and return the requested CA certificates"
       ~hide_from_docs:true
       ~allowed_roles:_R_POOL_OP
       ()
@@ -769,6 +783,7 @@ open Datamodel_types
         ; eject
         ; initial_auth
         ; exchange_certificates_on_join
+        ; exchange_ca_certificates_on_join
         ; transition_to_master
         ; slave_reset_master
         ; recover_slaves

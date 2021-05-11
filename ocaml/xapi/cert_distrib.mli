@@ -25,3 +25,28 @@ val import_joining_pool_certs :
     This parameter must be a result of [exchange_certificates_with_joiner].
     This functions was designed as part of pool join and is unlikely to be
     useful elsewhere. *)
+
+val collect_ca_certs :
+  __context:Context.t -> names:string list -> (string * string) list
+(** [collect_ca_certs ~__context ~names] returns the ca certificates present
+    in the filesystem with the filenames [names], ready to export. *)
+
+val exchange_ca_certificates_with_joiner :
+     __context:Context.t
+  -> import:(string * string) list
+  -> export:string list
+  -> (string * string) list
+(** [exchange_ca_certificates_with_joiner ~__context ~import ~export]
+    distributes [import] certificates to all hosts in a pool and makes the
+    pool trust them by installing them as ca certificates into
+    the filesystem. Returns the list of ca certificates with names
+    [export]. This function was designed as part of pool join and is
+    unlikely to be useful elsewhere. *)
+
+val import_joining_pool_ca_certificates :
+  __context:Context.t -> ca_certs:(string * string) list -> unit
+(** [import_joining_pool_ca_certificates ~__context ~ca_certs]
+    Installs [ca_certs] into the filesystem as ca certificates.
+    This parameter must be the result of
+    [exchange_ca_certificates_with_joiner]. This function was designed
+    as part of pool join and is unlikely to be useful elsewhere. *)

@@ -1320,6 +1320,34 @@ let assert_pooling_licensed ~__context =
   if not (Pool_features.is_enabled ~__context Features.Pooling) then
     raise (Api_errors.Server_error (Api_errors.license_restriction, []))
 
+let certificate_install ~__context ~name ~cert =
+  let open Certificates in
+  let certificate = pem_of_string cert in
+  pool_install CA_Certificate ~__context ~name ~cert ;
+  let (_ : API.ref_Certificate) =
+    Db_util.add_cert ~__context ~type':(`ca name) certificate
+  in
+  ()
+
+let install_ca_certificate = certificate_install
+
+let certificate_uninstall ~__context ~name =
+  let open Certificates in
+  pool_uninstall CA_Certificate ~__context ~name ;
+  Db_util.remove_ca_cert_by_name ~__context name
+
+let uninstall_ca_certificate = certificate_uninstall
+
+let certificate_list ~__context = Certificates.(local_list CA_Certificate)
+
+let crl_install = Certificates.(pool_install CRL)
+
+let crl_uninstall = Certificates.(pool_uninstall CRL)
+
+let crl_list ~__context = Certificates.(local_list CRL)
+
+let certificate_sync = Certificates.pool_sync
+
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
   assert_pooling_licensed ~__context ;
@@ -1389,6 +1417,51 @@ let join_common ~__context ~master_address ~master_username ~master_password
   in
   finally
     (fun () ->
+      (* Merge certificates used for trusting appliances, also known as ca
+         certificates. At this point the names of certificates have been tested
+         for uniqueness across pools, the name of the certificate is used to
+         identify each certificate. *)
+      let expr = {|field "type"="ca"|} in
+      let module CertSet = Set.Make (String) in
+      let get_name = function
+        | _, {API.certificate_name; _} ->
+            certificate_name
+      in
+      let remote_certs =
+        Client.Certificate.get_all_records_where ~rpc ~session_id ~expr
+      in
+      let remote_names = List.map get_name remote_certs |> CertSet.of_list in
+      let local_names =
+        Db.Certificate.get_all_records_where ~__context ~expr
+        |> List.map get_name
+        |> CertSet.of_list
+      in
+
+      let from_pool = CertSet.(diff remote_names local_names) in
+      let to_pool = CertSet.(diff local_names remote_names) in
+
+      let remote_cert_refs =
+        List.filter_map
+          (function
+            | ref, API.{certificate_name; _}
+              when CertSet.mem certificate_name from_pool ->
+                Some ref
+            | _ ->
+                None)
+          remote_certs
+      in
+
+      let local_appliance_certs =
+        Cert_distrib.collect_ca_certs ~__context
+          ~names:(CertSet.to_seq to_pool |> List.of_seq)
+      in
+      let downloaded_certs =
+        Client.Pool.exchange_ca_certificates_on_join ~rpc ~session_id
+          ~import:local_appliance_certs ~export:remote_cert_refs
+      in
+      Cert_distrib.import_joining_pool_ca_certificates ~__context
+        ~ca_certs:downloaded_certs ;
+
       (* get pool db from new master so I have a backup ready if we failover to me *)
       ( try
           Pool_db_backup.fetch_database_backup ~master_address
@@ -1462,6 +1535,13 @@ let join_force ~__context ~master_address ~master_username ~master_password =
 let exchange_certificates_on_join ~__context ~uuid ~certificate :
     API.string_to_string_map =
   Cert_distrib.exchange_certificates_with_joiner ~__context ~uuid ~certificate
+
+let exchange_ca_certificates_on_join ~__context ~import ~export :
+    API.string_to_string_map =
+  let export =
+    List.map (fun self -> Db.Certificate.get_name ~__context ~self) export
+  in
+  Cert_distrib.exchange_ca_certificates_with_joiner ~__context ~import ~export
 
 (* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
@@ -2286,34 +2366,6 @@ let retrieve_wlb_configuration ~__context = retrieve_wlb_config ~__context
 let retrieve_wlb_recommendations ~__context = get_opt_recommendations ~__context
 
 let send_test_post = Remote_requests.send_test_post
-
-let certificate_install ~__context ~name ~cert =
-  let open Certificates in
-  let certificate = pem_of_string cert in
-  pool_install CA_Certificate ~__context ~name ~cert ;
-  let (_ : API.ref_Certificate) =
-    Db_util.add_cert ~__context ~type':(`ca name) certificate
-  in
-  ()
-
-let install_ca_certificate = certificate_install
-
-let certificate_uninstall ~__context ~name =
-  let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ;
-  Db_util.remove_ca_cert_by_name ~__context name
-
-let uninstall_ca_certificate = certificate_uninstall
-
-let certificate_list ~__context = Certificates.(local_list CA_Certificate)
-
-let crl_install = Certificates.(pool_install CRL)
-
-let crl_uninstall = Certificates.(pool_uninstall CRL)
-
-let crl_list ~__context = Certificates.(local_list CRL)
-
-let certificate_sync = Certificates.pool_sync
 
 (* destroy all subject not validated in external authentication *)
 let revalidate_subjects ~__context =
