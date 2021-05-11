@@ -153,6 +153,8 @@ let pool_operation_to_string = function
       "cluster_create"
   | `designate_new_master ->
       "designate_new_master"
+  | `tls_verification_enable ->
+      "tls_verification_enable"
 
 let host_operation_to_string = function
   | `provision ->

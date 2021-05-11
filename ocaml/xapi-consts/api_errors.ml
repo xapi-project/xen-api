@@ -615,6 +615,8 @@ let vgpu_guest_driver_limit = "VGPU_GUEST_DRIVER_LIMIT"
 
 let nvidia_tools_error = "NVIDIA_TOOLS_ERROR"
 
+let nvidia_sriov_misconfigured = "NVIDIA_SRIOV_MISCONFIGURED"
+
 let vm_pci_bus_full = "VM_PCI_BUS_FULL"
 
 let import_error_generic = "IMPORT_ERROR"
@@ -695,6 +697,9 @@ let pool_joining_host_has_tunnels = "POOL_JOINING_HOST_HAS_TUNNELS"
 
 let pool_joining_host_has_network_sriovs =
   "POOL_JOINING_HOST_HAS_NETWORK_SRIOVS"
+
+let pool_joining_host_tls_verification_mismatch =
+  "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
 
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
@@ -1203,3 +1208,5 @@ let vcpu_max_not_cores_per_socket_multiple =
 let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
+
+let tls_verification_enable_in_progress = "TLS_VERIFICATION_ENABLE_IN_PROGRESS"

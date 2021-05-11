@@ -38,18 +38,39 @@ let ws = take_while is_whitespace
 
 let data = take_while1 is_data
 
-let key_header = string "-----BEGIN PRIVATE KEY-----"
+type kind = RSA | EC | OTHER
 
-let key_footer = string "-----END PRIVATE KEY-----"
+let kind = option OTHER (string "RSA" *> return RSA <|> string "EC" *> return EC)
+
+let header = function
+  | RSA ->
+      "-----BEGIN RSA PRIVATE KEY-----"
+  | EC ->
+      "-----BEGIN EC PRIVATE KEY-----"
+  | OTHER ->
+      "-----BEGIN PRIVATE KEY-----"
+
+let footer = function
+  | RSA ->
+      "-----END RSA PRIVATE KEY-----"
+  | EC ->
+      "-----END EC PRIVATE KEY-----"
+  | OTHER ->
+      "-----END PRIVATE KEY-----"
+
+let key_header =
+  string "-----BEGIN" *> ws *> kind <* ws <* string "PRIVATE KEY-----"
+
+let key_footer k = string (footer k)
 
 let cert_header = string "-----BEGIN CERTIFICATE-----"
 
 let cert_footer = string "-----END CERTIFICATE-----"
 
 let key =
-  ws *> key_header >>= fun hd ->
+  ws *> key_header >>= fun k ->
   data >>= fun body ->
-  key_footer >>= fun tl -> ws *> return (String.concat "" [hd; body; tl])
+  key_footer k *> ws *> return (String.concat "" [header k; body; footer k])
 
 let cert =
   ws *> cert_header >>= fun hd ->

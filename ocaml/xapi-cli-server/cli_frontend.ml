@@ -713,6 +713,16 @@ let rec cmdtable_data : (string * cmd_spec) list =
             Cli_operations.host_emergency_disable_tls_verification
       ; flags= [Neverforward]
       } )
+  ; ( "host-emergency-reenable-tls-verification"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Reenable TLS verification for this host only"
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_emergency_reenable_tls_verification
+      ; flags= [Neverforward]
+      } )
   ; ( "host-reset-server-certificate"
     , {
         reqd= []
@@ -2430,7 +2440,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "host-evacuate"
     , {
         reqd= []
-      ; optn= []
+      ; optn= ["network-uuid"]
       ; help= "Migrate all VMs off a host."
       ; implementation= No_fd Cli_operations.host_evacuate
       ; flags= [Host_selectors]

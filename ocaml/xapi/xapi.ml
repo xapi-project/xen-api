@@ -330,21 +330,8 @@ let server_run_in_emergency_mode () =
   in
   wait_to_die () ; exit 0
 
-let update_certificates ~__context () =
-  info "syncing certificates on xapi start" ;
-  match Certificates_sync.update ~__context with
-  | Ok () ->
-      info "successfully synced certificates"
-  | Error (`Msg (msg, _)) ->
-      error "Failed to update host certificates: %s" msg ;
-      server_run_in_emergency_mode ()
-  | exception e ->
-      error "Failed to update host certificates: %s" (Printexc.to_string e) ;
-      server_run_in_emergency_mode ()
-
 let bring_up_management_if ~__context () =
   try
-    update_certificates ~__context () ;
     let management_if =
       Xapi_inventory.lookup Xapi_inventory._management_interface
     in

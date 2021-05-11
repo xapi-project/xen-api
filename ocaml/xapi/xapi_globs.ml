@@ -797,6 +797,8 @@ let sm_dir = ref "/opt/xensource/sm"
 
 let web_dir = ref "/opt/xensource/www"
 
+let website_https_only = ref true
+
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
 let cluster_stack_default = ref "xhad"
@@ -1153,6 +1155,10 @@ let other_options =
     , Arg.Set_string extauth_ad_backend
     , (fun () -> !extauth_ad_backend)
     , "Which AD backend used to talk to DC" )
+  ; ( "website-https-only"
+    , Arg.Set website_https_only
+    , (fun () -> string_of_bool !website_https_only)
+    , "Allow access to the internal website using HTTPS only (no HTTP)" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options

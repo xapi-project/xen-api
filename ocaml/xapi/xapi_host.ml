@@ -548,7 +548,7 @@ let compute_evacuation_plan ~__context ~host =
            Using original algorithm" ;
         compute_evacuation_plan_no_wlb ~__context ~host
 
-let evacuate ~__context ~host =
+let evacuate ~__context ~host ~network =
   let task = Context.get_task_id __context in
   let plans = compute_evacuation_plan ~__context ~host in
   (* Check there are no errors in this list *)
@@ -566,9 +566,26 @@ let evacuate ~__context ~host =
     match plan with
     | Migrate host ->
         ( try
+            ( if network <> Ref.null then
+                let hosts = Db.Host.get_all ~__context in
+                List.iter
+                  (fun host ->
+                    ignore
+                    @@ Xapi_network_attach_helpers
+                       .assert_valid_ip_configuration_on_network_for_host
+                         ~__context ~self:network ~host)
+                  hosts
+            ) ;
+            let with_network_option =
+              if network <> Ref.null then
+                [("network", Ref.string_of network)]
+              else
+                []
+            in
+            let options = ("live", "true") :: with_network_option in
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host
-                  ~options:[("live", "true")])
+                  ~options)
           with
         | Api_errors.Server_error (code, params)
           when code = Api_errors.vm_bad_power_state ->
@@ -2467,6 +2484,13 @@ let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
   Stunnel_client.set_verify_by_default false ;
   Unixext.unlink_safe Xapi_globs.verify_certificates_path
+
+let emergency_reenable_tls_verification ~__context =
+  (* NB: Should only be used after running emergency_disable_tls_verification.
+     Xapi_pool.enable_tls_verification is not used because it introduces a
+     dependency cycle. *)
+  Stunnel_client.set_verify_by_default true ;
+  Helpers.touch_file Xapi_globs.verify_certificates_path
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =

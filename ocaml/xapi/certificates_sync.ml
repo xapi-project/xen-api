@@ -20,11 +20,9 @@ let uninstall ~__context cert =
 
 (** add a certificate to the database. The certificate is already in the
   file system. This creates a new entry in the database. *)
-let install ~__context ~host cert =
+let install ~__context ~host ~type' cert =
   try
-    let ref =
-      Certificates.Db_util.add_cert ~__context ~type':(`host host) cert
-    in
+    let ref = Certificates.Db_util.add_cert ~__context ~type' cert in
     info "Adding host certificicate %s to database" (Ref.string_of ref) ;
     R.ok ()
   with e ->
@@ -41,10 +39,10 @@ let is_unchanged ~__context cert_ref cert =
   in
   cert_hash = ref_hash
 
-(** [get_server_cert] loads xapi-ssl.pem from the file system and
+(** [get_server_cert] loads [path] from the file system and
   returns it decoded *)
-let get_server_cert () =
-  match G.Pem.parse_file !Xapi_globs.server_cert_path with
+let get_server_cert path =
+  match G.Pem.parse_file path with
   | Error msg ->
       Error (`Msg (msg, []))
   | Ok cert ->
@@ -58,15 +56,24 @@ let get_server_cert () =
       in
       Ok host_cert
 
-let update ~__context =
+let sync ~__context ~type' =
   let host = Helpers.get_localhost ~__context in
   let host_uuid = Helpers.get_localhost_uuid () in
-  let cert_refs = Db.Host.get_certificates ~__context ~self:host in
-  let* cert = get_server_cert () in
-  match cert_refs with
+  let refs = Certificates.Db_util.get_host_certs ~__context ~type' ~host in
+  let type', path =
+    (* this shadows type'. We have two tags here: with and without an
+       argument and we need the one with host as an argument below *)
+    match type' with
+    | `host ->
+        (`host host, !Xapi_globs.server_cert_path)
+    | `host_internal ->
+        (`host_internal host, !Xapi_globs.server_cert_internal_path)
+  in
+  let* cert = get_server_cert path in
+  match refs with
   | [] ->
       info "Host %s has no active server certificate" host_uuid ;
-      install ~__context ~host cert
+      install ~__context ~host ~type' cert
   | [cert_ref] ->
       let unchanged = is_unchanged ~__context cert_ref cert in
       if unchanged then (
@@ -74,7 +81,7 @@ let update ~__context =
         Ok ()
       ) else (
         info "Server certificate for host %s changed - updating" host_uuid ;
-        let* () = install ~__context ~host cert in
+        let* () = install ~__context ~host ~type' cert in
         uninstall ~__context cert_ref ;
         Ok ()
       )
@@ -82,6 +89,52 @@ let update ~__context =
       warn "The host has more than one certificate: %s"
         (String.concat ", " (List.map Ref.string_of cert_refs)) ;
       info "Server certificate for host %s changed - updating" host_uuid ;
-      let* () = install ~__context ~host cert in
+      let* () = install ~__context ~host ~type' cert in
       List.iter (uninstall ~__context) cert_refs ;
       Ok ()
+
+let update ~__context =
+  let* () = sync ~__context ~type':`host in
+  let* () = sync ~__context ~type':`host_internal in
+  Ok ()
+
+let internal_error fmt =
+  fmt
+  |> Printf.kprintf @@ fun msg ->
+     error "%s" msg ;
+     raise Api_errors.(Server_error (internal_error, [msg]))
+
+let remove_from_db ~__context cert =
+  try
+    Db.Certificate.destroy ~__context ~self:cert ;
+    info "removed host certificate %s from db" (Ref.string_of cert)
+  with e ->
+    internal_error "failed to remove cert %s: %s" (Ref.string_of cert)
+      (Printexc.to_string e)
+
+let path host_uuid =
+  let prefix = !Xapi_globs.trusted_pool_certs_dir in
+  Filename.concat prefix (Printf.sprintf "%s.pem" host_uuid)
+
+let host_certs_of ~__context host =
+  List.concat
+    [
+      Certificates.Db_util.get_host_certs ~__context ~host ~type':`host
+    ; Certificates.Db_util.get_host_certs ~__context ~host ~type':`host_internal
+    ]
+
+let eject_certs_from_db ~__context certs =
+  certs |> List.iter (remove_from_db ~__context)
+
+let eject_certs_from_fs_for ~__context host =
+  (* the cert is not identified by its UUID in the file system but
+     by the UUID of the host it belongs to *)
+  let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+  let file = path host_uuid in
+  try
+    Sys.remove file ;
+    Certificates.update_ca_bundle () ;
+    info "removed host certificate %s" file
+  with e ->
+    internal_error "failed to remove cert %s on pool eject" file
+      (Printexc.to_string e)

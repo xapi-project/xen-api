@@ -36,15 +36,23 @@ let no_exn f x =
   try ignore (f x)
   with exn -> debug "Ignoring exception: %s" (ExnHelper.string_of_exn exn)
 
-let rpc host_address xml =
-  try Helpers.make_remote_rpc host_address xml
+let rpc ~verify_cert host_address xml =
+  try Helpers.make_remote_rpc ~verify_cert host_address xml
   with Xmlrpc_client.Connection_reset ->
     raise
       (Api_errors.Server_error
          (Api_errors.pool_joining_host_connection_failed, []))
 
+let get_pool ~rpc ~session_id =
+  match Client.Pool.get_all ~rpc ~session_id with
+  | [] ->
+      let err_msg = "Remote host does not belong to a pool." in
+      raise Api_errors.(Server_error (internal_error, [err_msg]))
+  | pool :: _ ->
+      pool
+
 let get_master ~rpc ~session_id =
-  let pool = List.hd (Client.Pool.get_all rpc session_id) in
+  let pool = get_pool ~rpc ~session_id in
   Client.Pool.get_master rpc session_id pool
 
 (* Pre-join asserts *)
@@ -75,7 +83,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   in
   (* I Cannot join a Pool if it has HA enabled on it *)
   let ha_is_not_enable_on_the_distant_pool () =
-    let pool = List.hd (Client.Pool.get_all rpc session_id) in
+    let pool = get_pool ~rpc ~session_id in
     if Client.Pool.get_ha_enabled rpc session_id pool then (
       error "Cannot join pool which already has HA enabled" ;
       raise (Api_errors.Server_error (Api_errors.ha_is_enabled, []))
@@ -240,28 +248,25 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
           updates_on ~rpc ~session_id local_host)
     in
     (* compare updates on host and pool master *)
-    Client.Pool.get_all rpc session_id
-    |> List.iter (fun pool ->
-           let pool_host = Client.Pool.get_master rpc session_id pool in
-           let remote_updates = updates_on rpc session_id pool_host in
-           if not (S.equal local_updates remote_updates) then (
-             let remote_uuid = Client.Host.get_uuid rpc session_id pool_host in
-             let diff xs ys = S.diff xs ys |> S.elements |> String.concat "," in
-             let reason =
-               Printf.sprintf "Updates on local host %s and pool host %s differ"
-                 (Db.Host.get_name_label ~__context ~self:local_host)
-                 (Client.Host.get_name_label rpc session_id pool_host)
-             in
-             error
-               "Pool join: Updates differ. Only on pool host %s: {%s} -- only \
-                on local host %s: {%s}"
-               remote_uuid
-               (diff remote_updates local_updates)
-               local_uuid
-               (diff local_updates remote_updates) ;
-             raise
-               Api_errors.(Server_error (pool_hosts_not_homogeneous, [reason]))
-           ))
+    let pool_host = get_master ~rpc ~session_id in
+    let remote_updates = updates_on rpc session_id pool_host in
+    if not (S.equal local_updates remote_updates) then (
+      let remote_uuid = Client.Host.get_uuid rpc session_id pool_host in
+      let diff xs ys = S.diff xs ys |> S.elements |> String.concat "," in
+      let reason =
+        Printf.sprintf "Updates on local host %s and pool host %s differ"
+          (Db.Host.get_name_label ~__context ~self:local_host)
+          (Client.Host.get_name_label rpc session_id pool_host)
+      in
+      error
+        "Pool join: Updates differ. Only on pool host %s: {%s} -- only on \
+         local host %s: {%s}"
+        remote_uuid
+        (diff remote_updates local_updates)
+        local_uuid
+        (diff local_updates remote_updates) ;
+      raise Api_errors.(Server_error (pool_hosts_not_homogeneous, [reason]))
+    )
   in
   (* CP-700: Restrict pool.join if AD configuration of slave-to-be does not match *)
   (* that of master of pool-to-join *)
@@ -513,7 +518,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       Db.Host.get_cpu_info ~__context ~self:me |> List.assoc "vendor"
     in
     let pool_cpu_vendor =
-      let pool = List.hd (Client.Pool.get_all rpc session_id) in
+      let pool = get_pool rpc session_id in
       Client.Pool.get_cpu_info rpc session_id pool |> List.assoc "vendor"
     in
     debug "Pool pre-join CPU homogeneity check:" ;
@@ -545,7 +550,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let dbg = Context.string_of_task __context in
     let my_backend' = Net.Bridge.get_kind dbg () in
     let my_backend = Network_interface.string_of_kind my_backend' in
-    let pool = List.hd (Client.Pool.get_all rpc session_id) in
+    let pool = get_pool ~rpc ~session_id in
     let remote_master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
     let remote_masters_backend =
       let v =
@@ -665,6 +670,26 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
            ( Api_errors.license_restriction
            , [Features.name_of_feature Features.Pool_size] ))
   in
+  let assert_tls_verification_matches () =
+    let remote_pool = get_pool ~rpc ~session_id in
+    let joiner_pool = Helpers.get_pool ~__context in
+    let tls_enabled_pool =
+      Client.Pool.get_tls_verification_enabled ~rpc ~session_id
+        ~self:remote_pool
+    in
+    let tls_enabled_joiner =
+      Db.Pool.get_tls_verification_enabled ~__context ~self:joiner_pool
+    in
+    if tls_enabled_pool <> tls_enabled_joiner then (
+      let pp_bool = function true -> "enabled" | false -> "disabled" in
+      error "Remote pool has TLS verification %s while this host has it %s"
+        (pp_bool tls_enabled_pool)
+        (pp_bool tls_enabled_joiner) ;
+      raise
+        Api_errors.(
+          Server_error (pool_joining_host_tls_verification_mismatch, []))
+    )
+  in
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -691,7 +716,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_db_schema_matches () ;
   assert_homogeneous_updates () ;
   assert_homogeneous_primary_address_type () ;
-  assert_compatible_network_purpose ()
+  assert_compatible_network_purpose () ;
+  assert_tls_verification_matches ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
     API.ref_host =
@@ -1226,10 +1252,43 @@ let assert_pooling_licensed ~__context =
 let join_common ~__context ~master_address ~master_username ~master_password
     ~force =
   assert_pooling_licensed ~__context ;
-  (* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
-  (* Note: this is where the license restrictions are checked on the other side.. if we're trying to join
-     	a host that does not support pooling then an error will be thrown at this stage *)
-  let rpc = rpc master_address in
+  let new_pool_secret = ref (SecretString.of_string "") in
+  let unverified_rpc = rpc ~verify_cert:None master_address in
+  let me = Helpers.get_localhost ~__context in
+  let session_id =
+    try
+      Client.Session.login_with_password unverified_rpc master_username
+        master_password Datamodel_common.api_version_string
+        Constants.xapi_user_agent
+    with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
+      raise
+        (Api_errors.Server_error
+           (Api_errors.pool_joining_host_service_failed, []))
+  in
+
+  finally
+    (fun () ->
+      (* Note: this is where the license restrictions are checked on the other
+         side. If we're trying to join a host that does not support pooling
+         then an error will be thrown at this stage *)
+      pre_join_checks ~__context ~rpc:unverified_rpc ~session_id ~force ;
+      (* get hold of cluster secret - this is critical; if this fails whole pool join fails *)
+      new_pool_secret := Client.Pool.initial_auth unverified_rpc session_id ;
+
+      (* Distribute the pool certificate so other members can connect to me
+         and I can connect to them *)
+      let my_uuid = Db.Host.get_uuid ~__context ~self:me in
+      let my_certificate = Certificates.get_internal_server_certificate () in
+      let pool_certs =
+        Client.Pool.exchange_certificates_on_join ~rpc:unverified_rpc
+          ~session_id ~uuid:my_uuid ~certificate:my_certificate
+      in
+      Cert_distrib.import_joining_pool_certs ~__context ~pool_certs)
+    (fun () -> Client.Session.logout unverified_rpc session_id) ;
+
+  (* Certificate exchange done, we must switch to verified pool connections as
+     soon as possible *)
+  let rpc = rpc ~verify_cert:(Stunnel_client.pool ()) master_address in
   let session_id =
     try
       Client.Session.login_with_password rpc master_username master_password
@@ -1239,7 +1298,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
         (Api_errors.Server_error
            (Api_errors.pool_joining_host_service_failed, []))
   in
-  let new_pool_secret = ref (SecretString.of_string "") in
+
   (* If management is on a VLAN, then get the Pool master
      management network bridge before we logout the session *)
   let pool_master_bridge, mgmt_pif =
@@ -1259,8 +1318,6 @@ let join_common ~__context ~master_address ~master_username ~master_password
   in
   finally
     (fun () ->
-      pre_join_checks ~__context ~rpc ~session_id ~force ;
-      new_pool_secret := Client.Pool.initial_auth rpc session_id ;
       (* get pool db from new master so I have a backup ready if we failover to me *)
       ( try
           Pool_db_backup.fetch_database_backup ~master_address
@@ -1270,9 +1327,9 @@ let join_common ~__context ~master_address ~master_username ~master_password
             (ExnHelper.string_of_exn e)
       ) ;
       (* this is where we try and sync up as much state as we can
-         		with the master. This is "best effort" rather than
-         		critical; if we fail part way through this then we carry
-         		on with the join *)
+         with the master. This is "best effort" rather than
+         critical; if we fail part way through this then we carry
+         on with the join *)
       try
         update_non_vm_metadata ~__context ~rpc ~session_id ;
         ignore
@@ -1286,11 +1343,11 @@ let join_common ~__context ~master_address ~master_username ~master_password
            operation will continue, but some of the slave's VMs may not be \
            available on the master.")
     (fun () -> Client.Session.logout rpc session_id) ;
+
   (* Attempt to unplug all our local storage. This is needed because
-     	   when we restart as a slave, all the references will be wrong
-     	   and these may have been cached by the storage layer. *)
+     when we restart as a slave, all the references will be wrong
+     and these may have been cached by the storage layer. *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let me = Helpers.get_localhost ~__context in
       List.iter
         (fun self ->
           Helpers.log_exn_continue
@@ -1330,6 +1387,10 @@ let join ~__context ~master_address ~master_username ~master_password =
 let join_force ~__context ~master_address ~master_username ~master_password =
   join_common ~__context ~master_address ~master_username ~master_password
     ~force:true
+
+let exchange_certificates_on_join ~__context ~uuid ~certificate :
+    API.string_to_string_map =
+  Cert_distrib.exchange_certificates_with_joiner ~__context ~uuid ~certificate
 
 (* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
@@ -1384,7 +1445,7 @@ let unplug_pbds ~__context host =
       List.iter (fun sr -> Client.SR.forget ~rpc ~session_id ~sr) srs_to_delete)
 
 (* This means eject me, since will have been forwarded from master  *)
-let eject ~__context ~host =
+let eject_self ~__context ~host =
   (* If HA is enabled then refuse *)
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
@@ -1548,8 +1609,6 @@ let eject ~__context ~host =
     Net.reset_state () ;
     Xapi_inventory.update Xapi_inventory._current_interfaces "" ;
     debug "Pool.eject: deleting Host record (the point of no return)" ;
-    (* delete me from the database - this will in turn cause PBDs and PIFs to be GCed *)
-    Db.Host.destroy ~__context ~self:host ;
     Create_misc.create_pool_cpuinfo ~__context ;
     (* Update pool features, in case this host had a different license to the
        		 * rest of the pool. *)
@@ -1619,6 +1678,27 @@ let eject ~__context ~host =
              ["--reset-to-install"]))
       (fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject ()) ;
     Xapi_hooks.pool_eject_hook ~__context
+
+(** eject [host] from the pool. This code is run on all hosts in the
+pool but only [host] will eject itself. *)
+let eject ~__context ~host =
+  let local = Helpers.get_localhost ~__context in
+  let master = Helpers.get_master ~__context in
+  match (host = local, local = master) with
+  | true, false ->
+      eject_self ~__context ~host
+  | false, false ->
+      Certificates_sync.eject_certs_from_fs_for ~__context host
+  | false, true ->
+      let certs = Certificates_sync.host_certs_of ~__context host in
+      info "about to eject certs of host %s on the master (1/2)"
+        (Ref.string_of host) ;
+      Certificates_sync.eject_certs_from_fs_for ~__context host ;
+      Certificates_sync.eject_certs_from_db ~__context certs ;
+      Db.Host.destroy ~__context ~self:host ;
+      info "ejected certs of host %s on the master (2/2)" (Ref.string_of host)
+  | true, true ->
+      raise Cannot_eject_master
 
 (* Prohibit parallel flushes since they're so expensive *)
 let sync_m = Mutex.create ()
