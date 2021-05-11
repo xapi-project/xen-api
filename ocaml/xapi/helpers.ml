@@ -1900,7 +1900,7 @@ module FileSys : sig
   (* bash-like interface for manipulating files *)
   type path = string
 
-  val rmrf : path -> unit
+  val rmrf : ?rm_top:bool -> path -> unit
 
   val mv : src:path -> dest:path -> unit
 
@@ -1910,18 +1910,18 @@ module FileSys : sig
 end = struct
   type path = string
 
-  let rmrf path =
+  let rmrf ?(rm_top = true) path =
     let ( // ) = Filename.concat in
-    let rec rm path =
+    let rec rm rm_top path =
       let st = Unix.lstat path in
       match st.Unix.st_kind with
       | Unix.S_DIR ->
-          Sys.readdir path |> Array.iter (fun file -> rm (path // file)) ;
-          Unix.rmdir path
+          Sys.readdir path |> Array.iter (fun file -> rm true (path // file)) ;
+          if rm_top then Unix.rmdir path
       | _ ->
           Unix.unlink path
     in
-    try rm path
+    try rm rm_top path
     with e ->
       error "failed to remove %s" path ;
       raise e
