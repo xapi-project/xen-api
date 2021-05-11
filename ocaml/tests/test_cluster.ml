@@ -26,8 +26,13 @@ let test_clusterd_rpc ~__context call =
       Rpc.{success= true; contents= Rpc.Null; is_notification= false}
   | "diagnostics", _ ->
       let open Cluster_interface in
-      let id = 1l in
-      let me = {addr= IPv4 "192.0.2.1"; id} in
+      let host = Helpers.get_localhost ~__context in
+      let me =
+        {
+          addr= Xapi_clustering.Addr.of_ip_host ~__context ~host ~ip:"192.0.2.1"
+        ; id= 1l
+        }
+      in
       let cluster_config =
         {
           cluster_name= "xapi-clusterd"

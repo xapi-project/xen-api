@@ -71,7 +71,7 @@ let test_fix_prereq () =
   Alcotest.check_raises "Should fail when checking PIF prequisites"
     Api_errors.(
       Server_error (pif_has_no_network_configuration, [Ref.string_of pifref]))
-    (fun () -> Xapi_cluster_host.fix_pif_prerequisites __context pifref) ;
+    (fun () -> Xapi_cluster_host.fix_pif_prerequisites ~__context pifref) ;
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1" ;
   Xapi_cluster_host.fix_pif_prerequisites ~__context pifref ;
   let pif = Xapi_clustering.pif_of_host ~__context network host in
@@ -202,10 +202,16 @@ let test_forget2 () =
   let __context = Test_common.make_test_database () in
   let host2 = Test_common.make_host ~__context () in
   let host3 = Test_common.make_host __context () in
+  let host3_address =
+    Xapi_clustering.Addr.of_ip_host ~__context ~ip:"192.0.2.3" ~host:host3
+  in
   let cluster, original_cluster_hosts = make ~__context [host2; host3] in
   Xapi_host.destroy ~__context ~self:host3 ;
   let pending = Db.Cluster.get_pending_forget ~__context ~self:cluster in
-  Alcotest.(check (list string) "1 pending forgets" ["192.0.2.3"] pending) ;
+  Alcotest.(check (list string))
+    "host3 should be a pending forget"
+    [Xapi_clustering.Addr._string_of_address host3_address]
+    pending ;
   Xapi_host.destroy ~__context ~self:host2 ;
   Db_gc_util.gc_Cluster_hosts ~__context ;
   let cluster_hosts = Db.Cluster.get_cluster_hosts ~__context ~self:cluster in
