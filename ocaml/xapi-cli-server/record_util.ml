@@ -184,6 +184,12 @@ let host_operation_to_string = function
   | `apply_updates ->
       "apply_updates"
 
+let host_pending_guidances_to_string = function
+  | `RebootHost ->
+      "RebootHost"
+  | `RestartToolstack ->
+      "RestartToolstack"
+
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->
       "clone"

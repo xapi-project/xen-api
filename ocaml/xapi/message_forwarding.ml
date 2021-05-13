@@ -3516,6 +3516,11 @@ functor
         let uuid = host_uuid ~__context self in
         info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash;
         Local.Host.apply_updates ~__context ~self ~hash
+
+      let remove_pending_guidance ~__context ~self ~value =
+        info "Host.remove_pending_guidance: host = '%s'; guidance = %s"
+          (host_uuid ~__context self) (Record_util.host_pending_guidances_to_string value) ;
+        Local.Host.remove_pending_guidance ~__context ~self ~value
     end
 
     module Host_crashdump = struct

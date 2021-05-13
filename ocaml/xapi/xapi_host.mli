@@ -530,3 +530,9 @@ val apply_updates :
   -> self:API.ref_host
   -> hash:string
   -> unit
+
+val remove_pending_guidance :
+     __context:Context.t
+  -> self:API.ref_host
+  -> value:API.host_pending_guidances
+  -> unit

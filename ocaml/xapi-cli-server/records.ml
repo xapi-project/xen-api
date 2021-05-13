@@ -2662,6 +2662,11 @@ let host_record rpc session_id host =
           ~set:(fun value ->
             Client.Host.set_uefi_certificates ~rpc ~session_id ~host ~value)
           ()
+      ; make_field ~name:"pending-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.host_pending_guidances_to_string
+              (x ()).API.host_pending_guidances)
+          ()
       ]
   }
 

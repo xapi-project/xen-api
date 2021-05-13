@@ -1448,6 +1448,26 @@ let host_query_ha = call ~flags:[`Session]
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let pending_guidances =
+    Enum ("host_pending_guidances",
+          [
+            "RebootHost",
+            "Indicates this host should reboot as soon as possible"
+          ; "RestartToolstack",
+            "Indicates the Toolstack running on this host should restart as soon as possible"
+          ])
+
+  let remove_pending_guidance = call
+      ~name:"remove_pending_guidance"
+      ~in_product_since:rel_next
+      ~doc:"Remove a pending guidance from the pending_guidances"
+      ~params:[
+        Ref _host, "self", "The host from which the pending guidance will be removed";
+        pending_guidances, "value", "The guidance to be removed"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1575,6 +1595,7 @@ let host_query_ha = call ~flags:[`Session]
         emergency_disable_tls_verification;
         cert_distrib_atom;
         apply_updates;
+        remove_pending_guidance;
       ]
       ~contents:
         ([ uid _host;
@@ -1634,6 +1655,7 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VBool false)) ~ty:Bool "multipathing" "Specifies whether multipathing is enabled";
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) ~ty:String "uefi_certificates" "The UEFI certificates allowing Secure Boot";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~ty:(Set (Ref _certificate)) "certificates" "List of certificates installed in the host";
-           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions"
+           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions";
+           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:(Set pending_guidances) "pending_guidances" ~default_value:(Some (VSet [])) "The set of pending guidances after applying updates"
          ])
       ()
