@@ -174,10 +174,17 @@ module Guidance = struct
       let msg = error_msg l in
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-  let resort_guidances gs=
+  let resort_guidances ~kind gs =
     match GuidanceStrSet.find_opt "RebootHost" gs with
-    | Some _ -> GuidanceStrSet.singleton "RebootHost"
-    | None -> gs
+    | Some _ ->
+      GuidanceStrSet.singleton "RebootHost"
+    | None ->
+        begin match kind with
+        | Recommended ->
+          gs
+        | Absolute ->
+          GuidanceStrSet.filter (fun g -> g != (to_string EvacuateHost)) gs
+        end
 end
 
 module Applicability = struct
@@ -869,7 +876,7 @@ let eval_guidances ~updates_info ~updates ~kind =
       GuidanceStrSet.union acc
         (eval_guidance_for_one_update ~updates_info ~update:u ~kind)
   ) GuidanceStrSet.empty updates
-  |> Guidance.resort_guidances
+  |> Guidance.resort_guidances ~kind
   |> GuidanceStrSet.elements
   |> List.map Guidance.of_string
 
@@ -948,16 +955,22 @@ let consolidate_updates_of_host ~repository_name ~updates_info host updates_of_h
       ([], UpdateIdSet.empty, [])
       all_updates
   in
-  let rec_guidances = List.map (fun g -> `String (Guidance.to_string g))
-      (eval_guidances ~updates_info ~updates ~kind:Recommended)
+  let rec_guidances = eval_guidances ~updates_info ~updates ~kind:Recommended in
+  let abs_guidances_in_json =
+    let abs_guidances =
+      List.filter
+        (fun g -> not (List.mem g rec_guidances))
+        (eval_guidances ~updates_info ~updates ~kind:Absolute)
+    in
+    List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
-  let abs_guidances = List.map (fun g -> `String (Guidance.to_string g))
-      (eval_guidances ~updates_info ~updates ~kind:Absolute)
+  let rec_guidances_in_json =
+    List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
   in
   let json_of_host = `Assoc [
       ("ref", `String host);
-      ("recommended-guidance", `List rec_guidances);
-      ("absolute-guidance", `List abs_guidances);
+      ("recommended-guidance", `List rec_guidances_in_json);
+      ("absolute-guidance", `List abs_guidances_in_json);
       ("RPMS", `List (List.map (fun r -> `String r) rpms));
       ("updates", `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids)))]
   in

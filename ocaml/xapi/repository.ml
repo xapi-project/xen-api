@@ -156,7 +156,6 @@ let group_host_updates_by_repository ~__context enabled host updates_of_host =
    *   ... ...
    * ]
    *)
-  (* TODO: live patches *)
   match Yojson.Basic.Util.member "updates" updates_of_host with
   | `List updates ->
     List.fold_left
@@ -303,7 +302,6 @@ let get_host_updates_in_json ~__context ~installed =
         |> List.filter_map
           (get_rpm_update_in_json ~rpm2updates ~installed_pkgs)
       in
-      (* TODO: live patches *)
       `Assoc [("updates", `List updates)])
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
@@ -420,30 +418,51 @@ let apply ~__context ~host =
         error "Failed to apply updates on host ref='%s': %s" ref (ExnHelper.string_of_exn e);
         raise Api_errors.(Server_error (apply_updates_failed, [ref])))
 
-let restart_device_models ~__context host =
-  (* Restart device models of all running HVM VMs on the host by doing
-   * local migrations. *)
+let do_with_device_models ~__context ~host ~action_label f =
+  (* Call f with device models of all running HVM VMs on the host *)
   Db.Host.get_resident_VMs ~__context ~self:host
   |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
   |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.filter_map (fun (ref, record) ->
-      match record.API.vM_power_state,
-            Helpers.has_qemu_currently ~__context ~self:ref with
-      | `Running, true ->
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.VM.pool_migrate rpc session_id ref host [("live", "true")]);
-        None
-      | `Paused, true ->
-        error "VM 'ref=%s' is paused, can't restart its device models" (Ref.string_of ref);
-        Some ref
-      | _ ->
-        (* No device models are running for this VM *)
-        None)
+  |> List.filter_map f
   |> function
   | [] -> ()
   | _ :: _ ->
-    let msg = "Can't restart device models for some VMs" in
+    let msg =
+      Printf.sprintf "Can't %s device models for some VMs" action_label
+    in
     raise Api_errors.(Server_error (internal_error, [msg]))
+
+let set_pending_restart_device_models ~__context ~host =
+  (* Set pending restart device models of all running HVM VMs on the host *)
+  do_with_device_models ~__context ~host
+    ~action_label:"set pending restart" @@fun (ref, record) ->
+  match record.API.vM_power_state,
+        Helpers.has_qemu_currently ~__context ~self:ref with
+  | `Running, true
+  | `Paused, true ->
+    Db.VM.add_pending_guidances ~__context ~self:ref ~value:`RestartDeviceModel ;
+    None
+  | _ ->
+    (* No device models are running for this VM *)
+    None
+
+let restart_device_models ~__context ~host =
+  (* Restart device models of all running HVM VMs on the host by doing
+   * local migrations. *)
+  do_with_device_models ~__context ~host ~action_label:"restart" @@ fun (ref, record) ->
+  match record.API.vM_power_state,
+        Helpers.has_qemu_currently ~__context ~self:ref with
+  | `Running, true ->
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        Client.Client.VM.pool_migrate rpc session_id ref host [("live", "true")]) ;
+    None
+  | `Paused, true ->
+    error "VM 'ref=%s' is paused, can't restart device models for it"
+      (Ref.string_of ref) ;
+    Some ref
+  | _ ->
+    (* No device models are running for this VM *)
+    None
 
 let apply_immediate_guidances ~__context ~host ~guidances =
   (* This function runs on master host *)
@@ -463,7 +482,7 @@ let apply_immediate_guidances ~__context ~host ~guidances =
            *)
           ()
         | [RestartDeviceModel] ->
-          restart_device_models ~__context host
+          restart_device_models ~__context ~host
         | [RestartToolstack] ->
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l when eq_set1 l ->
@@ -471,17 +490,17 @@ let apply_immediate_guidances ~__context ~host ~guidances =
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l when eq_set2 l ->
           (* RestartDeviceModel and RestartToolstack *)
-          restart_device_models ~__context host;
+          restart_device_models ~__context ~host ;
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l when eq_set3 l ->
           (* RestartDeviceModel and EvacuateHost *)
           (* Evacuating host restarted device models already *)
-          if num_of_hosts = 1 then restart_device_models ~__context host;
+          if num_of_hosts = 1 then restart_device_models ~__context ~host ;
           ()
         | l when eq_set4 l ->
           (* EvacuateHost, RestartToolstack and RestartDeviceModel *)
           (* Evacuating host restarted device models already *)
-          if num_of_hosts = 1 then restart_device_models ~__context host;
+          if num_of_hosts = 1 then restart_device_models ~__context ~host ;
           Client.Host.restart_agent ~rpc ~session_id ~host
         | l ->
           let ref = Ref.string_of host in
@@ -491,6 +510,25 @@ let apply_immediate_guidances ~__context ~host ~guidances =
   with e ->
     let ref = Ref.string_of host in
     error "applying immediate guidances on host ref='%s' failed: %s"
+      ref (ExnHelper.string_of_exn e);
+    raise Api_errors.(Server_error (apply_guidance_failed, [ref]))
+
+let apply_pending_guidances ~__context ~host ~guidances =
+  try
+    let open Guidance in
+    guidances
+    |> List.iter (function
+        | RebootHost ->
+            Db.Host.add_pending_guidances ~__context ~self:host ~value:`RebootHost
+        | RestartToolstack ->
+            Db.Host.add_pending_guidances ~__context ~self:host ~value:`RestartToolstack
+        | RestartDeviceModel ->
+          set_pending_restart_device_models ~__context ~host
+        | g ->
+          warn "Unsupported pending guidance %s, ignore it." (Guidance.to_string g))
+  with e ->
+    let ref = Ref.string_of host in
+    error "applying pending guidances on host ref='%s' failed: %s"
       ref (ExnHelper.string_of_exn e);
     raise Api_errors.(Server_error (apply_guidance_failed, [ref]))
 
@@ -521,12 +559,16 @@ let apply_updates ~__context ~host ~hash =
           let immediate_guidances =
             eval_guidances ~updates_info ~updates ~kind:Recommended
           in
+          let pending_guidances =
+            List.filter
+              (fun g -> not (List.mem g immediate_guidances))
+              (eval_guidances ~updates_info ~updates ~kind:Absolute)
+          in
           Guidance.assert_valid_guidances immediate_guidances;
           Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.Client.Repository.apply ~rpc ~session_id ~host);
-          (* TODO: absolute guidances *)
-
+              Client.Client.Repository.apply ~rpc ~session_id ~host) ;
           Hashtbl.replace updates_in_cache host (`Assoc [("updates", `List [])]) ;
+          apply_pending_guidances ~__context ~host ~guidances:pending_guidances ;
           immediate_guidances)
   with
   | Api_errors.(Server_error (code, _)) as e when code <> Api_errors.internal_error ->
