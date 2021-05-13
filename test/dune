@@ -1,19 +1,12 @@
 (executable
-  (name stress)
-  (libraries
-    alcotest
-    alcotest-lwt
-    local_lib
-    vhd-format
-    vhd-format-lwt
-  )
-)
+ (modes byte exe)
+ (name stress)
+ (libraries alcotest alcotest-lwt local_lib vhd-format vhd-format-lwt))
 
-(alias
-  (name stresstest)
-  (deps
-    (:x stress.exe)
-    (source_tree .)
-  )
-  (action (run %{x}))
-)
+(rule
+ (alias stresstest)
+ (deps
+  (:x stress.exe)
+  (source_tree .))
+ (action
+  (run %{x})))

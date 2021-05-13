@@ -27,5 +27,5 @@ uninstall:
 clean:
 	dune clean
 
-reindent:
-	ocp-indent --inplace **/*.ml*
+format:
+	dune build @fmt --auto-promote
