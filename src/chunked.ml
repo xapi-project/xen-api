@@ -12,26 +12,22 @@
  * GNU Lesser General Public License for more details.
  *)
 
-[%%cstruct
-type t = {
-  offset: uint64_t;
-  len: uint32_t;
-  (* data *)
-} [@@little_endian]]
+type%cstruct t = {offset: uint64_t; len: uint32_t (* data *)} [@@little_endian]
 
 let sizeof = sizeof_t
 
 type t = {
-  offset: int64;   (** offset on the physical disk *)
-  data: Cstruct.t; (** data to write *)
+    offset: int64  (** offset on the physical disk *)
+  ; data: Cstruct.t  (** data to write *)
 }
 
-let marshal (buf: Cstruct.t) t =
-  set_t_offset buf t.offset;
+let marshal (buf : Cstruct.t) t =
+  set_t_offset buf t.offset ;
   set_t_len buf (Int32.of_int (Cstruct.len t.data))
 
-let is_last_chunk (buf: Cstruct.t) =
-  get_t_offset buf = 0L && (get_t_len buf = 0l)
+let is_last_chunk (buf : Cstruct.t) =
+  get_t_offset buf = 0L && get_t_len buf = 0l
 
 let get_offset = get_t_offset
+
 let get_len = get_t_len

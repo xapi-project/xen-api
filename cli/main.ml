@@ -21,13 +21,15 @@ open Cmdliner
 let _common_options = "COMMON OPTIONS"
 
 let help =
-  [ `S _common_options
+  [
+    `S _common_options
   ; `P "These options are common to all commands."
   ; `S "MORE HELP"
   ; `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."
   ; `Noblank
   ; `S "BUGS"
-  ; `P (Printf.sprintf "Check bug reports at %s" project_url) ]
+  ; `P (Printf.sprintf "Check bug reports at %s" project_url)
+  ]
 
 (* Options common to all commands *)
 let common_options_t =
@@ -54,7 +56,8 @@ let common_options_t =
 let get_cmd =
   let doc = "query vhd metadata" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P "Look up a particular metadata property by name and print the value."
     ]
     @ help
@@ -77,11 +80,13 @@ let filename =
 let info_cmd =
   let doc = "display general information about a vhd" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P
         "Display general information about a vhd, including header and footer \
-         fields. This won't directly display block allocation tables or \
-         sector bitmaps." ]
+         fields. This won't directly display block allocation tables or sector \
+         bitmaps."
+    ]
     @ help
   in
   ( Term.(ret (pure Impl.info $ common_options_t $ filename))
@@ -90,11 +95,13 @@ let info_cmd =
 let contents_cmd =
   let doc = "display the contents of the vhd" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P
         "Display the contents of the vhd: headers, metadata and data blocks. \
          Everything is displayed in the order it appears in the vhd file, not \
-         the order it appears in the virtual disk image itself." ]
+         the order it appears in the virtual disk image itself."
+    ]
     @ help
   in
   ( Term.(ret (pure Impl.contents $ common_options_t $ filename))
@@ -103,10 +110,12 @@ let contents_cmd =
 let create_cmd =
   let doc = "create a dynamic vhd" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P
         "Create a dynamic vhd (i.e. one which may be sparse). A dynamic vhd \
-         may be self-contained or it may have a backing-file or 'parent'." ]
+         may be self-contained or it may have a backing-file or 'parent'."
+    ]
     @ help
   in
   let filename =
@@ -127,10 +136,12 @@ let create_cmd =
 let check_cmd =
   let doc = "check the structure of a vhd file" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P
         "Check the structure of a vhd file is valid, print any errors on the \
-         console." ]
+         console."
+    ]
     @ help
   in
   let filename =
@@ -197,21 +208,23 @@ let good_ciphersuites =
 let serve_cmd =
   let doc = "serve the contents of a disk" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P
         "Allow the contents of a disk to be read or written over a network \
          protocol"
     ; `P "EXAMPLES"
     ; `P
-        " vhd-tool serve --source fd:5 --source-protocol=chunked \
-         --destination file:///foo.raw --destination-format raw"
+        " vhd-tool serve --source fd:5 --source-protocol=chunked --destination \
+         file:///foo.raw --destination-format raw"
     ; `P
         " vhd-tool serve --source fd:5 --source-protocol=nbd --destination \
          file:///foo.raw --destination-format raw"
     ; `P
         " vhd-tool serve --source fd:5 --source-format=vhd \
          --source-protocol=none --destination file:///foo.raw \
-         --destination-format raw" ]
+         --destination-format raw"
+    ]
   in
   let ignore_checksums =
     let doc = "Do not verify checksums" in
@@ -219,16 +232,29 @@ let serve_cmd =
   in
   ( Term.(
       ret
-        ( pure Impl.serve $ common_options_t $ source $ source_fd
-        $ source_format $ source_protocol $ destination $ destination_fd
-        $ destination_format $ destination_size $ prezeroed $ progress
-        $ machine $ tar_filename_prefix $ ignore_checksums ))
+        (pure Impl.serve
+        $ common_options_t
+        $ source
+        $ source_fd
+        $ source_format
+        $ source_protocol
+        $ destination
+        $ destination_fd
+        $ destination_format
+        $ destination_size
+        $ prezeroed
+        $ progress
+        $ machine
+        $ tar_filename_prefix
+        $ ignore_checksums
+        ))
   , Term.info "serve" ~sdocs:_common_options ~doc ~man )
 
 let stream_cmd =
   let doc = "stream the contents of a vhd disk" in
   let man =
-    [ `S "DESCRIPTION"
+    [
+      `S "DESCRIPTION"
     ; `P
         "Read the contents of a virtual disk from a source using (format, \
          protocol) and write it out to a destination using another (format, \
@@ -236,8 +262,8 @@ let stream_cmd =
          format-converted in a space-efficient manner."
     ; `S "FORMATS"
     ; `P
-        "The input format and the output format are specified separately: \
-         this allows easy format conversion during the streaming process. The \
+        "The input format and the output format are specified separately: this \
+         allows easy format conversion during the streaming process. The \
          following formats are defined:"
     ; `P "  raw: a single flat image"
     ; `P "  vhd: the Virtual Hard Disk format used in XenServer"
@@ -279,9 +305,9 @@ let stream_cmd =
     ; `S "OTHER OPTIONS"
     ; `P
         "When transferring a raw format image onto a medium which is \
-         completely empty (i.e. full of zeroes) it is possible to optimise \
-         the transfer by avoiding writing empty blocks. The default behaviour \
-         is to write zeroes, which is always safe. If you know your media is \
+         completely empty (i.e. full of zeroes) it is possible to optimise the \
+         transfer by avoiding writing empty blocks. The default behaviour is \
+         to write zeroes, which is always safe. If you know your media is \
          empty then supply the '--prezeroed' argument."
     ; `P
         "When running interactively, the --progress argument will cause a \
@@ -317,10 +343,20 @@ let stream_cmd =
   in
   let stream_args_t =
     Term.(
-      pure StreamCommon.make $ source $ relative_to $ source_format
-      $ destination_format $ destination $ destination_fd $ source_protocol
-      $ destination_protocol $ prezeroed $ progress $ machine
-      $ tar_filename_prefix $ good_ciphersuites)
+      pure StreamCommon.make
+      $ source
+      $ relative_to
+      $ source_format
+      $ destination_format
+      $ destination
+      $ destination_fd
+      $ source_protocol
+      $ destination_protocol
+      $ prezeroed
+      $ progress
+      $ machine
+      $ tar_filename_prefix
+      $ good_ciphersuites)
   in
   ( Term.(ret (pure Impl.stream $ common_options_t $ stream_args_t))
   , Term.info "stream" ~sdocs:_common_options ~doc ~man )
@@ -332,15 +368,13 @@ let default_cmd =
   , Term.info "vhd-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man )
 
 let cmds =
-  [ info_cmd
-  ; contents_cmd
-  ; get_cmd
-  ; create_cmd
-  ; check_cmd
-  ; serve_cmd
-  ; stream_cmd ]
+  [
+    info_cmd; contents_cmd; get_cmd; create_cmd; check_cmd; serve_cmd; stream_cmd
+  ]
 
 let _ =
   match Term.eval_choice default_cmd cmds with
-  | `Error _ -> exit 1
-  | _ -> exit 0
+  | `Error _ ->
+      exit 1
+  | _ ->
+      exit 0

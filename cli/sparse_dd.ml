@@ -1,9 +1,7 @@
 (* Utility program which copies between two block devices, using vhd BATs and efficient zero-scanning
    for performance. *)
 
-module D = Debug.Make (struct
-  let name = "sparse_dd"
-end)
+module D = Debug.Make (struct let name = "sparse_dd" end)
 
 open D
 
@@ -18,18 +16,24 @@ let renice_cmd = "/usr/bin/renice"
 type encryption_mode = Always | Never | User
 
 let string_of_encryption_mode = function
-  | Always -> "always"
-  | Never -> "never"
-  | User -> "user"
+  | Always ->
+      "always"
+  | Never ->
+      "never"
+  | User ->
+      "user"
 
 let encryption_mode_of_string = function
-  | "always" -> Always
-  | "never" -> Never
-  | "user" -> User
+  | "always" ->
+      Always
+  | "never" ->
+      Never
+  | "user" ->
+      User
   | x ->
       failwith
-        (Printf.sprintf
-           "Unknown encryption mode %s. Use always, never or user." x)
+        (Printf.sprintf "Unknown encryption mode %s. Use always, never or user."
+           x)
 
 let encryption_mode = ref User
 
@@ -73,7 +77,8 @@ let options =
     , (fun () -> string_opt !var_ref)
     , description )
   in
-  [ ( "unbuffered"
+  [
+    ( "unbuffered"
     , Arg.Bool (fun b -> Vhd_format_lwt.File.use_unbuffered := b)
     , (fun () -> string_of_bool !Vhd_format_lwt.File.use_unbuffered)
     , "use unbuffered I/O via O_DIRECT" )
@@ -86,8 +91,8 @@ let options =
       "If supplied, the scheduling priority will be set using this value as \
        argument to the 'nice' command."
   ; str_option "ionice_class" ionice_class
-      "If supplied, the io scheduling class will be set using this value as \
-       -c argument to the 'ionice' command."
+      "If supplied, the io scheduling class will be set using this value as -c \
+       argument to the 'ionice' command."
   ; str_option "ionice_class_data" ionice_class_data
       "If supplied, the io scheduling class data will be set using this value \
        as -n argument to the 'ionice' command."
@@ -134,7 +139,8 @@ let options =
   ; ( "legacy-ciphersuites"
     , Arg.String (fun x -> legacy_ciphersuites := Some x)
     , (fun () -> string_opt !legacy_ciphersuites)
-    , " additional TLS ciphersuites allowed only if ssl-legacy is set" ) ]
+    , " additional TLS ciphersuites allowed only if ssl-legacy is set" )
+  ]
 
 let ( +* ) = Int64.add
 
@@ -150,9 +156,7 @@ let startswith prefix x =
   let prefix' = String.length prefix and x' = String.length x in
   prefix' <= x' && String.sub x 0 prefix' = prefix
 
-module Opt = struct
-  let default d = function None -> d | Some x -> x
-end
+module Opt = struct let default d = function None -> d | Some x -> x end
 
 module Mutex = struct
   include Mutex
@@ -175,14 +179,16 @@ module Progress = struct
       let data = Cstruct.create (String.length s) in
       Cstruct.blit_from_string s 0 data 0 (String.length s) ;
       Chunked.marshal header {Chunked.offset= 0L; data} ;
-      Printf.printf "%s%s%!" (Cstruct.to_string header) s )
+      Printf.printf "%s%s%!" (Cstruct.to_string header) s
+    )
 
   (** Emit the end-of-stream message *)
   let close () =
     if !machine_readable_progress then (
       let header = Cstruct.create Chunked.sizeof in
       Chunked.marshal header {Chunked.offset= 0L; data= Cstruct.create 0} ;
-      Printf.printf "%s%!" (Cstruct.to_string header) )
+      Printf.printf "%s%!" (Cstruct.to_string header)
+    )
 end
 
 let after f g =
@@ -197,7 +203,7 @@ let find_backend_device path =
   try
     let open Xenstore in
     (* If we're looking at a xen frontend device, see if the backend
-		   is in the same domain. If so check if it looks like a .vhd *)
+       is in the same domain. If so check if it looks like a .vhd *)
     let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
     let major = rdev / 256 and minor = rdev mod 256 in
     let link =
@@ -216,8 +222,10 @@ let find_backend_device path =
             | "local" :: "domain" :: bedomid :: _ ->
                 assert (self = bedomid) ;
                 Some params
-            | _ -> raise Not_found )
-    | _ -> raise Not_found
+            | _ ->
+                raise Not_found)
+    | _ ->
+        raise Not_found
   with _ -> None
 
 let with_paused_tapdisk path f =
@@ -229,8 +237,9 @@ let with_paused_tapdisk path f =
       Tapctl.pause context tapdev ;
       after f (fun () ->
           debug "unpausing tapdisk for %s" path ;
-          Tapctl.unpause context tapdev path Tapctl.Vhd )
-  | _, _, _ -> failwith (Printf.sprintf "Failed to pause tapdisk for %s" path)
+          Tapctl.unpause context tapdev path Tapctl.Vhd)
+  | _, _, _ ->
+      failwith (Printf.sprintf "Failed to pause tapdisk for %s" path)
 
 let deref_symlinks path =
   let rec inner seen_already path =
@@ -238,7 +247,8 @@ let deref_symlinks path =
     let stats = Unix.LargeFile.lstat path in
     if stats.Unix.LargeFile.st_kind = Unix.S_LNK then
       inner (path :: seen_already) (Unix.readlink path)
-    else path
+    else
+      path
   in
   inner [] path
 
@@ -264,42 +274,49 @@ let _ =
     | None ->
         debug "Must have -src argument\n" ;
         exit 1
-    | Some x -> x
+    | Some x ->
+        x
   in
   let dest =
     match !dest with
     | None ->
         debug "Must have -dest argument\n" ;
         exit 1
-    | Some x -> x
+    | Some x ->
+        x
   in
   if !size = -1L then (
     debug "Must have -size argument\n" ;
-    exit 1 ) ;
+    exit 1
+  ) ;
   let size = !size in
   let base = !base in
   (* Helper function to bring an int into valid range *)
   let clip v min max descr =
     if v < min then (
       warn "Value %d is too low for %s. Using %d instead." v descr min ;
-      min )
-    else if v > max then (
+      min
+    ) else if v > max then (
       warn "Value %d is too high for %s. Using %d instead." v descr max ;
-      max )
-    else v
+      max
+    ) else
+      v
   in
   (let parse_as_int str_opt int_opt_ref opt_name =
      match str_opt with
-     | None -> ()
+     | None ->
+         ()
      | Some str -> (
-       try int_opt_ref := Some (int_of_string str) with _ ->
-         error "Ignoring invalid value for %s: %s" opt_name str )
+       try int_opt_ref := Some (int_of_string str)
+       with _ -> error "Ignoring invalid value for %s: %s" opt_name str
+     )
    in
    (* renice this process if specified *)
    let n_ref = ref None in
    parse_as_int !nice n_ref "nice" ;
    ( match !n_ref with
-   | None -> ()
+   | None ->
+       ()
    | Some n ->
        (* Run command like: renice -n priority -p pid *)
        let n = clip n (-20) 19 "nice" in
@@ -308,14 +325,16 @@ let _ =
          Forkhelpers.execute_command_get_output renice_cmd
            ["-n"; string_of_int n; "-p"; pid]
        in
-       () ) ;
+       ()
+   ) ;
    (* Possibly run command like: ionice -c class -n classdata -p pid *)
    let c_ref = ref None in
    let cd_ref = ref None in
    parse_as_int !ionice_class c_ref "ionice_class" ;
    parse_as_int !ionice_class_data cd_ref "ionice_class_data" ;
    match !c_ref with
-   | None -> ()
+   | None ->
+       ()
    | Some c -> (
        let pid = string_of_int (Unix.getpid ()) in
        let ionice args =
@@ -327,14 +346,19 @@ let _ =
          ionice ["-c"; string_of_int c; "-n"; string_of_int n; "-p"; pid]
        in
        match c with
-       | 0 | 3 -> class_only c
+       | 0 | 3 ->
+           class_only c
        | 1 | 2 -> (
          match !cd_ref with
-         | None -> class_only c
+         | None ->
+             class_only c
          | Some n ->
              let n = clip n 0 7 "ionice classdata" in
-             class_and_data c n )
-       | _ -> error "Cannot use ionice due to invalid class value: %d" c )) ;
+             class_and_data c n
+       )
+       | _ ->
+           error "Cannot use ionice due to invalid class value: %d" c
+     )) ;
   debug "src = %s; dest = %s; base = %s; size = %Ld" src dest
     (Opt.default "None" base) size ;
   let src_image = Image.of_device src in
@@ -343,28 +367,32 @@ let _ =
     match base with None -> None | Some x -> Image.of_device x
   in
   let to_string = function None -> "None" | Some x -> Image.to_string x in
-  debug "src_image = %s; dest_image = %s; base_image = %s"
-    (to_string src_image) (to_string dest_image) (to_string base_image) ;
+  debug "src_image = %s; dest_image = %s; base_image = %s" (to_string src_image)
+    (to_string dest_image) (to_string base_image) ;
   (* Add the directory of the vhd to the search path *)
   let vhd_search_path =
     match src_image with
-    | Some (`Vhd x) -> vhd_search_path ^ ":" ^ Filename.dirname x
-    | _ -> vhd_search_path
+    | Some (`Vhd x) ->
+        vhd_search_path ^ ":" ^ Filename.dirname x
+    | _ ->
+        vhd_search_path
   in
   let common = Common.make true false true vhd_search_path in
   if !experimental_reads_bypass_tapdisk then
-    warn
-      "experimental_reads_bypass_tapdisk set: this may cause data corruption" ;
+    warn "experimental_reads_bypass_tapdisk set: this may cause data corruption" ;
   if !experimental_writes_bypass_tapdisk then
     warn
       "experimental_writes_bypass_tapdisk set: this may cause data corruption" ;
   let relative_to =
     match base_image with
-    | Some (`Vhd x) -> Some x
-    | Some (`Raw _) -> None
+    | Some (`Vhd x) ->
+        Some x
+    | Some (`Raw _) ->
+        None
     | Some (`Nbd _) ->
         None (* TODO: make delta copies work with NBD, CA-289660 *)
-    | None -> None
+    | None ->
+        None
   in
   let rewrite_url device_or_url =
     (* Ensure device_or_url is a valid URL, and apply our encryption policy *)
@@ -386,8 +414,10 @@ let _ =
         warn
           "turning on encryption for this transfer as requested by config file" ;
         rewrite_scheme "https"
-    | Some ("http" | "https") -> device_or_url
-    | _ -> "file://" ^ device_or_url
+    | Some ("http" | "https") ->
+        device_or_url
+    | _ ->
+        "file://" ^ device_or_url
   in
   let open Lwt in
   let stream_t, destination, destination_format =
@@ -426,8 +456,7 @@ let _ =
         let dest = rewrite_url dest in
         let t =
           Impl.make_stream common
-            ( src ^ ":" ^ server ^ ":" ^ export_name ^ ":"
-            ^ Int64.to_string size )
+            (src ^ ":" ^ server ^ ":" ^ export_name ^ ":" ^ Int64.to_string size)
             None "nbdhybrid" "raw"
         in
         (t, dest, "raw")
@@ -456,14 +485,14 @@ let _ =
     progress_cb fraction
   in
   let t =
-    stream_t
-    >>= fun s ->
+    stream_t >>= fun s ->
     Impl.write_stream common s destination (Some "none") None !prezeroed
       progress None !good_ciphersuites
   in
   if destination_format = "vhd" then
     with_paused_tapdisk dest (fun () -> Lwt_main.run t)
-  else Lwt_main.run t ;
+  else
+    Lwt_main.run t ;
   let time = Unix.gettimeofday () -. start in
   debug "Time: %.2f seconds" time ;
   Progress.close ()
