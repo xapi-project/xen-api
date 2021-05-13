@@ -2116,6 +2116,11 @@ let vm_record rpc session_id vm =
               x ;
             Client.VM.set_bios_strings rpc session_id vm x)
           ()
+      ; make_field ~name:"pending-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.vm_pending_guidances_to_string
+              (x ()).API.vM_pending_guidances)
+          ()
       ]
   }
 

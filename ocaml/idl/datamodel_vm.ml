@@ -1275,6 +1275,13 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
   ~allowed_roles:_R_LOCAL_ROOT_ONLY
   ()
 
+let pending_guidances =
+  Enum ("vm_pending_guidances",
+        [
+          "RestartDeviceModel",
+          "Indicates the device model of this running VM should restart as soon as possible"
+        ])
+
   (** VM (or 'guest') configuration: *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_vm ~descr:"A virtual machine (or 'guest')."
@@ -1460,6 +1467,7 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
            field ~lifecycle:[Prototyped, rel_naples, ""] ~qualifier:StaticRO ~ty:(Map(String, String)) "NVRAM"
              ~default_value:(Some (VMap []))
              "initial value for guest NVRAM (containing UEFI variables, etc). Cannot be changed while the VM is running";
+           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:(Set pending_guidances) "pending_guidances" ~default_value:(Some (VSet [])) "The set of pending guidances after applying updates"
          ])
       ()
 

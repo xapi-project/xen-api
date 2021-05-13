@@ -400,6 +400,10 @@ let vm_appliance_operation_to_string = function
   | `shutdown ->
       "shutdown"
 
+let vm_pending_guidances_to_string = function
+  | `RestartDeviceModel ->
+      "RestartDeviceModel"
+
 let cpu_feature_to_string f =
   match f with
   | `FPU ->
