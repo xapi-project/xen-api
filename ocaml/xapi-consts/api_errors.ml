@@ -1257,3 +1257,5 @@ let apply_guidance_failed = "APPLY_GUIDANCE_FAILED"
 let updateinfo_hash_mismatch = "UPDATEINFO_HASH_MISMATCH"
 
 let updates_require_sync = "UPDATES_REQUIRE_SYNC"
+
+let cannot_restart_device_model = "CANNOT_RESTART_DEVICE_MODEL"
