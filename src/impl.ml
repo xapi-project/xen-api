@@ -199,7 +199,7 @@ let [@warning "-27"]
   return None
 
 let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
-  let open Nbd_lwt_unix in
+  let open Nbd_unix in
   let c = { Nbd.Channel.read = c.Channels.really_read; write = c.Channels.really_write; close = c.Channels.close; is_tls = false } in
 
   Client.negotiate c "" >>= fun (server, _size, _flags) ->

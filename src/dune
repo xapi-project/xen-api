@@ -8,7 +8,7 @@
     cstruct
     io-page.unix
     lwt
-    nbd-lwt-unix
+    nbd-unix
     re.str
     rpclib
     rpclib.json
