@@ -190,6 +190,8 @@ let update_guidance_to_string = function
       "reboot_host"
   | `restart_toolstack ->
       "restart_toolstack"
+  | `restart_device_model ->
+      "restart_device_model"
 
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->

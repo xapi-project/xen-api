@@ -198,6 +198,8 @@ let update_guidances =
           "Indicates the updated host should reboot as soon as possible"
         ; "restart_toolstack",
           "Indicates the Toolstack running on the updated host should restart as soon as possible"
+        ; "restart_device_model",
+          "Indicates the device model of a running VM should restart as soon as possible"
         ])
 
 let get_oss_releases in_oss_since =
