@@ -377,6 +377,7 @@ let consider_enabling_host_nolock ~__context =
       debug
         "Host.enabled: system has just restarted: setting localhost to enabled" ;
       Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+      Db.Host.remove_pending_guidances ~__context ~self:localhost ~value:`RebootHost ;
       update_allowed_operations ~__context ~self:localhost ;
       Localdb.put Constants.host_disabled_until_reboot "false" ;
       (* Start processing pending VM powercycle events *)
