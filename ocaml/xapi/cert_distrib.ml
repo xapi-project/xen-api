@@ -66,7 +66,7 @@ let raise_internal ?e ?details msg : 'a =
   raise Api_errors.(Server_error (internal_error, [msg]))
 
 (* eventually the remote calls should probably become API calls in the datamodel
- * but they remain here for quick development *)
+   but they remain here for quick development *)
 module Worker : sig
   val local_exec : __context:Context.t -> command:string -> string
 
@@ -76,6 +76,14 @@ module Worker : sig
     existing_cert_strategy -> WireProtocol.cert list -> unit remote_call
 
   val remote_regen_bundle : unit remote_call
+
+  val local_write_cert_fs :
+       __context:Context.t
+    -> existing_cert_strategy
+    -> WireProtocol.cert list
+    -> unit
+
+  val local_regen_bundle : __context:Context.t -> unit
 end = struct
   open WireProtocol
 
@@ -203,39 +211,52 @@ end = struct
         ()
     | r ->
         unexpected_result "remote_regen_bundle" r
+
+  let local_write_cert_fs ~__context strategy certs =
+    let command = WireProtocol.string_of_command (Write (strategy, certs)) in
+    match result_or_fail (local_exec ~__context ~command) with
+    | WriteResult ->
+        ()
+    | r ->
+        unexpected_result "local_write_certs_fs" r
+
+  let local_regen_bundle ~__context =
+    let command = WireProtocol.string_of_command GenBundle in
+    match result_or_fail (local_exec ~__context ~command) with
+    | GenBundleResult ->
+        ()
+    | r ->
+        unexpected_result "local_regen_bundle" r
 end
 
 let local_exec = Worker.local_exec
 
 let go ~__context ~from_hosts ~to_hosts ~existing_cert_strategy =
   (* here we coordinate the certificate distribution. from a high level
-   * we do the following:
-   * a) collect certs from [from_hosts], aggregating them on the master.
-   *    the cert collected will be [Worker.my_cert]
-   * b) tell [to_hosts] to write the certs collected in (a) to [Worker.pool_certs]).
-   *    the original contents of [Worker.pool_certs] will either be removed or
-   *    simply added to, depending on [existing_cert_strategy]
-   * c) tell [to_hosts] to regenerate their trust bundles. the old bundle is
-   *    removed completely. see 'update-ca-bundle.sh'. only at this point would we
-   *    expect 'things to go wrong', e.g. new connections fail, if the certs have not
-   *    been set up correctly
-   * NB: if any individual call fails, then we don't continue with the distribution.
-   *     for example: suppose that the master is unable to obtain the cert from a host,
-   *     then we are guaranteed not to modify the trusted certs on any hosts. however
-   *     we do not guarantee 'atomicity', so if regenerating the bundle on one host
-   *     fails, then state across the pool will most likely become inconsistent, and
-   *     manual intervention may be required *)
-  let uuid host = Db.Host.get_uuid ~__context ~self:host in
-
+     we do the following:
+     a) collect certs from [from_hosts], aggregating them on the master.
+        the cert collected will be [Worker.my_cert]
+     b) tell [to_hosts] to write the certs collected in (a) to [Worker.pool_certs]).
+        the original contents of [Worker.pool_certs] will either be removed or
+        simply added to, depending on [existing_cert_strategy]
+     c) tell [to_hosts] to regenerate their trust bundles. the old bundle is
+        removed completely. see 'update-ca-bundle.sh'. only at this point would we
+        expect 'things to go wrong', e.g. new connections fail, if the certs have not
+        been set up correctly
+     NB: if any individual call fails, then we don't continue with the distribution.
+         for example: suppose that the master is unable to obtain the cert from a host,
+         then we are guaranteed not to modify the trusted certs on any hosts. however
+         we do not guarantee 'atomicity', so if regenerating the bundle on one host
+         fails, then state across the pool will most likely become inconsistent, and
+         manual intervention may be required *)
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  let blobs =
-    List.map
-      (fun host -> Worker.remote_collect_cert host rpc session_id)
-      from_hosts
-  in
   let certs =
-    List.combine blobs from_hosts
-    |> List.map (fun (blob, host) -> WireProtocol.{uuid= uuid host; blob})
+    List.map
+      (fun host ->
+        let blob = Worker.remote_collect_cert host rpc session_id in
+        let uuid = Db.Host.get_uuid ~__context ~self:host in
+        WireProtocol.{uuid; blob})
+      from_hosts
   in
   List.iter
     (fun host ->
@@ -245,3 +266,37 @@ let go ~__context ~from_hosts ~to_hosts ~existing_cert_strategy =
   List.iter
     (fun host -> Worker.remote_regen_bundle host rpc session_id)
     to_hosts
+
+let collect_pool_certs ~__context ~all_hosts =
+  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  all_hosts
+  |> List.map (fun host ->
+         let uuid = Db.Host.get_uuid ~__context ~self:host in
+         let blob = Worker.remote_collect_cert host rpc session_id in
+         (uuid, blob))
+
+let import_joiner ~__context ~uuid ~certificate ~to_hosts =
+  let joiner_certificate = WireProtocol.{uuid; blob= certificate} in
+  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  List.iter
+    (fun host ->
+      Worker.remote_write_certs_fs Merge [joiner_certificate] host rpc
+        session_id)
+    to_hosts ;
+  List.iter
+    (fun host -> Worker.remote_regen_bundle host rpc session_id)
+    to_hosts
+
+(* This function is called on the host that is joining a pool *)
+let import_joining_pool_certs ~__context ~pool_certs =
+  let pool_certs =
+    List.map (fun (uuid, blob) -> WireProtocol.{uuid; blob}) pool_certs
+  in
+  Worker.local_write_cert_fs ~__context Merge pool_certs ;
+  Worker.local_regen_bundle ~__context
+
+(* This function is called in the pool where a new host being introduced *)
+let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
+  let all_hosts = Db.Host.get_all ~__context in
+  import_joiner ~__context ~uuid ~certificate ~to_hosts:all_hosts ;
+  collect_pool_certs ~__context ~all_hosts

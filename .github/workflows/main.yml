@@ -94,8 +94,5 @@ jobs:
       - name: Generate empty configuration for make to be happy
         run: touch config.mk
 
-      - name: Number of List.hd usages has not changed
-        run: make list-hd
-
-      - name: Number of verify_cert:None usages has not changed
-        run: make verify-cert
+      - name: quality-gate
+        run: make quality-gate

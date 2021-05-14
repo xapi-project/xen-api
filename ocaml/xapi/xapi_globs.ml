@@ -797,6 +797,8 @@ let sm_dir = ref "/opt/xensource/sm"
 
 let web_dir = ref "/opt/xensource/www"
 
+let website_https_only = ref true
+
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
 let cluster_stack_default = ref "xhad"
@@ -1171,6 +1173,10 @@ let other_options =
     , Arg.Set allow_host_sched_gran_modification
     , (fun () -> string_of_bool !allow_host_sched_gran_modification)
     , "Allows to modify the host's scheduler granularity" )
+  ; ( "website-https-only"
+    , Arg.Set website_https_only
+    , (fun () -> string_of_bool !website_https_only)
+    , "Allow access to the internal website using HTTPS only (no HTTP)" )
   ; gen_list_option "repository-domain-name-allowlist"
       "space-separated list of allowed domain name in base URL in repository."
       (fun s -> s)

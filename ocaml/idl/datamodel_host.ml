@@ -1436,6 +1436,17 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
+  let emergency_reenable_tls_verification = call
+      ~flags:[`Session]
+      ~name:"emergency_reenable_tls_verification"
+      ~lifecycle:[Published, rel_next, ""]
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[]
+      ~doc:"Reenable TLS verification for this host only"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
   let apply_updates = call
     ~name:"apply_updates"
     ~in_oss_since:None
@@ -1573,6 +1584,7 @@ let host_query_ha = call ~flags:[`Session]
         set_sched_gran;
         get_sched_gran;
         emergency_disable_tls_verification;
+        emergency_reenable_tls_verification;
         cert_distrib_atom;
         apply_updates;
       ]

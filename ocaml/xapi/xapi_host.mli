@@ -516,6 +516,8 @@ val emergency_disable_tls_verification : __context:'a -> unit
 val alert_if_tls_verification_was_emergency_disabled :
   __context:Context.t -> unit
 
+val emergency_reenable_tls_verification : __context:'a -> unit
+
 val cert_distrib_atom :
   __context:Context.t -> host:API.ref_host -> command:string -> string
 
