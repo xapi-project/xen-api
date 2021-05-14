@@ -17,6 +17,7 @@ depends: [
   "cohttp"
   "fd-send-recv"
   "logs"
+  "lwt"
   "message-switch-core"
   "message-switch-unix"
   "mtime"

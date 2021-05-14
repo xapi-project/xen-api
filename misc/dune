@@ -1,6 +1,8 @@
 (executable
  (name channel_helper)
+ (public_name xcp-idl-debugger)
  (modules channel_helper)
+ (package xapi-idl)
  (libraries
    cmdliner
    lwt
