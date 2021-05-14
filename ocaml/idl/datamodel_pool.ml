@@ -79,6 +79,21 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  (* This is a map of uuid -> cert_blob *)
+  let pool_certs = Map (String, String)
+
+  let exchange_certificates_on_join = call
+      ~name:"exchange_certificates_on_join"
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[String, "uuid", "The uuid of the joining host";
+               String, "certificate", "The contents of the joiner's certificate";
+              ]
+      ~result:(pool_certs, "The contents of the pool's certificates")
+      ~doc:"Install the pool certificate of a joiner and return the pool's certificates"
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
 
   let slave_reset_master = call ~flags:[`Session]
       ~name:"emergency_reset_master"
@@ -753,6 +768,7 @@ open Datamodel_types
         ; join_force
         ; eject
         ; initial_auth
+        ; exchange_certificates_on_join
         ; transition_to_master
         ; slave_reset_master
         ; recover_slaves

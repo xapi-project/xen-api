@@ -393,13 +393,10 @@ let make_remote_rpc_of_url ~srcstr ~dststr (url, pool_secret) call =
     call
 
 (* This one uses rpc-light *)
-let make_remote_rpc remote_address xml =
+let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) remote_address xml =
   let open Xmlrpc_client in
   let transport =
-    SSL
-      ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
-      , remote_address
-      , !Constants.https_port )
+    SSL (SSL.make ~verify_cert (), remote_address, !Constants.https_port)
   in
   let http = xmlrpc ~version:"1.0" "/" in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
@@ -1803,7 +1800,7 @@ end = struct
             | Some x ->
                 Printf.sprintf "TIMEOUTidle = %s" x
             )
-          ; "debug = authpriv.5"
+          ; Stunnel.debug_conf_of_env ()
           ; "protocol = proxy" (* tells stunnel to include inet address info *)
           ; ""
           ; "[xapi]"

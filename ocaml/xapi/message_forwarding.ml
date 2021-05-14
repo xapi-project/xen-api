@@ -753,8 +753,22 @@ functor
         info "Pool.eject: pool = '%s'; host = '%s'"
           (current_pool_uuid ~__context)
           (host_uuid ~__context host) ;
+        let master = Helpers.get_master ~__context in
         let local_fn = Local.Pool.eject ~host in
+        let other =
+          Db.Host.get_all ~__context
+          |> List.filter (fun h -> h <> host && h <> master)
+        in
+        (* eject host but don't remove it from DB yet *)
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Pool.eject rpc session_id host) ;
+        (* call eject on all other slaves first *)
+        other
+        |> List.iter (fun h ->
+               do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
+                   Client.Pool.eject rpc session_id host)) ;
+        (* finally clean up on master *)
+        do_op_on ~local_fn ~__context ~host:master (fun session_id rpc ->
             Client.Pool.eject rpc session_id host)
 
       let designate_new_master ~__context ~host =
@@ -3511,6 +3525,10 @@ functor
       let emergency_disable_tls_verification ~__context =
         info "Host.emergency_disable_tls_verification" ;
         Local.Host.emergency_disable_tls_verification ~__context
+
+      let emergency_reenable_tls_verification ~__context =
+        info "Host.emergency_reenable_tls_verification" ;
+        Local.Host.emergency_reenable_tls_verification ~__context
 
       let apply_updates ~__context ~self ~hash =
         let uuid = host_uuid ~__context self in
