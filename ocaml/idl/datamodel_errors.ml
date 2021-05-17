@@ -292,7 +292,8 @@ let _ =
     ~doc:"Nvidia tools error. Please ensure that the latest Nvidia tools are installed" ();
   error Api_errors.vm_pci_bus_full ["VM"]
     ~doc:"The VM does not have any free PCI slots" ();
-
+  error Api_errors.nvidia_sriov_misconfigured ["host"; "device_name"]
+    ~doc:"The NVidia GPU is not configured for SR-IOV as expected" ();
 
   error Api_errors.openvswitch_not_active []
     ~doc:"This operation needs the OpenVSwitch networking backend to be enabled on all hosts in the pool." ();

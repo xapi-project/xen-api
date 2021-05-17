@@ -613,6 +613,8 @@ let vgpu_guest_driver_limit = "VGPU_GUEST_DRIVER_LIMIT"
 
 let nvidia_tools_error = "NVIDIA_TOOLS_ERROR"
 
+let nvidia_sriov_misconfigured = "NVIDIA_SRIOV_MISCONFIGURED"
+
 let vm_pci_bus_full = "VM_PCI_BUS_FULL"
 
 let import_error_generic = "IMPORT_ERROR"

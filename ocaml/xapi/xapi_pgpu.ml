@@ -450,8 +450,13 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   let activate_vfs pci =
     match num_vfs pci with
     | None ->
-        let msg = sprintf "Can't determine number of VFs for PCI %s" pci in
-        raise (fail msg)
+        let host = Db.PCI.get_host ~__context ~self:pf in
+        let device = Db.PCI.get_device_name ~__context ~self:pf in
+        error "Can't determine number of VFs for PCI %s" pci ;
+        raise
+          Api_errors.(
+            Server_error
+              (nvidia_sriov_misconfigured, [Ref.string_of host; device]))
     | Some 0 when Sys.file_exists script ->
         debug "PCI %s has 0 VFs - calling %s" pci script ;
         let out, _ =
