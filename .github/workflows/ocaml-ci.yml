@@ -9,7 +9,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-idl xcp"
+      package: "xapi-idl"
 
     steps:
       - name: Checkout code
