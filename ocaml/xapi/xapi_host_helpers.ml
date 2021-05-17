@@ -95,7 +95,8 @@ let valid_operations ~__context record _ref' =
       [`provision] ;
   (* The host must be disabled before reboots or shutdowns are permitted *)
   if record.Db_actions.host_enabled then
-    set_errors Api_errors.host_not_disabled [] [`reboot; `shutdown; `apply_updates] ;
+    set_errors Api_errors.host_not_disabled []
+      [`reboot; `shutdown; `apply_updates] ;
   (* The host must be (thought to be down) before power_on is possible *)
   ( try
       if
@@ -223,8 +224,7 @@ let with_host_operation ~__context ~self ~doc ~op f =
   finally f (* Make sure to clean up at the end *) (fun () ->
       try
         if operation_allowed ~op then (
-          Db.Host.remove_from_current_operations ~__context ~self
-            ~key:task_id ;
+          Db.Host.remove_from_current_operations ~__context ~self ~key:task_id ;
           Helpers.Early_wakeup.broadcast
             (Datamodel_common._host, Ref.string_of self)
         ) ;

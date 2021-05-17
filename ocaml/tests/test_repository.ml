@@ -24,16 +24,16 @@ let test_introduce_duplicate_name () =
   let source_url = "https://source-url.com" in
   let source_url_1 = "https://source-url1.com" in
   let ref =
-    Repository.introduce
-      ~__context ~name_label ~name_description ~binary_url ~source_url ~update:true
+    Repository.introduce ~__context ~name_label ~name_description ~binary_url
+      ~source_url ~update:true
   in
   Alcotest.check_raises "test_introduce_duplicate_name"
-    Api_errors.( Server_error (repository_already_exists, [(Ref.string_of ref)]) )
+    Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
     (fun () ->
-       Repository.introduce ~__context ~name_label
-         ~name_description:name_description_1 ~binary_url:binary_url_1
-         ~source_url:source_url_1 ~update:true
-       |> ignore)
+      Repository.introduce ~__context ~name_label
+        ~name_description:name_description_1 ~binary_url:binary_url_1
+        ~source_url:source_url_1 ~update:true
+      |> ignore)
 
 let test_introduce_duplicate_binary_url () =
   let __context = T.make_test_database () in
@@ -45,21 +45,23 @@ let test_introduce_duplicate_binary_url () =
   let source_url = "https://source-url.com" in
   let source_url_1 = "https://source-url1.com" in
   let ref =
-    Repository.introduce
-      ~__context ~name_label ~name_description ~binary_url ~source_url ~update:true
+    Repository.introduce ~__context ~name_label ~name_description ~binary_url
+      ~source_url ~update:true
   in
   Alcotest.check_raises "test_introduce_duplicate_name"
-    Api_errors.( Server_error (repository_already_exists, [(Ref.string_of ref)]) )
+    Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
     (fun () ->
-       Repository.introduce ~__context ~binary_url:binary_url
-         ~name_label:name_label_1 ~name_description:name_description_1
-         ~source_url:source_url_1 ~update:false
-       |> ignore)
+      Repository.introduce ~__context ~binary_url ~name_label:name_label_1
+        ~name_description:name_description_1 ~source_url:source_url_1
+        ~update:false
+      |> ignore)
 
 let test =
   [
     ("test_introduce_duplicate_name", `Quick, test_introduce_duplicate_name)
-  ; ("test_introduce_duplicate_binary_url", `Quick, test_introduce_duplicate_binary_url)
+  ; ( "test_introduce_duplicate_binary_url"
+    , `Quick
+    , test_introduce_duplicate_binary_url )
   ]
 
 let () =

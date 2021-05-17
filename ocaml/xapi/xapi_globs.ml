@@ -874,7 +874,7 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
-let yum_repos_config_dir  = ref "/etc/yum.repos.d"
+let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
 
@@ -1189,7 +1189,8 @@ let other_options =
   ; ( "repository-gpgkey-name"
     , Arg.Set_string repository_gpgkey_name
     , (fun () -> !repository_gpgkey_name)
-    , "The name of gpg key used by RPM to verify metadata and packages in repository" )
+    , "The name of gpg key used by RPM to verify metadata and packages in \
+       repository" )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1274,21 +1275,11 @@ module Resources = struct
     ; ( "set-iscsi-initiator"
       , set_iSCSI_initiator_script
       , "Path to set-iscsi-initiator script" )
-    ; ( "yum-cmd"
-      , yum_cmd
-      , "Path to yum command" )
-    ; ( "reposync-cmd"
-      , reposync_cmd
-      , "Path to reposync command" )
-    ; ( "createrepo-cmd"
-      , createrepo_cmd
-      , "Path to createrepo command" )
-    ; ( "modifyrepo-cmd"
-      , modifyrepo_cmd
-      , "Path to modifyrepo command" )
-    ; ( "rpm-cmd"
-      , rpm_cmd
-      , "Path to rpm command" )
+    ; ("yum-cmd", yum_cmd, "Path to yum command")
+    ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
+    ; ("createrepo-cmd", createrepo_cmd, "Path to createrepo command")
+    ; ("modifyrepo-cmd", modifyrepo_cmd, "Path to modifyrepo command")
+    ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
     ; ( "yum-config-manager-cmd"
       , yum_config_manager_cmd
       , "Path to yum-config-manager command" )

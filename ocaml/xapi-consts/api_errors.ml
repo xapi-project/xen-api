@@ -1225,7 +1225,8 @@ let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
 
 let no_repository_enabled = "NO_REPOSITORY_ENABLED"
 
-let multiple_update_repositories_enabled = "MULTIPLE_UPDATE_REPOSITORIES_ENABLED"
+let multiple_update_repositories_enabled =
+  "MULTIPLE_UPDATE_REPOSITORIES_ENABLED"
 
 let sync_updates_in_progress = "SYNC_UPDATES_IN_PROGRESS"
 

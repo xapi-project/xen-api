@@ -612,13 +612,13 @@ functor
           Ref.string_of vusb
       with _ -> "invalid"
 
-     let repository_uuid ~__context repository =
-       try
-         if Pool_role.is_master () then
-           Db.Repository.get_uuid __context repository
-         else
-           Ref.string_of repository
-       with _ -> "invalid"
+    let repository_uuid ~__context repository =
+      try
+        if Pool_role.is_master () then
+          Db.Repository.get_uuid __context repository
+        else
+          Ref.string_of repository
+      with _ -> "invalid"
 
     module Session = struct
       include Local.Session
@@ -972,17 +972,20 @@ functor
 
       let add_repository ~__context ~self ~value =
         info "Pool.add_repository : pool = '%s'; repo_uuid = %s"
-          (pool_uuid ~__context self) (repository_uuid ~__context value) ;
+          (pool_uuid ~__context self)
+          (repository_uuid ~__context value) ;
         Local.Pool.add_repository ~__context ~self ~value
 
       let remove_repository ~__context ~self ~value =
         info "Pool.remove_repository : pool = '%s'; repo_uuid = %s"
-          (pool_uuid ~__context self) (repository_uuid ~__context value) ;
+          (pool_uuid ~__context self)
+          (repository_uuid ~__context value) ;
         Local.Pool.remove_repository ~__context ~self ~value
 
       let sync_updates ~__context ~self ~force =
         info "Pool.sync_updates: pool = '%s'; force = %s"
-          (pool_uuid ~__context self) (string_of_bool force);
+          (pool_uuid ~__context self)
+          (string_of_bool force) ;
         Local.Pool.sync_updates ~__context ~self ~force
     end
 
@@ -2900,16 +2903,16 @@ functor
       let shutdown ~__context ~host =
         info "Host.shutdown: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.shutdown ~host in
-        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.shutdown"
-          ~op:`shutdown (fun () ->
+        Xapi_host_helpers.with_host_operation ~__context ~self:host
+          ~doc:"Host.shutdown" ~op:`shutdown (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                 Client.Host.shutdown rpc session_id host))
 
       let reboot ~__context ~host =
         info "Host.reboot: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.reboot ~host in
-        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.reboot" ~op:`reboot
-          (fun () ->
+        Xapi_host_helpers.with_host_operation ~__context ~self:host
+          ~doc:"Host.reboot" ~op:`reboot (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                 Client.Host.reboot rpc session_id host))
 
@@ -2923,8 +2926,8 @@ functor
 
       let power_on ~__context ~host =
         info "Host.power_on: host = '%s'" (host_uuid ~__context host) ;
-        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.power_on"
-          ~op:`power_on (fun () ->
+        Xapi_host_helpers.with_host_operation ~__context ~self:host
+          ~doc:"Host.power_on" ~op:`power_on (fun () ->
             (* Always executed on the master *)
             Local.Host.power_on ~__context ~host)
 
@@ -3006,8 +3009,8 @@ functor
         (* Block call if this would break our VM restart plan (because the body of this sets enabled to false) *)
         Xapi_ha_vm_failover.assert_host_disable_preserves_ha_plan ~__context
           host ;
-        Xapi_host_helpers.with_host_operation ~__context ~self:host ~doc:"Host.evacuate"
-          ~op:`evacuate (fun () ->
+        Xapi_host_helpers.with_host_operation ~__context ~self:host
+          ~doc:"Host.evacuate" ~op:`evacuate (fun () ->
             Local.Host.evacuate ~__context ~host ~network)
 
       let retrieve_wlb_evacuate_recommendations ~__context ~self =
@@ -3532,7 +3535,7 @@ functor
 
       let apply_updates ~__context ~self ~hash =
         let uuid = host_uuid ~__context self in
-        info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash;
+        info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash ;
         Local.Host.apply_updates ~__context ~self ~hash
     end
 
@@ -5765,20 +5768,22 @@ functor
     module Certificate = struct end
 
     module Repository = struct
-      let introduce ~__context ~name_label ~name_description ~binary_url ~source_url ~update =
-        info "Repository.introduce: \
-              name = '%s'; name_description = '%s'; binary_url = '%s'; source_url = '%s'; \
-              update = '%s'"
-          name_label name_description binary_url source_url (string_of_bool update) ;
-        Local.Repository.introduce
-          ~__context ~name_label ~name_description ~binary_url ~source_url ~update
+      let introduce ~__context ~name_label ~name_description ~binary_url
+          ~source_url ~update =
+        info
+          "Repository.introduce: name = '%s'; name_description = '%s'; \
+           binary_url = '%s'; source_url = '%s'; update = '%s'"
+          name_label name_description binary_url source_url
+          (string_of_bool update) ;
+        Local.Repository.introduce ~__context ~name_label ~name_description
+          ~binary_url ~source_url ~update
 
       let forget ~__context ~self =
-        info "Repository.forget: self = '%s'" (repository_uuid ~__context self);
+        info "Repository.forget: self = '%s'" (repository_uuid ~__context self) ;
         Local.Repository.forget ~__context ~self
 
       let apply ~__context ~host =
-        info "Repository.apply: host = '%s'" (host_uuid ~__context host);
+        info "Repository.apply: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Repository.apply ~host in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
             Client.Repository.apply rpc session_id host)

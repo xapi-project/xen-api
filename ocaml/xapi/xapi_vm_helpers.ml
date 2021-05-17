@@ -662,11 +662,14 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
   assert_host_is_live ~__context ~host ;
   assert_matches_control_domain_affinity ~__context ~self ~host ;
   let is_local_live_migration =
-    (Db.VM.get_power_state ~__context ~self) = `Running
-       && (Db.VM.get_resident_on ~__context ~self) = host
+    Db.VM.get_power_state ~__context ~self = `Running
+    && Db.VM.get_resident_on ~__context ~self = host
   in
   (* CA-233580: allow control domains to start on the host even if the latter is disabled *)
-  if not (Db.VM.get_is_control_domain ~__context ~self) && not is_local_live_migration then
+  if
+    (not (Db.VM.get_is_control_domain ~__context ~self))
+    && not is_local_live_migration
+  then
     assert_host_is_enabled ~__context ~host ;
   (* Check the host can support the VM's required version of virtual hardware platform *)
   assert_hardware_platform_support ~__context ~vm:self

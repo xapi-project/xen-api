@@ -355,43 +355,40 @@ module RunInParallel = Generic.MakeStateless (struct
 
     let string_of_input_t (_, c) = string_of_int c
 
-    let string_of_output_t = Fmt.(str "%a" Dump.(result ~ok:(list string) ~error:exn))
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:(list string) ~error:exn))
   end
 
   let transform (funs, capacity) =
-    try Ok (Helpers.run_in_parallel ~funs ~capacity)
-    with e -> Error e
+    try Ok (Helpers.run_in_parallel ~funs ~capacity) with e -> Error e
 
   let f () = "hello"
 
   exception Unittest_exception
 
   let fe () =
-    match f () with
-    | "not-hello" -> "hello"
-    | _ -> raise Unittest_exception
+    match f () with "not-hello" -> "hello" | _ -> raise Unittest_exception
 
-  let range_f_64 = List.init 64 (fun i -> (fun () -> string_of_int i))
+  let range_f_64 = List.init 64 (fun i () -> string_of_int i)
 
   let range_64 = List.init 64 string_of_int
 
   let tests =
     `QuickAndAutoDocumented
       [
-          ( ([], 0), Ok [] )
-        ; ( ([f], 0), Ok [] )
-        ; ( ([f], 1), Ok ["hello"] )
-        ; ( ([f], 2), Ok ["hello"] )
-        ; ( ([f; f], 1), Ok ["hello"; "hello"] )
-        ; ( ([f; f], 2), Ok ["hello"; "hello"] )
-        ; ( ([f; f], 3), Ok ["hello"; "hello"] )
-        ; ( (range_f_64, 64), Ok range_64 )
-
-        ; ( ([fe], 0), Ok [] )
-        ; ( ([fe], 1), Error Unittest_exception )
-        ; ( ([f; fe], 1), Error Unittest_exception )
-        ; ( ([f; fe], 2), Error Unittest_exception )
-        ; ( ([f; fe], 3), Error Unittest_exception )
+        (([], 0), Ok [])
+      ; (([f], 0), Ok [])
+      ; (([f], 1), Ok ["hello"])
+      ; (([f], 2), Ok ["hello"])
+      ; (([f; f], 1), Ok ["hello"; "hello"])
+      ; (([f; f], 2), Ok ["hello"; "hello"])
+      ; (([f; f], 3), Ok ["hello"; "hello"])
+      ; ((range_f_64, 64), Ok range_64)
+      ; (([fe], 0), Ok [])
+      ; (([fe], 1), Error Unittest_exception)
+      ; (([f; fe], 1), Error Unittest_exception)
+      ; (([f; fe], 2), Error Unittest_exception)
+      ; (([f; fe], 3), Error Unittest_exception)
       ]
 end)
 

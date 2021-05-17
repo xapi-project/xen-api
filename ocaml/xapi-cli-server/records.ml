@@ -1201,21 +1201,20 @@ let pool_record rpc session_id pool =
             (x ()).API.pool_tls_verification_enabled |> string_of_bool)
           ()
       ; make_field ~name:"repositories"
-          ~get:(fun () ->
-              get_uuids_from_refs (x ()).API.pool_repositories)
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.pool_repositories)
           ~get_set:(fun () ->
-              List.map get_uuid_from_ref (x ()).API.pool_repositories)
+            List.map get_uuid_from_ref (x ()).API.pool_repositories)
           ~set:(fun uuids ->
-              Client.Pool.set_repositories rpc session_id pool
-                (List.map
-                   (fun uuid -> Client.Repository.get_by_uuid rpc session_id uuid)
-                   (get_words ',' uuids)))
+            Client.Pool.set_repositories rpc session_id pool
+              (List.map
+                 (fun uuid -> Client.Repository.get_by_uuid rpc session_id uuid)
+                 (get_words ',' uuids)))
           ~add_to_set:(fun uuid ->
-              Client.Pool.add_repository rpc session_id pool
-                (Client.Repository.get_by_uuid rpc session_id uuid))
+            Client.Pool.add_repository rpc session_id pool
+              (Client.Repository.get_by_uuid rpc session_id uuid))
           ~remove_from_set:(fun uuid ->
-              Client.Pool.remove_repository rpc session_id pool
-                (Client.Repository.get_by_uuid rpc session_id uuid))
+            Client.Pool.remove_repository rpc session_id pool
+              (Client.Repository.get_by_uuid rpc session_id uuid))
           ()
       ]
   }
@@ -4371,16 +4370,16 @@ let repository_record rpc session_id repository =
   ; getref= (fun () -> !_ref)
   ; fields=
       [
-        make_field ~name:"uuid"
-          ~get:(fun () -> (x ()).API.repository_uuid)
-          ()
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.repository_uuid) ()
       ; make_field ~name:"name-label"
           ~get:(fun () -> (x ()).API.repository_name_label)
-          ~set:(fun x -> Client.Repository.set_name_label rpc session_id repository x)
+          ~set:(fun x ->
+            Client.Repository.set_name_label rpc session_id repository x)
           ()
       ; make_field ~name:"name-description"
           ~get:(fun () -> (x ()).API.repository_name_description)
-          ~set:(fun x -> Client.Repository.set_name_description rpc session_id repository x)
+          ~set:(fun x ->
+            Client.Repository.set_name_description rpc session_id repository x)
           ()
       ; make_field ~name:"binary-url"
           ~get:(fun () -> (x ()).API.repository_binary_url)
@@ -4391,9 +4390,7 @@ let repository_record rpc session_id repository =
       ; make_field ~name:"update"
           ~get:(fun () -> string_of_bool (x ()).API.repository_update)
           ()
-      ; make_field ~name:"hash"
-          ~get:(fun () -> (x ()).API.repository_hash)
-          ()
+      ; make_field ~name:"hash" ~get:(fun () -> (x ()).API.repository_hash) ()
       ; make_field ~name:"up-to-date"
           ~get:(fun () -> string_of_bool (x ()).API.repository_up_to_date)
           ()

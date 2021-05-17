@@ -901,7 +901,6 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; implementation= No_fd Cli_operations.host_apply_updates
       ; flags= [Host_selectors]
       } )
-
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]

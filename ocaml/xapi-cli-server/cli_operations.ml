@@ -7402,13 +7402,16 @@ module Repository = struct
     let binary_url = List.assoc "binary-url" params in
     let source_url = List.assoc "source-url" params in
     let update = get_bool_param params "update" in
-    let ref = Client.Repository.introduce ~rpc ~session_id
-        ~name_label ~name_description ~binary_url ~source_url ~update
+    let ref =
+      Client.Repository.introduce ~rpc ~session_id ~name_label ~name_description
+        ~binary_url ~source_url ~update
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
 
   let forget printer rpc session_id params =
-    let ref = Client.Repository.get_by_uuid rpc session_id (List.assoc "uuid" params) in
+    let ref =
+      Client.Repository.get_by_uuid rpc session_id (List.assoc "uuid" params)
+    in
     Client.Repository.forget ~rpc ~session_id ~self:ref
 end

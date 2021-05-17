@@ -62,9 +62,11 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   let remote_pool =
     match Client.Pool.get_all rpc session_id with
     | [pool] ->
-      pool
+        pool
     | _ ->
-      raise Api_errors.(Server_error (internal_error, ["Should get only one pool"]))
+        raise
+          Api_errors.(
+            Server_error (internal_error, ["Should get only one pool"]))
   in
   let assert_management_interface_exists () =
     try
@@ -699,13 +701,19 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   in
   let assert_not_in_updating_on_me () =
     let pool = Helpers.get_pool ~__context in
-    if List.exists (fun (_, op) -> op = `apply_updates)
-        (Db.Pool.get_current_operations ~__context ~self:pool) then
+    if
+      List.exists
+        (fun (_, op) -> op = `apply_updates)
+        (Db.Pool.get_current_operations ~__context ~self:pool)
+    then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
   in
   let assert_no_hosts_in_updating () =
-    if List.exists (fun (_, op) -> op = `apply_updates)
-        (Client.Pool.get_current_operations ~rpc ~session_id ~self:remote_pool) then
+    if
+      List.exists
+        (fun (_, op) -> op = `apply_updates)
+        (Client.Pool.get_current_operations ~rpc ~session_id ~self:remote_pool)
+    then
       raise Api_errors.(Server_error (not_supported_during_upgrade, []))
   in
 
@@ -1471,8 +1479,11 @@ let eject_self ~__context ~host =
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
-  if List.exists (fun (_, op) -> op = `apply_updates)
-      (Db.Pool.get_current_operations ~__context ~self:pool) then
+  if
+    List.exists
+      (fun (_, op) -> op = `apply_updates)
+      (Db.Pool.get_current_operations ~__context ~self:pool)
+  then
     raise Api_errors.(Server_error (not_supported_during_upgrade, [])) ;
   if Pool_role.is_master () then
     raise Cannot_eject_master
@@ -2957,65 +2968,56 @@ let enable_tls_verification ~__context =
   Helpers.touch_file Xapi_globs.verify_certificates_path
 
 let set_repositories ~__context ~self ~value =
-  Xapi_pool_helpers.with_pool_operation
-    ~__context
-    ~self
-    ~doc:"pool.set_repositories"
-    ~op:`configure_repositories
-    @@ fun () ->
-    Repository.with_reposync_lock @@ fun () ->
-    let existings = Db.Pool.get_repositories ~__context ~self in
-    (* To be removed *)
-    List.iter
-      (fun x ->
-         if not (List.mem x value) then (
-           Repository.cleanup_pool_repo ~__context ~self:x ;
-           Repository.reset_updates_in_cache ()
-         ))
-      existings;
-    (* To be added *)
-    List.iter
-      (fun x ->
-         if not (List.mem x existings) then (
-             Db.Repository.set_hash ~__context ~self:x ~value:"";
-             Db.Repository.set_up_to_date ~__context ~self:x ~value:false ;
-             Repository.reset_updates_in_cache ()
-         ))
-      value ;
-    Db.Pool.set_repositories ~__context ~self ~value
+  Xapi_pool_helpers.with_pool_operation ~__context ~self
+    ~doc:"pool.set_repositories" ~op:`configure_repositories
+  @@ fun () ->
+  Repository.with_reposync_lock @@ fun () ->
+  let existings = Db.Pool.get_repositories ~__context ~self in
+  (* To be removed *)
+  List.iter
+    (fun x ->
+      if not (List.mem x value) then (
+        Repository.cleanup_pool_repo ~__context ~self:x ;
+        Repository.reset_updates_in_cache ()
+      ))
+    existings ;
+  (* To be added *)
+  List.iter
+    (fun x ->
+      if not (List.mem x existings) then (
+        Db.Repository.set_hash ~__context ~self:x ~value:"" ;
+        Db.Repository.set_up_to_date ~__context ~self:x ~value:false ;
+        Repository.reset_updates_in_cache ()
+      ))
+    value ;
+  Db.Pool.set_repositories ~__context ~self ~value
 
 let add_repository ~__context ~self ~value =
-  Xapi_pool_helpers.with_pool_operation
-    ~__context
-    ~self
-    ~doc:"pool.add_repository"
-    ~op:`configure_repositories
-    @@ fun () ->
-    Repository.with_reposync_lock @@ fun () ->
-    let existings = Db.Pool.get_repositories ~__context ~self in
-    if not (List.mem value existings) then (
-      Db.Pool.add_repositories ~__context ~self ~value ;
-      Db.Repository.set_hash ~__context ~self:value ~value:"" ;
-      Db.Repository.set_up_to_date ~__context ~self:value ~value:false ;
-      Repository.reset_updates_in_cache ()
-    )
+  Xapi_pool_helpers.with_pool_operation ~__context ~self
+    ~doc:"pool.add_repository" ~op:`configure_repositories
+  @@ fun () ->
+  Repository.with_reposync_lock @@ fun () ->
+  let existings = Db.Pool.get_repositories ~__context ~self in
+  if not (List.mem value existings) then (
+    Db.Pool.add_repositories ~__context ~self ~value ;
+    Db.Repository.set_hash ~__context ~self:value ~value:"" ;
+    Db.Repository.set_up_to_date ~__context ~self:value ~value:false ;
+    Repository.reset_updates_in_cache ()
+  )
 
 let remove_repository ~__context ~self ~value =
-  Xapi_pool_helpers.with_pool_operation
-    ~__context
-    ~self
-    ~doc:"pool.remove_repository"
-    ~op:`configure_repositories
-    @@ fun () ->
-    Repository.with_reposync_lock @@ fun () ->
-    List.iter
-      (fun x ->
-         if x = value then (
-           Repository.cleanup_pool_repo ~__context ~self:x ;
-           Repository.reset_updates_in_cache ()
-         ))
-      (Db.Pool.get_repositories ~__context ~self) ;
-    Db.Pool.remove_repositories ~__context ~self ~value
+  Xapi_pool_helpers.with_pool_operation ~__context ~self
+    ~doc:"pool.remove_repository" ~op:`configure_repositories
+  @@ fun () ->
+  Repository.with_reposync_lock @@ fun () ->
+  List.iter
+    (fun x ->
+      if x = value then (
+        Repository.cleanup_pool_repo ~__context ~self:x ;
+        Repository.reset_updates_in_cache ()
+      ))
+    (Db.Pool.get_repositories ~__context ~self) ;
+  Db.Pool.remove_repositories ~__context ~self ~value
 
 let sync_updates ~__context ~self ~force =
   let open Repository in
@@ -3035,88 +3037,89 @@ let sync_updates ~__context ~self ~force =
   let enabled = Repository_helpers.get_enabled_repositories ~__context in
   match force with
   | true ->
-    Xapi_pool_helpers.with_pool_operation
-      ~__context
-      ~self
-      ~doc:"pool.sync_updates"
-      ~op:`sync_updates
+      Xapi_pool_helpers.with_pool_operation ~__context ~self
+        ~doc:"pool.sync_updates" ~op:`sync_updates
       @@ fun () ->
       with_reposync_lock @@ fun () ->
       enabled
-      |> List.iter
-        (fun x ->
-           cleanup_pool_repo ~__context ~self:x;
-           sync ~__context ~self:x;
-           create_pool_repository ~__context ~self:x) ;
+      |> List.iter (fun x ->
+             cleanup_pool_repo ~__context ~self:x ;
+             sync ~__context ~self:x ;
+             create_pool_repository ~__context ~self:x) ;
       set_available_updates ~__context
   | false ->
-    with_reposync_lock @@ fun () ->
-    enabled |> List.iter (fun x -> sync ~__context ~self:x) ;
-    Xapi_pool_helpers.with_pool_operation
-    ~__context
-    ~self
-    ~doc:"pool.sync_updates"
-    ~op:`sync_updates
-    @@ fun () ->
-    List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled;
-    set_available_updates ~__context
+      with_reposync_lock @@ fun () ->
+      enabled |> List.iter (fun x -> sync ~__context ~self:x) ;
+      Xapi_pool_helpers.with_pool_operation ~__context ~self
+        ~doc:"pool.sync_updates" ~op:`sync_updates
+      @@ fun () ->
+      List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
+      set_available_updates ~__context
 
 let get_updates_handler (req : Http.Request.t) s _ =
-  debug "Pool.get_updates_handler: received request";
-  req.Http.Request.close <- true;
+  debug "Pool.get_updates_handler: received request" ;
+  req.Http.Request.close <- true ;
   let query = req.Http.Request.query in
   Xapi_http.with_context "Getting available updates" req s (fun __context ->
       let all_hosts = Db.Host.get_all ~__context in
       let hs =
         match List.assoc "host_refs" query with
-        | v ->
-          List.map (fun ref_str -> Ref.of_string ref_str) (Astring.String.cuts ~sep:";" v)
-          |> (fun l ->
-              let is_invalid ref =
-                not (Db.is_valid_ref __context ref && List.mem ref all_hosts)
-              in
-              match (List.exists is_invalid l), l with
-              | true, _ | false, [] -> []
-              | false, l -> l)
-        | exception Not_found -> all_hosts
+        | v -> (
+            List.map
+              (fun ref_str -> Ref.of_string ref_str)
+              (Astring.String.cuts ~sep:";" v)
+            |> fun l ->
+            let is_invalid ref =
+              not (Db.is_valid_ref __context ref && List.mem ref all_hosts)
+            in
+            match (List.exists is_invalid l, l) with
+            | true, _ | false, [] ->
+                []
+            | false, l ->
+                l
+          )
+        | exception Not_found ->
+            all_hosts
       in
       match hs with
       | _ :: _ as hosts ->
-        let failures_of_404 =
-          [
-            Api_errors.no_repository_enabled;
-            Api_errors.invalid_repomd_xml;
-            Api_errors.invalid_updateinfo_xml
-          ]
-        in
-        Xapi_pool_helpers.with_pool_operation
-          ~__context
-          ~self:(Helpers.get_pool ~__context)
-          ~doc:"pool.get_updates"
-          ~op:`get_updates
-          (fun () ->
-             try
-               let json_str = Yojson.Basic.to_string
-                   (Repository.get_pool_updates_in_json ~__context ~hosts)
-               in
-               let size = Int64.of_int (String.length json_str) in
-               Http_svr.headers s (Http.http_200_ok_with_content size ~keep_alive:false ()
-                   @ [Http.Hdr.content_type ^ ": application/json"]);
-               Unixext.really_write_string s json_str |> ignore
-             with
-             | Api_errors.(Server_error (failure, _)) as e
-               when (List.mem failure failures_of_404) ->
-                 error "404: can't get updates for pool: %s" (ExnHelper.string_of_exn e);
-                 Http_svr.headers s (Http.http_404_missing ())
-             | Api_errors.(Server_error (failure, _)) as e
-               when not (List.mem failure failures_of_404) ->
-                 error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
-                 raise e
-             | e ->
-               (* http_500_internal_server_error *)
-               error "getting updates for pool failed: %s" (ExnHelper.string_of_exn e);
-               raise Api_errors.(Server_error (get_updates_failed, [])))
+          let failures_of_404 =
+            [
+              Api_errors.no_repository_enabled
+            ; Api_errors.invalid_repomd_xml
+            ; Api_errors.invalid_updateinfo_xml
+            ]
+          in
+          Xapi_pool_helpers.with_pool_operation ~__context
+            ~self:(Helpers.get_pool ~__context)
+            ~doc:"pool.get_updates" ~op:`get_updates (fun () ->
+              try
+                let json_str =
+                  Yojson.Basic.to_string
+                    (Repository.get_pool_updates_in_json ~__context ~hosts)
+                in
+                let size = Int64.of_int (String.length json_str) in
+                Http_svr.headers s
+                  (Http.http_200_ok_with_content size ~keep_alive:false ()
+                  @ [Http.Hdr.content_type ^ ": application/json"]
+                  ) ;
+                Unixext.really_write_string s json_str |> ignore
+              with
+              | Api_errors.(Server_error (failure, _)) as e
+                when List.mem failure failures_of_404 ->
+                  error "404: can't get updates for pool: %s"
+                    (ExnHelper.string_of_exn e) ;
+                  Http_svr.headers s (Http.http_404_missing ())
+              | Api_errors.(Server_error (failure, _)) as e
+                when not (List.mem failure failures_of_404) ->
+                  error "getting updates for pool failed: %s"
+                    (ExnHelper.string_of_exn e) ;
+                  raise e
+              | e ->
+                  (* http_500_internal_server_error *)
+                  error "getting updates for pool failed: %s"
+                    (ExnHelper.string_of_exn e) ;
+                  raise Api_errors.(Server_error (get_updates_failed, [])))
       | [] ->
-        error "400: Invalid 'host_refs' in query";
-        Http_svr.headers s (Http.http_400_badrequest ())
-    )
+          error "400: Invalid 'host_refs' in query" ;
+          Http_svr.headers s (Http.http_400_badrequest ()))
