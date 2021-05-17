@@ -9,6 +9,5 @@
   (libraries
     fd-send-recv
     unix
-    xapi-stdext-pervasives
-    xapi-stdext-std)
+    xapi-stdext-pervasives)
 )

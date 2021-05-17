@@ -14,7 +14,6 @@ depends: [
   "base-unix"
   "fd-send-recv" {>= "2.0.0"}
   "xapi-stdext-pervasives"
-  "xapi-stdext-std"
 ]
 synopsis:
   "A deprecated collection of utility functions - Unix module extensions"
