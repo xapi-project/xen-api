@@ -31,6 +31,10 @@ let all_operations =
   ; `cluster_create
   ; `designate_new_master
   ; `tls_verification_enable
+  ; `configure_repositories
+  ; `sync_updates
+  ; `get_updates
+  ; `apply_updates
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -57,6 +61,12 @@ let valid_operations ~__context record _ref' =
     ; ( `tls_verification_enable
       , Api_errors.tls_verification_enable_in_progress
       , [] )
+    ; ( `configure_repositories
+      , Api_errors.configure_repositories_in_progress
+      , [] )
+    ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
+    ; (`get_updates, Api_errors.get_updates_in_progress, [])
+    ; (`apply_updates, Api_errors.apply_updates_in_progress, [])
     ]
   in
   List.iter

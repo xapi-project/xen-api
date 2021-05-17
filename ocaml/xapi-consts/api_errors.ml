@@ -1210,3 +1210,46 @@ let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
 
 let tls_verification_enable_in_progress = "TLS_VERIFICATION_ENABLE_IN_PROGRESS"
+
+let configure_repositories_in_progress = "CONFIGURE_REPOSITORIES_IN_PROGRESS"
+
+let invalid_base_url = "INVALID_BASE_URL"
+
+let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
+
+let repository_is_in_use = "REPOSITORY_IS_IN_USE"
+
+let reposync_in_progress = "REPOSYNC_IN_PROGRESS"
+
+let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
+
+let no_repository_enabled = "NO_REPOSITORY_ENABLED"
+
+let multiple_update_repositories_enabled =
+  "MULTIPLE_UPDATE_REPOSITORIES_ENABLED"
+
+let sync_updates_in_progress = "SYNC_UPDATES_IN_PROGRESS"
+
+let reposync_failed = "REPOSYNC_FAILED"
+
+let createrepo_failed = "CREATEREPO_FAILED"
+
+let invalid_updateinfo_xml = "INVALID_UPDATEINFO_XML"
+
+let get_host_updates_failed = "GET_HOST_UPDATES_FAILED"
+
+let invalid_repomd_xml = "INVALID_REPOMD_XML"
+
+let get_updates_failed = "GET_UPDATES_FAILED"
+
+let get_updates_in_progress = "GET_UPDATES_IN_PROGRESS"
+
+let apply_updates_in_progress = "APPLY_UPDATES_IN_PROGRESS"
+
+let apply_updates_failed = "APPLY_UPDATES_FAILED"
+
+let apply_guidance_failed = "APPLY_GUIDANCE_FAILED"
+
+let updateinfo_hash_mismatch = "UPDATEINFO_HASH_MISMATCH"
+
+let updates_require_sync = "UPDATES_REQUIRE_SYNC"

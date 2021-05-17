@@ -155,6 +155,14 @@ let pool_operation_to_string = function
       "designate_new_master"
   | `tls_verification_enable ->
       "tls_verification_enable"
+  | `configure_repositories ->
+      "configure_repositories"
+  | `sync_updates ->
+      "sync_updates"
+  | `get_updates ->
+      "get_updates"
+  | `apply_updates ->
+      "apply_updates"
 
 let host_operation_to_string = function
   | `provision ->
@@ -173,6 +181,8 @@ let host_operation_to_string = function
       "VM.resume"
   | `vm_migrate ->
       "VM.migrate"
+  | `apply_updates ->
+      "apply_updates"
 
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->

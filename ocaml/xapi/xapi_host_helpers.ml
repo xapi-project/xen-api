@@ -25,6 +25,8 @@ open Record_util (* for host_operation_to_string *)
 
 open Xapi_stdext_threads.Threadext
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 let all_operations =
   [
     `provision
@@ -35,6 +37,7 @@ let all_operations =
   ; `vm_resume
   ; `vm_migrate
   ; `power_on
+  ; `apply_updates
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -70,15 +73,19 @@ let valid_operations ~__context record _ref' =
           ["host"; _ref; host_operation_to_string (List.hd current_ops)]
           [op])
     (List.filter (fun x -> x <> `power_on) all_operations) ;
-  (* reboot and shutdown cannot run concurrently *)
+  (* reboot, shutdown and apply_updates cannot run concurrently *)
   if List.mem `reboot current_ops then
     set_errors Api_errors.other_operation_in_progress
       ["host"; _ref; host_operation_to_string `reboot]
-      [`shutdown] ;
+      [`shutdown; `apply_updates] ;
   if List.mem `shutdown current_ops then
     set_errors Api_errors.other_operation_in_progress
       ["host"; _ref; host_operation_to_string `shutdown]
-      [`reboot] ;
+      [`reboot; `apply_updates] ;
+  if List.mem `apply_updates current_ops then
+    set_errors Api_errors.other_operation_in_progress
+      ["host"; _ref; host_operation_to_string `apply_updates]
+      [`reboot; `shutdown] ;
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
      template we can relax this. *)
@@ -88,7 +95,8 @@ let valid_operations ~__context record _ref' =
       [`provision] ;
   (* The host must be disabled before reboots or shutdowns are permitted *)
   if record.Db_actions.host_enabled then
-    set_errors Api_errors.host_not_disabled [] [`reboot; `shutdown] ;
+    set_errors Api_errors.host_not_disabled []
+      [`reboot; `shutdown; `apply_updates] ;
   (* The host must be (thought to be down) before power_on is possible *)
   ( try
       if
@@ -136,7 +144,7 @@ let valid_operations ~__context record _ref' =
     then
       set_errors Api_errors.clustered_sr_degraded
         [List.hd plugged_clustered_srs |> Ref.string_of]
-        [`shutdown; `reboot] ;
+        [`shutdown; `reboot; `apply_updates] ;
     let recovering_tasks =
       List.map
         (fun sr -> Helpers.find_health_check_task ~__context ~sr)
@@ -149,7 +157,7 @@ let valid_operations ~__context record _ref' =
           Db.Task.get_name_description ~__context
             ~self:(List.hd recovering_tasks)
         ]
-        [`shutdown; `reboot]
+        [`shutdown; `reboot; `apply_updates]
   ) ;
   (* All other operations may be parallelised *)
   table
@@ -195,6 +203,42 @@ let update_allowed_operations ~__context ~self : unit =
 let update_allowed_operations_all_hosts ~__context : unit =
   let hosts = Db.Host.get_all ~__context in
   List.iter (fun self -> update_allowed_operations ~__context ~self) hosts
+
+(** Add to the Host's current operations, call a function and then remove from the
+  current operations. Ensure the allowed_operations are kept up to date. *)
+let with_host_operation ~__context ~self ~doc ~op f =
+  let task_id = Ref.string_of (Context.get_task_id __context) in
+  (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
+  let operation_allowed ~op =
+    false
+    || (not (Helpers.rolling_upgrade_in_progress ~__context))
+    || List.mem op Xapi_globs.host_operations_miami
+  in
+  Helpers.retry_with_global_lock ~__context ~doc (fun () ->
+      assert_operation_valid ~__context ~self ~op ;
+      if operation_allowed ~op then
+        Db.Host.add_to_current_operations ~__context ~self ~key:task_id
+          ~value:op ;
+      update_allowed_operations ~__context ~self) ;
+  (* Then do the action with the lock released *)
+  finally f (* Make sure to clean up at the end *) (fun () ->
+      try
+        if operation_allowed ~op then (
+          Db.Host.remove_from_current_operations ~__context ~self ~key:task_id ;
+          Helpers.Early_wakeup.broadcast
+            (Datamodel_common._host, Ref.string_of self)
+        ) ;
+        let clustered_srs =
+          Db.SR.get_refs_where ~__context
+            ~expr:(Eq (Field "clustered", Literal "true"))
+        in
+        if clustered_srs <> [] then
+          (* Host powerstate operations on one host may affect all other hosts if
+           * a clustered SR is in use, so update all hosts' allowed operations. *)
+          update_allowed_operations_all_hosts ~__context
+        else
+          update_allowed_operations ~__context ~self
+      with _ -> ())
 
 let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
   let ops = Db.Host.get_current_operations ~__context ~self in

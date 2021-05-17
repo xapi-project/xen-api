@@ -9,6 +9,10 @@ open Datamodel_types
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
             "tls_verification_enable", "Indicates this pool is in the process of enabling TLS verification";
+            "configure_repositories", "Indicates this pool is in the process of configuring repositories";
+            "sync_updates", "Indicates this pool is in the process of syncing updates";
+            "get_updates", "Indicates this pool is in the process of getting updates";
+            "apply_updates", "Indicates this pool is in the process of applying updates";
           ])
 
   let enable_ha = call
@@ -700,6 +704,51 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let set_repositories = call
+      ~name:"set_repositories"
+      ~in_product_since:rel_next
+      ~doc:"Set enabled set of repositories"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Set (Ref _repository), "value", "The set of repositories to be enabled"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let add_repository = call
+      ~name:"add_repository"
+      ~in_product_since:rel_next
+      ~doc:"Add a repository to the enabled set"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be added to the enabled set"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let remove_repository = call
+      ~name:"remove_repository"
+      ~in_product_since:rel_next
+      ~doc:"Remove a repository from the enabled set"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be removed"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let sync_updates = call
+      ~name:"sync_updates"
+      ~in_product_since:rel_next
+      ~doc:"Sync with the enabled repository"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Bool, "force", "If true local mirroring repo will be removed before syncing"
+      ]
+      ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -778,6 +827,10 @@ open Datamodel_types
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
         ; rotate_secret
+        ; set_repositories
+        ; add_repository
+        ; remove_repository
+        ; sync_updates
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -825,5 +878,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories" ~default_value:(Some (VSet [])) "The set of currently enabled repositories"
          ])
       ()

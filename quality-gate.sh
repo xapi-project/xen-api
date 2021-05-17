@@ -26,10 +26,10 @@ mli-files () {
   MLIS=$(git ls-files -- '**/*.mli' | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   num_mls_without_mlis=$(comm -23 <(sort <<<"$MLS") <(sort <<<"$MLIS") | wc -l)
-  if [ "$num_mls_without_mlis" -eq 389 ]; then
+  if [ "$num_mls_without_mlis" -eq 393 ]; then
     echo "OK counted $num_mls_without_mlis .ml files without an .mli"
   else
-    echo "ERROR expected 389 .ml files without .mlis, got $num_mls_without_mlis."\
+    echo "ERROR expected 393 .ml files without .mlis, got $num_mls_without_mlis."\
          "If you created some .ml files, they are probably missing corresponding .mli's" 1>&2
     exit 1
   fi

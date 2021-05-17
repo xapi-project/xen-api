@@ -70,4 +70,5 @@ let () =
     @ Test_psr.tests
     @ Test_context.tests
     @ Test_session.tests
+    @ Test_repository_helpers.tests
     )

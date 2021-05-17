@@ -1308,6 +1308,81 @@ let force_loopback_vbd ~__context =
    about this. *)
 let compute_hash () = ""
 
+(** [rmtree path] removes a file or directory recursively without following
+    symbolic links. It may raise [Failure] *)
+let rmtree path =
+  let ( // ) = Filename.concat in
+  let rec rm path =
+    let st = Unix.lstat path in
+    match st.Unix.st_kind with
+    | Unix.S_DIR ->
+        Sys.readdir path |> Array.iter (fun file -> rm (path // file)) ;
+        Unix.rmdir path
+    | _ ->
+        Unix.unlink path
+  in
+  try if Sys.file_exists path then rm path
+  with exn ->
+    let exn' = Printexc.to_string exn in
+    let msg = Printf.sprintf "failed to remove %s: %s" path exn' in
+    failwith msg
+
+let resolve_uri_path ~root ~uri_path =
+  let open Xapi_stdext_std.Xstringext in
+  uri_path
+  |> Filename.concat root
+  |> Uri.pct_decode
+  |> Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot
+  |> fun x ->
+  match (Astring.String.is_prefix ~affix:(root ^ "/") x, Sys.file_exists x) with
+  | true, true ->
+      x
+  | _ ->
+      let msg =
+        Printf.sprintf "Failed to resolve uri path '%s' under '%s': %s" uri_path
+          root x
+      in
+      raise Api_errors.(Server_error (internal_error, [msg]))
+
+let run_in_parallel ~funs ~capacity =
+  let rec run_in_parallel' acc funs capacity =
+    let rec split_for_first_n acc n l =
+      match (n, l) with
+      | n, h :: t when n > 0 ->
+          split_for_first_n (h :: acc) (n - 1) t
+      | _ ->
+          (acc, l)
+    in
+    let run f =
+      let result = ref `Not_started in
+      let wrapper r = try r := `Succ (f ()) with e -> r := `Fail e in
+      let th = Thread.create wrapper result in
+      (th, result)
+    in
+    let get_result (th, result) =
+      Thread.join th ;
+      match !result with
+      | `Not_started ->
+          `Error (Failure "The thread in run_in_parallel is not started")
+      | `Succ s ->
+          `Ok s
+      | `Fail e ->
+          `Error e
+    in
+    let to_be_run, remaining = split_for_first_n [] capacity funs in
+    match to_be_run with
+    | [] ->
+        acc
+    | _ ->
+        let finished =
+          List.map run to_be_run
+          |> List.map get_result
+          |> List.map (function `Ok s -> s | `Error e -> raise e)
+        in
+        run_in_parallel' (List.rev_append finished acc) remaining capacity
+  in
+  run_in_parallel' [] funs capacity
+
 (**************************************************************************************)
 (* The master uses a global mutex to mark database records before forwarding messages *)
 
