@@ -27,6 +27,8 @@ let net_cmd = !Xapi_globs.net_cmd
 
 let tdb_tool = !Xapi_globs.tdb_tool
 
+let debug_level = !Xapi_globs.winbind_debug_level |> string_of_int
+
 let winbind_service = "winbind"
 
 module Winbind = struct
@@ -52,7 +54,7 @@ let query_domain_workgroup domain =
   try
     let lines =
       Helpers.call_script ~log_output:On_failure net_cmd
-        ["ads"; "lookup"; "-S"; domain]
+        ["ads"; "lookup"; "-S"; domain; "-d"; debug_level]
     in
     match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
     | Some v ->
@@ -82,6 +84,7 @@ let config_winbind_damon ~domain ~workgroup =
       ; "idmap config * : range = 3000000-3999999"
       ; Printf.sprintf "idmap config %s: backend = rid" domain
       ; Printf.sprintf "idmap config %s: range = 2000000-2999999" domain
+      ; Printf.sprintf "log level = %s" debug_level
       ; "idmap config * : backend = tdb"
       ; "" (* Empty line at the end *)
       ]
@@ -151,7 +154,7 @@ let clean_machine_account ~service_name = function
   | Some u, Some p -> (
       (* Clean machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
-      let args = ["ads"; "leave"; "-U"; u] in
+      let args = ["ads"; "leave"; "-U"; u; "-d"; debug_level] in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
         debug "Cleaning the machine account for domain %s succeeded"
@@ -274,7 +277,17 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let ou_conf, ou_param = extract_ou_config ~config_params in
 
     let args =
-      ["ads"; "join"; service_name; "-U"; user; "--no-dns-updates"] @ ou_param
+      [
+        "ads"
+      ; "join"
+      ; service_name
+      ; "-U"
+      ; user
+      ; "-d"
+      ; debug_level
+      ; "--no-dns-updates"
+      ]
+      @ ou_param
     in
     debug "Joining domain %s with user %s" service_name user ;
     let env = [|Printf.sprintf "PASSWD=%s" pass|] in
