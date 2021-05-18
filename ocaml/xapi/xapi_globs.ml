@@ -853,6 +853,8 @@ let extauth_ad_backend = ref "winbind"
 
 let net_cmd = ref "/usr/bin/net"
 
+let winbind_debug_level = ref 2
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let xapi_globs_spec =
@@ -913,6 +915,7 @@ let xapi_globs_spec =
   ; ("vm_call_plugin_interval", Float vm_call_plugin_interval)
   ; ("xapi_clusterd_port", Int xapi_clusterd_port)
   ; ("max_active_sr_scans", Int max_active_sr_scans)
+  ; ("winbind_debug_level", Int winbind_debug_level)
   ]
 
 let options_of_xapi_globs_spec =
