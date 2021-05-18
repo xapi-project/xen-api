@@ -33,7 +33,7 @@ if [ $1 = "enable" ]; then
 	chkconfig ip6tables on
 
 	echo "net.ipv6.conf.all.disable_ipv6=0" > /etc/sysctl.d/91-net-ipv6.conf
-	echo "net.ipv6.conf.default.disable_ipv6=0" > /etc/sysctl.d/91-net-ipv6.conf
+	echo "net.ipv6.conf.default.disable_ipv6=0" >> /etc/sysctl.d/91-net-ipv6.conf
 
 	echo "IPv6 enabled.  You may now need to reboot the host"
 elif [ $1 = "disable" ]; then
@@ -54,7 +54,7 @@ elif [ $1 = "disable" ]; then
 	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
 
 	echo "net.ipv6.conf.all.disable_ipv6=1" > /etc/sysctl.d/91-net-ipv6.conf
-	echo "net.ipv6.conf.default.disable_ipv6=1" > /etc/sysctl.d/91-net-ipv6.conf
+	echo "net.ipv6.conf.default.disable_ipv6=1" >> /etc/sysctl.d/91-net-ipv6.conf
 
 	echo "IPv6 disabled.  You may now need to reboot the host"
 else
