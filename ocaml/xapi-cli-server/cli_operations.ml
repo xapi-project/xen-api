@@ -5146,12 +5146,12 @@ let vm_import fd printer rpc session_id params =
                       let finished = ref false in
                       while not !finished do
                         (* Nb.
-                           														* The check for task cancelling is done here in the cli server. This is due to the fact that we've got
-                           														* 3 parties talking to one another here: the thin cli, the cli server and the import handler. If the
-                           														* import handler was checking, it would close its socket on task cancelling. This only happens after
-                           														* each chunk is sent. Unfortunately the cli server wouldn't notice until it had already requested the
-                           														* data from the thin cli, and would have to wait for it to finish sending its chunk before it could
-                           														* alert it to the failure. *)
+                           The check for task cancelling is done here in the cli server. This is due to the fact that we've got
+                           3 parties talking to one another here: the thin cli, the cli server and the import handler. If the
+                           import handler was checking, it would close its socket on task cancelling. This only happens after
+                           each chunk is sent. Unfortunately the cli server wouldn't notice until it had already requested the
+                           data from the thin cli, and would have to wait for it to finish sending its chunk before it could
+                           alert it to the failure. *)
                         (let l =
                            Client.Task.get_current_operations rpc session_id
                              importtask
