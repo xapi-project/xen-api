@@ -23,8 +23,6 @@ fi
 . /etc/xensource-inventory
 
 if [ $1 = "enable" ]; then
-	rm /etc/modprobe.d/disable-ipv6.conf
-
 	# Enable IPv6 networking
 	sed -i '/^NETWORKING_IPV6=/d' /etc/sysconfig/network
 	sed -i '/^IPV6_AUTOCONF=/d' /etc/sysconfig/network
@@ -46,8 +44,6 @@ elif [ $1 = "disable" ]; then
 	fi
 
 	chkconfig ip6tables off
- 	echo "alias ipv6 no" > /etc/modprobe.d/disable-ipv6.conf
-	echo "alias net-pf-10 off" >> /etc/modprobe.d/disable-ipv6.conf
 	sed -i '/^NETWORKING_IPV6=/d' /etc/sysconfig/network
 	sed -i '/^IPV6_AUTOCONF=/d' /etc/sysconfig/network
 	echo "NETWORKING_IPV6=NO" >> /etc/sysconfig/network
