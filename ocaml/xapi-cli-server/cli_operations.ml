@@ -7213,7 +7213,7 @@ let update_resync_host printer rpc session_id params =
   Client.Pool_update.resync_host rpc session_id host
 
 let host_apply_updates printer rpc session_id params =
-  let hash = Listext.assoc "hash" params in
+  let hash = List.assoc "hash" params in
   ignore
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
