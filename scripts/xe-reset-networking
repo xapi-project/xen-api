@@ -67,6 +67,7 @@ if __name__ == "__main__":
 	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
 	parser.add_option("--gateway", help="Gateway for new management interface", dest="gateway", default='')
 	parser.add_option("--dns", help="DNS server for new management interface", dest="dns", default='')
+	parser.add_option("--use_ipv6", help="Reconfigure network with IPv6", dest="use_ipv6", action="store_const", const=True, default=False)
 	(options, args) = parser.parse_args()
 	
 	# Determine pool role
@@ -136,8 +137,11 @@ if __name__ == "__main__":
 		if vlan != None:
 			configuration.append("Vlan:                   " + vlan)
 		if options.mode == "static":
-			configuration.append("IP address:             " + options.ip)
-			configuration.append("Netmask:                " + options.netmask)
+			if not options.use_ipv6:
+				configuration.append("IP address:             " + options.ip)
+				configuration.append("Netmask:                " + options.netmask)
+			else:
+				configuration.append("IPv6 address:           " + options.ip + "/" + options.netmask)
 		if options.gateway != '':
 			configuration.append("Gateway:                " + options.gateway)
 		if options.dns != '':
@@ -209,14 +213,17 @@ Type 'no' to cancel.
 	try:
 		f = file(management_conf, 'w')
 		f.write("LABEL='" + device + "'\n")
-		f.write("MODE='" + options.mode + "'\n")
+		f.write(("MODEV6" if options.use_ipv6 else "MODE") + "='" + options.mode + "'\n")
 		if vlan != None:
 			f.write("VLAN='" + vlan + "'\n")
 		if options.mode == 'static':
-			f.write("IP='" + options.ip + "'\n")
-			f.write("NETMASK='" + options.netmask + "'\n")
+			if not options.use_ipv6:
+				f.write("IP='" + options.ip + "'\n")
+				f.write("NETMASK='" + options.netmask + "'\n")
+			else:
+				f.write("IPv6='" + options.ip + "/" + options.netmask + "'\n")
 			if options.gateway != '':
-				f.write("GATEWAY='" + options.gateway + "'\n")
+				f.write(("IPv6_GATEWAY" if options.use_ipv6 else "GATEWAY") + "='" + options.gateway + "'\n")
 			if options.dns != '':
 				f.write("DNS='" + options.dns + "'\n")
 	finally:
@@ -228,14 +235,17 @@ Type 'no' to cancel.
 	try:
 		f = file(network_reset, 'w')
 		f.write('DEVICE=' + device + '\n')
-		f.write('MODE=' + options.mode + '\n')
+		f.write(('MODE_V6' if options.use_ipv6 else 'MODE') + '=' + options.mode + '\n')
 		if vlan != None:
 			f.write('VLAN=' + vlan + '\n')
 		if options.mode == 'static':
-			f.write('IP=' + options.ip + '\n')
-			f.write('NETMASK=' + options.netmask + '\n')
+			if not options.use_ipv6:
+				f.write('IP=' + options.ip + '\n')
+				f.write('NETMASK=' + options.netmask + '\n')
+			else:
+				f.write('IPV6=' + options.ip + '/' + options.netmask + '\n')
 			if options.gateway != '':
-				f.write('GATEWAY=' + options.gateway + '\n')
+				f.write(('GATEWAY_V6' if options.use_ipv6 else 'GATEWAY') + '=' + options.gateway + '\n')
 			if options.dns != '':
 				f.write('DNS=' + options.dns + '\n')
 	finally:
