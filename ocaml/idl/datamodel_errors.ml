@@ -567,6 +567,8 @@ let _ =
     ~doc:"The host joining the pool must have the same API version as the pool master." ();
   error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]
     ~doc:"The host joining the pool must have the same database schema as the pool master." ();
+  error Api_errors.pool_joining_host_ca_certificates_conflict []
+    ~doc:"The host joining the pool has different ca certificates from the pool master while using the same name, uninstall them and try again." ();
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
@@ -1053,7 +1055,7 @@ let _ =
 
   error Api_errors.server_certificate_invalid []
     ~doc:"The provided certificate is not in a PEM-encoded X509." ();
-    error Api_errors.server_certificate_key_mismatch []
+  error Api_errors.server_certificate_key_mismatch []
     ~doc:"The provided key does not match the provided certificate's public key." ();
   error Api_errors.server_certificate_not_valid_yet ["now"; "not_before"]
     ~doc:"The provided certificate is not valid yet." ();

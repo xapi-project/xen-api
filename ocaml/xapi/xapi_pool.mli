@@ -105,6 +105,12 @@ val exchange_certificates_on_join :
   -> certificate:string
   -> API.string_to_string_map
 
+val exchange_ca_certificates_on_join :
+     __context:Context.t
+  -> import:API.string_to_string_map
+  -> export:API.ref_Certificate list
+  -> API.string_to_string_map
+
 val emergency_transition_to_master : __context:'a -> unit
 
 val emergency_reset_master : __context:'a -> master_address:string -> unit
