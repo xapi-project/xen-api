@@ -66,10 +66,10 @@ let handle_connection fd tls_role =
     Xen_api.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid >>= fun vdi_ref ->
     with_attached_vdi vdi_ref rpc session_id (fun filename ->
         Cleanup.Block.with_block filename
-          (Nbd_lwt_unix.Server.serve t ~read_only:true (module Block)))
+          (Nbd_unix.Server.serve t ~read_only:true (module Block)))
   in
-  Nbd_lwt_unix.with_channel fd tls_role (fun channel ->
-      Nbd_lwt_unix.Server.with_connection channel (fun export_name svr ->
+  Nbd_unix.with_channel fd tls_role (fun channel ->
+      Nbd_unix.Server.with_connection channel (fun export_name svr ->
           let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
           let uri = Uri.of_string export_name in
           with_session rpc uri (serve svr)))
@@ -78,8 +78,8 @@ let handle_connection fd tls_role =
 let init_tls_get_server_ctx ~certfile =
   let certfile = require_str "certfile" certfile in
   Some
-    (Nbd_lwt_unix.TlsServer
-       (Nbd_lwt_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile
+    (Nbd_unix.TlsServer
+       (Nbd_unix.init_tls_get_ctx ~curve:"secp384r1" ~certfile
           ~ciphersuites:Xcp_const.good_ciphersuites))
 
 let xapi_says_use_tls () =

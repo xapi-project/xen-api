@@ -17,7 +17,7 @@ depends: [
   "lwt" {>= "3.0.0"}
   "lwt_log"
   "mirage-block-unix"
-  "nbd-lwt-unix"
+  "nbd-unix"
   "uri"
   "uuidm"
   "xapi-inventory"
