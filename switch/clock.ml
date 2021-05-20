@@ -16,12 +16,4 @@
 
 include Mtime_clock
 
-type +'a io = 'a Lwt.t
-
-type t = unit
-
-let disconnect () = Lwt.return_unit
-
-let connect () = Lwt.return_unit
-
 let ns () = Mtime.Span.to_uint64_ns (Mtime_clock.elapsed ())
