@@ -38,7 +38,8 @@ let do_upload label file url options =
           safe_close_and_exec ~env None (Some log_fd) (Some log_fd) []
             !Xapi_globs.upload_wrapper [file]
         in
-        waitpid_fail_if_bad_exit pid)
+        waitpid_fail_if_bad_exit pid
+    )
   with
   | Success _ ->
       debug "Upload succeeded"

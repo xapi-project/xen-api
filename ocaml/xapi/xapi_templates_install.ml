@@ -49,7 +49,9 @@ let assert_script_is_whitelisted script =
     raise
       (Api_errors.Server_error
          ( Api_errors.permission_denied
-         , [Printf.sprintf "illegal provision script %s" script] ))
+         , [Printf.sprintf "illegal provision script %s" script]
+         )
+      )
 
 (** Execute the post install script of 'vm' having attached all the vbds to the 'install_vm' *)
 let post_install_script rpc session_id __context install_vm vm (script, vbds) =
@@ -77,13 +79,13 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                 in
                 ( Device_number.to_linux_device device
                 , "/dev/" ^ Client.VBD.get_device rpc session_id install_vm_vbd
-                ))
+                )
+                )
               (List.combine install_vm_vbds vbds)
           in
           let env = ("vm", Ref.string_of vm) :: devices in
           let env = List.map (fun (k, v) -> k ^ "=" ^ v) env in
-          debug "Executing script %s with env %s" script
-            (String.concat "; " env) ;
+          debug "Executing script %s with env %s" script (String.concat "; " env) ;
           match
             with_logfile_fd "install-log" (fun log ->
                 let pid =
@@ -118,7 +120,8 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                     update_progress ()
                   )
                 in
-                update_progress ())
+                update_progress ()
+            )
           with
           | Success _ ->
               debug "Install script exited successfully."
@@ -129,6 +132,8 @@ let post_install_script rpc session_id __context install_vm vm (script, vbds) =
                 log ;
               raise
                 (Api_errors.Server_error
-                   (Api_errors.provision_failed_out_of_space, []))
+                   (Api_errors.provision_failed_out_of_space, [])
+                )
           | Failure (log, exn) ->
-              raise exn)
+              raise exn
+      )

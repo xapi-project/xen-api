@@ -40,19 +40,22 @@ let async_test rpc session_id sr_info () =
            | `cancelled ->
                "cancelled"
            )
-           result) ;
+           result
+        ) ;
       match status with
       | `failure ->
           Alcotest.failf "Failure of VDI copy! error_info: %s"
             (String.concat ","
-               (Client.Client.Task.get_error_info rpc session_id task))
+               (Client.Client.Task.get_error_info rpc session_id task)
+            )
       | `success ->
           let self = result |> extract_ref in
           Client.Client.VDI.destroy ~rpc ~session_id ~self
       | `cancelled ->
           ()
       | `cancelling | `pending ->
-          Alcotest.fail "Task should be finished!")
+          Alcotest.fail "Task should be finished!"
+  )
 
 let tests () =
   let open Qt_filter in

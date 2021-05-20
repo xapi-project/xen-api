@@ -41,7 +41,8 @@ let assert_enabled ~__context ~f =
   if not (is_enabled ~__context f) then
     raise
       (Api_errors.Server_error
-         (Api_errors.license_restriction, [name_of_feature f]))
+         (Api_errors.license_restriction, [name_of_feature f])
+      )
 
 (* The set of core restrictions of a pool is the intersection of the sets of features
    of the individual hosts. *)
@@ -57,7 +58,8 @@ let find_additional_flags params =
     List.filter
       (fun (k, v) ->
         try String.sub k 0 9 = "restrict_" && not (List.mem k all_flags)
-        with Invalid_argument _ -> false)
+        with Invalid_argument _ -> false
+        )
       params
   in
   List.map fst kvs
@@ -76,7 +78,8 @@ let rec compute_additional_restrictions all_host_params = function
                 if List.mem_assoc flag params then
                   bool_of_string (List.assoc flag params)
                 else
-                  true)
+                  true
+            )
           all_host_params
       in
       (flag, string_of_bool (List.fold_left ( || ) false switches))

@@ -50,7 +50,8 @@ let cancel ~__context ~task =
          "Task.cancel not forwarded to the correct host (expecting %s but this \
           is %s)"
          (Db.Host.get_hostname ~__context ~self:forwarded_to)
-         (Db.Host.get_hostname ~__context ~self:localhost)) ;
+         (Db.Host.get_hostname ~__context ~self:localhost)
+      ) ;
   TaskHelper.assert_op_valid ~__context task ;
   Db.Task.set_current_operations ~__context ~self:task
     ~value:[(Ref.string_of (Context.get_task_id __context), `cancel)] ;

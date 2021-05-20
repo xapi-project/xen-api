@@ -68,8 +68,7 @@ let _ =
         hr "TEST 2e. AuthX.methods.query_group_membership 999 (unknown subject)" ;
         try
           print_endline
-            (List.fold_left conc ""
-               (AuthX.methods.query_group_membership "999"))
+            (List.fold_left conc "" (AuthX.methods.query_group_membership "999"))
         with Not_found -> (
           print_endline "subject Not_found, as expected." ;
           (* should return a list with information about subject_id 1000 (a user)*)
@@ -136,7 +135,8 @@ let _ =
                   ) ;
                 print_endline
                   (AuthX.methods.authenticate_username_password username
-                     password)
+                     password
+                  )
             )
           )
         )

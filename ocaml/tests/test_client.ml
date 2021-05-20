@@ -40,7 +40,8 @@ let test_get_alls () =
   let labels =
     Client.Client.Task.get_all ~rpc ~session_id
     |> List.map (fun self ->
-           Client.Client.Task.get_name_label ~rpc ~session_id ~self)
+           Client.Client.Task.get_name_label ~rpc ~session_id ~self
+       )
   in
   Alcotest.(check (slist string String.compare))
     "task labels from get_all" ["t1"; "t2"; "t3"; "t4"] labels ;

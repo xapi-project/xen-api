@@ -34,10 +34,13 @@ let test_print_host_pcis () =
                   ; p.device.name
                   ; x_to_str p.pci_class.id
                   ; p.pci_class.name
-                  ]) ;
+                  ]
+               ) ;
              List.iter (fun s -> print_string (s ^ ", ")) p.related ;
-             print_newline ())
-         pcis)
+             print_newline ()
+         )
+         pcis
+      )
   with e -> Alcotest.fail (Printexc.to_string e)
 
 let test = [("test_print_host_pcis", `Quick, test_print_host_pcis)]

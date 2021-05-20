@@ -61,7 +61,8 @@ let string2vdi_type s =
           Server_error
             ( internal_error
             , [Printf.sprintf "string2vdi_type: Unknown VDI type \"%s\"" vdi_st]
-            ))
+            )
+        )
 
 exception Parse_failure
 

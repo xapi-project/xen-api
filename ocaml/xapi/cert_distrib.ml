@@ -202,7 +202,8 @@ end = struct
         certs
         |> List.iter (function {filename; content} ->
                let fname = Filename.concat P.store_path filename in
-               redirect content ~fname)
+               redirect content ~fname
+               )
       with e ->
         (* on fail, try reset to previous cert state *)
         ( try mv ~src:pool_certs_bk ~dest:pool_certs
@@ -222,7 +223,8 @@ end = struct
   let regen_bundle () =
     ignore
       (Forkhelpers.execute_command_get_output
-         "/opt/xensource/bin/update-ca-bundle.sh" [])
+         "/opt/xensource/bin/update-ca-bundle.sh" []
+      )
 
   let restart_stunnel ~__context =
     Xapi_mgmt_iface.reconfigure_stunnel ~__context
@@ -268,8 +270,7 @@ end = struct
           "result_or_fail: failed to parse result"
 
   let remote_call_sync host command rpc session_id =
-    XenAPI.Host.cert_distrib_atom rpc session_id host
-      (string_of_command command)
+    XenAPI.Host.cert_distrib_atom rpc session_id host (string_of_command command)
     |> result_or_fail
 
   let unexpected_result name r =
@@ -341,7 +342,8 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
            Worker.remote_collect_cert HostPoolCertificate uuid host rpc
              session_id
          in
-         map cert)
+         map cert
+     )
 
 let exchange_certificates_among_all_members ~__context =
   (* here we coordinate the certificate distribution. from a high level
@@ -370,7 +372,8 @@ let exchange_certificates_among_all_members ~__context =
   List.iter
     (fun host ->
       Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs host rpc
-        session_id)
+        session_id
+      )
     all_hosts ;
   List.iter
     (fun host -> Worker.remote_regen_bundle host rpc session_id)
@@ -384,7 +387,8 @@ let import_joiner ~__context ~uuid ~certificate ~to_hosts =
   List.iter
     (fun host ->
       Worker.remote_write_certs_fs HostPoolCertificate Merge
-        [joiner_certificate] host rpc session_id)
+        [joiner_certificate] host rpc session_id
+      )
     to_hosts ;
   List.iter
     (fun host -> Worker.remote_regen_bundle host rpc session_id)
@@ -417,7 +421,8 @@ let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   List.iter
     (fun host ->
       Worker.remote_write_certs_fs ApplianceCertificate Merge appliance_certs
-        host rpc session_id)
+        host rpc session_id
+      )
     all_hosts ;
 
   List.iter

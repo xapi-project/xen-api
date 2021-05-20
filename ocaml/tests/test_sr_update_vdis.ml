@@ -52,7 +52,9 @@ let test_update_existing_snapshot () =
       ; is_a_snapshot= true
       ; snapshot_of= Storage_interface.Vdi.of_string vdi_uuid
       }
+    
   in
+
   (* attempt to reproduce the issue by updating the snapshot *)
   let vdi_snapshot_record = Db.VDI.get_record ~__context ~self:vdi_snapshot in
   Xapi_sr.update_vdis ~__context ~sr
@@ -86,7 +88,9 @@ let test_update_new_vdi_and_snapshot () =
         vdi= Storage_interface.Vdi.of_string vdi_uuid
       ; uuid= Some vdi_uuid
       }
+    
   in
+
   let vdi_snapshot_sr_record =
     Storage_interface.
       {
@@ -96,7 +100,9 @@ let test_update_new_vdi_and_snapshot () =
       ; snapshot_of= Storage_interface.Vdi.of_string vdi_uuid
       ; is_a_snapshot= true
       }
+    
   in
+
   (* attempt to reproduce the issue by creating the snapshot before the VDI *)
   Xapi_sr.update_vdis ~__context ~sr [] [vdi_sr_record; vdi_snapshot_sr_record] ;
   let vdi_snapshot = Db.VDI.get_by_uuid ~__context ~uuid:vdi_snapshot_uuid in
@@ -125,7 +131,9 @@ let test_sharable_field_updated_for_existing_vdi () =
       ; uuid= Some vdi_uuid
       ; sharable= true
       }
+    
   in
+
   (* When we call this function from our SR.scan XenAPI call for example, it should
      update the VDI's sharable field to the correct value returned by the
      storage layer. *)
@@ -148,7 +156,9 @@ let test_sharable_field_correct_for_new_vdi () =
       ; uuid= Some vdi_uuid
       ; sharable= true
       }
+    
   in
+
   (* When we call this function from our SR.scan XenAPI call for example, it should
      add the VDI to xapi's database with the correct sharable field returned
      by the storage layer. *)
@@ -163,11 +173,14 @@ let test =
     ("test_update_existing_snapshot", `Quick, test_update_existing_snapshot)
   ; ( "test_update_new_vdi_and_snapshot"
     , `Quick
-    , test_update_new_vdi_and_snapshot )
+    , test_update_new_vdi_and_snapshot
+    )
   ; ( "test_sharable_field_updated_for_existing_vdi"
     , `Quick
-    , test_sharable_field_updated_for_existing_vdi )
+    , test_sharable_field_updated_for_existing_vdi
+    )
   ; ( "test_sharable_field_correct_for_new_vdi"
     , `Quick
-    , test_sharable_field_correct_for_new_vdi )
+    , test_sharable_field_correct_for_new_vdi
+    )
   ]

@@ -8,7 +8,8 @@ let start_periodic_scheduler () =
     ()
   else (
     Xapi_periodic_scheduler.add_to_queue "dummy"
-      (Xapi_periodic_scheduler.Periodic 60.0) 0.0 (fun () -> ()) ;
+      (Xapi_periodic_scheduler.Periodic 60.0) 0.0 (fun () -> ()
+    ) ;
     Xapi_event.register_hooks () ;
     ignore (Thread.create Xapi_periodic_scheduler.loop ()) ;
     ps_start := true

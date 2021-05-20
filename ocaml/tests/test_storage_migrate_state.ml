@@ -36,10 +36,12 @@ let sample_send_state =
     ; tapdev=
         Some
           (Tapctl.tapdev_of_rpc
-             (Rpc.Dict [("minor", Rpc.Int 0L); ("tapdisk_pid", Rpc.Int 0L)]))
+             (Rpc.Dict [("minor", Rpc.Int 0L); ("tapdisk_pid", Rpc.Int 0L)])
+          )
     ; failed= false
     ; watchdog= None
     }
+  
 
 let sample_receive_state =
   Storage_migrate.State.Receive_state.
@@ -51,6 +53,7 @@ let sample_receive_state =
     ; parent_vdi= Storage_interface.Vdi.of_string "parent_vdi"
     ; remote_vdi= Storage_interface.Vdi.of_string "remote_vdi"
     }
+  
 
 let sample_copy_state =
   Storage_migrate.State.Copy_state.
@@ -62,6 +65,7 @@ let sample_copy_state =
     ; copy_vdi= Storage_interface.Vdi.of_string "copy_vdi"
     ; remote_url= "remote_url"
     }
+  
 
 module MapOf = Generic.MakeStateful (struct
   module Io = struct
@@ -99,11 +103,14 @@ module MapOf = Generic.MakeStateful (struct
         ((None, None, None), ([], [], []))
       ; (* Test that any of the single operations get persisted. *)
         ( (Some ("foo", Send_op sample_send_state), None, None)
-        , ([("foo", sample_send_state)], [], []) )
+        , ([("foo", sample_send_state)], [], [])
+        )
       ; ( (None, Some ("bar", Recv_op sample_receive_state), None)
-        , ([], [("bar", sample_receive_state)], []) )
+        , ([], [("bar", sample_receive_state)], [])
+        )
       ; ( (None, None, Some ("baz", Copy_op sample_copy_state))
-        , ([], [], [("baz", sample_copy_state)]) )
+        , ([], [], [("baz", sample_copy_state)])
+        )
       ]
 end)
 

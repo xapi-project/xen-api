@@ -39,10 +39,12 @@ let test_network_event_loop ~no_nbd_networks_at_start () =
               failwith "Failed to update firewall"
             ) ;
             received_params := Some pifs ;
-            Threadext.Delay.signal wait_hdl)
+            Threadext.Delay.signal wait_hdl
+            )
           ~wait_after_event_seconds:0.0
           ~wait_after_failure_seconds:
-            network_event_loop_wait_after_failure_seconds)
+            network_event_loop_wait_after_failure_seconds
+    )
   in
   let param_set = Alcotest.(slist string String.compare) in
   let assert_received_params msg expected =
@@ -214,8 +216,10 @@ let test =
   [
     ( "test_network_event_loop_with_no_networks_at_start"
     , `Slow
-    , test_network_event_loop ~no_nbd_networks_at_start:true )
+    , test_network_event_loop ~no_nbd_networks_at_start:true
+    )
   ; ( "test_network_event_loop_with_some_networks_at_start"
     , `Slow
-    , test_network_event_loop ~no_nbd_networks_at_start:false )
+    , test_network_event_loop ~no_nbd_networks_at_start:false
+    )
   ]

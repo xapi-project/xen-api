@@ -44,7 +44,8 @@ let valid_operations ~__context record _ref' : table =
     List.iter
       (fun op ->
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params)))
+          Hashtbl.replace table op (Some (code, params))
+        )
       ops
   in
   let vm = Db.VIF.get_VM ~__context ~self:_ref' in
@@ -54,7 +55,9 @@ let valid_operations ~__context record _ref' : table =
       (String.concat "; "
          (List.map
             (fun (task, op) -> task ^ " -> " ^ vif_operation_to_string op)
-            current_ops)) ;
+            current_ops
+         )
+      ) ;
     let concurrent_op = snd (List.hd current_ops) in
     set_errors Api_errors.other_operation_in_progress
       ["VIF"; _ref; vif_operation_to_string concurrent_op]
@@ -96,7 +99,8 @@ let valid_operations ~__context record _ref' : table =
           ^ Record_util.vm_operation_to_string op
         in
         set_errors Api_errors.operation_not_allowed [current_op_str]
-          [`plug; `unplug])
+          [`plug; `unplug]
+      )
     vm_current_ops ;
   (* HVM guests MAY support plug/unplug IF they have PV drivers. Assume
    * all drivers have such support unless they specify that they do not. *)
@@ -154,7 +158,9 @@ let throw_error (table : table) op =
              Printf.sprintf
                "xapi_vif_helpers.assert_operation_valid unknown operation: %s"
                (vif_operation_to_string op)
-           ] )) ;
+           ]
+         )
+      ) ;
   match Hashtbl.find table op with
   | Some (code, params) ->
       raise (Api_errors.Server_error (code, params))
@@ -250,7 +256,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     try
       Some
         (List.assoc Xapi_globs.mac_seed
-           (Db.VM.get_other_config ~__context ~self:vM))
+           (Db.VM.get_other_config ~__context ~self:vM)
+        )
     with _ -> None
   in
   if not (valid_device device) then
@@ -282,7 +289,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       (Ref.string_of vM) ;
     raise
       (Api_errors.Server_error
-         (Api_errors.ha_operation_would_break_failover_plan, []))
+         (Api_errors.ha_operation_would_break_failover_plan, [])
+      )
   ) ;
   (* Check to make sure the device is unique *)
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
@@ -310,7 +318,8 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
           ~ipv6_configuration_mode ~ipv6_addresses ~ipv6_gateway
           ~reserved_pci:Ref.null
       in
-      ()) ;
+      ()
+  ) ;
   update_allowed_operations ~__context ~self:ref ;
   debug "VIF ref='%s' created (VM = '%s'; MAC address = '%s')"
     (Ref.string_of ref) (Ref.string_of vM) mAC ;
@@ -326,13 +335,16 @@ let destroy ~__context ~self =
     raise
       (Api_errors.Server_error
          ( Api_errors.operation_not_allowed
-         , ["VIF currently attached to a running VM"] )) ;
+         , ["VIF currently attached to a running VM"]
+         )
+      ) ;
   let metrics = Db.VIF.get_metrics ~__context ~self in
   (* Don't let a failure to destroy the metrics stop us *)
   Helpers.log_exn_continue "VIF_metrics.destroy"
     (fun self ->
       if Db.is_valid_ref __context self then
-        Db.VIF_metrics.destroy ~__context ~self)
+        Db.VIF_metrics.destroy ~__context ~self
+      )
     metrics ;
   Db.VIF.destroy ~__context ~self
 
@@ -378,6 +390,7 @@ let copy ~__context ~vm ~preserve_mac_address vif =
         warn
           "Ignoring exception raised while creating PVS_proxy when copying a \
            VIF: %s"
-          (Printexc.to_string e))
+          (Printexc.to_string e)
+      )
     proxies ;
   result

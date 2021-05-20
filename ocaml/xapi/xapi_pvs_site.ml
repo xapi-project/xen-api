@@ -34,7 +34,9 @@ let cleanup_storage __context self =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Db.PVS_site.get_cache_storage ~__context ~self
       |> List.iter (fun self ->
-             Client.Client.PVS_cache_storage.destroy ~rpc ~session_id ~self))
+             Client.Client.PVS_cache_storage.destroy ~rpc ~session_id ~self
+         )
+  )
 
 let forget_internal ~__context ~self ~cleanup_storage =
   let open Db_filter_types in
@@ -47,13 +49,16 @@ let forget_internal ~__context ~self ~cleanup_storage =
       Api_errors.(
         Server_error
           ( pvs_site_contains_running_proxies
-          , List.map Ref.string_of running_proxies )) ;
+          , List.map Ref.string_of running_proxies
+          )
+      ) ;
   (* Check there are no servers. *)
   let servers = Db.PVS_site.get_servers ~__context ~self in
   if servers <> [] then
     raise
       Api_errors.(
-        Server_error (pvs_site_contains_servers, List.map Ref.string_of servers)) ;
+        Server_error (pvs_site_contains_servers, List.map Ref.string_of servers)
+      ) ;
   cleanup_storage __context self ;
   Db.PVS_site.destroy ~__context ~self
 

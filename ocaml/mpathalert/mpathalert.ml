@@ -42,8 +42,10 @@ let debug (fmt : ('a, unit, string, unit) format4) =
               (time_of_float (Unix.gettimeofday ()))
               (Thread.id (Thread.self ()))
               s ;
-            flush stdout)
-          fmt)
+            flush stdout
+            )
+          fmt
+    )
   else
     Printf.kprintf (fun s -> ()) fmt
 
@@ -160,12 +162,14 @@ let listener rpc session queue =
   let pbds = Client.PBD.get_all_records rpc session in
   List.iter
     (fun (pbd_ref, pbd_rec) ->
-      update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config))
+      update_snapshot pbd_ref (keep_mpath pbd_rec.API.pBD_other_config)
+      )
     pbds ;
   let hosts = Client.Host.get_all_records rpc session in
   List.iter
     (fun (host_ref, host_rec) ->
-      update_snapshot host_ref (keep_mpath host_rec.API.host_other_config))
+      update_snapshot host_ref (keep_mpath host_rec.API.host_other_config)
+      )
     hosts ;
   (* proceed events *)
   let proceed event =
@@ -230,8 +234,10 @@ let state_of_the_world rpc session =
       (List.map
          (fun (pbd_ref, pbd_rec) ->
            create_pbd_alerts rpc session []
-             (pbd_ref, pbd_rec, Unix.gettimeofday ()))
-         pbds)
+             (pbd_ref, pbd_rec, Unix.gettimeofday ())
+           )
+         pbds
+      )
   in
   let hosts = Client.Host.get_all_records rpc session in
   let host_alerts =
@@ -239,8 +245,10 @@ let state_of_the_world rpc session =
       (List.map
          (fun (host_ref, host_rec) ->
            create_host_alerts rpc session []
-             (host_ref, host_rec, Unix.gettimeofday ()))
-         hosts)
+             (host_ref, host_rec, Unix.gettimeofday ())
+           )
+         hosts
+      )
   in
   let alerts =
     List.filter
@@ -302,12 +310,14 @@ let sender rpc session (delay, msg, queue) =
               let alert_msgs = List.map to_string state_of_the_world in
               Buffer.add_string tmp
                 (Printf.sprintf "Unhealthy paths:\n%s\n"
-                   (String.concat "\n" alert_msgs))
+                   (String.concat "\n" alert_msgs)
+                )
           ) ;
           (* update the received events *)
           Buffer.add_string tmp
             (Printf.sprintf "Events received during the last %.0f seconds:\n"
-               delay) ;
+               delay
+            ) ;
           interesting_alert := false ;
           while not (Queue.is_empty queue) do
             proceed (Queue.pop queue)
@@ -315,7 +325,8 @@ let sender rpc session (delay, msg, queue) =
           (* if an intersting alert had been proceeded, then commit our changes to the msg buffer *)
           if !interesting_alert then
             Buffer.add_buffer msg tmp
-        )) ;
+        )
+    ) ;
     if Buffer.length msg <> 0 then (
       let name, priority = Api_messages.multipath_periodic_alert in
       let (_ : API.ref_message) =
@@ -338,8 +349,10 @@ let _ =
          , Printf.sprintf
              " Set the delay, in seconds, between 2 consecutive alerts \
               (default is %.0f)"
-             !delay )
-       ])
+             !delay
+         )
+       ]
+    )
     (fun _ -> failwith "Invalid argument")
     "Usage: mpathalert [-debug] [-delay time to wait between alerts]" ;
   let rpc xml =

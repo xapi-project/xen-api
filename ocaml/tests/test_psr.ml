@@ -51,7 +51,8 @@ let () =
     | Fistpoint fp ->
         Some (string_of_fistpoint fp)
     | _ ->
-        None)
+        None
+    )
 
 type host_id = int
 
@@ -142,7 +143,8 @@ functor
           | Some ((After, Accept_new_pool_secret) as fp) ->
               f () ; raise (Fistpoint fp)
           | _ ->
-              f ())
+              f ()
+      )
 
     let tell_send_new_pool_secret _ =
       iter_host (fun h ->
@@ -153,7 +155,8 @@ functor
           | Some ((After, Send_new_pool_secret) as fp) ->
               f () ; raise (Fistpoint fp)
           | _ ->
-              f ())
+              f ()
+      )
 
     let tell_cleanup_old_pool_secret _ =
       iter_host (fun h ->
@@ -164,7 +167,8 @@ functor
           | Some ((After, Cleanup) as fp) ->
               f () ; raise (Fistpoint fp)
           | _ ->
-              f ())
+              f ()
+      )
 
     let cleanup_master _ =
       let f () =
@@ -216,21 +220,27 @@ let check_psr_succeeded r exp_pool_secret master members =
     (fun h ->
       Alcotest.(
         check string "new pool secret should be correct" exp_pool_secret
-          h.current_pool_secret))
+          h.current_pool_secret
+      )
+      )
     hosts ;
   List.iter
     (fun h ->
       Alcotest.(
         check (option string) "staged_pool_secret is null" None
-          h.staged_pool_secret))
+          h.staged_pool_secret
+      )
+      )
     hosts ;
   let psr_state = master.psr_state in
   Alcotest.(
-    check (option string) "checkpoint was cleaned up" None psr_state.checkpoint) ;
+    check (option string) "checkpoint was cleaned up" None psr_state.checkpoint
+  ) ;
   Alcotest.(
     check
       (option (pair string string))
-      "pool secret backups were cleaned up" None psr_state.pool_secret_backups)
+      "pool secret backups were cleaned up" None psr_state.pool_secret_backups
+  )
 
 (* we test almost all combinations of hosts and fistpoints. the only
    case we don't test is one case of master cleanup failure,
@@ -243,10 +253,11 @@ let almost_all_possible_fists ~num_hosts =
         List.map
           (fun (action, mk_expected_err) ->
             List.map
-              (fun host_id ->
-                ((time, action), host_id, mk_expected_err host_id))
-              host_ids)
-          fp_actions)
+              (fun host_id -> ((time, action), host_id, mk_expected_err host_id))
+              host_ids
+            )
+          fp_actions
+        )
       fp_times
     |> List.concat
     |> List.concat
@@ -257,9 +268,11 @@ let almost_all_possible_fists ~num_hosts =
     multiply [Before; After]
       [
         ( Accept_new_pool_secret
-        , fun id -> Error (Failed_during_accept_new_pool_secret, id) )
+        , fun id -> Error (Failed_during_accept_new_pool_secret, id)
+        )
       ; ( Send_new_pool_secret
-        , fun id -> Error (Failed_during_send_new_pool_secret, id) )
+        , fun id -> Error (Failed_during_send_new_pool_secret, id)
+        )
       ]
       [0]
     |> List.cons ((Before, Cleanup), 0, Error (Failed_during_cleanup, 0))
@@ -268,9 +281,11 @@ let almost_all_possible_fists ~num_hosts =
     multiply [Before; After]
       [
         ( Accept_new_pool_secret
-        , fun id -> Error (Failed_during_accept_new_pool_secret, id) )
+        , fun id -> Error (Failed_during_accept_new_pool_secret, id)
+        )
       ; ( Send_new_pool_secret
-        , fun id -> Error (Failed_during_send_new_pool_secret, id) )
+        , fun id -> Error (Failed_during_send_new_pool_secret, id)
+        )
       ; (Cleanup, fun id -> Error (Failed_during_cleanup, id))
       ]
       (List.tl range)
@@ -307,7 +322,8 @@ let test_fail_once () =
            exp_err r ;
          faulty_host.fistpoint <- None ;
          let r = PSR.start (default_pool_secret, "not_used") ~master ~members in
-         check_psr_succeeded r new_pool_secret master members)
+         check_psr_succeeded r new_pool_secret master members
+     )
 
 let test_master_fails_during_cleanup () =
   let open Xapi_psr in
@@ -335,6 +351,8 @@ let tests =
       ; ("test_fail_once", `Quick, test_fail_once)
       ; ( "test_master_fails_during_cleanup"
         , `Quick
-        , test_master_fails_during_cleanup )
-      ] )
+        , test_master_fails_during_cleanup
+        )
+      ]
+    )
   ]

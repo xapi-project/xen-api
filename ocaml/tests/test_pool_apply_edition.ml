@@ -42,8 +42,10 @@ let test_basic_operation () =
       let new_edition = Db.Host.get_edition ~__context ~self:host in
       Alcotest.(check string)
         (Printf.sprintf "Testing that host %s has had the new license applied"
-           (Ref.string_of host))
-        "per-socket" new_edition)
+           (Ref.string_of host)
+        )
+        "per-socket" new_edition
+      )
     hosts
 
 (* Check that if a host is offline, apply_edition_with_rollback rolls all hosts
@@ -63,15 +65,18 @@ let test_rollback_logic () =
     Api_errors.(Server_error (host_offline, [Ref.string_of offline_host]))
     (fun () ->
       Xapi_pool_license.apply_edition_with_rollback ~__context ~hosts
-        ~edition:"per-socket" ~apply_fn) ;
+        ~edition:"per-socket" ~apply_fn
+      ) ;
   List.iter
     (fun host ->
       let new_edition = Db.Host.get_edition ~__context ~self:host in
       Alcotest.(check string)
         (Printf.sprintf
            "Testing that host %s has been rolled back to free edition"
-           (Ref.string_of host))
-        "free" new_edition)
+           (Ref.string_of host)
+        )
+        "free" new_edition
+      )
     hosts
 
 let test =

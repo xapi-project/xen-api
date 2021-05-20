@@ -41,7 +41,8 @@ let inet_rpc xml =
       SSL
         ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
         , Pool_role.get_master_address ()
-        , https )
+        , https
+        )
   in
   let http = xmlrpc ~version path in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http xml
@@ -75,7 +76,8 @@ let append_to_master_audit_log __context action line =
   then
     if Pool_role.is_slave () then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Pool.audit_log_append ~rpc ~session_id ~line)
+          Client.Pool.audit_log_append ~rpc ~session_id ~line
+      )
 
 let rbac_audit_params_of (req : Request.t) =
   let all = req.Request.cookie @ req.Request.query in
@@ -96,7 +98,8 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         TaskHelper.failed
           ~__context:(Context.from_forwarded_task task_id)
           (Api_errors.Server_error
-             (Api_errors.rbac_permission_denied, [permission; msg]))
+             (Api_errors.rbac_permission_denied, [permission; msg])
+          )
     ) ;
     raise exc
   in
@@ -119,7 +122,8 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
     match
       ( ref_param_of_req req _session_id
       , SecretString.of_request req
-      , req.Http.Request.auth )
+      , req.Http.Request.auth
+      )
     with
     | Some session_id, _, _ ->
         (* Session ref has been passed in - check that it's OK *)
@@ -128,7 +132,8 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
             ( try validate_session __context session_id realm
               with _ -> raise (Http.Unauthorised realm)
             ) ;
-            rbac_check session_id)
+            rbac_check session_id
+        )
     | None, Some pool_secret, _ ->
         if Helpers.PoolSecret.is_authorized pool_secret then
           fn ()
@@ -144,7 +149,8 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () -> rbac_check session_id)
           (fun () ->
-            try Client.Session.logout inet_rpc session_id with _ -> ())
+            try Client.Session.logout inet_rpc session_id with _ -> ()
+            )
     | None, None, Some (Http.UnknownAuth x) ->
         raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
     | None, None, None ->
@@ -157,19 +163,22 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
   let subtask_of = ref_param_of_req req "subtask_of" in
   let localhost =
     Server_helpers.exec_with_new_task "with_context" (fun __context ->
-        Helpers.get_localhost ~__context)
+        Helpers.get_localhost ~__context
+    )
   in
   try
     let session_id, must_logout =
       if Context.is_unix_socket s then
         ( Client.Session.slave_login inet_rpc localhost
             (Xapi_globs.pool_secret ())
-        , true )
+        , true
+        )
       else
         match
           ( ref_param_of_req req _session_id
           , SecretString.of_request req
-          , req.Http.Request.auth )
+          , req.Http.Request.auth
+          )
         with
         | Some session_id, _, _ ->
             (session_id, false)
@@ -179,7 +188,8 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
           try
             ( Client.Session.login_with_password inet_rpc username password
                 Datamodel_common.api_version_string Constants.xapi_user_agent
-            , true )
+            , true
+            )
           with
           | Api_errors.Server_error (code, params)
           when code = Api_errors.session_authentication_failed
@@ -187,8 +197,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
             raise (Http.Unauthorised label)
         )
         | None, None, Some (Http.UnknownAuth x) ->
-            raise
-              (Failure (Printf.sprintf "Unknown authorization header: %s" x))
+            raise (Failure (Printf.sprintf "Unknown authorization header: %s" x))
         | None, None, None ->
             raise (Http.Unauthorised label)
     in
@@ -209,12 +218,14 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         | Some task_id ->
             Server_helpers.exec_with_forwarded_task ~session_id
               ~origin:(Context.Http (req, s))
-              task_id login_perform_logout)
+              task_id login_perform_logout
+        )
       (fun () ->
         if must_logout then
           Helpers.log_exn_continue "Logging out"
             (fun session_id -> Client.Session.logout inet_rpc session_id)
-            session_id)
+            session_id
+        )
   with Http.Unauthorised s as e ->
     let fail __context =
       TaskHelper.failed ~__context
@@ -259,7 +270,8 @@ let bind inetaddr =
     try
       Some
         (Http_svr.bind ~listen_backlog:Xapi_globs.listen_backlog inetaddr
-           description)
+           description
+        )
     with
     | Unix.Unix_error (code, _, _) when code = Unix.EAFNOSUPPORT ->
         info "Kernel does not support IPv6" ;
@@ -308,7 +320,8 @@ let add_handler (name, handler) =
             with Api_errors.Server_error (name, params) as e ->
               error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
                 (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e)))
+              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+            )
     | Http_svr.FdIO callback ->
         Http_svr.FdIO
           (fun req ic context ->
@@ -319,7 +332,8 @@ let add_handler (name, handler) =
             with Api_errors.Server_error (name, params) as e ->
               error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
                 (String.concat "; " params) ;
-              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e)))
+              raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+            )
   in
   match action with
   | meth, uri, sdk, sdkargs, roles, sub_actions ->

@@ -72,7 +72,8 @@ let rehash () =
 let update_ca_bundle () =
   ignore
     (Forkhelpers.execute_command_get_output
-       "/opt/xensource/bin/update-ca-bundle.sh" [])
+       "/opt/xensource/bin/update-ca-bundle.sh" []
+    )
 
 let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
 
@@ -234,7 +235,8 @@ end = struct
           D.error "unable to find certificate with name='%s'" name ;
           raise
             Api_errors.(
-              Server_error (invalid_value, ["certificate:name"; name]))
+              Server_error (invalid_value, ["certificate:name"; name])
+            )
       | xs ->
           let ref_str =
             xs |> List.map Ref.short_string_of |> String.concat ", "
@@ -250,7 +252,9 @@ end = struct
                     Printf.sprintf
                       "more than one certificate with name='%s' in the database"
                       name
-                  ] ))
+                  ]
+                )
+            )
     in
 
     Db.Certificate.destroy ~__context ~self
@@ -261,7 +265,8 @@ let local_list kind =
   List.filter
     (fun n ->
       let stat = Unix.lstat (library_filename kind n) in
-      stat.Unix.st_kind = Unix.S_REG)
+      stat.Unix.st_kind = Unix.S_REG
+      )
     (Array.to_list (Sys.readdir (library_path kind)))
 
 let local_sync () =
@@ -323,8 +328,10 @@ let sync_all_hosts ~__context hosts =
       List.iter
         (fun host ->
           try Client.Host.certificate_sync rpc session_id host
-          with e -> exn := Some e)
-        hosts) ;
+          with e -> exn := Some e
+          )
+        hosts
+  ) ;
   match !exn with Some e -> raise e | None -> ()
 
 let sync_certs_crls kind list_func install_func uninstall_func ~__context
@@ -334,39 +341,48 @@ let sync_certs_crls kind list_func install_func uninstall_func ~__context
       List.iter
         (fun c ->
           if not (List.mem c master_certs) then
-            uninstall_func rpc session_id host c)
+            uninstall_func rpc session_id host c
+          )
         host_certs ;
       List.iter
         (fun c ->
           if not (List.mem c host_certs) then
-            install_func rpc session_id host c (get_cert kind c))
-        master_certs)
+            install_func rpc session_id host c (get_cert kind c)
+          )
+        master_certs
+  )
 
 let sync_certs kind ~__context master_certs host =
   match kind with
   | CA_Certificate ->
       sync_certs_crls CA_Certificate
         (fun rpc session_id host ->
-          Client.Host.certificate_list rpc session_id host)
+          Client.Host.certificate_list rpc session_id host
+          )
         (fun rpc session_id host c cert ->
-          Client.Host.install_ca_certificate rpc session_id host c cert)
+          Client.Host.install_ca_certificate rpc session_id host c cert
+          )
         (fun rpc session_id host c ->
-          Client.Host.uninstall_ca_certificate rpc session_id host c)
+          Client.Host.uninstall_ca_certificate rpc session_id host c
+          )
         ~__context master_certs host
   | CRL ->
       sync_certs_crls CRL
         (fun rpc session_id host -> Client.Host.crl_list rpc session_id host)
         (fun rpc session_id host c cert ->
-          Client.Host.crl_install rpc session_id host c cert)
+          Client.Host.crl_install rpc session_id host c cert
+          )
         (fun rpc session_id host c ->
-          Client.Host.crl_uninstall rpc session_id host c)
+          Client.Host.crl_uninstall rpc session_id host c
+          )
         ~__context master_certs host
 
 let sync_certs_all_hosts kind ~__context master_certs hosts_but_master =
   let exn = ref None in
   List.iter
     (fun host ->
-      try sync_certs kind ~__context master_certs host with e -> exn := Some e)
+      try sync_certs kind ~__context master_certs host with e -> exn := Some e
+      )
     hosts_but_master ;
   match !exn with Some e -> raise e | None -> ()
 

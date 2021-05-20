@@ -42,7 +42,8 @@ let call_extension rpc =
       | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED i) ->
           raise
             (Api_errors.Server_error
-               (Api_errors.internal_error, [path; "task stopped"; output; log]))
+               (Api_errors.internal_error, [path; "task stopped"; output; log])
+            )
       | Forkhelpers.Spawn_internal_error (log, output, Unix.WSIGNALED i) ->
           raise
             (Api_errors.Server_error
@@ -53,11 +54,14 @@ let call_extension rpc =
                      (Xapi_stdext_unix.Unixext.string_of_signal i)
                  ; output
                  ; log
-                 ] ))
+                 ]
+               )
+            )
       | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED i) ->
           raise
             (Api_errors.Server_error
-               (Api_errors.internal_error, [path; "non-zero exit"; output; log]))
+               (Api_errors.internal_error, [path; "non-zero exit"; output; log])
+            )
     in
     try Xmlrpc.response_of_string output
     with e ->
@@ -69,7 +73,9 @@ let call_extension rpc =
              ; "failed to parse extension output"
              ; output
              ; Printexc.to_string e
-             ] ))
+             ]
+           )
+        )
   with
   | Api_errors.Server_error (code, params) ->
       API.response_of_failure code params

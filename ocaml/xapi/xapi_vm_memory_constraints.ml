@@ -57,13 +57,15 @@ module Vm_memory_constraints : T = struct
     if not (are_valid ~constraints) then
       raise
         (Api_errors.Server_error
-           (Api_errors.memory_constraint_violation_order, []))
+           (Api_errors.memory_constraint_violation_order, [])
+        )
 
   let assert_valid_and_pinned_at_static_max ~constraints ~reason =
     if not (are_valid_and_pinned_at_static_max ~constraints) then
       raise
         (Api_errors.Server_error
-           (Api_errors.memory_constraint_violation_maxpin, [reason]))
+           (Api_errors.memory_constraint_violation_maxpin, [reason])
+        )
 
   let assert_valid_for_current_context ~__context ~vm ~constraints =
     let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in

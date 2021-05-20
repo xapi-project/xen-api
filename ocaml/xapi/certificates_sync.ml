@@ -52,7 +52,8 @@ let get_server_cert path =
         |> X509.Certificate.decode_pem
         |> R.reword_error (fun (`Msg msg) ->
                D.info {|Failed to decode certificate because "%s"|} msg ;
-               `Msg (server_certificate_invalid, []))
+               `Msg (server_certificate_invalid, [])
+           )
       in
       Ok host_cert
 
@@ -132,9 +133,13 @@ let eject_certs_from_fs_for ~__context host =
   let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   let file = path host_uuid in
   try
-    Sys.remove file ;
-    Certificates.update_ca_bundle () ;
-    info "removed host certificate %s" file
+    match Sys.file_exists file with
+    | true ->
+        Sys.remove file ;
+        Certificates.update_ca_bundle () ;
+        info "removed host certificate %s" file
+    | false ->
+        info "host %s has no certificate %s to remove" host_uuid file
   with e ->
     internal_error "failed to remove cert %s on pool eject" file
       (Printexc.to_string e)

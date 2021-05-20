@@ -34,7 +34,8 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
   in
   Some
     ( Api_errors.other_operation_in_progress
-    , ["Cluster." ^ current_ops_str; ref_str] )
+    , ["Cluster." ^ current_ops_str; ref_str]
+    )
 
 (** Take an internal Cluster record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -59,7 +60,8 @@ let get_operation_error ~__context ~self ~op =
         | _ :: _ when not (is_allowed_concurrently ~op ~current_ops) ->
             report_concurrent_operations_error ~current_ops ~ref_str
         | _ ->
-            check (assert_allowed_during_rpu __context op) (fun () -> None))
+            check (assert_allowed_during_rpu __context op) (fun () -> None)
+    )
   in
   current_error
 
@@ -90,7 +92,8 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
       assert_operation_valid ~__context ~self ~op ;
       Db.Cluster.add_to_current_operations ~__context ~self ~key:task_id
         ~value:op ;
-      update_allowed_operations ~__context ~self) ;
+      update_allowed_operations ~__context ~self
+  ) ;
   (* Then do the action with the lock released *)
   finally f (* Make sure to clean up at the end *) (fun () ->
       try
@@ -98,4 +101,5 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
         update_allowed_operations ~__context ~self ;
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._cluster, Ref.string_of self)
-      with _ -> ())
+      with _ -> ()
+  )

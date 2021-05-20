@@ -112,7 +112,8 @@ val on_vdi :
       -> Storage_interface.dp
       -> Storage_interface.sr
       -> Storage_interface.vdi
-      -> 'a)
+      -> 'a
+     )
   -> 'a
 (** [on_vdi __context vbd domid f] calls [f rpc dp sr vdi] which is
     useful for executing Storage_interface.Client.VDI functions, applying the

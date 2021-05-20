@@ -23,7 +23,9 @@ let choose_tunnel_device_name ~__context ~host =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
-           , Not (Eq (Field "tunnel_access_PIF_of", Literal "()")) ))
+           , Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+           )
+        )
   in
   let devices =
     List.map (fun self -> Db.PIF.get_device ~__context ~self) pifs
@@ -79,7 +81,8 @@ let create ~__context ~transport_PIF ~network ~protocol =
           && List.assoc "network_backend" v = "openvswitch"
           )
       then
-        raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, [])))
+        raise (Api_errors.Server_error (Api_errors.openvswitch_not_active, []))
+      )
     hosts ;
   let tunnel, access_PIF =
     create_internal ~__context ~transport_PIF ~network ~host ~protocol

@@ -31,7 +31,9 @@ let get_running_proxies ~__context ~site =
     ~expr:
       (And
          ( Eq (Field "site", Literal (Ref.string_of site))
-         , Eq (Field "currently_attached", Literal "true") ))
+         , Eq (Field "currently_attached", Literal "true")
+         )
+      )
 
 (* A module to update and query the state of the proxies on the local host *)
 module State = struct
@@ -83,14 +85,16 @@ module State = struct
     with_xs (fun xs ->
         let dir = root // site_uuid // vif_uuid in
         xs.Xs.write (dir // _state) (string_of state) ;
-        xs.Xs.write (dir // _proxy_uuid) proxy_uuid)
+        xs.Xs.write (dir // _proxy_uuid) proxy_uuid
+    )
 
   let remove_proxy ~__context site vif =
     let site_uuid = Db.PVS_site.get_uuid ~__context ~self:site in
     let vif_uuid = Db.VIF.get_uuid ~__context ~self:vif in
     with_xs (fun xs ->
         let dir = root // site_uuid // vif_uuid in
-        xs.Xs.rm dir)
+        xs.Xs.rm dir
+    )
 
   let remove_site ~__context site =
     let site_uuid = Db.PVS_site.get_uuid ~__context ~self:site in
@@ -113,7 +117,9 @@ module State = struct
                    Some (vif, proxy)
                  else
                    None
-               with _ -> None))
+               with _ -> None
+           )
+    )
 end
 
 let metadata_of_site ~__context ~site ~vdi ~proxies =
@@ -130,7 +136,9 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
               List.map Unix.inet_addr_of_string rc.API.pVS_server_addresses
           ; first_port= Int64.to_int rc.API.pVS_server_first_port
           ; last_port= Int64.to_int rc.API.pVS_server_last_port
-          })
+          }
+        
+        )
       site_rc.API.pVS_site_servers
   in
   let clients =
@@ -144,7 +152,9 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
           ; mac= rc.API.vIF_MAC
           ; interface= proxy_port_name rc
           ; prepopulate= false
-          })
+          }
+        
+        )
       proxies
   in
   let vdi = Db.VDI.get_uuid ~__context ~self:vdi in
@@ -156,6 +166,7 @@ let metadata_of_site ~__context ~site ~vdi ~proxies =
     ; clients
     ; vdi
     }
+  
 
 let configure_proxy_m = Mutex.create ()
 
@@ -168,7 +179,8 @@ let update_site_on_localhost ~__context ~site ~vdi =
   Mutex.execute configure_proxy_m (fun () ->
       let proxies = State.get_running_proxies ~__context site in
       let proxy_config = metadata_of_site ~__context ~site ~vdi ~proxies in
-      Network.Net.PVS_proxy.configure_site dbg proxy_config)
+      Network.Net.PVS_proxy.configure_site dbg proxy_config
+  )
 
 (** Request xcp-networkd to tell the local PVS-proxy daemon that it must stop
  *  proxying for the given site, and release the associated cache VDI. *)
@@ -179,7 +191,8 @@ let remove_site_on_localhost ~__context ~site =
   let uuid = Db.PVS_site.get_uuid ~__context ~self:site in
   State.remove_site ~__context site ;
   Mutex.execute configure_proxy_m (fun () ->
-      Network.Net.PVS_proxy.remove_site dbg uuid)
+      Network.Net.PVS_proxy.remove_site dbg uuid
+  )
 
 exception No_cache_sr_available
 
@@ -191,7 +204,9 @@ let find_cache_vdi ~__context ~host ~site =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
-           , Eq (Field "site", Literal (Ref.string_of site)) ))
+           , Eq (Field "site", Literal (Ref.string_of site))
+           )
+        )
   in
   match pcs' with
   | [] ->
@@ -232,15 +247,19 @@ let start_proxy ~__context vif proxy =
               proxy_uuid
               (Db.VIF.get_uuid ~__context ~self:vif)
               (Db.PVS_site.get_name_label ~__context
-                 ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy))
+                 ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy)
+              )
               (Db.Host.get_name_label ~__context
-                 ~self:(Helpers.get_localhost ~__context))
+                 ~self:(Helpers.get_localhost ~__context)
+              )
           in
           let name, priority = Api_messages.pvs_proxy_no_cache_sr_available in
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
                 (Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body)) ;
+                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body
+                )
+          ) ;
           "no PVS cache SR available"
       | Network_interface.(Network_error PVS_proxy_connection_error) ->
           let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
@@ -251,13 +270,16 @@ let start_proxy ~__context vif proxy =
               proxy_uuid
               (Db.VIF.get_uuid ~__context ~self:vif)
               (Db.Host.get_name_label ~__context
-                 ~self:(Helpers.get_localhost ~__context))
+                 ~self:(Helpers.get_localhost ~__context)
+              )
           in
           let name, priority = Api_messages.pvs_proxy_setup_failed in
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
                 (Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body)) ;
+                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body
+                )
+          ) ;
           "unable to connect to PVS proxy daemon"
       | Helpers.No_pvs_server_available ->
           let proxy_uuid = Db.PVS_proxy.get_uuid ~__context ~self:proxy in
@@ -280,7 +302,9 @@ let start_proxy ~__context vif proxy =
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
                 (Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body)) ;
+                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body
+                )
+          ) ;
           "no PVS server available"
       | Api_errors.Server_error (code, args)
         when code = Api_errors.license_restriction
@@ -299,15 +323,19 @@ let start_proxy ~__context vif proxy =
               proxy_uuid
               (Db.VIF.get_uuid ~__context ~self:vif)
               (Db.PVS_site.get_name_label ~__context
-                 ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy))
+                 ~self:(Db.PVS_proxy.get_site ~__context ~self:proxy)
+              )
               (Db.Host.get_name_label ~__context
-                 ~self:(Helpers.get_localhost ~__context))
+                 ~self:(Helpers.get_localhost ~__context)
+              )
           in
           let name, priority = Api_messages.pvs_proxy_sr_out_of_space in
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               ignore
                 (Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body)) ;
+                   ~cls:`PVS_proxy ~obj_uuid:proxy_uuid ~body
+                )
+          ) ;
           "PVS cache size exceeds SR available space"
       | _ ->
           Printf.sprintf "unknown error (%s)" (Printexc.to_string e)
