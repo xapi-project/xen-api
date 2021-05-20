@@ -25,21 +25,57 @@ open Auth_signature
 
 let net_cmd = !Xapi_globs.net_cmd
 
+let wb_cmd = !Xapi_globs.wb_cmd
+
 let tdb_tool = !Xapi_globs.tdb_tool
 
 let debug_level = !Xapi_globs.winbind_debug_level |> string_of_int
 
-let winbind_service = "winbind"
-
 module Winbind = struct
+  let name = "winbind"
+
+  let is_ad_enabled ~__context =
+    ( Helpers.get_localhost ~__context |> fun self ->
+      Db.Host.get_external_auth_type ~__context ~self )
+    |> fun x -> x = Xapi_globs.auth_type_AD
+
   let start ~timeout ~wait_until_success =
-    Xapi_systemctl.start ~timeout ~wait_until_success winbind_service
+    Xapi_systemctl.start ~timeout ~wait_until_success name
 
   let stop ~timeout ~wait_until_success =
-    Xapi_systemctl.stop ~timeout ~wait_until_success winbind_service
+    Xapi_systemctl.stop ~timeout ~wait_until_success name
 
   let init_service ~__context =
-    debug "init_service To be implemented in CP-36085"
+    if is_ad_enabled ~__context then
+      start ~wait_until_success:false ~timeout:5.
+    else
+      debug "Skip starting %s as AD is not enabled" name
+
+  let check_ready_to_serve ~timeout =
+    (* we _need_ to use a username contained in our domain, otherwise the following tests won't work.
+       Microsoft KB/Q243330 article provides the KRBTGT account as a well-known built-in SID in AD
+       Microsoft KB/Q229909 article says that KRBTGT account cannot be renamed or enabled, making
+       it the perfect target for such a test using a username (Administrator account can be renamed) *)
+    let resolve_KRBTGT () =
+      try
+        Helpers.call_script ~log_output:Never wb_cmd ["-n"; "KRBTGT"] |> ignore ;
+        true
+      with _ -> false
+    in
+    try
+      Helpers.retry_until_timeout ~timeout
+        (Printf.sprintf "Checking %s ready to serve" name)
+        resolve_KRBTGT ;
+      debug "Service %s is ready to serve request" name
+    with e ->
+      let msg =
+        Printf.sprintf
+          "%s cannot serve after checking for %f seconds, error: %s" name
+          timeout
+          (ExnHelper.string_of_exn e)
+      in
+      error "Service not ready error: %s" msg ;
+      raise (Auth_service_error (E_GENERIC, msg))
 end
 
 let get_service_name () =
@@ -157,11 +193,10 @@ let clean_machine_account ~service_name = function
       let args = ["ads"; "leave"; "-U"; u; "-d"; debug_level] in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
-        debug "Cleaning the machine account for domain %s succeeded"
-          service_name
+        debug "Succeed to clean the machine account for domain %s" service_name
       with _ ->
         let msg =
-          Printf.sprintf "Cleaning the machine account for domain %s failed"
+          Printf.sprintf "Failed to clean the machine account for domain %s"
             service_name
         in
         debug "%s" msg ;
@@ -179,7 +214,8 @@ let clean_local_resources () : unit =
     (* Erase secrets database before clean the files *)
     Helpers.call_script tdb_tool [secrets_tdb; "erase"] |> ignore ;
     (* Clean local resource files *)
-    Helpers.FileSys.rmrf ~rm_top:false folder
+    Helpers.FileSys.rmrf ~rm_top:false folder ;
+    debug "Succeed to clean local winbind resources"
   with e ->
     let msg = "Failed to clean local samba resources" in
     error "%s : %s" msg (ExnHelper.string_of_exn e) ;
@@ -293,15 +329,18 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let env = [|Printf.sprintf "PASSWD=%s" pass|] in
     try
       Helpers.call_script ~env net_cmd args |> ignore ;
-      debug "Joined domain %s successfully" service_name ;
       Winbind.start ~timeout:5. ~wait_until_success:true ;
-      persist_extauth_config ~domain:service_name ~user ~ou_conf
+      Winbind.check_ready_to_serve ~timeout:300. ;
+      persist_extauth_config ~domain:service_name ~user ~ou_conf ;
+      debug "Succeed to join domain %s" service_name
     with
     | Forkhelpers.Spawn_internal_error _ ->
         let msg = Printf.sprintf "Failed to join domain %s" service_name in
+        error "Join domain error: %s" msg ;
         raise (Auth_service_error (E_GENERIC, msg))
     | Xapi_systemctl.Systemctl_fail _ ->
-        let msg = Printf.sprintf "Failed to start %s" winbind_service in
+        let msg = Printf.sprintf "Failed to start %s" Winbind.name in
+        error "Start daemon error: %s" msg ;
         raise (Auth_service_error (E_GENERIC, msg))
     | e ->
         let msg =
@@ -310,6 +349,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
             service_name user
             (ExnHelper.string_of_exn e)
         in
+        error "Enable extauth error: %s" msg ;
         raise (Auth_service_error (E_GENERIC, msg))
 
   (* unit on_disable()
@@ -327,7 +367,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     (* Clean local resources *)
     clean_local_resources () ;
     (* Clean extauth config *)
-    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[]
+    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ;
+    debug "Succeed to disable external auth for %s" service_name
 
   (* unit on_xapi_initialize(bool system_boot)
 
