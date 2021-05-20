@@ -26,7 +26,8 @@ let create ~__context ~sr =
         ~name_description:"Used for master failover" ~sR:sr
         ~virtual_size:Redo_log.minimum_vdi_size ~_type:`redo_log ~sharable:true
         ~read_only:false ~other_config:[] ~xenstore_data:[]
-        ~sm_config:Redo_log.redo_log_sm_config ~tags:[])
+        ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
+  )
 
 (** Return a reference to a valid metadata VDI in the given SR.
     This function prefers to reuse existing VDIs to avoid leaking the VDI when HA is disabled without statefile access. *)
@@ -36,7 +37,8 @@ let find_or_create ~__context ~sr =
       (fun self ->
         true
         && Db.VDI.get_type ~__context ~self = `redo_log
-        && Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size)
+        && Db.VDI.get_virtual_size ~__context ~self >= Redo_log.minimum_vdi_size
+        )
       (Db.SR.get_VDIs ~__context ~self:sr)
   with
   | x :: _ ->
@@ -58,7 +60,8 @@ let detach_existing ~__context =
   List.iter
     (fun x ->
       Static_vdis.permanent_vdi_detach_by_uuid ~__context
-        ~uuid:x.Static_vdis.uuid)
+        ~uuid:x.Static_vdis.uuid
+      )
     vdis
 
 (** Added for CA-48539 *)
@@ -68,11 +71,13 @@ let deactivate_and_detach_existing ~__context =
   in
   List.iter
     (fun vdi_uuid ->
-      Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid:vdi_uuid)
+      Static_vdis.permanent_vdi_deactivate_by_uuid ~__context ~uuid:vdi_uuid
+      )
     vdi_uuids ;
   List.iter
     (fun vdi_uuid ->
-      Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid:vdi_uuid)
+      Static_vdis.permanent_vdi_detach_by_uuid ~__context ~uuid:vdi_uuid
+      )
     vdi_uuids
 
 (** Attempt to flush the database to the metadata VDI *)

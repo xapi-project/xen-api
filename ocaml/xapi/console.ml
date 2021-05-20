@@ -81,7 +81,8 @@ let address_of_console __context console : address option =
   debug "VM %s console port: %s" (Ref.string_of vm)
     (Option.fold ~none:"None"
        ~some:(fun x -> "Some " ^ string_of_address x)
-       address_option) ;
+       address_option
+    ) ;
   address_option
 
 let real_proxy __context _ _ vnc_port s =
@@ -125,7 +126,8 @@ let ws_proxy __context req protocol address s =
             try
               let result = (sock, Some (Ws_helpers.upgrade req s)) in
               result
-            with _ -> (sock, None))
+            with _ -> (sock, None)
+            )
           sock
       in
       Option.iter
@@ -144,8 +146,10 @@ let ws_proxy __context req protocol address s =
               let len = String.length message in
               ignore (Unixext.send_fd_substring sock message 0 len [] s)
           | sock, None ->
-              Http_svr.headers s (Http.http_501_method_not_implemented ()))
-        upgrade_successful)
+              Http_svr.headers s (Http.http_501_method_not_implemented ())
+          )
+        upgrade_successful
+      )
     (fun () -> Option.iter (fun sock -> Unix.close sock) sock)
 
 let default_console_of_vm ~__context ~self =
@@ -244,4 +248,5 @@ let handler proxy_fn (req : Request.t) s _ =
       | Some vnc_port ->
           proxy_fn __context req protocol vnc_port s
       | None ->
-          Http_svr.headers s (Http.http_404_missing ()))
+          Http_svr.headers s (Http.http_404_missing ())
+  )

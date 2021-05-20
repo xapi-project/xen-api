@@ -7,15 +7,20 @@ let with_max_vdi rpc session_id sr f =
           let data = Bytes.make 1024 't' in
           let offset = Int64.sub Constants.max_vhd_size 1024L in
           assert (Unix.LargeFile.lseek fd offset Unix.SEEK_SET = offset) ;
-          assert (Unix.write fd data 0 1024 = 1024)) ;
-      f rpc session_id sr vdi)
+          assert (Unix.write fd data 0 1024 = 1024)
+      ) ;
+      f rpc session_id sr vdi
+  )
 
 let test_copy rpc session_id sr_info () =
   let sr = sr_info.Qt.sr in
   with_max_vdi rpc session_id sr (fun rpc session_id sr vdi ->
       Qt.VDI.with_destroyed rpc session_id
         (Client.Client.VDI.copy ~rpc ~session_id ~vdi ~base_vdi:API.Ref.null
-           ~into_vdi:API.Ref.null ~sr) (fun () -> ()))
+           ~into_vdi:API.Ref.null ~sr
+        ) (fun () -> ()
+      )
+  )
 
 (** This does not reproduce CA-292288 *)
 let test_export_import rpc session_id sr_info () =
@@ -49,8 +54,11 @@ let test_export_import rpc session_id sr_info () =
                 ; "filename=" ^ file
                 ; "format=" ^ format
                 ]
-              |> ignore))
-        (fun () -> Sys.remove file))
+              |> ignore
+          )
+          )
+        (fun () -> Sys.remove file)
+  )
 
 let tests () =
   let open Qt_filter in
@@ -66,6 +74,7 @@ let tests () =
            all
            |> allowed_operations [`vdi_create; `vdi_destroy]
            |> thin_pro
-           |> not_type "gfs2")
+           |> not_type "gfs2"
+         )
   ]
   |> List.concat

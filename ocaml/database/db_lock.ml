@@ -50,7 +50,8 @@ let with_lock f =
         if !thread_reenter_count = 0 then (
           allow_thread_through_dbcache_mutex := None ;
           Mutex.unlock dbcache_mutex
-        ))
+        )
+    )
   in
   match !allow_thread_through_dbcache_mutex with
   | None ->

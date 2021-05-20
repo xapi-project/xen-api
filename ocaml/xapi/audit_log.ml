@@ -68,7 +68,9 @@ let transfer_audit_file _path compression fd_out ?filter since : unit =
                       write_line (line ^ "\n") fd_out ?filter since
                     done
                   with End_of_file -> ()
-                  (* ok, expected *)))
+                  (* ok, expected *)
+              )
+          )
         else (* nothing to do with an unknown file format *)
           debug "unknown compression format %s in audit log file %s" compression
             path
@@ -136,4 +138,5 @@ let handler (req : Request.t) (bio : Buf_io.t) _ =
       Http_svr.headers s
         (http_200_ok () @ [Http.Hdr.content_type ^ ": text/plain"]) ;
       (* then the contents *)
-      transfer_all_audit_files s since)
+      transfer_all_audit_files s since
+  )

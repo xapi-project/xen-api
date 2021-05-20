@@ -34,6 +34,7 @@ let create (static_min, dynamic_min, target, dynamic_max, static_max) =
     ; dynamic_max= scale dynamic_max
     ; static_max= scale static_max
     }
+  
 
 let constraints_pinned =
   [
@@ -92,8 +93,10 @@ let test_indicator_function fn fn_name output output_name inputs =
           Alcotest.check
             (Alcotest_comparators.only_compare ())
             "return value" output
-            (fn ~constraints:(create i)))
-        inputs )
+            (fn ~constraints:(create i))
+          )
+        inputs
+  )
 
 let test_are_pinned_true =
   test_indicator_function C.are_pinned "are_pinned" true "true"
@@ -128,7 +131,8 @@ let test_reset_to_safe_defaults () =
         (Alcotest_comparators.only_compare ())
         "same constraints"
         (reset (create input))
-        (create output))
+        (create output)
+      )
     [
       ((256, 512, 1024, 2048, 4096), (256, 4096, 4096, 4096, 4096))
     ; ((4096, 2048, 1024, 512, 256), (256, 256, 256, 256, 256))

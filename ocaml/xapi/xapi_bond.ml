@@ -26,7 +26,9 @@ let choose_bond_device_name ~__context ~host =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
-           , Not (Eq (Field "bond_master_of", Literal "()")) ))
+           , Not (Eq (Field "bond_master_of", Literal "()"))
+           )
+        )
   in
   let devices =
     List.map (fun self -> Db.PIF.get_device ~__context ~self) pifs
@@ -105,12 +107,15 @@ let get_local_vifs ~__context host networks =
     List.concat
       (List.map
          (fun vm ->
-           if is_local vm then Hashtbl.find_all vms_with_vifs vm else [])
-         vms)
+           if is_local vm then Hashtbl.find_all vms_with_vifs vm else []
+           )
+         vms
+      )
   in
   debug "Found these local VIFs: %s"
     (String.concat ", "
-       (List.map (fun v -> Db.VIF.get_uuid ~__context ~self:v) local_vifs)) ;
+       (List.map (fun v -> Db.VIF.get_uuid ~__context ~self:v) local_vifs)
+    ) ;
   local_vifs
 
 let move_vlan ~__context host new_slave old_vlan =
@@ -142,7 +147,8 @@ let move_vlan ~__context host new_slave old_vlan =
         ignore
           (List.map
              (Xapi_vif.move_internal ~__context ~network:new_network)
-             vifs) ;
+             vifs
+          ) ;
         (new_vlan, new_master)
     | [] ->
         (* VLAN with this tag not yet on bond *)
@@ -175,7 +181,8 @@ let move_vlan ~__context host new_slave old_vlan =
         (fun vif ->
           Db.VM.get_resident_on ~__context
             ~self:(Db.VIF.get_VM ~__context ~self:vif)
-          = host)
+          = host
+          )
         vifs
     in
     ignore (List.map (Xapi_vif.move_internal ~__context ~network) vifs)
@@ -207,7 +214,8 @@ let move_tunnel ~__context host new_transport_PIF old_tunnel =
         (fun vif ->
           Db.VM.get_resident_on ~__context
             ~self:(Db.VIF.get_VM ~__context ~self:vif)
-          = host)
+          = host
+          )
         vifs
     in
     ignore (List.map (Xapi_vif.move_internal ~__context ~network) vifs)
@@ -227,13 +235,15 @@ let fix_bond ~__context ~bond =
     List.concat
       (List.map
          (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif)
-         members)
+         members
+      )
   in
   let local_tunnels =
     List.concat
       (List.map
          (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
-         members)
+         members
+      )
   in
   (* Move VLANs from members to master *)
   debug "Checking VLANs to move from slaves to master" ;
@@ -271,15 +281,16 @@ let requirements_of_mode = function
           {
             key= "hashing_algorithm"
           ; default_value= Some "tcpudp_ports"
-          ; is_valid_value=
-              (fun str -> List.mem str ["src_mac"; "tcpudp_ports"])
+          ; is_valid_value= (fun str -> List.mem str ["src_mac"; "tcpudp_ports"])
           }
+        
       ; Map_check.
           {
             key= "lacp-time"
           ; default_value= Some "slow"
           ; is_valid_value= (fun str -> List.mem str ["fast"; "slow"])
           }
+        
       ; Map_check.
           {
             key= "lacp-aggregation-key"
@@ -289,14 +300,17 @@ let requirements_of_mode = function
                 try
                   ignore (int_of_string i) ;
                   true
-                with _ -> false)
+                with _ -> false
+                )
           }
+        
       ; Map_check.
           {
             key= "lacp-fallback-ab"
           ; default_value= Some "true"
           ; is_valid_value= (fun str -> List.mem str ["true"; "false"])
           }
+        
       ]
   | _ ->
       []
@@ -330,7 +344,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
   (* Check that each of the supplied properties is valid. *)
   List.iter
     (fun property ->
-      Map_check.validate_kvpair "properties" requirements property)
+      Map_check.validate_kvpair "properties" requirements property
+      )
     properties ;
   (* Add default properties if necessary. *)
   let properties = Map_check.add_defaults requirements properties in
@@ -349,20 +364,22 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         List.concat
           (List.map
              (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif)
-             members)
+             members
+          )
       in
       let local_tunnels =
         List.concat
           (List.map
-             (fun pif ->
-               Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
-             members)
+             (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
+             members
+          )
       in
       let is_management_on_vlan =
         List.filter
           (fun vlan ->
             Db.PIF.get_management ~__context
-              ~self:(Db.VLAN.get_untagged_PIF ~__context ~self:vlan))
+              ~self:(Db.VLAN.get_untagged_PIF ~__context ~self:vlan)
+            )
           local_vlans
         <> []
       in
@@ -384,7 +401,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
             | `IPv4 ->
                 Db.PIF.get_ip_configuration_mode ~__context ~self <> `None
             | `IPv6 ->
-                Db.PIF.get_ipv6_configuration_mode ~__context ~self <> `None)
+                Db.PIF.get_ipv6_configuration_mode ~__context ~self <> `None
+            )
           members
       in
       (* The primary slave is the management PIF, or the first member with
@@ -412,7 +430,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
             raise
               Api_errors.(
                 Server_error
-                  (pif_incompatible_primary_address_type, [Ref.string_of self])))
+                  (pif_incompatible_primary_address_type, [Ref.string_of self])
+              )
+          )
         members ;
       let mAC, auto_update_mac =
         if did_user_specify_MAC then
@@ -446,9 +466,11 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
           then
             raise
               Api_errors.(
-                Server_error (ha_cannot_change_bond_status_of_mgmt_iface, [])) ;
+                Server_error (ha_cannot_change_bond_status_of_mgmt_iface, [])
+              ) ;
           if Db.PIF.get_capabilities ~__context ~self |> List.mem "fcoe" then
-            Xapi_pif.assert_fcoe_not_in_use ~__context ~self)
+            Xapi_pif.assert_fcoe_not_in_use ~__context ~self
+          )
         members ;
       let hosts =
         List.map (fun self -> Db.PIF.get_host ~__context ~self) members
@@ -497,7 +519,8 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
          		 * The value of the Bond.slaves field is dynamically computed on request. *)
       List.iter
         (fun slave ->
-          Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:bond)
+          Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:bond
+          )
         members ;
       (* Copy the IP configuration of the primary member to the master *)
       move_configuration ~__context primary_slave master ;
@@ -545,14 +568,17 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
         Db.PIF.set_disallow_unplug ~__context ~self:master ~value:true ;
         List.iter
           (fun pif ->
-            Db.PIF.set_disallow_unplug ~__context ~self:pif ~value:false)
+            Db.PIF.set_disallow_unplug ~__context ~self:pif ~value:false
+            )
           members
       ) ;
       TaskHelper.set_progress ~__context 0.9 ;
       (* If the host has a cluster_host AND the cluster_host's PIF is a member, update the PIF *)
       maybe_move_cluster_pif ~__context ~host ~to_pif:master
-        ~should_move:(fun pif -> List.mem pif members) ;
-      TaskHelper.set_progress ~__context 1.0) ;
+        ~should_move:(fun pif -> List.mem pif members
+      ) ;
+      TaskHelper.set_progress ~__context 1.0
+  ) ;
   (* return a ref to the new Bond object *)
   bond
 
@@ -573,7 +599,8 @@ let destroy ~__context ~self =
         List.filter
           (fun vlan ->
             Db.PIF.get_management ~__context
-              ~self:(Db.VLAN.get_untagged_PIF ~__context ~self:vlan))
+              ~self:(Db.VLAN.get_untagged_PIF ~__context ~self:vlan)
+            )
           local_vlans
         <> []
       in
@@ -588,7 +615,8 @@ let destroy ~__context ~self =
       then
         raise
           Api_errors.(
-            Server_error (ha_cannot_change_bond_status_of_mgmt_iface, [])) ;
+            Server_error (ha_cannot_change_bond_status_of_mgmt_iface, [])
+          ) ;
       (* Copy IP configuration from master to primary member *)
       move_configuration ~__context master primary_slave ;
       if Db.PIF.get_management ~__context ~self:master = true then (
@@ -597,7 +625,8 @@ let destroy ~__context ~self =
         move_management ~__context master primary_slave ;
         List.iter
           (fun pif ->
-            if pif <> primary_slave then Nm.bring_pif_up ~__context pif)
+            if pif <> primary_slave then Nm.bring_pif_up ~__context pif
+            )
           members
       ) else if
           (* Plug the members if the master was plugged *)
@@ -642,9 +671,11 @@ let destroy ~__context ~self =
       (* Clear the PIF.bond_slave_of fields of the members. *)
       List.iter
         (fun slave ->
-          Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:Ref.null)
+          Db.PIF.set_bond_slave_of ~__context ~self:slave ~value:Ref.null
+          )
         members ;
-      TaskHelper.set_progress ~__context 1.0)
+      TaskHelper.set_progress ~__context 1.0
+  )
 
 let set_mode ~__context ~self ~value =
   Db.Bond.set_mode ~__context ~self ~value ;
@@ -658,7 +689,8 @@ let set_mode ~__context ~self ~value =
              ignore
                (Map_check.validate_kvpair "properties" requirements property) ;
              true
-           with _ -> false)
+           with _ -> false
+       )
     |> Map_check.add_defaults requirements
   in
   Db.Bond.set_properties ~__context ~self ~value:properties ;

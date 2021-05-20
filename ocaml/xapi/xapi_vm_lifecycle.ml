@@ -126,7 +126,8 @@ let is_allowed_concurrently ~(op : API.vm_operations) ~current_ops =
         not
           (List.exists
              (fun o -> List.mem o [`hard_shutdown; `hard_reboot])
-             current_state)
+             current_state
+          )
     | _ ->
         List.exists
           (fun (state, transition) -> state = current_state && transition = op)
@@ -238,7 +239,8 @@ let check_template ~vmr ~op ~ref_str =
   else
     Some
       ( Api_errors.vm_is_template
-      , [ref_str; Record_util.vm_operation_to_string op] )
+      , [ref_str; Record_util.vm_operation_to_string op]
+      )
 
 let check_snapshot ~vmr ~op ~ref_str =
   let allowed =
@@ -251,7 +253,8 @@ let check_snapshot ~vmr ~op ~ref_str =
   else
     Some
       ( Api_errors.vm_is_snapshot
-      , [ref_str; Record_util.vm_operation_to_string op] )
+      , [ref_str; Record_util.vm_operation_to_string op]
+      )
 
 (* report a power_state/operation error *)
 let report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str =
@@ -291,7 +294,8 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
       Helpers.(
         compare_int_lists
           (version_of ~__context host_from)
-          platform_version_inverness)
+          platform_version_inverness
+      )
       > 0
     with e ->
       debug "is_migratable: %s" (ExnHelper.string_of_exn e) ;
@@ -331,7 +335,8 @@ let check_appliance ~vmr ~op ~ref_str =
   | `make_into_template ->
       Some
         ( Api_errors.vm_is_part_of_an_appliance
-        , [ref_str; Ref.string_of vmr.Db_actions.vM_appliance] )
+        , [ref_str; Ref.string_of vmr.Db_actions.vM_appliance]
+        )
   | _ ->
       None
 
@@ -341,7 +346,8 @@ let check_protection_policy ~vmr ~op ~ref_str =
   | `make_into_template ->
       Some
         ( Api_errors.vm_assigned_to_protection_policy
-        , [ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy] )
+        , [ref_str; Ref.string_of vmr.Db_actions.vM_protection_policy]
+        )
   | _ ->
       None
 
@@ -350,7 +356,8 @@ let check_snapshot_schedule ~vmr ~ref_str = function
   | `make_into_template ->
       Some
         ( Api_errors.vm_assigned_to_snapshot_schedule
-        , [ref_str; Ref.string_of vmr.Db_actions.vM_snapshot_schedule] )
+        , [ref_str; Ref.string_of vmr.Db_actions.vM_snapshot_schedule]
+        )
   | _ ->
       None
 
@@ -411,7 +418,8 @@ let nvidia_sriov_pcis ~__context vgpus =
              let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
              if Db.is_valid_ref __context pci then Some pci else None
          | _ ->
-             None)
+             None
+     )
 
 (** Take an internal VM record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -431,7 +439,8 @@ let check_operation_error ~__context ~ref =
   let vdis =
     List.filter_map
       (fun vbd ->
-        try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None)
+        try Some (Db.VBD.get_VDI ~__context ~self:vbd) with _ -> None
+        )
       vmr.Db_actions.vM_VBDs
     |> List.filter (Db.is_valid_ref __context)
   in
@@ -443,7 +452,8 @@ let check_operation_error ~__context ~ref =
       check current_error (fun () ->
           Option.map
             (fun v -> (Api_errors.operation_blocked, [ref_str; v]))
-            (List.assoc_opt op vmr.Db_actions.vM_blocked_operations))
+            (List.assoc_opt op vmr.Db_actions.vM_blocked_operations)
+      )
     in
     (* Always check the power state constraint of the operation first *)
     let current_error =
@@ -451,7 +461,8 @@ let check_operation_error ~__context ~ref =
           if not (is_allowed_sequentially ~__context ~vmr ~power_state ~op) then
             report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str
           else
-            None)
+            None
+      )
     in
     (* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
     let current_error =
@@ -463,7 +474,8 @@ let check_operation_error ~__context ~ref =
           then
             report_concurrent_operations_error ~current_ops ~ref_str
           else
-            None)
+            None
+      )
     in
     (* if the VM is a template, check the template behavior exceptions. *)
     let current_error =
@@ -471,7 +483,8 @@ let check_operation_error ~__context ~ref =
           if is_template && not is_snapshot then
             check_template ~vmr ~op ~ref_str
           else
-            None)
+            None
+      )
     in
     (* if the VM is a snapshot, check the snapshot behavior exceptions. *)
     let current_error =
@@ -479,7 +492,8 @@ let check_operation_error ~__context ~ref =
           if is_snapshot then
             check_snapshot ~vmr ~op ~ref_str
           else
-            None)
+            None
+      )
     in
     (* if the VM is neither a template nor a snapshot, do not allow provision and revert. *)
     let current_error =
@@ -487,14 +501,16 @@ let check_operation_error ~__context ~ref =
           if op = `provision && not is_template then
             Some (Api_errors.only_provision_template, [])
           else
-            None)
+            None
+      )
     in
     let current_error =
       check current_error (fun () ->
           if op = `revert && not is_snapshot then
             Some (Api_errors.only_revert_snapshot, [])
           else
-            None)
+            None
+      )
     in
     (* Some ops must be blocked if VM is not mobile *)
     let current_error =
@@ -504,7 +520,8 @@ let check_operation_error ~__context ~ref =
             when not (is_mobile ~__context ref strict) ->
               Some (Api_errors.vm_is_immobile, [ref_str])
           | _ ->
-              None)
+              None
+      )
     in
     let current_error =
       let metrics = Db.VM.get_metrics ~__context ~self:ref in
@@ -514,7 +531,8 @@ let check_operation_error ~__context ~ref =
             when nested_virt ~__context ref metrics && strict ->
               Some (Api_errors.vm_is_using_nested_virt, [ref_str])
           | _ ->
-              None)
+              None
+      )
     in
     (* Check if the VM is a control domain (eg domain 0).            *)
     (* FIXME: Instead of special-casing for the control domain here, *)
@@ -530,7 +548,8 @@ let check_operation_error ~__context ~ref =
           then
             Some
               ( Api_errors.operation_not_allowed
-              , ["This operation is not allowed on dom0"] )
+              , ["This operation is not allowed on dom0"]
+              )
           else if
             vmr.Db_actions.vM_is_control_domain
             && op <> `data_source_op
@@ -547,15 +566,18 @@ let check_operation_error ~__context ~ref =
           then
             Some
               ( Api_errors.operation_not_allowed
-              , ["This operation is not allowed on a control domain"] )
+              , ["This operation is not allowed on a control domain"]
+              )
           else
-            None)
+            None
+      )
     in
     (* check for any HVM guest feature needed by the op *)
     let current_error =
       check current_error (fun () ->
           check_op_for_feature ~__context ~vmr ~vmmr ~vmgmr ~power_state ~op
-            ~ref ~strict)
+            ~ref ~strict
+      )
     in
     (* VSS support has been removed *)
     let current_error =
@@ -563,7 +585,8 @@ let check_operation_error ~__context ~ref =
           if op = `snapshot_with_quiesce then
             Some (Api_errors.vm_snapshot_with_quiesce_not_supported, [ref_str])
           else
-            None)
+            None
+      )
     in
     (* Check for an error due to VDI caching/reset behaviour *)
     let current_error =
@@ -575,8 +598,10 @@ let check_operation_error ~__context ~ref =
                   let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
                   Some
                     ( List.assoc_opt "on_boot" sm_config = Some "reset"
-                    , bool_of_assoc "caching" sm_config )
-                with _ -> None)
+                    , bool_of_assoc "caching" sm_config
+                    )
+                with _ -> None
+                )
               vdis
           in
           if
@@ -601,7 +626,8 @@ let check_operation_error ~__context ~ref =
             else
               None
           else
-            None)
+            None
+      )
     in
     (* If a PCI device is passed-through, check if the operation is allowed *)
     let current_error =
@@ -623,7 +649,8 @@ let check_operation_error ~__context ~ref =
             check_vgpu ~__context ~op ~ref_str ~vgpus:vmr.Db_actions.vM_VGPUs
               ~power_state
           else
-            None)
+            None
+      )
     in
     (* The VM has a VUSB, check if the operation is allowed*)
     let current_error =
@@ -633,7 +660,8 @@ let check_operation_error ~__context ~ref =
             when vmr.Db_actions.vM_VUSBs <> [] ->
               Some (Api_errors.vm_has_vusbs, [ref_str])
           | _ ->
-              None)
+              None
+      )
     in
     (* Check for errors caused by VM being in an appliance. *)
     let current_error =
@@ -641,7 +669,8 @@ let check_operation_error ~__context ~ref =
           if Db.is_valid_ref __context vmr.Db_actions.vM_appliance then
             check_appliance ~vmr ~op ~ref_str
           else
-            None)
+            None
+      )
     in
     (* Check for errors caused by VM being assigned to a protection policy. *)
     let current_error =
@@ -649,7 +678,8 @@ let check_operation_error ~__context ~ref =
           if Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy then
             check_protection_policy ~vmr ~op ~ref_str
           else
-            None)
+            None
+      )
     in
     (* Check for errors caused by VM being assigned to a snapshot schedule. *)
     let current_error =
@@ -657,7 +687,8 @@ let check_operation_error ~__context ~ref =
           if Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule then
             check_snapshot_schedule ~vmr ~ref_str op
           else
-            None)
+            None
+      )
     in
     (* Check whether this VM needs to be a system domain. *)
     let current_error =
@@ -666,11 +697,13 @@ let check_operation_error ~__context ~ref =
             op = `query_services
             && not
                  (bool_of_assoc "is_system_domain"
-                    vmr.Db_actions.vM_other_config)
+                    vmr.Db_actions.vM_other_config
+                 )
           then
             Some (Api_errors.not_system_domain, [ref_str])
           else
-            None)
+            None
+      )
     in
     let current_error =
       check current_error (fun () ->
@@ -680,7 +713,8 @@ let check_operation_error ~__context ~ref =
           then
             Some (Api_errors.not_supported_during_upgrade, [])
           else
-            None)
+            None
+      )
     in
     current_error
 
@@ -769,7 +803,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (fun vbd ->
         Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false ;
         Db.VBD.set_reserved ~__context ~self:vbd ~value:false ;
-        Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd)
+        Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd
+        )
       (Db.VM.get_VBDs ~__context ~self) ;
     List.iter
       (fun vif ->
@@ -779,7 +814,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         Xapi_vif_helpers.clear_current_operations ~__context ~self:vif ;
         Option.iter
           (fun p -> Pvs_proxy_control.clear_proxy_state ~__context vif p)
-          (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif))
+          (Pvs_proxy_control.find_proxy_for_vif ~__context ~vif)
+        )
       (Db.VM.get_VIFs ~__context ~self) ;
     List.iter
       (fun vgpu ->
@@ -793,12 +829,14 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
           in
           Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value:v ;
           debug "Clearing Nvidia vGPU %s compat metadata" (Ref.string_of vgpu)
-        ))
+        )
+        )
       (Db.VM.get_VGPUs ~__context ~self) ;
     List.iter
       (fun vusb ->
         Db.VUSB.set_currently_attached ~__context ~self:vusb ~value:false ;
-        Xapi_vusb_helpers.clear_current_operations ~__context ~self:vusb)
+        Xapi_vusb_helpers.clear_current_operations ~__context ~self:vusb
+        )
       (Db.VM.get_VUSBs ~__context ~self) ;
     (* Blank the requires_reboot flag *)
     Db.VM.set_requires_reboot ~__context ~self ~value:false
@@ -818,14 +856,16 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null ;
            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
              ~value:Ref.null ;
-           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null) ;
+           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null
+       ) ;
     Db.VM.get_attached_PCIs ~__context ~self
     |> List.iter (fun pci ->
            if Db.is_valid_ref __context pci then
              Db.PCI.remove_attached_VMs ~__context ~self:pci ~value:self
            else
              (* XSI-995 pci does not exist, so remove it from the vm record *)
-             Db.VM.remove_attached_PCIs ~__context ~self ~value:pci) ;
+             Db.VM.remove_attached_PCIs ~__context ~self ~value:pci
+       ) ;
     List.iter
       (fun pci ->
         (* The following should not be necessary if many-to-many relations in the DB
@@ -838,7 +878,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
         if Db.PCI.get_scheduled_to_be_attached_to ~__context ~self:pci = self
         then
           Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci
-            ~value:Ref.null)
+            ~value:Ref.null
+        )
       (Db.PCI.get_all ~__context)
   ) ;
   update_allowed_operations ~__context ~self ;
@@ -871,7 +912,9 @@ let assert_initial_power_state_in ~__context ~self ~allowed =
              Ref.string_of self
            ; List.map Record_util.power_to_string allowed |> String.concat ";"
            ; Record_util.power_to_string actual
-           ] ))
+           ]
+         )
+      )
 
 (** Assert that VM is in a certain state before starting an operation *)
 let assert_initial_power_state_is ~expected =
@@ -889,7 +932,9 @@ let assert_final_power_state_in ~__context ~self ~allowed =
            ; Ref.string_of self
            ; List.map Record_util.power_to_string allowed |> String.concat ";"
            ; Record_util.power_to_string actual
-           ] ))
+           ]
+         )
+      )
 
 (** Assert that VM is in a certain state after completing an operation *)
 let assert_final_power_state_is ~expected =

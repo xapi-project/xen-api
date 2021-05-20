@@ -57,7 +57,8 @@ module Uds = struct
         let response_code = http_response_code result_line in
         let header = read_header ic [] in
         let body = read_body ic [] in
-        (response_code, result_line, header, body))
+        (response_code, result_line, header, body)
+    )
 end
 
 module Secret_Auth_fails = struct
@@ -88,17 +89,20 @@ module Secret_Auth_fails = struct
         | Http_client.Http_request_rejected _ ->
             true
         | _ ->
-            false)
+            false
+        )
       (fun () -> Qt.http invalid_basicauth (fun _ -> ()))
 
   let tests =
     [
       ( "test_auth_failes_invalid_pool_secret"
       , `Quick
-      , test_auth_fails_invalid_pool_secret )
+      , test_auth_fails_invalid_pool_secret
+      )
     ; ( "test_auth_failes_invalid_basicauth"
       , `Quick
-      , test_auth_fails_invalid_basicauth )
+      , test_auth_fails_invalid_basicauth
+      )
     ]
 end
 
@@ -147,10 +151,12 @@ module HTML_Escaping = struct
     [
       ( "test_html_escaping_non_resource"
       , `Quick
-      , test_html_escaping_non_resource )
+      , test_html_escaping_non_resource
+      )
     ; ( "test_html_escaping_bad_resource"
       , `Quick
-      , test_html_escaping_bad_resource )
+      , test_html_escaping_bad_resource
+      )
     ]
 end
 

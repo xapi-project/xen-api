@@ -141,7 +141,8 @@ let gen_module api : O.Module.t =
                OU.alias_of_ty (DT.Ref Datamodel_common._task)
              )
            ~body:(x.msg_name :: "~rpc" :: all)
-           ())
+           ()
+        )
       ]
   in
   (* Convert an operation into a Let-binding *)
@@ -267,7 +268,7 @@ let gen_module api : O.Module.t =
   O.Module.make ~name:module_name ~preamble ~postamble ~args:["X : IO"]
     ~elements:
       (O.Module.Module async
-      :: List.map (fun x -> O.Module.Module (obj ~sync:true x)) all_objs
+       :: List.map (fun x -> O.Module.Module (obj ~sync:true x)) all_objs
       )
     ()
 

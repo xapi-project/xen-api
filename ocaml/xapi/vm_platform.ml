@@ -172,7 +172,9 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
            , [
                "platform:device-model"
              ; "UEFI boot is not supported with qemu-trad"
-             ] ))
+             ]
+           )
+        )
   | "qemu-upstream-uefi", Some Xenops_types.Vm.Bios ->
       raise
         (Api_errors.Server_error
@@ -180,7 +182,9 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
            , [
                "platform:device-model"
              ; "BIOS boot is not supported with qemu-upstream-uefi"
-             ] ))
+             ]
+           )
+        )
   | exception Not_found ->
       ()
   | _ ->
@@ -197,11 +201,14 @@ let sanity_check ~platformdata ?firmware ~vcpu_max ~vcpu_at_startup ~domain_type
           raise
             (Api_errors.Server_error
                ( Api_errors.vcpu_max_not_cores_per_socket_multiple
-               , [string_of_int vcpus; cps_str] ))
+               , [string_of_int vcpus; cps_str]
+               )
+            )
       with Failure msg ->
         raise
           (Api_errors.Server_error
-             (Api_errors.invalid_value, ["platform:cores-per-socket"; cps_str]))
+             (Api_errors.invalid_value, ["platform:cores-per-socket"; cps_str])
+          )
   ) ;
   (* Add usb emulation flags.
      Make sure we don't send usb=false and usb_tablet=true,
@@ -244,7 +251,9 @@ let check_restricted_flags ~__context platform =
          , [
              Printf.sprintf "platform:%s" nested_virt
            ; List.assoc nested_virt platform
-           ] )) ;
+           ]
+         )
+      ) ;
   if is_true nested_virt platform false then
     Pool_features.assert_enabled ~__context ~f:Features.Nested_virt
 
@@ -256,4 +265,6 @@ let check_restricted_device_model ~__context platform =
          , [
              Printf.sprintf "platform:%s when vm has VUSBs" device_model
            ; (try List.assoc device_model platform with _ -> "undefined")
-           ] ))
+           ]
+         )
+      )

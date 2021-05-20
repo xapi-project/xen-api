@@ -27,7 +27,8 @@ let lwsmd_service = "lwsmd"
 module Lwsmd = struct
   let is_ad_enabled ~__context =
     ( Helpers.get_localhost ~__context |> fun self ->
-      Db.Host.get_external_auth_type ~__context ~self )
+      Db.Host.get_external_auth_type ~__context ~self
+    )
     |> fun x -> x = Xapi_globs.auth_type_AD_Likewise
 
   let is_active () = Fe_systemctl.is_active lwsmd_service
@@ -41,7 +42,8 @@ module Lwsmd = struct
       ignore
         (Forkhelpers.execute_command_get_output
            !Xapi_globs.domain_join_cli_cmd
-           ["configure"; "--enable"; "nsswitch"])
+           ["configure"; "--enable"; "nsswitch"]
+        )
     with e ->
       error "Fail to run %s with error %s"
         !Xapi_globs.domain_join_cli_cmd
@@ -52,7 +54,8 @@ module Lwsmd = struct
     try
       ignore
         (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-           [op_str; lwsmd_service]) ;
+           [op_str; lwsmd_service]
+        ) ;
       let timeout = 5. in
       if wait_until_success then
         let success_cond =
@@ -133,7 +136,8 @@ let extract_sid_from_group_list group_list =
       let vs = String.split_f (fun c -> c = '|') v in
       let sid = String.trim (List.nth vs 1) in
       debug "extract_sid_from_group_list get sid=[%s]" sid ;
-      sid)
+      sid
+      )
     (List.filter (fun (n, v) -> n = "") group_list)
 
 module AuthADlw : Auth_signature.AUTH_MODULE = struct
@@ -180,7 +184,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e) ;
         raise
           (Auth_signature.Auth_service_error
-             (Auth_signature.E_GENERIC, user_friendly_error_msg))
+             (Auth_signature.E_GENERIC, user_friendly_error_msg)
+          )
 
   let pbis_config (name : string) (value : string) =
     let pbis_cmd = "/opt/pbis/bin/config" in
@@ -206,7 +211,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e) ;
         raise
           (Auth_signature.Auth_service_error
-             (Auth_signature.E_GENERIC, user_friendly_error_msg))
+             (Auth_signature.E_GENERIC, user_friendly_error_msg)
+          )
 
   let ensure_pbis_configured () =
     pbis_config "SpaceReplacement" "+" ;
@@ -305,7 +311,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                     (ExnHelper.string_of_exn e) ;
                   raise
                     (Auth_signature.Auth_service_error
-                       (Auth_signature.E_GENERIC, ExnHelper.string_of_exn e)))
+                       (Auth_signature.E_GENERIC, ExnHelper.string_of_exn e)
+                    )
+                )
               (fun () ->
                 match Forkhelpers.waitpid pid with
                 | _, Unix.WEXITED n ->
@@ -317,12 +325,15 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                     error "PBIS %s exit with WSTOPPED or WSIGNALED" debug_cmd ;
                     raise
                       (Auth_signature.Auth_service_error
-                         (Auth_signature.E_GENERIC, user_friendly_error_msg)))
+                         (Auth_signature.E_GENERIC, user_friendly_error_msg)
+                      )
+                )
           with e ->
             error "execute %s exited: %s" debug_cmd (ExnHelper.string_of_exn e) ;
             raise
               (Auth_signature.Auth_service_error
-                 (Auth_signature.E_GENERIC, user_friendly_error_msg))
+                 (Auth_signature.E_GENERIC, user_friendly_error_msg)
+              )
         in
         if !exited_code <> 0 then (
           error "execute '%s': exit_code=[%d] output=[%s]" debug_cmd
@@ -343,7 +354,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             List.hd
               (List.filter
                  (fun w -> String.startswith "LW_ERROR_" w)
-                 (split_to_words errcodeline))
+                 (split_to_words errcodeline)
+              )
           in
           debug "Pbis raised an error for cmd %s: (%s) %s" debug_cmd errcode
             errmsg ;
@@ -351,7 +363,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           | "LW_ERROR_INVALID_GROUP_INFO_LEVEL" ->
               raise
                 (Auth_signature.Auth_service_error
-                   (Auth_signature.E_GENERIC, errcode))
+                   (Auth_signature.E_GENERIC, errcode)
+                )
               (* For pbis_get_all_byid *)
           | "LW_ERROR_NO_SUCH_USER"
           | "LW_ERROR_NO_SUCH_GROUP"
@@ -365,16 +378,20 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           | "LW_ERROR_INVALID_OU" ->
               raise
                 (Auth_signature.Auth_service_error
-                   (Auth_signature.E_INVALID_OU, errmsg))
+                   (Auth_signature.E_INVALID_OU, errmsg)
+                )
           | "LW_ERROR_INVALID_DOMAIN" ->
               raise
                 (Auth_signature.Auth_service_error
-                   (Auth_signature.E_GENERIC, errmsg))
+                   (Auth_signature.E_GENERIC, errmsg)
+                )
           | "LW_ERROR_LSA_SERVER_UNREACHABLE" | _ ->
               raise
                 (Auth_signature.Auth_service_error
                    ( Auth_signature.E_GENERIC
-                   , Printf.sprintf "(%s) %s" errcode errmsg ))
+                   , Printf.sprintf "(%s) %s" errcode errmsg
+                   )
+                )
         ) else
           debug "execute %s: output length=[%d]" debug_cmd
             (String.length !output) ;
@@ -401,7 +418,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             (acc @ [(key, value)], currkey)
         in
         let attrs, _ = List.fold_left parse_line ([], "") lines in
-        attrs)
+        attrs
+    )
 
   (* assoc list for caching pbis_common results,
      item value is ((stdin_string, pbis_cmd, pbis_args), (unix_time, pbis_common_result))
@@ -440,7 +458,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       (fun __context ->
         let host = Helpers.get_localhost ~__context in
         (* the service_name always contains the domain name provided during domain-join *)
-        Db.Host.get_external_auth_service_name ~__context ~self:host)
+        Db.Host.get_external_auth_service_name ~__context ~self:host
+    )
 
   (* CP-842: when resolving AD usernames, make joined-domain prefix optional *)
   let get_full_subject_name ?(use_nt_format = true) subject_name =
@@ -604,7 +623,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       | _ ->
           raise
             (Auth_signature.Auth_service_error
-               (Auth_signature.E_GENERIC, "Invalid username " ^ username))
+               (Auth_signature.E_GENERIC, "Invalid username " ^ username)
+            )
     in
     let (_ : (string * string) list) =
       pbis_common "/opt/pbis/bin/lsa"
@@ -653,7 +673,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           if c = current_lw_space_replacement then
             Bytes.set defensive_copy i ' '
           else
-            ())
+            ()
+          )
         lwname ;
       Bytes.unsafe_to_string defensive_copy
     in
@@ -687,15 +708,18 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         , if subject_gecos = "" || subject_gecos = "<null>" then
             subject_name
           else
-            subject_gecos )
+            subject_gecos
+        )
       ; (*("subject-homedir", get_value "Home dir" infolist);*)
         (*("subject-shell", get_value "Shell" infolist);*)
         ("subject-is-group", "false")
       ; ( "subject-account-disabled"
-        , get_value "Account disabled (or locked)" infolist )
+        , get_value "Account disabled (or locked)" infolist
+        )
       ; ("subject-account-expired", get_value "Account Expired" infolist)
       ; ( "subject-account-locked"
-        , get_value "Account disabled (or locked)" infolist )
+        , get_value "Account disabled (or locked)" infolist
+        )
       ; ("subject-password-expired", get_value "Password Expired" infolist)
       ]
 
@@ -728,7 +752,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         subject_name subject_identifier
         (List.fold_left
            (fun p pp -> if p = "" then pp else p ^ "," ^ pp)
-           "" subject_sid_membership_list) ;
+           "" subject_sid_membership_list
+        ) ;
       subject_sid_membership_list
 
   (*
@@ -756,7 +781,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         match
           ignore
             (pbis_common "/opt/pbis/bin/ad-cache"
-               ["--delete-user"; "--name"; full_username])
+               ["--delete-user"; "--name"; full_username]
+            )
         with
         | () | (exception Not_found) ->
             Ok ()
@@ -826,7 +852,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
 
   let is_pbis_server_available max =
     Locking_helpers.Named_mutex.execute mutex_check_availability (fun () ->
-        _is_pbis_server_available max)
+        _is_pbis_server_available max
+    )
 
   (* converts from domain.com\user to user@domain.com, in case domain.com is present in the subject_name *)
   let convert_nt_to_upn_username subject_name =
@@ -872,13 +899,16 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       raise
         (Auth_signature.Auth_service_error
            ( Auth_signature.E_GENERIC
-           , "enable requires two config params: user and pass." ))
+           , "enable requires two config params: user and pass."
+           )
+        )
     else (* we have all the required parameters *)
       let hostname =
         Server_helpers.exec_with_new_task "retrieving hostname"
           (fun __context ->
             let host = Helpers.get_localhost ~__context in
-            Db.Host.get_hostname ~__context ~self:host)
+            Db.Host.get_hostname ~__context ~self:host
+        )
       in
       if
         String.fold_left (fun b ch -> b && ch >= '0' && ch <= '9') true hostname
@@ -887,14 +917,17 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           (Auth_signature.Auth_service_error
              ( Auth_signature.E_GENERIC
              , Printf.sprintf "hostname '%s' cannot contain only digits."
-                 hostname ))
+                 hostname
+             )
+          )
       else
         let domain =
           let service_name =
             Server_helpers.exec_with_new_task
               "retrieving external_auth_service_name" (fun __context ->
                 let host = Helpers.get_localhost ~__context in
-                Db.Host.get_external_auth_service_name ~__context ~self:host)
+                Db.Host.get_external_auth_service_name ~__context ~self:host
+            )
           in
           if
             List.mem_assoc "domain" config_params
@@ -905,7 +938,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
               raise
                 (Auth_signature.Auth_service_error
                    ( Auth_signature.E_GENERIC
-                   , "if present, config:domain must match service-name." ))
+                   , "if present, config:domain must match service-name."
+                   )
+                )
             else
               service_name
           else
@@ -936,7 +971,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           List.concat
             (List.map
                (fun disabled_module -> ["--disable"; disabled_module])
-               disabled_modules)
+               disabled_modules
+            )
         in
         (* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
         let user = convert_nt_to_upn_username _user in
@@ -964,7 +1000,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             debug "%s" errmsg ;
             raise
               (Auth_signature.Auth_service_error
-                 (Auth_signature.E_UNAVAILABLE, errmsg))
+                 (Auth_signature.E_UNAVAILABLE, errmsg)
+              )
           ) ;
           (* OK SUCCESS, pbis has joined the AD domain successfully *)
           (* write persistently the relevant config_params in the host.external_auth_configuration field *)
@@ -976,9 +1013,11 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
               Db.Host.set_external_auth_configuration ~__context ~self:host
                 ~value:extauthconf ;
               debug "added external_auth_configuration for host %s"
-                (Db.Host.get_name_label ~__context ~self:host)) ;
+                (Db.Host.get_name_label ~__context ~self:host)
+          ) ;
           Xapi_stdext_threads.Threadext.Mutex.execute cache_of_pbis_common_m
-            (fun _ -> cache_of_pbis_common := []) ;
+            (fun _ -> cache_of_pbis_common := []
+          ) ;
           ensure_pbis_configured ()
         with e ->
           (*ERROR, we didn't join the AD domain*)
@@ -1078,7 +1117,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         let host = Helpers.get_localhost ~__context in
         Db.Host.set_external_auth_configuration ~__context ~self:host ~value:[] ;
         debug "removed external_auth_configuration for host %s"
-          (Db.Host.get_name_label ~__context ~self:host)) ;
+          (Db.Host.get_name_label ~__context ~self:host)
+    ) ;
     match pbis_failure with
     | None ->
         () (* OK, return unit*)

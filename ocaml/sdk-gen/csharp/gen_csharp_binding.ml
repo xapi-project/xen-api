@@ -74,7 +74,8 @@ let api =
   in
   filter obj_filter field_filter message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api))
+       (filter obj_filter field_filter message_filter Datamodel.all_api)
+    )
 
 let classes =
   List.filter
@@ -107,7 +108,9 @@ let rec main () =
         , `A
             (List.map
                (fun x -> `O [("message_type", `String (fst x))])
-               !Api_messages.msgList) )
+               !Api_messages.msgList
+            )
+        )
       ]
   in
   render_file ("Message2.mustache", "Message2.cs") msgJson templdir destdir ;
@@ -252,7 +255,8 @@ and gen_http_actions () =
       ; ("uri", `String uri)
       ; ( "sdkargs_decl"
         , `String
-            (enhanced_args |> List.map decl_of_sdkarg |> String.concat ", ") )
+            (enhanced_args |> List.map decl_of_sdkarg |> String.concat ", ")
+        )
       ; ( "sdkargs"
         , `String (enhanced_args |> List.map use_of_sdkarg |> String.concat ", ")
         )
@@ -324,7 +328,8 @@ and gen_class out_chan cls =
         print "\n        public %s(%s)\n        {\n            %s\n        }\n"
           exposed_class_name
           (String.concat ",\n            "
-             (List.rev (get_constructor_params cnt)))
+             (List.rev (get_constructor_params cnt))
+          )
           (String.concat "\n            " (List.rev (get_constructor_body cnt)))
   in
   print_internal_ctor contents ;
@@ -439,7 +444,8 @@ and gen_class out_chan cls =
   | _ ->
       print "%s"
         (String.concat " &&\n                "
-           (List.map gen_equals_condition other_contents))
+           (List.map gen_equals_condition other_contents)
+        )
   ) ;
 
   print
@@ -491,7 +497,9 @@ and gen_class out_chan cls =
     (not
        (List.exists
           (fun msg -> String.compare msg.msg_name "get_all_records" = 0)
-          messages))
+          messages
+       )
+    )
     && List.mem cls.name expose_get_all_messages_for
   then
     print "%s" (gen_exposed_method cls (get_all_records_method cls.name) []) ;
@@ -508,7 +516,8 @@ and get_all_records_method classname =
   ; msg_result=
       Some
         ( Map (Ref classname, Record classname)
-        , sprintf "A map from %s to %s.Record" classname classname )
+        , sprintf "A map from %s to %s.Record" classname classname
+        )
   ; msg_doc=
       sprintf "Get all the %s Records at once, in a single XML RPC call"
         classname
@@ -658,10 +667,12 @@ and gen_exposed_method cls msg curParams =
       msg.msg_name paramSignature
       (json_return_opt
          (sprintf "session.JsonRpcClient.%s(%s)" proxyMsgName jsonCallParams)
-         msg.msg_result)
+         msg.msg_result
+      )
       (convert_from_proxy_opt
          (sprintf "session.XmlRpcProxy.%s(%s).parse()" proxyMsgName callParams)
-         msg.msg_result)
+         msg.msg_result
+      )
   in
   let async =
     if msg.msg_async then
@@ -778,8 +789,10 @@ and gen_save_changes out_chan exposed_class_name messages contents =
         field.qualifier == StaticRO
         && List.exists
              (fun msg ->
-               msg.msg_name = String.concat "" ["set_"; full_name field])
-             messages)
+               msg.msg_name = String.concat "" ["set_"; full_name field]
+               )
+             messages
+        )
       fields
   in
   let length = List.length fields2 + List.length readonlyFieldsWithSetters in
@@ -820,8 +833,7 @@ and gen_save_changes_to_field out_chan exposed_class_name fr =
 
 and ctor_call classname =
   let fields =
-    Datamodel_utils.fields_of_obj
-      (Dm_api.get_obj_by_name api ~objname:classname)
+    Datamodel_utils.fields_of_obj (Dm_api.get_obj_by_name api ~objname:classname)
   in
   let fields2 =
     List.filter
@@ -921,7 +933,8 @@ and gen_proxy_class_methods protocol {name; messages; _} =
       not
         (List.exists
            (fun msg -> String.compare msg.msg_name "get_all_records" = 0)
-           messages)
+           messages
+        )
     then
       gen_proxy_method protocol name (get_all_records_method name) []
     else
@@ -1327,8 +1340,7 @@ and convert_from_proxy thing ty =
   | Option x ->
       convert_from_proxy thing x
   | _ ->
-      sprintf "%s == null ? null : %s" thing
-        (simple_convert_from_proxy thing ty)
+      sprintf "%s == null ? null : %s" thing (simple_convert_from_proxy thing ty)
 
 and convert_from_hashtable fname ty =
   let field = sprintf "\"%s\"" fname in
@@ -1370,7 +1382,9 @@ and convert_from_hashtable fname ty =
         (sanitise_function_name
            (sprintf "Maps.convert_from_proxy_%s_%s"
               (exposed_type_as_literal u)
-              (exposed_type_as_literal v)))
+              (exposed_type_as_literal v)
+           )
+        )
         field
   | Record name ->
       sprintf
@@ -1424,7 +1438,9 @@ and simple_convert_from_proxy thing ty =
         (sanitise_function_name
            (sprintf "Maps.convert_from_proxy_%s_%s"
               (exposed_type_as_literal u)
-              (exposed_type_as_literal v)))
+              (exposed_type_as_literal v)
+           )
+        )
         thing
   | Record name ->
       sprintf "new %s(%s)" (exposed_class_name name) thing
@@ -1466,7 +1482,9 @@ and convert_to_proxy thing ty =
         (sanitise_function_name
            (sprintf "Maps.convert_to_proxy_%s_%s"
               (exposed_type_as_literal u)
-              (exposed_type_as_literal v)))
+              (exposed_type_as_literal v)
+           )
+        )
         thing
   | Record _ ->
       sprintf "%s.ToProxy()" thing
@@ -1496,7 +1514,9 @@ and convert_to_proxy thing ty =
         (sanitise_function_name
            (sprintf "Maps.convert_to_proxy_%s_%s"
               (exposed_type_as_literal u)
-              (exposed_type_as_literal v)))
+              (exposed_type_as_literal v)
+           )
+        )
         thing
   | Option (Record _) ->
       sprintf "%s == null ? null : %s.ToProxy()" thing thing
@@ -1656,7 +1676,8 @@ and get_default_value_opt field =
           (fun (a, b) ->
             sprintf "{%s, %s}"
               (String.concat ", " (get_default_value a))
-              (String.concat ", " (get_default_value b)))
+              (String.concat ", " (get_default_value b))
+            )
           y
     | VSet y ->
         List.map (fun x -> String.concat ", " (get_default_value x)) y
@@ -1695,8 +1716,10 @@ and get_default_value_per_type ty thing =
           String.concat ", "
             (List.map
                (fun x ->
-                 sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x)
-               thing)
+                 sprintf "new XenRef<%s>(%s)" (exposed_class_name name) x
+                 )
+               thing
+            )
         )
   | Set _ ->
       sprintf " = new %s() {%s}" (exposed_type ty) (String.concat ", " thing)

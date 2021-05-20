@@ -901,11 +901,14 @@ type xapi_globs_spec_ty = Float of float ref | Int of int ref
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
-    , Float Db_globs.master_connection_reset_timeout )
+    , Float Db_globs.master_connection_reset_timeout
+    )
   ; ( "master_connection_retry_timeout"
-    , Float Db_globs.master_connection_retry_timeout )
+    , Float Db_globs.master_connection_retry_timeout
+    )
   ; ( "master_connection_default_timeout"
-    , Float Db_globs.master_connection_default_timeout )
+    , Float Db_globs.master_connection_default_timeout
+    )
   ; ("qemu_dm_ready_timeout", Float qemu_dm_ready_timeout)
   ; ("hotplug_timeout", Float hotplug_timeout)
   ; ("pif_reconfigure_ip_timeout", Float pif_reconfigure_ip_timeout)
@@ -933,26 +936,32 @@ let xapi_globs_spec =
   ; ("completed_task_timeout", Float completed_task_timeout)
   ; ("minimum_time_between_bounces", Float minimum_time_between_bounces)
   ; ( "minimum_time_between_reboot_with_no_added_delay"
-    , Float minimum_time_between_reboot_with_no_added_delay )
+    , Float minimum_time_between_reboot_with_no_added_delay
+    )
   ; ("ha_monitor_interval", Float ha_monitor_interval)
   ; ("ha_monitor_plan_interval", Float ha_monitor_plan_interval)
   ; ("ha_monitor_startup_timeout", Float ha_monitor_startup_timeout)
   ; ("ha_default_timeout_base", Float ha_default_timeout_base)
   ; ("guest_liveness_timeout", Float guest_liveness_timeout)
   ; ( "permanent_master_failure_retry_interval"
-    , Float Db_globs.permanent_master_failure_retry_interval )
+    , Float Db_globs.permanent_master_failure_retry_interval
+    )
   ; ( "redo_log_max_block_time_empty"
-    , Float Db_globs.redo_log_max_block_time_empty )
+    , Float Db_globs.redo_log_max_block_time_empty
+    )
   ; ("redo_log_max_block_time_read", Float Db_globs.redo_log_max_block_time_read)
   ; ( "redo_log_max_block_time_writedelta"
-    , Float Db_globs.redo_log_max_block_time_writedelta )
+    , Float Db_globs.redo_log_max_block_time_writedelta
+    )
   ; ( "redo_log_max_block_time_writedb"
-    , Float Db_globs.redo_log_max_block_time_writedb )
+    , Float Db_globs.redo_log_max_block_time_writedb
+    )
   ; ("redo_log_max_startup_time", Float Db_globs.redo_log_max_startup_time)
   ; ("redo_log_connect_delay", Float Db_globs.redo_log_connect_delay)
   ; ("default-vbd3-polling-duration", Int default_vbd3_polling_duration)
   ; ( "default-vbd3-polling-idle-threshold"
-    , Int default_vbd3_polling_idle_threshold )
+    , Int default_vbd3_polling_idle_threshold
+    )
   ; ("vm_call_plugin_interval", Float vm_call_plugin_interval)
   ; ("xapi_clusterd_port", Int xapi_clusterd_port)
   ; ("max_active_sr_scans", Int max_active_sr_scans)
@@ -968,8 +977,11 @@ let options_of_xapi_globs_spec =
           | Float x ->
               string_of_float !x
           | Int x ->
-              string_of_int !x)
-      , Printf.sprintf "Set the value of '%s'" name ))
+              string_of_int !x
+          )
+      , Printf.sprintf "Set the value of '%s'" name
+      )
+      )
     xapi_globs_spec
 
 let xenopsd_queues =
@@ -1016,8 +1028,11 @@ let accept_sm_plugin name =
            | `All ->
                true
            | `Sm x ->
-               String.lowercase_ascii x = String.lowercase_ascii name)
-         !sm_plugins))
+               String.lowercase_ascii x = String.lowercase_ascii name
+           )
+         !sm_plugins
+      )
+  )
 
 let nvidia_multi_vgpu_enabled_driver_versions =
   ref ["430.42"; "430.62"; "440.00+"]
@@ -1038,36 +1053,44 @@ let other_options =
   ; ( "hotfix-fingerprint"
     , Arg.Set_string trusted_patch_key
     , (fun () -> !trusted_patch_key)
-    , "Fingerprint of the key used for signed hotfixes" )
+    , "Fingerprint of the key used for signed hotfixes"
+    )
   ; ( "logconfig"
     , Arg.Set_string log_config_file
     , (fun () -> !log_config_file)
-    , "Log config file to use" )
+    , "Log config file to use"
+    )
   ; ( "writereadyfile"
     , Arg.Set_string ready_file
     , (fun () -> !ready_file)
-    , "touch specified file when xapi is ready to accept requests" )
+    , "touch specified file when xapi is ready to accept requests"
+    )
   ; ( "writeinitcomplete"
     , Arg.Set_string init_complete
     , (fun () -> !init_complete)
-    , "touch specified file when xapi init process is complete" )
+    , "touch specified file when xapi init process is complete"
+    )
   ; ( "nowatchdog"
     , Arg.Set nowatchdog
     , (fun () -> string_of_bool !nowatchdog)
-    , "turn watchdog off, avoiding initial fork" )
+    , "turn watchdog off, avoiding initial fork"
+    )
   ; ( "log-getter"
     , Arg.Set log_getter
     , (fun () -> string_of_bool !log_getter)
-    , "Enable/Disable logging for getters" )
+    , "Enable/Disable logging for getters"
+    )
   ; ( "onsystemboot"
     , Arg.Set on_system_boot
     , (fun () -> string_of_bool !on_system_boot)
-    , "indicates that this server start is the first since the host rebooted" )
+    , "indicates that this server start is the first since the host rebooted"
+    )
   ; ( "relax-xsm-sr-check"
     , Arg.Set relax_xsm_sr_check
     , (fun () -> string_of_bool !relax_xsm_sr_check)
     , "allow storage migration when SRs have been mirrored out-of-band (and \
-       have matching SR uuids)" )
+       have matching SR uuids)"
+    )
   ; gen_list_option "disable-logging-for"
       "space-separated list of modules to suppress logging from"
       (fun s -> s)
@@ -1081,72 +1104,88 @@ let other_options =
   ; ( "xenopsd-queues"
     , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
-    , "list of xenopsd instances to manage" )
+    , "list of xenopsd instances to manage"
+    )
   ; ( "xenopsd-default"
     , Arg.Set_string default_xenopsd
     , (fun () -> !default_xenopsd)
-    , "default xenopsd to use" )
+    , "default xenopsd to use"
+    )
   ; ( "nvidia-whitelist"
     , Arg.Set_string nvidia_whitelist
     , (fun () -> !nvidia_whitelist)
-    , "path to the NVidia vGPU whitelist file" )
+    , "path to the NVidia vGPU whitelist file"
+    )
   ; gen_list_option "igd-passthru-vendor-whitelist"
       "list of PCI vendor IDs for integrated graphics passthrough \
        (space-separated)"
       (fun s ->
         D.debug "Whitelisting PCI vendor %s for passthrough" s ;
-        Scanf.sscanf s "%4Lx" (fun _ -> s)) (* Scanf verifies format *)
+        Scanf.sscanf s "%4Lx" (fun _ -> s)
+        ) (* Scanf verifies format *)
       (fun s -> s)
       igd_passthru_vendor_whitelist
   ; ( "gvt-g-whitelist"
     , Arg.Set_string gvt_g_whitelist
     , (fun () -> !gvt_g_whitelist)
-    , "path to the GVT-g whitelist file" )
+    , "path to the GVT-g whitelist file"
+    )
   ; ( "mxgpu-whitelist"
     , Arg.Set_string mxgpu_whitelist
     , (fun () -> !mxgpu_whitelist)
-    , "path to the AMD whitelist file" )
+    , "path to the AMD whitelist file"
+    )
   ; ( "pass-through-pif-carrier"
     , Arg.Set pass_through_pif_carrier
     , (fun () -> string_of_bool !pass_through_pif_carrier)
-    , "reflect physical interface carrier information to VMs by default" )
+    , "reflect physical interface carrier information to VMs by default"
+    )
   ; ( "cluster-stack-default"
     , Arg.Set_string cluster_stack_default
     , (fun () -> !cluster_stack_default)
-    , "Default cluster stack (HA)" )
+    , "Default cluster stack (HA)"
+    )
   ; ( "gpumon_stop_timeout"
     , Arg.Set_float gpumon_stop_timeout
     , (fun () -> string_of_float !gpumon_stop_timeout)
     , "Time to wait after attempting to stop gpumon when launching a \
-       vGPU-enabled VM." )
+       vGPU-enabled VM."
+    )
   ; ( "reboot_required_hfxs"
     , Arg.Set_string reboot_required_hfxs
     , (fun () -> !reboot_required_hfxs)
-    , "File to query hotfix uuids which require reboot" )
+    , "File to query hotfix uuids which require reboot"
+    )
   ; ( "xen_livepatch_list"
     , Arg.Set_string xen_livepatch_list
     , (fun () -> !xen_livepatch_list)
-    , "Command to query current xen livepatch list" )
+    , "Command to query current xen livepatch list"
+    )
   ; ( "kpatch_list"
     , Arg.Set_string kpatch_list
     , (fun () -> !kpatch_list)
-    , "Command to query current kernel patch list" )
+    , "Command to query current kernel patch list"
+    )
   ; ( "modprobe_path"
     , Arg.Set_string modprobe_path
     , (fun () -> !modprobe_path)
-    , "Location of the modprobe(8) command: should match $(which modprobe)" )
+    , "Location of the modprobe(8) command: should match $(which modprobe)"
+    )
   ; ( "db_idempotent_map"
     , Arg.Set Db_globs.idempotent_map
     , (fun () -> string_of_bool !Db_globs.idempotent_map)
-    , "True if the add_to_<map> API calls should be idempotent" )
+    , "True if the add_to_<map> API calls should be idempotent"
+    )
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
-          nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x)
+          nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x
+          )
     , (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions)
     , "list of nvidia host driver versions with multiple vGPU supported.\n\
       \  if a version end with +, it means any driver version greater or equal \
-       than that version" )
+       than that version"
+    )
   ; ( "nvidia_t4_sriov"
     , Arg.String
         (function
@@ -1155,7 +1194,8 @@ let other_options =
         | "false" | "off" | "0" ->
             nvidia_t4_sriov := Nvidia_LEGACY
         | "default" | "xml" | _ ->
-            nvidia_t4_sriov := Nvidia_DEFAULT)
+            nvidia_t4_sriov := Nvidia_DEFAULT
+        )
     , (fun () ->
         match !nvidia_t4_sriov with
         | Nvidia_DEFAULT ->
@@ -1163,20 +1203,25 @@ let other_options =
         | Nvidia_LEGACY ->
             "false - Use legacy mode for NVidia GPU addressing"
         | Nvidia_T4_SRIOV ->
-            "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise")
-    , "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'." )
+            "true - Use SR-IOV for NVidia T4 GPUs, legacy otherwise"
+        )
+    , "Use of SR-IOV for Nvidia GPUs; 'true', 'false', 'default'."
+    )
   ; ( "create-tools-sr"
     , Arg.Set create_tools_sr
     , (fun () -> string_of_bool !create_tools_sr)
-    , "Indicates whether to create an SR for Tools ISOs" )
+    , "Indicates whether to create an SR for Tools ISOs"
+    )
   ; ( "allow-host-sched-gran-modification"
     , Arg.Set allow_host_sched_gran_modification
     , (fun () -> string_of_bool !allow_host_sched_gran_modification)
-    , "Allows to modify the host's scheduler granularity" )
+    , "Allows to modify the host's scheduler granularity"
+    )
   ; ( "website-https-only"
     , Arg.Set website_https_only
     , (fun () -> string_of_bool !website_https_only)
-    , "Allow access to the internal website using HTTPS only (no HTTP)" )
+    , "Allow access to the internal website using HTTPS only (no HTTP)"
+    )
   ; gen_list_option "repository-domain-name-allowlist"
       "space-separated list of allowed domain name in base URL in repository."
       (fun s -> s)
@@ -1185,12 +1230,14 @@ let other_options =
   ; ( "repository-gpgcheck"
     , Arg.Set repository_gpgcheck
     , (fun () -> string_of_bool !repository_gpgcheck)
-    , "turn gpgcheck on/off" )
+    , "turn gpgcheck on/off"
+    )
   ; ( "repository-gpgkey-name"
     , Arg.Set_string repository_gpgkey_name
     , (fun () -> !repository_gpgkey_name)
     , "The name of gpg key used by RPM to verify metadata and packages in \
-       repository" )
+       repository"
+    )
   ]
 
 let all_options = options_of_xapi_globs_spec @ other_options
@@ -1226,55 +1273,67 @@ module Resources = struct
       ("busybox", busybox, "Swiss army knife executable - used as DHCP server")
     ; ( "pbis-force-domain-leave-script"
       , pbis_force_domain_leave_script
-      , "Executed when PBIS domain-leave fails" )
+      , "Executed when PBIS domain-leave fails"
+      )
     ; ( "redo-log-block-device-io"
       , Db_globs.redo_log_block_device_io
-      , "Used by the redo log for block device I/O" )
+      , "Used by the redo log for block device I/O"
+      )
     ; ("sparse_dd", sparse_dd, "Path to sparse_dd")
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
-      , "Path to host-bugreport-upload" )
+      , "Path to host-bugreport-upload"
+      )
     ; ("set-hostname", set_hostname, "Path to set-hostname")
     ; ( "xe-syslog-reconfigure"
       , xe_syslog_reconfigure
-      , "Path to xe-syslog-reconfigure" )
+      , "Path to xe-syslog-reconfigure"
+      )
     ; ( "logs-download"
       , logs_download
-      , "Used by /get_host_logs_download HTTP handler" )
+      , "Used by /get_host_logs_download HTTP handler"
+      )
     ; ( "update-mh-info"
       , update_mh_info_script
-      , "Executed when changing the management interface" )
+      , "Executed when changing the management interface"
+      )
     ; ("upload-wrapper", upload_wrapper, "Used by Host_crashdump.upload")
     ; ("host-backup", host_backup, "Path to host-backup")
     ; ("host-restore", host_restore, "Path to host-restore")
     ; ("xe", xe_path, "Path to xe CLI binary")
     ; ( "xe-toolstack-restart"
       , xe_toolstack_restart
-      , "Path to xe-toolstack-restart script" )
+      , "Path to xe-toolstack-restart script"
+      )
     ; ("xsh", xsh, "Path to xsh binary")
     ; ("static-vdis", static_vdis, "Path to static-vdis script")
     ; ("xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script")
     ; ( "fcoe-driver"
       , fcoe_driver
       , "Execute during PIF unplug to get the lun devices related with the \
-         ether interface of the PIF" )
+         ether interface of the PIF"
+      )
     ; ("list_domains", list_domains, "Path to the list_domains command")
     ; ("systemctl", systemctl, "Control the systemd system and service manager")
     ; ( "alert-certificate-check"
       , alert_certificate_check
       , "Path to alert-certificate-check, which generates alerts on \
-         about-to-expire server certificates." )
+         about-to-expire server certificates."
+      )
     ; ( "gencert"
       , Constants.gencert
-      , "command to generate SSL certificates to be used by XAPI" )
+      , "command to generate SSL certificates to be used by XAPI"
+      )
     ; ( "openssl_path"
       , Constants.openssl_path
-      , "Path for openssl command to generate RSA keys" )
+      , "Path for openssl command to generate RSA keys"
+      )
     ; ( "set-iscsi-initiator"
       , set_iSCSI_initiator_script
-      , "Path to set-iscsi-initiator script" )
+      , "Path to set-iscsi-initiator script"
+      )
     ; ("yum-cmd", yum_cmd, "Path to yum command")
     ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
     ; ("createrepo-cmd", createrepo_cmd, "Path to createrepo command")
@@ -1282,7 +1341,8 @@ module Resources = struct
     ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
     ; ( "yum-config-manager-cmd"
       , yum_config_manager_cmd
-      , "Path to yum-config-manager command" )
+      , "Path to yum-config-manager command"
+      )
     ]
 
   let nonessential_executables =
@@ -1290,43 +1350,54 @@ module Resources = struct
       ("startup-script-hook", startup_script_hook, "Executed during startup")
     ; ( "rolling-upgrade-script-hook"
       , rolling_upgrade_script_hook
-      , "Executed when a rolling upgrade is detected starting or stopping" )
+      , "Executed when a rolling upgrade is detected starting or stopping"
+      )
     ; ( "xapi-message-script"
       , xapi_message_script
-      , "Executed when messages are generated if email feature is disabled" )
+      , "Executed when messages are generated if email feature is disabled"
+      )
     ; ( "non-managed-pifs"
       , non_managed_pifs
       , "Executed during PIF.scan to find out which NICs should not be managed \
-         by xapi" )
+         by xapi"
+      )
     ; ( "domain_join_cli_cmd"
       , domain_join_cli_cmd
-      , "Command to manage pbis related service" )
+      , "Command to manage pbis related service"
+      )
     ; ( "update-issue"
       , update_issue_script
-      , "Running update-service when configuring the management interface" )
+      , "Running update-service when configuring the management interface"
+      )
     ; ("killall", kill_process_script, "Executed to kill process")
     ; ( "nbd-firewall-config"
       , nbd_firewall_config_script
       , "Executed after NBD-related networking changes to configure the \
-         firewall for NBD" )
+         firewall for NBD"
+      )
     ; ( "firewall-port-config"
       , firewall_port_config_script
       , "Executed when starting/stopping xapi-clusterd to configure firewall \
-         port" )
+         port"
+      )
     ; ( "nbd_client_manager"
       , nbd_client_manager_script
       , "Executed to safely connect to and disconnect from NBD devices using \
-         nbd-client" )
+         nbd-client"
+      )
     ; ( "varstore-rm"
       , varstore_rm
-      , "Executed to clear certain UEFI variables during clone" )
+      , "Executed to clear certain UEFI variables during clone"
+      )
     ; ("varstore_dir", varstore_dir, "Path to local varstored directory")
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script
-      , "Path to NVIDIA sriov-manage script" )
+      , "Path to NVIDIA sriov-manage script"
+      )
     ; ( "gen_pool_secret_script"
       , gen_pool_secret_script
-      , "Generates new pool secrets" )
+      , "Generates new pool secrets"
+      )
     ]
 
   let essential_files =
@@ -1342,20 +1413,24 @@ module Resources = struct
     ; ("udhcpd-conf", udhcpd_conf, "Optional configuration file for udchp")
     ; ( "remote-db-conf-file"
       , remote_db_conf_fragment_path
-      , "Where to store information about remote databases" )
+      , "Where to store information about remote databases"
+      )
     ; ("logconfig", log_config_file, "Configure the logging policy")
     ; ("cpu-info-file", cpu_info_file, "Where to cache boot-time CPU info")
     ; ("server-cert-path", server_cert_path, "Path to server ssl certificate")
     ; ( "server-cert-internal-path"
       , server_cert_internal_path
-      , "Path to server certificate used for host-to-host TLS connections" )
+      , "Path to server certificate used for host-to-host TLS connections"
+      )
     ; ( "stunnel-bundle-path"
       , stunnel_bundle_path
-      , "Path to stunnel trust bundle" )
+      , "Path to stunnel trust bundle"
+      )
     ; ("pool-bundle-path", pool_bundle_path, "Path to pool trust bundle")
     ; ( "iscsi_initiatorname"
       , iscsi_initiator_config_file
-      , "Path to the initiatorname.iscsi file" )
+      , "Path to the initiatorname.iscsi file"
+      )
     ]
 
   let essential_dirs =
@@ -1364,37 +1439,45 @@ module Resources = struct
     ; ("web-dir", web_dir, "Directory to export fileserver")
     ; ( "cluster-stack-root"
       , cluster_stack_root
-      , "Directory containing collections of HA tools and scripts" )
+      , "Directory containing collections of HA tools and scripts"
+      )
     ; ("xen-cmdline", xen_cmdline_path, "Path to xen-cmdline binary")
     ; ("gpg-homedir", gpg_homedir, "Passed as --homedir to gpg commands")
     ; ( "post-install-scripts-dir"
       , post_install_scripts_dir
-      , "Directory containing trusted guest provisioning scripts" )
+      , "Directory containing trusted guest provisioning scripts"
+      )
     ]
 
   let nonessential_dirs =
     [
       ( "master-scripts-dir"
       , master_scripts_dir
-      , "Scripts to execute when transitioning pool role" )
+      , "Scripts to execute when transitioning pool role"
+      )
     ; ("packs-dir", packs_dir, "Directory containing supplemental pack data")
     ; ("xapi-hooks-root", xapi_hooks_root, "Root directory for xapi hooks")
     ; ( "xapi-plugins-root"
       , xapi_plugins_root
-      , "Optional directory containing XenAPI plugins" )
+      , "Optional directory containing XenAPI plugins"
+      )
     ; ( "xapi-extensions-root"
       , xapi_extensions_root
-      , "Optional directory containing XenAPI extensions" )
+      , "Optional directory containing XenAPI extensions"
+      )
     ; ( "static-vdis-root"
       , Db_globs.static_vdis_dir
-      , "Optional directory for configuring static VDIs" )
+      , "Optional directory for configuring static VDIs"
+      )
     ; ("tools-sr-dir", tools_sr_dir, "Directory containing tools ISO")
     ; ( "trusted-pool-certs-dir"
       , trusted_pool_certs_dir
-      , "Directory containing certs of trusted hosts" )
+      , "Directory containing certs of trusted hosts"
+      )
     ; ( "trusted-certs-dir"
       , trusted_certs_dir
-      , "Directory containing certs of other trusted entities" )
+      , "Directory containing certs of other trusted entities"
+      )
     ]
 
   let xcp_resources =

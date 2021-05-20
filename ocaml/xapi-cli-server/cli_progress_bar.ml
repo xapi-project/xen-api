@@ -63,7 +63,8 @@ module Make (T : Floatable) = struct
       T.(
         to_float value
         /. to_float t.max_value
-        *. float_of_int (t.width - prefix - suffix))
+        *. float_of_int (t.width - prefix - suffix)
+      )
 
   let hms secs =
     let h = secs / 3600 in

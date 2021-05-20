@@ -81,7 +81,8 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           let req = {req with uri= Constants.rrd_unarchive_uri} in
           ignore
             (Xapi_services.hand_over_connection req s
-               !Rrd_interface.forwarded_path)
+               !Rrd_interface.forwarded_path
+            )
         in
         (* List of conditions involved. *)
         let is_unarchive_request =
@@ -107,7 +108,8 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           else if is_owner_online owner && not is_xapi_initialising then
             read_at_owner owner
           else
-            unarchive_at_master ())
+            unarchive_at_master ()
+    )
 
 (* Forward the request for host RRD data to the RRDD HTTP handler. If the host
  * is initialising, send the unarchive command to the host instead.
@@ -129,15 +131,18 @@ let get_host_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           let req = {req with Http.Request.uri= Constants.rrd_unarchive_uri} in
           ignore
             (Xapi_services.hand_over_connection req s
-               !Rrd_interface.forwarded_path)
+               !Rrd_interface.forwarded_path
+            )
         )
       ) else (
         (* Normal request. *)
         debug "get_host_rrd_forwarder: normal" ;
         ignore
           (Xapi_services.hand_over_connection req s
-             !Rrd_interface.forwarded_path)
-      ))
+             !Rrd_interface.forwarded_path
+          )
+      )
+  )
 
 (* Forward the request for SR RRD data to the RRDD HTTP handler. *)
 let get_sr_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -152,7 +157,9 @@ let get_sr_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
       else
         ignore
           (Xapi_services.hand_over_connection req s
-             !Rrd_interface.forwarded_path))
+             !Rrd_interface.forwarded_path
+          )
+  )
 
 (* Forward the request for obtaining RRD data updates to the RRDD HTTP handler. *)
 let get_rrd_updates_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
@@ -163,10 +170,12 @@ let get_rrd_updates_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
       if List.mem_assoc "start" query then
         ignore
           (Xapi_services.hand_over_connection req s
-             !Rrd_interface.forwarded_path)
+             !Rrd_interface.forwarded_path
+          )
       else
         fail_req_with s "get_rrd_updates: missing the 'start' parameter"
-          Http.http_400_badrequest)
+          Http.http_400_badrequest
+  )
 
 let vm_uuid_to_domid ~__context ~(uuid : string) : int =
   let vm = Db.VM.get_by_uuid ~__context ~uuid in
@@ -223,7 +232,9 @@ let put_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
             in
             ignore
               (Xapi_services.hand_over_connection req s
-                 !Rrd_interface.forwarded_path))
+                 !Rrd_interface.forwarded_path
+              )
+    )
 
 let host_for_vm ~__context ~vm_uuid =
   let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
@@ -249,7 +260,8 @@ let migrate_rrd ~__context ?remote_address ?session_id ~vm_uuid ~host_uuid () =
         a
   in
   log_and_ignore_exn (fun () ->
-      Rrdd.migrate_rrd session_id remote_address vm_uuid host_uuid)
+      Rrdd.migrate_rrd session_id remote_address vm_uuid host_uuid
+  )
 
 module Deprecated = struct
   let get_timescale ~__context =
@@ -262,5 +274,6 @@ module Deprecated = struct
     let master_address = Pool_role.get_master_address_opt () in
     let timescale = get_timescale ~__context in
     log_and_ignore_exn (fun () ->
-        Rrdd.Deprecated.load_rrd uuid timescale master_address)
+        Rrdd.Deprecated.load_rrd uuid timescale master_address
+    )
 end

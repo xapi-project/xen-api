@@ -110,17 +110,21 @@ let remove_restricted_pbd_keys () =
     (fun k ->
       Alcotest.(check bool)
         (Printf.sprintf "Restricted key, %s, not removed from PBD.device_config"
-           k)
+           k
+        )
         false
-        (List.mem_assoc k device_config'))
+        (List.mem_assoc k device_config')
+      )
     restricted_keys ;
   List.iter
     (fun k ->
       Alcotest.(check bool)
         (Printf.sprintf "Non-restricted key, %s, removed from PBD.device_config"
-           k)
+           k
+        )
         true
-        (List.mem_assoc k device_config'))
+        (List.mem_assoc k device_config')
+      )
     other_keys
 
 let test =

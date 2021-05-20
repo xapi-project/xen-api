@@ -89,7 +89,8 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
                    ; "sr_probe"
                    ; "sr_scan"
                    ; "sr_content_type"
-                   ])
+                   ]
+                )
             then
               raise
                 (Storage_interface.Storage_error
@@ -100,7 +101,11 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
                             "The operation %s is not allowed on this SR as it \
                              is being used for disaster recovery."
                             cmd
-                        ] ))))
+                        ]
+                      )
+                   )
+                )
+          )
         sr_ref ;
       let vdi_location =
         if vdi_location <> None then
@@ -118,13 +123,15 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
             | `persist ->
                 "persist"
             | `reset ->
-                "reset")
+                "reset"
+            )
           vdi_ref
       in
       let vdi_allow_caching =
         Option.map
           (fun self ->
-            string_of_bool (Db.VDI.get_allow_caching ~__context ~self))
+            string_of_bool (Db.VDI.get_allow_caching ~__context ~self)
+            )
           vdi_ref
       in
       let local_cache_sr =
@@ -133,7 +140,9 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
             (Db.SR.get_uuid ~__context
                ~self:
                  (Db.Host.get_local_cache_sr ~__context
-                    ~self:(Helpers.get_localhost __context)))
+                    ~self:(Helpers.get_localhost __context)
+                 )
+            )
         with _ -> None
       in
       let sr_uuid =
@@ -160,7 +169,8 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
       ; local_cache_sr
       ; cmd
       ; args
-      })
+      }
+  )
 
 let xmlrpc_of_call (call : call) =
   let kvpairs kvpairs =
@@ -276,7 +286,8 @@ let methodResponse xml =
   | Xml.Element
       ( "methodResponse"
       , _
-      , [Xml.Element ("params", _, [Xml.Element ("param", _, [param])])] ) ->
+      , [Xml.Element ("params", _, [Xml.Element ("param", _, [param])])]
+      ) ->
       XMLRPC.Success [param]
   | xml ->
       XMLRPC.From.methodResponse xml
@@ -297,7 +308,8 @@ let with_session sr f =
         Option.iter
           (fun sr ->
             Db.Session.add_to_other_config ~__context ~self:session
-              ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr))
+              ~key:Xapi_globs._sm_session ~value:(Ref.string_of sr)
+            )
           sr ;
         session
       in
@@ -305,7 +317,8 @@ let with_session sr f =
         Xapi_session.destroy_db_session ~__context ~self:session_id
       in
       let session_id = create_session () in
-      finally (fun () -> f session_id) (fun () -> destroy_session session_id))
+      finally (fun () -> f session_id) (fun () -> destroy_session session_id)
+  )
 
 let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
     =
@@ -331,14 +344,20 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
                 (Storage_interface.Storage_error
                    (Backend_error
                       ( Api_errors.sr_backend_failure
-                      , [Printexc.to_string e; output; stderr] )))
+                      , [Printexc.to_string e; output; stderr]
+                      )
+                   )
+                )
           with
           | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED i) ->
               raise
                 (Storage_interface.Storage_error
                    (Backend_error
                       ( Api_errors.sr_backend_failure
-                      , ["exit code: " ^ string_of_int i; output; log] )))
+                      , ["exit code: " ^ string_of_int i; output; log]
+                      )
+                   )
+                )
           | Forkhelpers.Spawn_internal_error (log, output, Unix.WSIGNALED i) ->
               raise
                 (Storage_interface.Storage_error
@@ -348,13 +367,20 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
                           "received signal: " ^ Unixext.string_of_signal i
                         ; output
                         ; log
-                        ] )))
+                        ]
+                      )
+                   )
+                )
           | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED i) ->
               raise
                 (Storage_interface.Storage_error
                    (Backend_error
                       ( Api_errors.sr_backend_failure
-                      , ["non-zero exit"; output; log] ))))
+                      , ["non-zero exit"; output; log]
+                      )
+                   )
+                )
+      )
     in
     match methodResponse xml with
     | XMLRPC.Fault (38l, _) ->
@@ -362,15 +388,18 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
     | XMLRPC.Fault (39l, _) ->
         raise
           (Storage_interface.Storage_error
-             (Backend_error (Api_errors.sr_not_empty, [])))
+             (Backend_error (Api_errors.sr_not_empty, []))
+          )
     | XMLRPC.Fault (24l, _) ->
         raise
           (Storage_interface.Storage_error
-             (Backend_error (Api_errors.vdi_in_use, [])))
+             (Backend_error (Api_errors.vdi_in_use, []))
+          )
     | XMLRPC.Fault (16l, _) ->
         raise
           (Storage_interface.Storage_error
-             (Backend_error (Api_errors.sr_device_in_use, [])))
+             (Backend_error (Api_errors.sr_device_in_use, []))
+          )
     | XMLRPC.Fault (144l, _) ->
         (* Any call which returns this 'VDIMissing' error really ought to have
            	   been provided both an SR and VDI reference... *)
@@ -378,14 +407,16 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
         let vdi = Option.fold ~none:"" ~some:Ref.string_of call.vdi_ref in
         raise
           (Storage_interface.Storage_error
-             (Backend_error (Api_errors.vdi_missing, [sr; vdi])))
+             (Backend_error (Api_errors.vdi_missing, [sr; vdi]))
+          )
     | XMLRPC.Fault (code, reason) ->
         let xenapi_code =
           Api_errors.sr_backend_failure ^ "_" ^ Int32.to_string code
         in
         raise
           (Storage_interface.Storage_error
-             (Backend_error (xenapi_code, [""; reason; stderr])))
+             (Backend_error (xenapi_code, [""; reason; stderr]))
+          )
     | XMLRPC.Success [result] ->
         result
     | _ ->
@@ -393,11 +424,15 @@ let exec_xmlrpc ?context ?(needs_session = true) (driver : string) (call : call)
           (Storage_interface.Storage_error
              (Backend_error
                 ( Api_errors.internal_error
-                , ["Unexpected response from SM plugin"] )))
+                , ["Unexpected response from SM plugin"]
+                )
+             )
+          )
   in
   if needs_session then
     with_session call.sr_ref (fun session_id ->
-        do_call {call with session_ref= Some session_id})
+        do_call {call with session_ref= Some session_id}
+    )
   else
     do_call call
 
@@ -409,7 +444,10 @@ let xmlrpc_parse_failure (xml : string) (reason : string) =
     (Storage_interface.Storage_error
        (Backend_error
           ( Api_errors.sr_backend_failure
-          , [""; "XML parse failure: " ^ xml; reason] )))
+          , [""; "XML parse failure: " ^ xml; reason]
+          )
+       )
+    )
 
 let rethrow_parse_failures xml f =
   try f () with
@@ -419,7 +457,8 @@ let rethrow_parse_failures xml f =
       xmlrpc_parse_failure xml
         (Printf.sprintf
            "XMLRPC unmarshall RunTimeTypeError: looking for %s found %s" s
-           (Xml.to_string_fmt x))
+           (Xml.to_string_fmt x)
+        )
   | e ->
       xmlrpc_parse_failure xml (Printexc.to_string e)
 
@@ -437,7 +476,8 @@ let parse_vdi_info (vdi_info_struct : Xml.xml) =
       {
         vdi_info_uuid= Some (safe_assoc "uuid" pairs)
       ; vdi_info_location= safe_assoc "location" pairs
-      })
+      }
+  )
 
 let parse_string (xml : Xml.xml) = XMLRPC.From.string xml
 
@@ -461,7 +501,8 @@ let parse_attach_result (xml : Xml.xml) =
             (XMLRPC.From.structure (safe_assoc "xenstore_data" info))
         with _ -> []
       in
-      {params; o_direct; o_direct_reason; xenstore_data})
+      {params; o_direct; o_direct_reason; xenstore_data}
+  )
 
 let parse_attach_result_legacy (xml : Xml.xml) = parse_string xml
 
@@ -486,9 +527,10 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
     List.map
       (fun kvpairs ->
         ( XMLRPC.From.string (safe_assoc "key" kvpairs)
-        , XMLRPC.From.string (safe_assoc "description" kvpairs) ))
-      (XMLRPC.From.array XMLRPC.From.structure
-         (safe_assoc "configuration" info))
+        , XMLRPC.From.string (safe_assoc "description" kvpairs)
+        )
+        )
+      (XMLRPC.From.array XMLRPC.From.structure (safe_assoc "configuration" info))
   in
   {
     sr_driver_filename= driver
@@ -537,7 +579,8 @@ let get_supported add_fn =
           error "Error checking directory %s for SM backends: %s" dir
             (ExnHelper.string_of_exn e)
       ) else
-        error "Not scanning %s for SM backends: directory does not exist" dir)
+        error "Not scanning %s for SM backends: directory does not exist" dir
+      )
     [(check_driver, !Xapi_globs.sm_dir)]
 
 (*********************************************************************)

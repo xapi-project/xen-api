@@ -47,7 +47,8 @@ let make __context rpc session_id srid (vms, vdis) =
           clean_up_stack :=
             (fun _ rpc session_id -> Client.VDI.destroy rpc session_id vdi)
             :: !clean_up_stack ;
-          vdi)
+          vdi
+          )
         vdis
     in
     debug "Now creating all the VMs" ;
@@ -106,18 +107,22 @@ let make __context rpc session_id srid (vms, vdis) =
       in
       TaskHelper.operate_on_db_task ~__context (fun task ->
           Client.VM.add_to_other_config ~rpc ~session_id ~self:vm_ref
-            ~key:Xapi_globs.import_task ~value:(Ref.string_of task)) ;
+            ~key:Xapi_globs.import_task ~value:(Ref.string_of task)
+      ) ;
       clean_up_stack :=
         (fun __context rpc session_id ->
           Helpers.log_exn_continue
             (Printf.sprintf
                "Attempting to remove import from current_operations of VM: %s"
-               (Ref.string_of vm_ref))
+               (Ref.string_of vm_ref)
+            )
             (fun () ->
               Db.VM.remove_from_current_operations ~__context ~self:vm_ref
-                ~key:task_id)
+                ~key:task_id
+              )
             () ;
-          Client.VM.destroy rpc session_id vm_ref)
+          Client.VM.destroy rpc session_id vm_ref
+          )
         :: !clean_up_stack ;
       (* Although someone could sneak in here and attempt to power on the VM, it
          				 doesn't really matter since no VBDs have been created yet... *)
@@ -139,8 +144,10 @@ let make __context rpc session_id srid (vms, vdis) =
           in
           clean_up_stack :=
             (fun __context rpc session_id ->
-              Client.VBD.destroy rpc session_id vbd_ref)
-            :: !clean_up_stack)
+              Client.VBD.destroy rpc session_id vbd_ref
+              )
+            :: !clean_up_stack
+          )
         vm.vbds ;
       (* attempt to make CD drive *)
       ( try
@@ -149,7 +156,8 @@ let make __context rpc session_id srid (vms, vdis) =
                ~other_config:[] ~userdevice:"autodetect" ~bootable:false
                ~mode:`RO ~_type:`CD ~unpluggable:true ~empty:true
                ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:""
-               ~currently_attached:false)
+               ~currently_attached:false
+            )
         with e ->
           warn "could not create CD drive on imported XVA: %s"
             (Printexc.to_string e)
@@ -181,7 +189,9 @@ let from_xml refresh_session s __context rpc session_id srid xml =
             failwith "VDI source must be a file:// URL" ;
           ( String.sub vdi.source 7 (String.length vdi.source - 7)
           , vdi_ref
-          , vdi.size ))
+          , vdi.size
+          )
+          )
         vdis
     in
     Stream_vdi.recv_all_zurich refresh_session s __context rpc session_id

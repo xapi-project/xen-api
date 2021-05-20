@@ -54,7 +54,8 @@ let initialise session_id template pool =
         Client.Network.create ~rpc ~session_id
           ~name_label:(Printf.sprintf "perftestnet%d" i)
           ~name_description:"" ~mTU:1500L ~other_config:[(oc_key, pool.key)]
-          ~bridge:"" ~managed:true ~tags:[])
+          ~bridge:"" ~managed:true ~tags:[]
+    )
   in
   (* Set up the template - create the VIFs *)
   debug "Setting up the template. Creating VIFs on networks" ;
@@ -65,7 +66,8 @@ let initialise session_id template pool =
           ~network:net ~vM:template ~mAC:"" ~mTU:1500L
           ~other_config:[(oc_key, pool.key)] ~qos_algorithm_type:""
           ~qos_algorithm_params:[] ~locking_mode:`network_default
-          ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false)
+          ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false
+    )
   in
   (* Create a disk for local storage *)
   debug "Creating a disk for local storage on the template" ;
@@ -98,7 +100,8 @@ let initialise session_id template pool =
         ~value:"static" ;
       Client.VM.add_to_xenstore_data ~rpc ~session_id ~self:template
         ~key:(Printf.sprintf "vm-data/provision/interfaces/%d/netmask" i)
-        ~value:"255.255.255.0")
+        ~value:"255.255.255.0"
+      )
     interfaces ;
   debug "Setting memory to 128 Megs" ;
   Client.VM.set_memory_static_min rpc session_id template
@@ -120,11 +123,11 @@ let reset_template session_id template =
   List.iter
     (fun vif ->
       try
-        if
-          List.mem_assoc oc_key (Client.VIF.get_other_config rpc session_id vif)
+        if List.mem_assoc oc_key (Client.VIF.get_other_config rpc session_id vif)
         then
           Client.VIF.destroy rpc session_id vif
-      with _ -> ())
+      with _ -> ()
+      )
     vifs ;
   (* Destroy template's sr disk *)
   let vbds = Client.VM.get_VBDs rpc session_id template in
@@ -138,7 +141,8 @@ let reset_template session_id template =
         ) ;
         Client.VDI.destroy rpc session_id vdi ;
         try Client.VBD.destroy rpc session_id vbd with _ -> ()
-      ))
+      )
+      )
     vbds ;
   (* Remove xenstore keys *)
   Client.VM.set_xenstore_data rpc session_id template [] ;
@@ -178,7 +182,8 @@ let uninitialise session_id template key =
           (fun vif -> try Client.VIF.destroy rpc session_id vif with _ -> ())
           (Client.VM.get_VIFs rpc session_id vm) ;
         Client.VM.destroy rpc session_id vm
-      ))
+      )
+      )
     vms ;
   (* Destroy networks *)
   debug "Destroying networks" ;
@@ -187,7 +192,8 @@ let uninitialise session_id template key =
     List.filter
       (fun (_, r) ->
         List.mem_assoc oc_key r.API.network_other_config
-        && List.assoc oc_key r.API.network_other_config = key)
+        && List.assoc oc_key r.API.network_other_config = key
+        )
       nets
   in
   List.iter (fun (net, _) -> Client.Network.destroy rpc session_id net) mynets ;
@@ -207,14 +213,13 @@ let uninitialise session_id template key =
   in
   List.iter
     (fun netdev ->
-      if
-        not (List.exists (fun (_, net) -> net.API.network_bridge = netdev) nets)
+      if not (List.exists (fun (_, net) -> net.API.network_bridge = netdev) nets)
       then (
         ignore
           (Sys.command (Printf.sprintf "ifconfig %s down 2>/dev/null" netdev)) ;
-        ignore
-          (Sys.command (Printf.sprintf "brctl delbr %s 2>/dev/null" netdev))
-      ))
+        ignore (Sys.command (Printf.sprintf "brctl delbr %s 2>/dev/null" netdev))
+      )
+      )
     netdevs
 
 let destroy_sdk_pool session_id sdkname key =
@@ -231,7 +236,8 @@ let iscsi_vm_iso_must_exist session_id =
   if CreateVM.find_iscsi_iso session_id = None then
     failwith
       (Printf.sprintf "The iSCSI target VM iso could not be found (%s)"
-         CreateVM.iscsi_vm_iso)
+         CreateVM.iscsi_vm_iso
+      )
 
 let create_sdk_pool session_id sdkname pool_name key ipbase =
   iscsi_vm_iso_must_exist session_id ;
@@ -268,9 +274,12 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
             ignore
               (Client.VM.add_to_xenstore_data rpc session_id vm
                  (Printf.sprintf "vm-data/provision/interfaces/%d/ip" i)
-                 (Printf.sprintf "192.168.%d.%d" (i + pool.ipbase) n)))
+                 (Printf.sprintf "192.168.%d.%d" (i + pool.ipbase) n)
+              )
+            )
           interfaces ;
-        vm)
+        vm
+    )
   in
   debug "Setting memory on master to be 256 Megs" ;
   Client.VM.set_memory_static_max rpc session_id hosts.(0)
@@ -290,14 +299,18 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
       debug "Starting VM %d" i ;
       Client.VM.start_on rpc session_id host
         (Client.Host.get_by_uuid rpc session_id localhost_uuid)
-        false false)
+        false false
+      )
     hosts ;
   ignore
     (Sys.command
        (Printf.sprintf "ifconfig %s 192.168.%d.200 up"
           (Client.Network.get_bridge rpc session_id
-             (Client.VIF.get_network rpc session_id interfaces.(0)))
-          pool.ipbase)) ;
+             (Client.VIF.get_network rpc session_id interfaces.(0))
+          )
+          pool.ipbase
+       )
+    ) ;
   reset_template session_id template ;
   debug "Guests are now booting..." ;
   let pingable = Array.make (Array.length hosts) false in
@@ -316,8 +329,11 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
               | true, true ->
                   'B'
               | _, _ ->
-                  '?')
-            pingable))
+                  '?'
+              )
+            pingable
+         )
+      )
   in
   let has_guest_booted i vm =
     let ip = Printf.sprintf "192.168.%d.%d" pool.ipbase (i + 1) in
@@ -357,7 +373,8 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
                 debug "Individual host status: %s" (string_of_status ()) ;
                 true
               ) else
-                false)
+                false
+              )
             (fun () -> Client.Session.logout rpc s)
         with _ -> false
     in
@@ -396,7 +413,8 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
             (Printf.sprintf "192.168.%d.1" pool.ipbase)
             "root" "xensource"
         ) ;
-        u)
+        u
+        )
       hosts
   in
   let poolrpc = remoterpc (Printf.sprintf "192.168.%d.1" pool.ipbase) in
@@ -424,8 +442,11 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
               | true, true ->
                   'E'
               | _, _ ->
-                  '?')
-            live))
+                  '?'
+              )
+            live
+         )
+      )
   in
   let has_host_booted rpc session_id i host =
     try
@@ -480,14 +501,16 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
     failwith
       (Printf.sprintf
          "We created %d VDIs on the iSCSI target VM but found %d LUNs"
-         pool.iscsi_luns (Array.length scsiids)) ;
+         pool.iscsi_luns (Array.length scsiids)
+      ) ;
   let lun_srs =
     Array.init pool.iscsi_luns (fun i ->
         Printf.printf " - Creating shared LVMoISCSI SR %d...\n%!" i ;
         let name_label = Printf.sprintf "LVMoISCSI-%d" i in
         Client.SR.create poolrpc poolses master
           [("target", iscsi_vm_ip); ("targetIQN", iqn); ("SCSIid", scsiids.(i))]
-          0L name_label "" "lvmoiscsi" "" true [])
+          0L name_label "" "lvmoiscsi" "" true []
+    )
   in
   let local_srs =
     Array.mapi
@@ -496,7 +519,8 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
         let name_label = Printf.sprintf "Local LVM on host %d" i in
         Client.SR.create poolrpc poolses h
           [("device", "/dev/" ^ sr_disk_device)]
-          0L name_label "" "lvm" "" false [])
+          0L name_label "" "lvm" "" false []
+        )
       host_uuids
   in
   let pifs = Client.PIF.get_all poolrpc poolses in
@@ -504,12 +528,14 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
     Array.init pool.bonds (fun i ->
         Client.Network.create poolrpc poolses
           (Printf.sprintf "Network associated with bond%d" i)
-          "" 1500L [] "" true [])
+          "" 1500L [] "" true []
+    )
   in
   let unused_nets =
     ref
       (Listext.List.setify
-         (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs))
+         (List.map (fun pif -> Client.PIF.get_network poolrpc poolses pif) pifs)
+      )
   in
   (* Reconfigure the master's networking last as this will be the most destructive *)
   let master_uuid = Client.Host.get_uuid poolrpc poolses master in
@@ -538,7 +564,8 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
               List.filter
                 (fun pif ->
                   let d = Client.PIF.get_device poolrpc poolses pif in
-                  d = device || d = device2)
+                  d = device || d = device2
+                  )
                 pifs
             in
             let nets =
@@ -565,7 +592,9 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
               (* In case we've lost our network connection *)
               wait_until_guests_have_booted ()
             ) ;
-            bond))
+            bond
+        )
+        )
       host_uuids
   in
   debug "Waiting for all guests to be pingable again." ;
@@ -577,7 +606,9 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
     (String.concat ","
        (List.map
           (fun net -> Client.Network.get_name_label poolrpc poolses net)
-          nets_for_vms)) ;
+          nets_for_vms
+       )
+    ) ;
   let networks = Array.of_list nets_for_vms in
   Printf.printf "Creating VMs (%s)\n%!"
     (if pool.use_shared_storage then "on shared storage" else "on local storage") ;
@@ -585,7 +616,8 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   List.iter
     (fun vm ->
       CreateVM.make ~rpc:poolrpc ~session_id:poolses ~networks ~storages ~pool
-        ~vm)
+        ~vm
+      )
     pool.vms
 
 let create_pool session_id sdkname pool_name key ipbase =
@@ -605,7 +637,8 @@ let create_pool session_id sdkname pool_name key ipbase =
       List.iter
         (fun pbd -> Client.PBD.unplug ~rpc ~session_id ~self:pbd)
         (Client.SR.get_PBDs ~rpc ~session_id ~self:lvm_sr) ;
-      Client.SR.forget ~rpc ~session_id ~sr:lvm_sr)
+      Client.SR.forget ~rpc ~session_id ~sr:lvm_sr
+      )
     (Client.SR.get_by_name_label ~rpc ~session_id ~label:"Local storage") ;
   (* 2/ create an default ext storage *)
   let storages =

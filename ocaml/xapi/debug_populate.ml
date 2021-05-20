@@ -100,7 +100,8 @@ let rec make_vifs __context vmref i =
          ~network:(get_random nws) ~vM:vmref ~mAC:"de:ad:be:ef:99:88"
          ~mTU:Int64.zero ~other_config:[] ~qos_algorithm_type:""
          ~qos_algorithm_params:[] ~locking_mode:`network_default
-         ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false) ;
+         ~ipv4_allowed:[] ~ipv6_allowed:[] ~currently_attached:false
+      ) ;
     make_vifs __context vmref (i - 1)
   )
 
@@ -193,4 +194,5 @@ let do_populate ~vms ~vdis_per_vm ~networks ~srs ~tasks =
       make_vms __context template vms vdis_per_vm ;
       debug "Making dummy tasks" ;
       make_tasks __context tasks ;
-      debug "Finished populating dummy task info")
+      debug "Finished populating dummy task info"
+  )

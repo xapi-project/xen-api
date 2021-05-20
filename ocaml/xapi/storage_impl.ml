@@ -93,7 +93,8 @@ let log_to_stdout prefix (fmt : ('a, unit, string, unit) format4) =
   Printf.kprintf
     (fun s ->
       Printf.printf "%s %s %s\n" (time_of_float (Unix.gettimeofday ())) prefix s ;
-      flush stdout)
+      flush stdout
+      )
     fmt
 
 module D = Debug.Make (struct let name = "storage_impl" end)
@@ -132,7 +133,8 @@ let rpc_fns keyty valty =
                 failwith "Runtime error marshalling non-stringish key"
           in
           let valuerpc = Rpcmarshal.marshal valty.Rpc.Types.ty v in
-          (keystr, valuerpc) :: acc)
+          (keystr, valuerpc) :: acc
+          )
         hashtbl []
     in
     Rpc.Dict v
@@ -149,7 +151,8 @@ let rpc_fns keyty valty =
               unm keyty (Rpc.String k) >>= fun key ->
               unm valty v >>= fun value ->
               Hashtbl.replace h key value ;
-              Ok h)
+              Ok h
+              )
             (Ok (Hashtbl.create (List.length kvs)))
             kvs
         in
@@ -218,8 +221,10 @@ module Vdi = struct
         (Vdi_automaton.string_of_state (superstate x))
         (Option.fold ~none:"None"
            ~some:(fun x ->
-             "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x))
-           x.attach_info)
+             "Some " ^ Jsonrpc.to_string (Storage_interface.(rpc_of backend) x)
+             )
+           x.attach_info
+        )
     in
     let of_dp (dp, state) =
       Printf.sprintf "DP: %s: %s%s" dp
@@ -236,7 +241,8 @@ module Sr = struct
   let typ_of_vdis =
     let of_rpc, rpc_of = rpc_fns Storage_interface.Vdi.t Vdi.t in
     Rpc.Types.(
-      Abstract {aname= "vdis"; test_data= [Hashtbl.create 1]; of_rpc; rpc_of})
+      Abstract {aname= "vdis"; test_data= [Hashtbl.create 1]; of_rpc; rpc_of}
+    )
 
   type t = {vdis: vdis  (** All tracked VDIs *)} [@@deriving rpcty]
 
@@ -246,14 +252,16 @@ module Sr = struct
 
   let find vdi sr =
     Mutex.execute m (fun () ->
-        try Some (Hashtbl.find sr.vdis vdi) with Not_found -> None)
+        try Some (Hashtbl.find sr.vdis vdi) with Not_found -> None
+    )
 
   let replace vdi vdi_t sr =
     Mutex.execute m (fun () -> Hashtbl.replace sr.vdis vdi vdi_t)
 
   let list sr =
     Mutex.execute m (fun () ->
-        Hashtbl.fold (fun k v acc -> (k, v) :: acc) sr.vdis [])
+        Hashtbl.fold (fun k v acc -> (k, v) :: acc) sr.vdis []
+    )
 
   let remove vdi sr = Mutex.execute m (fun () -> Hashtbl.remove sr.vdis vdi)
 
@@ -262,7 +270,8 @@ module Sr = struct
       (fun vdi vdi_t acc ->
         Printf.sprintf "VDI %s" (s_of_vdi vdi)
         :: List.map indent (Vdi.to_string_list vdi_t)
-        @ acc)
+        @ acc
+        )
       x.vdis []
 end
 
@@ -282,7 +291,8 @@ module Host = struct
 
   let find sr h =
     Mutex.execute m (fun () ->
-        try Some (Hashtbl.find h.srs sr) with Not_found -> None)
+        try Some (Hashtbl.find h.srs sr) with Not_found -> None
+    )
 
   let remove sr h = Mutex.execute m (fun () -> Hashtbl.remove h.srs sr)
 
@@ -291,7 +301,8 @@ module Host = struct
 
   let list h =
     Mutex.execute m (fun () ->
-        Hashtbl.fold (fun k v acc -> (k, v) :: acc) h.srs [])
+        Hashtbl.fold (fun k v acc -> (k, v) :: acc) h.srs []
+    )
 
   (** All global state held here *)
   let host = ref (empty ())
@@ -319,7 +330,8 @@ module Errors = struct
   let add dp sr vdi code =
     Mutex.execute errors_m (fun () ->
         let t = {dp; time= Unix.gettimeofday (); sr; vdi; error= code} in
-        errors := Listext.List.take 100 (t :: !errors))
+        errors := Listext.List.take 100 (t :: !errors)
+    )
 
   let list () = Mutex.execute errors_m (fun () -> !errors)
 
@@ -383,7 +395,8 @@ functor
               Hashtbl.replace locks sr_key result ;
               result
             ) else
-              Hashtbl.find locks sr_key)
+              Hashtbl.find locks sr_key
+        )
 
       let locks_remove sr =
         Mutex.execute locks_m (fun () -> Hashtbl.remove locks (s_of_sr sr))
@@ -516,8 +529,10 @@ functor
                   ignore
                     (List.fold_left
                        (fun _ op ->
-                         perform_nolock context ~dbg ~dp ~sr ~vdi ~vm op)
-                       vdi_t ops)
+                         perform_nolock context ~dbg ~dp ~sr ~vdi ~vm op
+                         )
+                       vdi_t ops
+                    )
                 with e ->
                   if not allow_leak then (
                     ignore (Vdi.add_leaked dp vdi_t) ;
@@ -535,7 +550,8 @@ functor
                     else
                       Sr.replace vdi vdi_t sr_t ;
                     Everything.to_file !host_state_path (Everything.make ())
-                  ))
+                  )
+                )
               (Sr.find vdi sr_t)
 
       (* Attempt to clear leaked datapaths associed with this vdi *)
@@ -561,7 +577,8 @@ functor
                 destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm
                   ~allow_leak:false ;
                 acc
-              with e -> e :: acc)
+              with e -> e :: acc
+              )
             [] dps
         in
         match failures with [] -> next () | f :: fs -> raise f
@@ -572,7 +589,9 @@ functor
         with_vdi sr vdi (fun () ->
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
               (fun () ->
-                Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent))
+                Impl.VDI.epoch_begin context ~dbg ~sr ~vdi ~vm ~persistent
+            )
+        )
 
       let attach3 context ~dbg ~dp ~sr ~vdi ~vm ~read_write =
         info "VDI.attach3 dbg:%s dp:%s sr:%s vdi:%s vm:%s read_write:%b" dbg dp
@@ -587,9 +606,12 @@ functor
                            Vdi_automaton.RW
                        else
                          Vdi_automaton.RO
-                       ))
+                       )
+                    )
                 in
-                Option.get state.Vdi.attach_info))
+                Option.get state.Vdi.attach_info
+            )
+        )
 
       let attach2 context ~dbg ~dp ~sr ~vdi ~read_write =
         info "VDI.attach2 dbg:%s dp:%s sr:%s vdi:%s read_write:%b" dbg dp
@@ -636,7 +658,10 @@ functor
                         ^ (Storage_interface.(rpc_of backend) backend
                           |> Jsonrpc.to_string
                           )
-                      ] )))
+                      ]
+                    )
+                 )
+              )
 
       let activate3 context ~dbg ~dp ~sr ~vdi ~vm =
         info "VDI.activate3 dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
@@ -646,7 +671,10 @@ functor
               (fun () ->
                 ignore
                   (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
-                     Vdi_automaton.Activate)))
+                     Vdi_automaton.Activate
+                  )
+            )
+        )
 
       let activate context ~dbg ~dp ~sr ~vdi =
         info "VDI.activate dbg:%s dp:%s sr:%s vdi:%s " dbg dp (s_of_sr sr)
@@ -663,7 +691,10 @@ functor
               (fun () ->
                 ignore
                   (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
-                     Vdi_automaton.Deactivate)))
+                     Vdi_automaton.Deactivate
+                  )
+            )
+        )
 
       let detach context ~dbg ~dp ~sr ~vdi ~vm =
         info "VDI.detach dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
@@ -673,14 +704,19 @@ functor
               (fun () ->
                 ignore
                   (perform_nolock context ~dbg ~dp ~sr ~vdi ~vm
-                     Vdi_automaton.Detach)))
+                     Vdi_automaton.Detach
+                  )
+            )
+        )
 
       let epoch_end context ~dbg ~sr ~vdi ~vm =
         info "VDI.epoch_end dbg:%s sr:%s vdi:%s vm:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) (s_of_vm vm) ;
         with_vdi sr vdi (fun () ->
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.leaked
-              (fun () -> Impl.VDI.epoch_end context ~dbg ~sr ~vdi ~vm))
+              (fun () -> Impl.VDI.epoch_end context ~dbg ~sr ~vdi ~vm
+            )
+        )
 
       let create context ~dbg ~sr ~vdi_info =
         info "VDI.create dbg:%s sr:%s vdi_info:%s" dbg (s_of_sr sr)
@@ -699,7 +735,10 @@ functor
                         "Disk too small"
                       ; Int64.to_string vdi_info.virtual_size
                       ; Int64.to_string virtual_size'
-                      ] )))
+                      ]
+                    )
+                 )
+              )
         | result ->
             result
 
@@ -716,7 +755,8 @@ functor
         info "VDI.set_name_label dbg:%s sr:%s vdi:%s new_name_label:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi) new_name_label ;
         with_vdi sr vdi (fun () ->
-            Impl.VDI.set_name_label context ~dbg ~sr ~vdi ~new_name_label)
+            Impl.VDI.set_name_label context ~dbg ~sr ~vdi ~new_name_label
+        )
 
       let set_name_description context ~dbg ~sr ~vdi ~new_name_description =
         info
@@ -724,20 +764,24 @@ functor
           dbg (s_of_sr sr) (s_of_vdi vdi) new_name_description ;
         with_vdi sr vdi (fun () ->
             Impl.VDI.set_name_description context ~dbg ~sr ~vdi
-              ~new_name_description)
+              ~new_name_description
+        )
 
       let resize context ~dbg ~sr ~vdi ~new_size =
         info "VDI.resize dbg:%s sr:%s vdi:%s new_size:%Ld" dbg (s_of_sr sr)
           (s_of_vdi vdi) new_size ;
         with_vdi sr vdi (fun () ->
-            Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size)
+            Impl.VDI.resize context ~dbg ~sr ~vdi ~new_size
+        )
 
       let destroy_and_data_destroy call_name call_f context ~dbg ~sr ~vdi =
         info "%s dbg:%s sr:%s vdi:%s" call_name dbg (s_of_sr sr) (s_of_vdi vdi) ;
         with_vdi sr vdi (fun () ->
             let vm = vm_of_s "" in
             remove_datapaths_andthen_nolock context ~dbg ~sr ~vdi ~vm Vdi.all
-              (fun () -> call_f context ~dbg ~sr ~vdi))
+              (fun () -> call_f context ~dbg ~sr ~vdi
+            )
+        )
 
       let destroy = destroy_and_data_destroy "VDI.destroy" Impl.VDI.destroy
 
@@ -759,7 +803,8 @@ functor
         info "VDI.set_persistent dbg:%s sr:%s vdi:%s persistent:%b" dbg
           (s_of_sr sr) (s_of_vdi vdi) persistent ;
         with_vdi sr vdi (fun () ->
-            Impl.VDI.set_persistent context ~dbg ~sr ~vdi ~persistent)
+            Impl.VDI.set_persistent context ~dbg ~sr ~vdi ~persistent
+        )
 
       let get_by_name context ~dbg ~sr ~name =
         info "VDI.get_by_name dbg:%s sr:%s name:%s" dbg (s_of_sr sr) name ;
@@ -795,8 +840,7 @@ functor
         Impl.VDI.get_url context ~dbg ~sr ~vdi
 
       let enable_cbt context ~dbg ~sr ~vdi =
-        info "VDI.enable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr)
-          (s_of_vdi vdi) ;
+        info "VDI.enable_cbt dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
         with_vdi sr vdi (fun () -> Impl.VDI.enable_cbt context ~dbg ~sr ~vdi)
 
       let disable_cbt context ~dbg ~sr ~vdi =
@@ -809,7 +853,8 @@ functor
         info "VDI.list_changed_blocks dbg:%s sr:%s vdi_from:%s vdi_to:%s" dbg
           (s_of_sr sr) (s_of_vdi vdi_from) (s_of_vdi vdi_to) ;
         with_vdi sr vdi_to (fun () ->
-            Impl.VDI.list_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to)
+            Impl.VDI.list_changed_blocks context ~dbg ~sr ~vdi_from ~vdi_to
+        )
     end
 
     let get_by_name context ~dbg ~name =
@@ -880,7 +925,8 @@ functor
         debug "[destroy_sr] Filtered VDI count:%d" (List.length vdis_with_dp) ;
         List.iter
           (fun (vdi, vdi_t) ->
-            debug "[destroy_sr] VDI found with the dp is %s" (s_of_vdi vdi))
+            debug "[destroy_sr] VDI found with the dp is %s" (s_of_vdi vdi)
+            )
           vdis_with_dp ;
         let locker vdi =
           if vdi_already_locked then
@@ -904,7 +950,10 @@ functor
                           Printf.sprintf
                             "Expected 0 or 1 VDI with datapath, had %d"
                             (List.length vdis_with_dp)
-                        ] )))
+                        ]
+                      )
+                   )
+                )
         in
         (* From this point if it didn't raise, the assumption of 0 or 1 VDIs holds *)
         let failure =
@@ -918,7 +967,8 @@ functor
                     VDI.destroy_datapath_nolock context ~dbg ~dp ~sr ~vdi ~vm
                       ~allow_leak ;
                     None
-                  with e -> Some e)
+                  with e -> Some e
+              )
         in
         (* This is debug code to assert that we removed the datapath from all VDIs by looking for a situation where a VDI not known about has the datapath at this point *)
         (* Can't just check for vdis_with_dp = 0, the actual removal isn't necessarily complete at this point *)
@@ -961,12 +1011,14 @@ functor
               ]
               @ List.map
                   (fun (vdi, vdi_t) ->
-                    Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi))
+                    Printf.sprintf "VDI found with the dp is %s" (s_of_vdi vdi)
+                    )
                   vdis_with_dp
             in
             raise
               (Storage_interface.Storage_error
-                 (Backend_error (Api_errors.internal_error, message)))
+                 (Backend_error (Api_errors.internal_error, message))
+              )
         ) ;
         failure
 
@@ -975,7 +1027,8 @@ functor
         let failures =
           Host.list !Host.host
           |> List.filter_map (fun (sr, sr_t) ->
-                 destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false)
+                 destroy_sr context ~dbg ~dp ~sr ~sr_t ~allow_leak false
+             )
         in
         match (failures, allow_leak) with
         | [], _ ->
@@ -1025,7 +1078,10 @@ functor
               (Storage_error
                  (Internal_error
                     (Printf.sprintf "sr: %s vdi: %s Datapath %s not attached"
-                       (s_of_sr sr) (s_of_vdi vdi) dp)))
+                       (s_of_sr sr) (s_of_vdi vdi) dp
+                    )
+                 )
+              )
 
       let stat_vdi context ~dbg ~sr ~vdi () =
         info "DP.stat_vdi dbg:%s sr:%s vdi:%s" dbg (s_of_sr sr) (s_of_vdi vdi) ;
@@ -1043,7 +1099,8 @@ functor
                     List.map
                       (fun dp -> (dp, Vdi.get_dp_state dp vdi_t))
                       (Vdi.dps vdi_t)
-                })
+                }
+        )
     end
 
     module SR = struct
@@ -1065,7 +1122,8 @@ functor
             | None ->
                 raise (Storage_error (Sr_not_attached (s_of_sr sr)))
             | Some _ ->
-                Impl.SR.stat context ~dbg ~sr)
+                Impl.SR.stat context ~dbg ~sr
+        )
 
       let scan context ~dbg ~sr =
         info "SR.scan dbg:%s sr:%s" dbg (s_of_sr sr) ;
@@ -1074,7 +1132,8 @@ functor
             | None ->
                 raise (Storage_error (Sr_not_attached (s_of_sr sr)))
             | Some _ ->
-                Impl.SR.scan context ~dbg ~sr)
+                Impl.SR.scan context ~dbg ~sr
+        )
 
       let create context ~dbg ~sr ~name_label ~name_description ~device_config
           ~physical_size =
@@ -1085,7 +1144,8 @@ functor
                   ~device_config ~physical_size
             | Some _ ->
                 error "SR %s is already attached" (s_of_sr sr) ;
-                raise (Storage_error (Sr_attached (s_of_sr sr))))
+                raise (Storage_error (Sr_attached (s_of_sr sr)))
+        )
 
       let set_name_label context ~dbg ~sr ~new_name_label =
         info "SR.set_name_label dbg:%s sr:%s new_name_label:%s" dbg (s_of_sr sr)
@@ -1107,15 +1167,18 @@ functor
                    if
                      List.exists
                        (fun censored ->
-                         Astring.String.is_infix ~affix:censored k)
+                         Astring.String.is_infix ~affix:censored k
+                         )
                        censor_key
                    then
                      "(omitted)"
                    else
                      v
                  in
-                 k ^ ":" ^ v')
-               device_config)
+                 k ^ ":" ^ v'
+                 )
+               device_config
+            )
         in
         info "SR.attach dbg:%s sr:%s device_config:[%s]" dbg (s_of_sr sr)
           device_config_str ;
@@ -1130,13 +1193,13 @@ functor
                 Everything.to_file !host_state_path (Everything.make ())
             | Some _ ->
                 (* Operation is idempotent *)
-                ())
+                ()
+        )
 
       let detach_destroy_common context ~dbg ~sr f =
         let active_dps sr_t =
           (* Enumerate all active datapaths *)
-          List.concat
-            (List.map (fun (_, vdi_t) -> Vdi.dps vdi_t) (Sr.list sr_t))
+          List.concat (List.map (fun (_, vdi_t) -> Vdi.dps vdi_t) (Sr.list sr_t))
         in
         with_sr sr (fun () ->
             match Host.find sr !Host.host with
@@ -1151,7 +1214,8 @@ functor
                           DP.destroy_sr context ~dbg ~dp ~sr ~sr_t
                             ~allow_leak:false true
                         in
-                        ())
+                        ()
+                        )
                       dps ;
                     let dps = active_dps sr_t in
                     if dps <> [] then
@@ -1160,7 +1224,9 @@ functor
                     f context ~dbg ~sr ;
                     Host.remove sr !Host.host ;
                     Everything.to_file !host_state_path (Everything.make ()) ;
-                    VDI.locks_remove sr))
+                    VDI.locks_remove sr
+                )
+        )
 
       let detach context ~dbg ~sr =
         info "SR.detach dbg:%s sr:%s" dbg (s_of_sr sr) ;
@@ -1171,7 +1237,8 @@ functor
         with_sr sr (fun () ->
             Host.remove sr !Host.host ;
             Everything.to_file !host_state_path (Everything.make ()) ;
-            VDI.locks_remove sr)
+            VDI.locks_remove sr
+        )
 
       let destroy context ~dbg ~sr =
         info "SR.destroy dbg:%s sr:%s" dbg (s_of_sr sr) ;
@@ -1186,7 +1253,8 @@ functor
           (List.map
              (fun (local_snapshot, dest_snapshot) ->
                Printf.sprintf "local:%s, dest:%s" (s_of_vdi local_snapshot)
-                 (s_of_vdi dest_snapshot))
+                 (s_of_vdi dest_snapshot)
+               )
              snapshot_pairs
           |> String.concat "; "
           |> Printf.sprintf "[%s]"
@@ -1203,7 +1271,8 @@ functor
           (List.map
              (fun (local_snapshot, src_snapshot_info) ->
                Printf.sprintf "local:%s, src:%s" (s_of_vdi local_snapshot)
-                 (s_of_vdi src_snapshot_info.vdi))
+                 (s_of_vdi src_snapshot_info.vdi)
+               )
              snapshot_pairs
           |> String.concat "; "
           |> Printf.sprintf "[%s]"

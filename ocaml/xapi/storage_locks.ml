@@ -43,12 +43,15 @@ let with_instance_lock t key f =
       while Hashtbl.mem t.t key || t.master_lock do
         Condition.wait t.c t.m
       done ;
-      Hashtbl.replace t.t key ()) ;
+      Hashtbl.replace t.t key ()
+  ) ;
   Locking_helpers.Thread_state.acquired r ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
       Mutex.execute t.m (fun () ->
-          Hashtbl.remove t.t key ; Condition.broadcast t.c) ;
-      Locking_helpers.Thread_state.released r)
+          Hashtbl.remove t.t key ; Condition.broadcast t.c
+      ) ;
+      Locking_helpers.Thread_state.released r
+  )
 
 (** Execute the function with the master_lock held and no instance locks held *)
 let with_master_lock t f =
@@ -64,10 +67,13 @@ let with_master_lock t f =
       (* Wait for all instance locks to be released *)
       while Hashtbl.length t.t > 0 do
         Condition.wait t.c t.m
-      done) ;
+      done
+  ) ;
   Locking_helpers.Thread_state.acquired r ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
       Mutex.execute t.m (fun () ->
           t.master_lock <- false ;
-          Condition.broadcast t.c) ;
-      Locking_helpers.Thread_state.released r)
+          Condition.broadcast t.c
+      ) ;
+      Locking_helpers.Thread_state.released r
+  )

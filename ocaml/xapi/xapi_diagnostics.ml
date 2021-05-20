@@ -72,4 +72,5 @@ let network_stats ~__context ~host ~params =
              else
                []
              )
-           ])
+           ]
+     )

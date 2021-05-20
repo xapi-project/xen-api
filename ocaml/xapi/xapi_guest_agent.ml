@@ -111,8 +111,7 @@ let networks path vif_type (list : string -> string list) =
     let ipv4_with_idx = (extend path "ip", extend prefix "ipv4/0") in
     if List.mem "ipv6" (list path) then
       ipv4
-      :: ipv4_with_idx
-      :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
+      :: ipv4_with_idx :: find_ipv6 (extend path "ipv6") (extend prefix "ipv6")
     else
       [ipv4; ipv4_with_idx]
   in
@@ -147,7 +146,8 @@ let networks path vif_type (list : string -> string list) =
         | None ->
             acc
         | Some pair ->
-            pair :: acc)
+            pair :: acc
+        )
       [] (list path)
   in
   let find_vifs vif_path =
@@ -250,8 +250,10 @@ let get_initial_guest_metrics (lookup : string -> string option)
            | Some xsval, _, _ ->
                [(mapkey, xsval)]
            | None, _, _ ->
-               [])
-         kvpairs)
+               []
+           )
+         kvpairs
+      )
   in
   let get_tristate xskey =
     match lookup xskey with
@@ -278,7 +280,8 @@ let get_initial_guest_metrics (lookup : string -> string option)
          [
            networks "attr" "vif" list
          ; networks "xenserver/attr" "net-sriov-vf" list
-         ])
+         ]
+      )
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
@@ -325,7 +328,8 @@ let create_and_set_guest_metrics (lookup : string -> string option)
   Mutex.execute mutex (fun () -> Hashtbl.replace cache domid initial_gm) ;
   (* We've just set the thing to live, let's make sure it's not in the dead list *)
   Mutex.execute mutex (fun () ->
-      dead_domains := IntSet.remove domid !dead_domains) ;
+      dead_domains := IntSet.remove domid !dead_domains
+  ) ;
   let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
   info
     "Received initial update from guest agent in VM %s; os_version = [ %s ]; \
@@ -379,7 +383,8 @@ let all (lookup : string -> string option) (list : string -> string list)
           ; last_updated= 0.0
           ; can_use_hotplug_vbd= `unspecified
           ; can_use_hotplug_vif= `unspecified
-          })
+          }
+    )
   in
   (* Only if the data is valid, cache it (CA-20353) *)
   Mutex.execute mutex (fun () ->
@@ -394,7 +399,8 @@ let all (lookup : string -> string option) (list : string -> string list)
         ; last_updated
         ; can_use_hotplug_vbd
         ; can_use_hotplug_vif
-        }) ;
+        }
+  ) ;
   (* We update only if any actual data has changed *)
   if
     (guest_metrics_cached.pv_drivers_version <> pv_drivers_version
@@ -434,7 +440,8 @@ let all (lookup : string -> string option) (list : string -> string list)
     if guest_metrics_cached.other <> other then (
       Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.update_allowed_operations rpc session_id self)
+          Client.Client.VM.update_allowed_operations rpc session_id self
+      )
     ) ;
     if guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd then
       Db.VM_guest_metrics.set_can_use_hotplug_vbd ~__context ~self:gm
@@ -485,7 +492,8 @@ let all (lookup : string -> string option) (list : string -> string list)
       || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
     then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.VM.update_allowed_operations rpc session_id self)
+          Client.Client.VM.update_allowed_operations rpc session_id self
+      )
   )
 
 (* else debug "Ignored spurious guest agent update" *)

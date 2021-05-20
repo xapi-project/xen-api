@@ -91,7 +91,9 @@ let get_pif_type pif_rec =
             , [
                 Printf.sprintf "Cannot calculate PIF type of %s"
                   pif_rec.API.pIF_uuid
-              ] ))
+              ]
+            )
+        )
 
 (* The root PIF underneath should be Physical or Bond_master *)
 
@@ -130,13 +132,15 @@ let vlan_is_allowed_on_pif ~__context ~tagged_PIF ~pif_rec ~pif_topo ~tag =
       raise
         Api_errors.(
           Server_error
-            (cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF]))
+            (cannot_add_vlan_to_bond_slave, [Ref.string_of tagged_PIF])
+        )
   | VLAN_untagged _ :: _ ->
       raise Api_errors.(Server_error (pif_is_vlan, [Ref.string_of tagged_PIF]))
   | Tunnel_access _ :: _ ->
       raise
         Api_errors.(
-          Server_error (is_tunnel_access_pif, [Ref.string_of tagged_PIF]))
+          Server_error (is_tunnel_access_pif, [Ref.string_of tagged_PIF])
+        )
   | _ ->
       ()
 
@@ -149,22 +153,27 @@ let tunnel_is_allowed_on_pif ~__context ~transport_PIF =
       raise
         Api_errors.(
           Server_error
-            (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF]))
+            (cannot_add_tunnel_to_bond_slave, [Ref.string_of transport_PIF])
+        )
   | Tunnel_access _ :: _ ->
       raise
         Api_errors.(
-          Server_error (is_tunnel_access_pif, [Ref.string_of transport_PIF]))
+          Server_error (is_tunnel_access_pif, [Ref.string_of transport_PIF])
+        )
   | Network_sriov_logical _ :: _ ->
       raise
         Api_errors.(
           Server_error
-            (cannot_add_tunnel_to_sriov_logical, [Ref.string_of transport_PIF]))
+            (cannot_add_tunnel_to_sriov_logical, [Ref.string_of transport_PIF])
+        )
   | VLAN_untagged _ :: Network_sriov_logical _ :: _ ->
       raise
         Api_errors.(
           Server_error
             ( cannot_add_tunnel_to_vlan_on_sriov_logical
-            , [Ref.string_of transport_PIF] ))
+            , [Ref.string_of transport_PIF]
+            )
+        )
   | _ ->
       ()
 
@@ -188,7 +197,8 @@ let bond_is_allowed_on_pif ~__context ~self =
       raise
         Api_errors.(
           Server_error
-            (pif_vlan_exists, [Db.PIF.get_device_name ~__context ~self]))
+            (pif_vlan_exists, [Db.PIF.get_device_name ~__context ~self])
+        )
   | Tunnel_access _ :: _ ->
       raise
         Api_errors.(Server_error (is_tunnel_access_pif, [Ref.string_of self]))
@@ -206,17 +216,20 @@ let sriov_is_allowed_on_pif ~__context ~physical_PIF ~pif_rec =
     | _ ->
         raise
           Api_errors.(
-            Server_error (pif_is_not_physical, [Ref.string_of physical_PIF]))
+            Server_error (pif_is_not_physical, [Ref.string_of physical_PIF])
+          )
   in
   if pif_rec.API.pIF_sriov_physical_PIF_of <> [] then
     raise
       Api_errors.(
         Server_error
-          (network_sriov_already_enabled, [Ref.string_of physical_PIF])) ;
+          (network_sriov_already_enabled, [Ref.string_of physical_PIF])
+      ) ;
   if not (List.mem "sriov" pif_rec.API.pIF_capabilities) then
     raise
       Api_errors.(
-        Server_error (pif_is_not_sriov_capable, [Ref.string_of physical_PIF]))
+        Server_error (pif_is_not_sriov_capable, [Ref.string_of physical_PIF])
+      )
 
 let assert_pif_is_managed ~__context ~self =
   if Db.PIF.get_managed ~__context ~self <> true then

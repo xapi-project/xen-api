@@ -38,7 +38,8 @@ module Clock = struct
     | None ->
         raise
           Api_errors.(
-            Server_error (internal_error, ["clock overflow"; __LOC__]))
+            Server_error (internal_error, ["clock overflow"; __LOC__])
+          )
 end
 
 let add_to_queue ?(signal = true) name ty start newfunc =
@@ -48,7 +49,8 @@ let add_to_queue ?(signal = true) name ty start newfunc =
         {
           Ipq.ev= {func= newfunc; ty; name}
         ; Ipq.time= Mtime_clock.now () ++ start
-        }) ;
+        }
+  ) ;
   if signal then Delay.signal delay
 
 let remove_from_queue name =

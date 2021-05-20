@@ -27,4 +27,5 @@ let xapi_version_major, xapi_version_minor =
     failwith
       (Printf.sprintf
          "Couldn't determine xapi version - got unexpected XAPI_VERSION='%s'"
-         Build_info.version)
+         Build_info.version
+      )

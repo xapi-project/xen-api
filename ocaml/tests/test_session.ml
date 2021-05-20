@@ -12,7 +12,8 @@ let fail_login ~__context ~uname ~originator ~now () =
         if Random.bool () then
           raise Api_errors.(Server_error (session_authentication_failed, []))
         else
-          raise (Auth_signature.Auth_failure "Auth failure"))
+          raise (Auth_signature.Auth_failure "Auth failure")
+    )
   with e -> ()
 
 let success_login ~__context ~uname ~originator ~now () =
@@ -24,7 +25,8 @@ let make_ctx ~user_agent ~client_ip =
   let additional_headers =
     client_ip
     |> Option.fold ~none:[] ~some:(fun x ->
-           [("STUNNEL_PROXY", Printf.sprintf "TCP6 %s another_ip 443 80" x)])
+           [("STUNNEL_PROXY", Printf.sprintf "TCP6 %s another_ip 443 80" x)]
+       )
   in
   let rq = {Http.Request.empty with user_agent; additional_headers} in
   (* it doesn't matter which fd is used to here, we are just satisying the
@@ -41,11 +43,13 @@ let run_unknown_client_logins () =
   let __context = make_ctx ~user_agent:None ~client_ip:None in
   repeat 50
     (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now) ;
+       ~originator:(Some "nice_origin") ~now
+    ) ;
   repeat 10 (fail_login ~__context ~uname:None ~originator:None ~now) ;
   repeat 50
     (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now)
+       ~originator:(Some "nice_origin") ~now
+    )
 
 let run_known_client_logins () =
   let __context =
@@ -57,29 +61,36 @@ let run_known_client_logins () =
   in
   repeat 50
     (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now) ;
+       ~originator:(Some "nice_origin") ~now
+    ) ;
   repeat 2
     (fail_login ~__context:__context_no_UA ~uname:(Some "usr1") ~now
-       ~originator:(Some "origin1")) ;
+       ~originator:(Some "origin1")
+    ) ;
   repeat 3
     (fail_login ~__context:__context_no_UA ~uname:None
-       ~originator:(Some "origin2") ~now) ;
+       ~originator:(Some "origin2") ~now
+    ) ;
   repeat 4 (fail_login ~__context ~uname:None ~originator:None ~now) ;
   repeat 6
     (fail_login ~__context:__context_no_client_ip ~uname:(Some "usr4")
-       ~originator:None ~now:future) ;
+       ~originator:None ~now:future
+    ) ;
   let () =
     (* this client fails now and then in the future (to test timestamp) *)
     repeat 9
       (fail_login ~__context:__context_no_UA ~uname:(Some "usr5")
-         ~originator:(Some "origin5") ~now) ;
+         ~originator:(Some "origin5") ~now
+      ) ;
     repeat 1
       (fail_login ~__context:__context_no_UA ~uname:(Some "usr5")
-         ~originator:(Some "origin5") ~now:future)
+         ~originator:(Some "origin5") ~now:future
+      )
   in
   repeat 50
     (success_login ~__context ~uname:(Some "good_user")
-       ~originator:(Some "nice_origin") ~now:future)
+       ~originator:(Some "nice_origin") ~now:future
+    )
 
 let test_fetching_failed_login_stats_twice_yields_none () =
   let _ = Xapi_session.get_failed_login_stats () in
@@ -165,15 +176,20 @@ let tests =
     , [
         ( "test_fetching_failed_login_stats_twice_yields_none"
         , `Quick
-        , test_fetching_failed_login_stats_twice_yields_none )
+        , test_fetching_failed_login_stats_twice_yields_none
+        )
       ; ( "test_only_failed_logins_from_unknown_clients"
         , `Quick
-        , test_only_failed_logins_from_unknown_clients )
+        , test_only_failed_logins_from_unknown_clients
+        )
       ; ( "test_failed_logins_from_clients"
         , `Quick
-        , test_failed_logins_from_known_clients_only )
+        , test_failed_logins_from_known_clients_only
+        )
       ; ( "test_failed_logins_from_both_known_and_unknown_clients"
         , `Quick
-        , test_failed_logins_from_both_known_and_unknown_clients )
-      ] )
+        , test_failed_logins_from_both_known_and_unknown_clients
+        )
+      ]
+    )
   ]

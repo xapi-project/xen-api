@@ -64,7 +64,8 @@ let resynchronise ~__context ~host =
       (fun filename ->
         let stat = Unix.stat (Filename.concat crash_dir filename) in
         stat.Unix.st_kind = Unix.S_DIR
-        (*only directories are marked as crashdumps*))
+        (*only directories are marked as crashdumps*)
+        )
       (try Array.to_list (Sys.readdir crash_dir) with _ -> [])
   in
   let gone_away = Listext.List.set_difference db_filenames real_filenames
@@ -94,7 +95,8 @@ let resynchronise ~__context ~host =
     (fun filename ->
       debug "Deleting record corresponding to old crashdump %s" filename ;
       let r = List.assoc filename table in
-      Db.Host_crashdump.destroy ~__context ~self:r)
+      Db.Host_crashdump.destroy ~__context ~self:r
+      )
     gone_away ;
   List.iter
     (fun filename ->
@@ -126,14 +128,17 @@ let resynchronise ~__context ~host =
                    ; tm_wday= 0
                    ; tm_yday= 0
                    ; tm_isdst= false
-                   }))
+                   }
+                )
+          )
         with _ ->
           (Unix.stat (Filename.concat crash_dir filename)).Unix.st_ctime
       in
       let timestamp = Date.of_float timestamp in
       let r = Ref.make () and uuid = Uuid.to_string (Uuid.make_uuid ()) in
       Db.Host_crashdump.create ~__context ~ref:r ~uuid ~other_config:[] ~host
-        ~timestamp ~size ~filename)
+        ~timestamp ~size ~filename
+      )
     arrived
 
 let destroy ~__context ~self =

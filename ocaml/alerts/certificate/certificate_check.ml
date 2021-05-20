@@ -28,11 +28,13 @@ let get_certificate_attributes rpc session =
      | `host ->
          Host
            ( certificate.API.certificate_host
-           , certificate.API.certificate_not_after )
+           , certificate.API.certificate_not_after
+           )
      | `host_internal ->
          Internal
            ( certificate.API.certificate_host
-           , certificate.API.certificate_not_after )
+           , certificate.API.certificate_not_after
+           )
      | `ca ->
          let pool =
            match XenAPI.Pool.get_all rpc session with
@@ -172,7 +174,8 @@ let alert rpc session =
              || matching Api_messages.host_internal_certificate_expiring
              || matching (fst Api_messages.host_internal_certificate_expired)
            in
-           expiring_or_expired record.API.message_name)
+           expiring_or_expired record.API.message_name
+       )
   in
   let send_alert_maybe attributes =
     attributes |> generate_alert now |> execute rpc session previous_messages

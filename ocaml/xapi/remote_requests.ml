@@ -101,7 +101,8 @@ let watcher_thread = function
             in
             List.iter Locking_helpers.kill_resource resources ;
             signal_result' req (Exception Timed_out) ()
-          ))
+          )
+      )
 
 let handle_request req =
   try
@@ -111,11 +112,14 @@ let handle_request req =
         ( SSL.make ~verify_cert:req.verify_cert
             ~task_id:(Ref.string_of req.task) ()
         , req.host
-        , req.port )
+        , req.port
+        )
     in
     with_transport transport
       (with_http req.request (fun (response, s) ->
-           req.handler response s ; signal_result req Success))
+           req.handler response s ; signal_result req Success
+       )
+      )
   with exn ->
     if req.enable_log then
       warn "Exception handling remote request %s: %s"
@@ -133,7 +137,8 @@ let handle_requests () =
             done ;
             let q = !request_queue in
             request_queue := List.tl q ;
-            List.hd q)
+            List.hd q
+        )
       in
       handle_request req
     with exn ->
@@ -148,7 +153,8 @@ let start_watcher __context timeout delay req =
 let queue_request req =
   Mutex.execute request_mutex (fun () ->
       request_queue := req :: !request_queue ;
-      Condition.signal request_cond)
+      Condition.signal request_cond
+  )
 
 let perform_request ~__context ~timeout ~verify_cert ~host ~port ~request
     ~handler ~enable_log =
@@ -173,12 +179,14 @@ let perform_request ~__context ~timeout ~verify_cert ~host ~port ~request
           raise exn
       | NoResponse ->
           error "No response in perform_request!" ;
-          raise Internal_error)
+          raise Internal_error
+  )
 
 let stop_request_thread () =
   Mutex.execute request_mutex (fun () ->
       shutting_down := true ;
-      Condition.signal request_cond)
+      Condition.signal request_cond
+  )
 
 let read_response result response s =
   try result := Unixext.string_of_fd s
