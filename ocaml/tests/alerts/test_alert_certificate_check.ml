@@ -40,7 +40,8 @@ let format_good datestring = (("host", date_of datestring), ("host", None))
 let _format (datestring, ppf, alert) =
   let fmt = Scanf.format_from_string ppf "%s" in
   ( ("host", date_of datestring)
-  , ("host", Some (Printf.sprintf fmt datestring, alert)) )
+  , ("host", Some (Printf.sprintf fmt datestring, alert))
+  )
 
 let format_expiring (datestring, days, alert) =
   let ppf =
@@ -84,5 +85,7 @@ let test =
     (fun i spec ->
       ( Printf.sprintf "Test certificate checks as run daily #%d" i
       , `Quick
-      , test_alerts spec ))
+      , test_alerts spec
+      )
+      )
     certificate_samples

@@ -38,7 +38,8 @@ let _ =
     [
       ( "-s"
       , Arg.Set_string sr_xml'
-      , "specifies the location of the XE_SR_ERRORCODES.xml file" )
+      , "specifies the location of the XE_SR_ERRORCODES.xml file"
+      )
     ]
     (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
     "Generates C# bindings for the XenAPI. See -help."
@@ -134,8 +135,11 @@ let _ =
                    [
                      ("i18n_error_key", `String x)
                    ; ("i18n_error_description", `String y)
-                   ])
-               errors) )
+                   ]
+                 )
+               errors
+            )
+        )
       ]
   in
   render_file ("FriendlyErrorNames.mustache", resx_file) json templdir destdir

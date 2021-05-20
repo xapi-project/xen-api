@@ -33,7 +33,8 @@ let test_introduce_duplicate_name () =
       Repository.introduce ~__context ~name_label
         ~name_description:name_description_1 ~binary_url:binary_url_1
         ~source_url:source_url_1 ~update:true
-      |> ignore)
+      |> ignore
+      )
 
 let test_introduce_duplicate_binary_url () =
   let __context = T.make_test_database () in
@@ -54,14 +55,16 @@ let test_introduce_duplicate_binary_url () =
       Repository.introduce ~__context ~binary_url ~name_label:name_label_1
         ~name_description:name_description_1 ~source_url:source_url_1
         ~update:false
-      |> ignore)
+      |> ignore
+      )
 
 let test =
   [
     ("test_introduce_duplicate_name", `Quick, test_introduce_duplicate_name)
   ; ( "test_introduce_duplicate_binary_url"
     , `Quick
-    , test_introduce_duplicate_binary_url )
+    , test_introduce_duplicate_binary_url
+    )
   ]
 
 let () =

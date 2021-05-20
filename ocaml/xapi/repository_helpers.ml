@@ -267,7 +267,8 @@ module Applicability = struct
                 {a with arch= v}
             | _ ->
                 error "Unknown node in <applicability>" ;
-                raise Api_errors.(Server_error (invalid_updateinfo_xml, [])))
+                raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+            )
           default children
         |> assert_valid
     | _ ->
@@ -278,7 +279,8 @@ module Applicability = struct
     Printf.sprintf "%s %s %s-%s (epoch: %s)" a.name
       (Option.value
          (Option.map string_of_inequality a.inequality)
-         ~default:"InvalidInequality")
+         ~default:"InvalidInequality"
+      )
       a.version a.release a.epoch
 
   let compare_version_strings s1 s2 =
@@ -322,7 +324,8 @@ module Applicability = struct
              if Re.Str.string_match r s 0 then
                match int_of_string s with i -> Int i | exception _ -> Str s
              else
-               Str s)
+               Str s
+         )
     in
     let rec compare_segments l1 l2 =
       match (l1, l2) with
@@ -437,7 +440,8 @@ module UpdateInfoMetaData = struct
                     raise Api_errors.(Server_error (invalid_repomd_xml, []))
                 )
                 | _ ->
-                    md)
+                    md
+                )
               {checksum= ""; location= ""}
               l
             |> assert_valid_repomd
@@ -488,14 +492,12 @@ module UpdateInfo = struct
       ; ("type", `String ui.update_type)
       ; ( "recommended-guidance"
         , `List
-            (List.map
-               (fun g -> `String (Guidance.to_string g))
-               ui.rec_guidances) )
+            (List.map (fun g -> `String (Guidance.to_string g)) ui.rec_guidances)
+        )
       ; ( "absolute-guidance"
         , `List
-            (List.map
-               (fun g -> `String (Guidance.to_string g))
-               ui.abs_guidances) )
+            (List.map (fun g -> `String (Guidance.to_string g)) ui.abs_guidances)
+        )
       ]
 
   let to_string ui =
@@ -505,7 +507,8 @@ module UpdateInfo = struct
       (String.concat ";" (List.map Guidance.to_string ui.rec_guidances))
       (String.concat ";" (List.map Guidance.to_string ui.abs_guidances))
       (String.concat ";"
-         (List.map Applicability.to_string ui.guidance_applicabilities))
+         (List.map Applicability.to_string ui.guidance_applicabilities)
+      )
 
   let default =
     {
@@ -579,7 +582,8 @@ module UpdateInfo = struct
                               List.map Applicability.of_xml apps
                           }
                       | _ ->
-                          acc)
+                          acc
+                      )
                     {default with update_type= ty}
                     update_nodes
                   |> assert_valid_updateinfo
@@ -587,7 +591,8 @@ module UpdateInfo = struct
                 debug "updateinfo: %s" (to_string ui) ;
                 Some ui
             | _ ->
-                None)
+                None
+            )
           children
         |> assert_no_dup_update_id
         |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
@@ -648,7 +653,8 @@ let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
       Mutex.lock exposing_pool_repo_mutex ;
-      f ())
+      f ()
+      )
     (fun () -> Mutex.unlock exposing_pool_repo_mutex)
 
 let is_local_pool_repo_enabled () =
@@ -679,9 +685,11 @@ let with_updateinfo_xml gz_path f =
           with e ->
             error "Failed to decompress updateinfo.xml.gz: %s"
               (ExnHelper.string_of_exn e) ;
-            raise Api_errors.(Server_error (invalid_updateinfo_xml, [])))
+            raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+          )
         (fun () -> close_out tmpch) ;
-      f tmpfile)
+      f tmpfile
+      )
     (fun () -> Unixext.unlink_safe tmpfile)
 
 let clean_yum_cache name =
@@ -711,11 +719,13 @@ let write_yum_config ?(source_url = None) binary_url repo_name =
     if not (Sys.file_exists gpgkey_path) then
       raise
         Api_errors.(
-          Server_error (internal_error, ["gpg key file does not exist"])) ;
+          Server_error (internal_error, ["gpg key file does not exist"])
+        ) ;
     if not ((Unix.lstat gpgkey_path).Unix.st_kind = Unix.S_REG) then
       raise
         Api_errors.(
-          Server_error (internal_error, ["gpg key file is not a regular file"]))
+          Server_error (internal_error, ["gpg key file is not a regular file"])
+        )
   ) ;
   let content_of_binary =
     [
@@ -756,7 +766,8 @@ let write_yum_config ?(source_url = None) binary_url repo_name =
   in
   let content = String.concat "\n" (content_of_binary @ content_of_source) in
   Unixext.atomic_write_to_file file_path 0o400 (fun fd ->
-      Unixext.really_write_string fd content |> ignore)
+      Unixext.really_write_string fd content |> ignore
+  )
 
 let get_cachedir repo_name =
   let config_params = [repo_name] in
@@ -767,7 +778,8 @@ let get_cachedir repo_name =
          | true ->
              Some (Scanf.sscanf kv "cachedir = %s" (fun x -> x))
          | false ->
-             None)
+             None
+     )
   |> function
   | [x] ->
       x
@@ -826,11 +838,14 @@ let with_local_repositories ~__context f =
             ignore
               (Helpers.call_script
                  !Xapi_globs.yum_config_manager_cmd
-                 config_params) ;
-            repo_name)
+                 config_params
+              ) ;
+            repo_name
+            )
           enabled
       in
-      f repositories)
+      f repositories
+      )
     (fun () ->
       enabled
       |> List.iter (fun repository ->
@@ -838,7 +853,9 @@ let with_local_repositories ~__context f =
                get_local_repository_name ~__context ~self:repository
              in
              clean_yum_cache repo_name ;
-             remove_repo_conf_file repo_name))
+             remove_repo_conf_file repo_name
+         )
+      )
 
 let assert_yum_error output =
   let errors = ["Updateinfo file is not valid XML"] in
@@ -848,7 +865,8 @@ let assert_yum_error output =
         error "Error from 'yum updateinfo list': %s" err ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
       ) else
-        ())
+        ()
+      )
     errors ;
   output
 
@@ -872,7 +890,8 @@ let parse_updateinfo_list acc line =
             (* Select the latest update by comparing version and release  *)
             match
               ( compare_version_strings v pkg.Pkg.version
-              , compare_version_strings r pkg.Pkg.release )
+              , compare_version_strings r pkg.Pkg.release
+              )
             with
             | LT, _ | EQ, LT | EQ, EQ ->
                 let latest_so_far =
@@ -918,7 +937,8 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
         let is_applicable (a : Applicability.t) =
           match
             ( update.name = a.Applicability.name
-            , update.arch = a.Applicability.arch )
+            , update.arch = a.Applicability.arch
+            )
           with
           | true, true -> (
             match (update.old_version, update.old_release) with
@@ -968,7 +988,8 @@ let eval_guidances ~updates_info ~updates ~kind =
   List.fold_left
     (fun acc u ->
       GuidanceStrSet.union acc
-        (eval_guidance_for_one_update ~updates_info ~update:u ~kind))
+        (eval_guidance_for_one_update ~updates_info ~update:u ~kind)
+      )
     GuidanceStrSet.empty updates
   |> Guidance.resort_guidances
   |> GuidanceStrSet.elements
@@ -992,7 +1013,8 @@ let get_rpm_update_in_json ~rpm2updates ~installed_pkgs line =
       | Some repo_name -> (
         match
           ( Astring.String.cuts ~sep:"." name_arch
-          , Astring.String.cuts ~sep:"-" ver_rel )
+          , Astring.String.cuts ~sep:"-" ver_rel
+          )
         with
         | [name; arch], [version; release] -> (
             let open Pkg in
@@ -1054,7 +1076,8 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
         | Some id, true ->
             (rpms, UpdateIdSet.add id acc_uids, u :: acc_updates)
         | _ ->
-            (rpms, acc_uids, acc_updates))
+            (rpms, acc_uids, acc_updates)
+        )
       ([], UpdateIdSet.empty, [])
       all_updates
   in
@@ -1092,7 +1115,8 @@ let append_by_key l k v =
         if x = k then
           (List.rev_append y acc_vals_of_k, acc_others)
         else
-          (acc_vals_of_k, (x, y) :: acc_others))
+          (acc_vals_of_k, (x, y) :: acc_others)
+        )
       ([v], [])
       l
   in

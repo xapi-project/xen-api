@@ -25,7 +25,8 @@ let do_cmd s cmd args =
         let pid =
           safe_close_and_exec (Some s) (Some s) (Some log_fd) [] cmd args
         in
-        snd (waitpid pid))
+        snd (waitpid pid)
+    )
   with
   | Success (log, status) -> (
       debug "log: %s" log ;
@@ -51,4 +52,5 @@ let handler (req : Http.Request.t) s _ =
       let cmd = List.assoc "cmd" q in
       let cmd = List.assoc cmd allowed_cmds in
       let args = List.map snd (List.filter (fun (x, y) -> x = "arg") q) in
-      do_cmd s cmd args)
+      do_cmd s cmd args
+  )

@@ -129,7 +129,8 @@ let read_record_internal db tblname objref =
               accum_setref
         in
         let accum_fvlist = (k, map_fvlist d) :: accum_fvlist in
-        (accum_fvlist, accum_setref))
+        (accum_fvlist, accum_setref)
+        )
       row ([], [])
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
@@ -145,7 +146,8 @@ let delete_row_locked t tblname objref =
     Database.notify (PreDelete (tblname, objref)) db ;
     update_database t (remove_row tblname objref) ;
     Database.notify
-      (Delete (tblname, objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row []))
+      (Delete (tblname, objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])
+      )
       (get_database t)
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
@@ -161,7 +163,8 @@ let create_row_locked t tblname kvs' new_objref =
       (fun (key, value) ->
         let value = ensure_utf8_xml value in
         let column = Schema.Table.find key schema in
-        (key, Schema.Value.unmarshal column.Schema.Column.ty value))
+        (key, Schema.Value.unmarshal column.Schema.Column.ty value)
+        )
       kvs'
   in
   (* we add the reference to the row itself so callers can use read_field_where to
@@ -175,12 +178,12 @@ let create_row_locked t tblname kvs' new_objref =
   (* fill in default values if kv pairs for these are not supplied already *)
   let row = Row.add_defaults g schema row in
   W.debug "create_row %s (%s) [%s]" tblname new_objref
-    (String.concat ","
-       (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')) ;
+    (String.concat "," (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')) ;
   update_database t (add_row tblname new_objref row) ;
   Database.notify
     (Create
-       (tblname, new_objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row []))
+       (tblname, new_objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])
+    )
     (get_database t)
 
 let fld_check t tblname objref (fldname, value) =
@@ -203,7 +206,8 @@ let create_row t tblname kvs' new_objref =
         | _ ->
             ()
       else
-        create_row_locked t tblname kvs' new_objref)
+        create_row_locked t tblname kvs' new_objref
+  )
 
 (* Do linear scan to find field values which match where clause *)
 let read_field_where t rcd =
@@ -215,7 +219,8 @@ let read_field_where t rcd =
       if field = rcd.where_value then
         Schema.Value.marshal (Row.find rcd.return row) :: acc
       else
-        acc)
+        acc
+      )
     tbl []
 
 let db_get_by_uuid t tbl uuid_val =
@@ -265,7 +270,8 @@ let find_refs_with_filter_internal db (tblname : string)
       if Db_filter.eval_expr (eval_val row) expr then
         Schema.Value.Unsafe_cast.string (Row.find Db_names.ref row) :: acc
       else
-        acc)
+        acc
+      )
     tbl []
 
 let find_refs_with_filter t = find_refs_with_filter_internal (get_database t)
@@ -319,7 +325,8 @@ let process_structured_field t (key, value) tblname fld objref proc_fn_selector
     =
   with_lock (fun () ->
       process_structured_field_locked t (key, value) tblname fld objref
-        proc_fn_selector)
+        proc_fn_selector
+  )
 
 (* -------------------------------------------------------------------- *)
 
@@ -327,8 +334,7 @@ let load connections default_schema =
   (* We also consider populating from the HA metadata LUN and the general metadata LUN *)
   let connections =
     Parse_db_conf.make Db_globs.ha_metadata_db
-    :: Parse_db_conf.make Db_globs.gen_metadata_db
-    :: connections
+    :: Parse_db_conf.make Db_globs.gen_metadata_db :: connections
   in
   (* If we have a temporary_restore_path (backup uploaded in previous run of xapi process) then restore from that *)
   let populate db =
@@ -343,7 +349,9 @@ let load connections default_schema =
     Database.update_manifest
       (Manifest.update_schema (fun _ ->
            Some
-             (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn)))
+             (default_schema.Schema.major_vsn, default_schema.Schema.minor_vsn)
+       )
+      )
       (Database.make default_schema)
   in
   empty
@@ -422,7 +430,8 @@ let spawn_db_flush_threads () =
                          let was_anything_flushed =
                            Xapi_stdext_threads.Threadext.Mutex.execute
                              Db_lock.global_flush_mutex (fun () ->
-                               flush_dirty dbconn)
+                               flush_dirty dbconn
+                           )
                          in
                          if was_anything_flushed then (
                            my_writes_this_period := !my_writes_this_period + 1 ;
@@ -446,9 +455,13 @@ let spawn_db_flush_threads () =
                    with e ->
                      debug "Exception in DB flushing thread: %s"
                        (Printexc.to_string e)
-                 done)
-               ())
-           ()))
+                 done
+                 )
+               ()
+             )
+           ()
+        )
+      )
     (Db_conn_store.read_db_connections ())
 
 (* Called by server at start-of-day to initialiase cache. Populates cache and starts flushing threads *)
@@ -463,6 +476,7 @@ let stats t =
   TableSet.fold
     (fun name _ tbl acc ->
       let size = Table.fold (fun _ _ _ acc -> acc + 1) tbl 0 in
-      (name, size) :: acc)
+      (name, size) :: acc
+      )
     (Database.tableset (get_database t))
     []

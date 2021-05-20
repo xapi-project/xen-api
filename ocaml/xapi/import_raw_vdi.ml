@@ -29,7 +29,8 @@ let fail_task_in_request (req : Request.t) (s : Unix.file_descr) e =
   ignore
     (Xapi_http.ref_param_of_req req "task_id"
     |> Option.map (fun task_id ->
-           TaskHelper.failed ~__context:(Context.from_forwarded_task task_id) e)
+           TaskHelper.failed ~__context:(Context.from_forwarded_task task_id) e
+       )
     ) ;
   Http_svr.headers s (Http.http_400_badrequest ())
 
@@ -62,7 +63,9 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
               (HandleError
                  ( Api_errors.Server_error
                      (Api_errors.internal_error, ["Unknown format " ^ x])
-                 , Http.http_404_missing ~version:"1.0" () ))
+                 , Http.http_404_missing ~version:"1.0" ()
+                 )
+              )
         | `Ok format when format <> Importexport.Format.Raw && chunked ->
             error
               "import_raw_vdi task_id = %s; vdi = %s; unable to import a .vhd \
@@ -78,7 +81,9 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
               (HandleError
                  ( Api_errors.Server_error
                      (Api_errors.internal_error, ["Cannot handle chunked VHD"])
-                 , Http.http_404_missing ~version:"1.0" () ))
+                 , Http.http_404_missing ~version:"1.0" ()
+                 )
+              )
         | `Ok format -> (
             debug
               "import_raw_vdi task_id = %s vdi = %s; chunked = %b; format = %s"
@@ -98,15 +103,19 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                   (HandleError
                      ( Api_errors.Server_error
                          ( Api_errors.internal_error
-                         , ["Cannot handle encoding: " ^ x] )
-                     , Http.http_404_missing ~version:"1.0" () ))
+                         , ["Cannot handle encoding: " ^ x]
+                         )
+                     , Http.http_404_missing ~version:"1.0" ()
+                     )
+                  )
             | None ->
                 let vdi =
                   match
                     ( vdi_opt
                     , format
                     , req.Request.content_length
-                    , sr_of_req ~__context req )
+                    , sr_of_req ~__context req
+                    )
                   with
                   | Some vdi, _, _, _ ->
                       vdi
@@ -126,16 +135,22 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                                , [
                                    "Importing a VHD directly into an SR not \
                                     yet supported"
-                                 ] )
-                           , Http.http_400_badrequest ~version:"1.0" () ))
+                                 ]
+                               )
+                           , Http.http_400_badrequest ~version:"1.0" ()
+                           )
+                        )
                   | _ ->
                       error "Not enough info supplied to import" ;
                       raise
                         (HandleError
                            ( Api_errors.Server_error
                                ( Api_errors.internal_error
-                               , ["Not enough info supplied to import"] )
-                           , Http.http_400_badrequest ~version:"1.0" () ))
+                               , ["Not enough info supplied to import"]
+                               )
+                           , Http.http_400_badrequest ~version:"1.0" ()
+                           )
+                        )
                 in
                 let headers =
                   Http.http_200_ok ~keep_alive:false ()
@@ -149,8 +164,7 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                 | Raw | Vhd ->
                     let prezeroed =
                       not
-                        (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context
-                           vdi)
+                        (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi)
                     in
                     Sm_fs_ops.with_block_attached_device __context rpc
                       session_id vdi `RW (fun path ->
@@ -163,7 +177,8 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                             (Vhd_tool_wrapper.update_task_progress __context)
                             (Importexport.Format.to_string format)
                             "none" s req.Request.content_length path ""
-                            prezeroed)
+                            prezeroed
+                    )
                 | Tar ->
                     (* We need to keep refreshing the session to avoid session timeout *)
                     let refresh_session =
@@ -190,7 +205,8 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
           Backtrace.is_important e ;
           error "Caught exception: %s" (ExnHelper.string_of_exn e) ;
           TaskHelper.failed ~__context e ;
-          raise e)
+          raise e
+  )
 
 let import vdi (req : Request.t) (s : Unix.file_descr) _ =
   Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi"
@@ -224,12 +240,14 @@ let import vdi (req : Request.t) (s : Unix.file_descr) _ =
                 error "Require an SR or VDI to import" ;
                 fail_task_in_request req s
                   Api_errors.(Server_error (vdi_missing, [])) ;
-                None)
+                None
+        )
       with e ->
         error "Caught exception in import handler: %s"
           (ExnHelper.string_of_exn e) ;
         fail_task_in_request req s e ;
-        raise e)
+        raise e
+  )
 
 let handler (req : Request.t) (s : Unix.file_descr) _ =
   Xapi_http.assert_credentials_ok "VDI.import" ~http_action:"put_import_raw_vdi"
@@ -237,4 +255,5 @@ let handler (req : Request.t) (s : Unix.file_descr) _ =
   (* Using a fresh context/task because we don't want to complete the
      	   task in the forwarding case *)
   Server_helpers.exec_with_new_task "VDI.import" (fun __context ->
-      ignore (import (vdi_of_req ~__context req) req s ()))
+      ignore (import (vdi_of_req ~__context req) req s ())
+  )

@@ -30,8 +30,11 @@ let unmarshall schema dbconn =
             result :=
               Some
                 (Db_xml.From.channel schema
-                   (Unix.in_channel_of_descr uncompressed))) ;
-        match !result with None -> failwith "unmarshal failure" | Some x -> x)
+                   (Unix.in_channel_of_descr uncompressed)
+                )
+        ) ;
+        match !result with None -> failwith "unmarshal failure" | Some x -> x
+        )
       (fun () -> Unix.close compressed)
 
 (* Given table name, read all rows from db and store in cache *)
@@ -55,7 +58,8 @@ let flush dbconn db =
         if not dbconn.Parse_db_conf.compress then
           Db_xml.To.fd fd db
         else
-          Gzip.compress fd (fun uncompressed -> Db_xml.To.fd uncompressed db))
+          Gzip.compress fd (fun uncompressed -> Db_xml.To.fd uncompressed db)
+    )
   in
   let do_flush_gen db filename =
     let generation = Manifest.generation (Database.manifest db) in

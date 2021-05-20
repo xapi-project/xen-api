@@ -21,7 +21,9 @@ let pp_hash_test =
       in
       ( Printf.sprintf {|Validation of hash printing of "%s"|} hashable
       , `Quick
-      , test_hash ))
+      , test_hash
+      )
+      )
     hashables
 
 let test = pp_hash_test

@@ -48,7 +48,8 @@ let valid_operations ~__context record _ref' =
     List.iter
       (fun op ->
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params)))
+          Hashtbl.replace table op (Some (code, params))
+        )
       ops
   in
   (* new pool operations cannot run if one is already in progress *)
@@ -60,10 +61,12 @@ let valid_operations ~__context record _ref' =
     ; (`designate_new_master, Api_errors.designate_new_master_in_progress, [])
     ; ( `tls_verification_enable
       , Api_errors.tls_verification_enable_in_progress
-      , [] )
+      , []
+      )
     ; ( `configure_repositories
       , Api_errors.configure_repositories_in_progress
-      , [] )
+      , []
+      )
     ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
     ; (`get_updates, Api_errors.get_updates_in_progress, [])
     ; (`apply_updates, Api_errors.apply_updates_in_progress, [])
@@ -72,7 +75,8 @@ let valid_operations ~__context record _ref' =
   List.iter
     (fun (op, err, params) ->
       if List.mem op current_ops then
-        set_errors err params all_operations)
+        set_errors err params all_operations
+      )
     in_progress_errors ;
   (* HA disable cannot run if HA is already disabled on a pool *)
   (* HA enable cannot run if HA is already enabled on a pool *)
@@ -118,7 +122,9 @@ let throw_error table op =
              Printf.sprintf
                "xapi_pool_helpers.assert_operation_valid unknown operation: %s"
                (pool_operation_to_string op)
-           ] )) ;
+           ]
+         )
+      ) ;
   match Hashtbl.find table op with
   | Some (code, params) ->
       raise (Api_errors.Server_error (code, params))
@@ -149,7 +155,8 @@ let with_pool_operation ~__context ~self ~doc ~op f =
   let task_id = Ref.string_of (Context.get_task_id __context) in
   Helpers.retry_with_global_lock ~__context ~doc (fun () ->
       assert_operation_valid ~__context ~self ~op ;
-      Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op) ;
+      Db.Pool.add_to_current_operations ~__context ~self ~key:task_id ~value:op
+  ) ;
   update_allowed_operations ~__context ~self ;
   (* Then do the action with the lock released *)
   finally f (* Make sure to clean up at the end *) (fun () ->
@@ -158,7 +165,8 @@ let with_pool_operation ~__context ~self ~doc ~op f =
         update_allowed_operations ~__context ~self ;
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._pool, Ref.string_of self)
-      with _ -> ())
+      with _ -> ()
+  )
 
 let is_pool_op_in_progress op ~__context =
   let pool = Helpers.get_pool ~__context in
@@ -193,13 +201,15 @@ let get_master_slaves_list_with_fn ~__context fn =
     (Db.Host.get_name_label ~__context ~self:master)
     (List.fold_left
        (fun str h -> str ^ "," ^ Db.Host.get_name_label ~__context ~self:h)
-       "" slaves) ;
+       "" slaves
+    ) ;
   fn master slaves
 
 (* returns the list of hosts in the pool, with the master being the first element of the list *)
 let get_master_slaves_list ~__context =
   get_master_slaves_list_with_fn ~__context (fun master slaves ->
-      master :: slaves)
+      master :: slaves
+  )
 
 (* returns the list of slaves in the pool *)
 let get_slaves_list ~__context =
@@ -210,7 +220,8 @@ let call_fn_on_hosts ~__context hosts f =
       let errs =
         List.fold_left
           (fun acc host ->
-            try f ~rpc ~session_id ~host ; acc with x -> (host, x) :: acc)
+            try f ~rpc ~session_id ~host ; acc with x -> (host, x) :: acc
+            )
           [] hosts
       in
       if List.length errs > 0 then (
@@ -218,10 +229,12 @@ let call_fn_on_hosts ~__context hosts f =
         List.iter
           (fun (host, x) ->
             warn "Host: %s error: %s" (Ref.string_of host)
-              (ExnHelper.string_of_exn x))
+              (ExnHelper.string_of_exn x)
+            )
           errs ;
         raise (snd (List.hd errs))
-      ))
+      )
+  )
 
 let call_fn_on_master_then_slaves ~__context f =
   let hosts = get_master_slaves_list ~__context in

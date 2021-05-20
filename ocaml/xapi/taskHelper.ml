@@ -45,8 +45,7 @@ let make ~__context ~http_other_config ?(description = "") ?session_id
       ~name_description:description ~name_label:label ~stunnelpid:(-1L)
       ~forwarded:false ~forwarded_to:Ref.null ~uuid:uuid_str ~externalpid:(-1L)
       ~subtask_of:subtaskid_of
-      ~other_config:
-        (List.map (fun (k, v) -> ("http:" ^ k, v)) http_other_config)
+      ~other_config:(List.map (fun (k, v) -> ("http:" ^ k, v)) http_other_config)
       ~backtrace:(Sexplib.Sexp.to_string Backtrace.(sexp_of_t empty))
   in
   (ref, uuid)
@@ -119,7 +118,8 @@ let destroy ~__context task_id =
 let init () =
   (Context.__get_task_name :=
      fun ~__context self ->
-       Db_actions.DB_Action.Task.get_name_label ~__context ~self) ;
+       Db_actions.DB_Action.Task.get_name_label ~__context ~self
+  ) ;
   Context.__destroy_task := destroy ;
   Context.__make_task := make
 
@@ -129,21 +129,25 @@ let operate_on_db_task ~__context f =
 
 let set_description ~__context value =
   operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_name_description ~__context ~self ~value)
+      Db_actions.DB_Action.Task.set_name_description ~__context ~self ~value
+  )
 
 let add_to_other_config ~__context key value =
   operate_on_db_task ~__context (fun self ->
       Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key ;
-      Db_actions.DB_Action.Task.add_to_other_config ~__context ~self ~key ~value)
+      Db_actions.DB_Action.Task.add_to_other_config ~__context ~self ~key ~value
+  )
 
 let set_progress ~__context value =
   operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_progress ~__context ~self ~value)
+      Db_actions.DB_Action.Task.set_progress ~__context ~self ~value
+  )
 
 let set_external_pid ~__context pid =
   operate_on_db_task ~__context (fun self ->
       Db_actions.DB_Action.Task.set_externalpid ~__context ~self
-        ~value:(Int64.of_int pid))
+        ~value:(Int64.of_int pid)
+  )
 
 let clear_external_pid ~__context = set_external_pid ~__context (-1)
 
@@ -157,8 +161,7 @@ let set_result_on_task ~__context task_id result =
 
 (** Only set the result without completing the task. Useful for vm import *)
 let set_result ~__context result =
-  operate_on_db_task ~__context (fun t ->
-      set_result_on_task ~__context t result)
+  operate_on_db_task ~__context (fun t -> set_result_on_task ~__context t result)
 
 let status_to_string = function
   | `pending ->
@@ -189,17 +192,20 @@ let complete ~__context result =
       ) else
         debug "the status of %s is: %s; cannot set it to `success"
           (Ref.really_pretty_and_small self)
-          (status_to_string status))
+          (status_to_string status)
+  )
 
 let set_cancellable ~__context =
   operate_on_db_task ~__context (fun self ->
       Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
-        ~value:[`cancel])
+        ~value:[`cancel]
+  )
 
 let set_not_cancellable ~__context =
   operate_on_db_task ~__context (fun self ->
       Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
-        ~value:[])
+        ~value:[]
+  )
 
 let is_cancelling ~__context =
   Context.task_in_database __context
@@ -258,7 +264,12 @@ let failed ~__context exn =
         debug "the status of %s is %s; cannot set it to %s"
           (Ref.really_pretty_and_small self)
           (status_to_string status)
-          (if code = Api_errors.task_cancelled then "`cancelled" else "`failure"))
+          ( if code = Api_errors.task_cancelled then
+              "`cancelled"
+          else
+            "`failure"
+          )
+  )
 
 type id = Sm of string | Xenops of string * string
 
@@ -280,7 +291,8 @@ let register_task __context ?(cancellable = true) id =
   let task = Context.get_task_id __context in
   Mutex.execute task_tbl_m (fun () ->
       Hashtbl.replace id_to_task_tbl id task ;
-      Hashtbl.replace task_to_id_tbl task id) ;
+      Hashtbl.replace task_to_id_tbl task id
+  ) ;
   (* We bind the XenAPI Task to the xenopsd Task, which is capable of
      cancellation at the low level. If this is not desired behavior, overwrite
      it with the cancellable flag. *)
@@ -296,5 +308,6 @@ let unregister_task __context id =
   Mutex.execute task_tbl_m (fun () ->
       let task = Hashtbl.find id_to_task_tbl id in
       Hashtbl.remove id_to_task_tbl id ;
-      Hashtbl.remove task_to_id_tbl task) ;
+      Hashtbl.remove task_to_id_tbl task
+  ) ;
   ()

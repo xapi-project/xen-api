@@ -104,7 +104,8 @@ let filter_field (pred : field -> bool) (system : obj list) =
       x with
       contents=
         (let contents = concat_map content x.contents in
-         fixpoint (concat_map remove_leaf) contents)
+         fixpoint (concat_map remove_leaf) contents
+        )
     }
   in
   List.map obj system
@@ -133,7 +134,8 @@ let filter_relations ((system, relations) as api) =
           obj_exists api a_obj
           && obj_exists api b_obj
           && field_exists api ~objname:a_obj ~fieldname:a_name
-          && field_exists api ~objname:b_obj ~fieldname:b_name)
+          && field_exists api ~objname:b_obj ~fieldname:b_name
+      )
     relations
 
 let rebuild system relations =
@@ -184,13 +186,15 @@ let check api emergency_calls =
   List.iter
     (fun ((a_obj, _), (b_obj, _)) ->
       ignore (get_obj_by_name api ~objname:a_obj) ;
-      ignore (get_obj_by_name api ~objname:b_obj))
+      ignore (get_obj_by_name api ~objname:b_obj)
+      )
     relations ;
   (* Sanity check 2: all fields mentioned in the relations should exist *)
   List.iter
     (fun ((a_obj, a_name), (b_obj, b_name)) ->
       ignore (get_field_by_name api ~objname:a_obj ~fieldname:a_name) ;
-      ignore (get_field_by_name api ~objname:b_obj ~fieldname:b_name))
+      ignore (get_field_by_name api ~objname:b_obj ~fieldname:b_name)
+      )
     relations ;
   (* Sanity check 3: no side-effects for Ref fields *)
   let (_ : obj list) =
@@ -201,7 +205,8 @@ let check api emergency_calls =
               "Can't have a Ref field with a side-effect: it makes the \
                destructors too complicated"
         | x ->
-            x)
+            x
+        )
       system
   in
   (* Sanity check: all Set(Ref _) fields should be one of:
@@ -229,7 +234,8 @@ let check api emergency_calls =
             failwith
               (Printf.sprintf
                  "Set(Ref _) field is not in relations table: %s.%s" objname
-                 x.field_name) ;
+                 x.field_name
+              ) ;
           let other_obj, other_fld =
             List.assoc (objname, x.field_name) relations
           in
@@ -242,29 +248,34 @@ let check api emergency_calls =
                 failwith
                   (Printf.sprintf
                      "many-to-many Set(Ref _) is not RW or DynamicRO: %s.%s"
-                     objname x.field_name) ;
+                     objname x.field_name
+                  ) ;
               if not x.field_persist then
                 failwith
                   (Printf.sprintf
                      "many-to-many Set(Ref _) is not persistent: %s.%s" objname
-                     x.field_name) ;
+                     x.field_name
+                  ) ;
               if not other_f.field_persist then
                 failwith
                   (Printf.sprintf
                      "many-to-many Set(Ref _) is not persistent: %s.%s"
-                     other_obj other_fld)
+                     other_obj other_fld
+                  )
           | Ref _ ->
               if q <> DynamicRO then
                 failwith
                   (Printf.sprintf
                      "many-to-many Set(Ref _) is not DynamicRO: %s.%s" objname
-                     x.field_name)
+                     x.field_name
+                  )
           | ty ->
               failwith
                 (Printf.sprintf
                    "field in relationship has bad type (Ref or Set(Ref) only): \
                     %s.%s"
-                   other_obj other_fld)
+                   other_obj other_fld
+                )
         )
       | _ ->
           ()
@@ -282,11 +293,13 @@ let check api emergency_calls =
                 (Printf.sprintf
                    "Field %s not in release Rio, is not DynamicRO and does not \
                     have default value specified"
-                   (String.concat "/" x.full_name))
+                   (String.concat "/" x.full_name)
+                )
             else
               x
         | x ->
-            x)
+            x
+        )
       system
   in
   (* Sanity check 5: no (Set Ref _) fields can have default values *)
@@ -306,12 +319,14 @@ let check api emergency_calls =
                 (Printf.sprintf
                    "Field %s is a (Set (Ref _)) and has a default value \
                     specified. Please remove default value."
-                   (String.concat "/" x.full_name))
+                   (String.concat "/" x.full_name)
+                )
           | _ ->
               x
         )
         | x ->
-            x)
+            x
+        )
       system
   in
   (* Sanity check 6: all values specfieid in IDL must be of the right type *)
@@ -322,10 +337,12 @@ let check api emergency_calls =
             if not (type_checks v ty) then
               failwith
                 (Printf.sprintf "Field %s has default value with wrong type."
-                   (String.concat "/" x.full_name)) ;
+                   (String.concat "/" x.full_name)
+                ) ;
             x
         | x ->
-            x)
+            x
+        )
       system
   in
   (* Sanity check 7: message parameters must be in increasing order of in_product_since *)
@@ -381,8 +398,11 @@ let check api emergency_calls =
               failwith
                 (Printf.sprintf
                    "Msg %s.%s does not have parameters in version order"
-                   obj.name msg.msg_name))
-          obj.messages)
+                   obj.name msg.msg_name
+                )
+            )
+          obj.messages
+        )
       system
   in
   (* Sanity check 8: any "emergency calls" must not support async mode of operation -- if they do then our
@@ -400,8 +420,11 @@ let check api emergency_calls =
                 (Printf.sprintf
                    "Msg %s.%s is marked as supports async and also appears in \
                     emergency_call list. These are mutually exclusive choices."
-                   obj.name msg.msg_name))
-          obj.messages)
+                   obj.name msg.msg_name
+                )
+            )
+          obj.messages
+        )
       system
   in
   ()

@@ -59,7 +59,8 @@ let remote_rpc_no_retry context hostname (task_opt : API.ref_task option) xml =
           ?task_id:(Option.map Ref.string_of task_opt)
           ()
       , hostname
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   let http =
     xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
@@ -75,7 +76,8 @@ let remote_rpc_retry context hostname (task_opt : API.ref_task option) xml =
           ?task_id:(Option.map Ref.string_of task_opt)
           ()
       , hostname
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   let http =
     xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
@@ -107,7 +109,8 @@ let call_slave_with_local_session remote_rpc_fn __context host
     (fun () ->
       Client.Session.local_logout
         ~rpc:(remote_rpc_fn __context hostname None)
-        ~session_id)
+        ~session_id
+      )
 
 (* set the fields on the task record to indicate that forwarding has taken place and
    creates a task id for the slave to use *)
@@ -147,7 +150,8 @@ let do_op_on_common ~local_fn ~__context ~host op f =
         (Ref.string_of host) ;
       raise
         (Api_errors.Server_error
-           (Api_errors.cannot_contact_host, [Ref.string_of host]))
+           (Api_errors.cannot_contact_host, [Ref.string_of host])
+        )
   | Xmlrpc_client.Stunnel_connection_failed ->
       warn
         "Caught Stunnel_connection_failed while contacting host %s; converting \
@@ -155,7 +159,8 @@ let do_op_on_common ~local_fn ~__context ~host op f =
         (Ref.string_of host) ;
       raise
         (Api_errors.Server_error
-           (Api_errors.cannot_contact_host, [Ref.string_of host]))
+           (Api_errors.cannot_contact_host, [Ref.string_of host])
+        )
 
 (* regular forwarding fn, with session and live-check. Used by most calls, will
    use the connection cache. *)
@@ -249,7 +254,8 @@ let choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self () =
         Ok
           (List.rev_append
              (PBDSet.elements sr_master_pbds)
-             (PBDSet.elements rest_pbds))
+             (PBDSet.elements rest_pbds)
+          )
     else
       Ok pbds_to_consider
   in
@@ -276,14 +282,17 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op
               try
                 Xapi_host_helpers.assert_operation_valid ~__context ~self ~op ;
                 true
-              with _ -> false)
+              with _ -> false
+              )
             hosts
         in
         if possibilities = [] then
           raise
             (Api_errors.Server_error
                ( Api_errors.other_operation_in_progress
-               , ["host"; Ref.string_of (List.hd hosts)] )) ;
+               , ["host"; Ref.string_of (List.hd hosts)]
+               )
+            ) ;
         let choice =
           List.nth possibilities (Random.int (List.length possibilities))
         in
@@ -291,7 +300,8 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op
         Db.Host.add_to_current_operations ~__context ~self:choice ~key:task_id
           ~value:op ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:choice ;
-        choice)
+        choice
+    )
   in
   (* Then do the action with the lock released *)
   finally
@@ -304,7 +314,8 @@ let loadbalance_host_operation ~__context ~hosts ~doc ~op
         Xapi_host_helpers.update_allowed_operations ~__context ~self:choice ;
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._host, Ref.string_of choice)
-      with _ -> ())
+      with _ -> ()
+      )
 
 module Forward =
 functor
@@ -383,9 +394,7 @@ functor
       try
         if Pool_role.is_master () then
           let name = Db.VM.get_name_label __context vm in
-          Printf.sprintf "%s%s"
-            (Db.VM.get_uuid __context vm)
-            (add_brackets name)
+          Printf.sprintf "%s%s" (Db.VM.get_uuid __context vm) (add_brackets name)
         else
           Ref.string_of vm
       with _ -> "invalid"
@@ -405,9 +414,7 @@ functor
       try
         if Pool_role.is_master () then
           let name = Db.SR.get_name_label __context sr in
-          Printf.sprintf "%s%s"
-            (Db.SR.get_uuid __context sr)
-            (add_brackets name)
+          Printf.sprintf "%s%s" (Db.SR.get_uuid __context sr) (add_brackets name)
         else
           Ref.string_of sr
       with _ -> "invalid"
@@ -627,29 +634,34 @@ functor
         Xapi_session.record_login_failure ~__context ~uname:(Some uname)
           ~originator:(Some originator) ~record:`log_and_alert (fun () ->
             Local.Session.login_with_password ~__context ~uname ~pwd ~version
-              ~originator)
+              ~originator
+        )
 
       let slave_login ~__context ~host ~psecret =
         Xapi_session.record_login_failure ~__context ~uname:None
           ~record:`log_and_alert ~originator:None (fun () ->
-            Local.Session.slave_login ~__context ~host ~psecret)
+            Local.Session.slave_login ~__context ~host ~psecret
+        )
 
       let change_password ~__context ~old_pwd ~new_pwd =
         Xapi_session.record_login_failure ~__context ~uname:None
           ~originator:None ~record:`log_and_alert (fun () ->
-            Local.Session.change_password ~__context ~old_pwd ~new_pwd)
+            Local.Session.change_password ~__context ~old_pwd ~new_pwd
+        )
 
       (* for emergency local logins, we just log - we only bother with alerts on the master *)
 
       let slave_local_login ~__context ~psecret =
         Xapi_session.record_login_failure ~__context ~uname:None
           ~originator:(Some "localhost") ~record:`log_only (fun () ->
-            Local.Session.slave_local_login ~__context ~psecret)
+            Local.Session.slave_local_login ~__context ~psecret
+        )
 
       let slave_local_login_with_password ~__context ~uname ~pwd =
         Xapi_session.record_login_failure ~__context ~uname:(Some uname)
           ~originator:(Some "localhost") ~record:`log_only (fun () ->
-            Local.Session.slave_local_login_with_password ~__context ~uname ~pwd)
+            Local.Session.slave_local_login_with_password ~__context ~uname ~pwd
+        )
     end
 
     module Auth = Local.Auth
@@ -666,7 +678,8 @@ functor
         if Db.is_valid_ref __context forwarded_to then
           do_op_on ~local_fn ~__context
             ~host:(Db.Task.get_forwarded_to ~__context ~self:task)
-            (fun session_id rpc -> Client.Task.cancel rpc session_id task)
+            (fun session_id rpc -> Client.Task.cancel rpc session_id task
+          )
         else
           local_fn ~__context
     end
@@ -686,7 +699,8 @@ functor
             Xapi_vm_appliance.assert_operation_valid ~__context ~self ~op ;
             Db.VM_appliance.add_to_current_operations ~__context ~self
               ~key:task_id ~value:op ;
-            Xapi_vm_appliance.update_allowed_operations ~__context ~self) ;
+            Xapi_vm_appliance.update_allowed_operations ~__context ~self
+        ) ;
         (* Then do the action with the lock released *)
         finally f (* Make sure to clean up at the end *) (fun () ->
             try
@@ -695,35 +709,40 @@ functor
               Xapi_vm_appliance.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vm_appliance, Ref.string_of self)
-            with _ -> ())
+            with _ -> ()
+        )
 
       let start ~__context ~self ~paused =
         info "VM_appliance.start: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
         with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.start"
           ~op:`start (fun () ->
-            Local.VM_appliance.start ~__context ~self ~paused)
+            Local.VM_appliance.start ~__context ~self ~paused
+        )
 
       let clean_shutdown ~__context ~self =
         info "VM_appliance.clean_shutdown: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
         with_vm_appliance_operation ~__context ~self
           ~doc:"VM_appliance.clean_shutdown" ~op:`clean_shutdown (fun () ->
-            Local.VM_appliance.clean_shutdown ~__context ~self)
+            Local.VM_appliance.clean_shutdown ~__context ~self
+        )
 
       let hard_shutdown ~__context ~self =
         info "VM_appliance.hard_shutdown: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
         with_vm_appliance_operation ~__context ~self
           ~doc:"VM_appliance.hard_shutdown" ~op:`hard_shutdown (fun () ->
-            Local.VM_appliance.hard_shutdown ~__context ~self)
+            Local.VM_appliance.hard_shutdown ~__context ~self
+        )
 
       let shutdown ~__context ~self =
         info "VM_appliance.shutdown: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
         with_vm_appliance_operation ~__context ~self
           ~doc:"VM_appliance.shutdown" ~op:`shutdown (fun () ->
-            Local.VM_appliance.shutdown ~__context ~self)
+            Local.VM_appliance.shutdown ~__context ~self
+        )
 
       let assert_can_be_recovered ~__context ~self ~session_to =
         info "VM_appliance.assert_can_be_recovered: VM_appliance = '%s'"
@@ -761,15 +780,19 @@ functor
         in
         (* eject host but don't remove it from DB yet *)
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool.eject rpc session_id host) ;
+            Client.Pool.eject rpc session_id host
+        ) ;
         (* call eject on all other slaves first *)
         other
         |> List.iter (fun h ->
                do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
-                   Client.Pool.eject rpc session_id host)) ;
+                   Client.Pool.eject rpc session_id host
+               )
+           ) ;
         (* finally clean up on master *)
         do_op_on ~local_fn ~__context ~host:master (fun session_id rpc ->
-            Client.Pool.eject rpc session_id host)
+            Client.Pool.eject rpc session_id host
+        )
 
       let designate_new_master ~__context ~host =
         info "Pool.designate_new_master: pool = '%s'; host = '%s'"
@@ -782,7 +805,9 @@ functor
             Xapi_sync.sync_host __context host ;
             let local_fn = Local.Pool.designate_new_master ~host in
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Pool.designate_new_master rpc session_id host))
+                Client.Pool.designate_new_master rpc session_id host
+            )
+        )
 
       let management_reconfigure ~__context ~network =
         info "Pool.management_reconfigure: pool = '%s'; network = '%s'"
@@ -797,17 +822,20 @@ functor
           (current_pool_uuid ~__context)
           (String.concat ", " (List.map Ref.string_of heartbeat_srs))
           (String.concat "; "
-             (List.map (fun (k, v) -> k ^ "=" ^ v) configuration)) ;
+             (List.map (fun (k, v) -> k ^ "=" ^ v) configuration)
+          ) ;
         let pool = Helpers.get_pool ~__context in
         Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.ha_enable"
           ~self:pool ~op:`ha_enable (fun () ->
-            Local.Pool.enable_ha __context heartbeat_srs configuration)
+            Local.Pool.enable_ha __context heartbeat_srs configuration
+        )
 
       let disable_ha ~__context =
         info "Pool.disable_ha: pool = '%s'" (current_pool_uuid ~__context) ;
         let pool = Helpers.get_pool ~__context in
         Xapi_pool_helpers.with_pool_operation ~__context ~doc:"Pool.ha_disable"
-          ~self:pool ~op:`ha_disable (fun () -> Local.Pool.disable_ha __context)
+          ~self:pool ~op:`ha_disable (fun () -> Local.Pool.disable_ha __context
+        )
 
       let ha_prevent_restarts_for ~__context ~seconds =
         info "Pool.ha_prevent_restarts_for: pool = '%s'; seconds = %Ld"
@@ -826,7 +854,8 @@ functor
           __LOC__ (fun () ->
             info "Pool.ha_compute_max_host_failures_to_tolerate: pool = '%s'"
               (current_pool_uuid ~__context) ;
-            Local.Pool.ha_compute_max_host_failures_to_tolerate ~__context)
+            Local.Pool.ha_compute_max_host_failures_to_tolerate ~__context
+        )
 
       let ha_compute_hypothetical_max_host_failures_to_tolerate ~__context
           ~configuration =
@@ -839,9 +868,12 @@ functor
               (String.concat "; "
                  (List.map
                     (fun (vm, p) -> Ref.string_of vm ^ " " ^ p)
-                    configuration)) ;
+                    configuration
+                 )
+              ) ;
             Local.Pool.ha_compute_hypothetical_max_host_failures_to_tolerate
-              ~__context ~configuration)
+              ~__context ~configuration
+        )
 
       let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
         info
@@ -860,7 +892,8 @@ functor
               "Pool.set_ha_host_failures_to_tolerate: pool = '%s'; value = %Ld"
               (pool_uuid ~__context self)
               value ;
-            Local.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value)
+            Local.Pool.set_ha_host_failures_to_tolerate ~__context ~self ~value
+        )
 
       let ha_schedule_plan_recomputation ~__context =
         info "Pool.ha_schedule_plan_recomputation: pool = '%s'"
@@ -959,8 +992,11 @@ functor
             all_hosts
             |> List.iter (fun host ->
                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                       Client.Pool.enable_tls_verification rpc session_id)) ;
-            Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true)
+                       Client.Pool.enable_tls_verification rpc session_id
+                   )
+               ) ;
+            Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true
+        )
 
       let set_repositories ~__context ~self ~value =
         info "Pool.set_repositories : pool = '%s'; value = [ %s ]"
@@ -1014,10 +1050,12 @@ functor
                     try
                       Client.Task.cancel ~rpc ~session_id
                         ~task:(Ref.of_string task)
-                    with _ -> ()) ;
+                    with _ -> ()
+                ) ;
                 Some (Ref.of_string task)
               ) else
-                None)
+                None
+              )
             (Db.VM.get_current_operations ~__context ~self:vm)
         in
         wait_for_tasks ~__context ~tasks:cancelled
@@ -1033,7 +1071,8 @@ functor
               Xapi_vbd_helpers.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vbd, Ref.string_of self)
-            ))
+            )
+            )
           vbds
 
       let mark_vbds ~__context ~vm ~doc ~op : API.ref_VBD list =
@@ -1049,7 +1088,8 @@ functor
               Db.VBD.add_to_current_operations ~__context ~self:vbd ~key:task_id
                 ~value:op ;
               Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd ;
-              marked := vbd :: !marked)
+              marked := vbd :: !marked
+              )
             vbds ;
           vbds
         with e ->
@@ -1064,13 +1104,16 @@ functor
         let vbds =
           Helpers.retry_with_global_lock ~__context ~doc
             ~policy:Helpers.Policy.fail_quickly (fun () ->
-              mark_vbds ~__context ~vm ~doc ~op)
+              mark_vbds ~__context ~vm ~doc ~op
+          )
         in
         finally
           (fun () -> f vbds)
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                unmark_vbds ~__context ~vbds ~doc ~op))
+                unmark_vbds ~__context ~vbds ~doc ~op
+            )
+            )
 
       let unmark_vifs ~__context ~vifs ~doc ~op =
         let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -1083,7 +1126,8 @@ functor
               Xapi_vif_helpers.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vif, Ref.string_of self)
-            ))
+            )
+            )
           vifs
 
       let mark_vifs ~__context ~vm ~doc ~op : API.ref_VIF list =
@@ -1097,7 +1141,8 @@ functor
               Db.VIF.add_to_current_operations ~__context ~self:vif ~key:task_id
                 ~value:op ;
               Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif ;
-              vif)
+              vif
+              )
             vifs
         in
         (* Did we mark them all? *)
@@ -1105,20 +1150,24 @@ functor
           unmark_vifs ~__context ~vifs:marked ~doc ~op ;
           raise
             (Api_errors.Server_error
-               (Api_errors.operation_not_allowed, ["Failed to lock all VIFs"]))
+               (Api_errors.operation_not_allowed, ["Failed to lock all VIFs"])
+            )
         ) else
           marked
 
       let with_vifs_marked ~__context ~vm ~doc ~op f =
         let vifs =
           Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-              mark_vifs ~__context ~vm ~doc ~op)
+              mark_vifs ~__context ~vm ~doc ~op
+          )
         in
         finally
           (fun () -> f vifs)
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                unmark_vifs ~__context ~vifs ~doc ~op))
+                unmark_vifs ~__context ~vifs ~doc ~op
+            )
+            )
 
       (* Some VM operations have side-effects on VBD allowed_operations but don't actually
          lock the VBDs themselves (eg suspend) *)
@@ -1130,15 +1179,19 @@ functor
                 try
                   let vdi = Db.VBD.get_VDI ~__context ~self in
                   Xapi_vdi.update_allowed_operations ~__context ~self:vdi
-                with _ -> ())
-              (Db.VM.get_VBDs ~__context ~self:vm))
+                with _ -> ()
+                )
+              (Db.VM.get_VBDs ~__context ~self:vm)
+        )
 
       let update_vif_operations ~__context ~vm =
         Helpers.with_global_lock (fun () ->
             List.iter
               (fun self ->
-                Xapi_vif_helpers.update_allowed_operations ~__context ~self)
-              (Db.VM.get_VIFs ~__context ~self:vm))
+                Xapi_vif_helpers.update_allowed_operations ~__context ~self
+                )
+              (Db.VM.get_VIFs ~__context ~self:vm)
+        )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -1159,7 +1212,8 @@ functor
         List.iter
           (fun vgpu ->
             Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
-              ~value:Ref.null)
+              ~value:Ref.null
+            )
           (Db.VM.get_VGPUs ~__context ~self:vm)
 
       let clear_reserved_netsriov_vfs_on ~__context ~vm =
@@ -1169,7 +1223,8 @@ functor
                Db.VIF.set_reserved_pci ~__context ~self:vif ~value:Ref.null ;
                if Db.is_valid_ref __context vf then
                  Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf
-                   ~value:Ref.null)
+                   ~value:Ref.null
+           )
 
       (* Notes on memory checking/reservation logic:
          When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1259,18 +1314,22 @@ functor
                    the 'choose_host_for_vm' function or we can be cheapskates by doing it here: *)
                 check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host ;
                 allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op () ;
-                host)
+                host
+          )
         in
         finally
           (fun () ->
-            (do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host))
+            (do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
+            )
           (fun () ->
             Helpers.with_global_lock (fun () ->
                 finally_clear_host_operation ~__context ~host:suitable_host
                   ?host_op () ;
                 (* In certain cases, VM might have been destroyed as a consequence of operation *)
                 if Db.is_valid_ref __context vm then
-                  clear_scheduled_to_be_resident_on ~__context ~vm))
+                  clear_scheduled_to_be_resident_on ~__context ~vm
+            )
+            )
 
       (* Used by VM.start_on, VM.resume_on, VM.migrate to verify a host has enough resource and to
          'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
@@ -1282,11 +1341,14 @@ functor
                we ignore this because if a failure happens while a VM is in-flight it will still be considered
                on both hosts, potentially breaking the failover plan. *)
             check_vm_preserves_ha_plan ~__context ~vm ~snapshot ~host ;
-            allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ()) ;
+            allocate_vm_to_host ~__context ~vm ~host ~snapshot ?host_op ()
+        ) ;
         finally f (fun () ->
             Helpers.with_global_lock (fun () ->
                 finally_clear_host_operation ~__context ~host ?host_op () ;
-                clear_scheduled_to_be_resident_on ~__context ~vm))
+                clear_scheduled_to_be_resident_on ~__context ~vm
+            )
+        )
 
       (**
       Used by VM.set_memory_dynamic_range to reserve enough memory for
@@ -1324,14 +1386,17 @@ functor
                        Int64.to_string
                          (Int64.div (Int64.sub 0L dynamic_min_change) 1024L)
                      ; Int64.to_string (Int64.div host_mem_available 1024L)
-                     ] )) ;
+                     ]
+                   )
+                ) ;
             if dynamic_min_change < 0L then (
               restore_old_values_on_error := true ;
               Db.VM.set_memory_dynamic_min ~__context ~self:vm
                 ~value:new_dynamic_min ;
               Db.VM.set_memory_dynamic_max ~__context ~self:vm
                 ~value:new_dynamic_max
-            )) ;
+            )
+        ) ;
         try f ()
         with exn ->
           if !restore_old_values_on_error then (
@@ -1384,7 +1449,8 @@ functor
       let destroy ~__context ~self =
         info "VM.destroy: VM = '%s'" (vm_uuid ~__context self) ;
         with_vm_operation ~__context ~self ~doc:"VM.destroy" ~op:`destroy
-          (fun () -> Local.VM.destroy ~__context ~self)
+          (fun () -> Local.VM.destroy ~__context ~self
+        )
 
       let set_actions_after_crash ~__context ~self ~value =
         info "VM.set_actions_after_crash: VM = '%s'" (vm_uuid ~__context self) ;
@@ -1406,7 +1472,8 @@ functor
         if value then
           with_vm_operation ~__context ~self ~doc:"VM.set_is_a_template"
             ~op:`make_into_template (fun () ->
-              Local.VM.set_is_a_template ~__context ~self ~value:true)
+              Local.VM.set_is_a_template ~__context ~self ~value:true
+          )
         else
           Local.VM.set_is_a_template ~__context ~self ~value
 
@@ -1424,7 +1491,8 @@ functor
         if value && not is_a_template then
           with_vm_operation ~__context ~self:vm
             ~doc:"VM.set_is_default_template" ~op:`make_into_template (fun () ->
-              Local.VM.set_is_default_template ~__context ~vm ~value:true)
+              Local.VM.set_is_default_template ~__context ~vm ~value:true
+          )
         else (
           Local.VM.set_is_default_template ~__context ~vm ~value ;
           Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
@@ -1445,7 +1513,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.clone" ~op:`clone
           (fun () ->
             forward_to_access_srs ~local_fn ~__context ~vm
-              (fun session_id rpc -> Client.VM.clone rpc session_id vm new_name))
+              (fun session_id rpc -> Client.VM.clone rpc session_id vm new_name
+            )
+        )
 
       let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time
           ~transportable_snapshot_id =
@@ -1467,7 +1537,9 @@ functor
           (fun () ->
             forward_to_access_srs ~local_fn ~__context ~vm
               (fun session_id rpc ->
-                Client.VM.snapshot rpc session_id vm new_name))
+                Client.VM.snapshot rpc session_id vm new_name
+            )
+        )
 
       let checkpoint ~__context ~vm ~new_name =
         info "VM.checkpoint: VM = '%s'; new_name=' %s'" (vm_uuid ~__context vm)
@@ -1481,7 +1553,8 @@ functor
             if Db.VM.get_power_state __context vm = `Running then
               forward_vm_op ~local_fn ~__context ~vm forward_fn
             else
-              forward_to_access_srs ~local_fn ~__context ~vm forward_fn)
+              forward_to_access_srs ~local_fn ~__context ~vm forward_fn
+        )
 
       let copy ~__context ~vm ~new_name ~sr =
         info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'"
@@ -1492,7 +1565,8 @@ functor
            			   VM.copy is always run on the master - the VDI.copy subtask(s) will be
            			   forwarded to suitable hosts. *)
         with_vm_operation ~__context ~self:vm ~doc:"VM.copy" ~op:`copy
-          (fun () -> Local.VM.copy ~__context ~vm ~new_name ~sr)
+          (fun () -> Local.VM.copy ~__context ~vm ~new_name ~sr
+        )
 
       exception Ambigious_provision_spec
 
@@ -1506,7 +1580,8 @@ functor
           (fun () ->
             let template =
               Helpers.call_api_functions ~__context (fun rpc session_id ->
-                  Xapi_templates.get_template_record rpc session_id vm)
+                  Xapi_templates.get_template_record rpc session_id vm
+              )
             in
             (* Compute the set of hosts which can see the SRs mentioned in the provision spec *)
             let possible_hosts =
@@ -1542,7 +1617,8 @@ functor
                                   x
                               | _ ->
                                   raise Ambigious_provision_spec
-                            ))
+                            )
+                            )
                           srs
                       in
                       srs
@@ -1550,7 +1626,8 @@ functor
                 Xapi_vm_helpers.possible_hosts ~__context ~vm
                   ~choose_fn:
                     (Xapi_vm_helpers.assert_can_see_specified_SRs ~__context
-                       ~reqd_srs:srs_in_provision_spec)
+                       ~reqd_srs:srs_in_provision_spec
+                    )
                   ()
               with
               | Not_forwarding ->
@@ -1565,13 +1642,17 @@ functor
             loadbalance_host_operation ~__context ~hosts ~doc:"VM.provision"
               ~op:`provision (fun host ->
                 do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                    Client.VM.provision rpc session_id vm)))
+                    Client.VM.provision rpc session_id vm
+                )
+            )
+        )
 
       let query_services ~__context ~self =
         info "VM.query_services: VM = '%s'" (vm_uuid ~__context self) ;
         with_vm_operation ~__context ~self ~doc:"VM.query_services"
           ~op:`query_services (fun () ->
-            Local.VM.query_services ~__context ~self)
+            Local.VM.query_services ~__context ~self
+        )
 
       let start ~__context ~vm ~start_paused ~force =
         info "VM.start: VM = '%s'" (vm_uuid ~__context vm) ;
@@ -1597,9 +1678,13 @@ functor
                       let (), host =
                         forward_to_suitable_host ~local_fn ~__context ~vm
                           ~snapshot ~host_op:`vm_start (fun session_id rpc ->
-                            Client.VM.start rpc session_id vm start_paused force)
+                            Client.VM.start rpc session_id vm start_paused force
+                        )
                       in
-                      host)))
+                      host
+                  )
+              )
+          )
         in
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
@@ -1614,7 +1699,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         Rrdd_proxy.push_rrd ~__context ~vm_uuid:uuid
@@ -1631,9 +1717,11 @@ functor
             | _, `evacuate ->
                 raise
                   (Api_errors.Server_error
-                     (Api_errors.host_evacuate_in_progress, [Ref.string_of host]))
+                     (Api_errors.host_evacuate_in_progress, [Ref.string_of host])
+                  )
             | _ ->
-                ())
+                ()
+            )
           (Db.Host.get_current_operations ~__context ~self:host) ;
         info "VM.start_on: VM = '%s'; host '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
@@ -1658,8 +1746,13 @@ functor
                       ~host_op:`vm_start (fun () ->
                         do_op_on ~local_fn ~__context ~host
                           (fun session_id rpc ->
-                            Client.VM.start rpc session_id vm start_paused force)) ;
-                    Xapi_vm_helpers.start_delay ~__context ~vm))) ;
+                            Client.VM.start rpc session_id vm start_paused force
+                        )
+                    ) ;
+                    Xapi_vm_helpers.start_delay ~__context ~vm
+                )
+            )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
@@ -1674,7 +1767,8 @@ functor
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
                  ~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
-                 ~body:message_body)
+                 ~body:message_body
+              )
           with _ -> ()
         ) ;
         Rrdd_proxy.push_rrd ~__context
@@ -1686,7 +1780,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.pause" ~op:`pause
           (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.pause rpc session_id vm)) ;
+                Client.VM.pause rpc session_id vm
+            )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1696,7 +1792,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.unpause" ~op:`unpause
           (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.unpause rpc session_id vm)) ;
+                Client.VM.unpause rpc session_id vm
+            )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1709,7 +1807,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin"
           ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.call_plugin rpc session_id vm plugin fn args))
+                Client.VM.call_plugin rpc session_id vm plugin fn args
+            )
+        )
 
       let set_has_vendor_device ~__context ~self ~value =
         info "VM.set_has_vendor_device: VM = '%s' to %b"
@@ -1723,7 +1823,8 @@ functor
         if power_state = `Running then
           let local_fn = Local.VM.set_xenstore_data ~self ~value in
           forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-              Client.VM.set_xenstore_data rpc session_id self value)
+              Client.VM.set_xenstore_data rpc session_id self value
+          )
 
       let clean_shutdown ~__context ~vm =
         info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm) ;
@@ -1731,7 +1832,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.clean_shutdown"
           ~op:`clean_shutdown (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.clean_shutdown rpc session_id vm)) ;
+                Client.VM.clean_shutdown rpc session_id vm
+            )
+        ) ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
           Printf.sprintf "VM '%s' shutdown"
@@ -1741,7 +1844,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         update_vbd_operations ~__context ~vm ;
@@ -1765,15 +1869,19 @@ functor
                 Xapi_vm_helpers.choose_host ~__context ~vm
                   ~choose_fn:
                     (Xapi_vm_helpers.assert_can_see_specified_SRs ~__context
-                       ~reqd_srs:all_vm_srs)
+                       ~reqd_srs:all_vm_srs
+                    )
                   ()
               in
               do_op_on ~__context ~local_fn:(Local.VM.hard_shutdown ~vm)
                 ~host:suitable_host (fun session_id rpc ->
-                  Client.VM.hard_shutdown rpc session_id vm)
+                  Client.VM.hard_shutdown rpc session_id vm
+              )
             ) else
               forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                  Client.VM.shutdown rpc session_id vm)) ;
+                  Client.VM.shutdown rpc session_id vm
+              )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
@@ -1785,7 +1893,8 @@ functor
         try
           ignore
             (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-               ~obj_uuid:uuid ~body:message_body)
+               ~obj_uuid:uuid ~body:message_body
+            )
         with _ -> ()
 
       let clean_reboot ~__context ~vm =
@@ -1803,7 +1912,11 @@ functor
                        									   change across reboot. *)
                     forward_vm_op ~local_fn ~__context ~vm
                       (fun session_id rpc ->
-                        Client.VM.clean_reboot rpc session_id vm)))) ;
+                        Client.VM.clean_reboot rpc session_id vm
+                    )
+                )
+            )
+        ) ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
           Printf.sprintf "VM '%s' rebooted cleanly"
@@ -1813,7 +1926,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         update_vbd_operations ~__context ~vm ;
@@ -1857,7 +1971,8 @@ functor
                   Xapi_vm_helpers.choose_host ~__context ~vm
                     ~choose_fn:
                       (Xapi_vm_helpers.assert_can_see_specified_SRs ~__context
-                         ~reqd_srs:all_vm_srs)
+                         ~reqd_srs:all_vm_srs
+                      )
                     ()
                 in
                 do_op_on ~host:suitable_host
@@ -1866,7 +1981,9 @@ functor
                 do_op_on ~host
             in
             policy ~local_fn ~__context (fun session_id rpc ->
-                Client.VM.hard_shutdown rpc session_id vm)) ;
+                Client.VM.hard_shutdown rpc session_id vm
+            )
+        ) ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
           Printf.sprintf "VM '%s' shutdown forcibly"
@@ -1876,7 +1993,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         update_vbd_operations ~__context ~vm ;
@@ -1904,7 +2022,11 @@ functor
                     (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
                        									   change across reboot. *)
                     do_op_on ~host ~local_fn ~__context (fun session_id rpc ->
-                        Client.VM.hard_reboot rpc session_id vm)))) ;
+                        Client.VM.hard_reboot rpc session_id vm
+                    )
+                )
+            )
+        ) ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
           Printf.sprintf "VM '%s' rebooted forcibly"
@@ -1914,7 +2036,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         update_vbd_operations ~__context ~vm ;
@@ -1931,7 +2054,10 @@ functor
                 (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
                    							   change across reboot. *)
                 forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                    Client.VM.hard_reboot_internal rpc session_id vm))) ;
+                    Client.VM.hard_reboot_internal rpc session_id vm
+                )
+            )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1941,7 +2067,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.suspend" ~op:`suspend
           (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.suspend rpc session_id vm)) ;
+                Client.VM.suspend rpc session_id vm
+            )
+        ) ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         (* debug "placeholder for retrieving the current value of memory-actual";*)
         let message_body =
@@ -1952,7 +2080,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         update_vbd_operations ~__context ~vm ;
@@ -1997,7 +2126,8 @@ functor
                     if not live then
                       raise
                         (Api_errors.Server_error
-                           (Api_errors.host_not_live, [Ref.string_of host]))
+                           (Api_errors.host_not_live, [Ref.string_of host])
+                        )
                 ) ;
                 (* first of all, destroy the domain if needed. *)
                 if Db.VM.get_power_state ~__context ~self:vm <> `Halted then (
@@ -2007,13 +2137,16 @@ functor
                     (Db.VM.get_uuid __context vm)
                     (Db.VM.get_domid __context vm) ;
                   Helpers.call_api_functions ~__context (fun rpc session_id ->
-                      Client.VM.hard_shutdown rpc session_id vm)
+                      Client.VM.hard_shutdown rpc session_id vm
+                  )
                 ) ;
                 Xapi_vm_snapshot.revert_vm_fields ~__context ~snapshot ~vm ;
                 if Db.VM.get_power_state __context vm = `Running then
                   forward_vm_op ~local_fn ~__context ~vm forward_fn
                 else
-                  forward_to_access_srs ~local_fn ~__context ~vm forward_fn))
+                  forward_to_access_srs ~local_fn ~__context ~vm forward_fn
+            )
+        )
 
       (* same forwarding logic as clone *)
       let csvm ~__context ~vm =
@@ -2031,7 +2164,9 @@ functor
             (fun () ->
               forward_to_access_srs_and ~extra_sr:suspend_sr ~local_fn
                 ~__context ~vm (fun session_id rpc ->
-                  Client.VM.csvm rpc session_id vm))
+                  Client.VM.csvm rpc session_id vm
+              )
+          )
         in
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
@@ -2043,7 +2178,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         result
@@ -2063,9 +2199,12 @@ functor
                   let (), host =
                     forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
                       ~host_op:`vm_resume (fun session_id rpc ->
-                        Client.VM.resume rpc session_id vm start_paused force)
+                        Client.VM.resume rpc session_id vm start_paused force
+                    )
                   in
-                  host))
+                  host
+              )
+          )
         in
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
@@ -2080,7 +2219,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         Rrdd_proxy.push_rrd ~__context
@@ -2103,7 +2243,11 @@ functor
                   ~host_op:`vm_resume (fun () ->
                     do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                         Client.VM.resume_on rpc session_id vm host start_paused
-                          force)))) ;
+                          force
+                    )
+                )
+            )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
@@ -2117,7 +2261,8 @@ functor
         ( try
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         Rrdd_proxy.push_rrd ~__context
@@ -2129,7 +2274,8 @@ functor
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.pool_migrate_complete ~vm ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.VM.pool_migrate_complete rpc session_id vm host) ;
+            Client.VM.pool_migrate_complete rpc session_id vm host
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2157,13 +2303,17 @@ functor
             then
               raise
                 (Api_errors.Server_error
-                   (Api_errors.not_supported_during_upgrade, [])) ;
+                   (Api_errors.not_supported_during_upgrade, [])
+                ) ;
             (* Make sure the target has enough memory to receive the VM *)
             let snapshot = Db.VM.get_record ~__context ~self:vm in
             reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
                 forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                    Client.VM.pool_migrate rpc session_id vm host options))) ;
+                    Client.VM.pool_migrate rpc session_id vm host options
+                )
+            )
+        ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
@@ -2178,7 +2328,8 @@ functor
         try
           forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
               Client.VM.assert_can_migrate_sender rpc session_id vm dest live
-                vdi_map vif_map vgpu_map options)
+                vdi_map vif_map vgpu_map options
+          )
         with
         | Api_errors.Server_error (code, params)
         when code = Api_errors.message_method_unknown
@@ -2226,8 +2377,10 @@ functor
                 Helpers.try_internal_async ~__context API.ref_VM_of_rpc
                   (fun () ->
                     Client.InternalAsync.VM.migrate_send rpc session_id vm dest
-                      live vdi_map vif_map options vgpu_map)
-                  (fun () -> op session_id rpc))
+                      live vdi_map vif_map options vgpu_map
+                    )
+                  (fun () -> op session_id rpc)
+            )
           in
           match migration_type with
           | `Live_interpool ->
@@ -2237,7 +2390,8 @@ functor
               let snapshot = Db.VM.get_record ~__context ~self:vm in
               fst
                 (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
-                   ~host_op:`vm_migrate op)
+                   ~host_op:`vm_migrate op
+                )
           | `Live_intrapool host ->
               (* reserve resources on the destination host, then forward the call to the source. *)
               let snapshot = Db.VM.get_record ~__context ~self:vm in
@@ -2245,13 +2399,15 @@ functor
                 Helpers.with_global_lock (fun () ->
                     finally_clear_host_operation ~__context ~host
                       ~host_op:`vm_migrate () ;
-                    clear_scheduled_to_be_resident_on ~__context ~vm)
+                    clear_scheduled_to_be_resident_on ~__context ~vm
+                )
               in
               finally
                 (fun () ->
                   allocate_vm_to_host ~__context ~vm ~host ~snapshot
                     ~host_op:`vm_migrate () ;
-                  forward_internal_async ())
+                  forward_internal_async ()
+                  )
                 clear_migrate_op
         in
         with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send"
@@ -2259,8 +2415,10 @@ functor
             Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate"
               (fun ~__context ->
                 assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map
-                  ~vgpu_map ~options) ;
-            forward_migrate_send ())
+                  ~vgpu_map ~options
+            ) ;
+            forward_migrate_send ()
+        )
 
       let send_trigger ~__context ~vm ~trigger =
         info "VM.send_trigger: VM = '%s'; trigger = '%s'"
@@ -2269,7 +2427,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.send_trigger"
           ~op:`send_trigger (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.send_trigger rpc session_id vm trigger))
+                Client.VM.send_trigger rpc session_id vm trigger
+            )
+        )
 
       let send_sysrq ~__context ~vm ~key =
         info "VM.send_sysrq: VM = '%s'; sysrq = '%s'" (vm_uuid ~__context vm)
@@ -2278,7 +2438,9 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.send_sysrq"
           ~op:`send_sysrq (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.send_sysrq rpc session_id vm key))
+                Client.VM.send_sysrq rpc session_id vm key
+            )
+        )
 
       let set_VCPUs_number_live ~__context ~self ~nvcpu =
         info "VM.set_VCPUs_number_live: VM = '%s'; number_of_VCPU = %Ld"
@@ -2287,7 +2449,9 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_number_live"
           ~op:`changing_VCPUs_live (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_VCPUs_number_live rpc session_id self nvcpu))
+                Client.VM.set_VCPUs_number_live rpc session_id self nvcpu
+            )
+        )
 
       let add_to_VCPUs_params_live ~__context ~self ~key ~value =
         info "VM.add_to_VCPUs_params_live: VM = '%s'; params = ('%s','%s')"
@@ -2296,34 +2460,40 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.add_to_VCPUs_params_live"
           ~op:`changing_VCPUs_live (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.add_to_VCPUs_params_live rpc session_id self key value))
+                Client.VM.add_to_VCPUs_params_live rpc session_id self key value
+            )
+        )
 
       let set_NVRAM ~__context ~self ~value =
         info "VM.set_NVRAM: self='%s'" (vm_uuid ~__context self) ;
         with_vm_operation ~__context ~self ~doc:"VM.set_NVRAM"
           ~op:`changing_NVRAM (fun () ->
-            Local.VM.set_NVRAM ~__context ~self ~value)
+            Local.VM.set_NVRAM ~__context ~self ~value
+        )
 
       let remove_from_NVRAM ~__context ~self ~key =
         info "VM.remove_from_NVRAM: self='%s', key='%s'"
           (vm_uuid ~__context self) key ;
         with_vm_operation ~__context ~self ~doc:"VM.remove_from_NVRAM"
           ~op:`changing_NVRAM (fun () ->
-            Local.VM.remove_from_NVRAM ~__context ~self ~key)
+            Local.VM.remove_from_NVRAM ~__context ~self ~key
+        )
 
       let add_to_NVRAM ~__context ~self ~key ~value =
         info "VM.add_to_NVRAM: self='%s', key='%s'" (vm_uuid ~__context self)
           key ;
         with_vm_operation ~__context ~self ~doc:"VM.add_to_NVRAM"
           ~op:`changing_NVRAM (fun () ->
-            Local.VM.add_to_NVRAM ~__context ~self ~key ~value)
+            Local.VM.add_to_NVRAM ~__context ~self ~key ~value
+        )
 
       let set_VCPUs_max ~__context ~self ~value =
         info "VM.set_VCPUs_max: self = %s; value = %Ld"
           (vm_uuid ~__context self) value ;
         with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_max"
           ~op:`changing_VCPUs (fun () ->
-            Local.VM.set_VCPUs_max ~__context ~self ~value)
+            Local.VM.set_VCPUs_max ~__context ~self ~value
+        )
 
       let set_VCPUs_at_startup ~__context ~self ~value =
         info "VM.set_VCPUs_at_startup: self = %s; value = %Ld"
@@ -2353,13 +2523,16 @@ functor
                     forward_vm_op ~local_fn ~__context ~vm:self
                       (fun session_id rpc ->
                         Client.VM.set_memory_dynamic_range rpc session_id self
-                          min max))
+                          min max
+                    )
+                )
             | `Halted ->
                 local_fn ~__context
             | _ ->
                 failwith
                   "assertion_failure: set_memory_dynamic_range: power_state \
-                   should be Halted or Running")
+                   should be Halted or Running"
+        )
 
       let set_memory_dynamic_max ~__context ~self ~value =
         info "VM.set_memory_dynamic_max: VM = '%s'; value = %Ld"
@@ -2378,7 +2551,8 @@ functor
           (vm_uuid ~__context self) min max ;
         with_vm_operation ~__context ~self ~doc:"VM.set_memory_static_range"
           ~op:`changing_static_range (fun () ->
-            Local.VM.set_memory_static_range ~__context ~self ~min ~max)
+            Local.VM.set_memory_static_range ~__context ~self ~min ~max
+        )
 
       let set_memory_static_max ~__context ~self ~value =
         info "VM.set_memory_static_max: VM = '%s'; value = %Ld"
@@ -2407,7 +2581,9 @@ functor
           ~op:`changing_memory_limits (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
                 Client.VM.set_memory_limits rpc session_id self static_min
-                  static_max dynamic_min dynamic_max))
+                  static_max dynamic_min dynamic_max
+            )
+        )
 
       let set_memory ~__context ~self ~value =
         info "VM.set_memory: self = %s; value = %Ld" (vm_uuid ~__context self)
@@ -2416,7 +2592,9 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.set_memory"
           ~op:`changing_memory_limits (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_memory rpc session_id self value))
+                Client.VM.set_memory rpc session_id self value
+            )
+        )
 
       let set_memory_target_live ~__context ~self ~target =
         info "VM.set_memory_target_live: VM = '%s'; min = %Ld"
@@ -2425,7 +2603,9 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.set_memory_target_live"
           ~op:`changing_memory_live (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_memory_target_live rpc session_id self target))
+                Client.VM.set_memory_target_live rpc session_id self target
+            )
+        )
 
       let wait_memory_target_live ~__context ~self =
         info "VM.wait_memory_target_live: VM = '%s'" (vm_uuid ~__context self) ;
@@ -2433,7 +2613,9 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.wait_memory_target_live"
           ~op:`awaiting_memory_live (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.wait_memory_target_live rpc session_id self))
+                Client.VM.wait_memory_target_live rpc session_id self
+            )
+        )
 
       (* Dummy implementation for a deprecated API method. *)
       let get_cooperative ~__context ~self =
@@ -2445,7 +2627,8 @@ functor
           (vm_uuid ~__context self) value ;
         with_vm_operation ~__context ~self ~doc:"VM.set_HVM_shadow_multiplier"
           ~op:`changing_shadow_memory (fun () ->
-            Local.VM.set_HVM_shadow_multiplier ~__context ~self ~value)
+            Local.VM.set_HVM_shadow_multiplier ~__context ~self ~value
+        )
 
       let set_shadow_multiplier_live ~__context ~self ~multiplier =
         info "VM.set_shadow_multiplier_live: VM = '%s'; min = %f"
@@ -2457,14 +2640,17 @@ functor
                 (* No need to perform a memory calculation here: the real code will tell us if the
                    							   new value is too big. *)
                 Client.VM.set_shadow_multiplier_live rpc session_id self
-                  multiplier))
+                  multiplier
+            )
+        )
 
       (* this is in db *)
       let get_boot_record ~__context ~self =
         info "VM.get_boot_record: VM = '%s'" (vm_uuid ~__context self) ;
         with_vm_operation ~__context ~self ~doc:"VM.get_boot_record"
           ~op:`get_boot_record (fun () ->
-            Local.VM.get_boot_record ~__context ~self)
+            Local.VM.get_boot_record ~__context ~self
+        )
 
       let get_data_sources ~__context ~self =
         info "VM.get_data_sources: VM = '%s'" (vm_uuid ~__context self) ;
@@ -2472,7 +2658,9 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.get_data_source"
           ~op:`data_source_op (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.get_data_sources rpc session_id self))
+                Client.VM.get_data_sources rpc session_id self
+            )
+        )
 
       let record_data_source ~__context ~self ~data_source =
         info "VM.record_data_source: VM = '%s'; data source = '%s'"
@@ -2481,7 +2669,9 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.record_data_source"
           ~op:`data_source_op (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.record_data_source rpc session_id self data_source))
+                Client.VM.record_data_source rpc session_id self data_source
+            )
+        )
 
       let query_data_source ~__context ~self ~data_source =
         info "VM.query_data_source: VM = '%s'; data source = '%s'"
@@ -2490,7 +2680,8 @@ functor
           ~allowed:[`Running; `Paused] ;
         let local_fn = Local.VM.query_data_source ~self ~data_source in
         forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-            Client.VM.query_data_source rpc session_id self data_source)
+            Client.VM.query_data_source rpc session_id self data_source
+        )
 
       let forget_data_source_archives ~__context ~self ~data_source =
         info "VM.forget_data_source_archives: VM = '%s'; data source = '%s'"
@@ -2502,7 +2693,9 @@ functor
           ~op:`data_source_op (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
                 Client.VM.forget_data_source_archives rpc session_id self
-                  data_source))
+                  data_source
+            )
+        )
 
       let get_possible_hosts ~__context ~vm =
         info "VM.get_possible_hosts: VM = '%s'" (vm_uuid ~__context vm) ;
@@ -2523,8 +2716,7 @@ functor
         Local.VM.assert_can_boot_here ~__context ~self ~host
 
       let retrieve_wlb_recommendations ~__context ~vm =
-        info "VM.retrieve_wlb_recommendations: VM = '%s'"
-          (vm_uuid ~__context vm) ;
+        info "VM.retrieve_wlb_recommendations: VM = '%s'" (vm_uuid ~__context vm) ;
         Local.VM.retrieve_wlb_recommendations ~__context ~vm
 
       let assert_agile ~__context ~self =
@@ -2545,7 +2737,8 @@ functor
         Helpers.with_global_lock (fun () ->
             Db.VM.set_resident_on ~__context ~self:vm ~value:host ;
             Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
-              ~value:Ref.null)
+              ~value:Ref.null
+        )
 
       let create_new_blob ~__context ~vm ~name ~mime_type ~public =
         info
@@ -2558,13 +2751,15 @@ functor
         info "VM.s3_suspend: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.s3_suspend ~vm in
         forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-            Client.VM.s3_suspend rpc session_id vm)
+            Client.VM.s3_suspend rpc session_id vm
+        )
 
       let s3_resume ~__context ~vm =
         info "VM.s3_resume: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.s3_resume ~vm in
         forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-            Client.VM.s3_resume rpc session_id vm)
+            Client.VM.s3_resume rpc session_id vm
+        )
 
       let set_bios_strings ~__context ~self ~value =
         info "VM.set_bios_strings: self = '%s'; value = '%s'"
@@ -2603,8 +2798,7 @@ functor
         Local.VM.set_suspend_VDI ~__context ~self ~value
 
       let assert_can_be_recovered ~__context ~self ~session_to =
-        info "VM.assert_can_be_recovered: self = '%s';"
-          (vm_uuid ~__context self) ;
+        info "VM.assert_can_be_recovered: self = '%s';" (vm_uuid ~__context self) ;
         Local.VM.assert_can_be_recovered ~__context ~self ~session_to
 
       let get_SRs_required_for_recovery ~__context ~self ~session_to =
@@ -2622,7 +2816,9 @@ functor
           raise
             (Api_errors.Server_error
                ( Api_errors.vm_is_part_of_an_appliance
-               , [Ref.string_of self; Ref.string_of appliance] )) ;
+               , [Ref.string_of self; Ref.string_of appliance]
+               )
+            ) ;
         Local.VM.recover ~__context ~self ~session_to ~force
 
       let set_appliance ~__context ~self ~value =
@@ -2635,7 +2831,8 @@ functor
           ~remote_config =
         info "VM.import_convert: type = '%s'; remote_config = '%s;'" _type
           (String.concat ","
-             (List.map (fun (k, v) -> k ^ "=" ^ v) remote_config)) ;
+             (List.map (fun (k, v) -> k ^ "=" ^ v) remote_config)
+          ) ;
         Local.VM.import_convert ~__context ~_type ~username ~password ~sr
           ~remote_config
 
@@ -2649,7 +2846,8 @@ functor
         let host = Db.PBD.get_host ~__context ~self:pbd in
         do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force)
           ~__context ~host (fun session_id rpc ->
-            Client.VM.import rpc session_id url sr full_restore force)
+            Client.VM.import rpc session_id url sr full_restore force
+        )
 
       let set_domain_type ~__context ~self ~value =
         info "VM.set_domain_type: self = '%s'; value = '%s';"
@@ -2677,24 +2875,26 @@ functor
         info "Diagnostics.gc_compact: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Diagnostics.gc_compact ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Diagnostics.gc_compact rpc session_id host)
+            Client.Diagnostics.gc_compact rpc session_id host
+        )
 
       let gc_stats ~__context ~host =
         info "Diagnostics.gc_stats: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Diagnostics.gc_stats ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Diagnostics.gc_stats rpc session_id host)
+            Client.Diagnostics.gc_stats rpc session_id host
+        )
 
       let db_stats ~__context =
         info "Diagnostics.db_stats" ;
         Local.Diagnostics.db_stats ~__context
 
       let network_stats ~__context ~host ~params =
-        info "Diagnostics.network_stats: host = '%s'"
-          (host_uuid ~__context host) ;
+        info "Diagnostics.network_stats: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Diagnostics.network_stats ~host ~params in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Diagnostics.network_stats rpc session_id host params)
+            Client.Diagnostics.network_stats rpc session_id host params
+        )
     end
 
     module Host = struct
@@ -2718,7 +2918,8 @@ functor
           (host_uuid ~__context self)
           power_on_mode
           (String.concat ", "
-             (List.map (fun (k, v) -> k ^ "=" ^ v) power_on_config)) ;
+             (List.map (fun (k, v) -> k ^ "=" ^ v) power_on_config)
+          ) ;
         Local.Host.set_power_on_mode ~__context ~self ~power_on_mode
           ~power_on_config
 
@@ -2739,33 +2940,37 @@ functor
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_disable_failover_decisions ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_disable_failover_decisions rpc session_id host)
+            Client.Host.ha_disable_failover_decisions rpc session_id host
+        )
 
       let ha_disarm_fencing ~__context ~host =
         info "Host.ha_disarm_fencing: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_disarm_fencing ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_disarm_fencing rpc session_id host)
+            Client.Host.ha_disarm_fencing rpc session_id host
+        )
 
       let ha_stop_daemon ~__context ~host =
         info "Host.ha_stop_daemon: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_stop_daemon ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_stop_daemon rpc session_id host)
+            Client.Host.ha_stop_daemon rpc session_id host
+        )
 
       let ha_release_resources ~__context ~host =
-        info "Host.ha_release_resources: host = '%s'"
-          (host_uuid ~__context host) ;
+        info "Host.ha_release_resources: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_release_resources ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_release_resources rpc session_id host)
+            Client.Host.ha_release_resources rpc session_id host
+        )
 
       let ha_wait_for_shutdown_via_statefile ~__context ~host =
         info "Host.ha_wait_for_shutdown_via_statefile: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_wait_for_shutdown_via_statefile ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_wait_for_shutdown_via_statefile rpc session_id host)
+            Client.Host.ha_wait_for_shutdown_via_statefile rpc session_id host
+        )
 
       let preconfigure_ha ~__context ~host ~statefiles ~metadata_vdi ~generation
           =
@@ -2781,26 +2986,30 @@ functor
         in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.preconfigure_ha rpc session_id host statefiles
-              metadata_vdi generation)
+              metadata_vdi generation
+        )
 
       let ha_join_liveset ~__context ~host =
         info "Host.ha_join_liveset: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_join_liveset ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_join_liveset rpc session_id host)
+            Client.Host.ha_join_liveset rpc session_id host
+        )
 
       let request_backup ~__context ~host ~generation ~force =
         debug "Host.request_backup: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.request_backup ~host ~generation ~force in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.request_backup rpc session_id host generation force)
+            Client.Host.request_backup rpc session_id host generation force
+        )
 
       let request_config_file_sync ~__context ~host ~hash =
         debug "Host.request_config_file_sync: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.request_config_file_sync ~host ~hash in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.request_config_file_sync rpc session_id host hash)
+            Client.Host.request_config_file_sync rpc session_id host hash
+        )
 
       (* Call never forwarded *)
       let ha_xapi_healthcheck ~__context =
@@ -2863,7 +3072,8 @@ functor
         let fn () =
           do_op_on ~local_fn ~__context
             ~host:(Db.PIF.get_host ~__context ~self:pif) (fun session_id rpc ->
-              Client.Host.management_reconfigure rpc session_id pif)
+              Client.Host.management_reconfigure rpc session_id pif
+          )
         in
         tolerate_connection_loss fn success 30.
 
@@ -2883,7 +3093,8 @@ functor
           host ;
         let local_fn = Local.Host.disable ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable rpc session_id host) ;
+            Client.Host.disable rpc session_id host
+        ) ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
       let declare_dead ~__context ~host =
@@ -2895,7 +3106,8 @@ functor
         info "Host.enable: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable rpc session_id host) ;
+            Client.Host.enable rpc session_id host
+        ) ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
       let shutdown ~__context ~host =
@@ -2904,7 +3116,9 @@ functor
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.shutdown" ~op:`shutdown (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Host.shutdown rpc session_id host))
+                Client.Host.shutdown rpc session_id host
+            )
+        )
 
       let reboot ~__context ~host =
         info "Host.reboot: host = '%s'" (host_uuid ~__context host) ;
@@ -2912,34 +3126,39 @@ functor
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.reboot" ~op:`reboot (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Host.reboot rpc session_id host))
+                Client.Host.reboot rpc session_id host
+            )
+        )
 
       (* This is only be called by systemd during shutdown when xapi-domains.service is stopped *)
       let prepare_for_poweroff ~__context ~host =
-        info "Host.prepare_for_poweroff: host = '%s'"
-          (host_uuid ~__context host) ;
+        info "Host.prepare_for_poweroff: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.prepare_for_poweroff ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.prepare_for_poweroff rpc session_id host)
+            Client.Host.prepare_for_poweroff rpc session_id host
+        )
 
       let power_on ~__context ~host =
         info "Host.power_on: host = '%s'" (host_uuid ~__context host) ;
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.power_on" ~op:`power_on (fun () ->
             (* Always executed on the master *)
-            Local.Host.power_on ~__context ~host)
+            Local.Host.power_on ~__context ~host
+        )
 
       let dmesg ~__context ~host =
         info "Host.dmesg: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.dmesg ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.dmesg rpc session_id host)
+            Client.Host.dmesg rpc session_id host
+        )
 
       let dmesg_clear ~__context ~host =
         info "Host.dmesg_clear: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.dmesg_clear ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.dmesg_clear rpc session_id host)
+            Client.Host.dmesg_clear rpc session_id host
+        )
 
       let bugreport_upload ~__context ~host ~url ~options =
         let filtered_options =
@@ -2958,10 +3177,12 @@ functor
           (host_uuid ~__context host)
           "(url filtered)"
           (String.concat "; "
-             (List.map (fun (k, v) -> k ^ "=" ^ v) filtered_options)) ;
+             (List.map (fun (k, v) -> k ^ "=" ^ v) filtered_options)
+          ) ;
         let local_fn = Local.Host.bugreport_upload ~host ~url ~options in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.bugreport_upload rpc session_id host url options)
+            Client.Host.bugreport_upload rpc session_id host url options
+        )
 
       let list_methods ~__context =
         info "Host.list_methods" ;
@@ -2973,25 +3194,29 @@ functor
           keys ;
         let local_fn = Local.Host.send_debug_keys ~host ~keys in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.send_debug_keys rpc session_id host keys)
+            Client.Host.send_debug_keys rpc session_id host keys
+        )
 
       let get_log ~__context ~host =
         info "Host.get_log: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_log ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_log rpc session_id host)
+            Client.Host.get_log rpc session_id host
+        )
 
       let license_add ~__context ~host ~contents =
         info "Host.license_add: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.license_add ~host ~contents in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.license_add rpc session_id host contents)
+            Client.Host.license_add rpc session_id host contents
+        )
 
       let license_remove ~__context ~host =
         info "Host.license_remove: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.license_remove ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.license_remove rpc session_id host)
+            Client.Host.license_remove rpc session_id host
+        )
 
       let assert_can_evacuate ~__context ~host =
         info "Host.assert_can_evacuate: host = '%s'" (host_uuid ~__context host) ;
@@ -3009,7 +3234,8 @@ functor
           host ;
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.evacuate" ~op:`evacuate (fun () ->
-            Local.Host.evacuate ~__context ~host ~network)
+            Local.Host.evacuate ~__context ~host ~network
+        )
 
       let retrieve_wlb_evacuate_recommendations ~__context ~self =
         info "Host.retrieve_wlb_evacuate_recommendations: host = '%s'"
@@ -3020,7 +3246,8 @@ functor
         info "Host.update_pool_secret: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.update_pool_secret ~host ~pool_secret in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.update_pool_secret rpc session_id host pool_secret)
+            Client.Host.update_pool_secret rpc session_id host pool_secret
+        )
 
       let update_master ~__context ~host ~master_address =
         info "Host.update_master: host = '%s'; master = '%s'"
@@ -3028,13 +3255,15 @@ functor
           master_address ;
         let local_fn = Local.Pool.emergency_reset_master ~master_address in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.update_master rpc session_id host master_address)
+            Client.Host.update_master rpc session_id host master_address
+        )
 
       let restart_agent ~__context ~host =
         info "Host.restart_agent: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.restart_agent ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.restart_agent rpc session_id host)
+            Client.Host.restart_agent rpc session_id host
+        )
 
       let shutdown_agent ~__context = Local.Host.shutdown_agent ~__context
 
@@ -3050,21 +3279,24 @@ functor
         info "Host.syslog_reconfigure: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.syslog_reconfigure ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.syslog_reconfigure rpc session_id host)
+            Client.Host.syslog_reconfigure rpc session_id host
+        )
 
       let get_system_status_capabilities ~__context ~host =
         info "Host.get_system_status_capabilities: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_system_status_capabilities ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_system_status_capabilities rpc session_id host)
+            Client.Host.get_system_status_capabilities rpc session_id host
+        )
 
       let get_diagnostic_timing_stats ~__context ~host =
         info "Host.get_diagnostic_timing_stats: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_diagnostic_timing_stats ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_diagnostic_timing_stats rpc session_id host)
+            Client.Host.get_diagnostic_timing_stats rpc session_id host
+        )
 
       let set_hostname_live ~__context ~host ~hostname =
         info "Host.set_hostname_live: host = '%s'; hostname = '%s'"
@@ -3072,13 +3304,15 @@ functor
           hostname ;
         let local_fn = Local.Host.set_hostname_live ~host ~hostname in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_hostname_live rpc session_id host hostname)
+            Client.Host.set_hostname_live rpc session_id host hostname
+        )
 
       let get_data_sources ~__context ~host =
         info "Host.get_data_sources: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_data_sources ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_data_sources rpc session_id host)
+            Client.Host.get_data_sources rpc session_id host
+        )
 
       let record_data_source ~__context ~host ~data_source =
         info "Host.record_data_source: host = '%s';  data source = '%s'"
@@ -3086,7 +3320,8 @@ functor
           data_source ;
         let local_fn = Local.Host.record_data_source ~host ~data_source in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.record_data_source rpc session_id host data_source)
+            Client.Host.record_data_source rpc session_id host data_source
+        )
 
       let query_data_source ~__context ~host ~data_source =
         info "Host.query_data_source: host = '%s'; data source = '%s'"
@@ -3094,7 +3329,8 @@ functor
           data_source ;
         let local_fn = Local.Host.query_data_source ~host ~data_source in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.query_data_source rpc session_id host data_source)
+            Client.Host.query_data_source rpc session_id host data_source
+        )
 
       let forget_data_source_archives ~__context ~host ~data_source =
         info "Host.forget_data_source_archives: host = '%s'; data source = '%s'"
@@ -3105,7 +3341,8 @@ functor
         in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.forget_data_source_archives rpc session_id host
-              data_source)
+              data_source
+        )
 
       let tickle_heartbeat ~__context ~host ~stuff =
         (* info "Host.tickle_heartbeat: Incoming call from host '%s' with arguments [ %s ]" (Ref.string_of host) (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) stuff)); *)
@@ -3127,7 +3364,8 @@ functor
           plugin fn ;
         let local_fn = Local.Host.call_plugin ~host ~plugin ~fn ~args in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.call_plugin rpc session_id host plugin fn args)
+            Client.Host.call_plugin rpc session_id host plugin fn args
+        )
 
       let call_extension ~__context ~host ~call =
         info "Host.call_extension host = '%s'; call = '%s'"
@@ -3135,7 +3373,8 @@ functor
           call ;
         let local_fn = Local.Host.call_extension ~host ~call in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.call_extension rpc session_id host call)
+            Client.Host.call_extension rpc session_id host call
+        )
 
       let has_extension ~__context ~host ~name =
         info "Host.has_extension: host = '%s'; name = '%s'"
@@ -3143,7 +3382,8 @@ functor
           name ;
         let local_fn = Local.Host.has_extension ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.has_extension rpc session_id host name)
+            Client.Host.has_extension rpc session_id host name
+        )
 
       let sync_data ~__context ~host =
         info "Host.sync_data: host = '%s'" (host_uuid ~__context host) ;
@@ -3152,7 +3392,8 @@ functor
       let backup_rrds ~__context ~host ~delay =
         let local_fn = Local.Host.backup_rrds ~host ~delay in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.backup_rrds rpc session_id host delay)
+            Client.Host.backup_rrds rpc session_id host delay
+        )
 
       let compute_free_memory ~__context ~host =
         info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context host) ;
@@ -3168,28 +3409,32 @@ functor
         (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
         let local_fn = Local.Host.get_servertime ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_servertime rpc session_id host)
+            Client.Host.get_servertime rpc session_id host
+        )
 
       let get_server_localtime ~__context ~host =
         (* info "Host.get_servertime"; *)
         (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
         let local_fn = Local.Host.get_server_localtime ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_server_localtime rpc session_id host)
+            Client.Host.get_server_localtime rpc session_id host
+        )
 
       let enable_binary_storage ~__context ~host =
         info "Host.enable_binary_storage: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable_binary_storage ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_binary_storage rpc session_id host)
+            Client.Host.enable_binary_storage rpc session_id host
+        )
 
       let disable_binary_storage ~__context ~host =
         info "Host.disable_binary_storage: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.disable_binary_storage ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_binary_storage rpc session_id host)
+            Client.Host.disable_binary_storage rpc session_id host
+        )
 
       let enable_external_auth ~__context ~host ~config ~service_name ~auth_type
           =
@@ -3206,14 +3451,16 @@ functor
         in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.enable_external_auth rpc session_id host config
-              service_name auth_type)
+              service_name auth_type
+        )
 
       let disable_external_auth ~__context ~host ~config =
         info "Host.disable_external_auth: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.disable_external_auth ~host ~config in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_external_auth rpc session_id host config)
+            Client.Host.disable_external_auth rpc session_id host config
+        )
 
       let install_ca_certificate ~__context ~host ~name ~cert =
         info "Host.install_ca_certificate: host = '%s'; name = '%s'"
@@ -3221,7 +3468,8 @@ functor
           name ;
         let local_fn = Local.Host.install_ca_certificate ~host ~name ~cert in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.install_ca_certificate rpc session_id host name cert)
+            Client.Host.install_ca_certificate rpc session_id host name cert
+        )
 
       let uninstall_ca_certificate ~__context ~host ~name =
         info "Host.uninstall_ca_certificate: host = '%s'; name = '%s'"
@@ -3229,7 +3477,8 @@ functor
           name ;
         let local_fn = Local.Host.uninstall_ca_certificate ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.uninstall_ca_certificate rpc session_id host name)
+            Client.Host.uninstall_ca_certificate rpc session_id host name
+        )
 
       (* legacy names *)
       let certificate_install = install_ca_certificate
@@ -3240,7 +3489,8 @@ functor
         info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_list ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_list rpc session_id host)
+            Client.Host.certificate_list rpc session_id host
+        )
 
       let crl_install ~__context ~host ~name ~crl =
         info "Host.crl_install: host = '%s'; name = '%s'"
@@ -3248,7 +3498,8 @@ functor
           name ;
         let local_fn = Local.Host.crl_install ~host ~name ~crl in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.crl_install rpc session_id host name crl)
+            Client.Host.crl_install rpc session_id host name crl
+        )
 
       let crl_uninstall ~__context ~host ~name =
         info "Host.crl_uninstall: host = '%s'; name = '%s'"
@@ -3256,26 +3507,30 @@ functor
           name ;
         let local_fn = Local.Host.crl_uninstall ~host ~name in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.crl_uninstall rpc session_id host name)
+            Client.Host.crl_uninstall rpc session_id host name
+        )
 
       let crl_list ~__context ~host =
         info "Host.crl_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.crl_list ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.crl_list rpc session_id host)
+            Client.Host.crl_list rpc session_id host
+        )
 
       let certificate_sync ~__context ~host =
         info "Host.certificate_sync: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_sync ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_sync rpc session_id host)
+            Client.Host.certificate_sync rpc session_id host
+        )
 
       let get_server_certificate ~__context ~host =
         info "Host.get_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_server_certificate ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_server_certificate rpc session_id host)
+            Client.Host.get_server_certificate rpc session_id host
+        )
 
       let _success ~__context () =
         let task = Context.get_task_id __context in
@@ -3293,7 +3548,8 @@ functor
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
               Client.Host.install_server_certificate rpc session_id host
-                certificate private_key certificate_chain)
+                certificate private_key certificate_chain
+          )
         in
         tolerate_connection_loss fn (_success ~__context) 30. ;
         try
@@ -3310,7 +3566,9 @@ functor
                , [
                    "Generation of alerts for server certificate expiration \
                     failed."
-                 ] ))
+                 ]
+               )
+            )
 
       let reset_server_certificate ~__context ~host =
         info "Host.reset_server_certificate: host = '%s'"
@@ -3318,7 +3576,8 @@ functor
         let local_fn = Local.Host.reset_server_certificate ~host in
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.Host.reset_server_certificate ~rpc ~session_id ~host)
+              Client.Host.reset_server_certificate ~rpc ~session_id ~host
+          )
         in
         tolerate_connection_loss fn (_success ~__context) 30.
 
@@ -3330,16 +3589,19 @@ functor
         info "Host.cert_distrib_atom" ;
         let local_fn = Local.Host.cert_distrib_atom ~host ~command in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command)
+            Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command
+        )
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"
           (host_uuid ~__context host)
           (String.concat "; "
-             (List.map (fun (a, b) -> Ref.string_of a ^ "/" ^ b) vdi_reason_map)) ;
+             (List.map (fun (a, b) -> Ref.string_of a ^ "/" ^ b) vdi_reason_map)
+          ) ;
         let local_fn = Local.Host.attach_static_vdis ~host ~vdi_reason_map in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.attach_static_vdis rpc session_id host vdi_reason_map)
+            Client.Host.attach_static_vdis rpc session_id host vdi_reason_map
+        )
 
       let detach_static_vdis ~__context ~host ~vdis =
         info "Host.detach_static_vdis: host = '%s'; vdis =[ %s ]"
@@ -3347,7 +3609,8 @@ functor
           (String.concat "; " (List.map Ref.string_of vdis)) ;
         let local_fn = Local.Host.detach_static_vdis ~host ~vdis in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.detach_static_vdis rpc session_id host vdis)
+            Client.Host.detach_static_vdis rpc session_id host vdis
+        )
 
       let set_localdb_key ~__context ~host ~key ~value =
         info "Host.set_localdb_key: host = '%s'; key = '%s'; value = '%s'"
@@ -3355,7 +3618,8 @@ functor
           key value ;
         let local_fn = Local.Host.set_localdb_key ~host ~key ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_localdb_key rpc session_id host key value)
+            Client.Host.set_localdb_key rpc session_id host key value
+        )
 
       let apply_edition ~__context ~host ~edition ~force =
         info "Host.apply_edition: host = '%s'; edition = '%s'; force = '%s'"
@@ -3363,13 +3627,15 @@ functor
           edition (string_of_bool force) ;
         let local_fn = Local.Host.apply_edition ~host ~edition ~force in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.apply_edition rpc session_id host edition force)
+            Client.Host.apply_edition rpc session_id host edition force
+        )
 
       let refresh_pack_info ~__context ~host =
         info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.refresh_pack_info ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.refresh_pack_info rpc session_id host)
+            Client.Host.refresh_pack_info rpc session_id host
+        )
 
       let reset_networking ~__context ~host =
         info "Host.reset_networking: host = '%s'" (host_uuid ~__context host) ;
@@ -3378,27 +3644,32 @@ functor
       let enable_local_storage_caching ~__context ~host ~sr =
         let local_fn = Local.Host.enable_local_storage_caching ~host ~sr in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_local_storage_caching rpc session_id host sr)
+            Client.Host.enable_local_storage_caching rpc session_id host sr
+        )
 
       let disable_local_storage_caching ~__context ~host =
         let local_fn = Local.Host.disable_local_storage_caching ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_local_storage_caching rpc session_id host)
+            Client.Host.disable_local_storage_caching rpc session_id host
+        )
 
       let get_sm_diagnostics ~__context ~host =
         let local_fn = Local.Host.get_sm_diagnostics ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_sm_diagnostics rpc session_id host)
+            Client.Host.get_sm_diagnostics rpc session_id host
+        )
 
       let get_thread_diagnostics ~__context ~host =
         let local_fn = Local.Host.get_thread_diagnostics ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_thread_diagnostics rpc session_id host)
+            Client.Host.get_thread_diagnostics rpc session_id host
+        )
 
       let sm_dp_destroy ~__context ~host ~dp ~allow_leak =
         let local_fn = Local.Host.sm_dp_destroy ~host ~dp ~allow_leak in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.sm_dp_destroy rpc session_id host dp allow_leak)
+            Client.Host.sm_dp_destroy rpc session_id host dp allow_leak
+        )
 
       let sync_vlans ~__context ~host =
         info "Host.sync_vlans: host = '%s'" (host_uuid ~__context host) ;
@@ -3423,26 +3694,30 @@ functor
         info "Host.enable_display: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable_display ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_display rpc session_id host)
+            Client.Host.enable_display rpc session_id host
+        )
 
       let disable_display ~__context ~host =
         info "Host.disable_display: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.disable_display ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_display rpc session_id host)
+            Client.Host.disable_display rpc session_id host
+        )
 
       let apply_guest_agent_config ~__context ~host =
         info "Host.apply_guest_agent_config: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.apply_guest_agent_config ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.apply_guest_agent_config rpc session_id host)
+            Client.Host.apply_guest_agent_config rpc session_id host
+        )
 
       let mxgpu_vf_setup ~__context ~host =
         info "Host.mxgpu_vf_setup: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.mxgpu_vf_setup ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.mxgpu_vf_setup rpc session_id host)
+            Client.Host.mxgpu_vf_setup rpc session_id host
+        )
 
       let nvidia_vf_setup ~__context ~host ~pf ~enable =
         info "Host.nvidia_vf_setup: host = '%s' pf = '%s' enable = %b"
@@ -3450,7 +3725,8 @@ functor
           (pci_uuid ~__context pf) enable ;
         let local_fn = Local.Host.nvidia_vf_setup ~host ~pf ~enable in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.nvidia_vf_setup rpc session_id host pf enable)
+            Client.Host.nvidia_vf_setup rpc session_id host pf enable
+        )
 
       let allocate_resources_for_vm ~__context ~self ~vm ~live =
         info "Host.host_allocate_resources_for_vm: host = %s; VM = %s"
@@ -3465,7 +3741,8 @@ functor
           value ;
         let local_fn = Local.Host.set_iscsi_iqn ~host ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_iscsi_iqn rpc session_id host value)
+            Client.Host.set_iscsi_iqn rpc session_id host value
+        )
 
       let set_multipathing ~__context ~host ~value =
         info "Host.set_multipathing: host='%s' value='%s'"
@@ -3473,7 +3750,8 @@ functor
           (string_of_bool value) ;
         let local_fn = Local.Host.set_multipathing ~host ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_multipathing rpc session_id host value)
+            Client.Host.set_multipathing rpc session_id host value
+        )
 
       let set_uefi_certificates ~__context ~host ~value =
         info "Host.set_uefi_certificates: host='%s' value='%s'"
@@ -3491,7 +3769,8 @@ functor
         in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
             Client.Host.notify_accept_new_pool_secret rpc session_id host old_ps
-              new_ps)
+              new_ps
+        )
 
       let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
         info "Host.notify_send_new_pool_secret: host='%s'"
@@ -3501,13 +3780,15 @@ functor
         in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
             Client.Host.notify_send_new_pool_secret rpc session_id host old_ps
-              new_ps)
+              new_ps
+        )
 
       let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
         info "Host.cleanup_pool_secret: host='%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.cleanup_pool_secret ~host ~old_ps ~new_ps in
         do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.cleanup_pool_secret rpc session_id host old_ps new_ps)
+            Client.Host.cleanup_pool_secret rpc session_id host old_ps new_ps
+        )
 
       let set_sched_gran ~__context ~self ~value =
         info "Host.set_sched_gran: host='%s' sched='%s'"
@@ -3515,13 +3796,15 @@ functor
           (Record_util.host_sched_gran_to_string value) ;
         let local_fn = Local.Host.set_sched_gran ~self ~value in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.set_sched_gran rpc session_id self value)
+            Client.Host.set_sched_gran rpc session_id self value
+        )
 
       let get_sched_gran ~__context ~self =
         info "Host.get_sched_gran: host='%s'" (host_uuid ~__context self) ;
         let local_fn = Local.Host.get_sched_gran ~self in
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.get_sched_gran rpc session_id self)
+            Client.Host.get_sched_gran rpc session_id self
+        )
 
       let emergency_disable_tls_verification ~__context =
         info "Host.emergency_disable_tls_verification" ;
@@ -3545,7 +3828,8 @@ functor
         do_op_on ~local_fn ~__context
           ~host:(Db.Host_crashdump.get_host ~__context ~self)
           (fun session_id rpc ->
-            Client.Host_crashdump.destroy rpc session_id self)
+            Client.Host_crashdump.destroy rpc session_id self
+        )
 
       let upload ~__context ~self ~url ~options =
         info "Host_crashdump.upload: host crashdump = '%s'; url = '%s'"
@@ -3555,7 +3839,8 @@ functor
         do_op_on ~local_fn ~__context
           ~host:(Db.Host_crashdump.get_host ~__context ~self)
           (fun session_id rpc ->
-            Client.Host_crashdump.upload rpc session_id self url options)
+            Client.Host_crashdump.upload rpc session_id self url options
+        )
     end
 
     module Host_patch = struct
@@ -3570,7 +3855,8 @@ functor
         let local_fn = Local.Host_patch.apply ~self in
         do_op_on ~local_fn ~__context
           ~host:(Db.Host_patch.get_host ~__context ~self) (fun session_id rpc ->
-            Client.Host_patch.apply rpc session_id self)
+            Client.Host_patch.apply rpc session_id self
+        )
     end
 
     module Pool_patch = struct
@@ -3580,7 +3866,8 @@ functor
           (host_uuid ~__context host) ;
         let local_fn = Local.Pool_patch.apply ~self ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_patch.apply rpc session_id self host)
+            Client.Pool_patch.apply rpc session_id self host
+        )
 
       let precheck ~__context ~self ~host =
         info "Pool_patch.precheck: pool patch = '%s'; host = '%s'"
@@ -3588,7 +3875,8 @@ functor
           (host_uuid ~__context host) ;
         let local_fn = Local.Pool_patch.precheck ~self ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_patch.precheck rpc session_id self host)
+            Client.Pool_patch.precheck rpc session_id self host
+        )
 
       let pool_apply ~__context ~self =
         info "Pool_patch.pool_apply: pool patch = '%s'"
@@ -3605,7 +3893,8 @@ functor
           (pool_patch_uuid ~__context self) ;
         let local_fn = Local.Pool_patch.clean ~self in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_patch.clean rpc session_id self)
+            Client.Pool_patch.clean rpc session_id self
+        )
 
       let pool_clean ~__context ~self =
         info "Pool_patch.pool_clean: pool patch = '%s'"
@@ -3644,7 +3933,8 @@ functor
           (host_uuid ~__context host) ;
         let local_fn = Local.Network.attach ~network ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Network.attach rpc session_id network host)
+            Client.Network.attach rpc session_id network host
+        )
 
       let pool_introduce ~__context ~name_label ~name_description ~mTU
           ~other_config ~bridge ~managed =
@@ -3656,7 +3946,8 @@ functor
         (* WARNING WARNING WARNING: directly call Network.destroy with the global lock since it does
            only database operations *)
         Helpers.with_global_lock (fun () ->
-            Local.Network.destroy ~__context ~self)
+            Local.Network.destroy ~__context ~self
+        )
 
       let create_new_blob ~__context ~network ~name ~mime_type ~public =
         info
@@ -3679,7 +3970,8 @@ functor
           (vm_uuid ~__context vm) ;
         let local_fn = Local.Network.attach_for_vm ~host ~vm in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Network.attach_for_vm rpc session_id host vm)
+            Client.Network.attach_for_vm rpc session_id host vm
+        )
 
       let detach_for_vm ~__context ~host ~vm =
         info "Network.detach_for_vm: host = '%s'; VM = '%s'"
@@ -3687,7 +3979,8 @@ functor
           (vm_uuid ~__context vm) ;
         let local_fn = Local.Network.detach_for_vm ~host ~vm in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Network.detach_for_vm rpc session_id host vm)
+            Client.Network.detach_for_vm rpc session_id host vm
+        )
 
       let add_purpose ~__context ~self ~value =
         info "Network.add_purpose: self = '%s'; value = '%s'"
@@ -3714,7 +4007,8 @@ functor
               Xapi_vif_helpers.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vif, Ref.string_of self)
-            ))
+            )
+            )
           vif
 
       let mark_vif ~__context ~vif ~doc ~op =
@@ -3724,17 +4018,21 @@ functor
             Xapi_vif_helpers.assert_operation_valid ~__context ~self ~op ;
             Db.VIF.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
-            Xapi_vif_helpers.update_allowed_operations ~__context ~self)
+            Xapi_vif_helpers.update_allowed_operations ~__context ~self
+            )
           vif
 
       let with_vif_marked ~__context ~vif ~doc ~op f =
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            mark_vif ~__context ~vif ~doc ~op) ;
+            mark_vif ~__context ~vif ~doc ~op
+        ) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                unmark_vif ~__context ~vif ~doc ~op))
+                unmark_vif ~__context ~vif ~doc ~op
+            )
+            )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -3765,7 +4063,9 @@ functor
         with_vif_marked ~__context ~vif:self ~doc:"VIF.plug" ~op:`plug
           (fun () ->
             forward_vif_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VIF.plug rpc session_id self))
+                Client.VIF.plug rpc session_id self
+            )
+        )
 
       let unplug_common ~__context ~self ~force =
         let op = `unplug in
@@ -3780,7 +4080,9 @@ functor
         let local_fn = local_fn ~self in
         with_vif_marked ~__context ~vif:self ~doc:name ~op (fun () ->
             forward_vif_op ~local_fn ~__context ~self (fun session_id rpc ->
-                remote_fn rpc session_id self))
+                remote_fn rpc session_id self
+            )
+        )
 
       let unplug ~__context ~self = unplug_common ~__context ~self ~force:false
 
@@ -3909,7 +4211,8 @@ functor
         do_op_on ~local_fn ~__context
           ~host:(Db.PIF.get_host ~__context ~self:tagged_PIF)
           (fun session_id rpc ->
-            Client.VLAN.create rpc session_id tagged_PIF tag network)
+            Client.VLAN.create rpc session_id tagged_PIF tag network
+        )
 
       let destroy ~__context ~self =
         info "VLAN.destroy: VLAN = '%s'" (vlan_uuid ~__context self) ;
@@ -3917,7 +4220,8 @@ functor
         do_op_on ~local_fn ~__context
           ~host:
             (Db.PIF.get_host ~__context
-               ~self:(Db.VLAN.get_tagged_PIF ~__context ~self))
+               ~self:(Db.VLAN.get_tagged_PIF ~__context ~self)
+            )
           (fun session_id rpc -> Client.VLAN.destroy rpc session_id self)
     end
 
@@ -3928,7 +4232,8 @@ functor
         do_op_on ~local_fn ~__context
           ~host:(Db.PIF.get_host ~__context ~self:transport_PIF)
           (fun session_id rpc ->
-            Client.Tunnel.create rpc session_id transport_PIF network protocol)
+            Client.Tunnel.create rpc session_id transport_PIF network protocol
+        )
 
       let destroy ~__context ~self =
         info "Tunnel.destroy: tunnel = '%s'" (tunnel_uuid ~__context self) ;
@@ -3936,7 +4241,8 @@ functor
         do_op_on ~local_fn ~__context
           ~host:
             (Db.PIF.get_host ~__context
-               ~self:(Db.Tunnel.get_transport_PIF ~__context ~self))
+               ~self:(Db.Tunnel.get_transport_PIF ~__context ~self)
+            )
           (fun session_id rpc -> Client.Tunnel.destroy rpc session_id self)
     end
 
@@ -3947,7 +4253,8 @@ functor
           (String.concat "; " (List.map (pif_uuid ~__context) members)) ;
         if List.length members = 0 then
           raise
-            (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, [])) ;
+            (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, [])
+            ) ;
         let host = Db.PIF.get_host ~__context ~self:(List.hd members) in
         let local_fn =
           Local.Bond.create ~network ~members ~mAC ~mode ~properties
@@ -3966,7 +4273,8 @@ functor
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
               Client.Bond.create rpc session_id network members mAC mode
-                properties)
+                properties
+          )
         in
         tolerate_connection_loss fn success 30.
 
@@ -3989,7 +4297,8 @@ functor
         let local_fn = Local.Bond.destroy ~self in
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.Bond.destroy rpc session_id self)
+              Client.Bond.destroy rpc session_id self
+          )
         in
         tolerate_connection_loss fn success 30.
 
@@ -4002,7 +4311,8 @@ functor
         in
         let local_fn = Local.Bond.set_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Bond.set_mode rpc session_id self value)
+            Client.Bond.set_mode rpc session_id self value
+        )
 
       let set_property ~__context ~self ~name ~value =
         info "Bond.set_property: bond = '%s'; name = '%s'; value = '%s'"
@@ -4013,7 +4323,8 @@ functor
         in
         let local_fn = Local.Bond.set_property ~self ~name ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Bond.set_property rpc session_id self name value)
+            Client.Bond.set_property rpc session_id self name value
+        )
     end
 
     module PIF = struct
@@ -4038,25 +4349,29 @@ functor
           vLAN ;
         let local_fn = Local.PIF.create_VLAN ~device ~network ~host ~vLAN in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.create_VLAN rpc session_id device network host vLAN)
+            Client.PIF.create_VLAN rpc session_id device network host vLAN
+        )
 
       let destroy ~__context ~self =
         info "PIF.destroy: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.destroy ~self in
         do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.destroy rpc session_id self)
+          (fun session_id rpc -> Client.PIF.destroy rpc session_id self
+        )
 
       let unplug ~__context ~self =
         info "PIF.unplug: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.unplug ~self in
         do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.unplug rpc session_id self)
+          (fun session_id rpc -> Client.PIF.unplug rpc session_id self
+        )
 
       let plug ~__context ~self =
         info "PIF.plug: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.plug ~self in
         do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.plug rpc session_id self)
+          (fun session_id rpc -> Client.PIF.plug rpc session_id self
+        )
 
       let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
         info
@@ -4080,7 +4395,8 @@ functor
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
               Client.PIF.reconfigure_ip rpc session_id self mode iP netmask
-                gateway dNS)
+                gateway dNS
+          )
         in
         tolerate_connection_loss fn success
           !Xapi_globs.pif_reconfigure_ip_timeout
@@ -4107,7 +4423,8 @@ functor
         let fn () =
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
               Client.PIF.reconfigure_ipv6 rpc session_id self mode iPv6 gateway
-                dNS)
+                dNS
+          )
         in
         tolerate_connection_loss fn success
           !Xapi_globs.pif_reconfigure_ip_timeout
@@ -4124,7 +4441,8 @@ functor
         do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
           (fun session_id rpc ->
             Client.PIF.set_primary_address_type rpc session_id self
-              primary_address_type)
+              primary_address_type
+        )
 
       let set_property ~__context ~self ~name ~value =
         info "PIF.set_property: PIF = '%s'; name = '%s'; value = '%s'"
@@ -4132,7 +4450,8 @@ functor
         let host = Db.PIF.get_host ~__context ~self in
         let local_fn = Local.PIF.set_property ~self ~name ~value in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.set_property rpc session_id self name value)
+            Client.PIF.set_property rpc session_id self name value
+        )
 
       let set_disallow_unplug ~__context ~self ~value =
         info "PIF.set_disallow_unplug: PIF uuid = %s; value = %s"
@@ -4143,7 +4462,8 @@ functor
         info "PIF.scan: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.PIF.scan ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.scan rpc session_id host)
+            Client.PIF.scan rpc session_id host
+        )
 
       let introduce ~__context ~host ~mAC ~device ~managed =
         info
@@ -4153,13 +4473,15 @@ functor
           mAC device managed ;
         let local_fn = Local.PIF.introduce ~host ~mAC ~device ~managed in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.introduce rpc session_id host mAC device managed)
+            Client.PIF.introduce rpc session_id host mAC device managed
+        )
 
       let forget ~__context ~self =
         info "PIF.forget: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.forget ~self in
         do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.forget rpc session_id self)
+          (fun session_id rpc -> Client.PIF.forget rpc session_id self
+        )
     end
 
     module PIF_metrics = struct end
@@ -4178,7 +4500,8 @@ functor
               Xapi_sr_operations.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._sr, Ref.string_of self)
-            ))
+            )
+            )
           sr
 
       let mark_sr ~__context ~sr ~doc ~op =
@@ -4189,17 +4512,21 @@ functor
             Xapi_sr_operations.assert_operation_valid ~__context ~self ~op ;
             Db.SR.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
-            Xapi_sr_operations.update_allowed_operations ~__context ~self)
+            Xapi_sr_operations.update_allowed_operations ~__context ~self
+            )
           sr
 
       let with_sr_marked ~__context ~sr ~doc ~op f =
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            mark_sr ~__context ~sr ~doc ~op) ;
+            mark_sr ~__context ~sr ~doc ~op
+        ) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                unmark_sr ~__context ~sr ~doc ~op))
+                unmark_sr ~__context ~sr ~doc ~op
+            )
+            )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -4250,7 +4577,8 @@ functor
                    when reason = Api_errors.host_offline
                    ->
                      ()
-                   (* allow an offline host to continue the operation *))
+                   (* allow an offline host to continue the operation *)
+               )
 
       let set_virtual_allocation ~__context ~self ~value =
         Sm.assert_session_has_internal_sr_access ~__context ~sr:self ;
@@ -4281,7 +4609,8 @@ functor
           do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
               Client.SR.create ~rpc ~session_id ~host ~device_config
                 ~physical_size ~name_label ~name_description ~_type
-                ~content_type ~shared ~sm_config)
+                ~content_type ~shared ~sm_config
+          )
 
       (* -------------------------------------------------------------------------- *)
 
@@ -4306,7 +4635,8 @@ functor
         in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.SR.make rpc session_id host device_config physical_size
-              name_label name_description _type content_type sm_config)
+              name_label name_description _type content_type sm_config
+        )
 
       let destroy ~__context ~sr =
         info "SR.destroy: SR = '%s'" (sr_uuid ~__context sr) ;
@@ -4318,12 +4648,15 @@ functor
             Xapi_sr.assert_sr_not_local_cache ~__context ~sr ;
             forward_sr_op ~consider_unplugged_pbds:true ~local_fn:local_destroy
               ~__context ~self:sr (fun session_id rpc ->
-                Client.SR.destroy rpc session_id sr) ;
+                Client.SR.destroy rpc session_id sr
+            ) ;
             forward_sr_all_op ~consider_unplugged_pbds:true
               ~local_fn:local_forget ~__context ~self:sr (fun session_id rpc ->
-                Client.SR.forget rpc session_id sr) ;
+                Client.SR.forget rpc session_id sr
+            ) ;
             (* don't forward - this is just a db call *)
-            Xapi_sr.really_forget ~__context ~sr)
+            Xapi_sr.really_forget ~__context ~sr
+        )
 
       let forget ~__context ~sr =
         info "SR.forget: SR = '%s'" (sr_uuid ~__context sr) ;
@@ -4331,17 +4664,19 @@ functor
         with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget (fun () ->
             Xapi_sr.assert_all_pbds_unplugged ~__context ~sr ;
             forward_sr_all_op ~consider_unplugged_pbds:true ~local_fn ~__context
-              ~self:sr (fun session_id rpc ->
-                Client.SR.forget rpc session_id sr) ;
+              ~self:sr (fun session_id rpc -> Client.SR.forget rpc session_id sr
+            ) ;
             (* don't forward - this is just a db call *)
-            Xapi_sr.really_forget ~__context ~sr)
+            Xapi_sr.really_forget ~__context ~sr
+        )
 
       let update ~__context ~sr =
         info "SR.update: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.update ~sr in
         (* SR.update made lock free as of CA-27630 *)
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.update rpc session_id sr)
+            Client.SR.update rpc session_id sr
+        )
 
       let get_supported_types ~__context =
         info "SR.get_supported_types" ;
@@ -4350,15 +4685,16 @@ functor
       let scan ~__context ~sr =
         (* since we periodically sr_scan, only log those that aren't internal ones.. otherwise logs just get spammed *)
         let is_internal_scan =
-          Db.Session.get_pool ~__context
-            ~self:(Context.get_session_id __context)
+          Db.Session.get_pool ~__context ~self:(Context.get_session_id __context)
         in
         (if is_internal_scan then debug else info)
           "SR.scan: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.scan ~sr in
         with_sr_marked ~__context ~sr ~doc:"SR.scan" ~op:`scan (fun () ->
             forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-                Client.SR.scan rpc session_id sr))
+                Client.SR.scan rpc session_id sr
+            )
+        )
 
       let probe ~__context ~host ~device_config ~_type ~sm_config =
         let device_config =
@@ -4368,7 +4704,8 @@ functor
         let local_fn = Local.SR.probe ~host ~device_config ~_type ~sm_config in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.SR.probe ~rpc ~session_id ~host ~device_config ~_type
-              ~sm_config)
+              ~sm_config
+        )
 
       let probe_ext ~__context ~host ~device_config ~_type ~sm_config =
         let device_config =
@@ -4380,7 +4717,8 @@ functor
         in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.SR.probe_ext ~rpc ~session_id ~host ~device_config ~_type
-              ~sm_config)
+              ~sm_config
+        )
 
       let set_shared ~__context ~sr ~value =
         Local.SR.set_shared ~__context ~sr ~value
@@ -4390,18 +4728,19 @@ functor
           (sr_uuid ~__context sr) value ;
         let local_fn = Local.SR.set_name_label ~sr ~value in
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.set_name_label rpc session_id sr value)
+            Client.SR.set_name_label rpc session_id sr value
+        )
 
       let set_name_description ~__context ~sr ~value =
         info "SR.set_name_description: SR = '%s' name-description = '%s'"
           (sr_uuid ~__context sr) value ;
         let local_fn = Local.SR.set_name_description ~sr ~value in
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.set_name_description rpc session_id sr value)
+            Client.SR.set_name_description rpc session_id sr value
+        )
 
       let assert_can_host_ha_statefile ~__context ~sr =
-        info "SR.assert_can_host_ha_statefile: SR = '%s'"
-          (sr_uuid ~__context sr) ;
+        info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr) ;
         Local.SR.assert_can_host_ha_statefile ~__context ~sr
 
       let assert_supports_database_replication ~__context ~sr =
@@ -4414,8 +4753,7 @@ functor
         Local.SR.enable_database_replication ~__context ~sr
 
       let disable_database_replication ~__context ~sr =
-        info "SR.disable_database_replication: SR = '%s'"
-          (sr_uuid ~__context sr) ;
+        info "SR.disable_database_replication: SR = '%s'" (sr_uuid ~__context sr) ;
         Local.SR.disable_database_replication ~__context ~sr
 
       let create_new_blob ~__context ~sr ~name ~mime_type ~public =
@@ -4427,28 +4765,32 @@ functor
         info "SR.get_data_sources: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.get_data_sources ~sr in
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.get_data_sources rpc session_id sr)
+            Client.SR.get_data_sources rpc session_id sr
+        )
 
       let record_data_source ~__context ~sr ~data_source =
         info "SR.record_data_source: SR = '%s';  data source = '%s'"
           (sr_uuid ~__context sr) data_source ;
         let local_fn = Local.SR.record_data_source ~sr ~data_source in
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.record_data_source rpc session_id sr data_source)
+            Client.SR.record_data_source rpc session_id sr data_source
+        )
 
       let query_data_source ~__context ~sr ~data_source =
         info "SR.query_data_source: SR = '%s'; data source = '%s'"
           (sr_uuid ~__context sr) data_source ;
         let local_fn = Local.SR.query_data_source ~sr ~data_source in
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.query_data_source rpc session_id sr data_source)
+            Client.SR.query_data_source rpc session_id sr data_source
+        )
 
       let forget_data_source_archives ~__context ~sr ~data_source =
         info "SR.forget_data_source_archives: sr = '%s'; data source = '%s'"
           (sr_uuid ~__context sr) data_source ;
         let local_fn = Local.SR.forget_data_source_archives ~sr ~data_source in
         forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.forget_data_source_archives rpc session_id sr data_source)
+            Client.SR.forget_data_source_archives rpc session_id sr data_source
+        )
 
       let get_live_hosts ~__context ~sr =
         info "SR.get_live_hosts: SR = '%s'" (sr_uuid ~__context sr) ;
@@ -4467,7 +4809,8 @@ functor
               Xapi_vdi.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vdi, Ref.string_of self)
-            ))
+            )
+            )
           vdi
 
       let mark_vdi ~__context ~vdi ~doc ~op =
@@ -4477,7 +4820,8 @@ functor
             Xapi_vdi.assert_operation_valid ~__context ~self ~op ;
             Db.VDI.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
-            Xapi_vdi.update_allowed_operations ~__context ~self)
+            Xapi_vdi.update_allowed_operations ~__context ~self
+            )
           vdi
 
       (** Use this function to mark the SR and/or the individual VDI *)
@@ -4493,7 +4837,8 @@ functor
               Option.iter
                 (fun (sr, op) -> SR.unmark_sr ~__context ~sr ~doc ~op)
                 sr ;
-              raise e) ;
+              raise e
+        ) ;
         finally
           (fun () -> f ())
           (fun () ->
@@ -4503,7 +4848,9 @@ functor
                   sr ;
                 Option.iter
                   (fun (vdi, op) -> unmark_vdi ~__context ~vdi ~doc ~op)
-                  vdi))
+                  vdi
+            )
+            )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -4569,14 +4916,16 @@ functor
           (vdi_uuid ~__context self) value ;
         let local_fn = Local.VDI.set_name_label ~self ~value in
         forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.VDI.set_name_label rpc session_id self value)
+            Client.VDI.set_name_label rpc session_id self value
+        )
 
       let set_name_description ~__context ~self ~value =
         info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
           (vdi_uuid ~__context self) value ;
         let local_fn = Local.VDI.set_name_description ~self ~value in
         forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.VDI.set_name_description rpc session_id self value)
+            Client.VDI.set_name_description rpc session_id self value
+        )
 
       let ensure_vdi_not_on_running_vm ~__context ~self =
         let vbds = Db.VDI.get_VBDs ~__context ~self in
@@ -4584,7 +4933,8 @@ functor
           (fun vbd ->
             let vm = Db.VBD.get_VM ~__context ~self:vbd in
             Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm
-              ~expected:`Halted)
+              ~expected:`Halted
+            )
           vbds
 
       let set_on_boot ~__context ~self ~value =
@@ -4597,7 +4947,9 @@ functor
           ~doc:"VDI.set_on_boot"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.set_on_boot rpc session_id self value))
+                Client.VDI.set_on_boot rpc session_id self value
+            )
+            )
 
       let set_allow_caching ~__context ~self ~value =
         ensure_vdi_not_on_running_vm ~__context ~self ;
@@ -4628,7 +4980,9 @@ functor
               (fun session_id rpc ->
                 Client.VDI.create ~rpc ~session_id ~name_label ~name_description
                   ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config
-                  ~xenstore_data ~sm_config ~tags))
+                  ~xenstore_data ~sm_config ~tags
+            )
+            )
 
       (* Hidden call used in pool join only *)
       let pool_introduce = Local.VDI.pool_introduce
@@ -4673,7 +5027,9 @@ functor
                   ~name_description ~sR ~_type ~sharable ~read_only
                   ~other_config ~location ~xenstore_data ~sm_config ~managed
                   ~virtual_size ~physical_utilisation ~metadata_of_pool
-                  ~is_a_snapshot ~snapshot_time ~snapshot_of))
+                  ~is_a_snapshot ~snapshot_time ~snapshot_of
+            )
+            )
 
       let update ~__context ~vdi =
         let local_fn = Local.VDI.update ~vdi in
@@ -4683,7 +5039,9 @@ functor
           ~doc:"VDI.update"
           (fun () ->
             SR.forward_sr_op ~local_fn ~__context ~self:sr
-              (fun session_id rpc -> Client.VDI.update ~rpc ~session_id ~vdi))
+              (fun session_id rpc -> Client.VDI.update ~rpc ~session_id ~vdi
+            )
+            )
 
       let forget ~__context ~vdi =
         info "VDI.forget: VDI = '%s'" (vdi_uuid ~__context vdi) ;
@@ -4702,7 +5060,9 @@ functor
           ~doc:"VDI.destroy"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.destroy rpc session_id self))
+                Client.VDI.destroy rpc session_id self
+            )
+            )
 
       (* !! FIXME - Depends on what we're doing here... *)
       let snapshot ~__context ~vdi ~driver_params =
@@ -4715,7 +5075,9 @@ functor
           ~doc:"VDI.snapshot"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.snapshot rpc session_id vdi driver_params))
+                Client.VDI.snapshot rpc session_id vdi driver_params
+            )
+            )
 
       let clone ~__context ~vdi ~driver_params =
         info "VDI.clone: VDI = '%s'" (vdi_uuid ~__context vdi) ;
@@ -4727,7 +5089,9 @@ functor
           ~doc:"VDI.clone"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.clone rpc session_id vdi driver_params))
+                Client.VDI.clone rpc session_id vdi driver_params
+            )
+            )
 
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         info "VDI.copy: VDI = '%s'; SR = '%s'; base_vdi = '%s'; into_vdi = '%s'"
@@ -4759,7 +5123,8 @@ functor
                 ~prefer_slaves:true op
             with Not_found ->
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr]
-                ~prefer_slaves:true op)
+                ~prefer_slaves:true op
+            )
 
       let pool_migrate ~__context ~vdi ~sr ~options =
         let vbds =
@@ -4767,12 +5132,15 @@ functor
             ~expr:
               (Db_filter_types.Eq
                  ( Db_filter_types.Field "VDI"
-                 , Db_filter_types.Literal (Ref.string_of vdi) ))
+                 , Db_filter_types.Literal (Ref.string_of vdi)
+                 )
+              )
         in
         if List.length vbds < 1 then
           raise
             (Api_errors.Server_error
-               (Api_errors.vdi_needs_vm_for_migrate, [Ref.string_of vdi])) ;
+               (Api_errors.vdi_needs_vm_for_migrate, [Ref.string_of vdi])
+            ) ;
         let vm = (snd (List.hd vbds)).API.vBD_VM in
         (* hackity hack *)
         let options =
@@ -4791,7 +5159,8 @@ functor
             let snapshot, host =
               if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
                 ( Db.VM.get_record ~__context ~self:vm
-                , Db.VM.get_resident_on ~__context ~self:vm )
+                , Db.VM.get_resident_on ~__context ~self:vm
+                )
               else
                 let snapshot = Db.VM.get_record ~__context ~self:vm in
                 let host =
@@ -4819,7 +5188,11 @@ functor
                   (fun () ->
                     do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                         Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
-                          ~options))))
+                          ~options
+                    )
+                    )
+            )
+        )
 
       let resize ~__context ~vdi ~size =
         info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size ;
@@ -4831,7 +5204,9 @@ functor
           ~doc:"VDI.resize"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.resize rpc session_id vdi size))
+                Client.VDI.resize rpc session_id vdi size
+            )
+            )
 
       let generate_config ~__context ~host ~vdi =
         info "VDI.generate_config: VDI = '%s'; host = '%s'"
@@ -4843,7 +5218,9 @@ functor
           ~doc:"VDI.generate_config"
           (fun () ->
             do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.VDI.generate_config rpc session_id host vdi))
+                Client.VDI.generate_config rpc session_id host vdi
+            )
+            )
 
       let force_unlock ~__context ~vdi =
         info "VDI.force_unlock: VDI = '%s'" (vdi_uuid ~__context vdi) ;
@@ -4853,12 +5230,15 @@ functor
           ~doc:"VDI.force_unlock"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.force_unlock rpc session_id vdi))
+                Client.VDI.force_unlock rpc session_id vdi
+            )
+            )
 
       let checksum ~__context ~self =
         VM.forward_to_access_srs_and ~local_fn:(Local.VDI.checksum ~self)
           ~__context ~extra_sr:(Db.VDI.get_SR ~__context ~self)
-          (fun session_id rpc -> Client.VDI.checksum rpc session_id self)
+          (fun session_id rpc -> Client.VDI.checksum rpc session_id self
+        )
 
       let enable_cbt ~__context ~self =
         info "VDI.enable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
@@ -4870,7 +5250,9 @@ functor
           ~doc:"VDI.enable_cbt"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.enable_cbt rpc session_id self))
+                Client.VDI.enable_cbt rpc session_id self
+            )
+            )
 
       let disable_cbt ~__context ~self =
         info "VDI.disable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
@@ -4882,7 +5264,9 @@ functor
           ~doc:"VDI.disable_cbt"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.disable_cbt rpc session_id self))
+                Client.VDI.disable_cbt rpc session_id self
+            )
+            )
 
       let set_cbt_enabled ~__context ~self ~value =
         info "VDI.set_cbt_enabled: VDI = '%s'; value = '%b'"
@@ -4901,7 +5285,9 @@ functor
           ~doc:"VDI.data_destroy"
           (fun () ->
             forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.data_destroy rpc session_id self))
+                Client.VDI.data_destroy rpc session_id self
+            )
+            )
 
       let list_changed_blocks ~__context ~vdi_from ~vdi_to =
         info "VDI.list_changed_blocks: vdi_from  = '%s'; vdi_to = '%s'"
@@ -4917,7 +5303,9 @@ functor
             forward_vdi_op ~local_fn ~__context ~self:vdi_to
               (fun session_id rpc ->
                 Client.VDI.list_changed_blocks ~rpc ~session_id ~vdi_from
-                  ~vdi_to))
+                  ~vdi_to
+            )
+            )
 
       let get_nbd_info ~__context ~self =
         info "VDI.get_nbd_info: vdi  = '%s'" (vdi_uuid ~__context self) ;
@@ -4932,7 +5320,8 @@ functor
               if not (Db.VBD.get_empty ~__context ~self:vbd) then
                 let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
                 Xapi_vdi.update_allowed_operations ~__context ~self:vdi
-            with _ -> ())
+            with _ -> ()
+        )
 
       let unmark_vbd ~__context ~vbd ~doc ~op =
         let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -4945,7 +5334,8 @@ functor
               Xapi_vbd_helpers.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vbd, Ref.string_of vbd)
-            ))
+            )
+            )
           vbd
 
       let mark_vbd ~__context ~vbd ~doc ~op =
@@ -4955,17 +5345,21 @@ functor
             Xapi_vbd_helpers.assert_operation_valid ~__context ~self ~op ;
             Db.VBD.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
-            Xapi_vbd_helpers.update_allowed_operations ~__context ~self)
+            Xapi_vbd_helpers.update_allowed_operations ~__context ~self
+            )
           vbd
 
       let with_vbd_marked ~__context ~vbd ~doc ~op f =
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            mark_vbd ~__context ~vbd ~doc ~op) ;
+            mark_vbd ~__context ~vbd ~doc ~op
+        ) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                unmark_vbd ~__context ~vbd ~doc ~op))
+                unmark_vbd ~__context ~vbd ~doc ~op
+            )
+            )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -5012,7 +5406,9 @@ functor
               Db.VBD.set_empty ~__context ~self:vbd ~value:false
             ) else
               forward_vbd_op ~local_fn ~__context ~self:vbd
-                (fun session_id rpc -> Client.VBD.insert rpc session_id vbd vdi)) ;
+                (fun session_id rpc -> Client.VBD.insert rpc session_id vbd vdi
+              )
+        ) ;
         update_vbd_and_vdi_operations ~__context ~vbd
 
       let eject ~__context ~vbd =
@@ -5026,7 +5422,9 @@ functor
               Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
             ) else
               forward_vbd_op ~local_fn ~__context ~self:vbd
-                (fun session_id rpc -> Client.VBD.eject rpc session_id vbd)) ;
+                (fun session_id rpc -> Client.VBD.eject rpc session_id vbd
+              )
+        ) ;
         update_vbd_and_vdi_operations ~__context ~vbd
 
       let plug ~__context ~self =
@@ -5035,7 +5433,9 @@ functor
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.plug" ~op:`plug
           (fun () ->
             forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.plug rpc session_id self)) ;
+                Client.VBD.plug rpc session_id self
+            )
+        ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
       let unplug ~__context ~self =
@@ -5044,7 +5444,9 @@ functor
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unplug" ~op:`unplug
           (fun () ->
             forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.unplug rpc session_id self)) ;
+                Client.VBD.unplug rpc session_id self
+            )
+        ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
       let unplug_force ~__context ~self =
@@ -5053,7 +5455,9 @@ functor
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unplug_force"
           ~op:`unplug_force (fun () ->
             forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.unplug_force rpc session_id self)) ;
+                Client.VBD.unplug_force rpc session_id self
+            )
+        ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
       let unplug_force_no_safety_check ~__context ~self =
@@ -5068,7 +5472,9 @@ functor
           with_vbd_marked ~__context ~vbd:self ~doc:"VBD.pause" ~op:`pause
             (fun () ->
               forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                  Client.VBD.pause rpc session_id self))
+                  Client.VBD.pause rpc session_id self
+              )
+          )
         in
         update_vbd_and_vdi_operations ~__context ~vbd:self ;
         result
@@ -5080,7 +5486,9 @@ functor
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unpause" ~op:`unpause
           (fun () ->
             forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.unpause rpc session_id self token)) ;
+                Client.VBD.unpause rpc session_id self token
+            )
+        ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
       let assert_attachable ~__context ~self =
@@ -5101,13 +5509,15 @@ functor
           (host_uuid ~__context host) ;
         SR.with_sr_marked ~__context ~sr:sR ~doc:"PBD.create" ~op:`pbd_create
           (fun () ->
-            Local.PBD.create ~__context ~host ~sR ~device_config ~other_config)
+            Local.PBD.create ~__context ~host ~sR ~device_config ~other_config
+        )
 
       let destroy ~__context ~self =
         info "PBD.destroy: PBD '%s'" (pbd_uuid ~__context self) ;
         let sr = Db.PBD.get_SR ~__context ~self in
         SR.with_sr_marked ~__context ~sr ~doc:"PBD.destroy" ~op:`pbd_destroy
-          (fun () -> Local.PBD.destroy ~__context ~self)
+          (fun () -> Local.PBD.destroy ~__context ~self
+        )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -5133,7 +5543,8 @@ functor
         Sm.assert_session_has_internal_sr_access ~__context ~sr ;
         let local_fn = Local.PBD.set_device_config ~self ~value in
         forward_pbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.PBD.set_device_config rpc session_id self value)
+            Client.PBD.set_device_config rpc session_id self value
+        )
 
       (* Mark the SR and check, if we are the 'SRmaster' that no VDI
          current_operations are present (eg snapshot, clone) since these are all
@@ -5149,14 +5560,20 @@ functor
                     raise
                       (Api_errors.Server_error
                          ( Api_errors.other_operation_in_progress
-                         , [Datamodel_common._vdi; Ref.string_of vdi] )))
+                         , [Datamodel_common._vdi; Ref.string_of vdi]
+                         )
+                      )
+                  )
                 (Db.SR.get_VDIs ~__context ~self:sr) ;
-            SR.mark_sr ~__context ~sr ~doc ~op) ;
+            SR.mark_sr ~__context ~sr ~doc ~op
+        ) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                SR.unmark_sr ~__context ~sr ~doc ~op))
+                SR.unmark_sr ~__context ~sr ~doc ~op
+            )
+            )
 
       (* plug and unplug need to be executed on the host that the pbd is related to *)
       let plug ~__context ~self =
@@ -5171,7 +5588,9 @@ functor
         in
         SR.with_sr_marked ~__context ~sr ~doc:"PBD.plug" ~op:`plug (fun () ->
             forward_pbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.PBD.plug rpc session_id self)) ;
+                Client.PBD.plug rpc session_id self
+            )
+        ) ;
         (* We always plug the master PBD first and unplug it last. If this is the
          * first PBD plugged for this SR (proxy: the PBD being plugged is for the
          * master) then we should perform an initial SR scan and perform some
@@ -5192,7 +5611,8 @@ functor
                 Xapi_sr.maybe_push_sr_rrds ~__context ~sr ;
                 Xapi_sr.update ~__context ~sr
               in
-              Xapi_sr.scan_one ~__context ~callback:sr_scan_callback sr)
+              Xapi_sr.scan_one ~__context ~callback:sr_scan_callback sr
+          )
 
       let unplug ~__context ~self =
         info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self) ;
@@ -5207,7 +5627,9 @@ functor
             if is_master_pbd then
               Xapi_sr.maybe_copy_sr_rrds ~__context ~sr ;
             forward_pbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.PBD.unplug rpc session_id self))
+                Client.PBD.unplug rpc session_id self
+            )
+        )
     end
 
     module Crashdump = struct
@@ -5225,7 +5647,8 @@ functor
           (crashdump_uuid ~__context self) ;
         let local_fn = Local.Crashdump.destroy ~self in
         forward_crashdump_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.Crashdump.destroy rpc session_id self)
+            Client.Crashdump.destroy rpc session_id self
+        )
     end
 
     (* whatever *)
@@ -5249,14 +5672,16 @@ functor
         let host = Db.PGPU.get_host ~__context ~self in
         let local_fn = Local.PGPU.enable_dom0_access ~self in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PGPU.enable_dom0_access rpc session_id self)
+            Client.PGPU.enable_dom0_access rpc session_id self
+        )
 
       let disable_dom0_access ~__context ~self =
         info "PGPU.disable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self) ;
         let host = Db.PGPU.get_host ~__context ~self in
         let local_fn = Local.PGPU.disable_dom0_access ~self in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PGPU.disable_dom0_access rpc session_id self)
+            Client.PGPU.disable_dom0_access rpc session_id self
+        )
     end
 
     module GPU_group = struct
@@ -5271,7 +5696,8 @@ functor
           (gpu_group_uuid ~__context self) ;
         (* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
         Helpers.with_global_lock (fun () ->
-            Local.GPU_group.destroy ~__context ~self)
+            Local.GPU_group.destroy ~__context ~self
+        )
 
       let update_enabled_VGPU_types ~__context ~self =
         info "GPU_group.update_enabled_VGPU_types: gpu_group = '%s'"
@@ -5316,7 +5742,8 @@ functor
         Helpers.with_global_lock (fun () ->
             Db.VGPU.set_resident_on ~__context ~self ~value ;
             Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self
-              ~value:Ref.null)
+              ~value:Ref.null
+        )
     end
 
     module Pool_update = struct
@@ -5324,7 +5751,8 @@ functor
         info "Pool_update.introduce: vdi = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.Pool_update.introduce ~vdi in
         VDI.forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-            Client.Pool_update.introduce rpc session_id vdi)
+            Client.Pool_update.introduce rpc session_id vdi
+        )
 
       let pool_apply ~__context ~self =
         info "Pool_update.pool_apply: pool update = '%s'"
@@ -5339,7 +5767,8 @@ functor
         if Db.is_valid_ref __context update_vdi then
           VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
             (fun session_id rpc ->
-              Client.Pool_update.pool_clean rpc session_id self)
+              Client.Pool_update.pool_clean rpc session_id self
+          )
         else
           info
             "Pool_update.pool_clean: pool update '%s' has already been cleaned."
@@ -5359,12 +5788,15 @@ functor
           VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
             (fun session_id rpc ->
               Client.Pool_update.attach ~rpc ~session_id ~self
-                ~use_localhost_proxy)
+                ~use_localhost_proxy
+          )
         else
           raise
             (Api_errors.Server_error
                ( Api_errors.cannot_find_update
-               , [pool_update_uuid ~__context self] ))
+               , [pool_update_uuid ~__context self]
+               )
+            )
 
       let detach ~__context ~self =
         info "Pool_update.detach: pool update = '%s''"
@@ -5373,19 +5805,22 @@ functor
         let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
         if Db.is_valid_ref __context update_vdi then
           VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-            (fun session_id rpc ->
-              Client.Pool_update.detach rpc session_id self)
+            (fun session_id rpc -> Client.Pool_update.detach rpc session_id self
+          )
         else
           raise
             (Api_errors.Server_error
                ( Api_errors.cannot_find_update
-               , [pool_update_uuid ~__context self] ))
+               , [pool_update_uuid ~__context self]
+               )
+            )
 
       let resync_host ~__context ~host =
         info "Pool_update.resync_host: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Pool_update.resync_host ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_update.resync_host rpc session_id host)
+            Client.Pool_update.resync_host rpc session_id host
+        )
     end
 
     module VGPU_type = struct end
@@ -5432,7 +5867,8 @@ functor
         let host = choose_host ~__context ~vIF in
         let local_fn = Local.PVS_proxy.create ~site ~vIF in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PVS_proxy.create rpc session_id site vIF)
+            Client.PVS_proxy.create rpc session_id site vIF
+        )
 
       let destroy ~__context ~self =
         info "PVS_proxy.destroy" ;
@@ -5440,7 +5876,8 @@ functor
         let host = choose_host ~__context ~vIF in
         let local_fn = Local.PVS_proxy.destroy ~self in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PVS_proxy.destroy rpc session_id self)
+            Client.PVS_proxy.destroy rpc session_id self
+        )
     end
 
     module PVS_cache_storage = struct
@@ -5453,7 +5890,8 @@ functor
         let local_fn = Local.PVS_cache_storage.destroy ~self in
         let host = Db.PVS_cache_storage.get_host ~__context ~self in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PVS_cache_storage.destroy rpc session_id self)
+            Client.PVS_cache_storage.destroy rpc session_id self
+        )
     end
 
     module Feature = struct end
@@ -5478,7 +5916,8 @@ functor
         info "PUSB.scan: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.PUSB.scan ~host in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PUSB.scan rpc session_id host)
+            Client.PUSB.scan rpc session_id host
+        )
     end
 
     module USB_group = struct
@@ -5493,13 +5932,15 @@ functor
           (usb_group_uuid ~__context self) ;
         (* WARNING WARNING WARNING: directly call destroy with the global lock since it does only database operations *)
         Helpers.with_global_lock (fun () ->
-            Local.USB_group.destroy ~__context ~self)
+            Local.USB_group.destroy ~__context ~self
+        )
     end
 
     module VUSB = struct
       let update_vusb_operations ~__context ~vusb =
         Helpers.with_global_lock (fun () ->
-            Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb)
+            Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
+        )
 
       let unmark_vusb ~__context ~vusb ~doc ~op =
         let task_id = Ref.string_of (Context.get_task_id __context) in
@@ -5512,7 +5953,8 @@ functor
               Xapi_vusb_helpers.update_allowed_operations ~__context ~self ;
               Helpers.Early_wakeup.broadcast
                 (Datamodel_common._vusb, Ref.string_of vusb)
-            ))
+            )
+            )
           vusb
 
       let mark_vusb ~__context ~vusb ~doc ~op =
@@ -5523,17 +5965,21 @@ functor
             Xapi_vusb_helpers.assert_operation_valid ~__context ~self ~op ;
             Db.VUSB.add_to_current_operations ~__context ~self ~key:task_id
               ~value:op ;
-            Xapi_vusb_helpers.update_allowed_operations ~__context ~self)
+            Xapi_vusb_helpers.update_allowed_operations ~__context ~self
+            )
           vusb
 
       let with_vusb_marked ~__context ~vusb ~doc ~op f =
         Helpers.retry_with_global_lock ~__context ~doc (fun () ->
-            mark_vusb ~__context ~vusb ~doc ~op) ;
+            mark_vusb ~__context ~vusb ~doc ~op
+        ) ;
         finally
           (fun () -> f ())
           (fun () ->
             Helpers.with_global_lock (fun () ->
-                unmark_vusb ~__context ~vusb ~doc ~op))
+                unmark_vusb ~__context ~vusb ~doc ~op
+            )
+            )
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
@@ -5559,7 +6005,9 @@ functor
         with_vusb_marked ~__context ~vusb:self ~doc:"VUSB.unplug" ~op:`unplug
           (fun () ->
             forward_vusb_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VUSB.unplug rpc session_id self)) ;
+                Client.VUSB.unplug rpc session_id self
+            )
+        ) ;
         update_vusb_operations ~__context ~vusb:self
 
       let destroy ~__context ~self =
@@ -5575,7 +6023,8 @@ functor
         let local_fn = Local.Network_sriov.create ~pif ~network in
         let host = Db.PIF.get_host ~__context ~self:pif in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Network_sriov.create rpc session_id pif network)
+            Client.Network_sriov.create rpc session_id pif network
+        )
 
       let destroy ~__context ~self =
         info "Network_sriov.destroy : network_sriov = '%s'"
@@ -5584,7 +6033,8 @@ functor
         let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self in
         let host = Db.PIF.get_host ~__context ~self:physical_pif in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Network_sriov.destroy rpc session_id self)
+            Client.Network_sriov.destroy rpc session_id self
+        )
 
       let get_remaining_capacity ~__context ~self =
         info "Network_sriov.get_remaining_capacity : network_sriov = '%s'"
@@ -5623,7 +6073,8 @@ functor
             in
             Xapi_cluster_helpers.update_allowed_operations ~__context
               ~self:cluster ;
-            cluster)
+            cluster
+        )
 
       let destroy ~__context ~self =
         info "Cluster.destroy cluster: %s" (Ref.string_of self) ;
@@ -5631,7 +6082,9 @@ functor
           ~doc:"Cluster.destroy" ~op:`destroy (fun () ->
             let local_fn = Local.Cluster.destroy ~self in
             forward_cluster_op ~__context ~local_fn (fun rpc session_id ->
-                Client.Cluster.destroy session_id rpc self))
+                Client.Cluster.destroy session_id rpc self
+            )
+        )
 
       let get_network ~__context ~self =
         info "Cluster.get_network" ;
@@ -5670,11 +6123,13 @@ functor
           ~doc:"Cluster.add" ~op:`add (fun () ->
             let cluster_host =
               do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                  Client.Cluster_host.create rpc session_id cluster host pif)
+                  Client.Cluster_host.create rpc session_id cluster host pif
+              )
             in
             Xapi_cluster_host_helpers.update_allowed_operations ~__context
               ~self:cluster_host ;
-            cluster_host)
+            cluster_host
+        )
 
       let destroy ~__context ~self =
         info "Cluster_host.destroy cluster_host: %s" (Ref.string_of self) ;
@@ -5684,7 +6139,9 @@ functor
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster_host.destroy" ~op:`remove (fun () ->
             do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                Client.Cluster_host.destroy rpc session_id self))
+                Client.Cluster_host.destroy rpc session_id self
+            )
+        )
 
       let force_destroy ~__context ~self =
         info "Cluster_host.force_destroy cluster_host: %s" (Ref.string_of self) ;
@@ -5694,7 +6151,9 @@ functor
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster_host.force_destroy" ~op:`remove (fun () ->
             do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                Client.Cluster_host.force_destroy rpc session_id self))
+                Client.Cluster_host.force_destroy rpc session_id self
+            )
+        )
 
       let enable ~__context ~self =
         info "Cluster_host.enable cluster_host %s" (Ref.string_of self) ;
@@ -5706,7 +6165,10 @@ functor
             Xapi_cluster_host_helpers.with_cluster_host_operation ~__context
               ~self ~doc:"Cluster_host.enable" ~op:`enable (fun () ->
                 do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                    Client.Cluster_host.enable rpc session_id self)))
+                    Client.Cluster_host.enable rpc session_id self
+                )
+            )
+        )
 
       let disable ~__context ~self =
         info "Cluster_host.disable cluster_host: %s" (Ref.string_of self) ;
@@ -5718,7 +6180,10 @@ functor
             Xapi_cluster_host_helpers.with_cluster_host_operation ~__context
               ~self ~doc:"Cluster_host.disable" ~op:`disable (fun () ->
                 do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                    Client.Cluster_host.disable rpc session_id self)))
+                    Client.Cluster_host.disable rpc session_id self
+                )
+            )
+        )
 
       let forget ~__context ~self =
         info "Cluster_host.forget cluster_host:%s" (Ref.string_of self) ;
@@ -5744,7 +6209,9 @@ functor
               Xapi_cluster_helpers.with_cluster_operation ~__context
                 ~self:cluster ~doc:"Cluster.remove" ~op:`remove (fun () ->
                   do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                      Client.Cluster_host.forget rpc session_id self))
+                      Client.Cluster_host.forget rpc session_id self
+                  )
+              )
             with
             | Api_errors.Server_error (code, _) as e
             when code = Api_errors.host_offline
@@ -5784,6 +6251,7 @@ functor
         info "Repository.apply: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Repository.apply ~host in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Repository.apply rpc session_id host)
+            Client.Repository.apply rpc session_id host
+        )
     end
   end

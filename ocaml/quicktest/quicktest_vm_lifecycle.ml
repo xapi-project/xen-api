@@ -69,7 +69,8 @@ let one rpc s vm test =
       in
       try
         Xenctrl.with_intf (fun xc ->
-            Xenctrl.domain_shutdown xc (Int64.to_int domid) reason)
+            Xenctrl.domain_shutdown xc (Int64.to_int domid) reason
+        )
       with e -> Printf.printf "Ignoring exception: %s" (Printexc.to_string e)
     )
   | Api api ->
@@ -92,7 +93,8 @@ let one rpc s vm test =
 
 let test rpc session_id vm_template () =
   Qt.VM.with_new rpc session_id ~template:vm_template (fun vm ->
-      List.iter (one rpc session_id vm) all_possible_tests)
+      List.iter (one rpc session_id vm) all_possible_tests
+  )
 
 let tests () =
   let open Qt_filter in

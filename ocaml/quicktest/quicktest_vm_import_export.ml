@@ -46,37 +46,41 @@ let with_setup rpc session_id sr vm_template f =
         (Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:Ref.null
            ~userdevice:"0" ~bootable:false ~mode:`RO ~_type:`CD
            ~unpluggable:true ~empty:true ~other_config:[] ~qos_algorithm_type:""
-           ~qos_algorithm_params:[] ~device:"" ~currently_attached:false) ;
+           ~qos_algorithm_params:[] ~device:"" ~currently_attached:false
+        ) ;
       ignore
         (Client.Client.VBD.create ~rpc ~session_id ~vM:vm ~vDI:vdi
            ~userdevice:"1" ~bootable:false ~mode:`RW ~_type:`Disk
            ~unpluggable:true ~empty:false
            ~other_config:[(Constants.owner_key, "")]
            ~qos_algorithm_type:"" ~qos_algorithm_params:[] ~device:""
-           ~currently_attached:false) ;
-      f vm)
+           ~currently_attached:false
+        ) ;
+      f vm
+  )
 
 let import_export_test rpc session_id sr_info vm_template () =
   let sr = sr_info.Qt.sr in
   with_setup rpc session_id sr vm_template (fun vm ->
       let by_device =
         List.map
-          (fun vbd ->
-            (Client.Client.VBD.get_userdevice rpc session_id vbd, vbd))
+          (fun vbd -> (Client.Client.VBD.get_userdevice rpc session_id vbd, vbd))
           (Client.Client.VM.get_VBDs rpc session_id vm)
       in
       Xapi_stdext_unix.Unixext.unlink_safe export_filename ;
       vm_export rpc session_id vm export_filename ;
       let all_srs =
         Qt_filter.SR.(
-          list_srs (all |> not_iso |> allowed_operations [`vdi_create]))
+          list_srs (all |> not_iso |> allowed_operations [`vdi_create])
+        )
       in
       List.iter
         (fun sr_info ->
           let sr = sr_info.Qt.sr in
           print_endline
             (Printf.sprintf "Attempting import to SR: %s"
-               (name_of_sr rpc session_id sr)) ;
+               (name_of_sr rpc session_id sr)
+            ) ;
           let vm' = List.hd (vm_import ~sr rpc session_id export_filename) in
           let vbds = Client.Client.VM.get_VBDs rpc session_id vm' in
           if List.length vbds <> List.length by_device then
@@ -92,11 +96,13 @@ let import_export_test rpc session_id sr_info vm_template () =
               if all.API.vBD_type <> orig_vbd.API.vBD_type then
                 Alcotest.fail
                   (Printf.sprintf "Device %s varies in type"
-                     all.API.vBD_userdevice) ;
+                     all.API.vBD_userdevice
+                  ) ;
               if all.API.vBD_empty <> orig_vbd.API.vBD_empty then
                 Alcotest.fail
                   (Printf.sprintf "Device %s varies in emptiness"
-                     all.API.vBD_userdevice) ;
+                     all.API.vBD_userdevice
+                  ) ;
               match all.API.vBD_userdevice with
               | "0" ->
                   (* VDI should be the same *)
@@ -106,23 +112,31 @@ let import_export_test rpc session_id sr_info vm_template () =
                          "Device %s varies in VDIness (original = %s; new = %s)"
                          all.API.vBD_userdevice
                          (Client.Client.VDI.get_uuid rpc session_id
-                            orig_vbd.API.vBD_VDI)
+                            orig_vbd.API.vBD_VDI
+                         )
                          (Client.Client.VDI.get_uuid rpc session_id
-                            all.API.vBD_VDI))
+                            all.API.vBD_VDI
+                         )
+                      )
               | "1" ->
                   (* VDI should be different *)
                   if all.API.vBD_VDI = orig_vbd.API.vBD_VDI then
                     Alcotest.fail
                       (Printf.sprintf "Device %s should not vary in VDIness"
-                         all.API.vBD_userdevice)
+                         all.API.vBD_userdevice
+                      )
               | _ ->
                   Alcotest.fail
                     (Printf.sprintf "Unhandled device number: %s"
-                       all.API.vBD_userdevice))
+                       all.API.vBD_userdevice
+                    )
+              )
             vbds ;
-          vm_uninstall rpc session_id vm')
+          vm_uninstall rpc session_id vm'
+          )
         all_srs ;
-      Unix.unlink export_filename)
+      Unix.unlink export_filename
+  )
 
 let tests () =
   let open Qt_filter in

@@ -152,7 +152,8 @@ let forward req call is_json =
     SSL
       ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ()) ()
       , Pool_role.get_master_address ()
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   let rpc = if is_json then JSONRPC_protocol.rpc else XMLRPC_protocol.rpc in
   rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport
@@ -279,7 +280,9 @@ let callback is_json req bio _ =
         fd
         (Xmlrpc.string_of_response
            (Rpc.failure
-              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+              (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
+           )
+        )
   | e ->
       Backtrace.is_important e ; raise e
 
@@ -314,7 +317,9 @@ let jsoncallback req bio _ =
       fd
       (Jsonrpc.string_of_response
          (Rpc.failure
-            (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))))
+            (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
+         )
+      )
 
 let options_callback req bio _ =
   let fd = Buf_io.fd_of bio in

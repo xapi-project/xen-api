@@ -22,7 +22,8 @@ let baseboard_two_record =
           , "Board is a hosting board\n\
              Board is removable\n\
              Board is replaceable\n\
-             Board is hot swappable" )
+             Board is hot swappable"
+          )
         ; ("Location In Chassis", "Slot 00")
         ; ("Type", "Server Blade")
         ]

@@ -32,7 +32,8 @@ let initialise_db_connections dbs =
   Mutex.execute db_conn_locks_m (fun () ->
       List.iter
         (fun dbconn -> Hashtbl.replace db_conn_locks dbconn (Mutex.create ()))
-        dbs) ;
+        dbs
+  ) ;
   db_connections := dbs
 
 let read_db_connections () = !db_connections
@@ -45,6 +46,7 @@ let with_db_conn_lock db_conn f =
           (* If we don't have a lock already for this connection then go make one dynamically and use that from then on *)
           let new_dbconn_mutex = Mutex.create () in
           Hashtbl.replace db_conn_locks db_conn new_dbconn_mutex ;
-          new_dbconn_mutex)
+          new_dbconn_mutex
+    )
   in
   Mutex.execute db_conn_m (fun () -> f ())

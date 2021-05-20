@@ -40,7 +40,9 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
          then
            raise
              Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref]))) ;
+               Server_error (repository_already_exists, [Ref.string_of ref])
+             )
+     ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
     ~source_url ~update
 
@@ -69,7 +71,8 @@ let cleanup_all_pool_repositories () =
            let open Astring.String in
            if is_prefix ~affix:prefix file && is_suffix ~affix:".repo" file then
              let path = Filename.concat !Xapi_globs.yum_repos_config_dir file in
-             Unixext.unlink_safe path) ;
+             Unixext.unlink_safe path
+       ) ;
     Helpers.rmtree !Xapi_globs.local_pool_repo_dir
   with e ->
     error "Failed to clean up all pool repositories: %s"
@@ -106,8 +109,7 @@ let sync ~__context ~self =
       ; repo_name
       ]
     in
-    ignore
-      (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
+    ignore (Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params) ;
     (* sync with remote repository *)
     let sync_params =
       [
@@ -147,7 +149,8 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
     SSL
       ( SSL.make () ~verify_cert:(Stunnel_client.pool ())
       , host_addr
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   debug "getting host updates on %s (addr %s) by HTTP GET" host_name host_addr ;
   Xapi_stdext_pervasives.Pervasiveext.finally
@@ -156,7 +159,9 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
         let json_str =
           with_transport transport
             (with_http request (fun (response, fd) ->
-                 Xapi_stdext_unix.Unixext.string_of_fd fd))
+                 Xapi_stdext_unix.Unixext.string_of_fd fd
+             )
+            )
         in
         debug "host %s returned updates: %s" host_name json_str ;
         Yojson.Basic.from_string json_str
@@ -164,7 +169,8 @@ let http_get_host_updates_in_json ~__context ~host ~installed =
         let ref = Ref.string_of host in
         error "Failed to get updates from host ref='%s': %s" ref
           (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (get_host_updates_failed, [ref])))
+        raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
+      )
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:host_session_id)
 
 let group_host_updates_by_repository ~__context enabled host updates_of_host =
@@ -196,7 +202,8 @@ let group_host_updates_by_repository ~__context enabled host updates_of_host =
                 Printf.sprintf "Found update (%s) from an unmanaged repository"
                   (Update.to_string upd)
               in
-              raise Api_errors.(Server_error (internal_error, [msg])))
+              raise Api_errors.(Server_error (internal_error, [msg]))
+          )
         [] updates
   | _ ->
       let ref = Ref.string_of host in
@@ -214,26 +221,30 @@ let set_available_updates ~__context =
   let funs =
     List.map
       (fun host () ->
-        (host, http_get_host_updates_in_json ~__context ~host ~installed:true))
+        (host, http_get_host_updates_in_json ~__context ~host ~installed:true)
+        )
       hosts
   in
   let rets =
     with_pool_repositories (fun () ->
-        Helpers.run_in_parallel funs capacity_in_parallel)
+        Helpers.run_in_parallel funs capacity_in_parallel
+    )
   in
   let enabled = get_enabled_repositories ~__context in
   (* Group updates by repository for each host *)
   let updates_of_hosts =
     List.map
       (fun (h, updates_of_host) ->
-        group_host_updates_by_repository ~__context enabled h updates_of_host)
+        group_host_updates_by_repository ~__context enabled h updates_of_host
+        )
       rets
   in
   (* Group updates by repository for all hosts *)
   let updates_by_repository =
     List.fold_left
       (fun acc l ->
-        List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l)
+        List.fold_left (fun acc' (x, y) -> append_by_key acc' x y) acc l
+        )
       [] updates_of_hosts
   in
   let checksums =
@@ -262,7 +273,8 @@ let set_available_updates ~__context =
             ~value:md.UpdateInfoMetaData.checksum ;
           Some md.UpdateInfoMetaData.checksum
         ) else
-          None)
+          None
+        )
       enabled
   in
   Hashtbl.clear updates_in_cache ;
@@ -291,10 +303,13 @@ let create_pool_repository ~__context ~self =
                 let repodata_dir = Filename.concat repo_dir "repodata" in
                 ignore
                   (Helpers.call_script !Xapi_globs.modifyrepo_cmd
-                     ["--remove"; "updateinfo"; repodata_dir]) ;
+                     ["--remove"; "updateinfo"; repodata_dir]
+                  ) ;
                 ignore
                   (Helpers.call_script !Xapi_globs.modifyrepo_cmd
-                     ["--mdtype"; "updateinfo"; xml_file_path; repodata_dir]))
+                     ["--mdtype"; "updateinfo"; xml_file_path; repodata_dir]
+                  )
+            )
         | false ->
             error "No updateinfo.xml.gz found: %s" updateinfo_xml_gz_path ;
             raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
@@ -335,7 +350,8 @@ let get_host_updates_in_json ~__context ~installed =
                (get_rpm_update_in_json ~rpm2updates ~installed_pkgs)
         in
         (* TODO: live patches *)
-        `Assoc [("updates", `List updates)])
+        `Assoc [("updates", `List updates)]
+    )
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->
@@ -420,7 +436,8 @@ let get_pool_updates_in_json ~__context ~hosts =
               in
               (json_of_host :: acc1, UpdateIdSet.union uids acc2)
             else
-              (acc1, acc2))
+              (acc1, acc2)
+            )
           updates_in_cache ([], UpdateIdSet.empty)
       in
       `Assoc
@@ -430,8 +447,10 @@ let get_pool_updates_in_json ~__context ~hosts =
           , `List
               (UpdateIdSet.elements ids_of_updates
               |> List.map (fun uid ->
-                     UpdateInfo.to_json (List.assoc uid updates_info))
-              ) )
+                     UpdateInfo.to_json (List.assoc uid updates_info)
+                 )
+              )
+          )
         ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
         ]
     else
@@ -460,7 +479,8 @@ let apply ~__context ~host =
         let ref = Ref.string_of host in
         error "Failed to apply updates on host ref='%s': %s" ref
           (ExnHelper.string_of_exn e) ;
-        raise Api_errors.(Server_error (apply_updates_failed, [ref])))
+        raise Api_errors.(Server_error (apply_updates_failed, [ref]))
+  )
 
 let restart_device_models ~__context host =
   (* Restart device models of all running HVM VMs on the host by doing
@@ -471,12 +491,14 @@ let restart_device_models ~__context host =
   |> List.filter_map (fun (ref, record) ->
          match
            ( record.API.vM_power_state
-           , Helpers.has_qemu_currently ~__context ~self:ref )
+           , Helpers.has_qemu_currently ~__context ~self:ref
+           )
          with
          | `Running, true ->
              Helpers.call_api_functions ~__context (fun rpc session_id ->
                  Client.Client.VM.pool_migrate rpc session_id ref host
-                   [("live", "true")]) ;
+                   [("live", "true")]
+             ) ;
              None
          | `Paused, true ->
              error "VM 'ref=%s' is paused, can't restart its device models"
@@ -484,7 +506,8 @@ let restart_device_models ~__context host =
              Some ref
          | _ ->
              (* No device models are running for this VM *)
-             None)
+             None
+     )
   |> function
   | [] ->
       ()
@@ -537,7 +560,8 @@ let apply_immediate_guidances ~__context ~host ~guidances =
                ref='%s': %s"
               ref
               (String.concat ";" (List.map Guidance.to_string l)) ;
-            raise Api_errors.(Server_error (apply_guidance_failed, [ref])))
+            raise Api_errors.(Server_error (apply_guidance_failed, [ref]))
+    )
   with e ->
     let ref = Ref.string_of host in
     error "applying immediate guidances on host ref='%s' failed: %s" ref
@@ -576,12 +600,14 @@ let apply_updates ~__context ~host ~hash =
             in
             Guidance.assert_valid_guidances immediate_guidances ;
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.Repository.apply ~rpc ~session_id ~host) ;
+                Client.Client.Repository.apply ~rpc ~session_id ~host
+            ) ;
 
             (* TODO: absolute guidances *)
             Hashtbl.replace updates_in_cache host
               (`Assoc [("updates", `List [])]) ;
-            immediate_guidances)
+            immediate_guidances
+    )
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->

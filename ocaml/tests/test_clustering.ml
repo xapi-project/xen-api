@@ -122,13 +122,16 @@ let test_get_required_cluster_stacks =
     ("test_zero_sms_in_database", `Quick, test_zero_sms_in_database)
   ; ( "test_zero_sms_with_matching_type_which_do_require_cluster_stack"
     , `Quick
-    , test_zero_sms_with_matching_type_which_do_require_cluster_stack )
+    , test_zero_sms_with_matching_type_which_do_require_cluster_stack
+    )
   ; ( "test_one_sm_with_matching_type_which_doesnt_require_cluster_stack"
     , `Quick
-    , test_one_sm_with_matching_type_which_doesnt_require_cluster_stack )
+    , test_one_sm_with_matching_type_which_doesnt_require_cluster_stack
+    )
   ; ( "test_one_sm_with_matching_type_which_does_require_cluster_stack"
     , `Quick
-    , test_one_sm_with_matching_type_which_does_require_cluster_stack )
+    , test_one_sm_with_matching_type_which_does_require_cluster_stack
+    )
   ; ( "test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack"
     , `Quick
     , test_multiple_sms_with_some_matching_type_with_some_requiring_cluster_stack
@@ -152,7 +155,8 @@ let test_find_cluster_host_finds_one_cluster_host () =
   let _ = T.make_cluster_host ~__context ~host:(Ref.make ()) () in
   Alcotest.(check (option (Alcotest_comparators.ref ())))
     (Printf.sprintf "find_cluster_host should return (Some %s)"
-       (Ref.string_of ref))
+       (Ref.string_of ref)
+    )
     (Xapi_clustering.find_cluster_host ~__context ~host)
     (Some ref)
 
@@ -167,20 +171,25 @@ let test_find_cluster_host_finds_multiple_cluster_hosts () =
     Api_errors.(
       Server_error
         ( internal_error
-        , ["Multiple cluster_hosts found for host"; Ref.string_of host] ))
+        , ["Multiple cluster_hosts found for host"; Ref.string_of host]
+        )
+    )
     (fun () -> ignore (Xapi_clustering.find_cluster_host ~__context ~host))
 
 let test_find_cluster_host =
   [
     ( "test_find_cluster_host_finds_zero_cluster_hosts"
     , `Quick
-    , test_find_cluster_host_finds_zero_cluster_hosts )
+    , test_find_cluster_host_finds_zero_cluster_hosts
+    )
   ; ( "test_find_cluster_host_finds_one_cluster_host"
     , `Quick
-    , test_find_cluster_host_finds_one_cluster_host )
+    , test_find_cluster_host_finds_one_cluster_host
+    )
   ; ( "test_find_cluster_host_finds_multiple_cluster_hosts"
     , `Quick
-    , test_find_cluster_host_finds_multiple_cluster_hosts )
+    , test_find_cluster_host_finds_multiple_cluster_hosts
+    )
   ]
 
 (** Test Xapi_clustering.assert_cluster_host_enabled *)
@@ -190,8 +199,7 @@ let test_assert_cluster_host_is_enabled_when_it_is_enabled () =
   let self = T.make_cluster_host ~__context ~enabled:true () in
   Alcotest.(check unit)
     "test_assert_cluster_host_is_enabled_when_it_is_enabled" ()
-    (Xapi_clustering.assert_cluster_host_enabled ~__context ~self
-       ~expected:true)
+    (Xapi_clustering.assert_cluster_host_enabled ~__context ~self ~expected:true)
 
 let test_assert_cluster_host_is_enabled_when_it_is_disabled () =
   let __context = T.make_test_database () in
@@ -201,7 +209,8 @@ let test_assert_cluster_host_is_enabled_when_it_is_disabled () =
     Api_errors.(Server_error (clustering_disabled, [Ref.string_of self]))
     (fun () ->
       Xapi_clustering.assert_cluster_host_enabled ~__context ~self
-        ~expected:true)
+        ~expected:true
+      )
 
 let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
   let __context = T.make_test_database () in
@@ -211,7 +220,8 @@ let test_assert_cluster_host_is_disabled_when_it_is_enabled () =
     Api_errors.(Server_error (clustering_enabled, [Ref.string_of self]))
     (fun () ->
       Xapi_clustering.assert_cluster_host_enabled ~__context ~self
-        ~expected:false)
+        ~expected:false
+      )
 
 let test_assert_cluster_host_is_disabled_when_it_is_disabled () =
   let __context = T.make_test_database () in
@@ -219,22 +229,27 @@ let test_assert_cluster_host_is_disabled_when_it_is_disabled () =
   Alcotest.(check unit)
     "test_assert_cluster_host_is_disabled_when_it_is_disabled" ()
     (Xapi_clustering.assert_cluster_host_enabled ~__context ~self
-       ~expected:false)
+       ~expected:false
+    )
 
 let test_assert_cluster_host_enabled =
   [
     ( "test_assert_cluster_host_is_enabled_when_it_is_enabled"
     , `Quick
-    , test_assert_cluster_host_is_enabled_when_it_is_enabled )
+    , test_assert_cluster_host_is_enabled_when_it_is_enabled
+    )
   ; ( "test_assert_cluster_host_is_enabled_when_it_is_disabled"
     , `Quick
-    , test_assert_cluster_host_is_enabled_when_it_is_disabled )
+    , test_assert_cluster_host_is_enabled_when_it_is_disabled
+    )
   ; ( "test_assert_cluster_host_is_disabled_when_it_is_enabled"
     , `Quick
-    , test_assert_cluster_host_is_disabled_when_it_is_enabled )
+    , test_assert_cluster_host_is_disabled_when_it_is_enabled
+    )
   ; ( "test_assert_cluster_host_is_disabled_when_it_is_disabled"
     , `Quick
-    , test_assert_cluster_host_is_disabled_when_it_is_disabled )
+    , test_assert_cluster_host_is_disabled_when_it_is_disabled
+    )
   ]
 
 (** Test Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms *)
@@ -275,7 +290,8 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_hos
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_enabled"
     ()
     (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
-       ~host ~sr_sm_type:"gfs2")
+       ~host ~sr_sm_type:"gfs2"
+    )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist
     () =
@@ -284,7 +300,8 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_matching_sms_exist"
     ()
     (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
-       ~host ~sr_sm_type:"sr_type_with_no_matching_sm")
+       ~host ~sr_sm_type:"sr_type_with_no_matching_sm"
+    )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled
     () =
@@ -294,10 +311,12 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_i
   Alcotest.check_raises
     "test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_cluster_host_is_disabled"
     Api_errors.(
-      Server_error (clustering_disabled, [Ref.string_of cluster_host]))
+      Server_error (clustering_disabled, [Ref.string_of cluster_host])
+    )
     (fun () ->
       Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
-        ~host ~sr_sm_type:"gfs2")
+        ~host ~sr_sm_type:"gfs2"
+      )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_host_exists
     () =
@@ -309,7 +328,8 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_fails_if_no_cluster_hos
     Api_errors.(Server_error (no_compatible_cluster_host, [Ref.string_of host]))
     (fun () ->
       Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
-        ~host ~sr_sm_type:"gfs2")
+        ~host ~sr_sm_type:"gfs2"
+      )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed
     () =
@@ -320,7 +340,8 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_hos
     "test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_cluster_host_is_disabled_and_clustering_is_not_needed"
     ()
     (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
-       ~host ~sr_sm_type:"lvm")
+       ~host ~sr_sm_type:"lvm"
+    )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_host_exists_and_clustering_is_not_needed
     () =
@@ -332,7 +353,8 @@ let test_assert_cluster_host_is_enabled_for_matching_sms_succeeds_if_no_cluster_
      should pass"
     ()
     (Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms ~__context
-       ~host ~sr_sm_type:"lvm")
+       ~host ~sr_sm_type:"lvm"
+    )
 
 let test_assert_cluster_host_is_enabled_for_matching_sms =
   [
@@ -375,7 +397,10 @@ let nest_with_clustering_lock_if_needed ~__context ~timeout ~type1 ~type2
             Xapi_clustering.with_clustering_lock_if_needed ~__context
               ~sr_sm_type:type2 __LOC__ (fun () ->
                 success := true ;
-                on_no_deadlock ())))
+                on_no_deadlock ()
+            )
+        )
+        )
       ()
   in
   Thread.delay timeout ;
@@ -395,7 +420,8 @@ let test_clustering_lock_only_taken_if_needed_nested_calls () =
     ~on_deadlock:(fun () ->
       Alcotest.fail
         "Unexpected deadlock when making nested calls to \
-         with_clustering_lock_if_needed")
+         with_clustering_lock_if_needed"
+      )
     ~on_no_deadlock:(fun () -> ())
 
 let test_clustering_lock_taken_when_needed_nested_calls () =
@@ -415,16 +441,19 @@ let test_clustering_lock_taken_when_needed_nested_calls () =
       Alcotest.fail
         "Nesting calls to with_clustering_lock_if_needed should deadlock if \
          both require a cluster stack, lock not taken or not working as \
-         expected.")
+         expected."
+      )
 
 let test_clustering_lock_only_taken_if_needed =
   [
     ( "test_clustering_lock_only_taken_if_needed_nested_calls"
     , `Quick
-    , test_clustering_lock_only_taken_if_needed_nested_calls )
+    , test_clustering_lock_only_taken_if_needed_nested_calls
+    )
   ; ( "test_clustering_lock_taken_when_needed_nested_calls"
     , `Quick
-    , test_clustering_lock_taken_when_needed_nested_calls )
+    , test_clustering_lock_taken_when_needed_nested_calls
+    )
   ]
 
 let test_assert_pif_prerequisites () =
@@ -446,7 +475,8 @@ let test_assert_pif_prerequisites () =
     "test_assert_pif_prerequisites : disallow_unplug set, IP and \
      currently_attached to go "
     Api_errors.(
-      Server_error (required_pif_is_unplugged, [Ref.string_of pifref]))
+      Server_error (required_pif_is_unplugged, [Ref.string_of pifref])
+    )
     (fun () -> Xapi_clustering.assert_pif_prerequisites pif) ;
   (* Plug in PIF *)
   Db.PIF.set_currently_attached ~__context ~self:pifref ~value:true ;
@@ -455,7 +485,8 @@ let test_assert_pif_prerequisites () =
     "test_assert_pif_prerequisites : disallow_unplug and currently_attached \
      set, need IP config now "
     Api_errors.(
-      Server_error (pif_has_no_network_configuration, [Ref.string_of pifref]))
+      Server_error (pif_has_no_network_configuration, [Ref.string_of pifref])
+    )
     (fun () -> Xapi_clustering.assert_pif_prerequisites pif) ;
   (* Put in IPv4 info *)
   Db.PIF.set_IP ~__context ~self:pifref ~value:"1.1.1.1" ;
@@ -564,7 +595,8 @@ let test_disallow_unplug_during_cluster_host_create () =
     Alcotest.check_raises msg
       Api_errors.(
         Server_error
-          (other_operation_in_progress, ["Cluster"; Ref.string_of cluster]))
+          (other_operation_in_progress, ["Cluster"; Ref.string_of cluster])
+      )
       (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self ~value:false)
   in
   let check_successful_disallow_unplug value self msg =
@@ -594,23 +626,28 @@ let test_disallow_unplug_during_cluster_host_create () =
   List.iter
     (fun self ->
       check_successful_disallow_unplug false self
-        "No current clustering operations or enabled cluster hosts on PIF")
+        "No current clustering operations or enabled cluster hosts on PIF"
+      )
     (Db.PIF.get_all ~__context)
 
 let test_networking_with_clustering =
   [
     ( "test_disallow_unplug_no_clustering"
     , `Quick
-    , test_disallow_unplug_no_clustering )
+    , test_disallow_unplug_no_clustering
+    )
   ; ( "test_disallow_unplug_with_clustering"
     , `Quick
-    , test_disallow_unplug_with_clustering )
+    , test_disallow_unplug_with_clustering
+    )
   ; ( "test_assert_no_clustering_on_pif"
     , `Quick
-    , test_assert_no_clustering_on_pif )
+    , test_assert_no_clustering_on_pif
+    )
   ; ( "test_disallow_unplug_during_cluster_host_create"
     , `Quick
-    , test_disallow_unplug_during_cluster_host_create )
+    , test_disallow_unplug_during_cluster_host_create
+    )
   ]
 
 let default = !Xapi_globs.cluster_stack_default
@@ -628,7 +665,8 @@ let choose_cluster_stack_should_fail_with_conflict ~__context =
   Alcotest.check_raises
     "choose_cluster_stack should fail with different cluster_stacks provided"
     (Failure "Conflicting cluster stack demands.") (fun () ->
-      Cluster_stack_constraints.choose_cluster_stack ~__context |> ignore)
+      Cluster_stack_constraints.choose_cluster_stack ~__context |> ignore
+  )
 
 (* Choose_cluster_stack looks at SM types and their required_cluster_stacks
  * If any SRs of matching type are found, the first corresponding cluster_stack is returned,
@@ -702,7 +740,8 @@ let test_choose_cluster_stack_sms_no_clusters () =
   Alcotest.check_raises
     "choose_cluster_stack should fail when checking SR with no matching SM type"
     (Failure "SR type not found in SM table.") (fun () ->
-      Cluster_stack_constraints.choose_cluster_stack ~__context |> ignore)
+      Cluster_stack_constraints.choose_cluster_stack ~__context |> ignore
+  )
 
 let test_choose_cluster_stack_with_sms_and_clusters () =
   let __context = T.make_test_database () in
@@ -719,13 +758,16 @@ let test_choose_cluster_stack =
   [
     ( "test_choose_cluster_stack_clusters_no_sms"
     , `Quick
-    , test_choose_cluster_stack_clusters_no_sms )
+    , test_choose_cluster_stack_clusters_no_sms
+    )
   ; ( "test_choose_cluster_stack_with_sms_and_clusters"
     , `Quick
-    , test_choose_cluster_stack_with_sms_and_clusters )
+    , test_choose_cluster_stack_with_sms_and_clusters
+    )
   ; ( "test_choose_cluster_stack_sms_no_clusters"
     , `Quick
-    , test_choose_cluster_stack_sms_no_clusters )
+    , test_choose_cluster_stack_sms_no_clusters
+    )
   ]
 
 let get_ha_cluster_stack ~__context =
@@ -815,16 +857,20 @@ let test_pool_ha_cluster_stacks =
   [
     ( "test_pool_ha_cluster_stacks_no_ha_no_clustering"
     , `Quick
-    , test_pool_ha_cluster_stacks_no_ha_no_clustering )
+    , test_pool_ha_cluster_stacks_no_ha_no_clustering
+    )
   ; ( "test_pool_ha_cluster_stacks_no_ha_with_clustering"
     , `Quick
-    , test_pool_ha_cluster_stacks_no_ha_with_clustering )
+    , test_pool_ha_cluster_stacks_no_ha_with_clustering
+    )
   ; ( "test_pool_ha_cluster_stacks_with_ha_no_clustering"
     , `Quick
-    , test_pool_ha_cluster_stacks_with_ha_no_clustering )
+    , test_pool_ha_cluster_stacks_with_ha_no_clustering
+    )
   ; ( "test_pool_ha_cluster_stacks_with_ha_with_clustering"
     , `Quick
-    , test_pool_ha_cluster_stacks_with_ha_with_clustering )
+    , test_pool_ha_cluster_stacks_with_ha_with_clustering
+    )
   ]
 
 let test =

@@ -21,7 +21,9 @@ let check_network_map =
     check
       (slist
          (pair (Alcotest_comparators.ref ()) (Alcotest_comparators.ref ()))
-         compare))
+         compare
+      )
+  )
 
 let test_infer_vif_map_empty () =
   let __context = Test_common.make_test_database () in
@@ -48,7 +50,9 @@ let test_infer_vif_map () =
     (fun () ->
       ignore
         (Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1; vm_vif2]
-           [(vm_vif1, network1)])) ;
+           [(vm_vif1, network1)]
+        )
+      ) ;
   let inferred_map =
     Xapi_vm_migrate.infer_vif_map ~__context [vm_vif1; snap_vif1]
       [(vm_vif1, network1)]
@@ -64,7 +68,9 @@ let test_infer_vif_map () =
       ignore
         (Xapi_vm_migrate.infer_vif_map ~__context
            [vm_vif1; snap_vif1; snap_vif2]
-           [(vm_vif1, network1)]))
+           [(vm_vif1, network1)]
+        )
+      )
 
 let test =
   [
