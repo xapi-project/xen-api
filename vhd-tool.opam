@@ -14,6 +14,7 @@ depends: [
   "ocaml"
   "dune" {build}
   "cohttp-lwt"
+  "conf-libssl"
   "cstruct" {>= "3.0.0"}
   "io-page"
   "lwt"
@@ -30,12 +31,6 @@ depends: [
   "xapi-tapctl"
   "xenstore"
   "xenstore_transport"
-]
-depexts: [
-  ["libssl-dev"] {os-distribution = "debian"}
-  ["libssl-dev"] {os-distribution = "ubuntu"}
-  ["openssl-devel"] {os-distribution = "centos"}
-  ["openssl-devel"] {os-distribution = "fedora"}
 ]
 synopsis: ".vhd file manipulation"
 url {

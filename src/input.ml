@@ -11,38 +11,39 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
- 
+
 type 'a t = 'a Lwt.t
 
-let (>>=) = Lwt.(>>=)
+let ( >>= ) = Lwt.( >>= )
+
 let return = Lwt.return
+
 let fail = Lwt.fail
 
 open Lwt
 
-type fd = {
-  fd: Lwt_unix.file_descr;
-  mutable offset: int64;
-}
+type fd = {fd: Lwt_unix.file_descr; mutable offset: int64}
 
 let of_fd fd =
   let offset = 0L in
-  { fd; offset }
+  {fd; offset}
 
 let read fd buf =
   IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd buf >>= fun () ->
-  fd.offset <- Int64.(add fd.offset (of_int (Cstruct.len buf)));
+  fd.offset <- Int64.(add fd.offset (of_int (Cstruct.len buf))) ;
   return ()
 
 let skip_to fd n =
   let buf = Io_page.(to_cstruct (get 1)) in
   let rec loop remaining =
-    if remaining = 0L
-    then return ()
+    if remaining = 0L then
+      return ()
     else
       let this = Int64.(to_int (min remaining (of_int (Cstruct.len buf)))) in
       let frag = Cstruct.sub buf 0 this in
-      IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd frag >>= fun () ->
-      fd.offset <- Int64.(add fd.offset (of_int this));
-      loop Int64.(sub remaining (of_int this)) in  
+      IO.complete "read" (Some fd.offset) Lwt_bytes.read fd.fd frag
+      >>= fun () ->
+      fd.offset <- Int64.(add fd.offset (of_int this)) ;
+      loop Int64.(sub remaining (of_int this))
+  in
   loop Int64.(sub n fd.offset)
