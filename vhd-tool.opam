@@ -18,7 +18,7 @@ depends: [
   "cstruct" {>= "3.0.0"}
   "io-page"
   "lwt"
-  "nbd-lwt-unix"
+  "nbd-unix"
   "ocaml-migrate-parsetree"
   "ppx_cstruct"
   "ppx_deriving_rpc"
