@@ -8,14 +8,15 @@ tags: [ "org:xapi-project" ]
 
 build:  [
   [ "dune" "build" "-p" name "-j" jobs ]
+  ["dune" "build" "-p" name "-j" jobs "@doc"] {with-doc}
   [ "dune" "runtest" "-p" name "-j" jobs ] {with-test}
 ]
 
 depends: [
   "ocaml"
-  "dune" {build}
-  "uuidm"
+  "dune" {>= "1.11"}
   "alcotest" {with-test}
+  "odoc" {with-doc}
 ]
 synopsis:
   "A deprecated collection of utility functions - Standard library extensions"
