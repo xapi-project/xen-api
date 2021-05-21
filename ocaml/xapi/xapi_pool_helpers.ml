@@ -218,22 +218,20 @@ let get_slaves_list ~__context =
 let call_fn_on_hosts ~__context hosts f =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let errs =
-        List.fold_left
-          (fun acc host ->
-            try f ~rpc ~session_id ~host ; acc with x -> (host, x) :: acc
+        List.filter_map
+          (fun host ->
+            try f ~rpc ~session_id ~host ; None with x -> Some (host, x)
             )
-          [] hosts
+          hosts
       in
-      if List.length errs > 0 then (
-        warn "Exception raised while performing operation on hosts:" ;
-        List.iter
-          (fun (host, x) ->
-            warn "Host: %s error: %s" (Ref.string_of host)
-              (ExnHelper.string_of_exn x)
-            )
-          errs ;
-        raise (snd (List.hd errs))
-      )
+      List.iter
+        (fun (host, exn) ->
+          warn {|Exception raised while performing operation on host "%s": %s|}
+            (Ref.string_of host)
+            (ExnHelper.string_of_exn exn)
+          )
+        errs ;
+      match errs with [] -> () | (_, first_exn) :: _ -> raise first_exn
   )
 
 let call_fn_on_master_then_slaves ~__context f =
