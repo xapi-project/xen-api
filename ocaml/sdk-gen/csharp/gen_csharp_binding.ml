@@ -301,6 +301,7 @@ and gen_class out_chan cls =
      using System.Collections.Generic;\n\
      using System.ComponentModel;\n\
      using System.Globalization;\n\
+     using System.Linq;\n\
      using Newtonsoft.Json;\n\n\n\
      namespace XenAPI\n\
      {\n\
@@ -359,14 +360,16 @@ and gen_class out_chan cls =
     \        {\n\
     \            UpdateFrom(proxy);\n\
     \        }\n\n\
-    \        #endregion\n\n\
-    \        /// <summary>\n\
+    \        #endregion\n\n"
+    exposed_class_name exposed_class_name exposed_class_name exposed_class_name ;
+
+  print
+    "        /// <summary>\n\
     \        /// Updates each field of this instance with the value of\n\
     \        /// the corresponding field of a given %s.\n\
     \        /// </summary>\n\
-    \        public override void UpdateFrom(%s update)\n\
+    \        public override void UpdateFrom(%s record)\n\
     \        {\n"
-    exposed_class_name exposed_class_name exposed_class_name exposed_class_name
     exposed_class_name exposed_class_name ;
 
   List.iter (gen_updatefrom_line out_chan) contents ;
@@ -379,17 +382,6 @@ and gen_class out_chan cls =
 
   print
     "        }\n\n\
-    \        public Proxy_%s ToProxy()\n\
-    \        {\n\
-    \            Proxy_%s result_ = new Proxy_%s();\n"
-    exposed_class_name exposed_class_name exposed_class_name ;
-
-  List.iter (gen_to_proxy_line out_chan) contents ;
-
-  print "            return result_;\n        }\n" ;
-
-  print
-    "\n\
     \        /// <summary>\n\
     \        /// Given a Hashtable with field-value pairs, it updates the \
      fields of this %s\n\
@@ -405,7 +397,17 @@ and gen_class out_chan cls =
 
   List.iter (gen_hashtable_constructor_line out_chan) contents ;
 
-  print "        }\n\n        " ;
+  print "        }\n\n" ;
+
+  print
+    "        public Proxy_%s ToProxy()\n\
+    \        {\n\
+    \            Proxy_%s result_ = new Proxy_%s();\n"
+    exposed_class_name exposed_class_name exposed_class_name ;
+
+  List.iter (gen_to_proxy_line out_chan) contents ;
+
+  print "            return result_;\n        }\n\n" ;
 
   let is_current_ops = function
     | Field f ->
@@ -423,13 +425,13 @@ and gen_class out_chan cls =
   ( match current_ops with
   | [] ->
       print
-        "public bool DeepEquals(%s other)\n\
+        "        public bool DeepEquals(%s other)\n\
         \        {\n\
         \            %s\n\n\
         \            return " exposed_class_name check_refs
   | _ ->
       print
-        "public bool DeepEquals(%s other, bool ignoreCurrentOperations)\n\
+        "        public bool DeepEquals(%s other, bool ignoreCurrentOperations)\n\
         \        {\n\
         \            %s\n\n\
         \            if (!ignoreCurrentOperations && \
@@ -451,19 +453,11 @@ and gen_class out_chan cls =
   print
     ";\n\
     \        }\n\n\
-    \        internal static List<%s> ProxyArrayToObjectList(Proxy_%s[] input)\n\
-    \        {\n\
-    \            var result = new List<%s>();\n\
-    \            foreach (var item in input)\n\
-    \                result.Add(new %s(item));\n\n\
-    \            return result;\n\
-    \        }\n\n\
     \        public override string SaveChanges(Session session, string \
      opaqueRef, %s server)\n\
     \        {\n\
     \            if (opaqueRef == null)\n\
-    \            {" exposed_class_name exposed_class_name exposed_class_name
-    exposed_class_name exposed_class_name ;
+    \            {" exposed_class_name ;
 
   if cls.gen_constructor_destructor then
     print
@@ -481,7 +475,7 @@ and gen_class out_chan cls =
 
   gen_save_changes out_chan exposed_class_name messages contents ;
 
-  print "\n            }\n        }" ;
+  print "\n            }\n        }\n" ;
 
   let gen_exposed_method_overloads cls message =
     let generator x = gen_exposed_method cls message x in
@@ -608,7 +602,7 @@ and gen_updatefrom_line out_chan content =
 
   match content with
   | Field fr ->
-      print "            %s = %s;\n" (full_name fr) ("update." ^ full_name fr)
+      print "            %s = %s;\n" (full_name fr) ("record." ^ full_name fr)
   | Namespace (_, c) ->
       List.iter (gen_updatefrom_line out_chan) c
 
@@ -1392,8 +1386,8 @@ and convert_from_hashtable fname ty =
          Marshalling.ParseHashTable(table, %s));"
         (exposed_class_name name) (exposed_class_name name) field
   | Set (Record name) ->
-      sprintf "%s.ProxyArrayToObjectList(Marshalling.ParseStringArray(%s))"
-        (exposed_class_name name) field
+      sprintf "Marshalling.ParseStringArray(%s).Select(p => new %s(p)).ToList()"
+        field (exposed_class_name name)
   | Set Int ->
       sprintf "Marshalling.ParseLongArray(table, %s)" field
   | Option x ->
@@ -1445,7 +1439,8 @@ and simple_convert_from_proxy thing ty =
   | Record name ->
       sprintf "new %s(%s)" (exposed_class_name name) thing
   | Set (Record name) ->
-      sprintf "%s.ProxyArrayToObjectList(%s)" (exposed_class_name name) thing
+      sprintf "%s.Select(p => new %s(p)).ToList()" thing
+        (exposed_class_name name)
   | Set Int ->
       sprintf "Helper.StringArrayToLongArray(%s)" thing
   | x ->
