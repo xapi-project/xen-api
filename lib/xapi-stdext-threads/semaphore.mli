@@ -17,21 +17,21 @@ type t
 exception Inconsistent_state of string
 
 (** [create n] create a semaphore with initial value [n] (a positive integer).
-    Raise {Invalid_argument} if [n] <= 0 *)
+    Raise {!Invalid_argument} if [n] <= 0 *)
 val create : int -> t
 
 (** [acquire k s] block until the semaphore value is >= [k] (a positive integer),
     then atomically decrement the semaphore value by [k].
-    Raise {Invalid_argument} if [k] <= 0 *)
+    Raise {!Invalid_argument} if [k] <= 0 *)
 val acquire : t -> int -> unit
 
 (** [release k s] atomically increment the semaphore value by [k] (a positive
     integer).
-    Raise {Invalid_argument} if [k] <= 0 *)
+    Raise {!Invalid_argument} if [k] <= 0 *)
 val release : t -> int -> unit
 
-(** [execute_with_weight s k f] {acquire} the semaphore with [k],
-    then run [f ()], and finally {release} the semaphore with the same value [k]
+(** [execute_with_weight s k f] {!acquire} the semaphore with [k],
+    then run [f ()], and finally {!release} the semaphore with the same value [k]
     (even in case of failure in the execution of [f]).
     Return the value of [f ()] or re-raise the exception if any. *)
 val execute_with_weight : t -> int -> (unit -> 'a) -> 'a
