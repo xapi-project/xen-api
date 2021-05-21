@@ -874,6 +874,10 @@ let extauth_ad_backend = ref "winbind"
 
 let net_cmd = ref "/usr/bin/net"
 
+let wb_cmd = ref "/usr/bin/wbinfo"
+
+let winbind_debug_level = ref 2
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let xapi_globs_spec =
@@ -934,6 +938,7 @@ let xapi_globs_spec =
   ; ("vm_call_plugin_interval", Float vm_call_plugin_interval)
   ; ("xapi_clusterd_port", Int xapi_clusterd_port)
   ; ("max_active_sr_scans", Int max_active_sr_scans)
+  ; ("winbind_debug_level", Int winbind_debug_level)
   ]
 
 let options_of_xapi_globs_spec =
@@ -1287,12 +1292,13 @@ module Resources = struct
     ; ( "gen_pool_secret_script"
       , gen_pool_secret_script
       , "Generates new pool secrets" )
-    ; ( "winbind client tool"
+    ; ( "samba administration tool"
       , net_cmd
       , "Executed to manage external auth with AD like join and leave domain" )
     ; ( "Samba TDB (Trivial Database) management tool"
       , tdb_tool
       , "Executed to manage Samba Database" )
+    ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
     ]
 
   let essential_files =
