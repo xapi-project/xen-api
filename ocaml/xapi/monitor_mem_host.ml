@@ -36,7 +36,8 @@ let get_changes rrd_files =
                            ["memory_total_kib"; "memory_free_kib"] ->
                       Some ds
                   | _ ->
-                      None (* we are only interested in Host memory stats *))
+                      None (* we are only interested in Host memory stats *)
+                  )
              |> List.map (function ds ->
                     let value =
                       match ds.Ds.ds_value with
@@ -47,15 +48,18 @@ let get_changes rrd_files =
                       | Rrd.VT_Unknown ->
                           -1L
                     in
-                    (ds.Ds.ds_name, value))
+                    (ds.Ds.ds_name, value)
+                    )
            with e ->
              if not (Mcache.is_ignored filename) then (
                error "Unable to read host memory metrics from %s: %s" filename
                  (Printexc.to_string e) ;
                Mcache.ignore_errors_from filename
              ) ;
-             [])
-         rrd_files)
+             []
+           )
+         rrd_files
+      )
   in
   let free_bytes = List.assoc_opt "memory_free_kib" named_dss in
   let total_bytes = List.assoc_opt "memory_total_kib" named_dss in
@@ -71,7 +75,8 @@ let get_changes rrd_files =
 let set_changes (free_bytes, total_bytes) =
   Mtxext.execute Mcache.host_memory_m (fun _ ->
       Mcache.host_memory_free_cached := free_bytes ;
-      Mcache.host_memory_total_cached := total_bytes)
+      Mcache.host_memory_total_cached := total_bytes
+  )
 
 let update rrd_files =
   let is_host_rrd =
@@ -92,6 +97,6 @@ let update rrd_files =
           Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free ;
           set_changes c
         with e ->
-          error "Unable to update host memory metrics: %s"
-            (Printexc.to_string e)
-      ))
+          error "Unable to update host memory metrics: %s" (Printexc.to_string e)
+      )
+  )

@@ -25,7 +25,8 @@ let () =
      ; ("Test_tunnel", Test_tunnel.test)
      ; ("Test_agility", Test_agility.test)
      ; ( "Test_clustering_allowed_operations"
-       , Test_clustering_allowed_operations.test )
+       , Test_clustering_allowed_operations.test
+       )
      ; ("Test_client", Test_client.test)
      ; ("Test_ca91480", Test_ca91480.test)
      ; ("Test_pgpu", Test_pgpu.test)
@@ -72,4 +73,5 @@ let () =
     @ Test_session.tests
     @ Test_xapi_cmd_result.tests
     @ Test_extauth_plugin_ADwinbind.tests
+    @ Test_repository_helpers.tests
     )

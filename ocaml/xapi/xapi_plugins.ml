@@ -46,7 +46,8 @@ let call_plugin session_id plugin_name fn_name args =
     | Forkhelpers.Spawn_internal_error (log, output, Unix.WSTOPPED i) ->
         raise
           (Api_errors.Server_error
-             (Api_errors.xenapi_plugin_failure, ["task stopped"; output; log]))
+             (Api_errors.xenapi_plugin_failure, ["task stopped"; output; log])
+          )
     | Forkhelpers.Spawn_internal_error (log, output, Unix.WSIGNALED i) ->
         raise
           (Api_errors.Server_error
@@ -56,11 +57,14 @@ let call_plugin session_id plugin_name fn_name args =
                    (Xapi_stdext_unix.Unixext.string_of_signal i)
                ; output
                ; log
-               ] ))
+               ]
+             )
+          )
     | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED i) ->
         raise
           (Api_errors.Server_error
-             (Api_errors.xenapi_plugin_failure, ["non-zero exit"; output; log]))
+             (Api_errors.xenapi_plugin_failure, ["non-zero exit"; output; log])
+          )
   in
   try
     match XMLRPC.From.methodResponse (Xml.parse_string output) with
@@ -68,7 +72,9 @@ let call_plugin session_id plugin_name fn_name args =
         raise
           (Api_errors.Server_error
              ( Api_errors.xenapi_plugin_failure
-             , ["fault"; Int32.to_string code; reason] ))
+             , ["fault"; Int32.to_string code; reason]
+             )
+          )
     | XMLRPC.Success [result] ->
         XMLRPC.From.string result
     | XMLRPC.Failure (code, params) ->
@@ -77,9 +83,13 @@ let call_plugin session_id plugin_name fn_name args =
         raise
           (Api_errors.Server_error
              ( Api_errors.xenapi_plugin_failure
-             , ["unexpected XMLRPC result"; output] ))
+             , ["unexpected XMLRPC result"; output]
+             )
+          )
   with Xml.Error e ->
     raise
       (Api_errors.Server_error
          ( Api_errors.xenapi_plugin_failure
-         , ["failed to parse plugin output"; output; Xml.error e] ))
+         , ["failed to parse plugin output"; output; Xml.error e]
+         )
+      )

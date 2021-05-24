@@ -31,7 +31,8 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
             (Ref.string_of task_id) (Ref.string_of vdi) x ;
           TaskHelper.failed ~__context
             (Api_errors.Server_error
-               (Api_errors.internal_error, ["Unknown format " ^ x])) ;
+               (Api_errors.internal_error, ["Unknown format " ^ x])
+            ) ;
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ())
       | `Ok format -> (
           (* Suggest this filename to the client: *)
@@ -55,7 +56,8 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
             with Unix.Unix_error (Unix.EIO, _, _) ->
               raise
                 (Api_errors.Server_error
-                   (Api_errors.vdi_io_error, ["Device I/O errors"]))
+                   (Api_errors.vdi_io_error, ["Device I/O errors"])
+                )
           in
           try
             let headers =
@@ -81,7 +83,9 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
                            , [
                                Ref.string_of vdi
                              ; Int64.to_string Constants.max_vhd_size
-                             ] ))
+                             ]
+                           )
+                        )
                 ) ;
                 Sm_fs_ops.with_block_attached_device __context rpc session_id
                   vdi `RO (fun path ->
@@ -89,9 +93,11 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
                     | Some base_vdi ->
                         Sm_fs_ops.with_block_attached_device __context rpc
                           session_id base_vdi `RO (fun base_path ->
-                            copy (Some base_path) path)
+                            copy (Some base_path) path
+                        )
                     | None ->
-                        copy None path)
+                        copy None path
+                )
             | Tar ->
                 (* We need to keep refreshing the session to avoid session timeout *)
                 let refresh_session =
@@ -108,7 +114,8 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
             Backtrace.is_important e ;
             TaskHelper.failed ~__context e ;
             raise e
-        ))
+        )
+  )
 
 let export_raw vdi (req : Http.Request.t) (s : Unix.file_descr) _ =
   (* Check the SR is reachable (in a fresh task context) *)
@@ -121,7 +128,9 @@ let export_raw vdi (req : Http.Request.t) (s : Unix.file_descr) _ =
           else
             let host = Importexport.find_host_for_sr ~__context sr in
             let address = Db.Host.get_address ~__context ~self:host in
-            Importexport.return_302_redirect req s address))
+            Importexport.return_302_redirect req s address
+      )
+  )
 
 let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "export_raw_vdi handler" ;
@@ -132,4 +141,5 @@ let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
       | Some vdi ->
           export_raw vdi req s ()
       | None ->
-          failwith "Missing vdi query parameter")
+          failwith "Missing vdi query parameter"
+  )

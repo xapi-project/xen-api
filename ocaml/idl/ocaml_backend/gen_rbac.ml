@@ -33,7 +33,8 @@ let internal_role_local_root = "_local_root_"
 let writer_csv static_roles_permissions static_permissions_roles =
   Printf.sprintf "%s,PERMISSION/ROLE,%s\n"
     (let t = Debug.gettimestring () in
-     String.sub t 0 (String.length t - 1))
+     String.sub t 0 (String.length t - 1)
+    )
     (* role titles are ordered by roles in roles_all *)
     (List.fold_left (fun rr r -> rr ^ r ^ ",") "" Datamodel_roles.roles_all)
   ^ List.fold_left
@@ -44,12 +45,14 @@ let writer_csv static_roles_permissions static_permissions_roles =
               if List.exists (fun r -> r = role) roles then
                 "X," ^ acc
               else
-                "," ^ acc)
+                "," ^ acc
+              )
             ""
             (List.rev Datamodel_roles.roles_all)
         (* Xs are ordered by roles in roles_all *)
         ^ "\n"
-        ^ acc)
+        ^ acc
+        )
       "" static_permissions_roles
 
 let hash2uuid str =
@@ -61,7 +64,8 @@ let hash2uuid str =
       "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
       (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
         l :=
-          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]) ;
+          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
+    ) ;
     Array.of_list !l
   in
   Uuid.string_of_uuid (Uuid.uuid_of_int_array (int_array hex))
@@ -107,8 +111,7 @@ let writer_permission name nperms =
 let role_label role = replace_char (Printf.sprintf "role_%s" role) '-' '_'
 
 (*let subroles_label role = (Printf.sprintf "subroles_of_%s" (role_label role))*)
-let permissions_label role =
-  Printf.sprintf "permissions_of_%s" (role_label role)
+let permissions_label role = Printf.sprintf "permissions_of_%s" (role_label role)
 
 let role_index = ref 0
 
@@ -137,7 +140,8 @@ let writer_role name nroles =
         (Printf.sprintf
            "Check Datamodel_roles.role_description: there's no role \
             description for role %s"
-           role_name_label)
+           role_name_label
+        )
   in
   Printf.sprintf "let %s = \n  { (* %s *)\n" (role_label name) role_number
   (*^(Printf.sprintf "  role_ref = \"%s\";\n" role_ref)*)
@@ -186,7 +190,8 @@ let writer_stdout static_roles_permissions static_permissions_roles =
            	perms
            )
            ^Printf.sprintf "]\n\n"
-        *))
+        *)
+        )
       "" static_roles_permissions
   (* 3. all static permissions *)
   ^ "let all_static_permissions = permissions_of_role_pool_admin\n"
@@ -243,7 +248,8 @@ let add_permission_to_roles roles_permissions (obj : obj) (x : message) =
           | None ->
               failwith (Printf.sprintf "No roles for key %s" wire_name_key)
           | Some allowed_roles ->
-              concat (wire_name_key, rsps, allowed_roles))
+              concat (wire_name_key, rsps, allowed_roles)
+          )
         with_msg_roles_permissions msg_map_keys_roles
 
 let get_http_permissions_roles =
@@ -253,15 +259,19 @@ let get_http_permissions_roles =
       @
       let roles = Option.value ~default:[] some_roles in
       (Datamodel.rbac_http_permission_prefix ^ http_permission, roles)
-      :: List.map (* sub_actions for this http_permission *)
-           (fun (sub_action, some_roles) ->
-             let roles = Option.value ~default:[] some_roles in
-             ( Datamodel.rbac_http_permission_prefix
-               ^ http_permission
-               ^ "/"
-               ^ sub_action
-             , roles ))
-           sub_actions)
+      ::
+      List.map (* sub_actions for this http_permission *)
+        (fun (sub_action, some_roles) ->
+          let roles = Option.value ~default:[] some_roles in
+          ( Datamodel.rbac_http_permission_prefix
+            ^ http_permission
+            ^ "/"
+            ^ sub_action
+          , roles
+          )
+          )
+        sub_actions
+      )
     [] Datamodel.http_actions
 
 let get_extra_permissions_roles =
@@ -325,7 +335,8 @@ let gen_permissions_of_static_roles highapi =
       (List.fold_left
          (List.fold_left (fun arps (hr, hps) -> concat (hr, arps, hps)))
          api_roles_permissions
-         [get_http_permissions_roles; get_extra_permissions_roles])
+         [get_http_permissions_roles; get_extra_permissions_roles]
+      )
   in
   let _permissions_roles = gen_roles_of_permissions roles_permissions in
   let _, permissions_roles =

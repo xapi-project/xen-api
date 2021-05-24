@@ -23,7 +23,8 @@ let string_of (x : indexrec) =
   Printf.sprintf "%s%s" x.uuid
     (Option.fold ~none:""
        ~some:(fun name -> Printf.sprintf " (%s)" name)
-       x.name_label)
+       x.name_label
+    )
 
 let lookup key =
   let t = Db_backend.make () in
@@ -37,7 +38,8 @@ let lookup key =
         ( try
             Some
               (Schema.Value.Unsafe_cast.string
-                 (Row.find Db_names.name_label row))
+                 (Row.find Db_names.name_label row)
+              )
           with _ -> None
         )
     ; uuid= Schema.Value.Unsafe_cast.string (Row.find Db_names.uuid row)

@@ -34,7 +34,8 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
   in
   Some
     ( Api_errors.other_operation_in_progress
-    , ["Cluster_host." ^ current_ops_str; ref_str] )
+    , ["Cluster_host." ^ current_ops_str; ref_str]
+    )
 
 (** Take an internal Cluster_host record and a proposed operation. Return None iff the operation
     would be acceptable; otherwise Some (Api_errors.<something>, [list of strings])
@@ -45,8 +46,8 @@ let get_operation_error ~__context ~self ~op =
   let current_error = None in
   let check c f = match c with Some e -> Some e | None -> f () in
   let assert_joined_cluster ~__context ~self = function
-    | (`enable | `disable)
-      when not (Db.Cluster_host.get_joined ~__context ~self) ->
+    | (`enable | `disable) when not (Db.Cluster_host.get_joined ~__context ~self)
+      ->
         (* Cannot enable nor disable without joining cluster *)
         Some (Api_errors.cluster_host_not_joined, [ref_str])
     | _ ->
@@ -61,7 +62,8 @@ let get_operation_error ~__context ~self ~op =
             report_concurrent_operations_error ~current_ops ~ref_str
         | _ ->
             check (assert_joined_cluster ~__context ~self op) (fun () -> None)
-        (* replace this function if adding new checks *))
+        (* replace this function if adding new checks *)
+    )
   in
   current_error
 
@@ -92,7 +94,8 @@ let with_cluster_host_operation ~__context ~(self : [`Cluster_host] API.Ref.t)
       assert_operation_valid ~__context ~self ~op ;
       Db.Cluster_host.add_to_current_operations ~__context ~self ~key:task_id
         ~value:op ;
-      update_allowed_operations ~__context ~self) ;
+      update_allowed_operations ~__context ~self
+  ) ;
   (* Then do the action with the lock released *)
   finally f (* Make sure to clean up at the end *) (fun () ->
       try
@@ -101,4 +104,5 @@ let with_cluster_host_operation ~__context ~(self : [`Cluster_host] API.Ref.t)
         update_allowed_operations ~__context ~self ;
         Helpers.Early_wakeup.broadcast
           (Datamodel_common._cluster_host, Ref.string_of self)
-      with _ -> ())
+      with _ -> ()
+  )

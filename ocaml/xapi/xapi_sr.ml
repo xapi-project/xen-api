@@ -51,12 +51,14 @@ let i_should_scan_sr sr =
       else (
         Hashtbl.replace scans_in_progress sr true ;
         true
-      ))
+      )
+  )
 
 let scan_finished sr =
   Mutex.execute scans_in_progress_m (fun () ->
       Hashtbl.remove scans_in_progress sr ;
-      Condition.broadcast scans_in_progress_c)
+      Condition.broadcast scans_in_progress_c
+  )
 
 module Throttle () = struct
   let semaphore = ref None
@@ -73,7 +75,8 @@ module Throttle () = struct
             semaphore := Some result ;
             result
         | Some s ->
-            s)
+            s
+    )
 
   let execute f = Semaphore.execute (get_semaphore ()) f
 end
@@ -100,12 +103,16 @@ let scan_one ~__context ?callback sr =
                            (fun rpc session_id ->
                              Helpers.log_exn_continue
                                (Printf.sprintf "scanning SR %s"
-                                  (Ref.string_of sr))
+                                  (Ref.string_of sr)
+                               )
                                (fun sr -> Client.SR.scan rpc session_id sr)
-                               sr))
+                               sr
+                         )
+                     )
                    with e ->
                      error "Caught exception attempting an SR.scan: %s"
-                       (ExnHelper.string_of_exn e))
+                       (ExnHelper.string_of_exn e)
+                   )
                  (fun () ->
                    scan_finished sr ;
                    debug "Scan of SR %s complete." sr_uuid ;
@@ -113,9 +120,14 @@ let scan_one ~__context ?callback sr =
                      (fun f ->
                        debug "Starting callback for SR %s." sr_uuid ;
                        f () ;
-                       debug "Callback for SR %s finished." sr_uuid)
-                     callback)))
-         ())
+                       debug "Callback for SR %s finished." sr_uuid
+                       )
+                     callback
+                   )
+           )
+           )
+         ()
+      )
   else
     (* If a callback was supplied but a scan is already in progress, call the callback once the scan is complete. *)
     Option.iter
@@ -130,14 +142,18 @@ let scan_one ~__context ?callback sr =
                Mutex.execute scans_in_progress_m (fun () ->
                    while Hashtbl.mem scans_in_progress sr do
                      Condition.wait scans_in_progress_c scans_in_progress_m
-                   done) ;
+                   done
+               ) ;
                debug
                  "Got signal that scan of SR %s is complete - starting \
                   callback."
                  sr_uuid ;
                f () ;
-               debug "Callback for SR %s finished." sr_uuid)
-             ()))
+               debug "Callback for SR %s finished." sr_uuid
+               )
+             ()
+          )
+        )
       callback
 
 let scan_all ~__context =
@@ -149,7 +165,8 @@ let scan_all ~__context =
         let oc = Db.SR.get_other_config ~__context ~self:sr in
         List.mem_assoc Xapi_globs.auto_scan oc
         && List.assoc Xapi_globs.auto_scan oc = "true"
-        || List.mem_assoc "dirty" oc)
+        || List.mem_assoc "dirty" oc
+        )
       srs
   in
   if List.length scannable_srs > 0 then
@@ -173,7 +190,9 @@ let scanning_thread () =
             try scan_all ~__context
             with e ->
               debug "Exception in SR scanning thread: %s" (Printexc.to_string e)
-          done))
+          done
+      )
+      )
     ()
 
 (* introduce, creates a record for the SR in the database. It has no other side effect *)
@@ -235,7 +254,8 @@ let call_probe ~__context ~host ~device_config ~_type ~sm_config ~f =
   end)) in
   let dbg = Context.string_of_task __context in
   Storage_access.transform_storage_exn (fun () ->
-      Client.SR.probe dbg queue device_config sm_config |> f)
+      Client.SR.probe dbg queue device_config sm_config |> f
+  )
 
 let probe =
   call_probe ~f:(function
@@ -299,7 +319,8 @@ let probe =
         let buf = Buffer.create 20 in
         let output = Xmlm.make_output ~nl:true (`Buffer buf) in
         T.output_doc ~tree ~output ~dtd:None ;
-        Buffer.contents buf)
+        Buffer.contents buf
+    )
 
 let probe_ext =
   let to_xenapi_sr_health =
@@ -327,7 +348,9 @@ let probe_ext =
       ; sr_stat_clustered= clustered
       ; sr_stat_health= to_xenapi_sr_health health
       }
+    
   in
+
   let to_xenapi_probe_result
       Storage_interface.{configuration; complete; sr; extra_info} =
     API.
@@ -337,12 +360,15 @@ let probe_ext =
       ; probe_result_sr= Option.map to_xenapi_sr_stat sr
       ; probe_result_extra_info= extra_info
       }
+    
   in
+
   call_probe ~f:(function
     | Storage_interface.Raw x ->
         raise Api_errors.(Server_error (sr_operation_not_supported, []))
     | Storage_interface.Probe results ->
-        List.map to_xenapi_probe_result results)
+        List.map to_xenapi_probe_result results
+    )
 
 (* Create actually makes the SR on disk, and introduces it into db, and creates PBD record for current host *)
 let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
@@ -354,8 +380,7 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
           ~__context ~host ~sr_sm_type:_type ;
         Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
         debug "SR.create name_label=%s sm_config=[ %s ]" name_label
-          (String.concat "; "
-             (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config)) ;
+          (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config)) ;
         (* This breaks the udev SR which doesn't support sr_probe *)
         (*
 	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
@@ -416,15 +441,19 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
                 with e ->
                   warn "Could not set PBD device-config '%s': %s"
                     (Db.PBD.get_uuid ~__context ~self)
-                    (Printexc.to_string e))
-              pbds) ;
-        (pbds, sr_ref))
+                    (Printexc.to_string e)
+                )
+              pbds
+        ) ;
+        (pbds, sr_ref)
+    )
   in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       let tasks =
         List.map (fun self -> Client.Async.PBD.plug ~rpc ~session_id ~self) pbds
       in
-      Tasks.wait_for_all ~rpc ~session_id ~tasks) ;
+      Tasks.wait_for_all ~rpc ~session_id ~tasks
+  ) ;
   sr_ref
 
 let assert_all_pbds_unplugged ~__context ~sr =
@@ -442,7 +471,8 @@ let assert_sr_not_indestructible ~__context ~sr =
   | Some "true" ->
       raise
         (Api_errors.Server_error
-           (Api_errors.sr_indestructible, [Ref.string_of sr]))
+           (Api_errors.sr_indestructible, [Ref.string_of sr])
+        )
   | _ ->
       ()
 
@@ -450,13 +480,15 @@ let assert_sr_not_local_cache ~__context ~sr =
   let host_with_sr_as_cache =
     Db.Host.get_all ~__context
     |> List.find_opt (fun host ->
-           sr = Db.Host.get_local_cache_sr ~__context ~self:host)
+           sr = Db.Host.get_local_cache_sr ~__context ~self:host
+       )
   in
   match host_with_sr_as_cache with
   | Some host ->
       raise
         (Api_errors.Server_error
-           (Api_errors.sr_is_cache_sr, [Ref.string_of host]))
+           (Api_errors.sr_is_cache_sr, [Ref.string_of host])
+        )
   | None ->
       ()
 
@@ -467,7 +499,9 @@ let find_or_create_rrd_vdi ~__context ~sr =
       ~expr:
         (And
            ( Eq (Field "SR", Literal (Ref.string_of sr))
-           , Eq (Field "type", Literal "rrd") ))
+           , Eq (Field "type", Literal "rrd")
+           )
+        )
   with
   | [] ->
       let virtual_size = Int64.of_int Xapi_vdi_helpers.VDI_CStruct.vdi_size in
@@ -476,7 +510,8 @@ let find_or_create_rrd_vdi ~__context ~sr =
             Client.VDI.create ~rpc ~session_id ~name_label:"SR-stats VDI"
               ~name_description:"Disk stores SR-level RRDs" ~sR:sr ~virtual_size
               ~_type:`rrd ~sharable:false ~read_only:false ~other_config:[]
-              ~xenstore_data:[] ~sm_config:[] ~tags:[])
+              ~xenstore_data:[] ~sm_config:[] ~tags:[]
+        )
       in
       debug "New SR-stats VDI created vdi=%s on sr=%s" (Ref.string_of vdi)
         (Ref.string_of sr) ;
@@ -504,7 +539,8 @@ let maybe_push_sr_rrds ~__context ~sr =
         finally
           (fun () ->
             Unixext.write_string_to_file tmp_path x ;
-            Rrdd.push_sr_rrd sr_uuid tmp_path)
+            Rrdd.push_sr_rrd sr_uuid tmp_path
+            )
           (fun () -> Unixext.unlink_safe tmp_path)
 
 let maybe_copy_sr_rrds ~__context ~sr =
@@ -537,7 +573,8 @@ let unload_metrics_from_memory ~__context ~sr =
          if is_sr_metric ds.Data_source.name then
            Some ds.Data_source.name
          else
-           None)
+           None
+     )
   |> List.iter (fun ds_name -> Rrdd.forget_host_ds ds_name)
 
 (* Remove SR record from database without attempting to remove SR from disk.
@@ -586,7 +623,8 @@ let update ~__context ~sr =
       Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space ;
       Db.SR.set_physical_utilisation ~__context ~self:sr
         ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
-      Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered)
+      Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered
+  )
 
 let get_supported_types ~__context = Sm.supported_drivers ()
 
@@ -619,7 +657,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
         | loc, Some (r, v), None ->
             Some r
         | _, _, _ ->
-            None)
+            None
+        )
       db_vdi_map scan_vdi_map
   in
   let to_create =
@@ -629,7 +668,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
         | loc, None, Some v ->
             Some v
         | _, _, _ ->
-            None)
+            None
+        )
       db_vdi_map scan_vdi_map
   in
   let find_vdi db_vdi_map loc =
@@ -637,8 +677,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
       fst (VdiMap.find loc db_vdi_map)
     else (* CA-254515: Also check for the snapshoted VDI in the database *)
       try
-        Db.VDI.get_by_uuid ~__context
-          ~uuid:(Storage_interface.Vdi.string_of loc)
+        Db.VDI.get_by_uuid ~__context ~uuid:(Storage_interface.Vdi.string_of loc)
       with _ -> Ref.null
   in
   let get_is_tools_iso vdi =
@@ -649,7 +688,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
   VdiMap.iter
     (fun loc r ->
       debug "Forgetting VDI: %s" (Ref.string_of r) ;
-      Db.VDI.destroy ~__context ~self:r)
+      Db.VDI.destroy ~__context ~self:r
+      )
     to_delete ;
   (* Create the new ones *)
   let db_vdi_map =
@@ -681,7 +721,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
           ~metadata_of_pool:(Ref.of_string vdi.metadata_of_pool)
           ~metadata_latest:false ~is_tools_iso:(get_is_tools_iso vdi)
           ~cbt_enabled:vdi.cbt_enabled ;
-        VdiMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m)
+        VdiMap.add vdi.vdi (ref, Db.VDI.get_record ~__context ~self:ref) m
+        )
       to_create db_vdi_map
   in
   (* Update the ones which already exist, and the ones which were just created
@@ -693,7 +734,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
         | loc, Some (r, v), Some vi ->
             Some (r, v, vi)
         | _, _, _ ->
-            None)
+            None
+        )
       db_vdi_map scan_vdi_map
   in
   VdiMap.iter
@@ -758,7 +800,8 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
       if v.API.vDI_sharable <> vi.sharable then (
         debug "%s sharable <- %b" (Ref.string_of r) vi.sharable ;
         Db.VDI.set_sharable ~__context ~self:r ~value:vi.sharable
-      ))
+      )
+      )
     to_update
 
 (* Perform a scan of this locally-attached SR *)
@@ -795,7 +838,9 @@ let scan ~__context ~sr =
           Db.SR.set_physical_utilisation ~__context ~self:sr
             ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
           Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty" ;
-          Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered))
+          Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered
+      )
+  )
 
 let set_shared ~__context ~sr ~value =
   if value then (* We can always set an SR to be shared... *)
@@ -809,7 +854,9 @@ let set_shared ~__context ~sr ~value =
       raise
         (Api_errors.Server_error
            ( Api_errors.sr_has_multiple_pbds
-           , List.map (fun pbd -> Ref.string_of pbd) pbds )) ;
+           , List.map (fun pbd -> Ref.string_of pbd) pbds
+           )
+        ) ;
     Db.SR.set_shared ~__context ~self:sr ~value
 
 let set_name_label ~__context ~sr ~value =
@@ -822,7 +869,8 @@ let set_name_label ~__context ~sr ~value =
   transform_storage_exn (fun () ->
       C.SR.set_name_label (Ref.string_of task)
         (Storage_interface.Sr.of_string sr')
-        value) ;
+        value
+  ) ;
   update ~__context ~sr
 
 let set_name_description ~__context ~sr ~value =
@@ -835,7 +883,8 @@ let set_name_description ~__context ~sr ~value =
   transform_storage_exn (fun () ->
       C.SR.set_name_description (Ref.string_of task)
         (Storage_interface.Sr.of_string sr')
-        value) ;
+        value
+  ) ;
   update ~__context ~sr
 
 let set_virtual_allocation ~__context ~self ~value =
@@ -868,7 +917,9 @@ let assert_supports_database_replication ~__context ~sr =
       (Ref.string_of sr)
       (String.concat "; "
          (List.map Ref.string_of
-            (Listext.List.set_difference all_hosts connected_hosts))) ;
+            (Listext.List.set_difference all_hosts connected_hosts)
+         )
+      ) ;
     raise (Api_errors.Server_error (Api_errors.sr_no_pbds, [Ref.string_of sr]))
   ) ;
   (* Check that each PBD is plugged in *)
@@ -881,7 +932,8 @@ let assert_supports_database_replication ~__context ~sr =
         (* Same exception is used in this case (see Helpers.assert_pbd_is_plugged) *)
         raise
           (Api_errors.Server_error (Api_errors.sr_no_pbds, [Ref.string_of sr]))
-      ))
+      )
+      )
     pbds ;
   (* Check the exported capabilities of the SR's SM plugin *)
   let srtype = Db.SR.get_type ~__context ~self:sr in
@@ -898,12 +950,15 @@ let assert_supports_database_replication ~__context ~sr =
                "SR does not have corresponding SM record"
              ; Ref.string_of sr
              ; srtype
-             ] ))
+             ]
+           )
+        )
   | (_, sm) :: _ ->
       if not (List.mem_assoc "SR_METADATA" sm.Db_actions.sM_features) then
         raise
           (Api_errors.Server_error
-             (Api_errors.sr_operation_not_supported, [Ref.string_of sr]))
+             (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+          )
 
 (* Metadata replication to SRs *)
 let find_or_create_metadata_vdi ~__context ~sr =
@@ -929,13 +984,15 @@ let find_or_create_metadata_vdi ~__context ~sr =
               ~name_description:"Used for disaster recovery" ~sR:sr
               ~virtual_size:Redo_log.minimum_vdi_size ~_type:`metadata
               ~sharable:false ~read_only:false ~other_config:[]
-              ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[])
+              ~xenstore_data:[] ~sm_config:Redo_log.redo_log_sm_config ~tags:[]
+        )
       in
       Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false ;
       Db.VDI.set_metadata_of_pool ~__context ~self:vdi ~value:pool ;
       (* Call vdi_update to make sure the value of metadata_of_pool is persisted. *)
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.VDI.update ~rpc ~session_id ~vdi) ;
+          Client.VDI.update ~rpc ~session_id ~vdi
+      ) ;
       vdi
 
 let enable_database_replication ~__context ~sr =
@@ -951,7 +1008,8 @@ let disable_database_replication ~__context ~sr =
       (fun vdi ->
         Db.VDI.get_type ~__context ~self:vdi = `metadata
         && Db.VDI.get_metadata_of_pool ~__context ~self:vdi
-           = Helpers.get_pool ~__context)
+           = Helpers.get_pool ~__context
+        )
       (Db.SR.get_VDIs ~__context ~self:sr)
   in
   List.iter
@@ -961,7 +1019,9 @@ let disable_database_replication ~__context ~sr =
       (* They must be destroyed before the VDI can be destroyed. *)
       Xapi_vdi_helpers.destroy_all_vbds ~__context ~vdi ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.VDI.destroy ~rpc ~session_id ~self:vdi))
+          Client.VDI.destroy ~rpc ~session_id ~self:vdi
+      )
+      )
     metadata_vdis
 
 let create_new_blob ~__context ~sr ~name ~mime_type ~public =
@@ -987,7 +1047,8 @@ let physical_utilisation_thread ~__context () =
           if SRMap.mem sr m then
             m
           else
-            SRMap.add sr (should_manage_stats ~__context sr) m)
+            SRMap.add sr (should_manage_stats ~__context sr) m
+          )
         !sr_cache plugged_srs ;
     SRMap.(filter (fun _ b -> b) !sr_cache |> bindings) |> List.map fst
   in
@@ -1005,7 +1066,8 @@ let physical_utilisation_thread ~__context () =
           with Rrd_interface.Rrdd_error (Rrdd_internal_error _) ->
             debug
               "Cannot update physical utilisation for SR %s: RRD unavailable"
-              sr_uuid)
+              sr_uuid
+          )
         (srs_to_update ())
     with e ->
       warn "Exception in SR physical utilisation scanning thread: %s"

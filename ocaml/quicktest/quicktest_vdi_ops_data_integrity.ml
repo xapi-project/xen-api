@@ -8,7 +8,8 @@ let random_bytes length =
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
       really_input f buf 0 length ;
-      buf)
+      buf
+      )
     (fun () -> close_in f)
 
 let write_random_data rpc session_id vdi =
@@ -33,7 +34,8 @@ let write_random_data rpc session_id vdi =
       let num_extents = Random.int max_writes in
       for i = 1 to num_extents do
         write_random_extent ()
-      done)
+      done
+  )
 
 let fill rpc session_id vdi =
   let size =
@@ -42,13 +44,15 @@ let fill rpc session_id vdi =
   in
   Qt.VDI.with_open rpc session_id vdi `RW (fun fd ->
       let buf = random_bytes size in
-      Unix.write fd buf 0 size)
+      Unix.write fd buf 0 size
+  )
 
 let noop _rpc _session_id _vdi = ()
 
 let checksum rpc session_id vdi =
   Qt.VDI.with_attached rpc session_id vdi `RO (fun path ->
-      Digest.to_hex (Digest.file path))
+      Digest.to_hex (Digest.file path)
+  )
 
 let check_vdi_unchanged rpc session_id ~vdi_size ~prepare_vdi ~vdi_op sr_info ()
     =
@@ -64,7 +68,10 @@ let check_vdi_unchanged rpc session_id ~vdi_size ~prepare_vdi ~vdi_op sr_info ()
               (Printf.sprintf
                  "New VDI (checksum: %s) has different data than original \
                   (checksum: %s)."
-                 checksum_copy checksum_original)))
+                 checksum_copy checksum_original
+              )
+      )
+  )
 
 let copy_vdi rpc session_id sr vdi =
   Client.Client.VDI.copy ~rpc ~session_id ~vdi ~base_vdi:API.Ref.null
@@ -103,7 +110,8 @@ let export_import_vdi rpc session_id ~exportformat sR vdi =
         ; "format=" ^ exportformat
         ]
       |> ignore ;
-      new_vdi)
+      new_vdi
+      )
     (fun () -> Sys.remove file)
 
 let export_import_raw = export_import_vdi ~exportformat:"raw"
@@ -122,7 +130,8 @@ let data_integrity_tests vdi_op op_name =
     , `Slow
     , check_vdi_unchanged
         ~vdi_size:Sizes.(4L ** mib)
-        ~prepare_vdi:write_random_data ~vdi_op )
+        ~prepare_vdi:write_random_data ~vdi_op
+    )
   ; ( op_name ^ ": small full VDI"
     , `Slow
     , check_vdi_unchanged ~vdi_size:Sizes.(4L ** mib) ~prepare_vdi:fill ~vdi_op
@@ -136,17 +145,20 @@ let large_data_integrity_tests vdi_op op_name =
     , `Slow
     , check_vdi_unchanged
         ~vdi_size:Sizes.((2L ** gib) +* b)
-        ~prepare_vdi:noop ~vdi_op )
+        ~prepare_vdi:noop ~vdi_op
+    )
   ; ( op_name ^ ": ~2GiB random VDI"
     , `Slow
     , check_vdi_unchanged
         ~vdi_size:Sizes.((2L ** gib) +* b)
-        ~prepare_vdi:write_random_data ~vdi_op )
+        ~prepare_vdi:write_random_data ~vdi_op
+    )
   ]
 
 let sr_with_vdi_create_destroy =
   Qt_filter.SR.(
-    all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso)
+    all |> allowed_operations [`vdi_create; `vdi_destroy] |> not_iso
+  )
 
 let supported_srs test_case =
   let open Qt_filter in

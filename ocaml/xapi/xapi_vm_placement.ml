@@ -42,7 +42,8 @@ let create_host_snapshot __context host =
     List.map
       (create_guest_snapshot __context)
       (Db.VM.get_refs_where ~__context
-         ~expr:(Eq (Field guest_type, Literal (Ref.string_of host))))
+         ~expr:(Eq (Field guest_type, Literal (Ref.string_of host)))
+      )
   in
   {
     HS.id= host_id

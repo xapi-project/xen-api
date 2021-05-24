@@ -72,7 +72,8 @@ let assert_safe_to_reenable ~__context ~self =
     (* Make sure it is 'ok' to have these PBDs remain unplugged *)
     List.iter
       (fun self ->
-        Xapi_pbd.abort_if_storage_attached_to_protected_vms ~__context ~self)
+        Xapi_pbd.abort_if_storage_attached_to_protected_vms ~__context ~self
+        )
       unplugged_pbds ;
     let pifs = Db.Host.get_PIFs ~__context ~self in
     let unplugged_pifs =
@@ -83,7 +84,8 @@ let assert_safe_to_reenable ~__context ~self =
     (* Make sure it is 'ok' to have these PIFs remain unplugged *)
     List.iter
       (fun self ->
-        Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self)
+        Xapi_pif.abort_if_network_attached_to_protected_vms ~__context ~self
+        )
       unplugged_pifs
   )
 
@@ -96,7 +98,8 @@ let pool_size_is_restricted ~__context =
     |> List.exists (fun (vmref, vmrec) ->
            vmref <> dom0
            && Xapi_stdext_std.Xstringext.String.endswith "-CVM"
-                vmrec.API.vM_name_label)
+                vmrec.API.vM_name_label
+       )
   in
   (not cvm_exception)
   && not (Pool_features.is_enabled ~__context Features.Pool_size)
@@ -156,7 +159,9 @@ let assert_bacon_mode ~__context ~host =
       ~expr:
         (And
            ( Eq (Field "resident_on", Literal (Ref.string_of host))
-           , Eq (Field "power_state", Literal "Running") ))
+           , Eq (Field "power_state", Literal "Running")
+           )
+        )
   in
   (* We always expect a control domain to be resident on a host *)
   ( match
@@ -175,7 +180,8 @@ let assert_bacon_mode ~__context ~host =
     List.filter
       (fun vm ->
         Db.VM.get_resident_on ~__context ~self:vm = host
-        && Db.VM.get_is_control_domain ~__context ~self:vm)
+        && Db.VM.get_is_control_domain ~__context ~self:vm
+        )
       (Db.VM.get_all ~__context)
     |> List.map (fun self -> Db.VM.get_VBDs ~__context ~self)
     |> List.flatten
@@ -187,7 +193,9 @@ let assert_bacon_mode ~__context ~host =
          ( Api_errors.host_in_use
          , [
              selfref; "vbd"; List.hd (List.map Ref.string_of control_domain_vbds)
-           ] )) ;
+           ]
+         )
+      ) ;
   debug "Bacon test: VBDs OK"
 
 let signal_networking_change = Xapi_mgmt_iface.on_dom0_networking_change
@@ -198,7 +206,8 @@ let signal_cdrom_event ~__context params =
     let vdis = Db.SR.get_VDIs ~__context ~self:sr in
     List.iter
       (fun vdi ->
-        if Db.VDI.get_location ~__context ~self:vdi = name then ret := Some vdi)
+        if Db.VDI.get_location ~__context ~self:vdi = name then ret := Some vdi
+        )
       vdis ;
     !ret
   in
@@ -207,7 +216,8 @@ let signal_cdrom_event ~__context params =
       List.filter
         (fun sr ->
           let ty = Db.SR.get_type ~__context ~self:sr in
-          ty = "local" || ty = "udev")
+          ty = "local" || ty = "udev"
+          )
         (Db.SR.get_all ~__context)
     in
     List.fold_left
@@ -275,14 +285,14 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
           (Helpers.version_string_of ~__context (Helpers.LocalObject target)) ;
         Helpers.host_versions_not_decreasing ~__context
           ~host_from:(Helpers.LocalObject host)
-          ~host_to:(Helpers.LocalObject target))
+          ~host_to:(Helpers.LocalObject target)
+        )
       target_hosts
   in
   debug "evacuation target hosts are [%s]"
     (String.concat "; "
-       (List.map
-          (fun h -> Db.Host.get_hostname ~__context ~self:h)
-          target_hosts)) ;
+       (List.map (fun h -> Db.Host.get_hostname ~__context ~self:h) target_hosts)
+    ) ;
   let all_vms = Db.Host.get_resident_VMs ~__context ~self:host in
   let all_vms =
     List.map (fun self -> (self, Db.VM.get_record ~__context ~self)) all_vms
@@ -295,7 +305,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
     List.iter
       (fun (vm, _) ->
         Hashtbl.replace plans vm
-          (Error (Api_errors.no_hosts_available, [Ref.string_of vm])))
+          (Error (Api_errors.no_hosts_available, [Ref.string_of vm]))
+        )
       all_user_vms ;
     plans
   ) else
@@ -308,7 +319,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
         List.partition
           (fun (vm, record) ->
             Helpers.vm_should_always_run record.API.vM_ha_always_run
-              record.API.vM_ha_restart_priority)
+              record.API.vM_ha_restart_priority
+            )
           all_user_vms
       else
         (all_user_vms, [])
@@ -316,7 +328,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
     List.iter
       (fun (vm, _) ->
         Hashtbl.replace plans vm
-          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm])))
+          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
+        )
       unprotected_vms ;
     let migratable_vms, unmigratable_vms =
       List.partition
@@ -326,12 +339,14 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
               (fun host ->
                 Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm ~host
                   ~snapshot:record ~do_memory_check:false ~do_cpuid_check:true
-                  ())
+                  ()
+                )
               target_hosts ;
             true
           with Api_errors.Server_error (code, params) ->
             Hashtbl.replace plans vm (Error (code, params)) ;
-            false)
+            false
+          )
         protected_vms
     in
     (* Check for impediments before attempting to perform pool_migrate *)
@@ -344,7 +359,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
         | None ->
             ()
         | Some (a, b) ->
-            Hashtbl.replace plans vm (Error (a, b)))
+            Hashtbl.replace plans vm (Error (a, b))
+        )
       all_user_vms ;
     (* Compute the binpack which takes only memory size into account. We will check afterwards for storage
        			   and network availability. *)
@@ -362,7 +378,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
     List.iter
       (fun vm ->
         Hashtbl.replace plans vm
-          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm])))
+          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
+        )
       vms_missing ;
     (* Now for each VM we did place, verify storage and network visibility. *)
     List.iter
@@ -375,7 +392,8 @@ let compute_evacuation_plan_no_wlb ~__context ~host =
             Hashtbl.replace plans vm (Error (code, params))
         ) ;
         if not (Hashtbl.mem plans vm) then
-          Hashtbl.replace plans vm (Migrate host))
+          Hashtbl.replace plans vm (Migrate host)
+        )
       plan ;
     plans
 
@@ -390,13 +408,15 @@ let assert_can_evacuate ~__context ~host =
         | Error (code, params) ->
             String.concat "," (code :: params) :: acc
         | _ ->
-            acc)
+            acc
+        )
       plans []
   in
   if errors <> [] then
     raise
       (Api_errors.Server_error
-         (Api_errors.cannot_evacuate_host, [String.concat "|" errors]))
+         (Api_errors.cannot_evacuate_host, [String.concat "|" errors])
+      )
 
 (* New Orlando style function which returns a Map *)
 let get_vms_which_prevent_evacuation ~__context ~self =
@@ -407,7 +427,8 @@ let get_vms_which_prevent_evacuation ~__context ~self =
       | Error (code, params) ->
           (vm, code :: params) :: acc
       | _ ->
-          acc)
+          acc
+      )
     plans []
 
 let compute_evacuation_plan_wlb ~__context ~self =
@@ -452,7 +473,9 @@ let compute_evacuation_plan_wlb ~__context ~self =
                    "WLB recommends migrating VM %s to the same server it is \
                     being evacuated from."
                    (Db.VM.get_name_label ~__context ~self:v)
-               ] )) ;
+               ]
+             )
+          ) ;
       match detail with
       | ["WLB"; host_uuid; _] ->
           Hashtbl.replace recs v
@@ -461,7 +484,10 @@ let compute_evacuation_plan_wlb ~__context ~self =
           raise
             (Api_errors.Server_error
                ( Api_errors.wlb_malformed_response
-               , ["WLB gave malformed details for VM evacuation."] )))
+               , ["WLB gave malformed details for VM evacuation."]
+               )
+            )
+      )
     vm_recoms ;
   Hashtbl.iter
     (fun v detail ->
@@ -476,13 +502,15 @@ let compute_evacuation_plan_wlb ~__context ~self =
           debug "VM preventing evacuation: %s because %s"
             (Db.VM.get_name_label ~__context ~self:v)
             (string_of_per_vm_plan p) ;
-          Hashtbl.replace recs v detail)
+          Hashtbl.replace recs v detail
+      )
     error_vms ;
   let resident_vms =
     List.filter
       (fun v ->
         (not (Db.VM.get_is_control_domain ~__context ~self:v))
-        && not (Db.VM.get_is_a_template ~__context ~self:v))
+        && not (Db.VM.get_is_a_template ~__context ~self:v)
+        )
       (Db.Host.get_resident_VMs ~__context ~self)
   in
   List.iter
@@ -490,13 +518,15 @@ let compute_evacuation_plan_wlb ~__context ~self =
       if not (Hashtbl.mem recs vm) then
         (* Anything for which we don't have a recommendation from WLB, but which is agile, we treat as "not enough memory" *)
         Hashtbl.replace recs vm
-          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm])))
+          (Error (Api_errors.host_not_enough_free_memory, [Ref.string_of vm]))
+      )
     resident_vms ;
   Hashtbl.iter
     (fun vm detail ->
       debug "compute_evacuation_plan_wlb: Key: %s Value %s"
         (Db.VM.get_name_label ~__context ~self:vm)
-        (string_of_per_vm_plan detail))
+        (string_of_per_vm_plan detail)
+      )
     recs ;
   recs
 
@@ -507,7 +537,8 @@ let compute_evacuation_plan ~__context ~host =
   if
     List.exists
       (fun (k, v) ->
-        k = "wlb_choose_host_disable" && String.lowercase_ascii v = "true")
+        k = "wlb_choose_host_disable" && String.lowercase_ascii v = "true"
+        )
       oc
     || not (Workload_balancing.check_wlb_enabled ~__context)
   then (
@@ -532,13 +563,13 @@ let compute_evacuation_plan ~__context ~host =
               Printf.sprintf
                 "Wlb consultation for Host '%s' failed (pool uuid: %s)"
                 (Db.Host.get_name_label ~__context ~self:host)
-                (Db.Pool.get_uuid ~__context
-                   ~self:(Helpers.get_pool ~__context))
+                (Db.Pool.get_uuid ~__context ~self:(Helpers.get_pool ~__context))
             in
             let name, priority = Api_messages.wlb_failed in
             ignore
               (Xapi_message.create ~__context ~name ~priority ~cls:`Host
-                 ~obj_uuid:uuid ~body:message_body)
+                 ~obj_uuid:uuid ~body:message_body
+              )
           with _ -> ()
         ) ;
         compute_evacuation_plan_no_wlb ~__context ~host
@@ -558,7 +589,8 @@ let evacuate ~__context ~host ~network =
       | Error (code, params) ->
           raise (Api_errors.Server_error (code, params))
       | _ ->
-          ())
+          ()
+      )
     plans ;
   (* Do it *)
   let individual_progress = 1.0 /. float (Hashtbl.length plans) in
@@ -573,7 +605,8 @@ let evacuate ~__context ~host ~network =
                     ignore
                     @@ Xapi_network_attach_helpers
                        .assert_valid_ip_configuration_on_network_for_host
-                         ~__context ~self:network ~host)
+                         ~__context ~self:network ~host
+                    )
                   hosts
             ) ;
             let with_network_option =
@@ -585,7 +618,8 @@ let evacuate ~__context ~host ~network =
             let options = ("live", "true") :: with_network_option in
             Helpers.call_api_functions ~__context (fun rpc session_id ->
                 Client.Client.VM.pool_migrate ~rpc ~session_id ~vm ~host
-                  ~options)
+                  ~options
+            )
           with
         | Api_errors.Server_error (code, params)
           when code = Api_errors.vm_bad_power_state ->
@@ -616,7 +650,9 @@ let evacuate ~__context ~host ~network =
           , [
               Printf.sprintf "evacuate: %d VMs are still resident on %s"
                 remainder (Ref.string_of host)
-            ] ))
+            ]
+          )
+      )
 
 let retrieve_wlb_evacuate_recommendations ~__context ~self =
   let plans = compute_evacuation_plan_wlb ~__context ~self in
@@ -629,7 +665,8 @@ let retrieve_wlb_evacuate_recommendations ~__context ~self =
         | Migrate h ->
             ["WLB"; Db.Host.get_uuid ~__context ~self:h]
       in
-      (vm, plan) :: acc)
+      (vm, plan) :: acc
+      )
     plans []
 
 let restart_agent ~__context ~host =
@@ -673,7 +710,8 @@ let enable ~__context ~host =
       && Db.Pool.get_ha_overcommitted ~__context ~self:pool
     then
       Helpers.call_api_functions ~__context (fun rpc session_id ->
-          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id)
+          Client.Client.Pool.ha_schedule_plan_recomputation rpc session_id
+      )
   )
 
 let prepare_for_poweroff_precheck ~__context ~host =
@@ -698,7 +736,8 @@ let prepare_for_poweroff ~__context ~host =
   (* Push the Host RRD to the master. Note there are no VMs running here so we don't have to worry about them. *)
   if not (Pool_role.is_master ()) then
     log_and_ignore_exn (fun () ->
-        Rrdd.send_host_rrd_to_master (Pool_role.get_master_address ())) ;
+        Rrdd.send_host_rrd_to_master (Pool_role.get_master_address ())
+    ) ;
   (* Also save the Host RRD to local disk for us to pick up when we return. Note there are no VMs running at this point. *)
   log_and_ignore_exn (Rrdd.backup_rrds None) ;
   (* This prevents anyone actually re-enabling us until after reboot *)
@@ -738,8 +777,11 @@ let shutdown_and_reboot_common ~__context ~host label description operation cmd
         (Thread.create
            (fun () ->
              Thread.delay 10. ;
-             ignore (Sys.command cmd))
-           ()))
+             ignore (Sys.command cmd)
+             )
+           ()
+        )
+  )
 
 let shutdown ~__context ~host =
   shutdown_and_reboot_common ~__context ~host "Host is shutting down"
@@ -789,7 +831,8 @@ let ask_host_if_it_is_a_slave ~__context ~host =
     let task_name = Context.get_task_id __context |> Ref.string_of in
     let ip, uuid =
       ( Db.Host.get_address ~__context ~self:host
-      , Db.Host.get_uuid ~__context ~self:host )
+      , Db.Host.get_uuid ~__context ~self:host
+      )
     in
     let rec log_host_slow_to_respond timeout () =
       D.warn
@@ -806,7 +849,8 @@ let ask_host_if_it_is_a_slave ~__context ~host =
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
         ~host (fun session_id rpc ->
-          Client.Client.Pool.is_slave rpc session_id host)
+          Client.Client.Pool.is_slave rpc session_id host
+      )
     in
     Xapi_periodic_scheduler.remove_from_queue task_name ;
     res
@@ -859,7 +903,9 @@ let create ~__context ~uuid ~name_label ~name_description ~hostname ~address
     raise
       (Api_errors.Server_error
          ( Api_errors.license_restriction
-         , [Features.name_of_feature Features.Pool_size] )) ;
+         , [Features.name_of_feature Features.Pool_size]
+         )
+      ) ;
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
       ~uuid:(Uuid.to_string (Uuid.make_uuid ()))
@@ -938,7 +984,8 @@ let destroy ~__context ~self =
   if List.length my_regular_vms > 0 then
     raise
       (Api_errors.Server_error
-         (Api_errors.host_has_resident_vms, [Ref.string_of self])) ;
+         (Api_errors.host_has_resident_vms, [Ref.string_of self])
+      ) ;
   (* Call external host failed hook (allows a third-party to use power-fencing if desired).
    * This will declare the host as dead to the clustering daemon *)
   Xapi_hooks.host_pre_declare_dead ~__context ~host:self
@@ -964,7 +1011,8 @@ let declare_dead ~__context ~host =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       List.iter
         (fun vm -> Client.Client.VM.power_state_reset rpc session_id vm)
-        my_regular_vms) ;
+        my_regular_vms
+  ) ;
   Db.Host.set_enabled ~__context ~self:host ~value:false ;
   Xapi_hooks.host_post_declare_dead ~__context ~host
     ~reason:Xapi_hooks.reason__user
@@ -999,7 +1047,8 @@ let ha_join_liveset ~__context ~host =
   | Xha_scripts.Xha_error Xha_errno.Mtc_exit_can_not_access_statefile ->
       error "HA enable failed with CAN_NOT_ACCESS_STATEFILE" ;
       raise
-        (Api_errors.Server_error (Api_errors.ha_host_cannot_access_statefile, []))
+        (Api_errors.Server_error (Api_errors.ha_host_cannot_access_statefile, [])
+        )
 
 let propose_new_master ~__context ~address ~manual =
   Xapi_ha.propose_new_master __context address manual
@@ -1060,7 +1109,9 @@ let get_management_interface ~__context ~host =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
-           , Eq (Field "management", Literal "true") ))
+           , Eq (Field "management", Literal "true")
+           )
+        )
   in
   match pifs with [] -> raise Not_found | pif :: _ -> pif
 
@@ -1080,7 +1131,9 @@ let local_management_reconfigure ~__context ~interface =
   change_management_interface ~__context interface
     (Record_util.primary_address_type_of_string
        (Xapi_inventory.lookup Xapi_inventory._management_address_type
-          ~default:"ipv4"))
+          ~default:"ipv4"
+       )
+    )
 
 let management_reconfigure ~__context ~pif =
   (* Disallow if HA is enabled *)
@@ -1106,7 +1159,8 @@ let management_reconfigure ~__context ~pif =
       if primary_address_type <> mgmt_address_type then
         raise
           (Api_errors.Server_error
-             (Api_errors.pif_incompatible_primary_address_type, []))
+             (Api_errors.pif_incompatible_primary_address_type, [])
+          )
     with _ -> ()
     (* no current management interface *)
   ) ;
@@ -1171,7 +1225,9 @@ let set_hostname_live ~__context ~host ~hostname =
           raise
             (Api_errors.Server_error
                ( Api_errors.auth_already_enabled
-               , [current_auth_type; current_service_name] ))
+               , [current_auth_type; current_service_name]
+               )
+            )
       ) ;
       (* hostname is valid if contains only alpha, decimals, and hyphen
          	 (for hyphens, only in middle position) *)
@@ -1187,7 +1243,8 @@ let set_hostname_live ~__context ~host ~hostname =
               ignore
                 (List.find
                    (fun (r1, r2) -> r1 <= hostname.[!i] && hostname.[!i] <= r2)
-                   range)
+                   range
+                )
             with Not_found -> valid := false
           ) ;
           incr i
@@ -1200,21 +1257,27 @@ let set_hostname_live ~__context ~host ~hostname =
       if String.length hostname = 0 then
         raise
           (Api_errors.Server_error
-             (Api_errors.host_name_invalid, ["hostname empty"])) ;
+             (Api_errors.host_name_invalid, ["hostname empty"])
+          ) ;
       if String.length hostname > 255 then
         raise
           (Api_errors.Server_error
-             (Api_errors.host_name_invalid, ["hostname is too long"])) ;
+             (Api_errors.host_name_invalid, ["hostname is too long"])
+          ) ;
       if is_invalid_hostname hostname then
         raise
           (Api_errors.Server_error
              ( Api_errors.host_name_invalid
-             , ["hostname contains invalid characters"] )) ;
+             , ["hostname contains invalid characters"]
+             )
+          ) ;
       ignore
         (Forkhelpers.execute_command_get_output !Xapi_globs.set_hostname
-           [hostname]) ;
+           [hostname]
+        ) ;
       Db.Host.set_hostname ~__context ~self:host ~value:hostname ;
-      Helpers.update_domain_zero_name ~__context host hostname)
+      Helpers.update_domain_zero_name ~__context host hostname
+  )
 
 let set_ssl_legacy ~__context ~self ~value =
   if value then
@@ -1226,7 +1289,9 @@ let set_ssl_legacy ~__context ~self ~value =
               "value"
             ; string_of_bool value
             ; "Legacy SSL support has been removed"
-            ] ))
+            ]
+          )
+      )
   else
     D.info "set_ssl_legacy: called with value: %b - doing nothing" value
 
@@ -1273,7 +1338,8 @@ let call_extauth_plugin_nomutex ~__context ~host ~fn ~args =
 (* this is the generic extauth plugin call available to xapi users that avoids concurrency problems *)
 let call_extauth_plugin ~__context ~host ~fn ~args =
   Mutex.execute serialize_host_enable_disable_extauth (fun () ->
-      call_extauth_plugin_nomutex ~__context ~host ~fn ~args)
+      call_extauth_plugin_nomutex ~__context ~host ~fn ~args
+  )
 
 (* this is the generic plugin call available to xapi users *)
 let call_plugin ~__context ~host ~plugin ~fn ~args =
@@ -1293,7 +1359,8 @@ let call_extension ~__context ~host ~call =
     let protocol_failure () =
       raise
         Api_errors.(
-          Server_error (extension_protocol_failure, [Jsonrpc.to_string failure]))
+          Server_error (extension_protocol_failure, [Jsonrpc.to_string failure])
+        )
     in
     match failure with
     | Rpc.Enum xs -> (
@@ -1329,7 +1396,9 @@ let backup_rrds ~__context ~host ~delay =
       log_and_ignore_exn (fun () ->
           List.iter
             (fun sr -> Xapi_sr.maybe_copy_sr_rrds ~__context ~sr)
-            (Helpers.get_all_plugged_srs ~__context)))
+            (Helpers.get_all_plugged_srs ~__context)
+      )
+  )
 
 let get_servertime ~__context ~host = Date.of_float (Unix.gettimeofday ())
 
@@ -1343,7 +1412,8 @@ let enable_binary_storage ~__context ~host =
 let disable_binary_storage ~__context ~host =
   ignore
     (Helpers.get_process_output
-       (Printf.sprintf "/bin/rm -rf %s" Xapi_globs.xapi_blob_location)) ;
+       (Printf.sprintf "/bin/rm -rf %s" Xapi_globs.xapi_blob_location)
+    ) ;
   Db.Host.remove_from_other_config ~__context ~self:host
     ~key:Xapi_globs.host_no_local_storage ;
   Db.Host.add_to_other_config ~__context ~self:host
@@ -1494,8 +1564,10 @@ let detect_nonhomogeneous_external_auth_in_host ~__context ~host =
                  ^ master_external_auth_type
                  ^ ", master_external_auth_service_name="
                  ^ master_external_auth_service_name
-                 ))
-        ))
+                 )
+            )
+        )
+  )
 
 (* CP-717: Enables external auth/directory service on a single host within the pool with specified config, *)
 (* type and service_name. Fails if an auth/directory service is already enabled for this host (must disable first).*)
@@ -1535,7 +1607,9 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         raise
           (Api_errors.Server_error
              ( Api_errors.auth_already_enabled
-             , [current_auth_type; current_service_name] ))
+             , [current_auth_type; current_service_name]
+             )
+          )
       ) else if auth_type = "" then (
         (* we must error out here, because we never enable an _empty_ external auth_type *)
         let msg = "" in
@@ -1582,7 +1656,8 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
           in
           ignore
             (Extauth.call_extauth_hook_script_in_host_wrapper ~__context host
-               Extauth.event_name_after_extauth_enable ~call_plugin_fn) ;
+               Extauth.event_name_after_extauth_enable ~call_plugin_fn
+            ) ;
           debug
             "external authentication service type %s for service name %s \
              enabled successfully in host %s"
@@ -1602,8 +1677,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
               "Failed while enabling unknown external authentication type %s \
                for service name %s in host %s"
               msg service_name host_name_label ;
-            raise
-              (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
+            raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
         | Auth_signature.Auth_service_error (errtag, msg) ->
             (* plugin returned some error *)
             (* we rollback to the original xapi configuration *)
@@ -1619,7 +1693,9 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
               (Api_errors.Server_error
                  ( Api_errors.auth_enable_failed
                    ^ Auth_signature.suffix_of_tag errtag
-                 , [msg] ))
+                 , [msg]
+                 )
+              )
         | e ->
             (* unknown failure, just-enabled plugin might be in an inconsistent state *)
             (* we rollback to the original xapi configuration *)
@@ -1633,7 +1709,9 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
               auth_type service_name host_name_label ;
             raise
               (Api_errors.Server_error
-                 (Api_errors.auth_enable_failed, [ExnHelper.string_of_exn e])))
+                 (Api_errors.auth_enable_failed, [ExnHelper.string_of_exn e])
+              )
+  )
 
 (* CP-718: Disables external auth/directory service for host *)
 let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
@@ -1664,7 +1742,8 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
         in
         ignore
           (Extauth.call_extauth_hook_script_in_host_wrapper ~__context host
-             Extauth.event_name_before_extauth_disable ~call_plugin_fn) ;
+             Extauth.event_name_before_extauth_disable ~call_plugin_fn
+          ) ;
         (* 1. first, we try to call the external auth plugin to disable the external authentication service *)
         let plugin_disable_failure =
           try
@@ -1680,7 +1759,9 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
                 (Api_errors.Server_error
                    ( Api_errors.auth_disable_failed
                      ^ Auth_signature.suffix_of_tag errtag
-                   , [msg] ))
+                   , [msg]
+                   )
+                )
           | e ->
               (*absorb any exception*)
               debug
@@ -1690,7 +1771,8 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
                 (ExnHelper.string_of_exn e) ;
               Some
                 (Api_errors.Server_error
-                   (Api_errors.auth_disable_failed, [ExnHelper.string_of_exn e]))
+                   (Api_errors.auth_disable_failed, [ExnHelper.string_of_exn e])
+                )
         in
         (* 2. then, if no exception was raised, we always remove our persistent extauth configuration *)
         Db.Host.set_external_auth_type ~__context ~self:host ~value:"" ;
@@ -1724,7 +1806,8 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
               raise e (* bubble up plugin's on_disable exception *)
             else
               ()
-      (* we do not want to stop pool_eject *))
+      (* we do not want to stop pool_eject *)
+  )
 
 let disable_external_auth ~__context ~host ~config =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
@@ -1746,8 +1829,11 @@ let attach_static_vdis ~__context ~host ~vdi_reason_map =
                  , [
                      Ref.string_of vdi
                    ; Record_util.vdi_type_to_string `cbt_metadata
-                   ] ))
-          ))
+                   ]
+                 )
+              )
+          )
+      )
     vdi_reason_map ;
   let attach (vdi, reason) =
     let static_vdis = Static_vdis_list.list () in
@@ -1787,7 +1873,8 @@ let copy_license_to_db ~__context ~host ~features ~additional =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       (* This will trigger a pool sku/restrictions recomputation *)
       Client.Client.Host.set_license_params rpc session_id
-        !Xapi_globs.localhost_ref license_params)
+        !Xapi_globs.localhost_ref license_params
+  )
 
 let set_license_params ~__context ~self ~value =
   Db.Host.set_license_params ~__context ~self ~value ;
@@ -1811,7 +1898,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
   in
   (* Construct the RPC params to be sent to v6d *)
   let params =
-    (("current_edition", current_edition) :: license_server)
+    ("current_edition", current_edition) :: license_server
     @ current_license_params
     @ additional
   in
@@ -1900,11 +1987,13 @@ let license_add ~__context ~host ~contents =
           raise Api_errors.(Server_error (internal_error, [s]))
       ) ;
       apply_edition_internal ~__context ~host ~edition:""
-        ~additional:[("license_file", tmp)])
+        ~additional:[("license_file", tmp)]
+      )
     (fun () ->
       (* The license will have been moved to a standard location if it was valid, and
          			 * should be removed otherwise -> always remove the file at the tmp path, if any. *)
-      Unixext.unlink_safe tmp)
+      Unixext.unlink_safe tmp
+      )
 
 let license_remove ~__context ~host =
   apply_edition_internal ~__context ~host ~edition:""
@@ -1945,19 +2034,22 @@ let reset_networking ~__context ~host =
   List.iter
     (fun bond ->
       debug "destroying bond %s" (Db.Bond.get_uuid ~__context ~self:bond) ;
-      Db.Bond.destroy ~__context ~self:bond)
+      Db.Bond.destroy ~__context ~self:bond
+      )
     bonds ;
   let vlans = List.filter vlan_is_local (Db.VLAN.get_all ~__context) in
   List.iter
     (fun vlan ->
       debug "destroying VLAN %s" (Db.VLAN.get_uuid ~__context ~self:vlan) ;
-      Db.VLAN.destroy ~__context ~self:vlan)
+      Db.VLAN.destroy ~__context ~self:vlan
+      )
     vlans ;
   let tunnels = List.filter tunnel_is_local (Db.Tunnel.get_all ~__context) in
   List.iter
     (fun tunnel ->
       debug "destroying tunnel %s" (Db.Tunnel.get_uuid ~__context ~self:tunnel) ;
-      Db.Tunnel.destroy ~__context ~self:tunnel)
+      Db.Tunnel.destroy ~__context ~self:tunnel
+      )
     tunnels ;
   List.iter
     (fun self ->
@@ -1969,7 +2061,8 @@ let reset_networking ~__context ~host =
           let metrics = Db.PIF.get_metrics ~__context ~self in
           Db.PIF_metrics.destroy ~__context ~self:metrics
       ) ;
-      Db.PIF.destroy ~__context ~self)
+      Db.PIF.destroy ~__context ~self
+      )
     local_pifs ;
   let netw_sriov_is_local self =
     List.mem (Db.Network_sriov.get_physical_PIF ~__context ~self) local_pifs
@@ -1981,7 +2074,8 @@ let reset_networking ~__context ~host =
     (fun self ->
       let uuid = Db.Network_sriov.get_uuid ~__context ~self in
       debug "destroying network_sriov %s" uuid ;
-      Db.Network_sriov.destroy ~__context ~self)
+      Db.Network_sriov.destroy ~__context ~self
+      )
     netw_sriovs
 
 (* Local storage caching *)
@@ -2003,14 +2097,17 @@ let enable_local_storage_caching ~__context ~host ~sr =
       raise
         (Api_errors.Server_error
            ( Api_errors.host_cannot_see_SR
-           , [Ref.string_of host; Ref.string_of sr] )) ;
+           , [Ref.string_of host; Ref.string_of sr]
+           )
+        ) ;
     let old_sr = Db.Host.get_local_cache_sr ~__context ~self:host in
     if old_sr <> Ref.null then
       Db.SR.set_local_cache_enabled ~__context ~self:old_sr ~value:false ;
     Db.Host.set_local_cache_sr ~__context ~self:host ~value:sr ;
     Db.SR.set_local_cache_enabled ~__context ~self:sr ~value:true ;
     log_and_ignore_exn (fun () ->
-        Rrdd.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr))
+        Rrdd.set_cache_sr (Db.SR.get_uuid ~__context ~self:sr)
+    )
   ) else
     raise (Api_errors.Server_error (Api_errors.sr_operation_not_supported, []))
 
@@ -2039,7 +2136,8 @@ let sync_vlans ~__context ~host =
         (And
            ( Eq (Field "host", Literal (Ref.string_of master))
            , Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
-           ))
+           )
+        )
   in
   let slave_vlan_pifs =
     Db.PIF.get_records_where ~__context
@@ -2047,7 +2145,8 @@ let sync_vlans ~__context ~host =
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
            , Not (Eq (Field "VLAN_master_of", Literal (Ref.string_of Ref.null)))
-           ))
+           )
+        )
   in
   let get_network_of_pif_underneath_vlan vlan_pif_rec =
     match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:vlan_pif_rec with
@@ -2064,7 +2163,9 @@ let sync_vlans ~__context ~host =
               , [
                   Printf.sprintf "Cannot find vlan from a vlan master PIF:%s"
                     vlan_pif_rec.API.pIF_uuid
-                ] ))
+                ]
+              )
+          )
   in
   let maybe_create_vlan (master_pif_ref, master_pif_rec) =
     (* Check to see if the slave has any existing pif(s) that for the specified device, network, vlan... *)
@@ -2082,7 +2183,8 @@ let sync_vlans ~__context ~host =
           && slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
           && slave_pif_record.API.pIF_VLAN = master_pif_rec.API.pIF_VLAN
           && get_network_of_pif_underneath_vlan slave_pif_record
-             = network_of_pif_underneath_vlan_on_master)
+             = network_of_pif_underneath_vlan_on_master
+          )
         slave_vlan_pifs
     in
     (* if I don't have any such pif(s) then make one: *)
@@ -2096,7 +2198,9 @@ let sync_vlans ~__context ~host =
                    ( Field "network"
                    , Literal
                        (Ref.string_of network_of_pif_underneath_vlan_on_master)
-                   ) ))
+                   )
+               )
+            )
       in
       match pifs with
       | [] ->
@@ -2109,7 +2213,8 @@ let sync_vlans ~__context ~host =
             (Xapi_vlan.create_internal ~__context ~host ~tagged_PIF:pif_ref
                ~tag:master_pif_rec.API.pIF_VLAN
                ~network:master_pif_rec.API.pIF_network
-               ~device:pif_rec.API.pIF_device)
+               ~device:pif_rec.API.pIF_device
+            )
       | _ ->
           (* This should never happen since we should never have more than one of _our_ pifs
              					 * on the same network *)
@@ -2125,14 +2230,18 @@ let sync_tunnels ~__context ~host =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of master))
-           , Not (Eq (Field "tunnel_access_PIF_of", Literal "()")) ))
+           , Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+           )
+        )
   in
   let slave_tunnel_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of host))
-           , Not (Eq (Field "tunnel_access_PIF_of", Literal "()")) ))
+           , Not (Eq (Field "tunnel_access_PIF_of", Literal "()"))
+           )
+        )
   in
   let get_network_of_transport_pif access_pif_rec =
     match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:access_pif_rec with
@@ -2150,7 +2259,9 @@ let sync_tunnels ~__context ~host =
               , [
                   Printf.sprintf "PIF %s has no tunnel_access_PIF_of"
                     access_pif_rec.API.pIF_uuid
-                ] ))
+                ]
+              )
+          )
   in
   let maybe_create_tunnel_for_me (master_pif_ref, master_pif_rec) =
     (* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
@@ -2159,7 +2270,8 @@ let sync_tunnels ~__context ~host =
         (fun (_, slave_pif_record) ->
           (* Is the slave's tunnel access PIF that we're considering (slave_pif_ref)
            * the one that corresponds to the master's tunnel access PIF we're considering (master_pif_ref)? *)
-          slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network)
+          slave_pif_record.API.pIF_network = master_pif_rec.API.pIF_network
+          )
         slave_tunnel_pifs
     in
     (* If the slave doesn't have any such PIF then make one: *)
@@ -2176,7 +2288,9 @@ let sync_tunnels ~__context ~host =
                , Eq
                    ( Field "network"
                    , Literal (Ref.string_of network_of_transport_pif_on_master)
-                   ) ))
+                   )
+               )
+            )
       in
       match pifs with
       | [] ->
@@ -2186,7 +2300,8 @@ let sync_tunnels ~__context ~host =
           (* this is the PIF on which we want as transport PIF; let's make it *)
           ignore
             (Xapi_tunnel.create_internal ~__context ~transport_PIF:pif_ref
-               ~network:master_pif_rec.API.pIF_network ~host ~protocol)
+               ~network:master_pif_rec.API.pIF_network ~host ~protocol
+            )
       | _ ->
           (* This should never happen cos we should never have more than one of _our_ pifs
              					 * on the same nework *)
@@ -2207,7 +2322,8 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
            | Network_sriov_logical _ :: _ ->
                false
            | _ ->
-               true)
+               true
+       )
   in
   let network_to_bridge =
     List.map (fun (net, net_r) -> (net, net_r.API.network_bridge)) networks
@@ -2225,7 +2341,8 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
           else
             None
         in
-        (pif, bridge))
+        (pif, bridge)
+        )
       pifs
   in
   (* Perform the database resynchronisation *)
@@ -2240,7 +2357,8 @@ let sync_pif_currently_attached ~__context ~host ~bridges =
           ~value:currently_attached ;
         debug "PIF %s currently_attached <- %b" (Ref.string_of pif)
           currently_attached
-      ))
+      )
+      )
     pifs
 
 let migrate_receive ~__context ~host ~network ~options =
@@ -2264,7 +2382,9 @@ let migrate_receive ~__context ~host ~network ~options =
       raise
         (Api_errors.Server_error
            ( Api_errors.host_cannot_attach_network
-           , [Ref.string_of host; Ref.string_of network] ))
+           , [Ref.string_of host; Ref.string_of network]
+           )
+        )
   in
   let primary_address_type =
     Db.PIF.get_primary_address_type ~__context ~self:pif
@@ -2273,7 +2393,8 @@ let migrate_receive ~__context ~host ~network ~options =
     match primary_address_type with
     | `IPv4 ->
         ( Db.PIF.get_IP ~__context ~self:pif
-        , Db.PIF.get_ip_configuration_mode ~__context ~self:pif )
+        , Db.PIF.get_ip_configuration_mode ~__context ~self:pif
+        )
     | `IPv6 -> (
         let configuration_mode =
           Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
@@ -2294,11 +2415,13 @@ let migrate_receive ~__context ~host ~network ~options =
       | `None ->
           raise
             (Api_errors.Server_error
-               (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif]))
+               (Api_errors.pif_has_no_network_configuration, [Ref.string_of pif])
+            )
       | _ ->
           raise
             (Api_errors.Server_error
-               (Api_errors.interface_has_no_ip, [Ref.string_of pif]))
+               (Api_errors.interface_has_no_ip, [Ref.string_of pif])
+            )
   ) ;
   let sm_url =
     Printf.sprintf "http://%s/services/SM?session_id=%s"
@@ -2316,8 +2439,7 @@ let migrate_receive ~__context ~host ~network ~options =
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
   let master_url =
-    Printf.sprintf "http://%s/"
-      (Http.Url.maybe_wrap_IPv6_literal master_address)
+    Printf.sprintf "http://%s/" (Http.Url.maybe_wrap_IPv6_literal master_address)
   in
   [
     (Xapi_vm_migrate._sm, sm_url)
@@ -2447,7 +2569,8 @@ let set_sched_gran ~__context ~self ~value =
   if not !Xapi_globs.allow_host_sched_gran_modification then
     raise
       Api_errors.(
-        Server_error (operation_not_allowed, ["Disabled by xapi.conf"])) ;
+        Server_error (operation_not_allowed, ["Disabled by xapi.conf"])
+      ) ;
   let arg =
     Printf.sprintf "sched-gran=%s" (Record_util.host_sched_gran_to_string value)
   in
@@ -2459,7 +2582,8 @@ let set_sched_gran ~__context ~self ~value =
     error "Failed to update sched-gran: %s" (Printexc.to_string e) ;
     raise
       Api_errors.(
-        Server_error (internal_error, ["Failed to update sched-gran"]))
+        Server_error (internal_error, ["Failed to update sched-gran"])
+      )
 
 let get_sched_gran ~__context ~self =
   if Helpers.get_localhost ~__context <> self then
@@ -2510,7 +2634,9 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
           Client.Client.Message.get_all_records rpc session
           |> List.exists (fun (_, record) ->
                  record.API.message_name
-                 = fst Api_messages.tls_verification_emergency_disabled))
+                 = fst Api_messages.tls_verification_emergency_disabled
+             )
+      )
     in
 
     if not alert_exists then
@@ -2524,3 +2650,47 @@ let alert_if_tls_verification_was_emergency_disabled ~__context =
 
 let cert_distrib_atom ~__context ~host ~command =
   Cert_distrib.local_exec ~__context ~command
+
+let get_host_updates_handler (req : Http.Request.t) s _ =
+  let uuid = Helpers.get_localhost_uuid () in
+  debug
+    "Xapi_host: received request to get available updates on host uuid = '%s'"
+    uuid ;
+  req.Http.Request.close <- true ;
+  let query = req.Http.Request.query in
+  Xapi_http.with_context "Getting available updates on host" req s
+    (fun __context ->
+      let installed =
+        match List.assoc "installed" query with
+        | v ->
+            bool_of_string v
+        | exception Not_found ->
+            false
+      in
+      let json_str =
+        Yojson.Basic.pretty_to_string
+          (Repository.get_host_updates_in_json ~__context ~installed)
+      in
+      let size = Int64.of_int (String.length json_str) in
+      Http_svr.headers s
+        (Http.http_200_ok_with_content size ~keep_alive:false ()
+        @ [Http.Hdr.content_type ^ ": application/json"]
+        ) ;
+      Unixext.really_write_string s json_str |> ignore
+  )
+
+let apply_updates ~__context ~self ~hash =
+  (* This function runs on master host *)
+  let guidances =
+    Xapi_pool_helpers.with_pool_operation ~__context
+      ~self:(Helpers.get_pool ~__context)
+      ~doc:"Host.apply_updates" ~op:`apply_updates
+    @@ fun () ->
+    let pool = Helpers.get_pool ~__context in
+    if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      raise Api_errors.(Server_error (ha_is_enabled, [])) ;
+    Xapi_host_helpers.with_host_operation ~__context ~self
+      ~doc:"Host.apply_updates" ~op:`apply_updates
+    @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash
+  in
+  Repository.apply_immediate_guidances ~__context ~host:self ~guidances

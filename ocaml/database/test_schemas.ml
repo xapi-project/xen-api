@@ -149,7 +149,8 @@ let many_to_many =
   let many_to_many =
     Schema.ForeignMap.add "foo" [("bars", "bar", "foos")]
       (Schema.ForeignMap.add "bar" [("foos", "foo", "bars")]
-         Schema.ForeignMap.empty)
+         Schema.ForeignMap.empty
+      )
   in
   let schema = {Schema.empty with Schema.database; many_to_many} in
   schema

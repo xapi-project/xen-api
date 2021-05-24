@@ -172,7 +172,8 @@ let get_permit_filenames args =
         match String.trim v with "" -> None | _ -> Some (v |> canonicalize)
       )
       | _ ->
-          None)
+          None
+      )
     args
 
 (* Extract the arguments we're interested in. Return a list of the argumets we know *)
@@ -506,8 +507,7 @@ let main_loop ifd ofd permitted_filenames =
           Unix.close fd
         with
         | Unix.Unix_error (Unix.EPIPE, _, _) ->
-            raise
-              (ClientSideError (Printf.sprintf "Failed to upload file %s" x))
+            raise (ClientSideError (Printf.sprintf "Failed to upload file %s" x))
         | _ ->
             marshal ofd (Response Failed)
       )
@@ -662,7 +662,8 @@ let main_loop ifd ofd permitted_filenames =
             if not (Sys.file_exists filename) then
               raise
                 (ClientSideError
-                   (Printf.sprintf "file '%s' does not exist" filename)) ;
+                   (Printf.sprintf "file '%s' does not exist" filename)
+                ) ;
             (* If we can tell the file size then supply a content-length header--
                this will make the progress bar work. If we can't tell the file size
                (e.g. because it's a pipe) then we provide no header and rely on EOF
@@ -688,7 +689,8 @@ let main_loop ifd ofd permitted_filenames =
                 Pervasiveext.finally
                   (fun () ->
                     copy_with_heartbeat file_ch oc heartbeat_fun ;
-                    marshal ofd (Response OK))
+                    marshal ofd (Response OK)
+                    )
                   (fun () -> try close_in file_ch with _ -> ())
             | 302 ->
                 let newloc = List.assoc "location" headers in
@@ -745,7 +747,8 @@ let main_loop ifd ofd permitted_filenames =
               Pervasiveext.finally
                 (fun () ->
                   copy_with_heartbeat ic file_ch heartbeat_fun ;
-                  marshal ofd (Response OK))
+                  marshal ofd (Response OK)
+                  )
                 (fun () -> try close_out file_ch with _ -> ())
           | 302 ->
               let headers = read_rest_of_headers ic in
@@ -874,7 +877,8 @@ let main () =
         ) ;
         try Unix.unlink x.Stunnel.logfile with _ -> ()
       ) ;
-      Stunnel.disconnect ~wait:false ~force:true x)
+      Stunnel.disconnect ~wait:false ~force:true x
+      )
     !stunnel_processes ;
   ( match (!debug_file, !debug_channel) with
   | Some f, Some ch -> (

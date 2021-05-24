@@ -60,5 +60,7 @@ let storage_url ?pool_secret url = (url, pool_secret)
 let remote_url ip =
   Http.Url.
     ( Http {host= ip; auth= None; port= None; ssl= true}
-    , {uri= Constants.sm_uri; query_params= []} )
+    , {uri= Constants.sm_uri; query_params= []}
+    )
+  
   |> storage_url ~pool_secret:(Xapi_globs.pool_secret ())

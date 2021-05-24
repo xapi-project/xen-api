@@ -40,7 +40,8 @@ let assert_loaded () =
       finally
         (fun () ->
           of_db (Xmlm.make_input (`Channel ic)) ;
-          loaded := true)
+          loaded := true
+          )
         (fun () -> close_in ic) ;
       Hashtbl.iter (fun k v -> debug "%s = %s" k v) db
     with
@@ -64,7 +65,8 @@ let m = Mutex.create ()
 let get (key : string) =
   Mutex.execute m (fun () ->
       assert_loaded () ;
-      try Hashtbl.find db key with Not_found -> raise (Missing_key key))
+      try Hashtbl.find db key with Not_found -> raise (Missing_key key)
+  )
 
 let get_with_default (key : string) (default : string) =
   try get key with Missing_key _ -> default
@@ -87,7 +89,8 @@ let put (key : string) (v : string) =
   Mutex.execute m (fun () ->
       assert_loaded () ;
       if put_one key v then
-        flush ())
+        flush ()
+  )
 
 let putv (all : (string * string) list) =
   Mutex.execute m (fun () ->
@@ -97,11 +100,13 @@ let putv (all : (string * string) list) =
         List.fold_left ( || ) false changes_made
         (* if any changes were made flush the lot *)
       then
-        flush ())
+        flush ()
+  )
 
 let del (key : string) =
   Mutex.execute m (fun () ->
       assert_loaded () ;
       Hashtbl.remove db key ;
       (* Does nothing if the key isn't there *)
-      flush ())
+      flush ()
+  )

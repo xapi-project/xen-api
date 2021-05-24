@@ -34,14 +34,16 @@ exception Uninitialised
 let is_slave : (unit -> bool) ref =
   ref (fun () ->
       error "is_slave called without having been set. This is a fatal error." ;
-      raise Uninitialised)
+      raise Uninitialised
+  )
 
 let get_master_address =
   ref (fun () ->
       error
         "get_master_address called without having been set. This is a fatal \
          error" ;
-      raise Uninitialised)
+      raise Uninitialised
+  )
 
 let master_rpc_path = ref "<invalid>"
 
@@ -90,7 +92,8 @@ let force_connection_reset () =
       info "stunnel reset pid=%d fd=%d"
         (Stunnel.getpid st_proc.Stunnel.pid)
         (Xapi_stdext_unix.Unixext.int_of_file_descr
-           Unixfd.(!(st_proc.Stunnel.fd))) ;
+           Unixfd.(!(st_proc.Stunnel.fd))
+        ) ;
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) Sys.sigterm
 
 (* whenever a call is made that involves read/write to the master connection, a timestamp is
@@ -105,7 +108,8 @@ let last_master_connection_call : float option ref = ref None
 let with_timestamp f =
   last_master_connection_call := Some (Unix.gettimeofday ()) ;
   Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-      last_master_connection_call := None)
+      last_master_connection_call := None
+  )
 
 (* call force_connection_reset if we detect that a master-connection is blocked for too long.
    One common way this can happen is if we end up blocked waiting for a TCP timeout when the
@@ -142,10 +146,13 @@ let start_master_connection_watchdog () =
                        ) ;
                        Thread.delay 10.
                      with _ -> ()
-                   done)
-                 ())
+                   done
+                   )
+                 ()
+              )
       | Some _ ->
-          ())
+          ()
+  )
 
 module StunnelDebug = Debug.Make (struct let name = "stunnel" end)
 
@@ -173,8 +180,7 @@ let open_secure_connection () =
   if (not fd_closed) && not proc_quit then (
     info "stunnel connected pid=%d fd=%d"
       (Stunnel.getpid st_proc.Stunnel.pid)
-      (Xapi_stdext_unix.Unixext.int_of_file_descr
-         Unixfd.(!(st_proc.Stunnel.fd))) ;
+      (Xapi_stdext_unix.Unixext.int_of_file_descr Unixfd.(!(st_proc.Stunnel.fd))) ;
     my_connection := Some (Stunnel.move_out_exn st_proc) ;
     !on_database_connection_established ()
   ) else (
@@ -245,8 +251,10 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
                   in
                   write_ok := true ;
                   result := res
-                  (* yippeee! return and exit from while loop *))
-                Unixfd.(!fd))
+                  (* yippeee! return and exit from while loop *)
+                  )
+                Unixfd.(!fd)
+          )
     with
     | Http_svr.Client_requested_size_over_limit ->
         error "Content length larger than known limit (%d)."
@@ -320,4 +328,5 @@ let execute_remote_fn string =
   let host = !get_master_address () in
   Db_lock.with_lock (fun () ->
       (* Ensure that this function is always called under mutual exclusion (provided by the recursive db lock) *)
-      do_db_xml_rpc_persistent_with_reopen ~host ~path:!master_rpc_path string)
+      do_db_xml_rpc_persistent_with_reopen ~host ~path:!master_rpc_path string
+  )

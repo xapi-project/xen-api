@@ -53,7 +53,8 @@ let api =
   in
   filter obj_filter field_filter message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api))
+       (filter obj_filter field_filter message_filter Datamodel.all_api)
+    )
 
 (*Here we extract a list of objs (look in datamodel_types.ml for the structure definitions)*)
 let classes = objects_of_api api
@@ -128,7 +129,8 @@ let exception_class_case x =
   String.concat ""
     (List.map
        (fun s -> String.capitalize_ascii (String.lowercase_ascii s))
-       (Astring.String.cuts ~sep:"_" x))
+       (Astring.String.cuts ~sep:"_" x)
+    )
 
 (*As we process the datamodel, we collect information about enumerations, types*)
 (* and records, which we use to create Types.java later *)
@@ -300,10 +302,12 @@ let gen_method file cls message params async_version =
   let default_errors =
     [
       ( "BadServerResponse"
-      , "Thrown if the response from the server contains an invalid status." )
+      , "Thrown if the response from the server contains an invalid status."
+      )
     ; ("XenAPIException", "Thrown if the call failed.")
     ; ( "XmlRpcException"
-      , "Thrown if the result of an asynchronous call could not be parsed." )
+      , "Thrown if the result of an asynchronous call could not be parsed."
+      )
     ]
   in
   let publishInfo = get_published_info_message message cls in
@@ -320,7 +324,8 @@ let gen_method file cls message params async_version =
       let paramPublishInfo = get_published_info_param message x in
       fprintf file "     * @param %s %s%s\n" (camel_case x.param_name)
         (if x.param_doc = "" then "No description" else escape_xml x.param_doc)
-        (if paramPublishInfo = "" then "" else " " ^ paramPublishInfo))
+        (if paramPublishInfo = "" then "" else " " ^ paramPublishInfo)
+      )
     params ;
 
   ( if async_version then
@@ -343,7 +348,8 @@ let gen_method file cls message params async_version =
     (fun x ->
       fprintf file "     * @throws Types.%s %s\n"
         (exception_class_case x.err_name)
-        x.err_doc)
+        x.err_doc
+      )
     message.msg_errors ;
 
   fprintf file "     */\n" ;
@@ -385,7 +391,8 @@ let gen_method file cls message params async_version =
     (fun {param_name= s; _} ->
       let name = camel_case s in
       fprintf file "        Map<String, Object> %s_map = %s.toMap();\n" name
-        name)
+        name
+      )
     record_params ;
 
   fprintf file "        Object[] method_params = {" ;
@@ -401,7 +408,9 @@ let gen_method file cls message params async_version =
     (String.concat ", "
        (List.map
           (fun s -> sprintf "Marshalling.toXMLRPC(%s)" s)
-          methodParamsList)) ;
+          methodParamsList
+       )
+    ) ;
 
   fprintf file "};\n" ;
   fprintf file
@@ -681,10 +690,12 @@ let generate_snapshot_hack file =
     (fun x ->
       fprintf file "                case %17s: b = %25s(a); break;\n"
         (String.uppercase_ascii x)
-        (get_marshall_function (Record x)))
+        (get_marshall_function (Record x))
+      )
     (List.map
        (fun x -> x.name)
-       (List.filter (fun x -> not (class_is_empty x)) classes)) ;
+       (List.filter (fun x -> not (class_is_empty x)) classes)
+    ) ;
   fprintf file
     "                default: throw new RuntimeException(\"Internal error in \
      auto-generated code whilst unmarshalling event snapshot\");\n" ;
@@ -852,7 +863,8 @@ let gen_enum file name ls =
   List.iter
     (fun (enum, _) ->
       fprintf file "            if (this == %s) return \"%s\";\n"
-        (enum_of_wire enum) enum)
+        (enum_of_wire enum) enum
+      )
     ls ;
   fprintf file "        /* This can never be reached */\n" ;
   fprintf file "        return \"illegal enum\";\n" ;
@@ -900,7 +912,8 @@ let gen_method_error_throw file name error =
     String.concat ", "
       (List.map
          (fun i -> sprintf "p%i" i)
-         (range (List.length error.err_params)))
+         (range (List.length error.err_params))
+      )
   in
 
   fprintf file "            if (ErrorDescription[0].equals(\"%s\"))\n" name ;
@@ -912,7 +925,8 @@ let gen_method_error_throw file name error =
       fprintf file
         "                String p%i = ErrorDescription.length > %i ? \
          ErrorDescription[%i] : \"\";\n"
-        i i i)
+        i i i
+      )
     (range (List.length error.err_params)) ;
 
   fprintf file "                throw new Types.%s(%s);\n" class_name paramsStr ;
@@ -1112,9 +1126,11 @@ let gen_get_all_records_test classes templdir sample_dir =
   let class_records =
     classes
     |> List.filter (fun {obj_lifecycle; _} ->
-           not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle))
+           not (List.exists (fun (x, _, _) -> x = Removed) obj_lifecycle)
+       )
     |> List.filter (fun {messages; _} ->
-           List.exists (fun x -> x.msg_name = "get_all_records") messages)
+           List.exists (fun x -> x.msg_name = "get_all_records") messages
+       )
     |> List.map (fun {name; _} -> class_case name)
     |> List.sort String.compare
   in
@@ -1125,7 +1141,9 @@ let gen_get_all_records_test classes templdir sample_dir =
         , `A
             (List.map
                (fun x -> `O [("api_class_record", `String x)])
-               class_records) )
+               class_records
+            )
+        )
       ]
   in
   render_file

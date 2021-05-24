@@ -29,7 +29,9 @@ let test_unlicensed () =
     (fun () ->
       ignore
         (Xapi_pvs_site.introduce ~__context ~name_label ~name_description
-           ~pVS_uuid))
+           ~pVS_uuid
+        )
+      )
 
 let test_introduce () =
   let __context = T.make_test_database () in
@@ -79,9 +81,11 @@ let test_forget_running_proxy () =
     "test_forget_running_proxy should raise \
      Api_errors.pvs_site_contains_running_proxies"
     Api_errors.(
-      Server_error (pvs_site_contains_running_proxies, [Ref.string_of pvs_proxy]))
+      Server_error (pvs_site_contains_running_proxies, [Ref.string_of pvs_proxy])
+    )
     (fun () ->
-      Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage)
+      Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage
+      )
 
 let test_forget_server () =
   let __context = T.make_test_database () in
@@ -92,9 +96,11 @@ let test_forget_server () =
   Alcotest.check_raises
     "test_forget_server should raise Api_errors.pvs_site_contains_servers"
     Api_errors.(
-      Server_error (pvs_site_contains_servers, [Ref.string_of pvs_server]))
+      Server_error (pvs_site_contains_servers, [Ref.string_of pvs_server])
+    )
     (fun () ->
-      Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage)
+      Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage
+      )
 
 let test_forget_running_proxy_and_server () =
   let __context = T.make_test_database () in
@@ -111,9 +117,11 @@ let test_forget_running_proxy_and_server () =
     "test_forget_running_proxy_and_server: should raise \
      pvs_site_contains_running_proxies"
     Api_errors.(
-      Server_error (pvs_site_contains_running_proxies, [Ref.string_of pvs_proxy]))
+      Server_error (pvs_site_contains_running_proxies, [Ref.string_of pvs_proxy])
+    )
     (fun () ->
-      Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage)
+      Xapi_pvs_site.forget_internal ~__context ~self:pvs_site ~cleanup_storage
+      )
 
 let test =
   [
@@ -125,5 +133,6 @@ let test =
   ; ("test_forget_server", `Quick, test_forget_server)
   ; ( "test_forget_running_proxy_and_server"
     , `Quick
-    , test_forget_running_proxy_and_server )
+    , test_forget_running_proxy_and_server
+    )
   ]

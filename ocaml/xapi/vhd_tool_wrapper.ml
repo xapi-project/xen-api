@@ -66,14 +66,17 @@ let run_vhd_tool progress_cb args s s' path =
               error "vhd-tool failed, returning VDI_IO_ERROR" ;
               raise
                 (Api_errors.Server_error
-                   (Api_errors.vdi_io_error, ["Device I/O errors"]))
-            ))
+                   (Api_errors.vdi_io_error, ["Device I/O errors"])
+                )
+            )
+        )
       with
       | Success (out, _) ->
           debug "%s" out
       | Failure (out, e) ->
           error "vhd-tool output: %s" out ;
-          raise e)
+          raise e
+      )
     (fun () -> close pipe_read ; close pipe_write)
 
 let receive progress_cb format protocol (s : Unix.file_descr)
@@ -143,10 +146,13 @@ let find_backend_device path =
                               "find_backend_device: Got domid %s but expected \
                                %s"
                               bedomid self
-                          ] )) ;
+                          ]
+                        )
+                    ) ;
                 Some params
             | _ ->
-                raise Not_found)
+                raise Not_found
+        )
     | _ ->
         raise Not_found
   with _ -> None

@@ -56,13 +56,15 @@ let forward args s session =
   if not (is_unix_socket s) then
     raise
       (Api_errors.Server_error
-         (Api_errors.host_is_slave, [Pool_role.get_master_address ()])) ;
+         (Api_errors.host_is_slave, [Pool_role.get_master_address ()])
+      ) ;
   let open Xmlrpc_client in
   let transport =
     SSL
       ( SSL.make ~verify_cert:None ()
       , Pool_role.get_master_address ()
-      , !Constants.https_port )
+      , !Constants.https_port
+      )
   in
   let body =
     let args =
@@ -84,7 +86,8 @@ let forward args s session =
       (* NB: CLI protocol handler doesn't send an HTTP response *)
       let (_ : int * int) = unmarshal_protocol ms in
       marshal_protocol ms ;
-      Unixext.proxy (Unix.dup s) (Unix.dup ms))
+      Unixext.proxy (Unix.dup s) (Unix.dup ms)
+  )
 
 (* Check that keys are all present in cmd *)
 let check_required_keys cmd keylist =
@@ -97,11 +100,13 @@ let with_session ~local rpc u p session f =
     | false, None ->
         ( Client.Client.Session.login_with_password ~rpc ~uname:u ~pwd:p
             ~version:Datamodel_common.api_version_string ~originator:"cli"
-        , true )
+        , true
+        )
     | true, None ->
         ( Client.Client.Session.slave_local_login_with_password ~rpc ~uname:u
             ~pwd:p
-        , true )
+        , true
+        )
     | _, Some session ->
         (session, false)
   in
@@ -136,7 +141,8 @@ let do_rpcs req s username password minimal cmd session args =
     let rpc = generic_rpc req s in
     if do_forward then
       with_session ~local:false rpc username password session (fun sess ->
-          forward args s (Some sess))
+          forward args s (Some sess)
+      )
     else
       let printer, flush = Cli_printer.make_printer s minimal in
       let flush_and_marshall () =
@@ -148,20 +154,24 @@ let do_rpcs req s username password minimal cmd session args =
           with_session ~local:false rpc username password session
             (fun session ->
               f printer rpc session (get_params cmd) ;
-              flush_and_marshall ())
+              flush_and_marshall ()
+          )
       | No_fd_local_session f ->
           with_session ~local:true rpc username password session (fun session ->
               f printer rpc session (get_params cmd) ;
-              flush_and_marshall ())
+              flush_and_marshall ()
+          )
       | With_fd f ->
           with_session ~local:false rpc username password session
             (fun session ->
               f s printer rpc session (get_params cmd) ;
-              flush_and_marshall ())
+              flush_and_marshall ()
+          )
       | With_fd_local_session f ->
           with_session ~local:true rpc username password session (fun session ->
               f s printer rpc session (get_params cmd) ;
-              flush_and_marshall ())
+              flush_and_marshall ()
+          )
   with Unix.Unix_error (a, b, c) as e ->
     warn "Uncaught exception: Unix_error '%s' '%s' '%s'" (Unix.error_message a)
       b c ;
@@ -219,7 +229,8 @@ let exec_command req cmd s session args =
     let param_filters =
       List.fold_left
         (fun accu (cmd_test, params) ->
-          if cmd_test cmd_name then accu @ params else accu)
+          if cmd_test cmd_name then accu @ params else accu
+          )
         [] commands_and_params_to_hide
     in
     let must_censor param_name =
@@ -230,8 +241,11 @@ let exec_command req cmd s session args =
          (List.map
             (fun (k, v) ->
               let v' = if must_censor k then "(omitted)" else v in
-              k ^ "=" ^ v')
-            params)) ;
+              k ^ "=" ^ v'
+              )
+            params
+         )
+      ) ;
     do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
@@ -255,7 +269,8 @@ let multiple_error errs sock =
   List.iter
     (fun (erruuid, errmsg) ->
       let msg = Printf.sprintf "operation failed on %s: %s" erruuid errmsg in
-      marshal sock (Command (Print msg)))
+      marshal sock (Command (Print msg))
+      )
     errs
 
 (* This never raises exceptions: *)
@@ -270,7 +285,8 @@ let parse_session_and_args str =
     let line = List.hd args in
     if Astring.String.is_prefix ~affix:"session_id=" line then
       ( Some (Ref.of_string (String.sub line 11 (String.length line - 11)))
-      , List.tl args )
+      , List.tl args
+      )
     else
       (None, args)
   with _ -> (None, args)
@@ -346,8 +362,9 @@ let handler (req : Http.Request.t) (bio : Buf_io.t) _ =
         if Cli_operations.get_bool_param cmd.params "trace" then (
           marshal s
             (Command
-               (PrintStderr
-                  (Printf.sprintf "Raised %s\n" (Printexc.to_string e)))) ;
+               (PrintStderr (Printf.sprintf "Raised %s\n" (Printexc.to_string e))
+               )
+            ) ;
           marshal s (Command (PrintStderr "Backtrace:\n")) ;
           marshal s (Command (PrintStderr Backtrace.(to_string_hum bt)))
         ) ;

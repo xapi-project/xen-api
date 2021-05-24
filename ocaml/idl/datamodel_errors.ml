@@ -567,6 +567,8 @@ let _ =
     ~doc:"The host joining the pool must have the same API version as the pool master." ();
   error Api_errors.pool_joining_host_must_have_same_db_schema ["host_db_schema";"master_db_schema"]
     ~doc:"The host joining the pool must have the same database schema as the pool master." ();
+  error Api_errors.pool_joining_host_ca_certificates_conflict []
+    ~doc:"The host joining the pool has different ca certificates from the pool master while using the same name, uninstall them and try again." ();
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
@@ -1053,7 +1055,7 @@ let _ =
 
   error Api_errors.server_certificate_invalid []
     ~doc:"The provided certificate is not in a PEM-encoded X509." ();
-    error Api_errors.server_certificate_key_mismatch []
+  error Api_errors.server_certificate_key_mismatch []
     ~doc:"The provided key does not match the provided certificate's public key." ();
   error Api_errors.server_certificate_not_valid_yet ["now"; "not_before"]
     ~doc:"The provided certificate is not valid yet." ();
@@ -1201,8 +1203,49 @@ let _ =
     ~doc:"No other cluster host was reachable when joining" ();
 
   error Api_errors.xen_incompatible []
-    ~doc:"The current version of Xen or its control libraries is incompatible with the Toolstack." ()
+    ~doc:"The current version of Xen or its control libraries is incompatible with the Toolstack." ();
 
+  (* repository and updates errors *)
+  error Api_errors.configure_repositories_in_progress []
+    ~doc:"The operation could not be performed because other repository(ies) is(are) already being configured." ();
+  error Api_errors.invalid_base_url ["url"]
+    ~doc:"The base url in the repository is invalid." ();
+  error Api_errors.repository_already_exists ["ref"]
+    ~doc:"The repository already exists." ();
+  error Api_errors.repository_is_in_use []
+    ~doc:"The repository is in use." ();
+  error Api_errors.reposync_in_progress []
+    ~doc:"The pool is syncing with the enabled remote YUM repository." ();
+  error Api_errors.repository_cleanup_failed []
+    ~doc:"Failed to clean up local repository on master." ();
+  error Api_errors.no_repository_enabled []
+    ~doc:"There is no repository being enabled." ();
+  error Api_errors.multiple_update_repositories_enabled []
+    ~doc:"There is more than one update repository being enabled." ();
+  error Api_errors.sync_updates_in_progress []
+    ~doc:"The operation could not be performed because syncing updates is in progress." ();
+  error Api_errors.reposync_failed []
+    ~doc:"Syning with remote YUM repository failed." ();
+  error Api_errors.invalid_repomd_xml []
+    ~doc:"The repomd.xml is invalid." ();
+  error Api_errors.invalid_updateinfo_xml []
+    ~doc:"The updateinfo.xml is invalid." ();
+  error Api_errors.get_host_updates_failed ["ref"]
+    ~doc:"Failed to get available updates from a host." ();
+  error Api_errors.get_updates_failed []
+    ~doc:"Failed to get available updates from the pool." ();
+  error Api_errors.get_updates_in_progress []
+    ~doc:"The operation could not be performed because getting updates is in progress." ();
+  error Api_errors.apply_updates_in_progress []
+    ~doc:"The operation could not be performed because applying updates is in progress." ();
+  error Api_errors.apply_updates_failed ["ref"]
+    ~doc:"Failed to apply updates on a host." ();
+  error Api_errors.apply_guidance_failed ["ref"]
+    ~doc:"Failed to apply guidance on a host after updating." ();
+  error Api_errors.updateinfo_hash_mismatch []
+    ~doc:"The hash of updateinfo doesn't match with current one. There may be newer available updates." ();
+  error Api_errors.updates_require_sync []
+    ~doc:"A call to pool.sync_updates is required before this operation." ()
 
 
 let _ =

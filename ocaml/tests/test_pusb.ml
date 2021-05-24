@@ -48,7 +48,8 @@ let test_scan_with_usb_add_and_remove () =
     (fun (self, _) ->
       let usb_group = Db.PUSB.get_USB_group ~__context ~self in
       Db.PUSB.destroy ~__context ~self ;
-      Db.USB_group.destroy ~__context ~self:usb_group)
+      Db.USB_group.destroy ~__context ~self:usb_group
+      )
     (Db.PUSB.get_all_records ~__context) ;
   Xapi_pusb.scan ~__context ~host ;
   Thread.delay 1.0 ;
@@ -62,7 +63,8 @@ let test =
   [
     ( "test_scan_with_usb_add_and_remove"
     , `Quick
-    , test_scan_with_usb_add_and_remove )
+    , test_scan_with_usb_add_and_remove
+    )
   ]
 
 let () =

@@ -48,10 +48,12 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
           ( Row.update modified' name empty
               (fun _ -> v')
               (Row.add created name v' acc)
-          , max max_upd modified' )
+          , max max_upd modified'
+          )
         with Not_found ->
           Printf.printf "Skipping unknown column: %s\n%!" name ;
-          (acc, max max_upd modified))
+          (acc, max max_upd modified)
+        )
       row (Row.empty, 0L)
   in
   (* Generate a new table *)
@@ -62,7 +64,8 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
         let r, _ = row schema r in
         Table.update modified objref Row.empty
           (fun _ -> r)
-          (Table.add created objref r acc))
+          (Table.add created objref r acc)
+        )
       tbl Table.empty
   in
   Database.update
@@ -70,8 +73,10 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
       TableSet.fold
         (fun tblname {Stat.modified; _} tbl acc ->
           let tbl' = table tblname tbl in
-          TableSet.add modified tblname tbl' acc)
-        ts TableSet.empty)
+          TableSet.add modified tblname tbl' acc
+          )
+        ts TableSet.empty
+      )
     db
 
 let db_registration_mutex = Mutex.create ()
@@ -84,19 +89,23 @@ let create_registered_session create_session db_ref =
   Mutex.execute db_registration_mutex (fun () ->
       let session = create_session () in
       Hashtbl.replace foreign_databases session db_ref ;
-      session)
+      session
+  )
 
 let unregister_session session =
   Mutex.execute db_registration_mutex (fun () ->
-      Hashtbl.remove foreign_databases session)
+      Hashtbl.remove foreign_databases session
+  )
 
 let is_session_registered session =
   Mutex.execute db_registration_mutex (fun () ->
-      Hashtbl.mem foreign_databases session)
+      Hashtbl.mem foreign_databases session
+  )
 
 let get_registered_database session =
   Mutex.execute db_registration_mutex (fun () ->
       if Hashtbl.mem foreign_databases session then
         Some (Hashtbl.find foreign_databases session)
       else
-        None)
+        None
+  )

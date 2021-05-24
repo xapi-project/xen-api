@@ -295,17 +295,47 @@ let cluster_host_fencing = addMessage "CLUSTER_HOST_FENCING" 2L
 (* Certificate expiration messages *)
 let host_server_certificate_expiring = "HOST_SERVER_CERTIFICATE_EXPIRING"
 
-let host_server_certificate_expiring_30 =
-  addMessage (host_server_certificate_expiring ^ "_30") 3L
+let pool_ca_certificate_expiring = "POOL_CA_CERTIFICATE_EXPIRING"
 
-let host_server_certificate_expiring_14 =
-  addMessage (host_server_certificate_expiring ^ "_14") 2L
-
-let host_server_certificate_expiring_07 =
-  addMessage (host_server_certificate_expiring ^ "_07") 1L
+let host_internal_certificate_expiring = "HOST_INTERNAL_CERTIFICATE_EXPIRING"
 
 let host_server_certificate_expired =
   addMessage "HOST_SERVER_CERTIFICATE_EXPIRED" 1L
+
+let host_internal_certificate_expired =
+  addMessage "HOST_INTERNAL_CERTIFICATE_EXPIRED" 1L
+
+let pool_ca_certificate_expired = addMessage "POOL_CA_CERTIFICATE_EXPIRED" 1L
+
+let certificate_expiring base days prio =
+  addMessage (Printf.sprintf "%s_%02d" base days) prio
+
+let host_server_certificate_expiring_30 =
+  certificate_expiring host_server_certificate_expiring 30 3L
+
+let host_server_certificate_expiring_14 =
+  certificate_expiring host_server_certificate_expiring 14 2L
+
+let host_server_certificate_expiring_07 =
+  certificate_expiring host_server_certificate_expiring 7 1L
+
+let pool_ca_certificate_expiring_30 =
+  certificate_expiring pool_ca_certificate_expiring 30 3L
+
+let pool_ca_certificate_expiring_14 =
+  certificate_expiring pool_ca_certificate_expiring 14 2L
+
+let pool_ca_certificate_expiring_07 =
+  certificate_expiring pool_ca_certificate_expiring 7 1L
+
+let host_internal_certificate_expiring_30 =
+  certificate_expiring host_internal_certificate_expiring 30 3L
+
+let host_internal_certificate_expiring_14 =
+  certificate_expiring host_internal_certificate_expiring 14 2L
+
+let host_internal_certificate_expiring_07 =
+  certificate_expiring host_internal_certificate_expiring 7 1L
 
 let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 

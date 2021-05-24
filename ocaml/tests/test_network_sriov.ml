@@ -57,7 +57,8 @@ let test_create_on_unmanaged_pif () =
   Alcotest.check_raises "test_create_on_unmanaged_pif"
     Api_errors.(Server_error (pif_unmanaged, [Ref.string_of physical_PIF]))
     (fun () ->
-      Xapi_network_sriov.create ~__context ~pif:physical_PIF ~network |> ignore)
+      Xapi_network_sriov.create ~__context ~pif:physical_PIF ~network |> ignore
+      )
 
 let test_create_network_already_connected () =
   let __context = T.make_test_database () in
@@ -69,9 +70,12 @@ let test_create_network_already_connected () =
     Api_errors.(
       Server_error
         ( network_already_connected
-        , [Ref.string_of host; Ref.string_of physical_PIF] ))
+        , [Ref.string_of host; Ref.string_of physical_PIF]
+        )
+    )
     (fun () ->
-      Xapi_network_sriov.create ~__context ~pif:physical_PIF ~network |> ignore)
+      Xapi_network_sriov.create ~__context ~pif:physical_PIF ~network |> ignore
+      )
 
 let test_create_on_bond_master () =
   let __context = T.make_test_database () in
@@ -147,7 +151,8 @@ let test_create_on_pif_already_enabled_sriov () =
   let network = T.make_network ~__context ~bridge:"xapi0" () in
   Alcotest.check_raises "test_create_on_pif_already_enabled_sriov"
     Api_errors.(
-      Server_error (network_sriov_already_enabled, [Ref.string_of pif]))
+      Server_error (network_sriov_already_enabled, [Ref.string_of pif])
+    )
     (fun () -> Xapi_network_sriov.create ~__context ~pif ~network |> ignore)
 
 let test_create_on_pif_not_have_sriov_capability () =
@@ -172,7 +177,8 @@ let test_create_on_network_not_compatible_sriov () =
   Db.PIF.set_capabilities ~__context ~self:pif ~value:["sriov"] ;
   Alcotest.check_raises "test_create_on_network_not_compatible_sriov"
     Api_errors.(
-      Server_error (network_incompatible_with_sriov, [Ref.string_of network]))
+      Server_error (network_incompatible_with_sriov, [Ref.string_of network])
+    )
     (fun () -> Xapi_network_sriov.create ~__context ~pif ~network |> ignore)
 
 let test_create_sriov_with_different_pci_type_into_one_network () =
@@ -204,7 +210,9 @@ let test_create_sriov_with_different_pci_type_into_one_network () =
     Api_errors.(
       Server_error
         ( network_has_incompatible_sriov_pifs
-        , [Ref.string_of pif; Ref.string_of network] ))
+        , [Ref.string_of pif; Ref.string_of network]
+        )
+    )
     (fun () -> Xapi_network_sriov.create ~__context ~pif ~network |> ignore)
 
 let test_require_operation_on_pci_device_not_attached_not_need_reboot () =
@@ -228,7 +236,8 @@ let test_require_operation_on_pci_device_not_attached_not_need_reboot () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_not_attached_not_need_reboot" false
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test_require_operation_on_pci_device_sysfs () =
   (* Need operate pci device when Network_sriov.configuration_mode = `sysfs *)
@@ -252,7 +261,8 @@ let test_require_operation_on_pci_device_sysfs () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_sysfs" true
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test_require_operation_on_pci_device_unknown () =
   (* Need not operate pci device when Network_sriov.configuration_mode = `Unknown *)
@@ -277,7 +287,8 @@ let test_require_operation_on_pci_device_unknown () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_unknown" false
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let create_physical_pif_with_driver ~__context ~host ~network
     ?(driver_name = "") () =
@@ -316,7 +327,8 @@ let test_require_operation_on_pci_device_modprobe_0 () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_modprobe_0" true
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test_require_operation_on_pci_device_modprobe_1 () =
   (* No other sriov has same driver with me.
@@ -346,7 +358,8 @@ let test_require_operation_on_pci_device_modprobe_1 () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_modprobe_1" true
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let create_modprobe_sriov_logical_pif_with_driver ~__context ~host ~network
     ~driver_name ~currently_attached ~requires_reboot =
@@ -387,7 +400,8 @@ let test_require_operation_on_pci_device_modprobe_2 () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_modprobe_2" true
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test_require_operation_on_pci_device_modprobe_3 () =
   (* There are 1 other sriov has same driver name with me.
@@ -409,7 +423,8 @@ let test_require_operation_on_pci_device_modprobe_3 () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_modprobe_3" false
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test_require_operation_on_pci_device_modprobe_4 () =
   (* There are 1 other sriov has same driver name with me.
@@ -431,7 +446,8 @@ let test_require_operation_on_pci_device_modprobe_4 () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_modprobe_4" true
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test_require_operation_on_pci_device_modprobe_5 () =
   (* There are 1 other sriov has same driver name with me.
@@ -453,7 +469,8 @@ let test_require_operation_on_pci_device_modprobe_5 () =
   Alcotest.(check bool)
     "test_require_operation_on_pci_device_modprobe_5" false
     (Xapi_network_sriov_helpers.require_operation_on_pci_device ~__context
-       ~sriov ~self:sriov_logical_PIF)
+       ~sriov ~self:sriov_logical_PIF
+    )
 
 let test =
   [
@@ -461,53 +478,68 @@ let test =
   ; ("test_create_on_unmanaged_pif", `Quick, test_create_on_unmanaged_pif)
   ; ( "test_create_network_already_connected"
     , `Quick
-    , test_create_network_already_connected )
+    , test_create_network_already_connected
+    )
   ; ("test_create_on_bond_master", `Quick, test_create_on_bond_master)
   ; ("test_create_on_tunnel_access", `Quick, test_create_on_tunnel_access)
   ; ("test_create_on_sriov_logical", `Quick, test_create_on_sriov_logical)
   ; ("test_create_on_vlan", `Quick, test_create_on_vlan)
   ; ( "test_create_on_vlan_on_sriov_logical"
     , `Quick
-    , test_create_on_vlan_on_sriov_logical )
+    , test_create_on_vlan_on_sriov_logical
+    )
   ; ( "test_create_on_pif_already_enabled_sriov"
     , `Quick
-    , test_create_on_pif_already_enabled_sriov )
+    , test_create_on_pif_already_enabled_sriov
+    )
   ; ( "test_create_on_pif_not_have_sriov_capability"
     , `Quick
-    , test_create_on_pif_not_have_sriov_capability )
+    , test_create_on_pif_not_have_sriov_capability
+    )
   ; ( "test_create_on_network_not_compatible_sriov"
     , `Quick
-    , test_create_on_network_not_compatible_sriov )
+    , test_create_on_network_not_compatible_sriov
+    )
   ; ( "test_create_sriov_with_different_pci_type_into_one_network"
     , `Quick
-    , test_create_sriov_with_different_pci_type_into_one_network )
+    , test_create_sriov_with_different_pci_type_into_one_network
+    )
   ; ( "test_require_operation_on_pci_device_not_attached_not_need_reboot"
     , `Quick
-    , test_require_operation_on_pci_device_not_attached_not_need_reboot )
+    , test_require_operation_on_pci_device_not_attached_not_need_reboot
+    )
   ; ( "test_require_operation_on_pci_device_sysfs"
     , `Quick
-    , test_require_operation_on_pci_device_sysfs )
+    , test_require_operation_on_pci_device_sysfs
+    )
   ; ( "test_require_operation_on_pci_device_unknown"
     , `Quick
-    , test_require_operation_on_pci_device_unknown )
+    , test_require_operation_on_pci_device_unknown
+    )
   ; ( "test_require_operation_on_pci_device_modprobe_0"
     , `Quick
-    , test_require_operation_on_pci_device_modprobe_0 )
+    , test_require_operation_on_pci_device_modprobe_0
+    )
   ; ( "test_require_operation_on_pci_device_modprobe_1"
     , `Quick
-    , test_require_operation_on_pci_device_modprobe_1 )
+    , test_require_operation_on_pci_device_modprobe_1
+    )
   ; ( "test_require_operation_on_pci_device_modprobe_2"
     , `Quick
-    , test_require_operation_on_pci_device_modprobe_2 )
+    , test_require_operation_on_pci_device_modprobe_2
+    )
   ; ( "test_require_operation_on_pci_device_modprobe_3"
     , `Quick
-    , test_require_operation_on_pci_device_modprobe_3 )
+    , test_require_operation_on_pci_device_modprobe_3
+    )
   ; ( "test_require_operation_on_pci_device_modprobe_4"
     , `Quick
-    , test_require_operation_on_pci_device_modprobe_4 )
+    , test_require_operation_on_pci_device_modprobe_4
+    )
   ; ( "test_require_operation_on_pci_device_modprobe_5"
     , `Quick
-    , test_require_operation_on_pci_device_modprobe_5 )
+    , test_require_operation_on_pci_device_modprobe_5
+    )
   ]
 
 let () =

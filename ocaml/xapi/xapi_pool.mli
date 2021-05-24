@@ -105,6 +105,12 @@ val exchange_certificates_on_join :
   -> certificate:string
   -> API.string_to_string_map
 
+val exchange_ca_certificates_on_join :
+     __context:Context.t
+  -> import:API.string_to_string_map
+  -> export:API.ref_Certificate list
+  -> API.string_to_string_map
+
 val emergency_transition_to_master : __context:'a -> unit
 
 val emergency_reset_master : __context:'a -> master_address:string -> unit
@@ -207,7 +213,8 @@ val call_fn_on_host :
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
       -> host:'a Ref.t
-      -> 'b)
+      -> 'b
+     )
   -> 'a Ref.t
   -> 'b
 
@@ -335,3 +342,26 @@ val rotate_secret : __context:Context.t -> unit
 val alert_failed_login_attempts : unit -> unit
 
 val enable_tls_verification : __context:Context.t -> unit
+
+val set_repositories :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:[`Repository] API.Ref.t list
+  -> unit
+
+val add_repository :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:[`Repository] API.Ref.t
+  -> unit
+
+val remove_repository :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> value:[`Repository] API.Ref.t
+  -> unit
+
+val sync_updates :
+  __context:Context.t -> self:API.ref_pool -> force:bool -> string
+
+val get_updates_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit

@@ -27,7 +27,8 @@ let set_role r =
   let open Pool_role in
   let old_role = get_role () in
   with_pool_role_lock (fun () ->
-      Unixext.write_string_to_file !Constants.pool_config_file (string_of r)) ;
+      Unixext.write_string_to_file !Constants.pool_config_file (string_of r)
+  ) ;
   Localdb.put Constants.this_node_just_became_master
     (string_of_bool (old_role <> Master && r = Master))
 
@@ -56,7 +57,8 @@ let run_external_scripts becoming_master =
           debug "Executing %s %s" filename arg ;
           ignore (Forkhelpers.execute_command_get_output filename [arg])
         with Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
-          debug "%s %s exited with code %d" filename arg n)
+          debug "%s %s exited with code %d" filename arg n
+        )
       order
   in
   let already_run =
@@ -101,8 +103,11 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
           (fun () ->
             debug "Issuing abort to host address: %s" address ;
             Helpers.call_emergency_mode_functions address (fun rpc session_id ->
-                Client.Host.abort_new_master rpc session_id my_address))
-          ())
+                Client.Host.abort_new_master rpc session_id my_address
+            )
+            )
+          ()
+        )
       !done_so_far
   in
   debug "Phase 1: proposing myself as new master" ;
@@ -111,8 +116,10 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
         (fun address ->
           debug "Proposing myself as a new master to host address: %s" address ;
           Helpers.call_emergency_mode_functions address (fun rpc session_id ->
-              Client.Host.propose_new_master rpc session_id my_address manual) ;
-          done_so_far := address :: !done_so_far)
+              Client.Host.propose_new_master rpc session_id my_address manual
+          ) ;
+          done_so_far := address :: !done_so_far
+          )
         all_addresses
     with e ->
       debug "Phase 1 aborting, caught exception: %s" (ExnHelper.string_of_exn e) ;
@@ -133,7 +140,8 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
     debug "Signalling commit to host address: %s" address ;
     try
       Helpers.call_emergency_mode_functions address (fun rpc session_id ->
-          Client.Host.commit_new_master rpc session_id my_address)
+          Client.Host.commit_new_master rpc session_id my_address
+      )
     with e ->
       debug "Caught exception %s while telling host to commit new master"
         (ExnHelper.string_of_exn e) ;
@@ -192,7 +200,8 @@ let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
             done
           with _ ->
             debug
-              "The old master has restarted as slave; I am the only master now.")
+              "The old master has restarted as slave; I am the only master now."
+          )
         ()
     in
     ()
@@ -206,6 +215,8 @@ let become_another_masters_slave master_address =
     debug "Setting pool.conf to point to %s" master_address ;
     set_role new_role ;
     run_external_scripts false ;
+    Repository.cleanup_all_pool_repositories () ;
+    (* For simplicity, it's safe to cleanup on all slaves *)
     Xapi_fuse.light_fuse_and_run ()
   )
 

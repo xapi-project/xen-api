@@ -26,7 +26,8 @@ let add_host __context name =
        ~address:"127.0.0.1" ~external_auth_type:""
        ~external_auth_service_name:"" ~external_auth_configuration:[]
        ~license_params:[] ~edition:"" ~license_server:[]
-       ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false)
+       ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
+    )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)
 let setup_test () =
@@ -52,7 +53,9 @@ let test_host_join_restriction () =
   Alcotest.check_raises "Should fail"
     (Api_errors.Server_error
        ( Api_errors.license_restriction
-       , [Features.name_of_feature Features.Pool_size] ))
+       , [Features.name_of_feature Features.Pool_size]
+       )
+    )
     (fun () -> ignore (add_host __context "badhost")) ;
   (* License the pool *)
   let pool = Db.Pool.get_all ~__context |> List.hd in
@@ -71,7 +74,9 @@ let test_cvm_exception () =
   Alcotest.check_raises "Should fail"
     (Api_errors.Server_error
        ( Api_errors.license_restriction
-       , [Features.name_of_feature Features.Pool_size] ))
+       , [Features.name_of_feature Features.Pool_size]
+       )
+    )
     (fun () -> ignore (add_host __context "badhost")) ;
   let new_vm = Test_common.make_vm ~__context ~name_label:"My test VM-CVM" () in
   Db.VM.set_is_control_domain ~__context ~self:new_vm ~value:true ;

@@ -57,7 +57,8 @@ let with_open_vdi __context rpc session_id vdi_ref mode flags perms f =
     (fun dom0_path ->
       debug "with_open_vdi opening: %s" dom0_path ;
       let ofd = Unix.openfile dom0_path flags perms in
-      finally (fun () -> f ofd dom0_path) (fun () -> Unix.close ofd))
+      finally (fun () -> f ofd dom0_path) (fun () -> Unix.close ofd)
+  )
 
 (** Used to sort VDI prefixes into a canonical order for streaming. Currently lexicographic
     sort on the externalised reference (used as a 'directory name') *)
@@ -109,8 +110,7 @@ let write_block ~__context filename buffer ofd len =
   let hdr = Tar.Header.make filename (Int64.of_int len) in
   try
     let csum =
-      Printf.sprintf "%016LX"
-        (XXHash.XXH64.hash (Bytes.unsafe_to_string buffer))
+      Printf.sprintf "%016LX" (XXHash.XXH64.hash (Bytes.unsafe_to_string buffer))
     in
     Tar_helpers.write_block hdr
       (fun ofd -> Unix.write ofd buffer 0 len |> ignore)
@@ -129,7 +129,8 @@ let write_block ~__context filename buffer ofd len =
     if b = "write" then
       raise
         (Api_errors.Server_error
-           (Api_errors.client_error, [ExnHelper.string_of_exn e]))
+           (Api_errors.client_error, [ExnHelper.string_of_exn e])
+        )
     else
       raise e
 
@@ -275,7 +276,9 @@ let send_all refresh_session ofd ~__context rpc session_id
                     (not
                        (Zerocheck.is_all_zeros
                           (Bytes.unsafe_to_string buffer)
-                          this_chunk))
+                          this_chunk
+                       )
+                    )
                     || first_or_last
                   then (
                     last_transmission_time := now ;
@@ -356,12 +359,14 @@ let send_all refresh_session ofd ~__context rpc session_id
                   List.iter
                     (fun chunk ->
                       actually_write_chunk (Int64.to_int chunk)
-                        (Int64.to_int chunk_size))
+                        (Int64.to_int chunk_size)
+                      )
                     chunks ;
                   stream_from_offset (Int64.add offset sparseness_size)
               )
             in
-            stream_from_offset 0L) ;
+            stream_from_offset 0L
+    ) ;
     debug "Finished streaming VDI"
   in
   for_each_vdi __context (send_one ofd __context) prefix_vdis
@@ -376,7 +381,8 @@ let verify_inline_checksum ifd checksum_table hdr =
     not
       (List.exists
          (Filename.check_suffix file_name)
-         checksum_supported_extension)
+         checksum_supported_extension
+      )
   then (
     let msg =
       Printf.sprintf
@@ -401,7 +407,9 @@ let verify_inline_checksum ifd checksum_table hdr =
         (Invalid_checksum
            (Printf.sprintf
               "Block %s checksum failed: original = %s; recomputed = %s"
-              original_file_name csum csum'))
+              original_file_name csum csum'
+           )
+        )
     )
   with e ->
     error "Error validating checksums on import: %s" (ExnHelper.string_of_exn e) ;
@@ -507,11 +515,11 @@ let recv_all_vdi refresh_session ifd (__context : Context.t) rpc session_id
                 try verify_inline_checksum ifd checksum_table csum_hdr
                 with Invalid_checksum s as e -> if not force then raise e
             ) ;
-            stream_from suffix
-              (Int64.add skipped_size (Int64.add offset length))
+            stream_from suffix (Int64.add skipped_size (Int64.add offset length))
           )
         in
-        stream_from "-1" 0L ; Unixext.fsync ofd)
+        stream_from "-1" 0L ; Unixext.fsync ofd
+    )
   in
   ( try for_each_vdi __context (recv_one ifd __context) prefix_vdis
     with Unix.Unix_error (Unix.EIO, _, _) ->
@@ -569,7 +577,8 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
                 ) ;
                 debug "Decompressing %Ld bytes from %s\n" length file_name ;
                 Gzip.decompress ofd (fun zcat_in ->
-                    Tar_helpers.copy_n ifd zcat_in length) ;
+                    Tar_helpers.copy_n ifd zcat_in length
+                ) ;
                 Tar_helpers.skip ifd
                   (Tar_unix.Header.compute_zero_padding_length hdr) ;
                 (* XXX: this is totally wrong: *)
@@ -584,7 +593,8 @@ let recv_all_zurich refresh_session ifd (__context : Context.t) rpc session_id
               TaskHelper.exn_if_cancelling ~__context ;
               ()
         in
-        stream_from "" ; Unixext.fsync ofd)
+        stream_from "" ; Unixext.fsync ofd
+    )
   in
   ( try for_each_vdi __context (recv_one ifd __context) prefix_vdis
     with Unix.Unix_error (Unix.EIO, _, _) ->

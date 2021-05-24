@@ -1047,6 +1047,7 @@ let host_query_ha = call ~flags:[`Session]
             "vm_start", "This host is starting a VM";
             "vm_resume", "This host is resuming a VM";
             "vm_migrate", "This host is the migration target of a VM";
+            "apply_updates", "Indicates this host is being updated";
           ])
 
   let enable_external_auth = call ~flags:[`Session]
@@ -1446,6 +1447,18 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
+  let apply_updates = call
+    ~name:"apply_updates"
+    ~in_oss_since:None
+    ~in_product_since:rel_next
+    ~doc:"apply updates from current enabled repository on a host"
+    ~params:[
+      Ref _host, "self", "The host where updates will be applied";
+      String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1573,6 +1586,7 @@ let host_query_ha = call ~flags:[`Session]
         emergency_disable_tls_verification;
         emergency_reenable_tls_verification;
         cert_distrib_atom;
+        apply_updates;
       ]
       ~contents:
         ([ uid _host;

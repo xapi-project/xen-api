@@ -21,7 +21,8 @@ let test_exists =
       let f vm = Db.VM.get_name_label ~__context ~self:vm = "a" in
       Alcotest.(check bool) "true" true (Valid_ref_list.exists f l) ;
       let f vm = Db.VM.get_name_label ~__context ~self:vm = "c" in
-      Alcotest.(check bool) "false" false (Valid_ref_list.exists f l))
+      Alcotest.(check bool) "false" false (Valid_ref_list.exists f l)
+  )
 
 let test_valid_ref_filter =
   with_vm_list (fun __context -> function
@@ -40,7 +41,8 @@ let test_valid_ref_filter =
         in
         assert_equal [vm1; vm4] (Valid_ref_list.filter f l)
     | _ ->
-        Alcotest.fail "The test list should contain 4 VMs")
+        Alcotest.fail "The test list should contain 4 VMs"
+  )
 
 let test_for_all =
   with_vm_list (fun __context l ->
@@ -53,12 +55,14 @@ let test_for_all =
         let name = Db.VM.get_name_label ~__context ~self:vm in
         name = "a" || name = "d"
       in
-      Alcotest.(check bool) "true" true (Valid_ref_list.for_all f l))
+      Alcotest.(check bool) "true" true (Valid_ref_list.for_all f l)
+  )
 
 let test_map =
   with_vm_list (fun __context l ->
       let f vm = Db.VM.get_name_label ~__context ~self:vm in
-      assert_equal ["a"; "d"] (Valid_ref_list.map f l))
+      assert_equal ["a"; "d"] (Valid_ref_list.map f l)
+  )
 
 let test_flat_map =
   with_vm_list (fun __context l ->
@@ -68,7 +72,8 @@ let test_flat_map =
         ; Db.VM.get_name_description ~__context ~self:vm
         ]
       in
-      assert_equal ["a"; "d_a"; "d"; "d_d"] (Valid_ref_list.flat_map f l))
+      assert_equal ["a"; "d_a"; "d"; "d_d"] (Valid_ref_list.flat_map f l)
+  )
 
 let test_filter_map =
   with_vm_list (fun __context -> function
@@ -89,7 +94,8 @@ let test_filter_map =
         in
         assert_equal ["a"; "d"] (Valid_ref_list.filter_map f l)
     | _ ->
-        Alcotest.fail "The test list should contain 4 VMs")
+        Alcotest.fail "The test list should contain 4 VMs"
+  )
 
 let test_iter =
   with_vm_list (fun __context l ->
@@ -98,7 +104,8 @@ let test_iter =
         processed := !processed @ [Db.VM.get_name_label ~__context ~self:vm]
       in
       Valid_ref_list.iter f l ;
-      assert_equal ["a"; "d"] !processed)
+      assert_equal ["a"; "d"] !processed
+  )
 
 (** CA-276638, CA-281320: Valid_ref_list should still catch invalid ref
     exceptions when we use the Client module *)
@@ -106,7 +113,8 @@ let test_client =
   with_vm_list (fun __context l ->
       let rpc, session_id = Test_common.make_client_params ~__context in
       let f vm = Client.Client.VM.get_name_label ~rpc ~session_id ~self:vm in
-      assert_equal ["a"; "d"] (Valid_ref_list.map f l))
+      assert_equal ["a"; "d"] (Valid_ref_list.map f l)
+  )
 
 let test =
   [

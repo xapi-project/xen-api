@@ -520,3 +520,8 @@ val emergency_reenable_tls_verification : __context:'a -> unit
 
 val cert_distrib_atom :
   __context:Context.t -> host:API.ref_host -> command:string -> string
+
+val get_host_updates_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit
+
+val apply_updates :
+  __context:Context.t -> self:API.ref_host -> hash:string -> unit

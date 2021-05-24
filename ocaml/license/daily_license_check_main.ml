@@ -22,5 +22,6 @@ let _ =
         Daily_license_check.check_license now pool_license_state
           all_license_params
       in
-      Daily_license_check.execute rpc session pool result)
+      Daily_license_check.execute rpc session pool result
+      )
     (fun () -> XenAPI.Session.logout rpc session)

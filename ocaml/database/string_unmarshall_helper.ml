@@ -30,7 +30,8 @@ let map f g (m : string) =
           | SExpr.Node [SExpr.String k; SExpr.String v] ->
               (f k, g v)
           | _ ->
-              raise (Failure m))
+              raise (Failure m)
+          )
         xs
   | _ ->
       raise (Failure m)

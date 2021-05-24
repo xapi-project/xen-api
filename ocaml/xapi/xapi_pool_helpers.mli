@@ -37,7 +37,8 @@ val call_fn_on_master_then_slaves :
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
       -> host:API.ref_host
-      -> 'a)
+      -> 'a
+     )
   -> unit
 (** Call the function on the master, then on each of the slaves in turn. Useful
     when attaching an SR to all hosts in the pool. *)
@@ -47,7 +48,8 @@ val call_fn_on_slaves_then_master :
   -> (   rpc:(Rpc.call -> Rpc.response)
       -> session_id:API.ref_session
       -> host:[`host] Ref.t
-      -> 'a)
+      -> 'a
+     )
   -> unit
 (** Call the function on the slaves first. When those calls have all
  *  returned, call the function on the master. *)
