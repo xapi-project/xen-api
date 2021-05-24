@@ -29,6 +29,16 @@ val install_server_certificate :
      returned, if the file was successfully written the leaf certificate is
      returned for further inspection, if needed. *)
 
+val validate_not_expired :
+     string
+  -> error_not_yet:string
+  -> error_expired:string
+  -> error_invalid:string
+  -> (X509.Certificate.t, exn) result
+(** [validate_not_expired blob ~error_not_yet ~error_expired ~error_invalid] converts a
+  * certificate blob to its ocaml representation, and checks that it has not
+  * expired *)
+
 (** The following functions are exposed exclusively for unit-testing, please
     do not use them directly, they are not stable *)
 

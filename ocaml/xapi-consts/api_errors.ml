@@ -1072,11 +1072,17 @@ let server_certificate_key_rsa_multi_not_supported =
 
 let server_certificate_invalid = "SERVER_CERTIFICATE_INVALID"
 
+let ca_certificate_invalid = "CA_CERTIFICATE_INVALID"
+
 let server_certificate_key_mismatch = "SERVER_CERTIFICATE_KEY_MISMATCH"
 
 let server_certificate_not_valid_yet = "SERVER_CERTIFICATE_NOT_VALID_YET"
 
+let ca_certificate_not_valid_yet = "CA_CERTIFICATE_NOT_VALID_YET"
+
 let server_certificate_expired = "SERVER_CERTIFICATE_EXPIRED"
+
+let ca_certificate_expired = "CA_CERTIFICATE_EXPIRED"
 
 let server_certificate_signature_not_supported =
   "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
