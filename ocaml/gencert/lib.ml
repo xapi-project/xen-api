@@ -98,7 +98,8 @@ let validate_private_key pkcs8_private_key =
                ] )
          else (
            D.info {|Failed to validate private key because "%s"|} err_msg ;
-           `Msg (server_certificate_key_invalid, [])))
+           `Msg (server_certificate_key_invalid, [])
+         ))
   >>= ensure_key_length
 
 let validate_certificate kind pem now private_key =
@@ -137,8 +138,8 @@ let validate_certificate kind pem now private_key =
   | Leaf ->
       X509.Certificate.decode_pem raw_pem
       |> R.reword_error (fun (`Msg err_msg) ->
-          D.info {|Failed to validate certificate because "%s"|} err_msg ;
-          `Msg (server_certificate_invalid, []))
+             D.info {|Failed to validate certificate because "%s"|} err_msg ;
+             `Msg (server_certificate_invalid, []))
       >>= ensure_keys_match private_key
       >>= ensure_validity ~time:now
       >>= ensure_sha256_signature_algorithm

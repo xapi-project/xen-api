@@ -380,7 +380,7 @@ let check_operation_error ~__context ?(sr_records = []) ?(pbd_records = [])
                       None
                 | `snapshot when record.Db_actions.vDI_sharable ->
                     Some (Api_errors.vdi_is_sharable, [_ref])
-                | `snapshot | `copy when reset_on_boot ->
+                | (`snapshot | `copy) when reset_on_boot ->
                     Some
                       ( Api_errors.vdi_on_boot_mode_incompatible_with_operation
                       , [] )
