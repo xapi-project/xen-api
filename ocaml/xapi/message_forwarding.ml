@@ -988,14 +988,22 @@ functor
         Xapi_pool_helpers.with_pool_operation ~__context
           ~doc:"Pool.enable_tls_verification" ~self ~op:`tls_verification_enable
           (fun () ->
+            debug "Pool.enable_tls_verification start ... (1/2)" ;
             Cert_distrib.exchange_certificates_among_all_members ~__context ;
+            while Xapi_fist.pause_after_cert_exchange () do
+              debug "Pool.enable_tls_verification sleeping on fistpoint" ;
+              Thread.delay 5.0
+            done ;
             all_hosts
             |> List.iter (fun host ->
                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
                        Client.Pool.enable_tls_verification rpc session_id
-                   )
+                   ) ;
+                   debug "Pool.enable_tls_verification enabling on host %s"
+                     (Ref.string_of host)
                ) ;
-            Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true
+            Db.Pool.set_tls_verification_enabled ~__context ~self ~value:true ;
+            debug "Pool.enable_tls_verification completed (2/2)"
         )
 
       let set_repositories ~__context ~self ~value =

@@ -108,6 +108,8 @@ let storage_motion_keep_vdi () = fistpoint "storage_motion_keep_vdi"
 
 let delay_xenopsd_event_threads () = fistpoint "delay_xenopsd_event_threads"
 
+let pause_after_cert_exchange () = fistpoint "pause_after_cert_exchange"
+
 let hang_psr psr_checkpoint =
   ( match psr_checkpoint with
   | `backup ->

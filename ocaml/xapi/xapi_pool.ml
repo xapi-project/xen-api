@@ -3240,7 +3240,41 @@ let alert_failed_login_attempts () =
             ~body:stats
       )
 
+let perform ~local_fn ~__context ~host op =
+  let rpc' context hostname (task_opt : API.ref_task option) xml =
+    let open Xmlrpc_client in
+    let verify_cert = Some Stunnel.pool (* verify! *) in
+    let task_id = Option.map Ref.string_of task_opt in
+    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let port = !Constants.https_port in
+    let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
+    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+  in
+  let open Message_forwarding in
+  do_op_on_common ~local_fn ~__context ~host op (call_slave_with_session rpc')
+
+(** [ping_with_tls_verification host] calls [Pool.is_slave] using a TLS
+connection that uses certficate checking. We ignore the result but are
+interested in any failures that would indicate connection problems,
+which would raise an exception. We can't use the standard
+[Message_forwarding.do_op_on_common] because certificate checking is not
+yet enabled. *)
+
+let ping_with_tls_verification ~__context host =
+  let local_fn = is_slave ~host in
+  let this_uuid = Helpers.get_localhost_uuid () in
+  let remote_uuid = Db.Host.get_uuid __context host in
+  info "pinging host before enabling TLS: %s -> %s" this_uuid remote_uuid ;
+  Server_helpers.exec_with_subtask ~__context "pool.ping" (fun ~__context ->
+      perform ~local_fn ~__context ~host (fun session_id rpc ->
+          Client.Pool.is_slave rpc session_id host
+      )
+  )
+  |> ignore
+
 let enable_tls_verification ~__context =
+  let hosts = Db.Host.get_all ~__context in
+  List.iter (ping_with_tls_verification ~__context) hosts ;
   Stunnel_client.set_verify_by_default true ;
   Helpers.touch_file Xapi_globs.verify_certificates_path
 
