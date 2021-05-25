@@ -62,7 +62,6 @@ let execute rpc session existing_messages (host, alert) =
         || record.API.message_priority <> priority
       in
       let outdated, current = List.partition is_outdated messages_in_host in
-
       List.iter
         (fun (self, _) -> XenAPI.Message.destroy rpc session self)
         outdated ;

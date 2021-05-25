@@ -81,32 +81,43 @@ let response_file s file_path =
   in
   Http_svr.response_file ~mime_content_type s file_path
 
+let access_forbidden req s =
+  (* Reject external non-TLS requests (depending on config) *)
+  !Xapi_globs.website_https_only
+  && (not (Context.is_unix_socket s))
+  && Context._client_of_rq req = None
+
 let send_file (uri_base : string) (dir : string) (req : Request.t)
     (bio : Buf_io.t) _ =
   let uri_base_len = String.length uri_base in
   let s = Buf_io.fd_of bio in
   Buf_io.assert_buffer_empty bio ;
-  let uri = req.Request.uri in
-  try
-    let relative_url =
-      String.sub uri uri_base_len (String.length uri - uri_base_len)
-    in
-    (* file_path is the thing which should be served *)
-    let file_path = dir ^ "/" ^ relative_url in
-    (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
-    let file_path = Stdext.Unixext.resolve_dot_and_dotdot file_path in
-    if not (String.startswith dir file_path) then (
-      debug "Rejecting request for file: %s (outside of directory %s)" file_path
-        dir ;
-      Http_svr.response_forbidden ~req s
-    ) else
-      let stat = Unix.stat file_path in
-      (* if a directory, automatically add index.html *)
-      let file_path =
-        if stat.Unix.st_kind = Unix.S_DIR then
-          file_path ^ "/index.html"
-        else
-          file_path
+  if access_forbidden req s then
+    Http_svr.response_forbidden ~req s
+  else
+    let uri = req.Request.uri in
+    try
+      let relative_url =
+        String.sub uri uri_base_len (String.length uri - uri_base_len)
       in
-      response_file s file_path
-  with _ -> Http_svr.response_missing s (missing uri)
+      (* file_path is the thing which should be served *)
+      let file_path = dir ^ "/" ^ relative_url in
+      (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
+      let file_path =
+        Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot file_path
+      in
+      if not (String.startswith dir file_path) then (
+        debug "Rejecting request for file: %s (outside of directory %s)"
+          file_path dir ;
+        Http_svr.response_forbidden ~req s
+      ) else
+        let stat = Unix.stat file_path in
+        (* if a directory, automatically add index.html *)
+        let file_path =
+          if stat.Unix.st_kind = Unix.S_DIR then
+            file_path ^ "/index.html"
+          else
+            file_path
+        in
+        response_file s file_path
+    with _ -> Http_svr.response_missing s (missing uri)
