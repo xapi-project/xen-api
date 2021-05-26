@@ -65,7 +65,7 @@ if __name__ == "__main__":
 	parser.add_option("--novlan", help="no vlan is used for new management interface", dest="novlan", action="store_const", const=True, default=False)
 	parser.add_option("--vlan", help="vlanID for new management interface to be on vlan network", dest="vlan", default=None)
 	parser.add_option("--ip", help="IP address for new management interface", dest="ip", default='')
-	parser.add_option("--ipv6", help="IPv6/CIDR address for new management interface", dest="ipv6", default='')
+	parser.add_option("--ipv6", help="IPv6 address (CIDR format) for new management interface", dest="ipv6", default='')
 	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
 	parser.add_option("--gateway", help="Gateway for new management interface", dest="gateway", default='')
 	parser.add_option("--gateway-v6", help="IPv6 Gateway for new management interface", dest="gateway_v6", default='')
@@ -142,9 +142,9 @@ if __name__ == "__main__":
   
 	if options.mode_v6 == 'static':
 		if options.ipv6 == '':
-	 		parser.error("if static IPv6 mode is selected, an IPv6/CIDR address need to be specified")
+	 		parser.error("if static IPv6 mode is selected, an IPv6 address needs to be specified")
 		elif options.ipv6.find('/') == -1:
-			parser.error("Invalid format: IPv6 must be specified with this format: <IPv6>/<CIDR>")
+			parser.error("Invalid format: IPv6 must be specified with CIDR format: <IPv6>/<prefix>")
 		sys.exit(1)
   
 	# Warn user
