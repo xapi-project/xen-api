@@ -60,14 +60,16 @@ if __name__ == "__main__":
 	parser = OptionParser()
 	parser.add_option("-m", "--master", help="Master's address", dest="address", default=None)
 	parser.add_option("--device", help="Device name of new management interface", dest="device", default=None)
-	parser.add_option("--mode", help='IP configuration mode for new management interface: "dhcp" or "static" (default is dhcp)', dest="mode", default="dhcp")
+	parser.add_option("--mode", help='IP configuration mode for new management interface: "none", "dhcp" or "static" (default is dhcp)', dest="mode", default="dhcp")
+	parser.add_option("--mode-v6", help='IPv6 configuration mode for new management interface: "none", "dhcp", "autoconf" or "static" (default is none)', dest="mode_v6", default="none")
 	parser.add_option("--novlan", help="no vlan is used for new management interface", dest="novlan", action="store_const", const=True, default=False)
 	parser.add_option("--vlan", help="vlanID for new management interface to be on vlan network", dest="vlan", default=None)
 	parser.add_option("--ip", help="IP address for new management interface", dest="ip", default='')
+	parser.add_option("--ipv6", help="IPv6/CIDR address for new management interface", dest="ipv6", default='')
 	parser.add_option("--netmask", help="Netmask for new management interface", dest="netmask", default='')
 	parser.add_option("--gateway", help="Gateway for new management interface", dest="gateway", default='')
+	parser.add_option("--gateway-v6", help="IPv6 Gateway for new management interface", dest="gateway_v6", default='')
 	parser.add_option("--dns", help="DNS server for new management interface", dest="dns", default='')
-	parser.add_option("--use_ipv6", help="Reconfigure network with IPv6", dest="use_ipv6", action="store_const", const=True, default=False)
 	(options, args) = parser.parse_args()
 	
 	# Determine pool role
@@ -121,29 +123,47 @@ if __name__ == "__main__":
 
 	# Determine IP configuration for management interface
 	options.mode = options.mode.lower()
-	if options.mode not in ["dhcp", "static"]:
-		parser.error('mode should be either "dhcp" or "static"')
+	if options.mode not in ["none", "dhcp", "static"]:
+		parser.error('mode should be either "none", "dhcp" or "static"')
+		sys.exit(1)
+
+	options.mode_v6 = options.mode_v6.lower()
+	if options.mode not in ["none", "autoconf", "dhcp", "static"]:
+		parser.error('mode-v6 should be either "none", "autoconf", "dhcp" or "static"')
+		sys.exit(1)
+
+	if options.mode == "none" and options.mode_v6 == "none":
+		parser.error("Either mode or mode-v6 must be not 'none'")
 		sys.exit(1)
 		
 	if options.mode == 'static' and (options.ip == '' or options.netmask == ''):
 		parser.error("if static IP mode is selected, an IP address and netmask need to be specified")
 		sys.exit(1)
-	
+  
+	if options.mode_v6 == 'static':
+		if options.ipv6 == '':
+	 		parser.error("if static IPv6 mode is selected, an IPv6/CIDR address need to be specified")
+		elif options.ipv6.find('/') == -1:
+			parser.error("Invalid format: IPv6 must be specified with this format: <IPv6>/<CIDR>")
+		sys.exit(1)
+  
 	# Warn user
 	if not os.access('/tmp/fist_network_reset_no_warning', os.F_OK):
 		configuration = []
 		configuration.append("Management interface:   " + device)
 		configuration.append("IP configuration mode:  " + options.mode)
+		configuration.append("IPv6 configuration mode:" + options.mode_v6)
 		if vlan != None:
 			configuration.append("Vlan:                   " + vlan)
 		if options.mode == "static":
-			if not options.use_ipv6:
-				configuration.append("IP address:             " + options.ip)
-				configuration.append("Netmask:                " + options.netmask)
-			else:
-				configuration.append("IPv6 address:           " + options.ip + "/" + options.netmask)
+			configuration.append("IP address:             " + options.ip)
+			configuration.append("Netmask:                " + options.netmask)
+		if options.mode_v6 == "static":
+			configuration.append("IPv6/CIDR:              " + options.ipv6)
 		if options.gateway != '':
 			configuration.append("Gateway:                " + options.gateway)
+		if options.gateway_v6 != '':
+			configuration.append("IPv6 gateway:           " + options.gateway_v6)
 		if options.dns != '':
 			configuration.append("DNS server(s):          " + options.dns)
 		if master == False:
@@ -210,22 +230,29 @@ Type 'no' to cancel.
 	write_inventory(inventory)
 
 	# Rewrite firstboot management.conf file, which will be picked it by xcp-networkd on restart (if used)
+	is_static = False
 	try:
 		f = file(management_conf, 'w')
 		f.write("LABEL='" + device + "'\n")
-		f.write(("MODEV6" if options.use_ipv6 else "MODE") + "='" + options.mode + "'\n")
+		if options.mode != "none":
+			f.write("MODE='" + options.mode + "'\n")
+		if options.mode_v6 != "none":
+			f.write("MODEV6='" + options.mode_v6 + "'\n")
 		if vlan != None:
 			f.write("VLAN='" + vlan + "'\n")
 		if options.mode == 'static':
-			if not options.use_ipv6:
-				f.write("IP='" + options.ip + "'\n")
-				f.write("NETMASK='" + options.netmask + "'\n")
-			else:
-				f.write("IPv6='" + options.ip + "/" + options.netmask + "'\n")
+			is_static = True
+			f.write("IP='" + options.ip + "'\n")
+			f.write("NETMASK='" + options.netmask + "'\n")
 			if options.gateway != '':
-				f.write(("IPv6_GATEWAY" if options.use_ipv6 else "GATEWAY") + "='" + options.gateway + "'\n")
-			if options.dns != '':
-				f.write("DNS='" + options.dns + "'\n")
+				f.write("GATEWAY='" + options.gateway + "'\n")
+		if options.mode_v6 == "static":
+			is_static = True
+			f.write("IPv6='" + options.ipv6 + "'\n")
+			if options.gateway_v6 != '':
+				f.write("IPv6_GATEWAY='" + options.gateway_v6 + "'\n")
+		if is_static and options.dns != '':
+			f.write("DNS='" + options.dns + "'\n")
 	finally:
 		f.flush()
 		os.fsync(f.fileno())
@@ -235,19 +262,23 @@ Type 'no' to cancel.
 	try:
 		f = file(network_reset, 'w')
 		f.write('DEVICE=' + device + '\n')
-		f.write(('MODE_V6' if options.use_ipv6 else 'MODE') + '=' + options.mode + '\n')
+		if options.mode != "none":
+			f.write('MODE=' + options.mode + '\n')
+		if options.mode_v6 != "none":
+			f.write('MODE_V6=' + options.mode_v6 + '\n')
 		if vlan != None:
 			f.write('VLAN=' + vlan + '\n')
 		if options.mode == 'static':
-			if not options.use_ipv6:
-				f.write('IP=' + options.ip + '\n')
-				f.write('NETMASK=' + options.netmask + '\n')
-			else:
-				f.write('IPV6=' + options.ip + '/' + options.netmask + '\n')
+			f.write('IP=' + options.ip + '\n')
+			f.write('NETMASK=' + options.netmask + '\n')
 			if options.gateway != '':
-				f.write(('GATEWAY_V6' if options.use_ipv6 else 'GATEWAY') + '=' + options.gateway + '\n')
-			if options.dns != '':
-				f.write('DNS=' + options.dns + '\n')
+				f.write('GATEWAY=' + options.gateway + '\n')
+		if options.mode_v6 == "static":
+			f.write('IPV6=' + options.ipv6 + '\n')
+			if options.gateway_v6 != '':
+				f.write('GATEWAY_V6=' + options.gateway_v6 + '\n')
+		if is_static and options.dns != '':
+			f.write('DNS=' + options.dns + '\n')
 	finally:
 		f.flush()
 		os.fsync(f.fileno())
