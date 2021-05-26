@@ -47,7 +47,7 @@ module Ext_auth = struct
     (* the PBIS authentication plugin *)
     | "AD" ->
         (*windows active directory*)
-        Extauth_ad.methods
+        Extauth_ad.methods()
     (* if no other auth_type fits, then we don't know what to do *)
     | _ as uat ->
         (*error*)
