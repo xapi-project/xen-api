@@ -1245,7 +1245,9 @@ let _ =
   error Api_errors.updateinfo_hash_mismatch []
     ~doc:"The hash of updateinfo doesn't match with current one. There may be newer available updates." ();
   error Api_errors.updates_require_sync []
-    ~doc:"A call to pool.sync_updates is required before this operation." ()
+    ~doc:"A call to pool.sync_updates is required before this operation." ();
+  error Api_errors.cannot_restart_device_model ["ref"]
+    ~doc:"Cannot restart device models of paused VMs residing on the host." ()
 
 
 let _ =

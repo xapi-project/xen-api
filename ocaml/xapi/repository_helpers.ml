@@ -16,7 +16,6 @@ module D = Debug.Make (struct let name = "repository_helpers" end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
-module GuidanceStrSet = Set.Make (String)
 module UpdateIdSet = Set.Make (String)
 
 let exposing_pool_repo_mutex = Mutex.create ()
@@ -103,6 +102,8 @@ module Guidance = struct
 
   type guidance_kind = Absolute | Recommended
 
+  let compare = Stdlib.compare
+
   let to_string = function
     | RebootHost ->
         "RebootHost"
@@ -133,10 +134,15 @@ module Guidance = struct
     | _ ->
         error "Unknown node in <absolute|recommended_guidances>" ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+end
 
-  let set_of_list l = l |> List.map to_string |> GuidanceStrSet.of_list
+module GuidanceSet' = Set.Make (Guidance)
 
-  let eq l s = GuidanceStrSet.equal (set_of_list l) (set_of_list s)
+module GuidanceSet = struct
+  include GuidanceSet'
+  open Guidance
+
+  let eq l s = equal (of_list l) (of_list s)
 
   let eq_set1 = eq [EvacuateHost; RestartToolstack]
 
@@ -173,12 +179,14 @@ module Guidance = struct
         let msg = error_msg l in
         raise Api_errors.(Server_error (internal_error, [msg]))
 
-  let resort_guidances gs =
-    match GuidanceStrSet.find_opt "RebootHost" gs with
-    | Some _ ->
-        GuidanceStrSet.singleton "RebootHost"
-    | None ->
+  let resort_guidances ~kind gs =
+    match (find_opt RebootHost gs, kind) with
+    | Some _, _ ->
+        singleton RebootHost
+    | None, Recommended ->
         gs
+    | None, Absolute ->
+        filter (fun g -> g <> EvacuateHost) gs
 end
 
 module Applicability = struct
@@ -965,35 +973,34 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
             debug "%s" (dbg_msg true) ;
             ( match kind with
             | Guidance.Absolute ->
-                List.map Guidance.to_string updateinfo.UpdateInfo.abs_guidances
+                updateinfo.UpdateInfo.abs_guidances
             | Guidance.Recommended ->
-                List.map Guidance.to_string updateinfo.UpdateInfo.rec_guidances
+                updateinfo.UpdateInfo.rec_guidances
             )
-            |> GuidanceStrSet.of_list
+            |> GuidanceSet.of_list
         | _ ->
             debug "%s" (dbg_msg false) ;
-            GuidanceStrSet.empty
+            GuidanceSet.empty
       )
     | None ->
         warn "Can't find update ID %s from updateinfo.xml for update %s.%s" uid
           update.name update.arch ;
-        GuidanceStrSet.empty
+        GuidanceSet.empty
   )
   | None ->
       warn "Ignore evaluating against package %s.%s as its update ID is missing"
         update.name update.arch ;
-      GuidanceStrSet.empty
+      GuidanceSet.empty
 
 let eval_guidances ~updates_info ~updates ~kind =
   List.fold_left
     (fun acc u ->
-      GuidanceStrSet.union acc
+      GuidanceSet.union acc
         (eval_guidance_for_one_update ~updates_info ~update:u ~kind)
       )
-    GuidanceStrSet.empty updates
-  |> Guidance.resort_guidances
-  |> GuidanceStrSet.elements
-  |> List.map Guidance.of_string
+    GuidanceSet.empty updates
+  |> GuidanceSet.resort_guidances ~kind
+  |> GuidanceSet.elements
 
 let get_rpm_update_in_json ~rpm2updates ~installed_pkgs line =
   let sep = Re.Str.regexp " +" in
@@ -1081,22 +1088,24 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ([], UpdateIdSet.empty, [])
       all_updates
   in
-  let rec_guidances =
-    List.map
-      (fun g -> `String (Guidance.to_string g))
-      (eval_guidances ~updates_info ~updates ~kind:Recommended)
+  let rec_guidances = eval_guidances ~updates_info ~updates ~kind:Recommended in
+  let abs_guidances_in_json =
+    let abs_guidances =
+      List.filter
+        (fun g -> not (List.mem g rec_guidances))
+        (eval_guidances ~updates_info ~updates ~kind:Absolute)
+    in
+    List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
-  let abs_guidances =
-    List.map
-      (fun g -> `String (Guidance.to_string g))
-      (eval_guidances ~updates_info ~updates ~kind:Absolute)
+  let rec_guidances_in_json =
+    List.map (fun g -> `String (Guidance.to_string g)) rec_guidances
   in
   let json_of_host =
     `Assoc
       [
         ("ref", `String host)
-      ; ("recommended-guidance", `List rec_guidances)
-      ; ("absolute-guidance", `List abs_guidances)
+      ; ("recommended-guidance", `List rec_guidances_in_json)
+      ; ("absolute-guidance", `List abs_guidances_in_json)
       ; ("RPMS", `List (List.map (fun r -> `String r) rpms))
       ; ( "updates"
         , `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids))

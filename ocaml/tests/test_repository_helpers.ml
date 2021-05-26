@@ -227,7 +227,7 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
       ]
 end)
 
-module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
+module GuidanceSetAssertValidGuidanceTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = Guidance.t list
 
@@ -241,7 +241,7 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
   end
 
   let transform input =
-    try Ok (Guidance.assert_valid_guidances input) with e -> Error e
+    try Ok (GuidanceSet.assert_valid_guidances input) with e -> Error e
 
   let tests =
     let open Guidance in
@@ -261,7 +261,7 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
             Api_errors.(
               Server_error
                 ( internal_error
-                , [Guidance.error_msg [RebootHost; RestartToolstack]]
+                , [GuidanceSet.error_msg [RebootHost; RestartToolstack]]
                 )
             )
         )
@@ -270,7 +270,7 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
             Api_errors.(
               Server_error
                 ( internal_error
-                , [Guidance.error_msg [RebootHost; RestartDeviceModel]]
+                , [GuidanceSet.error_msg [RebootHost; RestartDeviceModel]]
                 )
             )
         )
@@ -278,7 +278,9 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
         , Error
             Api_errors.(
               Server_error
-                (internal_error, [Guidance.error_msg [RebootHost; EvacuateHost]])
+                ( internal_error
+                , [GuidanceSet.error_msg [RebootHost; EvacuateHost]]
+                )
             )
         )
       ]
@@ -1006,7 +1008,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
   module Io = struct
     type input_t = (string * UpdateInfo.t) list * Update.t
 
-    type output_t = GuidanceStrSet.t
+    type output_t = GuidanceSet.t
 
     let string_of_input_t =
       Fmt.(
@@ -1019,7 +1021,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
       )
 
     let string_of_output_t s =
-      Fmt.(str "%a" Dump.(list string)) (GuidanceStrSet.elements s)
+      Fmt.(str "%a" Dump.(list string))
+        (List.map Guidance.to_string (GuidanceSet.elements s))
   end
 
   let transform (updates_info, update) =
@@ -1044,7 +1047,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , GuidanceSet.empty
         )
       ; (* Update ID in update can't be found in updateinfo list *)
         ( ( [
@@ -1093,7 +1096,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , GuidanceSet.empty
         )
       ; (* No update ID in update *)
         ( ( [
@@ -1126,7 +1129,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , GuidanceSet.empty
         )
       ; (* Empty applicabilities *)
         ( ( [
@@ -1174,7 +1177,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.of_list ["EvacuateHost"]
+        , GuidanceSet.of_list [EvacuateHost]
         )
       ; (* Matched applicability *)
         ( ( [
@@ -1237,7 +1240,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.of_list ["EvacuateHost"; "RestartDeviceModel"]
+        , GuidanceSet.of_list [EvacuateHost; RestartDeviceModel]
         )
       ; (* Matched in multiple applicabilities *)
         ( ( [
@@ -1312,7 +1315,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.of_list ["EvacuateHost"; "RestartDeviceModel"]
+        , GuidanceSet.of_list [EvacuateHost; RestartDeviceModel]
         )
       ; (* No matched applicability *)
         ( ( [
@@ -1375,7 +1378,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , GuidanceSet.empty
         )
       ; (* Unmatched arch *)
         ( ( [
@@ -1437,7 +1440,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , GuidanceSet.empty
         )
       ]
 end)
@@ -1975,12 +1978,56 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
       ]
 end)
 
+module GuidanceSetResortGuidancesTest = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = Guidance.guidance_kind * Guidance.t list
+
+    type output_t = Guidance.t list
+
+    let string_of_input_t (kind, l) =
+      let kind' =
+        match kind with
+        | Guidance.Recommended ->
+            "Recommended"
+        | Guidance.Absolute ->
+            "Absolute"
+      in
+      kind'
+      ^ ", "
+      ^ Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
+
+    let string_of_output_t l =
+      Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
+  end
+
+  let transform (kind, guidances) =
+    guidances
+    |> GuidanceSet.of_list
+    |> GuidanceSet.resort_guidances ~kind
+    |> GuidanceSet.elements
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ((Guidance.Recommended, [Guidance.RebootHost]), [Guidance.RebootHost])
+      ; ( (Guidance.Recommended, [Guidance.RebootHost; Guidance.RebootHost])
+        , [Guidance.RebootHost]
+        )
+      ; ( ( Guidance.Recommended
+          , [Guidance.RebootHost; Guidance.RestartDeviceModel]
+          )
+        , [Guidance.RebootHost]
+        )
+      ; ((Guidance.Absolute, [Guidance.EvacuateHost]), [])
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
       ("pkg_of_fullname", PkgOfFullnameTest.tests)
     ; ("update_of_json", UpdateOfJsonTest.tests)
-    ; ("guidance_assert_valid_guidances", GuidanceAssertValidGuidanceTest.tests)
+    ; ("assert_valid_guidances", GuidanceSetAssertValidGuidanceTest.tests)
     ; ( "applicability_compare_version_strings"
       , ApplicabilityCompareVersionStringsTest.tests
       )
@@ -1993,4 +2040,5 @@ let tests =
     ; ("get_rpm_update_in_json", GetRpmUpdateInJson.tests)
     ; ("consolidate_updates_of_host", ConsolidateUpdatesOfHost.tests)
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
+    ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ]

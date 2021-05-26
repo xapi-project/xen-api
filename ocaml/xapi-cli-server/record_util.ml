@@ -185,6 +185,14 @@ let host_operation_to_string = function
   | `apply_updates ->
       "apply_updates"
 
+let update_guidance_to_string = function
+  | `reboot_host ->
+      "reboot_host"
+  | `restart_toolstack ->
+      "restart_toolstack"
+  | `restart_device_model ->
+      "restart_device_model"
+
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->
       "clone"
