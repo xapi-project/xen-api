@@ -577,8 +577,37 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Raises auth_failure if authentication is not successful
   *)
 
-  let authenticate_username_password username password =
-    "authenticate_ticket To be implemented in CP-35399"
+let authenticate_username_password uname password =
+  (* the ntlm_auth binary expects the username to be in either SAM or UPN format.
+   * we use wbinfo to try to convert the provided [uname] into said format.
+   * as a last ditch attempt, we try to auth with the provided [uname]
+   *
+   * see CA-346287 for more information *)
+  let orig_uname = uname in
+  (let* sid =
+     (* we change the exception, since otherwise we get an (incorrect) error
+      * message saying that credentials are correct, but we are not authorized *)
+     get_subject_identifier' uname <!> function
+     | Auth_failure _ as e ->
+         e
+     | Auth_service_error (E_GENERIC, msg) ->
+         Auth_failure msg
+     | e ->
+         D.error "authenticate_username_password:ex: %s" (Printexc.to_string e) ;
+         Auth_failure
+           (Printf.sprintf "couldn't get SID from username='%s'" uname)
+   in
+   let* () =
+     match Wbinfo.name_of_sid sid >>| Wbinfo.string_of_name with
+     | Error e ->
+         D.warn "authenticate_username_password: trying original uname. ex: %s"
+           (Printexc.to_string e) ;
+         ntlm_auth orig_uname password
+     | Ok uname ->
+         ntlm_auth orig_uname password
+   in
+   Ok sid)
+  |> maybe_raise
 
   (* subject_id Authenticate_ticket(string ticket)
 
