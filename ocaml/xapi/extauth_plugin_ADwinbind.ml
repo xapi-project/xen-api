@@ -618,6 +618,42 @@ let authenticate_username_password uname password =
   let authenticate_ticket tgt =
     failwith "extauth_plugin authenticate_ticket not implemented"
 
+  let query_subject_information_group (name : string) (gid : int) (sid : string)
+      =
+    [
+      ("subject-name", name)
+    ; ("subject-gid", string_of_int gid)
+    ; ("subject-sid", sid)
+    ; ("subject-is-group", string_of_bool true)
+    ]
+
+  let query_subject_information_user (name : string) (uid : int) (sid : string)
+      =
+    let* {gecos; gid} = Wbinfo.uid_info_of_uid uid in
+    let* {
+           upn
+         ; account_disabled
+         ; account_expired
+         ; account_locked
+         ; password_expired
+         } =
+      Ldap.query_user sid
+    in
+    Ok
+      [
+        ("subject-name", name)
+      ; ("subject-gecos", gecos)
+      ; ( "subject-displayname"
+        , if gecos = "" || gecos = "<null>" then name else gecos )
+      ; ("subject-uid", string_of_int uid)
+      ; ("subject-gid", string_of_int gid)
+      ; ("subject-upn", upn)
+      ; ("subject-account-disabled", string_of_bool account_disabled)
+      ; ("subject-account-locked", string_of_bool account_locked)
+      ; ("subject-account-expired", string_of_bool account_expired)
+      ; ("subject-password-expired", string_of_bool password_expired)
+      ; ("subject-is-group", string_of_bool false)
+      ]
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
 
@@ -629,8 +665,23 @@ let authenticate_username_password uname password =
       it's a string*string list anyway for possible future expansion.
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
-  let query_subject_information subject_identifier =
-    failwith "extauth_plugin authenticate_ticket not implemented"
+  let query_subject_information (sid : string) =
+    (* we have to aggregate information from wbinfo and / or an ldap query (using net binary)
+     * to begin with, we don't even know if the sid belongs to a group or a user
+     * so we first do a test with [gid_of_sid] + [uid_of_sid] *)
+    let res =
+      let* name = Wbinfo.name_of_sid sid in
+      match name with
+      | User name ->
+          let* uid = Wbinfo.uid_of_sid sid in
+          query_subject_information_user name uid sid
+      | Other name ->
+          (* if the name doesn't correspond to a user then it ought to be a group *)
+          let* gid = Wbinfo.gid_of_sid sid in
+          Ok (query_subject_information_group name gid sid)
+    in
+    (* we must raise Not_found here. see xapi_pool.ml:revalidate_subjects *)
+    maybe_raise_not_found res
 
   (* (string list) query_group_membership(string subject_identifier)
 
