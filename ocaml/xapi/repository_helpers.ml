@@ -114,8 +114,6 @@ module Guidance = struct
     | RestartDeviceModel ->
         "RestartDeviceModel"
 
-  exception Unknown_guidance
-
   let of_string = function
     | "RebootHost" ->
         RebootHost
@@ -126,13 +124,7 @@ module Guidance = struct
     | "RestartDeviceModel" ->
         RestartDeviceModel
     | _ ->
-        raise Unknown_guidance
-
-  let of_xml = function
-    | Xml.Element ("guidance", _, [Xml.PCData v]) ->
-        of_string v
-    | _ ->
-        error "Unknown node in <absolute|recommended_guidances>" ;
+        error "Unknown node in <absolute|recommended_guidance>" ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
 end
 
@@ -481,13 +473,16 @@ module UpdateInfo = struct
       id: string
     ; summary: string
     ; description: string
-    ; rec_guidances: Guidance.t list
-    ; abs_guidances: Guidance.t list
+    ; rec_guidance: Guidance.t option
+    ; abs_guidance: Guidance.t option
     ; guidance_applicabilities: Applicability.t list
     ; spec_info: string
     ; url: string
     ; update_type: string
   }
+
+  let guidance_to_string o =
+    Option.value (Option.map Guidance.to_string o) ~default:""
 
   let to_json ui =
     `Assoc
@@ -498,22 +493,15 @@ module UpdateInfo = struct
       ; ("special-info", `String ui.spec_info)
       ; ("URL", `String ui.url)
       ; ("type", `String ui.update_type)
-      ; ( "recommended-guidance"
-        , `List
-            (List.map (fun g -> `String (Guidance.to_string g)) ui.rec_guidances)
-        )
-      ; ( "absolute-guidance"
-        , `List
-            (List.map (fun g -> `String (Guidance.to_string g)) ui.abs_guidances)
-        )
+      ; ("recommended-guidance", `String (guidance_to_string ui.rec_guidance))
+      ; ("absolute-guidance", `String (guidance_to_string ui.abs_guidance))
       ]
 
   let to_string ui =
     Printf.sprintf
-      "id=%s rec_guidances=%s abs_guidances=%s guidance_applicabilities=%s"
-      ui.id
-      (String.concat ";" (List.map Guidance.to_string ui.rec_guidances))
-      (String.concat ";" (List.map Guidance.to_string ui.abs_guidances))
+      "id=%s rec_guidance=%s abs_guidance=%s guidance_applicabilities=%s" ui.id
+      (guidance_to_string ui.rec_guidance)
+      (guidance_to_string ui.abs_guidance)
       (String.concat ";"
          (List.map Applicability.to_string ui.guidance_applicabilities)
       )
@@ -523,8 +511,8 @@ module UpdateInfo = struct
       id= ""
     ; summary= ""
     ; description= ""
-    ; rec_guidances= []
-    ; abs_guidances= []
+    ; rec_guidance= None
+    ; abs_guidance= None
     ; guidance_applicabilities= []
     ; spec_info= ""
     ; url= ""
@@ -579,10 +567,11 @@ module UpdateInfo = struct
                           {acc with summary= v}
                       | Xml.Element ("description", _, [Xml.PCData v]) ->
                           {acc with description= v}
-                      | Xml.Element ("recommended_guidances", _, gs) ->
-                          {acc with rec_guidances= List.map Guidance.of_xml gs}
-                      | Xml.Element ("absolute_guidances", _, gs) ->
-                          {acc with abs_guidances= List.map Guidance.of_xml gs}
+                      | Xml.Element ("recommended_guidance", _, [Xml.PCData v])
+                        ->
+                          {acc with rec_guidance= Some (Guidance.of_string v)}
+                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v]) ->
+                          {acc with abs_guidance= Some (Guidance.of_string v)}
                       | Xml.Element ("guidance_applicabilities", _, apps) ->
                           {
                             acc with
@@ -969,34 +958,36 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
         in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
         match (List.exists is_applicable apps, apps) with
-        | true, _ | false, [] ->
+        | true, _ | false, [] -> (
             debug "%s" (dbg_msg true) ;
-            ( match kind with
+            match kind with
             | Guidance.Absolute ->
-                updateinfo.UpdateInfo.abs_guidances
+                updateinfo.UpdateInfo.abs_guidance
             | Guidance.Recommended ->
-                updateinfo.UpdateInfo.rec_guidances
-            )
-            |> GuidanceSet.of_list
+                updateinfo.UpdateInfo.rec_guidance
+          )
         | _ ->
             debug "%s" (dbg_msg false) ;
-            GuidanceSet.empty
+            None
       )
     | None ->
         warn "Can't find update ID %s from updateinfo.xml for update %s.%s" uid
           update.name update.arch ;
-        GuidanceSet.empty
+        None
   )
   | None ->
       warn "Ignore evaluating against package %s.%s as its update ID is missing"
         update.name update.arch ;
-      GuidanceSet.empty
+      None
 
 let eval_guidances ~updates_info ~updates ~kind =
   List.fold_left
     (fun acc u ->
-      GuidanceSet.union acc
-        (eval_guidance_for_one_update ~updates_info ~update:u ~kind)
+      match eval_guidance_for_one_update ~updates_info ~update:u ~kind with
+      | Some g ->
+          GuidanceSet.add g acc
+      | None ->
+          acc
       )
     GuidanceSet.empty updates
   |> GuidanceSet.resort_guidances ~kind

@@ -487,12 +487,12 @@ let fields_of_updateinfo =
       field "id" (fun (r : UpdateInfo.t) -> r.id) string
     ; field "summary" (fun (r : UpdateInfo.t) -> r.summary) string
     ; field "description" (fun (r : UpdateInfo.t) -> r.description) string
-    ; field "rec_guidances"
-        (fun (r : UpdateInfo.t) -> List.map Guidance.to_string r.rec_guidances)
-        (list string)
-    ; field "abs_guidances"
-        (fun (r : UpdateInfo.t) -> List.map Guidance.to_string r.abs_guidances)
-        (list string)
+    ; field "rec_guidance"
+        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.rec_guidance)
+        string
+    ; field "abs_guidance"
+        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.abs_guidance)
+        string
     ; field "guidance_applicabilities"
         (fun (r : UpdateInfo.t) ->
           List.map Applicability.to_string r.guidance_applicabilities
@@ -551,8 +551,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -568,8 +566,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -585,8 +581,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -602,8 +596,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <summary>summary</summary>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -620,8 +612,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
               <update type="security">
@@ -631,8 +621,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -649,8 +637,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -663,8 +649,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -684,8 +670,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
               <update type="security">
@@ -695,8 +679,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -709,8 +691,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -724,8 +706,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -745,13 +727,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances>
-                  <guidance>RestartDeviceModel</guidance>
-                </recommended_guidances>
-                <absolute_guidances>
-                  <guidance>RestartDeviceModel</guidance>
-                  <guidance>EvacuateHost</guidance>
-                </absolute_guidances>
+                <recommended_guidance>RestartDeviceModel</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
                 <guidance_applicabilities>
                   <applicability>
                     <name>xsconsole</name>
@@ -781,12 +758,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.of_string "RestartDeviceModel"]
-                  ; abs_guidances=
-                      [
-                        Guidance.of_string "RestartDeviceModel"
-                      ; Guidance.of_string "EvacuateHost"
-                      ]
+                  ; rec_guidance= Some Guidance.RestartDeviceModel
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1008,7 +981,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
   module Io = struct
     type input_t = (string * UpdateInfo.t) list * Update.t
 
-    type output_t = GuidanceSet.t
+    type output_t = Guidance.t option
 
     let string_of_input_t =
       Fmt.(
@@ -1020,9 +993,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
           )
       )
 
-    let string_of_output_t s =
-      Fmt.(str "%a" Dump.(list string))
-        (List.map Guidance.to_string (GuidanceSet.elements s))
+    let string_of_output_t g =
+      Fmt.(str "%a" Dump.(string)) (UpdateInfo.guidance_to_string g)
   end
 
   let transform (updates_info, update) =
@@ -1047,7 +1019,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.empty
+        , None
         )
       ; (* Update ID in update can't be found in updateinfo list *)
         ( ( [
@@ -1057,8 +1029,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.EvacuateHost]
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= Some Guidance.EvacuateHost
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1072,8 +1044,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.EvacuateHost]
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= Some Guidance.EvacuateHost
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1096,7 +1068,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.empty
+        , None
         )
       ; (* No update ID in update *)
         ( ( [
@@ -1106,8 +1078,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.EvacuateHost]
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= Some Guidance.EvacuateHost
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1129,7 +1101,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.empty
+        , None
         )
       ; (* Empty applicabilities *)
         ( ( [
@@ -1139,8 +1111,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1154,8 +1126,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= [] (* No applicabilities *)
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1177,7 +1149,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.of_list [EvacuateHost]
+        , Some Guidance.RebootHost
         )
       ; (* Matched applicability *)
         ( ( [
@@ -1187,8 +1159,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1202,9 +1174,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1240,7 +1211,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.of_list [EvacuateHost; RestartDeviceModel]
+        , Some Guidance.RestartDeviceModel
         )
       ; (* Matched in multiple applicabilities *)
         ( ( [
@@ -1250,8 +1221,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1265,9 +1236,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1315,7 +1285,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.of_list [EvacuateHost; RestartDeviceModel]
+        , Some Guidance.RestartDeviceModel
         )
       ; (* No matched applicability *)
         ( ( [
@@ -1325,8 +1295,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1340,9 +1310,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1378,7 +1347,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.empty
+        , None
         )
       ; (* Unmatched arch *)
         ( ( [
@@ -1388,8 +1357,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1403,9 +1372,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1440,7 +1408,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceSet.empty
+        , None
         )
       ]
 end)
@@ -1679,8 +1647,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         id= ""
       ; summary= "summary"
       ; description= "description"
-      ; rec_guidances= []
-      ; abs_guidances= []
+      ; rec_guidance= None
+      ; abs_guidance= None
       ; guidance_applicabilities= []
       ; spec_info= "special info"
       ; url= "https://update.details.info"
@@ -1694,10 +1662,10 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       , {
           updateinfo with
           id= "UPDATE-0000"
-        ; rec_guidances= [Guidance.EvacuateHost]
+        ; rec_guidance= Some Guidance.EvacuateHost
         }
       )
-    ; ("UPDATE-0001", {updateinfo with id= "UPDATE-0001"; rec_guidances= []})
+    ; ("UPDATE-0001", {updateinfo with id= "UPDATE-0001"; rec_guidance= None})
     ]
 
   let host = "string_of_host_ref"
