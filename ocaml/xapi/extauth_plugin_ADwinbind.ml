@@ -550,6 +550,22 @@ let domainify_uname ~domain uname =
     Printf.sprintf "%s@%s" uname domain
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
+  let get_subject_identifier' subject_name =
+    let subject_name =
+      domainify_uname ~domain:(get_service_name ()) subject_name
+    in
+    Wbinfo.sid_of_name subject_name
+
+  (* subject_id get_subject_identifier(string subject_name)
+
+      Takes a subject_name (as may be entered into the XenCenter UI when defining subjects --
+      see Access Control wiki page); and resolves it to a subject_id against the external
+      auth/directory service.
+      Raises Not_found (*Subject_cannot_be_resolved*) if authentication is not succesful.
+  *)
+  let get_subject_identifier subject_name =
+    maybe_raise (get_subject_identifier' subject_name)
+
   (* subject_id Authenticate_username_password(string username, string password)
 
       Takes a username and password, and tries to authenticate against an already configured
@@ -573,15 +589,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let authenticate_ticket tgt =
     failwith "extauth_plugin authenticate_ticket not implemented"
 
-  (* subject_id get_subject_identifier(string subject_name)
-
-      Takes a subject_name (as may be entered into the XenCenter UI when defining subjects --
-      see Access Control wiki page); and resolves it to a subject_id against the external
-      auth/directory service.
-      Raises Not_found (*Subject_cannot_be_resolved*) if authentication is not succesful.
-  *)
-  let get_subject_identifier _subject_name =
-    "get_subject_identifier To be implemented in CP-36087"
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
 
