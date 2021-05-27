@@ -384,16 +384,10 @@ module Winbind = struct
        Microsoft KB/Q243330 article provides the KRBTGT account as a well-known built-in SID in AD
        Microsoft KB/Q229909 article says that KRBTGT account cannot be renamed or enabled, making
        it the perfect target for such a test using a username (Administrator account can be renamed) *)
-    let resolve_KRBTGT () =
-      try
-        Helpers.call_script ~log_output:Never wb_cmd ["-n"; "KRBTGT"] |> ignore ;
-        true
-      with _ -> false
-    in
     try
       Helpers.retry_until_timeout ~timeout
         (Printf.sprintf "Checking %s ready to serve" name)
-        resolve_KRBTGT ;
+        Wbinfo.can_resolve_krbtgt ;
       debug "Service %s is ready to serve request" name
     with e ->
       let msg =
