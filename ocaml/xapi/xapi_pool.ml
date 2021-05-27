@@ -1372,7 +1372,19 @@ let assert_pooling_licensed ~__context =
 
 let certificate_install ~__context ~name ~cert =
   let open Certificates in
-  let certificate = pem_of_string cert in
+  let certificate =
+    let open Api_errors in
+    match
+      Gencertlib.Lib.validate_not_expired cert
+        ~error_not_yet:ca_certificate_not_valid_yet
+        ~error_expired:ca_certificate_expired
+        ~error_invalid:ca_certificate_invalid
+    with
+    | Error e ->
+        raise e
+    | Ok x ->
+        x
+  in
   pool_install CA_Certificate ~__context ~name ~cert ;
   let (_ : API.ref_Certificate) =
     Db_util.add_cert ~__context ~type':(`ca name) certificate
