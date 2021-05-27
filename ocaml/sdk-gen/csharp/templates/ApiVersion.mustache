@@ -38,7 +38,8 @@ namespace XenAPI
     public enum API_Version
     {
 {{#releases}}
-        API_{{version_major}}_{{version_minor}} = {{version_index}}, //{{branding}} ({{code_name}})
+        /// <summary>{{branding}} ({{code_name}})</summary>
+        API_{{version_major}}_{{version_minor}} = {{version_index}},
 {{/releases}}
         LATEST = {{latest_version_index}},
         UNKNOWN = 99
