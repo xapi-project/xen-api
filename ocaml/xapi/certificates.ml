@@ -258,8 +258,7 @@ end = struct
                 )
             )
     in
-
-    Db.Certificate.destroy ~__context ~self
+    remove_cert_by_ref ~__context self
 end
 
 let local_list kind =
