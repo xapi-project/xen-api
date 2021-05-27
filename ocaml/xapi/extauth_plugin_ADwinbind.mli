@@ -34,3 +34,29 @@ end
 (* Expose function to make compiler happy for unittest *)
 val extract_ou_config :
   config_params:(string * string) list -> (string * string) list * string list
+
+val domainify_uname : domain:string -> string -> string
+
+module Wbinfo : sig
+  type uid_info = {user_name: string; uid: int; gid: int; gecos: string}
+
+  val string_of_uid_info : uid_info -> string
+
+  val parse_uid_info : string -> (uid_info, unit) result
+
+  val exception_of_stderr : string -> exn option
+end
+
+module Ldap : sig
+  type user = {
+      upn: string
+    ; account_disabled: bool
+    ; account_expired: bool
+    ; account_locked: bool
+    ; password_expired: bool
+  }
+
+  val string_of_user : user -> string
+
+  val parse_user : string -> (user, string) result
+end
