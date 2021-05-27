@@ -814,8 +814,9 @@ let authenticate_username_password uname password =
       Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
       starting for the first time after a host boot
   *)
-  let on_xapi_initialize system_boot =
-    debug "on_xapi_initialize To be implemented in CP-36089"
+  let on_xapi_initialize _system_boot =
+    Winbind.start ~timeout:5. ~wait_until_success:true ;
+    Winbind.check_ready_to_serve ~timeout:300.
 
   (* unit on_xapi_exit()
 
