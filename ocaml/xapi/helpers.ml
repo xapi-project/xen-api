@@ -41,7 +41,7 @@ let log_exn_continue msg f x =
 
 type log_output = Always | Never | On_failure
 
-let call_script ?(log_output = Always) ?env script args =
+let call_script ?(log_output = Always) ?env ?stdin script args =
   let should_log_output_on_success, should_log_output_on_failure =
     match log_output with
     | Always ->
@@ -58,7 +58,14 @@ let call_script ?(log_output = Always) ?env script args =
     let env =
       match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
     in
-    let output, _ = Forkhelpers.execute_command_get_output ~env script args in
+    let output, _ =
+      match stdin with
+      | None ->
+          Forkhelpers.execute_command_get_output ~env script args
+      | Some stdin ->
+          Forkhelpers.execute_command_get_output_send_stdin ~env script args
+            stdin
+    in
     if should_log_output_on_success then
       debug "%s %s succeeded [ output = '%s' ]" script (String.concat " " args)
         output ;

@@ -853,6 +853,8 @@ let net_cmd = ref "/usr/bin/net"
 
 let wb_cmd = ref "/usr/bin/wbinfo"
 
+let ntlm_auth_cmd = ref "/usr/bin/ntlm_auth"
+
 let winbind_debug_level = ref 2
 
 let tdb_tool = ref "/usr/bin/tdbtool"
@@ -1262,6 +1264,7 @@ module Resources = struct
       , tdb_tool
       , "Executed to manage Samba Database" )
     ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
+    ; ("ntlm auth utility", ntlm_auth_cmd, "Used to authenticate AD users")
     ]
 
   let essential_files =
