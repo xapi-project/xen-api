@@ -748,6 +748,19 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let check_update_readiness = call
+      ~name:"check_update_readiness"
+      ~lifecycle:[Published, rel_next, ""]
+      ~doc:"Check if the pool is ready to be updated. If not, report the reasons."
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Bool, "requires_reboot", "Assume that the update will require host reboots"
+      ]
+      ~result:(Set(Set (String)), "A set of error codes with arguments, if the pool is
+        not ready to update. An empty list means the pool can be updated.")
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -830,6 +843,7 @@ open Datamodel_types
         ; add_repository
         ; remove_repository
         ; sync_updates
+        ; check_update_readiness
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @

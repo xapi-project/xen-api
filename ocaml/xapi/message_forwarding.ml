@@ -1029,6 +1029,12 @@ functor
           (pool_uuid ~__context self)
           (string_of_bool force) ;
         Local.Pool.sync_updates ~__context ~self ~force
+
+      let check_update_readiness ~__context ~self ~requires_reboot =
+        info "Pool.check_update_readiness: pool = '%s'; requires_reboot = %s"
+          (pool_uuid ~__context self)
+          (string_of_bool requires_reboot) ;
+        Local.Pool.check_update_readiness ~__context ~self ~requires_reboot
     end
 
     module VM = struct
