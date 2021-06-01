@@ -81,7 +81,7 @@ let update_vdi_to_vm_map () =
                   try
                     let path = Printf.sprintf "%s/%d" base_path domid in
                     D.debug "Getting path %s..." path;
-                    Listext.List.filter_map (fun vbd ->
+                    List.filter_map (fun vbd ->
                         try
                           let devid = int_of_string vbd in
                           Some (Printf.sprintf "%s/%s" path vbd, devid)
@@ -97,7 +97,7 @@ let update_vdi_to_vm_map () =
 
               if !enoents = List.length base_paths then D.warn "Got ENOENT for each VBD backend path for domain %d" domid;
 
-              Listext.List.filter_map (fun (vbd, devid) ->
+              List.filter_map (fun (vbd, devid) ->
                   try
                     let vdi    = xs.Xs.read (Printf.sprintf "%s/sm-data/vdi-uuid" vbd) in
                     let device = xs.Xs.read (Printf.sprintf "%s/dev" vbd) in
@@ -161,7 +161,7 @@ module Iostat = struct
     let _ = Utils.exec_cmd (module Process.D) ~cmdstring ~f:process_line in
 
     (* Now read the values out of dev_values_map for devices for which we have data *)
-    Listext.List.filter_map (fun dev ->
+    List.filter_map (fun dev ->
         if not (Hashtbl.mem dev_values_map dev)
         then None
         else
