@@ -206,6 +206,7 @@ end = struct
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
       ~not_after ~fingerprint ~name ~_type ;
+    debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
     ref'
 
   let get_host_certs ~__context ~type' ~host =
@@ -218,6 +219,7 @@ end = struct
     Db.Certificate.get_refs_where ~__context ~expr
 
   let remove_cert_by_ref ~__context self =
+    debug "deleting cert ref=%s from the database" (Ref.string_of self) ;
     Db.Certificate.destroy ~__context ~self
 
   let remove_ca_cert_by_name ~__context name =
