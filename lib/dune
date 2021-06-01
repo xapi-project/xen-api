@@ -9,6 +9,7 @@
   systemd
   threads
   re.perl
+  xapi-stdext-std
   xapi-stdext-unix
   xapi-inventory
   xapi-idl.network)

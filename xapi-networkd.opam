@@ -21,6 +21,7 @@ depends: [
   "xapi-idl"
   "xapi-inventory"
   "xapi-stdext-pervasives"
+  "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xapi-test-utils"
