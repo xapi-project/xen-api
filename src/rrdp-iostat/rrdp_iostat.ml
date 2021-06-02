@@ -120,9 +120,6 @@ let update_vdi_to_vm_map () =
 let remove_vdi_from_map vdi =
   vdi_to_vm_map := List.filter (fun (vdi', _) -> vdi <> vdi') !vdi_to_vm_map
 
-let number = "[0-9]+"
-and path = ".+"
-
 module Iostat = struct
   (* Device:         rrqm/s   wrqm/s   r/s   w/s    rMB/s    wMB/s avgrq-sz avgqu-sz   await  svctm  %util *)
   type t = float list
@@ -279,11 +276,8 @@ let refresh_phypath_to_sr_vdi () =
 
 let exec_tap_ctl () =
   let tap_ctl = "/usr/sbin/tap-ctl list" in
-  let extract_groups str =
-    let pid = int_of_string (Str.matched_group 1 str)
-    and minor = int_of_string (Str.matched_group 2 str)
-    and phypath = Str.matched_group 4 str
-    in
+  let extract_vdis pid minor state kind phypath =
+    if not (kind = "vhd" || kind = "aio") then raise (Failure "Unknown type") ;
     (* Look up SR and VDI uuids from the physical path *)
     if not (Hashtbl.mem phypath_to_sr_vdi phypath) then refresh_phypath_to_sr_vdi ();
     if not (Hashtbl.mem phypath_to_sr_vdi phypath) then
@@ -297,16 +291,12 @@ let exec_tap_ctl () =
       Some (pid, (minor, (sr, vdi)))
   in
   let process_line str =
-    let re = Str.regexp
-        (Printf.sprintf "pid=\\(%s\\) minor=\\(%s\\) state=%s args=\\(vhd\\|aio\\):\\(%s\\)" number number number path) in
-    let res = Str.string_match re str 0 in
-    if not res then
-      begin
-        Printf.printf "\"%s\" returned a line that could not be parsed. Ignoring.\n" tap_ctl;
-        Printf.printf "Offending line: %s\n" str;
-        None
-      end
-    else extract_groups str
+    try
+      Scanf.sscanf str "pid=%d minor=%d state=%s args=%s@:%s" extract_vdis
+    with Scanf.Scan_failure _ | Failure _ | End_of_file ->
+      D.warn {|"%s" returned a line that could not be parsed. Ignoring.|} tap_ctl;
+      D.warn "Offending line: %s" str;
+      None
   in
   let pid_and_minor_to_sr_and_vdi = Utils.exec_cmd (module Process.D) ~cmdstring:tap_ctl ~f:process_line in
   let minor_to_sr_and_vdi = List.map snd pid_and_minor_to_sr_and_vdi in
