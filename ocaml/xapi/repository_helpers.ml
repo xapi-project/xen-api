@@ -133,6 +133,15 @@ module Pkg = struct
 
   let to_name_arch_string pkg = pkg.name ^ "." ^ pkg.arch
 
+  let parse_name_arch name_arch =
+    match Astring.String.cuts ~sep:"." name_arch with
+    | [name; arch] when arch = "x86_64" || arch = "noarch" ->
+        (name, arch)
+    | _ ->
+        let msg = error_msg name_arch in
+        error "%s" msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
+
   let to_fullname ~name ~arch ~epoch ~version ~release =
     match epoch with
     | Some i ->
@@ -1167,69 +1176,111 @@ let eval_guidances ~updates_info ~updates ~kind =
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
-let get_rpm_update_in_json ~rpm2updates ~installed_pkgs line =
+let parse_line_of_list_updates (buff, acc) line =
+  let get_pkg name_arch epoch_ver_rel repo =
+    let name, arch = Pkg.parse_name_arch name_arch in
+    let epoch, version, release =
+      Pkg.parse_epoch_version_release epoch_ver_rel
+    in
+    let pkg = Pkg.{name; epoch; version; release; arch} in
+    (pkg, repo)
+  in
+  let empty_buff = (None, None, None) in
   let sep = Re.Str.regexp " +" in
-  match Re.Str.split sep line with
-  | ["Updated"; "Packages"] ->
-      None
-  | [name_arch; epoch_ver_rel; repo] -> (
-      (* xsconsole.x86_64  10.1.11-34  local-normal *)
-      (* xsconsole.x86_64  2:1.1.11-34  local-normal *)
-      let remove_prefix prefix s =
-        match Astring.String.cut ~sep:prefix s with
-        | Some ("", s') when s' <> "" ->
-            Some s'
-        | _ ->
-            None
-      in
-      match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
-      | Some repo_name -> (
-          let open Pkg in
-          match
-            ( Astring.String.cuts ~sep:"." name_arch
-            , Pkg.parse_epoch_version_release epoch_ver_rel
-            )
-          with
-          | [name; arch], (epoch, version, release) -> (
-              let new_pkg = {name; epoch; version; release; arch} in
-              let uid_in_json =
-                match List.assoc_opt name_arch rpm2updates with
-                | Some s ->
-                    `String s
-                | None ->
-                    warn "No update ID found for %s" name_arch ;
-                    `Null
-              in
-              let l =
-                [
-                  ("name", `String name)
-                ; ("arch", `String arch)
-                ; ("newEpochVerRel", to_epoch_ver_rel_json new_pkg)
-                ; ("updateId", uid_in_json)
-                ; ("repository", `String repo_name)
-                ]
-              in
-              match List.assoc_opt name_arch installed_pkgs with
-              | Some old_pkg ->
-                  Some
-                    (`Assoc
-                      (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)])
-                      )
-              | None ->
-                  Some (`Assoc l)
-            )
-          | _ ->
-              warn "Can't parse %s and %s" name_arch epoch_ver_rel ;
-              None
-        )
-      | None ->
-          let msg = "Found update from unmanaged repository" in
-          error "%s: %s" msg line ;
-          raise Api_errors.(Server_error (internal_error, [msg]))
-    )
+  match (buff, Re.Str.split sep line) with
+  | _, ["Updated"; "Packages"] ->
+      (empty_buff, acc)
+  | (None, None, None), [name_arch] ->
+      Pkg.parse_name_arch name_arch |> ignore ;
+      ((Some name_arch, None, None), acc)
+  | (None, None, None), [name_arch; epoch_ver_rel] ->
+      Pkg.parse_name_arch name_arch |> ignore ;
+      ((Some name_arch, Some epoch_ver_rel, None), acc)
+  | (None, None, None), [name_arch; epoch_ver_rel; repo] ->
+      Pkg.parse_name_arch name_arch |> ignore ;
+      let pkg = get_pkg name_arch epoch_ver_rel repo in
+      (empty_buff, pkg :: acc)
+  | (None, None, None), _ ->
+      warn "Can't parse '%s'. Not data in buff." line ;
+      (empty_buff, acc)
+  | (Some name_arch, None, None), [epoch_ver_rel] ->
+      ((Some name_arch, Some epoch_ver_rel, None), acc)
+  | (Some name_arch, None, None), [epoch_ver_rel; repo] ->
+      let pkg = get_pkg name_arch epoch_ver_rel repo in
+      (empty_buff, pkg :: acc)
+  | (Some name_arch, None, None), _ ->
+      warn "Can't parse '%s'. name_arch %s is in buff." line name_arch ;
+      (empty_buff, acc)
+  | (Some name_arch, Some epoch_ver_rel, None), [repo] ->
+      let pkg = get_pkg name_arch epoch_ver_rel repo in
+      (empty_buff, pkg :: acc)
+  | (Some name_arch, Some epoch_ver_rel, None), _ ->
+      warn "Can't parse '%s'. name_arch %s and epoch_ver_rel %s are in buff."
+        line name_arch epoch_ver_rel ;
+      (empty_buff, acc)
   | _ ->
-      debug "Ignore unrecognized line '%s' in parsing updates list" line ;
-      None
+      warn "Can't parse '%s'" line ;
+      (empty_buff, acc)
+
+let get_updates_from_list_updates repositories =
+  let params_of_list =
+    [
+      "-q"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "list"
+    ; "updates"
+    ]
+  in
+  List.iter (fun r -> clean_yum_cache r) repositories ;
+  let lines =
+    Helpers.call_script !Xapi_globs.yum_cmd params_of_list
+    |> Astring.String.cuts ~sep:"\n"
+  in
+  let _, updates =
+    List.fold_left parse_line_of_list_updates ((None, None, None), []) lines
+  in
+  updates
+
+let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
+  let remove_prefix prefix s =
+    match Astring.String.cut ~sep:prefix s with
+    | Some ("", s') when s' <> "" ->
+        Some s'
+    | _ ->
+        None
+  in
+  match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
+  | Some repo_name -> (
+      let open Pkg in
+      let name_arch = Pkg.to_name_arch_string new_pkg in
+      let uid_in_json =
+        match List.assoc_opt name_arch update_ids with
+        | Some s ->
+            `String s
+        | None ->
+            warn "No update ID found for %s" name_arch ;
+            `Null
+      in
+      let l =
+        [
+          ("name", `String new_pkg.name)
+        ; ("arch", `String new_pkg.arch)
+        ; ("newEpochVerRel", to_epoch_ver_rel_json new_pkg)
+        ; ("updateId", uid_in_json)
+        ; ("repository", `String repo_name)
+        ]
+      in
+      match List.assoc_opt name_arch installed_pkgs with
+      | Some old_pkg ->
+          Some (`Assoc (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)]))
+      | None ->
+          Some (`Assoc l)
+    )
+  | None ->
+      let msg = "Found update from unmanaged repository" in
+      error "%s: %s" msg repo ;
+      raise Api_errors.(Server_error (internal_error, [msg]))
 
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =

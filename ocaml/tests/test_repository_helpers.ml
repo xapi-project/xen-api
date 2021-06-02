@@ -1833,12 +1833,14 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
       ]
 end)
 
-module GetRpmUpdateInJson = Generic.MakeStateless (struct
+module GetUpdateInJson = Generic.MakeStateless (struct
   module Io = struct
     (* (name.arch, updateId) list: from "yum updateinfo list updates"
      * (name.arch, Pkg.t) list): from "rpm -qa"
-     * string: output line of "yum list updates" *)
-    type input_t = ((string * string) list * (string * Pkg.t) list) * string
+     * (Pkg.t * string): from "yum list updates"
+     *)
+    type input_t =
+      ((string * string) list * (string * Pkg.t) list) * (Pkg.t * string)
 
     type output_t = (Yojson.Basic.t option, exn) result
 
@@ -1851,7 +1853,7 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                  (list (pair string string))
                  (list (pair string (record @@ fields_of_pkg)))
               )
-              string
+              (pair (record @@ fields_of_pkg) string)
           )
       )
 
@@ -1863,8 +1865,8 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
           Fmt.(str "%a" exn) e
   end
 
-  let transform ((rpm2updates, installed_pkgs), line) =
-    try Ok (get_rpm_update_in_json ~rpm2updates ~installed_pkgs line)
+  let transform ((update_ids, installed_pkgs), (new_pkg, repo)) =
+    try Ok (get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo))
     with e -> Error e
 
   let tests =
@@ -1900,7 +1902,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "libpath-utils.noarch    0.2.2-1.el7      epel"
+          , ( Pkg.
+                {
+                  name= "libpath-utils"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "1.el7"
+                ; arch= "noarch"
+                }
+              
+            , "epel"
+            )
             (* repository name is "epel" *)
           )
         , Error
@@ -1916,7 +1928,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
               ]
             , [] (* No installed packages provided *)
             )
-          , "xsconsole.x86_64  0.2.2-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -1968,7 +1990,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "xsconsole.x86_64  0.2.2-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -2025,7 +2057,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "xsconsole.x86_64  0.2.2-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -2085,7 +2127,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "xsconsole.x86_64  1:0.1.1-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= Some 1
+                ; version= "0.1.1"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -2568,6 +2620,156 @@ module GuidanceSetResortGuidancesTest = Generic.MakeStateless (struct
       ]
 end)
 
+module ParseLineOfListUpdates = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string list
+
+    type output_t = (Pkg.t * string) list
+
+    let string_of_input_t = Fmt.(str "%a" Dump.(list string))
+
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)))
+  end
+
+  let transform lines =
+    let _, updates =
+      List.fold_left parse_line_of_list_updates ((None, None, None), []) lines
+    in
+    updates
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( [
+            "xenserver-status-report.noarch"
+          ; "         1.3.1-1.xs8         \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                             2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ; ( [
+            "xenserver-status-report.noarch         1.3.1-1.xs8         \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                         2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ; ( [
+            "xenserver-status-report.noarch"
+          ; "         1.3.1-1.xs8"
+          ; " local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                             2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ; ( [
+            "xenserver-status-report.noarch         1.3.1-1.xs8"
+          ; " local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                             2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
@@ -2583,8 +2785,9 @@ let tests =
     ; ("assert_url_is_valid", AssertUrlIsValid.tests)
     ; ("write_yum_config", WriteYumConfig.tests)
     ; ("eval_guidance_for_one_update", EvalGuidanceForOneUpdate.tests)
-    ; ("get_rpm_update_in_json", GetRpmUpdateInJson.tests)
+    ; ("get_update_in_json", GetUpdateInJson.tests)
     ; ("consolidate_updates_of_host", ConsolidateUpdatesOfHost.tests)
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
+    ; ("parse_line_of_list_updates", ParseLineOfListUpdates.tests)
     ]
