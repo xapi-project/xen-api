@@ -76,7 +76,7 @@ type api_release = {
 }
 
 (* When you add a new release, use the version number of the latest release, "Unreleased"
-   for the branding and None for the release date, until the actual values are finalised. *)
+   for the branding, and Some "" for the release date, until the actual values are finalised. *)
 
 let release_order_full = [{
     code_name     = Some rel_rio;
@@ -275,17 +275,17 @@ let release_order_full = [{
      version_major = 2;
      version_minor = 15;
      branding      = "Citrix Hypervisor 8.2 Hotfix 2";
-     release_date  = None;
+     release_date  = Some "November 2020";
    }; {
      code_name     = Some rel_next;
      version_major = 2;
      version_minor = 16;
      branding      = "Unreleased";
-     release_date  = None;
+     release_date  = Some ""; (* unknown date *)
    }
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"
-   for the branding and None for the release date, until the actual values are finalised. *)
+   for the branding, and Some "" for the release date, until the actual values are finalised. *)
 
 let release_order =
   List.filter (fun x -> x.code_name <> None) release_order_full
