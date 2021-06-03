@@ -18,6 +18,7 @@ import os
 import tempfile
 import logging
 import logging.handlers
+from collections import OrderedDict
 from enum import Enum
 
 # this plugin manage following configuration files for external auth
@@ -69,11 +70,10 @@ class ADConfig(object):
         self._backend = self._get_ad_backend(args)
         self._ad_enabled = ad_enabled
         self._file_mode = file_mode
-        if load_existing:
-            if os.path.exists(self._file_path):
-                with open(self._file_path, 'r') as f:
-                    lines = f.readlines()
-                    self._lines = [l.strip('\n') for l in lines]
+        if load_existing and os.path.exists(self._file_path):
+            with open(self._file_path, 'r') as f:
+                lines = f.readlines()
+                self._lines = [l.strip() for l in lines]
 
     def _get_ad_backend(self, args):
         if  args.get("ad_backend", "winbind") == "pbis":
@@ -232,6 +232,7 @@ class KeyValueConfig(ADConfig):
         self._lines.append(line)
 
     def _apply_to_cache(self):
+        self._lines = []
         for k, v in self._values.items():
             self._apply_value(k, v)
 
@@ -284,8 +285,9 @@ class ConfigManager:
         self._dynamic_pam.apply()
 
 
-def refresh_all_configurations(session, args, ad_enabled=True):
+def refresh_all_configurations(session, args, name, ad_enabled=True):
     try:
+        logger.info("refresh_all_configurations for %s", name)
         ConfigManager(session, args, ad_enabled).refresh_all()
         return str(True)
     except Exception:
@@ -294,8 +296,9 @@ def refresh_all_configurations(session, args, ad_enabled=True):
         return msg
 
 
-def refresh_dynamic_pam(session, args):
+def refresh_dynamic_pam(session, args, name):
     try:
+        logger.info("refresh_dynamic_pam for %s", name)
         ConfigManager(session, args).refresh_dynamic_pam()
         return str(True)
     except Exception:
@@ -305,29 +308,27 @@ def refresh_dynamic_pam(session, args):
 
 
 def after_extauth_enable(session, args):
-    logger.debug("after_extauth_enable is running in plugin")
-    return refresh_all_configurations(session, args)
+    return refresh_all_configurations(session, args, "after_extauth_enable")
 
 
 def after_xapi_initialize(session, args):
-    return refresh_all_configurations(session, args)
+    return refresh_all_configurations(session, args, "after_xapi_initialize")
 
 
 def after_subject_add(session, args):
-    return refresh_dynamic_pam(session, args)
+    return refresh_dynamic_pam(session, args, "after_subject_add")
 
 
 def after_subject_remove(session, args):
-    return refresh_dynamic_pam(session, args)
+    return refresh_dynamic_pam(session, args, "after_subject_remove")
 
 
 def after_roles_update(session, args):
-    return refresh_dynamic_pam(session, args)
+    return refresh_dynamic_pam(session, args, "after_roles_update")
 
 
 def before_extauth_disable(session, args):
-    logger.info("before_extauth_disable is running in plugin")
-    return refresh_all_configurations(session, args, False)
+    return refresh_all_configurations(session, args, "before_extauth_disable", False)
 
 
 # The dispatcher
