@@ -18,6 +18,7 @@ import tempfile
 import commands
 import logging
 import logging.handlers
+from collections import OrderedDict
 from enum import Enum
 
 # this plugin manage following configuration files for external auth
@@ -58,11 +59,10 @@ class ADConfig(object):
         self._backend = self._get_ad_backend(args)
         self._ad_enabled = ad_enabled
         self._file_mode = file_mode
-        if load_existing:
-            if os.path.exists(self._file_path):
-                with open(self._file_path, 'r') as f:
-                    lines = f.readlines()
-                    self._lines = [l.strip('\n') for l in lines]
+        if load_existing and os.path.exists(self._file_path):
+            with open(self._file_path, 'r') as f:
+                lines = f.readlines()
+                self._lines = [l.strip() for l in lines]
 
     def _get_ad_backend(self, args):
         if  args.get("ad_backend", "winbind") == "pbis":
@@ -150,14 +150,14 @@ class DynamicPam(ADConfig):
             subject_rec = self._session.xenapi.subject.get_record(opaque_ref)
             sid = subject_rec['subject_identifier']
             name = subject_rec["other_config"]["subject-name"]
-            is_group = True if subject_rec["other_config"]["subject-is-group"] == "true" else False
-            logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
+            is_group = subject_rec["other_config"]["subject-is-group"] == "true"
             if admin_role in subject_rec['roles']:
+                logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
                 self._add_subject(name, is_group)
 
     def _add_subject(self, name, is_group):
-        condition = "ingroup {}".format(name) if is_group else "= {}".format(name)
-        self._lines.append("account sufficient pam_succeed_if.so user {} ".format(condition))
+        condition = "ingroup" if is_group else "="
+        self._lines.append("account sufficient pam_succeed_if.so user {} {} ".format(condition, name))
 
     def _install(self):
         if self._ad_enabled:
@@ -168,32 +168,51 @@ class DynamicPam(ADConfig):
 
 
 class KeyValueConfig(ADConfig):
-    def __init__(self, path, session, args, ad_enabled=True, sep=": ", file_mode=0o644):
-        super(KeyValueConfig, self).__init__(path, session, args, ad_enabled, file_mode)
+    _empty_line_prefix = "__key_value_config_empty_line_prefix_" # Presume normal config does not have such keys
+    _empty_value = ""
+
+    def __init__(self, path, session, args, ad_enabled=True, load_existing=True, file_mode=0o644, sep=": ", comment="#"):
+        super(KeyValueConfig, self).__init__(path, session, args, ad_enabled, load_existing, file_mode)
         self._sep = sep
-        self._values = {}
+        self._comment = comment
+        self._values = OrderedDict()
+        self._load_values()
+
+    def _is_comment_line(self, line):
+        return line.startswith(self._comment)
+
+    def _is_empty_line(self, line):
+        return line.startswith(self._empty_line_prefix)
+
+    def _load_values(self):
+        for idx, line in enumerate(self._lines):
+            if line == "": # Empty line
+                key = "{}{}".format(self._empty_line_prefix, str(idx)) # Generate a unique key to store multiple empty lines
+                self._values[key] = self._empty_value
+            elif self._is_comment_line(line):
+                self._values[line] = self._empty_value # Store the comment as key, Presume comments are unique
+            else: # Parse the key, value pair
+                kv = line.split(self._sep)
+                if len(kv) < 2:
+                    logger.warning("'%s' does not has valid key value pair with sep '%s'", line, self._sep)
+                    continue
+                k , v = kv[0].strip(), kv[1].strip()
+                self._values[k] = v
 
     def _update_key_value(self, key, value):
         self._values[key] = value
 
     def _apply_value(self, key, value):
-        try:
-            target_line = "{}{}{}".format(key, self._sep, value)
-            for idx, line in enumerate(self._lines):
-                if key not in line:
-                    continue
-                kv =  line.split(self._sep)
-                k , v = kv[0].strip(), kv[1].strip()
-                if k != key:
-                    continue
-                self._lines[idx] = target_line
-                return
-            # Does not existed, append to the end
-            self._lines.append(target_line)
-        except Exception:
-            logger.exception("Failed to update %s to %s", key, value)
+        if self._is_comment_line(key):
+            line = key
+        elif self._is_empty_line(key):
+            line = self._empty_value
+        else: # normal line, construct the key value pair
+            line = "{}{}{}".format(key, self._sep, value)
+        self._lines.append(line)
 
     def _apply_to_cache(self):
+        self._lines = []
         for k, v in self._values.items():
             self._apply_value(k, v)
 
@@ -242,8 +261,9 @@ class ConfigManager:
         self._dynamic_pam.apply()
 
 
-def refresh_all_configurations(session, args, ad_enabled=True):
+def refresh_all_configurations(session, args, name, ad_enabled=True):
     try:
+        logger.info("refresh_all_configurations for %s", name)
         ConfigManager(session, args, ad_enabled).refresh_all()
         return str(True)
     except Exception:
@@ -252,8 +272,9 @@ def refresh_all_configurations(session, args, ad_enabled=True):
         return msg
 
 
-def refresh_dynamic_pam(session, args):
+def refresh_dynamic_pam(session, args, name):
     try:
+        logger.info("refresh_dynamic_pam for %s", name)
         ConfigManager(session, args).refresh_dynamic_pam()
         return str(True)
     except Exception:
@@ -263,29 +284,27 @@ def refresh_dynamic_pam(session, args):
 
 
 def after_extauth_enable(session, args):
-    logger.debug("after_extauth_enable is running in plugin")
-    return refresh_all_configurations(session, args)
+    return refresh_all_configurations(session, args, "after_extauth_enable")
 
 
 def after_xapi_initialize(session, args):
-    return refresh_all_configurations(session, args)
+    return refresh_all_configurations(session, args, "after_xapi_initialize")
 
 
 def after_subject_add(session, args):
-    return refresh_dynamic_pam(session, args)
+    return refresh_dynamic_pam(session, args, "after_subject_add")
 
 
 def after_subject_remove(session, args):
-    return refresh_dynamic_pam(session, args)
+    return refresh_dynamic_pam(session, args, "after_subject_remove")
 
 
 def after_roles_update(session, args):
-    return refresh_dynamic_pam(session, args)
+    return refresh_dynamic_pam(session, args, "after_roles_update")
 
 
 def before_extauth_disable(session, args):
-    logger.info("before_extauth_disable is running in plugin")
-    return refresh_all_configurations(session, args, False)
+    return refresh_all_configurations(session, args, "before_extauth_disable", False)
 
 
 # The dispatcher
