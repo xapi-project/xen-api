@@ -64,7 +64,7 @@ python:
 
 doc-json:
 	dune build --profile=$(PROFILE) ocaml/idl/json_backend/gen_json.exe
-	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir _build/install/default/jekyll
+	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
 
 format:
 	dune build @fmt --auto-promote
@@ -73,7 +73,7 @@ format:
 quality-gate:
 	./quality-gate.sh
 
-install: build doc sdk
+install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)$(SBINDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(MANDIR)
@@ -121,6 +121,7 @@ install: build doc sdk
 		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
+	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/html $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/markdown $(DESTDIR)$(DOCDIR)
 	cp $(XAPIDOC)/*.dot $(XAPIDOC)/doc-convert.sh $(DESTDIR)$(DOCDIR)
