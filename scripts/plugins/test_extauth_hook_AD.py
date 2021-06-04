@@ -1,8 +1,10 @@
-# unittest file for extauth-hook-AD.py
-# needs to install dependencies like XenAPIPlugin and XenAPI before running
-
 from unittest import TestCase
 from mock import MagicMock, patch
+import sys
+# mock modules to avoid dependencies
+sys.modules["XenAPIPlugin"] = MagicMock()
+sys.modules["XenAPI"] = MagicMock()
+
 from extauth_hook_ad import StaticPam, DynamicPam, NssConfig, SshdConfig
 
 
