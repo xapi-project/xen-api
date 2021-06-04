@@ -15,7 +15,6 @@ import XenAPI
 import sys
 import os
 import tempfile
-import commands
 import logging
 import logging.handlers
 from enum import Enum
@@ -82,7 +81,7 @@ class ADConfig(object):
 
     def _install(self):
         with tempfile.NamedTemporaryFile(prefix="extauth-", delete=False) as f:
-            f.write("\n".join(self._lines))
+            f.write("\n".join(self._lines).encode())
             f.flush()
             os.rename(f.name, self._file_path)
             os.chmod(self._file_path, self._file_mode)
@@ -114,8 +113,7 @@ account    include      system-auth
 password   include      system-auth
 session    optional     pam_keyinit.so force revoke
 session    include      system-auth
-session    required     pam_loginuid.so
-session    sufficient     pam_lsass.so"""
+session    required     pam_loginuid.so"""
 
     def __init__(self, session, args, ad_enabled=True):
         super(StaticPam, self).__init__("/etc/pam.d/sshd", session, args, ad_enabled,
