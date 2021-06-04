@@ -14,8 +14,6 @@
 
 open Suspend_image
 
-let ( |> ) a b = b a
-
 let opt_debug = ref true
 
 let msg ~prefix s = Printf.printf "%s: %s\n%!" prefix s
@@ -45,12 +43,12 @@ let verify_libxc_v2_record fd =
 let parse_layout fd =
   debug "Reading save signature..." ;
   match read_save_signature fd with
-  | `Error e ->
+  | Error e ->
       error "Error reading save signature: %s" e ;
       failwith e
-  | `Ok Legacy ->
+  | Ok Legacy ->
       []
-  | `Ok Structured -> (
+  | Ok Structured -> (
       let open Suspend_image.M in
       let rec aux acc =
         debug "Reading header..." ;
@@ -82,9 +80,9 @@ let parse_layout fd =
             failwith "Unsupported: qemu-xen"
       in
       match aux [] with
-      | `Ok hs ->
+      | Ok hs ->
           List.rev hs
-      | `Error e ->
+      | Error e ->
           failwith
             (Printf.sprintf "Error parsing image: %s" (Printexc.to_string e))
     )
