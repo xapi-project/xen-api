@@ -2,7 +2,6 @@
   (public_name xapi-stdext-std)
   (name  xapi_stdext_std)
   (modules :standard \ xstringext_test listext_test)
-  (libraries uuidm)
 )
 (tests
   (names xstringext_test listext_test)

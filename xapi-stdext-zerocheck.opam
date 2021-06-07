@@ -6,11 +6,14 @@ dev-repo: "git://github.com/xapi-project/stdext.git"
 homepage: "https://xapi-project.github.io/"
 tags: [ "org:xapi-project" ]
 
-build:  [[ "dune" "build" "-p" name "-j" jobs ]]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "build" "-p" name "-j" jobs "@doc"] {with-doc}
+]
 
 depends: [
-  "ocaml"
-  "dune" {build}
+  "dune" {>= "1.11"}
+  "odoc" {with-doc}
 ]
 synopsis: "A deprecated collection of utility functions - Zerocheck module"
 description: """

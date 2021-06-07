@@ -180,18 +180,6 @@ let test_sub =
   let tests = List.map test specs in
   ("sub", tests)
 
-let test_safe_hd =
-  let specs = [([], None); ([0], Some 0); ([0; 1], Some 0)] in
-  let[@warning "-3"] test (list, expected) =
-    let name =
-      Printf.sprintf "safe_hd of [%s]"
-        (String.concat "; " (List.map string_of_int list))
-    in
-    test_option Listext.safe_hd (name, list, expected)
-  in
-  let tests = List.map test specs in
-  ("safe_hd", tests)
-
 let () =
   Alcotest.run "Listext"
-    [test_iteri_right; test_take; test_drop; test_chop; test_sub; test_safe_hd]
+    [test_iteri_right; test_take; test_drop; test_chop; test_sub]

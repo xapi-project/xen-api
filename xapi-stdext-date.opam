@@ -8,16 +8,18 @@ tags: [ "org:xapi-project" ]
 
 build:  [
   [ "dune" "build" "-p" name "-j" jobs ]
-  [ "dune" "runtest" "-p" name "-j" jobs ] {with-test}
+  ["dune" "build" "-p" name "-j" jobs "@doc"] {with-doc}
+  ["dune" "build" "-p" name "-j" jobs "@runtest"] {with-test}
 ]
 
 depends: [
   "ocaml"
-  "dune" {build}
+  "dune" {>= "1.11"}
   "alcotest" {with-test}
   "astring"
   "base-unix"
   "ptime"
+  "odoc" {with-doc}
 ]
 synopsis: "A deprecated collection of utility functions - Date module"
 description: """

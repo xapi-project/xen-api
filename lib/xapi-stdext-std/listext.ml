@@ -13,7 +13,7 @@
  *)
 
 module List = struct
-  include List
+  open! List
 
   (** Turn a list into a set *)
   let rec setify = function

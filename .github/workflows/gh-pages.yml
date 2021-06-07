@@ -1,0 +1,47 @@
+name: Generate and upload docs
+
+on:
+  push:
+    branches: master
+
+jobs:
+  ocaml:
+    name: Ocaml docs
+    runs-on: ubuntu-20.04
+    env:
+      package: "xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.5
+
+      - name: Use ocaml
+        uses: ocaml/setup-ocaml@v1
+        with:
+          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repository: ${{ steps.dotenv.outputs.repository }}
+
+      - name: Install dependencies
+        run: |
+          opam pin add . --no-action
+          opam depext -u ${{ env.package }}
+          opam install ${{ env.package }} --deps-only --with-doc -v
+
+      - name: Docs
+        run: opam exec -- make doc
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: _build/default/_doc/_html/
+          publish_branch: gh-pages
+
