@@ -22,4 +22,4 @@ val stop_backend_daemon : wait_until_success:bool -> unit
 val init_service : __context:Context.t -> unit
 
 (* methods to implement auth signature *)
-val methods : Auth_signature.t
+val methods : unit -> Auth_signature.t
