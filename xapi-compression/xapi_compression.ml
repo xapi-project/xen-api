@@ -2,7 +2,11 @@ module type ALGORITHM = sig
   val executable : string
 end
 
-open Xapi_stdext_pervasives.Pervasiveext
+module D = Debug.Make (struct let name = "xapi_compression" end)
+
+open D
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module Make (Algorithm : ALGORITHM) = struct
   let available () = Sys.file_exists Algorithm.executable
@@ -72,11 +76,18 @@ module Make (Algorithm : ALGORITHM) = struct
       (fun () -> f Unixfd.(!close_later))
       (fun () ->
         let failwith_error s =
-          let mode =
-            if mode = Compress then "Compression" else "Decompression"
+          let string_of_mode = function
+            | Compress ->
+                "compress"
+            | Decompress ->
+                "decompress"
           in
-          let msg = Printf.sprintf "%s via zcat failed: %s" mode s in
-          Printf.eprintf "%s" msg ; failwith msg
+          let msg =
+            Printf.sprintf "%s failed to %s: %s"
+              (Filename.basename executable)
+              (string_of_mode mode) s
+          in
+          error "%s" msg ; failwith msg
         in
         Unixfd.safe_close close_later ;
         let open Xapi_stdext_unix in

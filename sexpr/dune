@@ -8,7 +8,7 @@
   (wrapped false)
   (modules (:standard \ sexprpp))
   (libraries astring
-             threads
+             threads.posix
              xapi-stdext-threads)
 )
 

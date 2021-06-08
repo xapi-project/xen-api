@@ -4,6 +4,7 @@
   (libraries forkexec
              threads
              safe-resources
+             xapi-idl
              xapi-stdext-pervasives
              xapi-stdext-unix)
 )

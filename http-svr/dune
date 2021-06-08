@@ -10,7 +10,8 @@
               rpclib
               sha
               stunnel
-              threads
+              threads.posix
+              xapi-idl
               xapi-idl.updates
               xapi-stdext-date
               xapi-stdext-pervasives
