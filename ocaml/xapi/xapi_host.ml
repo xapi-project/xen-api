@@ -1448,6 +1448,18 @@ let certificate_sync ~__context ~host = Certificates.local_sync ()
 let get_server_certificate ~__context ~host =
   Certificates.get_server_certificate ()
 
+let refresh_server_certificates ~__context ~host =
+  (* we need to do different things depending on whether we
+     refresh the certificates on this host or whether they were
+     refreshed on another host in the pool *)
+  let localhost = Helpers.get_localhost ~__context in
+  match host with
+  | host when host = localhost ->
+      debug "Host.refresh_server_certificates - refresh this host"
+  | host ->
+      debug "Host.refresh_server_certificates - other host %s was refrehsed"
+        (Ref.string_of host)
+
 let with_cert_lock : (unit -> 'a) -> 'a =
   let cert_m = Mutex.create () in
   Mutex.execute cert_m

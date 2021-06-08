@@ -3504,6 +3504,16 @@ let host_get_server_certificate printer rpc session_id params =
        params []
     )
 
+let host_refresh_server_certificates printer rpc session_id params =
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.refresh_server_certificates rpc session_id host
+         )
+       params []
+    )
+
 let host_install_server_certificate fd printer rpc session_id params =
   let certificate =
     List.assoc "certificate" params |> get_file_or_fail fd "certificate"
