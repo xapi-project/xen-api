@@ -1029,6 +1029,14 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_READ_ONLY
       ()
 
+  let refresh_server_certificates = call
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"refresh_server_certificates"
+      ~doc:"Replace the self-signed certficates for the host with new ones."
+      ~params:[Ref _host, "host", "The host"]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   let display =
     Enum ("host_display", [
         "enabled", "This host is outputting its console to a physical display device";
@@ -1544,6 +1552,7 @@ let host_query_ha = call ~flags:[`Session]
         crl_list;
         certificate_sync;
         get_server_certificate;
+        refresh_server_certificates;
         install_server_certificate;
         emergency_reset_server_certificate;
         reset_server_certificate;

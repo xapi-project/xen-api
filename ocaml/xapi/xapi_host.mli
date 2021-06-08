@@ -291,6 +291,9 @@ val certificate_sync : __context:'a -> host:'b -> unit
 
 val get_server_certificate : __context:'a -> host:'b -> string
 
+val refresh_server_certificates :
+  __context:Context.t -> host:[`host] Ref.t -> unit
+
 val install_server_certificate :
      __context:Context.t
   -> host:[`host] Ref.t
