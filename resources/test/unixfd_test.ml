@@ -36,7 +36,8 @@ let run () =
       (* this is intentionally buggy here: it leaks.
        * GC finaliser should detect, warn and clean up *)
       Safe.move_exn p1 |> ignore ;
-      Safe.move_exn p2 |> ignore)
+      Safe.move_exn p2 |> ignore
+  )
 
 let leak_detected (count0, count1, count2) =
   (* do not call alcotest inhere, it gives weird results with memory getting freed,
@@ -53,7 +54,8 @@ let noleak2 () =
   let moved1, moved2 =
     count0 := count_fds () ;
     Unixfd.with_pipe ~loc:__LOC__ () (fun p1 p2 ->
-        (Safe.move_exn p1, Safe.move_exn p2))
+        (Safe.move_exn p1, Safe.move_exn p2)
+    )
   in
   count1 := count_fds () ;
   Safe.within (Safe.move_exn moved1) @@ ignore ;
@@ -105,14 +107,17 @@ let test_unixfd_leak_detected =
 let validate_result
     {memory; memory_growth; fds_before; fds_after; fds_after_cleanup} () =
   Logs.debug (fun m ->
-      m "Memory usage (words): %d -> %d" memory (memory + memory_growth)) ;
+      m "Memory usage (words): %d -> %d" memory (memory + memory_growth)
+  ) ;
   Alcotest.(check int "memory leak in words" 0 memory_growth) ;
   match (fds_before, fds_after, fds_after_cleanup) with
   | Some before, Some after, Some after_cleanup ->
       Alcotest.(
-        check int "count of open FDs after pipe 2 higher" (before + 2) after) ;
+        check int "count of open FDs after pipe 2 higher" (before + 2) after
+      ) ;
       Alcotest.(
-        check int "count of open FDs same as original" before after_cleanup)
+        check int "count of open FDs same as original" before after_cleanup
+      )
   | None, None, None ->
       ()
   | _ ->

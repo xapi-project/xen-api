@@ -260,7 +260,8 @@ let disconnect ?(wait = true) ?(force = false) x =
           else
             Forkhelpers.waitpid_nohang
           )
-            fpid)
+            fpid
+          )
         pid_int
   | StdFork pid ->
       do_disc
@@ -270,7 +271,8 @@ let disconnect ?(wait = true) ?(force = false) x =
           else
             Unix.waitpid [Unix.WNOHANG]
           )
-            pid)
+            pid
+          )
         pid
   | Nopid ->
       ()
@@ -332,14 +334,17 @@ let with_attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
                 (Forkhelpers.safe_close_and_exec
                    (Some Unixfd.(!data_in))
                    (Some Unixfd.(!data_in))
-                   (Some logfd) configs path args)
+                   (Some logfd) configs path args
+                )
           else
             StdFork
               (Unsafe.fork_and_exec
                  ~pre_exec:(fun _ ->
                    List.iter Unsafe.do_fd_operation fdops ;
-                   Unixext.close_all_fds_except fds_needed)
-                 (path :: args))
+                   Unixext.close_all_fds_except fds_needed
+                   )
+                 (path :: args)
+              )
           ) ;
         Unixfd.safe_close config_out ;
         Unixfd.safe_close data_in ;
@@ -357,8 +362,10 @@ let with_attempt_one_connect ?unique_id ?(use_fork_exec_helper = true)
             (Printf.sprintf
                "Caught Unix.Unix_error(%s, %s, %s); raising \
                 Stunnel_initialisation_failed"
-               (Unix.error_message err) fn arg) ;
-          raise Stunnel_initialisation_failed)
+               (Unix.error_message err) fn arg
+            ) ;
+          raise Stunnel_initialisation_failed
+    )
   in
   (* Tidy up any remaining unclosed fds *)
   match result with
@@ -402,7 +409,8 @@ let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
   retry
     (fun () ->
       with_attempt_one_connect ?unique_id ?use_fork_exec_helper ?write_to_log
-        verify_cert extended_diagnosis host port f)
+        verify_cert extended_diagnosis host port f
+      )
     5
 
 let check_verify_error line =
@@ -418,7 +426,8 @@ let check_verify_error line =
     | Some e ->
         raise
           (Stunnel_verify_error
-             (split_1 "," (sub_after (e + String.length "error=") line)))
+             (split_1 "," (sub_after (e + String.length "error=") line))
+          )
     | None ->
         raise (Stunnel_verify_error "")
   else

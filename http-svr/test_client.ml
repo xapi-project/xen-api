@@ -30,7 +30,8 @@ let with_stunnel ip port f =
 let one ~use_fastpath ~use_framing keep_alive s =
   Http_client.rpc ~use_fastpath s
     (Http.Request.make ~frame:use_framing ~version:"1.1" ~keep_alive ~user_agent
-       ~body:"hello" Http.Post "/echo") (fun response s ->
+       ~body:"hello" Http.Post "/echo"
+    ) (fun response s ->
       match response.Http.Response.content_length with
       | Some l ->
           let (_ : string) = Unixext.really_read_string s (Int64.to_int l) in
@@ -40,7 +41,8 @@ let one ~use_fastpath ~use_framing keep_alive s =
 *)
           ()
       | None ->
-          failwith "Need a content length")
+          failwith "Need a content length"
+  )
 
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
@@ -116,7 +118,9 @@ let _ =
   let nonpersistent =
     sample 1 (fun () ->
         per_nsec 1. (fun () ->
-            transport !ip !port (one ~use_fastpath ~use_framing false)))
+            transport !ip !port (one ~use_fastpath ~use_framing false)
+        )
+    )
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent) ;
   Printf.printf "10 threads non-persistent connections: " ;
@@ -124,7 +128,10 @@ let _ =
     sample 1 (fun () ->
         threads 10 (fun () ->
             per_nsec 5. (fun () ->
-                transport !ip !port (one ~use_fastpath ~use_framing false))))
+                transport !ip !port (one ~use_fastpath ~use_framing false)
+            )
+        )
+    )
   in
   Printf.printf "%s RPCs/sec\n%!"
     (Normal_population.to_string thread_nonpersistent) ;
@@ -132,7 +139,9 @@ let _ =
   let persistent =
     sample 1 (fun () ->
         transport !ip !port (fun s ->
-            per_nsec 1. (fun () -> one ~use_fastpath ~use_framing true s)))
+            per_nsec 1. (fun () -> one ~use_fastpath ~use_framing true s)
+        )
+    )
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string persistent) ;
   Printf.printf "10 threads persistent connections: " ;
@@ -140,7 +149,9 @@ let _ =
     sample 1 (fun () ->
         threads 10 (fun () ->
             transport !ip !port (fun s ->
-                per_nsec 5. (fun () -> one ~use_fastpath ~use_framing true s))))
+                per_nsec 5. (fun () -> one ~use_fastpath ~use_framing true s)
+            )
+        )
+    )
   in
-  Printf.printf "%s RPCs/sec\n%!"
-    (Normal_population.to_string thread_persistent)
+  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent)

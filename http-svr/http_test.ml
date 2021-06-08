@@ -86,7 +86,8 @@ let test_radix_tree1 _ =
   List.iter
     (fun x ->
       if longest_prefix x t <> Some x then
-        failwith (Printf.sprintf "x = %s" x))
+        failwith (Printf.sprintf "x = %s" x)
+      )
     test_strings
 
 let test_radix_tree2 _ =
@@ -164,8 +165,10 @@ let cross xs ys zs =
          ys
          |> List.fold_left
               (fun acc y ->
-                zs |> List.fold_left (fun acc z -> (x, y, z) :: acc) acc)
-              acc)
+                zs |> List.fold_left (fun acc z -> (x, y, z) :: acc) acc
+                )
+              acc
+         )
        []
 
 let test_read_http_request_header _ =
@@ -201,7 +204,9 @@ let test_read_http_request_header _ =
              in
              assert (actual_frame = frame) ;
              assert (actual_header = header) ;
-             assert (actual_proxy = if proxy then Some proxy_str else None)))
+             assert (actual_proxy = if proxy then Some proxy_str else None)
+         )
+     )
 
 let _ =
   let suite =

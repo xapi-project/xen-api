@@ -32,12 +32,14 @@ struct
         | None ->
             Hashtbl.add t k v
         | Some old ->
-            V.safe_release old ; Hashtbl.replace t k v)
+            V.safe_release old ; Hashtbl.replace t k v
+    )
 
   let remove (t, m) k =
     Mutex.execute m (fun () ->
         Option.iter V.safe_release (Hashtbl.find_opt t k) ;
-        Hashtbl.remove t k)
+        Hashtbl.remove t k
+    )
 
   let find (t, m) k = Mutex.execute m (fun () -> Hashtbl.find t k)
 
@@ -45,7 +47,8 @@ struct
     let v =
       Mutex.execute m (fun () ->
           let r = Hashtbl.find t k in
-          Hashtbl.remove t k ; r)
+          Hashtbl.remove t k ; r
+      )
     in
     V.with_moved_exn v
 

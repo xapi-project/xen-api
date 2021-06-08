@@ -87,7 +87,8 @@ let unlocked_gc () =
       debug "Cache contents: %s"
         (Hashtbl.fold
            (fun ep xs acc -> string_of_index ep xs ^ " " ^ acc)
-           !index "")
+           !index ""
+        )
   ) ;
   (* Split a list at the given index to give a pair of lists.
    *  From Xapi_stdext_std.Listext *)
@@ -116,7 +117,8 @@ let unlocked_gc () =
         debug "Expiring stunnel id %s; idle (%.2f) > limit (%.2f)"
           (id_of_stunnel stunnel) age max_idle ;
         to_gc := idx :: !to_gc
-      )) ;
+      )
+  ) ;
   let num_remaining = List.length all_ids - List.length !to_gc in
   if num_remaining > max_stunnel then (
     let times' = Hashtbl.fold (fun k v acc -> (k, v) :: acc) !times [] in
@@ -133,7 +135,8 @@ let unlocked_gc () =
         debug
           "Expiring stunnel id %s since we have too many cached tunnels (limit \
            is %d)"
-          (id_of_stunnel stunnel) max_stunnel)
+          (id_of_stunnel stunnel) max_stunnel
+        )
       oldest_ids ;
     to_gc := !to_gc @ oldest_ids
   ) ;
@@ -141,7 +144,8 @@ let unlocked_gc () =
   List.iter
     (fun id ->
       let s = Tbl.find !stunnels id in
-      Stunnel.disconnect s)
+      Stunnel.disconnect s
+      )
     !to_gc ;
   (* Remove all reference to them from our cache hashtables *)
   let index' = Hashtbl.create capacity in
@@ -151,7 +155,8 @@ let unlocked_gc () =
       if kept_ids != [] then
         Hashtbl.add index' ep kept_ids
       else
-        ())
+        ()
+      )
     !index ;
   let times' = Hashtbl.copy !times in
   List.iter (fun idx -> Hashtbl.remove times' idx) !to_gc ;
@@ -187,7 +192,8 @@ let add (x : Stunnel.t) =
       in
       Hashtbl.replace !index ep (idx :: existing) ;
       debug "Adding stunnel id %s (idle %.2f) to the cache" (id_of_stunnel x) 0. ;
-      unlocked_gc ())
+      unlocked_gc ()
+  )
 
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found. First performs a garbage-collection, which discards
@@ -210,7 +216,8 @@ let with_remove host port verified f =
             Hashtbl.replace !index ep (List.filter (fun x -> x <> id) ids) ;
             id
         | _ ->
-            raise Not_found)
+            raise Not_found
+    )
   in
   let id_opt = try Some (get_id ()) with Not_found -> None in
   id_opt
@@ -226,7 +233,8 @@ let flush () =
       Tbl.reset !stunnels ;
       Hashtbl.clear !times ;
       Hashtbl.clear !index ;
-      info "Flushed!")
+      info "Flushed!"
+  )
 
 let with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert host port f =
   match with_remove host port verify_cert f with

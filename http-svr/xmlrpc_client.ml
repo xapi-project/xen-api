@@ -105,7 +105,8 @@ let check_reusable_inner (x : Unixfd.t) =
             StunnelDebug.debug
               "check_reusable: no content-length from known-invalid URI: \
                connection not reusable" ;
-            false)
+            false
+        )
   with exn ->
     StunnelDebug.debug
       "check_reusable: caught exception %s; assuming not reusable"
@@ -142,7 +143,8 @@ let watchdog timeout pid f =
   run_watchdog timeout
     (fun () ->
       StunnelDebug.warn "Watchdog fired: killing pid: %d" pid ;
-      Unix.kill pid Sys.sigterm)
+      Unix.kill pid Sys.sigterm
+      )
     (fun cancel_watchdog get_fired ->
       let result = try Some (f ()) with _ -> None in
       cancel_watchdog () ;
@@ -158,7 +160,8 @@ let watchdog timeout pid f =
           x
       | None, _ ->
           (* fire_fn raised an exception (!) - Not reusable *)
-          false)
+          false
+      )
 
 let check_reusable x pid = watchdog 30 pid (fun () -> check_reusable_inner x)
 
@@ -311,12 +314,14 @@ let with_transport transport f =
       finally
         (fun () ->
           Unixext.set_tcp_nodelay fd true ;
-          f fd)
+          f fd
+          )
         (fun () -> Unix.close fd)
   | SSL
       ( {SSL.use_fork_exec_helper; use_stunnel_cache; verify_cert; task_id}
       , host
-      , port ) ->
+      , port
+      ) ->
       let st_proc' f =
         if use_stunnel_cache then
           with_reusable_stunnel ~use_fork_exec_helper ~write_to_log ?verify_cert
@@ -347,7 +352,8 @@ let with_transport transport f =
             | Some f ->
                 f task_id s_pid
             | _ ->
-                ())
+                ()
+        )
       in
       with_recorded_stunnelpid task_id s_pid (fun () ->
           finally
@@ -358,7 +364,8 @@ let with_transport transport f =
                 if e = Connection_reset && not use_stunnel_cache then
                   if Sys.file_exists st_proc.Stunnel.logfile then
                     Stunnel.diagnose_failure st_proc ;
-                raise e)
+                raise e
+              )
             (fun () ->
               if use_stunnel_cache then (
                 Stunnel_cache.add st_proc ;
@@ -367,7 +374,9 @@ let with_transport transport f =
               ) else (
                 Unix.unlink st_proc.Stunnel.logfile ;
                 Stunnel.disconnect st_proc
-              )))
+              )
+              )
+      )
 
 let with_http request f s =
   try Http_client.rpc s request (fun response s -> f (response, s))

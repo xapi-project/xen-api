@@ -30,13 +30,13 @@ let mime_of_file file =
         | [] | [_] ->
             ()
         | mime :: exts ->
-            List.iter (fun e -> Hashtbl.add h (lowercase e) mime) exts)
+            List.iter (fun e -> Hashtbl.add h (lowercase e) mime) exts
+      )
     file ;
   h
 
 let string_of_mime m =
-  String.concat ","
-    (Hashtbl.fold (fun k v a -> sprintf "{%s:%s}" k v :: a) m [])
+  String.concat "," (Hashtbl.fold (fun k v a -> sprintf "{%s:%s}" k v :: a) m [])
 
 let default_mime = "text/plain"
 

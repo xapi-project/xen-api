@@ -148,7 +148,8 @@ module From = struct
     | xml ->
         rtte
           (Printf.sprintf "unbox: %s should contain '%s'" (pretty_print xml)
-             (List.hd ok))
+             (List.hd ok)
+          )
           xml
 
   let singleton ok f xml =
@@ -160,8 +161,10 @@ module From = struct
             rtte
               (Printf.sprintf "singleton: {%s} should be the singleton {%s}"
                  (String.concat ", " (List.map pretty_print y))
-                 (List.hd ok))
-              xml)
+                 (List.hd ok)
+              )
+              xml
+        )
       xml
 
   let pair ok f1 f2 xml =
@@ -180,7 +183,8 @@ module From = struct
             debug "encountered <name/> within a <structure>" ;
             f ""
         | _ ->
-            rtte "From.name: should contain PCData" xml)
+            rtte "From.name: should contain PCData" xml
+        )
       xml
 
   (* let check expected xml got =
@@ -257,6 +261,7 @@ module From = struct
         | Xml.Element ("fault", _, _) as xml ->
             Fault (fault id xml)
         | xml ->
-            rtte "response" xml)
+            rtte "response" xml
+        )
       xml
 end

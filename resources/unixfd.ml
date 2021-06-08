@@ -50,7 +50,8 @@ let with_fd alloc = alloc () |> within
 let with_open_connection addr ~loc f =
   let open Unix in
   with_fd ~loc (fun () ->
-      socket ~cloexec:true (domain_of_sockaddr addr) SOCK_STREAM 0)
+      socket ~cloexec:true (domain_of_sockaddr addr) SOCK_STREAM 0
+  )
   @@ fun s -> connect !s addr ; f s
 
 let with_ic fd =
@@ -58,8 +59,7 @@ let with_ic fd =
    * Unix.open_connection does this but if you close both channels you get EBADF.
    *)
   Safe.within
-  @@ Safe.create ~release:close_in_noerr
-       (Unix.in_channel_of_descr (Unix.dup fd))
+  @@ Safe.create ~release:close_in_noerr (Unix.in_channel_of_descr (Unix.dup fd))
 
 let with_oc fd =
   Safe.within

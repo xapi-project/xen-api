@@ -128,7 +128,8 @@ let hixie_v76_upgrade req s =
     ^ String.concat "&"
         (List.map
            (fun (x, y) -> Printf.sprintf "%s=%s" x y)
-           req.Http.Request.query)
+           req.Http.Request.query
+        )
   in
   let headers = http_101_websocket_upgrade_76 origin host protocol real_uri in
   Http.output_http s headers ;

@@ -76,7 +76,8 @@ let read_array dev n =
       if read <> n then
         raise End_of_file
       else
-        Array.init n (fun i -> Char.code (Bytes.get buf i)))
+        Array.init n (fun i -> Char.code (Bytes.get buf i))
+      )
     (fun () -> Unix.close fd)
 
 let uuid_of_int_array uuid =
@@ -105,7 +106,8 @@ let int_array_of_uuid s =
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
       (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
         l :=
-          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]) ;
+          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
+    ) ;
     Array.of_list !l
   with _ -> invalid_arg "Uuid.int_array_of_uuid"
 
@@ -113,5 +115,6 @@ let is_uuid str =
   try
     Scanf.sscanf str
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x"
-      (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true)
+      (fun _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ -> true
+    )
   with _ -> false

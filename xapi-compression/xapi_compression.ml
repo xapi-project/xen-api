@@ -55,7 +55,8 @@ module Make (Algorithm : ALGORITHM) = struct
           , (* supplied fd is written to *)
             zcat_out
           , (* we close this now *)
-            zcat_in )
+            zcat_in
+          )
           (* close this before waitpid *)
       | Passive ->
           ( Some fd
@@ -64,7 +65,8 @@ module Make (Algorithm : ALGORITHM) = struct
           , (* output goes into the pipe+fn *)
             zcat_in
           , (* we close this now *)
-            zcat_out )
+            zcat_out
+          )
     in
     (* close this before waitpid *)
     let executable, args = lower_priority Algorithm.executable args in
@@ -99,11 +101,14 @@ module Make (Algorithm : ALGORITHM) = struct
         | Unix.WSIGNALED i ->
             failwith_error
               (Printf.sprintf "killed by signal: %s"
-                 (Unixext.string_of_signal i))
+                 (Unixext.string_of_signal i)
+              )
         | Unix.WSTOPPED i ->
             failwith_error
               (Printf.sprintf "stopped by signal: %s"
-                 (Unixext.string_of_signal i)))
+                 (Unixext.string_of_signal i)
+              )
+        )
 
   let compress fd f = go Compress Active fd f
 

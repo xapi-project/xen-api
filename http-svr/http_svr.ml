@@ -57,7 +57,8 @@ module Stats = struct
     Mutex.execute m (fun () ->
         x.n_requests <- x.n_requests + 1 ;
         if req.Http.Request.close then x.n_connections <- x.n_connections + 1 ;
-        if req.Http.Request.frame then x.n_framed <- x.n_framed + 1)
+        if req.Http.Request.frame then x.n_framed <- x.n_framed + 1
+    )
 end
 
 (** Type of a function which can handle a Request.t *)
@@ -111,7 +112,8 @@ let response_fct req ?(hdrs = []) s (response_length : int64)
 let response_str req ?hdrs s body =
   let length = String.length body in
   response_fct req ?hdrs s (Int64.of_int length) (fun s ->
-      Unixext.really_write_string s body)
+      Unixext.really_write_string s body
+  )
 
 let response_missing ?(hdrs = []) s body =
   let connection = (Http.Hdr.connection, "close") in
@@ -181,7 +183,8 @@ let response_method_not_implemented ?req s =
     Option.fold ~none:""
       ~some:(fun req ->
         Printf.sprintf "<p>%s not supported.<br /></p>"
-          (Http.string_of_method_t req.Http.Request.m))
+          (Http.string_of_method_t req.Http.Request.m)
+        )
       req
   in
   let body =
@@ -207,7 +210,8 @@ let response_file ?mime_content_type s file =
   Unixext.with_file file [Unix.O_RDONLY] 0 (fun f ->
       Unixext.really_write_string s (Http.Response.to_wire_string res) ;
       let (_ : int64) = Unixext.copy_file f s in
-      ())
+      ()
+  )
 
 let respond_to_options req s =
   let access_control_allow_headers =
@@ -222,7 +226,8 @@ let respond_to_options req s =
         ("Access-Control-Allow-Origin", "*")
       ; ("Access-Control-Allow-Headers", access_control_allow_headers)
       ; ("Access-Control-Allow-Methods", "PUT")
-      ] s 0L (fun _ -> ())
+      ] s 0L (fun _ -> ()
+  )
 
 (** If no handler matches the request then call this callback *)
 let default_callback req bio _ =
@@ -482,10 +487,12 @@ let request_of_bio_exn bio =
                      {
                        req with
                        additional_headers= (k, v) :: req.additional_headers
-                     } )
+                     }
+               )
              )
            | None ->
-               (true, req) (* end of headers *))
+               (true, req) (* end of headers *)
+         )
        (false, {empty with Http.Request.frame; additional_headers})
   |> snd
 
@@ -532,10 +539,12 @@ let request_of_bio ?(use_fastpath = false) ic =
             response_internal_error ss
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
-                   (Unix.error_message a) b c)
+                   (Unix.error_message a) b c
+                )
         | exc ->
             response_internal_error ss ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace ()) ;
+            log_backtrace ()
+    ) ;
     None
 
 let handle_one (x : 'a Server.t) ss context req =
@@ -584,11 +593,13 @@ let handle_one (x : 'a Server.t) ss context req =
             response_internal_error ~req ss
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
-                   (Unix.error_message a) b c)
+                   (Unix.error_message a) b c
+                )
         | exc ->
             response_internal_error ~req ss
               ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace ()) ;
+            log_backtrace ()
+    ) ;
     !finished
 
 let handle_connection (x : 'a Server.t) _ ss =
@@ -696,7 +707,8 @@ let read_body ?limit req bio =
       let length = Int64.to_int length in
       Option.fold ~none:()
         ~some:(fun l ->
-          if length > l then raise Client_requested_size_over_limit)
+          if length > l then raise Client_requested_size_over_limit
+          )
         limit ;
       if Buf_io.is_buffer_empty bio then
         Unixext.really_read_string (Buf_io.fd_of bio) length

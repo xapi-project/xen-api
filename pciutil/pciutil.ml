@@ -50,7 +50,8 @@ let parse_from file vendor device =
         current_xvendor := String.sub line 0 4 ;
         if !current_xvendor = vendor then
           vendor_str := Some (String.sub line 6 (String.length line - 6))
-      ))
+      )
+      )
     file ;
   (!vendor_str, !device_str)
 

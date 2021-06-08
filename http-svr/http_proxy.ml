@@ -68,7 +68,8 @@ let http_proxy src_ip src_port transport =
         let request = Http_svr.request_of_bio bio in
         Option.iter
           (fun request -> with_transport transport (one request fromfd))
-          request)
+          request
+        )
       (fun () -> Unix.close fromfd)
   in
   try
@@ -101,7 +102,8 @@ let http_proxy src_ip src_port transport =
             raise e
         ) ;
         let s = Server_io.server handler sock in
-        server := Some s)
+        server := Some s
+    )
   with e ->
     error "Caught exception setting up proxy from internal network: %s"
       (Printexc.to_string e) ;

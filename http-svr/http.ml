@@ -192,7 +192,8 @@ let parse_keyvalpairs xs =
       | k :: vs ->
           (urldecode k, urldecode (String.concat "=" vs))
       | [] ->
-          raise Http_parse_failure)
+          raise Http_parse_failure
+      )
     kvpairs
 
 let parse_uri x =
@@ -407,8 +408,9 @@ module Accept = struct
     ; (* None means '*' *)
       subty: string option
     ; (* None means '*' *)
-      q: int (* range 0 - 1000 *)
-             (* We won't parse the more advanced stuff *)
+      q: int
+          (* range 0 - 1000 *)
+          (* We won't parse the more advanced stuff *)
   }
 
   let string_of_t x =
@@ -476,7 +478,8 @@ module Accept = struct
               | Some (k, v) ->
                   (k, v)
               | _ ->
-                  raise (Parse_failure x))
+                  raise (Parse_failure x)
+              )
             params
         in
         let q =
@@ -737,7 +740,8 @@ module Response = struct
       x.frame x.version x.code x.message
       (Option.fold ~none:"None"
          ~some:(fun x -> "Some " ^ Int64.to_string x)
-         x.content_length)
+         x.content_length
+      )
       (Option.fold ~none:"None" ~some:(fun x -> "Some " ^ x) x.task)
       (kvpairs x.additional_headers)
 
@@ -874,12 +878,14 @@ module Url = struct
         | _ ->
             failwith
               (Printf.sprintf "Failed to parse authentication substring: %s"
-                 uname_password)
+                 uname_password
+              )
       )
       | _ ->
           failwith
             (Printf.sprintf
-               "Failed to parse username password host and port: %s" x)
+               "Failed to parse username password host and port: %s" x
+            )
     in
     let reconstruct_uri uri = "/" ^ String.concat "/" uri in
     let data_of_uri uri =

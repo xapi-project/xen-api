@@ -144,7 +144,8 @@ let response_of_fd_exn fd =
                    error "Failed to parse HTTP response status line [%s]" header ;
                    raise
                      (Parse_error
-                        (Printf.sprintf "Failed to parse %s" http_version))
+                        (Printf.sprintf "Failed to parse %s" http_version)
+                     )
              )
              | None ->
                  raise (Parse_error (Printf.sprintf "Failed to parse %s" rest))
@@ -166,12 +167,15 @@ let response_of_fd_exn fd =
                      {
                        res with
                        additional_headers= (k, v) :: res.additional_headers
-                     } )
+                     }
+               )
              )
            | _ ->
-               (true, res) (* end of headers? *))
+               (true, res) (* end of headers? *)
+         )
        (false, empty)
-       (Astring.String.cuts ~sep:"\n" buf))
+       (Astring.String.cuts ~sep:"\n" buf)
+    )
 
 (** [response_of_fd fd] returns an optional Http.Response.t record *)
 let response_of_fd ?(use_fastpath = false) fd =
