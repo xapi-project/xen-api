@@ -158,14 +158,6 @@ val create_VLAN_from_PIF :
   -> vLAN:int64
   -> [`PIF] Ref.t list
 
-val slave_network_report :
-     __context:'a
-  -> phydevs:'b
-  -> dev_to_mac:'c
-  -> dev_to_mtu:'d
-  -> slave_host:'e
-  -> 'f list
-
 (** {2 High availability (HA)} *)
 
 val enable_disable_m : Mutex.t
@@ -363,5 +355,11 @@ val remove_repository :
 
 val sync_updates :
   __context:Context.t -> self:API.ref_pool -> force:bool -> string
+
+val check_update_readiness :
+     __context:Context.t
+  -> self:API.ref_pool
+  -> requires_reboot:bool
+  -> string list list
 
 val get_updates_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit

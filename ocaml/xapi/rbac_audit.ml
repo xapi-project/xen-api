@@ -443,19 +443,24 @@ let has_to_audit action =
           [
             (* list of _actions_ filtered out from the audit log *)
             "session.local_logout"
+          ; "session_local_logout"
           ; (* session logout have their own *)
             "session.logout"
+          ; "session_logout"
           ; (* rbac_audit calls, because after logout *)
             (* the session is destroyed and no audit is possible*)
             "event.next"
+          ; "event_next"
           ; (* this action is just spam in the audit log*)
             "event.from"
+          ; "event_from"
           ; (* spam *)
             "http/get_rrd_updates"
           ; (* spam *)
             "http/post_remote_db_access"
           ; (* spam *)
             "host.tickle_heartbeat"
+          ; "host_tickle_heartbeat"
             (* spam *)
           ]
        )

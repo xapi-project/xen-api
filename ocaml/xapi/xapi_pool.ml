@@ -2288,10 +2288,6 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
       vlan_pifs
   )
 
-let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host
-    =
-  []
-
 (*
   Dbsync_slave.create_physical_networks ~__context phydevs dev_to_mac dev_to_mtu slave_host
 *)
@@ -3370,6 +3366,41 @@ let sync_updates ~__context ~self ~force =
       @@ fun () ->
       List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
       set_available_updates ~__context
+
+let check_update_readiness ~__context ~self ~requires_reboot =
+  (* Pool checks *)
+  let pool_errors =
+    let pool = Helpers.get_pool ~__context in
+    if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      [[Api_errors.ha_is_enabled]]
+    else
+      []
+  in
+  (* Host and VM checks *)
+  let check host =
+    (* Check if any host is offline. *)
+    let alive =
+      try
+        let hm = Db.Host.get_metrics ~__context ~self:host in
+        Db.Host_metrics.get_live ~__context ~self:hm
+      with _ -> false
+    in
+    if not alive then
+      [[Api_errors.host_offline; Ref.string_of host]]
+    else if requires_reboot then
+      Xapi_host.get_vms_which_prevent_evacuation ~__context ~self:host
+      |> List.map (fun (_, error) -> error)
+    else
+      [[]]
+  in
+  let host_errors =
+    Db.Host.get_all ~__context
+    |> List.map check
+    |> List.concat
+    |> List.filter (( <> ) [])
+  in
+  (* Return both *)
+  pool_errors @ host_errors
 
 let get_updates_handler (req : Http.Request.t) s _ =
   debug "Pool.get_updates_handler: received request" ;
