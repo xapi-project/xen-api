@@ -1029,10 +1029,10 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_READ_ONLY
       ()
 
-  let refresh_server_certificates = call
+  let refresh_server_certificate = call
       ~lifecycle:[Published, rel_next, ""]
-      ~name:"refresh_server_certificates"
-      ~doc:"Replace the self-signed certficates for the host with new ones."
+      ~name:"refresh_server_certificate"
+      ~doc:"Replace the internal self-signed host certficate with a new one."
       ~params:[Ref _host, "host", "The host"]
       ~allowed_roles:_R_POOL_ADMIN
       ()
@@ -1552,7 +1552,7 @@ let host_query_ha = call ~flags:[`Session]
         crl_list;
         certificate_sync;
         get_server_certificate;
-        refresh_server_certificates;
+        refresh_server_certificate;
         install_server_certificate;
         emergency_reset_server_certificate;
         reset_server_certificate;

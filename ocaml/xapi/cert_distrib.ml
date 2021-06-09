@@ -439,3 +439,17 @@ let import_joining_pool_ca_certificates ~__context ~ca_certs =
   Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
     appliance_certs ;
   Worker.local_regen_bundle ~__context
+
+let distribute_new_host_cert ~__context ~host ~content =
+  let hosts = Db.Host.get_all ~__context in
+  let uuid = Db.Host.get_uuid ~__context ~self:host in
+  let file =
+    WireProtocol.{filename= Printf.sprintf "%s.new.pem" uuid; content}
+  in
+  let job rpc session_id host =
+    Worker.remote_write_certs_fs HostPoolCertificate Merge [file] host rpc
+      session_id
+  in
+  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+  List.iter (fun host -> job rpc session_id host) hosts ;
+  List.iter (fun host -> Worker.remote_regen_bundle host rpc session_id) hosts

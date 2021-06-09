@@ -1448,18 +1448,6 @@ let certificate_sync ~__context ~host = Certificates.local_sync ()
 let get_server_certificate ~__context ~host =
   Certificates.get_server_certificate ()
 
-let refresh_server_certificates ~__context ~host =
-  (* we need to do different things depending on whether we
-     refresh the certificates on this host or whether they were
-     refreshed on another host in the pool *)
-  let localhost = Helpers.get_localhost ~__context in
-  match host with
-  | host when host = localhost ->
-      debug "Host.refresh_server_certificates - refresh this host"
-  | host ->
-      debug "Host.refresh_server_certificates - other host %s was refrehsed"
-        (Ref.string_of host)
-
 let with_cert_lock : (unit -> 'a) -> 'a =
   let cert_m = Mutex.create () in
   Mutex.execute cert_m
@@ -1477,7 +1465,11 @@ let replace_host_certificate ~__context ~type' ~host
   let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
   let (_ : API.ref_Certificate) =
-    Db_util.add_cert ~__context ~type':(`host host) new_cert
+    match type' with
+    | `host ->
+        Db_util.add_cert ~__context ~type':(`host host) new_cert
+    | `host_internal ->
+        Db_util.add_cert ~__context ~type':(`host_internal host) new_cert
   in
   List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
   let task = Context.get_task_id __context in
@@ -1524,6 +1516,21 @@ let emergency_reset_server_certificate ~(__context : 'a) =
     _new_host_cert ~dbg:"emergency_reset_certificate" ~path
   in
   ()
+
+let refresh_server_certificate ~__context ~host =
+  (* we need to do different things depending on whether we
+     refresh the certificates on this host or whether they were
+     refreshed on another host in the pool *)
+  let localhost = Helpers.get_localhost ~__context in
+  ( match host with
+  | host when host = localhost ->
+      debug "Host.refresh_server_certificates - refresh this host (1/2)" ;
+      ignore @@ Cert_refresh.host ~__context ~type':`host_internal
+  | host ->
+      debug "Host.refresh_server_certificates - host %s was refrehsed"
+        (Ref.string_of host)
+  ) ;
+  Cert_refresh.remove_stale_cert ~__context ~host ~type':`host_internal
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =

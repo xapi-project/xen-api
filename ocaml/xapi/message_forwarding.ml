@@ -3582,22 +3582,22 @@ functor
             Client.Host.get_server_certificate rpc session_id host
         )
 
-      let refresh_server_certificates ~__context ~host =
-        info "Host.refresh_server_certificates: host = '%s'"
+      let refresh_server_certificate ~__context ~host =
+        info "Host.refresh_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
-        let local_fn = Local.Host.refresh_server_certificates ~host in
+        let local_fn = Local.Host.refresh_server_certificate ~host in
         let other =
           Db.Host.get_all ~__context |> List.filter (fun h -> h <> host)
         in
         (* let host refresh its certificates first *)
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.refresh_server_certificates rpc session_id host
+            Client.Host.refresh_server_certificate rpc session_id host
         ) ;
         (* update all other hosts in the pool *)
         other
         |> List.iter (fun h ->
                do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
-                   Client.Host.refresh_server_certificates rpc session_id host
+                   Client.Host.refresh_server_certificate rpc session_id host
                )
            )
 

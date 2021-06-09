@@ -3071,12 +3071,12 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
-  ; ( "host-refresh-server-certificates"
+  ; ( "host-refresh-server-certificate"
     , {
-        reqd= []
-      ; optn= ["host-uuid"]
-      ; help= "Refresh server certificate on host with local host as default"
-      ; implementation= No_fd Cli_operations.host_refresh_server_certificates
+        reqd= ["host"]
+      ; optn= []
+      ; help= "Refresh internal server certificate of host"
+      ; implementation= No_fd Cli_operations.host_refresh_server_certificate
       ; flags= [Host_selectors]
       }
     )
