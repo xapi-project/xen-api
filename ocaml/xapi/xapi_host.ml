@@ -1488,17 +1488,17 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
     ~certificate_chain =
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
     raise Api_errors.(Server_error (ha_is_enabled, [])) ;
+  let path = !Xapi_globs.server_cert_path in
   let write_cert_fs () =
     let pem_chain =
       match certificate_chain with "" -> None | pem_chain -> Some pem_chain
     in
     Certificates.install_server_certificate ~pem_leaf:certificate
-      ~pkcs8_private_key:private_key ~pem_chain
+      ~pkcs8_private_key:private_key ~pem_chain ~path
   in
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
-let _new_host_cert ~dbg : X509.Certificate.t =
-  let xapi_ssl_pem = !Xapi_globs.server_cert_path in
+let _new_host_cert ~dbg ~path : X509.Certificate.t =
   let name, ip =
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
@@ -1510,16 +1510,18 @@ let _new_host_cert ~dbg : X509.Certificate.t =
   in
   let dns_names = Networking_info.dns_names () in
   let ips = [ip] in
-  Gencertlib.Selfcert.host ~name ~dns_names ~ips xapi_ssl_pem
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips path
 
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
-  let write_cert_fs () = _new_host_cert ~dbg in
+  let path = !Xapi_globs.server_cert_path in
+  let write_cert_fs () = _new_host_cert ~dbg ~path in
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let emergency_reset_server_certificate ~(__context : 'a) =
+  let path = !Xapi_globs.server_cert_path in
   let (_ : X509.Certificate.t) =
-    _new_host_cert ~dbg:"emergency_reset_certificate"
+    _new_host_cert ~dbg:"emergency_reset_certificate" ~path
   in
   ()
 
