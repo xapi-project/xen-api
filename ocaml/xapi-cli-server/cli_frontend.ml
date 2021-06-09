@@ -3074,7 +3074,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "host-refresh-server-certificates"
     , {
         reqd= []
-      ; optn= ["host-uuid"]
+      ; optn= []
       ; help= "Refresh server certificate on host with local host as default"
       ; implementation= No_fd Cli_operations.host_refresh_server_certificates
       ; flags= [Host_selectors]
