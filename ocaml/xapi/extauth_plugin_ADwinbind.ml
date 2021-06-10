@@ -822,7 +822,7 @@ let authenticate_username_password uname password =
 
       Called internally when xapi is doing a clean exit.
   *)
-  let on_xapi_exit () = debug "on_xapi_exit To be implemented in CP-36089"
+  let on_xapi_exit () = ()
 
   (* Implement the single value required for the module signature *)
   let methods =
