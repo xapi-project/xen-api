@@ -22,6 +22,8 @@ let equal = Uuidm.equal
 
 let of_bytes u = Uuidm.of_bytes ~pos:0 u
 
+let to_bytes = Uuidm.to_bytes
+
 let of_int_array arr =
   arr |> Array.to_seq |> Seq.map char_of_int |> String.of_seq |> of_bytes
 
