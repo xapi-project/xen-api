@@ -328,25 +328,19 @@ let create_pool_repository ~__context ~self =
 let get_host_updates_in_json ~__context ~installed =
   try
     with_local_repositories ~__context (fun repositories ->
-        let rpm2updates = get_updates_from_updateinfo ~__context repositories in
+        (* (name_arch, updateID) list *)
+        let update_ids = get_updates_from_updateinfo ~__context repositories in
+        (* (name_arch, pkg) list *)
         let installed_pkgs =
           match installed with true -> get_installed_pkgs () | false -> []
         in
-        let params_of_list =
-          [
-            "-q"
-          ; "--disablerepo=*"
-          ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-          ; "list"
-          ; "updates"
-          ]
-        in
+        (* (name_arch, (pkg, repo)) list *)
+        let update_pkgs = get_updates_from_list_updates repositories in
         List.iter (fun r -> clean_yum_cache r) repositories ;
         let updates =
-          Helpers.call_script !Xapi_globs.yum_cmd params_of_list
-          |> Astring.String.cuts ~sep:"\n"
-          |> List.filter_map
-               (get_rpm_update_in_json ~rpm2updates ~installed_pkgs)
+          List.filter_map
+            (get_update_in_json ~update_ids ~installed_pkgs)
+            update_pkgs
         in
         `Assoc [("updates", `List updates)]
     )

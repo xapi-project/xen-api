@@ -20,13 +20,82 @@ module UpdateIdSet = Set.Make (String)
 
 let exposing_pool_repo_mutex = Mutex.create ()
 
-module Pkg = struct
-  type t = {name: string; version: string; release: string; arch: string}
+module Epoch = struct
+  type t = int option
 
-  let error_msg = Printf.sprintf "Failed to split RPM full name '%s'"
+  let epoch_none = "(none)"
+
+  exception Invalid_epoch
+
+  let of_string = function
+    | s when s = epoch_none || s = "None" ->
+        None
+    | s -> (
+      match int_of_string s with
+      | i when i >= 0 ->
+          Some i
+      | _ ->
+          raise Invalid_epoch
+      | exception _ ->
+          raise Invalid_epoch
+    )
+
+  let to_string = function Some i -> string_of_int i | None -> epoch_none
+end
+
+module Pkg = struct
+  type t = {
+      name: string
+    ; epoch: Epoch.t
+    ; version: string
+    ; release: string
+    ; arch: string
+  }
+
+  let error_msg = Printf.sprintf "Failed to parse '%s'"
+
+  let parse_epoch_version_release epoch_ver_rel =
+    (* The epoch_ver_rel likes, I.E.
+     *   "10.1.11-34",
+     *   "2:1.1.11-34",
+     *   "None:1.1.11-34", or
+     *   "(none):1.1.11-34".
+     *
+     * These may come from:
+     *   "yum list updates",
+     *   "yum updateinfo list updates", or
+     *   "rpm -qa" *)
+    let open Rresult.R.Infix in
+    ( ( match Astring.String.cuts ~sep:":" epoch_ver_rel with
+      | [e; vr] -> (
+        try Ok (Epoch.of_string e, vr) with _ -> Result.Error "Invalid epoch"
+      )
+      | [vr] ->
+          Ok (None, vr)
+      | _ ->
+          Error "Invalid epoch:version-release"
+      )
+    >>= fun (e, vr) ->
+      match Astring.String.cuts ~sep:"-" vr with
+      | [v; r] ->
+          Ok (e, v, r)
+      | _ ->
+          Error "Invalid version-release"
+    )
+    |> function
+    | Ok (e, v, r) ->
+        (e, v, r)
+    | Error msg ->
+        let msg = error_msg epoch_ver_rel in
+        error "%s" msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
 
   let of_fullname s =
-    (* s I.E. "libpath-utils-0.2.1-29.el7.x86_64" *)
+    (* The s likes, I.E.
+     *   "libpath-utils-0.2.1-29.el7.x86_64",
+     *   "qemu-dp-2:2.12.0-2.0.11.x86_64", or
+     *   "time-(none):1.7-45.el7.x86_64".
+     * These may come from "yum updateinfo list updates" and "rpm -qa" *)
     let r = Re.Str.regexp "^\\(.+\\)\\.\\(noarch\\|x86_64\\)$" in
     match Re.Str.string_match r s 0 with
     | true -> (
@@ -37,12 +106,14 @@ module Pkg = struct
         (* arch is "<noarch|x86_64>" *)
         let pos1 = String.rindex pkg '-' in
         let pos2 = String.rindex_from pkg (pos1 - 1) '-' in
-        let release =
-          String.sub pkg (pos1 + 1) (String.length pkg - pos1 - 1)
+        let epoch_ver_rel =
+          String.sub pkg (pos2 + 1) (String.length pkg - pos2 - 1)
         in
-        let version = String.sub pkg (pos2 + 1) (pos1 - pos2 - 1) in
+        let epoch, version, release =
+          parse_epoch_version_release epoch_ver_rel
+        in
         let name = String.sub pkg 0 pos2 in
-        Some {name; version; release; arch}
+        Some {name; epoch; version; release; arch}
       with e ->
         let msg = error_msg s in
         error "%s: %s" msg (ExnHelper.string_of_exn e) ;
@@ -51,18 +122,42 @@ module Pkg = struct
     | false ->
         None
 
-  let to_ver_rel_json pkg =
-    `Assoc [("version", `String pkg.version); ("release", `String pkg.release)]
+  let to_epoch_ver_rel_json pkg =
+    `Assoc
+      [
+        ("epoch", `String (Epoch.to_string pkg.epoch))
+      ; ("version", `String pkg.version)
+      ; ("release", `String pkg.release)
+      ]
 
   let to_name_arch_string pkg = pkg.name ^ "." ^ pkg.arch
+
+  let parse_name_arch name_arch =
+    match Astring.String.cuts ~sep:"." name_arch with
+    | [name; arch] when arch = "x86_64" || arch = "noarch" ->
+        (name, arch)
+    | _ ->
+        let msg = error_msg name_arch in
+        error "%s" msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
+
+  let to_fullname ~name ~arch ~epoch ~version ~release =
+    match epoch with
+    | Some i ->
+        Printf.sprintf "%s-%s:%s-%s.%s.rpm" name (string_of_int i) version
+          release arch
+    | None ->
+        Printf.sprintf "%s-%s-%s.%s.rpm" name version release arch
 end
 
 module Update = struct
   type t = {
       name: string
     ; arch: string
+    ; old_epoch: Epoch.t option
     ; old_version: string option
     ; old_release: string option
+    ; new_epoch: Epoch.t
     ; new_version: string
     ; new_release: string
     ; update_id: string option
@@ -70,28 +165,55 @@ module Update = struct
   }
 
   let of_json j =
-    let open Yojson.Basic.Util in
-    {
-      name= member "name" j |> to_string
-    ; arch= member "arch" j |> to_string
-    ; new_version= member "newVerRel" j |> member "version" |> to_string
-    ; new_release= member "newVerRel" j |> member "release" |> to_string
-    ; old_version=
-        ( try Some (member "oldVerRel" j |> member "version" |> to_string)
-          with _ -> None
-        )
-    ; old_release=
-        ( try Some (member "oldVerRel" j |> member "release" |> to_string)
-          with _ -> None
-        )
-    ; update_id= member "updateId" j |> to_string_option
-    ; repository= member "repository" j |> to_string
-    }
+    try
+      let open Yojson.Basic.Util in
+      {
+        name= member "name" j |> to_string
+      ; arch= member "arch" j |> to_string
+      ; new_epoch=
+          member "newEpochVerRel" j
+          |> member "epoch"
+          |> to_string
+          |> Epoch.of_string
+      ; new_version= member "newEpochVerRel" j |> member "version" |> to_string
+      ; new_release= member "newEpochVerRel" j |> member "release" |> to_string
+      ; old_epoch=
+          ( try
+              Some
+                (member "oldEpochVerRel" j
+                |> member "epoch"
+                |> to_string
+                |> Epoch.of_string
+                )
+            with _ -> None
+          )
+      ; old_version=
+          ( try Some (member "oldEpochVerRel" j |> member "version" |> to_string)
+            with _ -> None
+          )
+      ; old_release=
+          ( try Some (member "oldEpochVerRel" j |> member "release" |> to_string)
+            with _ -> None
+          )
+      ; update_id= member "updateId" j |> to_string_option
+      ; repository= member "repository" j |> to_string
+      }
+    with e ->
+      let msg = "Can't construct an update from json" in
+      error "%s: %s" msg (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (internal_error, [msg]))
 
   let to_string u =
-    Printf.sprintf "%s.%s %s-%s -> %s-%s from %s:%s" u.name u.arch
+    Printf.sprintf "%s.%s %s:%s-%s -> %s:%s-%s from %s:%s" u.name u.arch
+      ( match u.old_epoch with
+      | Some e ->
+          Epoch.to_string e
+      | None ->
+          Epoch.epoch_none
+      )
       (Option.value u.old_version ~default:"unknown")
       (Option.value u.old_release ~default:"unknown")
+      (Epoch.to_string u.new_epoch)
       u.new_version u.new_release
       (Option.value u.update_id ~default:"unknown")
       u.repository
@@ -192,7 +314,7 @@ module Applicability = struct
       name: string
     ; arch: string
     ; inequality: inequality option
-    ; epoch: string
+    ; epoch: Epoch.t
     ; version: string
     ; release: string
   }
@@ -228,13 +350,19 @@ module Applicability = struct
         raise Invalid_inequality
 
   let default =
-    {name= ""; arch= ""; inequality= None; epoch= ""; version= ""; release= ""}
+    {
+      name= ""
+    ; arch= ""
+    ; inequality= None
+    ; epoch= None
+    ; version= ""
+    ; release= ""
+    }
 
   let assert_valid = function
     | {name= ""; _}
     | {arch= ""; _}
     | {inequality= None; _}
-    | {epoch= ""; _}
     | {version= ""; _}
     | {release= ""; _} ->
         error "Invalid applicability" ;
@@ -255,8 +383,15 @@ module Applicability = struct
                       with Invalid_inequality -> None
                     )
                 }
-            | Xml.Element ("epoch", _, [Xml.PCData v]) ->
-                {a with epoch= v}
+            | Xml.Element ("epoch", _, [Xml.PCData v]) -> (
+              try {a with epoch= Epoch.of_string v}
+              with e ->
+                let msg =
+                  Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) v
+                in
+                error "%s" msg ;
+                raise Api_errors.(Server_error (internal_error, [msg]))
+            )
             | Xml.Element ("version", _, [Xml.PCData v]) ->
                 {a with version= v}
             | Xml.Element ("release", _, [Xml.PCData v]) ->
@@ -276,12 +411,28 @@ module Applicability = struct
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
 
   let to_string a =
-    Printf.sprintf "%s %s %s-%s (epoch: %s)" a.name
+    Printf.sprintf "%s %s %s:%s-%s" a.name
       (Option.value
          (Option.map string_of_inequality a.inequality)
          ~default:"InvalidInequality"
       )
-      a.version a.release a.epoch
+      (Epoch.to_string a.epoch) a.version a.release
+
+  let compare_epoch e1 e2 =
+    match (e1, e2) with
+    | Some i1, Some i2 ->
+        if i1 < i2 then
+          LT
+        else if i1 = i2 then
+          EQ
+        else
+          GT
+    | Some _, None ->
+        GT
+    | None, Some _ ->
+        LT
+    | None, None ->
+        EQ
 
   let compare_version_strings s1 s2 =
     (* Compare versions or releases of RPM packages
@@ -360,45 +511,61 @@ module Applicability = struct
     in
     compare_segments (normalize s1) (normalize s2)
 
-  let lt v1 r1 v2 r2 =
-    match (compare_version_strings v1 v2, compare_version_strings r1 r2) with
-    | LT, _ | EQ, LT ->
+  let lt e1 v1 r1 e2 v2 r2 =
+    match
+      ( compare_epoch e1 e2
+      , compare_version_strings v1 v2
+      , compare_version_strings r1 r2
+      )
+    with
+    | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
         true
     | _ ->
         false
 
-  let gt v1 r1 v2 r2 =
-    match (compare_version_strings v1 v2, compare_version_strings r1 r2) with
-    | GT, _ | EQ, GT ->
+  let gt e1 v1 r1 e2 v2 r2 =
+    match
+      ( compare_epoch e1 e2
+      , compare_version_strings v1 v2
+      , compare_version_strings r1 r2
+      )
+    with
+    | GT, _, _ | EQ, GT, _ | EQ, EQ, GT ->
         true
     | _ ->
         false
 
-  let eq v1 r1 v2 r2 =
-    match (compare_version_strings v1 v2, compare_version_strings r1 r2) with
-    | EQ, EQ ->
+  let eq e1 v1 r1 e2 v2 r2 =
+    match
+      ( compare_epoch e1 e2
+      , compare_version_strings v1 v2
+      , compare_version_strings r1 r2
+      )
+    with
+    | EQ, EQ, EQ ->
         true
     | _ ->
         false
 
-  let lte v1 r1 v2 r2 = lt v1 r1 v2 r2 || eq v1 r1 v2 r2
+  let lte e1 v1 r1 e2 v2 r2 = lt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
 
-  let gte v1 r1 v2 r2 = gt v1 r1 v2 r2 || eq v1 r1 v2 r2
+  let gte e1 v1 r1 e2 v2 r2 = gt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
 
-  let eval ~version ~release ~applicability =
-    let ver = applicability.version in
-    let rel = applicability.release in
+  let eval ~epoch ~version ~release ~applicability =
+    let epoch' = applicability.epoch in
+    let version' = applicability.version in
+    let release' = applicability.release in
     match applicability.inequality with
     | Some Lt ->
-        lt version release ver rel
+        lt epoch version release epoch' version' release'
     | Some Lte ->
-        lte version release ver rel
+        lte epoch version release epoch' version' release'
     | Some Gt ->
-        gt version release ver rel
+        gt epoch version release epoch' version' release'
     | Some Gte ->
-        gte version release ver rel
+        gte epoch version release epoch' version' release'
     | Some Eq ->
-        eq version release ver rel
+        eq epoch version release epoch' version' release'
     | _ ->
         raise Invalid_inequality
 end
@@ -868,7 +1035,8 @@ let assert_yum_error output =
   output
 
 let get_installed_pkgs () =
-  Helpers.call_script !Xapi_globs.rpm_cmd ["-qa"]
+  Helpers.call_script !Xapi_globs.rpm_cmd
+    ["-qa"; "'%{NAME}-%{EPOCH}:%{VERSION}-%{RELEASE}.%{ARCH}\n'"]
   |> Astring.String.cuts ~sep:"\n"
   |> List.filter_map Pkg.of_fullname
   |> List.map (fun pkg -> (Pkg.to_name_arch_string pkg, pkg))
@@ -882,24 +1050,30 @@ let parse_updateinfo_list acc line =
         (* Found same package in more than 1 update *)
         let name_arch = Pkg.to_name_arch_string pkg in
         match List.assoc_opt name_arch acc with
-        | Some (v, r, _) -> (
+        | Some (e, v, r, _) -> (
             let open Applicability in
             (* Select the latest update by comparing version and release  *)
             match
-              ( compare_version_strings v pkg.Pkg.version
+              ( compare_epoch e pkg.Pkg.epoch
+              , compare_version_strings v pkg.Pkg.version
               , compare_version_strings r pkg.Pkg.release
               )
             with
-            | LT, _ | EQ, LT | EQ, EQ ->
+            | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
                 let latest_so_far =
-                  (name_arch, (pkg.Pkg.version, pkg.Pkg.release, update_id))
+                  ( name_arch
+                  , (pkg.epoch, pkg.Pkg.version, pkg.Pkg.release, update_id)
+                  )
                 in
                 latest_so_far :: List.remove_assoc name_arch acc
             | _ ->
                 acc
           )
         | None ->
-            (name_arch, (pkg.Pkg.version, pkg.Pkg.release, update_id)) :: acc
+            ( name_arch
+            , (pkg.Pkg.epoch, pkg.Pkg.version, pkg.Pkg.release, update_id)
+            )
+            :: acc
       )
     | None ->
         acc
@@ -923,7 +1097,7 @@ let get_updates_from_updateinfo ~__context repositories =
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.fold_left parse_updateinfo_list []
-  |> List.map (fun (name_arch, (_, _, update_id)) -> (name_arch, update_id))
+  |> List.map (fun (name_arch, (_, _, _, update_id)) -> (name_arch, update_id))
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind =
   let open Update in
@@ -938,12 +1112,14 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind =
             )
           with
           | true, true -> (
-            match (update.old_version, update.old_release) with
-            | Some old_version, Some old_release ->
-                Applicability.eval ~version:old_version ~release:old_release
-                  ~applicability:a
+            match
+              (update.old_epoch, update.old_version, update.old_release)
+            with
+            | Some old_epoch, Some old_version, Some old_release ->
+                Applicability.eval ~epoch:old_epoch ~version:old_version
+                  ~release:old_release ~applicability:a
             | _ ->
-                warn "No installed version or release for package %s.%s"
+                warn "No installed epoch, version or release for package %s.%s"
                   update.name update.arch ;
                 false
           )
@@ -993,65 +1169,111 @@ let eval_guidances ~updates_info ~updates ~kind =
   |> GuidanceSet.resort_guidances ~kind
   |> GuidanceSet.elements
 
-let get_rpm_update_in_json ~rpm2updates ~installed_pkgs line =
+let parse_line_of_list_updates (buff, acc) line =
+  let get_pkg name_arch epoch_ver_rel repo =
+    let name, arch = Pkg.parse_name_arch name_arch in
+    let epoch, version, release =
+      Pkg.parse_epoch_version_release epoch_ver_rel
+    in
+    let pkg = Pkg.{name; epoch; version; release; arch} in
+    (pkg, repo)
+  in
+  let empty_buff = (None, None, None) in
   let sep = Re.Str.regexp " +" in
-  match Re.Str.split sep line with
-  | ["Updated"; "Packages"] ->
-      None
-  | [name_arch; ver_rel; repo] -> (
-      (* xsconsole.x86_64  10.1.11-34  local-normal *)
-      let remove_prefix prefix s =
-        match Astring.String.cut ~sep:prefix s with
-        | Some ("", s') when s' <> "" ->
-            Some s'
-        | _ ->
-            None
-      in
-      match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
-      | Some repo_name -> (
-        match
-          ( Astring.String.cuts ~sep:"." name_arch
-          , Astring.String.cuts ~sep:"-" ver_rel
-          )
-        with
-        | [name; arch], [version; release] -> (
-            let open Pkg in
-            let new_pkg = {name; version; release; arch} in
-            let uid_in_json =
-              match List.assoc_opt name_arch rpm2updates with
-              | Some s ->
-                  `String s
-              | None ->
-                  warn "No update ID found for %s" name_arch ;
-                  `Null
-            in
-            let l =
-              [
-                ("name", `String name)
-              ; ("arch", `String arch)
-              ; ("newVerRel", to_ver_rel_json new_pkg)
-              ; ("updateId", uid_in_json)
-              ; ("repository", `String repo_name)
-              ]
-            in
-            match List.assoc_opt name_arch installed_pkgs with
-            | Some old_pkg ->
-                Some (`Assoc (l @ [("oldVerRel", to_ver_rel_json old_pkg)]))
-            | None ->
-                Some (`Assoc l)
-          )
-        | _ ->
-            warn "Can't parse %s and %s" name_arch ver_rel ;
-            None
-      )
-      | None ->
-          let msg = "Found update from unmanaged repository" in
-          error "%s: %s" msg line ;
-          raise Api_errors.(Server_error (internal_error, [msg]))
-    )
+  match (buff, Re.Str.split sep line) with
+  | _, ["Updated"; "Packages"] ->
+      (empty_buff, acc)
+  | (None, None, None), [name_arch] ->
+      Pkg.parse_name_arch name_arch |> ignore ;
+      ((Some name_arch, None, None), acc)
+  | (None, None, None), [name_arch; epoch_ver_rel] ->
+      Pkg.parse_name_arch name_arch |> ignore ;
+      ((Some name_arch, Some epoch_ver_rel, None), acc)
+  | (None, None, None), [name_arch; epoch_ver_rel; repo] ->
+      Pkg.parse_name_arch name_arch |> ignore ;
+      let pkg = get_pkg name_arch epoch_ver_rel repo in
+      (empty_buff, pkg :: acc)
+  | (None, None, None), _ ->
+      warn "Can't parse '%s'. Not data in buff." line ;
+      (empty_buff, acc)
+  | (Some name_arch, None, None), [epoch_ver_rel] ->
+      ((Some name_arch, Some epoch_ver_rel, None), acc)
+  | (Some name_arch, None, None), [epoch_ver_rel; repo] ->
+      let pkg = get_pkg name_arch epoch_ver_rel repo in
+      (empty_buff, pkg :: acc)
+  | (Some name_arch, None, None), _ ->
+      warn "Can't parse '%s'. name_arch %s is in buff." line name_arch ;
+      (empty_buff, acc)
+  | (Some name_arch, Some epoch_ver_rel, None), [repo] ->
+      let pkg = get_pkg name_arch epoch_ver_rel repo in
+      (empty_buff, pkg :: acc)
+  | (Some name_arch, Some epoch_ver_rel, None), _ ->
+      warn "Can't parse '%s'. name_arch %s and epoch_ver_rel %s are in buff."
+        line name_arch epoch_ver_rel ;
+      (empty_buff, acc)
   | _ ->
-      debug "Ignore unrecognized line '%s' in parsing updates list" line ;
-      None
+      warn "Can't parse '%s'" line ;
+      (empty_buff, acc)
+
+let get_updates_from_list_updates repositories =
+  let params_of_list =
+    [
+      "-q"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "list"
+    ; "updates"
+    ]
+  in
+  List.iter (fun r -> clean_yum_cache r) repositories ;
+  let lines =
+    Helpers.call_script !Xapi_globs.yum_cmd params_of_list
+    |> Astring.String.cuts ~sep:"\n"
+  in
+  let _, updates =
+    List.fold_left parse_line_of_list_updates ((None, None, None), []) lines
+  in
+  updates
+
+let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
+  let remove_prefix prefix s =
+    match Astring.String.cut ~sep:prefix s with
+    | Some ("", s') when s' <> "" ->
+        Some s'
+    | _ ->
+        None
+  in
+  match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
+  | Some repo_name -> (
+      let open Pkg in
+      let name_arch = Pkg.to_name_arch_string new_pkg in
+      let uid_in_json =
+        match List.assoc_opt name_arch update_ids with
+        | Some s ->
+            `String s
+        | None ->
+            warn "No update ID found for %s" name_arch ;
+            `Null
+      in
+      let l =
+        [
+          ("name", `String new_pkg.name)
+        ; ("arch", `String new_pkg.arch)
+        ; ("newEpochVerRel", to_epoch_ver_rel_json new_pkg)
+        ; ("updateId", uid_in_json)
+        ; ("repository", `String repo_name)
+        ]
+      in
+      match List.assoc_opt name_arch installed_pkgs with
+      | Some old_pkg ->
+          Some (`Assoc (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)]))
+      | None ->
+          Some (`Assoc l)
+    )
+  | None ->
+      let msg = "Found update from unmanaged repository" in
+      error "%s: %s" msg repo ;
+      raise Api_errors.(Server_error (internal_error, [msg]))
 
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
@@ -1066,8 +1288,8 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
     List.fold_left
       (fun (acc_rpms, acc_uids, acc_updates) u ->
         let rpms =
-          Printf.sprintf "%s-%s-%s.%s.rpm" u.name u.new_version u.new_release
-            u.arch
+          Pkg.to_fullname ~name:u.name ~arch:u.arch ~epoch:u.new_epoch
+            ~version:u.new_version ~release:u.new_release
           :: acc_rpms
         in
         match (u.update_id, u.repository = repository_name) with
