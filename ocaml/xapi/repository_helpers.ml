@@ -68,25 +68,24 @@ module Pkg = struct
     let open Rresult.R.Infix in
     ( ( match Astring.String.cuts ~sep:":" epoch_ver_rel with
       | [e; vr] -> (
-        try Result.Ok (Epoch.of_string e, vr)
-        with _ -> Result.Error "Invalid epoch"
+        try Ok (Epoch.of_string e, vr) with _ -> Result.Error "Invalid epoch"
       )
       | [vr] ->
-          Result.Ok (None, vr)
+          Ok (None, vr)
       | _ ->
-          Result.Error "Invalid epoch:version-release"
+          Error "Invalid epoch:version-release"
       )
     >>= fun (e, vr) ->
       match Astring.String.cuts ~sep:"-" vr with
       | [v; r] ->
-          Result.Ok (e, v, r)
+          Ok (e, v, r)
       | _ ->
-          Result.Error "Invalid version-release"
+          Error "Invalid version-release"
     )
     |> function
-    | Result.Ok (e, v, r) ->
+    | Ok (e, v, r) ->
         (e, v, r)
-    | Result.Error msg ->
+    | Error msg ->
         let msg = error_msg epoch_ver_rel in
         error "%s" msg ;
         raise Api_errors.(Server_error (internal_error, [msg]))
@@ -207,20 +206,14 @@ module Update = struct
   let to_string u =
     Printf.sprintf "%s.%s %s:%s-%s -> %s:%s-%s from %s:%s" u.name u.arch
       ( match u.old_epoch with
-      | Some e -> (
-        match e with Some i -> string_of_int i | None -> Epoch.epoch_none
-      )
+      | Some e ->
+          Epoch.to_string e
       | None ->
           Epoch.epoch_none
       )
       (Option.value u.old_version ~default:"unknown")
       (Option.value u.old_release ~default:"unknown")
-      ( match u.new_epoch with
-      | Some i ->
-          string_of_int i
-      | None ->
-          Epoch.epoch_none
-      )
+      (Epoch.to_string u.new_epoch)
       u.new_version u.new_release
       (Option.value u.update_id ~default:"unknown")
       u.repository
