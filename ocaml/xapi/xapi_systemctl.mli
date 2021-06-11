@@ -20,3 +20,6 @@ val start : ?timeout:float -> wait_until_success:bool -> string -> unit
 
 (* stop a service with systemctl *)
 val stop : ?timeout:float -> wait_until_success:bool -> string -> unit
+
+(* restart a service with systemctl *)
+val restart : ?timeout:float -> wait_until_success:bool -> string -> unit
