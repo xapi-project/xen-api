@@ -76,6 +76,12 @@ jobs:
       - name: Run tests
         run: opam exec -- make test
 
+      - name: Build SDK
+        run: |
+          mkdir -p /opt/xensource/sm
+          wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/drivers/XE_SR_ERRORCODES.xml
+          opam exec -- make sdk
+
       - name: Uninstall unversioned packages and remove pins
         # This should purge them from the cache, unversioned package have
         # 'master' as its version
