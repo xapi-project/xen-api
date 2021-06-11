@@ -688,9 +688,6 @@ let authenticate_username_password uname password =
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
   let query_subject_information (sid : string) =
-    (* we have to aggregate information from wbinfo and / or an ldap query (using net binary)
-     * to begin with, we don't even know if the sid belongs to a group or a user
-     * so we first do a test with [gid_of_sid] + [uid_of_sid] *)
     let res =
       let* name = Wbinfo.name_of_sid sid in
       match name with
