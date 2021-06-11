@@ -1339,6 +1339,10 @@ and c_type_of_ty needed record = function
   | Set String ->
       needed := StringSet.add "string_set" !needed ;
       "struct xen_string_set *"
+  | Set (Set String) ->
+      (* TODO: implement this new type correctly *)
+      needed := StringSet.add "string_set" !needed ;
+      "struct xen_string_set *"
   | Set (Record n) ->
       needed := StringSet.add (n ^ "_decl") !needed ;
       sprintf "struct %s_set *" (record_typename n)
