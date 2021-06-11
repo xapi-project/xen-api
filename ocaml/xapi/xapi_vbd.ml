@@ -275,7 +275,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           let uuid = Uuid.make_uuid () in
           let ref = Ref.make () in
           debug "VBD.create (device = %s; uuid = %s; ref = %s)" userdevice
-            (Uuid.string_of_uuid uuid) (Ref.string_of ref) ;
+            (Uuid.to_string uuid) (Ref.string_of ref) ;
           (* Check that the device is definitely unique. If the requested device is numerical
              		   (eg 1) then we 'expand' it into other possible names (eg 'hdb' 'xvdb') to detect
              		   all possible clashes. *)

@@ -493,9 +493,9 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi =
       None
   in
   try
-    let remote_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    let base_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
-    let leaf_dp = Uuid.string_of_uuid (Uuid.make_uuid ()) in
+    let remote_dp = Uuid.(to_string (make_uuid ())) in
+    let base_dp = Uuid.(to_string (make_uuid ())) in
+    let leaf_dp = Uuid.(to_string (make_uuid ())) in
     let dest_vdi_url =
       Http.Url.set_uri remote_url
         (Printf.sprintf "%s/nbd/%s/%s/%s"
@@ -968,7 +968,7 @@ let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
   let vdis = Local.SR.scan dbg sr in
   (* We drop cbt_metadata VDIs that do not have any actual data *)
   let vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") vdis in
-  let leaf_dp = Local.DP.create dbg (Uuid.string_of_uuid (Uuid.make_uuid ())) in
+  let leaf_dp = Local.DP.create dbg Uuid.(to_string (make_uuid ())) in
   try
     let vdi_info = {vdi_info with sm_config= [("base_mirror", id)]} in
     let leaf = Local.VDI.create dbg sr vdi_info in

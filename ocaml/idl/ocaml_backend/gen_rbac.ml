@@ -57,18 +57,7 @@ let writer_csv static_permissions_roles =
 
 let hash2uuid str =
   let h = Digest.string str in
-  let hex = Digest.to_hex h in
-  let int_array hex =
-    let l = ref [] in
-    Scanf.sscanf hex
-      "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
-      (fun a0 a1 a2 a3 a4 a5 a6 a7 a8 a9 a10 a11 a12 a13 a14 a15 ->
-        l :=
-          [a0; a1; a2; a3; a4; a5; a6; a7; a8; a9; a10; a11; a12; a13; a14; a15]
-    ) ;
-    Array.of_list !l
-  in
-  Uuid.string_of_uuid (Uuid.uuid_of_int_array (int_array hex))
+  Option.map Uuid.to_string (Uuid.of_bytes h)
 
 let replace_char str c1 c2 =
   let buf = Bytes.of_string str in
@@ -76,7 +65,7 @@ let replace_char str c1 c2 =
   String.iteri (fun i _ -> if str.[i] = c1 then Bytes.set buf i c2 else ()) str ;
   Bytes.unsafe_to_string buf
 
-let role_uuid name = hash2uuid name
+let role_uuid name = Option.get (hash2uuid name)
 
 let permission_description = "A basic permission"
 

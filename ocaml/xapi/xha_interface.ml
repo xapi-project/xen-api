@@ -289,7 +289,16 @@ module LiveSetInformation = struct
                    "Invalid boolean value '%s' within 'host' element" s
                 )
           in
-          let uuid = Uuid.of_string in
+          let uuid s =
+            match Uuid.of_string s with
+            | None ->
+                invalid_arg
+                  (Printf.sprintf
+                     "invalid uuid value '%s' within 'host' element" s
+                  )
+            | Some u ->
+                u
+          in
           Some
             {
               id= uuid (find "HostID")
@@ -310,7 +319,7 @@ module LiveSetInformation = struct
       ; time_since_last_heartbeat: int
       ; time_since_xapi_restart_first_attempted: int
       ; heartbeat_active_list_on_heartbeat: [`host] Uuid.t list
-      ; heartbeat_active_list_on_statefile: [`host] Uuid.t list (* ... *)
+      ; heartbeat_active_list_on_statefile: [`host] Uuid.t list
     }
 
     let of_xml_element = function
@@ -332,7 +341,16 @@ module LiveSetInformation = struct
                    "Invalid integer value '%s' within 'host_raw_data' element" s
                 )
           in
-          let uuid = Uuid.of_string in
+          let uuid s =
+            match Uuid.of_string s with
+            | None ->
+                invalid_arg
+                  (Printf.sprintf
+                     "invalid uuid value '%s' within 'host' element" s
+                  )
+            | Some u ->
+                u
+          in
           let set f x = List.map f (String.split_f String.isspace x) in
           Some
             {
@@ -471,8 +489,17 @@ module LiveSetInformation = struct
         | Some
             (Xml.Element
               (_, _, [Xml.Element ("HostID", _, [Xml.PCData local_host_id])])
-              ) ->
-            Uuid.of_string local_host_id
+              ) -> (
+          match Uuid.of_string local_host_id with
+          | None ->
+              invalid_arg
+                (Printf.sprintf
+                   "invalid uuid value '%s' within 'localhost' element"
+                   local_host_id
+                )
+          | Some u ->
+              u
+        )
         | _ ->
             invalid_arg "Invalid or missing 'localhost' element."
         )
@@ -523,8 +550,7 @@ module LiveSetInformation = struct
   let to_summary_string t =
     let status = Status.to_string t.status in
     let host h =
-      Printf.sprintf "%s [%s%s%s%s%s%s]"
-        (Uuid.string_of_uuid h.Host.id)
+      Printf.sprintf "%s [%s%s%s%s%s%s]" (Uuid.to_string h.Host.id)
         (if h.Host.id = t.local_host_id then "*" else " ")
         (if h.Host.liveness then "L" else " ")
         (if h.Host.master then "M" else " ")

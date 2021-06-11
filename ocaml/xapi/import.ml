@@ -555,7 +555,7 @@ module VM : HandlerTools = struct
         if config.full_restore then
           other_config
         else
-          (Xapi_globs.mac_seed, Uuid.string_of_uuid (Uuid.make_uuid ()))
+          (Xapi_globs.mac_seed, Uuid.(to_string (make_uuid ())))
           :: List.filter (fun (x, _) -> x <> Xapi_globs.mac_seed) other_config
       in
       let vm_record = {vm_record with API.vM_other_config= other_config} in

@@ -678,15 +678,15 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
       (fun _ vdi m ->
         let ref = Ref.make () in
         let uuid =
-          match vdi.uuid with
+          match Option.bind vdi.uuid Uuid.of_string with
           | Some x ->
-              Uuid.of_string x
+              x
           | None ->
               Uuid.make_uuid ()
         in
         debug "Creating VDI: %s (ref=%s)" (string_of_vdi_info vdi)
           (Ref.string_of ref) ;
-        Db.VDI.create ~__context ~ref ~uuid:(Uuid.string_of_uuid uuid)
+        Db.VDI.create ~__context ~ref ~uuid:(Uuid.to_string uuid)
           ~name_label:vdi.name_label ~name_description:vdi.name_description
           ~current_operations:[] ~allowed_operations:[]
           ~is_a_snapshot:vdi.is_a_snapshot
