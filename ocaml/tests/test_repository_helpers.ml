@@ -19,6 +19,7 @@ let fields_of_pkg =
   Fmt.Dump.
     [
       field "name" (fun (r : Pkg.t) -> r.name) string
+    ; field "epoch" (fun (r : Pkg.t) -> Epoch.to_string r.epoch) string
     ; field "version" (fun (r : Pkg.t) -> r.version) string
     ; field "release" (fun (r : Pkg.t) -> r.release) string
     ; field "arch" (fun (r : Pkg.t) -> r.arch) string
@@ -91,6 +92,7 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                Pkg.
                  {
                    name= "libpath-utils"
+                 ; epoch= None
                  ; version= "0.2.1"
                  ; release= "29.el7"
                  ; arch= "noarch"
@@ -104,11 +106,49 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                Pkg.
                  {
                    name= "libpath-utils"
+                 ; epoch= None
                  ; version= "0.2.1"
                  ; release= "29.el7"
                  ; arch= "x86_64"
                  }
                
+            )
+        )
+      ; ( Io.Line "libpath-utils-2:0.2.1-29.el7.x86_64"
+        , Ok
+            (Some
+               Pkg.
+                 {
+                   name= "libpath-utils"
+                 ; epoch= Some 2
+                 ; version= "0.2.1"
+                 ; release= "29.el7"
+                 ; arch= "x86_64"
+                 }
+               
+            )
+        )
+      ; ( Io.Line "libpath-utils-(none):0.2.1-29.el7.x86_64"
+        , Ok
+            (Some
+               Pkg.
+                 {
+                   name= "libpath-utils"
+                 ; epoch= None
+                 ; version= "0.2.1"
+                 ; release= "29.el7"
+                 ; arch= "x86_64"
+                 }
+               
+            )
+        )
+      ; ( Io.Line "libpath-utils-:0.2.1-29.el7.x86_64"
+        , Error
+            Api_errors.(
+              Server_error
+                ( internal_error
+                , [Pkg.error_msg "libpath-utils-:0.2.1-29.el7.x86_64"]
+                )
             )
         )
       ; (* all RPM packages installed by default *)
@@ -121,8 +161,14 @@ let fields_of_update =
     [
       field "name" (fun (r : Update.t) -> r.name) string
     ; field "arch" (fun (r : Update.t) -> r.arch) string
+    ; field "old_epoch"
+        (fun (r : Update.t) -> Option.map Epoch.to_string r.old_epoch)
+        (option string)
     ; field "old_version" (fun (r : Update.t) -> r.old_version) (option string)
     ; field "old_release" (fun (r : Update.t) -> r.old_release) (option string)
+    ; field "new_epoch"
+        (fun (r : Update.t) -> Epoch.to_string r.new_epoch)
+        string
     ; field "new_version" (fun (r : Update.t) -> r.new_version) string
     ; field "new_release" (fun (r : Update.t) -> r.new_release) string
     ; field "update_id" (fun (r : Update.t) -> r.update_id) (option string)
@@ -153,11 +199,13 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
           {
             "name": "libpath-utils",
             "arch": "x86_64",
-            "oldVerRel": {
+            "oldEpochVerRel": {
+              "epoch": "(none)",
               "version": "0.2.1",
               "release": "29.el7"
             },
-            "newVerRel": {
+            "newEpochVerRel": {
+              "epoch": "(none)",
               "version": "0.2.2",
               "release": "10.el7"
             },
@@ -170,8 +218,10 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               {
                 name= "libpath-utils"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0000"
@@ -184,7 +234,8 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
           {
             "name": "libpath-utils",
             "arch": "x86_64",
-            "newVerRel": {
+            "newEpochVerRel": {
+              "epoch": "(none)",
               "version": "0.2.2",
               "release": "10.el7"
             },
@@ -196,8 +247,10 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
               {
                 name= "libpath-utils"
               ; arch= "x86_64"
+              ; old_epoch= None
               ; old_version= None
               ; old_release= None
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= None
@@ -209,11 +262,13 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
         ( {|
           {
             "name": "libpath-utils",
-            "oldVerRel": {
+            "oldEpochVerRel": {
+              "epoch": "(none)",
               "version": "0.2.1",
               "release": "29.el7"
             },
-            "newVerRel": {
+            "newEpochVerRel": {
+              "epoch": "(none)",
               "version": "0.2.2",
               "release": "10.el7"
             },
@@ -222,12 +277,50 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
           }
           |}
         , Error
-            Yojson.Basic.Util.(Type_error ("Expected string, got null", `Null))
+            Api_errors.(
+              Server_error
+                (internal_error, ["Can't construct an update from json"])
+            )
+        )
+        (* A complete normal case with epoch *)
+      ; ( {|
+          {
+            "name": "libpath-utils",
+            "arch": "x86_64",
+            "oldEpochVerRel": {
+              "epoch": "1",
+              "version": "0.2.1",
+              "release": "29.el7"
+            },
+            "newEpochVerRel": {
+              "epoch": "2",
+              "version": "0.2.2",
+              "release": "10.el7"
+            },
+            "updateId": "UPDATE-0000",
+            "repository": "regular"
+          }
+          |}
+        , Ok
+            Update.
+              {
+                name= "libpath-utils"
+              ; arch= "x86_64"
+              ; old_epoch= Some (Some 1)
+              ; old_version= Some "0.2.1"
+              ; old_release= Some "29.el7"
+              ; new_epoch= Some 2
+              ; new_version= "0.2.2"
+              ; new_release= "10.el7"
+              ; update_id= Some "UPDATE-0000"
+              ; repository= "regular"
+              }
+            
         )
       ]
 end)
 
-module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
+module GuidanceSetAssertValidGuidanceTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = Guidance.t list
 
@@ -241,7 +334,7 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
   end
 
   let transform input =
-    try Ok (Guidance.assert_valid_guidances input) with e -> Error e
+    try Ok (GuidanceSet.assert_valid_guidances input) with e -> Error e
 
   let tests =
     let open Guidance in
@@ -261,7 +354,7 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
             Api_errors.(
               Server_error
                 ( internal_error
-                , [Guidance.error_msg [RebootHost; RestartToolstack]]
+                , [GuidanceSet.error_msg [RebootHost; RestartToolstack]]
                 )
             )
         )
@@ -270,7 +363,7 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
             Api_errors.(
               Server_error
                 ( internal_error
-                , [Guidance.error_msg [RebootHost; RestartDeviceModel]]
+                , [GuidanceSet.error_msg [RebootHost; RestartDeviceModel]]
                 )
             )
         )
@@ -278,7 +371,9 @@ module GuidanceAssertValidGuidanceTest = Generic.MakeStateless (struct
         , Error
             Api_errors.(
               Server_error
-                (internal_error, [Guidance.error_msg [RebootHost; EvacuateHost]])
+                ( internal_error
+                , [GuidanceSet.error_msg [RebootHost; EvacuateHost]]
+                )
             )
         )
       ]
@@ -323,21 +418,24 @@ end)
 
 module ApplicabilityEval = Generic.MakeStateless (struct
   module Io = struct
-    (*  ( (installed_version, installed_release) * (inequality * (version * release)) ) *)
-    type input_t = (string * string) * (string * (string * string))
+    (*  ( (installed_epoch, installed_version, installed_release) * 
+     *    (inequality * (epoch, version * release)) ) *)
+    type input_t =
+      (int option * string * string) * (string * (int option * string * string))
 
     type output_t = (bool, exn) result
 
     let string_of_input_t =
-      Fmt.(
-        str "%a"
-          Dump.(pair (pair string string) (pair string (pair string string)))
+      Test_printers.(
+        pair
+          (tuple3 (option int) string string)
+          (pair string (tuple3 (option int) string string))
       )
 
     let string_of_output_t = Fmt.(str "%a" Dump.(result ~ok:bool ~error:exn))
   end
 
-  let transform ((v1, r1), (ineq, (v2, r2))) =
+  let transform ((e1, v1, r1), (ineq, (e2, v2, r2))) =
     try
       let applicability =
         Applicability.
@@ -345,41 +443,273 @@ module ApplicabilityEval = Generic.MakeStateless (struct
             name= ""
           ; arch= ""
           ; inequality= Some (Applicability.inequality_of_string ineq)
-          ; epoch= ""
+          ; epoch= e2
           ; version= v2
           ; release= r2
           }
         
       in
 
-      Ok (Applicability.eval v1 r1 applicability)
+      Ok (Applicability.eval e1 v1 r1 applicability)
     with e -> Error e
 
   let tests =
     `QuickAndAutoDocumented
       [
-        ((("1.2.3", "3.el7"), ("gt", ("1.2.3", "4.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("gt", ("1.2.4", "3.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("gt", ("1.2.3", "2.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("gt", ("1.2.2", "3.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("lt", ("1.2.3", "2.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("lt", ("1.2.2", "3.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("lt", ("1.2.3", "4.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("lt", ("1.2.4", "3.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("eq", ("1.2.3", "3.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("eq", ("1.2.4", "3.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("gte", ("1.2.3", "4.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("gte", ("1.2.4", "3.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("gte", ("1.2.3", "3.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("gte", ("1.2.3", "2.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("gte", ("1.2.2", "3.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("lte", ("1.2.3", "2.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("lte", ("1.2.2", "3.el7"))), Ok false)
-      ; ((("1.2.3", "3.el7"), ("lte", ("1.2.3", "3.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("lte", ("1.2.3", "4.el7"))), Ok true)
-      ; ((("1.2.3", "3.el7"), ("lte", ("1.2.4", "3.el7"))), Ok true)
-      ; ( (("1.2.3", "3.el7"), ("let", ("1.2.3", "3.el7")))
+        (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "4.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.4", "3.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "2.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("gt", (None, "1.2.2", "3.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "2.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.2", "3.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "4.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("lt", (None, "1.2.4", "3.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("eq", (None, "1.2.3", "3.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("eq", (None, "1.2.4", "3.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "4.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.4", "3.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "3.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "2.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("gte", (None, "1.2.2", "3.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "2.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.2", "3.el7"))), Ok false)
+      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "3.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "4.el7"))), Ok true)
+      ; (((None, "1.2.3", "3.el7"), ("lte", (None, "1.2.4", "3.el7"))), Ok true)
+      ; ( ((None, "1.2.3", "3.el7"), ("let", (None, "1.2.3", "3.el7")))
         , Error Applicability.Invalid_inequality
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 3, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 3, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 3, "1.2.3", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 3, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.3", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 3, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.3", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 3, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "4.el7"))), Ok true)
+      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.4", "3.el7"))), Ok true)
+      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.3", "2.el7"))), Ok true)
+      ; (((Some 1, "1.2.3", "3.el7"), ("gt", (None, "1.2.2", "3.el7"))), Ok true)
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (None, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (None, "1.2.3", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (None, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (None, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (None, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.3", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 1, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gt", (Some 2, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lt", (Some 2, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.3", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("eq", (Some 2, "1.2.4", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "4.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.4", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.3", "2.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("gte", (Some 2, "1.2.2", "3.el7")))
+        , Ok true
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "2.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.2", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "3.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.3", "4.el7")))
+        , Ok false
+        )
+      ; ( ((Some 3, "1.2.3", "3.el7"), ("lte", (Some 2, "1.2.4", "3.el7")))
+        , Ok false
         )
       ]
 end)
@@ -485,12 +815,12 @@ let fields_of_updateinfo =
       field "id" (fun (r : UpdateInfo.t) -> r.id) string
     ; field "summary" (fun (r : UpdateInfo.t) -> r.summary) string
     ; field "description" (fun (r : UpdateInfo.t) -> r.description) string
-    ; field "rec_guidances"
-        (fun (r : UpdateInfo.t) -> List.map Guidance.to_string r.rec_guidances)
-        (list string)
-    ; field "abs_guidances"
-        (fun (r : UpdateInfo.t) -> List.map Guidance.to_string r.abs_guidances)
-        (list string)
+    ; field "rec_guidance"
+        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.rec_guidance)
+        string
+    ; field "abs_guidance"
+        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.abs_guidance)
+        string
     ; field "guidance_applicabilities"
         (fun (r : UpdateInfo.t) ->
           List.map Applicability.to_string r.guidance_applicabilities
@@ -549,8 +879,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -566,8 +894,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -583,8 +909,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -600,8 +924,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <summary>summary</summary>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -618,8 +940,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
               <update type="security">
@@ -629,8 +949,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -647,8 +965,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -661,8 +977,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -682,8 +998,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
               <update type="security">
@@ -693,8 +1007,6 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances/>
-                <absolute_guidances/>
                 <guidance_applicabilities/>
               </update>
             </updates>
@@ -707,8 +1019,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -722,8 +1034,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
@@ -743,18 +1055,13 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
-                <recommended_guidances>
-                  <guidance>RestartDeviceModel</guidance>
-                </recommended_guidances>
-                <absolute_guidances>
-                  <guidance>RestartDeviceModel</guidance>
-                  <guidance>EvacuateHost</guidance>
-                </absolute_guidances>
+                <recommended_guidance>RestartDeviceModel</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
                 <guidance_applicabilities>
                   <applicability>
                     <name>xsconsole</name>
                     <inequality>gte</inequality>
-                    <epoch>0</epoch>
+                    <epoch>None</epoch>
                     <version>10.1.0</version>
                     <release>25</release>
                     <arch>x86_64</arch>
@@ -762,7 +1069,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   <applicability>
                     <name>xsconsole</name>
                     <inequality>lt</inequality>
-                    <epoch>0</epoch>
+                    <epoch>None</epoch>
                     <version>10.1.0</version>
                     <release>25</release>
                     <arch>x86_64</arch>
@@ -779,12 +1086,8 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.of_string "RestartDeviceModel"]
-                  ; abs_guidances=
-                      [
-                        Guidance.of_string "RestartDeviceModel"
-                      ; Guidance.of_string "EvacuateHost"
-                      ]
+                  ; rec_guidance= Some Guidance.RestartDeviceModel
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -792,7 +1095,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                             name= "xsconsole"
                           ; arch= "x86_64"
                           ; inequality= Some Gte
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "10.1.0"
                           ; release= "25"
                           }
@@ -802,7 +1105,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                             name= "xsconsole"
                           ; arch= "x86_64"
                           ; inequality= Some Lt
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "10.1.0"
                           ; release= "25"
                           }
@@ -1006,7 +1309,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
   module Io = struct
     type input_t = (string * UpdateInfo.t) list * Update.t
 
-    type output_t = GuidanceStrSet.t
+    type output_t = Guidance.t option
 
     let string_of_input_t =
       Fmt.(
@@ -1018,8 +1321,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
           )
       )
 
-    let string_of_output_t s =
-      Fmt.(str "%a" Dump.(list string)) (GuidanceStrSet.elements s)
+    let string_of_output_t g =
+      Fmt.(str "%a" Dump.(string)) (UpdateInfo.guidance_to_string g)
   end
 
   let transform (updates_info, update) =
@@ -1035,8 +1338,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 (* No id here *)
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= None
               ; old_version= None
               ; old_release= None
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0000"
@@ -1044,7 +1349,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , None
         )
       ; (* Update ID in update can't be found in updateinfo list *)
         ( ( [
@@ -1054,8 +1359,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.EvacuateHost]
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= Some Guidance.EvacuateHost
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1069,8 +1374,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.EvacuateHost]
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= Some Guidance.EvacuateHost
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1083,8 +1388,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id=
@@ -1093,7 +1400,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , None
         )
       ; (* No update ID in update *)
         ( ( [
@@ -1103,8 +1410,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= [Guidance.EvacuateHost]
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= Some Guidance.EvacuateHost
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1117,8 +1424,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= None (* This is None *)
@@ -1126,7 +1435,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , None
         )
       ; (* Empty applicabilities *)
         ( ( [
@@ -1136,8 +1445,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1151,8 +1460,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= [Guidance.EvacuateHost]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RebootHost
                   ; guidance_applicabilities= [] (* No applicabilities *)
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1165,8 +1474,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0001"
@@ -1174,7 +1485,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.of_list ["EvacuateHost"]
+        , Some Guidance.RebootHost
         )
       ; (* Matched applicability *)
         ( ( [
@@ -1184,8 +1495,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1199,9 +1510,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1211,7 +1521,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                           ; inequality=
                               Some Lte
                               (* old version 0.2.0 is less than 0.2.1 *)
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "0.2.1"
                           ; release= "29.el7"
                           }
@@ -1228,8 +1538,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.0"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0001"
@@ -1237,7 +1549,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.of_list ["EvacuateHost"; "RestartDeviceModel"]
+        , Some Guidance.RestartDeviceModel
         )
       ; (* Matched in multiple applicabilities *)
         ( ( [
@@ -1247,8 +1559,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1262,9 +1574,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1274,7 +1585,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                           ; inequality=
                               Some Gt
                               (* Unmatch: old version 0.2.1 is equal to 0.2.1 *)
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "0.2.1"
                           ; release= "29.el7"
                           }
@@ -1286,7 +1597,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                           ; inequality=
                               Some Eq
                               (* Match: old version 0.2.1 is equal to 0.2.1 *)
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "0.2.1"
                           ; release= "29.el7"
                           }
@@ -1303,8 +1614,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0001"
@@ -1312,7 +1625,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.of_list ["EvacuateHost"; "RestartDeviceModel"]
+        , Some Guidance.RestartDeviceModel
         )
       ; (* No matched applicability *)
         ( ( [
@@ -1322,8 +1635,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1337,9 +1650,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1349,7 +1661,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                           ; inequality=
                               Some Lte
                               (* Unmatch: old version 0.2.1 is greater than 0.2.0 *)
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "0.2.0"
                           ; release= "29.el7"
                           }
@@ -1366,8 +1678,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "x86_64"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0001"
@@ -1375,7 +1689,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , None
         )
       ; (* Unmatched arch *)
         ( ( [
@@ -1385,8 +1699,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances= []
+                  ; rec_guidance= None
+                  ; abs_guidance= None
                   ; guidance_applicabilities= []
                   ; spec_info= "special info"
                   ; url= "https://update.details.info"
@@ -1400,9 +1714,8 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidances= []
-                  ; abs_guidances=
-                      [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -1411,7 +1724,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                           ; arch=
                               "x86_64" (* Unmatch: arch of update is x86_64 *)
                           ; inequality= Some Lte
-                          ; epoch= "0"
+                          ; epoch= None
                           ; version= "0.2.1"
                           ; release= "29.el7"
                           }
@@ -1428,8 +1741,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               {
                 name= "xsconsole"
               ; arch= "noarch"
+              ; old_epoch= Some None
               ; old_version= Some "0.2.1"
               ; old_release= Some "29.el7"
+              ; new_epoch= None
               ; new_version= "0.2.2"
               ; new_release= "10.el7"
               ; update_id= Some "UPDATE-0001"
@@ -1437,17 +1752,95 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               }
             
           )
-        , GuidanceStrSet.empty
+        , None
+        )
+      ; (* Matched in multiple applicabilities with epoch *)
+        ( ( [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "description"
+                  ; rec_guidance= None
+                  ; abs_guidance= None
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special info"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  }
+                
+              )
+            ; ( "UPDATE-0001"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0001"
+                  ; summary= "summary"
+                  ; description= "description"
+                  ; rec_guidance= None
+                  ; abs_guidance= Some Guidance.RestartDeviceModel
+                  ; guidance_applicabilities=
+                      [
+                        Applicability.
+                          {
+                            name= "xsconsole"
+                          ; arch= "x86_64"
+                          ; inequality=
+                              Some Gt
+                              (* Unmatch: old version 0.2.1 is equal to 0.2.1 *)
+                          ; epoch= None
+                          ; version= "0.2.1"
+                          ; release= "29.el7"
+                          }
+                        
+                      ; Applicability.
+                          {
+                            name= "xsconsole"
+                          ; arch= "x86_64"
+                          ; inequality=
+                              Some Eq
+                              (* Match: old version 0.2.1 is equal to 0.2.1 *)
+                          ; epoch= Some 1
+                          ; version= "0.1.1"
+                          ; release= "29.el7"
+                          }
+                        
+                      ]
+                  ; spec_info= "special info"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  }
+                
+              )
+            ]
+          , Update.
+              {
+                name= "xsconsole"
+              ; arch= "x86_64"
+              ; old_epoch= Some (Some 1)
+              ; old_version= Some "0.1.1"
+              ; old_release= Some "29.el7"
+              ; new_epoch= Some 1
+              ; new_version= "0.2.2"
+              ; new_release= "10.el7"
+              ; update_id= Some "UPDATE-0001"
+              ; repository= "regular"
+              }
+            
+          )
+        , Some Guidance.RestartDeviceModel
         )
       ]
 end)
 
-module GetRpmUpdateInJson = Generic.MakeStateless (struct
+module GetUpdateInJson = Generic.MakeStateless (struct
   module Io = struct
     (* (name.arch, updateId) list: from "yum updateinfo list updates"
      * (name.arch, Pkg.t) list): from "rpm -qa"
-     * string: output line of "yum list updates" *)
-    type input_t = ((string * string) list * (string * Pkg.t) list) * string
+     * (Pkg.t * string): from "yum list updates"
+     *)
+    type input_t =
+      ((string * string) list * (string * Pkg.t) list) * (Pkg.t * string)
 
     type output_t = (Yojson.Basic.t option, exn) result
 
@@ -1460,7 +1853,7 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                  (list (pair string string))
                  (list (pair string (record @@ fields_of_pkg)))
               )
-              string
+              (pair (record @@ fields_of_pkg) string)
           )
       )
 
@@ -1472,8 +1865,8 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
           Fmt.(str "%a" exn) e
   end
 
-  let transform ((rpm2updates, installed_pkgs), line) =
-    try Ok (get_rpm_update_in_json ~rpm2updates ~installed_pkgs line)
+  let transform ((update_ids, installed_pkgs), (new_pkg, repo)) =
+    try Ok (get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo))
     with e -> Error e
 
   let tests =
@@ -1488,10 +1881,11 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 ( "xsconsole.x86_64"
                 , Pkg.
                     {
-                      name= "libpath-utils"
+                      name= "xsconsole"
+                    ; epoch= None
                     ; version= "0.2.1"
                     ; release= "29.el7"
-                    ; arch= "noarch"
+                    ; arch= "x86_64"
                     }
                   
                 )
@@ -1499,6 +1893,7 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 , Pkg.
                     {
                       name= "libpath-utils"
+                    ; epoch= None
                     ; version= "0.2.1"
                     ; release= "29.el7"
                     ; arch= "noarch"
@@ -1507,7 +1902,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "libpath-utils.noarch    0.2.2-1.el7      epel"
+          , ( Pkg.
+                {
+                  name= "libpath-utils"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "1.el7"
+                ; arch= "noarch"
+                }
+              
+            , "epel"
+            )
             (* repository name is "epel" *)
           )
         , Error
@@ -1523,7 +1928,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
               ]
             , [] (* No installed packages provided *)
             )
-          , "xsconsole.x86_64  0.2.2-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -1531,10 +1946,11 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                  [
                    ("name", `String "xsconsole")
                  ; ("arch", `String "x86_64")
-                 ; ( "newVerRel"
+                 ; ( "newEpochVerRel"
                    , `Assoc
                        [
-                         ("version", `String "0.2.2")
+                         ("epoch", `String "(none)")
+                       ; ("version", `String "0.2.2")
                        ; ("release", `String "9.el7")
                        ]
                    )
@@ -1553,10 +1969,11 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 ( "xsconsole.x86_64"
                 , Pkg.
                     {
-                      name= "libpath-utils"
+                      name= "xsconsole"
+                    ; epoch= None
                     ; version= "0.2.1"
                     ; release= "29.el7"
-                    ; arch= "noarch"
+                    ; arch= "x86_64"
                     }
                   
                 )
@@ -1564,6 +1981,7 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 , Pkg.
                     {
                       name= "libpath-utils"
+                    ; epoch= None
                     ; version= "0.2.1"
                     ; release= "29.el7"
                     ; arch= "noarch"
@@ -1572,7 +1990,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "xsconsole.x86_64  0.2.2-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -1580,19 +2008,21 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                  [
                    ("name", `String "xsconsole")
                  ; ("arch", `String "x86_64")
-                 ; ( "newVerRel"
+                 ; ( "newEpochVerRel"
                    , `Assoc
                        [
-                         ("version", `String "0.2.2")
+                         ("epoch", `String "(none)")
+                       ; ("version", `String "0.2.2")
                        ; ("release", `String "9.el7")
                        ]
                    )
                  ; ("updateId", `String "UPDATE-0000")
                  ; ("repository", `String "regular")
-                 ; ( "oldVerRel"
+                 ; ( "oldEpochVerRel"
                    , `Assoc
                        [
-                         ("version", `String "0.2.1")
+                         ("epoch", `String "(none)")
+                       ; ("version", `String "0.2.1")
                        ; ("release", `String "29.el7")
                        ]
                    )
@@ -1606,10 +2036,11 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 ( "xsconsole.x86_64"
                 , Pkg.
                     {
-                      name= "libpath-utils"
+                      name= "sconsole"
+                    ; epoch= None
                     ; version= "0.2.1"
                     ; release= "29.el7"
-                    ; arch= "noarch"
+                    ; arch= "x86_64"
                     }
                   
                 )
@@ -1617,6 +2048,7 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 , Pkg.
                     {
                       name= "libpath-utils"
+                    ; epoch= None
                     ; version= "0.2.1"
                     ; release= "29.el7"
                     ; arch= "noarch"
@@ -1625,7 +2057,17 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                 )
               ]
             )
-          , "xsconsole.x86_64  0.2.2-9.el7    local-regular"
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
           )
         , Ok
             (Some
@@ -1633,19 +2075,91 @@ module GetRpmUpdateInJson = Generic.MakeStateless (struct
                  [
                    ("name", `String "xsconsole")
                  ; ("arch", `String "x86_64")
-                 ; ( "newVerRel"
+                 ; ( "newEpochVerRel"
                    , `Assoc
                        [
-                         ("version", `String "0.2.2")
+                         ("epoch", `String "(none)")
+                       ; ("version", `String "0.2.2")
                        ; ("release", `String "9.el7")
                        ]
                    )
                  ; ("updateId", `Null)
                  ; ("repository", `String "regular")
-                 ; ( "oldVerRel"
+                 ; ( "oldEpochVerRel"
                    , `Assoc
                        [
-                         ("version", `String "0.2.1")
+                         ("epoch", `String "(none)")
+                       ; ("version", `String "0.2.1")
+                       ; ("release", `String "29.el7")
+                       ]
+                   )
+                 ]
+                 )
+            )
+        )
+      ; (* A normal case with epoch *)
+        ( ( ( [
+                ("xsconsole.x86_64", "UPDATE-0000")
+              ; ("libpath-utils.noarch", "UPDATE-0001")
+              ]
+            , [
+                ( "xsconsole.x86_64"
+                , Pkg.
+                    {
+                      name= "xsconsole"
+                    ; epoch= None
+                    ; version= "0.2.1"
+                    ; release= "29.el7"
+                    ; arch= "x86_64"
+                    }
+                  
+                )
+              ; ( "libpath-utils.noarch"
+                , Pkg.
+                    {
+                      name= "libpath-utils"
+                    ; epoch= Some 2
+                    ; version= "0.2.1"
+                    ; release= "29.el7"
+                    ; arch= "noarch"
+                    }
+                  
+                )
+              ]
+            )
+          , ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= Some 1
+                ; version= "0.1.1"
+                ; release= "9.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "local-regular"
+            )
+          )
+        , Ok
+            (Some
+               (`Assoc
+                 [
+                   ("name", `String "xsconsole")
+                 ; ("arch", `String "x86_64")
+                 ; ( "newEpochVerRel"
+                   , `Assoc
+                       [
+                         ("epoch", `String "1")
+                       ; ("version", `String "0.1.1")
+                       ; ("release", `String "9.el7")
+                       ]
+                   )
+                 ; ("updateId", `String "UPDATE-0000")
+                 ; ("repository", `String "regular")
+                 ; ( "oldEpochVerRel"
+                   , `Assoc
+                       [
+                         ("epoch", `String "(none)")
+                       ; ("version", `String "0.2.1")
                        ; ("release", `String "29.el7")
                        ]
                    )
@@ -1676,8 +2190,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         id= ""
       ; summary= "summary"
       ; description= "description"
-      ; rec_guidances= []
-      ; abs_guidances= []
+      ; rec_guidance= None
+      ; abs_guidance= None
       ; guidance_applicabilities= []
       ; spec_info= "special info"
       ; url= "https://update.details.info"
@@ -1691,10 +2205,10 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       , {
           updateinfo with
           id= "UPDATE-0000"
-        ; rec_guidances= [Guidance.EvacuateHost]
+        ; rec_guidance= Some Guidance.EvacuateHost
         }
       )
-    ; ("UPDATE-0001", {updateinfo with id= "UPDATE-0001"; rec_guidances= []})
+    ; ("UPDATE-0001", {updateinfo with id= "UPDATE-0001"; rec_guidance= None})
     ]
 
   let host = "string_of_host_ref"
@@ -1729,11 +2243,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "xsconsole",
                   "arch": "x86_64",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1743,11 +2259,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "libpath-utils",
                   "arch": "noarch",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1782,11 +2300,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "libpath-utils",
                   "arch": "noarch",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1815,11 +2335,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "libpath-utils",
                   "arch": "noarch",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1848,11 +2370,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "libpath-utils",
                   "arch": "noarch",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1881,11 +2405,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "xsconsole",
                   "arch": "x86_64",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1895,11 +2421,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                 {
                   "name": "libpath-utils",
                   "arch": "noarch",
-                  "oldVerRel": {
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.1",
                     "release": "29.el7"
                   },
-                  "newVerRel": {
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
                     "version": "0.2.2",
                     "release": "9.el7"
                   },
@@ -1926,22 +2454,84 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
           , UpdateIdSet.of_list ["UPDATE-0001"]
           )
         )
+      ; (* Two updates come from two updateinfo with epoch *)
+        ( {|
+            {
+              "updates":
+              [
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": "UPDATE-0000",
+                  "repository": "regular"
+                },
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "oldEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "2",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": "UPDATE-0001",
+                  "repository": "regular"
+                }
+              ]
+            }
+          |}
+        , ( `Assoc
+              [
+                ("ref", `String host)
+              ; ("recommended-guidance", `List [`String "EvacuateHost"])
+              ; ("absolute-guidance", `List [])
+              ; ( "RPMS"
+                , `List
+                    [
+                      `String "libpath-utils-2:0.1.2-9.el7.noarch.rpm"
+                    ; `String "xsconsole-1:0.1.2-9.el7.x86_64.rpm"
+                    ]
+                )
+              ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
+              ]
+          , UpdateIdSet.of_list ["UPDATE-0000"; "UPDATE-0001"]
+          )
+        )
       ]
 end)
 
 module ParseUpdateInfoList = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = (string * (string * string * string)) list * string
+    type input_t =
+      (string * (int option * string * string * string)) list * string
 
-    type output_t = (string * (string * string * string)) list
+    type output_t = (string * (int option * string * string * string)) list
 
     let string_of_input_t =
       Test_printers.(
-        pair (list (pair string (tuple3 string string string))) string
+        pair
+          (list (pair string (tuple4 (option int) string string string)))
+          string
       )
 
     let string_of_output_t =
-      Test_printers.(list (pair string (tuple3 string string string)))
+      Test_printers.(
+        list (pair string (tuple4 (option int) string string string))
+      )
   end
 
   let transform (l, line) = parse_updateinfo_list l line
@@ -1950,26 +2540,231 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       [
         ( ( [
-              ("xsconsole.noarch", ("0.2.2", "7.el7", "UPDATE-0000"))
-            ; ("libpath-utils.noarch", ("0.2.2", "7.el7", "UPDATE-0001"))
+              ("xsconsole.noarch", (None, "0.2.2", "7.el7", "UPDATE-0000"))
+            ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
             ]
           , "UPDATE-0002 security xsconsole-0.2.2-7.el7.x86_64"
           )
         , [
-            ("xsconsole.x86_64", ("0.2.2", "7.el7", "UPDATE-0002"))
-          ; ("xsconsole.noarch", ("0.2.2", "7.el7", "UPDATE-0000"))
-          ; ("libpath-utils.noarch", ("0.2.2", "7.el7", "UPDATE-0001"))
+            ("xsconsole.x86_64", (None, "0.2.2", "7.el7", "UPDATE-0002"))
+          ; ("xsconsole.noarch", (None, "0.2.2", "7.el7", "UPDATE-0000"))
+          ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
           ]
         )
       ; ( ( [
-              ("xsconsole.x86_64", ("0.2.1", "7.el7", "UPDATE-0000"))
-            ; ("libpath-utils.noarch", ("0.2.2", "7.el7", "UPDATE-0001"))
+              ("xsconsole.x86_64", (None, "0.2.1", "7.el7", "UPDATE-0000"))
+            ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
             ]
           , "UPDATE-0002 security xsconsole-0.2.2-7.el7.x86_64"
           )
         , [
-            ("xsconsole.x86_64", ("0.2.2", "7.el7", "UPDATE-0002"))
-          ; ("libpath-utils.noarch", ("0.2.2", "7.el7", "UPDATE-0001"))
+            ("xsconsole.x86_64", (None, "0.2.2", "7.el7", "UPDATE-0002"))
+          ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+          ]
+        )
+      ; ( ( [
+              ("xsconsole.x86_64", (None, "0.2.1", "7.el7", "UPDATE-0000"))
+            ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+            ]
+          , "UPDATE-0002 security xsconsole-1:0.1.2-7.el7.x86_64"
+          )
+        , [
+            ("xsconsole.x86_64", (Some 1, "0.1.2", "7.el7", "UPDATE-0002"))
+          ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+          ]
+        )
+      ]
+end)
+
+module GuidanceSetResortGuidancesTest = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = Guidance.guidance_kind * Guidance.t list
+
+    type output_t = Guidance.t list
+
+    let string_of_input_t (kind, l) =
+      let kind' =
+        match kind with
+        | Guidance.Recommended ->
+            "Recommended"
+        | Guidance.Absolute ->
+            "Absolute"
+      in
+      kind'
+      ^ ", "
+      ^ Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
+
+    let string_of_output_t l =
+      Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
+  end
+
+  let transform (kind, guidances) =
+    guidances
+    |> GuidanceSet.of_list
+    |> GuidanceSet.resort_guidances ~kind
+    |> GuidanceSet.elements
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ((Guidance.Recommended, [Guidance.RebootHost]), [Guidance.RebootHost])
+      ; ( (Guidance.Recommended, [Guidance.RebootHost; Guidance.RebootHost])
+        , [Guidance.RebootHost]
+        )
+      ; ( ( Guidance.Recommended
+          , [Guidance.RebootHost; Guidance.RestartDeviceModel]
+          )
+        , [Guidance.RebootHost]
+        )
+      ; ((Guidance.Absolute, [Guidance.EvacuateHost]), [])
+      ]
+end)
+
+module ParseLineOfListUpdates = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string list
+
+    type output_t = (Pkg.t * string) list
+
+    let string_of_input_t = Fmt.(str "%a" Dump.(list string))
+
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)))
+  end
+
+  let transform lines =
+    let _, updates =
+      List.fold_left parse_line_of_list_updates ((None, None, None), []) lines
+    in
+    updates
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( [
+            "xenserver-status-report.noarch"
+          ; "         1.3.1-1.xs8         \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                             2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ; ( [
+            "xenserver-status-report.noarch         1.3.1-1.xs8         \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                         2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ; ( [
+            "xenserver-status-report.noarch"
+          ; "         1.3.1-1.xs8"
+          ; " local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                             2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ]
+        )
+      ; ( [
+            "xenserver-status-report.noarch         1.3.1-1.xs8"
+          ; " local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ; "qemu-dp.x86_64                             2:2.12.0-2.0.11.xs8 \
+             local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+          ]
+        , [
+            ( Pkg.
+                {
+                  name= "qemu-dp"
+                ; epoch= Some 2
+                ; version= "2.12.0"
+                ; release= "2.0.11.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
+          ; ( Pkg.
+                {
+                  name= "xenserver-status-report"
+                ; epoch= None
+                ; version= "1.3.1"
+                ; release= "1.xs8"
+                ; arch= "noarch"
+                }
+              
+            , "local-9938fe91-0623-4b9d-a2bc-dd369511d55b"
+            )
           ]
         )
       ]
@@ -1980,7 +2775,7 @@ let tests =
     [
       ("pkg_of_fullname", PkgOfFullnameTest.tests)
     ; ("update_of_json", UpdateOfJsonTest.tests)
-    ; ("guidance_assert_valid_guidances", GuidanceAssertValidGuidanceTest.tests)
+    ; ("assert_valid_guidances", GuidanceSetAssertValidGuidanceTest.tests)
     ; ( "applicability_compare_version_strings"
       , ApplicabilityCompareVersionStringsTest.tests
       )
@@ -1990,7 +2785,9 @@ let tests =
     ; ("assert_url_is_valid", AssertUrlIsValid.tests)
     ; ("write_yum_config", WriteYumConfig.tests)
     ; ("eval_guidance_for_one_update", EvalGuidanceForOneUpdate.tests)
-    ; ("get_rpm_update_in_json", GetRpmUpdateInJson.tests)
+    ; ("get_update_in_json", GetUpdateInJson.tests)
     ; ("consolidate_updates_of_host", ConsolidateUpdatesOfHost.tests)
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
+    ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
+    ; ("parse_line_of_list_updates", ParseLineOfListUpdates.tests)
     ]

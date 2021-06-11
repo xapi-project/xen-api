@@ -224,21 +224,6 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
-  let slave_network_report = call
-      ~name:"slave_network_report"
-      ~in_oss_since:None
-      ~in_product_since:rel_rio
-      ~doc:"Internal use only"
-      ~params:[Map (String, String), "phydevs", "(device,bridge) pairs of physical NICs on slave";
-               Map (String, String), "dev_to_mac", "(device,mac) pairs of physical NICs on slave";
-               Map (String, Int), "dev_to_mtu", "(device,mtu) pairs of physical NICs on slave";
-               Ref _host, "slave_host", "the host that the PIFs will be attached to when created"
-              ]
-      ~result:(Set(Ref _pif), "refs for pifs corresponding to device list")
-      ~hide_from_docs:true
-      ~allowed_roles:_R_POOL_ADMIN
-      ()
-
   let ping_slave = call ~flags:[`Session]
       ~name:"is_slave"
       ~in_oss_since:None
@@ -763,6 +748,19 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  let check_update_readiness = call
+      ~name:"check_update_readiness"
+      ~lifecycle:[Published, rel_next, ""]
+      ~doc:"Check if the pool is ready to be updated. If not, report the reasons."
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Bool, "requires_reboot", "Assume that the update will require host reboots"
+      ]
+      ~result:(Set(Set (String)), "A set of error codes with arguments, if the pool is
+        not ready to update. An empty list means the pool can be updated.")
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -792,7 +790,6 @@ open Datamodel_types
         ; create_VLAN
         ; management_reconfigure
         ; create_VLAN_from_PIF
-        ; slave_network_report
         ; enable_ha
         ; disable_ha
         ; sync_database
@@ -846,6 +843,7 @@ open Datamodel_types
         ; add_repository
         ; remove_repository
         ; sync_updates
+        ; check_update_readiness
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
