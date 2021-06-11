@@ -565,6 +565,8 @@ let _ =
   parse_args () ;
   let destdir = !destdir' in
   Xapi_stdext_unix.Unixext.mkdir_rec destdir 0o755 ;
+  let data_dir = Filename.concat destdir "_data" in
+  Xapi_stdext_unix.Unixext.mkdir_rec data_dir 0o755 ;
   let api = Datamodel.all_api in
   (* Add all implicit messages *)
   let api = add_implicit_messages api in
@@ -580,11 +582,11 @@ let _ =
   in
   let objs = objects_of_api api in
   Xapi_stdext_unix.Unixext.write_string_to_file
-    (Filename.concat destdir "xenapi.json")
+    (Filename.concat data_dir "xenapi.json")
     (objs |> json_of_objs |> string_of_json 0) ;
   let release_info = releases objs in
   Xapi_stdext_unix.Unixext.write_string_to_file
-    (Filename.concat destdir "release_info.json")
+    (Filename.concat data_dir "release_info.json")
     (string_of_json 0 release_info) ;
   let release_yaml = function
     | {release_date= None} ->
@@ -595,11 +597,11 @@ let _ =
         ""
   in
   Xapi_stdext_unix.Unixext.write_string_to_file
-    (Filename.concat destdir "releases.yml")
+    (Filename.concat data_dir "releases.yml")
     (release_order_full |> List.map release_yaml |> String.concat "") ;
-  let release_md_dir = Filename.concat destdir "releases" in
+  let release_md_dir = Filename.concat destdir "xen-api/releases" in
   Xapi_stdext_unix.Unixext.mkdir_rec release_md_dir 0o755 ;
-  let class_md_dir = Filename.concat destdir "classes" in
+  let class_md_dir = Filename.concat destdir "xen-api/classes" in
   Xapi_stdext_unix.Unixext.mkdir_rec class_md_dir 0o755 ;
   let release_md = function
     | {release_date= None} ->
