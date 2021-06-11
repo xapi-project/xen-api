@@ -1460,6 +1460,7 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
            field ~lifecycle:[Prototyped, rel_naples, ""] ~qualifier:StaticRO ~ty:(Map(String, String)) "NVRAM"
              ~default_value:(Some (VMap []))
              "initial value for guest NVRAM (containing UEFI variables, etc). Cannot be changed while the VM is running";
+           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:(Set update_guidances) "pending_guidances" ~default_value:(Some (VSet [])) "The set of pending guidances after applying updates"
          ])
       ()
 

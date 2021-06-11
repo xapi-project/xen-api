@@ -2405,6 +2405,12 @@ let vm_record rpc session_id vm =
             Client.VM.set_bios_strings rpc session_id vm x
             )
           ()
+      ; make_field ~name:"pending-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.vM_pending_guidances
+            )
+          ()
       ]
   }
 
@@ -3003,6 +3009,12 @@ let host_record rpc session_id host =
           ~get:(fun () -> (x ()).API.host_uefi_certificates)
           ~set:(fun value ->
             Client.Host.set_uefi_certificates ~rpc ~session_id ~host ~value
+            )
+          ()
+      ; make_field ~name:"pending-guidances"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.host_pending_guidances
             )
           ()
       ]

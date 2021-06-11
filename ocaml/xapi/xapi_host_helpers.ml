@@ -381,10 +381,14 @@ let consider_enabling_host_nolock ~__context =
        		   letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear
        		   the flag 'host_disabled_until_reboot' *)
     let pool = Helpers.get_pool ~__context in
+    Db.Host.remove_pending_guidances ~__context ~self:localhost
+      ~value:`restart_toolstack ;
     if !Xapi_globs.on_system_boot then (
       debug
         "Host.enabled: system has just restarted: setting localhost to enabled" ;
       Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+      Db.Host.remove_pending_guidances ~__context ~self:localhost
+        ~value:`reboot_host ;
       update_allowed_operations ~__context ~self:localhost ;
       Localdb.put Constants.host_disabled_until_reboot "false" ;
       (* Start processing pending VM powercycle events *)

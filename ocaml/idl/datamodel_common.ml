@@ -191,6 +191,17 @@ let _certificate = "Certificate"
 let _diagnostics = "Diagnostics"
 let _repository = "Repository"
 
+let update_guidances =
+  Enum ("update_guidances",
+        [
+          "reboot_host",
+          "Indicates the updated host should reboot as soon as possible"
+        ; "restart_toolstack",
+          "Indicates the Toolstack running on the updated host should restart as soon as possible"
+        ; "restart_device_model",
+          "Indicates the device model of a running VM should restart as soon as possible"
+        ])
+
 let get_oss_releases in_oss_since =
   match in_oss_since with
     None -> []

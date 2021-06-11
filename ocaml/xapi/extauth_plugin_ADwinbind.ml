@@ -353,67 +353,48 @@ module Wbinfo = struct
     parse_uid_info stdout <!> fun () -> parsing_ex args
 end
 
-module Winbind = struct
-  let name = "winbind"
+type domain_info = {
+    service_name: string
+  ; workgroup: string option
+        (* For upgrade case, the legacy db does not contain workgroup *)
+}
 
-  let is_ad_enabled ~__context =
-    ( Helpers.get_localhost ~__context |> fun self ->
-      Db.Host.get_external_auth_type ~__context ~self )
-    |> fun x -> x = Xapi_globs.auth_type_AD
-
-  let start ~timeout ~wait_until_success =
-    Xapi_systemctl.start ~timeout ~wait_until_success name
-
-  let stop ~timeout ~wait_until_success =
-    Xapi_systemctl.stop ~timeout ~wait_until_success name
-
-  let init_service ~__context =
-    if is_ad_enabled ~__context then
-      start ~wait_until_success:false ~timeout:5.
-    else
-      debug "Skip starting %s as AD is not enabled" name
-
-  let check_ready_to_serve ~timeout =
-    (* we _need_ to use a username contained in our domain, otherwise the following tests won't work.
-       Microsoft KB/Q243330 article provides the KRBTGT account as a well-known built-in SID in AD
-       Microsoft KB/Q229909 article says that KRBTGT account cannot be renamed or enabled, making
-       it the perfect target for such a test using a username (Administrator account can be renamed) *)
-    try
-      Helpers.retry_until_timeout ~timeout
-        (Printf.sprintf "Checking %s ready to serve" name)
-        Wbinfo.can_resolve_krbtgt ;
-      debug "Service %s is ready to serve request" name
-    with e ->
-      let msg =
-        Printf.sprintf
-          "%s cannot serve after checking for %f seconds, error: %s" name
-          timeout
-          (ExnHelper.string_of_exn e)
-      in
-      error "Service not ready error: %s" msg ;
-      raise (Auth_service_error (E_GENERIC, msg))
-end
-
-let get_service_name () =
+let get_domain_info_from_db () =
   (fun __context ->
-    Helpers.get_localhost ~__context |> fun host ->
-    Db.Host.get_external_auth_service_name ~__context ~self:host)
-  |> Server_helpers.exec_with_new_task "retrieving external auth service name"
-
-let query_domain_workgroup domain =
-  let key = "Pre-Win2k Domain" in
-  let err_msg = Printf.sprintf "Failed to lookup domain %s workgroup" domain in
-  try
-    let lines =
-      Helpers.call_script ~log_output:On_failure net_cmd
-        ["ads"; "lookup"; "-S"; domain; "-d"; debug_level]
+    let host = Helpers.get_localhost ~__context in
+    let service_name =
+      Db.Host.get_external_auth_service_name ~__context ~self:host
     in
-    match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
-    | Some v ->
-        v
-    | None ->
-        raise (Auth_service_error (E_LOOKUP, err_msg))
-  with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
+    let workgroup =
+      Db.Host.get_external_auth_configuration ~__context ~self:host
+      |> List.assoc_opt "workgroup"
+    in
+    {service_name; workgroup})
+  |> Server_helpers.exec_with_new_task
+       "retrieving external auth domain workgroup"
+
+let query_domain_workgroup ~domain ~db_workgroup =
+  (* If workgroup found in pool database just use it, otherwise, query DC *)
+  match db_workgroup with
+  | Some wg ->
+      wg
+  | None -> (
+      let key = "Pre-Win2k Domain" in
+      let err_msg =
+        Printf.sprintf "Failed to look up domain %s workgroup" domain
+      in
+      try
+        let lines =
+          Helpers.call_script ~log_output:On_failure net_cmd
+            ["ads"; "lookup"; "-S"; domain; "-d"; debug_level]
+        in
+        match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
+        | Some v ->
+            v
+        | None ->
+            raise (Auth_service_error (E_LOOKUP, err_msg))
+      with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
+    )
 
 let config_winbind_damon ~domain ~workgroup =
   let open Xapi_stdext_unix in
@@ -444,7 +425,7 @@ let config_winbind_damon ~domain ~workgroup =
   let len = String.length conf_contents in
   Unixext.atomic_write_to_file smb_config 0o0644 (fun fd ->
       let (_ : int) = Unix.single_write_substring fd conf_contents 0 len in
-      ())
+      Unix.fsync fd)
 
 let from_config ~name ~err_msg ~config_params =
   match List.assoc_opt name config_params with
@@ -487,13 +468,13 @@ let extract_ou_config ~config_params =
     ([("ou", ou)], [Printf.sprintf "createcomputer=%s" ou])
   with Auth_service_error _ -> ([], [])
 
-let persist_extauth_config ~domain ~user ~ou_conf =
+let persist_extauth_config ~domain ~user ~ou_conf ~workgroup =
   let value =
     match (domain, user) with
     | "", "" ->
         []
     | _ ->
-        [("domain", domain); ("user", user)] @ ou_conf
+        [("domain", domain); ("user", user); ("workgroup", workgroup)] @ ou_conf
   in
   (fun __context ->
     Helpers.get_localhost ~__context |> fun self ->
@@ -549,11 +530,66 @@ let domainify_uname ~domain uname =
   else
     Printf.sprintf "%s@%s" uname domain
 
+module Winbind = struct
+  let name = "winbind"
+
+  let is_ad_enabled ~__context =
+    ( Helpers.get_localhost ~__context |> fun self ->
+      Db.Host.get_external_auth_type ~__context ~self )
+    |> fun x -> x = Xapi_globs.auth_type_AD
+
+  let start ~timeout ~wait_until_success =
+    Xapi_systemctl.start ~timeout ~wait_until_success name
+
+  let restart ~timeout ~wait_until_success =
+    Xapi_systemctl.restart ~timeout ~wait_until_success name
+
+  let stop ~timeout ~wait_until_success =
+    Xapi_systemctl.stop ~timeout ~wait_until_success name
+
+  let configure () =
+    (* Refresh winbind configuration to handle upgrade from PBIS
+     * The winbind configuration needs to be refreshed before start winbind daemon *)
+    let {service_name; workgroup} = get_domain_info_from_db () in
+    let workgroup =
+      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+    in
+    config_winbind_damon ~domain:service_name ~workgroup
+
+  let init_service ~__context =
+    if is_ad_enabled ~__context then (
+      configure () ;
+      restart ~wait_until_success:false ~timeout:5.
+    ) else
+      debug "Skip starting %s as AD is not enabled" name
+
+  let check_ready_to_serve ~timeout =
+    (* we _need_ to use a username contained in our domain, otherwise the following tests won't work.
+       Microsoft KB/Q243330 article provides the KRBTGT account as a well-known built-in SID in AD
+       Microsoft KB/Q229909 article says that KRBTGT account cannot be renamed or enabled, making
+       it the perfect target for such a test using a username (Administrator account can be renamed) *)
+    try
+      Helpers.retry_until_timeout ~timeout
+        (Printf.sprintf "Checking if %s is ready" name)
+        Wbinfo.can_resolve_krbtgt ;
+      debug "Service %s is ready" name
+    with e ->
+      let msg =
+        Printf.sprintf
+          "%s is not ready after checking for %f seconds, error: %s" name
+          timeout
+          (ExnHelper.string_of_exn e)
+      in
+      error "Service not ready error: %s" msg ;
+      raise (Auth_service_error (E_GENERIC, msg))
+end
+
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let get_subject_identifier' subject_name =
-    let subject_name =
-      domainify_uname ~domain:(get_service_name ()) subject_name
+    let* domain =
+      try Ok (get_domain_info_from_db ()).service_name with e -> Error e
     in
+    let subject_name = domainify_uname ~domain subject_name in
     Wbinfo.sid_of_name subject_name
 
   (* subject_id get_subject_identifier(string subject_name)
@@ -719,10 +755,12 @@ let authenticate_username_password uname password =
 
     assert_hostname_valid () ;
 
-    let service_name = get_service_name () in
+    let {service_name; workgroup} = get_domain_info_from_db () in
     assert_domain_equal_service_name ~service_name ~config_params ;
 
-    query_domain_workgroup service_name |> fun workgroup ->
+    let workgroup =
+      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+    in
     config_winbind_damon ~domain:service_name ~workgroup ;
 
     let ou_conf, ou_param = extract_ou_config ~config_params in
@@ -746,7 +784,7 @@ let authenticate_username_password uname password =
       Helpers.call_script ~env net_cmd args |> ignore ;
       Winbind.start ~timeout:5. ~wait_until_success:true ;
       Winbind.check_ready_to_serve ~timeout:300. ;
-      persist_extauth_config ~domain:service_name ~user ~ou_conf ;
+      persist_extauth_config ~domain:service_name ~user ~ou_conf ~workgroup ;
       debug "Succeed to join domain %s" service_name
     with
     | Forkhelpers.Spawn_internal_error _ ->
@@ -777,12 +815,12 @@ let authenticate_username_password uname password =
   let on_disable config_params =
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
-    let service_name = get_service_name () in
+    let {service_name; _} = get_domain_info_from_db () in
     clean_machine_account ~service_name (user, pass) ;
     (* Clean local resources *)
     clean_local_resources () ;
     (* Clean extauth config *)
-    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ;
+    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ~workgroup:"" ;
     debug "Succeed to disable external auth for %s" service_name
 
   (* unit on_xapi_initialize(bool system_boot)

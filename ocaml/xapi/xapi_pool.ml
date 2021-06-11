@@ -1372,7 +1372,19 @@ let assert_pooling_licensed ~__context =
 
 let certificate_install ~__context ~name ~cert =
   let open Certificates in
-  let certificate = pem_of_string cert in
+  let certificate =
+    let open Api_errors in
+    match
+      Gencertlib.Lib.validate_not_expired cert
+        ~error_not_yet:ca_certificate_not_valid_yet
+        ~error_expired:ca_certificate_expired
+        ~error_invalid:ca_certificate_invalid
+    with
+    | Error e ->
+        raise e
+    | Ok x ->
+        x
+  in
   pool_install CA_Certificate ~__context ~name ~cert ;
   let (_ : API.ref_Certificate) =
     Db_util.add_cert ~__context ~type':(`ca name) certificate
@@ -2275,10 +2287,6 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
         vlan_pifs ;
       vlan_pifs
   )
-
-let slave_network_report ~__context ~phydevs ~dev_to_mac ~dev_to_mtu ~slave_host
-    =
-  []
 
 (*
   Dbsync_slave.create_physical_networks ~__context phydevs dev_to_mac dev_to_mtu slave_host
@@ -3228,7 +3236,41 @@ let alert_failed_login_attempts () =
             ~body:stats
       )
 
+let perform ~local_fn ~__context ~host op =
+  let rpc' context hostname (task_opt : API.ref_task option) xml =
+    let open Xmlrpc_client in
+    let verify_cert = Some Stunnel.pool (* verify! *) in
+    let task_id = Option.map Ref.string_of task_opt in
+    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let port = !Constants.https_port in
+    let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
+    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+  in
+  let open Message_forwarding in
+  do_op_on_common ~local_fn ~__context ~host op (call_slave_with_session rpc')
+
+(** [ping_with_tls_verification host] calls [Pool.is_slave] using a TLS
+connection that uses certficate checking. We ignore the result but are
+interested in any failures that would indicate connection problems,
+which would raise an exception. We can't use the standard
+[Message_forwarding.do_op_on_common] because certificate checking is not
+yet enabled. *)
+
+let ping_with_tls_verification ~__context host =
+  let local_fn = is_slave ~host in
+  let this_uuid = Helpers.get_localhost_uuid () in
+  let remote_uuid = Db.Host.get_uuid __context host in
+  info "pinging host before enabling TLS: %s -> %s" this_uuid remote_uuid ;
+  Server_helpers.exec_with_subtask ~__context "pool.ping" (fun ~__context ->
+      perform ~local_fn ~__context ~host (fun session_id rpc ->
+          Client.Pool.is_slave rpc session_id host
+      )
+  )
+  |> ignore
+
 let enable_tls_verification ~__context =
+  let hosts = Db.Host.get_all ~__context in
+  List.iter (ping_with_tls_verification ~__context) hosts ;
   Stunnel_client.set_verify_by_default true ;
   Helpers.touch_file Xapi_globs.verify_certificates_path
 
@@ -3324,6 +3366,41 @@ let sync_updates ~__context ~self ~force =
       @@ fun () ->
       List.iter (fun x -> create_pool_repository ~__context ~self:x) enabled ;
       set_available_updates ~__context
+
+let check_update_readiness ~__context ~self ~requires_reboot =
+  (* Pool checks *)
+  let pool_errors =
+    let pool = Helpers.get_pool ~__context in
+    if Db.Pool.get_ha_enabled ~__context ~self:pool then
+      [[Api_errors.ha_is_enabled]]
+    else
+      []
+  in
+  (* Host and VM checks *)
+  let check host =
+    (* Check if any host is offline. *)
+    let alive =
+      try
+        let hm = Db.Host.get_metrics ~__context ~self:host in
+        Db.Host_metrics.get_live ~__context ~self:hm
+      with _ -> false
+    in
+    if not alive then
+      [[Api_errors.host_offline; Ref.string_of host]]
+    else if requires_reboot then
+      Xapi_host.get_vms_which_prevent_evacuation ~__context ~self:host
+      |> List.map (fun (_, error) -> error)
+    else
+      [[]]
+  in
+  let host_errors =
+    Db.Host.get_all ~__context
+    |> List.map check
+    |> List.concat
+    |> List.filter (( <> ) [])
+  in
+  (* Return both *)
+  pool_errors @ host_errors
 
 let get_updates_handler (req : Http.Request.t) s _ =
   debug "Pool.get_updates_handler: received request" ;
