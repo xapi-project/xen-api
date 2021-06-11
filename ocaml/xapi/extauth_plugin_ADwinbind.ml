@@ -215,6 +215,7 @@ module Wbinfo = struct
     fun stderr ->
       get_regex_match stderr
       |> Option.map (fun code ->
+             (* see wbclient.h samba source code for this error list *)
              match code with
              | "WBC_ERR_AUTH_ERROR" ->
                  Auth_failure code
