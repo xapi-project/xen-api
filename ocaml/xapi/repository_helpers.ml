@@ -68,7 +68,7 @@ module Pkg = struct
     let open Rresult.R.Infix in
     ( ( match Astring.String.cuts ~sep:":" epoch_ver_rel with
       | [e; vr] -> (
-        try Ok (Epoch.of_string e, vr) with _ -> Result.Error "Invalid epoch"
+        try Ok (Epoch.of_string e, vr) with _ -> Error "Invalid epoch"
       )
       | [vr] ->
           Ok (None, vr)
