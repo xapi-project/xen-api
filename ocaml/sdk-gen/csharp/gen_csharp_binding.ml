@@ -1255,6 +1255,9 @@ and exposed_type = function
       "long[]"
   | Set String ->
       "string[]"
+  | Set (Set String) ->
+      (* TODO: implement this new type correctly *)
+      "string[]"
   | Enum (name, _) as x ->
       enums := TypeSet.add x !enums ;
       name
@@ -1415,6 +1418,9 @@ and simple_convert_from_proxy thing ty =
   | SecretString | String ->
       thing
   | Set String ->
+      sprintf "(string [])%s" thing
+  | Set (Set String) ->
+      (* TODO: implement this new type correctly *)
       sprintf "(string [])%s" thing
   | Set (Ref name) ->
       sprintf "XenRef<%s>.Create(%s)" (exposed_class_name name) thing
