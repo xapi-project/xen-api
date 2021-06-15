@@ -52,6 +52,12 @@ module Pkg = struct
     ; arch: string
   }
 
+  type order = LT | EQ | GT
+
+  type segment_of_version = Int of int | Str of string
+
+  let string_of_order = function LT -> "<" | EQ -> "=" | GT -> ">"
+
   let error_msg = Printf.sprintf "Failed to parse '%s'"
 
   let parse_epoch_version_release epoch_ver_rel =
@@ -141,13 +147,147 @@ module Pkg = struct
         error "%s" msg ;
         raise Api_errors.(Server_error (internal_error, [msg]))
 
-  let to_fullname ~name ~arch ~epoch ~version ~release =
-    match epoch with
+  let to_fullname pkg =
+    match pkg.epoch with
     | Some i ->
-        Printf.sprintf "%s-%s:%s-%s.%s.rpm" name (string_of_int i) version
-          release arch
+        Printf.sprintf "%s-%s:%s-%s.%s.rpm" pkg.name (string_of_int i)
+          pkg.version pkg.release pkg.arch
     | None ->
-        Printf.sprintf "%s-%s-%s.%s.rpm" name version release arch
+        Printf.sprintf "%s-%s-%s.%s.rpm" pkg.name pkg.version pkg.release
+          pkg.arch
+
+  let compare_epoch e1 e2 =
+    match (e1, e2) with
+    | Some i1, Some i2 ->
+        if i1 < i2 then
+          LT
+        else if i1 = i2 then
+          EQ
+        else
+          GT
+    | Some _, None ->
+        GT
+    | None, Some _ ->
+        LT
+    | None, None ->
+        EQ
+
+  let compare_version_strings s1 s2 =
+    (* Compare versions or releases of RPM packages
+     * I.E. for "libpath-utils-0.2.1-29.el7.x86_64" and "libpath-utils-0.2.1a-30.el7.x86_64",
+     * this function compares:
+     * versions between "0.2.1" and "0.2.1a", or
+     * releases between "29.el7" and "30.el7".
+     * More examples:
+     *  "1.2.3" "<" "1.2.4"
+     *  "1.2.3" "=" "1.2.3"
+     *  "1.2.3" ">" "1.2"
+     *  "1.0011" ">" "1.9"
+     *  "1.05" "=" "1.5"
+     *  "1.0" ">" "1"
+     *  "1.0" ">" "1.a"
+     *  "2.50" ">" "2.5"
+     *  "XS3" "<" "xs2"
+     *  "1.2.3" ">" "1.2.3a"
+     *  "xs4" "=" "xs.4"
+     *  "2a" "<" "2.0"
+     *  "2a" "<" "2b"
+     *  "1.0" ">" "1.xs2"
+     *  "1.0_xs" "=" "1.0.xs"
+     *)
+    let normalize v =
+      let split_letters_and_numbers s =
+        let r = Re.Str.regexp "^\\([^0-9]+\\)\\([0-9]+\\)$" in
+        if Re.Str.string_match r s 0 then
+          [Re.Str.replace_first r "\\1" s; Re.Str.replace_first r "\\2" s]
+        else
+          [s]
+      in
+      let concat_map f l = List.concat (List.map f l) in
+      v
+      |> Astring.String.cuts ~sep:"."
+      |> concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
+      |> concat_map (fun s -> split_letters_and_numbers s)
+      |> List.map (fun s ->
+             let r = Re.Str.regexp "^[0-9]+$" in
+             if Re.Str.string_match r s 0 then
+               match int_of_string s with i -> Int i | exception _ -> Str s
+             else
+               Str s
+         )
+    in
+    let rec compare_segments l1 l2 =
+      match (l1, l2) with
+      | c1 :: t1, c2 :: t2 -> (
+        match (c1, c2) with
+        | Int s1, Int s2 ->
+            if s1 > s2 then
+              GT
+            else if s1 = s2 then
+              compare_segments t1 t2
+            else
+              LT
+        | Int s1, Str s2 ->
+            GT
+        | Str s1, Int s2 ->
+            LT
+        | Str s1, Str s2 ->
+            let r = String.compare s1 s2 in
+            if r < 0 then
+              LT
+            else if r > 0 then
+              GT
+            else
+              compare_segments t1 t2
+      )
+      | _ :: _, [] ->
+          GT
+      | [], _ :: _ ->
+          LT
+      | [], [] ->
+          EQ
+    in
+    compare_segments (normalize s1) (normalize s2)
+
+  let lt e1 v1 r1 e2 v2 r2 =
+    match
+      ( compare_epoch e1 e2
+      , compare_version_strings v1 v2
+      , compare_version_strings r1 r2
+      )
+    with
+    | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
+        true
+    | _ ->
+        false
+
+  let gt e1 v1 r1 e2 v2 r2 =
+    match
+      ( compare_epoch e1 e2
+      , compare_version_strings v1 v2
+      , compare_version_strings r1 r2
+      )
+    with
+    | GT, _, _ | EQ, GT, _ | EQ, EQ, GT ->
+        true
+    | _ ->
+        false
+
+  let eq e1 v1 r1 e2 v2 r2 =
+    match
+      ( compare_epoch e1 e2
+      , compare_version_strings v1 v2
+      , compare_version_strings r1 r2
+      )
+    with
+    | EQ, EQ, EQ ->
+        true
+    | _ ->
+        false
+
+  let lte e1 v1 r1 e2 v2 r2 = lt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
+
+  let gte e1 v1 r1 e2 v2 r2 = gt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
 end
 
 module Update = struct
@@ -306,10 +446,6 @@ end
 module Applicability = struct
   type inequality = Lt | Eq | Gt | Lte | Gte
 
-  type order = LT | EQ | GT
-
-  let string_of_order = function LT -> "<" | EQ -> "=" | GT -> ">"
-
   type t = {
       name: string
     ; arch: string
@@ -318,8 +454,6 @@ module Applicability = struct
     ; version: string
     ; release: string
   }
-
-  type segment_of_version = Int of int | Str of string
 
   exception Invalid_inequality
 
@@ -418,154 +552,21 @@ module Applicability = struct
       )
       (Epoch.to_string a.epoch) a.version a.release
 
-  let compare_epoch e1 e2 =
-    match (e1, e2) with
-    | Some i1, Some i2 ->
-        if i1 < i2 then
-          LT
-        else if i1 = i2 then
-          EQ
-        else
-          GT
-    | Some _, None ->
-        GT
-    | None, Some _ ->
-        LT
-    | None, None ->
-        EQ
-
-  let compare_version_strings s1 s2 =
-    (* Compare versions or releases of RPM packages
-     * I.E. for "libpath-utils-0.2.1-29.el7.x86_64" and "libpath-utils-0.2.1a-30.el7.x86_64",
-     * this function compares:
-     * versions between "0.2.1" and "0.2.1a", or
-     * releases between "29.el7" and "30.el7".
-     * More examples:
-     *  "1.2.3" "<" "1.2.4"
-     *  "1.2.3" "=" "1.2.3"
-     *  "1.2.3" ">" "1.2"
-     *  "1.0011" ">" "1.9"
-     *  "1.05" "=" "1.5"
-     *  "1.0" ">" "1"
-     *  "1.0" ">" "1.a"
-     *  "2.50" ">" "2.5"
-     *  "XS3" "<" "xs2"
-     *  "1.2.3" ">" "1.2.3a"
-     *  "xs4" "=" "xs.4"
-     *  "2a" "<" "2.0"
-     *  "2a" "<" "2b"
-     *  "1.0" ">" "1.xs2"
-     *  "1.0_xs" "=" "1.0.xs"
-     *)
-    let normalize v =
-      let split_letters_and_numbers s =
-        let r = Re.Str.regexp "^\\([^0-9]+\\)\\([0-9]+\\)$" in
-        if Re.Str.string_match r s 0 then
-          [Re.Str.replace_first r "\\1" s; Re.Str.replace_first r "\\2" s]
-        else
-          [s]
-      in
-      let concat_map f l = List.concat (List.map f l) in
-      v
-      |> Astring.String.cuts ~sep:"."
-      |> concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
-      |> concat_map (fun s -> split_letters_and_numbers s)
-      |> List.map (fun s ->
-             let r = Re.Str.regexp "^[0-9]+$" in
-             if Re.Str.string_match r s 0 then
-               match int_of_string s with i -> Int i | exception _ -> Str s
-             else
-               Str s
-         )
-    in
-    let rec compare_segments l1 l2 =
-      match (l1, l2) with
-      | c1 :: t1, c2 :: t2 -> (
-        match (c1, c2) with
-        | Int s1, Int s2 ->
-            if s1 > s2 then
-              GT
-            else if s1 = s2 then
-              compare_segments t1 t2
-            else
-              LT
-        | Int s1, Str s2 ->
-            GT
-        | Str s1, Int s2 ->
-            LT
-        | Str s1, Str s2 ->
-            let r = String.compare s1 s2 in
-            if r < 0 then
-              LT
-            else if r > 0 then
-              GT
-            else
-              compare_segments t1 t2
-      )
-      | _ :: _, [] ->
-          GT
-      | [], _ :: _ ->
-          LT
-      | [], [] ->
-          EQ
-    in
-    compare_segments (normalize s1) (normalize s2)
-
-  let lt e1 v1 r1 e2 v2 r2 =
-    match
-      ( compare_epoch e1 e2
-      , compare_version_strings v1 v2
-      , compare_version_strings r1 r2
-      )
-    with
-    | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
-        true
-    | _ ->
-        false
-
-  let gt e1 v1 r1 e2 v2 r2 =
-    match
-      ( compare_epoch e1 e2
-      , compare_version_strings v1 v2
-      , compare_version_strings r1 r2
-      )
-    with
-    | GT, _, _ | EQ, GT, _ | EQ, EQ, GT ->
-        true
-    | _ ->
-        false
-
-  let eq e1 v1 r1 e2 v2 r2 =
-    match
-      ( compare_epoch e1 e2
-      , compare_version_strings v1 v2
-      , compare_version_strings r1 r2
-      )
-    with
-    | EQ, EQ, EQ ->
-        true
-    | _ ->
-        false
-
-  let lte e1 v1 r1 e2 v2 r2 = lt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
-
-  let gte e1 v1 r1 e2 v2 r2 = gt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
-
   let eval ~epoch ~version ~release ~applicability =
     let epoch' = applicability.epoch in
     let version' = applicability.version in
     let release' = applicability.release in
     match applicability.inequality with
     | Some Lt ->
-        lt epoch version release epoch' version' release'
+        Pkg.lt epoch version release epoch' version' release'
     | Some Lte ->
-        lte epoch version release epoch' version' release'
+        Pkg.lte epoch version release epoch' version' release'
     | Some Gt ->
-        gt epoch version release epoch' version' release'
+        Pkg.gt epoch version release epoch' version' release'
     | Some Gte ->
-        gte epoch version release epoch' version' release'
+        Pkg.gte epoch version release epoch' version' release'
     | Some Eq ->
-        eq epoch version release epoch' version' release'
+        Pkg.eq epoch version release epoch' version' release'
     | _ ->
         raise Invalid_inequality
 end
@@ -1046,35 +1047,8 @@ let parse_updateinfo_list acc line =
   match Re.Str.split sep line with
   | [update_id; _; full_name] -> (
     match Pkg.of_fullname full_name with
-    | Some pkg -> (
-        (* Found same package in more than 1 update *)
-        let name_arch = Pkg.to_name_arch_string pkg in
-        match List.assoc_opt name_arch acc with
-        | Some (e, v, r, _) -> (
-            let open Applicability in
-            (* Select the latest update by comparing version and release  *)
-            match
-              ( compare_epoch e pkg.Pkg.epoch
-              , compare_version_strings v pkg.Pkg.version
-              , compare_version_strings r pkg.Pkg.release
-              )
-            with
-            | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
-                let latest_so_far =
-                  ( name_arch
-                  , (pkg.epoch, pkg.Pkg.version, pkg.Pkg.release, update_id)
-                  )
-                in
-                latest_so_far :: List.remove_assoc name_arch acc
-            | _ ->
-                acc
-          )
-        | None ->
-            ( name_arch
-            , (pkg.Pkg.epoch, pkg.Pkg.version, pkg.Pkg.release, update_id)
-            )
-            :: acc
-      )
+    | Some pkg ->
+        (pkg, update_id) :: acc
     | None ->
         acc
   )
@@ -1097,7 +1071,6 @@ let get_updates_from_updateinfo ~__context repositories =
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.fold_left parse_updateinfo_list []
-  |> List.map (fun (name_arch, (_, _, _, update_id)) -> (name_arch, update_id))
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind =
   let open Update in
@@ -1235,7 +1208,90 @@ let get_updates_from_list_updates repositories =
   in
   updates
 
-let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
+let validate_latest_updates ~latest_updates ~accumulative_updates =
+  List.map
+    (fun (pkg, repo) ->
+      match List.assoc_opt pkg accumulative_updates with
+      | Some uid ->
+          (pkg, Some uid, repo)
+      | None ->
+          warn "Not found update ID for update %s" (Pkg.to_fullname pkg) ;
+          (pkg, None, repo)
+      )
+    latest_updates
+
+let prune_by_latest_updates latest_updates pkg uid =
+  let open Pkg in
+  let is_same_name_arch pkg1 pkg2 =
+    pkg1.name = pkg2.name && pkg1.arch = pkg2.arch
+  in
+  match
+    List.find_opt (fun (pkg', _) -> is_same_name_arch pkg pkg') latest_updates
+  with
+  | Some (pkg', repo) ->
+      if
+        Pkg.gt pkg.epoch pkg.version pkg.release pkg'.epoch pkg'.version
+          pkg'.release
+      then
+        let msg =
+          Printf.sprintf
+            "Found an accumulative update which is even newer than the latest \
+             update: %s"
+            (Pkg.to_fullname pkg)
+        in
+        Error (Some msg)
+      else
+        Ok (pkg, uid, repo)
+  | None ->
+      let msg =
+        Printf.sprintf
+          "Found an accumulative update but this package (name.arch) is not in \
+           latest updates: %s"
+          (Pkg.to_fullname pkg)
+      in
+      Error (Some msg)
+
+let prune_by_installed_pkgs installed_pkgs pkg uid repo =
+  let open Pkg in
+  let name_arch = to_name_arch_string pkg in
+  match List.assoc_opt name_arch installed_pkgs with
+  | Some pkg' ->
+      if
+        Pkg.gt pkg.epoch pkg.version pkg.release pkg'.epoch pkg'.version
+          pkg'.release
+      then
+        Ok (pkg, uid, repo)
+      else (* An out-dated update *)
+        Error None
+  | None ->
+      let msg =
+        Printf.sprintf
+          "Found an accumulative update but this package (name.arch) is not \
+           installed: %s"
+          (to_fullname pkg)
+      in
+      Error (Some msg)
+
+let prune_accumulative_updates ~accumulative_updates ~latest_updates
+    ~installed_pkgs =
+  List.filter_map
+    (fun (pkg, uid) ->
+      let open Rresult.R.Infix in
+      ( prune_by_latest_updates latest_updates pkg uid
+      >>= fun (pkg', uid', repo') ->
+        prune_by_installed_pkgs installed_pkgs pkg' uid' repo'
+      )
+      |> function
+      | Ok (pkg', uid', repo') ->
+          Some (pkg', Some uid', repo')
+      | Error (Some msg) ->
+          warn "%s" msg ; None
+      | Error None ->
+          None
+      )
+    accumulative_updates
+
+let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   let remove_prefix prefix s =
     match Astring.String.cut ~sep:prefix s with
     | Some ("", s') when s' <> "" ->
@@ -1246,14 +1302,8 @@ let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
   match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
   | Some repo_name -> (
       let open Pkg in
-      let name_arch = Pkg.to_name_arch_string new_pkg in
       let uid_in_json =
-        match List.assoc_opt name_arch update_ids with
-        | Some s ->
-            `String s
-        | None ->
-            warn "No update ID found for %s" name_arch ;
-            `Null
+        match update_id with Some s -> `String s | None -> `Null
       in
       let l =
         [
@@ -1264,11 +1314,12 @@ let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
         ; ("repository", `String repo_name)
         ]
       in
+      let name_arch = Pkg.to_name_arch_string new_pkg in
       match List.assoc_opt name_arch installed_pkgs with
       | Some old_pkg ->
-          Some (`Assoc (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)]))
+          `Assoc (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)])
       | None ->
-          Some (`Assoc l)
+          `Assoc l
     )
   | None ->
       let msg = "Found update from unmanaged repository" in
@@ -1277,36 +1328,56 @@ let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
 
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
-  let all_updates =
+  let accumulative_updates =
+    updates_of_host
+    |> Yojson.Basic.Util.member "accumulative_updates"
+    |> Yojson.Basic.Util.to_list
+    |> List.map Update.of_json
+  in
+  let latest_updates =
     updates_of_host
     |> Yojson.Basic.Util.member "updates"
     |> Yojson.Basic.Util.to_list
     |> List.map Update.of_json
   in
+  (* 'rpms' come from latest updates *)
+  let rpms =
+    List.map
+      (fun u ->
+        Pkg.(
+          to_fullname
+            {
+              name= u.Update.name
+            ; arch= u.Update.arch
+            ; epoch= u.Update.new_epoch
+            ; version= u.Update.new_version
+            ; release= u.Update.new_release
+            }
+        )
+        )
+      latest_updates
+  in
   let open Update in
-  let rpms, uids, updates =
+  (* The update IDs and guidances come from accumulative updates *)
+  let acc_uids, acc_updates =
     List.fold_left
-      (fun (acc_rpms, acc_uids, acc_updates) u ->
-        let rpms =
-          Pkg.to_fullname ~name:u.name ~arch:u.arch ~epoch:u.new_epoch
-            ~version:u.new_version ~release:u.new_release
-          :: acc_rpms
-        in
+      (fun (acc_uids', acc_updates') u ->
         match (u.update_id, u.repository = repository_name) with
         | Some id, true ->
-            (rpms, UpdateIdSet.add id acc_uids, u :: acc_updates)
+            (UpdateIdSet.add id acc_uids', u :: acc_updates')
         | _ ->
-            (rpms, acc_uids, acc_updates)
+            (acc_uids', acc_updates')
         )
-      ([], UpdateIdSet.empty, [])
-      all_updates
+      (UpdateIdSet.empty, []) accumulative_updates
   in
-  let rec_guidances = eval_guidances ~updates_info ~updates ~kind:Recommended in
+  let rec_guidances =
+    eval_guidances ~updates_info ~updates:acc_updates ~kind:Recommended
+  in
   let abs_guidances_in_json =
     let abs_guidances =
       List.filter
         (fun g -> not (List.mem g rec_guidances))
-        (eval_guidances ~updates_info ~updates ~kind:Absolute)
+        (eval_guidances ~updates_info ~updates:acc_updates ~kind:Absolute)
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
@@ -1321,11 +1392,12 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; ("absolute-guidance", `List abs_guidances_in_json)
       ; ("RPMS", `List (List.map (fun r -> `String r) rpms))
       ; ( "updates"
-        , `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids))
+        , `List
+            (List.map (fun uid -> `String uid) (UpdateIdSet.elements acc_uids))
         )
       ]
   in
-  (json_of_host, uids)
+  (json_of_host, acc_uids)
 
 let append_by_key l k v =
   (* Append a (k, v) into a assoc list l [ (k1, [v1]); (k2, [...]); ... ] as

@@ -328,21 +328,31 @@ let create_pool_repository ~__context ~self =
 let get_host_updates_in_json ~__context ~installed =
   try
     with_local_repositories ~__context (fun repositories ->
-        (* (name_arch, updateID) list *)
-        let update_ids = get_updates_from_updateinfo ~__context repositories in
+        (* (pkg, update_id) list *)
+        let accumulative_updates =
+          get_updates_from_updateinfo ~__context repositories
+        in
         (* (name_arch, pkg) list *)
         let installed_pkgs =
           match installed with true -> get_installed_pkgs () | false -> []
         in
-        (* (name_arch, (pkg, repo)) list *)
-        let update_pkgs = get_updates_from_list_updates repositories in
+        (* (pkg, repo) list *)
+        let latest_updates = get_updates_from_list_updates repositories in
         List.iter (fun r -> clean_yum_cache r) repositories ;
-        let updates =
-          List.filter_map
-            (get_update_in_json ~update_ids ~installed_pkgs)
-            update_pkgs
+        let latest_updates_in_json =
+          validate_latest_updates ~latest_updates ~accumulative_updates
+          |> List.map (get_update_in_json ~installed_pkgs:[])
         in
-        `Assoc [("updates", `List updates)]
+        let accumulative_updates_in_json =
+          prune_accumulative_updates ~accumulative_updates ~latest_updates
+            ~installed_pkgs
+          |> List.map (get_update_in_json ~installed_pkgs)
+        in
+        `Assoc
+          [
+            ("updates", `List latest_updates_in_json)
+          ; ("accumulative_updates", `List accumulative_updates_in_json)
+          ]
     )
   with
   | Api_errors.(Server_error (code, _)) as e
@@ -602,23 +612,34 @@ let apply_updates ~__context ~host ~hash =
     then
       raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
     with_pool_repositories (fun () ->
-        let all_updates =
+        let host_updates =
           http_get_host_updates_in_json ~__context ~host ~installed:true
+        in
+        let latest_updates =
+          host_updates
           |> Yojson.Basic.Util.member "updates"
           |> Yojson.Basic.Util.to_list
           |> List.map Update.of_json
         in
-        match all_updates with
+        match latest_updates with
         | [] ->
             let host' = Ref.string_of host in
             info "Host ref='%s' is already up to date." host' ;
             []
-        | l ->
+        | _ ->
             let repository_name =
               get_repository_name ~__context ~self:repository
             in
+            let accumulative_updates =
+              host_updates
+              |> Yojson.Basic.Util.member "accumulative_updates"
+              |> Yojson.Basic.Util.to_list
+              |> List.map Update.of_json
+            in
             let updates =
-              List.filter (fun u -> u.Update.repository = repository_name) l
+              List.filter
+                (fun u -> u.Update.repository = repository_name)
+                accumulative_updates
             in
             let updates_info = parse_updateinfo ~__context ~self:repository in
             let immediate_guidances =
@@ -634,7 +655,9 @@ let apply_updates ~__context ~host ~hash =
                 Client.Client.Repository.apply ~rpc ~session_id ~host
             ) ;
             Hashtbl.replace updates_in_cache host
-              (`Assoc [("updates", `List [])]) ;
+              (`Assoc
+                [("updates", `List []); ("accumulative_updates", `List [])]
+                ) ;
             set_pending_guidances ~__context ~host ~guidances:pending_guidances ;
             immediate_guidances
     )
