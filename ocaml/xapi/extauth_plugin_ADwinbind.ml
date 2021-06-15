@@ -484,17 +484,17 @@ let persist_extauth_config ~domain ~user ~ou_conf ~workgroup =
     |> debug "update external_auth_configuration for host %s")
   |> Server_helpers.exec_with_new_task "update external_auth_configuration"
 
-let clean_machine_account ~service_name = function
+let disable_machine_account ~service_name = function
   | Some u, Some p -> (
-      (* Clean machine account in DC *)
+      (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
-      let args = ["ads"; "leave"; "-U"; u; "-d"; debug_level] in
+      let args = ["ads"; "leave"; "-U"; u; "--keep-account"; "-d"; debug_level] in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
-        debug "Succeed to clean the machine account for domain %s" service_name
+        debug "Succeed to disable the machine account for domain %s" service_name
       with _ ->
         let msg =
-          Printf.sprintf "Failed to clean the machine account for domain %s"
+          Printf.sprintf "Failed to disable the machine account for domain %s"
             service_name
         in
         debug "%s" msg ;
@@ -814,7 +814,7 @@ let authenticate_username_password uname password =
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; _} = get_domain_info_from_db () in
-    clean_machine_account ~service_name (user, pass) ;
+    disable_machine_account ~service_name (user, pass) ;
     (* Clean local resources *)
     clean_local_resources () ;
     (* Clean extauth config *)
