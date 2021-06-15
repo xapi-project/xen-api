@@ -402,10 +402,6 @@ module GuidanceSet = struct
 
   let eq_set2 = eq [RestartDeviceModel; RestartToolstack]
 
-  let eq_set3 = eq [RestartDeviceModel; EvacuateHost]
-
-  let eq_set4 = eq [EvacuateHost; RestartToolstack; RestartDeviceModel]
-
   let error_msg l =
     Printf.sprintf "Found wrong guidance(s): %s"
       (String.concat ";" (List.map to_string l))
@@ -423,24 +419,28 @@ module GuidanceSet = struct
     | l when eq_set2 l ->
         (* RestartDeviceModel and RestartToolstack *)
         ()
-    | l when eq_set3 l ->
-        (* RestartDeviceModel and EvacuateHost *)
-        ()
-    | l when eq_set4 l ->
-        (* EvacuateHost, RestartToolstack and RestartDeviceModel *)
-        ()
     | l ->
         let msg = error_msg l in
         raise Api_errors.(Server_error (internal_error, [msg]))
 
+  let precedences =
+    [
+      (RebootHost, of_list [RestartToolstack; EvacuateHost; RestartDeviceModel])
+    ; (EvacuateHost, of_list [RestartDeviceModel])
+    ]
+
   let resort_guidances ~kind gs =
-    match (find_opt RebootHost gs, kind) with
-    | Some _, _ ->
-        singleton RebootHost
-    | None, Recommended ->
-        gs
-    | None, Absolute ->
-        filter (fun g -> g <> EvacuateHost) gs
+    let gs' =
+      List.fold_left
+        (fun acc (higher, lowers) ->
+          if mem higher acc then
+            diff acc lowers
+          else
+            acc
+          )
+        gs precedences
+    in
+    match kind with Recommended -> gs' | Absolute -> remove EvacuateHost gs'
 end
 
 module Applicability = struct

@@ -537,7 +537,6 @@ let restart_device_models ~__context ~host =
 let apply_immediate_guidances ~__context ~host ~guidances =
   (* This function runs on master host *)
   try
-    let num_of_hosts = List.length (Db.Host.get_all ~__context) in
     let open Client in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         let open Guidance in
@@ -561,16 +560,6 @@ let apply_immediate_guidances ~__context ~host ~guidances =
         | l when GuidanceSet.eq_set2 l ->
             (* RestartDeviceModel and RestartToolstack *)
             restart_device_models ~__context ~host ;
-            Client.Host.restart_agent ~rpc ~session_id ~host
-        | l when GuidanceSet.eq_set3 l ->
-            (* RestartDeviceModel and EvacuateHost *)
-            (* Evacuating host restarted device models already *)
-            if num_of_hosts = 1 then restart_device_models ~__context ~host ;
-            ()
-        | l when GuidanceSet.eq_set4 l ->
-            (* EvacuateHost, RestartToolstack and RestartDeviceModel *)
-            (* Evacuating host restarted device models already *)
-            if num_of_hosts = 1 then restart_device_models ~__context ~host ;
             Client.Host.restart_agent ~rpc ~session_id ~host
         | l ->
             let host' = Ref.string_of host in
