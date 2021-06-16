@@ -379,7 +379,7 @@ module GuidanceSetAssertValidGuidanceTest = Generic.MakeStateless (struct
       ]
 end)
 
-module ApplicabilityCompareVersionStringsTest = Generic.MakeStateless (struct
+module PkgCompareVersionStringsTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * string
 
@@ -391,7 +391,7 @@ module ApplicabilityCompareVersionStringsTest = Generic.MakeStateless (struct
   end
 
   let transform (s1, s2) =
-    Applicability.string_of_order (Applicability.compare_version_strings s1 s2)
+    Pkg.string_of_order (Pkg.compare_version_strings s1 s2)
 
   let tests =
     `QuickAndAutoDocumented
@@ -1835,73 +1835,62 @@ end)
 
 module GetUpdateInJson = Generic.MakeStateless (struct
   module Io = struct
-    (* (name.arch, updateId) list: from "yum updateinfo list updates"
-     * (name.arch, Pkg.t) list): from "rpm -qa"
-     * (Pkg.t * string): from "yum list updates"
+    (* (name.arch, Pkg.t) list: installed RPM packages
+     * Pkg.t * (string option * string): pkg, (update_id, repo)
      *)
-    type input_t =
-      ((string * string) list * (string * Pkg.t) list) * (Pkg.t * string)
+    type input_t = (string * Pkg.t) list * (Pkg.t * (string option * string))
 
-    type output_t = (Yojson.Basic.t option, exn) result
+    type output_t = (Yojson.Basic.t, exn) result
 
     let string_of_input_t =
       Fmt.(
         str "%a"
           Dump.(
             pair
-              (pair
-                 (list (pair string string))
-                 (list (pair string (record @@ fields_of_pkg)))
-              )
-              (pair (record @@ fields_of_pkg) string)
+              (list (pair string (record @@ fields_of_pkg)))
+              (pair (record @@ fields_of_pkg) (pair (option string) string))
           )
       )
 
     let string_of_output_t = function
       | Ok j ->
-          Fmt.(str "%a" Dump.(option string))
-            (Option.map Yojson.Basic.to_string j)
+          Fmt.(str "%a" Dump.(string)) (Yojson.Basic.to_string j)
       | Error e ->
           Fmt.(str "%a" exn) e
   end
 
-  let transform ((update_ids, installed_pkgs), (new_pkg, repo)) =
-    try Ok (get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo))
+  let transform (installed_pkgs, (new_pkg, (update_id, repo))) =
+    try Ok (get_update_in_json ~installed_pkgs (new_pkg, update_id, repo))
     with e -> Error e
 
   let tests =
     `QuickAndAutoDocumented
       [
         (* Not from expected repository *)
-        ( ( ( [
-                ("xsconsole.x86_64", "UPDATE-0000")
-              ; ("libpath-utils.noarch", "UPDATE-0001")
-              ]
-            , [
-                ( "xsconsole.x86_64"
-                , Pkg.
-                    {
-                      name= "xsconsole"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "x86_64"
-                    }
-                  
-                )
-              ; ( "libpath-utils.noarch"
-                , Pkg.
-                    {
-                      name= "libpath-utils"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "noarch"
-                    }
-                  
-                )
-              ]
-            )
+        ( ( [
+              ( "xsconsole.x86_64"
+              , Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "x86_64"
+                  }
+                
+              )
+            ; ( "libpath-utils.noarch"
+              , Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "noarch"
+                  }
+                
+              )
+            ]
           , ( Pkg.
                 {
                   name= "libpath-utils"
@@ -1911,7 +1900,7 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; arch= "noarch"
                 }
               
-            , "epel"
+            , (None, "epel")
             )
             (* repository name is "epel" *)
           )
@@ -1922,12 +1911,7 @@ module GetUpdateInJson = Generic.MakeStateless (struct
             )
         )
       ; (* A normal case in which installed packages are not required *)
-        ( ( ( [
-                ("xsconsole.x86_64", "UPDATE-0000")
-              ; ("libpath-utils.noarch", "UPDATE-0001")
-              ]
-            , [] (* No installed packages provided *)
-            )
+        ( ( [] (* No installed packages provided *)
           , ( Pkg.
                 {
                   name= "xsconsole"
@@ -1937,59 +1921,52 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; arch= "x86_64"
                 }
               
-            , "local-regular"
+            , (None, "local-regular")
             )
           )
         , Ok
-            (Some
-               (`Assoc
-                 [
-                   ("name", `String "xsconsole")
-                 ; ("arch", `String "x86_64")
-                 ; ( "newEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "(none)")
-                       ; ("version", `String "0.2.2")
-                       ; ("release", `String "9.el7")
-                       ]
-                   )
-                 ; ("updateId", `String "UPDATE-0000")
-                 ; ("repository", `String "regular")
-                 ]
-                 )
-            )
+            (`Assoc
+              [
+                ("name", `String "xsconsole")
+              ; ("arch", `String "x86_64")
+              ; ( "newEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "(none)")
+                    ; ("version", `String "0.2.2")
+                    ; ("release", `String "9.el7")
+                    ]
+                )
+              ; ("updateId", `Null)
+              ; ("repository", `String "regular")
+              ]
+              )
         )
       ; (* A normal case *)
-        ( ( ( [
-                ("xsconsole.x86_64", "UPDATE-0000")
-              ; ("libpath-utils.noarch", "UPDATE-0001")
-              ]
-            , [
-                ( "xsconsole.x86_64"
-                , Pkg.
-                    {
-                      name= "xsconsole"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "x86_64"
-                    }
-                  
-                )
-              ; ( "libpath-utils.noarch"
-                , Pkg.
-                    {
-                      name= "libpath-utils"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "noarch"
-                    }
-                  
-                )
-              ]
-            )
+        ( ( [
+              ( "xsconsole.x86_64"
+              , Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "x86_64"
+                  }
+                
+              )
+            ; ( "libpath-utils.noarch"
+              , Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "noarch"
+                  }
+                
+              )
+            ]
           , ( Pkg.
                 {
                   name= "xsconsole"
@@ -1999,64 +1976,60 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; arch= "x86_64"
                 }
               
-            , "local-regular"
+            , (None, "local-regular")
             )
           )
         , Ok
-            (Some
-               (`Assoc
-                 [
-                   ("name", `String "xsconsole")
-                 ; ("arch", `String "x86_64")
-                 ; ( "newEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "(none)")
-                       ; ("version", `String "0.2.2")
-                       ; ("release", `String "9.el7")
-                       ]
-                   )
-                 ; ("updateId", `String "UPDATE-0000")
-                 ; ("repository", `String "regular")
-                 ; ( "oldEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "(none)")
-                       ; ("version", `String "0.2.1")
-                       ; ("release", `String "29.el7")
-                       ]
-                   )
-                 ]
-                 )
-            )
+            (`Assoc
+              [
+                ("name", `String "xsconsole")
+              ; ("arch", `String "x86_64")
+              ; ( "newEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "(none)")
+                    ; ("version", `String "0.2.2")
+                    ; ("release", `String "9.el7")
+                    ]
+                )
+              ; ("updateId", `Null)
+              ; ("repository", `String "regular")
+              ; ( "oldEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "(none)")
+                    ; ("version", `String "0.2.1")
+                    ; ("release", `String "29.el7")
+                    ]
+                )
+              ]
+              )
         )
-      ; (* A package to be updated is not in updateinfo.xml *)
-        ( ( ( [("libpath-utils.noarch", "UPDATE-0001")]
-            , [
-                ( "xsconsole.x86_64"
-                , Pkg.
-                    {
-                      name= "sconsole"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "x86_64"
-                    }
-                  
-                )
-              ; ( "libpath-utils.noarch"
-                , Pkg.
-                    {
-                      name= "libpath-utils"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "noarch"
-                    }
-                  
-                )
-              ]
-            )
+      ; (* A package with update ID *)
+        ( ( [
+              ( "xsconsole.x86_64"
+              , Pkg.
+                  {
+                    name= "sconsole"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "x86_64"
+                  }
+                
+              )
+            ; ( "libpath-utils.noarch"
+              , Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "noarch"
+                  }
+                
+              )
+            ]
           , ( Pkg.
                 {
                   name= "xsconsole"
@@ -2066,67 +2039,60 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; arch= "x86_64"
                 }
               
-            , "local-regular"
+            , (Some "UPDATE-01", "local-regular")
             )
           )
         , Ok
-            (Some
-               (`Assoc
-                 [
-                   ("name", `String "xsconsole")
-                 ; ("arch", `String "x86_64")
-                 ; ( "newEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "(none)")
-                       ; ("version", `String "0.2.2")
-                       ; ("release", `String "9.el7")
-                       ]
-                   )
-                 ; ("updateId", `Null)
-                 ; ("repository", `String "regular")
-                 ; ( "oldEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "(none)")
-                       ; ("version", `String "0.2.1")
-                       ; ("release", `String "29.el7")
-                       ]
-                   )
-                 ]
-                 )
-            )
+            (`Assoc
+              [
+                ("name", `String "xsconsole")
+              ; ("arch", `String "x86_64")
+              ; ( "newEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "(none)")
+                    ; ("version", `String "0.2.2")
+                    ; ("release", `String "9.el7")
+                    ]
+                )
+              ; ("updateId", `String "UPDATE-01")
+              ; ("repository", `String "regular")
+              ; ( "oldEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "(none)")
+                    ; ("version", `String "0.2.1")
+                    ; ("release", `String "29.el7")
+                    ]
+                )
+              ]
+              )
         )
       ; (* A normal case with epoch *)
-        ( ( ( [
-                ("xsconsole.x86_64", "UPDATE-0000")
-              ; ("libpath-utils.noarch", "UPDATE-0001")
-              ]
-            , [
-                ( "xsconsole.x86_64"
-                , Pkg.
-                    {
-                      name= "xsconsole"
-                    ; epoch= None
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "x86_64"
-                    }
-                  
-                )
-              ; ( "libpath-utils.noarch"
-                , Pkg.
-                    {
-                      name= "libpath-utils"
-                    ; epoch= Some 2
-                    ; version= "0.2.1"
-                    ; release= "29.el7"
-                    ; arch= "noarch"
-                    }
-                  
-                )
-              ]
-            )
+        ( ( [
+              ( "xsconsole.x86_64"
+              , Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "x86_64"
+                  }
+                
+              )
+            ; ( "libpath-utils.noarch"
+              , Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= Some 2
+                  ; version= "0.2.1"
+                  ; release= "29.el7"
+                  ; arch= "noarch"
+                  }
+                
+              )
+            ]
           , ( Pkg.
                 {
                   name= "xsconsole"
@@ -2136,36 +2102,34 @@ module GetUpdateInJson = Generic.MakeStateless (struct
                 ; arch= "x86_64"
                 }
               
-            , "local-regular"
+            , (None, "local-regular")
             )
           )
         , Ok
-            (Some
-               (`Assoc
-                 [
-                   ("name", `String "xsconsole")
-                 ; ("arch", `String "x86_64")
-                 ; ( "newEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "1")
-                       ; ("version", `String "0.1.1")
-                       ; ("release", `String "9.el7")
-                       ]
-                   )
-                 ; ("updateId", `String "UPDATE-0000")
-                 ; ("repository", `String "regular")
-                 ; ( "oldEpochVerRel"
-                   , `Assoc
-                       [
-                         ("epoch", `String "(none)")
-                       ; ("version", `String "0.2.1")
-                       ; ("release", `String "29.el7")
-                       ]
-                   )
-                 ]
-                 )
-            )
+            (`Assoc
+              [
+                ("name", `String "xsconsole")
+              ; ("arch", `String "x86_64")
+              ; ( "newEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "1")
+                    ; ("version", `String "0.1.1")
+                    ; ("release", `String "9.el7")
+                    ]
+                )
+              ; ("updateId", `Null)
+              ; ("repository", `String "regular")
+              ; ( "oldEpochVerRel"
+                , `Assoc
+                    [
+                      ("epoch", `String "(none)")
+                    ; ("version", `String "0.2.1")
+                    ; ("release", `String "29.el7")
+                    ]
+                )
+              ]
+              )
         )
       ]
 end)
@@ -2208,7 +2172,27 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ; rec_guidance= Some Guidance.EvacuateHost
         }
       )
-    ; ("UPDATE-0001", {updateinfo with id= "UPDATE-0001"; rec_guidance= None})
+    ; ( "UPDATE-0001"
+      , {
+          updateinfo with
+          id= "UPDATE-0001"
+        ; rec_guidance= Some Guidance.RebootHost
+        }
+      )
+    ; ( "UPDATE-0002"
+      , {
+          updateinfo with
+          id= "UPDATE-0002"
+        ; rec_guidance= Some Guidance.RestartDeviceModel
+        }
+      )
+    ; ( "UPDATE-0003"
+      , {
+          updateinfo with
+          id= "UPDATE-0003"
+        ; rec_guidance= Some Guidance.EvacuateHost
+        }
+      )
     ]
 
   let host = "string_of_host_ref"
@@ -2222,7 +2206,9 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       [
         ( (* No updates *)
           {|
-            { "updates": [] }
+            { "updates": [],
+              "accumulative_updates": []
+            }
           |}
         , ( `Assoc
               [
@@ -2239,6 +2225,32 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ( {|
             {
               "updates":
+              [
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                },
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+
+              "accumulative_updates":
               [
                 {
                   "name": "xsconsole",
@@ -2278,13 +2290,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "EvacuateHost"])
+              ; ("recommended-guidance", `List [`String "RebootHost"])
               ; ("absolute-guidance", `List [])
               ; ( "RPMS"
                 , `List
                     [
-                      `String "libpath-utils-0.2.2-9.el7.noarch.rpm"
-                    ; `String "xsconsole-0.2.2-9.el7.x86_64.rpm"
+                      `String "xsconsole-0.2.2-9.el7.x86_64.rpm"
+                    ; `String "libpath-utils-0.2.2-9.el7.noarch.rpm"
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
@@ -2296,6 +2308,20 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ( {|
             {
               "updates":
+              [
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+              "accumulative_updates":
               [
                 {
                   "name": "libpath-utils",
@@ -2319,7 +2345,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [])
+              ; ("recommended-guidance", `List [`String "RebootHost"])
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0001"])
@@ -2331,6 +2357,20 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ( {|
             {
               "updates":
+              [
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+              "accumulative_updates":
               [
                 {
                   "name": "libpath-utils",
@@ -2354,7 +2394,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [])
+              ; ("recommended-guidance", `List [`String "EvacuateHost"])
               ; ("absolute-guidance", `List [])
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0003"])
@@ -2362,19 +2402,25 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
           , UpdateIdSet.of_list ["UPDATE-0003"]
           )
         )
-      ; (* One update, but no updateID *)
+      ; (* Two updates: one from update, another from non-update *)
         ( {|
             {
               "updates":
               [
                 {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "base"
+                },
+                {
                   "name": "libpath-utils",
                   "arch": "noarch",
-                  "oldEpochVerRel": {
-                    "epoch": "(none)",
-                    "version": "0.2.1",
-                    "release": "29.el7"
-                  },
                   "newEpochVerRel": {
                     "epoch": "(none)",
                     "version": "0.2.2",
@@ -2383,24 +2429,8 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
                   "updateId": null,
                   "repository": "regular"
                 }
-              ]
-            }
-          |}
-        , ( `Assoc
-              [
-                ("ref", `String host)
-              ; ("recommended-guidance", `List [])
-              ; ("absolute-guidance", `List [])
-              ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
-              ; ("updates", `List [])
-              ]
-          , UpdateIdSet.empty
-          )
-        )
-      ; (* Two updates: one from update, another from non-update *)
-        ( {|
-            {
-              "updates":
+              ],
+              "accumulative_updates":
               [
                 {
                   "name": "xsconsole",
@@ -2440,13 +2470,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [])
+              ; ("recommended-guidance", `List [`String "RebootHost"])
               ; ("absolute-guidance", `List [])
               ; ( "RPMS"
                 , `List
                     [
-                      `String "libpath-utils-0.2.2-9.el7.noarch.rpm"
-                    ; `String "xsconsole-0.2.2-9.el7.x86_64.rpm"
+                      `String "xsconsole-0.2.2-9.el7.x86_64.rpm"
+                    ; `String "libpath-utils-0.2.2-9.el7.noarch.rpm"
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0001"])
@@ -2458,6 +2488,31 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         ( {|
             {
               "updates":
+              [
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                },
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "newEpochVerRel": {
+                    "epoch": "2",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+              "accumulative_updates":
               [
                 {
                   "name": "xsconsole",
@@ -2497,13 +2552,13 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "EvacuateHost"])
+              ; ("recommended-guidance", `List [`String "RebootHost"])
               ; ("absolute-guidance", `List [])
               ; ( "RPMS"
                 , `List
                     [
-                      `String "libpath-utils-2:0.1.2-9.el7.noarch.rpm"
-                    ; `String "xsconsole-1:0.1.2-9.el7.x86_64.rpm"
+                      `String "xsconsole-1:0.1.2-9.el7.x86_64.rpm"
+                    ; `String "libpath-utils-2:0.1.2-9.el7.noarch.rpm"
                     ]
                 )
               ; ("updates", `List [`String "UPDATE-0000"; `String "UPDATE-0001"])
@@ -2511,27 +2566,144 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
           , UpdateIdSet.of_list ["UPDATE-0000"; "UPDATE-0001"]
           )
         )
+      ; (* 2 updates, 4 accumulative_updates *)
+        ( {|
+            {
+              "updates":
+              [
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "newEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.1.2",
+                    "release": "10.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                },
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "newEpochVerRel": {
+                    "epoch": "2",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ],
+              "accumulative_updates":
+              [
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.1.1",
+                    "release": "9.el7"
+                  },
+                  "updateId": "UPDATE-0001",
+                  "repository": "regular"
+                },
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": "UPDATE-0002",
+                  "repository": "regular"
+                },
+                {
+                  "name": "xsconsole",
+                  "arch": "x86_64",
+                  "oldEpochVerRel": {
+                    "epoch": "(none)",
+                    "version": "0.2.1",
+                    "release": "29.el7"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "1",
+                    "version": "0.1.2",
+                    "release": "10.el7"
+                  },
+                  "updateId": "UPDATE-0003",
+                  "repository": "regular"
+                },
+                {
+                  "name": "libpath-utils",
+                  "arch": "noarch",
+                  "newEpochVerRel": {
+                    "epoch": "2",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "newEpochVerRel": {
+                    "epoch": "2",
+                    "version": "0.1.2",
+                    "release": "9.el7"
+                  },
+                  "updateId": null,
+                  "repository": "regular"
+                }
+              ]
+            }
+          |}
+        , ( `Assoc
+              [
+                ("ref", `String host)
+              ; ("recommended-guidance", `List [`String "RebootHost"])
+              ; ("absolute-guidance", `List [])
+              ; ( "RPMS"
+                , `List
+                    [
+                      `String "xsconsole-1:0.1.2-10.el7.x86_64.rpm"
+                    ; `String "libpath-utils-2:0.1.2-9.el7.noarch.rpm"
+                    ]
+                )
+              ; ( "updates"
+                , `List
+                    [
+                      `String "UPDATE-0001"
+                    ; `String "UPDATE-0002"
+                    ; `String "UPDATE-0003"
+                    ]
+                )
+              ]
+          , UpdateIdSet.of_list ["UPDATE-0001"; "UPDATE-0002"; "UPDATE-0003"]
+          )
+        )
       ]
 end)
 
 module ParseUpdateInfoList = Generic.MakeStateless (struct
   module Io = struct
-    type input_t =
-      (string * (int option * string * string * string)) list * string
+    type input_t = (Pkg.t * string) list * string
 
-    type output_t = (string * (int option * string * string * string)) list
+    type output_t = (Pkg.t * string) list
 
     let string_of_input_t =
-      Test_printers.(
-        pair
-          (list (pair string (tuple4 (option int) string string string)))
-          string
+      Fmt.(
+        str "%a"
+          Dump.(pair (list (pair (record @@ fields_of_pkg) string)) string)
       )
 
     let string_of_output_t =
-      Test_printers.(
-        list (pair string (tuple4 (option int) string string string))
-      )
+      Fmt.(str "%a" Dump.(list (pair (record @@ fields_of_pkg) string)))
   end
 
   let transform (l, line) = parse_updateinfo_list l line
@@ -2540,37 +2712,189 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       [
         ( ( [
-              ("xsconsole.noarch", (None, "0.2.2", "7.el7", "UPDATE-0000"))
-            ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "0.2.2"
+                  ; release= "7.el7"
+                  ; arch= "noarch"
+                  }
+                
+              , "UPDATE-0000"
+              )
+            ; ( Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= None
+                  ; version= "0.2.2"
+                  ; release= "7.el7"
+                  ; arch= "noarch"
+                  }
+                
+              , "UPDATE-0001"
+              )
             ]
           , "UPDATE-0002 security xsconsole-0.2.2-7.el7.x86_64"
           )
         , [
-            ("xsconsole.x86_64", (None, "0.2.2", "7.el7", "UPDATE-0002"))
-          ; ("xsconsole.noarch", (None, "0.2.2", "7.el7", "UPDATE-0000"))
-          ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+            ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "7.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "UPDATE-0002"
+            )
+          ; ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "7.el7"
+                ; arch= "noarch"
+                }
+              
+            , "UPDATE-0000"
+            )
+          ; ( Pkg.
+                {
+                  name= "libpath-utils"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "7.el7"
+                ; arch= "noarch"
+                }
+              
+            , "UPDATE-0001"
+            )
           ]
         )
       ; ( ( [
-              ("xsconsole.x86_64", (None, "0.2.1", "7.el7", "UPDATE-0000"))
-            ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "7.el7"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-0000"
+              )
+            ; ( Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= None
+                  ; version= "0.2.2"
+                  ; release= "7.el7"
+                  ; arch= "noarch"
+                  }
+                
+              , "UPDATE-0001"
+              )
             ]
           , "UPDATE-0002 security xsconsole-0.2.2-7.el7.x86_64"
           )
         , [
-            ("xsconsole.x86_64", (None, "0.2.2", "7.el7", "UPDATE-0002"))
-          ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+            ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "7.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "UPDATE-0002"
+            )
+          ; ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.1"
+                ; release= "7.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "UPDATE-0000"
+            )
+          ; ( Pkg.
+                {
+                  name= "libpath-utils"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "7.el7"
+                ; arch= "noarch"
+                }
+              
+            , "UPDATE-0001"
+            )
           ]
         )
       ; ( ( [
-              ("xsconsole.x86_64", (None, "0.2.1", "7.el7", "UPDATE-0000"))
-            ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "0.2.1"
+                  ; release= "7.el7"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-0000"
+              )
+            ; ( Pkg.
+                  {
+                    name= "libpath-utils"
+                  ; epoch= None
+                  ; version= "0.2.2"
+                  ; release= "7.el7"
+                  ; arch= "noarch"
+                  }
+                
+              , "UPDATE-0001"
+              )
             ]
           , "UPDATE-0002 security xsconsole-1:0.1.2-7.el7.x86_64"
           )
         , [
-            ("xsconsole.x86_64", (Some 1, "0.1.2", "7.el7", "UPDATE-0002"))
-          ; ("libpath-utils.noarch", (None, "0.2.2", "7.el7", "UPDATE-0001"))
+            ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= Some 1
+                ; version= "0.1.2"
+                ; release= "7.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "UPDATE-0002"
+            )
+          ; ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "0.2.1"
+                ; release= "7.el7"
+                ; arch= "x86_64"
+                }
+              
+            , "UPDATE-0000"
+            )
+          ; ( Pkg.
+                {
+                  name= "libpath-utils"
+                ; epoch= None
+                ; version= "0.2.2"
+                ; release= "7.el7"
+                ; arch= "noarch"
+                }
+              
+            , "UPDATE-0001"
+            )
           ]
         )
       ]
@@ -2617,6 +2941,11 @@ module GuidanceSetResortGuidancesTest = Generic.MakeStateless (struct
         , [Guidance.RebootHost]
         )
       ; ((Guidance.Absolute, [Guidance.EvacuateHost]), [])
+      ; ( ( Guidance.Recommended
+          , [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+          )
+        , [Guidance.EvacuateHost]
+        )
       ]
 end)
 
@@ -2770,15 +3099,324 @@ module ParseLineOfListUpdates = Generic.MakeStateless (struct
       ]
 end)
 
+module PruneAccumulativeUpdates = Generic.MakeStateless (struct
+  module Io = struct
+    (* (pkg, update_id) list : accumulateive *)
+    (* (pkg, repo) list : latest *)
+    (* (name_arch, pkg) list : installed *)
+    type input_t = (Pkg.t * string) list * (Pkg.t * string) list
+
+    type output_t = (Pkg.t * string option * string) list
+
+    let string_of_input_t =
+      Fmt.(
+        str "%a"
+          Dump.(
+            pair
+              (list (pair (record @@ fields_of_pkg) string))
+              (list (pair (record @@ fields_of_pkg) string))
+          )
+      )
+
+    let string_of_output_t l =
+      List.fold_left
+        (fun acc (pkg, uid, repo) ->
+          acc
+          ^ "\n"
+          ^ Fmt.(str "%a" Dump.(record @@ fields_of_pkg)) pkg
+          ^ ", "
+          ^ Fmt.(str "%a" Dump.(option string)) uid
+          ^ ", "
+          ^ repo
+          )
+        "" l
+  end
+
+  let installed_pkgs =
+    [
+      ( "xsconsole.x86_64"
+      , Pkg.
+          {
+            name= "xsconsole"
+          ; epoch= None
+          ; version= "1.0.3"
+          ; release= "1.0.0.xs8"
+          ; arch= "x86_64"
+          }
+        
+      )
+    ; ( "libpath-utils.noarch"
+      , Pkg.
+          {
+            name= "libpath-utils"
+          ; epoch= None
+          ; version= "1.0.3"
+          ; release= "1.0.0.xs8"
+          ; arch= "noarch"
+          }
+        
+      )
+    ; ( "qemu-dp.x86_64"
+      , Pkg.
+          {
+            name= "qemu-dp"
+          ; epoch= Some 2
+          ; version= "2.12.0"
+          ; release= "2.0.11.xs8"
+          ; arch= "x86_64"
+          }
+        
+      )
+    ]
+
+  let transform (accumulative_updates, latest_updates) =
+    prune_accumulative_updates ~accumulative_updates ~latest_updates
+      ~installed_pkgs
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( (* all acc updates are older than or euqal to installed *)
+          (* input *)
+          ( (* accumulative updates*)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.0"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-00"
+              )
+            ; ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.3"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-03"
+              )
+            ]
+          , (* latest updates *)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.4"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "regular"
+              )
+            ]
+          )
+        , (* output *)
+          []
+        )
+      ; ( (* one acc update is newer than installed but older than the latest one *)
+          (* input *)
+          ( (* accumulative updates*)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.0"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-00"
+              )
+            ; ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.4"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-04"
+              )
+            ]
+          , (* latest updates *)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.5"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "regular"
+              )
+            ]
+          )
+        , (* output *)
+          [
+            ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "1.0.4"
+                ; release= "1.0.0.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , Some "UPDATE-04"
+            , "regular"
+            )
+          ]
+        )
+      ; ( (* two acc updates are newer than installed and one of them is equal to the latest one *)
+          (* input *)
+          ( (* accumulative updates*)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.4"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-04"
+              )
+            ; ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.5"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-05"
+              )
+            ]
+          , (* latest updates *)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.5"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "regular"
+              )
+            ]
+          )
+        , (* output *)
+          [
+            ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "1.0.4"
+                ; release= "1.0.0.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , Some "UPDATE-04"
+            , "regular"
+            )
+          ; ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "1.0.5"
+                ; release= "1.0.0.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , Some "UPDATE-05"
+            , "regular"
+            )
+          ]
+        )
+      ; ( (* one acc update is equal to the latest one and another is newer that it *)
+          (* input *)
+          ( (* accumulative updates*)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.6"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-06"
+              )
+            ; ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.5"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "UPDATE-05"
+              )
+            ]
+          , (* latest updates *)
+            [
+              ( Pkg.
+                  {
+                    name= "xsconsole"
+                  ; epoch= None
+                  ; version= "1.0.5"
+                  ; release= "1.0.0.xs8"
+                  ; arch= "x86_64"
+                  }
+                
+              , "regular"
+              )
+            ]
+          )
+        , (* output *)
+          [
+            ( Pkg.
+                {
+                  name= "xsconsole"
+                ; epoch= None
+                ; version= "1.0.5"
+                ; release= "1.0.0.xs8"
+                ; arch= "x86_64"
+                }
+              
+            , Some "UPDATE-05"
+            , "regular"
+            )
+          ]
+        )
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
       ("pkg_of_fullname", PkgOfFullnameTest.tests)
     ; ("update_of_json", UpdateOfJsonTest.tests)
     ; ("assert_valid_guidances", GuidanceSetAssertValidGuidanceTest.tests)
-    ; ( "applicability_compare_version_strings"
-      , ApplicabilityCompareVersionStringsTest.tests
-      )
+    ; ("pkg_compare_version_strings", PkgCompareVersionStringsTest.tests)
     ; ("applicability_eval", ApplicabilityEval.tests)
     ; ("updateinfo_metadata_of_xml", UpdateInfoMetaDataOfXml.tests)
     ; ("updateinfo_of_xml", UpdateInfoOfXml.tests)
@@ -2790,4 +3428,5 @@ let tests =
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
     ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
     ; ("parse_line_of_list_updates", ParseLineOfListUpdates.tests)
+    ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ]
