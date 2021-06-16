@@ -347,8 +347,27 @@ module GuidanceSetAssertValidGuidanceTest = Generic.MakeStateless (struct
       ; ([EvacuateHost], Ok ())
       ; ([EvacuateHost; RestartToolstack], Ok ())
       ; ([RestartDeviceModel; RestartToolstack], Ok ())
-      ; ([RestartDeviceModel; EvacuateHost], Ok ())
-      ; ([EvacuateHost; RestartToolstack; RestartDeviceModel], Ok ())
+      ; ( [RestartDeviceModel; EvacuateHost]
+        , Error
+            Api_errors.(
+              Server_error
+                ( internal_error
+                , [GuidanceSet.error_msg [RestartDeviceModel; EvacuateHost]]
+                )
+            )
+        )
+      ; ( [EvacuateHost; RestartToolstack; RestartDeviceModel]
+        , Error
+            Api_errors.(
+              Server_error
+                ( internal_error
+                , [
+                    GuidanceSet.error_msg
+                      [EvacuateHost; RestartToolstack; RestartDeviceModel]
+                  ]
+                )
+            )
+        )
       ; ( [RebootHost; RestartToolstack]
         , Error
             Api_errors.(
