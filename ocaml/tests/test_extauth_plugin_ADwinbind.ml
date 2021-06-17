@@ -346,12 +346,12 @@ let test_wbinfo_exception_of_stderr =
   in
   matrix |> List.map @@ fun (inp, exp) -> ("<omit inp>", `Quick, check inp exp)
 
-
 let tests =
   [
     ("ADwinbind:extract_ou_config", ExtractOuConfig.tests)
   ; ("ADwinbind:test_domainify_uname", test_domainify_uname)
   ; ("ADwinbind:test_parse_wbinfo_uid_info", test_parse_wbinfo_uid_info)
   ; ("ADwinbind:test_parse_ldap_stdout", test_parse_ldap_stdout)
-  ; ("ADwinbind:test_wbinfo_exception_of_stderr", test_wbinfo_exception_of_stderr)
+  ; ( "ADwinbind:test_wbinfo_exception_of_stderr"
+    , test_wbinfo_exception_of_stderr )
   ]
