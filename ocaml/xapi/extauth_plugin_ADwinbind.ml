@@ -385,9 +385,19 @@ let query_domain_workgroup ~domain ~db_workgroup =
         Printf.sprintf "Failed to look up domain %s workgroup" domain
       in
       try
+        let kdc =
+          Helpers.call_script ~log_output:On_failure net_cmd
+          ["lookup"; "kdc"; domain; "-d"; debug_level]
+          (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
+          |> String.split_on_char '\n'
+          |> List.hd
+          |> String.split_on_char ':'
+          |> List.hd
+          in
+
         let lines =
           Helpers.call_script ~log_output:On_failure net_cmd
-            ["ads"; "lookup"; "-S"; domain; "-d"; debug_level]
+            ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level]
         in
         match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
         | Some v ->
