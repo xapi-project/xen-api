@@ -28,7 +28,7 @@ CAMLprim value stub_tap_open(value ocaml_ifname)
     CAMLparam1(ocaml_ifname);
     unsigned int features;
     struct ifreq ifr;
-    char *ifname = String_val(ocaml_ifname);
+    const char *ifname = String_val(ocaml_ifname);
 
     memset(&ifr, 0, sizeof(ifr));
 
