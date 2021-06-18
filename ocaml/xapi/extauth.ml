@@ -44,7 +44,7 @@ module Ext_auth = struct
     | "PAM" ->
         (*pam/nss unix services*)
         Authx.AuthX.methods
-    (* the PBIS authentication plugin *)
+    (* the external authentication plugin *)
     | "AD" ->
         (*windows active directory*)
         Extauth_ad.methods()

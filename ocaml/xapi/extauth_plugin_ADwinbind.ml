@@ -380,15 +380,22 @@ let query_domain_workgroup ~domain ~db_workgroup =
       let err_msg =
         Printf.sprintf "Failed to look up domain %s workgroup" domain
       in
+      let hd msg = function
+        | [] ->
+            error "%s" msg ;
+            raise (Auth_service_error (E_LOOKUP, msg))
+        | h :: _ ->
+            h
+      in
       try
         let kdc =
           Helpers.call_script ~log_output:On_failure net_cmd
             ["lookup"; "kdc"; domain; "-d"; debug_level]
           (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
           |> String.split_on_char '\n'
-          |> List.hd
+          |> hd "lookup kdc return invalid result"
           |> String.split_on_char ':'
-          |> List.hd
+          |> hd "kdc has invalid address"
         in
 
         let lines =
