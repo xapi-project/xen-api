@@ -107,7 +107,10 @@ let execute_vm_hook ~script_name ~id ~reason ~extra_args =
           raise
             (Xenopsd_error
                (Errors.Hook_failed
-                  (script_name ^ "/" ^ script, reason, stdout, string_of_int i))))
+                  (script_name ^ "/" ^ script, reason, stdout, string_of_int i)
+               )
+            )
+      )
     scripts
 
 type script =

@@ -157,7 +157,8 @@ let success_task f id =
             | Error (`Msg x) ->
                 Xenopsd_error
                   (Internal_error
-                     (Printf.sprintf "Error unmarshalling failure: %s" x))
+                     (Printf.sprintf "Error unmarshalling failure: %s" x)
+                  )
           in
           match exn with
           | Xenopsd_error (Failed_to_contact_remote_service x) ->
@@ -168,7 +169,8 @@ let success_task f id =
               raise exn
         )
       | Task.Pending _ ->
-          failwith "task pending")
+          failwith "task pending"
+      )
     (fun () -> Client.TASK.destroy dbg id)
 
 let parse_source x =
@@ -257,7 +259,8 @@ let parse_pci vm_id (x, idx) =
             | _ ->
                 Printf.fprintf stderr
                   "Failed to parse PCI option: %s. It should be key=value.\n" x ;
-                exit 2)
+                exit 2
+            )
           options
       in
       let bool_opt k opts =
@@ -390,7 +393,8 @@ let parse_vif vm_id (x, idx) =
               "I don't understand '%s'. Please use \
                'mac=xx:xx:xx:xx:xx:xx,bridge=xenbrX'.\n"
               x ;
-            exit 2)
+            exit 2
+        )
       xs
   in
   {
@@ -447,7 +451,9 @@ let print_vm id =
       ( _disk
       , Printf.sprintf "[ %s ]"
           (String.concat ", "
-             (List.map (fun x -> Printf.sprintf "'%s'" (print_disk x)) vbds)) )
+             (List.map (fun x -> Printf.sprintf "'%s'" (print_disk x)) vbds)
+          )
+      )
     ]
   in
   let vifs = Client.VIF.list dbg id |> List.map fst in
@@ -456,7 +462,9 @@ let print_vm id =
       ( _vif
       , Printf.sprintf "[ %s ]"
           (String.concat ", "
-             (List.map (fun x -> Printf.sprintf "'%s'" (print_vif x)) vifs)) )
+             (List.map (fun x -> Printf.sprintf "'%s'" (print_vif x)) vifs)
+          )
+      )
     ]
   in
   let pcis = Client.PCI.list dbg id |> List.map fst in
@@ -469,7 +477,9 @@ let print_vm id =
       ( _pci
       , Printf.sprintf "[ %s ]"
           (String.concat ", "
-             (List.map (fun x -> Printf.sprintf "'%s'" (print_pci x)) pcis)) )
+             (List.map (fun x -> Printf.sprintf "'%s'" (print_pci x)) pcis)
+          )
+      )
     ]
   in
   let global_pci_opts =
@@ -481,7 +491,8 @@ let print_vm id =
   String.concat "\n"
     (List.map
        (fun (k, v) -> Printf.sprintf "%s=%s" k v)
-       (name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts))
+       (name @ boot @ vcpus @ memory @ vbds @ vifs @ pcis @ global_pci_opts)
+    )
 
 let canonicalise_filename x =
   try
@@ -519,8 +530,10 @@ let add' _copts x () =
             List.rev
               (List.fold_left
                  (fun acc x ->
-                   match x.disk with None -> acc | Some x -> x :: acc)
-                 [] disks)
+                   match x.disk with None -> acc | Some x -> x :: acc
+                   )
+                 [] disks
+              )
           in
           let open Vm in
           let builder_info =
@@ -673,7 +686,8 @@ let add' _copts x () =
           let one x = x |> parse_pci id |> Client.PCI.add dbg in
           let (_ : Pci.id list) = List.map one pcis in
           Printf.fprintf stdout "%s\n" id ;
-          `Ok id)
+          `Ok id
+          )
         (fun () -> close_in ic)
 
 let add copts x () =
@@ -705,7 +719,8 @@ let list_verbose () =
       Printf.printf "%-45s%-5s\n" vm.Vm.name
         (state.Vm.power_state |> string_of_power_state) ;
       Printf.printf "  %s\n" (vm |> rpc_of Vm.t |> Jsonrpc.to_string) ;
-      Printf.printf "  %s\n" (state |> rpc_of Vm.state |> Jsonrpc.to_string))
+      Printf.printf "  %s\n" (state |> rpc_of Vm.state |> Jsonrpc.to_string)
+      )
     vms
 
 let list_compact () =
@@ -784,8 +799,7 @@ let pp x =
         [
           Line "{"
         ; Block
-            (List.concat
-               (List.map (fun (s, t) -> Line (s ^ ": ") :: to_t t) xs))
+            (List.concat (List.map (fun (s, t) -> Line (s ^ ": ") :: to_t t) xs))
         ; Line "}"
         ]
     | Base64 x ->
@@ -904,7 +918,8 @@ let import_metadata _copts filename =
           | n ->
               Buffer.add_bytes buf (Bytes.sub line 0 n)
         done
-      with End_of_file -> ())
+      with End_of_file -> ()
+      )
     (fun () -> close_in ic) ;
   let txt = Buffer.contents buf in
   let id = Client.VM.import_metadata dbg txt in
@@ -1055,7 +1070,8 @@ let vbd_list x =
           | Some (VDI path) ->
               path |> trim 32
         in
-        line id position mode ty plugged disk disk2)
+        line id position mode ty plugged disk disk2
+        )
       vbds
   in
   List.iter print_endline (header :: lines)
@@ -1071,7 +1087,8 @@ let console_list _copts x =
         let protocol =
           match c.Vm.protocol with Vm.Rfb -> "RFB" | Vm.Vt100 -> "VT100"
         in
-        line protocol (string_of_int c.Vm.port))
+        line protocol (string_of_int c.Vm.port)
+        )
       s.Vm.consoles
   in
   List.iter print_endline (header :: lines)
@@ -1178,7 +1195,8 @@ let raw_console_proxy sockaddr =
         (fun () ->
           Unix.connect s sockaddr ;
           delay := 0.1 ;
-          proxy s)
+          proxy s
+          )
         (fun () -> Unix.close s)
     with
     | Unix.Unix_error (_, _, _) when !delay <= long_connection_retry_timeout ->
@@ -1213,7 +1231,8 @@ let vncviewer_binary =
           then
             Some path
           else
-            None)
+            None
+      )
     None dirs
 
 let unix_proxy path =
@@ -1282,13 +1301,13 @@ let console_connect' _copts x =
   List.iter
     (fun exe ->
       if Sys.file_exists exe then
-        Unix.execv exe [|exe; string_of_int (List.hd s.Vm.domids)|])
+        Unix.execv exe [|exe; string_of_int (List.hd s.Vm.domids)|]
+      )
     xenconsoles ;
   Printf.fprintf stderr "Failed to find a text console.\n%!" ;
   exit 1
 
-let console_connect copts x =
-  diagnose_error (need_vm (console_connect' copts) x)
+let console_connect copts x = diagnose_error (need_vm (console_connect' copts) x)
 
 let start' copts paused console x =
   let vm, _ = find_by_name x in
@@ -1350,7 +1369,8 @@ let pci_list x =
           Printf.sprintf "%04x:%02x:%02x.%01x" pci.address.domain
             pci.address.bus pci.address.dev pci.address.fn
         in
-        line id (string_of_int pci.position) bdf)
+        line id (string_of_int pci.position) bdf
+        )
       pcis
   in
   List.iter print_endline (header :: lines)
@@ -1410,7 +1430,8 @@ let rec events_watch from =
         | Vgpu id ->
             Printf.sprintf "VGPU %s.%s" (fst id) (snd id)
         | Vusb id ->
-            Printf.sprintf "VUSB %s.%s" (fst id) (snd id))
+            Printf.sprintf "VUSB %s.%s" (fst id) (snd id)
+        )
       events
   in
   List.iter (fun x -> Printf.printf "%-8d %s\n" next x) lines ;
@@ -1437,8 +1458,10 @@ let task_list _ =
       List.iter
         (fun (name, state) ->
           Printf.printf "  |_ %-30s %s\n" name
-            (state |> rpc_of Task.state |> Jsonrpc.to_string))
-        t.Task.subtasks)
+            (state |> rpc_of Task.state |> Jsonrpc.to_string)
+          )
+        t.Task.subtasks
+      )
     all ;
   `Ok ()
 
@@ -1485,7 +1508,8 @@ let old_main () =
           ) else if x = key then
             (acc, true)
           else
-            (x :: acc, false))
+            (x :: acc, false)
+          )
         ([], false) args
       |> fst
       |> List.rev

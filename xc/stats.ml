@@ -80,7 +80,8 @@ let sample (name : string) (x : float) : unit =
           Normal_population.empty
       in
       let p' = Normal_population.sample p x' in
-      Hashtbl.replace timings name p')
+      Hashtbl.replace timings name p'
+  )
 
 (** Helper function to time a specific thing *)
 let time_this (name : string) f =
@@ -91,11 +92,13 @@ let time_this (name : string) f =
         sample name (end_time -. start_time)
       with e ->
         warn "Ignoring exception %s while timing: %s" (Printexc.to_string e)
-          name)
+          name
+  )
 
 let summarise () =
   Mutex.execute timings_m (fun () ->
-      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings [])
+      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
+  )
 
 (*****************************)
 (* Database stats            *)
@@ -142,16 +145,17 @@ let log_db_call task_opt dbcall ty =
         let threadid = Thread.id (Thread.self ()) in
         Hashtbl.replace dbstats_threads threadid
           ((dbcall, ty)
-          :: (try Hashtbl.find dbstats_threads threadid with _ -> [])
+           :: (try Hashtbl.find dbstats_threads threadid with _ -> [])
           ) ;
         match task_opt with
         | Some task ->
             Hashtbl.replace dbstats_task task
               ((dbcall, ty)
-              :: (try Hashtbl.find dbstats_task task with _ -> [])
+               :: (try Hashtbl.find dbstats_task task with _ -> [])
               )
         | None ->
-            ())
+            ()
+    )
 
 let summarise_db_calls () =
   let string_of_ty = function
@@ -181,8 +185,10 @@ let summarise_db_calls () =
             ( k
             , List.map
                 (fun (dbcall, ty) -> (string_of_ty ty, dbcall))
-                (List.rev v) )
-            :: acc)
+                (List.rev v)
+            )
+            :: acc
+            )
           dbstats_task []
       , List.sort
           (fun (a, _) (b, _) -> compare a b)
@@ -191,6 +197,11 @@ let summarise_db_calls () =
                ( k
                , List.map
                    (fun (dbcall, ty) -> (string_of_ty ty, dbcall))
-                   (List.rev v) )
-               :: acc)
-             dbstats_threads []) ))
+                   (List.rev v)
+               )
+               :: acc
+               )
+             dbstats_threads []
+          )
+      )
+  )

@@ -84,7 +84,8 @@ let plan host nodes ~vm =
     let candidate = nodes.(nodeidx) in
     ( NUMAResource.union allocated candidate
     , node :: picked
-    , NUMARequest.shrink requested candidate )
+    , NUMARequest.shrink requested candidate
+    )
   in
   let plan_valid (avg, nodes) =
     let allocated, picked, remaining =

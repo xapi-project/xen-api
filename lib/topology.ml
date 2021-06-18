@@ -57,7 +57,8 @@ module NUMAResource = struct
         [
           Dump.field "affinity" (fun t -> t.affinity) CPUSet.pp_dump
         ; Dump.field "memfree" (fun t -> t.memfree) int64
-        ])
+        ]
+    )
 end
 
 module NUMARequest = struct
@@ -85,7 +86,8 @@ module NUMARequest = struct
         [
           Dump.field "memory" (fun t -> t.memory) int64
         ; Dump.field "vcpus" (fun t -> t.vcpus) int
-        ])
+        ]
+    )
 end
 
 (** [seq_range a b] is the sequence of numbers between [a, b). *)
@@ -192,13 +194,14 @@ module NUMA = struct
         let d = distances.(i).(i) in
         if d <> 10 then
           invalid_arg
-            (Printf.sprintf "NUMA distance from node to itself must be 10: %d"
-               d) ;
+            (Printf.sprintf "NUMA distance from node to itself must be 10: %d" d) ;
         Array.iteri
           (fun _ d ->
             if d < 10 then
-              invalid_arg (Printf.sprintf "NUMA distance must be >= 10: %d" d))
-          row)
+              invalid_arg (Printf.sprintf "NUMA distance must be >= 10: %d" d)
+            )
+          row
+        )
       distances ;
     let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
     let candidates = gen_candidates distances in
@@ -266,5 +269,6 @@ module NUMA = struct
         ; Dump.field "node_cpus"
             (fun t -> t.node_cpus)
             (Dump.array CPUSet.pp_dump)
-        ])
+        ]
+    )
 end

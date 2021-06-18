@@ -51,7 +51,8 @@ end = struct
       if not (Filename.is_implicit relative) then
         invalid_arg
           (Printf.sprintf "Expected implicit filename, but got '%s' (at %s)"
-             relative __LOC__) ;
+             relative __LOC__
+          ) ;
       relative
   end
 
@@ -87,7 +88,8 @@ end = struct
       let prepare path =
         let fullpath = absolute_path_outside chroot path in
         Xenops_utils.Unixext.with_file fullpath [Unix.O_CREAT; Unix.O_EXCL]
-          0o600 (fun fd -> Unix.fchown fd chroot.uid chroot.gid)
+          0o600 (fun fd -> Unix.fchown fd chroot.uid chroot.gid
+        )
       in
       List.iter prepare paths ; chroot
     with e ->
@@ -98,7 +100,8 @@ end = struct
 
   let destroy chroot =
     Xenops_utils.best_effort (Printf.sprintf "removing chroot %s" chroot.root)
-      (fun () -> Xenops_utils.FileFS.rmtree chroot.root)
+      (fun () -> Xenops_utils.FileFS.rmtree chroot.root
+    )
 end
 
 module Varstore_guard = struct
@@ -149,7 +152,8 @@ module Varstore_guard = struct
       in
       Xenops_utils.best_effort "Stop listening on deprivileged socket"
         (fun () ->
-          Varstore_privileged_client.Client.destroy dbg gid absolute_socket_path) ;
+          Varstore_privileged_client.Client.destroy dbg gid absolute_socket_path
+      ) ;
       Chroot.destroy chroot
     )
 end

@@ -23,11 +23,14 @@ let _ =
        [
          ( "-domid"
          , Arg.Int (fun i -> domid := Some i)
-         , " the domain id whose handle we will change" )
+         , " the domain id whose handle we will change"
+         )
        ; ( "-handle"
          , Arg.String (fun i -> handle := Some i)
-         , " the new handle value" )
-       ])
+         , " the new handle value"
+         )
+       ]
+    )
     (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
     "Set a domain's handle" ;
   match (!domid, !handle) with

@@ -82,7 +82,8 @@ let connect path domid (args : string list)
   , Unix.out_channel_of_descr server_to_slave_w
   , slave_to_server_r
   , server_to_slave_w
-  , pid )
+  , pid
+  )
 
 (** Wait for the (hopefully dead) child process *)
 let disconnect (_, _, r, w, pid) =
@@ -121,7 +122,9 @@ let with_connection (task : Xenops_task.task_handle) path domid
             if !cancelled then
               Xenops_task.raise_cancelled task
             else
-              raise e))
+              raise e
+      )
+      )
     (fun () -> disconnect t)
 
 (** immediately write a command to the control channel *)
@@ -206,7 +209,8 @@ let non_debug_receive ?debug_callback cnx =
         error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
           (p.free_pages |> of_nativeint |> kib_of_pages)
           (p.scrub_pages |> of_nativeint |> kib_of_pages)
-          (p.total_pages |> of_nativeint |> mib_of_pages_free))
+          (p.total_pages |> of_nativeint |> mib_of_pages_free)
+    )
   in
   try
     match non_debug_receive ?debug_callback cnx with
@@ -233,7 +237,8 @@ let receive_success ?(debug_callback = fun s -> debug "%s" s) cnx =
       | "hvm_build_params" :: code :: msg ->
           raise
             (Domain_builder_error
-               ("hvm_build_params", int_of_string code, pp msg))
+               ("hvm_build_params", int_of_string code, pp msg)
+            )
       | "hvm_build_mem" :: code :: msg ->
           raise
             (Domain_builder_error ("hvm_build_mem", int_of_string code, pp msg))

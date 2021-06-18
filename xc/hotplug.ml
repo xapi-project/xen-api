@@ -78,7 +78,8 @@ let path_written_by_hotplug_scripts (x : device) =
   | k ->
       failwith
         (Printf.sprintf "No xenstore interface for this kind of device: %s"
-           (string_of_kind k))
+           (string_of_kind k)
+        )
 
 let error_path_written_by_hotplug_scripts (x : device) =
   sprintf "/local/domain/%d/backend/%s/%d/%d/hotplug-error" x.backend.domid
@@ -176,7 +177,8 @@ let wait_for_plug (task : Xenops_task.task_handle) ~xs (x : device) =
           (* If an error node exists, return the error *)
           raise (Hotplug_error (xs.Xs.read error_path))
         with Xs_protocol.Enoent _ -> ()
-        (* common case *)) ;
+        (* common case *)
+    ) ;
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ -> raise (Device_timeout x)
 
@@ -190,7 +192,8 @@ let wait_for_unplug (task : Xenops_task.task_handle) ~xs (x : device) =
             [Watch.map (fun _ -> ()) (Watch.key_to_disappear path)]
             [] task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
         in
-        ()) ;
+        ()
+    ) ;
     debug "Synchronised ok with hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ -> raise (Device_timeout x)
 
@@ -202,12 +205,10 @@ let wait_for_frontend_plug (task : Xenops_task.task_handle) ~xs (x : device) =
       Watch.value_to_appear (frontend_status_node x) |> Watch.map (fun _ -> ())
     in
     let tapdisk_error_watch =
-      Watch.value_to_appear (tapdisk_error_node ~xs x)
-      |> Watch.map (fun _ -> ())
+      Watch.value_to_appear (tapdisk_error_node ~xs x) |> Watch.map (fun _ -> ())
     in
     let blkback_error_watch =
-      Watch.value_to_appear (blkback_error_node ~xs x)
-      |> Watch.map (fun _ -> ())
+      Watch.value_to_appear (blkback_error_node ~xs x) |> Watch.map (fun _ -> ())
     in
     let cancel = Device x in
     Stats.time_this "udev frontend add event" (fun () ->
@@ -228,7 +229,8 @@ let wait_for_frontend_plug (task : Xenops_task.task_handle) ~xs (x : device) =
           let e = tapdisk_error ^ "/" ^ blkback_error in
           error "Failed waiting for frontend device %s: %s" (string_of_device x)
             e ;
-          raise (Frontend_device_error e))
+          raise (Frontend_device_error e)
+    )
   with Watch.Timeout _ ->
     error "Timed out waiting for the frontend udev event to fire on device: %s"
       (string_of_device x) ;
@@ -244,9 +246,9 @@ let wait_for_frontend_unplug (task : Xenops_task.task_handle) ~xs (x : device) =
             [Watch.map (fun _ -> ()) (Watch.key_to_disappear path)]
             [] task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
         in
-        ()) ;
-    debug "Synchronised ok with frontend hotplug script: %s"
-      (string_of_device x)
+        ()
+    ) ;
+    debug "Synchronised ok with frontend hotplug script: %s" (string_of_device x)
   with Watch.Timeout _ -> raise (Frontend_device_timeout x)
 
 (* If we're running the hotplug scripts ourselves then we must wait for the VIF
@@ -266,7 +268,8 @@ let wait_for_connect (task : Xenops_task.task_handle) ~xs (x : device) =
             ]
             [] task ~xs ~timeout:!Xenopsd.hotplug_timeout ()
         in
-        ()) ;
+        ()
+    ) ;
     debug "Synchronised ok with device backend: %s" (string_of_device x)
   with Watch.Timeout _ -> raise (Device_timeout x)
 
@@ -292,7 +295,8 @@ let release (task : Xenops_task.task_handle) ~xc ~xs (x : device) =
   Xs.transaction xs (fun t ->
       t.Xst.rm hotplug_path ;
       Option.iter t.Xst.rm private_data_path ;
-      t.Xst.rm extra_xenserver_path)
+      t.Xst.rm extra_xenserver_path
+  )
 
 let run_hotplug_script device args =
   let kind = string_of_kind device.backend.kind in

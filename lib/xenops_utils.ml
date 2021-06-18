@@ -102,7 +102,8 @@ let prefixes_of k =
   let prefixes, _ =
     List.fold_left
       (fun (acc, prefix) element ->
-        ((element :: prefix) :: acc, element :: prefix))
+        ((element :: prefix) :: acc, element :: prefix)
+        )
       ([], []) k
   in
   List.map List.rev prefixes
@@ -180,7 +181,8 @@ module FileFS = struct
         | e ->
             (* Anything else probably is an error, but we just log and continue *)
             error "Failed to DB.delete %s : %s" path (Printexc.to_string e) ;
-            ())
+            ()
+        )
       (paths_of path)
 
   (** [rmtree path] removes a file or directory recursively without following
@@ -255,7 +257,8 @@ module MemFS = struct
       (fun p ->
         let dir = dir_locked (dirname p) in
         if not (StringMap.mem (filename p) !dir) then
-          dir := StringMap.add (filename p) (Dir (ref StringMap.empty)) !dir)
+          dir := StringMap.add (filename p) (Dir (ref StringMap.empty)) !dir
+        )
       (List.rev (prefixes_of path))
 
   let mkdir path = Mutex.execute m (fun () -> mkdir_locked path)
@@ -268,24 +271,28 @@ module MemFS = struct
               Some x
           | Dir _ ->
               None
-        with _ -> None)
+        with _ -> None
+    )
 
   let write path x =
     Mutex.execute m (fun () ->
         (* debug "DB.write %s <- %s" (String.concat "/" path) x; *)
         mkdir_locked (dirname path) ;
         let dir = dir_locked (dirname path) in
-        dir := StringMap.add (filename path) (Leaf x) !dir)
+        dir := StringMap.add (filename path) (Leaf x) !dir
+    )
 
   let exists path =
     Mutex.execute m (fun () ->
         try StringMap.mem (filename path) !(dir_locked (dirname path))
-        with _ -> false)
+        with _ -> false
+    )
 
   let readdir path =
     Mutex.execute m (fun () ->
         try StringMap.fold (fun x _ acc -> x :: acc) !(dir_locked path) []
-        with _ -> [])
+        with _ -> []
+    )
 
   let rm path =
     Mutex.execute m (fun () ->
@@ -302,8 +309,10 @@ module MemFS = struct
               else
                 false
             in
-            if deletable then dir := StringMap.remove (filename p) !dir)
-          (prefixes_of path))
+            if deletable then dir := StringMap.remove (filename p) !dir
+            )
+          (prefixes_of path)
+    )
 
   let rename path path' =
     Mutex.execute m (fun () ->
@@ -319,11 +328,13 @@ module MemFS = struct
                   (Printf.sprintf
                      "Invalid: rename must be called on files not directories. \
                       %s is a directory"
-                     (filename path))
+                     (filename path)
+                  )
           in
           let dir = dir_locked (dirname path') in
           dir := StringMap.add (filename path') (Leaf contents) !dir
-        with _ -> ())
+        with _ -> ()
+    )
 
   let init () = ()
 end
@@ -380,7 +391,8 @@ functor
               x
           | Error (`Msg m) ->
               failwith
-                (Printf.sprintf "Failed to unmarshal '%s': %s" I.namespace m))
+                (Printf.sprintf "Failed to unmarshal '%s': %s" I.namespace m)
+          )
         (FS.read path)
 
     let read_exn (k : I.key) =
@@ -390,7 +402,9 @@ functor
       | None ->
           raise
             (Xenopsd_error
-               (Errors.Does_not_exist (I.namespace, I.key k |> String.concat "/")))
+               (Errors.Does_not_exist (I.namespace, I.key k |> String.concat "/")
+               )
+            )
 
     let exists (k : I.key) =
       let module FS = (val get_fs_backend () : FS) in
@@ -415,7 +429,8 @@ functor
             debug "Key %s already exists" path ;
             raise (Xenopsd_error (Errors.Already_exists (I.namespace, path)))
           ) else
-            write k x)
+            write k x
+      )
 
     let remove (k : I.key) =
       Mutex.execute m (fun () ->
@@ -425,7 +440,8 @@ functor
             debug "Key %s does not exist" path ;
             raise (Xenopsd_error (Errors.Does_not_exist (I.namespace, path)))
           ) else
-            delete k)
+            delete k
+      )
 
     (* The call `update k f` reads key `k` from the DB, passes the value to `f`,
        and updates the DB with the result. If the result is `None`, then the key
@@ -445,7 +461,8 @@ functor
             | Some y' ->
                 write k y' ; true
           ) else
-            false)
+            false
+      )
 
     let rename (k : I.key) (k' : I.key) =
       Mutex.execute m (fun () ->
@@ -461,7 +478,8 @@ functor
             debug "Key %s does not exist" path ;
             raise (Xenopsd_error (Errors.Does_not_exist (I.namespace, path)))
           ) ;
-          rename k k')
+          rename k k'
+      )
 
     (* Version of `update` that raises an exception if the read fails *)
     let update_exn (k : I.key) (f : t -> t option) =
@@ -470,9 +488,12 @@ functor
             raise
               (Xenopsd_error
                  (Errors.Does_not_exist
-                    (I.namespace, I.key k |> String.concat "/")))
+                    (I.namespace, I.key k |> String.concat "/")
+                 )
+              )
         | Some x ->
-            f x)
+            f x
+        )
   end
 
 (******************************************************************************)
@@ -567,7 +588,8 @@ let get_network_backend () =
   with _ ->
     failwith
       (Printf.sprintf "Failed to read network backend from: %s"
-         !Resources.network_conf)
+         !Resources.network_conf
+      )
 
 let _sys_hypervisor_type = "/sys/hypervisor/type"
 
@@ -609,7 +631,8 @@ let chunks size lst =
           if List.length xs < size then
             (op :: xs) :: xss
           else
-            [op] :: xs :: xss)
+            [op] :: xs :: xss
+      )
     [] lst
   |> List.map (fun xs -> List.rev xs)
   |> List.rev
@@ -641,7 +664,8 @@ let char_max_encoded_length =
         let empty = Rpc.String "" in
         max
           (json_length rpc - json_length empty)
-          (xml_length rpc - xml_length empty))
+          (xml_length rpc - xml_length empty)
+  )
 
 let str_max_encoded_length str =
   let s = ref 0 in

@@ -79,7 +79,8 @@ let connect path domid (args : string list)
   , Unix.out_channel_of_descr server_to_slave_w
   , slave_to_server_r
   , server_to_slave_w
-  , pid )
+  , pid
+  )
 
 (** Wait for the (hopefully dead) child process *)
 let disconnect (_, _, r, w, pid) =
@@ -208,7 +209,8 @@ let non_debug_receive ?debug_callback cnx =
         error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
           (p.free_pages |> of_nativeint |> kib_of_pages)
           (p.scrub_pages |> of_nativeint |> kib_of_pages)
-          (p.total_pages |> of_nativeint |> mib_of_pages_free))
+          (p.total_pages |> of_nativeint |> mib_of_pages_free)
+    )
   in
   try
     match non_debug_receive ?debug_callback cnx with
@@ -239,5 +241,7 @@ let with_connection (task : Xenops_task.task_handle) path domid
             if !cancelled then
               Xenops_task.raise_cancelled task
             else
-              raise e))
+              raise e
+      )
+      )
     (fun () -> disconnect t)

@@ -103,7 +103,8 @@ let wait_for_tasks id =
         | Dynamic.Task id' ->
             if task_ended dbg id' then ids := StringSet.remove id' !ids
         | _ ->
-            ())
+            ()
+        )
       deltas
   done
 
@@ -120,7 +121,8 @@ let success_task id =
     | Error _ ->
         raise
           (Xenops_interface.Xenopsd_error
-             (Errors.Internal_error (Jsonrpc.to_string x)))
+             (Errors.Internal_error (Jsonrpc.to_string x))
+          )
   )
   | Task.Pending _ ->
       failwith "task pending"
@@ -140,7 +142,8 @@ let fail_not_built_task id =
     | Error _ ->
         raise
           (Xenops_interface.Xenopsd_error
-             (Errors.Internal_error (Jsonrpc.to_string x)))
+             (Errors.Internal_error (Jsonrpc.to_string x))
+          )
   )
   | Task.Pending _ ->
       failwith "task pending"
@@ -160,7 +163,8 @@ let fail_invalid_vcpus_task id =
     | Error _ ->
         raise
           (Xenops_interface.Xenopsd_error
-             (Errors.Internal_error (Jsonrpc.to_string x)))
+             (Errors.Internal_error (Jsonrpc.to_string x))
+          )
   )
   | Task.Pending _ ->
       failwith "task pending"
@@ -309,17 +313,20 @@ let vm_assert_equal vm vm' =
   assert_equal ~msg:"on_crash"
     ~printer:(fun x ->
       String.concat ", "
-        (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x))
+        (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x)
+      )
     vm.on_crash vm'.on_crash ;
   assert_equal ~msg:"on_shutdown"
     ~printer:(fun x ->
       String.concat ", "
-        (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x))
+        (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x)
+      )
     vm.on_shutdown vm'.on_shutdown ;
   assert_equal ~msg:"on_reboot"
     ~printer:(fun x ->
       String.concat ", "
-        (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x))
+        (List.map (fun x -> x |> rpc_of_action |> Jsonrpc.to_string) x)
+      )
     vm.on_reboot vm'.on_reboot ;
   assert_equal ~msg:"has_vendor_device" ~printer:string_of_bool
     vm.has_vendor_device vm'.has_vendor_device ;
@@ -418,20 +425,23 @@ let with_vm id f =
       with e ->
         Printf.fprintf stderr "Caught failure during with_vm cleanup: %s"
           (Printexc.to_string e) ;
-        raise e)
+        raise e
+      )
 
 let vm_test_add_remove _ = with_vm example_uuid (fun _ -> ())
 
 let vm_test_create_destroy _ =
   with_vm example_uuid (fun id ->
       Client.VM.create dbg id |> wait_for_task |> success_task ;
-      Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
 
 let vm_test_pause_unpause _ =
   with_vm example_uuid (fun id ->
       Client.VM.create dbg id |> wait_for_task |> success_task ;
       Client.VM.pause dbg id |> wait_for_task |> fail_not_built_task ;
-      Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
 
 let vm_test_build_pause_unpause _ =
   with_vm example_uuid (fun id ->
@@ -443,7 +453,8 @@ let vm_test_build_pause_unpause _ =
       |> success_task ;
       Client.VM.unpause dbg id |> wait_for_task |> success_task ;
       Client.VM.pause dbg id |> wait_for_task |> success_task ;
-      Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
 
 let vm_test_build_vcpus _ =
   with_vm example_uuid (fun id ->
@@ -464,14 +475,16 @@ let vm_test_build_vcpus _ =
         failwith (Printf.sprintf "vcpu_target %d <> 2" state.Vm.vcpu_target) ;
       Client.VM.set_vcpus dbg id 4 |> wait_for_task |> fail_invalid_vcpus_task ;
       Client.VM.set_vcpus dbg id 0 |> wait_for_task |> fail_invalid_vcpus_task ;
-      Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
 
 let vm_test_add_list_remove _ =
   with_vm example_uuid (fun id ->
       let vm = create_vm example_uuid in
       let (vms : (Vm.t * Vm.state) list) = Client.VM.list dbg () in
       let vm' = List.find (fun x -> x.Vm.id = id) (List.map fst vms) in
-      vm_assert_equal vm vm')
+      vm_assert_equal vm vm'
+  )
 
 let vm_remove_running _ =
   with_vm example_uuid (fun id ->
@@ -482,13 +495,15 @@ let vm_remove_running _ =
       |> success_task ;
       Client.VM.unpause dbg id |> wait_for_task |> success_task ;
       fail_running (fun () -> Client.VM.remove dbg id) ;
-      Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
 
 let vm_test_start_shutdown _ =
   with_vm example_uuid (fun id ->
       Client.VM.start dbg id false |> wait_for_task |> success_task ;
       fail_running (fun () -> Client.VM.remove dbg id) ;
-      Client.VM.shutdown dbg id None |> wait_for_task |> success_task)
+      Client.VM.shutdown dbg id None |> wait_for_task |> success_task
+  )
 
 let vm_test_parallel_start_shutdown _ =
   let rec ints start finish =
@@ -500,7 +515,8 @@ let vm_test_parallel_start_shutdown _ =
     List.map
       (fun x ->
         let vm = create_vm x in
-        Client.VM.add dbg vm)
+        Client.VM.add dbg vm
+        )
       ints
   in
   if !verbose_timings then (
@@ -512,7 +528,8 @@ let vm_test_parallel_start_shutdown _ =
     List.map
       (fun id ->
         let id = Client.VM.start dbg id false in
-        (* Printf.fprintf stderr "%s\n" id; flush stderr; *) id)
+        (* Printf.fprintf stderr "%s\n" id; flush stderr; *) id
+        )
       ids
   in
   wait_for_tasks tasks ;
@@ -569,8 +586,10 @@ let vm_test_reboot _ =
                 false
           )
         | _ ->
-            false) ;
-      Client.VM.shutdown dbg id None |> wait_for_task |> success_task)
+            false
+        ) ;
+      Client.VM.shutdown dbg id None |> wait_for_task |> success_task
+  )
 
 let vm_test_halt _ =
   with_vm example_uuid (fun id ->
@@ -593,7 +612,9 @@ let vm_test_halt _ =
                 false
           )
         | _ ->
-            false))
+            false
+        )
+  )
 
 let vm_test_suspend_resume _ =
   with_vm example_uuid (fun id ->
@@ -611,7 +632,8 @@ let vm_test_suspend_resume _ =
       |> success_task ;
       Client.VM.unpause dbg id |> wait_for_task |> success_task ;
       Client.VM.shutdown dbg id None |> wait_for_task |> success_task ;
-      Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      Client.VM.destroy dbg id |> wait_for_task |> success_task
+  )
 
 module type DEVICE = sig
   type t
@@ -654,15 +676,16 @@ functor
       with_vm example_uuid (fun _id ->
           let dev = create (List.hd ids) (List.hd positions) in
           let (dev_id : id) = add dev in
-          remove dev_id)
+          remove dev_id
+      )
 
     let with_added_vm id f =
       with_vm id (fun id ->
           Client.VM.create dbg id |> wait_for_task |> success_task ;
           finally
             (fun () -> f id)
-            (fun () ->
-              Client.VM.destroy dbg id |> wait_for_task |> success_task))
+            (fun () -> Client.VM.destroy dbg id |> wait_for_task |> success_task)
+      )
 
     let add_plug_unplug_remove _ =
       with_added_vm example_uuid (fun _id ->
@@ -670,7 +693,8 @@ functor
           let (dev_id : id) = add dev in
           plug dev_id |> wait_for_task |> success_task ;
           unplug dev_id |> wait_for_task |> success_task ;
-          remove dev_id)
+          remove dev_id
+      )
 
     let add_plug_unplug_many_remove _ =
       with_added_vm example_uuid (fun _id ->
@@ -680,14 +704,17 @@ functor
                 let dev = create id position in
                 let id = add dev in
                 plug id |> wait_for_task |> success_task ;
-                id)
+                id
+                )
               (List.combine ids positions)
           in
           List.iter
             (fun id ->
               unplug id |> wait_for_task |> success_task ;
-              remove id)
-            ids)
+              remove id
+              )
+            ids
+      )
 
     let add_list_remove _ =
       with_vm example_uuid (fun id ->
@@ -695,13 +722,15 @@ functor
           let (dev_id : id) = add dev in
           let (devs : (t * state) list) = list id in
           let dev' = find dev_id devs in
-          assert_equal dev dev' ; remove dev_id)
+          assert_equal dev dev' ; remove dev_id
+      )
 
     let add_vm_remove _ =
       with_vm example_uuid (fun _id ->
           let dev = create (List.hd ids) (List.hd positions) in
           let (_ : id) = add dev in
-          ())
+          ()
+      )
 
     let remove_running _ =
       with_added_vm example_uuid (fun _id ->
@@ -709,7 +738,8 @@ functor
           let (dev_id : id) = add dev in
           plug dev_id |> wait_for_task |> success_task ;
           (* no unplug *)
-          fail_connected (fun () -> remove dev_id))
+          fail_connected (fun () -> remove dev_id)
+      )
   end
 
 let default_of t =
@@ -772,7 +802,8 @@ module VbdDeviceTests = DeviceTests (struct
     assert_equal ~msg:"backend"
       ~printer:(fun x ->
         Option.value ~default:"None"
-          (Option.map (fun x -> x |> rpc_of_disk |> Jsonrpc.to_string) x))
+          (Option.map (fun x -> x |> rpc_of_disk |> Jsonrpc.to_string) x)
+        )
       vbd.backend vbd'.backend ;
     assert_equal ~msg:"unpluggable" ~printer:string_of_bool vbd.unpluggable
       vbd'.unpluggable ;
@@ -837,7 +868,8 @@ module VifDeviceTests = DeviceTests (struct
     assert_equal ~msg:"mtu" ~printer:string_of_int vif.mtu vif'.mtu ;
     assert_equal ~msg:"rate"
       ~printer:(function
-        | Some (a, b) -> Printf.sprintf "Some %Ld %Ld" a b | None -> "None")
+        | Some (a, b) -> Printf.sprintf "Some %Ld %Ld" a b | None -> "None"
+        )
       vif.rate vif'.rate ;
     assert_equal ~msg:"backend"
       ~printer:(fun x -> x |> rpc_of_network_t |> Jsonrpc.to_string)
@@ -874,11 +906,14 @@ let vbd_plug_ordering_good _ =
           List.iter
             (fun vbd ->
               let (_ : Vbd.id) = Client.VBD.add dbg (vbd id) in
-              ())
+              ()
+              )
             vbds ;
           Client.VM.start dbg id false |> wait_for_task |> success_task ;
           Client.DEBUG.trigger dbg "check-vbd-plug-ordering" [id] ;
-          Client.VM.shutdown dbg id None |> wait_for_task |> success_task))
+          Client.VM.shutdown dbg id None |> wait_for_task |> success_task
+      )
+      )
     vbds
 
 let ionice_qos_scheduler _ =
@@ -886,7 +921,7 @@ let ionice_qos_scheduler _ =
   (* Check that we can parse and print the qos_scheduler values *)
   let prios = [Highest; High; Normal; Low; Lowest; Other 499] in
   let xs =
-    (Idle :: List.map (fun x -> RealTime x) prios)
+    Idle :: List.map (fun x -> RealTime x) prios
     @ List.map (fun x -> BestEffort x) prios
   in
   List.iter
@@ -897,7 +932,8 @@ let ionice_qos_scheduler _ =
       in
       assert_equal ~msg:"qos"
         ~printer:(fun x -> x |> rpc_of_qos_scheduler |> Jsonrpc.to_string)
-        x y)
+        x y
+      )
     xs
 
 let ionice_output _ =
@@ -918,8 +954,10 @@ let ionice_output _ =
           | None ->
               "None"
           | Some x ->
-              x |> rpc_of_qos_scheduler |> Jsonrpc.to_string)
-        x' y)
+              x |> rpc_of_qos_scheduler |> Jsonrpc.to_string
+          )
+        x' y
+      )
     equals
 
 let barrier_ordering () =
@@ -975,10 +1013,12 @@ let _ =
       ; ("vbd_test_add_vm_remove", `Quick, VbdDeviceTests.add_vm_remove)
       ; ( "vbd_test_add_plug_unplug_remove"
         , `Quick
-        , VbdDeviceTests.add_plug_unplug_remove )
+        , VbdDeviceTests.add_plug_unplug_remove
+        )
       ; ( "vbd_test_add_plug_unplug_many_remove"
         , `Quick
-        , VbdDeviceTests.add_plug_unplug_many_remove )
+        , VbdDeviceTests.add_plug_unplug_many_remove
+        )
       ; ("vbd_remove_running", `Quick, VbdDeviceTests.remove_running)
       ; ("vbd_plug_ordering_good", `Quick, vbd_plug_ordering_good)
       ; ("vif_test_add_remove", `Quick, VifDeviceTests.add_remove)
@@ -986,17 +1026,20 @@ let _ =
       ; ("vif_test_add_vm_remove", `Quick, VifDeviceTests.add_vm_remove)
       ; ( "vif_test_add_plug_unplug_remove"
         , `Quick
-        , VifDeviceTests.add_plug_unplug_remove )
+        , VifDeviceTests.add_plug_unplug_remove
+        )
       ; ( "vif_test_add_plug_unplug_many_remove"
         , `Quick
-        , VifDeviceTests.add_plug_unplug_many_remove )
+        , VifDeviceTests.add_plug_unplug_many_remove
+        )
       ; ("vif_remove_running", `Quick, VifDeviceTests.remove_running)
       ; ("vm_test_suspend_resume", `Quick, vm_test_suspend_resume)
       ; ("ionice_qos_scheduler", `Quick, ionice_qos_scheduler)
       ; ("ionice_output", `Quick, ionice_output)
       ; ("barrier_ordering", `Quick, barrier_ordering)
       ; ("test_ca351823", `Quick, test_ca351823)
-      ] )
+      ]
+    )
   in
   Debug.log_to_stdout () ;
   Alcotest.run "xenops test" [suite; Test_topology.suite]

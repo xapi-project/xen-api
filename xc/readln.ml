@@ -20,7 +20,8 @@ let read fd =
       else
         Error
           (Printf.sprintf "Unconsumed data at EOF: '%s'"
-             (Bytes.to_string pending))
+             (Bytes.to_string pending)
+          )
   | n ->
       let data = Bytes.sub buffer 0 n in
       let inpt = try Hashtbl.find input fd with Not_found -> Bytes.empty in

@@ -26,7 +26,8 @@ let xenstore_test xs _ =
     Thread.create
       (fun () ->
         Thread.delay 1. ;
-        Xenops_task.with_cancel task (fun () -> ()) (fun () -> ()))
+        Xenops_task.with_cancel task (fun () -> ()) (fun () -> ())
+        )
       ()
   in
   try
@@ -46,7 +47,8 @@ let _ =
   try
     Xenstore.with_xs (fun xs ->
         let suite = "cancel test" >::: ["xenstore" >:: xenstore_test xs] in
-        run_test_tt ~verbose:!verbose suite |> ignore)
+        run_test_tt ~verbose:!verbose suite |> ignore
+    )
   with Xs_transport.Could_not_find_xenstore ->
     (* ignore test, we're not running on domain 0 *)
     ()

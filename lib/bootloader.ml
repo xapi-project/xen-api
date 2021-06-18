@@ -115,7 +115,8 @@ let parse_output_simple x =
       | Some _ ->
           raise
             (Bad_error
-               ("More than one kernel line when parsing bootloader result: " ^ x))
+               ("More than one kernel line when parsing bootloader result: " ^ x)
+            )
       | None ->
           debug "Using kernel line from bootloader output: %s" l ;
           {acc with kernel= Some (String.sub l pos (String.length l - pos))}
@@ -127,7 +128,8 @@ let parse_output_simple x =
             (Bad_error
                ("More than one ramdisk line when parsing bootloader result: "
                ^ x
-               ))
+               )
+            )
       | None ->
           debug "Using ramdisk line from bootloader output: %s" l ;
           {acc with ramdisk= Some (String.sub l pos (String.length l - pos))}
@@ -137,7 +139,8 @@ let parse_output_simple x =
       | Some _ ->
           raise
             (Bad_error
-               ("More than one args line when parsing bootloader result: " ^ x))
+               ("More than one args line when parsing bootloader result: " ^ x)
+            )
       | None ->
           debug "Using args line from bootloader output: %s" l ;
           {acc with args= Some (String.sub l pos (String.length l - pos))}
@@ -149,7 +152,8 @@ let parse_output_simple x =
           (Bad_error
              ("Unrecognised start of line when parsing bootloader result: line="
              ^ l
-             ))
+             )
+          )
   in
   let parse_line acc l =
     try parse_line_optimistic acc l with Not_found -> acc
@@ -195,7 +199,8 @@ let sanity_check_path p =
   | p when Filename.is_relative p ->
       raise
         (Bad_error
-           ("Bootloader returned a relative path for kernel or ramdisk: " ^ p))
+           ("Bootloader returned a relative path for kernel or ramdisk: " ^ p)
+        )
   | p -> (
       let canonical_path = Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot p in
       match Filename.dirname canonical_path with
@@ -209,7 +214,8 @@ let sanity_check_path p =
                ("Malicious guest? Bootloader returned a kernel or ramdisk path \
                  outside the allowed directories: "
                ^ p
-               ))
+               )
+            )
     )
 
 (** Extract the default kernel using the -q option *)

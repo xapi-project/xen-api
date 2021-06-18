@@ -27,7 +27,8 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
     Option.map
       (fun str ->
         let x, y = Unix.pipe () in
-        (str, x, y))
+        (str, x, y)
+        )
       stdin
   in
   (* Used so that cancel -> kills subprocess -> Unix.WSIGNALED -> raise
@@ -51,16 +52,21 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
                       (fun () ->
                         cancelled := true ;
                         info "Cancelling: sending SIGKILL to %d" pid' ;
-                        try Unix.kill pid' Sys.sigkill with _ -> ())
+                        try Unix.kill pid' Sys.sigkill with _ -> ()
+                        )
                       (fun () ->
                         Option.iter
                           (fun (str, _, wr) ->
-                            Unixext.really_write wr str 0 (String.length str))
+                            Unixext.really_write wr str 0 (String.length str)
+                            )
                           stdinandpipes ;
                         done_waitpid := true ;
-                        snd (Forkhelpers.waitpid t)))
-                  (fun () ->
-                    if not !done_waitpid then Forkhelpers.dontwaitpid t)))
+                        snd (Forkhelpers.waitpid t)
+                        )
+                    )
+                  (fun () -> if not !done_waitpid then Forkhelpers.dontwaitpid t)
+            )
+        )
       with
       | Success (out, Success (err, status)) -> (
         match status with
@@ -83,6 +89,8 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
             )
       )
       | Success (_, Failure (_, exn)) | Failure (_, exn) ->
-          raise exn)
+          raise exn
+      )
     (fun () ->
-      Option.iter (fun (_, x, y) -> Unix.close x ; Unix.close y) stdinandpipes)
+      Option.iter (fun (_, x, y) -> Unix.close x ; Unix.close y) stdinandpipes
+      )
