@@ -873,6 +873,52 @@ let upgrade_for_migration ~xc features =
   with Xenctrlext.Unix_error (Unix.ENOSYS, _) ->
     debug "xc_get_msr_arch_caps: ENOSYS"
 
+module BitSet = struct
+  type t = int64
+
+  (** [diff lhs rhs] computes all the features that are present in [lhs] but absent in [rhs] *)
+  let diff lhs rhs =
+    (* all bits that are present on lhs and missing on rhs:
+       = lhs & ~rhs *)
+    Int64.(logand lhs (lognot rhs))
+
+  let logor = Int64.logor
+end
+
+module Featureset = struct
+  (* an array of unsigned 32-bit numbers represented using int64 *)
+  type t = int64 array
+
+  (** [zero_pad a b] make arrays same lengths by padding with zeroes on the right *)
+  let zero_pad a b =
+    if Array.length a = Array.length b then
+      (a, b)
+    else
+      let len = max (Array.length a) (Array.length b) in
+      let extend arr =
+        Array.append arr (Array.make (len - Array.length arr) 0L)
+      in
+      (extend a, extend b)
+
+  (** [map2 mapper a b] apply [mapper] elementwise to [a] and [b].
+    The featuresets are padded as needed to make them same length *)
+  let map2 op a b =
+    let a, b = zero_pad a b in
+    Array.map2 op a b
+
+  let diff = map2 BitSet.diff
+
+  let logor a b = map2 BitSet.logor a b
+
+  (** [pp () featureset] is a suitable converter to be used in %a for featureset. *)
+  let pp () fs =
+    (* concat with `:` for easy pasting into `xen-cpuid` to decode *)
+    fs
+    |> Array.map (Printf.sprintf "%08Lx")
+    |> Array.to_list
+    |> String.concat ":"
+end
+
 module HOST = struct
   include Xenops_server_skeleton.HOST
 
