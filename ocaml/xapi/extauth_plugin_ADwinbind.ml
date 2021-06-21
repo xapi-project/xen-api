@@ -29,7 +29,7 @@ let ( let* ) = Result.bind
 
 let ( <!> ) x f = Rresult.R.reword_error f x
 
-let (>>|) = Rresult.(>>|)
+let ( >>| ) = Rresult.( >>| )
 
 let maybe_raise (x : ('a, exn) result) : 'a =
   match x with Ok x -> x | Error e -> raise e
@@ -68,8 +68,7 @@ let ntlm_auth uname passwd : (unit, exn) result =
         !Xapi_globs.ntlm_auth_cmd args
     in
     Ok ()
-  with _ ->
-    Error (auth_ex uname)
+  with _ -> Error (auth_ex uname)
 
 module Ldap = struct
   type user = {
@@ -180,7 +179,6 @@ module Ldap = struct
       ; password_expired= logand user_account_control passw_expire_bit <> 0l
       }
 
-
   let net_ads (sid : string) : (string, exn) result =
     try
       let args = ["ads"; "sid"; "-d"; debug_level; "--machine-pass"; sid] in
@@ -204,7 +202,6 @@ module Ldap = struct
 end
 
 module Wbinfo = struct
-
   let exception_of_stderr =
     let open Auth_signature in
     let regex = Re.Perl.(compile (re {|.*(WBC_ERR_[A-Z_]*).*|})) in
@@ -241,8 +238,8 @@ module Wbinfo = struct
     let generic_err () =
       Error (generic_ex "'wbinfo %s' failed" (String.concat " " args))
     in
+    (* we trust wbinfo will not print any sensitive info on failure *)
     try
-      (* we trust wbinfo will not print any sensitive info on failure *)
       let stdout = Helpers.call_script ~log_output:On_failure wb_cmd args in
       Ok stdout
     with
@@ -297,8 +294,7 @@ module Wbinfo = struct
           | [|_; name; _|] ->
               Some (Other name)
           | _ ->
-              None
-      )
+              None)
     in
     fun sid ->
       let args = ["--sid-to-name"; sid] in
@@ -348,7 +344,7 @@ module Wbinfo = struct
     | _ ->
         Error ()
 
-  let uid_info_of_uid (uid: int) =
+  let uid_info_of_uid (uid : int) =
     let args = ["--uid-info"; string_of_int uid] in
     let* stdout = call_wbinfo args in
     parse_uid_info stdout <!> fun () -> parsing_ex args
@@ -384,10 +380,27 @@ let query_domain_workgroup ~domain ~db_workgroup =
       let err_msg =
         Printf.sprintf "Failed to look up domain %s workgroup" domain
       in
+      let hd msg = function
+        | [] ->
+            error "%s" msg ;
+            raise (Auth_service_error (E_LOOKUP, msg))
+        | h :: _ ->
+            h
+      in
       try
+        let kdc =
+          Helpers.call_script ~log_output:On_failure net_cmd
+            ["lookup"; "kdc"; domain; "-d"; debug_level]
+          (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
+          |> String.split_on_char '\n'
+          |> hd "lookup kdc return invalid result"
+          |> String.split_on_char ':'
+          |> hd "kdc has invalid address"
+        in
+
         let lines =
           Helpers.call_script ~log_output:On_failure net_cmd
-            ["ads"; "lookup"; "-S"; domain; "-d"; debug_level]
+            ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level]
         in
         match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
         | Some v ->
@@ -484,17 +497,20 @@ let persist_extauth_config ~domain ~user ~ou_conf ~workgroup =
     |> debug "update external_auth_configuration for host %s")
   |> Server_helpers.exec_with_new_task "update external_auth_configuration"
 
-let clean_machine_account ~service_name = function
+let disable_machine_account ~service_name = function
   | Some u, Some p -> (
-      (* Clean machine account in DC *)
+      (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
-      let args = ["ads"; "leave"; "-U"; u; "-d"; debug_level] in
+      let args =
+        ["ads"; "leave"; "-U"; u; "--keep-account"; "-d"; debug_level]
+      in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
-        debug "Succeed to clean the machine account for domain %s" service_name
+        debug "Succeed to disable the machine account for domain %s"
+          service_name
       with _ ->
         let msg =
-          Printf.sprintf "Failed to clean the machine account for domain %s"
+          Printf.sprintf "Failed to disable the machine account for domain %s"
             service_name
         in
         debug "%s" msg ;
@@ -614,37 +630,39 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Raises auth_failure if authentication is not successful
   *)
 
-let authenticate_username_password uname password =
-  (* the ntlm_auth binary expects the username to be in either SAM or UPN format.
-   * we use wbinfo to try to convert the provided [uname] into said format.
-   * as a last ditch attempt, we try to auth with the provided [uname]
-   *
-   * see CA-346287 for more information *)
-  let orig_uname = uname in
-  (let* sid =
-     (* we change the exception, since otherwise we get an (incorrect) error
-      * message saying that credentials are correct, but we are not authorized *)
-     get_subject_identifier' uname <!> function
-     | Auth_failure _ as e ->
-         e
-     | Auth_service_error (E_GENERIC, msg) ->
-         Auth_failure msg
-     | e ->
-         D.error "authenticate_username_password:ex: %s" (Printexc.to_string e) ;
-         Auth_failure
-           (Printf.sprintf "couldn't get SID from username='%s'" uname)
-   in
-   let* () =
-     match Wbinfo.name_of_sid sid >>| Wbinfo.string_of_name with
-     | Error e ->
-         D.warn "authenticate_username_password: trying original uname. ex: %s"
-           (Printexc.to_string e) ;
-         ntlm_auth orig_uname password
-     | Ok uname ->
-         ntlm_auth orig_uname password
-   in
-   Ok sid)
-  |> maybe_raise
+  let authenticate_username_password uname password =
+    (* the ntlm_auth binary expects the username to be in either SAM or UPN format.
+     * we use wbinfo to try to convert the provided [uname] into said format.
+     * as a last ditch attempt, we try to auth with the provided [uname]
+     *
+     * see CA-346287 for more information *)
+    let orig_uname = uname in
+    (let* sid =
+       (* we change the exception, since otherwise we get an (incorrect) error
+        * message saying that credentials are correct, but we are not authorized *)
+       get_subject_identifier' uname <!> function
+       | Auth_failure _ as e ->
+           e
+       | Auth_service_error (E_GENERIC, msg) ->
+           Auth_failure msg
+       | e ->
+           D.error "authenticate_username_password:ex: %s"
+             (Printexc.to_string e) ;
+           Auth_failure
+             (Printf.sprintf "couldn't get SID from username='%s'" uname)
+     in
+     let* () =
+       match Wbinfo.name_of_sid sid >>| Wbinfo.string_of_name with
+       | Error e ->
+           D.warn
+             "authenticate_username_password: trying original uname. ex: %s"
+             (Printexc.to_string e) ;
+           ntlm_auth orig_uname password
+       | Ok uname ->
+           ntlm_auth orig_uname password
+     in
+     Ok sid)
+    |> maybe_raise
 
   (* subject_id Authenticate_ticket(string ticket)
 
@@ -814,7 +832,7 @@ let authenticate_username_password uname password =
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; _} = get_domain_info_from_db () in
-    clean_machine_account ~service_name (user, pass) ;
+    disable_machine_account ~service_name (user, pass) ;
     (* Clean local resources *)
     clean_local_resources () ;
     (* Clean extauth config *)

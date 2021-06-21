@@ -1217,7 +1217,7 @@ let set_hostname_live ~__context ~host ~hostname =
       let current_auth_type =
         Db.Host.get_external_auth_type ~__context ~self:host
       in
-      (* the AD/Likewise extauth plugin is incompatible with a hostname change *)
+      (* the AD extauth plugin is incompatible with a hostname change *)
       ( if current_auth_type = Xapi_globs.auth_type_AD then
           let current_service_name =
             Db.Host.get_external_auth_service_name ~__context ~self:host
