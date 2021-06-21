@@ -913,9 +913,16 @@ let debug_featuresets xc name featureset featureset_max index_max =
   let ours_minus_max = Featureset.diff featureset featureset_max in
   if not @@ Array.for_all (fun x -> Int64.equal x 0L) ours_minus_max then (
     debug "%s (DynamicSet - Max) = %a" name Featureset.pp ours_minus_max ;
-    warn
+    error
       "Our default policy has CPUID features that are not present in Max \
-       policy! (see above)"
+       policy! (see above)" ;
+    raise
+      (Xenopsd_error
+         (Internal_error
+            "CPUID default policy has features that are not present in Max \
+             policy!"
+         )
+      )
   ) ;
   debug "%s (Max - Default) = %a" name Featureset.pp
     (Featureset.diff featureset_max featureset)
