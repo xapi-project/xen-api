@@ -3663,6 +3663,10 @@ functor
             Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command
         )
 
+      let copy_primary_host_certs ~__context ~host =
+        info "Host.copy_primary_host_certs host = '%s'" (Ref.string_of host) ;
+        Local.Host.copy_primary_host_certs ~__context ~host
+
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"
           (host_uuid ~__context host)
