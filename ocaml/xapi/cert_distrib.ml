@@ -472,29 +472,16 @@ let copy_certs_to_host ~__context ~host =
     (get_local_ca_certs ()) host rpc session_id ;
   Worker.remote_regen_bundle host rpc session_id
 
-let import_joiner ~__context ~uuid ~certificate ~to_hosts =
-  let joiner_certificate =
-    HostPoolProvider.certificate_of_id_content uuid certificate
-  in
-  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  List.iter
-    (fun host ->
-      Worker.remote_write_certs_fs HostPoolCertificate Merge
-        [joiner_certificate] host rpc session_id
-      )
-    to_hosts ;
-  List.iter
-    (fun host -> Worker.remote_regen_bundle host rpc session_id)
-    to_hosts
-
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
   lock @@ fun () ->
-  let all_hosts = Db.Host.get_all ~__context in
-  import_joiner ~__context ~uuid ~certificate ~to_hosts:all_hosts ;
-  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  collect_pool_certs ~__context ~rpc ~session_id ~from_hosts:all_hosts
-    ~map:WireProtocol.pair_of_certificate_file
+  let joiner_certificate =
+    HostPoolProvider.certificate_of_id_content uuid certificate
+  in
+  Worker.local_write_cert_fs ~__context HostPoolCertificate Merge
+    [joiner_certificate] ;
+  Worker.local_regen_bundle ~__context ;
+  get_local_pool_certs () |> List.map WireProtocol.pair_of_certificate_file
 
 (* This function is called on the host that is joining a pool *)
 let import_joining_pool_certs ~__context ~pool_certs =
@@ -509,21 +496,10 @@ let collect_ca_certs ~__context ~names =
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
   lock @@ fun () ->
-  let all_hosts = Db.Host.get_all ~__context in
   let appliance_certs = List.map WireProtocol.certificate_file_of_pair import in
-
-  Helpers.call_api_functions ~__context @@ fun rpc session_id ->
-  List.iter
-    (fun host ->
-      Worker.remote_write_certs_fs ApplianceCertificate Merge appliance_certs
-        host rpc session_id
-      )
-    all_hosts ;
-
-  List.iter
-    (fun host -> Worker.remote_regen_bundle host rpc session_id)
-    all_hosts ;
-
+  Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
+    appliance_certs ;
+  Worker.local_regen_bundle ~__context ;
   collect_ca_certs ~__context ~names:export
 
 (* This function is called on the host that is joining a pool *)
