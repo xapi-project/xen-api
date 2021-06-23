@@ -37,6 +37,10 @@ val extract_ou_config :
 
 val domainify_uname : domain:string -> string -> string
 
+val range : int -> int -> int -> int list
+
+val parse_value_from_pbis : string -> string
+
 module Wbinfo : sig
   type uid_info = {user_name: string; uid: int; gid: int; gecos: string}
 

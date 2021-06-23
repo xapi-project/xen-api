@@ -58,7 +58,11 @@ let wb_cmd = !Xapi_globs.wb_cmd
 
 let tdb_tool = !Xapi_globs.tdb_tool
 
+let sqlite3 = !Xapi_globs.sqlite3
+
 let debug_level = !Xapi_globs.winbind_debug_level |> string_of_int
+
+let pbis_db_path = "/var/lib/pbis/db/registry.db"
 
 let ntlm_auth uname passwd : (unit, exn) result =
   try
@@ -354,6 +358,8 @@ type domain_info = {
     service_name: string
   ; workgroup: string option
         (* For upgrade case, the legacy db does not contain workgroup *)
+  ; netbios_name: string option
+        (* Persist netbios_name to support hostname change *)
 }
 
 let get_domain_info_from_db () =
@@ -362,11 +368,11 @@ let get_domain_info_from_db () =
     let service_name =
       Db.Host.get_external_auth_service_name ~__context ~self:host
     in
-    let workgroup =
-      Db.Host.get_external_auth_configuration ~__context ~self:host
-      |> List.assoc_opt "workgroup"
+    let workgroup, netbios_name =
+      Db.Host.get_external_auth_configuration ~__context ~self:host |> fun l ->
+      (List.assoc_opt "workgroup" l, List.assoc_opt "netbios_name" l)
     in
-    {service_name; workgroup})
+    {service_name; workgroup; netbios_name})
   |> Server_helpers.exec_with_new_task
        "retrieving external auth domain workgroup"
 
@@ -410,7 +416,7 @@ let query_domain_workgroup ~domain ~db_workgroup =
       with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
     )
 
-let config_winbind_damon ~domain ~workgroup =
+let config_winbind_damon ~domain ~workgroup ~netbios_name =
   let open Xapi_stdext_unix in
   let smb_config = "/etc/samba/smb.conf" in
   let conf_contents =
@@ -428,6 +434,7 @@ let config_winbind_damon ~domain ~workgroup =
       ; "winbind enum users = no"
       ; "kerberos encryption types = strong"
       ; Printf.sprintf "workgroup = %s" workgroup
+      ; Printf.sprintf "netbios name = %s" netbios_name
       ; "idmap config * : range = 3000000-3999999"
       ; Printf.sprintf "idmap config %s: backend = rid" domain
       ; Printf.sprintf "idmap config %s: range = 2000000-2999999" domain
@@ -450,13 +457,13 @@ let from_config ~name ~err_msg ~config_params =
 
 let all_number_re = Re.Perl.re {|^\d+$|} |> Re.Perl.compile
 
-let assert_hostname_valid () =
-  let hostname =
-    (fun __context ->
-      Helpers.get_localhost ~__context |> fun host ->
-      Db.Host.get_hostname ~__context ~self:host)
-    |> Server_helpers.exec_with_new_task "retrieving hostname"
-  in
+let get_localhost_name () =
+  (fun __context ->
+    Helpers.get_localhost ~__context |> fun host ->
+    Db.Host.get_hostname ~__context ~self:host)
+  |> Server_helpers.exec_with_new_task "retrieving hostname"
+
+let assert_hostname_valid ~hostname =
   let all_numbers = Re.matches all_number_re hostname <> [] in
   if all_numbers then
     raise
@@ -482,13 +489,19 @@ let extract_ou_config ~config_params =
     ([("ou", ou)], [Printf.sprintf "createcomputer=%s" ou])
   with Auth_service_error _ -> ([], [])
 
-let persist_extauth_config ~domain ~user ~ou_conf ~workgroup =
+let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name =
   let value =
     match (domain, user) with
     | "", "" ->
         []
     | _ ->
-        [("domain", domain); ("user", user); ("workgroup", workgroup)] @ ou_conf
+        [
+          ("domain", domain)
+        ; ("user", user)
+        ; ("workgroup", workgroup)
+        ; ("netbios_name", netbios_name)
+        ]
+        @ ou_conf
   in
   (fun __context ->
     Helpers.get_localhost ~__context |> fun self ->
@@ -547,6 +560,80 @@ let domainify_uname ~domain uname =
   else
     Printf.sprintf "%s@%s" uname domain
 
+let range s e step =
+  let rec aux n acc = if n >= e then acc else aux (n + step) (n :: acc) in
+  aux 0 [] |> List.rev
+
+let min_valid_pbis_value_length = String.length "X''"
+
+let extract_raw_value_from_pbis_db key =
+  let sql =
+    Printf.sprintf "select QUOTE(Value) from regvalues1 where ValueName='%s'"
+      key
+  in
+  let value =
+    Helpers.call_script ~log_output:On_failure !Xapi_globs.sqlite3
+      [pbis_db_path; sql]
+  in
+  if String.length value <= min_valid_pbis_value_length then
+    raise (Auth_service_error (E_GENERIC, Printf.sprintf "No value for %s" key))
+  else
+    value
+
+let remove_tailing s len = String.sub s 0 (String.length s - len)
+
+let parse_value_from_pbis raw_value =
+  (* X' *)
+  let raw_hd_len = 2 in
+  (* ' *)
+  let raw_tl_len = 1 in
+  (* 00 *)
+  let tailing_null_len = 2 in
+  (* $ *)
+  let tailing_dollar_len = 1 in
+  (* 58 *)
+  let hex_len = 2 in
+  let stripped =
+    (* raw value like X'58005200540055004B002D00300032002D003000330024000000' *)
+    raw_value
+    (* 58005200540055004B002D00300032002D003000330024000000' *)
+    |> fun r ->
+    String.sub r raw_hd_len (String.length r - raw_hd_len)
+    (* 58005200540055004B002D00300032002D003000330024000000 *)
+    |> fun r -> remove_tailing r raw_tl_len
+  in
+  range 0 (String.length stripped - hex_len) 4
+  |> List.map (fun p -> String.sub stripped p hex_len)
+  (* 585254554B2D30322D30332400 *)
+  |> String.concat ""
+  (* 585254554B2D30322D303324 *)
+  |> fun s ->
+  remove_tailing s tailing_null_len (* XRTUK-02-03$ *) |> fun s ->
+  Hex.to_string (`Hex s) (* XRTUK-02-03 *) |> fun s ->
+  remove_tailing s tailing_dollar_len
+
+let migrate_from_pbis_db key =
+  extract_raw_value_from_pbis_db key |> parse_value_from_pbis
+
+let build_netbios_name_for_joined_domain ~db_netbios_name =
+  let local_hostname = get_localhost_name () in
+  let pbis_netbios_key = "SamAccountName" in
+  try
+    match db_netbios_name with
+    | Some name ->
+        name
+    | None ->
+        (* There is nothing in xapi db, maybe upgrade from pbis *)
+        let pbis_netbios_name = migrate_from_pbis_db pbis_netbios_key in
+        debug "Migrated netbios_name '%s' from PBIS SamAccountName"
+          pbis_netbios_name ;
+        pbis_netbios_name
+  with e ->
+    debug "Failed to migrate %s from pbis db %s, error %s, fallback to hostname"
+      pbis_netbios_key pbis_db_path
+      (ExnHelper.string_of_exn e) ;
+    local_hostname
+
 module Winbind = struct
   let name = "winbind"
 
@@ -567,11 +654,15 @@ module Winbind = struct
   let configure () =
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
-    let {service_name; workgroup} = get_domain_info_from_db () in
+    let {service_name; workgroup; netbios_name} = get_domain_info_from_db () in
+    let netbios_name =
+      build_netbios_name_for_joined_domain ~db_netbios_name:netbios_name
+    in
+
     let workgroup =
       query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
     in
-    config_winbind_damon ~domain:service_name ~workgroup
+    config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
 
   let init_service ~__context =
     if is_ad_enabled ~__context then (
@@ -768,16 +859,18 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       from_config ~name:"pass" ~err_msg:"enable requires password"
         ~config_params
     in
+    let netbios_name = get_localhost_name () in
 
-    assert_hostname_valid () ;
+    assert_hostname_valid ~hostname:netbios_name ;
 
-    let {service_name; workgroup} = get_domain_info_from_db () in
+    let {service_name; _} = get_domain_info_from_db () in
     assert_domain_equal_service_name ~service_name ~config_params ;
 
     let workgroup =
-      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+      (* Query new domain workgroup during join domain *)
+      query_domain_workgroup ~domain:service_name ~db_workgroup:None
     in
-    config_winbind_damon ~domain:service_name ~workgroup ;
+    config_winbind_damon ~domain:service_name ~workgroup ~netbios_name ;
 
     let ou_conf, ou_param = extract_ou_config ~config_params in
 
@@ -788,6 +881,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ; service_name
       ; "-U"
       ; user
+      ; "-n"
+      ; netbios_name
       ; "-d"
       ; debug_level
       ; "--no-dns-updates"
@@ -800,7 +895,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Helpers.call_script ~env net_cmd args |> ignore ;
       Winbind.start ~timeout:5. ~wait_until_success:true ;
       Winbind.check_ready_to_serve ~timeout:300. ;
-      persist_extauth_config ~domain:service_name ~user ~ou_conf ~workgroup ;
+      persist_extauth_config ~domain:service_name ~user ~ou_conf ~workgroup
+        ~netbios_name ;
       debug "Succeed to join domain %s" service_name
     with
     | Forkhelpers.Spawn_internal_error _ ->
@@ -836,7 +932,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     (* Clean local resources *)
     clean_local_resources () ;
     (* Clean extauth config *)
-    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ~workgroup:"" ;
+    persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ~workgroup:""
+      ~netbios_name:"" ;
     debug "Succeed to disable external auth for %s" service_name
 
   (* unit on_xapi_initialize(bool system_boot)
