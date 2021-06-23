@@ -80,7 +80,8 @@ let for_each_line path f =
         while true do
           f ic
         done
-      with End_of_file -> ()) ;
+      with End_of_file -> ()
+  ) ;
   close_in_noerr ic
 
 let parse_oxenstored_conf path =
@@ -92,7 +93,8 @@ let parse_oxenstored_conf path =
       | Some (k, v) ->
           config := (k, v) :: !config
       | None ->
-          ()) ;
+          ()
+  ) ;
   D.debug "%s: %d config entries" path (List.length !config) ;
   !config
 
@@ -119,9 +121,9 @@ let max_bytes_of_xenstore_entries entries =
       (* maximum size in bytes of a xenstore value *)
     in
     D.debug "entry_overhead = %d" Xenops_utils.entry_overhead ;
-    D.debug "default_path_max = %d" default_path_max;
-    D.debug "longest_encoded_char = %d" Xenops_utils.longest_encoded_char;
-    D.debug "default_maxsize = %d" default_maxsize;
+    D.debug "default_path_max = %d" default_path_max ;
+    D.debug "longest_encoded_char = %d" Xenops_utils.longest_encoded_char ;
+    D.debug "default_maxsize = %d" default_maxsize ;
     D.debug "entries = %d" entries ;
     entries
     * (Xenops_utils.entry_overhead
@@ -136,125 +138,154 @@ let options =
     ( "queue"
     , Arg.Set_string Xenops_interface.queue_name
     , (fun () -> !Xenops_interface.queue_name)
-    , "Listen on a specific queue" )
+    , "Listen on a specific queue"
+    )
   ; ( "sockets-path"
     , Arg.Set_string sockets_path
     , (fun () -> !sockets_path)
-    , "Directory to create listening sockets" )
+    , "Directory to create listening sockets"
+    )
   ; ( "persist"
     , Arg.Bool (fun b -> persist := b)
     , (fun () -> string_of_bool !persist)
-    , "True if we want to persist metadata across restarts" )
+    , "True if we want to persist metadata across restarts"
+    )
   ; ( "worker-pool-size"
     , Arg.Set_int worker_pool_size
     , (fun () -> string_of_int !worker_pool_size)
-    , "Number of threads for the worker pool" )
+    , "Number of threads for the worker pool"
+    )
   ; ( "database-path"
     , Arg.String (fun x -> Xenops_utils.root := Some x)
     , (fun () -> Xenops_utils.get_root ())
-    , "Location to store the metadata" )
+    , "Location to store the metadata"
+    )
   ; ( "run_hotplug_scripts"
     , Arg.Bool (fun x -> run_hotplug_scripts := x)
     , (fun () -> string_of_bool !run_hotplug_scripts)
-    , "True if xenopsd should execute the hotplug scripts directly" )
+    , "True if xenopsd should execute the hotplug scripts directly"
+    )
   ; ( "use_old_pci_add"
     , Arg.Bool (fun x -> use_old_pci_add := x)
     , (fun () -> string_of_bool !use_old_pci_add)
-    , "True if xenopsd should use the old pci add function" )
+    , "True if xenopsd should use the old pci add function"
+    )
   ; ( "hotplug_timeout"
     , Arg.Set_float hotplug_timeout
     , (fun () -> string_of_float !hotplug_timeout)
-    , "Time before we assume hotplug scripts have failed" )
+    , "Time before we assume hotplug scripts have failed"
+    )
   ; ( "qemu_dm_ready_timeout"
     , Arg.Set_float qemu_dm_ready_timeout
     , (fun () -> string_of_float !qemu_dm_ready_timeout)
-    , "Time before we assume qemu has become stuck" )
+    , "Time before we assume qemu has become stuck"
+    )
   ; ( "vgpu-ready-timeout"
     , Arg.Set_float vgpu_ready_timeout
     , (fun () -> string_of_float !vgpu_ready_timeout)
-    , "Time before we assume vgpu has become stuck or unresponsive" )
+    , "Time before we assume vgpu has become stuck or unresponsive"
+    )
   ; ( "varstored-ready-timeout"
     , Arg.Set_float varstored_ready_timeout
     , (fun () -> string_of_float !varstored_ready_timeout)
-    , "Time before we assume varstored has become stuck or unresponsive" )
+    , "Time before we assume varstored has become stuck or unresponsive"
+    )
   ; ( "watch_queue_length"
     , Arg.Set_int watch_queue_length
     , (fun () -> string_of_int !watch_queue_length)
-    , "Maximum number of unprocessed xenstore watch events before we restart" )
+    , "Maximum number of unprocessed xenstore watch events before we restart"
+    )
   ; ( "use-upstream-qemu"
     , Arg.Bool (fun x -> use_upstream_qemu := x)
     , (fun () -> string_of_bool !use_upstream_qemu)
-    , "True if we want to use upsteam QEMU" )
+    , "True if we want to use upsteam QEMU"
+    )
   ; ( "default-vbd-backend-kind"
     , Arg.Set_string default_vbd_backend_kind
     , (fun () -> !default_vbd_backend_kind)
-    , "Default backend for VBDs" )
+    , "Default backend for VBDs"
+    )
   ; ( "ca-140252-workaround"
     , Arg.Bool (fun x -> ca_140252_workaround := x)
     , (fun () -> string_of_bool !ca_140252_workaround)
-    , "Workaround for evtchn misalignment for legacy PV tools" )
+    , "Workaround for evtchn misalignment for legacy PV tools"
+    )
   ; ( "additional-ballooning-timeout"
     , Arg.Set_float additional_ballooning_timeout
     , (fun () -> string_of_float !additional_ballooning_timeout)
     , "Time we allow the guests to do additional memory ballooning before live \
-       migration" )
+       migration"
+    )
   ; ( "domain_shutdown_ack_timeout"
     , Arg.Set_float Xenops_server.domain_shutdown_ack_timeout
     , (fun () -> string_of_float !Xenops_server.domain_shutdown_ack_timeout)
     , "Time to wait for in-guest PV drivers to acknowledge a shutdown request \
-       before we conclude that the drivers have failed" )
+       before we conclude that the drivers have failed"
+    )
   ; ( "vif-ready-for-igmp-query-timeout"
     , Arg.Set_int vif_ready_for_igmp_query_timeout
     , (fun () -> string_of_int !vif_ready_for_igmp_query_timeout)
-    , "Time before we assume vif has connected" )
+    , "Time before we assume vif has connected"
+    )
   ; ( "action-after-qemu-crash"
     , Arg.String
         (fun x -> action_after_qemu_crash := if x = "" then None else Some x)
     , (fun () -> match !action_after_qemu_crash with None -> "" | Some x -> x)
     , "Action to take for VMs if QEMU crashes or dies unexpectedly: pause, \
-       poweroff. Otherwise, no action (default)." )
+       poweroff. Otherwise, no action (default)."
+    )
   ; ( "feature-flags-path"
     , Arg.Set_string feature_flags_path
     , (fun () -> !feature_flags_path)
-    , "Directory of experimental feature flags" )
+    , "Directory of experimental feature flags"
+    )
   ; ( "pvinpvh-xen-cmdline"
     , Arg.Set_string pvinpvh_xen_cmdline
     , (fun () -> !pvinpvh_xen_cmdline)
-    , "Command line for the inner-xen for PV-in-PVH guests" )
+    , "Command line for the inner-xen for PV-in-PVH guests"
+    )
   ; ( "numa-placement"
     , Arg.Bool (fun x -> numa_placement := x)
     , (fun () -> string_of_bool !numa_placement)
-    , "NUMA-aware placement of VMs" )
+    , "NUMA-aware placement of VMs"
+    )
   ; ( "numa-placement-strict"
     , Arg.Bool (fun x -> numa_placement_strict := x)
     , (fun () -> string_of_bool !numa_placement)
-    , "Fail if NUMA-aware placement is not possible" )
+    , "Fail if NUMA-aware placement is not possible"
+    )
   ; ( "pci-quarantine"
     , Arg.Bool (fun b -> pci_quarantine := b)
     , (fun () -> string_of_bool !pci_quarantine)
     , "True if IOMMU contexts of PCI devices are needed to be placed in \
-       quarantine" )
+       quarantine"
+    )
   ; ( "vm-guest-agent-xenstore-quota"
     , Arg.String
         (fun s ->
           if s <> "N/A" then
             vm_guest_agent_xenstore_quota_bytes :=
-              max_bytes_of_xenstore_entries (int_of_string s))
+              max_bytes_of_xenstore_entries (int_of_string s)
+          )
     , (fun () -> "N/A")
-    , "(Deprecated, use vm-xenstore-data-quota-bytes instead)" )
+    , "(Deprecated, use vm-xenstore-data-quota-bytes instead)"
+    )
   ; ( "vm-guest-agent-xenstore-quota-warn-interval"
     , Arg.Set_int vm_guest_agent_xenstore_quota_warn_interval
     , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_warn_interval)
-    , "How often to warn that a VM is still over its xenstore quota" )
+    , "How often to warn that a VM is still over its xenstore quota"
+    )
   ; ( "oxenstored-conf"
     , Arg.Set_string oxenstored_conf
     , (fun () -> !oxenstored_conf)
-    , "Path to oxenstored conf (for reading quotas)" )
+    , "Path to oxenstored conf (for reading quotas)"
+    )
   ; ( "vm-guest-agent-xenstore-quota-bytes"
     , Arg.Set_int vm_guest_agent_xenstore_quota_bytes
     , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_bytes)
     , "Maximum size in bytes of VM xenstore-data field, and guest metrics \
-       copied from guest's vm-data/ and data/ xenstore tree" )
+       copied from guest's vm-data/ and data/ xenstore tree"
+    )
   ]
 
 let path () = Filename.concat !sockets_path "xenopsd"
@@ -278,6 +309,7 @@ let rpc_fn call =
               [Rpc.Dict [("debug_info", debug_info); ("metadata", metadata)]]
           ; is_notification= false
           }
+        
     | "query", [debug_info; unit_p] ->
         debug "Upgrading query" ;
         Rpc.
@@ -286,6 +318,7 @@ let rpc_fn call =
           ; params= [Rpc.Dict [("debug_info", debug_info); ("unit", unit_p)]]
           ; is_notification= false
           }
+        
     | _ ->
         call
   in
@@ -339,7 +372,8 @@ let handle_received_fd this_connection =
           Cohttp.Response.make ~version:`HTTP_1_1 ~status:`Not_found ~headers ()
         in
         Response.write (fun _ -> ()) response this_connection
-      ))
+      )
+      )
     (fun () -> Unix.close received_fd)
 
 let doc =
@@ -402,7 +436,8 @@ let main backend =
            (module Xenops_utils.FileFS : Xenops_utils.FS)
        else
          (module Xenops_utils.MemFS : Xenops_utils.FS)
-       )) ;
+       )
+    ) ;
   Xenops_server.register_objects () ;
   Xenops_server.set_backend (Some backend) ;
   Debug.with_thread_associated "main"
@@ -413,7 +448,8 @@ let main backend =
       let (_ : Thread.t) =
         Thread.create (fun () -> Xcp_service.serve_forever xml_server) ()
       in
-      ())
+      ()
+      )
     () ;
   Xenops_server.WorkerPool.start !worker_pool_size ;
   while true do

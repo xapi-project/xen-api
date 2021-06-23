@@ -166,8 +166,7 @@ let read_legacy_qemu_header fd =
 
 let write_qemu_header_for_legacy_libxc fd size =
   wrap (fun () -> Io.write fd qemu_save_signature_legacy_libxc) >>= fun () ->
-  wrap (fun () ->
-      Io.write_int ~endianness:`little fd (Io.int_of_int64_exn size))
+  wrap (fun () -> Io.write_int ~endianness:`little fd (Io.int_of_int64_exn size))
 
 let read_header fd =
   read_int64 fd >>= fun x ->
@@ -184,7 +183,8 @@ let check_conversion_script () =
   with _ ->
     Error
       (Failure
-         (Printf.sprintf "Executable not found: %s" !Resources.legacy_conv_tool))
+         (Printf.sprintf "Executable not found: %s" !Resources.legacy_conv_tool)
+      )
 
 type 'a thread_status = Running | Thread_failure of exn | Success of 'a
 
@@ -226,11 +226,14 @@ let with_conversion_script task name hvm fd f =
             let result = finally (fun () -> f ()) (fun () -> Unix.close fd') in
             Mutex.execute m (fun () ->
                 status := Success result ;
-                Condition.signal c)
+                Condition.signal c
+            )
           with e ->
             Mutex.execute m (fun () ->
                 status := Thread_failure e ;
-                Condition.signal c))
+                Condition.signal c
+            )
+          )
         ()
     in
     (thread, status)
@@ -241,7 +244,8 @@ let with_conversion_script task name hvm fd f =
           (String.concat "; " args) ;
         Cancellable_subprocess.run task
           [(fd_uuid, fd); (pipe_w_uuid, pipe_w)]
-          conv_script args)
+          conv_script args
+    )
   and f_th, f_st = spawn_thread_and_close_fd name pipe_r (fun () -> f pipe_r) in
   debug "Spawned threads for conversion script and %s" name ;
   let rec handle_threads () =
@@ -252,30 +256,38 @@ let with_conversion_script task name hvm fd f =
         match status with
         | Unix.WEXITED n ->
             Error
-              (Failure
-                 (Printf.sprintf "Conversion script exited with code %d" n))
+              (Failure (Printf.sprintf "Conversion script exited with code %d" n)
+              )
         | Unix.WSIGNALED n ->
             Error
               (Failure
                  (Printf.sprintf "Conversion script exited with signal %s"
-                    (Unixext.string_of_signal n)))
+                    (Unixext.string_of_signal n)
+                 )
+              )
         | Unix.WSTOPPED n ->
             Error
               (Failure
                  (Printf.sprintf "Conversion script stopped with signal %s"
-                    (Unixext.string_of_signal n)))
+                    (Unixext.string_of_signal n)
+                 )
+              )
       )
       | _ ->
           Error
             (Failure
                (Printf.sprintf "Conversion script thread caught exception: %s"
-                  (Printexc.to_string e)))
+                  (Printexc.to_string e)
+               )
+            )
     )
     | _, Thread_failure e ->
         Error
           (Failure
              (Printf.sprintf "Thread executing %s caught exception: %s" name
-                (Printexc.to_string e)))
+                (Printexc.to_string e)
+             )
+          )
     | Running, _ | _, Running ->
         Condition.wait c m ; handle_threads ()
     | Success _, Success res ->

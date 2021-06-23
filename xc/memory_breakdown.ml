@@ -37,10 +37,12 @@ let cli_arguments_named =
   [
     ( "-pad"
     , Arg.Set_string cli_argument_existing_file_to_pad
-    , "Pads an existing data file" )
+    , "Pads an existing data file"
+    )
   ; ( "-period"
     , Arg.Set_float cli_argument_delay_period_seconds
-    , "Delay between updates" )
+    , "Delay between updates"
+    )
   ]
 
 let cli_arguments_extra x = Printf.fprintf stderr "Ignoring argument: %s" x
@@ -162,8 +164,7 @@ let guest_balloonable xc xs g =
     (xs_exists xs (supports_ballooning_path (guest_domain_id xc xs g)))
 
 let guest_uncooperative xc xs g =
-  string_of_bool
-    (xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
+  string_of_bool (xs_exists xs (is_uncooperative_path (guest_domain_id xc xs g)))
 
 let guest_shadow_bytes xc xs g =
   Int64.to_string
@@ -221,7 +222,8 @@ let print_memory_field_values xc xs =
   let guests =
     List.sort
       (fun g1 g2 ->
-        compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle)
+        compare_guests control_domain_id g1.Xenctrl.handle g2.Xenctrl.handle
+        )
       (Xenctrl.domain_getinfolist xc 0)
   in
   let print_host_info field =
@@ -239,8 +241,7 @@ let print_memory_field_values xc xs =
   flush stdout
 
 (** Sleeps for the given time period in seconds. *)
-let sleep time_period_seconds =
-  ignore (Unix.select [] [] [] time_period_seconds)
+let sleep time_period_seconds = ignore (Unix.select [] [] [] time_period_seconds)
 
 (** Prints a header line of memory field names, and then periodically prints a
     line of memory field values. *)
@@ -250,7 +251,8 @@ let record_new_data () =
       while true do
         print_memory_field_values xc xs ;
         sleep !cli_argument_delay_period_seconds
-      done)
+      done
+  )
 
 (** {2 Functions that transform sparse data files into padded data files} *)
 
@@ -300,7 +302,8 @@ let pad_value_list guest_ids_all guest_ids values default_value =
            "Expected: guest_ids subset of guest_ids_all"
          else
            "Unknown failure"
-         ))
+         )
+      )
   in
   let rec pad ids_all ids vs vs_padded =
     match (ids_all, ids, vs) with
@@ -322,13 +325,16 @@ let pad_value_string guest_ids_all guest_ids (value_string, default_value) =
     (String.concat " "
        (pad_value_list guest_ids_all guest_ids
           (Astring.String.cuts ~sep:" " value_string)
-          default_value))
+          default_value
+       )
+    )
 
 let pad_value_strings guest_ids_all guest_ids value_strings =
   String.concat " "
     (List.map
        (pad_value_string guest_ids_all guest_ids)
-       (List.combine value_strings (List.tl guest_field_defaults)))
+       (List.combine value_strings (List.tl guest_field_defaults))
+    )
 
 let pad_data_line guest_ids_all line =
   match sections_of_line line with
@@ -336,7 +342,8 @@ let pad_data_line guest_ids_all line =
       Printf.sprintf "| %s | %s" host_string
         (pad_value_strings guest_ids_all
            (guest_ids_of_string guest_ids_string)
-           value_strings)
+           value_strings
+        )
   | _ ->
       line
 
@@ -360,8 +367,12 @@ let print_padded_header_line guest_count =
             String.concat " "
               (List.map
                  (Printf.sprintf "%s_%i" name)
-                 (range 0 (guest_count - 1))))
-          (List.tl guest_field_names)))
+                 (range 0 (guest_count - 1))
+              )
+            )
+          (List.tl guest_field_names)
+       )
+    )
 
 let pad_existing_data () =
   let guest_ids_all = guest_ids_of_file !cli_argument_existing_file_to_pad in

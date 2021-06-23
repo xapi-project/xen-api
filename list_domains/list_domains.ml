@@ -87,7 +87,8 @@ let select table keys =
     (fun key ->
       if not (Hashtbl.mem table key) then
         failwith (Printf.sprintf "Failed to find key: %s" key) ;
-      Hashtbl.find table key)
+      Hashtbl.find table key
+      )
     keys
 
 let columns () =
@@ -142,16 +143,20 @@ let _ =
          , Arg.Unit
              (fun () ->
                memory := true ;
-               all_the_rest := true)
-         , " show all available stats (needs a wide window!)" )
+               all_the_rest := true
+               )
+         , " show all available stats (needs a wide window!)"
+         )
        ; ("-bytes", Arg.Set bytes, " use bytes for memory values")
        ; ( "-domid"
          , Arg.Int (fun i -> domid := Some i)
-         , " show only a particular domain" )
+         , " show only a particular domain"
+         )
        ; ("-memory", Arg.Set memory, " show memory statistics")
        ; ("-minimal", Arg.Set minimal, " show only domain UUID")
        ; ("-pages", Arg.Set pages, " use pages for memory values")
-       ])
+       ]
+    )
     (fun x -> Printf.printf "Warning, ignoring unknown argument: %s" x)
     "List domains" ;
   let cols = columns () in

@@ -115,7 +115,8 @@ let unmarshall_int64 ~endianness buffer =
     ||| shift_left e 24
     ||| shift_left f 16
     ||| shift_left g 8
-    ||| h)
+    ||| h
+  )
 
 let read_int64 ~endianness fd =
   let buffer = read fd 8 in

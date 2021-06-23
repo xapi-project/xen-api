@@ -215,13 +215,15 @@ let add_backend_keys ~xs (x : device) subdir keys =
     backend ;
   Xs.transaction xs (fun t ->
       ignore (t.Xst.read backend_stub) ;
-      t.Xst.writev backend keys)
+      t.Xst.writev backend keys
+  )
 
 let remove_backend_keys ~xs (x : device) subdir keys =
   let backend_stub = backend_path_of_device ~xs x in
   let backend = backend_stub ^ "/" ^ subdir in
   Xs.transaction xs (fun t ->
-      List.iter (fun key -> t.Xst.rm (backend ^ "/" ^ key)) keys)
+      List.iter (fun key -> t.Xst.rm (backend ^ "/" ^ key)) keys
+  )
 
 let string_of_device (x : device) =
   sprintf "frontend %s; backend %s"
@@ -340,7 +342,8 @@ let list_frontends ~xs ?for_devids domid =
                    try
                      ignore (xs.Xs.read (sprintf "%s/%d" dir devid)) ;
                      true
-                   with _ -> false)
+                   with _ -> false
+                   )
                  devids
          in
          to_list
@@ -355,9 +358,13 @@ let list_frontends ~xs ?for_devids domid =
                       Some {backend= b; frontend}
                   | None ->
                       None
-                with _ -> None)
-              devids))
-       kinds)
+                with _ -> None
+                )
+              devids
+           )
+         )
+       kinds
+    )
 
 (* NB: we only read data from the backend directory. Therefore this gives the
    "backend's point of view". *)
@@ -392,10 +399,16 @@ let list_backends ~xs domid =
                              Some {backend; frontend= f}
                          | None ->
                              None
-                       with _ -> None)
-                     devids))
-              domids))
-       kinds)
+                       with _ -> None
+                       )
+                     devids
+                  )
+                )
+              domids
+           )
+         )
+       kinds
+    )
 
 (** Return a list of devices connecting two domains. Ignore those whose kind we
     don't recognise *)
@@ -550,4 +563,5 @@ let qmp_send_cmd ?send_fd domid cmd =
       | message ->
           let msg' = Qmp.string_of_message message in
           error "QMP result for domid %d: %s (%s)" domid msg' __LOC__ ;
-          raise (QMP_Error (domid, msg')))
+          raise (QMP_Error (domid, msg'))
+  )

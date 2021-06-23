@@ -249,7 +249,8 @@ let add_vbd (vm : Vm.id) (vbd : Vbd.t) () =
     debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id) ;
     raise
       (Xenopsd_error
-         (Already_exists ("vbd", Device_number.to_debug_string this_dn)))
+         (Already_exists ("vbd", Device_number.to_debug_string this_dn))
+      )
   ) else
     DB.write vm
       {
@@ -269,7 +270,9 @@ let move_vif vm vif network () =
       raise
         (Xenopsd_error
            (Does_not_exist
-              ("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
+              ("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))
+           )
+        )
   | _ ->
       assert false
 
@@ -375,7 +378,9 @@ let remove_vif vm vif () =
     raise
       (Xenopsd_error
          (Does_not_exist
-            ("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))))
+            ("VIF", Printf.sprintf "%s.%s" (fst vif.Vif.id) (snd vif.Vif.id))
+         )
+      )
   else
     DB.write vm
       {
@@ -392,7 +397,8 @@ let set_carrier vm vif carrier () =
         {
           vif with
           Vif.carrier= (if this_one vif then carrier else vif.Vif.carrier)
-        })
+        }
+        )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -406,7 +412,8 @@ let set_locking_mode vm vif mode () =
         {
           vif with
           Vif.locking_mode= (if this_one vif then mode else vif.Vif.locking_mode)
-        })
+        }
+        )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -425,7 +432,8 @@ let set_ipv4_configuration vm vif ipv4_configuration () =
             else
               vif.Vif.ipv4_configuration
             )
-        })
+        }
+        )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -444,7 +452,8 @@ let set_ipv6_configuration vm vif ipv6_configuration () =
             else
               vif.Vif.ipv6_configuration
             )
-        })
+        }
+        )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -458,7 +467,8 @@ let set_pvs_proxy vm vif proxy () =
         {
           vif with
           Vif.pvs_proxy= (if this_one vif then proxy else vif.Vif.pvs_proxy)
-        })
+        }
+        )
       d.Domain.vifs
   in
   DB.write vm {d with Domain.vifs}
@@ -470,7 +480,9 @@ let remove_pci vm pci () =
     raise
       (Xenopsd_error
          (Does_not_exist
-            ("PCI", Printf.sprintf "%s.%s" (fst pci.Pci.id) (snd pci.Pci.id))))
+            ("PCI", Printf.sprintf "%s.%s" (fst pci.Pci.id) (snd pci.Pci.id))
+         )
+      )
   else
     DB.write vm
       {
@@ -485,7 +497,9 @@ let remove_vbd vm vbd () =
     raise
       (Xenopsd_error
          (Does_not_exist
-            ("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))))
+            ("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))
+         )
+      )
   else
     DB.write vm
       {
@@ -500,7 +514,9 @@ let set_qos_vbd vm vbd () =
     raise
       (Xenopsd_error
          (Does_not_exist
-            ("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id)))) ;
+            ("VBD", Printf.sprintf "%s.%s" (fst vbd.Vbd.id) (snd vbd.Vbd.id))
+         )
+      ) ;
   (* XXX *)
   ()
 
@@ -588,7 +604,8 @@ module VM = struct
     let vbds =
       List.map
         (fun vbd ->
-          {vbd with Vbd.backend= Option.map (remap_vdi vdi_map) vbd.Vbd.backend})
+          {vbd with Vbd.backend= Option.map (remap_vdi vdi_map) vbd.Vbd.backend}
+          )
         state.Domain.vbds
     in
     let vifs = List.map (fun vif -> remap_vif vif_map vif) state.Domain.vifs in
@@ -604,7 +621,9 @@ module VM = struct
         raise
           (Xenopsd_error
              (Internal_error
-                (Printf.sprintf "Failed to unmarshal Domain.t: %s" m)))
+                (Printf.sprintf "Failed to unmarshal Domain.t: %s" m)
+             )
+          )
 
   let wait_ballooning _ _ = ()
 
@@ -670,8 +689,7 @@ module VIF = struct
 
   let move _ vm vif network = Mutex.execute m (move_vif vm vif network)
 
-  let set_carrier _ vm vif carrier =
-    Mutex.execute m (set_carrier vm vif carrier)
+  let set_carrier _ vm vif carrier = Mutex.execute m (set_carrier vm vif carrier)
 
   let set_locking_mode _ vm vif mode =
     Mutex.execute m (set_locking_mode vm vif mode)
@@ -682,8 +700,7 @@ module VIF = struct
   let set_ipv6_configuration _ vm vif ipv6_configuration =
     Mutex.execute m (set_ipv6_configuration vm vif ipv6_configuration)
 
-  let set_pvs_proxy _ vm vif proxy =
-    Mutex.execute m (set_pvs_proxy vm vif proxy)
+  let set_pvs_proxy _ vm vif proxy = Mutex.execute m (set_pvs_proxy vm vif proxy)
 
   let get_state vm vif = Mutex.execute m (vif_state vm vif)
 

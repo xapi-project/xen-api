@@ -17,7 +17,8 @@ let set domain uuid =
       `Error
         ( false
         , Printf.sprintf "Caught exception while setting uuid: %s"
-            (Printexc.to_string e) )
+            (Printexc.to_string e)
+        )
 
 open Cmdliner
 

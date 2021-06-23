@@ -22,7 +22,8 @@ let with_xc_and_xs f = Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
 let with_xc_and_xs_final f cf =
   with_xc_and_xs (fun xc xs ->
-      Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f xc xs) cf)
+      Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f xc xs) cf
+  )
 
 exception Domain_not_found
 

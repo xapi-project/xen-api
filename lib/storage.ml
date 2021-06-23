@@ -39,7 +39,8 @@ let id_of frontend vbd = Printf.sprintf "vbd/%s/%s" frontend (snd vbd)
 let epoch_begin task sr vdi domid persistent =
   transform_exception
     (fun () ->
-      Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi domid persistent)
+      Client.VDI.epoch_begin (Xenops_task.get_dbg task) sr vdi domid persistent
+      )
     ()
 
 let epoch_end task sr vdi domid =
@@ -64,12 +65,16 @@ let attach_and_activate ~task ~_vm ~vmdomid ~dp ~sr ~vdi ~read_write =
       (Printf.sprintf "VDI.attach3 %s" dp)
       (transform_exception (fun () ->
            Client.VDI.attach3 "attach_and_activate_impl" dp sr vdi vmdomid
-             read_write))
+             read_write
+       )
+      )
   in
   Xenops_task.with_subtask task
     (Printf.sprintf "VDI.activate3 %s" dp)
     (transform_exception (fun () ->
-         Client.VDI.activate3 "attach_and_activate_impl" dp sr vdi vmdomid)) ;
+         Client.VDI.activate3 "attach_and_activate_impl" dp sr vdi vmdomid
+     )
+    ) ;
   result
 
 let deactivate task dp sr vdi vmdomid =
@@ -77,7 +82,9 @@ let deactivate task dp sr vdi vmdomid =
   Xenops_task.with_subtask task
     (Printf.sprintf "VDI.deactivate %s" dp)
     (transform_exception (fun () ->
-         Client.VDI.deactivate "deactivate" dp sr vdi vmdomid))
+         Client.VDI.deactivate "deactivate" dp sr vdi vmdomid
+     )
+    )
 
 let dp_destroy task dp =
   Xenops_task.with_subtask task
@@ -102,7 +109,9 @@ let dp_destroy task dp =
                warn "DP destroy returned unexpected exception: %s"
                  (Printexc.to_string e) ;
                waiting_for_plugin := false
-         done))
+         done
+     )
+    )
 
 let get_disk_by_name _task path =
   match Astring.String.cut ~sep:"/" path with

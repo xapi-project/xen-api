@@ -167,12 +167,15 @@ module Generic = struct
             t.Xst.mkdirperms private_data_path (Xenbus_utils.hotplug device) ;
             t.Xst.writev private_data_path
               (("backend-kind", string_of_kind device.backend.kind)
-              :: ("backend-id", string_of_int device.backend.domid)
-              :: private_list
+               ::
+               ("backend-id", string_of_int device.backend.domid)
+               :: private_list
               ) ;
             t.Xst.mkdirperms extra_xenserver_path
               (Xenbus_utils.rwperm_for_guest device.frontend.domid) ;
-            t.Xst.writev extra_xenserver_path xenserver_list))
+            t.Xst.writev extra_xenserver_path xenserver_list
+        )
+    )
 
   let get_private_key ~xs device x =
     let private_data_path =
@@ -240,7 +243,8 @@ module Generic = struct
         if state <> Xenbus_utils.Closed then (
           debug "Device.del_device setting backend to Closing" ;
           t.Xst.write state_path (Xenbus_utils.string_of Xenbus_utils.Closing)
-        ))
+        )
+    )
 
   let unplug_watch ~xs (x : device) =
     Hotplug.path_written_by_hotplug_scripts x |> Watch.key_to_disappear
@@ -253,7 +257,8 @@ module Generic = struct
       (fun () -> "")
       (Watch.value_to_become
          (frontend_rw_path_of_device ~xs x ^ "/state")
-         (Xenbus_utils.string_of Xenbus_utils.Closed))
+         (Xenbus_utils.string_of Xenbus_utils.Closed)
+      )
 
   let backend_closed ~xs (x : device) =
     Watch.value_to_become
@@ -272,7 +277,8 @@ module Generic = struct
            debug "Backend closed for %s, deleting hotplug-status"
              (string_of_device x) ;
            (* deleting this key causes the udev rule to fire *)
-           safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x))
+           safe_rm ~xs (Hotplug.path_written_by_hotplug_scripts x)
+       )
 
   let clean_shutdown_wait (task : Xenops_task.task_handle) ~xs
       ~ignore_transients (x : device) =
@@ -608,7 +614,8 @@ module Vbd_Common = struct
           |> Device_number.spec
           |> function
           | _, disk, _ ->
-              disk)
+              disk
+          )
         (Device_common.list_frontends ~xs domid)
     in
     let next = List.fold_left max 0 disks + 1 in
@@ -676,7 +683,8 @@ module Vbd_Common = struct
           | Disk ->
               "disk"
           | Floppy ->
-              "floppy" )
+              "floppy"
+        )
       ] ;
     List.iter
       (fun (k, v) -> Hashtbl.replace back_tbl k v)
@@ -710,7 +718,8 @@ module Vbd_Common = struct
     ) ;
     Option.iter
       (fun protocol ->
-        Hashtbl.add front_tbl "protocol" (string_of_protocol protocol))
+        Hashtbl.add front_tbl "protocol" (string_of_protocol protocol)
+        )
       x.protocol ;
     let back = Hashtbl.fold (fun k v acc -> (k, v) :: acc) back_tbl [] in
     let front = Hashtbl.fold (fun k v acc -> (k, v) :: acc) front_tbl [] in
@@ -810,9 +819,11 @@ module Vif = struct
       (match rate with None -> "none" | Some (a, b) -> sprintf "(%Ld,%Ld)" a b)
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
       (String.concat "; "
-         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
+         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys)
+      )
       (String.concat "; "
-         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys)) ;
+         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys)
+      ) ;
     (* Filter the other_config keys using vif_udev_keys as a whitelist *)
     let other_config =
       List.filter (fun (x, _) -> List.mem x vif_udev_keys) other_config
@@ -975,9 +986,11 @@ module NetSriovVf = struct
       vlan_str mac carrier rate_str
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) other_config))
       (String.concat "; "
-         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys))
+         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_private_keys)
+      )
       (String.concat "; "
-         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys)) ;
+         (List.map (fun (k, v) -> k ^ "=" ^ v) extra_xenserver_keys)
+      ) ;
     let frontend = {domid; kind= NetSriovVf; devid} in
     let backend = {domid= backend_domid; kind= NetSriovVf; devid} in
     let device = {backend; frontend} in
@@ -1013,7 +1026,9 @@ module NetSriovVf = struct
               "Failed to configure network SR-IOV VF (pci:%s) with mac=%s \
                vlan=%s rate=%s: %s"
               (Pci.string_of_address pci)
-              mac vlan_str rate_str s)) ;
+              mac vlan_str rate_str s
+           )
+    ) ;
     device
 
   let hard_shutdown ~xs (x : device) =
@@ -1104,7 +1119,8 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
                 None
               with Unix.Unix_error (Unix.EAGAIN, _, _) ->
                 (* cannot obtain lock: process is alive *)
-                Some pid)
+                Some pid
+          )
       | _ ->
           (* backward compatibility during update installation: only has
              xenstore pid *)
@@ -1137,8 +1153,7 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
         | None ->
             ()
         | Some path ->
-            best_effort (sprintf "removing %s" path) (fun () ->
-                Unix.unlink path)
+            best_effort (sprintf "removing %s" path) (fun () -> Unix.unlink path)
       )
 
   let syslog_key ~domid = Printf.sprintf "%s-%d" D.name domid
@@ -1293,8 +1308,8 @@ module PV_Vnc = struct
     else
       try
         Some
-          (Socket.Port
-             (int_of_string (xs.Xs.read (Generic.vnc_port_path domid))))
+          (Socket.Port (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))
+          )
       with _ -> None
 
   let get_tc_port ~xs domid =
@@ -1402,19 +1417,20 @@ module PCI = struct
           Some
             (Printf.sprintf "Domain_not_running(inserting pci=%s,domid=%d)"
                (Xenops_interface.Pci.string_of_address addr)
-               domid)
+               domid
+            )
       | Cannot_add (devices, e) ->
           let addrs =
             devices
             |> List.map Xenops_interface.Pci.string_of_address
             |> String.concat ";"
           in
-          Some
-            (Printf.sprintf "Cannot_add(%s, %s)" addrs (Printexc.to_string e))
+          Some (Printf.sprintf "Cannot_add(%s, %s)" addrs (Printexc.to_string e))
       | Ioemu_failed (name, msg) ->
           Some (Printf.sprintf "Ioemu_failed(%s, %s)" name msg)
       | _ ->
-          None)
+          None
+      )
 
   (* From
      https://github.com/torvalds/linux/blob/v4.19/include/linux/pci.h#L76-L102 *)
@@ -1445,7 +1461,8 @@ module PCI = struct
           ()
         with e ->
           debug "xl %s: %s" cmd (Printexc.to_string e) ;
-          raise e)
+          raise e
+        )
       pcidevs
 
   let add_xl = xl_pci "pci-attach"
@@ -1471,14 +1488,16 @@ module PCI = struct
       (* remove the silly prefix *)
       int_of_string
         (String.sub x (String.length prefix)
-           (String.length x - String.length prefix))
+           (String.length x - String.length prefix)
+        )
     in
     let pairs =
       List.map
         (fun x ->
           ( device_number_of_string x
           , Xenops_interface.Pci.address_of_string (xs.Xs.read (path ^ "/" ^ x))
-          ))
+          )
+          )
         all
     in
     (* Sort into the order the devices were plugged *)
@@ -1546,7 +1565,8 @@ module PCI = struct
                      ; hostaddr= string_of_address host
                      ; permissive= false
                      }
-               })
+               }
+            )
         in
         ()
       else
@@ -1571,7 +1591,8 @@ module PCI = struct
             let scan_start = Nativeint.(shift_right_logical scan_start 12) in
             let scan_size =
               Nativeint.(
-                shift_right_logical (add _page_size scan_size |> pred) 12)
+                shift_right_logical (add _page_size scan_size |> pred) 12
+              )
             in
             Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
     in
@@ -1597,8 +1618,10 @@ module PCI = struct
           xs.Xs.write
             (Printf.sprintf "%s/dev-%d"
                (device_model_pci_device_path xs 0 domid)
-               dev)
-            (Pci.string_of_address pcidev))
+               dev
+            )
+            (Pci.string_of_address pcidev)
+          )
         pcidevs
     with exn ->
       Backtrace.is_important exn ;
@@ -1623,7 +1646,8 @@ module PCI = struct
           ignore
             (Forkhelpers.execute_command_get_output
                !Xc_resources.pci_flr_script
-               [s; devstr])
+               [s; devstr]
+            )
         with _ -> ()
     in
     callscript "flr-pre" device ;
@@ -1706,7 +1730,8 @@ module PCI = struct
           | Some ("i915", _) ->
               true
           | _ ->
-              false)
+              false
+          )
         false "/proc/modules"
     in
     if not is_loaded then
@@ -1722,7 +1747,10 @@ module PCI = struct
           (Xenopsd_error
              (Internal_error
                 (Printf.sprintf "Fail to bind to i915, device is bound to %s"
-                   (string_of_driver drv))))
+                   (string_of_driver drv)
+                )
+             )
+          )
 
   let unbind devstr driver =
     let driverstr = string_of_driver driver in
@@ -1894,8 +1922,10 @@ module PCI = struct
             (* Unbinding from one driver and binding to another driver. *)
             | Some old_driver, new_driver ->
                 unbind_from devstr old_driver ;
-                bind_to devstr new_driver)
-          devices)
+                bind_to devstr new_driver
+            )
+          devices
+    )
 
   let enumerate_devs ~xs (x : device) =
     let backend_path = backend_path_of_device ~xs x in
@@ -1913,7 +1943,8 @@ module PCI = struct
     List.rev
       (List.fold_left
          (fun acc dev -> match dev with None -> acc | Some dev -> dev :: acc)
-         [] (Array.to_list devs))
+         [] (Array.to_list devs)
+      )
 
   let reset ~xs address =
     let devstr = Xenops_interface.Pci.string_of_address address in
@@ -1924,7 +1955,8 @@ module PCI = struct
     debug "Device.Pci.clean_shutdown %s" (string_of_device x) ;
     let devs = enumerate_devs ~xs x in
     Xenctrl.with_intf (fun xc ->
-        try release devs x.frontend.domid with _ -> ()) ;
+        try release devs x.frontend.domid with _ -> ()
+    ) ;
     ()
 
   let hard_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
@@ -1953,7 +1985,8 @@ module PCI = struct
           [
             (Printf.sprintf "device-model/%d/command" domid, cmd)
           ; (Printf.sprintf "device-model/%d/parameter" domid, parameter)
-          ])
+          ]
+    )
 
   (* Return a list of PCI devices *)
   let list = read_pcidir
@@ -1982,14 +2015,16 @@ module PCI = struct
         else (
           t.Xst.mkdirperms frontend_path
             Xs_protocol.ACL.
-              {owner= frontend_domid; other= NONE; acl= [(backend_domid, READ)]} ;
+              {owner= frontend_domid; other= NONE; acl= [(backend_domid, READ)]}
+             ;
           t.Xst.writev frontend_path
             [
               ("backend", backend_path)
             ; ("backend-id", string_of_int backend_domid)
             ; ("state", "1")
             ]
-        ))
+        )
+    )
 end
 
 module Vfs = struct
@@ -2027,7 +2062,8 @@ module Vfs = struct
         let perms = Xs_protocol.ACL.{owner= domid; other= NONE; acl= []} in
         let request_path = Printf.sprintf "%s/%d" request_path 0 in
         t.Xst.mkdirperms request_path perms ;
-        t.Xst.write (request_path ^ "/frontend") frontend_path) ;
+        t.Xst.write (request_path ^ "/frontend") frontend_path
+    ) ;
     ()
 
   let hard_shutdown (task : Xenops_task.task_handle) ~xs (x : device) =
@@ -2120,7 +2156,10 @@ module Vusb = struct
         (Xenopsd_error
            (Internal_error
               (Printf.sprintf "Call to usb reset failed: %s"
-                 (Printexc.to_string err))))
+                 (Printexc.to_string err)
+              )
+           )
+        )
 
   let cleanup domid =
     try
@@ -2184,13 +2223,15 @@ module Vusb = struct
           qmp_send_cmd domid
             Qmp.(
               Device_add
-                Device.{driver; device= USB {USB.id= driver_id; params= None}})
+                Device.{driver; device= USB {USB.id= driver_id; params= None}}
+            )
           |> ignore
       in
       let usb_bus0 = ("usb-bus.0", fun () -> ()) in
       let ehci0 =
         ( "ehci.0"
-        , fun () -> vusb_controller_plug ~driver:"usb-ehci" ~driver_id:"ehci" )
+        , fun () -> vusb_controller_plug ~driver:"usb-ehci" ~driver_id:"ehci"
+        )
       in
       let speed_of_float x =
         if x <= 0. then
@@ -2244,7 +2285,9 @@ module Vusb = struct
           raise
             (Xenopsd_error
                (Internal_error
-                  (Printf.sprintf "qemu pid does not exist for vm %d" domid)))
+                  (Printf.sprintf "qemu pid does not exist for vm %d" domid)
+               )
+            )
       ) ;
       let cmd =
         Qmp.(
@@ -2253,7 +2296,9 @@ module Vusb = struct
               {
                 driver= "usb-host"
               ; device= USB {USB.id; params= Some USB.{bus; hostbus; hostport}}
-              })
+              }
+            
+        )
       in
       qmp_send_cmd domid cmd |> ignore
     )
@@ -2265,7 +2310,8 @@ module Vusb = struct
         if Qemu.is_running ~xs domid then
           try qmp_send_cmd domid Qmp.(Device_del id) |> ignore
           with QMP_connection_error _ ->
-            raise (Xenopsd_error Device_not_connected))
+            raise (Xenopsd_error Device_not_connected)
+        )
       (fun () -> usb_reset_detach ~hostbus ~hostport ~domid ~privileged)
 end
 
@@ -2440,7 +2486,8 @@ module Dm_Common = struct
         | None ->
             ()
         | Some param ->
-            t.Xst.write (cmdpath ^ "/parameter") param) ;
+            t.Xst.write (cmdpath ^ "/parameter") param
+    ) ;
     match wait_for with
     | Some state ->
         let pw = cmdpath ^ "/state" in
@@ -2514,7 +2561,8 @@ module Dm_Common = struct
         | Some domid ->
             ( []
             , Printf.sprintf "%s,lock-key-sync=off"
-                (Socket.Unix.path (vnc_socket_path domid)) )
+                (Socket.Unix.path (vnc_socket_path domid))
+            )
       in
       let vnc_opt = ["-vnc"; vnc_arg] in
       let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
@@ -2556,14 +2604,16 @@ module Dm_Common = struct
                | k, None ->
                    ["-" ^ k]
                | k, Some v ->
-                   ["-" ^ k; v])
+                   ["-" ^ k; v]
+               )
           |> List.concat
         ; (info.monitor |> function None -> [] | Some x -> ["-monitor"; x])
         ; (Qemu.pidfile_path domid |> function
            | None ->
                []
            | Some x ->
-               ["-pidfile"; x])
+               ["-pidfile"; x]
+          )
         ]
     in
     {argv; fd_map= []}
@@ -2640,9 +2690,13 @@ module Dm_Common = struct
                    (Xenopsd_error
                       (Internal_error
                          (Printf.sprintf "NVidia vGPU metadata incomplete (%s)"
-                            __LOC__)))
+                            __LOC__
+                         )
+                      )
+                   )
              | _ ->
-                 "")
+                 ""
+         )
     in
     let suspend_file = sprintf demu_save_path domid in
     let base_args =
@@ -2672,14 +2726,16 @@ module Dm_Common = struct
       |> List.map (fun domid ->
              let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
              try List.map (fun x -> path ^ "/" ^ x) (xs.Xs.directory path)
-             with Xs_protocol.Enoent _ -> [])
+             with Xs_protocol.Enoent _ -> []
+         )
       |> List.concat
       |> List.exists (fun vgpu ->
              try
                let path = Printf.sprintf "%s/pf" vgpu in
                let pf = xs.Xs.read path in
                pf = physical_function
-             with Xs_protocol.Enoent _ -> false)
+             with Xs_protocol.Enoent _ -> false
+         )
     with Xs_protocol.Enoent _ -> false
 
   let call_gimtool args =
@@ -2755,21 +2811,26 @@ module Dm_Common = struct
           let open Generic in
           best_effort
             "signalling that qemu is ending as expected, mask further signals"
-            (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid) ;
+            (fun () -> Qemu.SignalMask.set Qemu.signal_mask domid
+          ) ;
           best_effort "killing qemu-dm" (fun () -> really_kill qemu_pid) ;
           best_effort "removing qemu-pid from xenstore" (fun () ->
-              xs.Xs.rm qemu_pid_path) ;
+              xs.Xs.rm qemu_pid_path
+          ) ;
           best_effort
             "unmasking signals, qemu-pid is already gone from xenstore"
-            (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid) ;
+            (fun () -> Qemu.SignalMask.unset Qemu.signal_mask domid
+          ) ;
           best_effort "removing device model path from xenstore" (fun () ->
-              xs.Xs.rm (device_model_path ~qemu_domid domid)) ;
+              xs.Xs.rm (device_model_path ~qemu_domid domid)
+          ) ;
           match Qemu.pidfile_path domid with
           | None ->
               ()
           | Some path ->
               best_effort (sprintf "removing %s" path) (fun () ->
-                  Unix.unlink path)
+                  Unix.unlink path
+              )
         )
     in
     let stop_vgpu () = Vgpu.stop ~xs domid in
@@ -2800,7 +2861,8 @@ module Dm_Common = struct
            ; (if file <> "" then ["auto-read-only=off"] else [])
            ; Media.readonly_of media
            ; Media.format_of media file
-           ])
+           ]
+        )
     ; "-device"
     ; String.concat ","
         (List.concat
@@ -2812,7 +2874,8 @@ module Dm_Common = struct
              ; sprintf "unit=%d" (index mod 2)
              ]
            ; (if trad_compat then Media.lba_of media else [])
-           ])
+           ]
+        )
     ]
 
   let nvme = "nvme"
@@ -2867,7 +2930,8 @@ module Dm_Common = struct
                | None ->
                    []
              )
-           ])
+           ]
+        )
     ]
 
   let cant_suspend_reason_path domid =
@@ -2996,8 +3060,10 @@ module Backend = struct
             try
               Some
                 (Socket.Port
-                   (int_of_string (xs.Xs.read (Generic.vnc_port_path domid))))
-            with _ -> None)
+                   (int_of_string (xs.Xs.read (Generic.vnc_port_path domid)))
+                )
+            with _ -> None
+        )
 
       let assert_can_suspend ~xs _ = ()
 
@@ -3311,12 +3377,14 @@ module Backend = struct
           (fun () ->
             Lookup.remove c domid ;
             Monitor.remove m (Qmp_protocol.to_fd c) ;
-            debug "Removed QMP Event fd for domain %d" domid)
+            debug "Removed QMP Event fd for domain %d" domid
+            )
           (fun () -> Qmp_protocol.close c)
       with e ->
         debug_exn
           (Printf.sprintf "Got exception trying to remove QMP on domain-%d"
-             domid)
+             domid
+          )
           e
 
     let add domid =
@@ -3331,7 +3399,8 @@ module Backend = struct
       with e ->
         debug_exn
           (Printf.sprintf "QMP domain-%d: negotiation failed: removing socket"
-             domid)
+             domid
+          )
           e ;
         remove domid ;
         raise
@@ -3354,7 +3423,9 @@ module Backend = struct
           @@ Xenopsd_error
                (Internal_error
                   (sprintf "Unexpected result for QMP command: %s"
-                     Qmp.(other |> as_msg |> string_of_message)))
+                     Qmp.(other |> as_msg |> string_of_message)
+                  )
+               )
       | exception QMP_Error (_, msg) -> (
         match Astring.String.find_sub ~sub:"CommandNotFound" msg with
         | None ->
@@ -3380,7 +3451,8 @@ module Backend = struct
                 Int64.(add timeoffset (of_string rtc) |> to_string)
             with e ->
               error "Failed to process RTC_CHANGE for domain %d: %s" domid
-                (Printexc.to_string e))
+                (Printexc.to_string e)
+        )
       in
       let xen_platform_pv_driver_info pv_info =
         with_xs (fun xs ->
@@ -3399,7 +3471,8 @@ module Backend = struct
                 (write_local_domain "control/feature-")
                 ["suspend"; "poweroff"; "reboot"; "vcpu-hotplug"] ;
               List.iter (write_local_domain "data/") ["updated"]
-            ))
+            )
+        )
       in
       qmp_event.data |> function
       | Some (RTC_CHANGE timeoffset) ->
@@ -3462,7 +3535,8 @@ module Backend = struct
                    debug "EPOLL error on domain-%d, close QMP socket" domid ;
                    Readln.free qmp ;
                    remove domid
-                 ))
+                 )
+             )
         with e -> debug_exn "Exception in QMP_Event_thread: %s" e
       done
   end
@@ -3494,7 +3568,9 @@ module Backend = struct
             raise
               (Xenopsd_error
                  (Internal_error
-                    (Printf.sprintf "unexpected disk for devid %d" devid)))
+                    (Printf.sprintf "unexpected disk for devid %d" devid)
+                 )
+              )
 
       let qemu_media_change ~xs device _type params =
         Vbd_Common.qemu_media_change ~xs device _type params ;
@@ -3518,7 +3594,10 @@ module Backend = struct
                         (Xenopsd_error
                            (Internal_error
                               (sprintf "Unexpected result for QMP command: %s"
-                                 Qmp.(other |> as_msg |> string_of_message))))
+                                 Qmp.(other |> as_msg |> string_of_message)
+                              )
+                           )
+                        )
                 in
                 finally
                   (fun () ->
@@ -3530,24 +3609,32 @@ module Backend = struct
                         ; medium_filename= path
                         ; medium_format= Some "raw"
                         }
+                      
                     in
+
                     let cmd = Qmp.(Blockdev_change_medium medium) in
-                    qmp_send_cmd domid cmd |> ignore)
+                    qmp_send_cmd domid cmd |> ignore
+                    )
                   (fun () ->
                     let cmd = Qmp.(Remove_fd fd_info.fdset_id) in
-                    qmp_send_cmd domid cmd |> ignore))
+                    qmp_send_cmd domid cmd |> ignore
+                    )
+                )
               (fun () -> Unix.close fd_cd)
         with
         | Unix.Unix_error (Unix.ECONNREFUSED, "connect", p) ->
             raise
               (Xenopsd_error
                  (Internal_error
-                    (Printf.sprintf "Failed to connnect QMP socket: %s" p)))
+                    (Printf.sprintf "Failed to connnect QMP socket: %s" p)
+                 )
+              )
         | Unix.Unix_error (Unix.ENOENT, "open", p) ->
             raise
               (Xenopsd_error
-                 (Internal_error
-                    (Printf.sprintf "Failed to open CD Image: %s" p)))
+                 (Internal_error (Printf.sprintf "Failed to open CD Image: %s" p)
+                 )
+              )
         | Xenopsd_error (Internal_error _) as e ->
             raise e
         | e ->
@@ -3556,7 +3643,10 @@ module Backend = struct
                  (Internal_error
                     (Printf.sprintf
                        "Get unexpected error trying to change CD: %s"
-                       (Printexc.to_string e))))
+                       (Printexc.to_string e)
+                    )
+                 )
+              )
     end
 
     (* Backend.Qemu_upstream_compat.Vbd *)
@@ -3586,7 +3676,9 @@ module Backend = struct
                     {
                       driver= VCPU.Driver.(string_of QEMU32_I386_CPU)
                     ; device= VCPU {VCPU.id; socket_id; core_id; thread_id}
-                    })
+                    }
+                  
+              )
             |> ignore
         | false ->
             (* hotunplug *)
@@ -3597,7 +3689,8 @@ module Backend = struct
                   x
                   |> List.filter
                        (fun Qmp.Device.VCPU.{qom_path; props= {socket_id}} ->
-                         socket_id = devid)
+                         socket_id = devid
+                     )
                   |> function
                   | [] ->
                       err (sprintf "No QEMU CPU found with devid %d" devid)
@@ -3610,7 +3703,8 @@ module Backend = struct
                   let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
                   err
                     (sprintf "Unexpected result for QMP command: %s"
-                       Qmp.(other |> as_msg |> string_of_message))
+                       Qmp.(other |> as_msg |> string_of_message)
+                    )
             in
             qom_path |> fun id ->
             qmp_send_cmd domid Qmp.(Device_del id) |> ignore
@@ -3621,7 +3715,8 @@ module Backend = struct
     module Dm = struct
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
-            Some (Socket.Unix (Dm_Common.vnc_socket_path domid)))
+            Some (Socket.Unix (Dm_Common.vnc_socket_path domid))
+        )
 
       let assert_can_suspend ~xs domid =
         QMP_Event.update_cant_suspend domid xs ;
@@ -3635,7 +3730,9 @@ module Backend = struct
                     , domid
                       |> Xenops_helpers.uuid_of_domid ~xs
                       |> Uuidm.to_string
-                    , msg ))
+                    , msg
+                    )
+                 )
         | exception e ->
             debug "assert_can_suspend: OK (domid=%d)" domid ;
             ()
@@ -3658,15 +3755,21 @@ module Backend = struct
                     (Xenopsd_error
                        (Internal_error
                           (sprintf "Unexpected result for QMP command: %s"
-                             Qmp.(other |> as_msg |> string_of_message))))
+                             Qmp.(other |> as_msg |> string_of_message)
+                          )
+                       )
+                    )
             in
             finally
               (fun () ->
                 let path = sprintf "/dev/fdset/%d" fd.Qmp.fdset_id in
                 qmp_send_cmd domid Qmp.Stop |> ignore ;
-                qmp_send_cmd domid Qmp.(Xen_save_devices_state path) |> ignore)
+                qmp_send_cmd domid Qmp.(Xen_save_devices_state path) |> ignore
+                )
               (fun () ->
-                qmp_send_cmd domid Qmp.(Remove_fd fd.fdset_id) |> ignore))
+                qmp_send_cmd domid Qmp.(Remove_fd fd.fdset_id) |> ignore
+                )
+            )
           (fun () -> Unix.close save_fd)
 
       (* Wait for QEMU's event socket to appear. Connect to it to make sure it
@@ -3702,7 +3805,8 @@ module Backend = struct
                   Thread.delay 0.1
               ) else
                 Thread.delay 0.05
-            done)
+            done
+            )
           (fun () -> Unix.close socket) ;
         if not !finished then
           raise (Ioemu_failed (name, "Timeout reached while starting daemon"))
@@ -3732,7 +3836,8 @@ module Backend = struct
         (* unmounts devices in /var/xen/qemu/root-* *)
         let path = Printf.sprintf "/var/xen/qemu/root-%d" domid in
         Generic.best_effort (Printf.sprintf "removing %s" path) (fun () ->
-            Xenops_utils.FileFS.rmtree path)
+            Xenops_utils.FileFS.rmtree path
+        )
 
       let tap_open ifname =
         let uuid = Uuidm.to_string (Uuidm.create `V4) in
@@ -3753,7 +3858,8 @@ module Backend = struct
               let devs =
                 devices
                 |> List.map (fun (x, y) ->
-                       ["-device"; sprintf "usb-%s,port=%d" x y])
+                       ["-device"; sprintf "usb-%s,port=%d" x y]
+                   )
                 |> List.concat
               in
               "-usb" :: devs
@@ -3797,7 +3903,9 @@ module Backend = struct
                 (Ioemu_failed
                    ( sprintf "domid %d" domid
                    , sprintf "Unknown platform:disk_type=%s in device-model=%s"
-                       disk_type Config.name ))
+                       disk_type Config.name
+                   )
+                )
         in
         if not (Config.Firmware.supported info.firmware) then
           (* XAPI itself should've already prevented this, but lets double check *)
@@ -3805,14 +3913,17 @@ module Backend = struct
             (Ioemu_failed
                ( sprintf "domid %d" domid
                , sprintf "The firmware doesn't support device-model=%s"
-                   Config.name )) ;
+                   Config.name
+               )
+            ) ;
         let qmp =
           ["libxl"; "event"]
           |> List.map (fun x ->
                  [
                    "-qmp"
                  ; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid
-                 ])
+                 ]
+             )
           |> List.concat
         in
         let pv_device addr =
@@ -3834,8 +3945,7 @@ module Backend = struct
                 "-xen-domid"
               ; string_of_int domid
               ; "-m"
-              ; "size="
-                ^ Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
+              ; "size=" ^ Int64.to_string (Int64.div info.Dm_Common.memory 1024L)
               ; "-boot"
               ; "order=" ^ info.Dm_Common.boot
               ]
@@ -3858,7 +3968,8 @@ module Backend = struct
                | None ->
                    ["-parallel"; "null"]
                | Some x ->
-                   ["-parallel"; x])
+                   ["-parallel"; x]
+              )
             ; qmp
             ; Config.XenPlatform.device ~xs ~domid ~info
             ]
@@ -3953,6 +4064,7 @@ module Backend = struct
                   common.argv @ misc @ disks' @ pv_device pv_device_addr @ none
               ; fd_map= common.fd_map
               }
+            
         | _, fds, argv ->
             Dm_Common.
               {
@@ -3960,6 +4072,7 @@ module Backend = struct
                   common.argv @ misc @ disks' @ pv_device pv_device_addr @ argv
               ; fd_map= common.fd_map @ fds
               }
+            
 
       let after_suspend_image ~xs ~qemu_domid domid =
         (* device model not needed anymore after suspend image has been created *)
@@ -4125,7 +4238,8 @@ module Dm = struct
        | None ->
            return ()
        | Some x ->
-           Add.many ["--pidfile"; x])
+           Add.many ["--pidfile"; x]
+      )
       >>= fun () ->
       Add.many @@ argf "uuid:%s" vm_uuid >>= fun () ->
       on reset_on_boot @@ Add.arg "--nonpersistent" >>= fun () ->
@@ -4194,14 +4308,17 @@ module Dm = struct
           raise
             (Ioemu_failed
                ( "vgpu"
-               , Printf.sprintf "Daemon vgpu returned error: %s" error_code ))
+               , Printf.sprintf "Daemon vgpu returned error: %s" error_code
+               )
+            )
     | [{physical_pci_address= pci; implementation= GVT_g vgpu}] ->
         PCI.bind [pci] PCI.I915
     | [{physical_pci_address= pci; implementation= MxGPU vgpu}] ->
         Mutex.execute gimtool_m (fun () ->
             configure_gim ~xs pci vgpu.vgpus_per_pgpu vgpu.framebufferbytes ;
             let keys = [("pf", Xenops_interface.Pci.string_of_address pci)] in
-            write_vgpu_data ~xs domid 0 keys)
+            write_vgpu_data ~xs domid 0 keys
+        )
     | _ ->
         failwith "Unsupported vGPU configuration"
 
@@ -4252,7 +4369,8 @@ module Dm = struct
       finally
         (fun () ->
           init_daemon ~task ~path:(Profile.wrapper_of dm) ~args:argv ~domid ~xs
-            ~ready_path ~timeout ~cancel ~fds:args.fd_map dm)
+            ~ready_path ~timeout ~cancel ~fds:args.fd_map dm
+          )
         (fun () -> List.iter close args.fd_map)
     in
     match !Xenopsd.action_after_qemu_crash with
@@ -4272,8 +4390,10 @@ module Dm = struct
                        Forkhelpers.waitpid_fail_if_bad_exit x ;
                        None
                      with e -> Some e
-                   ))
-               x)
+                   )
+                 )
+               x
+            )
         in
         waitpid_async qemu_pid ~callback:(fun qemu_crash ->
             Forkhelpers.(
@@ -4316,7 +4436,9 @@ module Dm = struct
                 | Some _ ->
                     (* before expected qemu stop: qemu-pid is available in
                        domain xs tree: signal action to take *)
-                    xs.Xs.write (Qemu.pid_path_signal domid) crash_reason))
+                    xs.Xs.write (Qemu.pid_path_signal domid) crash_reason
+            )
+        )
 
   let start (task : Xenops_task.task_handle) ~xc ~xs ~dm ?timeout info domid =
     __start task ~xc ~xs ~dm ?timeout Start info domid

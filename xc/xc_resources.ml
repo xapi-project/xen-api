@@ -64,11 +64,13 @@ let essentials =
   ; ( X_OK
     , "setup-vif-rules"
     , setup_vif_rules
-    , "path to the setup-vif-rules script" )
+    , "path to the setup-vif-rules script"
+    )
   ; ( X_OK
     , "setup-pvs-proxy-rules"
     , setup_pvs_proxy_rules
-    , "path to the setup-pvs-proxy-rules script" )
+    , "path to the setup-pvs-proxy-rules script"
+    )
   ]
   @ Resources.network_configuration
 
@@ -77,7 +79,8 @@ let nonessentials =
     ( X_OK
     , "pci-flr-script"
     , pci_flr_script
-    , "path to the PCI function-level reset script" )
+    , "path to the PCI function-level reset script"
+    )
   ; (X_OK, "alternatives", alternatives, "path to the alternative xenguests")
   ; (X_OK, "vgpu", vgpu, "path to the vgpu binary")
   ; (X_OK, "varstored", varstored, "path to the varstored binary")
@@ -86,7 +89,8 @@ let nonessentials =
   ; ( X_OK
     , "igmp-query-injector-script"
     , igmp_query_injector_script
-    , "path to the igmp query injector script" )
+    , "path to the igmp query injector script"
+    )
   ]
   @ Resources.hvm_guests
   @ Resources.pv_guests

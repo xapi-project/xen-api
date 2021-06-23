@@ -131,7 +131,8 @@ let on_shutdown ~xs domid =
         info
           "Not cancelling watches associated with domid: %d- domain nolonger \
            exists"
-          domid)
+          domid
+  )
 
 let with_path ~xs key f =
   let path = cancel_path_of ~xs key in
@@ -143,7 +144,8 @@ let with_path ~xs key f =
         debug "ignoring cancel request: operation has already terminated" ;
         (* This means a cancel happened just as we succeeded; it was too late
            and we ignore it. *)
-        ())
+        ()
+      )
 
 let cancellable_watch key good_watches error_watches
     (task : Xenops_task.task_handle) ~xs ~timeout () =
@@ -158,7 +160,9 @@ let cancellable_watch key good_watches error_watches
                 (Watch.any_of
                    (List.map
                       (fun w -> ((), w))
-                      (good_watches @ error_watches @ cancel_watches)))
+                      (good_watches @ error_watches @ cancel_watches)
+                   )
+                )
             in
             let any_have_fired ws =
               List.fold_left ( || ) false (List.map (Watch.has_fired ~xs) ws)
@@ -170,7 +174,8 @@ let cancellable_watch key good_watches error_watches
             match
               ( any_have_fired good_watches
               , any_have_fired error_watches
-              , any_have_fired cancel_watches )
+              , any_have_fired cancel_watches
+              )
             with
             | true, _, _ ->
                 true
@@ -182,4 +187,6 @@ let cancellable_watch key good_watches error_watches
                 (* they must have fired and then fired again: retest *)
                 loop ()
           in
-          loop ()))
+          loop ()
+          )
+  )

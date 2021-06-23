@@ -16,14 +16,16 @@ let libexecdir =
   Arg.(
     value
     & opt string "/usr/lib/xenopsd"
-    & info ["libexecdir"] ~docv:"LIBEXECDIR" ~doc)
+    & info ["libexecdir"] ~docv:"LIBEXECDIR" ~doc
+  )
 
 let qemu_wrapper_dir =
   let doc = "Set the directory for installing xen helper executables" in
   Arg.(
     value
     & opt string "/usr/lib/xenopsd"
-    & info ["qemu_wrapper_dir"] ~docv:"QEMU_WRAPPER_DIR" ~doc)
+    & info ["qemu_wrapper_dir"] ~docv:"QEMU_WRAPPER_DIR" ~doc
+  )
 
 let coverage =
   let doc = "Enable coverage profiling" in
@@ -34,7 +36,8 @@ let scriptsdir =
   Arg.(
     value
     & opt string "/usr/lib/xenopsd/scripts"
-    & info ["scriptsdir"] ~docv:"SCRIPTSDIR" ~doc)
+    & info ["scriptsdir"] ~docv:"SCRIPTSDIR" ~doc
+  )
 
 let etcdir =
   let doc = "Set the directory for installing configuration files" in
@@ -43,14 +46,16 @@ let etcdir =
 let mandir =
   let doc = "Set the directory for installing manpages" in
   Arg.(
-    value & opt string "/usr/share/man" & info ["mandir"] ~docv:"MANDIR" ~doc)
+    value & opt string "/usr/share/man" & info ["mandir"] ~docv:"MANDIR" ~doc
+  )
 
 let optdir =
   let doc = "Set the directory for installing system binaries" in
   Arg.(
     value
     & opt string "/opt/xensource/libexec"
-    & info ["optdir"] ~docv:"OPTDIR" ~doc)
+    & info ["optdir"] ~docv:"OPTDIR" ~doc
+  )
 
 let info =
   let doc = "Configures a package" in
@@ -90,7 +95,8 @@ let find_ml_val verbose name libs =
     Sys.command
       (Printf.sprintf "ocamlfind ocamlc -package %s -c %s %s"
          (String.concat "," libs) ml_file
-         (if verbose then "" else "2>/dev/null"))
+         (if verbose then "" else "2>/dev/null")
+      )
     = 0
   in
   if Sys.file_exists ml_file then Sys.remove ml_file ;
@@ -125,7 +131,8 @@ let find_xentoollog verbose =
   let found =
     Sys.command
       (Printf.sprintf "cc -Werror %s -lxentoollog -o %s %s" c_file exe_file
-         (if verbose then "" else "2>/dev/null"))
+         (if verbose then "" else "2>/dev/null")
+      )
     = 0
   in
   if Sys.file_exists c_file then Sys.remove c_file ;
@@ -197,7 +204,8 @@ let configure_t =
     $ etcdir
     $ mandir
     $ optdir
-    $ coverage)
+    $ coverage
+  )
 
 let () =
   match Term.eval (configure_t, info) with `Error _ -> exit 1 | _ -> exit 0
