@@ -659,7 +659,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
              (Printexc.to_string e) ;
            ntlm_auth orig_uname password
        | Ok uname ->
-           ntlm_auth orig_uname password
+           ntlm_auth uname password
      in
      Ok sid)
     |> maybe_raise
