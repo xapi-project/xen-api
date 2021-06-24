@@ -782,12 +782,20 @@ functor
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Pool.eject rpc session_id host
         ) ;
-        (* call eject on all other slaves first *)
+        (* perform cleanup on remaining pool members
+         * this must be best effort - once an eject has begun we cannot rollback *)
         other
         |> List.iter (fun h ->
-               do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
-                   Client.Pool.eject rpc session_id host
-               )
+               try
+                 do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
+                     Client.Pool.eject rpc session_id host
+                 )
+               with e ->
+                 D.warn
+                   "Pool.eject: while ejecting host=%s, we failed to clean up \
+                    on host=%s. ignoring error: %s"
+                   (Ref.short_string_of host) (Ref.short_string_of h)
+                   (Printexc.to_string e)
            ) ;
         (* finally clean up on master *)
         do_op_on ~local_fn ~__context ~host:master (fun session_id rpc ->
