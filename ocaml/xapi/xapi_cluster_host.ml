@@ -101,9 +101,10 @@ let join_internal ~__context ~self =
           ) ;
       debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self) ;
       Xapi_clustering.Daemon.enable ~__context ;
+      let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
       let result =
         Cluster_client.LocalClient.join (rpc ~__context) dbg cluster_token ip
-          ip_list
+          ip_list pems
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
@@ -237,17 +238,20 @@ let enable ~__context ~self =
   with_clustering_lock __LOC__ (fun () ->
       let dbg = Context.string_of_task __context in
       let host = Db.Cluster_host.get_host ~__context ~self in
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       assert_operation_host_target_is_localhost ~__context ~host ;
       let pifref = Db.Cluster_host.get_PIF ~__context ~self in
       let pifrec = Db.PIF.get_record ~__context ~self:pifref in
       assert_pif_prerequisites (pifref, pifrec) ;
       let ip = ip_of_pif (pifref, pifrec) in
+      let pems = Xapi_cluster_helpers.Pem.get_existing ~__context cluster in
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
+        ; pems
         }
       in
       (* TODO: Pass these through from CLI *)
@@ -354,3 +358,16 @@ let create_as_necessary ~__context ~host =
       create_internal ~__context ~cluster ~host ~pIF |> ignore
   | None ->
       ()
+
+let get_cluster_config ~__context ~self =
+  (* don't take the clustering lock as this is a nested call *)
+  let dbg = Context.string_of_task __context in
+  let result = Cluster_client.LocalClient.get_config (rpc ~__context) dbg in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok cc ->
+      Cluster_interface.encode_cluster_config cc |> SecretString.of_string
+  | Error e ->
+      D.error
+        "failed to get cluster config from my local cluster daemon! self=%s"
+        (Ref.short_string_of self) ;
+      handle_error e
