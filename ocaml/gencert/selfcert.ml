@@ -18,6 +18,8 @@ open Rresult (* introduces >>= >>| and R *)
 
 module D = Debug.Make (struct let name = "gencert_selfcert" end)
 
+let ( let* ) = Result.bind
+
 (** initialize the random number generator at program startup when this
 module is loaded. *)
 let () = Mirage_crypto_rng_unix.initialize ()
@@ -81,7 +83,7 @@ let generate_private_key length =
   let stdout, _stderr = call_openssl args in
   stdout
 
-let selfsign issuer extensions key_length days certfile =
+let selfsign' issuer extensions key_length days =
   let rsa =
     try
       generate_private_key key_length
@@ -93,21 +95,25 @@ let selfsign issuer extensions key_length days certfile =
           x
     with e ->
       let msg =
-        Printf.sprintf "generating RSA key for %s failed: %s" certfile
-          (Printexc.to_string e)
+        Printf.sprintf "generating RSA key failed: %s" (Printexc.to_string e)
       in
       D.error "%s" msg ; failwith msg
   in
   let privkey = `RSA rsa in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
   let req = X509.Signing_request.create issuer privkey in
-  sign days privkey pubkey issuer req extensions >>= fun cert ->
+  let* cert = sign days privkey pubkey issuer req extensions in
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
   let pkcs12 =
     String.concat "\n\n" [Cstruct.to_string key_pem; Cstruct.to_string cert_pem]
   in
-  write_certs certfile pkcs12 >>| fun () -> cert
+  Ok (cert, pkcs12)
+
+let selfsign issuer extensions key_length days certfile =
+  let* cert, pkcs12 = selfsign' issuer extensions key_length days in
+  let* () = write_certs certfile pkcs12 in
+  Ok cert
 
 let host ~name ~dns_names ~ips pemfile =
   let expire_days = 3650 in
@@ -131,3 +137,16 @@ let xapi_pool ~uuid pemfile =
   selfsign issuer extensions key_length expire_days pemfile
   >>| (fun _ -> ())
   |> R.failwith_error_msg
+
+let xapi_cluster ~cn =
+  (* in practical terms, never expire *)
+  let expire_days = 365 * 2000 in
+  let key_length = 2048 in
+  let issuer =
+    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
+  in
+  let extensions = X509.Extension.empty in
+  let _, pkcs12 =
+    selfsign' issuer extensions key_length expire_days |> R.failwith_error_msg
+  in
+  pkcs12
