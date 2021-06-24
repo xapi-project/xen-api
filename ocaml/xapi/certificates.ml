@@ -69,11 +69,7 @@ let rehash () =
   rehash' (library_path CA_Certificate) ;
   rehash' (library_path CRL)
 
-let update_ca_bundle () =
-  ignore
-    (Forkhelpers.execute_command_get_output
-       "/opt/xensource/bin/update-ca-bundle.sh" []
-    )
+let update_ca_bundle () = Helpers.update_ca_bundle ()
 
 let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
 

@@ -220,11 +220,7 @@ end = struct
       D.debug "write_certs_fs: ignoring failed to remove %s. exception: %s"
         pool_certs_bk (Printexc.to_string e)
 
-  let regen_bundle () =
-    ignore
-      (Forkhelpers.execute_command_get_output
-         "/opt/xensource/bin/update-ca-bundle.sh" []
-      )
+  let regen_bundle () = Helpers.update_ca_bundle ()
 
   let restart_stunnel ~__context =
     Xapi_mgmt_iface.reconfigure_stunnel ~__context
