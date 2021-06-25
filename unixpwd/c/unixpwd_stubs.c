@@ -28,7 +28,7 @@ CAMLprim        value
 caml_unixpwd_getpwd(value caml_user)
 {
     CAMLparam1(caml_user);
-    const char           *user;
+    const char     *user;
     char           *passwd;
     CAMLlocal1(pw);
 
@@ -48,7 +48,7 @@ CAMLprim        value
 caml_unixpwd_getspw(value caml_user)
 {
     CAMLparam1(caml_user);
-    const char           *user;
+    const char     *user;
     char           *passwd;
     CAMLlocal1(pw);
 
@@ -70,7 +70,7 @@ CAMLprim        value
 caml_unixpwd_get(value caml_user)
 {
     CAMLparam1(caml_user);
-    const char           *user;
+    const char     *user;
     char           *passwd;
     CAMLlocal1(pw);
 
