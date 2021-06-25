@@ -222,9 +222,6 @@ end = struct
 
   let regen_bundle () = Helpers.update_ca_bundle ()
 
-  let restart_stunnel ~__context =
-    Xapi_mgmt_iface.reconfigure_stunnel ~__context
-
   let with_log prefix f =
     D.debug "%s: start" prefix ;
     let res = f () in
