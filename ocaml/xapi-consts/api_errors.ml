@@ -1221,6 +1221,8 @@ let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
 
 let tls_verification_enable_in_progress = "TLS_VERIFICATION_ENABLE_IN_PROGRESS"
 
+let cert_refresh_in_progress = "CERT_REFRESH_IN_PROGRESS"
+
 let configure_repositories_in_progress = "CONFIGURE_REPOSITORIES_IN_PROGRESS"
 
 let invalid_base_url = "INVALID_BASE_URL"

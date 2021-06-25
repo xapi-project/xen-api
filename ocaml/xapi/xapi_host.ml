@@ -1465,7 +1465,11 @@ let replace_host_certificate ~__context ~type' ~host
   let old_certs = Db_util.get_host_certs ~__context ~type' ~host in
   let new_cert = write_cert_fs () in
   let (_ : API.ref_Certificate) =
-    Db_util.add_cert ~__context ~type':(`host host) new_cert
+    match type' with
+    | `host ->
+        Db_util.add_cert ~__context ~type':(`host host) new_cert
+    | `host_internal ->
+        Db_util.add_cert ~__context ~type':(`host_internal host) new_cert
   in
   List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
   let task = Context.get_task_id __context in
@@ -1476,17 +1480,17 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
     ~certificate_chain =
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then
     raise Api_errors.(Server_error (ha_is_enabled, [])) ;
+  let path = !Xapi_globs.server_cert_path in
   let write_cert_fs () =
     let pem_chain =
       match certificate_chain with "" -> None | pem_chain -> Some pem_chain
     in
     Certificates.install_server_certificate ~pem_leaf:certificate
-      ~pkcs8_private_key:private_key ~pem_chain
+      ~pkcs8_private_key:private_key ~pem_chain ~path
   in
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
-let _new_host_cert ~dbg : X509.Certificate.t =
-  let xapi_ssl_pem = !Xapi_globs.server_cert_path in
+let _new_host_cert ~dbg ~path : X509.Certificate.t =
   let name, ip =
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
@@ -1498,18 +1502,35 @@ let _new_host_cert ~dbg : X509.Certificate.t =
   in
   let dns_names = Networking_info.dns_names () in
   let ips = [ip] in
-  Gencertlib.Selfcert.host ~name ~dns_names ~ips xapi_ssl_pem
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips path
 
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
-  let write_cert_fs () = _new_host_cert ~dbg in
+  let path = !Xapi_globs.server_cert_path in
+  let write_cert_fs () = _new_host_cert ~dbg ~path in
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let emergency_reset_server_certificate ~(__context : 'a) =
+  let path = !Xapi_globs.server_cert_path in
   let (_ : X509.Certificate.t) =
-    _new_host_cert ~dbg:"emergency_reset_certificate"
+    _new_host_cert ~dbg:"emergency_reset_certificate" ~path
   in
   ()
+
+let refresh_server_certificate ~__context ~host =
+  (* we need to do different things depending on whether we
+     refresh the certificates on this host or whether they were
+     refreshed on another host in the pool *)
+  let localhost = Helpers.get_localhost ~__context in
+  ( match host with
+  | host when host = localhost ->
+      debug "Host.refresh_server_certificates - refresh this host (1/2)" ;
+      ignore @@ Cert_refresh.host ~__context ~type':`host_internal
+  | host ->
+      debug "Host.refresh_server_certificates - host %s was refrehsed"
+        (Ref.string_of host)
+  ) ;
+  Cert_refresh.remove_stale_cert ~__context ~host ~type':`host_internal
 
 (* CA-24856: detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth_in_host ~__context ~host =

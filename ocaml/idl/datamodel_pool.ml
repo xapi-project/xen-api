@@ -13,6 +13,7 @@ open Datamodel_types
             "sync_updates", "Indicates this pool is in the process of syncing updates";
             "get_updates", "Indicates this pool is in the process of getting updates";
             "apply_updates", "Indicates this pool is in the process of applying updates";
+            "cert_refresh", "A certificate refresh and distribution is in progress";
           ])
 
   let enable_ha = call

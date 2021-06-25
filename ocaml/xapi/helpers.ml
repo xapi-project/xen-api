@@ -1816,6 +1816,9 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
 module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
   (** restart stunnel, possibly changing the config file *)
+
+  val reload : unit -> unit
+  (** reload (potentially updated) configuration *)
 end = struct
   let cert = !Xapi_globs.server_cert_path
 
@@ -1901,6 +1904,8 @@ end = struct
   let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
 
   let systemctl_ cmd = systemctl cmd |> ignore
+
+  let reload () = systemctl_ "reload-or-restart"
 
   let is_enabled () =
     let is_enabled_stdout =
