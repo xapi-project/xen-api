@@ -2447,23 +2447,10 @@ functor
               forward_migrate_send ()
           )
         in
-        let message_body =
-          match migration_type with
-          | `Live_interpool ->
-              let source_host = Db.VM.get_resident_on ~__context ~self:vm in
-              Printf.sprintf
-                "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to \
-                 another pool"
-                (Db.VM.get_name_label ~__context ~self:vm)
-                (Db.VM.get_uuid ~__context ~self:vm)
-                (Db.Host.get_name_label ~__context ~self:source_host)
-                (Db.Host.get_uuid ~__context ~self:source_host)
-          | `Non_live ->
-              Printf.sprintf "VM '%s' (uuid: %s) migrated non live"
-                (Db.VM.get_name_label ~__context ~self:vm)
-                (Db.VM.get_uuid ~__context ~self:vm)
-          | `Live_intrapool host ->
-              let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+        ( match migration_type with
+        | `Live_intrapool host ->
+            let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+            let message_body =
               Printf.sprintf
                 "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host \
                  '%s' (uuid: %s)"
@@ -2473,9 +2460,12 @@ functor
                 (Db.Host.get_uuid ~__context ~self:source_host)
                 (Db.Host.get_name_label ~__context ~self:host)
                 (Db.Host.get_uuid ~__context ~self:host)
-        in
-        create_vm_message ~__context ~vm ~message_body
-          ~message:Api_messages.vm_migrated ;
+            in
+            create_vm_message ~__context ~vm ~message_body
+              ~message:Api_messages.vm_migrated
+        | _ ->
+            ()
+        ) ;
         result
 
       let send_trigger ~__context ~vm ~trigger =
