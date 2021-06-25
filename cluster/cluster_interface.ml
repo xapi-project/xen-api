@@ -66,6 +66,12 @@ type cluster_config = {
 }
 [@@deriving rpcty]
 
+let encode_cluster_config x =
+  Rpcmarshal.marshal cluster_config.Rpc.Types.ty x |> Jsonrpc.to_string
+
+let decode_cluster_config x =
+  Jsonrpc.of_string x |> Rpcmarshal.unmarshal cluster_config.Rpc.Types.ty
+
 type cluster_config_and_all_members = cluster_config * all_members
 [@@deriving rpcty]
 
@@ -243,4 +249,10 @@ module LocalAPI (R : RPC) = struct
     declare "diagnostics"
       ["Returns diagnostic information about the cluster"]
       (debug_info_p @-> returning diagnostics_p err)
+
+  let get_config =
+    let cluster_config_p = Param.mk ~name:"cluster_config" cluster_config in
+    declare "get-config"
+      ["Returns local cluster config"]
+      (debug_info_p @-> returning cluster_config_p err)
 end
