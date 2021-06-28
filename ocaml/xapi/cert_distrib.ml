@@ -481,6 +481,34 @@ let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
   Worker.local_write_cert_fs ~__context HostPoolCertificate Merge
     [joiner_certificate] ;
   Worker.local_regen_bundle ~__context ;
+  let () =
+    (* now that the primary host trusts the joiner, perform best effort
+     * distribution to remaining hosts (this is not strictly necessary,
+     * as the 'am i missing certs thread' should pick up missing certs) *)
+    let secondary_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
+    Helpers.call_api_functions ~__context @@ fun rpc session_id ->
+    secondary_hosts
+    |> List.iter (fun host ->
+           try
+             Worker.remote_write_certs_fs HostPoolCertificate Merge
+               [joiner_certificate] host rpc session_id
+           with e ->
+             D.warn
+               "exchange_certificates_with_joiner: sending joiner cert to %s \
+                failed. ex: %s"
+               (Ref.short_string_of host) (Printexc.to_string e)
+       ) ;
+
+    secondary_hosts
+    |> List.iter (fun host ->
+           try Worker.remote_regen_bundle host rpc session_id
+           with e ->
+             D.warn
+               "exchange_certificates_with_joiner: failed to regen bundle on \
+                %s. ex: %s"
+               (Ref.short_string_of host) (Printexc.to_string e)
+       )
+  in
   get_local_pool_certs () |> List.map WireProtocol.pair_of_certificate_file
 
 (* This function is called on the host that is joining a pool *)
