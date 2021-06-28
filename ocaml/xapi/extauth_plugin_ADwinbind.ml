@@ -58,11 +58,7 @@ let wb_cmd = !Xapi_globs.wb_cmd
 
 let tdb_tool = !Xapi_globs.tdb_tool
 
-let sqlite3 = !Xapi_globs.sqlite3
-
 let debug_level = !Xapi_globs.winbind_debug_level |> string_of_int
-
-let pbis_db_path = "/var/lib/pbis/db/registry.db"
 
 let ntlm_auth uname passwd : (unit, exn) result =
   try
@@ -362,6 +358,56 @@ type domain_info = {
         (* Persist netbios_name to support hostname change *)
 }
 
+module Migrate_from_pbis = struct
+  (* upgrade-pbis-to-winbind handles most of the migration from PBIS database
+   * to winbind database
+   * This module just migrate necessary information to set to winbind configuration *)
+  let range s e step =
+    let rec aux n acc = if n >= e then acc else aux (n + step) (n :: acc) in
+    aux 0 [] |> List.rev
+
+  let min_valid_pbis_value_length = String.length "X''"
+
+  let extract_raw_value_from_pbis_db key =
+    let sql =
+      Printf.sprintf "select QUOTE(Value) from regvalues1 where ValueName='%s'"
+        key
+    in
+    let value =
+      Helpers.call_script ~log_output:On_failure !Xapi_globs.sqlite3
+        [Xapi_globs.pbis_db_path; sql]
+    in
+    if String.length value <= min_valid_pbis_value_length then
+      raise
+        (Auth_service_error (E_GENERIC, Printf.sprintf "No value for %s" key))
+    else
+      value
+
+  let from_single_group reg input =
+    (* Extract value from single regular expression group
+     * raise Not_found if not match *)
+    let regex = Re.Perl.(compile (re reg)) in
+      Re.exec regex input
+      |> Re.Group.all
+      |> function [|_; v|] -> v  | _ -> raise
+        (Auth_service_error (E_GENERIC, Printf.sprintf "Failed to extract %s from %s" reg input))
+
+  let parse_value_from_pbis raw_value =
+    let hex_len = 2 in (* Every hex value has two numbers *)
+    (* raw value like X'58005200540055004B002D00300032002D003000330024000000' *)
+    let stripped = from_single_group {|X'(.+)'$|} raw_value in
+    (* stripped like 58005200540055004B002D00300032002D003000330024000000 *)
+    range 0 (String.length stripped - hex_len) 4
+    |> List.map (fun p -> String.sub stripped p hex_len)
+    |> String.concat "" (* 585254554B2D30322D30332400 *)
+    |> from_single_group {|(.+)00$|} (* 585254554B2D30322D303324 *)
+    |> fun s -> Hex.to_string (`Hex s) (* XRTUK-02-03$ *)
+    |> from_single_group {|(.+)\$$|} (* XRTUK-02-03$ *)
+
+  let from_key key =
+    extract_raw_value_from_pbis_db key |> parse_value_from_pbis
+end
+
 let get_domain_info_from_db () =
   (fun __context ->
     let host = Helpers.get_localhost ~__context in
@@ -560,61 +606,6 @@ let domainify_uname ~domain uname =
   else
     Printf.sprintf "%s@%s" uname domain
 
-let range s e step =
-  let rec aux n acc = if n >= e then acc else aux (n + step) (n :: acc) in
-  aux 0 [] |> List.rev
-
-let min_valid_pbis_value_length = String.length "X''"
-
-let extract_raw_value_from_pbis_db key =
-  let sql =
-    Printf.sprintf "select QUOTE(Value) from regvalues1 where ValueName='%s'"
-      key
-  in
-  let value =
-    Helpers.call_script ~log_output:On_failure !Xapi_globs.sqlite3
-      [pbis_db_path; sql]
-  in
-  if String.length value <= min_valid_pbis_value_length then
-    raise (Auth_service_error (E_GENERIC, Printf.sprintf "No value for %s" key))
-  else
-    value
-
-let remove_tailing s len = String.sub s 0 (String.length s - len)
-
-let parse_value_from_pbis raw_value =
-  (* X' *)
-  let raw_hd_len = 2 in
-  (* ' *)
-  let raw_tl_len = 1 in
-  (* 00 *)
-  let tailing_null_len = 2 in
-  (* $ *)
-  let tailing_dollar_len = 1 in
-  (* 58 *)
-  let hex_len = 2 in
-  let stripped =
-    (* raw value like X'58005200540055004B002D00300032002D003000330024000000' *)
-    raw_value
-    (* 58005200540055004B002D00300032002D003000330024000000' *)
-    |> fun r ->
-    String.sub r raw_hd_len (String.length r - raw_hd_len)
-    (* 58005200540055004B002D00300032002D003000330024000000 *)
-    |> fun r -> remove_tailing r raw_tl_len
-  in
-  range 0 (String.length stripped - hex_len) 4
-  |> List.map (fun p -> String.sub stripped p hex_len)
-  (* 585254554B2D30322D30332400 *)
-  |> String.concat ""
-  (* 585254554B2D30322D303324 *)
-  |> fun s ->
-  remove_tailing s tailing_null_len (* XRTUK-02-03$ *) |> fun s ->
-  Hex.to_string (`Hex s) (* XRTUK-02-03 *) |> fun s ->
-  remove_tailing s tailing_dollar_len
-
-let migrate_from_pbis_db key =
-  extract_raw_value_from_pbis_db key |> parse_value_from_pbis
-
 let build_netbios_name_for_joined_domain ~db_netbios_name =
   let local_hostname = get_localhost_name () in
   let pbis_netbios_key = "SamAccountName" in
@@ -624,13 +615,13 @@ let build_netbios_name_for_joined_domain ~db_netbios_name =
         name
     | None ->
         (* There is nothing in xapi db, maybe upgrade from pbis *)
-        let pbis_netbios_name = migrate_from_pbis_db pbis_netbios_key in
+        let pbis_netbios_name = Migrate_from_pbis.from_key pbis_netbios_key in
         debug "Migrated netbios_name '%s' from PBIS SamAccountName"
           pbis_netbios_name ;
         pbis_netbios_name
   with e ->
     debug "Failed to migrate %s from pbis db %s, error %s, fallback to hostname"
-      pbis_netbios_key pbis_db_path
+      pbis_netbios_key Xapi_globs.pbis_db_path
       (ExnHelper.string_of_exn e) ;
     local_hostname
 

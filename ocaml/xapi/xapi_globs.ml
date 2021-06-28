@@ -392,6 +392,9 @@ let set_iSCSI_initiator_script =
  * or the host is joining or leaving AD *)
 let domain_join_cli_cmd = ref "/opt/pbis/bin/domainjoin-cli"
 
+(* sqlite3 database PBIS used to store domain information *)
+let pbis_db_path = "/var/lib/pbis/db/registry.db"
+
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
 let on_system_boot = ref false
