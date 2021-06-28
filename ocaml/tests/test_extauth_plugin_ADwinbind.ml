@@ -52,7 +52,8 @@ module Range = Generic.MakeStateless (struct
     let string_of_output_t = Test_printers.(list int)
   end
 
-  let transform (s, e, step) = Extauth_plugin_ADwinbind.range s e step
+  let transform (s, e, step) =
+    Extauth_plugin_ADwinbind.Migrate_from_pbis.range s e step
 
   let tests =
     `QuickAndAutoDocumented
@@ -75,7 +76,8 @@ module ParseValueFromPbis = Generic.MakeStateless (struct
     let string_of_output_t = Test_printers.(string)
   end
 
-  let transform s = Extauth_plugin_ADwinbind.parse_value_from_pbis s
+  let transform s =
+    Extauth_plugin_ADwinbind.Migrate_from_pbis.parse_value_from_pbis s
 
   let tests =
     `QuickAndAutoDocumented
