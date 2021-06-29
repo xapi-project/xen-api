@@ -58,7 +58,7 @@ let wb_cmd = !Xapi_globs.wb_cmd
 
 let tdb_tool = !Xapi_globs.tdb_tool
 
-let debug_level = !Xapi_globs.winbind_debug_level |> string_of_int
+let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 
 let ntlm_auth uname passwd : (unit, exn) result =
   try
@@ -181,7 +181,7 @@ module Ldap = struct
 
   let net_ads (sid : string) : (string, exn) result =
     try
-      let args = ["ads"; "sid"; "-d"; debug_level; "--machine-pass"; sid] in
+      let args = ["ads"; "sid"; "-d"; debug_level (); "--machine-pass"; sid] in
       let stdout =
         Helpers.call_script ~log_output:On_failure !Xapi_globs.net_cmd args
       in
@@ -191,7 +191,9 @@ module Ldap = struct
   let query_user sid =
     let* stdout =
       try
-        let args = ["ads"; "sid"; "-d"; debug_level; "--machine-pass"; sid] in
+        let args =
+          ["ads"; "sid"; "-d"; debug_level (); "--machine-pass"; sid]
+        in
         let stdout =
           Helpers.call_script ~log_output:On_failure !Xapi_globs.net_cmd args
         in
@@ -459,7 +461,7 @@ let query_domain_workgroup ~domain ~db_workgroup =
       try
         let kdc =
           Helpers.call_script ~log_output:On_failure net_cmd
-            ["lookup"; "kdc"; domain; "-d"; debug_level]
+            ["lookup"; "kdc"; domain; "-d"; debug_level ()]
           (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
           |> String.split_on_char '\n'
           |> hd "lookup kdc return invalid result"
@@ -469,7 +471,7 @@ let query_domain_workgroup ~domain ~db_workgroup =
 
         let lines =
           Helpers.call_script ~log_output:On_failure net_cmd
-            ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level]
+            ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
         in
         match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
         | Some v ->
@@ -501,7 +503,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; "idmap config * : range = 3000000-3999999"
       ; Printf.sprintf "idmap config %s: backend = rid" domain
       ; Printf.sprintf "idmap config %s: range = 2000000-2999999" domain
-      ; Printf.sprintf "log level = %s" debug_level
+      ; Printf.sprintf "log level = %s" (debug_level ())
       ; "idmap config * : backend = tdb"
       ; "" (* Empty line at the end *)
       ]
@@ -578,7 +580,7 @@ let disable_machine_account ~service_name = function
       (* Disable machine account in DC *)
       let env = [|Printf.sprintf "PASSWD=%s" p|] in
       let args =
-        ["ads"; "leave"; "-U"; u; "--keep-account"; "-d"; debug_level]
+        ["ads"; "leave"; "-U"; u; "--keep-account"; "-d"; debug_level ()]
       in
       try
         Helpers.call_script ~env net_cmd args |> ignore ;
@@ -913,7 +915,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ; "-n"
       ; netbios_name
       ; "-d"
-      ; debug_level
+      ; debug_level ()
       ; "--no-dns-updates"
       ]
       @ ou_param
