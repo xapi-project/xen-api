@@ -65,6 +65,4 @@ module Migrate_from_pbis : sig
   val range : int -> int -> int -> int list
 
   val parse_value_from_pbis : string -> string
-
-  val from_key : string -> string
 end
