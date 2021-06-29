@@ -166,30 +166,55 @@ class DynamicPam(ADConfig):
 
 
 class KeyValueConfig(ADConfig):
-    def __init__(self, path, session, args, ad_enabled=True, sep=": ", file_mode=0o644):
-        super(KeyValueConfig, self).__init__(path, session, args, ad_enabled, file_mode)
-        self._sep = sep
-        self._values = {}
+    # Only support configure files with key value in each line, seperated by sep
+    # Otherwise, it will be just copied and un-configurable
+    # If multiple lines with the same key exists, only the first line will be configured
+    _special_line_prefix = "__key_value_config_sp_line_prefix_" # Presume normal config does not have such keys
+    _empty_value = ""
+
+    def __init__(self, path, session, args, ad_enabled=True, load_existing=True, file_mode=0o644, sep=": ", comment="#"):
+        super(KeyValueConfig, self).__init__(path, session, args, ad_enabled, load_existing, file_mode)
+        self._sep = None if sep.isspace() else sep  # Ignore number/type of spaces
+        self._comment = comment
+        self._values = OrderedDict()
+        self._load_values()
+
+    def _is_comment_line(self, line):
+        return line.startswith(self._comment)
+
+    def is_special_line(self, line):
+        return line.startswith(self._special_line_prefix)
+
+    def _load_values(self):
+        for idx, line in enumerate(self._lines):
+            sp_key = "{}{}".format(self._special_line_prefix, str(idx)) # Generate a unique key to store multiple special lines
+            if line == "": # Empty line
+                self._values[sp_key] = self._empty_value
+            elif self._is_comment_line(line):
+                self._values[sp_key] = line
+            else: # Parse the key, value pair
+                kv = line.split(self._sep)
+                if len(kv) != 2:
+                    logger.warning("'%s' is taken as raw line with sep '%s'", line, self._sep)
+                    self._values[sp_key] = line
+                else:
+                    k , v = kv[0].strip(), kv[1].strip()
+                    if k not in self._values:
+                        self._values[k] = v
+                    else:
+                        logger.info("%s already exists, line %d is not configurable", k, idx)
+                        self._values[sp_key] = line
 
     def _update_key_value(self, key, value):
         self._values[key] = value
 
     def _apply_value(self, key, value):
-        try:
-            target_line = "{}{}{}".format(key, self._sep, value)
-            for idx, line in enumerate(self._lines):
-                if key not in line:
-                    continue
-                kv =  line.split(self._sep)
-                k , v = kv[0].strip(), kv[1].strip()
-                if k != key:
-                    continue
-                self._lines[idx] = target_line
-                return
-            # Does not existed, append to the end
-            self._lines.append(target_line)
-        except Exception:
-            logger.exception("Failed to update %s to %s", key, value)
+        if self.is_special_line(key):
+            line = value
+        else: # normal line, construct the key value pair
+            sep = self._sep if self._sep else  " "
+            line = "{}{}{}".format(key, sep, value)
+        self._lines.append(line)
 
     def _apply_to_cache(self):
         for k, v in self._values.items():
