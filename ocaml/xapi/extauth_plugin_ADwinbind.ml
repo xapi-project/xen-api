@@ -643,7 +643,9 @@ module Winbind = struct
   let migrate_netbios_name ~__context =
     (* Migrate netbios_name from PBIS db and persist to xapi db *)
     let self = Helpers.get_localhost ~__context in
-    let hostname = Db.Host.get_hostname ~__context ~self in
+    let hostname =
+      Db.Host.get_hostname ~__context ~self |> String.uppercase_ascii
+    in
     let netbios_name = Migrate_from_pbis.netbios_name ~default:hostname in
     (* Persist migrated netbios_name *)
     let key = "netbios_name" in
@@ -693,6 +695,31 @@ module Winbind = struct
       in
       error "Service not ready error: %s" msg ;
       raise (Auth_service_error (E_GENERIC, msg))
+
+  let random_string len =
+    let upper_char_start = 65 in
+    let upper_char_len = 26 in
+    let rec aux n acc =
+      if n > 0 then
+        aux (n - 1)
+          ((upper_char_start + Random.int upper_char_len |> char_of_int) :: acc)
+      else
+        acc
+    in
+    aux len [] |> List.to_seq |> String.of_seq
+
+  let build_netbios_name hostname =
+    (* Winbind follow https://docs.microsoft.com/en-US/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou#domain-names to limit netbios length to 15
+     * Compress the hostname if exceed the length *)
+    let max_length = 15 in
+    if String.length hostname > max_length then
+      (* format hostname to prefix-random each with 7 chars *)
+      let len = 7 in
+      let prefix = String.sub hostname 0 len in
+      let suffix = random_string len in
+      Printf.sprintf "%s-%s" prefix suffix
+    else
+      hostname
 end
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
@@ -861,7 +888,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       from_config ~name:"pass" ~err_msg:"enable requires password"
         ~config_params
     in
-    let netbios_name = get_localhost_name () in
+    let netbios_name = get_localhost_name () |> Winbind.build_netbios_name in
 
     assert_hostname_valid ~hostname:netbios_name ;
 
@@ -891,7 +918,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ]
       @ ou_param
     in
-    debug "Joining domain %s with user %s" service_name user ;
+    debug "Joining domain %s with user %s netbios_name %s" service_name user
+      netbios_name ;
     let env = [|Printf.sprintf "PASSWD=%s" pass|] in
     try
       Helpers.call_script ~env net_cmd args |> ignore ;
