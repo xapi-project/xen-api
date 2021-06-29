@@ -424,7 +424,23 @@ module Migrate_from_pbis = struct
         default ;
       default
 
-  let netbios_name ~default = from_key ~key:"SamAccountName" ~default
+  let migrate_netbios_name ~__context =
+    (* Migrate netbios_name from PBIS db and persist to xapi db *)
+    let self = Helpers.get_localhost ~__context in
+    let default =
+      Db.Host.get_hostname ~__context ~self |> String.uppercase_ascii
+    in
+    let netbios_name = from_key ~key:"SamAccountName" ~default in
+    (* Persist migrated netbios_name *)
+    let key = "netbios_name" in
+    let value =
+      Db.Host.get_external_auth_configuration ~__context ~self
+      |> List.remove_assoc key
+      |> fun v -> v @ [(key, netbios_name)]
+    in
+    Db.Host.set_external_auth_configuration ~__context ~self ~value ;
+    debug "Migrated netbios_name %s from PBIS" netbios_name ;
+    netbios_name
 end
 
 let get_domain_info_from_db () =
@@ -642,30 +658,12 @@ module Winbind = struct
   let stop ~timeout ~wait_until_success =
     Xapi_systemctl.stop ~timeout ~wait_until_success name
 
-  let migrate_netbios_name ~__context =
-    (* Migrate netbios_name from PBIS db and persist to xapi db *)
-    let self = Helpers.get_localhost ~__context in
-    let hostname =
-      Db.Host.get_hostname ~__context ~self |> String.uppercase_ascii
-    in
-    let netbios_name = Migrate_from_pbis.netbios_name ~default:hostname in
-    (* Persist migrated netbios_name *)
-    let key = "netbios_name" in
-    let value =
-      Db.Host.get_external_auth_configuration ~__context ~self
-      |> List.remove_assoc key
-      |> fun v -> v @ [(key, netbios_name)]
-    in
-    Db.Host.set_external_auth_configuration ~__context ~self ~value ;
-    debug "Migrated netbios_name %s from PBIS" netbios_name ;
-    netbios_name
-
   let configure ~__context =
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
     let {service_name; workgroup; netbios_name} = get_domain_info_from_db () in
     if netbios_name = None then
-      let netbios_name = migrate_netbios_name __context in
+      let netbios_name = Migrate_from_pbis.migrate_netbios_name __context in
       let workgroup =
         query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
       in
@@ -701,14 +699,7 @@ module Winbind = struct
   let random_string len =
     let upper_char_start = 65 in
     let upper_char_len = 26 in
-    let rec aux n acc =
-      if n > 0 then
-        aux (n - 1)
-          ((upper_char_start + Random.int upper_char_len |> char_of_int) :: acc)
-      else
-        acc
-    in
-    aux len [] |> List.to_seq |> String.of_seq
+    String.init len (fun _ -> upper_char_start + Random.int upper_char_len |> char_of_int)
 
   let build_netbios_name hostname =
     (* Winbind follow https://docs.microsoft.com/en-US/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou#domain-names to limit netbios length to 15
