@@ -373,13 +373,15 @@ module Migrate_from_pbis = struct
       Printf.sprintf "select QUOTE(Value) from regvalues1 where ValueName='%s'"
         key
     in
+    let db = Xapi_globs.pbis_db_path in
     let value =
-      Helpers.call_script ~log_output:On_failure !Xapi_globs.sqlite3
-        [Xapi_globs.pbis_db_path; sql]
+      Helpers.call_script ~log_output:On_failure !Xapi_globs.sqlite3 [db; sql]
+      |> String.trim
     in
     if String.length value <= min_valid_pbis_value_length then
       raise
-        (Auth_service_error (E_GENERIC, Printf.sprintf "No value for %s" key))
+        (Auth_service_error
+           (E_GENERIC, Printf.sprintf "No value for %s in %s" key db))
     else
       value
 
@@ -387,25 +389,40 @@ module Migrate_from_pbis = struct
     (* Extract value from single regular expression group
      * raise Not_found if not match *)
     let regex = Re.Perl.(compile (re reg)) in
-      Re.exec regex input
-      |> Re.Group.all
-      |> function [|_; v|] -> v  | _ -> raise
-        (Auth_service_error (E_GENERIC, Printf.sprintf "Failed to extract %s from %s" reg input))
+    Re.exec regex input |> Re.Group.all |> function
+    | [|_; v|] ->
+        v
+    | _ ->
+        raise
+          (Auth_service_error
+             (E_GENERIC, Printf.sprintf "Failed to extract %s from %s" reg input))
 
   let parse_value_from_pbis raw_value =
-    let hex_len = 2 in (* Every hex value has two numbers *)
+    debug "parsing raw_value from pbis %s" raw_value ;
+    let hex_len = 2 in
+    (* Every hex value has two numbers *)
     (* raw value like X'58005200540055004B002D00300032002D003000330024000000' *)
     let stripped = from_single_group {|X'(.+)'$|} raw_value in
     (* stripped like 58005200540055004B002D00300032002D003000330024000000 *)
     range 0 (String.length stripped - hex_len) 4
     |> List.map (fun p -> String.sub stripped p hex_len)
     |> String.concat "" (* 585254554B2D30322D30332400 *)
-    |> from_single_group {|(.+)00$|} (* 585254554B2D30322D303324 *)
-    |> fun s -> Hex.to_string (`Hex s) (* XRTUK-02-03$ *)
-    |> from_single_group {|(.+)\$$|} (* XRTUK-02-03$ *)
+    |> from_single_group {|(.+)00$|}
+    (* 585254554B2D30322D303324 *)
+    |> fun s ->
+    Hex.to_string (`Hex s) (* XRTUK-02-03$ *) |> from_single_group {|(.+)\$$|}
 
-  let from_key key =
-    extract_raw_value_from_pbis_db key |> parse_value_from_pbis
+  (* XRTUK-02-03$ *)
+
+  let from_key ~key ~default =
+    try extract_raw_value_from_pbis_db key |> parse_value_from_pbis
+    with e ->
+      debug "Failed to migrate %s, error %s, fallback to %s" key
+        (ExnHelper.string_of_exn e)
+        default ;
+      default
+
+  let netbios_name ~default = from_key ~key:"SamAccountName" ~default
 end
 
 let get_domain_info_from_db () =
@@ -606,25 +623,6 @@ let domainify_uname ~domain uname =
   else
     Printf.sprintf "%s@%s" uname domain
 
-let build_netbios_name_for_joined_domain ~db_netbios_name =
-  let local_hostname = get_localhost_name () in
-  let pbis_netbios_key = "SamAccountName" in
-  try
-    match db_netbios_name with
-    | Some name ->
-        name
-    | None ->
-        (* There is nothing in xapi db, maybe upgrade from pbis *)
-        let pbis_netbios_name = Migrate_from_pbis.from_key pbis_netbios_key in
-        debug "Migrated netbios_name '%s' from PBIS SamAccountName"
-          pbis_netbios_name ;
-        pbis_netbios_name
-  with e ->
-    debug "Failed to migrate %s from pbis db %s, error %s, fallback to hostname"
-      pbis_netbios_key Xapi_globs.pbis_db_path
-      (ExnHelper.string_of_exn e) ;
-    local_hostname
-
 module Winbind = struct
   let name = "winbind"
 
@@ -642,22 +640,36 @@ module Winbind = struct
   let stop ~timeout ~wait_until_success =
     Xapi_systemctl.stop ~timeout ~wait_until_success name
 
-  let configure () =
+  let migrate_netbios_name ~__context =
+    (* Migrate netbios_name from PBIS db and persist to xapi db *)
+    let self = Helpers.get_localhost ~__context in
+    let hostname = Db.Host.get_hostname ~__context ~self in
+    let netbios_name = Migrate_from_pbis.netbios_name ~default:hostname in
+    (* Persist migrated netbios_name *)
+    let key = "netbios_name" in
+    let value =
+      Db.Host.get_external_auth_configuration ~__context ~self
+      |> List.remove_assoc key
+      |> fun v -> v @ [(key, netbios_name)]
+    in
+    Db.Host.set_external_auth_configuration ~__context ~self ~value ;
+    debug "Migrated netbios_name %s from PBIS" netbios_name ;
+    netbios_name
+
+  let configure ~__context =
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
     let {service_name; workgroup; netbios_name} = get_domain_info_from_db () in
-    let netbios_name =
-      build_netbios_name_for_joined_domain ~db_netbios_name:netbios_name
-    in
-
-    let workgroup =
-      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
-    in
-    config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
+    if netbios_name = None then
+      let netbios_name = migrate_netbios_name __context in
+      let workgroup =
+        query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+      in
+      config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
 
   let init_service ~__context =
     if is_ad_enabled ~__context then (
-      configure () ;
+      configure ~__context ;
       restart ~wait_until_success:false ~timeout:5.
     ) else
       debug "Skip starting %s as AD is not enabled" name

@@ -84,6 +84,7 @@ module ParseValueFromPbis = Generic.MakeStateless (struct
       [
         ( "X'58005200540055004B002D00300032002D003000330024000000'"
         , "XRTUK-02-03" )
+      ; ("X'4C004F00430041004C0048004F0053005400320024000000'", "LOCALHOST2")
       ]
 end)
 
