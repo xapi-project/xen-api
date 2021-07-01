@@ -98,9 +98,11 @@ class TestDynamicPam(TestCase):
         mock_remove.assert_called()
         mock_rename.assert_not_called()
 
-    def test_permit_admin_user(self, mock_rename, mock_chmod):
+    @patch("extauth_hook_ad.DynamicPam._query_subject")
+    def test_permit_admin_user(self, mock_query, mock_rename, mock_chmod):
         # Domain user with admin role should be included in config file
         user = build_user("CONNAPP", "radmin", True)
+        mock_query.return_value = user['other_config']['subject-name'], False
         mock_session.xenapi.subject.get_record.return_value = user
         permit_user = r"account sufficient pam_succeed_if.so user = CONNAPP\radmin"
         dynamic = DynamicPam(mock_session, args_bd_wibind)
@@ -118,9 +120,11 @@ class TestDynamicPam(TestCase):
         self.assertFalse(line_exists_in_config(dynamic._lines, permit_user))
         mock_rename.assert_called()
 
-    def test_permit_admin_group(self, mock_rename, mock_chmod):
+    @patch("extauth_hook_ad.DynamicPam._query_subject")
+    def test_permit_admin_group(self, mock_query, mock_rename, mock_chmod):
         # Domain group with admin role should be included in config file
         group = build_group("CONNAPP", "test_group", True)
+        mock_query.return_value =  group['other_config']['subject-name'], True
         mock_session.xenapi.subject.get_record.return_value = group
         permit_group = r"account sufficient pam_succeed_if.so user ingroup CONNAPP\test_group"
         dynamic = DynamicPam(mock_session, args_bd_wibind)
@@ -138,6 +142,14 @@ class TestDynamicPam(TestCase):
         self.assertFalse(line_exists_in_config(dynamic._lines, permit_group))
         mock_rename.assert_called()
 
+    @patch("extauth_hook_ad.run_cmd")
+    def test_query_subject_success(self, mock_cmd, mock_rename, mock_chmod):
+        dynamic = DynamicPam(mock_session, args_bd_wibind)
+        sid = "S-1-5-21-3143668282-2591278241-912959342-1174"
+        mock_cmd.return_value = "CONNAPP\\test_group 2\n"
+        name, is_group = dynamic._query_subject(sid)
+        self.assertEqual(r"CONNAPP\test_group", name)
+        self.assertTrue(is_group)
 
 @patch("os.chmod")
 @patch("os.rename")
