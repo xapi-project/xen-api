@@ -13,6 +13,7 @@ import abc
 import XenAPIPlugin
 import XenAPI
 import sys
+import subprocess
 import os
 import tempfile
 import logging
@@ -46,6 +47,17 @@ logger = logging.getLogger(__name__)
 class ADBackend(Enum):
     bd_pbis = 0
     bd_winbind = 1
+
+
+def run_cmd(cmd, log_cmd=True):
+    try:
+        result = subprocess.check_output(cmd)
+        if log_cmd:
+            logger.debug("{} -> {}".format(cmd, result))
+        return result.strip()
+    except Exception:
+        logger.exception("Failed to run command %s", cmd)
+        return None
 
 
 class ADConfig(object):
@@ -146,12 +158,27 @@ class DynamicPam(ADConfig):
         # Add each subject which contains the admin role
         for opaque_ref in subjects:
             subject_rec = self._session.xenapi.subject.get_record(opaque_ref)
-            sid = subject_rec['subject_identifier']
-            name = subject_rec["other_config"]["subject-name"]
-            is_group = True if subject_rec["other_config"]["subject-is-group"] == "true" else False
-            logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
             if admin_role in subject_rec['roles']:
-                self._add_subject(name, is_group)
+                sid = subject_rec['subject_identifier']
+                name, is_group = self._query_subject(sid)
+                if name:
+                    logger.debug("Permit %s with sid %s is_group as %s", name, sid, is_group)
+                    self._add_subject(name, is_group)
+
+    def _query_subject(self, sid):
+        # xapi support add subject with sid only, thus leave subject-name and subject-is-group empty
+        # This function query such info by wbinfo command
+        # Returns: (subject-name, subject-is-group)
+        subject = run_cmd(["/usr/bin/wbinfo", "-s", sid])
+        if not subject:
+            return None, None
+        comps = subject.split()
+        if len(comps) < 2:
+            logger.error("subject %s from sid %s is not valid", subject, sid)
+            return None, None
+        # CONNAPP\test_user 1  # 1: user, 2: group
+        name, category = comps[0].strip(), comps[1].strip()
+        return name, True if category == "2" else False
 
     def _add_subject(self, name, is_group):
         condition = "ingroup {}".format(name) if is_group else "= {}".format(name)
@@ -195,14 +222,13 @@ class KeyValueConfig(ADConfig):
             else: # Parse the key, value pair
                 kv = line.split(self._sep)
                 if len(kv) != 2:
-                    logger.warning("'%s' is taken as raw line with sep '%s'", line, self._sep)
+                    # Not in key value format, take it as special raw line
                     self._values[sp_key] = line
                 else:
                     k , v = kv[0].strip(), kv[1].strip()
                     if k not in self._values:
                         self._values[k] = v
                     else:
-                        logger.info("%s already exists, line %d is not configurable", k, idx)
                         self._values[sp_key] = line
 
     def _update_key_value(self, key, value):
