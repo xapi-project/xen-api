@@ -371,3 +371,29 @@ let get_cluster_config ~__context ~self =
         "failed to get cluster config from my local cluster daemon! self=%s"
         (Ref.short_string_of self) ;
       handle_error e
+
+let write_pems ~__context ~self ~pems =
+  with_clustering_lock __LOC__ @@ fun () ->
+  let dbg = Context.string_of_task __context in
+  let pems =
+    match
+      SecretString.json_rpc_of_t pems
+      |> Rpcmarshal.unmarshal Cluster_interface.pems.Rpc.Types.ty
+    with
+    | Error _ ->
+        D.error "failed to decode pems!" ;
+        raise Api_errors.(Server_error (internal_error, ["bad encoding"]))
+    | Ok x ->
+        x
+  in
+  let result =
+    Cluster_client.LocalClient.write_pems (rpc ~__context) dbg pems
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok () ->
+      D.debug "successfully wrote pems to cluster via cluster host = %s"
+        (Ref.short_string_of self)
+  | Error e ->
+      D.error "failed to write pems via cluster host = %s"
+        (Ref.short_string_of self) ;
+      handle_error e

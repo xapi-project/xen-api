@@ -93,3 +93,9 @@ val forget : __context:Context.t -> self:API.ref_Cluster_host -> unit
 
 val get_cluster_config :
   __context:Context.t -> self:API.ref_Cluster_host -> SecretString.t
+
+val write_pems :
+     __context:Context.t
+  -> self:API.ref_Cluster_host
+  -> pems:SecretString.t
+  -> unit

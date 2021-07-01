@@ -6311,6 +6311,14 @@ functor
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
             Client.Cluster_host.get_cluster_config rpc session_id self
         )
+
+      let write_pems ~__context ~self ~pems =
+        info "Cluster_host.write_pems:%s" (Ref.string_of self) ;
+        let host = Db.Cluster_host.get_host ~__context ~self in
+        let local_fn = Local.Cluster_host.write_pems ~self ~pems in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Cluster_host.write_pems rpc session_id self pems
+        )
     end
 
     module Certificate = struct end
