@@ -1002,6 +1002,8 @@ functor
               debug "Pool.enable_tls_verification sleeping on fistpoint" ;
               Thread.delay 5.0
             done ;
+            Db.Cluster.get_all ~__context
+            |> List.iter (Xapi_cluster_helpers.Pem.maybe_write_new ~__context) ;
             all_hosts
             |> List.iter (fun host ->
                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
