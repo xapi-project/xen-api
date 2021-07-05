@@ -1,0 +1,11 @@
+(executable
+  (name rrdp_squeezed)
+  (public_name xcp-rrdd-squeezed)
+  (libraries
+    rrdd-plugin
+    rrdd-plugins.libs
+    xapi-stdext-std
+    threads
+    ezxenstore
+  )
+)

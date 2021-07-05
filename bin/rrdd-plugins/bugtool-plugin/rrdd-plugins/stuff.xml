@@ -1,0 +1,4 @@
+<collect>
+  <directory pattern=".*xcp-rrdd-plugins\.log.*">/var/log</directory>
+  <directory label="rrdd_shm">/dev/shm/metrics</directory>
+</collect>
