@@ -24,4 +24,4 @@
 (rule
  (alias runtest)
  (deps varstore_privileged_cli.exe)
- (action (run %{deps})))
+ (action (run %{deps} --help=plain)))

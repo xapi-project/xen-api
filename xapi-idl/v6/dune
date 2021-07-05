@@ -24,4 +24,4 @@
 (rule
  (alias runtest)
  (deps (:x v6_cli.exe))
- (action (run %{x})))
+ (action (run %{x} --help=plain)))

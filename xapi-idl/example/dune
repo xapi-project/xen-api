@@ -10,4 +10,4 @@
 (rule
  (alias runtest)
  (deps (:x example.exe))
- (action (run %{x})))
+ (action (run %{x} --help=plain)))

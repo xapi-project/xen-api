@@ -23,4 +23,4 @@
 (rule
  (alias runtest)
  (deps (:x gpumon_cli.exe))
- (action (run %{x})))
+ (action (run %{x} --help=plain)))

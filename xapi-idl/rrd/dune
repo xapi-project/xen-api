@@ -55,5 +55,5 @@
 (rule
  (alias runtest)
  (deps (:x rrd_cli.exe))
- (action (run %{x})))
+ (action (run %{x} --help=plain)))
 
