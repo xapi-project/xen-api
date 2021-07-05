@@ -9,25 +9,17 @@ build:
 	dune build @install
 
 install:
-	dune install message-switch-core
-	dune install message-switch-unix
-ifeq ($(ASYNC),--enable-async)
-	dune install message-switch-async
-endif
+	dune install
 ifeq ($(LWT),--enable-lwt)
-	dune install message-switch-lwt
 	install -D _build/install/default/bin/message-switch $(DESTDIR)$(SBINDIR)
 endif
 	install -D _build/install/default/bin/message-cli $(DESTDIR)$(SBINDIR)
 
 uninstall:
-	dune uninstall message-switch-core
-	dune uninstall message-switch-unix
+	dune uninstall
 ifeq ($(ASYNC),--enable-async)
-	dune uninstall message-switch-async
 endif
 ifeq ($(LWT),--enable-lwt)
-	dune uninstall message-switch-lwt
 	rm -f $(DESTDIR)$(SBINDIR)/message-switch
 endif
 	rm -f $(DESTDIR)$(SBINDIR)/message-cli
