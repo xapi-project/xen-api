@@ -1,0 +1,121 @@
+1.2.0 (25-Jul-2016):
+* Networkd: Add the ability to report back when VLANs are in use
+
+1.0.1 (04-Jul-2016):
+* Add an optional monitor config file to the gvt_g type
+* Rebuild with stdext 2.0.0
+
+1.0.0 (13-Apr-2016):
+* Declare this package stable
+
+0.14.0 (09-Sep-2015):
+* support directories full of configuration file fragment overrides
+* storage: add `required_cluster_stack`
+* use queue prefix `org.xen.xapi` instead of `org.xen.xcp`
+* storage: redefine `SR.probe`
+* storage: add `clustered` and `health` for mirror monitoring
+* storage: plumb through `name_label` and `name_description`
+* guests: add guest agent licensing interface
+* storage: add `Copying` state for mirrors
+
+0.13.0 (14-Aug-2015):
+* storage: add `persistent` to VBDs
+* storage: `vdi_info` includes an optional uuid
+* storage: support for RRD datasources
+
+0.12.2 (14-Jul-2015):
+* rrd: General interface tidyup
+* storage: Add set_name_label and set_name_description
+
+0.12.1 (07-Jul-2015):
+* Add PIF.get_capabilities RPC to network interface
+* Fix HTTP header parsing
+
+0.12.0 (16-Jun-2015):
+* Add Xenops interface for virtual GPUs
+* Use DNS lookup for URIs
+
+0.11.2 (18-May-2015):
+* Update to message-switch.0.11.0
+* Unit test tidy up and travis fixes
+
+0.11.1 (15-Apr-2015):
+* Xcp_client reads the whole of the HTTP request, not just the first chunk
+
+0.11.0 (7-Apr-2015):
+* memory: Add query_reservation_of_domain
+
+0.10.0 (4-Apr-2015):
+* xen: add support for floppy disks (useful for packer, cloudinit)
+* xen: add a VM call plugin mechanism for contacting future guest
+  agents
+* xen: add IGD passthrough
+* storage: add o_direct and o_direct_reason for read caching
+* add standard travis configuration
+
+0.9.21 (20-Nov-2014):
+* storage: add a Backend_failure_with_backtrace exception
+* xen: add a Task.backtrace field
+* lib: use the new Backtrace package
+* Add an opam file for easy pinning
+
+0.9.20 (14-Oct-2014):
+* Map all HVM device names to /dev/xvd*
+
+0.9.18 (20-Aug-2014):
+* Add a cmdliner interface to Xcp_services with an example
+* Add 'with sexp' to Vm.t
+* Debug.DEBUG has an explicit module type
+
+0.9.17 (3-Jun-2014)
+* Allow HVM guests to use up to 16 devices
+* Use cohttp 0.11.2
+* Remove Re_str usage (not threadsafe)
+* Add VGPU APIs to xen interface
+* Add new RRD plugin registration interface for interdomain RRD transport
+
+0.9.14 (26-Sep-2013):
+* services: search the PATH as well as the XCP_PATH for executables
+
+0.9.13 (25-Sep-2013):
+* network: introduce Linklocal6 IPv6 address mode
+* memory: consistently use XML rather than JSON for backward compat
+* memory: allow domain 0 memory to be managed (i.e. auto-ballooned)
+* all: fix an fd leak in the channel-passing functions
+* all: add the ability to log directly to Syslog
+* all: optionally search PATH for executables rather than hard-code paths
+
+0.9.11 (15-Aug-2013):
+* Resync with xen-api f45d493e7ed9b5a60fed1db64ce52708c76465a6
+
+0.9.8 (8-Jul-2013):
+* storage: add VDI.resize
+
+0.9.8 (6-Jul-2013):
+* storage: add SR.stat, returning SR disk usage statistics
+
+0.9.7 (30-Jun-2013):
+* storage API test now copes with implementations which have to rewrite VDI
+name_labels
+
+0.9.6 (29-Jun-2013):
+* Add a simple storage API test
+
+0.9.5 (24-Jun-2013):
+* Channel passing nolonger leaks Unix domain sockets
+
+0.9.4 (23-Jun-2013):
+* Channel passing now works, for VM migrate
+
+0.9.3 (19-Jun-2013):
+* Fix a critical fd leak writing to logfiles
+
+0.9.2 (6-Jun-2013):
+* Fix #require under a toplevel by removing unused javascript dependency
+
+0.9.1 (02-Jun-2013):
+* Update to cohttp 0.9.8
+
+0.9.0 (29-May-2013):
+* first public release
+

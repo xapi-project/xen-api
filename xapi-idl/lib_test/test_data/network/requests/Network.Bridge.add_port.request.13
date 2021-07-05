@@ -1,0 +1,1 @@
+{"method":"Network.Bridge.add_port","params":[{"kind":"PVS_proxy","interfaces":["interfaces"],"name":"name","bridge":"bridge"},"string"],"id":47}
