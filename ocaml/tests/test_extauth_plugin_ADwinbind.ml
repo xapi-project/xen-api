@@ -41,6 +41,53 @@ module ExtractOuConfig = Generic.MakeStateless (struct
       ]
 end)
 
+module Range = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = int * int * int
+
+    type output_t = int list
+
+    let string_of_input_t (x, y, z) = Printf.sprintf "%d , %d, %d" x y z
+
+    let string_of_output_t = Test_printers.(list int)
+  end
+
+  let transform (s, e, step) =
+    Extauth_plugin_ADwinbind.Migrate_from_pbis.range s e step
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ((0, 10, 1), [0; 1; 2; 3; 4; 5; 6; 7; 8; 9])
+      ; ((0, 1, 1), [0])
+      ; ((0, 0, 1), [])
+      ; ((1, 0, 1), [])
+      ]
+end)
+
+module ParseValueFromPbis = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string
+
+    type output_t = string
+
+    let string_of_input_t = Test_printers.(string)
+
+    let string_of_output_t = Test_printers.(string)
+  end
+
+  let transform s =
+    Extauth_plugin_ADwinbind.Migrate_from_pbis.parse_value_from_pbis s
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        ( "X'58005200540055004B002D00300032002D003000330024000000'"
+        , "XRTUK-02-03" )
+      ; ("X'4C004F00430041004C0048004F0053005400320024000000'", "LOCALHOST2")
+      ]
+end)
+
 let test_domainify_uname =
   let open Extauth_plugin_ADwinbind in
   let check uname exp () =
@@ -349,6 +396,8 @@ let test_wbinfo_exception_of_stderr =
 let tests =
   [
     ("ADwinbind:extract_ou_config", ExtractOuConfig.tests)
+  ; ("ADwinbind:test_range", Range.tests)
+  ; ("ADwinbind:test_parse_value_from_pbis", ParseValueFromPbis.tests)
   ; ("ADwinbind:test_domainify_uname", test_domainify_uname)
   ; ("ADwinbind:test_parse_wbinfo_uid_info", test_parse_wbinfo_uid_info)
   ; ("ADwinbind:test_parse_ldap_stdout", test_parse_ldap_stdout)

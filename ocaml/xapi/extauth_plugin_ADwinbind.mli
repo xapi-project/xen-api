@@ -60,3 +60,9 @@ module Ldap : sig
 
   val parse_user : string -> (user, string) result
 end
+
+module Migrate_from_pbis : sig
+  val range : int -> int -> int -> int list
+
+  val parse_value_from_pbis : string -> string
+end

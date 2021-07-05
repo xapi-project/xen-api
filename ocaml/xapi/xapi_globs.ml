@@ -392,6 +392,9 @@ let set_iSCSI_initiator_script =
  * or the host is joining or leaving AD *)
 let domain_join_cli_cmd = ref "/opt/pbis/bin/domainjoin-cli"
 
+(* sqlite3 database PBIS used to store domain information *)
+let pbis_db_path = "/var/lib/pbis/db/registry.db"
+
 (* When set to true indicates that the host has still booted so we're initialising everything
    from scratch e.g. shared storage, sampling boot free mem etc *)
 let on_system_boot = ref false
@@ -910,6 +913,8 @@ let winbind_debug_level = ref 2
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
+let sqlite3 = ref "/usr/bin/sqlite3"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1421,6 +1426,9 @@ module Resources = struct
       , "Executed to manage Samba Database" )
     ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
     ; ("ntlm auth utility", ntlm_auth_cmd, "Used to authenticate AD users")
+    ; ( "SQLite database  management tool"
+      , sqlite3
+      , "Executed to manage SQlite Database, like PBIS database" )
     ]
 
   let essential_files =
