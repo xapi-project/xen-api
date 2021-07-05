@@ -1,0 +1,35 @@
+opam-version: "2.0"
+name: "xen-api-client"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg" ]
+license: "LGPL"
+homepage: "https://github.com/xapi-project/xen-api-client"
+dev-repo: "git+https://github.com/xapi-project/xen-api-client.git"
+bug-reports: "https://github.com/xapi-project/xen-api-client/issues"
+
+tags: [
+  "org:mirage"
+  "org:xapi-project"
+]
+
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build & >= "1.0+beta11"}
+  "astring"
+  "cohttp" {>= "0.22.0"}
+  "re"
+  "rpclib"
+  "xapi-rrd"
+  "uri"
+  "uuidm"
+  "xapi-client"
+  "xapi-types"
+  "xmlm"
+  "ounit" {with-test}
+]
+synopsis:
+  "Xen-API client library for remotely-controlling an XCP or XenServer host"
