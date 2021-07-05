@@ -1,5 +1,6 @@
 (executable
   (name rrdp_squeezed)
+  (package rrdd-plugins)
   (public_name xcp-rrdd-squeezed)
   (libraries
     rrdd-plugin
