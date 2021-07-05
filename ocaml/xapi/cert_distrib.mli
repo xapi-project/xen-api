@@ -6,6 +6,12 @@ val exchange_certificates_among_all_members : __context:Context.t -> unit
     certificates from all members in a pool and installed on all of them. On
     success, new bundles will have been generated on the members. *)
 
+val am_i_missing_certs : __context:Context.t -> bool
+
+val copy_certs_to_host : __context:Context.t -> host:API.ref_host -> unit
+(** [copy_certs_to_host ~__context ~host] collects all local certificates and
+    installs them on [host] *)
+
 val exchange_certificates_with_joiner :
      __context:Context.t
   -> uuid:string
