@@ -1,0 +1,29 @@
+opam-version: "2.0"
+maintainer: "xen-api@lists.xen.org"
+authors: [ "xen-api@lists.xen.org" ]
+license: "LGPL"
+homepage: "https://github.com/xapi-project/xen-api"
+dev-repo: "git+https://github.com/xapi-project/xen-api.git"
+bug-reports: "https://github.com/xapi-project/xen-api/issues"
+build-env: [[ XAPI_VERSION = "v0.0.0" ]]
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+  ["dune" "runtest" "-p" name "-j" jobs] {with-test}
+]
+depends: [
+  "ocaml"
+  "dune" {build & >= "1.4"}
+  "cohttp" {>= "0.22.0"}
+  "cohttp-lwt-unix"
+  "cstruct" {>= "1.0.1"}
+  "lwt" {>= "3.0.0"}
+  "lwt_ssl"
+  "re"
+  "rpclib"
+  "uri"
+  "xen-api-client"
+  "xmlm"
+  "ounit" {with-test}
+]
+synopsis:
+  "Xen-API client library for remotely-controlling a xapi host"
