@@ -24,7 +24,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-xenopsd xapi-xenopsd-simulator xapi-xenopsd-cli xapi-xenopsd-xc"
+      package: "xapi-xenopsd xapi-xenopsd-simulator xapi-xenopsd-cli xapi-xenopsd-xc xapi-squeezed"
 
     steps:
       - name: Checkout code

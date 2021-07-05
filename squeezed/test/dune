@@ -1,5 +1,5 @@
-(executable
-  (name squeeze_test_main)
+(test
+ (name squeeze_test_main)
   (flags (:standard -bin-annot))
   (libraries
     xapi-stdext-pervasives
@@ -8,10 +8,4 @@
     unix
     squeeze
   )
-)
-
-(alias
-  (name runtest)
-  (deps (:x squeeze_test_main.exe))
-  (action (run %{x}))
 )

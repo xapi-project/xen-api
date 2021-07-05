@@ -1,7 +1,8 @@
 (executable
-  (name squeezed)
-  (public_name squeezed)
-  (package xapi-squeezed)
+ (modes byte exe)
+ (name squeezed)
+ (public_name squeezed)
+ (package xapi-squeezed)
   (flags (:standard -bin-annot))
   (libraries
     xapi-stdext-threads
