@@ -1,4 +1,5 @@
 (executables
+  (modes byte exe)
   (names
     link_test_main
     client_main
@@ -9,3 +10,4 @@
     message-switch-lwt
   )
 )
+

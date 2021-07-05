@@ -1,4 +1,5 @@
 (executable
+  (modes byte exe)
   (name switch_main)
   (public_name message-switch)
   (package message-switch)
@@ -18,3 +19,4 @@
   )
   (preprocess (pps ppx_sexp_conv))
 )
+
