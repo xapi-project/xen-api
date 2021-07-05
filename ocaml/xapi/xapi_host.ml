@@ -1491,7 +1491,7 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let _new_host_cert ~dbg ~path : X509.Certificate.t =
-  let name, ip =
+  let ip_as_string, ip =
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
         let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
@@ -1501,8 +1501,9 @@ let _new_host_cert ~dbg ~path : X509.Certificate.t =
         ip
   in
   let dns_names = Networking_info.dns_names () in
+  let cn = match dns_names with [] -> ip_as_string | dns :: _ -> dns in
   let ips = [ip] in
-  Gencertlib.Selfcert.host ~name ~dns_names ~ips path
+  Gencertlib.Selfcert.host ~name:cn ~dns_names ~ips path
 
 let reset_server_certificate ~__context ~host =
   let dbg = Context.string_of_task __context in
