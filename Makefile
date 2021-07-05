@@ -9,20 +9,10 @@ build:
 	dune build @install
 
 install:
-	dune install
-ifeq ($(LWT),--enable-lwt)
-	install -D _build/install/default/bin/message-switch $(DESTDIR)$(SBINDIR)
-endif
-	install -D _build/install/default/bin/message-cli $(DESTDIR)$(SBINDIR)
+	dune install --destdir=$(DESTDIR)
 
 uninstall:
 	dune uninstall
-ifeq ($(ASYNC),--enable-async)
-endif
-ifeq ($(LWT),--enable-lwt)
-	rm -f $(DESTDIR)$(SBINDIR)/message-switch
-endif
-	rm -f $(DESTDIR)$(SBINDIR)/message-cli
 
 clean:
 	dune clean
