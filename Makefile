@@ -38,6 +38,9 @@ clean:
 test:
 	dune runtest --no-buffer --profile=release
 
+test-quick:
+	dune build @runtest-quick  --profile=$(PROFILE)
+
 # requires odoc
 doc:
 	dune build @doc --profile=release
