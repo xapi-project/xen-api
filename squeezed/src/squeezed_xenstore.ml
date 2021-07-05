@@ -11,12 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xcp_service
-
 module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
 open D
-open Xs_protocol
 module Client = Xs_client_unix.Client (Xs_transport_unix_client)
 
 let myclient = ref None
@@ -65,4 +62,5 @@ let get_client () =
           match !myclient with None -> assert false | Some x -> x
         )
       | Some c ->
-          c)
+          c
+  )

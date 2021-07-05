@@ -13,9 +13,8 @@
  *)
 
 (** @group Memory *)
-open Xcp_service
-
 open Memory_interface
+
 open Squeezed_state
 open Squeezed_xenstore
 module Unixext = Xapi_stdext_unix.Unixext
@@ -37,12 +36,14 @@ module Host_free_memory_event = struct
     Threadext.Mutex.execute m (fun () ->
         while not !accesible do
           Condition.wait c m
-        done)
+        done
+    )
 
   let set () =
     Threadext.Mutex.execute m (fun () ->
         accesible := true ;
-        Condition.signal c)
+        Condition.signal c
+    )
 end
 
 type context = unit
@@ -51,7 +52,7 @@ type context = unit
     here. *)
 let big_server_mutex = Xapi_stdext_threads.Threadext.Mutex.create ()
 
-let wrap dbg f =
+let wrap _dbg f =
   try Xapi_stdext_threads.Threadext.Mutex.execute big_server_mutex f with
   | Squeeze.Cannot_free_this_much_memory (needed, free) ->
       (* NB both needed and free have been inflated by the lowmem_emergency_pool
@@ -60,7 +61,8 @@ let wrap dbg f =
       and free = Int64.sub free Squeeze_xen.target_host_free_mem_kib in
       raise
         (MemoryError
-           (Memory_interface.Cannot_free_this_much_memory (needed, free)))
+           (Memory_interface.Cannot_free_this_much_memory (needed, free))
+        )
   | Squeeze.Domains_refused_to_cooperate domids ->
       raise (MemoryError (Memory_interface.Domains_refused_to_cooperate domids))
 
@@ -71,25 +73,29 @@ let start_balance_thread balance_check_interval =
           Thread.delay !balance_check_interval ;
           wrap "auto-balance" (fun () ->
               if Squeeze_xen.is_host_memory_unbalanced ~xc then
-                Squeeze_xen.balance_memory ~xc)
-        done)
+                Squeeze_xen.balance_memory ~xc
+          )
+        done
+    )
   in
   let (_ : Thread.t) = Thread.create body () in
   ()
 
-let get_diagnostics dbg = "diagnostics not yet available"
+let get_diagnostics _dbg = "diagnostics not yet available"
 
 let login dbg service_name =
   wrap dbg (fun () ->
       (* We assume only one instance of a named service logs in at a time and
          therefore can use the service name as a session_id. *)
       (* remove any existing reservations associated with this service *)
-      Xenctrl.with_intf (fun xc ->
-          try
-            Client.immediate (get_client ()) (fun xs ->
-                Client.rm xs (state_path _service ^ "/" ^ service_name))
-          with Xs_protocol.Enoent _ -> ()) ;
-      service_name)
+      ( try
+          Client.immediate (get_client ()) (fun xs ->
+              Client.rm xs (state_path _service ^ "/" ^ service_name)
+          )
+        with Xs_protocol.Enoent _ -> ()
+      ) ;
+      service_name
+  )
 
 let reserve_memory dbg session_id kib =
   let reservation_id = Uuidm.to_string (Uuidm.create `V4) in
@@ -100,8 +106,10 @@ let reserve_memory dbg session_id kib =
           Squeeze_xen.free_memory ~xc kib ;
           debug "reserved %Ld kib for reservation %s" kib reservation_id ;
           add_reservation _service session_id reservation_id
-            (Int64.to_string kib)) ;
-      reservation_id)
+            (Int64.to_string kib)
+      ) ;
+      reservation_id
+  )
 
 let reserve_memory_range dbg session_id min max =
   let reservation_id = Uuidm.to_string (Uuidm.create `V4) in
@@ -115,12 +123,12 @@ let reserve_memory_range dbg session_id min max =
           debug "reserved %Ld kib for reservation %s" amount reservation_id ;
           add_reservation _service session_id reservation_id
             (Int64.to_string amount) ;
-          (reservation_id, amount)))
+          (reservation_id, amount)
+      )
+  )
 
 let delete_reservation dbg session_id reservation_id =
-  wrap dbg (fun () ->
-      Xenctrl.with_intf (fun xc ->
-          del_reservation _service session_id reservation_id))
+  wrap dbg (fun () -> del_reservation _service session_id reservation_id)
 
 let transfer_reservation_to_domain dbg session_id reservation_id domid =
   wrap dbg (fun () ->
@@ -131,46 +139,54 @@ let transfer_reservation_to_domain dbg session_id reservation_id domid =
             in
             let kib =
               Client.immediate (get_client ()) (fun xs ->
-                  Client.read xs reservation_id_path)
+                  Client.read xs reservation_id_path
+              )
             in
             (* This code is single-threaded, no need to make this transactional: *)
             Client.immediate (get_client ()) (fun xs ->
                 Client.write xs
                   (Printf.sprintf "/local/domain/%d/memory/initial-reservation"
-                     domid)
-                  kib) ;
+                     domid
+                  )
+                  kib
+            ) ;
             Client.immediate (get_client ()) (fun xs ->
                 Client.write xs
-                  (Printf.sprintf "/local/domain/%d/memory/reservation-id"
-                     domid)
-                  reservation_id) ;
+                  (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid)
+                  reservation_id
+            ) ;
             Client.immediate (get_client ()) (fun xs ->
                 Client.write xs
                   (path [reservation_id_path; "in-transfer"])
-                  (string_of_int domid)) ;
+                  (string_of_int domid)
+            ) ;
             Option.iter
-              (fun maxmem ->
-                Squeeze_xen.Domain.set_maxmem_noexn xc domid maxmem)
+              (fun maxmem -> Squeeze_xen.Domain.set_maxmem_noexn xc domid maxmem)
               (try Some (Int64.of_string kib) with _ -> None)
           with Xs_protocol.Enoent _ ->
-            raise (MemoryError (Unknown_reservation reservation_id))))
+            raise (MemoryError (Unknown_reservation reservation_id))
+      )
+  )
 
-let query_reservation_of_domain dbg session_id domid =
+let query_reservation_of_domain dbg _session_id domid =
   wrap dbg (fun () ->
       try
         let reservation_id =
           Client.immediate (get_client ()) (fun xs ->
               Client.read xs
-                (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid))
+                (Printf.sprintf "/local/domain/%d/memory/reservation-id" domid)
+          )
         in
         reservation_id
-      with Xs_protocol.Enoent _ -> raise (MemoryError No_reservation))
+      with Xs_protocol.Enoent _ -> raise (MemoryError No_reservation)
+  )
 
 let balance_memory dbg =
   wrap dbg (fun () ->
-      Xenctrl.with_intf (fun xc -> Squeeze_xen.balance_memory ~xc))
+      Xenctrl.with_intf (fun xc -> Squeeze_xen.balance_memory ~xc)
+  )
 
-let get_host_reserved_memory dbg = Squeeze_xen.target_host_free_mem_kib
+let get_host_reserved_memory _dbg = Squeeze_xen.target_host_free_mem_kib
 
 let get_total_memory_from_xen () =
   try
@@ -179,7 +195,10 @@ let get_total_memory_from_xen () =
         Some
           (Int64.mul 1024L
              (Xenctrl.pages_to_kib
-                (Int64.of_nativeint di.Xenctrl.total_memory_pages))))
+                (Int64.of_nativeint di.Xenctrl.total_memory_pages)
+             )
+          )
+    )
   with _ ->
     error "Failed get total memory from Xen" ;
     None
@@ -204,7 +223,8 @@ let parse_sysfs_balloon () =
   List.map
     (fun key ->
       let s = Unixext.string_of_file (sysfs_stem ^ key) in
-      (key, Int64.of_string (String.trim s)))
+      (key, Int64.of_string (String.trim s))
+      )
     keys
 
 let get_total_memory_from_balloon_driver () =
@@ -231,7 +251,8 @@ let get_total_memory_from_proc_meminfo () =
       try loop ()
       with End_of_file ->
         error "Failed to read MemTotal from /proc/meminfo" ;
-        None)
+        None
+      )
     (fun () -> close_in ic)
 
 (* The total amount of memory addressable by this OS. If we cannot get it from
@@ -258,9 +279,11 @@ let get_domain_zero_policy dbg =
                 | None ->
                     dom0_max
                 | Some x ->
-                    x )
+                    x
+              )
           else
-            Fixed_size dom0_max)
+            Fixed_size dom0_max
+  )
 
 (* Calculates the amount of free memory on the host at boot time. *)
 (* Returns a result that is equivalent to (T - X), where:         *)
@@ -345,7 +368,7 @@ let record_boot_time_host_free_memory () =
   debug "Boot time host free memory calculated" ;
   Host_free_memory_event.set ()
 
-let get_host_initial_free_memory dbg =
+let get_host_initial_free_memory _dbg =
   try
     Host_free_memory_event.wait () ;
     Int64.of_string (Unixext.string_of_file initial_host_free_memory_file)

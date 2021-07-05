@@ -49,7 +49,8 @@ class virtual vm initial_domain =
         failwith
           (Printf.sprintf
              "Target set above max_mem domid %d; max_mem = %Ld; target = %Ld"
-             domain.domid domain.memory_max_kib new_target_kib) ;
+             domain.domid domain.memory_max_kib new_target_kib
+          ) ;
       domain <- {domain with target_kib= new_target_kib}
 
     (** Helper function to set the domain's maxmem *)
@@ -58,7 +59,8 @@ class virtual vm initial_domain =
         failwith
           (Printf.sprintf
              "mem_max set below target domid %d; max_mem = %Ld; target = %Ld"
-             domain.domid new_max_kib domain.target_kib) ;
+             domain.domid new_max_kib domain.target_kib
+          ) ;
       domain <- {domain with memory_max_kib= new_max_kib}
 
     (** Given a number of time units since the last call to 'update', compute
@@ -80,7 +82,8 @@ class virtual vm initial_domain =
           (Printf.sprintf
              "Attempted to allocate more than host_free_mem domid = %d; delta \
               = %Ld; free = %Ld"
-             domain.domid delta host_free_mem) ;
+             domain.domid delta host_free_mem
+          ) ;
       domain <-
         {domain with memory_actual_kib= domain.memory_actual_kib +* delta} ;
       time_of_last_update <- time ;
@@ -283,12 +286,14 @@ let scenario_e =
            freed and everything balanced *)
         new stuck_vm
           (domain_make 0 true (*min*) 5000L (*target*) 7000L (*max*) 7000L
-             (*actual*) 7000L 7000L 0L)
+             (*actual*) 7000L 7000L 0L
+          )
       ; (* The working domain is using less than it should be if the memory was
            freed and everything balanced *)
         new idealised_vm
           (domain_make 1 true (*min*) 5000L (*target*) 6000L (*max*) 11000L
-             (*actual*) 6000L 6000L 0L)
+             (*actual*) 6000L 6000L 0L
+          )
           100L
       ]
   ; host_free_mem_kib= 0L
@@ -382,7 +387,8 @@ let verify_memory_is_guaranteed_free host kib =
       (Printf.sprintf
          "Memory not guaranteed free: free_mem = %Ld; total guests could take \
           = %Ld; required free = %Ld"
-         host.free_mem_kib total kib)
+         host.free_mem_kib total kib
+      )
 
 let files_created_by_scenario scenario =
   [
@@ -419,7 +425,8 @@ let simulate scenario =
     List.iter
       (fun d ->
         let delta = d#update !host_free_mem_kib time in
-        host_free_mem_kib := !host_free_mem_kib -* delta)
+        host_free_mem_kib := !host_free_mem_kib -* delta
+        )
       !all_domains
   in
   let dat_filename = Printf.sprintf "%s.dat" scenario.name in
@@ -460,7 +467,8 @@ let simulate scenario =
       debug "%s: attempting to free %Ld KiB" scenario.name
         scenario.required_mem_kib ;
       Squeeze.change_host_free_memory ~fistpoints:scenario.fistpoints io
-        scenario.required_mem_kib (fun x -> x >= scenario.required_mem_kib) ;
+        scenario.required_mem_kib (fun x -> x >= scenario.required_mem_kib
+      ) ;
       debug "%s: %Ld KiB of memory has been freed" scenario.name
         scenario.required_mem_kib ;
       (* Check that even if all domains ballooned up to target + accuracy, this
@@ -470,15 +478,18 @@ let simulate scenario =
       host_free_mem_kib := !host_free_mem_kib -* 500L ;
       (* Phase 3: give free memory back to VMs *)
       Squeeze.change_host_free_memory ~fistpoints:scenario.fistpoints io 0L
-        (fun x -> x <= 32L) ;
+        (fun x -> x <= 32L
+      ) ;
       debug "%s: After rebalancing only %Ld KiB of memory is used" scenario.name
         !host_free_mem_kib ;
-      verify_memory_is_guaranteed_free (make_host ()) 0L)
+      verify_memory_is_guaranteed_free (make_host ()) 0L
+      )
     (fun () ->
       close_out dat_oc ;
       close_out out_oc ;
       debug_oc := stderr ;
-      Gnuplot.write_gp scenario.name (make_host ()) cols)
+      Gnuplot.write_gp scenario.name (make_host ()) cols
+      )
 
 let failed_scenarios = ref []
 
@@ -501,7 +512,8 @@ let run_test scenario =
       scenario_error_table :=
         ( scenario
         , Printf.sprintf "simulation was expected to succeed but failed: %s"
-            (Printexc.to_string e) )
+            (Printexc.to_string e)
+        )
         :: !scenario_error_table
     ) else
       List.iter Xapi_stdext_unix.Unixext.unlink_safe

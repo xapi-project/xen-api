@@ -11,14 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xcp_service
 open Squeezed_xenstore
 
 module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
 open D
-
-let ( |> ) a b = b a
 
 let _service = "squeezed"
 
@@ -58,11 +55,13 @@ let reservation_path service session_id reservation_id =
 
 let add_reservation service session_id reservation_id kib =
   Client.immediate (get_client ()) (fun xs ->
-      Client.write xs (reservation_path service session_id reservation_id) kib)
+      Client.write xs (reservation_path service session_id reservation_id) kib
+  )
 
 let del_reservation service session_id reservation_id =
   Client.immediate (get_client ()) (fun xs ->
-      Client.rm xs (reservation_path service session_id reservation_id))
+      Client.rm xs (reservation_path service session_id reservation_id)
+  )
 
 (** Return the total amount of memory reserved *)
 let total_reservations service domain_infolist =
@@ -85,7 +84,9 @@ let total_reservations service domain_infolist =
            if already_counted sid rid then
              0L
            else
-             Int64.of_string (xs_read (path [""; service; "state"; sid; rid])))
-         rids)
+             Int64.of_string (xs_read (path [""; service; "state"; sid; rid]))
+           )
+         rids
+      )
   in
   List.fold_left Int64.add 0L (List.map session_total session_ids)
