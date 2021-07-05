@@ -54,13 +54,13 @@ module TJsonrpc : MARSHALLER = struct
   (* there is a ?strict parameter, and the signature would not match *)
   let of_string s = of_string s
 
-  let to_string ?(strict : _) t = to_string t
+  let to_string ?strict:_ t = to_string t
 
   let response_of_string r = response_of_string r
 
-  let string_of_call ?(strict : _) call = string_of_call call
+  let string_of_call ?strict:_ call = string_of_call call
 
-  let string_of_response ?(strict : _) response = string_of_response response
+  let string_of_response ?strict:_ response = string_of_response response
 end
 
 module TXmlrpc : MARSHALLER = struct
@@ -72,11 +72,11 @@ module TXmlrpc : MARSHALLER = struct
 
   let of_string s = of_string s
 
-  let to_string ?(strict : _) t = to_string t
+  let to_string ?strict:_ t = to_string t
 
-  let string_of_call ?(strict : _) call = string_of_call call
+  let string_of_call ?strict:_ call = string_of_call call
 
-  let string_of_response ?(strict : _) response = string_of_response response
+  let string_of_response ?strict:_ response = string_of_response response
 end
 
 (** The following module implements test cases that write test RPC requests and
