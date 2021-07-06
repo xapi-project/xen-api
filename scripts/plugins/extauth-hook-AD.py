@@ -177,8 +177,21 @@ class DynamicPam(ADConfig):
             logger.error("subject %s from sid %s is not valid", subject, sid)
             return None, None
         # CONNAPP\test_user 1  # 1: user, 2: group
-        name, category = comps[0].strip(), comps[1].strip()
-        return name, True if category == "2" else False
+        is_group = True if comps[1].strip() =="2" else False
+        _name = comps[0].strip()
+        # The _name returned name contains uppercase, need to format it from subject details
+        return self._query_subject_name(_name, is_group), is_group
+
+    def _query_subject_name(self, _name, is_group):
+        sub_cmd = "--group-info" if is_group else "--user-info"
+        cmd = ["/usr/bin/wbinfo", sub_cmd, _name]
+        subject_detail = run_cmd(cmd)
+        if not subject_detail:
+           logger.error("Failed to lookup subject details %s", _name)
+           return None
+        # CONNAPP\ugroup:x:3000009: --> group details
+        # CONNAPP\iugroup:*:3000016:3000000:IUgroup:/home/CONNAPP/iugroup:/bin/bash --> user details
+        return subject_detail.split(":")[0]
 
     def _add_subject(self, name, is_group):
         condition = "ingroup" if is_group else "="

@@ -144,9 +144,18 @@ class TestDynamicPam(TestCase):
 
     @patch("extauth_hook_ad.run_cmd")
     def test_query_subject_success(self, mock_cmd, mock_rename, mock_chmod):
+        def cmd_result(cmd):
+            if "-s" in cmd:
+                return "CONNAPP\\test_group 2\n" # mock "wbinfo -s" to lookup sid
+            elif "--group-info" in cmd:
+                return "CONNAPP\\test_group:x:3000009:" # mock "wbinfo --group-info" to lookup group details
+            elif "--user-info" in cmd:
+                return "CONNAPP\\iugroup:*:3000016:3000000:IUgroup:/home/CONNAPP/iugroup:/bin/bash"
+            else:
+                raise ValueError("Unknown subcommand from wbinfo")
         dynamic = DynamicPam(mock_session, args_bd_wibind)
         sid = "S-1-5-21-3143668282-2591278241-912959342-1174"
-        mock_cmd.return_value = "CONNAPP\\test_group 2\n"
+        mock_cmd.side_effect = cmd_result
         name, is_group = dynamic._query_subject(sid)
         self.assertEqual(r"CONNAPP\test_group", name)
         self.assertTrue(is_group)
