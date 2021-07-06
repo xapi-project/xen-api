@@ -12,7 +12,4 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = [
-  | `Session_id of string
-  | `UserPassword of string * string
-]
+type t = [`Session_id of string | `UserPassword of string * string]
