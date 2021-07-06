@@ -1,4 +1,5 @@
 include config.mk
+DESTDIR ?=
 
 .PHONY: release build install uninstall clean test doc format
 
@@ -9,10 +10,10 @@ build:
 	dune build @install
 
 install:
-	dune install --destdir=$(DESTDIR)
+	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR)
 
 uninstall:
-	dune uninstall
+	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR)
 
 clean:
 	dune clean
