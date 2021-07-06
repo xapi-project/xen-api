@@ -176,18 +176,18 @@ class DynamicPam(ADConfig):
         if len(comps) < 2:
             logger.error("subject %s from sid %s is not valid", subject, sid)
             return None, None
-        # CONNAPP\test_user 1  # 1: user, 2: group
-        is_group = True if comps[1].strip() =="2" else False
-        _name = comps[0].strip()
-        # The _name returned name contains uppercase, need to format it from subject details
-        return self._query_subject_name(_name, is_group), is_group
+        # CONNAPP\IUgroup 1  # 1: user, 2: group
+        is_group = comps[1].strip() == "2"
+        real_name = comps[0].strip()
+        # The real_name returned name contains uppercase, need to format it from subject details
+        return self._query_subject_name(real_name, is_group), is_group
 
-    def _query_subject_name(self, _name, is_group):
+    def _query_subject_name(self, real_name, is_group):
         sub_cmd = "--group-info" if is_group else "--user-info"
-        cmd = ["/usr/bin/wbinfo", sub_cmd, _name]
+        cmd = ["/usr/bin/wbinfo", sub_cmd, real_name]
         subject_detail = run_cmd(cmd)
         if not subject_detail:
-           logger.error("Failed to lookup subject details %s", _name)
+           logger.error("Failed to lookup subject details %s", real_name)
            return None
         # CONNAPP\ugroup:x:3000009: --> group details
         # CONNAPP\iugroup:*:3000016:3000000:IUgroup:/home/CONNAPP/iugroup:/bin/bash --> user details
