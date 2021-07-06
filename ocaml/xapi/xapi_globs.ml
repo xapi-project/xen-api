@@ -862,6 +862,8 @@ let ntlm_auth_cmd = ref "/usr/bin/ntlm_auth"
 
 let winbind_debug_level = ref 2
 
+let winbind_cache_time = ref 300
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let sqlite3 = ref "/usr/bin/sqlite3"
@@ -925,6 +927,7 @@ let xapi_globs_spec =
   ; ("xapi_clusterd_port", Int xapi_clusterd_port)
   ; ("max_active_sr_scans", Int max_active_sr_scans)
   ; ("winbind_debug_level", Int winbind_debug_level)
+  ; ("winbind_cache_time", Int winbind_cache_time)
   ]
 
 let options_of_xapi_globs_spec =

@@ -513,6 +513,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; "winbind refresh tickets = Yes"
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
+      ; Printf.sprintf "winbind cache time = %d" !Xapi_globs.winbind_cache_time
       ; "kerberos encryption types = strong"
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
@@ -662,12 +663,13 @@ module Winbind = struct
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
     let {service_name; workgroup; netbios_name} = get_domain_info_from_db () in
-    if netbios_name = None then
-      let netbios_name = Migrate_from_pbis.migrate_netbios_name __context in
-      let workgroup =
-        query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
-      in
-      config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
+    let netbios_name = match netbios_name with
+      | None -> Migrate_from_pbis.migrate_netbios_name __context
+      | Some name -> name in
+    let workgroup =
+      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+    in
+    config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
 
   let init_service ~__context =
     if is_ad_enabled ~__context then (
@@ -922,8 +924,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ~netbios_name ;
       debug "Succeed to join domain %s" service_name
     with
-    | Forkhelpers.Spawn_internal_error _ ->
-        let msg = Printf.sprintf "Failed to join domain %s" service_name in
+    | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
+        let msg = Printf.sprintf "Failed to join domain %s: %s" service_name stdout in
         error "Join domain error: %s" msg ;
         raise (Auth_service_error (E_GENERIC, msg))
     | Xapi_systemctl.Systemctl_fail _ ->
