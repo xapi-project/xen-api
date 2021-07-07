@@ -44,6 +44,8 @@ let create_pool_record ~__context =
       ~policy_no_vendor_device:false ~live_patching_disabled:false
       ~uefi_certificates:"" ~is_psr_pending:false
       ~tls_verification_enabled:false ~repositories:[]
+      ~client_certificate_auth_enabled:false
+      ~client_certificate_auth_name:""
 
 let set_master_ip ~__context =
   let ip =
