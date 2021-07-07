@@ -1,0 +1,11 @@
+#! /bin/bash
+# wait randomly up to 10m (600s) and refresh the pool-internal
+# host certificate of this host
+
+set -e
+
+source /etc/xensource-inventory
+host="$INSTALLATION_UUID"
+/usr/bin/sleep $((RANDOM % 600))
+/opt/xensource/bin/xe host-refresh-server-certificate host="$host"
+exit 0

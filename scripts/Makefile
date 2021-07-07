@@ -142,6 +142,7 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	$(IPROG) license-check $(DESTDIR)/etc/cron.daily/
 	$(IPROG) certificate-check $(DESTDIR)/etc/cron.daily/
+	$(IPROG) certificate-refresh $(DESTDIR)/etc/cron.daily/
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
