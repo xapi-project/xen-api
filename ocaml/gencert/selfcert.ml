@@ -35,7 +35,7 @@ let write_certs path pkcs12 =
   in
   R.trap_exn f () |> R.error_exn_trap_to_msg
 
-let expire_in days =
+let expire_in_days days =
   let seconds = days * 24 * 60 * 60 in
   let start = Ptime_clock.now () in
   match Ptime.(add_span start @@ Span.of_int_s seconds) with
@@ -44,12 +44,14 @@ let expire_in days =
   | None ->
       R.error_msgf "can't represent %d as time span" days
 
+let expire_never () = (Ptime_clock.now (), Ptime.max)
+
 let sans dns_names ips =
   let sans = X509.General_name.(singleton DNS dns_names |> add IP ips) in
   X509.Extension.(singleton Subject_alt_name (false, sans))
 
-let sign days privkey pubkey issuer req extensions =
-  expire_in days >>= fun (valid_from, valid_until) ->
+let sign expiration privkey pubkey issuer req extensions =
+  let valid_from, valid_until = expiration in
   match (privkey, pubkey) with
   | `RSA priv, `RSA pub when Rsa.pub_of_priv priv = pub ->
       X509.Signing_request.sign ~valid_from ~valid_until ~extensions req privkey
@@ -83,7 +85,7 @@ let generate_private_key length =
   let stdout, _stderr = call_openssl args in
   stdout
 
-let selfsign' issuer extensions key_length days =
+let selfsign' issuer extensions key_length expire =
   let rsa =
     try
       generate_private_key key_length
@@ -102,7 +104,7 @@ let selfsign' issuer extensions key_length days =
   let privkey = `RSA rsa in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
   let req = X509.Signing_request.create issuer privkey in
-  let* cert = sign days privkey pubkey issuer req extensions in
+  let* cert = sign expiration privkey pubkey issuer req extensions in
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
   let pkcs12 =
@@ -110,43 +112,52 @@ let selfsign' issuer extensions key_length days =
   in
   Ok (cert, pkcs12)
 
-let selfsign issuer extensions key_length days certfile =
-  let* cert, pkcs12 = selfsign' issuer extensions key_length days in
+let selfsign issuer extensions key_length expiration certfile =
+  let* cert, pkcs12 = selfsign' issuer extensions key_length expiration in
   let* () = write_certs certfile pkcs12 in
   Ok cert
 
 let host ~name ~dns_names ~ips pemfile =
-  let expire_days = 3650 in
-  let key_length = 2048 in
-  let issuer =
-    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN name))]
+  let res =
+    let* expiration = expire_in_days (365 * 10) in
+    let key_length = 2048 in
+    let issuer =
+      [
+        X509.Distinguished_name.(Relative_distinguished_name.singleton (CN name))
+      ]
+    in
+    let extensions = sans dns_names ips in
+    (* make sure name is part of alt_names because CN is deprecated and
+       that there are no duplicates *)
+    selfsign issuer extensions key_length expiration pemfile
   in
-  let extensions = sans dns_names ips in
-  (* make sure name is part of alt_names because CN is deprecated and
-     that there are no duplicates *)
-  selfsign issuer extensions key_length expire_days pemfile
-  |> R.failwith_error_msg
+  R.failwith_error_msg res
 
 let xapi_pool ~uuid pemfile =
-  let expire_days = 3650 in
-  let key_length = 2048 in
-  let issuer =
-    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN uuid))]
+  let res =
+    let* expiration = expire_in_days (365 * 10) in
+    let key_length = 2048 in
+    let issuer =
+      [
+        X509.Distinguished_name.(Relative_distinguished_name.singleton (CN uuid))
+      ]
+    in
+    let extensions = X509.Extension.empty in
+    let* (_ : X509.Certificate.t) =
+      selfsign issuer extensions key_length expiration pemfile
+    in
+    Ok ()
   in
-  let extensions = X509.Extension.empty in
-  selfsign issuer extensions key_length expire_days pemfile
-  >>| (fun _ -> ())
-  |> R.failwith_error_msg
+  R.failwith_error_msg res
 
 let xapi_cluster ~cn =
-  (* in practical terms, never expire *)
-  let expire_days = 365 * 2000 in
+  let expiration = expire_never () in
   let key_length = 2048 in
   let issuer =
     [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
   in
   let extensions = X509.Extension.empty in
   let _, pkcs12 =
-    selfsign' issuer extensions key_length expire_days |> R.failwith_error_msg
+    selfsign' issuer extensions key_length expiration |> R.failwith_error_msg
   in
   pkcs12
