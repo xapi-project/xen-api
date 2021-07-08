@@ -78,31 +78,35 @@ let call_openssl args =
   in
   Forkhelpers.execute_command_get_output openssl ~env args
 
-(** [generate_private_key] calls openssl to generate an RSA key of
-  [length] bits. *)
-let generate_private_key length =
+(** [generate_pub_priv_key] calls openssl to generate an RSA key of
+    [length] bits. *)
+let generate_pub_priv_key length =
   let args = ["genrsa"; string_of_int length] in
-  let stdout, _stderr = call_openssl args in
-  stdout
-
-let selfsign' issuer extensions key_length expire =
-  let rsa =
+  let* rsa_string =
     try
-      generate_private_key key_length
-      |> Cstruct.of_string
-      |> X509.Private_key.decode_pem
-      |> R.failwith_error_msg
-      |> function
-      | `RSA x ->
-          x
+      let stdout, _stderr = call_openssl args in
+      Ok stdout
     with e ->
-      let msg =
-        Printf.sprintf "generating RSA key failed: %s" (Printexc.to_string e)
-      in
-      D.error "%s" msg ; failwith msg
+      let msg = "generating RSA key failed" in
+      D.error "selfcert.ml: %s" msg ;
+      Debug.log_backtrace e (Backtrace.get e) ;
+      R.error_msg msg
   in
-  let privkey = `RSA rsa in
+  let* privkey =
+    rsa_string
+    |> Cstruct.of_string
+    |> X509.Private_key.decode_pem
+    |> R.reword_error (fun _ -> R.msg "decoding private key failed")
+  in
+  let* rsa =
+    try match privkey with `RSA x -> Ok x
+    with _ -> R.error_msg "generated private key does not use RSA"
+  in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
+  Ok (privkey, pubkey)
+
+let selfsign' issuer extensions key_length expiration =
+  let* privkey, pubkey = generate_pub_priv_key key_length in
   let req = X509.Signing_request.create issuer privkey in
   let* cert = sign expiration privkey pubkey issuer req extensions in
   let key_pem = X509.Private_key.encode_pem privkey in
