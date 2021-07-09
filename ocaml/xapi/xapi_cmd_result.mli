@@ -28,3 +28,6 @@ val find : string -> t -> string option
 
 (* find result from the whole result lines *)
 val of_output_opt : sep:char -> key:string -> lines:string -> string option
+
+(* find result from the whole result lines *)
+val of_output: sep:char -> key:string -> string -> string
