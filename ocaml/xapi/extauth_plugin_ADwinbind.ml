@@ -188,11 +188,11 @@ module Ldap = struct
       Ok stdout
     with _ -> Error (generic_ex "net ads query failed")
 
-  let query_user sid =
+  let query_user sid domain =
     let* stdout =
       try
         let args =
-          ["ads"; "sid"; "-d"; debug_level (); "--machine-pass"; sid]
+          ["ads"; "sid"; "-d"; debug_level (); "--server"; domain; "--machine-pass"; sid]
         in
         let stdout =
           Helpers.call_script ~log_output:On_failure !Xapi_globs.net_cmd args
@@ -275,6 +275,26 @@ module Wbinfo = struct
         Ok (String.trim sid)
     | [] ->
         Error (parsing_ex args)
+
+  let domain_of_uname uname =
+    (*
+     * Get domain from domainified uname, which is formatted as NETBIOS\sAMAccountName
+     *
+     * convert NETBIOS name to domain by wbinfo --domain-info
+     *
+     * example output:
+     * Name              : UCC
+     * Alt_Name          : ucc.local
+     * SID               : S-1-5-21-2850064427-2368465266-4270348630
+     * *)
+    match String.split_on_char '\\' uname with
+    | [domain; _] -> (
+      let args = ["--domain-info"; domain] in
+      let* stdout =  call_wbinfo args in
+      try
+        Ok (Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout)
+      with _ -> Error (parsing_ex args))
+    | _ -> Error (generic_ex "Invalid domain user name %s" uname)
 
   type name = User of string | Other of string
 
@@ -801,6 +821,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let query_subject_information_user (name : string) (uid : int) (sid : string)
       =
     let* {gecos; gid} = Wbinfo.uid_info_of_uid uid in
+    let* domain = Wbinfo.domain_of_uname name in
     let* {
            upn
          ; account_disabled
@@ -808,7 +829,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
          ; account_locked
          ; password_expired
          } =
-      Ldap.query_user sid
+      Ldap.query_user sid domain
     in
     Ok
       [
