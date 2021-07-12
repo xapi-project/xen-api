@@ -359,18 +359,21 @@ let create_as_necessary ~__context ~host =
   | None ->
       ()
 
-let get_cluster_config ~__context ~self =
-  (* don't take the clustering lock as this is a nested call *)
+let get_local_cluster_config ~__context =
   let dbg = Context.string_of_task __context in
   let result = Cluster_client.LocalClient.get_config (rpc ~__context) dbg in
   match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
   | Ok cc ->
-      Cluster_interface.encode_cluster_config cc |> SecretString.of_string
+      cc
   | Error e ->
-      D.error
-        "failed to get cluster config from my local cluster daemon! self=%s"
-        (Ref.short_string_of self) ;
+      D.error "failed to get cluster config from my local cluster daemon!" ;
       handle_error e
+
+let get_cluster_config ~__context ~self =
+  (* don't take the clustering lock as this is a nested call *)
+  get_local_cluster_config ~__context
+  |> Cluster_interface.encode_cluster_config
+  |> SecretString.of_string
 
 let write_pems ~__context ~self ~pems =
   with_clustering_lock __LOC__ @@ fun () ->
@@ -397,3 +400,28 @@ let write_pems ~__context ~self ~pems =
       D.error "failed to write pems via cluster host = %s"
         (Ref.short_string_of self) ;
       handle_error e
+
+let is_local_cluster_host_using_xapis_pem ~__context =
+  (* a cluster daemon is using xapi's pem iff it does not have a pem in its config *)
+  if not !Xapi_clustering.Daemon.enabled then (
+    D.error
+      "Pem.is_local_cluster_host_using_xapis_pem? no, the daemon is not enabled" ;
+    false
+  ) else
+    match get_local_cluster_config ~__context with
+    | exception e ->
+        D.error
+          "Pem.is_local_cluster_host_using_xapis_pem? encountered exception, \
+           assuming not" ;
+        Debug.log_backtrace e (Backtrace.get e) ;
+        false
+    | cc -> (
+      match cc.Cluster_interface.pems with
+      | None ->
+          D.info "Pem.is_local_cluster_host_using_xapis_pem? yes!" ;
+          true
+      | Some _ ->
+          D.debug
+            "Pem.is_local_cluster_host_using_xapis_cert? no, it has its own pem" ;
+          false
+    )

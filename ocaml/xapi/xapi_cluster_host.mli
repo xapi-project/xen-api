@@ -99,3 +99,5 @@ val write_pems :
   -> self:API.ref_Cluster_host
   -> pems:SecretString.t
   -> unit
+
+val is_local_cluster_host_using_xapis_pem : __context:Context.t -> bool
