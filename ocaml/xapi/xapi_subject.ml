@@ -219,7 +219,7 @@ let remove_from_roles ~__context ~self ~role =
     raise (Api_errors.Server_error (Api_errors.role_not_found, []))
   )
 
-let get_subject_information_from_identifier ~__context identifier =
+let query_subject_information_from_db ~__context identifier =
   match
     Db.Subject.get_records_where ~__context
       ~expr:
@@ -232,3 +232,7 @@ let get_subject_information_from_identifier ~__context identifier =
   | x :: _ ->
       let subject_r = snd x in
       subject_r.API.subject_other_config
+
+let get_subject_information_from_identifier ~__context ~cache identifier =
+  let open Extauth in
+  if cache then query_subject_information_from_db ~__context identifier else (Ext_auth.d ()).query_subject_information identifier
