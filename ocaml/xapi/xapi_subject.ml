@@ -218,3 +218,17 @@ let remove_from_roles ~__context ~self ~role =
       (Ref.string_of role) ;
     raise (Api_errors.Server_error (Api_errors.role_not_found, []))
   )
+
+let get_subject_information_from_identifier ~__context identifier =
+  match
+    Db.Subject.get_records_where ~__context
+      ~expr:
+        (Db_filter_types.Eq
+           ( Db_filter_types.Field "subject_identifier"
+           , Db_filter_types.Literal identifier ))
+  with
+  | [] ->
+      raise Auth_signature.Subject_cannot_be_resolved
+  | x :: _ ->
+      let subject_r = snd x in
+      subject_r.API.subject_other_config

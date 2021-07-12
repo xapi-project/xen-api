@@ -106,10 +106,11 @@ let get_permissions ~__context ~subject_membership =
   permission_membership
 
 (* CP-827: finds out if the subject was suspended (ie. disabled,expired,locked-out) *)
-let is_subject_suspended subject_identifier =
+let is_subject_suspended  ~__context subject_identifier =
   (* obtains the subject's info containing suspension information *)
   let info =
-    try (Ext_auth.d ()).query_subject_information subject_identifier
+    try
+      Xapi_subject.get_subject_information_from_identifier ~__context subject_identifier
     with Auth_signature.Subject_cannot_be_resolved | Not_found ->
       (* user was not found in external directory in order to obtain info *)
       debug "Subject %s not found in external directory while re-obtaining info"
@@ -226,7 +227,7 @@ let revalidate_external_session ~__context ~session =
           (* 2a. revalidate external authentication *)
 
           (* CP-827: if the user was suspended (disabled,expired,locked-out), then we must destroy the session *)
-          let suspended, _ = is_subject_suspended authenticated_user_sid in
+          let suspended, _ = is_subject_suspended ~__context authenticated_user_sid in
           if suspended then (
             debug
               "Subject (identifier %s) has been suspended, destroying session \
@@ -595,7 +596,7 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                 (* then a few minutes later the revalidation finds that the user is 'suspended' (due to *)
                 (* subject info caching problems in likewise) and closes the user's session *)
                 let subject_suspended, subject_name =
-                  try is_subject_suspended subject_identifier
+                  try is_subject_suspended ~__context subject_identifier
                   with Auth_signature.Auth_service_error (errtag, msg) ->
                     debug
                       "Failed to find if user %s (subject_id %s, from %s) is \
