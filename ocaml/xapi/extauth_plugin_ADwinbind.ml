@@ -818,10 +818,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     ; ("subject-is-group", string_of_bool true)
     ]
 
-  let query_subject_information_user (name : string) (uid : int) (sid : string)
+  let query_subject_information_user (uid : int) (sid : string)
       =
-    let* {gecos; gid} = Wbinfo.uid_info_of_uid uid in
-    let* domain = Wbinfo.domain_of_uname name in
+    let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
+    let* domain = Wbinfo.domain_of_uname user_name in
     let* {
            upn
          ; account_disabled
@@ -833,10 +833,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     in
     Ok
       [
-        ("subject-name", name)
+        ("subject-name", user_name)
       ; ("subject-gecos", gecos)
       ; ( "subject-displayname"
-        , if gecos = "" || gecos = "<null>" then name else gecos )
+        , if gecos = "" || gecos = "<null>" then user_name else gecos )
       ; ("subject-uid", string_of_int uid)
       ; ("subject-gid", string_of_int gid)
       ; ("subject-upn", upn)
@@ -861,9 +861,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let res =
       let* name = Wbinfo.name_of_sid sid in
       match name with
-      | User name ->
+      | User _ ->
           let* uid = Wbinfo.uid_of_sid sid in
-          query_subject_information_user name uid sid
+          query_subject_information_user uid sid
       | Other name ->
           (* if the name doesn't correspond to a user then it ought to be a group *)
           let* gid = Wbinfo.gid_of_sid sid in
