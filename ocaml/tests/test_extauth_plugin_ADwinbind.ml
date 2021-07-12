@@ -336,6 +336,8 @@ msDS-SupportedEncryptionTypes: 0|}
       , Ok
           {
             upn= "ladmin@conappada.local"
+          ; name="ladmin"
+          ; display_name="ladmin"
           ; account_disabled= false
           ; account_expired= false
           ; account_locked= false
@@ -345,6 +347,8 @@ msDS-SupportedEncryptionTypes: 0|}
       , Ok
           {
             upn= "locked@conappada.local"
+          ; name= "locked"
+          ; display_name = "locked"
           ; account_disabled= false
           ; account_expired= false
           ; account_locked= true
@@ -354,12 +358,24 @@ msDS-SupportedEncryptionTypes: 0|}
       , Ok
           {
             upn= "experied@conappada.local"
+          ; name= "experied"
+          ; display_name= "experied"
           ; account_disabled= false
           ; account_expired= true
           ; account_locked= false
           ; password_expired= false
           } )
-    ; (stdout_krbtgt, Error "ldap missing key 'userPrincipalName'")
+    ; (stdout_krbtgt
+      , Ok
+          {
+             upn= ""
+          ;  display_name= ""
+          ;  name= "krbtgt"
+          ;  password_expired= false
+          ;  account_locked= false
+          ;  account_expired= false
+          ;  account_disabled= true
+          })
     ; ("Got 0 replies", Error "ldap parsing failed ': got 0 replies'")
     ; ( "complete garbage"
       , Error "ldap parsing failed 'unexpected header: string'" )
