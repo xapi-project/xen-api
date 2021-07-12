@@ -198,14 +198,14 @@ class KeyValueConfig(ADConfig):
             else: # Parse the key, value pair
                 kv = line.split(self._sep)
                 if len(kv) != 2:
-                    logger.warning("'%s' is taken as raw line with sep '%s'", line, self._sep)
+                    # Taken as raw line
                     self._values[sp_key] = line
                 else:
                     k , v = kv[0].strip(), kv[1].strip()
                     if k not in self._values:
                         self._values[k] = v
                     else:
-                        logger.info("%s already exists, line %d is not configurable", k, idx)
+                        # Key already exists, Not supported as configurable
                         self._values[sp_key] = line
 
     def _update_key_value(self, key, value):
