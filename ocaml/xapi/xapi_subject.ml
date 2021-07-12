@@ -81,9 +81,12 @@ let create ~__context ~subject_identifier ~other_config =
         Rbac_static.get_refs [Rbac_static.role_pool_admin]
     in
     (* subject_info is overrided by subject info queried form DC *)
-    let subject_info = Xapi_auth.get_subject_information_from_identifier ~__context ~subject_identifier in
-    Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config: subject_info
-      ~roles:default_roles ;
+    let subject_info =
+      Xapi_auth.get_subject_information_from_identifier ~__context
+        ~subject_identifier
+    in
+    Db.Subject.create ~__context ~ref ~uuid ~subject_identifier
+      ~other_config:subject_info ~roles:default_roles ;
     (* CP-709: call extauth hook-script after subject.add *)
     (* we fork this call in a new thread so that subject.add *)
     (* does not have to wait for the script to finish in all hosts of the pool *)

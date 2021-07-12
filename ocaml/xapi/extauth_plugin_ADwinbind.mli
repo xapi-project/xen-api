@@ -49,7 +49,9 @@ end
 
 module Ldap : sig
   type user = {
-      upn: string
+      name: string
+    ; display_name: string
+    ; upn: string
     ; account_disabled: bool
     ; account_expired: bool
     ; account_locked: bool
