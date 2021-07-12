@@ -205,12 +205,12 @@ module Ldap = struct
           [
             "ads"
           ; "sid"
+          ; sid
           ; "-d"
           ; debug_level ()
           ; "--server"
           ; domain
           ; "--machine-pass"
-          ; sid
           ]
         in
         let stdout =
@@ -745,8 +745,8 @@ module Winbind = struct
   let random_string len =
     let upper_char_start = 65 in
     let upper_char_len = 26 in
-    String.init len (fun _ ->
-        upper_char_start + Random.int upper_char_len |> char_of_int)
+    let random_char() = upper_char_start + Random.int upper_char_len |> char_of_int in
+    String.init len (fun _ -> random_char ())
 
   let build_netbios_name hostname =
     (* Winbind follow https://docs.microsoft.com/en-US/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou#domain-names to limit netbios length to 15
@@ -862,16 +862,16 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ("subject-name", user_name)
       ; ("subject-gecos", gecos)
       ; ( "subject-displayname"
-        , if display_name != "" then
+        , if display_name <> "" then
             display_name
-          else if gecos != "" && gecos != "<null>" then
+          else if gecos <> "" && gecos <> "<null>" then
             gecos
           else
             user_name )
       ; ("subject-uid", string_of_int uid)
       ; ("subject-gid", string_of_int gid)
       ; ( "subject-upn"
-        , if upn != "" then upn else Printf.sprintf "%s@%s" name domain )
+        , if upn <> "" then upn else Printf.sprintf "%s@%s" name domain )
       ; ("subject-account-disabled", string_of_bool account_disabled)
       ; ("subject-account-locked", string_of_bool account_locked)
       ; ("subject-account-expired", string_of_bool account_expired)
