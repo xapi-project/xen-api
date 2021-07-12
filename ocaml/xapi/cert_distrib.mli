@@ -1,3 +1,12 @@
+val lock : (unit -> 'a) -> 'a
+(** where possible, the master host should control the certificate
+  * distributions. this allows us to coordinate multiple parties that are
+  * trying to modify /etc/stunnel at the same time with [lock]!
+  *
+  * we apply this lock to all top level distribution calls, with the exception of
+  * the pool join functions that execute on the joiner.
+  *)
+
 val local_exec : __context:Context.t -> command:string -> string
 (** execute a string encoded job, returning a string encoded result *)
 
