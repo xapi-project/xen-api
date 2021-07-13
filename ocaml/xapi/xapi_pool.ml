@@ -3408,12 +3408,12 @@ let check_update_readiness ~__context ~self ~requires_reboot =
 
 let enable_client_certificate_auth ~__context ~self ~name =
   (* TODO: actually enable client-certificate auth *)
-  Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:true;
+  Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:true ;
   Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:name
 
 let disable_client_certificate_auth ~__context ~self =
   (* TODO: actually disable client-certificate auth *)
-  Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:false;
+  Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:false ;
   Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:""
 
 let get_updates_handler (req : Http.Request.t) s _ =

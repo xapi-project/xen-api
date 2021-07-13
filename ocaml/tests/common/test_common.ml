@@ -277,7 +277,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(guest_agent_config = []) ?(cpu_info = [])
     ?(policy_no_vendor_device = false) ?(live_patching_disabled = false)
     ?(uefi_certificates = "") ?(repositories = [])
-    ?(client_certificate_auth_enabled = false) ?(client_certificate_auth_name = "") () =
+    ?(client_certificate_auth_enabled = false)
+    ?(client_certificate_auth_name = "") () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -289,8 +290,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~allowed_operations ~restrictions ~other_config ~ha_cluster_stack
     ~guest_agent_config ~cpu_info ~policy_no_vendor_device
     ~live_patching_disabled ~uefi_certificates ~is_psr_pending:false
-    ~tls_verification_enabled:false ~repositories ~client_certificate_auth_enabled
-    ~client_certificate_auth_name;
+    ~tls_verification_enabled:false ~repositories
+    ~client_certificate_auth_enabled ~client_certificate_auth_name ;
   pool_ref
 
 let default_sm_features =

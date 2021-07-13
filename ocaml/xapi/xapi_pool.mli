@@ -363,14 +363,9 @@ val check_update_readiness :
   -> string list list
 
 val enable_client_certificate_auth :
-     __context:Context.t
-  -> self:API.ref_pool
-  -> name:string
-  -> unit
+  __context:Context.t -> self:API.ref_pool -> name:string -> unit
 
 val disable_client_certificate_auth :
-     __context:Context.t
-  -> self:API.ref_pool
-  -> unit
+  __context:Context.t -> self:API.ref_pool -> unit
 
 val get_updates_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit

@@ -1349,9 +1349,7 @@ let pool_record rpc session_id pool =
             )
           ()
       ; make_field ~name:"client-certificate-auth-name"
-          ~get:(fun () ->
-            (x ()).API.pool_client_certificate_auth_name
-            )
+          ~get:(fun () -> (x ()).API.pool_client_certificate_auth_name)
           ()
       ; make_field ~name:"repositories"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.pool_repositories)
