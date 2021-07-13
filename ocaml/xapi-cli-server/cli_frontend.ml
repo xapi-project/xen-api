@@ -460,6 +460,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-enable-client-certificate-auth"
+    , {
+        reqd= ["name"]
+      ; optn= []
+      ; help= "Enable client certificate authentication on the pool"
+      ; implementation= No_fd Cli_operations.pool_enable_client_certificate_auth
+      ; flags= []
+      }
+    )
+  ; ( "pool-disable-client-certificate-auth"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Disable client certificate authentication on the pool"
+      ; implementation= No_fd Cli_operations.pool_disable_client_certificate_auth
+      ; flags= []
+      }
+    )
   ; ( "pool-set-vswitch-controller"
     , {
         reqd= ["address"]

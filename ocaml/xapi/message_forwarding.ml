@@ -1043,6 +1043,17 @@ functor
           (pool_uuid ~__context self)
           (string_of_bool requires_reboot) ;
         Local.Pool.check_update_readiness ~__context ~self ~requires_reboot
+
+      let enable_client_certificate_auth ~__context ~self ~name =
+        info "Pool.enable_client_certificate_auth: pool = '%s'; name = '%s'"
+          (pool_uuid ~__context self)
+          name ;
+        Local.Pool.enable_client_certificate_auth ~__context ~self ~name
+
+      let disable_client_certificate_auth ~__context ~self =
+        info "Pool.disable_client_certificate_auth: pool = '%s'"
+          (pool_uuid ~__context self);
+        Local.Pool.disable_client_certificate_auth ~__context ~self
     end
 
     module VM = struct
