@@ -52,6 +52,12 @@ module Pkg = struct
     ; arch: string
   }
 
+  type order = LT | EQ | GT
+
+  type segment_of_version = Int of int | Str of string
+
+  let string_of_order = function LT -> "<" | EQ -> "=" | GT -> ">"
+
   let error_msg = Printf.sprintf "Failed to parse '%s'"
 
   let parse_epoch_version_release epoch_ver_rel =
@@ -68,7 +74,7 @@ module Pkg = struct
     let open Rresult.R.Infix in
     ( ( match Astring.String.cuts ~sep:":" epoch_ver_rel with
       | [e; vr] -> (
-        try Ok (Epoch.of_string e, vr) with _ -> Result.Error "Invalid epoch"
+        try Ok (Epoch.of_string e, vr) with _ -> Error "Invalid epoch"
       )
       | [vr] ->
           Ok (None, vr)
@@ -141,282 +147,14 @@ module Pkg = struct
         error "%s" msg ;
         raise Api_errors.(Server_error (internal_error, [msg]))
 
-  let to_fullname ~name ~arch ~epoch ~version ~release =
-    match epoch with
+  let to_fullname pkg =
+    match pkg.epoch with
     | Some i ->
-        Printf.sprintf "%s-%s:%s-%s.%s.rpm" name (string_of_int i) version
-          release arch
+        Printf.sprintf "%s-%s:%s-%s.%s.rpm" pkg.name (string_of_int i)
+          pkg.version pkg.release pkg.arch
     | None ->
-        Printf.sprintf "%s-%s-%s.%s.rpm" name version release arch
-end
-
-module Update = struct
-  type t = {
-      name: string
-    ; arch: string
-    ; old_epoch: Epoch.t option
-    ; old_version: string option
-    ; old_release: string option
-    ; new_epoch: Epoch.t
-    ; new_version: string
-    ; new_release: string
-    ; update_id: string option
-    ; repository: string
-  }
-
-  let of_json j =
-    try
-      let open Yojson.Basic.Util in
-      {
-        name= member "name" j |> to_string
-      ; arch= member "arch" j |> to_string
-      ; new_epoch=
-          member "newEpochVerRel" j
-          |> member "epoch"
-          |> to_string
-          |> Epoch.of_string
-      ; new_version= member "newEpochVerRel" j |> member "version" |> to_string
-      ; new_release= member "newEpochVerRel" j |> member "release" |> to_string
-      ; old_epoch=
-          ( try
-              Some
-                (member "oldEpochVerRel" j
-                |> member "epoch"
-                |> to_string
-                |> Epoch.of_string
-                )
-            with _ -> None
-          )
-      ; old_version=
-          ( try Some (member "oldEpochVerRel" j |> member "version" |> to_string)
-            with _ -> None
-          )
-      ; old_release=
-          ( try Some (member "oldEpochVerRel" j |> member "release" |> to_string)
-            with _ -> None
-          )
-      ; update_id= member "updateId" j |> to_string_option
-      ; repository= member "repository" j |> to_string
-      }
-    with e ->
-      let msg = "Can't construct an update from json" in
-      error "%s: %s" msg (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
-
-  let to_string u =
-    Printf.sprintf "%s.%s %s:%s-%s -> %s:%s-%s from %s:%s" u.name u.arch
-      ( match u.old_epoch with
-      | Some e ->
-          Epoch.to_string e
-      | None ->
-          Epoch.epoch_none
-      )
-      (Option.value u.old_version ~default:"unknown")
-      (Option.value u.old_release ~default:"unknown")
-      (Epoch.to_string u.new_epoch)
-      u.new_version u.new_release
-      (Option.value u.update_id ~default:"unknown")
-      u.repository
-end
-
-module Guidance = struct
-  type t = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
-
-  type guidance_kind = Absolute | Recommended
-
-  let compare = Stdlib.compare
-
-  let to_string = function
-    | RebootHost ->
-        "RebootHost"
-    | RestartToolstack ->
-        "RestartToolstack"
-    | EvacuateHost ->
-        "EvacuateHost"
-    | RestartDeviceModel ->
-        "RestartDeviceModel"
-
-  let of_string = function
-    | "RebootHost" ->
-        RebootHost
-    | "RestartToolstack" ->
-        RestartToolstack
-    | "EvacuateHost" ->
-        EvacuateHost
-    | "RestartDeviceModel" ->
-        RestartDeviceModel
-    | _ ->
-        error "Unknown node in <absolute|recommended_guidance>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-end
-
-module GuidanceSet' = Set.Make (Guidance)
-
-module GuidanceSet = struct
-  include GuidanceSet'
-  open Guidance
-
-  let eq l s = equal (of_list l) (of_list s)
-
-  let eq_set1 = eq [EvacuateHost; RestartToolstack]
-
-  let eq_set2 = eq [RestartDeviceModel; RestartToolstack]
-
-  let eq_set3 = eq [RestartDeviceModel; EvacuateHost]
-
-  let eq_set4 = eq [EvacuateHost; RestartToolstack; RestartDeviceModel]
-
-  let error_msg l =
-    Printf.sprintf "Found wrong guidance(s): %s"
-      (String.concat ";" (List.map to_string l))
-
-  let assert_valid_guidances = function
-    | []
-    | [RebootHost]
-    | [EvacuateHost]
-    | [RestartToolstack]
-    | [RestartDeviceModel] ->
-        ()
-    | l when eq_set1 l ->
-        (* EvacuateHost and RestartToolstack *)
-        ()
-    | l when eq_set2 l ->
-        (* RestartDeviceModel and RestartToolstack *)
-        ()
-    | l when eq_set3 l ->
-        (* RestartDeviceModel and EvacuateHost *)
-        ()
-    | l when eq_set4 l ->
-        (* EvacuateHost, RestartToolstack and RestartDeviceModel *)
-        ()
-    | l ->
-        let msg = error_msg l in
-        raise Api_errors.(Server_error (internal_error, [msg]))
-
-  let resort_guidances ~kind gs =
-    match (find_opt RebootHost gs, kind) with
-    | Some _, _ ->
-        singleton RebootHost
-    | None, Recommended ->
-        gs
-    | None, Absolute ->
-        filter (fun g -> g <> EvacuateHost) gs
-end
-
-module Applicability = struct
-  type inequality = Lt | Eq | Gt | Lte | Gte
-
-  type order = LT | EQ | GT
-
-  let string_of_order = function LT -> "<" | EQ -> "=" | GT -> ">"
-
-  type t = {
-      name: string
-    ; arch: string
-    ; inequality: inequality option
-    ; epoch: Epoch.t
-    ; version: string
-    ; release: string
-  }
-
-  type segment_of_version = Int of int | Str of string
-
-  exception Invalid_inequality
-
-  let string_of_inequality = function
-    | Lt ->
-        "lt"
-    | Eq ->
-        "eq"
-    | Gt ->
-        "gt"
-    | Gte ->
-        "gte"
-    | Lte ->
-        "lte"
-
-  let inequality_of_string = function
-    | "gte" ->
-        Gte
-    | "lte" ->
-        Lte
-    | "gt" ->
-        Gt
-    | "lt" ->
-        Lt
-    | "eq" ->
-        Eq
-    | _ ->
-        raise Invalid_inequality
-
-  let default =
-    {
-      name= ""
-    ; arch= ""
-    ; inequality= None
-    ; epoch= None
-    ; version= ""
-    ; release= ""
-    }
-
-  let assert_valid = function
-    | {name= ""; _}
-    | {arch= ""; _}
-    | {inequality= None; _}
-    | {version= ""; _}
-    | {release= ""; _} ->
-        error "Invalid applicability" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-    | a ->
-        a
-
-  let of_xml = function
-    | Xml.Element ("applicability", _, children) ->
-        List.fold_left
-          (fun a n ->
-            match n with
-            | Xml.Element ("inequality", _, [Xml.PCData v]) ->
-                {
-                  a with
-                  inequality=
-                    ( try Some (inequality_of_string v)
-                      with Invalid_inequality -> None
-                    )
-                }
-            | Xml.Element ("epoch", _, [Xml.PCData v]) -> (
-              try {a with epoch= Epoch.of_string v}
-              with e ->
-                let msg =
-                  Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) v
-                in
-                error "%s" msg ;
-                raise Api_errors.(Server_error (internal_error, [msg]))
-            )
-            | Xml.Element ("version", _, [Xml.PCData v]) ->
-                {a with version= v}
-            | Xml.Element ("release", _, [Xml.PCData v]) ->
-                {a with release= v}
-            | Xml.Element ("name", _, [Xml.PCData v]) ->
-                {a with name= v}
-            | Xml.Element ("arch", _, [Xml.PCData v]) ->
-                {a with arch= v}
-            | _ ->
-                error "Unknown node in <applicability>" ;
-                raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-            )
-          default children
-        |> assert_valid
-    | _ ->
-        error "Unknown node in <guidance_applicabilities>" ;
-        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
-
-  let to_string a =
-    Printf.sprintf "%s %s %s:%s-%s" a.name
-      (Option.value
-         (Option.map string_of_inequality a.inequality)
-         ~default:"InvalidInequality"
-      )
-      (Epoch.to_string a.epoch) a.version a.release
+        Printf.sprintf "%s-%s-%s.%s.rpm" pkg.name pkg.version pkg.release
+          pkg.arch
 
   let compare_epoch e1 e2 =
     match (e1, e2) with
@@ -550,6 +288,269 @@ module Applicability = struct
   let lte e1 v1 r1 e2 v2 r2 = lt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
 
   let gte e1 v1 r1 e2 v2 r2 = gt e1 v1 r1 e2 v2 r2 || eq e1 v1 r1 e2 v2 r2
+end
+
+module Update = struct
+  type t = {
+      name: string
+    ; arch: string
+    ; old_epoch: Epoch.t option
+    ; old_version: string option
+    ; old_release: string option
+    ; new_epoch: Epoch.t
+    ; new_version: string
+    ; new_release: string
+    ; update_id: string option
+    ; repository: string
+  }
+
+  let of_json j =
+    try
+      let open Yojson.Basic.Util in
+      {
+        name= member "name" j |> to_string
+      ; arch= member "arch" j |> to_string
+      ; new_epoch=
+          member "newEpochVerRel" j
+          |> member "epoch"
+          |> to_string
+          |> Epoch.of_string
+      ; new_version= member "newEpochVerRel" j |> member "version" |> to_string
+      ; new_release= member "newEpochVerRel" j |> member "release" |> to_string
+      ; old_epoch=
+          ( try
+              Some
+                (member "oldEpochVerRel" j
+                |> member "epoch"
+                |> to_string
+                |> Epoch.of_string
+                )
+            with _ -> None
+          )
+      ; old_version=
+          ( try Some (member "oldEpochVerRel" j |> member "version" |> to_string)
+            with _ -> None
+          )
+      ; old_release=
+          ( try Some (member "oldEpochVerRel" j |> member "release" |> to_string)
+            with _ -> None
+          )
+      ; update_id= member "updateId" j |> to_string_option
+      ; repository= member "repository" j |> to_string
+      }
+    with e ->
+      let msg = "Can't construct an update from json" in
+      error "%s: %s" msg (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (internal_error, [msg]))
+
+  let to_string u =
+    Printf.sprintf "%s.%s %s:%s-%s -> %s:%s-%s from %s:%s" u.name u.arch
+      ( match u.old_epoch with
+      | Some e ->
+          Epoch.to_string e
+      | None ->
+          Epoch.epoch_none
+      )
+      (Option.value u.old_version ~default:"unknown")
+      (Option.value u.old_release ~default:"unknown")
+      (Epoch.to_string u.new_epoch)
+      u.new_version u.new_release
+      (Option.value u.update_id ~default:"unknown")
+      u.repository
+end
+
+module Guidance = struct
+  type t = RebootHost | RestartToolstack | EvacuateHost | RestartDeviceModel
+
+  type guidance_kind = Absolute | Recommended
+
+  let compare = Stdlib.compare
+
+  let to_string = function
+    | RebootHost ->
+        "RebootHost"
+    | RestartToolstack ->
+        "RestartToolstack"
+    | EvacuateHost ->
+        "EvacuateHost"
+    | RestartDeviceModel ->
+        "RestartDeviceModel"
+
+  let of_string = function
+    | "RebootHost" ->
+        RebootHost
+    | "RestartToolstack" ->
+        RestartToolstack
+    | "EvacuateHost" ->
+        EvacuateHost
+    | "RestartDeviceModel" ->
+        RestartDeviceModel
+    | _ ->
+        error "Unknown node in <absolute|recommended_guidance>" ;
+        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+end
+
+module GuidanceSet' = Set.Make (Guidance)
+
+module GuidanceSet = struct
+  include GuidanceSet'
+  open Guidance
+
+  let eq l s = equal (of_list l) (of_list s)
+
+  let eq_set1 = eq [EvacuateHost; RestartToolstack]
+
+  let eq_set2 = eq [RestartDeviceModel; RestartToolstack]
+
+  let error_msg l =
+    Printf.sprintf "Found wrong guidance(s): %s"
+      (String.concat ";" (List.map to_string l))
+
+  let assert_valid_guidances = function
+    | []
+    | [RebootHost]
+    | [EvacuateHost]
+    | [RestartToolstack]
+    | [RestartDeviceModel] ->
+        ()
+    | l when eq_set1 l ->
+        (* EvacuateHost and RestartToolstack *)
+        ()
+    | l when eq_set2 l ->
+        (* RestartDeviceModel and RestartToolstack *)
+        ()
+    | l ->
+        let msg = error_msg l in
+        raise Api_errors.(Server_error (internal_error, [msg]))
+
+  let precedences =
+    [
+      (RebootHost, of_list [RestartToolstack; EvacuateHost; RestartDeviceModel])
+    ; (EvacuateHost, of_list [RestartDeviceModel])
+    ]
+
+  let resort_guidances ~kind gs =
+    let gs' =
+      List.fold_left
+        (fun acc (higher, lowers) ->
+          if mem higher acc then
+            diff acc lowers
+          else
+            acc
+          )
+        gs precedences
+    in
+    match kind with Recommended -> gs' | Absolute -> remove EvacuateHost gs'
+end
+
+module Applicability = struct
+  type inequality = Lt | Eq | Gt | Lte | Gte
+
+  type t = {
+      name: string
+    ; arch: string
+    ; inequality: inequality option
+    ; epoch: Epoch.t
+    ; version: string
+    ; release: string
+  }
+
+  exception Invalid_inequality
+
+  let string_of_inequality = function
+    | Lt ->
+        "lt"
+    | Eq ->
+        "eq"
+    | Gt ->
+        "gt"
+    | Gte ->
+        "gte"
+    | Lte ->
+        "lte"
+
+  let inequality_of_string = function
+    | "gte" ->
+        Gte
+    | "lte" ->
+        Lte
+    | "gt" ->
+        Gt
+    | "lt" ->
+        Lt
+    | "eq" ->
+        Eq
+    | _ ->
+        raise Invalid_inequality
+
+  let default =
+    {
+      name= ""
+    ; arch= ""
+    ; inequality= None
+    ; epoch= None
+    ; version= ""
+    ; release= ""
+    }
+
+  let assert_valid = function
+    | {name= ""; _}
+    | {arch= ""; _}
+    | {inequality= None; _}
+    | {version= ""; _}
+    | {release= ""; _} ->
+        error "Invalid applicability" ;
+        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+    | a ->
+        a
+
+  let of_xml = function
+    | Xml.Element ("applicability", _, children) ->
+        List.fold_left
+          (fun a n ->
+            match n with
+            | Xml.Element ("inequality", _, [Xml.PCData v]) ->
+                {
+                  a with
+                  inequality=
+                    ( try Some (inequality_of_string v)
+                      with Invalid_inequality -> None
+                    )
+                }
+            | Xml.Element ("epoch", _, [Xml.PCData v]) -> (
+              try {a with epoch= Epoch.of_string v}
+              with e ->
+                let msg =
+                  Printf.sprintf "%s: %s" (ExnHelper.string_of_exn e) v
+                in
+                error "%s" msg ;
+                raise Api_errors.(Server_error (internal_error, [msg]))
+            )
+            | Xml.Element ("version", _, [Xml.PCData v]) ->
+                {a with version= v}
+            | Xml.Element ("release", _, [Xml.PCData v]) ->
+                {a with release= v}
+            | Xml.Element ("name", _, [Xml.PCData v]) ->
+                {a with name= v}
+            | Xml.Element ("arch", _, [Xml.PCData v]) ->
+                {a with arch= v}
+            | _ ->
+                error "Unknown node in <applicability>" ;
+                raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+            )
+          default children
+        |> assert_valid
+    | _ ->
+        error "Unknown node in <guidance_applicabilities>" ;
+        raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+
+  let to_string a =
+    Printf.sprintf "%s %s %s:%s-%s" a.name
+      (Option.value
+         (Option.map string_of_inequality a.inequality)
+         ~default:"InvalidInequality"
+      )
+      (Epoch.to_string a.epoch) a.version a.release
 
   let eval ~epoch ~version ~release ~applicability =
     let epoch' = applicability.epoch in
@@ -557,15 +558,15 @@ module Applicability = struct
     let release' = applicability.release in
     match applicability.inequality with
     | Some Lt ->
-        lt epoch version release epoch' version' release'
+        Pkg.lt epoch version release epoch' version' release'
     | Some Lte ->
-        lte epoch version release epoch' version' release'
+        Pkg.lte epoch version release epoch' version' release'
     | Some Gt ->
-        gt epoch version release epoch' version' release'
+        Pkg.gt epoch version release epoch' version' release'
     | Some Gte ->
-        gte epoch version release epoch' version' release'
+        Pkg.gte epoch version release epoch' version' release'
     | Some Eq ->
-        eq epoch version release epoch' version' release'
+        Pkg.eq epoch version release epoch' version' release'
     | _ ->
         raise Invalid_inequality
 end
@@ -1046,35 +1047,8 @@ let parse_updateinfo_list acc line =
   match Re.Str.split sep line with
   | [update_id; _; full_name] -> (
     match Pkg.of_fullname full_name with
-    | Some pkg -> (
-        (* Found same package in more than 1 update *)
-        let name_arch = Pkg.to_name_arch_string pkg in
-        match List.assoc_opt name_arch acc with
-        | Some (e, v, r, _) -> (
-            let open Applicability in
-            (* Select the latest update by comparing version and release  *)
-            match
-              ( compare_epoch e pkg.Pkg.epoch
-              , compare_version_strings v pkg.Pkg.version
-              , compare_version_strings r pkg.Pkg.release
-              )
-            with
-            | LT, _, _ | EQ, LT, _ | EQ, EQ, LT ->
-                let latest_so_far =
-                  ( name_arch
-                  , (pkg.epoch, pkg.Pkg.version, pkg.Pkg.release, update_id)
-                  )
-                in
-                latest_so_far :: List.remove_assoc name_arch acc
-            | _ ->
-                acc
-          )
-        | None ->
-            ( name_arch
-            , (pkg.Pkg.epoch, pkg.Pkg.version, pkg.Pkg.release, update_id)
-            )
-            :: acc
-      )
+    | Some pkg ->
+        (pkg, update_id) :: acc
     | None ->
         acc
   )
@@ -1097,7 +1071,6 @@ let get_updates_from_updateinfo ~__context repositories =
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.fold_left parse_updateinfo_list []
-  |> List.map (fun (name_arch, (_, _, _, update_id)) -> (name_arch, update_id))
 
 let eval_guidance_for_one_update ~updates_info ~update ~kind =
   let open Update in
@@ -1235,7 +1208,90 @@ let get_updates_from_list_updates repositories =
   in
   updates
 
-let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
+let validate_latest_updates ~latest_updates ~accumulative_updates =
+  List.map
+    (fun (pkg, repo) ->
+      match List.assoc_opt pkg accumulative_updates with
+      | Some uid ->
+          (pkg, Some uid, repo)
+      | None ->
+          warn "Not found update ID for update %s" (Pkg.to_fullname pkg) ;
+          (pkg, None, repo)
+      )
+    latest_updates
+
+let prune_by_latest_updates latest_updates pkg uid =
+  let open Pkg in
+  let is_same_name_arch pkg1 pkg2 =
+    pkg1.name = pkg2.name && pkg1.arch = pkg2.arch
+  in
+  match
+    List.find_opt (fun (pkg', _) -> is_same_name_arch pkg pkg') latest_updates
+  with
+  | Some (pkg', repo) ->
+      if
+        Pkg.gt pkg.epoch pkg.version pkg.release pkg'.epoch pkg'.version
+          pkg'.release
+      then
+        let msg =
+          Printf.sprintf
+            "Found an accumulative update which is even newer than the latest \
+             update: %s"
+            (Pkg.to_fullname pkg)
+        in
+        Error (Some msg)
+      else
+        Ok (pkg, uid, repo)
+  | None ->
+      let msg =
+        Printf.sprintf
+          "Found an accumulative update but this package (name.arch) is not in \
+           latest updates: %s"
+          (Pkg.to_fullname pkg)
+      in
+      Error (Some msg)
+
+let prune_by_installed_pkgs installed_pkgs pkg uid repo =
+  let open Pkg in
+  let name_arch = to_name_arch_string pkg in
+  match List.assoc_opt name_arch installed_pkgs with
+  | Some pkg' ->
+      if
+        Pkg.gt pkg.epoch pkg.version pkg.release pkg'.epoch pkg'.version
+          pkg'.release
+      then
+        Ok (pkg, uid, repo)
+      else (* An out-dated update *)
+        Error None
+  | None ->
+      let msg =
+        Printf.sprintf
+          "Found an accumulative update but this package (name.arch) is not \
+           installed: %s"
+          (to_fullname pkg)
+      in
+      Error (Some msg)
+
+let prune_accumulative_updates ~accumulative_updates ~latest_updates
+    ~installed_pkgs =
+  List.filter_map
+    (fun (pkg, uid) ->
+      let open Rresult.R.Infix in
+      ( prune_by_latest_updates latest_updates pkg uid
+      >>= fun (pkg', uid', repo') ->
+        prune_by_installed_pkgs installed_pkgs pkg' uid' repo'
+      )
+      |> function
+      | Ok (pkg', uid', repo') ->
+          Some (pkg', Some uid', repo')
+      | Error (Some msg) ->
+          warn "%s" msg ; None
+      | Error None ->
+          None
+      )
+    accumulative_updates
+
+let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   let remove_prefix prefix s =
     match Astring.String.cut ~sep:prefix s with
     | Some ("", s') when s' <> "" ->
@@ -1246,14 +1302,8 @@ let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
   match remove_prefix (!Xapi_globs.local_repository_prefix ^ "-") repo with
   | Some repo_name -> (
       let open Pkg in
-      let name_arch = Pkg.to_name_arch_string new_pkg in
       let uid_in_json =
-        match List.assoc_opt name_arch update_ids with
-        | Some s ->
-            `String s
-        | None ->
-            warn "No update ID found for %s" name_arch ;
-            `Null
+        match update_id with Some s -> `String s | None -> `Null
       in
       let l =
         [
@@ -1264,11 +1314,12 @@ let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
         ; ("repository", `String repo_name)
         ]
       in
+      let name_arch = Pkg.to_name_arch_string new_pkg in
       match List.assoc_opt name_arch installed_pkgs with
       | Some old_pkg ->
-          Some (`Assoc (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)]))
+          `Assoc (l @ [("oldEpochVerRel", to_epoch_ver_rel_json old_pkg)])
       | None ->
-          Some (`Assoc l)
+          `Assoc l
     )
   | None ->
       let msg = "Found update from unmanaged repository" in
@@ -1277,36 +1328,56 @@ let get_update_in_json ~update_ids ~installed_pkgs (new_pkg, repo) =
 
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
-  let all_updates =
+  let accumulative_updates =
+    updates_of_host
+    |> Yojson.Basic.Util.member "accumulative_updates"
+    |> Yojson.Basic.Util.to_list
+    |> List.map Update.of_json
+  in
+  let latest_updates =
     updates_of_host
     |> Yojson.Basic.Util.member "updates"
     |> Yojson.Basic.Util.to_list
     |> List.map Update.of_json
   in
+  (* 'rpms' come from latest updates *)
+  let rpms =
+    List.map
+      (fun u ->
+        Pkg.(
+          to_fullname
+            {
+              name= u.Update.name
+            ; arch= u.Update.arch
+            ; epoch= u.Update.new_epoch
+            ; version= u.Update.new_version
+            ; release= u.Update.new_release
+            }
+        )
+        )
+      latest_updates
+  in
   let open Update in
-  let rpms, uids, updates =
+  (* The update IDs and guidances come from accumulative updates *)
+  let acc_uids, acc_updates =
     List.fold_left
-      (fun (acc_rpms, acc_uids, acc_updates) u ->
-        let rpms =
-          Pkg.to_fullname ~name:u.name ~arch:u.arch ~epoch:u.new_epoch
-            ~version:u.new_version ~release:u.new_release
-          :: acc_rpms
-        in
+      (fun (acc_uids', acc_updates') u ->
         match (u.update_id, u.repository = repository_name) with
         | Some id, true ->
-            (rpms, UpdateIdSet.add id acc_uids, u :: acc_updates)
+            (UpdateIdSet.add id acc_uids', u :: acc_updates')
         | _ ->
-            (rpms, acc_uids, acc_updates)
+            (acc_uids', acc_updates')
         )
-      ([], UpdateIdSet.empty, [])
-      all_updates
+      (UpdateIdSet.empty, []) accumulative_updates
   in
-  let rec_guidances = eval_guidances ~updates_info ~updates ~kind:Recommended in
+  let rec_guidances =
+    eval_guidances ~updates_info ~updates:acc_updates ~kind:Recommended
+  in
   let abs_guidances_in_json =
     let abs_guidances =
       List.filter
         (fun g -> not (List.mem g rec_guidances))
-        (eval_guidances ~updates_info ~updates ~kind:Absolute)
+        (eval_guidances ~updates_info ~updates:acc_updates ~kind:Absolute)
     in
     List.map (fun g -> `String (Guidance.to_string g)) abs_guidances
   in
@@ -1321,11 +1392,12 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
       ; ("absolute-guidance", `List abs_guidances_in_json)
       ; ("RPMS", `List (List.map (fun r -> `String r) rpms))
       ; ( "updates"
-        , `List (List.map (fun uid -> `String uid) (UpdateIdSet.elements uids))
+        , `List
+            (List.map (fun uid -> `String uid) (UpdateIdSet.elements acc_uids))
         )
       ]
   in
-  (json_of_host, uids)
+  (json_of_host, acc_uids)
 
 let append_by_key l k v =
   (* Append a (k, v) into a assoc list l [ (k1, [v1]); (k2, [...]); ... ] as

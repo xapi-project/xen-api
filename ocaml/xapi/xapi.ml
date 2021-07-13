@@ -279,23 +279,47 @@ let on_master_restart ~__context =
   debug
     "attempting to set Host_metrics.live to true immediately (unless I'm in \
      the middle of shutting myself down)" ;
-  try
-    let host = Helpers.get_localhost ~__context in
-    let metrics = Db.Host.get_metrics ~__context ~self:host in
-    let shutting_down =
-      Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
-          List.exists
-            (fun x -> x = host)
-            !Xapi_globs.hosts_which_are_shutting_down
+  ( try
+      let host = Helpers.get_localhost ~__context in
+      let metrics = Db.Host.get_metrics ~__context ~self:host in
+      let shutting_down =
+        Mutex.execute Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+            List.exists
+              (fun x -> x = host)
+              !Xapi_globs.hosts_which_are_shutting_down
+        )
+      in
+      if not shutting_down then
+        Db.Host_metrics.set_live ~__context ~self:metrics ~value:true
+    with e ->
+      debug
+        "failed to set Host_metrics.live to true immediately; will have to \
+         wait for regular heartbeat to arrive: %s"
+        (ExnHelper.string_of_exn e)
+  ) ;
+  let am_i_missing_certs () =
+    let open Helpers in
+    let module Client = Client.Client in
+    try
+      if
+        Db.Pool.get_tls_verification_enabled ~__context
+          ~self:(get_pool ~__context)
+        && Cert_distrib.am_i_missing_certs ~__context
+      then (
+        D.debug
+          "am_i_missing_certs: i am missing certs! asking primary host to send \
+           us its certs" ;
+        let host = get_localhost ~__context in
+        call_api_functions ~__context @@ fun rpc session_id ->
+        Client.Host.copy_primary_host_certs ~rpc ~session_id ~host ;
+        D.debug
+          "am_i_missing_certs: successfully copied certs from primary host!"
       )
-    in
-    if not shutting_down then
-      Db.Host_metrics.set_live ~__context ~self:metrics ~value:true
-  with e ->
-    debug
-      "failed to set Host_metrics.live to true immediately; will have to wait \
-       for regular heartbeat to arrive: %s"
-      (ExnHelper.string_of_exn e)
+    with e ->
+      D.error "am_i_missing_certs: exception (ignoring): %s"
+        (Printexc.to_string e)
+  in
+  am_i_missing_certs ()
 
 (* Make sure the local database can be read *)
 let init_local_database () =

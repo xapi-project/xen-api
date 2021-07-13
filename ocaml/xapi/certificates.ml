@@ -69,11 +69,7 @@ let rehash () =
   rehash' (library_path CA_Certificate) ;
   rehash' (library_path CRL)
 
-let update_ca_bundle () =
-  ignore
-    (Forkhelpers.execute_command_get_output
-       "/opt/xensource/bin/update-ca-bundle.sh" []
-    )
+let update_ca_bundle () = Helpers.update_ca_bundle ()
 
 let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
 
@@ -438,11 +434,10 @@ let hostnames_of_pem_cert pem =
   >>| X509.Certificate.hostnames
 
 let install_server_certificate ?(pem_chain = None) ~pem_leaf ~pkcs8_private_key
-    =
-  let server_cert_path = !Xapi_globs.server_cert_path in
+    ~path =
   let installation =
     Gencertlib.Lib.install_server_certificate ~pem_chain ~pem_leaf
-      ~pkcs8_private_key ~server_cert_path
+      ~pkcs8_private_key ~server_cert_path:path
   in
   match installation with
   | Ok cert ->

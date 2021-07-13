@@ -164,6 +164,8 @@ let pool_operation_to_string = function
       "get_updates"
   | `apply_updates ->
       "apply_updates"
+  | `cert_refresh ->
+      "cert_refresh"
 
 let host_operation_to_string = function
   | `provision ->

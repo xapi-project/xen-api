@@ -35,6 +35,7 @@ let all_operations =
   ; `sync_updates
   ; `get_updates
   ; `apply_updates
+  ; `cert_refresh
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -70,6 +71,7 @@ let valid_operations ~__context record _ref' =
     ; (`sync_updates, Api_errors.sync_updates_in_progress, [])
     ; (`get_updates, Api_errors.get_updates_in_progress, [])
     ; (`apply_updates, Api_errors.apply_updates_in_progress, [])
+    ; (`cert_refresh, Api_errors.cert_refresh_in_progress, [])
     ]
   in
   List.iter

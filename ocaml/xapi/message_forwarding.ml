@@ -782,12 +782,20 @@ functor
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Pool.eject rpc session_id host
         ) ;
-        (* call eject on all other slaves first *)
+        (* perform cleanup on remaining pool members
+         * this must be best effort - once an eject has begun we cannot rollback *)
         other
         |> List.iter (fun h ->
-               do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
-                   Client.Pool.eject rpc session_id host
-               )
+               try
+                 do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
+                     Client.Pool.eject rpc session_id host
+                 )
+               with e ->
+                 D.warn
+                   "Pool.eject: while ejecting host=%s, we failed to clean up \
+                    on host=%s. ignoring error: %s"
+                   (Ref.short_string_of host) (Ref.short_string_of h)
+                   (Printexc.to_string e)
            ) ;
         (* finally clean up on master *)
         do_op_on ~local_fn ~__context ~host:master (fun session_id rpc ->
@@ -1052,6 +1060,16 @@ functor
        * interesting has happened. *)
 
       let wait_for_tasks = Helpers.Task.wait_for
+
+      let create_vm_message ~__context ~vm ~message_body ~message =
+        let name, priority = message in
+        try
+          ignore
+            (Xapi_message.create ~__context ~name ~priority ~cls:`VM
+               ~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
+               ~body:message_body
+            )
+        with _ -> ()
 
       let cancel ~__context ~vm ~ops =
         let cancelled =
@@ -1547,13 +1565,24 @@ functor
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
         (* disk corruption.                                                                                          *)
-        with_vm_operation ~__context ~self:vm ~doc:"VM.snapshot" ~op:`snapshot
-          (fun () ->
-            forward_to_access_srs ~local_fn ~__context ~vm
-              (fun session_id rpc ->
-                Client.VM.snapshot rpc session_id vm new_name
-            )
-        )
+        let result =
+          with_vm_operation ~__context ~self:vm ~doc:"VM.snapshot" ~op:`snapshot
+            (fun () ->
+              forward_to_access_srs ~local_fn ~__context ~vm
+                (fun session_id rpc ->
+                  Client.VM.snapshot rpc session_id vm new_name
+              )
+          )
+        in
+        let message_body =
+          Printf.sprintf "VM '%s' (uuid: %s) snapshotted, snapshot name: %s"
+            (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
+            new_name
+        in
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_snapshotted ;
+        result
 
       let checkpoint ~__context ~vm ~new_name =
         info "VM.checkpoint: VM = '%s'; new_name=' %s'" (vm_uuid ~__context vm)
@@ -1562,13 +1591,24 @@ functor
         let forward_fn session_id rpc =
           Client.VM.checkpoint rpc session_id vm new_name
         in
-        with_vm_operation ~__context ~self:vm ~doc:"VM.checkpoint"
-          ~op:`checkpoint (fun () ->
-            if Db.VM.get_power_state __context vm = `Running then
-              forward_vm_op ~local_fn ~__context ~vm forward_fn
-            else
-              forward_to_access_srs ~local_fn ~__context ~vm forward_fn
-        )
+        let result =
+          with_vm_operation ~__context ~self:vm ~doc:"VM.checkpoint"
+            ~op:`checkpoint (fun () ->
+              if Db.VM.get_power_state __context vm = `Running then
+                forward_vm_op ~local_fn ~__context ~vm forward_fn
+              else
+                forward_to_access_srs ~local_fn ~__context ~vm forward_fn
+          )
+        in
+        let message_body =
+          Printf.sprintf "VM '%s' (uuid: %s) checkpointed, snapshot name: %s"
+            (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
+            new_name
+        in
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_checkpointed ;
+        result
 
       let copy ~__context ~vm ~new_name ~sr =
         info "VM.copy: VM = '%s'; new_name = '%s'; SR = '%s'"
@@ -1704,19 +1744,14 @@ functor
         update_vif_operations ~__context ~vm ;
         let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' started on host: %s (uuid: %s)"
+          Printf.sprintf "VM '%s' (uuid: %s) started on host: %s (uuid: %s)"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
             (Db.Host.get_name_label ~__context ~self:host)
             (Db.Host.get_uuid ~__context ~self:host)
         in
-        let name, priority = Api_messages.vm_started in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_started ;
         Rrdd_proxy.push_rrd ~__context ~vm_uuid:uuid
 
       let start_on ~__context ~vm ~host ~start_paused ~force =
@@ -1771,20 +1806,14 @@ functor
         update_vif_operations ~__context ~vm ;
         let _ (* uuid *) = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' started on host: %s (uuid: %s)"
+          Printf.sprintf "VM '%s' (uuid: %s) started on host: %s (uuid: %s)"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
             (Db.Host.get_name_label ~__context ~self:host)
             (Db.Host.get_uuid ~__context ~self:host)
         in
-        let name, priority = Api_messages.vm_started in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:(Db.VM.get_uuid ~__context ~self:vm)
-                 ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_started ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
@@ -1797,6 +1826,13 @@ functor
                 Client.VM.pause rpc session_id vm
             )
         ) ;
+        let message_body =
+          Printf.sprintf "VM '%s' (uuid: %s) paused"
+            (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
+        in
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_paused ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1809,6 +1845,13 @@ functor
                 Client.VM.unpause rpc session_id vm
             )
         ) ;
+        let message_body =
+          Printf.sprintf "VM '%s' (uuid: %s) unpaused"
+            (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
+        in
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_unpaused ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1849,19 +1892,13 @@ functor
                 Client.VM.clean_shutdown rpc session_id vm
             )
         ) ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' shutdown"
+          Printf.sprintf "VM '%s' (uuid: %s) shutdown"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
         in
-        let name, priority = Api_messages.vm_shutdown in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_shutdown ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1898,18 +1935,13 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' shutdown"
+          Printf.sprintf "VM '%s' (uuid: %s) shutdown"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
         in
-        let name, priority = Api_messages.vm_shutdown in
-        try
-          ignore
-            (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-               ~obj_uuid:uuid ~body:message_body
-            )
-        with _ -> ()
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_shutdown
 
       let clean_reboot ~__context ~vm =
         info "VM.clean_reboot: VM = '%s'" (vm_uuid ~__context vm) ;
@@ -1931,19 +1963,13 @@ functor
                 )
             )
         ) ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' rebooted cleanly"
+          Printf.sprintf "VM '%s' (uuid: %s) rebooted cleanly"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
         in
-        let name, priority = Api_messages.vm_rebooted in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_rebooted ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -1998,19 +2024,13 @@ functor
                 Client.VM.hard_shutdown rpc session_id vm
             )
         ) ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' shutdown forcibly"
+          Printf.sprintf "VM '%s' (uuid: %s) shutdown forcibly"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
         in
-        let name, priority = Api_messages.vm_shutdown in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_shutdown ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2041,19 +2061,13 @@ functor
                 )
             )
         ) ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' rebooted forcibly"
+          Printf.sprintf "VM '%s' (uuid: %s) rebooted forcibly"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
         in
-        let name, priority = Api_messages.vm_rebooted in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_rebooted ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2084,20 +2098,14 @@ functor
                 Client.VM.suspend rpc session_id vm
             )
         ) ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         (* debug "placeholder for retrieving the current value of memory-actual";*)
         let message_body =
-          Printf.sprintf "VM '%s' suspended"
+          Printf.sprintf "VM '%s' (uuid: %s) suspended"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
         in
-        let name, priority = Api_messages.vm_suspended in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_suspended ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2160,7 +2168,16 @@ functor
                 else
                   forward_to_access_srs ~local_fn ~__context ~vm forward_fn
             )
-        )
+        ) ;
+        let message_body =
+          Printf.sprintf "VM '%s' (uuid: %s) reverted to snapshot: %s (uuid %s)"
+            (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
+            (Db.VM.get_name_label ~__context ~self:snapshot)
+            (Db.VM.get_uuid ~__context ~self:snapshot)
+        in
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_snapshot_reverted
 
       (* same forwarding logic as clone *)
       let csvm ~__context ~vm =
@@ -2182,20 +2199,14 @@ functor
               )
           )
         in
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' cloned (new uuid: %s)"
+          Printf.sprintf "VM '%s' (uuid: %s) cloned (new uuid: %s)"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
             (Db.VM.get_uuid ~__context ~self:result)
         in
-        let name, priority = Api_messages.vm_cloned in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_cloned ;
         result
 
       (* Like start.. resume on any suitable host *)
@@ -2222,21 +2233,15 @@ functor
         in
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' resumed on host: %s (uuid: %s)"
+          Printf.sprintf "VM '%s' (uuid: %s) resumed on host: %s (uuid: %s)"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
             (Db.Host.get_name_label ~__context ~self:host)
             (Db.Host.get_uuid ~__context ~self:host)
         in
-        let name, priority = Api_messages.vm_resumed in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_resumed ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
@@ -2264,21 +2269,15 @@ functor
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
-        let uuid = Db.VM.get_uuid ~__context ~self:vm in
         let message_body =
-          Printf.sprintf "VM '%s' resumed on host: %s (uuid: %s)"
+          Printf.sprintf "VM '%s' (uuid: %s) resumed on host: %s (uuid: %s)"
             (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
             (Db.Host.get_name_label ~__context ~self:host)
             (Db.Host.get_uuid ~__context ~self:host)
         in
-        let name, priority = Api_messages.vm_resumed in
-        ( try
-            ignore
-              (Xapi_message.create ~__context ~name ~priority ~cls:`VM
-                 ~obj_uuid:uuid ~body:message_body
-              )
-          with _ -> ()
-        ) ;
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_resumed ;
         Rrdd_proxy.push_rrd ~__context
           ~vm_uuid:(Db.VM.get_uuid ~__context ~self:vm)
 
@@ -2303,9 +2302,9 @@ functor
         in
         if not force then
           Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host () ;
+        let source_host = Db.VM.get_resident_on ~__context ~self:vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate"
           ~op:`pool_migrate ~strict:(not force) (fun () ->
-            let source_host = Db.VM.get_resident_on ~__context ~self:vm in
             let to_equal_or_greater_version =
               Helpers.host_versions_not_decreasing ~__context
                 ~host_from:(Helpers.LocalObject source_host)
@@ -2328,6 +2327,19 @@ functor
                 )
             )
         ) ;
+        let message_body =
+          Printf.sprintf
+            "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host \
+             '%s' (uuid: %s)"
+            (Db.VM.get_name_label ~__context ~self:vm)
+            (Db.VM.get_uuid ~__context ~self:vm)
+            (Db.Host.get_name_label ~__context ~self:source_host)
+            (Db.Host.get_uuid ~__context ~self:source_host)
+            (Db.Host.get_name_label ~__context ~self:host)
+            (Db.Host.get_uuid ~__context ~self:host)
+        in
+        create_vm_message ~__context ~vm ~message_body
+          ~message:Api_messages.vm_migrated ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
         Cpuid_helpers.update_cpu_flags ~__context ~vm ~host
@@ -2424,15 +2436,37 @@ functor
                   )
                 clear_migrate_op
         in
-        with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send"
-          ~op:`migrate_send (fun () ->
-            Server_helpers.exec_with_subtask ~__context "VM.assert_can_migrate"
-              (fun ~__context ->
-                assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map
-                  ~vgpu_map ~options
-            ) ;
-            forward_migrate_send ()
-        )
+        let result =
+          with_vm_operation ~__context ~self:vm ~doc:"VM.migrate_send"
+            ~op:`migrate_send (fun () ->
+              Server_helpers.exec_with_subtask ~__context
+                "VM.assert_can_migrate" (fun ~__context ->
+                  assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
+                    ~vif_map ~vgpu_map ~options
+              ) ;
+              forward_migrate_send ()
+          )
+        in
+        ( match migration_type with
+        | `Live_intrapool host ->
+            let source_host = Db.VM.get_resident_on ~__context ~self:vm in
+            let message_body =
+              Printf.sprintf
+                "VM '%s' (uuid: %s) migrated from host '%s' (uuid: %s) to host \
+                 '%s' (uuid: %s)"
+                (Db.VM.get_name_label ~__context ~self:vm)
+                (Db.VM.get_uuid ~__context ~self:vm)
+                (Db.Host.get_name_label ~__context ~self:source_host)
+                (Db.Host.get_uuid ~__context ~self:source_host)
+                (Db.Host.get_name_label ~__context ~self:host)
+                (Db.Host.get_uuid ~__context ~self:host)
+            in
+            create_vm_message ~__context ~vm ~message_body
+              ~message:Api_messages.vm_migrated
+        | _ ->
+            ()
+        ) ;
+        result
 
       let send_trigger ~__context ~vm ~trigger =
         info "VM.send_trigger: VM = '%s'; trigger = '%s'"
@@ -3546,6 +3580,29 @@ functor
             Client.Host.get_server_certificate rpc session_id host
         )
 
+      let refresh_server_certificate ~__context ~host =
+        info "Host.refresh_server_certificate: host = '%s'"
+          (host_uuid ~__context host) ;
+        let pool = Helpers.get_pool ~__context in
+        let local_fn = Local.Host.refresh_server_certificate ~host in
+        let other =
+          Db.Host.get_all ~__context |> List.filter (fun h -> h <> host)
+        in
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~doc:"Host.refresh_server_certificate" ~self:pool ~op:`cert_refresh
+        @@ fun () ->
+        (* let host refresh its certificates first *)
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.refresh_server_certificate rpc session_id host
+        ) ;
+        (* update all other hosts in the pool *)
+        other
+        |> List.iter (fun h ->
+               do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
+                   Client.Host.refresh_server_certificate rpc session_id host
+               )
+           )
+
       let _success ~__context () =
         let task = Context.get_task_id __context in
         let progress = Db.Task.get_progress ~__context ~self:task in
@@ -3605,6 +3662,10 @@ functor
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command
         )
+
+      let copy_primary_host_certs ~__context ~host =
+        info "Host.copy_primary_host_certs host = '%s'" (Ref.string_of host) ;
+        Local.Host.copy_primary_host_certs ~__context ~host
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"

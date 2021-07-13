@@ -1823,6 +1823,9 @@ let try_internal_async ~__context (marshaller : Rpc.t -> 'b)
 module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
   (** restart stunnel, possibly changing the config file *)
+
+  val reload : unit -> unit
+  (** reload (potentially updated) configuration *)
 end = struct
   let cert = !Xapi_globs.server_cert_path
 
@@ -1908,6 +1911,8 @@ end = struct
   let systemctl cmd = call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
 
   let systemctl_ cmd = systemctl cmd |> ignore
+
+  let reload () = systemctl_ "reload-or-restart"
 
   let is_enabled () =
     let is_enabled_stdout =
@@ -2087,3 +2092,18 @@ end = struct
       error "redirect: failed to write to %s" fname ;
       raise e
 end
+
+let update_ca_bundle =
+  (* it is not safe for multiple instances of this bash script to be
+   * running at the same time, so we must lock it.
+   *
+   * NB: we choose not to implement the lock inside the bash script
+   * itself *)
+  let m = Mutex.create () in
+  fun () ->
+    Mutex.execute m (fun () ->
+        ignore
+          (Forkhelpers.execute_command_get_output
+             "/opt/xensource/bin/update-ca-bundle.sh" []
+          )
+    )

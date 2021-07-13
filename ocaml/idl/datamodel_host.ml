@@ -1029,6 +1029,14 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_READ_ONLY
       ()
 
+  let refresh_server_certificate = call
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"refresh_server_certificate"
+      ~doc:"Replace the internal self-signed host certficate with a new one."
+      ~params:[Ref _host, "host", "The host"]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   let display =
     Enum ("host_display", [
         "enabled", "This host is outputting its console to a physical display device";
@@ -1459,6 +1467,19 @@ let host_query_ha = call ~flags:[`Session]
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let copy_primary_host_certs = call
+    ~name:"copy_primary_host_certs"
+    ~in_oss_since:None
+    ~in_product_since:rel_next
+    ~doc:"useful for secondary hosts that are missing some certs"
+    ~params:[
+      Ref _host, "host", "this host receives a copy of the primary host's trusted certificates";
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ~hide_from_docs:true
+    ~pool_internal:true
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1544,6 +1565,7 @@ let host_query_ha = call ~flags:[`Session]
         crl_list;
         certificate_sync;
         get_server_certificate;
+        refresh_server_certificate;
         install_server_certificate;
         emergency_reset_server_certificate;
         reset_server_certificate;
@@ -1587,6 +1609,7 @@ let host_query_ha = call ~flags:[`Session]
         emergency_reenable_tls_verification;
         cert_distrib_atom;
         apply_updates;
+        copy_primary_host_certs;
       ]
       ~contents:
         ([ uid _host;

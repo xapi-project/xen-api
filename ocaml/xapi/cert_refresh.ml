@@ -1,0 +1,110 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
+module D = Debug.Make (struct let name = "cert_refresh" end)
+
+open D
+
+(* given a [filename], replace its extension with [ext]. Does not change
+the file system *)
+let replace_extension filename ~ext =
+  let base =
+    match Filename.extension filename with
+    | "" ->
+        filename
+    | _ ->
+        Filename.remove_extension filename
+  in
+  Printf.sprintf "%s.%s" base ext
+
+(* Path to host server certificate (in PEM format) *)
+let cert_path = function
+  | `host ->
+      !Xapi_globs.server_cert_path
+  | `host_internal ->
+      !Xapi_globs.server_cert_internal_path
+
+(* Paths to certificates that we are about to use *)
+let new_cert_path type' = replace_extension (cert_path type') ~ext:"new"
+
+let backup_cert_path type' = replace_extension (cert_path type') ~ext:"bak"
+
+(* Create a new host cert in the file system and return its contents
+also as a data structure *)
+let new_host_cert ~dbg ~path : X509.Certificate.t =
+  let name, ip =
+    match Networking_info.get_management_ip_addr ~dbg with
+    | None ->
+        let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
+        D.error "%s" msg ;
+        raise Api_errors.(Server_error (internal_error, [msg]))
+    | Some ip ->
+        ip
+  in
+  let dns_names = Networking_info.dns_names () in
+  let ips = [ip] in
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips path
+
+(* On this host and for this host, create a new server certificate and
+distribute it in the pool *)
+let host ~__context ~type' =
+  let host = Helpers.get_localhost ~__context in
+  let dbg = Context.string_of_task __context in
+  let pem = cert_path type' in
+  let path = new_cert_path type' in
+  let cert = new_host_cert ~dbg ~path in
+  let bak = backup_cert_path type' in
+  let content = X509.Certificate.encode_pem cert |> Cstruct.to_string in
+  (* distribute public part of new cert in pool *)
+  Cert_distrib.distribute_new_host_cert ~__context ~host ~content ;
+  (* replace certs in file system on host *)
+  info "renaming cert %s to %s" path pem ;
+  Sys.rename pem bak ;
+  Sys.rename path pem ;
+  (* remove old from database, add new *)
+  Certificates.Db_util.get_host_certs ~__context ~type' ~host
+  |> List.iter (Certificates.Db_util.remove_cert_by_ref ~__context) ;
+  let ref =
+    match type' with
+    | `host ->
+        Certificates.Db_util.add_cert ~__context ~type':(`host host) cert
+    | `host_internal ->
+        Certificates.Db_util.add_cert ~__context ~type':(`host_internal host)
+          cert
+  in
+  (* start using new cert *)
+  Helpers.Stunnel.reload () ; ref
+
+(* The stunnel clients trust the old and the new [host] server cert.  On
+the local host, rename the old cert and re-create the cert bundle
+without it *)
+let remove_stale_cert ~__context ~host ~type' =
+  let uuid = Db.Host.get_uuid ~__context ~self:host in
+  let directory =
+    match type' with
+    | `host ->
+        !Xapi_globs.trusted_certs_dir
+    | `host_internal ->
+        !Xapi_globs.trusted_pool_certs_dir
+  in
+  let next = Filename.concat directory (Printf.sprintf "%s.new.pem" uuid) in
+  let pem = Filename.concat directory (Printf.sprintf "%s.pem" uuid) in
+  let bak = Filename.concat directory (Printf.sprintf "%s.bak" uuid) in
+  if Sys.file_exists next && Sys.file_exists pem then (
+    info "cleanup - renaming %s to %s" next pem ;
+    Sys.rename pem bak ;
+    Sys.rename next pem ;
+    Certificates.update_ca_bundle ()
+  ) else
+    info "cleanup - no new cert %s found - skipping" next
