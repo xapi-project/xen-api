@@ -113,6 +113,9 @@ class UDSTransport(xmlrpclib.Transport):
         for key, value in self._extra_headers:
             connection.putheader(key, value)
 
+def notimplemented(name, *args, **kwargs):
+    raise NotImplementedError("XMLRPC proxies do not support python magic methods", name, *args, **kwargs)
+
 class Session(xmlrpclib.ServerProxy):
     """A server proxy and session manager for communicating with xapi using
     the Xen-API.
@@ -215,6 +218,8 @@ class Session(xmlrpclib.ServerProxy):
             return lambda *params: self._login(name, params)
         elif name == 'logout':
             return _Dispatcher(self.API_version, self.xenapi_request, "logout")
+        elif name.startswith('__') and name.endswith('__'):
+            return lambda *args, **kwargs: notimplemented(name, args, kwargs)
         else:
             return xmlrpclib.ServerProxy.__getattr__(self, name)
 
