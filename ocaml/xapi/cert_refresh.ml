@@ -56,6 +56,17 @@ let new_host_cert ~dbg ~path : X509.Certificate.t =
   let ips = [ip] in
   Gencertlib.Selfcert.host ~name ~dns_names ~ips path
 
+module HostSet = Set.Make (struct
+  type t = API.ref_host
+
+  let compare = Stdlib.compare
+end)
+
+let unreachable_hosts ~__context =
+  let live = Helpers.get_live_hosts ~__context in
+  let pool = Xapi_pool_helpers.get_master_slaves_list ~__context in
+  HostSet.(diff (of_list pool) (of_list live))
+
 (* On this host and for this host, create a new server certificate and
 distribute it in the pool *)
 let host ~__context ~type' =
@@ -65,6 +76,13 @@ let host ~__context ~type' =
   let path = new_cert_path type' in
   let cert = new_host_cert ~dbg ~path in
   let bak = backup_cert_path type' in
+  let unreachable = unreachable_hosts ~__context in
+  if not @@ HostSet.is_empty unreachable then
+    raise
+      Api_errors.(
+        Server_error
+          (cannot_contact_host, [Ref.string_of (HostSet.choose unreachable)])
+      ) ;
   let content = X509.Certificate.encode_pem cert |> Cstruct.to_string in
   (* distribute public part of new cert in pool *)
   Cert_distrib.distribute_new_host_cert ~__context ~host ~content ;
