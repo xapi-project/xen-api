@@ -1880,6 +1880,7 @@ end = struct
           ; "sslVersion = TLSv1.2"
           ; ""
           ; "# xapi connections use SNI 'pool' to request a cert"
+          ; "# the options from [xapi] are inherited unless overridden below"
           ; "[pool]"
           ; "connect = 80"
           ; "sni = xapi:pool"
