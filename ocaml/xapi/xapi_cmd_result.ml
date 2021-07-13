@@ -36,4 +36,11 @@ let find key results = RMap.find_opt key results
 let of_output_opt ~sep ~key ~lines =
   String.split_on_char '\n' lines
   |> List.fold_left (fun results line -> add ~sep line results) empty
-  |> find key
+  |> RMap.find_opt key
+
+let of_output ~sep ~key lines =
+  match of_output_opt ~sep ~key ~lines with
+  | Some v ->
+      v
+  | None ->
+      raise Not_found

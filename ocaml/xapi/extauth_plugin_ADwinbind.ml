@@ -72,7 +72,9 @@ let ntlm_auth uname passwd : (unit, exn) result =
 
 module Ldap = struct
   type user = {
-      upn: string
+      name: string
+    ; display_name: string
+    ; upn: string
     ; account_disabled: bool
     ; account_expired: bool
     ; account_locked: bool
@@ -142,12 +144,18 @@ module Ldap = struct
       | Some x ->
           Ok x
     in
+    let get_string_with_default ~k ~default =
+      match get_string k with Ok x -> Ok x | Error _ -> Ok default
+    in
     let get_int of_string k =
       let* str = get_string k in
       try Ok (of_string str)
       with _ -> Error (ldap "invalid value for key '%s'" k)
     in
-    let* upn = get_string "userPrincipalName" in
+    let default = "" in
+    let* name = get_string_with_default ~k:"name" ~default in
+    let* upn = get_string_with_default ~k:"userPrincipalName" ~default in
+    let* display_name = get_string_with_default ~k:"displayName" ~default in
     let* user_account_control = get_int Int32.of_string "userAccountControl" in
     let* account_expires = get_int Int64.of_string "accountExpires" in
     let account_expired =
@@ -172,7 +180,9 @@ module Ldap = struct
     let passw_expire_bit = of_string "0x800000" in
     Ok
       {
-        upn
+        name
+      ; display_name
+      ; upn
       ; account_expired
       ; account_disabled= logand user_account_control disabled_bit <> 0l
       ; account_locked= logand user_account_control lockout_bit <> 0l
@@ -188,11 +198,20 @@ module Ldap = struct
       Ok stdout
     with _ -> Error (generic_ex "net ads query failed")
 
-  let query_user sid =
+  let query_user sid domain =
     let* stdout =
       try
         let args =
-          ["ads"; "sid"; "-d"; debug_level (); "--machine-pass"; sid]
+          [
+            "ads"
+          ; "sid"
+          ; sid
+          ; "-d"
+          ; debug_level ()
+          ; "--server"
+          ; domain
+          ; "--machine-pass"
+          ]
         in
         let stdout =
           Helpers.call_script ~log_output:On_failure !Xapi_globs.net_cmd args
@@ -275,6 +294,27 @@ module Wbinfo = struct
         Ok (String.trim sid)
     | [] ->
         Error (parsing_ex args)
+
+  let domain_of_uname uname =
+    (*
+     * Get domain from domainified uname, which is formatted as NETBIOS\sAMAccountName
+     *
+     * convert NETBIOS name to domain by wbinfo --domain-info
+     *
+     * example output:
+     * Name              : UCC
+     * Alt_Name          : ucc.local
+     * SID               : S-1-5-21-2850064427-2368465266-4270348630
+     * *)
+    match String.split_on_char '\\' uname with
+    | [domain; _] -> (
+        let args = ["--domain-info"; domain] in
+        let* stdout = call_wbinfo args in
+        try Ok (Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout)
+        with _ -> Error (parsing_ex args)
+      )
+    | _ ->
+        Error (generic_ex "Invalid domain user name %s" uname)
 
   type name = User of string | Other of string
 
@@ -513,6 +553,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; "winbind refresh tickets = Yes"
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
+      ; Printf.sprintf "winbind cache time = %d" !Xapi_globs.winbind_cache_time
       ; "kerberos encryption types = strong"
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
@@ -662,12 +703,17 @@ module Winbind = struct
     (* Refresh winbind configuration to handle upgrade from PBIS
      * The winbind configuration needs to be refreshed before start winbind daemon *)
     let {service_name; workgroup; netbios_name} = get_domain_info_from_db () in
-    if netbios_name = None then
-      let netbios_name = Migrate_from_pbis.migrate_netbios_name __context in
-      let workgroup =
-        query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
-      in
-      config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
+    let netbios_name =
+      match netbios_name with
+      | None ->
+          Migrate_from_pbis.migrate_netbios_name __context
+      | Some name ->
+          name
+    in
+    let workgroup =
+      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+    in
+    config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
 
   let init_service ~__context =
     if is_ad_enabled ~__context then (
@@ -699,7 +745,8 @@ module Winbind = struct
   let random_string len =
     let upper_char_start = 65 in
     let upper_char_len = 26 in
-    String.init len (fun _ -> upper_char_start + Random.int upper_char_len |> char_of_int)
+    let random_char() = upper_char_start + Random.int upper_char_len |> char_of_int in
+    String.init len (fun _ -> random_char ())
 
   let build_netbios_name hostname =
     (* Winbind follow https://docs.microsoft.com/en-US/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou#domain-names to limit netbios length to 15
@@ -796,27 +843,35 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     ; ("subject-is-group", string_of_bool true)
     ]
 
-  let query_subject_information_user (name : string) (uid : int) (sid : string)
-      =
-    let* {gecos; gid} = Wbinfo.uid_info_of_uid uid in
+  let query_subject_information_user (uid : int) (sid : string) =
+    let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
+    let* domain = Wbinfo.domain_of_uname user_name in
     let* {
-           upn
+           name
+         ; upn
+         ; display_name
          ; account_disabled
          ; account_expired
          ; account_locked
          ; password_expired
          } =
-      Ldap.query_user sid
+      Ldap.query_user sid domain
     in
     Ok
       [
-        ("subject-name", name)
+        ("subject-name", user_name)
       ; ("subject-gecos", gecos)
       ; ( "subject-displayname"
-        , if gecos = "" || gecos = "<null>" then name else gecos )
+        , if display_name <> "" then
+            display_name
+          else if gecos <> "" && gecos <> "<null>" then
+            gecos
+          else
+            user_name )
       ; ("subject-uid", string_of_int uid)
       ; ("subject-gid", string_of_int gid)
-      ; ("subject-upn", upn)
+      ; ( "subject-upn"
+        , if upn <> "" then upn else Printf.sprintf "%s@%s" name domain )
       ; ("subject-account-disabled", string_of_bool account_disabled)
       ; ("subject-account-locked", string_of_bool account_locked)
       ; ("subject-account-expired", string_of_bool account_expired)
@@ -838,9 +893,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let res =
       let* name = Wbinfo.name_of_sid sid in
       match name with
-      | User name ->
+      | User _ ->
           let* uid = Wbinfo.uid_of_sid sid in
-          query_subject_information_user name uid sid
+          query_subject_information_user uid sid
       | Other name ->
           (* if the name doesn't correspond to a user then it ought to be a group *)
           let* gid = Wbinfo.gid_of_sid sid in
@@ -923,8 +978,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ~netbios_name ;
       debug "Succeed to join domain %s" service_name
     with
-    | Forkhelpers.Spawn_internal_error _ ->
-        let msg = Printf.sprintf "Failed to join domain %s" service_name in
+    | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
+        let msg =
+          Printf.sprintf "Failed to join domain %s: %s" service_name stdout
+        in
         error "Join domain error: %s" msg ;
         raise (Auth_service_error (E_GENERIC, msg))
     | Xapi_systemctl.Systemctl_fail _ ->
