@@ -1043,6 +1043,8 @@ type nvidia_t4_sriov = Nvidia_T4_SRIOV | Nvidia_LEGACY | Nvidia_DEFAULT
 
 let nvidia_t4_sriov = ref Nvidia_DEFAULT
 
+let failed_login_alert_freq = ref 3600
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1237,6 +1239,12 @@ let other_options =
     , (fun () -> !repository_gpgkey_name)
     , "The name of gpg key used by RPM to verify metadata and packages in \
        repository"
+    )
+  ; ( "failed-login-alert-freq"
+    , Arg.Set_int failed_login_alert_freq
+    , (fun () -> string_of_int !failed_login_alert_freq)
+    , "Frequency at which we alert any failed logins (in seconds; \
+       default=3600s)"
     )
   ]
 

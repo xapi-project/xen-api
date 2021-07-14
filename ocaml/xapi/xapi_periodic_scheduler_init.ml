@@ -99,10 +99,13 @@ let register () =
   Xapi_periodic_scheduler.add_to_queue "Update monitor configuration"
     (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
     Monitor_master.update_configuration_from_master ;
-  if master then
-    Xapi_periodic_scheduler.add_to_queue "Periodic alert failed login attempts"
-      (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
-      Xapi_pool.alert_failed_login_attempts ;
+  ( if master then
+      let freq = !Xapi_globs.failed_login_alert_freq |> float_of_int in
+      Xapi_periodic_scheduler.add_to_queue
+        "Periodic alert failed login attempts"
+        (Xapi_periodic_scheduler.Periodic freq) freq
+        Xapi_pool.alert_failed_login_attempts
+  ) ;
   Xapi_periodic_scheduler.add_to_queue
     "Period alert if TLS verification emergency disabled"
     (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
