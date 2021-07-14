@@ -342,13 +342,6 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
 
 let _distrib_m = Mutex.create ()
 
-(* where possible, the master host should control the certificate
- * distributions.  this allows us to coordinate multiple parties that are
- * trying to modify /etc/stunnel at the same time with [lock]!
- *
- * we apply this lock to all top level distribution calls, with the exception of
- * the pool join functions that execute on the joiner.
- *)
 let lock (f : unit -> 'a) : 'a =
   D.debug "cert_distrib.ml: locking..." ;
   Mutex.lock _distrib_m ;
