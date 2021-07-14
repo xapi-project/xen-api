@@ -16,6 +16,7 @@ open Xapi_clustering
 
 module D = Debug.Make (struct let name = "xapi_cluster" end)
 
+module Gencert = Gencertlib.Selfcert
 open D
 
 (* TODO: update allowed_operations on boot/toolstack-restart *)
@@ -53,12 +54,14 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let token_timeout_coefficient_ms =
         Int64.of_float (token_timeout_coefficient *. 1000.0)
       in
+      let pems = Xapi_cluster_helpers.Pem.init ~__context ~cn:cluster_uuid in
       let init_config =
         {
           Cluster_interface.local_ip= ip
         ; token_timeout_ms= Some token_timeout_ms
         ; token_coefficient_ms= Some token_timeout_coefficient_ms
         ; name= None
+        ; pems
         }
       in
       Xapi_clustering.Daemon.enable ~__context ;

@@ -90,3 +90,14 @@ val forget : __context:Context.t -> self:API.ref_Cluster_host -> unit
     from the cluster. This will only succeed if the rest of the hosts are online,
     so in the case of failure the cluster's pending_forget list will be updated.
     If you declare all your dead hosts as dead one by one the last one should succeed *)
+
+val get_cluster_config :
+  __context:Context.t -> self:API.ref_Cluster_host -> SecretString.t
+
+val write_pems :
+     __context:Context.t
+  -> self:API.ref_Cluster_host
+  -> pems:SecretString.t
+  -> unit
+
+val is_local_cluster_host_using_xapis_pem : __context:Context.t -> bool

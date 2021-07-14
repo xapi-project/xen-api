@@ -18,6 +18,8 @@ open Rresult (* introduces >>= >>| and R *)
 
 module D = Debug.Make (struct let name = "gencert_selfcert" end)
 
+let ( let* ) = Result.bind
+
 (** initialize the random number generator at program startup when this
 module is loaded. *)
 let () = Mirage_crypto_rng_unix.initialize ()
@@ -33,7 +35,7 @@ let write_certs path pkcs12 =
   in
   R.trap_exn f () |> R.error_exn_trap_to_msg
 
-let expire_in days =
+let expire_in_days days =
   let seconds = days * 24 * 60 * 60 in
   let start = Ptime_clock.now () in
   match Ptime.(add_span start @@ Span.of_int_s seconds) with
@@ -42,12 +44,14 @@ let expire_in days =
   | None ->
       R.error_msgf "can't represent %d as time span" days
 
+let expire_never () = (Ptime_clock.now (), Ptime.max)
+
 let sans dns_names ips =
   let sans = X509.General_name.(singleton DNS dns_names |> add IP ips) in
   X509.Extension.(singleton Subject_alt_name (false, sans))
 
-let sign days privkey pubkey issuer req extensions =
-  expire_in days >>= fun (valid_from, valid_until) ->
+let sign expiration privkey pubkey issuer req extensions =
+  let valid_from, valid_until = expiration in
   match (privkey, pubkey) with
   | `RSA priv, `RSA pub when Rsa.pub_of_priv priv = pub ->
       X509.Signing_request.sign ~valid_from ~valid_until ~extensions req privkey
@@ -74,60 +78,90 @@ let call_openssl args =
   in
   Forkhelpers.execute_command_get_output openssl ~env args
 
-(** [generate_private_key] calls openssl to generate an RSA key of
-  [length] bits. *)
-let generate_private_key length =
+(** [generate_pub_priv_key] calls openssl to generate an RSA key of
+    [length] bits. *)
+let generate_pub_priv_key length =
   let args = ["genrsa"; string_of_int length] in
-  let stdout, _stderr = call_openssl args in
-  stdout
-
-let selfsign issuer extensions key_length days certfile =
-  let rsa =
+  let* rsa_string =
     try
-      generate_private_key key_length
-      |> Cstruct.of_string
-      |> X509.Private_key.decode_pem
-      |> R.failwith_error_msg
-      |> function
-      | `RSA x ->
-          x
+      let stdout, _stderr = call_openssl args in
+      Ok stdout
     with e ->
-      let msg =
-        Printf.sprintf "generating RSA key for %s failed: %s" certfile
-          (Printexc.to_string e)
-      in
-      D.error "%s" msg ; failwith msg
+      let msg = "generating RSA key failed" in
+      D.error "selfcert.ml: %s" msg ;
+      Debug.log_backtrace e (Backtrace.get e) ;
+      R.error_msg msg
   in
-  let privkey = `RSA rsa in
+  let* privkey =
+    rsa_string
+    |> Cstruct.of_string
+    |> X509.Private_key.decode_pem
+    |> R.reword_error (fun _ -> R.msg "decoding private key failed")
+  in
+  let* rsa =
+    try match privkey with `RSA x -> Ok x
+    with _ -> R.error_msg "generated private key does not use RSA"
+  in
   let pubkey = `RSA (Rsa.pub_of_priv rsa) in
+  Ok (privkey, pubkey)
+
+let selfsign' issuer extensions key_length expiration =
+  let* privkey, pubkey = generate_pub_priv_key key_length in
   let req = X509.Signing_request.create issuer privkey in
-  sign days privkey pubkey issuer req extensions >>= fun cert ->
+  let* cert = sign expiration privkey pubkey issuer req extensions in
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
   let pkcs12 =
     String.concat "\n\n" [Cstruct.to_string key_pem; Cstruct.to_string cert_pem]
   in
-  write_certs certfile pkcs12 >>| fun () -> cert
+  Ok (cert, pkcs12)
+
+let selfsign issuer extensions key_length expiration certfile =
+  let* cert, pkcs12 = selfsign' issuer extensions key_length expiration in
+  let* () = write_certs certfile pkcs12 in
+  Ok cert
 
 let host ~name ~dns_names ~ips pemfile =
-  let expire_days = 3650 in
-  let key_length = 2048 in
-  let issuer =
-    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN name))]
+  let res =
+    let* expiration = expire_in_days (365 * 10) in
+    let key_length = 2048 in
+    let issuer =
+      [
+        X509.Distinguished_name.(Relative_distinguished_name.singleton (CN name))
+      ]
+    in
+    let extensions = sans dns_names ips in
+    (* make sure name is part of alt_names because CN is deprecated and
+       that there are no duplicates *)
+    selfsign issuer extensions key_length expiration pemfile
   in
-  let extensions = sans dns_names ips in
-  (* make sure name is part of alt_names because CN is deprecated and
-     that there are no duplicates *)
-  selfsign issuer extensions key_length expire_days pemfile
-  |> R.failwith_error_msg
+  R.failwith_error_msg res
 
 let xapi_pool ~uuid pemfile =
-  let expire_days = 3650 in
+  let res =
+    let* expiration = expire_in_days (365 * 10) in
+    let key_length = 2048 in
+    let issuer =
+      [
+        X509.Distinguished_name.(Relative_distinguished_name.singleton (CN uuid))
+      ]
+    in
+    let extensions = X509.Extension.empty in
+    let* (_ : X509.Certificate.t) =
+      selfsign issuer extensions key_length expiration pemfile
+    in
+    Ok ()
+  in
+  R.failwith_error_msg res
+
+let xapi_cluster ~cn =
+  let expiration = expire_never () in
   let key_length = 2048 in
   let issuer =
-    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN uuid))]
+    [X509.Distinguished_name.(Relative_distinguished_name.singleton (CN cn))]
   in
   let extensions = X509.Extension.empty in
-  selfsign issuer extensions key_length expire_days pemfile
-  >>| (fun _ -> ())
-  |> R.failwith_error_msg
+  let _, pkcs12 =
+    selfsign' issuer extensions key_length expiration |> R.failwith_error_msg
+  in
+  pkcs12

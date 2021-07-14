@@ -67,6 +67,17 @@ let unreachable_hosts ~__context =
   let pool = Xapi_pool_helpers.get_master_slaves_list ~__context in
   HostSet.(diff (of_list pool) (of_list live))
 
+let maybe_restart_cluster_daemon ~__context =
+  let open Xapi_clustering in
+  let open Xapi_cluster_host in
+  with_clustering_lock __LOC__ @@ fun () ->
+  if is_local_cluster_host_using_xapis_pem ~__context then (
+    (* we need to restart the cluster daemon because it is using xapi's cert
+     * and xapi's cert has changed! *)
+    info "cert_refresh: restarting cluster daemon" ;
+    Daemon.restart ~__context
+  )
+
 (* On this host and for this host, create a new server certificate and
 distribute it in the pool *)
 let host ~__context ~type' =
@@ -90,6 +101,7 @@ let host ~__context ~type' =
   info "renaming cert %s to %s" path pem ;
   Sys.rename pem bak ;
   Sys.rename path pem ;
+  maybe_restart_cluster_daemon ~__context ;
   (* remove old from database, add new *)
   Certificates.Db_util.get_host_certs ~__context ~type' ~host
   |> List.iter (Certificates.Db_util.remove_cert_by_ref ~__context) ;

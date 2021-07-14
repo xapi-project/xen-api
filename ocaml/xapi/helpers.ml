@@ -34,6 +34,8 @@ module D = Debug.Make (struct let name = "helpers" end)
 open D
 module StringSet = Set.Make (String)
 
+let ( let* ) = Result.bind
+
 let log_exn_continue msg f x =
   try f x
   with e ->
@@ -2100,3 +2102,12 @@ let update_ca_bundle =
              "/opt/xensource/bin/update-ca-bundle.sh" []
           )
     )
+
+let unit_test ~__context : bool =
+  Pool_role.is_unit_test ()
+  ||
+  match Context.get_test_clusterd_rpc __context with
+  | Some _ ->
+      true
+  | None ->
+      false
