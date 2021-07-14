@@ -58,6 +58,8 @@ let wb_cmd = !Xapi_globs.wb_cmd
 
 let tdb_tool = !Xapi_globs.tdb_tool
 
+let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
+
 let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 
 let ntlm_auth uname passwd : (unit, exn) result =
@@ -189,16 +191,12 @@ module Ldap = struct
       ; password_expired= logand user_account_control passw_expire_bit <> 0l
       }
 
-  let net_ads (sid : string) : (string, exn) result =
-    try
-      let args = ["ads"; "sid"; "-d"; debug_level (); "--machine-pass"; sid] in
-      let stdout =
-        Helpers.call_script ~log_output:On_failure !Xapi_globs.net_cmd args
-      in
-      Ok stdout
-    with _ -> Error (generic_ex "net ads query failed")
-
-  let query_user sid domain =
+  let query_user sid domain_netbios domain =
+    let domain_krb5_cfg =
+      Filename.concat domain_krb5_dir
+        (Printf.sprintf "krb5.conf.%s" domain_netbios)
+    in
+    let env = [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|] in
     let* stdout =
       try
         let args =
@@ -214,7 +212,8 @@ module Ldap = struct
           ]
         in
         let stdout =
-          Helpers.call_script ~log_output:On_failure !Xapi_globs.net_cmd args
+          Helpers.call_script ~env ~log_output:On_failure !Xapi_globs.net_cmd
+            args
         in
         Ok stdout
       with _ -> Error (generic_ex "ldap query failed")
@@ -307,10 +306,11 @@ module Wbinfo = struct
      * SID               : S-1-5-21-2850064427-2368465266-4270348630
      * *)
     match String.split_on_char '\\' uname with
-    | [domain; _] -> (
-        let args = ["--domain-info"; domain] in
+    | [domain_netbios; _] -> (
+        let args = ["--domain-info"; domain_netbios] in
         let* stdout = call_wbinfo args in
-        try Ok (Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout)
+        try
+          Ok (domain_netbios, Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout)
         with _ -> Error (parsing_ex args)
       )
     | _ ->
@@ -554,6 +554,7 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
       ; Printf.sprintf "winbind cache time = %d" !Xapi_globs.winbind_cache_time
+      ; Printf.sprintf "machine password timeout = %d" !Xapi_globs.winbind_machine_pwd_timeout
       ; "kerberos encryption types = strong"
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
@@ -743,9 +744,11 @@ module Winbind = struct
       raise (Auth_service_error (E_GENERIC, msg))
 
   let random_string len =
-    let upper_char_start = 65 in
+    let upper_char_start = Char.code('A') in
     let upper_char_len = 26 in
-    let random_char() = upper_char_start + Random.int upper_char_len |> char_of_int in
+    let random_char () =
+      upper_char_start + Random.int upper_char_len |> char_of_int
+    in
     String.init len (fun _ -> random_char ())
 
   let build_netbios_name hostname =
@@ -845,7 +848,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
   let query_subject_information_user (uid : int) (sid : string) =
     let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
-    let* domain = Wbinfo.domain_of_uname user_name in
+    let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
     let* {
            name
          ; upn
@@ -855,7 +858,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
          ; account_locked
          ; password_expired
          } =
-      Ldap.query_user sid domain
+      Ldap.query_user sid domain_netbios domain
     in
     Ok
       [
@@ -930,12 +933,10 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   *)
   let on_enable config_params =
     let user =
-      from_config ~name:"user" ~err_msg:"enable requires username"
-        ~config_params
+      from_config ~name:"user" ~err_msg:"enable requires user" ~config_params
     in
     let pass =
-      from_config ~name:"pass" ~err_msg:"enable requires password"
-        ~config_params
+      from_config ~name:"pass" ~err_msg:"enable requires pass" ~config_params
     in
     let netbios_name = get_localhost_name () |> Winbind.build_netbios_name in
 
@@ -972,7 +973,8 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let env = [|Printf.sprintf "PASSWD=%s" pass|] in
     try
       Helpers.call_script ~env net_cmd args |> ignore ;
-      Winbind.start ~timeout:5. ~wait_until_success:true ;
+      (* Need to restart to refresh cache *)
+      Winbind.restart ~timeout:5. ~wait_until_success:true ;
       Winbind.check_ready_to_serve ~timeout:300. ;
       persist_extauth_config ~domain:service_name ~user ~ou_conf ~workgroup
         ~netbios_name ;
