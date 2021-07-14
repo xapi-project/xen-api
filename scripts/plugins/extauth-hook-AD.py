@@ -158,7 +158,7 @@ class DynamicPam(ADConfig):
             condition = "ingroup" if is_group else "="
             self._lines.append("account sufficient pam_succeed_if.so user {} {}".format(condition, name))
         except Exception:
-            logger.warning("Failed to check subject %s for dynamic pam", sid)
+            logger.warning("Failed to check subject %s for dynamic pam", subject_rec)
 
     def _install(self):
         if self._ad_enabled:
