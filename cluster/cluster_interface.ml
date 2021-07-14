@@ -36,6 +36,10 @@ type node = {addr: address; id: nodeid} [@@deriving rpcty]
 
 type all_members = node list [@@deriving rpcty]
 
+type pems = {cn: string; blobs: string list} [@@deriving rpcty]
+
+type pems_opt = pems option [@@deriving rpcty]
+
 (** This type contains all of the information required to initialise the
     cluster. All optional params will have the recommended defaults if None. *)
 type init_config = {
@@ -43,6 +47,7 @@ type init_config = {
   ; token_timeout_ms: int64 option
   ; token_coefficient_ms: int64 option
   ; name: string option
+  ; pems: pems option
 }
 [@@deriving rpcty]
 
@@ -57,8 +62,15 @@ type cluster_config = {
   ; config_version: int64
   ; cluster_token_timeout_ms: int64
   ; cluster_token_coefficient_ms: int64
+  ; pems: pems option
 }
 [@@deriving rpcty]
+
+let encode_cluster_config x =
+  Rpcmarshal.marshal cluster_config.Rpc.Types.ty x |> Jsonrpc.to_string
+
+let decode_cluster_config x =
+  Jsonrpc.of_string x |> Rpcmarshal.unmarshal cluster_config.Rpc.Types.ty
 
 type cluster_config_and_all_members = cluster_config * all_members
 [@@deriving rpcty]
@@ -118,6 +130,11 @@ let debug_info_p =
   Param.mk ~name:"dbg"
     ~description:["An uninterpreted string to associate with the operation."]
     debug_info
+
+let pems_opt_p =
+  Param.mk ~name:"pems"
+    ~description:["keys and certs cluster node should use"]
+    pems_opt
 
 type remove = bool [@@deriving rpcty]
 
@@ -198,6 +215,7 @@ module LocalAPI (R : RPC) = struct
       @-> token_p
       @-> new_p
       @-> existing_p
+      @-> pems_opt_p
       @-> returning unit_p err
       )
 
@@ -231,4 +249,16 @@ module LocalAPI (R : RPC) = struct
     declare "diagnostics"
       ["Returns diagnostic information about the cluster"]
       (debug_info_p @-> returning diagnostics_p err)
+
+  let get_config =
+    let cluster_config_p = Param.mk ~name:"cluster_config" cluster_config in
+    declare "get-config"
+      ["Returns local cluster config"]
+      (debug_info_p @-> returning cluster_config_p err)
+
+  let write_pems =
+    let pems_p = Param.mk ~name:"pems" pems in
+    declare "write-pems"
+      ["Distribute pems to existing cluster"]
+      (debug_info_p @-> pems_p @-> returning unit_p err)
 end
