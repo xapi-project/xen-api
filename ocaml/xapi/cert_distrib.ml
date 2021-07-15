@@ -372,7 +372,6 @@ let exchange_certificates_among_all_members ~__context =
          we do not guarantee 'atomicity', so if regenerating the bundle on one host
          fails, then state across the pool will most likely become inconsistent, and
          manual intervention may be required *)
-  lock @@ fun () ->
   let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
   let certs =
