@@ -166,6 +166,12 @@ let pool_operation_to_string = function
       "apply_updates"
   | `cert_refresh ->
       "cert_refresh"
+  | `exchange_certificates_on_join ->
+      "exchange_certificates_on_join"
+  | `exchange_ca_certificates_on_join ->
+      "exchange_ca_certificates_on_join"
+  | `copy_primary_host_certs ->
+      "copy_primary_host_certs"
 
 let host_operation_to_string = function
   | `provision ->
