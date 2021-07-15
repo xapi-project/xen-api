@@ -39,6 +39,3 @@ val run : __context:Context.t -> mgmt_enabled:bool -> unit
 val reconfigure_himn : __context:Context.t -> addr:string option -> unit
 (** Start a server thread on the given HIMN address if the server is not yet running,
     or stop the HIMN thread if `addr = None` *)
-
-val reconfigure_stunnel : __context:Context.t -> unit
-(** Restart stunnel to make it pick up a change to host.ssl_legacy *)

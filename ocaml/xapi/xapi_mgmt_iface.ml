@@ -40,8 +40,6 @@ let update_certificates ~__context () =
 
 module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
-
-  val reconfigure : __context:Context.t -> unit
 end = struct
   let accept_cached_m = Mutex.create ()
 
@@ -56,20 +54,6 @@ end = struct
     (* cache `accept` so client can call `reconfigure` easily *)
     Mutex.execute accept_cached_m (fun () -> accept_cached := Some accept) ;
     _restart_no_cache ~__context ~accept
-
-  let reconfigure ~__context =
-    let f =
-      Mutex.execute accept_cached_m (fun () ->
-          match !accept_cached with
-          | None ->
-              fun () ->
-                D.warn
-                  "reconfigure: accept is not set, so not restarting stunnel"
-          | Some accept ->
-              fun () -> _restart_no_cache ~__context ~accept
-      )
-    in
-    f ()
 end
 
 module Server : sig
@@ -164,8 +148,6 @@ end = struct
 end
 
 (* High-level interface *)
-
-let reconfigure_stunnel = Stunnel.reconfigure
 
 let change interface primary_address_type =
   Xapi_inventory.update Xapi_inventory._management_interface interface ;
