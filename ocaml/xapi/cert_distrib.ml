@@ -513,7 +513,6 @@ let collect_ca_certs ~__context ~names =
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
-  lock @@ fun () ->
   let appliance_certs = List.map WireProtocol.certificate_file_of_pair import in
   Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
     appliance_certs ;

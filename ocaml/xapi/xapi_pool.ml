@@ -1614,6 +1614,11 @@ let exchange_certificates_on_join ~__context ~uuid ~certificate :
 
 let exchange_ca_certificates_on_join ~__context ~import ~export :
     API.string_to_string_map =
+  Xapi_pool_helpers.with_pool_operation ~__context
+    ~op:`exchange_ca_certificates_on_join
+    ~doc:"Pool.exchange_ca_certificates_on_join"
+    ~self:(Helpers.get_pool ~__context)
+  @@ fun () ->
   let export =
     List.map (fun self -> Db.Certificate.get_name ~__context ~self) export
   in
