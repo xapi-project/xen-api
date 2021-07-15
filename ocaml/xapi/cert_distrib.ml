@@ -466,7 +466,6 @@ let copy_certs_to_host ~__context ~host =
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
-  lock @@ fun () ->
   let joiner_certificate =
     HostPoolProvider.certificate_of_id_content uuid certificate
   in
