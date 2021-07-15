@@ -448,7 +448,6 @@ let am_i_missing_certs ~__context : bool =
   missing_pool_certs () || missing_ca_certs ()
 
 let copy_certs_to_host ~__context ~host =
-  lock @@ fun () ->
   D.debug "copy_certs_to_host: sending my certs to host %s"
     (Ref.short_string_of host) ;
   if am_i_missing_certs ~__context then
