@@ -46,7 +46,7 @@ end = struct
   let accept_cached = ref None
 
   let _restart_no_cache ~__context ~accept =
-    Helpers.Stunnel.restart ~__context ~accept ;
+    Xapi_stunnel.restart ~__context ~accept ;
     update_certificates ~__context ()
 
   let restart ~__context ~accept =

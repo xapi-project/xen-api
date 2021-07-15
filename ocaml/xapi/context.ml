@@ -189,7 +189,7 @@ let _client_of_origin = function
   | Http (rq, fd) -> (
     match _client_of_rq rq with
     | Some client ->
-        (* this relies on 'protocol = proxy' in Helpers.Stunnel *)
+        (* this relies on 'protocol = proxy' in Xapi_stunnel *)
         Some (Https, client)
     | None -> (
       match Unix.getpeername fd with
