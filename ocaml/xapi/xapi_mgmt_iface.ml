@@ -28,34 +28,6 @@ let update_mh_info interface =
   in
   ()
 
-let update_certificates ~__context () =
-  info "syncing certificates on xapi start" ;
-  match Certificates_sync.update ~__context with
-  | Ok () ->
-      info "successfully synced certificates"
-  | Error (`Msg (msg, _)) ->
-      error "Failed to update host certificates: %s" msg
-  | exception e ->
-      error "Failed to update host certificates: %s" (Printexc.to_string e)
-
-module Stunnel : sig
-  val restart : __context:Context.t -> accept:string -> unit
-end = struct
-  let accept_cached_m = Mutex.create ()
-
-  let accept_cached = ref None
-
-  let _restart_no_cache ~__context ~accept =
-    Xapi_stunnel.restart ~__context ~accept ;
-    update_certificates ~__context ()
-
-  let restart ~__context ~accept =
-    info "Restarting stunnel (accepting connections on %s)" accept ;
-    (* cache `accept` so client can call `reconfigure` easily *)
-    Mutex.execute accept_cached_m (fun () -> accept_cached := Some accept) ;
-    _restart_no_cache ~__context ~accept
-end
-
 module Server : sig
   type listening_mode = Off | Any | Local of Addresses.t
 
@@ -109,7 +81,7 @@ end = struct
     in
     Http_svr.start Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
-    Stunnel.restart ~__context ~accept:stunnel_accept ;
+    Xapi_stunnel.restart ~__context ~accept:stunnel_accept ;
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)

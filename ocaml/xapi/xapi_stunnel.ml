@@ -16,6 +16,7 @@ open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "stunnel" end)
+
 open D
 
 let cert = !Xapi_globs.server_cert_path
@@ -100,7 +101,8 @@ end = struct
     )
 end
 
-let systemctl cmd = Helpers.call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
+let systemctl cmd =
+  Helpers.call_script !Xapi_globs.systemctl [cmd; "stunnel@xapi"]
 
 let systemctl_ cmd = systemctl cmd |> ignore
 
@@ -133,12 +135,25 @@ let is_enabled () =
         unknown ;
       false
 
+let update_certificates ~__context () =
+  info "syncing certificates on xapi start" ;
+  match Certificates_sync.update ~__context with
+  | Ok () ->
+      info "successfully synced certificates"
+  | Error (`Msg (msg, _)) ->
+      error "Failed to update host certificates: %s" msg
+  | exception e ->
+      error "Failed to update host certificates: %s" (Printexc.to_string e)
+
 let restart ~__context ~accept =
   try
+    info "Restarting stunnel (accepting connections on %s)" accept ;
     Config.update ~accept ;
     (* we do not worry about generating certificates here, because systemd will handle this for us, via the gencert service *)
     if not @@ is_enabled () then systemctl_ "enable" ;
-    systemctl_ "restart"
+    systemctl_ "restart" ;
+    (* the stunnel start may have caused gencert to generate new certificates: now sync the DB *)
+    update_certificates ~__context ()
   with e ->
     Backtrace.is_important e ;
     D.error "Xapi_stunnel.restart: failed to restart stunnel" ;
