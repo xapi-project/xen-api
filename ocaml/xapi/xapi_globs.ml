@@ -911,11 +911,15 @@ let ntlm_auth_cmd = ref "/usr/bin/ntlm_auth"
 
 let winbind_debug_level = ref 2
 
-let winbind_cache_time = ref 300
+let winbind_cache_time = ref 60
+
+let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let sqlite3 = ref "/usr/bin/sqlite3"
+
+let samba_dir = "/var/lib/samba"
 
 let xapi_globs_spec =
   [
@@ -986,6 +990,7 @@ let xapi_globs_spec =
   ; ("max_active_sr_scans", Int max_active_sr_scans)
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
+  ; ("winbind_machine_pwd_timeout", Int winbind_machine_pwd_timeout)
   ]
 
 let options_of_xapi_globs_spec =
