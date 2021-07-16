@@ -483,6 +483,8 @@ type persist_option = PersistNothing | PersistEverything [@@deriving rpc]
 (* PersistEverything - all creates/writes persisted;
    PersistNothing - no creates/writes to this table persisted *)
 
+type db_logging = Log_destroy [@@deriving rpc]
+
 (** An object (or entity) is represented by one of these: *)
 type obj = {
   name : string;
@@ -501,6 +503,7 @@ type obj = {
   obj_release: release;
   in_database: bool; (* If the object is in the database *)
   obj_doc_tags: doc_tag list;
+  db_logging: db_logging option
 } [@@deriving rpc]
 
 (* val rpc_of_obj : obj -> Rpc.t *)

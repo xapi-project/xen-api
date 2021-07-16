@@ -547,6 +547,7 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
     ?force_custom_actions:(force_custom_actions=None) (* None,Some(RW),Some(StaticRO) *)
     ~messages_default_allowed_roles ?(doc_tags=[])(* used in constructor, destructor and explicit obj msgs *)
     ?(msg_lifecycles = [])(* To specify lifecycle for automatic messages (e.g. constructor) when different to object lifecycle. *)
+    ?db_logging
     () =
   let contents_default_writer_roles = if contents_default_writer_roles=None then messages_default_allowed_roles else contents_default_writer_roles in
   let get_field_reader_roles = function None->contents_default_reader_roles|r->r in
@@ -588,4 +589,5 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since ?(internal_deprecated_
     persist = persist; gen_events = gen_events; obj_release = release;
     in_database=in_db; obj_allowed_roles = messages_default_allowed_roles; obj_implicit_msg_allowed_roles = implicit_messages_allowed_roles;
     obj_doc_tags = doc_tags;
+    db_logging;
   }

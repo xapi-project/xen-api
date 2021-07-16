@@ -4155,6 +4155,7 @@ module Event = struct
       obj_allowed_roles=_R_POOL_ADMIN;
       obj_implicit_msg_allowed_roles=_R_ALL;
       obj_doc_tags=[];
+      db_logging=None;
     }
 end
 
@@ -4447,6 +4448,7 @@ module PCI = struct
       ~messages_default_allowed_roles:_R_POOL_OP
       ~persist:PersistEverything
       ~in_oss_since:None
+      ~db_logging:Log_destroy
       ~contents:[
         uid _pci ~lifecycle:[Published, rel_boston, ""];
         field ~qualifier:StaticRO ~ty:String ~lifecycle:[] "class_id" "PCI class ID" ~default_value:(Some (VString "")) ~internal_only:true;
