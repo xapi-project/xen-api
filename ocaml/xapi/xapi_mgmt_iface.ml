@@ -81,7 +81,7 @@ end = struct
     in
     Http_svr.start Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
-    Xapi_stunnel.restart ~__context ~accept:stunnel_accept ;
+    Xapi_stunnel_server.restart ~__context ~accept:stunnel_accept ;
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)

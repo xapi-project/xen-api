@@ -15,7 +15,7 @@
 open Xapi_stdext_threads.Threadext
 module Unixext = Xapi_stdext_unix.Unixext
 
-module D = Debug.Make (struct let name = "stunnel" end)
+module D = Debug.Make (struct let name = "xapi_stunnel_server" end)
 
 open D
 
@@ -194,5 +194,5 @@ let restart ~__context ~accept =
     update_certificates ~__context ()
   with e ->
     Backtrace.is_important e ;
-    D.error "Xapi_stunnel.restart: failed to restart stunnel" ;
+    D.error "Xapi_stunnel_server.restart: failed to restart stunnel" ;
     raise e
