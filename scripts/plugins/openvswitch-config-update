@@ -65,6 +65,7 @@ def update(session, args):
         controller_protocol = session.xenapi.SDN_controller.get_protocol(controllers[0])
         controller_address = session.xenapi.SDN_controller.get_address(controllers[0])
         controller_port = session.xenapi.SDN_controller.get_port(controllers[0])
+        controller_local_ports = session.xenapi.SDN_controller.get_local_ports(controllers[0])
         bootstrap, controller = composeController(controller_protocol, controller_address, controller_port)
 
     ret_str = ''
@@ -90,6 +91,15 @@ def update(session, args):
         setControllerCfg(bootstrap, controller)
         new_controller = True
         ret_str += 'Successfully set controller to %s.  ' % controller
+
+    # Open port required by the SDN Controller
+    if controller_local_ports:
+        for local_port in controller_local_ports:
+            splitted = local_port.split(':')
+            protocol = splitted[0]
+            port = splitted[1]
+            cmd = [iptablectl, 'open', port, protocol]
+            output = subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()
 
     try:
         pool_fail_mode = pool['other_config']['vswitch-controller-fail-mode']

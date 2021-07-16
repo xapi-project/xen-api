@@ -880,6 +880,17 @@ let sdn_protocol_of_string s =
 
 let sdn_protocol_to_string = function `ssl -> "ssl" | `pssl -> "pssl"
 
+let sdn_port_protocol_of_string s =
+  match String.lowercase_ascii s with
+  | "tcp" ->
+      `tcp
+  | "udp" ->
+      `udp
+  | _ ->
+      raise (Record_failure ("Expected 'tcp','udp', got " ^ s))
+
+let sdn_port_protocol_to_string = function `tcp -> "tcp" | `udp -> "udp"
+
 let tunnel_protocol_of_string s =
   match String.lowercase_ascii s with
   | "gre" ->

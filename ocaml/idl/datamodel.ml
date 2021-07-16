@@ -5185,6 +5185,11 @@ module SDN_controller = struct
       "pssl", "Passive ssl connection";
     ])
 
+  let sdn_port_protocol = Enum ("sdn_port_protocol", [
+      "tcp", "TCP";
+      "udp", "UDP";
+  ])
+
   let introduce = call
       ~name:"introduce"
       ~doc:"Introduce an SDN controller to the pool."
@@ -5203,6 +5208,30 @@ module SDN_controller = struct
       ~doc:"Remove the OVS manager of the pool and destroy the db record."
       ~params: [ Ref _sdn_controller, "self", "this SDN controller"]
       ~lifecycle
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let add_local_port = call
+      ~name:"add_local_port"
+      ~doc:"Add a port to the list of required open ports"
+      ~params: [
+        Ref _sdn_controller, "self", "this SDN controller";
+        sdn_port_protocol, "protocol", "The protocol (tcp | udp)";
+        Int, "port", "The required port"
+      ]
+      ~lifecycle:[Prototyped, rel_next, ""]
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let remove_local_port = call
+      ~name:"remove_local_port"
+      ~doc:"Remove a port from the list of required open ports"
+      ~params: [
+        Ref _sdn_controller, "self", "this SDN controller";
+        sdn_port_protocol, "protocol", "the protocol (tcp | udp)";
+        Int, "port", "the port to close"
+      ]
+      ~lifecycle:[Prototyped, rel_next, ""]
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -5232,10 +5261,15 @@ module SDN_controller = struct
         ; field   ~qualifier:StaticRO ~lifecycle
             ~ty:Int "port" ~default_value:(Some (VInt 0L))
             "TCP port of the controller"
+
+        ; field   ~qualifier:RW ~lifecycle:[Prototyped, rel_next, ""]
+            ~ty:(Set(String)) "local_ports" ~default_value:(Some (VSet [])) "List of required opened ports"
         ]
       ~messages:
         [ introduce
         ; forget
+        ; add_local_port
+        ; remove_local_port
         ]
       ()
 end

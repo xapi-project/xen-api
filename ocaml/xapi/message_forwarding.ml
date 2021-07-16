@@ -5984,6 +5984,24 @@ functor
         info "SDN_controller.forget: sdn_controller = '%s'"
           (sdn_controller_uuid ~__context self) ;
         Local.SDN_controller.forget ~__context ~self
+
+      let add_local_port ~__context ~self ~protocol ~port =
+        info
+          "SDN_controller.add_local_port: sdn_controller = '%s', protocol = '%s', \
+           port = '%s'"
+          (sdn_controller_uuid ~__context self)
+          (Record_util.sdn_port_protocol_to_string protocol)
+          (Int64.to_string port) ;
+        Local.SDN_controller.add_local_port ~__context ~self ~protocol ~port
+
+      let remove_local_port ~__context ~self ~protocol ~port =
+        info
+          "SDN_controller.remove_local_port: sdn_controller = '%s', protocol = '%s', \
+           port = '%s'"
+          (sdn_controller_uuid ~__context self)
+          (Record_util.sdn_port_protocol_to_string protocol)
+          (Int64.to_string port) ;
+        Local.SDN_controller.remove_local_port ~__context ~self ~protocol ~port
     end
 
     module PUSB = struct
