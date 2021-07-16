@@ -1054,7 +1054,7 @@ functor
 
       let disable_client_certificate_auth ~__context ~self =
         info "Pool.disable_client_certificate_auth: pool = '%s'"
-          (pool_uuid ~__context self);
+          (pool_uuid ~__context self) ;
         Local.Pool.disable_client_certificate_auth ~__context ~self
     end
 

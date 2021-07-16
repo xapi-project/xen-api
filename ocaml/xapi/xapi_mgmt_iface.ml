@@ -28,57 +28,6 @@ let update_mh_info interface =
   in
   ()
 
-let update_certificates ~__context () =
-  info "syncing certificates on xapi start" ;
-  match Certificates_sync.update ~__context with
-  | Ok () ->
-      info "successfully synced certificates"
-  | Error (`Msg (msg, _)) ->
-      error "Failed to update host certificates: %s" msg
-  | exception e ->
-      error "Failed to update host certificates: %s" (Printexc.to_string e)
-
-module Stunnel : sig
-  val restart : __context:Context.t -> accept:string -> unit
-
-  val reconfigure : __context:Context.t -> unit
-end = struct
-  let accept_cached_m = Mutex.create ()
-
-  let accept_cached = ref None
-
-  let _restart_no_cache ~__context ~accept =
-    let (_ : Thread.t) =
-      Thread.create
-        (fun () ->
-          Helpers.Stunnel.restart ~__context ~accept ;
-          update_certificates ~__context ()
-          )
-        ()
-    in
-    ()
-
-  let restart ~__context ~accept =
-    info "Restarting stunnel (accepting connections on %s)" accept ;
-    (* cache `accept` so client can call `reconfigure` easily *)
-    Mutex.execute accept_cached_m (fun () -> accept_cached := Some accept) ;
-    _restart_no_cache ~__context ~accept
-
-  let reconfigure ~__context =
-    let f =
-      Mutex.execute accept_cached_m (fun () ->
-          match !accept_cached with
-          | None ->
-              fun () ->
-                D.warn
-                  "reconfigure: accept is not set, so not restarting stunnel"
-          | Some accept ->
-              fun () -> _restart_no_cache ~__context ~accept
-      )
-    in
-    f ()
-end
-
 module Server : sig
   type listening_mode = Off | Any | Local of Addresses.t
 
@@ -132,7 +81,7 @@ end = struct
     in
     Http_svr.start Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
-    Stunnel.restart ~__context ~accept:stunnel_accept ;
+    Xapi_stunnel_server.restart ~__context ~accept:stunnel_accept ;
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)
@@ -171,8 +120,6 @@ end = struct
 end
 
 (* High-level interface *)
-
-let reconfigure_stunnel = Stunnel.reconfigure
 
 let change interface primary_address_type =
   Xapi_inventory.update Xapi_inventory._management_interface interface ;

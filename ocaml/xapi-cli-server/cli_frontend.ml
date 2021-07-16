@@ -474,7 +474,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= []
       ; optn= []
       ; help= "Disable client certificate authentication on the pool"
-      ; implementation= No_fd Cli_operations.pool_disable_client_certificate_auth
+      ; implementation=
+          No_fd Cli_operations.pool_disable_client_certificate_auth
       ; flags= []
       }
     )

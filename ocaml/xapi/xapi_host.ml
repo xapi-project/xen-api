@@ -1474,7 +1474,7 @@ let replace_host_certificate ~__context ~type' ~host
   List.iter (Db_util.remove_cert_by_ref ~__context) old_certs ;
   let task = Context.get_task_id __context in
   Db.Task.set_progress ~__context ~self:task ~value:1.0 ;
-  Helpers.Stunnel.reload ()
+  Xapi_stunnel_server.reload ()
 
 let install_server_certificate ~__context ~host ~certificate ~private_key
     ~certificate_chain =
