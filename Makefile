@@ -118,7 +118,8 @@ install: build doc sdk doc-json
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(MANDIR)/rrd2csv.1
 # Libraries
 	dune install --profile=$(PROFILE) \
-		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+		xapi-client xapi-database xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
+		xen-api-client xen-api-client-lwt xen-api-client-async
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)

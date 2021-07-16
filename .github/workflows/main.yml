@@ -25,7 +25,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk"
+      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe xen-api-sdk xen-api-client xen-api-client-lwt xen-api-client-async"
 
     steps:
       - name: Checkout code
