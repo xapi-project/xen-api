@@ -62,6 +62,8 @@ let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
 
 let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 
+let max_netbios_name_length = 15
+
 let ntlm_auth uname passwd : (unit, exn) result =
   try
     let args = ["--username"; uname] in
@@ -310,7 +312,9 @@ module Wbinfo = struct
         let args = ["--domain-info"; domain_netbios] in
         let* stdout = call_wbinfo args in
         try
-          Ok (domain_netbios, Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout)
+          Ok
+            ( domain_netbios
+            , Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout )
         with _ -> Error (parsing_ex args)
       )
     | _ ->
@@ -554,7 +558,8 @@ let config_winbind_damon ~domain ~workgroup ~netbios_name =
       ; "winbind enum groups = no"
       ; "winbind enum users = no"
       ; Printf.sprintf "winbind cache time = %d" !Xapi_globs.winbind_cache_time
-      ; Printf.sprintf "machine password timeout = %d" !Xapi_globs.winbind_machine_pwd_timeout
+      ; Printf.sprintf "machine password timeout = %d"
+          !Xapi_globs.winbind_machine_pwd_timeout
       ; "kerberos encryption types = strong"
       ; Printf.sprintf "workgroup = %s" workgroup
       ; Printf.sprintf "netbios name = %s" netbios_name
@@ -744,18 +749,18 @@ module Winbind = struct
       raise (Auth_service_error (E_GENERIC, msg))
 
   let random_string len =
-    let upper_char_start = Char.code('A') in
+    let upper_char_start = Char.code 'A' in
     let upper_char_len = 26 in
     let random_char () =
       upper_char_start + Random.int upper_char_len |> char_of_int
     in
     String.init len (fun _ -> random_char ())
 
-  let build_netbios_name hostname =
+  let build_netbios_name () =
     (* Winbind follow https://docs.microsoft.com/en-US/troubleshoot/windows-server/identity/naming-conventions-for-computer-domain-site-ou#domain-names to limit netbios length to 15
      * Compress the hostname if exceed the length *)
-    let max_length = 15 in
-    if String.length hostname > max_length then
+    let hostname = get_localhost_name () in
+    if String.length hostname > max_netbios_name_length then
       (* format hostname to prefix-random each with 7 chars *)
       let len = 7 in
       let prefix = String.sub hostname 0 len in
@@ -764,6 +769,29 @@ module Winbind = struct
     else
       hostname
 end
+
+let build_netbios_name ~config_params =
+  let key = "netbios-name" in
+  match List.assoc_opt key config_params with
+  | Some name ->
+      if String.length name > max_netbios_name_length then
+        raise
+          (Auth_service_error
+             ( E_GENERIC
+             , Printf.sprintf "%s cannot longger than %d chars" key
+                 max_netbios_name_length ))
+      else
+        name
+  | None ->
+      Winbind.build_netbios_name ()
+
+let build_dns_hostname_option ~config_params =
+  let key = "dns-hostname" in
+  match List.assoc_opt key config_params with
+  | Some name ->
+      [Printf.sprintf "dnshostname=%s" name]
+  | _ ->
+      []
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let get_subject_identifier' subject_name =
@@ -938,7 +966,9 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let pass =
       from_config ~name:"pass" ~err_msg:"enable requires pass" ~config_params
     in
-    let netbios_name = get_localhost_name () |> Winbind.build_netbios_name in
+    let netbios_name = build_netbios_name ~config_params in
+
+    let dns_hostname_option = build_dns_hostname_option ~config_params in
 
     assert_hostname_valid ~hostname:netbios_name ;
 
@@ -967,6 +997,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ; "--no-dns-updates"
       ]
       @ ou_param
+      @ dns_hostname_option
     in
     debug "Joining domain %s with user %s netbios_name %s" service_name user
       netbios_name ;
