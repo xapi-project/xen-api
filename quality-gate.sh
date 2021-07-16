@@ -39,6 +39,23 @@ mli-files () {
   fi
 }
 
+structural-equality () {
+  if git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml'; then
+    echo "ERROR expected no usages of ' == '; use = rather than ==" 1>&2
+    exit 1
+  else
+    echo "OK found no usages of ' == '"
+  fi
+
+  if git grep -r --count ' != ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml'; then
+    echo "ERROR expected no usages of ' != '; use <> rather than !=" 1>&2
+    exit 1
+  else
+    echo "OK found no usages of ' != '"
+  fi
+}
+
 list-hd
 verify-cert
 mli-files
+structural-equality
