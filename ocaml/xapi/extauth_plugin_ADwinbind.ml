@@ -74,6 +74,22 @@ let ntlm_auth uname passwd : (unit, exn) result =
     Ok ()
   with _ -> Error (auth_ex uname)
 
+let kdc_of_domain ~domain ~msg =
+  let hd msg = function
+    | [] ->
+        error "%s" msg ;
+        raise (Auth_service_error (E_LOOKUP, msg))
+    | h :: _ ->
+        h
+  in
+  Helpers.call_script ~log_output:On_failure net_cmd
+    ["lookup"; "kdc"; domain; "-d"; debug_level ()]
+  (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
+  |> String.split_on_char '\n'
+  |> hd "lookup kdc return invalid result"
+  |> String.split_on_char ':'
+  |> hd "kdc has invalid address"
+
 module Ldap = struct
   type user = {
       name: string
@@ -201,6 +217,13 @@ module Ldap = struct
     let env = [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|] in
     let* stdout =
       try
+        (* Query KDC instead of use domain here
+           * Just in case cannot resolve domain name from DSN *)
+        let msg =
+          Printf.sprintf "Failed to lookup domain %s kdc for ldap" domain
+        in
+        let kdc = kdc_of_domain ~domain ~msg in
+
         let args =
           [
             "ads"
@@ -209,7 +232,7 @@ module Ldap = struct
           ; "-d"
           ; debug_level ()
           ; "--server"
-          ; domain
+          ; kdc
           ; "--machine-pass"
           ]
         in
@@ -511,24 +534,11 @@ let query_domain_workgroup ~domain ~db_workgroup =
       let err_msg =
         Printf.sprintf "Failed to look up domain %s workgroup" domain
       in
-      let hd msg = function
-        | [] ->
-            error "%s" msg ;
-            raise (Auth_service_error (E_LOOKUP, msg))
-        | h :: _ ->
-            h
-      in
       try
-        let kdc =
-          Helpers.call_script ~log_output:On_failure net_cmd
-            ["lookup"; "kdc"; domain; "-d"; debug_level ()]
-          (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
-          |> String.split_on_char '\n'
-          |> hd "lookup kdc return invalid result"
-          |> String.split_on_char ':'
-          |> hd "kdc has invalid address"
+        let msg =
+          Printf.sprintf "Failed to lookup domain %s kdc for workgroup" domain
         in
-
+        let kdc = kdc_of_domain ~domain ~msg in
         let lines =
           Helpers.call_script ~log_output:On_failure net_cmd
             ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
