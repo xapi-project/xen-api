@@ -14,3 +14,5 @@ val host :
 val xapi_pool : uuid:string -> string -> unit
 (** [xapi_pool uuid path] creates (atomically) a PEM file at [path] with
     [uuid] as CN *)
+
+val xapi_cluster : cn:string -> string

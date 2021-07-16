@@ -91,6 +91,34 @@ let forget = call
   ~hide_from_docs:true
   ()
 
+let get_cluster_config = call
+  ~name:"get_cluster_config"
+  ~doc:"Get the cluster config from a cluster host"
+  ~params:
+    [ Ref _cluster_host, "self", "the cluster_host to contact"
+    ]
+  ~result:(SecretString, "")
+  ~lifecycle:[Published, rel_next, ""]
+  ~allowed_roles:_R_POOL_OP
+  ~errs:Api_errors.([cluster_stack_in_use
+                    ])
+  ~hide_from_docs:true
+  ()
+
+let write_pems = call
+  ~name:"write_pems"
+  ~doc:"Introduces pems into the cluster host's cluster"
+  ~params:
+    [ Ref _cluster_host, "self", "the cluster_host to contact"
+    ; SecretString, "pems", "encoded pem"
+    ]
+  ~lifecycle:[Published, rel_next, ""]
+  ~allowed_roles:_R_POOL_OP
+  ~errs:Api_errors.([cluster_stack_in_use
+                    ])
+  ~hide_from_docs:true
+  ()
+
 let t =
   create_obj
     ~name: _cluster_host
@@ -142,5 +170,7 @@ let t =
       ; force_destroy
       ; forget
       ; disable
+      ; get_cluster_config
+      ; write_pems
       ]
     ()

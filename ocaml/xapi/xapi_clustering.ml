@@ -292,6 +292,11 @@ module Daemon = struct
       !Xapi_globs.firewall_port_config_script
       ["close"; port] ;
     debug "Cluster daemon: disabled & stopped"
+
+  let restart ~__context =
+    debug "Attempting to restart the clustering daemon" ;
+    maybe_call_script ~__context !Xapi_globs.systemctl ["restart"; service] ;
+    debug "Cluster daemon: restarted"
 end
 
 (* xapi-clusterd only listens on message-switch,

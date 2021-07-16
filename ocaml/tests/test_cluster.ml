@@ -37,6 +37,7 @@ let test_clusterd_rpc ~__context call =
         ; config_version= 1L
         ; cluster_token_timeout_ms= 20000L
         ; cluster_token_coefficient_ms= 1000L
+        ; pems= None
         }
       in
       let diag =
@@ -72,6 +73,8 @@ let test_rpc ~__context call =
   | "Cluster.destroy", [_session; self] ->
       let open API in
       Xapi_cluster.destroy ~__context ~self:(ref_Cluster_of_rpc self) ;
+      Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
+  | "Cluster_host.get_cluster_config", _ ->
       Rpc.{success= true; contents= Rpc.String ""; is_notification= false}
   | name, params ->
       Alcotest.failf "Unexpected RPC: %s(%s)" name
