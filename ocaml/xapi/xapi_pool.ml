@@ -3271,6 +3271,10 @@ let ping_with_tls_verification ~__context host =
 let enable_tls_verification ~__context =
   let hosts = Db.Host.get_all ~__context in
   List.iter (ping_with_tls_verification ~__context) hosts ;
+  Xapi_clustering.(
+    if !Daemon.enabled then
+      Daemon.restart ~__context
+  ) ;
   Stunnel_client.set_verify_by_default true ;
   Helpers.touch_file Xapi_globs.verify_certificates_path
 
