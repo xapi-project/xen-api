@@ -40,11 +40,13 @@ mli-files () {
 }
 
 structural-equality () {
-  if git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml'; then
-    echo "ERROR expected no usages of ' == '; use = rather than ==" 1>&2
-    exit 1
+  N=1
+  EQ=$(git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
+  if [ "$EQ" -eq "$N" ]; then
+    echo "OK counted $EQ usages of ' == '"
   else
-    echo "OK found no usages of ' == '"
+    echo "ERROR expected $N usages of ' == '; use = rather than ==" 1>&2
+    exit 1
   fi
 
   if git grep -r --count ' != ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml'; then
