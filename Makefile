@@ -6,9 +6,6 @@ LIBEXECDIR ?= /opt/xensource/libexec
 release:
 	dune build @install --profile=release
 
-build:
-	dune build @install
-
 install:
 	# rrdd
 	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)$(SBINDIR)/xcp-rrdd

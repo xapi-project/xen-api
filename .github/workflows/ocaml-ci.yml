@@ -9,7 +9,7 @@ jobs:
     name: Ocaml tests
     runs-on: ubuntu-20.04
     env:
-      package: "rrdd-plugin rrddump rrd-transport xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils"
+      package: "rrdd-plugin rrddump rrd-transport xapi-rrdd xapi-rrdd-plugin xapi-rrd-transport xapi-rrd-transport-utils rrdd-plugins"
 
     steps:
       - name: Checkout code
@@ -37,7 +37,7 @@ jobs:
 
       - name: Build
         run: |
-          opam exec -- make build
+          opam exec -- make
 
       - name: Run tests
         run: opam exec -- make test
