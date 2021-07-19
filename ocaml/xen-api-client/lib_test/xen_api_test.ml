@@ -88,12 +88,6 @@ module Fake_IO = struct
     connections := c :: !connections ;
     return (Ok (ic, oc))
 
-  let close (ic, oc) =
-    let this_one c = c.ic == ic && c.oc == oc in
-    ignore (List.find this_one !connections) ;
-    connections := List.filter (fun c -> not (this_one c)) !connections ;
-    return ()
-
   let timeofday = ref 0.
 
   let gettimeofday () = !timeofday
