@@ -1,0 +1,1 @@
+<?xml version="1.0"?><methodCall><methodName>SR.set_name_label</methodName><params><param><value><struct><member><name>new_name_label</name><value>new_name_label</value></member><member><name>sr</name><value>sr</value></member><member><name>dbg</name><value>dbg</value></member></struct></value></param></params></methodCall>

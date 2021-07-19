@@ -1,11 +1,16 @@
 (executable
+  (modes byte exe)
   (name main)
-  (public_name message-cli)
-  (package message-switch-cli)
   (flags (:standard -w -39))
   (libraries
     cmdliner
     message-switch-unix
   )
   (preprocess (pps ppx_deriving_rpc))
+)
+
+(install
+ (package message-switch-cli)
+ (section sbin)
+ (files (main.exe as message-cli))
 )

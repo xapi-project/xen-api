@@ -1,4 +1,5 @@
 include config.mk
+DESTDIR ?=
 
 .PHONY: release build install uninstall clean test doc format
 
@@ -9,34 +10,19 @@ build:
 	dune build @install
 
 install:
-	dune install message-switch-core
-	dune install message-switch-unix
-ifeq ($(ASYNC),--enable-async)
-	dune install message-switch-async
-endif
-ifeq ($(LWT),--enable-lwt)
-	dune install message-switch-lwt
-	install -D _build/install/default/bin/message-switch $(DESTDIR)$(SBINDIR)
-endif
-	install -D _build/install/default/bin/message-cli $(DESTDIR)$(SBINDIR)
+	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR)
 
 uninstall:
-	dune uninstall message-switch-core
-	dune uninstall message-switch-unix
-ifeq ($(ASYNC),--enable-async)
-	dune uninstall message-switch-async
-endif
-ifeq ($(LWT),--enable-lwt)
-	dune uninstall message-switch-lwt
-	rm -f $(DESTDIR)$(SBINDIR)/message-switch
-endif
-	rm -f $(DESTDIR)$(SBINDIR)/message-cli
+	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR)
 
 clean:
 	dune clean
 
 test:
 	dune runtest --no-buffer --profile=release
+
+test-quick:
+	dune build @runtest-quick  --profile=$(PROFILE)
 
 # requires odoc
 doc:

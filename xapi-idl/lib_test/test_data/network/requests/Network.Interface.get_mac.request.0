@@ -1,0 +1,1 @@
+{"method":"Network.Interface.get_mac","params":[{"name":"name"},"string"],"id":103}

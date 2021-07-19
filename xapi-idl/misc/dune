@@ -1,0 +1,13 @@
+(executable
+ (name channel_helper)
+ (public_name xcp-idl-debugger)
+ (modules channel_helper)
+ (package xapi-idl)
+ (libraries
+   cmdliner
+   lwt
+   lwt.unix
+   xapi-idl
+ )
+ (flags (:standard -w -39))
+ (preprocess (pps ppx_deriving_rpc)))

@@ -1,0 +1,1 @@
+{"method":"Network.Interface.get_mtu","params":[{"name":"name"},"string"],"id":93}

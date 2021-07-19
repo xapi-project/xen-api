@@ -1,0 +1,1 @@
+{"method":"Network.Interface.set_persistent","params":[{"value":true,"name":"name"},"string"],"id":86}

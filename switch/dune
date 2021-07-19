@@ -1,7 +1,6 @@
 (executable
+  (modes byte exe)
   (name switch_main)
-  (public_name message-switch)
-  (package message-switch)
   (flags (:standard -w -39-37-32))
   (libraries
     cmdliner
@@ -17,4 +16,10 @@
     sexplib
   )
   (preprocess (pps ppx_sexp_conv))
+)
+
+(install
+  (package message-switch)
+  (section sbin)
+  (files (switch_main.exe as message-switch))
 )
