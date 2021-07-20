@@ -23,5 +23,6 @@
     ../cli/main.exe
   )
   (action (run ./basic-rpc-test.sh))
+  (package message-switch)
 )
 
