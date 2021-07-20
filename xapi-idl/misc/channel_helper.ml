@@ -86,9 +86,12 @@ let help =
 
 (* Commands *)
 let advertise_t _common_options_t proxy_socket =
-  let s_ip = Lwt_unix.socket Lwt_unix.PF_INET Lwt_unix.SOCK_STREAM 0 in
+  let unwrapped_ip = Scanf.ksscanf !ip (fun _ _ -> !ip) "[%s@]" Fun.id in
+  let addr = Lwt_unix.ADDR_INET (Unix.inet_addr_of_string unwrapped_ip, 0) in
+  let family = Unix.domain_of_sockaddr addr in
+  let s_ip = Lwt_unix.socket family Lwt_unix.SOCK_STREAM 0 in
   (* INET socket, can't block *)
-  Lwt_unix.bind s_ip (Lwt_unix.ADDR_INET (Unix.inet_addr_of_string !ip, 0))
+  Lwt_unix.bind s_ip addr
   >>= fun () ->
   Lwt_unix.listen s_ip 5 ;
   let port =

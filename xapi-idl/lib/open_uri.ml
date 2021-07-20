@@ -17,12 +17,22 @@
 
 open Xapi_stdext_pervasives.Pervasiveext
 
+module D = Debug.Make (struct let name = "open_uri" end)
+open D
+
 let handle_socket f s = try f s with e -> Backtrace.is_important e ; raise e
 
 let open_tcp f host port =
-  let host_entry = Unix.gethostbyname host in
-  let sockaddr = Unix.ADDR_INET (host_entry.Unix.h_addr_list.(0), port) in
-  let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+  let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
+  let sockaddr =
+    match Unix.getaddrinfo host (string_of_int port) [] with
+    | [] ->
+      error "No addrinfo found for host: %s on port: %d" host port ;
+      raise Not_found
+    | addrinfo::_ -> addrinfo.Unix.ai_addr
+  in
+  let family = Unix.domain_of_sockaddr sockaddr in
+  let s = Unix.socket family Unix.SOCK_STREAM 0 in
   finally
     (fun () -> Unix.connect s sockaddr ; handle_socket f s)
     (fun () -> Unix.close s)
