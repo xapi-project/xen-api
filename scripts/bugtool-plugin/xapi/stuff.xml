@@ -6,6 +6,5 @@
 <command label="diagnostic_db_stats">@BINDIR@/xe diagnostic-db-stats</command>
 <command label="diagnostic_net_stats">@BINDIR@/xe diagnostic-net-stats</command>
 <command label="host_data_source_list">@BINDIR@/xe host-data-source-list host=$(@BINDIR@/xe pool-list params=master --minimal)</command>
-<command label="vm_data_source_list">@BINDIR@/xe vm-list power-state=running --minimal | tr , '\n' | xargs --verbose -n 1 -I {} @BINDIR@/xe vm-data-source-list uuid={} 2>&amp;1</command>
 <command label="sr_data_source_list">@BINDIR@/xe sr-list --minimal | tr , '\n' | xargs --verbose -n 1 -I {} @BINDIR@/xe sr-data-source-list uuid={} 2>&amp;1</command>
 </collect>

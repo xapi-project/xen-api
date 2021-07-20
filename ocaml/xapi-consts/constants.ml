@@ -181,6 +181,8 @@ let hvm_boot_policy_bios_order = "BIOS order"
    Value is the boot string we send to qemu-dm (eg cd, dc, dcn, etc) *)
 let hvm_boot_params_order = "order"
 
+let hvm_default_boot_order = "cd"
+
 (* Key we put in VM.other_config when we upgrade a VM from Zurich/Geneva to Rio *)
 let vm_upgrade_time = "upgraded at"
 
