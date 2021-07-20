@@ -62,6 +62,13 @@ let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
 
 let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 
+let hd msg = function
+  | [] ->
+      error "%s" msg ;
+      raise (Auth_service_error (E_LOOKUP, msg))
+  | h :: _ ->
+      h
+
 let ntlm_auth uname passwd : (unit, exn) result =
   try
     let args = ["--username"; uname] in
@@ -191,7 +198,7 @@ module Ldap = struct
       ; password_expired= logand user_account_control passw_expire_bit <> 0l
       }
 
-  let query_user sid domain_netbios domain =
+  let query_user sid domain_netbios kdc =
     let domain_krb5_cfg =
       Filename.concat domain_krb5_dir
         (Printf.sprintf "krb5.conf.%s" domain_netbios)
@@ -207,7 +214,7 @@ module Ldap = struct
           ; "-d"
           ; debug_level ()
           ; "--server"
-          ; domain
+          ; kdc
           ; "--machine-pass"
           ]
         in
@@ -220,6 +227,8 @@ module Ldap = struct
     in
     parse_user stdout <!> generic_ex "%s"
 end
+
+type domain_name_type = | Name | NetbiosName
 
 module Wbinfo = struct
   let exception_of_stderr =
@@ -294,27 +303,60 @@ module Wbinfo = struct
     | [] ->
         Error (parsing_ex args)
 
-  let domain_of_uname uname =
+  let domain_name_of ~target_name_type ~from_name =
     (*
-     * Get domain from domainified uname, which is formatted as NETBIOS\sAMAccountName
-     *
-     * convert NETBIOS name to domain by wbinfo --domain-info
+     * The domain name can be a normal domain name or netbios name
+     * Query the target domain name from one provided name
      *
      * example output:
      * Name              : UCC
      * Alt_Name          : ucc.local
      * SID               : S-1-5-21-2850064427-2368465266-4270348630
      * *)
+    let args = ["--domain-info"; from_name] in
+    let* stdout = call_wbinfo args in
+    let key = match target_name_type with
+    | Name -> "Alt_Name"
+    | NetbiosName -> "Name" in
+    try
+      Ok(Xapi_cmd_result.of_output ~sep:':' ~key stdout)
+    with _ -> Error (parsing_ex args)
+
+  let is_domain_netbios_valid domain_netbios =
+    let min_valid_domain_length = 1 in
+    match domain_name_of ~target_name_type:Name ~from_name:domain_netbios with
+    | Ok name -> String.length name >= min_valid_domain_length
+    | Error _ -> false
+
+  let domain_of_uname uname =
     match String.split_on_char '\\' uname with
-    | [domain_netbios; _] -> (
-        let args = ["--domain-info"; domain_netbios] in
-        let* stdout = call_wbinfo args in
-        try
-          Ok (domain_netbios, Xapi_cmd_result.of_output ~sep:':' ~key:"Alt_Name" stdout)
-        with _ -> Error (parsing_ex args)
-      )
+    | [domain_netbios; _] ->
+      let* domain_name = domain_name_of ~target_name_type:Name ~from_name:domain_netbios in
+      Ok (domain_netbios, domain_name)
     | _ ->
         Error (generic_ex "Invalid domain user name %s" uname)
+
+
+  let all_domain_netbios() =
+    (*
+     * List all domains (trusted and own domain)
+     * wbinfo --all-domains
+     *
+     * Return netbios_names_of_domains
+     *
+     * example output:
+     * BUILTIN
+     * ABCDEFG-FGVVPQL
+     * UCC
+     * UDD
+     * CHILD1
+     * GRANDCHILD
+     * UDDCHILD1
+     * *)
+    let args = ["--all-domains"] in
+    let* stdout = call_wbinfo args in
+    Ok(String.split_on_char '\n' stdout
+      |> List.filter (fun x -> is_domain_netbios_valid x))
 
   type name = User of string | Other of string
 
@@ -497,6 +539,16 @@ let get_domain_info_from_db () =
   |> Server_helpers.exec_with_new_task
        "retrieving external auth domain workgroup"
 
+let kdcs_of_domain domain =
+  try
+    Helpers.call_script ~log_output:On_failure net_cmd
+      ["lookup"; "kdc"; domain; "-d"; debug_level ()]
+    (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
+    |> String.split_on_char '\n'
+    |> List.filter (fun x -> String.trim x <> "") (* Remove empty lines *)
+    |> List.map (fun r -> String.split_on_char ':' r |> hd (Printf.sprintf "Invalid kdc %s" r))
+  with _ -> raise (Auth_service_error (E_LOOKUP, (Printf.sprintf "Failed to lookup kdcs of domain %s" domain)))
+
 let query_domain_workgroup ~domain ~db_workgroup =
   (* If workgroup found in pool database just use it, otherwise, query DC *)
   match db_workgroup with
@@ -507,22 +559,10 @@ let query_domain_workgroup ~domain ~db_workgroup =
       let err_msg =
         Printf.sprintf "Failed to look up domain %s workgroup" domain
       in
-      let hd msg = function
-        | [] ->
-            error "%s" msg ;
-            raise (Auth_service_error (E_LOOKUP, msg))
-        | h :: _ ->
-            h
-      in
       try
         let kdc =
-          Helpers.call_script ~log_output:On_failure net_cmd
-            ["lookup"; "kdc"; domain; "-d"; debug_level ()]
-          (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
-          |> String.split_on_char '\n'
+          kdcs_of_domain domain
           |> hd "lookup kdc return invalid result"
-          |> String.split_on_char ':'
-          |> hd "kdc has invalid address"
         in
 
         let lines =
@@ -765,6 +805,67 @@ module Winbind = struct
       hostname
 end
 
+module ClosestKdc = struct
+  let periodic_update_task_name = "Update closest kdc"
+  let startup_delay = 5.
+
+  let mtime_this ~name ~f =
+    let start = Mtime_clock.counter() in
+    match f() with
+    | Ok _ -> Ok(name, Mtime_clock.count start)
+    | Error e -> Error e
+
+  let update_db ~domain ~kdc =
+  (fun __context ->
+     let self = Helpers.get_localhost ~__context in
+     Db.Host.get_external_auth_configuration ~__context ~self|> fun value ->
+     (domain, kdc) :: List.remove_assoc domain value |> fun value ->
+     Db.Host.set_external_auth_configuration ~__context ~self ~value)
+  |> Server_helpers.exec_with_new_task "update domain closest kdc"
+
+  let from_db domain =
+    (fun __context ->
+     let self = Helpers.get_localhost ~__context in
+     Db.Host.get_external_auth_configuration ~__context ~self|> List.assoc_opt domain)
+  |> Server_helpers.exec_with_new_task "query domain closest kdc"
+
+  let lookup domain =
+    try
+      let* krbtgt_sid = Wbinfo.sid_of_name (Printf.sprintf "%s@%s" krbtgt domain) in
+      let* domain_netbios_name = Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name: domain in
+
+      kdcs_of_domain domain
+      |> List.map (fun kdc -> debug "Got domain '%s' kdc '%s'" domain kdc; kdc)
+      |> List.map (fun kdc -> mtime_this ~name:kdc ~f:(fun() -> Ldap.query_user krbtgt_sid domain_netbios_name kdc))
+      |> List.filter_map Result.to_option
+      |> List.sort (fun (_, s1) (_, s2) -> Mtime.Span.compare s1 s2)
+      |> hd (Printf.sprintf "domain %s does not has valid kdc" domain)
+      |> fun x -> Ok(domain, fst x)
+    with e ->
+      debug "Failed to lookup domain %s closest kdc" domain;
+      Error e
+
+  let update() =
+    try
+      Wbinfo.all_domain_netbios() |> maybe_raise
+      |> List.map (fun netbios -> Wbinfo.domain_name_of ~target_name_type:Name ~from_name:netbios)
+      |> List.filter_map Result.to_option
+      |> List.map (fun domain -> lookup domain)
+      |> List.filter_map Result.to_option
+      |> List.iter (fun (domain, kdc) -> update_db ~domain ~kdc)
+    with e -> error "Failed to update domain kdc %s" (Printexc.to_string e)
+
+  let trigger_update ~start =
+    if Pool_role.is_master() then
+      Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
+        (Xapi_periodic_scheduler.Periodic !Xapi_globs.winbind_update_closest_kdc_interval)
+        start update
+
+  let stop_update() =
+    if Pool_role.is_master() then
+      Xapi_periodic_scheduler.remove_from_queue periodic_update_task_name
+end
+
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let get_subject_identifier' subject_name =
     let* domain =
@@ -849,6 +950,11 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let query_subject_information_user (uid : int) (sid : string) =
     let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
     let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
+    let closest_kdc = match ClosestKdc.from_db domain with
+      | Some kdc -> kdc
+      | None ->
+        (* Just pick the first KDC in the list *)
+        kdcs_of_domain domain |> hd (Printf.sprintf "Failed to lookup kdc of domain %s" domain) in
     let* {
            name
          ; upn
@@ -858,7 +964,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
          ; account_locked
          ; password_expired
          } =
-      Ldap.query_user sid domain_netbios domain
+      Ldap.query_user sid domain_netbios closest_kdc
     in
     Ok
       [
@@ -978,6 +1084,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Winbind.check_ready_to_serve ~timeout:300. ;
       persist_extauth_config ~domain:service_name ~user ~ou_conf ~workgroup
         ~netbios_name ;
+      ClosestKdc.trigger_update ~start:0.; (* Trigger right now *)
       debug "Succeed to join domain %s" service_name
     with
     | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
@@ -1017,6 +1124,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     (* Clean extauth config *)
     persist_extauth_config ~domain:"" ~user:"" ~ou_conf:[] ~workgroup:""
       ~netbios_name:"" ;
+    ClosestKdc.stop_update() ;
     debug "Succeed to disable external auth for %s" service_name
 
   (* unit on_xapi_initialize(bool system_boot)
@@ -1026,6 +1134,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   *)
   let on_xapi_initialize _system_boot =
     Winbind.start ~timeout:5. ~wait_until_success:true ;
+    ClosestKdc.trigger_update ~start:ClosestKdc.startup_delay;
     Winbind.check_ready_to_serve ~timeout:300.
 
   (* unit on_xapi_exit()
