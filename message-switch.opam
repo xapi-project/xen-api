@@ -7,7 +7,7 @@ bug-reports: "https://github.com/xapi-project/message-switch/issues"
 dev-repo: "git://github.com/xapi-project/message-switch"
 tags: [ "org:xapi-project" ]
 build: [
-  ["./configure" "--bindir" "%{bin}%"]
+  ["./configure" "--prefix" "%{prefix}%"]
   ["dune" "build" "-p" name "-j" jobs]
   ["dune" "runtest" "-j" jobs] {with-test}
 ]

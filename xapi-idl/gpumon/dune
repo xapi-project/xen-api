@@ -23,4 +23,5 @@
 (rule
  (alias runtest)
  (deps (:x gpumon_cli.exe))
+ (package xapi-idl)
  (action (run %{x} --help=plain)))

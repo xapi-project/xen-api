@@ -65,4 +65,5 @@
    xapi-idl.storage.interface
    xapi-idl.storage.interface.types
  )
+ (package xapi-idl)
  (deps storage_test.exe))

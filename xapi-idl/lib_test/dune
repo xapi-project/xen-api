@@ -1,5 +1,6 @@
 (test
  (name test)
+ (package xapi-idl)
  (deps (source_tree test_data))
  (flags (:standard -w -39))
  (libraries
