@@ -207,9 +207,12 @@ let receive protocols =
   | V4V_proxy (_, _) ->
       assert false (* weight is 0 above *)
   | TCP_proxy (ip, port) -> (
-      let s = Unix.socket Unix.PF_INET Unix.SOCK_STREAM 0 in
+      let unwrapped_ip = Scanf.ksscanf ip (fun _ _ -> ip) "[%s@]" Fun.id in
+      let addr = Unix.ADDR_INET (Unix.inet_addr_of_string unwrapped_ip, port) in
+      let family = Unix.domain_of_sockaddr addr in
+      let s = Unix.socket family Unix.SOCK_STREAM 0 in
       try
-        Unix.connect s (Unix.ADDR_INET (Unix.inet_addr_of_string ip, port)) ;
+        Unix.connect s addr ;
         s
       with e -> Unix.close s ; raise e
     )
