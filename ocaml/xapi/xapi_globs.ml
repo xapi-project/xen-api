@@ -866,6 +866,8 @@ let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (7 * 24 * 3600)
 
+let winbind_update_closest_kdc_interval = ref (3600. *. 24.) (* every day *)
+
 let tdb_tool = ref "/usr/bin/tdbtool"
 
 let sqlite3 = ref "/usr/bin/sqlite3"
@@ -933,6 +935,7 @@ let xapi_globs_spec =
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Int winbind_machine_pwd_timeout)
+  ; ("winbind_update_closest_kdc_interval", Float winbind_update_closest_kdc_interval)
   ]
 
 let options_of_xapi_globs_spec =
