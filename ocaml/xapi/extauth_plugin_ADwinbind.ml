@@ -65,9 +65,10 @@ let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 let hd msg = function
   | [] ->
       error "%s" msg ;
-      raise (Auth_service_error (E_LOOKUP, msg))
+      raise (Auth_service_error (E_GENERIC, msg))
   | h :: _ ->
       h
+
 let max_netbios_name_length = 15
 
 let ntlm_auth uname passwd : (unit, exn) result =
@@ -79,22 +80,6 @@ let ntlm_auth uname passwd : (unit, exn) result =
     in
     Ok ()
   with _ -> Error (auth_ex uname)
-
-let kdc_of_domain ~domain ~msg =
-  let hd msg = function
-    | [] ->
-        error "%s" msg ;
-        raise (Auth_service_error (E_LOOKUP, msg))
-    | h :: _ ->
-        h
-  in
-  Helpers.call_script ~log_output:On_failure net_cmd
-    ["lookup"; "kdc"; domain; "-d"; debug_level ()]
-  (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
-  |> String.split_on_char '\n'
-  |> hd "lookup kdc return invalid result"
-  |> String.split_on_char ':'
-  |> hd "kdc has invalid address"
 
 module Ldap = struct
   type user = {
@@ -224,12 +209,7 @@ module Ldap = struct
     let* stdout =
       try
         (* Query KDC instead of use domain here
-           * Just in case cannot resolve domain name from DSN *)
-        let msg =
-          Printf.sprintf "Failed to lookup domain %s kdc for ldap" domain
-        in
-        let kdc = kdc_of_domain ~domain ~msg in
-
+           * Just in case cannot resolve domain name from DNS *)
         let args =
           [
             "ads"
@@ -494,10 +474,7 @@ module Migrate_from_pbis = struct
       |> String.trim
     in
     if String.length value <= min_valid_pbis_value_length then
-      raise
-        (Auth_service_error
-           (E_GENERIC, Printf.sprintf "No value for %s in %s" key db)
-        )
+      raise (generic_ex "No value for %s in %s" key db)
     else
       value
 
@@ -509,10 +486,7 @@ module Migrate_from_pbis = struct
     | [|_; v|] ->
         v
     | _ ->
-        raise
-          (Auth_service_error
-             (E_GENERIC, Printf.sprintf "Failed to extract %s from %s" reg input)
-          )
+        raise (generic_ex "Failed to extract %s from %s" reg input)
 
   let parse_value_from_pbis raw_value =
     debug "parsing raw_value from pbis %s" raw_value ;
@@ -583,39 +557,27 @@ let kdcs_of_domain domain =
     |> List.map (fun r ->
            String.split_on_char ':' r |> hd (Printf.sprintf "Invalid kdc %s" r)
        )
-  with _ ->
-    raise
-      (Auth_service_error
-         (E_LOOKUP, Printf.sprintf "Failed to lookup kdcs of domain %s" domain)
-      )
+  with _ -> raise (generic_ex "Failed to lookup kdcs of domain %s" domain)
 
-let query_domain_workgroup ~domain ~db_workgroup =
-  (* If workgroup found in pool database just use it, otherwise, query DC *)
-  match db_workgroup with
-  | Some wg ->
-      wg
-  | None -> (
-      let key = "Pre-Win2k Domain" in
-      let err_msg =
-        Printf.sprintf "Failed to look up domain %s workgroup" domain
-      in
-      try
-        let kdc =
-          kdcs_of_domain domain |> hd "lookup kdc return invalid result"
-        let msg =
-          Printf.sprintf "Failed to lookup domain %s kdc for workgroup" domain
-        in
-        let lines =
-          Helpers.call_script ~log_output:On_failure net_cmd
-            ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
-        in
-        match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
-        | Some v ->
-            v
-        | None ->
-            raise (Auth_service_error (E_LOOKUP, err_msg))
-      with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
-    )
+let kdc_of_domain domain =
+  let msg = Printf.sprintf "Failed to lookup kdc of domain %s" domain in
+  kdcs_of_domain domain |> hd msg
+
+let query_domain_workgroup ~domain =
+  let key = "Pre-Win2k Domain" in
+  let err_msg = Printf.sprintf "Failed to look up domain %s workgroup" domain in
+  try
+    let kdc = kdc_of_domain domain in
+    let lines =
+      Helpers.call_script ~log_output:On_failure net_cmd
+        ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level ()]
+    in
+    match Xapi_cmd_result.of_output_opt ~sep:':' ~key ~lines with
+    | Some v ->
+        v
+    | None ->
+        raise (Auth_service_error (E_LOOKUP, err_msg))
+  with _ -> raise (Auth_service_error (E_LOOKUP, err_msg))
 
 let config_winbind_damon ~domain ~workgroup ~netbios_name =
   let open Xapi_stdext_unix in
@@ -672,22 +634,14 @@ let get_localhost_name () =
 let assert_hostname_valid ~hostname =
   let all_numbers = Re.matches all_number_re hostname <> [] in
   if all_numbers then
-    raise
-      (Auth_service_error
-         ( E_GENERIC
-         , Printf.sprintf "hostname '%s' cannot contain only digits." hostname
-         )
-      )
+    raise (generic_ex "hostname '%s' cannot contain only digits." hostname)
 
 let assert_domain_equal_service_name ~service_name ~config_params =
   (* For legeacy support, if domain exist in config_params, it must be equal to service_name *)
   let domain_key = "domain" in
   match List.assoc_opt domain_key config_params with
   | Some domain when domain <> service_name ->
-      raise
-        (Auth_service_error
-           (E_GENERIC, "if present, config:domain must match service-name.")
-        )
+      raise (generic_ex "if present, config:domain must match service-name.")
   | _ ->
       ()
 
@@ -778,6 +732,12 @@ module Winbind = struct
     )
     |> fun x -> x = Xapi_globs.auth_type_AD
 
+  let update_workgroup ~__context ~workgroup =
+    let self = Helpers.get_localhost ~__context in
+    Db.Host.get_external_auth_configuration ~__context ~self |> fun x ->
+    ("workgroup", workgroup) :: List.remove_assoc "workgroup" x |> fun value ->
+    Db.Host.set_external_auth_configuration ~__context ~self ~value
+
   let start ~timeout ~wait_until_success =
     Xapi_systemctl.start ~timeout ~wait_until_success name
 
@@ -799,7 +759,14 @@ module Winbind = struct
           name
     in
     let workgroup =
-      query_domain_workgroup ~domain:service_name ~db_workgroup:workgroup
+      match workgroup with
+      | None ->
+          let workgroup = query_domain_workgroup ~domain:service_name in
+          (* Persist the workgroup to avoid lookup again on next startup *)
+          update_workgroup ~__context ~workgroup ;
+          workgroup
+      | Some workgroup ->
+          workgroup
     in
     config_winbind_damon ~domain:service_name ~workgroup ~netbios_name
 
@@ -940,11 +907,7 @@ let build_netbios_name ~config_params =
   match List.assoc_opt key config_params with
   | Some name ->
       if String.length name > max_netbios_name_length then
-        raise
-          (Auth_service_error
-             ( E_GENERIC
-             , Printf.sprintf "%s cannot longger than %d chars" key
-                 max_netbios_name_length ))
+        raise (generic_ex "%s exceeds %d characters" key max_netbios_name_length)
       else
         name
   | None ->
@@ -1047,8 +1010,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           kdc
       | None ->
           (* Just pick the first KDC in the list *)
-          kdcs_of_domain domain
-          |> hd (Printf.sprintf "Failed to lookup kdc of domain %s" domain)
+          kdc_of_domain domain
     in
     let* {
            name
@@ -1152,7 +1114,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
     let workgroup =
       (* Query new domain workgroup during join domain *)
-      query_domain_workgroup ~domain:service_name ~db_workgroup:None
+      query_domain_workgroup ~domain:service_name
     in
     config_winbind_damon ~domain:service_name ~workgroup ~netbios_name ;
 
@@ -1160,19 +1122,22 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
     let args =
       [
-        "ads"
-      ; "join"
-      ; service_name
-      ; "-U"
-      ; user
-      ; "-n"
-      ; netbios_name
-      ; "-d"
-      ; debug_level ()
-      ; "--no-dns-updates"
+        [
+          "ads"
+        ; "join"
+        ; service_name
+        ; "-U"
+        ; user
+        ; "-n"
+        ; netbios_name
+        ; "-d"
+        ; debug_level ()
+        ; "--no-dns-updates"
+        ]
+      ; ou_param
+      ; dns_hostname_option
       ]
-      @ ou_param
-      @ dns_hostname_option
+      |> List.concat
     in
     debug "Joining domain %s with user %s netbios_name %s" service_name user
       netbios_name ;
