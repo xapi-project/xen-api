@@ -3667,7 +3667,10 @@ functor
 
       let copy_primary_host_certs ~__context ~host =
         info "Host.copy_primary_host_certs host = '%s'" (Ref.string_of host) ;
-        Local.Host.copy_primary_host_certs ~__context ~host
+        Xapi_pool_helpers.with_pool_operation ~__context
+          ~op:`copy_primary_host_certs ~doc:"Host.copy_primary_host_certs"
+          ~self:(Helpers.get_pool ~__context)
+        @@ fun () -> Local.Host.copy_primary_host_certs ~__context ~host
 
       let attach_static_vdis ~__context ~host ~vdi_reason_map =
         info "Host.attach_static_vdis: host = '%s'; vdi/reason pairs = [ %s ]"

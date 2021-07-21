@@ -1,3 +1,17 @@
+(*
+ * Copyright (C) Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *)
+
 module Unixext = Xapi_stdext_unix.Unixext
 module StringSet = Set.Make (String)
 
@@ -340,25 +354,6 @@ let collect_pool_certs ~__context ~rpc ~session_id ~map ~from_hosts =
          map cert
      )
 
-let _distrib_m = Mutex.create ()
-
-(* where possible, the master host should control the certificate
- * distributions.  this allows us to coordinate multiple parties that are
- * trying to modify /etc/stunnel at the same time with [lock]!
- *
- * we apply this lock to all top level distribution calls, with the exception of
- * the pool join functions that execute on the joiner.
- *)
-let lock (f : unit -> 'a) : 'a =
-  D.debug "cert_distrib.ml: locking..." ;
-  Mutex.lock _distrib_m ;
-  Fun.protect
-    ~finally:(fun () ->
-      D.debug "cert_distrib.ml: unlocking..." ;
-      Mutex.unlock _distrib_m
-      )
-    f
-
 let exchange_certificates_among_all_members ~__context =
   (* here we coordinate the certificate distribution. from a high level
      we do the following:
@@ -377,7 +372,6 @@ let exchange_certificates_among_all_members ~__context =
          we do not guarantee 'atomicity', so if regenerating the bundle on one host
          fails, then state across the pool will most likely become inconsistent, and
          manual intervention may be required *)
-  lock @@ fun () ->
   let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
   Helpers.call_api_functions ~__context @@ fun rpc session_id ->
   let certs =
@@ -454,7 +448,6 @@ let am_i_missing_certs ~__context : bool =
   missing_pool_certs () || missing_ca_certs ()
 
 let copy_certs_to_host ~__context ~host =
-  lock @@ fun () ->
   D.debug "copy_certs_to_host: sending my certs to host %s"
     (Ref.short_string_of host) ;
   if am_i_missing_certs ~__context then
@@ -471,7 +464,6 @@ let copy_certs_to_host ~__context ~host =
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_certificates_with_joiner ~__context ~uuid ~certificate =
-  lock @@ fun () ->
   let joiner_certificate =
     HostPoolProvider.certificate_of_id_content uuid certificate
   in
@@ -520,7 +512,6 @@ let collect_ca_certs ~__context ~names =
 
 (* This function is called on the pool that is incorporating a new host *)
 let exchange_ca_certificates_with_joiner ~__context ~import ~export =
-  lock @@ fun () ->
   let appliance_certs = List.map WireProtocol.certificate_file_of_pair import in
   Worker.local_write_cert_fs ~__context ApplianceCertificate Merge
     appliance_certs ;
