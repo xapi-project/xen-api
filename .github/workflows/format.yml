@@ -18,7 +18,7 @@ jobs:
 
       - name: Pull configuration from xs-opam
         run: |
-          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/stockholm/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
 
       - name: Load environment file
         id: dotenv
