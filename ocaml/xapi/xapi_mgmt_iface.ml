@@ -56,15 +56,11 @@ end = struct
           try
             (* Is it IPv6 ? *)
             let addr = Unix.inet6_addr_any in
-            ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
-            , ":::" ^ string_of_int !Constants.https_port
-            )
+            (Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port)), ":::")
           with _ ->
             (* No. *)
             let addr = Unix.inet_addr_any in
-            ( Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
-            , string_of_int !Constants.https_port
-            )
+            (Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port)), "")
         )
       | Some ip -> (
           info "Starting new server (listening on %s)" ip ;
@@ -73,9 +69,9 @@ end = struct
           ( Xapi_http.bind sockaddr
           , match Unix.domain_of_sockaddr sockaddr with
             | Unix.PF_INET6 ->
-                "::1:" ^ string_of_int !Constants.https_port
+                "::1:"
             | _ ->
-                "127.0.0.1:" ^ string_of_int !Constants.https_port
+                "127.0.0.1:"
           )
         )
     in
