@@ -37,7 +37,8 @@ let perform ~wait_until_success ~service ~timeout op =
     debug "%s %s" op_str service ;
     ignore
       (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-         [op_str; service]) ;
+         [op_str; service]
+      ) ;
     if wait_until_success then (
       if op = Restart then Thread.delay 0.1 ;
       let is_active = Fe_systemctl.is_active service in

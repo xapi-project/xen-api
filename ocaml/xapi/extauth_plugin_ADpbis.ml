@@ -27,7 +27,8 @@ let lwsmd_service = "lwsmd"
 module Lwsmd = struct
   let is_ad_enabled ~__context =
     ( Helpers.get_localhost ~__context |> fun self ->
-      Db.Host.get_external_auth_type ~__context ~self )
+      Db.Host.get_external_auth_type ~__context ~self
+    )
     |> fun x -> x = Xapi_globs.auth_type_AD
 
   let enable_nsswitch () =
@@ -119,7 +120,9 @@ let start_damon () =
     raise
       (Auth_signature.Auth_service_error
          ( Auth_signature.E_GENERIC
-         , Printf.sprintf "Failed to start %s" lwsmd_service ))
+         , Printf.sprintf "Failed to start %s" lwsmd_service
+         )
+      )
 
 module AuthADlw : Auth_signature.AUTH_MODULE = struct
   (*
