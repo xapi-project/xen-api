@@ -25,21 +25,26 @@ let merge_infos (infos : info list) =
     Listext.List.setify
       (List.map
          (fun ((file, result, subtest), _) -> (file, result, subtest))
-         infos)
+         infos
+      )
   in
   let floats ((file, result, subtest) as i) =
     ( i
     , List.flatten
         (List.map
            (fun ((f, r, s), fl) ->
-             if file = f && result = r && subtest = s then fl else [])
-           infos) )
+             if file = f && result = r && subtest = s then fl else []
+             )
+           infos
+        )
+    )
   in
   let merge_infos = List.map floats names in
   debug "Available data:" ;
   List.iter
     (fun ((f, r, s), fl) ->
-      debug "\t* in file: %s \t%s \t%s \t-- %i points" f r s (List.length fl))
+      debug "\t* in file: %s \t%s \t%s \t-- %i points" f r s (List.length fl)
+      )
     merge_infos ;
   merge_infos
 

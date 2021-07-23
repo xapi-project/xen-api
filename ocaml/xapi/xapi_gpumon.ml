@@ -25,21 +25,25 @@ module Gpumon = Daemon_manager.Make (struct
         try
           ignore
             (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-               ["is-active"; "-q"; gpumon]) ;
+               ["is-active"; "-q"; gpumon]
+            ) ;
           true
-        with _ -> false)
+        with _ -> false
+        )
 
   let start () =
     debug "Starting %s" gpumon ;
     ignore
       (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-         ["start"; gpumon])
+         ["start"; gpumon]
+      )
 
   let stop () =
     debug "Stopping %s" gpumon ;
     ignore
       (Forkhelpers.execute_command_get_output !Xapi_globs.systemctl
-         ["stop"; gpumon])
+         ["stop"; gpumon]
+      )
 end)
 
 let with_gpumon_stopped = Gpumon.with_daemon_stopped
@@ -90,7 +94,8 @@ module Nvidia = struct
       let vgpu_uuid = Db.VGPU.get_uuid ~__context ~self:vgpu in
       let pgpu_address =
         ( Db.VGPU.get_resident_on ~__context ~self:vgpu |> fun self ->
-          Db.PGPU.get_PCI ~__context ~self )
+          Db.PGPU.get_PCI ~__context ~self
+        )
         |> fun self -> Db.PCI.get_pci_id ~__context ~self
       in
       let get uuid =
@@ -135,7 +140,8 @@ module Nvidia = struct
     | `nvidia | `nvidia_sriov -> (
         let local_pgpu_address =
           ( Db.VGPU.get_resident_on ~__context ~self:vgpu |> fun self ->
-            Db.PGPU.get_PCI ~__context ~self )
+            Db.PGPU.get_PCI ~__context ~self
+          )
           |> fun self -> Db.PCI.get_pci_id ~__context ~self
         in
         let compatibility =
@@ -147,11 +153,13 @@ module Nvidia = struct
               let host = Db.VM.get_resident_on ~__context ~self:vm in
               raise
                 Api_errors.(
-                  Server_error (nvidia_tools_error, [Ref.string_of host]))
+                  Server_error (nvidia_tools_error, [Ref.string_of host])
+                )
           | err ->
               raise
                 Api_errors.(
-                  Server_error (internal_error, [Printexc.to_string err]))
+                  Server_error (internal_error, [Printexc.to_string err])
+                )
         in
         match compatibility with
         | Gpumon_interface.Compatible ->
@@ -170,7 +178,9 @@ module Nvidia = struct
                       (* There could be multiple reasons *)
                     ; Ref.string_of vm
                     ; Ref.string_of dest_host
-                    ] ))
+                    ]
+                  )
+              )
         | Gpumon_interface.(Incompatible reasons) ->
             raise
               Api_errors.(
@@ -181,7 +191,9 @@ module Nvidia = struct
                       (* There could be multiple reasons *)
                     ; Ref.string_of vgpu
                     ; Ref.string_of dest_host
-                    ] ))
+                    ]
+                  )
+              )
       )
 
   (** Predicate [vgpu_pgpu_are_compatible] checks that vGPU and pGPU are
@@ -257,7 +269,8 @@ let update_vgpu_metadata ~__context ~vm =
          Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value ;
          debug "Writing vGPU compat metadata for vGPU %s: [%s]"
            (Ref.string_of vgpu)
-           (List.map fst value |> String.concat ":"))
+           (List.map fst value |> String.concat ":")
+     )
 
 (** [clear_vgpu_metadata] removes compatibility metadata from all
  * vgpus of [vm]. *)
@@ -269,4 +282,5 @@ let clear_vgpu_metadata ~__context ~vm =
          |> List.filter (fun (k, _) -> k <> Nvidia.key)
          |> fun value ->
          Db.VGPU.set_compatibility_metadata ~__context ~self:vgpu ~value ;
-         debug "clearing vGPU compat metadata for vGPU %s" (Ref.string_of vgpu))
+         debug "clearing vGPU compat metadata for vGPU %s" (Ref.string_of vgpu)
+     )

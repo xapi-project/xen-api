@@ -51,21 +51,27 @@ let register () =
               (List.fold_left
                  (fun delay member ->
                    Client.Client.Host.backup_rrds rpc session_id member delay ;
-                   delay +. 60.0)
-                 0.0 hosts)))
+                   delay +. 60.0
+                   )
+                 0.0 hosts
+              )
+        )
+    )
   in
   let rrdbackup_delay =
     if Xapi_fist.reduce_rrd_backup_interval () then 60.0 *. 6.0 else 3600.0
   in
   let session_revalidation_func () =
     Server_helpers.exec_with_new_task "session_revalidation_func"
-      (fun __context -> Xapi_session.revalidate_all_sessions ~__context)
+      (fun __context -> Xapi_session.revalidate_all_sessions ~__context
+    )
   in
   let session_revalidation_delay = 60.0 *. 5.0 in
   (* initial delay = 5 minutes *)
   let update_all_subjects_func () =
     Server_helpers.exec_with_new_task "update_all_subjects_func"
-      (fun __context -> Xapi_subject.update_all_subjects ~__context)
+      (fun __context -> Xapi_subject.update_all_subjects ~__context
+    )
   in
   let update_all_subjects_delay = 60.0 *. 15.0 in
   (* initial delay = 15 minutes *)
@@ -80,8 +86,8 @@ let register () =
     Xapi_periodic_scheduler.add_to_queue
       "Revalidating externally-authenticated sessions"
       (Xapi_periodic_scheduler.Periodic
-         !Xapi_globs.session_revalidation_interval) session_revalidation_delay
-      session_revalidation_func ;
+         !Xapi_globs.session_revalidation_interval
+      ) session_revalidation_delay session_revalidation_func ;
   if master then
     Xapi_periodic_scheduler.add_to_queue
       "Trying to update subjects' info using external directory service (if \
@@ -93,13 +99,18 @@ let register () =
   Xapi_periodic_scheduler.add_to_queue "Update monitor configuration"
     (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
     Monitor_master.update_configuration_from_master ;
-  if master then
-    Xapi_periodic_scheduler.add_to_queue "Periodic alert failed login attempts"
-      (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
-      Xapi_pool.alert_failed_login_attempts ;
+  ( if master then
+      let freq = !Xapi_globs.failed_login_alert_freq |> float_of_int in
+      Xapi_periodic_scheduler.add_to_queue
+        "Periodic alert failed login attempts"
+        (Xapi_periodic_scheduler.Periodic freq) freq
+        Xapi_pool.alert_failed_login_attempts
+  ) ;
   Xapi_periodic_scheduler.add_to_queue
     "Period alert if TLS verification emergency disabled"
     (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
       Server_helpers.exec_with_new_task
         "Period alert if TLS verification emergency disabled" (fun __context ->
-          Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context))
+          Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context
+      )
+  )

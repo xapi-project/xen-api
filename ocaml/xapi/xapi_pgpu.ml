@@ -30,7 +30,8 @@ let calculate_max_capacities ~__context ~pCI ~size ~supported_VGPU_types =
         else
           Int64.div size (Db.VGPU_type.get_size ~__context ~self:vgpu_type)
       in
-      (vgpu_type, max_capacity))
+      (vgpu_type, max_capacity)
+      )
     supported_VGPU_types
 
 let fetch_compatibility_metadata ~__context ~pgpu_pci =
@@ -111,7 +112,8 @@ let is_local_pgpu ~__context (pci_ref, pci_rec) =
   pci_rec.Db_actions.pCI_host = localhost
   && Xapi_pci.(
        is_class_of_kind Display_controller
-         (int_of_id pci_rec.Db_actions.pCI_class_id))
+         (int_of_id pci_rec.Db_actions.pCI_class_id)
+     )
   && pci_rec.Db_actions.pCI_physical_function = Ref.null
 
 (* Makes DB match reality for pgpus on local host *)
@@ -213,7 +215,8 @@ let update_gpus ~__context =
             in
             let group = Xapi_gpu_group.find_or_create ~__context self in
             Helpers.call_api_functions ~__context (fun rpc session_id ->
-                Client.Client.PGPU.set_GPU_group rpc session_id self group) ;
+                Client.Client.PGPU.set_GPU_group rpc session_id self group
+            ) ;
             (self, Db.PGPU.get_record ~__context ~self)
         in
         find_or_create (pgpu :: cur) remaining_pcis
@@ -228,7 +231,8 @@ let update_gpus ~__context =
     Listext.List.setify
       (List.map
          (fun (_, pgpu_rec) -> pgpu_rec.API.pGPU_GPU_group)
-         (current_pgpus @ obsolete_pgpus))
+         (current_pgpus @ obsolete_pgpus)
+      )
   in
   Xapi_vgpu_type.Nvidia_compat.create_compat_config_file __context ;
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -238,8 +242,10 @@ let update_gpus ~__context =
           Client.GPU_group.update_enabled_VGPU_types ~rpc ~session_id
             ~self:gpu_group ;
           Client.GPU_group.update_supported_VGPU_types ~rpc ~session_id
-            ~self:gpu_group)
-        groups_to_update)
+            ~self:gpu_group
+          )
+        groups_to_update
+  )
 
 let update_group_enabled_VGPU_types ~__context ~self =
   let group = Db.PGPU.get_GPU_group ~__context ~self in
@@ -253,14 +259,16 @@ let add_enabled_VGPU_types ~__context ~self ~value =
       Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self
         ~vgpu_type:value ;
       Db.PGPU.add_enabled_VGPU_types ~__context ~self ~value ;
-      update_group_enabled_VGPU_types ~__context ~self)
+      update_group_enabled_VGPU_types ~__context ~self
+  )
 
 let remove_enabled_VGPU_types ~__context ~self ~value =
   Mutex.execute pgpu_m (fun () ->
       Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context ~self
         ~vgpu_type:value ;
       Db.PGPU.remove_enabled_VGPU_types ~__context ~self ~value ;
-      update_group_enabled_VGPU_types ~__context ~self)
+      update_group_enabled_VGPU_types ~__context ~self
+  )
 
 let set_enabled_VGPU_types ~__context ~self ~value =
   Mutex.execute pgpu_m (fun () ->
@@ -270,15 +278,18 @@ let set_enabled_VGPU_types ~__context ~self ~value =
       List.iter
         (fun vgpu_type ->
           Xapi_pgpu_helpers.assert_VGPU_type_supported ~__context ~self
-            ~vgpu_type)
+            ~vgpu_type
+          )
         to_enable ;
       List.iter
         (fun vgpu_type ->
           Xapi_pgpu_helpers.assert_no_resident_VGPUs_of_type ~__context ~self
-            ~vgpu_type)
+            ~vgpu_type
+          )
         to_disable ;
       Db.PGPU.set_enabled_VGPU_types ~__context ~self ~value ;
-      update_group_enabled_VGPU_types ~__context ~self)
+      update_group_enabled_VGPU_types ~__context ~self
+  )
 
 let set_GPU_group ~__context ~self ~value =
   debug "Move PGPU %s -> GPU group %s"
@@ -296,7 +307,9 @@ let set_GPU_group ~__context ~self ~value =
           raise
             (Api_errors.Server_error
                ( Api_errors.pgpu_in_use_by_vm
-               , List.map Ref.string_of resident_vms ))
+               , List.map Ref.string_of resident_vms
+               )
+            )
       ) ;
       let check_compatibility gpu_type group_types =
         match group_types with
@@ -330,7 +343,10 @@ let set_GPU_group ~__context ~self ~value =
           raise
             (Api_errors.Server_error
                ( Api_errors.pgpu_not_compatible_with_gpu_group
-               , [gpu_type; "[" ^ String.concat ", " group_types ^ "]"] )))
+               , [gpu_type; "[" ^ String.concat ", " group_types ^ "]"]
+               )
+            )
+  )
 
 let get_remaining_capacity ~__context ~self ~vgpu_type =
   match
@@ -450,15 +466,20 @@ let nvidia_vf_setup ~__context ~pf ~enable =
   let activate_vfs pci =
     match num_vfs pci with
     | None ->
-        let msg = sprintf "Can't determine number of VFs for PCI %s" pci in
-        raise (fail msg)
+        let host = Db.PCI.get_host ~__context ~self:pf in
+        let device = Db.PCI.get_device_name ~__context ~self:pf in
+        error "Can't determine number of VFs for PCI %s" pci ;
+        raise
+          Api_errors.(
+            Server_error
+              (nvidia_sriov_misconfigured, [Ref.string_of host; device])
+          )
     | Some 0 when Sys.file_exists script ->
         debug "PCI %s has 0 VFs - calling %s" pci script ;
         let out, _ =
           Forkhelpers.execute_command_get_output script [enable'; pci]
         in
-        debug "Activating NVidia vGPUs %s yielded: '%s'" pci
-          (String.escaped out)
+        debug "Activating NVidia vGPUs %s yielded: '%s'" pci (String.escaped out)
     | Some n when n > 0 ->
         debug "PCI %s already has %n VFs - not calling %s" pci n script
     | _ ->

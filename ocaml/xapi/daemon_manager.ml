@@ -102,7 +102,8 @@ module Make (D : DAEMON) = struct
         | false, _ ->
             ()
         ) ;
-        register_thread_nolock thread_id) ;
+        register_thread_nolock thread_id
+    ) ;
     Xapi_stdext_pervasives.Pervasiveext.finally f
       (* Deregister this thread, and if there are no more threads registered,
          			 * start the daemon if it was running in the first place. *)
@@ -116,5 +117,7 @@ module Make (D : DAEMON) = struct
                 start () ;
                 daemon_state := `unmanaged
             | false, _ ->
-                daemon_state := `unmanaged))
+                daemon_state := `unmanaged
+        )
+    )
 end

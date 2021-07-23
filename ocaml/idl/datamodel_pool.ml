@@ -8,7 +8,17 @@ open Datamodel_types
             "ha_disable", "Indicates this pool is in the process of disabling HA";
             "cluster_create", "Indicates this pool is in the process of creating a cluster";
             "designate_new_master", "Indicates this pool is in the process of changing master";
+            "configure_repositories", "Indicates this pool is in the process of configuring repositories";
+            "sync_updates", "Indicates this pool is in the process of syncing updates";
+            "get_updates", "Indicates this pool is in the process of getting updates";
+            "apply_updates", "Indicates this pool is in the process of applying updates";
+            (* ops involving cert distribution; these do not necessarily correspond to 'Pool.x' commands,
+             * but they do require a pool-wide lock *)
             "tls_verification_enable", "Indicates this pool is in the process of enabling TLS verification";
+            "cert_refresh", "A certificate refresh and distribution is in progress";
+            "exchange_certificates_on_join", "Indicates this pool is exchanging internal certificates with a new joiner";
+            "exchange_ca_certificates_on_join", "Indicates this pool is exchanging ca certificates with a new joiner";
+            "copy_primary_host_certs", "Indicates the primary host is sending its certificates to another host";
           ])
 
   let enable_ha = call
@@ -75,6 +85,35 @@ open Datamodel_types
       ~allowed_roles:_R_POOL_OP
       ()
 
+  (* This is a map of uuid -> cert_blob *)
+  let certs = Map (String, String)
+
+  let exchange_certificates_on_join = call
+      ~name:"exchange_certificates_on_join"
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[String, "uuid", "The uuid of the joining host";
+               String, "certificate", "The contents of the joiner's certificate";
+              ]
+      ~result:(certs, "The contents of the pool's certificates")
+      ~doc:"Install the pool certificate of a joiner and return the pool's certificates"
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let exchange_ca_certificates_on_join = call
+      ~name:"exchange_ca_certificates_on_join"
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[certs, "import", "The CA certificates that are to be installed";
+               Set (Ref _certificate), "export", "The CA certificates that will be returned, \
+                                                  ready to be installed";
+              ]
+      ~result:(certs, "The contents of the CA certificates requested")
+      ~doc:"Install the CA certificates of a joiner and return the requested CA certificates"
+      ~hide_from_docs:true
+      ~allowed_roles:_R_POOL_OP
+      ()
 
   let slave_reset_master = call ~flags:[`Session]
       ~name:"emergency_reset_master"
@@ -189,21 +228,6 @@ open Datamodel_types
       ~doc:"Internal use only"
       ~hide_from_docs:true
       ~allowed_roles:_R_POOL_OP
-      ()
-
-  let slave_network_report = call
-      ~name:"slave_network_report"
-      ~in_oss_since:None
-      ~in_product_since:rel_rio
-      ~doc:"Internal use only"
-      ~params:[Map (String, String), "phydevs", "(device,bridge) pairs of physical NICs on slave";
-               Map (String, String), "dev_to_mac", "(device,mac) pairs of physical NICs on slave";
-               Map (String, Int), "dev_to_mtu", "(device,mtu) pairs of physical NICs on slave";
-               Ref _host, "slave_host", "the host that the PIFs will be attached to when created"
-              ]
-      ~result:(Set(Ref _pif), "refs for pifs corresponding to device list")
-      ~hide_from_docs:true
-      ~allowed_roles:_R_POOL_ADMIN
       ()
 
   let ping_slave = call ~flags:[`Session]
@@ -685,6 +709,64 @@ open Datamodel_types
     ~allowed_roles:_R_POOL_ADMIN
     ()
 
+  let set_repositories = call
+      ~name:"set_repositories"
+      ~in_product_since:rel_next
+      ~doc:"Set enabled set of repositories"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Set (Ref _repository), "value", "The set of repositories to be enabled"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let add_repository = call
+      ~name:"add_repository"
+      ~in_product_since:rel_next
+      ~doc:"Add a repository to the enabled set"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be added to the enabled set"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let remove_repository = call
+      ~name:"remove_repository"
+      ~in_product_since:rel_next
+      ~doc:"Remove a repository from the enabled set"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Ref _repository, "value", "The repository to be removed"
+      ]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
+  let sync_updates = call
+      ~name:"sync_updates"
+      ~in_product_since:rel_next
+      ~doc:"Sync with the enabled repository"
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Bool, "force", "If true local mirroring repo will be removed before syncing"
+      ]
+      ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
+      ~allowed_roles:_R_POOL_OP
+      ()
+
+  let check_update_readiness = call
+      ~name:"check_update_readiness"
+      ~lifecycle:[Published, rel_next, ""]
+      ~doc:"Check if the pool is ready to be updated. If not, report the reasons."
+      ~params:[
+        Ref _pool, "self", "The pool";
+        Bool, "requires_reboot", "Assume that the update will require host reboots"
+      ]
+      ~result:(Set(Set (String)), "A set of error codes with arguments, if the pool is
+        not ready to update. An empty list means the pool can be updated.")
+      ~allowed_roles:_R_READ_ONLY
+      ()
+
   (** A pool class *)
   let t =
     create_obj
@@ -704,6 +786,8 @@ open Datamodel_types
         ; join_force
         ; eject
         ; initial_auth
+        ; exchange_certificates_on_join
+        ; exchange_ca_certificates_on_join
         ; transition_to_master
         ; slave_reset_master
         ; recover_slaves
@@ -712,7 +796,6 @@ open Datamodel_types
         ; create_VLAN
         ; management_reconfigure
         ; create_VLAN_from_PIF
-        ; slave_network_report
         ; enable_ha
         ; disable_ha
         ; sync_database
@@ -762,6 +845,11 @@ open Datamodel_types
         ; add_to_guest_agent_config
         ; remove_from_guest_agent_config
         ; rotate_secret
+        ; set_repositories
+        ; add_repository
+        ; remove_repository
+        ; sync_updates
+        ; check_update_readiness
         ]
       ~contents:
         ([uid ~in_oss_since:None _pool] @
@@ -809,5 +897,6 @@ open Datamodel_types
          ; field ~in_product_since:rel_quebec ~qualifier:RW ~ty:String ~default_value:(Some (VString "")) "uefi_certificates" "The UEFI certificates allowing Secure Boot"
          ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false)) "is_psr_pending" "True if either a PSR is running or we are waiting for a PSR to be re-run"
          ; field ~qualifier:DynamicRO ~in_product_since:rel_next ~lifecycle:[Published, rel_next, ""] ~ty:Bool ~default_value:(Some (VBool false)) "tls_verification_enabled" "True iff TLS certificate verification is enabled"
+         ; field ~in_product_since:rel_next ~qualifier:DynamicRO ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories" ~default_value:(Some (VSet [])) "The set of currently enabled repositories"
          ])
       ()

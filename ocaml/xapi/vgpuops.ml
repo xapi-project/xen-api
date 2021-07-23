@@ -50,12 +50,16 @@ let fail_creation vm vgpu =
                Ref.string_of vm
              ; Ref.string_of vgpu.gpu_group_ref
              ; Ref.string_of vgpu.type_ref
-             ] ))
+             ]
+           )
+        )
   | Some `PF ->
       raise
         (Api_errors.Server_error
            ( Api_errors.vm_requires_gpu
-           , [Ref.string_of vm; Ref.string_of vgpu.gpu_group_ref] ))
+           , [Ref.string_of vm; Ref.string_of vgpu.gpu_group_ref]
+           )
+        )
 
 let allocate_vgpu_to_gpu ?(dry_run = false) ?(pre_allocate_list = []) ~__context
     vm host vgpu =
@@ -72,12 +76,15 @@ let allocate_vgpu_to_gpu ?(dry_run = false) ?(pre_allocate_list = []) ~__context
     Listext.intersect compatible_pgpus available_pgpus
     |> List.filter (fun pgpu ->
            Xapi_gpumon.Nvidia.vgpu_pgpu_are_compatible ~__context ~pgpu
-             ~vgpu:vgpu.vgpu_ref)
+             ~vgpu:vgpu.vgpu_ref
+       )
     (* Filter all compatible pGPUs *)
     |> List.map (fun self ->
            ( self
            , Xapi_pgpu_helpers.get_remaining_capacity ~__context
-               ~pre_allocate_list ~self ~vgpu_type ))
+               ~pre_allocate_list ~self ~vgpu_type
+           )
+       )
     |> List.filter (fun (_, capacity) -> capacity > 0L)
   in
   (* Sort the pgpus in lists of equal optimality for vGPU placement based on
@@ -145,7 +152,8 @@ let reserve_free_virtual_function ~__context vm impl pf =
         (* This probably means that our capacity checking went wrong! *)
         raise
           Api_errors.(
-            Server_error (internal_error, ["No free virtual function found"]))
+            Server_error (internal_error, ["No free virtual function found"])
+          )
   in
   match impl with
   | `nvidia_sriov ->
@@ -192,7 +200,8 @@ let add_vgpus_to_vm ~__context host vm vgpus =
       | None ->
           Pool_features.assert_enabled ~__context ~f:Features.VGPU ;
           debug "Creating virtual VGPUs" ;
-          ignore (allocate_vgpu_to_gpu ~__context vm host vgpu))
+          ignore (allocate_vgpu_to_gpu ~__context vm host vgpu)
+      )
     vgpus
 
 (* The two functions below are the main entry points of this module *)
@@ -207,7 +216,9 @@ let create_vgpus ~__context host (vm, vm_r) hvm =
     raise
       (Api_errors.Server_error
          ( Api_errors.feature_requires_hvm
-         , ["vGPU- and GPU-passthrough needs HVM"] )) ;
+         , ["vGPU- and GPU-passthrough needs HVM"]
+         )
+      ) ;
   add_vgpus_to_vm ~__context host vm vgpus
 
 (* This function is called from Xapi_xenops, after forwarding, so possibly on a slave. *)

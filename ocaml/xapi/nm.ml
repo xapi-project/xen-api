@@ -130,7 +130,8 @@ let create_bond ~__context bond mtu persistent =
           ; persistent_i= persistent
           }
         in
-        (device, bridge, config))
+        (device, bridge, config)
+        )
       slaves
   in
   let master_net_rc =
@@ -201,7 +202,8 @@ let create_bond ~__context bond mtu persistent =
             if String.startswith "bond-" k then
               Some (String.sub_to_end k 5, v)
             else
-              None)
+              None
+            )
           master_rc.API.pIF_other_config
       in
       (* add defaults for properties that are not overridden *)
@@ -221,13 +223,15 @@ let create_bond ~__context bond mtu persistent =
         ; bond_properties= props
         ; bond_mac= Some mac
         ; kind= Basic_port
-        } )
+        }
+      )
     ]
   in
   let igmp_snooping =
     Some
       (Db.Pool.get_igmp_snooping_enabled ~__context
-         ~self:(Helpers.get_pool ~__context))
+         ~self:(Helpers.get_pool ~__context)
+      )
   in
   ( cleanup
   , [
@@ -239,9 +243,11 @@ let create_bond ~__context bond mtu persistent =
         ; other_config
         ; igmp_snooping
         ; persistent_b= persistent
-        } )
+        }
+      )
     ]
-  , interface_config )
+  , interface_config
+  )
 
 let destroy_bond ~__context ~force bond =
   let master = Db.Bond.get_master ~__context ~self:bond in
@@ -280,7 +286,8 @@ let create_vlan ~__context vlan persistent =
       ; other_config
       ; bridge_mac= Some mac
       ; persistent_b= persistent
-      } )
+      }
+    )
   ]
 
 let destroy_vlan ~__context vlan =
@@ -313,7 +320,8 @@ let linux_pif_config pif_type pif_rc properties mtu persistent =
     ; ethtool_settings
     ; ethtool_offload
     ; persistent_i= persistent
-    } )
+    }
+  )
 
 let rec create_bridges ~__context pif_rc net_rc =
   let mtu = determine_mtu pif_rc net_rc in
@@ -322,7 +330,8 @@ let rec create_bridges ~__context pif_rc net_rc =
   let igmp_snooping =
     Some
       (Db.Pool.get_igmp_snooping_enabled ~__context
-         ~self:(Helpers.get_pool ~__context))
+         ~self:(Helpers.get_pool ~__context)
+      )
   in
   let open Xapi_pif_helpers in
   match get_pif_type pif_rc with
@@ -336,9 +345,11 @@ let rec create_bridges ~__context pif_rc net_rc =
             ; igmp_snooping
             ; other_config
             ; persistent_b= persistent
-            } )
+            }
+          )
         ]
-      , [] )
+      , []
+      )
   | VLAN_untagged vlan ->
       let original_pif_rc = pif_rc in
       let slave = Db.VLAN.get_tagged_PIF ~__context ~self:vlan in
@@ -357,7 +368,8 @@ let rec create_bridges ~__context pif_rc net_rc =
       in
       ( cleanup
       , create_vlan ~__context vlan persistent @ bridge_config
-      , interface_config )
+      , interface_config
+      )
   | Bond_master bond ->
       let cleanup, bridge_config, interface_config =
         create_bond ~__context bond mtu persistent
@@ -383,7 +395,8 @@ let rec create_bridges ~__context pif_rc net_rc =
       let ports =
         [
           ( pif_rc.API.pIF_device
-          , {default_port with interfaces= [pif_rc.API.pIF_device]} )
+          , {default_port with interfaces= [pif_rc.API.pIF_device]}
+          )
         ]
       in
       ( cleanup
@@ -396,7 +409,8 @@ let rec create_bridges ~__context pif_rc net_rc =
             ; igmp_snooping
             ; other_config
             ; persistent_b= persistent
-            } )
+            }
+          )
         ]
       , [
           ( pif_rc.API.pIF_device
@@ -406,13 +420,16 @@ let rec create_bridges ~__context pif_rc net_rc =
             ; ethtool_settings
             ; ethtool_offload
             ; persistent_i= persistent
-            } )
-        ] )
+            }
+          )
+        ]
+      )
   | Network_sriov_logical _ ->
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["Should not create bridge for SRIOV logical PIF"]))
+            (internal_error, ["Should not create bridge for SRIOV logical PIF"])
+        )
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
   let open Xapi_pif_helpers in
@@ -438,7 +455,8 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
       raise
         Api_errors.(
           Server_error
-            (internal_error, ["Should not destroy bridge for SRIOV logical PIF"]))
+            (internal_error, ["Should not destroy bridge for SRIOV logical PIF"])
+        )
 
 let determine_static_routes net_rc =
   if List.mem_assoc "static-routes" net_rc.API.network_other_config then
@@ -454,7 +472,9 @@ let determine_static_routes net_rc =
                 subnet= Unix.inet_addr_of_string a
               ; netmask= b
               ; gateway= Unix.inet_addr_of_string c
-              }))
+              }
+          )
+          )
         routes
     with _ -> []
   else
@@ -509,7 +529,8 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                 let bond_record = Db.Bond.get_record ~__context ~self:bond in
                 List.iter
                   (fun self ->
-                    Db.PIF.set_currently_attached ~__context ~self ~value:false)
+                    Db.PIF.set_currently_attached ~__context ~self ~value:false
+                    )
                   bond_record.API.bond_slaves ;
                 maybe_update_master_pif_mac ~__context bond_record rc pif
           in
@@ -548,7 +569,8 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                       Static4
                         [
                           ( Unix.inet_addr_of_string rc.API.pIF_IP
-                          , netmask_to_prefixlen rc.API.pIF_netmask )
+                          , netmask_to_prefixlen rc.API.pIF_netmask
+                          )
                         ]
                     in
                     let gateway =
@@ -607,7 +629,8 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                                 (String.sub_to_end addr_and_prefixlen (n + 1))
                             in
                             Some (addr, prefixlen)
-                          with _ -> None)
+                          with _ -> None
+                          )
                         rc.API.pIF_IPv6
                     in
                     let conf = Static6 addresses in
@@ -638,10 +661,12 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     ; ethtool_offload
                     ; mtu
                     ; persistent_i= persistent
-                    } )
+                    }
+                  )
                 ]
               in
-              Net.Interface.make_config dbg false interface_config) ;
+              Net.Interface.make_config dbg false interface_config
+          ) ;
           let new_ip =
             match Net.Interface.get_ipv4_addr dbg bridge with
             | (ip, _) :: _ ->
@@ -670,7 +695,8 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     | Locking_helpers.Process ("stunnel", _) ->
                         true
                     | _ ->
-                        false)
+                        false
+                    )
                   all
               in
               debug "Of which %d are stunnels" (List.length stunnels) ;
@@ -728,7 +754,8 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
             )
           | _ ->
               ()
-        ))
+        )
+  )
 
 let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
   with_local_lock (fun () ->
@@ -747,7 +774,8 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
               cleanup ;
             Net.Interface.set_persistent dbg bridge false ;
             Db.PIF.set_currently_attached ~__context ~self:pif ~value:false ;
-            cleanup_f ())
+            cleanup_f ()
+        )
       in
       match get_pif_topo ~__context ~pif_rec:rc with
       | Network_sriov_logical _ :: _ ->
@@ -763,7 +791,8 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                 let expr =
                   Eq
                     ( Field "protocol"
-                    , Literal (Record_util.tunnel_protocol_to_string `vxlan) )
+                    , Literal (Record_util.tunnel_protocol_to_string `vxlan)
+                    )
                 in
                 let tunnels = Db.Tunnel.get_records_where ~__context ~expr in
                 let still_plugged_on_host (_, tunnel_rec) =
@@ -787,4 +816,5 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
           in
           close_network_interface maybe_close_port ()
       | _ ->
-          close_network_interface (fun () -> ()) ())
+          close_network_interface (fun () -> ()) ()
+  )

@@ -44,7 +44,8 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2
           )
         , Ref.string_of ref
         , print_valid ref_1_valid
-        , print_valid ref_2_valid )
+        , print_valid ref_2_valid
+        )
       in
       debug
         "Connector %s (%s) has invalid refs [ref_1: %s; ref_2: %s]. Attempting \
@@ -64,7 +65,8 @@ let gc_VDIs ~__context =
       if not (List.mem sr all_srs) then (
         debug "GCed VDI %s" (Ref.string_of vdi) ;
         Db.VDI.destroy ~__context ~self:vdi
-      ))
+      )
+      )
     (Db.VDI.get_all ~__context)
 
 let gc_PIFs ~__context =
@@ -87,16 +89,19 @@ let gc_PIFs ~__context =
       (try Db.VLAN.destroy ~__context ~self:vlan_to_gc with _ -> ()) ;
       List.iter
         (fun tunnel ->
-          try Db.Tunnel.destroy ~__context ~self:tunnel with _ -> ())
+          try Db.Tunnel.destroy ~__context ~self:tunnel with _ -> ()
+          )
         tunnels_to_gc ;
       List.iter
         (fun sriov ->
-          try Db.Network_sriov.destroy ~__context ~self:sriov with _ -> ())
+          try Db.Network_sriov.destroy ~__context ~self:sriov with _ -> ()
+          )
         sriovs_to_gc ;
       List.iter
         (fun bond -> try Db.Bond.destroy ~__context ~self:bond with _ -> ())
         bonds_to_gc ;
-      Db.PIF.destroy ~__context ~self)
+      Db.PIF.destroy ~__context ~self
+      )
 
 let gc_VBDs ~__context =
   gc_connector ~__context Db.VBD.get_all Db.VBD.get_record
@@ -114,7 +119,8 @@ let gc_VBDs ~__context =
       ) else
         let metrics = Db.VBD.get_metrics ~__context ~self in
         (try Db.VBD_metrics.destroy ~__context ~self:metrics with _ -> ()) ;
-        Db.VBD.destroy ~__context ~self)
+        Db.VBD.destroy ~__context ~self
+      )
 
 let gc_crashdumps ~__context =
   gc_connector ~__context Db.Crashdump.get_all Db.Crashdump.get_record
@@ -129,7 +135,8 @@ let gc_VIFs ~__context =
     (fun ~__context ~self ->
       let metrics = Db.VIF.get_metrics ~__context ~self in
       (try Db.VIF_metrics.destroy ~__context ~self:metrics with _ -> ()) ;
-      Db.VIF.destroy ~__context ~self)
+      Db.VIF.destroy ~__context ~self
+      )
 
 let gc_PBDs ~__context =
   gc_connector ~__context Db.PBD.get_all Db.PBD.get_record
@@ -163,7 +170,8 @@ let gc_PGPUs ~__context =
           debug "GCed PGPU %s" (Ref.string_of pgpu) ;
           group :: acc
         ) else
-          acc)
+          acc
+        )
       [] pgpus
     |> List.filter (valid_ref __context)
     |> Listext.List.setify
@@ -173,7 +181,8 @@ let gc_PGPUs ~__context =
   List.iter
     (fun group ->
       Xapi_gpu_group.update_enabled_VGPU_types ~__context ~self:group ;
-      Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:group)
+      Xapi_gpu_group.update_supported_VGPU_types ~__context ~self:group
+      )
     affected_groups
 
 let gc_VGPU_types ~__context =
@@ -185,7 +194,9 @@ let gc_VGPU_types ~__context =
       ~expr:
         (And
            ( Eq (Field "VGPUs", Literal "()")
-           , Eq (Field "supported_on_PGPUs", Literal "()") ))
+           , Eq (Field "supported_on_PGPUs", Literal "()")
+           )
+        )
   in
   match garbage with
   | [] ->
@@ -207,7 +218,8 @@ let gc_host_cpus ~__context =
     (fun hcpu ->
       if not (valid_ref __context (Db.Host_cpu.get_host ~__context ~self:hcpu))
       then
-        Db.Host_cpu.destroy ~__context ~self:hcpu)
+        Db.Host_cpu.destroy ~__context ~self:hcpu
+      )
     host_cpus
 
 let gc_host_metrics ~__context =
@@ -219,7 +231,8 @@ let gc_host_metrics ~__context =
   List.iter
     (fun hmetric ->
       if not (List.mem hmetric host_metrics) then
-        Db.Host_metrics.destroy ~__context ~self:hmetric)
+        Db.Host_metrics.destroy ~__context ~self:hmetric
+      )
     all_host_metrics
 
 let gc_certificates ~__context =
@@ -235,7 +248,8 @@ let gc_certificates ~__context =
   all_certificates
   |> List.filter (fun (cert, record) ->
          record.API.certificate_type <> `ca
-         && not (List.mem cert host_certificates))
+         && not (List.mem cert host_certificates)
+     )
   |> List.iter (fun (cert, _) -> Db.Certificate.destroy ~__context ~self:cert)
 
 let probation_pending_tasks = Hashtbl.create 53
@@ -265,7 +279,8 @@ let timeout_tasks ~__context =
       (fun (_, t) ->
         List.exists
           (fun (_, op) -> op = `destroy)
-          t.Db_actions.task_current_operations)
+          t.Db_actions.task_current_operations
+        )
       completed
   in
   List.iter
@@ -274,13 +289,15 @@ let timeout_tasks ~__context =
   let completed_old, completed_young =
     List.partition
       (fun (_, t) ->
-        Date.to_float t.Db_actions.task_finished < oldest_completed_time)
+        Date.to_float t.Db_actions.task_finished < oldest_completed_time
+        )
       completed_gcable
   in
   let pending_old, pending_young =
     List.partition
       (fun (_, t) ->
-        Date.to_float t.Db_actions.task_created < oldest_pending_time)
+        Date.to_float t.Db_actions.task_created < oldest_pending_time
+        )
       pending
   in
   let pending_old_run, pending_old_hung =
@@ -291,7 +308,8 @@ let timeout_tasks ~__context =
             Hashtbl.find probation_pending_tasks t.Db_actions.task_uuid
           in
           t.Db_actions.task_progress -. pre_progress > min_float
-        with Not_found -> true)
+        with Not_found -> true
+        )
       pending_old
   in
   let () =
@@ -299,7 +317,8 @@ let timeout_tasks ~__context =
     List.iter
       (fun (_, t) ->
         Hashtbl.add probation_pending_tasks t.Db_actions.task_uuid
-          t.Db_actions.task_progress)
+          t.Db_actions.task_progress
+        )
       pending_old
   in
   let old = pending_old_hung @ completed_old in
@@ -313,8 +332,7 @@ let timeout_tasks ~__context =
       (* We only consider deleting completed tasks *)
       let completed, pending =
         List.partition
-          (fun (_, t) ->
-            TaskHelper.status_is_completed t.Db_actions.task_status)
+          (fun (_, t) -> TaskHelper.status_is_completed t.Db_actions.task_status)
           young
       in
       (* Sort the completed tasks so we delete oldest tasks in preference *)
@@ -323,7 +341,8 @@ let timeout_tasks ~__context =
           (fun (_, t1) (_, t2) ->
             compare
               (Date.to_float t1.Db_actions.task_finished)
-              (Date.to_float t2.Db_actions.task_finished))
+              (Date.to_float t2.Db_actions.task_finished)
+            )
           completed
       in
       (* From the completes set, choose up to 'overflow' *)
@@ -343,7 +362,8 @@ let timeout_tasks ~__context =
       if not (TaskHelper.status_is_completed y.Db_actions.task_status) then
         warn "GCed old task that was still in pending state: %s"
           y.Db_actions.task_uuid ;
-      TaskHelper.destroy ~__context x)
+      TaskHelper.destroy ~__context x
+      )
     (old @ unlucky) ;
   if List.length lucky > Xapi_globs.max_tasks then
     warn "There are more pending tasks than the maximum allowed: %d > %d"
@@ -367,12 +387,14 @@ let timeout_sessions_common ~__context sessions limit session_group =
                     (* task might not exist anymore, assume completed in this case *)
                     ( try Db.Task.get_status ~__context ~self:t
                       with _ -> `success
-                    ))
+                    )
+                  )
                 tasks
               && is_session_unused parent
             with _ -> true
         in
-        is_session_unused x)
+        is_session_unused x
+        )
       sessions
   in
   (* Only keep a list of (ref, last_active, uuid) *)
@@ -381,7 +403,9 @@ let timeout_sessions_common ~__context sessions limit session_group =
       (fun (x, y) ->
         ( x
         , Date.to_float y.Db_actions.session_last_active
-        , y.Db_actions.session_uuid ))
+        , y.Db_actions.session_uuid
+        )
+        )
       unused_sessions
   in
   (* Definitely invalidate sessions last used long ago *)
@@ -405,7 +429,8 @@ let timeout_sessions_common ~__context sessions limit session_group =
           (Context.trackid_of_session (Some s))
           (Date.to_string (Date.of_float active))
           doc ;
-        Xapi_session.destroy_db_session ~__context ~self:s)
+        Xapi_session.destroy_db_session ~__context ~self:s
+        )
       sessions
   in
   (* Only the 'lucky' survive: the 'old' and 'unlucky' are destroyed *)
@@ -418,13 +443,15 @@ let timeout_sessions_common ~__context sessions limit session_group =
       (List.length sessions) limit ;
   cancel
     (Printf.sprintf "Timed out session in group '%s' because of its age"
-       session_group)
+       session_group
+    )
     old ;
   cancel
     (Printf.sprintf
        "Timed out session in group '%s' because max number of sessions was \
         exceeded"
-       session_group)
+       session_group
+    )
     unlucky
 
 let last_session_log_time = ref None
@@ -443,7 +470,8 @@ let timeout_sessions ~__context =
   let anon_sessions, named_sessions =
     List.partition
       (fun (_, s) ->
-        s.Db_actions.session_originator = "" && use_root_auth_name s)
+        s.Db_actions.session_originator = "" && use_root_auth_name s
+        )
       nonpool_sessions
   in
   let session_groups = Hashtbl.create 37 in
@@ -459,7 +487,8 @@ let timeout_sessions ~__context =
           let current_sessions =
             try Hashtbl.find session_groups key with Not_found -> []
           in
-          Hashtbl.replace session_groups key (rs :: current_sessions))
+          Hashtbl.replace session_groups key (rs :: current_sessions)
+      )
     named_sessions ;
   let should_log =
     match !last_session_log_time with
@@ -488,7 +517,8 @@ let timeout_sessions ~__context =
             Xapi_globs.max_sessions_per_originator ("originator:" ^ orig)
       | `Name name ->
           timeout_sessions_common ~__context ss
-            Xapi_globs.max_sessions_per_user_name ("username:" ^ name))
+            Xapi_globs.max_sessions_per_user_name ("username:" ^ name)
+      )
     session_groups ;
   timeout_sessions_common ~__context anon_sessions Xapi_globs.max_sessions
     "external" ;
@@ -504,7 +534,8 @@ let gc_consoles ~__context =
       then (
         Db.Console.destroy ~__context ~self:console ;
         debug "GCed console %s" (Ref.string_of console)
-      ))
+      )
+      )
     (Db.Console.get_all ~__context)
 
 let gc_PVS_proxies ~__context =
@@ -550,8 +581,10 @@ let gc_updates_requiring_reboot ~__context =
         (fun update ->
           if not (valid_ref __context update) then
             Db.Host.remove_updates_requiring_reboot ~__context ~self:host
-              ~value:update)
-        updates)
+              ~value:update
+          )
+        updates
+      )
     (Db.Host.get_all ~__context)
 
 (* do VDIs first because this will cause some VBDs to be affected *)

@@ -83,7 +83,8 @@ let sample (name : string) (x : float) : unit =
       in
       let p' = Normal_population.sample p x' in
       Hashtbl.replace timings name p'
-      (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *))
+      (*       debug "Population %s time = %f mean = %s" name x (string_of p'); *)
+  )
 
 (*
   (* Check to see if the value is > 3 standard deviations from the mean *)
@@ -100,8 +101,10 @@ let time_this (name : string) f =
         sample name (end_time -. start_time)
       with e ->
         warn "Ignoring exception %s while timing: %s" (Printexc.to_string e)
-          name)
+          name
+  )
 
 let summarise () =
   Mutex.execute timings_m (fun () ->
-      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings [])
+      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
+  )

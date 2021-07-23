@@ -39,7 +39,8 @@ let once kind f =
       else (
         fuses.already_lit <- kind :: fuses.already_lit ;
         f ()
-      ))
+      )
+  )
 
 let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
   once `Exit @@ fun () ->
@@ -67,14 +68,17 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
            in
            lock_db (fun () ->
                Db_cache_impl.flush_and_exit dbconn
-                 Xapi_globs.restart_return_code)
+                 Xapi_globs.restart_return_code
+           )
          with e ->
            warn
              "Caught an exception flushing database (perhaps it hasn't been \
               initialised yet): %s; restarting immediately"
              (ExnHelper.string_of_exn e) ;
-           exit Xapi_globs.restart_return_code)
-       ())
+           exit Xapi_globs.restart_return_code
+         )
+       ()
+    )
 
 let light_fuse_and_reboot_after_eject () =
   once `Reboot @@ fun () ->
@@ -85,9 +89,12 @@ let light_fuse_and_reboot_after_eject () =
          (* this activates firstboot script and reboots the host *)
          ignore
            (Forkhelpers.execute_command_get_output
-              "/opt/xensource/libexec/reset-and-reboot" []) ;
-         ())
-       ())
+              "/opt/xensource/libexec/reset-and-reboot" []
+           ) ;
+         ()
+         )
+       ()
+    )
 
 let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () =
   once `Reboot @@ fun () ->
@@ -95,8 +102,10 @@ let light_fuse_and_reboot ?(fuse_length = !Constants.fuse_time) () =
     (Thread.create
        (fun () ->
          Thread.delay fuse_length ;
-         ignore (Sys.command "shutdown -r now"))
-       ())
+         ignore (Sys.command "shutdown -r now")
+         )
+       ()
+    )
 
 let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
   once `Exit @@ fun () ->
@@ -115,8 +124,11 @@ let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
          lock_db (fun () ->
              Db_cache_impl.flush_and_exit
                (Db_connections.preferred_write_db ())
-               0))
-       ()) ;
+               0
+         )
+         )
+       ()
+    ) ;
   (* This is a best-effort attempt to use the database. We must not block the flush_and_exit above, hence
      the use of a background thread. *)
   Helpers.log_exn_continue "setting Host.enabled to false"
@@ -128,5 +140,8 @@ let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
           Db.Host.set_enabled ~__context ~self:localhost ~value:false ;
           Helpers.call_api_functions ~__context (fun rpc session_id ->
               Db_gc.send_one_heartbeat ~__context rpc ~shutting_down:true
-                session_id)))
+                session_id
+          )
+      )
+      )
     ()

@@ -108,18 +108,26 @@ let with_vbds rpc session_id __context vm vdis mode f =
           debug "created VBD (uuid %s); attempting to hotplug to VM (uuid: %s)"
             vbd_uuid uuid ;
           vbds := vbd :: !vbds ;
-          Client.VBD.plug rpc session_id vbd)
+          Client.VBD.plug rpc session_id vbd
+          )
         vdis ;
       vbds := List.rev !vbds ;
-      f !vbds)
+      f !vbds
+      )
     (fun () ->
       (* Use a new session here to cover the case where the session has become invalid *)
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           List.iter
             (Helpers.log_exn_continue "unplugging disk from VM" (fun self ->
-                 safe_unplug rpc session_id self))
+                 safe_unplug rpc session_id self
+             )
+            )
             !vbds ;
           List.iter
             (Helpers.log_exn_continue "destroying VBD on VM" (fun self ->
-                 Client.VBD.destroy rpc session_id self))
-            !vbds))
+                 Client.VBD.destroy rpc session_id self
+             )
+            )
+            !vbds
+      )
+      )

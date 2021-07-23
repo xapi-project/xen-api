@@ -47,7 +47,8 @@ let string_of_file filename =
       let rec read_lines acc =
         try read_lines (input_line in_channel :: acc) with End_of_file -> acc
       in
-      read_lines [] |> List.rev |> String.concat "\n")
+      read_lines [] |> List.rev |> String.concat "\n"
+      )
     ~always:(fun () -> close_in in_channel)
 
 let with_output filename f =
@@ -278,7 +279,8 @@ let json_releases =
               not
                 (x.version_major = hd.version_major
                 && x.version_minor = hd.version_minor
-                ))
+                )
+          )
         in
         hd :: get_unique (remove_duplicates tl)
   in
@@ -291,7 +293,10 @@ let json_releases =
       , `A
           (List.map
              (fun x -> json_of_rel x (list_index_of x unique_version_bumps + 1))
-             unique_version_bumps) )
+             unique_version_bumps
+          )
+      )
     ; ( "latest_version_index"
-      , `Float (float_of_int (List.length unique_version_bumps)) )
+      , `Float (float_of_int (List.length unique_version_bumps))
+      )
     ]

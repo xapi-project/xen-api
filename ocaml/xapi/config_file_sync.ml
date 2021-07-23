@@ -88,7 +88,8 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
       | _ ->
           debug "writing legacy dom0 config files" ;
           legacy_transmit_passwd s ;
-          debug "finished writing legacy dom0 config files")
+          debug "finished writing legacy dom0 config files"
+  )
 
 let fetch_config_files_internal ~master_address ~pool_secret =
   Server_helpers.exec_with_new_task "fetch_config_files" (fun __context ->
@@ -103,11 +104,16 @@ let fetch_config_files_internal ~master_address ~pool_secret =
             SSL
               ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
               , master_address
-              , !Constants.https_port )
+              , !Constants.https_port
+              )
           in
           with_transport transport
             (with_http request (fun (response, fd) ->
-                 Xapi_stdext_unix.Unixext.string_of_fd fd))))
+                 Xapi_stdext_unix.Unixext.string_of_fd fd
+             )
+            )
+      )
+  )
 
 (* Invoked on slave as a notification that config files may have changed. Slaves can use
    this to decide whether to sync the new config files if the hash is different from the
@@ -126,4 +132,5 @@ let fetch_config_files_on_slave_startup () =
       let config_files =
         fetch_config_files_internal ~master_address ~pool_secret
       in
-      rewrite_config_files config_files)
+      rewrite_config_files config_files
+  )

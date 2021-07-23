@@ -65,11 +65,14 @@ let again (x : manager) =
                     ) else (
                       x.in_progress <- false ;
                       false (* no more requests: thread will shutdown *)
-                    ))
+                    )
+                )
               do
                 x.f ()
-              done)
+              done
+              )
             ()
         in
         ()
-      ))
+      )
+  )

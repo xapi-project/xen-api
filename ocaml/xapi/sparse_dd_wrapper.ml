@@ -123,10 +123,12 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                   debug "sparse_dd: %s" data ;
                   try
                     Scanf.sscanf data "Progress: %d" (fun progress ->
-                        progress_cb (Continuing (float_of_int progress /. 100.)))
+                        progress_cb (Continuing (float_of_int progress /. 100.))
+                    )
                   with e ->
                     Unix.kill (Forkhelpers.getpid pid) Sys.sigterm ;
-                    raise e)
+                    raise e
+                  )
                 () pipe_read ;
               let r = Forkhelpers.waitpid pid in
               State.remove intpid ;
@@ -141,7 +143,8 @@ let dd_internal progress_cb base prezeroed infile outfile size =
                   failwith "sparse_dd"
               | _ ->
                   error "sparse_dd exit with WSTOPPED or WSIGNALED" ;
-                  failwith "sparse_dd")
+                  failwith "sparse_dd"
+          )
         with
         | Forkhelpers.Success _ ->
             progress_cb (Finished None)
@@ -150,10 +153,12 @@ let dd_internal progress_cb base prezeroed infile outfile size =
               (Printexc.to_string exn) ;
             raise
               (Api_errors.Server_error
-                 (Api_errors.vdi_copy_failed, [Printexc.to_string exn]))
+                 (Api_errors.vdi_copy_failed, [Printexc.to_string exn])
+              )
       with e ->
         progress_cb (Finished (Some e)) ;
-        raise e)
+        raise e
+      )
     (fun () -> close pipe_read ; close pipe_write)
 
 let dd ?(progress_cb = fun _ -> ()) ?base prezeroed =
@@ -182,13 +187,15 @@ let start ?(progress_cb = fun _ -> ()) ?base prezeroed infile outfile size =
   let _ =
     Thread.create
       (fun () ->
-        dd_internal thread_progress_cb base prezeroed infile outfile size)
+        dd_internal thread_progress_cb base prezeroed infile outfile size
+        )
       ()
   in
   Mutex.execute m (fun () ->
       while !pid = None && !finished = false && !cancelled = false do
         Condition.wait c m
-      done) ;
+      done
+  ) ;
   match (!pid, !exn) with
   | Some pid, None ->
       {m; c; pid; finished; cancelled; exn}
@@ -201,7 +208,8 @@ let wait t =
   Mutex.execute t.m (fun () ->
       while !(t.finished) = false do
         Condition.wait t.c t.m
-      done) ;
+      done
+  ) ;
   if !(t.cancelled) then raise Cancelled ;
   match !(t.exn) with Some exn -> raise exn | None -> ()
 
@@ -226,7 +234,9 @@ let killall () =
             then
               Unix.kill pid Sys.sigkill
             else
-              ())
+              ()
+            )
           (fun () -> State.remove pid)
-      with _ -> ())
+      with _ -> ()
+      )
     pids

@@ -83,7 +83,8 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
       (fun index (vif : vif) ->
         make_vif ~__context ~device:(string_of_int index) ~vM:vm_ref
           ~network:(if vif.agile then shared_net else local_net)
-          ())
+          ()
+        )
       vm.vifs
   in
   let (_ : API.ref_VBD list) =
@@ -93,7 +94,8 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
           make_vdi ~__context ~sR:(if vbd.agile then shared_sr else local_sr) ()
         in
         make_vbd ~__context ~device:(string_of_int index) ~vM:vm_ref
-          ~vDI:vdi_ref ())
+          ~vDI:vdi_ref ()
+        )
       vm.vbds
   in
   vm_ref
@@ -108,7 +110,8 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
   let (_ : API.ref_VM list) =
     List.map
       (fun vm ->
-        load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net)
+        load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net
+        )
       host.vms
   in
   host_ref
@@ -186,7 +189,8 @@ module AllProtectedVms = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 0L
           ; cluster= 0
           }
-        , [] )
+        , []
+        )
       ; (* One unprotected VM. *)
         ( {
             master=
@@ -202,7 +206,8 @@ module AllProtectedVms = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 0L
           ; cluster= 0
           }
-        , [] )
+        , []
+        )
       ; (* One VM which would be protected if it was running. *)
         ( {
             master=
@@ -215,7 +220,8 @@ module AllProtectedVms = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 0L
           ; cluster= 0
           }
-        , [] )
+        , []
+        )
       ; (* One protected VM. *)
         ( {
             master=
@@ -224,7 +230,8 @@ module AllProtectedVms = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 0L
           ; cluster= 0
           }
-        , ["vm"] )
+        , ["vm"]
+        )
       ; (* One protected VM and one unprotected VM. *)
         ( {
             master=
@@ -246,7 +253,8 @@ module AllProtectedVms = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 0L
           ; cluster= 0
           }
-        , ["vm1"] )
+        , ["vm1"]
+        )
       ]
 end)
 
@@ -290,7 +298,8 @@ module PlanForNFailures = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 1L
           ; cluster= 0
           }
-        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs )
+        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
+        )
       ; (* Two host pool, with one VM taking up just under half of one host's
                 * memory. *)
         ( {
@@ -304,7 +313,8 @@ module PlanForNFailures = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 1L
           ; cluster= 0
           }
-        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs )
+        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
+        )
       ; (* Two host pool, with two VMs taking up almost all of one host's memory. *)
         ( {
             master=
@@ -321,7 +331,8 @@ module PlanForNFailures = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 1L
           ; cluster= 0
           }
-        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs )
+        , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
+        )
       ; (* Two host pool, overcommitted. *)
         ( {
             master=
@@ -349,7 +360,8 @@ module PlanForNFailures = Generic.MakeStateful (struct
           ; ha_host_failures_to_tolerate= 1L
           ; cluster= 0
           }
-        , Xapi_ha_vm_failover.No_plan_exists )
+        , Xapi_ha_vm_failover.No_plan_exists
+        )
       ]
 end)
 
@@ -381,8 +393,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
       |> List.hd
     in
     let shared_sr =
-      Db.SR.get_refs_where ~__context
-        ~expr:(Eq (Field "shared", Literal "true"))
+      Db.SR.get_refs_where ~__context ~expr:(Eq (Field "shared", Literal "true"))
       |> List.hd
     in
     let local_net =
@@ -426,8 +437,10 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
             ; ha_restart_priority= "restart"
             ; memory= gib 120L
             ; name_label= "vm2"
-            } )
-        , Ok () )
+            }
+          )
+        , Ok ()
+        )
       ; (* 2 host pool, two VMs using almost all of one host's memory;
                 * test that another VM cannot be added. *)
         ( ( {
@@ -451,10 +464,13 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
             ; ha_restart_priority= "restart"
             ; memory= gib 120L
             ; name_label= "vm2"
-            } )
+            }
+          )
         , Error
             Api_errors.(
-              Server_error (ha_operation_would_break_failover_plan, [])) )
+              Server_error (ha_operation_would_break_failover_plan, [])
+            )
+        )
       ; (* 2 host pool which is already overcommitted. Attempting to add another VM
                 * should not throw an exception. *)
         ( ( {
@@ -485,8 +501,10 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
             ; ha_restart_priority= "restart"
             ; memory= gib 120L
             ; name_label= "vm2"
-            } )
-        , Ok () )
+            }
+          )
+        , Ok ()
+        )
       ]
 end)
 
@@ -530,7 +548,8 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
           ; cluster= 3
           }
         , (* Assert that compute ha host failures to tolerate returns 1 *)
-          1 )
+          1
+        )
       ; (* Two hosts pool with no VMs  *)
         ( {
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
@@ -539,7 +558,8 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
           ; cluster= 2
           }
         , (* Assert that compute ha host failures to tolerate returns 0 *)
-          0 )
+          0
+        )
       ; (* Two host pool with one down  *)
         ( {
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
@@ -548,7 +568,8 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
           ; cluster= 1
           }
         , (* Assert that compute ha host failures to tolerate returns 1 *)
-          1 )
+          1
+        )
       ]
 end)
 

@@ -77,19 +77,23 @@ module MaybeUpdateMasterPifMac = Generic.MakeStateful (struct
         ( "primary_slave_mac_does_not_change_and_auto_update_mac_disabled"
         , `Quick
         , (false, None)
-        , (original_master_mac, original_master_mac) )
+        , (original_master_mac, original_master_mac)
+        )
       ; ( "primary_slave_mac_does_not_change_and_auto_update_mac_enabled"
         , `Quick
         , (true, None)
-        , (original_primary_slave_mac, original_primary_slave_mac) )
+        , (original_primary_slave_mac, original_primary_slave_mac)
+        )
       ; ( "primary_slave_mac_does_change_and_auto_update_mac_disabled"
         , `Quick
         , (false, Some a_new_mac)
-        , (original_master_mac, original_master_mac) )
+        , (original_master_mac, original_master_mac)
+        )
       ; ( "primary_slave_mac_does_change_and_auto_update_mac_enabled"
         , `Quick
         , (true, Some a_new_mac)
-        , (a_new_mac, a_new_mac) )
+        , (a_new_mac, a_new_mac)
+        )
       ]
 end)
 

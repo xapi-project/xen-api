@@ -79,27 +79,33 @@ module Networks = Generic.MakeStateless (struct
         (* basic cases *)
         (["attr/vif/0/ipv6/0"], [("attr/vif/0/ipv6/0", "0/ipv6/0")])
       ; ( ["attr/vif/0/ipv4/0"]
-        , [("attr/vif/0/ipv4/0", "0/ip"); ("attr/vif/0/ipv4/0", "0/ipv4/0")] )
+        , [("attr/vif/0/ipv4/0", "0/ip"); ("attr/vif/0/ipv4/0", "0/ipv4/0")]
+        )
       ; ( ["attr/eth0/ip"]
-        , [("attr/eth0/ip", "0/ip"); ("attr/eth0/ip", "0/ipv4/0")] )
+        , [("attr/eth0/ip", "0/ip"); ("attr/eth0/ip", "0/ipv4/0")]
+        )
       ; ( ["attr/eth0/ipv6/0/addr"]
         , [
             ("attr/eth0/ip", "0/ip")
           ; ("attr/eth0/ip", "0/ipv4/0")
           ; ("attr/eth0/ipv6/0/addr", "0/ipv6/0")
-          ] )
+          ]
+        )
       ; (* index *)
         (["attr/vif/1/ipv6/2"], [("attr/vif/1/ipv6/2", "1/ipv6/2")])
       ; ( ["attr/vif/1/ipv4/2"]
-        , [("attr/vif/1/ipv4/2", "1/ip"); ("attr/vif/1/ipv4/2", "1/ipv4/2")] )
+        , [("attr/vif/1/ipv4/2", "1/ip"); ("attr/vif/1/ipv4/2", "1/ipv4/2")]
+        )
       ; ( ["attr/eth1/ip"]
-        , [("attr/eth1/ip", "1/ip"); ("attr/eth1/ip", "1/ipv4/0")] )
+        , [("attr/eth1/ip", "1/ip"); ("attr/eth1/ip", "1/ipv4/0")]
+        )
       ; ( ["attr/eth1/ipv6/2/addr"]
         , [
             ("attr/eth1/ip", "1/ip")
           ; ("attr/eth1/ip", "1/ipv4/0")
           ; ("attr/eth1/ipv6/2/addr", "1/ipv6/2")
-          ] )
+          ]
+        )
       ; (* multiple ip addrs *)
         ( ["attr/vif/0/ipv6/0"; "attr/vif/0/ipv6/1"]
         , [("attr/vif/0/ipv6/1", "0/ipv6/1"); ("attr/vif/0/ipv6/0", "0/ipv6/0")]
@@ -109,19 +115,22 @@ module Networks = Generic.MakeStateless (struct
             ("attr/vif/0/ipv4/1", "0/ipv4/1")
           ; ("attr/vif/0/ipv4/0", "0/ip")
           ; ("attr/vif/0/ipv4/0", "0/ipv4/0")
-          ] )
+          ]
+        )
       ; ( ["attr/eth0/ip"; "attr/eth0/ipv6/0/addr"]
         , [
             ("attr/eth0/ip", "0/ip")
           ; ("attr/eth0/ip", "0/ipv4/0")
           ; ("attr/eth0/ipv6/0/addr", "0/ipv6/0")
-          ] )
+          ]
+        )
       ; ( ["attr/vif/0/ipv4/0"; "attr/vif/0/ipv6/0"]
         , [
             ("attr/vif/0/ipv4/0", "0/ip")
           ; ("attr/vif/0/ipv4/0", "0/ipv4/0")
           ; ("attr/vif/0/ipv6/0", "0/ipv6/0")
-          ] )
+          ]
+        )
       ; ( [
             "attr/eth0/ip"
           ; "attr/vif/0/ipv4/0"
@@ -132,7 +141,8 @@ module Networks = Generic.MakeStateless (struct
             ("attr/vif/0/ipv4/0", "0/ip")
           ; ("attr/vif/0/ipv4/0", "0/ipv4/0")
           ; ("attr/vif/0/ipv6/0", "0/ipv6/0")
-          ] )
+          ]
+        )
       ; (* multiple vifs and multiple ip addrs *)
         ( [
             "attr/vif/0/ipv6/0"
@@ -145,7 +155,8 @@ module Networks = Generic.MakeStateless (struct
           ; ("attr/vif/0/ipv6/0", "0/ipv6/0")
           ; ("attr/vif/1/ipv6/1", "1/ipv6/1")
           ; ("attr/vif/1/ipv6/0", "1/ipv6/0")
-          ] )
+          ]
+        )
       ; ( [
             "attr/vif/0/ipv4/0"
           ; "attr/vif/0/ipv4/1"
@@ -159,7 +170,8 @@ module Networks = Generic.MakeStateless (struct
           ; ("attr/vif/1/ipv4/1", "1/ipv4/1")
           ; ("attr/vif/1/ipv4/0", "1/ip")
           ; ("attr/vif/1/ipv4/0", "1/ipv4/0")
-          ] )
+          ]
+        )
       ; (* exceptions *)
         (["attr/vif/0/ipv4/a"; "attr/vif/0/ipv4/1"], [])
       ]
@@ -207,12 +219,14 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
               in
               Mt
                 ( root
-                , mt :: List.filter (fun n -> not (has_name node n)) children )
+                , mt :: List.filter (fun n -> not (has_name node n)) children
+                )
         with Not_found ->
           Mt
             ( root
             , add_leaf_to_mtree rest_paths leaf_value (Mt (node, []))
-              :: children )
+              :: children
+            )
       )
     )
 
@@ -277,34 +291,47 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
       [
         (* basic cases *)
         ( [("attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
-        , [("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")] )
+        , [("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
+        )
       ; ( [
             ( "xenserver/attr/net-sriov-vf/0/ipv6/0"
-            , "fe80:0000:0000:0000:7870:94ff:fe52:dd06" )
+            , "fe80:0000:0000:0000:7870:94ff:fe52:dd06"
+            )
           ]
-        , [("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")] )
+        , [("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
+        )
       ; ( [("attr/vif/0/ipv4/0", "192.168.0.1")]
-        , [("0/ip", "192.168.0.1"); ("0/ipv4/0", "192.168.0.1")] )
+        , [("0/ip", "192.168.0.1"); ("0/ipv4/0", "192.168.0.1")]
+        )
       ; ( [("xenserver/attr/net-sriov-vf/0/ipv4/0", "192.168.0.1")]
-        , [("0/ip", "192.168.0.1"); ("0/ipv4/0", "192.168.0.1")] )
+        , [("0/ip", "192.168.0.1"); ("0/ipv4/0", "192.168.0.1")]
+        )
       ; ( [("attr/eth0/ip", "192.168.0.1")]
-        , [("0/ip", "192.168.0.1"); ("0/ipv4/0", "192.168.0.1")] )
+        , [("0/ip", "192.168.0.1"); ("0/ipv4/0", "192.168.0.1")]
+        )
       ; ( [("attr/eth0/ipv6/0/addr", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
-        , [("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")] )
+        , [("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
+        )
       ; (* index *)
         ( [("attr/vif/1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
-        , [("1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")] )
+        , [("1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
+        )
       ; ( [
             ( "xenserver/attr/net-sriov-vf/1/ipv6/2"
-            , "fe80:0000:0000:0000:7870:94ff:fe52:dd06" )
+            , "fe80:0000:0000:0000:7870:94ff:fe52:dd06"
+            )
           ]
-        , [("1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")] )
+        , [("1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
+        )
       ; ( [("attr/vif/1/ipv4/2", "192.168.0.1")]
-        , [("1/ip", "192.168.0.1"); ("1/ipv4/2", "192.168.0.1")] )
+        , [("1/ip", "192.168.0.1"); ("1/ipv4/2", "192.168.0.1")]
+        )
       ; ( [("attr/eth1/ip", "192.168.0.1")]
-        , [("1/ip", "192.168.0.1"); ("1/ipv4/0", "192.168.0.1")] )
+        , [("1/ip", "192.168.0.1"); ("1/ipv4/0", "192.168.0.1")]
+        )
       ; ( [("attr/eth1/ipv6/2/addr", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
-        , [("1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")] )
+        , [("1/ipv6/2", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")]
+        )
       ; (* multiple ip addrs *)
         ( [
             ("attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
@@ -313,17 +340,21 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
         , [
             ("0/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd07")
           ; ("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
-          ] )
+          ]
+        )
       ; ( [
             ( "xenserver/attr/net-sriov-vf/0/ipv6/0"
-            , "fe80:0000:0000:0000:7870:94ff:fe52:dd06" )
+            , "fe80:0000:0000:0000:7870:94ff:fe52:dd06"
+            )
           ; ( "xenserver/attr/net-sriov-vf/0/ipv6/1"
-            , "fe80:0000:0000:0000:7870:94ff:fe52:dd07" )
+            , "fe80:0000:0000:0000:7870:94ff:fe52:dd07"
+            )
           ]
         , [
             ("0/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd07")
           ; ("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
-          ] )
+          ]
+        )
       ; ( [
             ("attr/vif/0/ipv4/0", "192.168.0.1")
           ; ("attr/vif/0/ipv4/1", "192.168.1.1")
@@ -332,7 +363,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
             ("0/ipv4/1", "192.168.1.1")
           ; ("0/ip", "192.168.0.1")
           ; ("0/ipv4/0", "192.168.0.1")
-          ] )
+          ]
+        )
       ; ( [
             ("attr/eth0/ip", "192.168.0.1")
           ; ("attr/eth0/ipv6/0/addr", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
@@ -341,7 +373,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
             ("0/ip", "192.168.0.1")
           ; ("0/ipv4/0", "192.168.0.1")
           ; ("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
-          ] )
+          ]
+        )
       ; ( [
             ("attr/vif/0/ipv4/0", "192.168.0.1")
           ; ("attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
@@ -350,7 +383,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
             ("0/ip", "192.168.0.1")
           ; ("0/ipv4/0", "192.168.0.1")
           ; ("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
-          ] )
+          ]
+        )
       ; ( [
             ("attr/eth0/ip", "192.168.0.1")
           ; ("attr/vif/0/ipv4/0", "192.168.0.1")
@@ -361,7 +395,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
             ("0/ip", "192.168.0.1")
           ; ("0/ipv4/0", "192.168.0.1")
           ; ("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
-          ] )
+          ]
+        )
       ; (* multiple vifs and multiple ip addrs *)
         ( [
             ("attr/vif/0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
@@ -374,7 +409,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
           ; ("0/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd06")
           ; ("1/ipv6/1", "fe80:0000:0000:0000:7870:94ff:fe52:dd17")
           ; ("1/ipv6/0", "fe80:0000:0000:0000:7870:94ff:fe52:dd16")
-          ] )
+          ]
+        )
       ; ( [
             ("attr/vif/0/ipv4/0", "192.168.0.1")
           ; ("attr/vif/0/ipv4/1", "192.168.0.2")
@@ -388,7 +424,8 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
           ; ("1/ipv4/1", "192.168.1.2")
           ; ("1/ip", "192.168.1.1")
           ; ("1/ipv4/0", "192.168.1.1")
-          ] )
+          ]
+        )
       ; (* combined SRIOV VF and plain VIF *)
         ( [
             ("attr/vif/0/ipv4/0", "192.168.0.1")
@@ -413,18 +450,21 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
           ; ("3/ipv4/1", "192.168.3.2")
           ; ("3/ip", "192.168.3.1")
           ; ("3/ipv4/0", "192.168.3.1")
-          ] )
+          ]
+        )
       ; (* exceptions *)
         ( [
             ("attr/vif/0/ipv4/a", "192.168.0.1")
           ; ("attr/vif/0/ipv4/1", "192.168.0.1")
           ]
-        , [] )
+        , []
+        )
       ; ( [
             ("xenserver/attr/net-sriov-vf/0/ipv4/a", "192.168.0.1")
           ; ("xenserver/attr/net-sriov-vf/0/ipv4/1", "192.168.0.1")
           ]
-        , [] )
+        , []
+        )
       ]
 end)
 

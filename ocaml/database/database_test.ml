@@ -102,7 +102,8 @@ functor
               ; where_value= ""
               }
           in
-          failwith (Printf.sprintf "%s <invalid table>" fn_name)) ;
+          failwith (Printf.sprintf "%s <invalid table>" fn_name)
+      ) ;
       Printf.printf
         "%s <valid table> <invalid return> <valid field> <valid value>\n"
         fn_name ;
@@ -119,7 +120,9 @@ functor
           failwith
             (Printf.sprintf
                "%s <valid table> <invalid return> <valid field> <valid value>"
-               fn_name)) ;
+               fn_name
+            )
+      ) ;
       Printf.printf
         "%s <valid table> <valid return> <invalid field> <valid value>\n"
         fn_name ;
@@ -136,7 +139,9 @@ functor
           failwith
             (Printf.sprintf
                "%s <valid table> <valid return> <invalid field> <valid value>"
-               fn_name))
+               fn_name
+            )
+      )
 
     (* Verify the ref_index contents are correct for a given [tblname] and [key] (uuid/ref) *)
     let check_ref_index t tblname key =
@@ -145,16 +150,19 @@ functor
           (* We should fail to find the row *)
           expect_missing_row tblname key (fun () ->
               let (_ : string) = Client.read_field t tblname "uuid" key in
-              ()) ;
+              ()
+          ) ;
           expect_missing_uuid tblname key (fun () ->
               let (_ : string) = Client.db_get_by_uuid t tblname key in
-              ())
+              ()
+          )
       | Some {Ref_index.name_label= name_label'; uuid; _ref} ->
           (* key should be either uuid or _ref *)
           if key <> uuid && key <> _ref then
             failwith
               (Printf.sprintf "check_ref_index %s key %s: got ref %s uuid %s"
-                 tblname key _ref uuid) ;
+                 tblname key _ref uuid
+              ) ;
           let real_ref =
             if Client.is_valid_ref t key then
               key
@@ -172,7 +180,8 @@ functor
                   %s"
                  tblname key
                  (Option.value ~default:"None" name_label')
-                 (Option.value ~default:"None" real_name_label))
+                 (Option.value ~default:"None" real_name_label)
+              )
 
     open Db_cache_types
 
@@ -194,10 +203,12 @@ functor
         db
         |> add_row "bar" "bar:1"
              (Row.add 0L Db_names.ref (String "bar:1")
-                (Row.add 0L "foos" (Set []) Row.empty))
+                (Row.add 0L "foos" (Set []) Row.empty)
+             )
         |> add_row "foo" "foo:1"
              (Row.add 0L Db_names.ref (String "foo:1")
-                (Row.add 0L "bars" (Set []) Row.empty))
+                (Row.add 0L "bars" (Set []) Row.empty)
+             )
         |> set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Set []))
       in
       (* check that 'bar.foos' includes 'foo' *)
@@ -209,7 +220,8 @@ functor
         failwith
           (Printf.sprintf
              "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s"
-             (Schema.Value.marshal bar_foos)) ;
+             (Schema.Value.marshal bar_foos)
+          ) ;
       (* set foo.bars to [] *)
       (*		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in*)
       let db = set_field "foo" "foo:1" "bars" (Set []) db in
@@ -222,7 +234,8 @@ functor
         failwith
           (Printf.sprintf
              "check_many_to_many: bar(bar:1).foos expected () got %s"
-             (Schema.Value.marshal bar_foos)) ;
+             (Schema.Value.marshal bar_foos)
+          ) ;
       (* add 'bar' to foo.bars *)
       let db = set_field "foo" "foo:1" "bars" (Set ["bar:1"]) db in
       (* check that 'bar.foos' includes 'foo' *)
@@ -234,7 +247,8 @@ functor
         failwith
           (Printf.sprintf
              "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2"
-             (Schema.Value.marshal bar_foos)) ;
+             (Schema.Value.marshal bar_foos)
+          ) ;
       (* delete 'bar' *)
       let db = remove_row "bar" "bar:1" db in
       (* check that 'foo.bars' is empty *)
@@ -246,7 +260,8 @@ functor
         failwith
           (Printf.sprintf
              "check_many_to_many: foo(foo:1).foos expected () got %s"
-             (Schema.Value.marshal foo_bars)) ;
+             (Schema.Value.marshal foo_bars)
+          ) ;
       ()
 
     let check_events t =
@@ -263,7 +278,8 @@ functor
                       Db_cache_types.Row.fold_over_recent g
                         (fun k _ v acc ->
                           Printf.sprintf "%s %s=%s" acc k
-                            (Schema.Value.marshal v))
+                            (Schema.Value.marshal v)
+                          )
                         row ""
                     in
                     s
@@ -271,8 +287,10 @@ functor
                 in
                 Printf.printf "%s(%s): (%Ld %Ld %Ld) %s\n" name r created
                   modified deleted s ;
-                ())
-              table ())
+                ()
+                )
+              table ()
+            )
           tables ()
       in
       let get_created db g =
@@ -281,8 +299,10 @@ functor
           (fun name _ table acc ->
             Db_cache_types.Table.fold_over_recent g
               (fun r {Db_cache_types.Stat.created; _} _ acc ->
-                if created >= g then (name, r) :: acc else acc)
-              table acc)
+                if created >= g then (name, r) :: acc else acc
+                )
+              table acc
+            )
           tables []
       in
       let get_updated db g =
@@ -294,8 +314,10 @@ functor
                 let row = Db_cache_types.Table.find r table in
                 Db_cache_types.Row.fold_over_recent g
                   (fun k _ v acc -> (r, (k, v)) :: acc)
-                  row acc)
-              table acc)
+                  row acc
+                )
+              table acc
+            )
           tables []
       in
       let get_deleted db g =
@@ -304,15 +326,18 @@ functor
           (fun _ _ table acc ->
             Db_cache_types.Table.fold_over_deleted g
               (fun r {Db_cache_types.Stat.deleted; _} acc ->
-                if deleted > g then r :: acc else acc)
-              table acc)
+                if deleted > g then r :: acc else acc
+                )
+              table acc
+            )
           tables []
       in
       let get_max db =
         let tables = Db_cache_types.Database.tableset db in
         Db_cache_types.TableSet.fold_over_recent (-1L)
           (fun _ {Db_cache_types.Stat.created; modified; deleted} _ largest ->
-            max created (max modified (max deleted largest)))
+            max created (max modified (max deleted largest))
+            )
           tables (-1L)
       in
       let db = Db_ref.get_database t in
@@ -456,10 +481,12 @@ functor
       check_many_to_many () ;
       (* Before we begin, clear out any old state: *)
       expect_missing_row "VM" valid_ref (fun () ->
-          Client.delete_row t "VM" valid_ref) ;
+          Client.delete_row t "VM" valid_ref
+      ) ;
       if in_process then check_ref_index t "VM" valid_ref ;
       expect_missing_row "VBD" vbd_ref (fun () ->
-          Client.delete_row t "VBD" vbd_ref) ;
+          Client.delete_row t "VBD" vbd_ref
+      ) ;
       if in_process then check_ref_index t "VBD" vbd_ref ;
       Printf.printf "Deleted stale state from previous test\n" ;
       Printf.printf "get_table_from_ref <invalid ref>\n" ;
@@ -479,11 +506,13 @@ functor
       Printf.printf "read_refs <invalid tbl>\n" ;
       expect_missing_tbl "Vm" (fun () ->
           let (_ : string list) = Client.read_refs t "Vm" in
-          ()) ;
+          ()
+      ) ;
       Printf.printf "delete_row <invalid ref>\n" ;
       expect_missing_row "VM" invalid_ref (fun () ->
           Client.delete_row t "VM" invalid_ref ;
-          failwith "delete_row of a non-existent row silently succeeded") ;
+          failwith "delete_row of a non-existent row silently succeeded"
+      ) ;
       Printf.printf
         "create_row <unique ref> <unique uuid> <missing required field>\n" ;
       expect_missing_field name_label (fun () ->
@@ -494,7 +523,8 @@ functor
           in
           Client.create_row t "VM" broken_vm valid_ref ;
           failwith
-            "create_row <unique ref> <unique uuid> <missing required field>") ;
+            "create_row <unique ref> <unique uuid> <missing required field>"
+      ) ;
       Printf.printf "create_row <unique ref> <unique uuid>\n" ;
       Client.create_row t "VM" (make_vm valid_ref valid_uuid) valid_ref ;
       if in_process then check_ref_index t "VM" valid_ref ;
@@ -520,23 +550,27 @@ functor
           Client.create_row t "VM"
             (make_vm valid_ref (valid_uuid ^ "unique"))
             valid_ref ;
-          failwith "create_row <duplicate ref> <unique uuid>") ;
+          failwith "create_row <duplicate ref> <unique uuid>"
+      ) ;
       Printf.printf "create_row <unique ref> <duplicate uuid>\n" ;
       expect_uniqueness_violation "VM" "uuid" valid_uuid (fun () ->
           Client.create_row t "VM"
             (make_vm (valid_ref ^ "unique") valid_uuid)
             (valid_ref ^ "unique") ;
-          failwith "create_row <unique ref> <duplicate uuid>") ;
+          failwith "create_row <unique ref> <duplicate uuid>"
+      ) ;
       Printf.printf "db_get_by_uuid <valid uuid>\n" ;
       let r = Client.db_get_by_uuid t "VM" valid_uuid in
       if r <> valid_ref then
         failwith
           (Printf.sprintf "db_get_by_uuid <valid uuid>: got %s; expected %s" r
-             valid_ref) ;
+             valid_ref
+          ) ;
       Printf.printf "db_get_by_uuid <invalid uuid>\n" ;
       expect_missing_uuid "VM" invalid_uuid (fun () ->
           let (_ : string) = Client.db_get_by_uuid t "VM" invalid_uuid in
-          failwith "db_get_by_uuid <invalid uuid>") ;
+          failwith "db_get_by_uuid <invalid uuid>"
+      ) ;
       Printf.printf "get_by_name_label <invalid name label>\n" ;
       if Client.db_get_by_name_label t "VM" invalid_name <> [] then
         failwith "db_get_by_name_label <invalid name label>" ;
@@ -557,17 +591,20 @@ functor
       Printf.printf "read_field <valid field> <invalid objref>\n" ;
       expect_missing_row "VM" invalid_ref (fun () ->
           let (_ : string) = Client.read_field t "VM" name_label invalid_ref in
-          failwith "read_field <valid field> <invalid objref>") ;
+          failwith "read_field <valid field> <invalid objref>"
+      ) ;
       Printf.printf "read_field <invalid field> <valid objref>\n" ;
       expect_missing_field "name_label" (fun () ->
           let (_ : string) = Client.read_field t "VM" "name_label" valid_ref in
-          failwith "read_field <invalid field> <valid objref>") ;
+          failwith "read_field <invalid field> <valid objref>"
+      ) ;
       Printf.printf "read_field <invalid field> <invalid objref>\n" ;
       expect_missing_row "VM" invalid_ref (fun () ->
           let (_ : string) =
             Client.read_field t "VM" "name_label" invalid_ref
           in
-          failwith "read_field <invalid field> <invalid objref>") ;
+          failwith "read_field <invalid field> <invalid objref>"
+      ) ;
       Printf.printf
         "read_field_where <valid table> <valid return> <valid field> <valid \
          value>\n" ;
@@ -588,17 +625,20 @@ functor
       Printf.printf "write_field <invalid table>\n" ;
       expect_missing_tbl "Vm" (fun () ->
           let (_ : unit) = Client.write_field t "Vm" "" "" "" in
-          failwith "write_field <invalid table>") ;
+          failwith "write_field <invalid table>"
+      ) ;
       Printf.printf "write_field <valid table> <invalid ref>\n" ;
       expect_missing_row "VM" invalid_ref (fun () ->
           let (_ : unit) =
             Client.write_field t "VM" invalid_ref name_label ""
           in
-          failwith "write_field <valid table> <invalid ref>") ;
+          failwith "write_field <valid table> <invalid ref>"
+      ) ;
       Printf.printf "write_field <valid table> <valid ref> <invalid field>\n" ;
       expect_missing_column "wibble" (fun () ->
           let (_ : unit) = Client.write_field t "VM" valid_ref "wibble" "" in
-          failwith "write_field <valid table> <valid ref> <invalid field>") ;
+          failwith "write_field <valid table> <valid ref> <invalid field>"
+      ) ;
       Printf.printf "write_field <valid table> <valid ref> <valid field>\n" ;
       let (_ : unit) =
         Client.write_field t "VM" valid_ref name_description "description"
@@ -614,11 +654,13 @@ functor
       Printf.printf "read_record <invalid table> <invalid ref>\n" ;
       expect_missing_tbl "Vm" (fun () ->
           let _ = Client.read_record t "Vm" invalid_ref in
-          failwith "read_record <invalid table> <invalid ref>") ;
+          failwith "read_record <invalid table> <invalid ref>"
+      ) ;
       Printf.printf "read_record <valid table> <valid ref>\n" ;
       expect_missing_row "VM" invalid_ref (fun () ->
           let _ = Client.read_record t "VM" invalid_ref in
-          failwith "read_record <valid table> <invalid ref>") ;
+          failwith "read_record <valid table> <invalid ref>"
+      ) ;
       Printf.printf "read_record <valid table> <valid ref>\n" ;
       let fv_list, fvs_list = Client.read_record t "VM" valid_ref in
       if not (List.mem_assoc name_label fv_list) then
@@ -632,7 +674,8 @@ functor
         Printf.printf "fv_list = [ %s ] fvs_list = [ %s ]\n%!"
           (String.concat "; " (List.map (fun (k, v) -> k ^ ":" ^ v) fv_list))
           (String.concat "; "
-             (List.map (fun (k, v) -> k ^ ":" ^ String.concat ", " v) fvs_list)) ;
+             (List.map (fun (k, v) -> k ^ ":" ^ String.concat ", " v) fvs_list)
+          ) ;
         failwith "read_record <valid table> <valid ref> 3"
       ) ;
       Printf.printf
@@ -653,7 +696,8 @@ functor
         failwith "read_record <valid table> <valid ref> 6" ;
       expect_missing_tbl "Vm" (fun () ->
           let _ = Client.read_records_where t "Vm" Db_filter_types.True in
-          ()) ;
+          ()
+      ) ;
       let xs = Client.read_records_where t "VM" Db_filter_types.True in
       if List.length xs <> 1 then
         failwith "read_records_where <valid table> 2" ;
@@ -662,7 +706,8 @@ functor
         failwith "read_records_where <valid table> 3" ;
       expect_missing_tbl "Vm" (fun () ->
           let _ = Client.find_refs_with_filter t "Vm" Db_filter_types.True in
-          failwith "find_refs_with_filter <invalid table>") ;
+          failwith "find_refs_with_filter <invalid table>"
+      ) ;
       let xs = Client.find_refs_with_filter t "VM" Db_filter_types.True in
       if List.length xs <> 1 then
         failwith "find_refs_with_filter <valid table> 1" ;
@@ -674,17 +719,20 @@ functor
             Db_cache_types.AddSet ;
           failwith
             "process_structure_field <invalid table> <invalid fld> <invalid \
-             ref>") ;
+             ref>"
+      ) ;
       expect_missing_field "wibble" (fun () ->
           Client.process_structured_field t ("", "") "VM" "wibble" valid_ref
             Db_cache_types.AddSet ;
           failwith
-            "process_structure_field <valid table> <invalid fld> <valid ref>") ;
+            "process_structure_field <valid table> <invalid fld> <valid ref>"
+      ) ;
       expect_missing_row "VM" invalid_ref (fun () ->
           Client.process_structured_field t ("", "") "VM" name_label invalid_ref
             Db_cache_types.AddSet ;
           failwith
-            "process_structure_field <valid table> <valid fld> <invalid ref>") ;
+            "process_structure_field <valid table> <valid fld> <invalid ref>"
+      ) ;
       Client.process_structured_field t ("foo", "") "VM" "tags" valid_ref
         Db_cache_types.AddSet ;
       if Client.read_field t "VM" "tags" valid_ref <> "('foo')" then
@@ -729,24 +777,28 @@ functor
         let rpc_time =
           time n (fun _ ->
               let (_ : bool) = Client.is_valid_ref t valid_ref in
-              ())
+              ()
+          )
         in
         Printf.printf "%.2f primitive RPC calls/sec\n" rpc_time ;
         (* Delete stuff left-over from the previous run *)
         let delete_time =
           time n (fun i ->
               let rf = Printf.sprintf "%s:%d" vbd_ref i in
-              try Client.delete_row t "VBD" rf with _ -> ())
+              try Client.delete_row t "VBD" rf with _ -> ()
+          )
         in
         Printf.printf "Deleted %d VBD records, %.2f calls/sec\n%!" n delete_time ;
         expect_missing_row "VBD" vbd_ref (fun () ->
-            Client.delete_row t "VBD" vbd_ref) ;
+            Client.delete_row t "VBD" vbd_ref
+        ) ;
         (* Create lots of VBDs referening no VM *)
         let create_time =
           time n (fun i ->
               let rf = Printf.sprintf "%s:%d" vbd_ref i in
               let uuid = Printf.sprintf "%s:%d" vbd_uuid i in
-              Client.create_row t "VBD" (make_vbd invalid_ref rf uuid) rf)
+              Client.create_row t "VBD" (make_vbd invalid_ref rf uuid) rf
+          )
         in
         Printf.printf "Created %d VBD records, %.2f calls/sec\n%!" n create_time ;
         let m = 300000 in
@@ -765,7 +817,8 @@ functor
                   Client.delete_row t "VBD" vbd_ref
               else
                 let _ = Client.read_record t "VM" valid_ref in
-                ())
+                ()
+          )
         in
         Printf.printf "good sequence: %.2f calls/sec\n%!" benign_time ;
         let malign_time =
@@ -781,7 +834,8 @@ functor
                   let _ = Client.read_record t "VM" valid_ref in
                   ()
               | _ ->
-                  ())
+                  ()
+          )
         in
         Printf.printf "bad sequence: %.2f calls/sec\n%!" malign_time
       )

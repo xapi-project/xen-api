@@ -28,7 +28,8 @@ let get_static_device reason =
     List.filter
       (fun x ->
         x.Static_vdis_list.reason = reason
-        && x.Static_vdis_list.currently_attached)
+        && x.Static_vdis_list.currently_attached
+        )
       (Static_vdis_list.list ())
   in
   (* Return the path to the first attached VDI which matches the reason *)
@@ -146,8 +147,11 @@ let redo_log_entry_to_string r =
            (List.map
               (fun (k, v) ->
                 Printf.sprintf "%08d%s%08d%s" (String.length k) k
-                  (String.length v) v)
-              kvs))
+                  (String.length v) v
+                )
+              kvs
+           )
+        )
   | DeleteRow (tbl, objref) ->
       Printf.sprintf "DeleteRow%08d%s%08d%s" (String.length tbl) tbl
         (String.length objref) objref
@@ -294,11 +298,13 @@ let read_database f gen_count sock latest_response_time datasockpath =
   finally
     (fun () ->
       (* Pass the gen_count and the socket's fd to f. f may raise Unixext.Timeout if it cannot complete before latest_response_time. *)
-      f gen_count datasock expected_length latest_response_time)
+      f gen_count datasock expected_length latest_response_time
+      )
     (fun () ->
       (* Close the data socket *)
       R.debug "Closing the data socket" ;
-      Unix.close datasock)
+      Unix.close datasock
+      )
 
 let read_delta f gen_count sock latest_response_time =
   R.debug "Reading delta with generation count %s"
@@ -439,11 +445,13 @@ let action_write_db marker generation_count write_fn sock datasockpath =
             "Got an unexpected exception while trying to write database to the \
              data socket: %s. Re-raising."
             (Printexc.to_string e) ;
-          raise e)
+          raise e
+      )
     (fun () ->
       (* Ensure the data socket is closed even if exception is thrown from write_fn *)
       R.info "Closing data socket" ;
-      Unix.close datasock) ;
+      Unix.close datasock
+      ) ;
   (* Read response *)
   let response_length = 12 in
   R.debug "Reading response..." ;
@@ -463,8 +471,7 @@ let action_write_db marker generation_count write_fn sock datasockpath =
       else
         raise (RedoLogFailure error)
   | e ->
-      raise
-        (CommunicationsProblem ("unrecognised writedb response [" ^ e ^ "]"))
+      raise (CommunicationsProblem ("unrecognised writedb response [" ^ e ^ "]"))
 
 let action_write_delta marker generation_count data flush_db_fn sock
     _datasockpath =
@@ -578,19 +585,24 @@ let shutdown log =
                (fun () ->
                  R.debug "Waiting for I/O process with pid %d to die..." ipid ;
                  Mutex.execute log.dying_processes_mutex (fun () ->
-                     log.num_dying_processes := !(log.num_dying_processes) + 1) ;
+                     log.num_dying_processes := !(log.num_dying_processes) + 1
+                 ) ;
                  ignore (Forkhelpers.waitpid p) ;
                  R.debug "Finished waiting for process with pid %d" ipid ;
                  Mutex.execute log.dying_processes_mutex (fun () ->
-                     log.num_dying_processes := !(log.num_dying_processes) - 1))
-               ()) ;
+                     log.num_dying_processes := !(log.num_dying_processes) - 1
+                 )
+                 )
+               ()
+            ) ;
           (* Forget about that process *)
           log.pid := None ;
           (* Attempt to remove the sockets *)
           List.iter
             (fun sockpath ->
               R.debug "Removing socket %s" sockpath ;
-              Unixext.unlink_safe sockpath)
+              Unixext.unlink_safe sockpath
+              )
             [ctrlsockpath; datasockpath]
     with e ->
       R.error "Caught %s: while shutting down connection to I/O process"
@@ -623,7 +635,8 @@ let startup log =
                 !(log.num_dying_processes)
                 >= Db_globs.redo_log_max_dying_processes
               then
-                raise TooManyProcesses) ;
+                raise TooManyProcesses
+          ) ;
           match !(log.device) with
           | None ->
               R.info "Could not find block device"
@@ -688,14 +701,16 @@ let startup log =
                       broken log
                 with Unixext.Timeout ->
                   R.warn "Timed out waiting to connect" ;
-                  broken log)
+                  broken log
+                )
               (fun () ->
                 (* If the socket s has been opened, but sock hasn't been set then close it here. *)
                 match !(log.sock) with
                 | Some _ ->
                     ()
                 | None ->
-                    ignore_exn (fun () -> Unix.close s))
+                    ignore_exn (fun () -> Unix.close s)
+                )
       )
       | None ->
           ()
@@ -779,14 +794,16 @@ let create ~name ~state_change_callback ~read_only =
     }
   in
   Mutex.execute redo_log_creation_mutex (fun () ->
-      all_redo_logs := RedoLogSet.add instance !all_redo_logs) ;
+      all_redo_logs := RedoLogSet.add instance !all_redo_logs
+  ) ;
   instance
 
 let delete log =
   shutdown log ;
   disable log ;
   Mutex.execute redo_log_creation_mutex (fun () ->
-      all_redo_logs := RedoLogSet.remove log !all_redo_logs)
+      all_redo_logs := RedoLogSet.remove log !all_redo_logs
+  )
 
 (* -------------------------------------------------------- *)
 (* Helper functions for interacting with multiple redo_logs *)
@@ -797,7 +814,8 @@ let with_active_redo_logs f =
           (fun log -> is_enabled log && not log.read_only)
           !all_redo_logs
       in
-      RedoLogSet.iter f active_redo_logs)
+      RedoLogSet.iter f active_redo_logs
+  )
 
 (* --------------------------------------------------------------- *)
 (* Functions which interact with the redo log on the block device. *)
@@ -846,7 +864,8 @@ let apply fn_db fn_delta log =
       (fun () ->
         connect_and_perform_action
           (action_read fn_db fn_delta)
-          "read from redo log" log)
+          "read from redo log" log
+        )
       (fun () -> ready_to_write := true)
   )
 
@@ -908,7 +927,9 @@ let database_callback event db =
             (CreateRow
                ( tblname
                , objref
-               , List.map (fun (k, v) -> (k, Schema.Value.marshal v)) kvs ))
+               , List.map (fun (k, v) -> (k, Schema.Value.marshal v)) kvs
+               )
+            )
         else
           None
   in
@@ -917,10 +938,14 @@ let database_callback event db =
       with_active_redo_logs (fun log ->
           write_delta
             (Db_cache_types.Manifest.generation
-               (Db_cache_types.Database.manifest db))
+               (Db_cache_types.Database.manifest db)
+            )
             entry
             (fun () ->
               (* the function which will be invoked if a database write is required instead of a delta *)
-              ignore (flush_db_to_redo_log db log))
-            log))
+              ignore (flush_db_to_redo_log db log)
+              )
+            log
+      )
+      )
     to_write

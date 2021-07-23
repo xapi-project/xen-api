@@ -34,8 +34,11 @@ let string_of_sm_object sm =
     (Test_printers.(list string)
        (List.map
           (fun (capability, version) ->
-            Printf.sprintf "%s/%Ld" capability version)
-          sm.features))
+            Printf.sprintf "%s/%Ld" capability version
+            )
+          sm.features
+       )
+    )
 
 let test_sequences =
   let open Smint in
@@ -177,7 +180,8 @@ module ParseSMAPIv1Features = Generic.MakeStateless (struct
     `QuickAndAutoDocumented
       (List.map
          (fun sequence -> (sequence.raw, sequence.smapiv1_features))
-         test_sequences)
+         test_sequences
+      )
 end)
 
 module CreateSMAPIv2Features = Generic.MakeStateless (struct
@@ -196,9 +200,9 @@ module CreateSMAPIv2Features = Generic.MakeStateless (struct
   let tests =
     `QuickAndAutoDocumented
       (List.map
-         (fun sequence ->
-           (sequence.smapiv1_features, sequence.smapiv2_features))
-         test_sequences)
+         (fun sequence -> (sequence.smapiv1_features, sequence.smapiv2_features))
+         test_sequences
+      )
 end)
 
 let test_sm_name_label = "__test_sm"
@@ -244,7 +248,8 @@ module CreateSMObject = Generic.MakeStateful (struct
     `QuickAndAutoDocumented
       (List.map
          (fun sequence -> (sequence.smapiv2_features, sequence.sm))
-         test_sequences)
+         test_sequences
+      )
 end)
 
 let tests =

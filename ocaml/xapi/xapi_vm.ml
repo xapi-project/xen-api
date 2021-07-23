@@ -44,16 +44,20 @@ let update_allowed_operations ~__context ~self =
             if not (Db.VBD.get_empty ~__context ~self:vbd) then
               Xapi_vdi.update_allowed_operations ~__context
                 ~self:(Db.VBD.get_VDI ~__context ~self:vbd)
-          with _ -> ())
+          with _ -> ()
+          )
         (Db.VM.get_VBDs ~__context ~self) ;
       List.iter
         (fun vif ->
-          Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif)
+          Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
+          )
         (Db.VM.get_VIFs ~__context ~self) ;
       List.iter
         (fun vusb ->
-          Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb)
-        (Db.VM.get_VUSBs ~__context ~self))
+          Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
+          )
+        (Db.VM.get_VUSBs ~__context ~self)
+      )
     () ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
@@ -101,7 +105,8 @@ let validate_restart_priority priority =
   if not (List.mem priority Constants.ha_valid_restart_priorities) then
     raise
       (Api_errors.Server_error
-         (Api_errors.invalid_value, ["ha_restart_priority"; priority]))
+         (Api_errors.invalid_value, ["ha_restart_priority"; priority])
+      )
 
 let set_ha_restart_priority ~__context ~self ~value =
   validate_restart_priority value ;
@@ -153,7 +158,8 @@ let set_dom0_memory ~__context ~self ~bytes =
     error "Failed to update dom0 memory: %s" (Printexc.to_string e) ;
     raise
       Api_errors.(
-        Server_error (internal_error, ["Failed to update dom0 memory"]))
+        Server_error (internal_error, ["Failed to update dom0 memory"])
+      )
 
 let set_memory_static_range ~__context ~self ~min ~max =
   (* For non-control domains, this function is only called on the master and
@@ -284,7 +290,8 @@ let update_platform_secureboot ~__context ~self platform =
       platform
   | "auto" ->
       ( "secureboot"
-      , string_of_bool (Db.Pool.get_uefi_certificates ~__context ~self <> "") )
+      , string_of_bool (Db.Pool.get_uefi_certificates ~__context ~self <> "")
+      )
       :: List.remove_assoc "secureboot" platform
   | _ ->
       platform
@@ -303,7 +310,8 @@ let with_temp_file_contents ~contents f =
       Xapi_stdext_pervasives.Pervasiveext.finally
         (fun () -> output_string out contents)
         (fun () -> close_out out) ;
-      Unixext.with_file filename [Unix.O_RDONLY] 0 f)
+      Unixext.with_file filename [Unix.O_RDONLY] 0 f
+      )
     (fun () -> Sys.remove filename)
 
 let save_uefi_certificates_to_dir ~__context ~pool ~vm =
@@ -387,7 +395,8 @@ let start ~__context ~vm ~start_paused ~force =
       Xapi_xenops.start ~__context ~self:vm start_paused force
   | _ ->
       Xapi_gpumon.with_gpumon_stopped ~timeout:!Xapi_globs.gpumon_stop_timeout
-        (fun () -> Xapi_xenops.start ~__context ~self:vm start_paused force)
+        (fun () -> Xapi_xenops.start ~__context ~self:vm start_paused force
+      )
   ) ;
   Xapi_vm_helpers.start_delay ~__context ~vm
 
@@ -446,7 +455,9 @@ let hard_reboot ~__context ~vm =
                Ref.string_of vm
              ; Record_util.power_to_string `Running
              ; Record_util.power_to_string `Suspended
-             ] ))
+             ]
+           )
+        )
 
 let clean_reboot ~__context ~vm =
   update_vm_virtual_hardware_platform_version ~__context ~vm ;
@@ -494,7 +505,8 @@ let power_state_reset ~__context ~vm =
       (Ref.string_of vm) ;
     raise
       (Api_errors.Server_error
-         (Api_errors.cannot_reset_control_domain, [Ref.string_of vm]))
+         (Api_errors.cannot_reset_control_domain, [Ref.string_of vm])
+      )
   ) ;
   (* Perform sanity checks if VM is Running or Paused since we don't want to
      lose track of running domains. *)
@@ -530,7 +542,8 @@ let power_state_reset ~__context ~vm =
       in
       if running then
         raise
-          (Api_errors.Server_error (Api_errors.domain_exists, [Ref.string_of vm]))
+          (Api_errors.Server_error (Api_errors.domain_exists, [Ref.string_of vm])
+          )
     ) else (
       (* If resident on another host, check if that host is alive: if so
          			then refuse to perform the reset, since we have delegated state management
@@ -549,7 +562,8 @@ let power_state_reset ~__context ~vm =
           (Ref.string_of vm) (Ref.string_of resident) ;
         raise
           (Api_errors.Server_error
-             (Api_errors.host_is_live, [Ref.string_of resident]))
+             (Api_errors.host_is_live, [Ref.string_of resident])
+          )
       )
     )
   ) ;
@@ -577,7 +591,8 @@ let suspend ~__context ~vm =
          when e = Api_errors.vgpu_destination_incompatible
          ->
            raise
-             Api_errors.(Server_error (vgpu_suspension_not_supported, params))) ;
+             Api_errors.(Server_error (vgpu_suspension_not_supported, params))
+     ) ;
 
   Xapi_gpumon.update_vgpu_metadata ~__context ~vm ;
   Xapi_xenops.suspend ~__context ~self:vm ;
@@ -676,7 +691,9 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
               Ref.string_of vm_ref
             ; Record_util.power_to_string `Halted
             ; Record_util.power_to_string power_state
-            ] )) ;
+            ]
+          )
+      ) ;
   Db.VM.create ~__context ~ref:vm_ref ~uuid:(Uuid.to_string uuid)
     ~power_state:_power_state ~allowed_operations:[] ~current_operations:[]
     ~blocked_operations:[] ~name_label ~name_description ~user_version
@@ -698,7 +715,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance ~start_delay
     ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~requires_reboot:false
-    ~reference_label ~domain_type ;
+    ~reference_label ~domain_type ~pending_guidances:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;
@@ -709,7 +726,8 @@ let destroy ~__context ~self =
   (* rebase the children *)
   List.iter
     (fun child ->
-      try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ())
+      try Db.VM.set_parent ~__context ~self:child ~value:parent with _ -> ()
+      )
     (Db.VM.get_children ~__context ~self) ;
   let uuid = Db.VM.get_uuid ~__context ~self in
   log_and_ignore_exn (fun () -> Rrdd.remove_rrd uuid) ;
@@ -765,7 +783,8 @@ let checkpoint ~__context ~vm ~new_name =
     (Printf.sprintf "VM.checkpoint %s" (Context.string_of_task __context))
     (fun () ->
       TaskHelper.set_cancellable ~__context ;
-      Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name)
+      Xapi_vm_snapshot.checkpoint ~__context ~vm ~new_name
+      )
 
 let copy ~__context ~vm ~new_name ~sr =
   (* See if the supplied SR is suitable: it must exist and be a non-ISO SR *)
@@ -778,7 +797,8 @@ let copy ~__context ~vm ~new_name ~sr =
   in
   Option.iter
     (fun sr ->
-      debug "Copying disks to SR: %s" (Db.SR.get_uuid ~__context ~self:sr))
+      debug "Copying disks to SR: %s" (Db.SR.get_uuid ~__context ~self:sr)
+      )
     sr ;
   (* Second the non-iso check. It is an error to be an iso SR *)
   Option.iter
@@ -787,7 +807,10 @@ let copy ~__context ~vm ~new_name ~sr =
         raise
           (Api_errors.Server_error
              ( Api_errors.operation_not_allowed
-             , ["Cannot copy a VM's disks to an ISO SR"] )))
+             , ["Cannot copy a VM's disks to an ISO SR"]
+             )
+          )
+      )
     sr ;
   let new_vm =
     Xapi_vm_clone.clone (Xapi_vm_clone.Disk_op_copy sr) ~__context ~vm ~new_name
@@ -797,7 +820,8 @@ let copy ~__context ~vm ~new_name ~sr =
     && Db.VM.get_power_state ~__context ~self:new_vm <> `Halted
   then
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.VM.hard_shutdown ~rpc ~session_id ~vm:new_vm) ;
+        Client.VM.hard_shutdown ~rpc ~session_id ~vm:new_vm
+    ) ;
   new_vm
 
 let provision ~__context ~vm =
@@ -825,14 +849,19 @@ let provision ~__context ~vm =
           in
           List.iter
             (Helpers.log_exn_continue "deleting auto-provisioned VBD"
-               (fun self -> Client.VBD.destroy rpc session_id self))
+               (fun self -> Client.VBD.destroy rpc session_id self
+             )
+            )
             vbds ;
           List.iter
             (Helpers.log_exn_continue "deleting auto-provisioned VDI"
-               (fun self -> Client.VDI.destroy rpc session_id self))
+               (fun self -> Client.VDI.destroy rpc session_id self
+             )
+            )
             vdis ;
           raise e
-      ))
+      )
+  )
 
 (** Sets the maximum number of VCPUs for a {b Halted} guest
     	or a running guest that is a control domain other than dom0 *)
@@ -863,7 +892,9 @@ let set_VCPUs_at_startup ~__context ~self ~value =
     raise
       (Api_errors.Server_error
          ( Api_errors.operation_not_allowed
-         , ["set_VCPUs_at_startup is not allowed on dom0"] )) ;
+         , ["set_VCPUs_at_startup is not allowed on dom0"]
+         )
+      ) ;
   let vcpus_max = Db.VM.get_VCPUs_max ~__context ~self in
   if value < 1L || value > vcpus_max then
     invalid_value "VCPU values must satisfy: 0 < VCPUs_at_startup ≤ VCPUs_max"
@@ -886,7 +917,8 @@ let set_VCPUs_number_live ~__context ~self ~nvcpu =
 let add_to_VCPUs_params_live ~__context ~self ~key ~value =
   raise
     (Api_errors.Server_error
-       (Api_errors.not_implemented, ["add_to_VCPUs_params_live"]))
+       (Api_errors.not_implemented, ["add_to_VCPUs_params_live"])
+    )
 
 let set_NVRAM ~__context ~self ~value = Db.VM.set_NVRAM ~__context ~self ~value
 
@@ -922,7 +954,8 @@ let wait_memory_target_live ~__context ~self =
   let raise_error error =
     raise
       (Api_errors.Server_error
-         (error, [Ref.string_of (Context.get_task_id __context)]))
+         (error, [Ref.string_of (Context.get_task_id __context)])
+      )
   in
   let open Xapi_xenops_queue in
   let module Client = (val make_client (queue_of_vm ~__context ~self) : XENOPS)
@@ -1060,7 +1093,10 @@ let run_script ~__context ~vm ~args =
                  "missing argument"
                ; ""
                ; Printf.sprintf "Argument %s is required." a
-               ] )))
+               ]
+             )
+          )
+      )
     required ;
   (* Ensure the caller has the VM memory-access level permission i.e. vm-power-admin or higher.
      	   As all the plugin calls share the same role/perms setting, we must do ad-hoc checking here by ourselves. *)
@@ -1071,7 +1107,8 @@ let run_script ~__context ~vm ~args =
     not
       (Rbac.is_access_allowed ~__context ~session_id
          ~permission:
-           Rbac_static.permission_VM_checkpoint.Db_actions.role_name_label)
+           Rbac_static.permission_VM_checkpoint.Db_actions.role_name_label
+      )
   then
     raise
       (Api_errors.Server_error
@@ -1080,7 +1117,9 @@ let run_script ~__context ~vm ~args =
              "vm.call_plugin"
            ; "No permission to run script, must have VM power admin role or \
               higher."
-           ] )) ;
+           ]
+         )
+      ) ;
   (* For the moment, we only make use of "script". *)
   let script = List.assoc "script" args in
   if String.length script > 1024 then
@@ -1091,7 +1130,9 @@ let run_script ~__context ~vm ~args =
              "length restriction"
            ; ""
            ; "The script length must not exceed 1024 bytes"
-           ] )) ;
+           ]
+         )
+      ) ;
   Xapi_xenops.run_script ~__context ~self:vm script
 
 (* A temporal database holding the latest calling log for each VM. It's fine for it to be host local as a VM won't be resident on two hosts at the same time, nor does it migrate that frequently *)
@@ -1109,7 +1150,8 @@ let record_call_plugin_latest vm =
       Hashtbl.iter
         (fun v t ->
           if Int64.sub now t > interval then
-            to_gc := v :: !to_gc)
+            to_gc := v :: !to_gc
+          )
         call_plugin_latest ;
       List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
       (* Then calculate the schedule *)
@@ -1128,9 +1170,12 @@ let record_call_plugin_latest vm =
                  Ref.string_of vm
                ; string_of_float !Xapi_globs.vm_call_plugin_interval
                ; string_of_float (Int64.to_float to_wait /. 1e9)
-               ] ))
+               ]
+             )
+          )
       else
-        Hashtbl.replace call_plugin_latest vm now)
+        Hashtbl.replace call_plugin_latest vm now
+  )
 
 (* this is the generic plugin call available to xapi users *)
 let call_plugin ~__context ~vm ~plugin ~fn ~args =
@@ -1156,7 +1201,8 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
         in
         raise
           (Api_errors.Server_error
-             (Api_errors.xenapi_plugin_failure, ["failed to find fn"; msg; msg]))
+             (Api_errors.xenapi_plugin_failure, ["failed to find fn"; msg; msg])
+          )
   with Not_found ->
     let msg =
       Printf.sprintf
@@ -1166,7 +1212,8 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
     in
     raise
       (Api_errors.Server_error
-         (Api_errors.xenapi_plugin_failure, ["failed to execute fn"; msg; msg]))
+         (Api_errors.xenapi_plugin_failure, ["failed to execute fn"; msg; msg])
+      )
 
 let send_sysrq ~__context ~vm ~key =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["send_sysrq"]))
@@ -1258,7 +1305,8 @@ let set_bios_strings ~__context ~self ~value =
   let bios_strings =
     List.map
       (fun (k, v) ->
-        if List.mem_assoc k value then (k, List.assoc k value) else (k, v))
+        if List.mem_assoc k value then (k, List.assoc k value) else (k, v)
+        )
       Constants.generic_bios_strings
   in
   Db.VM.set_bios_strings ~__context ~self ~value:bios_strings
@@ -1281,12 +1329,14 @@ let set_snapshot_schedule ~__context ~self ~value =
       (* do not assign vmss to the dom0 vm of any host in the pool *)
       raise
         (Api_errors.Server_error
-           (Api_errors.invalid_value, [Ref.string_of value])) ;
+           (Api_errors.invalid_value, [Ref.string_of value])
+        ) ;
     if Db.VM.get_is_a_template ~__context ~self then
       (* Do not assign templates to a VMSS. *)
       raise
         (Api_errors.Server_error
-           (Api_errors.vm_is_template, [Ref.string_of self])) ;
+           (Api_errors.vm_is_template, [Ref.string_of self])
+        ) ;
     (* For snapshot_type=snapshot_with_quiesce, Check VM supports the snapshot_with_quiesce *)
     let snapshot_type = Db.VMSS.get_type ~__context ~self:value in
     if snapshot_type = `snapshot_with_quiesce then (
@@ -1336,7 +1386,8 @@ let set_suspend_VDI ~__context ~self ~value =
         Server_error
           ( vdi_incompatible_type
           , [Ref.string_of self; Record_util.vdi_type_to_string `cbt_metadata]
-          ))
+          )
+      )
   ) ;
   let src_vdi = Db.VM.get_suspend_VDI ~__context ~self in
   let dst_vdi = value in
@@ -1362,7 +1413,8 @@ let set_suspend_VDI ~__context ~self ~value =
       try
         let r =
           Helpers.call_api_functions ~__context (fun rpc session_id ->
-              Client.VDI.checksum ~rpc ~session_id ~self:vdi)
+              Client.VDI.checksum ~rpc ~session_id ~self:vdi
+          )
         in
         result := `Succ r
       with e -> result := `Fail e
@@ -1383,7 +1435,9 @@ let set_suspend_VDI ~__context ~self ~value =
             Api_errors.(
               Server_error
                 ( internal_error
-                , ["set_suspend_VDI: The operation is still `Pending"] ))
+                , ["set_suspend_VDI: The operation is still `Pending"]
+                )
+            )
     in
     let src_checksum = get_result src_thread src_result in
     let dst_checksum = get_result dst_thread dst_result in
@@ -1398,7 +1452,9 @@ let set_suspend_VDI ~__context ~self ~value =
            , [
                Db.VDI.get_uuid ~__context ~self:src_vdi ^ " : " ^ src_checksum
              ; Db.VDI.get_uuid ~__context ~self:dst_vdi ^ " : " ^ dst_checksum
-             ] ))
+             ]
+           )
+        )
   )
 
 let set_appliance ~__context ~self ~value =
@@ -1413,7 +1469,9 @@ let set_appliance ~__context ~self ~value =
          , [
              "Control domains, templates and snapshots cannot be assigned to \
               appliances."
-           ] )) ;
+           ]
+         )
+      ) ;
   let previous_value = Db.VM.get_appliance ~__context ~self in
   Db.VM.set_appliance ~__context ~self ~value ;
   (* Update allowed operations of the old appliance, if valid. *)
@@ -1487,7 +1545,8 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
   if n > max_redirects then
     raise
       (Api_errors.Server_error
-         (Api_errors.import_error_generic, ["Maximum redirect limit reached"]))
+         (Api_errors.import_error_generic, ["Maximum redirect limit reached"])
+      )
   else
     let uri = Uri.of_string url in
     try
@@ -1509,7 +1568,8 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
           | `Eof ->
               raise
                 (Api_errors.Server_error
-                   (Api_errors.import_error_premature_eof, []))
+                   (Api_errors.import_error_premature_eof, [])
+                )
           | `Invalid x ->
               raise
                 (Api_errors.Server_error (Api_errors.import_error_generic, [x]))
@@ -1532,14 +1592,19 @@ let rec import_inner n ~__context ~url ~sr ~full_restore ~force =
                   raise
                     (Api_errors.Server_error
                        ( Api_errors.import_error_generic
-                       , ["Redirect with no new location"] ))
+                       , ["Redirect with no new location"]
+                       )
+                    )
             )
             | e ->
                 raise
                   (Api_errors.Server_error
                      ( Api_errors.import_error_generic
-                     , [Cohttp.Code.string_of_status e] ))
-          ))
+                     , [Cohttp.Code.string_of_status e]
+                     )
+                  )
+          )
+      )
     with
     | Retry redirect ->
         import_inner (n + 1) ~__context ~url:redirect ~sr ~full_restore ~force
@@ -1590,4 +1655,5 @@ let set_NVRAM_EFI_variables ~__context ~self ~value =
       let key = "EFI-variables" in
       let nvram = Db.VM.get_NVRAM ~__context ~self in
       let value = (key, value) :: List.remove_assoc key nvram in
-      Db.VM.set_NVRAM ~__context ~self ~value)
+      Db.VM.set_NVRAM ~__context ~self ~value
+  )

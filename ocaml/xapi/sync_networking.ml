@@ -31,20 +31,24 @@ let fix_bonds ~__context () =
         (And
            ( Eq (Field "host", Literal (Ref.string_of me))
            , Not (Eq (Field "bond_slave_of", Literal (Ref.string_of Ref.null)))
-           ))
+           )
+        )
   in
   (* Fix incorrect PIF.bond_slave_of fields *)
   List.iter
     (fun (rf, rc) ->
       if not (Db.is_valid_ref __context rc.API.pIF_bond_slave_of) then
-        Db.PIF.set_bond_slave_of ~__context ~self:rf ~value:Ref.null)
+        Db.PIF.set_bond_slave_of ~__context ~self:rf ~value:Ref.null
+      )
     my_slave_pifs ;
   let my_bond_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of me))
-           , Not (Eq (Field "bond_master_of", Literal "()")) ))
+           , Not (Eq (Field "bond_master_of", Literal "()"))
+           )
+        )
   in
   let my_bonds =
     List.map (fun (_, pif) -> List.hd pif.API.pIF_bond_master_of) my_bond_pifs
@@ -61,12 +65,15 @@ let copy_bonds_from_master ~__context () =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of master))
-           , Not (Eq (Field "bond_master_of", Literal "()")) ))
+           , Not (Eq (Field "bond_master_of", Literal "()"))
+           )
+        )
   in
   let master_bonds =
     List.map
       (fun (_, pif) ->
-        Db.Bond.get_record ~__context ~self:(List.hd pif.API.pIF_bond_master_of))
+        Db.Bond.get_record ~__context ~self:(List.hd pif.API.pIF_bond_master_of)
+        )
       master_bond_pifs
   in
   let my_bond_pifs =
@@ -74,14 +81,18 @@ let copy_bonds_from_master ~__context () =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of me))
-           , Not (Eq (Field "bond_master_of", Literal "()")) ))
+           , Not (Eq (Field "bond_master_of", Literal "()"))
+           )
+        )
   in
   let my_phy_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of me))
-           , Eq (Field "physical", Literal "true") ))
+           , Eq (Field "physical", Literal "true")
+           )
+        )
   in
   (* Consider Bonds *)
   debug "Resynchronising bonds" ;
@@ -92,7 +103,9 @@ let copy_bonds_from_master ~__context () =
         (fun self ->
           ( self
           , Db.PIF.get_MAC ~__context ~self
-          , Db.PIF.get_device ~__context ~self ))
+          , Db.PIF.get_device ~__context ~self
+          )
+          )
         bond.API.bond_slaves
     in
     (* Take the MAC addr of the bond and figure out whether this is the MAC address of any of the
@@ -173,7 +186,8 @@ let copy_bonds_from_master ~__context () =
     in
     match
       ( List.filter (fun (_, pif) -> pif.API.pIF_network = network) my_bond_pifs
-      , my_slave_pifs )
+      , my_slave_pifs
+      )
     with
     | [], [] ->
         (* No bond currently exists but neither do any slave interfaces -> do nothing *)
@@ -197,7 +211,8 @@ let copy_bonds_from_master ~__context () =
           not
             (List.set_equiv
                (List.setify current_slave_pifs)
-               (List.setify my_slave_pif_refs))
+               (List.setify my_slave_pif_refs)
+            )
         then (
           debug "Partial bond exists; recreating" ;
           (* CA-56957: changed the following from Client.Bond.... to Xapi_bond.... *)
@@ -218,7 +233,8 @@ let copy_bonds_from_master ~__context () =
   in
   List.iter
     (Helpers.log_exn_continue "resynchronising bonds on slave"
-       maybe_create_bond_for_me)
+       maybe_create_bond_for_me
+    )
     master_bonds
 
 (* This is now executed fully on the master, once asked by the slave when the slave's Xapi starts up *)
@@ -235,7 +251,8 @@ let copy_vlans_from_master ~__context () =
   then (
     debug "Resynchronising VLANs" ;
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Host.sync_vlans ~rpc ~session_id ~host)
+        Client.Host.sync_vlans ~rpc ~session_id ~host
+    )
   )
 
 (** Copy tunnels from master *)
@@ -243,7 +260,8 @@ let copy_tunnels_from_master ~__context () =
   debug "Resynchronising tunnels" ;
   let host = !Xapi_globs.localhost_ref in
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      Client.Host.sync_tunnels ~rpc ~session_id ~host)
+      Client.Host.sync_tunnels ~rpc ~session_id ~host
+  )
 
 (** Copy network-sriovs from master *)
 let copy_network_sriovs_from_master ~__context () =
@@ -254,29 +272,34 @@ let copy_network_sriovs_from_master ~__context () =
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of master))
-           , Not (Eq (Field "sriov_logical_PIF_of", Literal "()")) ))
+           , Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
+           )
+        )
   in
   let my_sriov_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of me))
-           , Not (Eq (Field "sriov_logical_PIF_of", Literal "()")) ))
+           , Not (Eq (Field "sriov_logical_PIF_of", Literal "()"))
+           )
+        )
   in
   let my_physical_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
            ( Eq (Field "host", Literal (Ref.string_of me))
-           , Eq (Field "physical", Literal "true") ))
+           , Eq (Field "physical", Literal "true")
+           )
+        )
   in
   debug "Resynchronising network-sriovs" ;
   let maybe_create_sriov_for_me (master_pif_ref, master_pif_rec) =
     let sriov_network = master_pif_rec.API.pIF_network in
     let existing_pif =
       List.filter
-        (fun (_, slave_pif_rec) ->
-          slave_pif_rec.API.pIF_network = sriov_network)
+        (fun (_, slave_pif_rec) -> slave_pif_rec.API.pIF_network = sriov_network)
         my_sriov_pifs
     in
     if existing_pif = [] then
@@ -323,5 +346,6 @@ let copy_network_sriovs_from_master ~__context () =
   in
   List.iter
     (Helpers.log_exn_continue "resynchronising network sriov on slave"
-       maybe_create_sriov_for_me)
+       maybe_create_sriov_for_me
+    )
     master_sriov_pifs

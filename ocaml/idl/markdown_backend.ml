@@ -197,7 +197,9 @@ let markdown_section_of_message printer obj ~is_class_deprecated
           @ List.map
               (fun p -> of_ty_verbatim p.param_type ^ " " ^ p.param_name)
               x.msg_params
-          ))) ;
+          )
+       )
+    ) ;
   printer "```" ;
   printer "" ;
   if x.msg_params <> [] then (
@@ -280,14 +282,16 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
            (pad_right (escape wired_name) col_width_20)
            (pad_right (of_ty_verbatim ty) (col_width_20 - 2))
            (pad_right (string_of_qualifier qualifier) col_width_15)
-           (pad_right descr col_width_40))
+           (pad_right descr col_width_40)
+        )
     in
     x
     |> Datamodel_utils.fields_of_obj
     |> List.sort (fun x y ->
            compare_case_ins
              (Datamodel_utils.wire_name_of_field x)
-             (Datamodel_utils.wire_name_of_field y))
+             (Datamodel_utils.wire_name_of_field y)
+       )
     |> List.iter (print_field_content printer) ;
     if String.lowercase_ascii x.name = "event" then
       printer
@@ -298,7 +302,9 @@ let print_field_table_of_obj printer ~is_class_deprecated ~is_class_removed x =
            (pad_right
               "The record of the database object that was added, changed or \
                deleted"
-              col_width_40))
+              col_width_40
+           )
+        )
   )
 
 let of_obj printer x =
@@ -322,27 +328,31 @@ let of_obj printer x =
   if x.messages = [] then (
     printer
       (sprintf "Class %s has no additional RPCs associated with it."
-         (escape x.name)) ;
+         (escape x.name)
+      ) ;
     printer ""
   ) else
     x.messages
     |> List.sort (fun x y -> compare_case_ins x.msg_name y.msg_name)
     |> List.iter
          (markdown_section_of_message printer x ~is_class_deprecated
-            ~is_class_removed)
+            ~is_class_removed
+         )
 
 let print_enum printer = function
   | Enum (name, options) ->
       printer
         (sprintf "|`enum %s`|                                        |"
-           (pad_right name (col_width_40 - 7))) ;
+           (pad_right name (col_width_40 - 7))
+        ) ;
       printer
         "|:---------------------------------------|:---------------------------------------|" ;
       let print_option (opt, description) =
         printer
           (sprintf "|`%s`|%s|"
              (pad_right opt (col_width_40 - 2))
-             (pad_right (escape description) col_width_40))
+             (pad_right (escape description) col_width_40)
+          )
       in
       options
       |> List.sort (fun (x, _) (y, _) -> compare_case_ins x y)
@@ -375,7 +385,8 @@ let print_classes api io =
       (fun _ -> true)
       (fun _ -> true)
       (fun msg ->
-        match msg.msg_tag with FromObject (Private _) -> false | _ -> true)
+        match msg.msg_tag with FromObject (Private _) -> false | _ -> true
+        )
       api
   in
   let system =
@@ -404,7 +415,9 @@ let print_classes api io =
       printer
         (sprintf "|`%s`|%s|"
            (pad_right obj.name (col_width_20 - 2))
-           (pad_right (get_descr obj) col_width_70)))
+           (pad_right (get_descr obj) col_width_70)
+        )
+      )
     system ;
   printer
     "\n\
@@ -423,7 +436,9 @@ let print_classes api io =
             (sprintf "|`%s`|`%s`|%s|"
                (pad_right afield (col_width_40 - 2))
                (pad_right bfield (col_width_40 - 2))
-               (pad_right (Relations.string_of_classification c) col_width_15)))
+               (pad_right (Relations.string_of_classification c) col_width_15)
+            )
+      )
     relations ;
   printer
     "\n\

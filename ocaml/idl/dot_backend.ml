@@ -64,7 +64,8 @@ let of_objs api =
                             "bad relational edge between %s.%s and %s.%s; \
                              object name [%s] never occurs in [%s]"
                             a a_field_name b b_field_name obj
-                            (Types.to_string ty))
+                            (Types.to_string ty)
+                         )
                    | `One ->
                        [which ^ "=\"none\""]
                    | `Many ->
@@ -75,7 +76,8 @@ let of_objs api =
                    @ get_arrow "arrowhead" b a_field.ty
                    @ get_arrow "arrowtail" a b_field.ty
                  in
-                 sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels))
+                 sprintf "%s -> %s [ %s ]" a b (String.concat ", " labels)
+                 )
                relational
            in
            (* list of pairs of (field name, type) *)
@@ -89,9 +91,11 @@ let of_objs api =
                  List.filter
                    (fun ((a, a_name), (b, b_name)) ->
                      (a = obj.name && a_name = name)
-                     || (b = obj.name && b_name = name))
+                     || (b = obj.name && b_name = name)
+                     )
                    relations
-                 = [])
+                 = []
+                 )
                name_types
            in
            (* decompose each ty into a list of references *)
@@ -99,8 +103,10 @@ let of_objs api =
              List.concat
                (List.map
                   (fun (name, ty) ->
-                    List.map (fun x -> (name, x, ty)) (all_refs ty))
-                  name_types)
+                    List.map (fun x -> (name, x, ty)) (all_refs ty)
+                    )
+                  name_types
+               )
            in
            let name_names : (string * string) list =
              List.map
@@ -114,23 +120,28 @@ let of_objs api =
                    | `Many ->
                        "(*)"
                  in
-                 (name ^ count, obj))
+                 (name ^ count, obj)
+                 )
                name_refs
            in
            let edges =
              List.map
                (fun (field, target) ->
-                 sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field)
+                 sprintf "%s -> %s [ label=\"%s\" ]" obj.name target field
+                 )
                name_names
              @ edges
            in
-           edges)
-         xs)
+           edges
+           )
+         xs
+      )
   in
   [
     "digraph g{"
   ; (let node name = Printf.sprintf "%s [ URL=\"%s.html\" ]" name name in
-     "node [ shape=box ]; " ^ String.concat " " (List.map node names) ^ ";")
+     "node [ shape=box ]; " ^ String.concat " " (List.map node names) ^ ";"
+    )
   ]
   @ edges
   @ ["}"]

@@ -45,7 +45,8 @@ let make_db_api =
       | FromObject GetAll ->
           false (* rely on the Private(GetDBAll) function for now *)
       | FromObject _ ->
-          true)
+          true
+      )
 
 (* Only these types are actually marshalled into the database: *)
 let type_marshalled_in_db = function
@@ -455,7 +456,9 @@ let db_action api : O.Module.t =
             List.map
               (fun fld ->
                 ( Escaping.escape_id fld.full_name
-                , OU.ocaml_of_record_field fld.full_name ))
+                , OU.ocaml_of_record_field fld.full_name
+                )
+                )
               fields
           in
           let kvs' =
@@ -617,7 +620,8 @@ let db_defaults api : O.Signature.t =
                 | Some (ty, _) ->
                     OU.alias_of_ty ty
                 | None ->
-                    "unit" )
+                    "unit"
+              )
           ]
     }
   in

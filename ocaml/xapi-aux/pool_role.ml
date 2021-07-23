@@ -40,7 +40,8 @@ let with_pool_role_lock f = Mutex.execute role_m f
 let set_pool_role_for_test () =
   with_pool_role_lock (fun _ ->
       role := Some Master ;
-      role_unit_tests := true)
+      role_unit_tests := true
+  )
 
 let is_unit_test () = with_pool_role_lock (fun _ -> !role_unit_tests)
 
@@ -87,7 +88,8 @@ let get_role () =
       | None ->
           let r = read_pool_role () in
           role := Some r ;
-          r)
+          r
+  )
 
 let is_master () = get_role () = Master
 

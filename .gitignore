@@ -16,3 +16,6 @@ scripts/examples/python/setup.py
 scripts/examples/python/XenAPI.egg-info/
 scripts/examples/python/build/
 scripts/examples/python/dist/
+
+# ignore file needed for building the SDK
+ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml

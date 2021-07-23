@@ -43,7 +43,8 @@ let valid_operations ~__context record _ref' : table =
     List.iter
       (fun op ->
         if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params)))
+          Hashtbl.replace table op (Some (code, params))
+        )
       ops
   in
   (* Any current_operations preclude everything else *)
@@ -52,7 +53,9 @@ let valid_operations ~__context record _ref' : table =
       (String.concat "; "
          (List.map
             (fun (task, op) -> task ^ " -> " ^ vusb_operation_to_string op)
-            current_ops)) ;
+            current_ops
+         )
+      ) ;
     let concurrent_op = snd (List.hd current_ops) in
     set_errors Api_errors.other_operation_in_progress
       ["VUSB"; _ref; vusb_operation_to_string concurrent_op]
@@ -83,7 +86,8 @@ let valid_operations ~__context record _ref' : table =
           ^ Record_util.vm_operation_to_string op
         in
         set_errors Api_errors.operation_not_allowed [current_op_str]
-          [`plug; `unplug])
+          [`plug; `unplug]
+      )
     vm_current_ops ;
   table
 
@@ -96,7 +100,9 @@ let throw_error (table : table) op =
              Printf.sprintf
                "xapi_vusb_helpers.assert_operation_valid unknown operation: %s"
                (vusb_operation_to_string op)
-           ] )) ;
+           ]
+         )
+      ) ;
   match Hashtbl.find table op with
   | Some (code, params) ->
       raise (Api_errors.Server_error (code, params))

@@ -27,7 +27,8 @@ let error_of_exn e =
   match e with
   | Stunnel.Stunnel_error msg ->
       ( internal_error
-      , ["Connection failed: " ^ String.lowercase_ascii msg ^ "."] )
+      , ["Connection failed: " ^ String.lowercase_ascii msg ^ "."]
+      )
   | Db_exn.DBCache_NotFound ("missing reference", tblname, reference) ->
       (* whenever a reference has been destroyed *)
       (handle_invalid, [tblname; reference])
@@ -39,7 +40,8 @@ let error_of_exn e =
             "duplicate objects in database: tbl='%s'; object_ref='%s'; \
              uuid='%s'"
             tbl objref uuid
-        ] )
+        ]
+      )
   | Db_exn.DBCache_NotFound (reason, p1, p2) -> (
     match reason with
     | "missing row" ->
@@ -67,7 +69,8 @@ let error_of_exn e =
             "Subprocess exited with unexpected code %d; stdout = [ %s ]; \
              stderr = [ %s ]"
             n stdout stderr
-        ] )
+        ]
+      )
   | Invalid_argument x ->
       (internal_error, [Printf.sprintf "Invalid argument: %s" x])
   | Db_filter.Expression_error (expr, exc) ->

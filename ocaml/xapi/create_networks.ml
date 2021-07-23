@@ -58,4 +58,5 @@ let create_guest_installer_network ~__context =
 
 let create_networks_localhost () =
   Server_helpers.exec_with_new_task "creating networks" (fun __context ->
-      create_guest_installer_network ~__context)
+      create_guest_installer_network ~__context
+  )

@@ -28,7 +28,7 @@ CAMLprim        value
 caml_unixpwd_getpwd(value caml_user)
 {
     CAMLparam1(caml_user);
-    char           *user;
+    const char     *user;
     char           *passwd;
     CAMLlocal1(pw);
 
@@ -48,7 +48,7 @@ CAMLprim        value
 caml_unixpwd_getspw(value caml_user)
 {
     CAMLparam1(caml_user);
-    char           *user;
+    const char     *user;
     char           *passwd;
     CAMLlocal1(pw);
 
@@ -70,7 +70,7 @@ CAMLprim        value
 caml_unixpwd_get(value caml_user)
 {
     CAMLparam1(caml_user);
-    char           *user;
+    const char     *user;
     char           *passwd;
     CAMLlocal1(pw);
 
@@ -90,13 +90,14 @@ CAMLprim        value
 caml_unixpwd_setpwd(value caml_user, value caml_password)
 {
     CAMLparam2(caml_user, caml_password);
-    char           *user,
-                   *password;
+    const char     *user;
+    char           *password;
     int             rc;
 
     user = String_val(caml_user);
-    password = String_val(caml_password);
+    password = caml_stat_strdup(String_val(caml_password));
     rc = unixpwd_setpwd(user, password);
+    caml_stat_free(password);
     if (rc != 0)
         caml_failwith(strerror(rc));
     CAMLreturn(Val_unit);
@@ -106,13 +107,14 @@ CAMLprim        value
 caml_unixpwd_setspw(value caml_user, value caml_password)
 {
     CAMLparam2(caml_user, caml_password);
-    char           *user,
-                   *password;
+    const char     *user;
+    char           *password;
     int             rc;
 
     user = String_val(caml_user);
-    password = String_val(caml_password);
+    password = caml_stat_strdup(String_val(caml_password));
     rc = unixpwd_setspw(user, password);
+    caml_stat_free(password);
     if (rc != 0)
         caml_failwith(strerror(rc));
     CAMLreturn(Val_unit);

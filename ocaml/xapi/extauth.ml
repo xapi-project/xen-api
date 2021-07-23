@@ -61,7 +61,8 @@ module Ext_auth = struct
     let auth_type =
       Server_helpers.exec_with_new_task "obtaining auth_type" (fun __context ->
           let host = Helpers.get_localhost ~__context in
-          Db.Host.get_external_auth_type ~__context ~self:host)
+          Db.Host.get_external_auth_type ~__context ~self:host
+      )
     in
     nd auth_type
 end
@@ -147,7 +148,8 @@ let call_extauth_hook_script_in_host ~__context host event_name =
           host (* will call extauth plugin with mutex *)
           extauth_hook_script_name (* script name in @PLUGINDIR@/ *) event_name
           (* event name sent to script *) event_params
-        (* parameters sent to event name *))
+        (* parameters sent to event name *)
+    )
   in
   call_extauth_hook_script_in_host_wrapper ~__context host event_name
     ~call_plugin_fn
@@ -175,7 +177,8 @@ let call_extauth_hook_script_in_pool ~__context event_name =
           with e ->
             (* we should not re-raise the exception here, since we want to go through as many hosts as possible *)
             let msg = ExnHelper.string_of_exn e in
-            (host, Hook_Script_Failure msg))
+            (host, Hook_Script_Failure msg)
+          )
         hosts
     in
     host_msgs

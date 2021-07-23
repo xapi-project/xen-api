@@ -64,7 +64,8 @@ let sync_ty_and_maybe_remove_prefix x =
   else if Astring.String.is_prefix ~affix:internal_async_wire_name x then
     ( `InternalAsync
     , String.sub x internal_async_length
-        (String.length x - internal_async_length) )
+        (String.length x - internal_async_length)
+    )
   else
     (`Sync, x)
 
@@ -128,8 +129,11 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
               (Context.trackid ~with_brackets:true ~prefix:" " __context) ;
           Xapi_stdext_pervasives.Pervasiveext.finally exec (fun () ->
               if not called_async then Context.destroy __context
-              (* else debug "nothing more to process for this thread" *)))
-        ())
+              (* else debug "nothing more to process for this thread" *)
+          )
+          )
+        ()
+  )
 
 let dispatch_exn_wrapper f =
   try f ()
@@ -163,8 +167,10 @@ let do_dispatch ?session_id ?forward_op ?self supports_async called_fn_name
         (Thread.create
            (fun () ->
              exec_with_context ~__context ~need_complete ~called_async
-               ?f_forward:forward_op ~marshaller op_fn)
-           ()) ;
+               ?f_forward:forward_op ~marshaller op_fn
+             )
+           ()
+        ) ;
       (* Return task id immediately *)
       Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
@@ -185,14 +191,17 @@ let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id
   exec_with_context
     ~__context:
       (Context.make ?http_other_config ?quiet ?subtask_of ?session_id
-         ?task_in_database ?task_description ?origin task_name)
-    ~need_complete:true (fun ~__context -> f __context)
+         ?task_in_database ?task_description ?origin task_name
+      ) ~need_complete:true (fun ~__context -> f __context
+  )
 
 let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
   exec_with_context
     ~__context:
       (Context.from_forwarded_task ?http_other_config ?session_id ?origin
-         task_id) ~need_complete:true (fun ~__context -> f __context)
+         task_id
+      ) ~need_complete:true (fun ~__context -> f __context
+  )
 
 let exec_with_subtask ~__context ?task_in_database task_name f =
   let subcontext =

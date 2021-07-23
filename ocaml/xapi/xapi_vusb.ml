@@ -35,7 +35,8 @@ let create ~__context ~vM ~uSB_group ~other_config =
       if vusbs <> [] then
         raise
           (Api_errors.Server_error
-             (Api_errors.usb_group_conflict, [Ref.string_of uSB_group])) ;
+             (Api_errors.usb_group_conflict, [Ref.string_of uSB_group])
+          ) ;
       (* We won't attach VUSB when VM ha_restart_priority is set to 'restart'  *)
       let ha_restart_priority =
         Db.VM.get_ha_restart_priority ~__context ~self:vM
@@ -50,14 +51,17 @@ let create ~__context ~vM ~uSB_group ~other_config =
                      "VM %s ha_restart_priority has been set to 'restart', \
                       cannot create VUSB for it. "
                      (Ref.string_of vM)
-                 ] ))
+                 ]
+               )
+            )
       | _ ->
           Db.VUSB.create ~__context ~ref:vusb ~uuid ~current_operations:[]
             ~allowed_operations:[] ~vM ~uSB_group ~other_config
             ~currently_attached:false ;
           debug "VUSB ref='%s' created VM = '%s'" (Ref.string_of vusb)
             (Ref.string_of vM) ;
-          vusb)
+          vusb
+  )
 
 let unplug ~__context ~self = Xapi_xenops.vusb_unplug ~__context ~self
 
@@ -76,5 +80,7 @@ let destroy ~__context ~self =
              Printf.sprintf "VUSB '%s' still attached to '%s'"
                r.Db_actions.vUSB_uuid
                (Db.VM.get_uuid __context vm)
-           ] )) ;
+           ]
+         )
+      ) ;
   Db.VUSB.destroy ~__context ~self

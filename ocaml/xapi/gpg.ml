@@ -120,8 +120,7 @@ let common ty filename signature size f =
       match
         Forkhelpers.with_logfile_fd "gpg" (fun log_fd ->
             let pid =
-              Forkhelpers.safe_close_and_exec None (Some result_in)
-                (Some log_fd)
+              Forkhelpers.safe_close_and_exec None (Some result_in) (Some log_fd)
                 [(status_in_uuid, status_in)]
                 gpg_binary_path gpg_args
             in
@@ -131,8 +130,10 @@ let common ty filename signature size f =
               (fun () ->
                 let gpg_status = Unixext.string_of_fd status_out in
                 let fingerprint = parse_gpg_status gpg_status in
-                f fingerprint result_out)
-              (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid))
+                f fingerprint result_out
+                )
+              (fun () -> Forkhelpers.waitpid_fail_if_bad_exit pid)
+        )
       with
       | Forkhelpers.Success (_, x) ->
           debug "gpg subprocess succeeded" ;
@@ -142,7 +143,8 @@ let common ty filename signature size f =
           raise InvalidSignature
       | Forkhelpers.Failure (log, exn) ->
           debug "Error from gpg: %s" log ;
-          raise exn)
+          raise exn
+      )
     (fun () -> List.iter Unix.close !fds_to_close)
 
 let with_signed_cleartext filename f =

@@ -56,7 +56,8 @@ let record_exists api : O.Module.t =
     ~elements:
       (List.map
          (fun x -> O.Module.Let (ref_exists x))
-         (Dm_api.objects_of_api api))
+         (Dm_api.objects_of_api api)
+      )
     ()
 
 let _db_check = "Db_check"
@@ -121,7 +122,8 @@ let db_check api : O.Module.t =
     O.Module.Let
       (O.Let.make ~name:"all" ~params:[Gen_common.context_arg] ~ty:"bool"
          ~body:[String.concat "&&\n" (List.map one objs)]
-         ())
+         ()
+      )
   in
   let objects = Dm_api.objects_of_api api in
   let lets_of f = List.map (fun x -> O.Module.Let (f x)) objects in

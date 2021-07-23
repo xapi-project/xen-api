@@ -51,7 +51,8 @@ let extract_member json member =
     | _ ->
         failwith
           (Printf.sprintf
-             "Internal error: Json from scan script missing element: %s" member)
+             "Internal error: Json from scan script missing element: %s" member
+          )
   in
   [json] |> filter_member member |> filter_string |> safe_hd
 
@@ -105,7 +106,9 @@ let get_script_stdout () =
       Api_errors.(
         Server_error
           ( internal_error
-          , [Printf.sprintf "%s exitted with %d" usb_scan_script n] ))
+          , [Printf.sprintf "%s exitted with %d" usb_scan_script n]
+          )
+      )
 
 let get_usbs stdout =
   let extract_devices json = [json] |> flatten in
@@ -146,8 +149,10 @@ let destroy_pusb ~__context pusb =
       in
       if currently_attached then
         Helpers.call_api_functions ~__context (fun rpc session_id ->
-            Client.Client.VUSB.unplug rpc session_id vusb) ;
-      Db.VUSB.destroy ~__context ~self:vusb)
+            Client.Client.VUSB.unplug rpc session_id vusb
+        ) ;
+      Db.VUSB.destroy ~__context ~self:vusb
+      )
     vusbs ;
   Db.PUSB.destroy ~__context ~self:pusb ;
   Db.USB_group.destroy ~__context ~self:usb_group

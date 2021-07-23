@@ -26,7 +26,8 @@ let _ =
     | Server_error (_, _) as e ->
         Some (to_string e)
     | _ ->
-        None)
+        None
+    )
 
 let message_deprecated = "MESSAGE_DEPRECATED"
 
@@ -615,6 +616,8 @@ let vgpu_guest_driver_limit = "VGPU_GUEST_DRIVER_LIMIT"
 
 let nvidia_tools_error = "NVIDIA_TOOLS_ERROR"
 
+let nvidia_sriov_misconfigured = "NVIDIA_SRIOV_MISCONFIGURED"
+
 let vm_pci_bus_full = "VM_PCI_BUS_FULL"
 
 let import_error_generic = "IMPORT_ERROR"
@@ -698,6 +701,9 @@ let pool_joining_host_has_network_sriovs =
 
 let pool_joining_host_tls_verification_mismatch =
   "POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH"
+
+let pool_joining_host_ca_certificates_conflict =
+  "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
 
 (*workload balancing*)
 let wlb_not_initialized = "WLB_NOT_INITIALIZED"
@@ -1066,11 +1072,17 @@ let server_certificate_key_rsa_multi_not_supported =
 
 let server_certificate_invalid = "SERVER_CERTIFICATE_INVALID"
 
+let ca_certificate_invalid = "CA_CERTIFICATE_INVALID"
+
 let server_certificate_key_mismatch = "SERVER_CERTIFICATE_KEY_MISMATCH"
 
 let server_certificate_not_valid_yet = "SERVER_CERTIFICATE_NOT_VALID_YET"
 
+let ca_certificate_not_valid_yet = "CA_CERTIFICATE_NOT_VALID_YET"
+
 let server_certificate_expired = "SERVER_CERTIFICATE_EXPIRED"
+
+let ca_certificate_expired = "CA_CERTIFICATE_EXPIRED"
 
 let server_certificate_signature_not_supported =
   "SERVER_CERTIFICATE_SIGNATURE_NOT_SUPPORTED"
@@ -1208,3 +1220,50 @@ let designate_new_master_in_progress = "DESIGNATE_NEW_MASTER_IN_PROGRESS"
 let pool_secret_rotation_pending = "POOL_SECRET_ROTATION_PENDING"
 
 let tls_verification_enable_in_progress = "TLS_VERIFICATION_ENABLE_IN_PROGRESS"
+
+let cert_refresh_in_progress = "CERT_REFRESH_IN_PROGRESS"
+
+let configure_repositories_in_progress = "CONFIGURE_REPOSITORIES_IN_PROGRESS"
+
+let invalid_base_url = "INVALID_BASE_URL"
+
+let repository_already_exists = "REPOSITORY_ALREADY_EXISTS"
+
+let repository_is_in_use = "REPOSITORY_IS_IN_USE"
+
+let reposync_in_progress = "REPOSYNC_IN_PROGRESS"
+
+let repository_cleanup_failed = "REPOSITORY_CLEANUP_FAILED"
+
+let no_repository_enabled = "NO_REPOSITORY_ENABLED"
+
+let multiple_update_repositories_enabled =
+  "MULTIPLE_UPDATE_REPOSITORIES_ENABLED"
+
+let sync_updates_in_progress = "SYNC_UPDATES_IN_PROGRESS"
+
+let reposync_failed = "REPOSYNC_FAILED"
+
+let createrepo_failed = "CREATEREPO_FAILED"
+
+let invalid_updateinfo_xml = "INVALID_UPDATEINFO_XML"
+
+let get_host_updates_failed = "GET_HOST_UPDATES_FAILED"
+
+let invalid_repomd_xml = "INVALID_REPOMD_XML"
+
+let get_updates_failed = "GET_UPDATES_FAILED"
+
+let get_updates_in_progress = "GET_UPDATES_IN_PROGRESS"
+
+let apply_updates_in_progress = "APPLY_UPDATES_IN_PROGRESS"
+
+let apply_updates_failed = "APPLY_UPDATES_FAILED"
+
+let apply_guidance_failed = "APPLY_GUIDANCE_FAILED"
+
+let updateinfo_hash_mismatch = "UPDATEINFO_HASH_MISMATCH"
+
+let updates_require_sync = "UPDATES_REQUIRE_SYNC"
+
+let cannot_restart_device_model = "CANNOT_RESTART_DEVICE_MODEL"

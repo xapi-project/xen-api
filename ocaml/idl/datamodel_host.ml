@@ -336,7 +336,14 @@ let host_query_ha = call ~flags:[`Session]
       ~in_product_since:rel_miami
       ~name:"evacuate"
       ~doc:"Migrate all VMs off of this host, where possible."
-      ~params:[Ref _host, "host", "The host to evacuate"]
+      ~lifecycle:[
+        Published, rel_miami, "";
+        Extended, rel_next, "Enable migration network selection."
+      ]
+      ~versioned_params:[
+        {param_type=Ref _host; param_name="host"; param_doc="The host to evacuate"; param_release=miami_release; param_default=None};
+        {param_type=Ref _network; param_name="network"; param_doc="Optional preferred network for migration"; param_release=next_release; param_default=(Some (VRef null_ref))}
+      ]
       ~allowed_roles:_R_POOL_OP
       ()
 
@@ -1022,6 +1029,14 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_READ_ONLY
       ()
 
+  let refresh_server_certificate = call
+      ~lifecycle:[Published, rel_next, ""]
+      ~name:"refresh_server_certificate"
+      ~doc:"Replace the internal self-signed host certficate with a new one."
+      ~params:[Ref _host, "host", "The host"]
+      ~allowed_roles:_R_POOL_ADMIN
+      ()
+
   let display =
     Enum ("host_display", [
         "enabled", "This host is outputting its console to a physical display device";
@@ -1040,6 +1055,7 @@ let host_query_ha = call ~flags:[`Session]
             "vm_start", "This host is starting a VM";
             "vm_resume", "This host is resuming a VM";
             "vm_migrate", "This host is the migration target of a VM";
+            "apply_updates", "Indicates this host is being updated";
           ])
 
   let enable_external_auth = call ~flags:[`Session]
@@ -1428,6 +1444,42 @@ let host_query_ha = call ~flags:[`Session]
       ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ()
 
+  let emergency_reenable_tls_verification = call
+      ~flags:[`Session]
+      ~name:"emergency_reenable_tls_verification"
+      ~lifecycle:[Published, rel_next, ""]
+      ~in_oss_since:None
+      ~in_product_since:rel_next
+      ~params:[]
+      ~doc:"Reenable TLS verification for this host only"
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ()
+
+  let apply_updates = call
+    ~name:"apply_updates"
+    ~in_oss_since:None
+    ~in_product_since:rel_next
+    ~doc:"apply updates from current enabled repository on a host"
+    ~params:[
+      Ref _host, "self", "The host where updates will be applied";
+      String, "hash", "The hash of updateinfo to be applied which is returned by previous pool.sync_udpates";
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ()
+
+  let copy_primary_host_certs = call
+    ~name:"copy_primary_host_certs"
+    ~in_oss_since:None
+    ~in_product_since:rel_next
+    ~doc:"useful for secondary hosts that are missing some certs"
+    ~params:[
+      Ref _host, "host", "this host receives a copy of the primary host's trusted certificates";
+    ]
+    ~allowed_roles:_R_POOL_ADMIN
+    ~hide_from_docs:true
+    ~pool_internal:true
+    ()
+
   (** Hosts *)
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303 ~internal_deprecated_since:None ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host" ~gen_events:true
@@ -1513,6 +1565,7 @@ let host_query_ha = call ~flags:[`Session]
         crl_list;
         certificate_sync;
         get_server_certificate;
+        refresh_server_certificate;
         install_server_certificate;
         emergency_reset_server_certificate;
         reset_server_certificate;
@@ -1553,7 +1606,10 @@ let host_query_ha = call ~flags:[`Session]
         set_sched_gran;
         get_sched_gran;
         emergency_disable_tls_verification;
+        emergency_reenable_tls_verification;
         cert_distrib_atom;
+        apply_updates;
+        copy_primary_host_certs;
       ]
       ~contents:
         ([ uid _host;
@@ -1613,6 +1669,7 @@ let host_query_ha = call ~flags:[`Session]
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_kolkata, ""] ~default_value:(Some (VBool false)) ~ty:Bool "multipathing" "Specifies whether multipathing is enabled";
            field ~qualifier:StaticRO ~lifecycle:[Published, rel_quebec, ""] ~default_value:(Some (VString "")) ~ty:String "uefi_certificates" "The UEFI certificates allowing Secure Boot";
            field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~ty:(Set (Ref _certificate)) "certificates" "List of certificates installed in the host";
-           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions"
+           field ~qualifier:DynamicRO ~lifecycle:[Published, rel_stockholm, ""] ~default_value:(Some (VSet [])) ~ty:(Set String) "editions" "List of all available product editions";
+           field ~qualifier:DynamicRO ~in_product_since:rel_next ~ty:(Set update_guidances) "pending_guidances" ~default_value:(Some (VSet [])) "The set of pending guidances after applying updates"
          ])
       ()

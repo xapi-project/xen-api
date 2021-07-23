@@ -140,7 +140,8 @@ let string_to_vm_operation x =
   if not (List.mem_assoc x table) then
     raise
       (Api_errors.Server_error
-         (Api_errors.invalid_value, ["blocked_operation"; x]))
+         (Api_errors.invalid_value, ["blocked_operation"; x])
+      )
   else
     List.assoc x table
 
@@ -155,6 +156,22 @@ let pool_operation_to_string = function
       "designate_new_master"
   | `tls_verification_enable ->
       "tls_verification_enable"
+  | `configure_repositories ->
+      "configure_repositories"
+  | `sync_updates ->
+      "sync_updates"
+  | `get_updates ->
+      "get_updates"
+  | `apply_updates ->
+      "apply_updates"
+  | `cert_refresh ->
+      "cert_refresh"
+  | `exchange_certificates_on_join ->
+      "exchange_certificates_on_join"
+  | `exchange_ca_certificates_on_join ->
+      "exchange_ca_certificates_on_join"
+  | `copy_primary_host_certs ->
+      "copy_primary_host_certs"
 
 let host_operation_to_string = function
   | `provision ->
@@ -173,6 +190,16 @@ let host_operation_to_string = function
       "VM.resume"
   | `vm_migrate ->
       "VM.migrate"
+  | `apply_updates ->
+      "apply_updates"
+
+let update_guidance_to_string = function
+  | `reboot_host ->
+      "reboot_host"
+  | `restart_toolstack ->
+      "restart_toolstack"
+  | `restart_device_model ->
+      "restart_device_model"
 
 let vdi_operation_to_string : API.vdi_operations -> string = function
   | `clone ->
@@ -304,7 +331,8 @@ let string_to_vif_locking_mode = function
         (Record_failure
            ("Expected 'network_default', 'locked', 'unlocked', 'disabled', got "
            ^ s
-           ))
+           )
+        )
 
 let vmss_type_to_string = function
   | `snapshot ->
@@ -326,7 +354,8 @@ let string_to_vmss_type = function
         (Record_failure
            ("Expected 'snapshot', 'checkpoint', 'snapshot_with_quiesce', got "
            ^ s
-           ))
+           )
+        )
 
 let vmss_frequency_to_string = function
   | `hourly ->
@@ -590,7 +619,8 @@ let string_to_on_crash_behaviour s =
            ^ "'restart', 'coredump_and_restart', 'preserve' or \
               'rename_restart', got "
            ^ s
-           ))
+           )
+        )
 
 let host_display_to_string h =
   match h with
@@ -752,7 +782,8 @@ let ipv6_configuration_mode_of_string m =
   | s ->
       raise
         (Record_failure
-           ("Expected 'dhcp','none' 'autoconf' or 'static', got " ^ s))
+           ("Expected 'dhcp','none' 'autoconf' or 'static', got " ^ s)
+        )
 
 let vif_ipv6_configuration_mode_to_string = function
   | `None ->
@@ -949,7 +980,9 @@ let bytes_of_string field x =
              (Printf.sprintf
                 "Failed to parse field '%s': expecting an integer (possibly \
                  with suffix)"
-                field)) ;
+                field
+             )
+          ) ;
       let alldigit = ref true and i = ref (String.length s - 1) in
       while !alldigit && !i > 0 do
         alldigit := Astring.Char.Ascii.is_digit s.[!i] ;
@@ -960,19 +993,25 @@ let bytes_of_string field x =
           (Record_failure
              (Printf.sprintf
                 "Failed to parse field '%s': number too big (maximum = %Ld TiB)"
-                field max_size_TiB))
+                field max_size_TiB
+             )
+          )
       else
         raise
           (Record_failure
              (Printf.sprintf
                 "Failed to parse field '%s': expecting an integer (possibly \
                  with suffix)"
-                field))
+                field
+             )
+          )
   in
   match
     Astring.(
       String.fields ~empty:false ~is_sep:(fun c ->
-          Char.Ascii.(is_white c || is_digit c)))
+          Char.Ascii.(is_white c || is_digit c)
+      )
+    )
       x
   with
   | [] ->
@@ -982,7 +1021,8 @@ let bytes_of_string field x =
       let number =
         match
           Astring.(
-            String.fields ~empty:false ~is_sep:(Fun.negate Char.Ascii.is_digit))
+            String.fields ~empty:false ~is_sep:(Fun.negate Char.Ascii.is_digit)
+          )
             x
         with
         | [number] ->
@@ -993,7 +1033,9 @@ let bytes_of_string field x =
                  (Printf.sprintf
                     "Failed to parse field '%s': expecting an integer \
                      (possibly with suffix)"
-                    field))
+                    field
+                 )
+              )
       in
       let multiplier =
         match suffix with
@@ -1013,7 +1055,9 @@ let bytes_of_string field x =
                  (Printf.sprintf
                     "Failed to parse field '%s': Unknown suffix: '%s' (try \
                      KiB, MiB, GiB or TiB)"
-                    field x))
+                    field x
+                 )
+              )
       in
       (* FIXME: detect overflow *)
       number ** multiplier
@@ -1023,7 +1067,9 @@ let bytes_of_string field x =
            (Printf.sprintf
               "Failed to parse field '%s': expecting an integer (possibly with \
                suffix)"
-              field))
+              field
+           )
+        )
 
 (* Vincent's random mac utils *)
 

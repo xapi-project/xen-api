@@ -141,7 +141,8 @@ let configure_t =
     $ sbindir
     $ udevdir
     $ docdir
-    $ sdkdir)
+    $ sdkdir
+  )
 
 let () =
   match Term.eval (configure_t, info) with `Error _ -> exit 1 | _ -> exit 0

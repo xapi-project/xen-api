@@ -36,8 +36,10 @@ let destroy ~__context ~self =
       let blobs = vmr.API.vM_blobs in
       List.iter
         (fun (r, b) ->
-          if b = self then Db.VM.remove_from_blobs ~__context ~self:vm ~key:r)
-        blobs)
+          if b = self then Db.VM.remove_from_blobs ~__context ~self:vm ~key:r
+          )
+        blobs
+      )
     vms ;
   let uuid = Db.Blob.get_uuid ~__context ~self in
   let path = Xapi_globs.xapi_blob_location ^ "/" ^ uuid in
@@ -68,16 +70,19 @@ let send_blobs ~__context ~remote_address ~session_id uuid_map =
           SSL
             ( SSL.make ~verify_cert:(Stunnel_client.pool ()) ()
             , remote_address
-            , !Constants.https_port )
+            , !Constants.https_port
+            )
         in
         with_transport transport
           (with_http request (fun (response, put_fd) ->
                let blob_fd = Unix.openfile path [Unix.O_RDONLY] 0o600 in
                ignore
                  (Xapi_stdext_pervasives.Pervasiveext.finally
-                    (fun () ->
-                      Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
-                    (fun () -> Unix.close blob_fd))))
+                    (fun () -> Xapi_stdext_unix.Unixext.copy_file blob_fd put_fd)
+                    (fun () -> Unix.close blob_fd)
+                 )
+           )
+          )
       with e ->
         debug "Ignoring exception in send_blobs: %s" (Printexc.to_string e) ;
         ()
@@ -105,14 +110,16 @@ let migrate_push ~__context ~rpc ~remote_address ~session_id ~old_vm ~new_vm =
         let name = Db.Blob.get_name_label ~__context ~self in
         Client.Client.Blob.set_name_label ~rpc ~session_id ~self:new_ref
           ~value:name ;
-        (new_ref, old_uuid))
+        (new_ref, old_uuid)
+        )
       vm_blobs
   in
   send_blobs ~__context ~remote_address ~session_id uuid_map ;
   (* Now destroy old blobs *)
   List.iter
     (fun (_, self) ->
-      destroy ~__context ~self:(Db.Blob.get_by_uuid ~__context ~uuid:self))
+      destroy ~__context ~self:(Db.Blob.get_by_uuid ~__context ~uuid:self)
+      )
     uuid_map
 
 exception Unknown_blob
@@ -145,7 +152,8 @@ let handler (req : Http.Request.t) s _ =
                 debug "In exception handler: %s" (Printexc.to_string e) ;
                 false
             in
-            debug "public=%b" public ; (self, public))
+            debug "public=%b" public ; (self, public)
+        )
       in
       let inner_fn __context =
         let blob_uuid =
@@ -176,7 +184,8 @@ let handler (req : Http.Request.t) s _ =
             ignore
               (Xapi_stdext_pervasives.Pervasiveext.finally
                  (fun () -> Xapi_stdext_unix.Unixext.copy_file ifd s)
-                 (fun () -> Unix.close ifd))
+                 (fun () -> Unix.close ifd)
+              )
           with _ -> Http_svr.headers s (Http.http_404_missing ())
         )
         | Http.Put ->
@@ -197,7 +206,8 @@ let handler (req : Http.Request.t) s _ =
                 (fun () ->
                   Http_svr.headers s
                     (Http.http_200_ok () @ ["Access-Control-Allow-Origin: *"]) ;
-                  Xapi_stdext_unix.Unixext.copy_file ~limit s ofd)
+                  Xapi_stdext_unix.Unixext.copy_file ~limit s ofd
+                  )
                 (fun () -> Unix.close ofd)
             in
             Db.Blob.set_size ~__context ~self ~value:size ;

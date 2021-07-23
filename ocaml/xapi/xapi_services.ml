@@ -113,7 +113,8 @@ let hand_over_connection req s path =
           | Some res ->
               res.Http.Response.task
           | None ->
-              None)
+              None
+        )
       (fun () -> Unix.close control_fd)
   with e ->
     error "Failed to transfer fd to %s: %s" path (Printexc.to_string e) ;
@@ -138,7 +139,8 @@ let http_proxy_to req from addr =
           Http_svr.headers from (Http.http_404_missing ~version:"1.0" ()) ;
           raise e
       in
-      Http_proxy.one req from s)
+      Http_proxy.one req from s
+      )
     (fun () -> Unix.close s)
 
 let http_proxy_to_plugin req from name =
@@ -180,20 +182,25 @@ let post_handler (req : Http.Request.t) s _ =
             Storage_mux.Server.process req (Buf_io.of_fd s) ()
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
-          req.Http.Request.close <- true)
+          req.Http.Request.close <- true
+  )
 
 let rpc ~srcstr ~dststr call =
   let url =
     Http.Url.
       ( File {path= Filename.concat "/var/lib/xcp" "storage"}
-      , {uri= "/"; query_params= []} )
+      , {uri= "/"; query_params= []}
+      )
+    
   in
+
   let open Xmlrpc_client in
   XMLRPC_protocol.rpc ~transport:(transport_of_url url) ~srcstr ~dststr
     ~http:
       (xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url)
          ~query:(Http.Url.get_query_params url)
-         (Http.Url.get_uri url))
+         (Http.Url.get_uri url)
+      )
     call
 
 module Local = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
@@ -206,7 +213,8 @@ let put_handler (req : Http.Request.t) s _ =
       | "" :: services :: "xenops" :: _ when services = _services ->
           ignore
             (hand_over_connection req s
-               (Filename.concat "/var/lib/xcp" "xenopsd.forwarded"))
+               (Filename.concat "/var/lib/xcp" "xenopsd.forwarded")
+            )
       | "" :: services :: "plugin" :: name :: _ when services = _services ->
           http_proxy_to_plugin req s name
       | [""; services; "SM"; "data"; sr; vdi] when services = _services ->
@@ -220,7 +228,8 @@ let put_handler (req : Http.Request.t) s _ =
           Storage_migrate.nbd_handler req s sr vdi dp
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
-          req.Http.Request.close <- true)
+          req.Http.Request.close <- true
+  )
 
 let get_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context ~dummy:true "Querying services" req s (fun __context ->
@@ -229,7 +238,8 @@ let get_handler (req : Http.Request.t) s _ =
       | "" :: services :: "xenops" :: _ when services = _services ->
           ignore
             (hand_over_connection req s
-               (Filename.concat "/var/lib/xcp" "xenopsd.forwarded"))
+               (Filename.concat "/var/lib/xcp" "xenopsd.forwarded")
+            )
       | "" :: services :: "plugin" :: name :: _ when services = _services ->
           http_proxy_to_plugin req s name
       | [""; services; "driver"] when services = _services ->
@@ -238,7 +248,8 @@ let get_handler (req : Http.Request.t) s _ =
         try
           respond req
             (Storage_interface.(rpc_of query_result)
-               (Smint.query_result_of_sr_driver_info (Sm.info_of_driver driver)))
+               (Smint.query_result_of_sr_driver_info (Sm.info_of_driver driver))
+            )
             s
         with _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
@@ -265,4 +276,5 @@ let get_handler (req : Http.Request.t) s _ =
           respond req (Storage_interface.(rpc_of query_result) q) s
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
-          req.Http.Request.close <- true)
+          req.Http.Request.close <- true
+  )
