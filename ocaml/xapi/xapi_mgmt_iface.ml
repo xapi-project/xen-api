@@ -35,11 +35,15 @@ module Server : sig
   val update : __context:Context.t -> listening_mode -> unit
 
   val current_mode : unit -> listening_mode
+
+  val is_ipv6_enabled : unit -> bool
 end = struct
   (* Keep track of the management interface server thread.
      Stores a key into the table in Http_srv which identifies the server thread bound
      to the management IP. *)
   let management_servers = ref []
+
+  let ipv6_enabled = ref false
 
   let stop () =
     debug "Shutting down the old management interface (if any)" ;
@@ -50,35 +54,35 @@ end = struct
      _the_ management interface. Hosts in a pool use the IP addresses of this interface
      to communicate with each other. *)
   let start ~__context ?addr () =
-    let socket, stunnel_accept =
+    let socket =
       match addr with
       | None -> (
           info "Starting new server (listening on all IP addresses)" ;
           try
             (* Is it IPv6 ? *)
             let addr = Unix.inet6_addr_any in
-            (Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port)), ":::")
+            let socket =
+              Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
+            in
+            ipv6_enabled := true ;
+            socket
           with _ ->
             (* No. *)
             let addr = Unix.inet_addr_any in
-            (Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port)), "")
+            let socket =
+              Xapi_http.bind (Unix.ADDR_INET (addr, Constants.http_port))
+            in
+            ipv6_enabled := false ;
+            socket
         )
-      | Some ip -> (
+      | Some ip ->
           info "Starting new server (listening on %s)" ip ;
           let addr = Unix.inet_addr_of_string ip in
           let sockaddr = Unix.ADDR_INET (addr, Constants.http_port) in
-          ( Xapi_http.bind sockaddr
-          , match Unix.domain_of_sockaddr sockaddr with
-            | Unix.PF_INET6 ->
-                "::1:"
-            | _ ->
-                "127.0.0.1:"
-          )
-        )
+          Xapi_http.bind sockaddr
     in
     Http_svr.start Xapi_http.server socket ;
     management_servers := socket :: !management_servers ;
-    Xapi_stunnel_server.restart ~__context ~accept:stunnel_accept ;
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)
@@ -114,6 +118,8 @@ end = struct
     mode := next_mode
 
   let current_mode () = !mode
+
+  let is_ipv6_enabled () = !ipv6_enabled
 end
 
 module Client_certificate_auth_server = struct
@@ -184,7 +190,8 @@ let mgmt_is_enabled () = Server.current_mode () = Any
 let run ~__context ~mgmt_enabled =
   Mutex.execute management_m (fun () ->
       Client_certificate_auth_server.update ~__context ~mgmt_enabled ;
-      next_server_mode ~mgmt_enabled |> Server.update ~__context
+      next_server_mode ~mgmt_enabled |> Server.update ~__context ;
+      Xapi_stunnel_server.restart ~__context (Server.is_ipv6_enabled ()) ;
   )
 
 let reconfigure_himn ~__context ~addr =

@@ -181,8 +181,22 @@ let update_certificates ~__context () =
   | exception e ->
       error "Failed to update host certificates: %s" (Printexc.to_string e)
 
-let restart ~__context ~accept =
+let restart ~__context ipv6_enabled =
   try
+    let accept =
+      let management_enabled =
+        Xapi_inventory.lookup Xapi_inventory._management_interface <> ""
+      in
+      match (management_enabled, ipv6_enabled) with
+      | true, true ->
+          ":::"
+      | true, false ->
+          ""
+      | false, true ->
+          "::1:"
+      | false, false ->
+          "127.0.0.1:"
+    in
     info "Restarting stunnel (accepting connections on %s)" accept ;
     let client_auth_name =
       let pool = Helpers.get_pool ~__context in
