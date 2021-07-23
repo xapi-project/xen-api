@@ -14,6 +14,7 @@
 open Db_filter_types
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_threads.Threadext
+module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "xapi_mgmt_iface" end)
 
@@ -115,6 +116,47 @@ end = struct
   let current_mode () = !mode
 end
 
+module Client_certificate_auth_server = struct
+  let management_server = ref None
+
+  let must_be_running ~__context ~mgmt_enabled =
+    let pool = Helpers.get_pool ~__context in
+    mgmt_enabled
+    && Pool_role.is_master ()
+    && Db.Pool.get_client_certificate_auth_enabled ~__context ~self:pool
+
+  let configure_port cmd =
+    let cmd' = if cmd then "open" else "close" in
+    let _ =
+      Helpers.call_script
+        !Xapi_globs.firewall_port_config_script
+        [cmd'; string_of_int Constants.https_port_clientcert]
+    in
+    ()
+
+  let start () =
+    if !management_server = None then (
+      let sock_path = Xapi_globs.unix_domain_socket_clientcert in
+      Unixext.mkdir_safe (Filename.dirname sock_path) 0o700 ;
+      Unixext.unlink_safe sock_path ;
+      let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
+      Http_svr.start Xapi_http.server domain_sock ;
+      configure_port true ;
+      management_server := Some domain_sock
+    )
+
+  let stop () =
+    Option.iter Http_svr.stop !management_server ;
+    configure_port false ;
+    management_server := None
+
+  let update ~__context ~mgmt_enabled =
+    if must_be_running ~__context ~mgmt_enabled then
+      start ()
+    else
+      stop ()
+end
+
 (* High-level interface *)
 
 let change interface primary_address_type =
@@ -141,6 +183,7 @@ let mgmt_is_enabled () = Server.current_mode () = Any
 
 let run ~__context ~mgmt_enabled =
   Mutex.execute management_m (fun () ->
+      Client_certificate_auth_server.update ~__context ~mgmt_enabled ;
       next_server_mode ~mgmt_enabled |> Server.update ~__context
   )
 
