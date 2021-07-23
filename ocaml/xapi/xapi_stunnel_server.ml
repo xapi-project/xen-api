@@ -49,6 +49,14 @@ end = struct
           "no"
     in
     let conf_contents =
+      let cipher_options =
+        [
+          Printf.sprintf "ciphers = %s" Xcp_const.good_ciphersuites
+        ; "curve = secp384r1"
+        ; "options = CIPHER_SERVER_PREFERENCE"
+        ; "sslVersion = TLSv1.2"
+        ]
+      in
       String.concat "\n"
         (List.concat
            [
@@ -75,10 +83,6 @@ end = struct
              ; "[xapi]"
              ; Printf.sprintf "accept = %s" accept
              ; Printf.sprintf "cert = %s" cert
-             ; Printf.sprintf "ciphers = %s" Xcp_const.good_ciphersuites
-             ; "curve = secp384r1"
-             ; "options = CIPHER_SERVER_PREFERENCE"
-             ; "sslVersion = TLSv1.2"
              ]
            ; ( match client_auth_name with
              | None ->
@@ -99,15 +103,16 @@ end = struct
                  ; Printf.sprintf "checkHost = %s" name
                  ]
              )
+           ; cipher_options
            ; [
                ""
              ; "# xapi connections use SNI 'pool' to request a cert"
-             ; "# the options from [xapi] are inherited unless overridden below"
              ; "[pool]"
              ; "connect = 80"
              ; "sni = xapi:pool"
              ; Printf.sprintf "cert = %s" pool_cert
              ]
+           ; cipher_options
            ]
         )
     in
