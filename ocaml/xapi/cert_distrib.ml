@@ -378,15 +378,29 @@ let exchange_certificates_among_all_members ~__context =
     collect_pool_certs ~__context ~rpc ~session_id ~from_hosts:all_hosts
       ~map:Fun.id
   in
-  List.iter
-    (fun host ->
-      Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs host rpc
-        session_id
-      )
-    all_hosts ;
-  List.iter
-    (fun host -> Worker.remote_regen_bundle host rpc session_id)
-    all_hosts
+  let operations =
+    List.concat
+      [
+        List.map
+          (fun host ->
+            ( Printf.sprintf "send certs to %s" (Ref.short_string_of host)
+            , fun () ->
+                Worker.remote_write_certs_fs HostPoolCertificate Erase_old certs
+                  host rpc session_id
+            )
+            )
+          all_hosts
+      ; List.map
+          (fun host ->
+            ( Printf.sprintf "instruct %s to regen bundle"
+                (Ref.short_string_of host)
+            , fun () -> Worker.remote_regen_bundle host rpc session_id
+            )
+            )
+          all_hosts
+      ]
+  in
+  List.iter (fun (_, f) -> f ()) operations
 
 let ( (get_local_ca_certs : unit -> WireProtocol.certificate_file list)
     , (get_local_pool_certs : unit -> WireProtocol.certificate_file list) ) =
