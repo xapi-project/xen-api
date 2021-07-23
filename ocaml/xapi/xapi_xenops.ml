@@ -2061,16 +2061,17 @@ let update_vm ~__context id =
                               Thread.create
                                 (fun () ->
                                   (* Don't block the database update thread *)
-                          Xapi_pbd.plug ~__context ~self:pbd
-                          )
+                                  Xapi_pbd.plug ~__context ~self:pbd
+                                  )
                                 ()
                             in
-                    ()
-                    )
+                            ()
+                            )
                           (System_domains.pbd_of_vm ~__context ~vm:self)
                     | [] ->
                         ()
-                    (* happens when the VM is shutdown *))
+                    (* happens when the VM is shutdown *)
+                    )
                   info
               with e ->
                 error "Caught %s: while updating VM %s domids"
