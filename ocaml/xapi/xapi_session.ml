@@ -106,11 +106,12 @@ let get_permissions ~__context ~subject_membership =
   permission_membership
 
 (* CP-827: finds out if the subject was suspended (ie. disabled,expired,locked-out) *)
-let is_subject_suspended  ~__context ~cache subject_identifier =
+let is_subject_suspended ~__context ~cache subject_identifier =
   (* obtains the subject's info containing suspension information *)
   let info =
     try
-      Xapi_subject.get_subject_information_from_identifier ~__context ~cache subject_identifier
+      Xapi_subject.get_subject_information_from_identifier ~__context ~cache
+        subject_identifier
     with Auth_signature.Subject_cannot_be_resolved | Not_found ->
       (* user was not found in external directory in order to obtain info *)
       debug "Subject %s not found in external directory while re-obtaining info"
@@ -229,8 +230,17 @@ let revalidate_external_session ~__context ~session =
           (* 2a. revalidate external authentication *)
 
           (* CP-827: if the user was suspended (disabled,expired,locked-out), then we must destroy the session *)
-          let suspended, _ = is_subject_suspended ~__context ~cache:true authenticated_user_sid in
-          let suspended = if suspended then is_subject_suspended ~__context ~cache:false authenticated_user_sid |> fst else suspended in
+          let suspended, _ =
+            is_subject_suspended ~__context ~cache:true authenticated_user_sid
+          in
+          let suspended =
+            if suspended then
+              is_subject_suspended ~__context ~cache:false
+                authenticated_user_sid
+              |> fst
+            else
+              suspended
+          in
           if suspended then (
             debug
               "Subject (identifier %s) has been suspended, destroying session \
@@ -600,8 +610,15 @@ let login_with_password ~__context ~uname ~pwd ~version ~originator =
                 (* subject info caching problems in likewise) and closes the user's session *)
                 let subject_suspended, subject_name =
                   try
-                    let suspended, name = is_subject_suspended ~__context ~cache:true subject_identifier in
-                    if suspended then is_subject_suspended ~__context ~cache:false subject_identifier else suspended, name
+                    let suspended, name =
+                      is_subject_suspended ~__context ~cache:true
+                        subject_identifier
+                    in
+                    if suspended then
+                      is_subject_suspended ~__context ~cache:false
+                        subject_identifier
+                    else
+                      (suspended, name)
                   with Auth_signature.Auth_service_error (errtag, msg) ->
                     debug
                       "Failed to find if user %s (subject_id %s, from %s) is \

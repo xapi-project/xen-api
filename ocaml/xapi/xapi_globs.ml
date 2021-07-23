@@ -935,7 +935,9 @@ let xapi_globs_spec =
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Int winbind_machine_pwd_timeout)
-  ; ("winbind_update_closest_kdc_interval", Float winbind_update_closest_kdc_interval)
+  ; ( "winbind_update_closest_kdc_interval"
+    , Float winbind_update_closest_kdc_interval
+    )
   ]
 
 let options_of_xapi_globs_spec =
@@ -1278,18 +1280,22 @@ module Resources = struct
       , "Path to NVIDIA sriov-manage script" )
     ; ( "gen_pool_secret_script"
       , gen_pool_secret_script
-      , "Generates new pool secrets" )
+      , "Generates new pool secrets"
+      )
     ; ( "samba administration tool"
       , net_cmd
-      , "Executed to manage external auth with AD like join and leave domain" )
+      , "Executed to manage external auth with AD like join and leave domain"
+      )
     ; ( "Samba TDB (Trivial Database) management tool"
       , tdb_tool
-      , "Executed to manage Samba Database" )
+      , "Executed to manage Samba Database"
+      )
     ; ("winbind query tool", wb_cmd, "Query information from winbind daemon")
     ; ("ntlm auth utility", ntlm_auth_cmd, "Used to authenticate AD users")
     ; ( "SQLite database  management tool"
       , sqlite3
-      , "Executed to manage SQlite Database, like PBIS database" )
+      , "Executed to manage SQlite Database, like PBIS database"
+      )
     ]
 
   let essential_files =
