@@ -62,6 +62,14 @@ let domain_krb5_dir = Filename.concat Xapi_globs.samba_dir "lock/smb_krb5"
 
 let debug_level () = !Xapi_globs.winbind_debug_level |> string_of_int
 
+type domain_info = {
+    service_name: string
+  ; workgroup: string option
+        (* For upgrade case, the legacy db does not contain workgroup *)
+  ; netbios_name: string option
+        (* Persist netbios_name to support hostname change *)
+}
+
 let hd msg = function
   | [] ->
       error "%s" msg ;
@@ -80,6 +88,21 @@ let ntlm_auth uname passwd : (unit, exn) result =
     in
     Ok ()
   with _ -> Error (auth_ex uname)
+
+let get_domain_info_from_db () =
+  (fun __context ->
+    let host = Helpers.get_localhost ~__context in
+    let service_name =
+      Db.Host.get_external_auth_service_name ~__context ~self:host
+    in
+    let workgroup, netbios_name =
+      Db.Host.get_external_auth_configuration ~__context ~self:host |> fun l ->
+      (List.assoc_opt "workgroup" l, List.assoc_opt "netbios_name" l)
+    in
+    {service_name; workgroup; netbios_name}
+    )
+  |> Server_helpers.exec_with_new_task
+       "retrieving external auth domain workgroup"
 
 module Ldap = struct
   type user = {
@@ -200,12 +223,15 @@ module Ldap = struct
       ; password_expired= logand user_account_control passw_expire_bit <> 0l
       }
 
-  let query_user sid domain_netbios kdc =
+  let env_of_lookup domain_netbios =
     let domain_krb5_cfg =
       Filename.concat domain_krb5_dir
         (Printf.sprintf "krb5.conf.%s" domain_netbios)
     in
-    let env = [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|] in
+    [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|]
+
+  let query_user sid domain_netbios kdc =
+    let env = env_of_lookup domain_netbios in
     let* stdout =
       try
         (* Query KDC instead of use domain here
@@ -227,9 +253,38 @@ module Ldap = struct
             args
         in
         Ok stdout
-      with _ -> Error (generic_ex "ldap query failed")
+      with _ -> Error (generic_ex "ldap query user info from sid failed")
     in
     parse_user stdout <!> generic_ex "%s"
+
+  let query_sid ~name ~kdc ~domain_netbios =
+    let key = "objectSid" in
+    let env = env_of_lookup domain_netbios in
+    let query = Printf.sprintf "(|(sAMAccountName=%s)(name=%s))" name name in
+    let args =
+      [
+        "ads"
+      ; "search"
+      ; "-d"
+      ; debug_level ()
+      ; "--server"
+      ; kdc
+      ; "--machine-pass"
+      ; query
+      ; key
+      ]
+    in
+    try
+      Helpers.call_script ~env !Xapi_globs.net_cmd args
+      |> Xapi_cmd_result.of_output ~sep:':' ~key
+      |> fun x -> Ok x
+    with
+    | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
+        Error (generic_ex "Ldap query sid failed: %s" stdout)
+    | Not_found ->
+        Error (generic_ex "%s not found in ldap result" key)
+    | _ ->
+        Error (generic_ex "Failed to lookup sid from username %s" name)
 end
 
 type domain_name_type = Name | NetbiosName
@@ -345,6 +400,25 @@ module Wbinfo = struct
     | _ ->
         Error (generic_ex "Invalid domain user name %s" uname)
 
+  let domain_and_user_of_uname uname =
+    let open Astring.String in
+    match String.split_on_char '\\' uname with
+    | [netbios; user] ->
+        let* domain =
+          domain_name_of ~target_name_type:Name ~from_name:netbios
+        in
+        Ok (domain, user)
+    | _ -> (
+      match String.split_on_char '@' uname with
+      | [user; domain] ->
+          Ok (domain, user)
+      | _ ->
+          if is_infix ~affix:"@" uname || is_infix ~affix:{|\|} uname then
+            Error (generic_ex "Invalid domain user name %s" uname)
+          else
+            Ok ((get_domain_info_from_db ()).service_name, uname)
+    )
+
   let all_domain_netbios () =
     (*
      * List all domains (trusted and own domain)
@@ -445,14 +519,6 @@ module Wbinfo = struct
     parse_uid_info stdout <!> fun () -> parsing_ex args
 end
 
-type domain_info = {
-    service_name: string
-  ; workgroup: string option
-        (* For upgrade case, the legacy db does not contain workgroup *)
-  ; netbios_name: string option
-        (* Persist netbios_name to support hostname change *)
-}
-
 module Migrate_from_pbis = struct
   (* upgrade-pbis-to-winbind handles most of the migration from PBIS database
    * to winbind database
@@ -531,21 +597,6 @@ module Migrate_from_pbis = struct
     debug "Migrated netbios_name %s from PBIS" netbios_name ;
     netbios_name
 end
-
-let get_domain_info_from_db () =
-  (fun __context ->
-    let host = Helpers.get_localhost ~__context in
-    let service_name =
-      Db.Host.get_external_auth_service_name ~__context ~self:host
-    in
-    let workgroup, netbios_name =
-      Db.Host.get_external_auth_configuration ~__context ~self:host |> fun l ->
-      (List.assoc_opt "workgroup" l, List.assoc_opt "netbios_name" l)
-    in
-    {service_name; workgroup; netbios_name}
-    )
-  |> Server_helpers.exec_with_new_task
-       "retrieving external auth domain workgroup"
 
 let kdcs_of_domain domain =
   try
@@ -921,13 +972,32 @@ let build_dns_hostname_option ~config_params =
   | _ ->
       []
 
+let closest_kdc_of_domain domain =
+  match ClosestKdc.from_db domain with
+  | Some kdc ->
+      kdc
+  | None ->
+      (* Just pick the first KDC in the list *)
+      kdc_of_domain domain
+
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let get_subject_identifier' subject_name =
     let* domain =
       try Ok (get_domain_info_from_db ()).service_name with e -> Error e
     in
     let subject_name = domainify_uname ~domain subject_name in
-    Wbinfo.sid_of_name subject_name
+    match Wbinfo.sid_of_name subject_name with
+    | Ok sid ->
+        Ok sid
+    | Error e ->
+        debug "Failed to query sid from cache, error: %s, retry ldap"
+          (ExnHelper.string_of_exn e) ;
+        let* domain, user = Wbinfo.domain_and_user_of_uname subject_name in
+        let* domain_netbios =
+          Wbinfo.domain_name_of ~target_name_type:NetbiosName ~from_name:domain
+        in
+        let kdc = closest_kdc_of_domain domain in
+        Ldap.query_sid ~name:user ~kdc ~domain_netbios
 
   (* subject_id get_subject_identifier(string subject_name)
 
@@ -1004,14 +1074,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let query_subject_information_user (uid : int) (sid : string) =
     let* {user_name; gecos; gid} = Wbinfo.uid_info_of_uid uid in
     let* domain_netbios, domain = Wbinfo.domain_of_uname user_name in
-    let closest_kdc =
-      match ClosestKdc.from_db domain with
-      | Some kdc ->
-          kdc
-      | None ->
-          (* Just pick the first KDC in the list *)
-          kdc_of_domain domain
-    in
+    let closest_kdc = closest_kdc_of_domain domain in
     let* {
            name
          ; upn
