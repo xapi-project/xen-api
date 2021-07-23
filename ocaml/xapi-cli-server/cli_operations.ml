@@ -7088,15 +7088,10 @@ let subject_add printer rpc session_id params =
   let subject_identifier =
     Client.Auth.get_subject_identifier ~rpc ~session_id ~subject_name
   in
-  (* obtains a list of name-value pairs with info about the subject from the external directory *)
-  let subject_info =
-    Client.Auth.get_subject_information_from_identifier ~rpc ~session_id
-      ~subject_identifier
-  in
-  (* now we've got enough information to create our new subject in the pool *)
+  (* now we've got enough information to create our new subject in the pool
+   * Subject.create will query subject information basing on the subject identifier *)
   let subject_ref =
-    Client.Subject.create ~rpc ~session_id ~subject_identifier
-      ~other_config:subject_info
+    Client.Subject.create ~rpc ~session_id ~subject_identifier ~other_config:[]
   in
   let subject_uuid = Client.Subject.get_uuid rpc session_id subject_ref in
   printer (Cli_printer.PList [subject_uuid])

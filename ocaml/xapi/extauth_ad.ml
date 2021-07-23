@@ -69,7 +69,7 @@ let init_service ~__context =
   |> AD_type.of_string
   |> AD.init_service ~__context
 
-let methods() =
+let methods () =
   match !Xapi_globs.extauth_ad_backend |> AD_type.of_string with
   | Pbis ->
       Extauth_plugin_ADpbis.AuthADlw.methods
