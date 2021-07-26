@@ -364,7 +364,7 @@ let take_and_append n x xs =
   in
   loop 0 [] xs
 
-let exchange_certificates_among_all_members ~__context =
+let exchange_certificates_in_pool ~__context =
   (* here we coordinate the certificate distribution. from a high level
      we do the following:
      a) collect certs from all the members, aggregating them on the master.
@@ -387,7 +387,7 @@ let exchange_certificates_among_all_members ~__context =
      *   - throw an error at a random point
      *   - print out what is going to execute for debugging purposes
      *)
-    match Xapi_fist.exchange_certificates_among_all_members () with
+    match Xapi_fist.exchange_certificates_in_pool () with
     | None ->
         Fun.id
     | Some seed ->
@@ -401,16 +401,13 @@ let exchange_certificates_among_all_members ~__context =
                   Api_errors.(
                     Server_error
                       ( internal_error
-                      , [
-                          "/tmp/fist_exchange_certificates_among_all_members \
-                           FIST!"
-                        ]
+                      , ["/tmp/fist_exchange_certificates_in_pool FIST!"]
                       )
                   )
             )
           in
           let ops' = take_and_append rand_i throw_op ops in
-          D.debug "exchange_certificates_among_all_members: we are about to..." ;
+          D.debug "exchange_certificates_in_pool: we are about to..." ;
           List.iteri (fun i (desc, _) -> D.debug "%d. %s" i desc) ops' ;
           ops'
   in

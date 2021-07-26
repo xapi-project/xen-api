@@ -997,7 +997,7 @@ functor
           ~doc:"Pool.enable_tls_verification" ~self ~op:`tls_verification_enable
           (fun () ->
             debug "Pool.enable_tls_verification start ... (1/2)" ;
-            Cert_distrib.exchange_certificates_among_all_members ~__context ;
+            Cert_distrib.exchange_certificates_in_pool ~__context ;
             while Xapi_fist.pause_after_cert_exchange () do
               debug "Pool.enable_tls_verification sleeping on fistpoint" ;
               Thread.delay 5.0

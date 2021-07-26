@@ -148,6 +148,6 @@ let int_seed name : int option =
     )
   )
 
-let exchange_certificates_among_all_members () : int option =
-  let name = "exchange_certificates_among_all_members" in
+let exchange_certificates_in_pool () : int option =
+  let name = "exchange_certificates_in_pool" in
   int_seed name
