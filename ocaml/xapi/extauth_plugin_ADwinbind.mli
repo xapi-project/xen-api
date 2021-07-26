@@ -61,6 +61,8 @@ module Ldap : sig
   val string_of_user : user -> string
 
   val parse_user : string -> (user, string) result
+
+  val escape : string -> string
 end
 
 module Migrate_from_pbis : sig

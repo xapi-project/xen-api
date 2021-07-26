@@ -112,6 +112,28 @@ let test_domainify_uname =
   |> List.map @@ fun (inp, exp) ->
      (Printf.sprintf "%s -> %s" inp exp, `Quick, check inp exp)
 
+let test_ldap_escape =
+  let open Extauth_plugin_ADwinbind.Ldap in
+  let check str exp () =
+    let msg = Printf.sprintf "%s -> %s" str exp in
+    let escaped = escape str in
+    Alcotest.(check string) msg exp escaped
+  in
+  let matrix =
+    [
+      ({|user|}, {|user|})
+    ; ({|(user)|}, {|\28user\29|})
+    ; ({|(user|}, {|\28user|})
+    ; ({|user)|}, {|user\29|})
+    ; ({|us\er)|}, {|us\5der\29|})
+    ; ({|user)1|}, {|user\291|})
+    ; ({|user*|}, {|user\2a|})
+    ]
+  in
+  matrix
+  |> List.map @@ fun (inp, exp) ->
+     (Printf.sprintf "%s -> %s" inp exp, `Quick, check inp exp)
+
 let test_parse_wbinfo_uid_info =
   let open Extauth_plugin_ADwinbind.Wbinfo in
   let string_of_result x =
@@ -424,6 +446,7 @@ let tests =
   ; ("ADwinbind:test_range", Range.tests)
   ; ("ADwinbind:test_parse_value_from_pbis", ParseValueFromPbis.tests)
   ; ("ADwinbind:test_domainify_uname", test_domainify_uname)
+  ; ("ADwinbind:test_ldap_escape", test_ldap_escape)
   ; ("ADwinbind:test_parse_wbinfo_uid_info", test_parse_wbinfo_uid_info)
   ; ("ADwinbind:test_parse_ldap_stdout", test_parse_ldap_stdout)
   ; ( "ADwinbind:test_wbinfo_exception_of_stderr"

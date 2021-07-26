@@ -90,21 +90,61 @@ let ntlm_auth uname passwd : (unit, exn) result =
   with _ -> Error (auth_ex uname)
 
 let get_domain_info_from_db () =
-  (fun __context ->
-    let host = Helpers.get_localhost ~__context in
-    let service_name =
-      Db.Host.get_external_auth_service_name ~__context ~self:host
-    in
-    let workgroup, netbios_name =
-      Db.Host.get_external_auth_configuration ~__context ~self:host |> fun l ->
-      (List.assoc_opt "workgroup" l, List.assoc_opt "netbios_name" l)
-    in
-    {service_name; workgroup; netbios_name}
-    )
-  |> Server_helpers.exec_with_new_task
-       "retrieving external auth domain workgroup"
+  Server_helpers.exec_with_new_task "retrieving external auth domain workgroup"
+  @@ fun __context ->
+  let host = Helpers.get_localhost ~__context in
+  let service_name =
+    Db.Host.get_external_auth_service_name ~__context ~self:host
+  in
+  let workgroup, netbios_name =
+    Db.Host.get_external_auth_configuration ~__context ~self:host
+    |> fun config ->
+    (List.assoc_opt "workgroup" config, List.assoc_opt "netbios_name" config)
+  in
+  {service_name; workgroup; netbios_name}
 
 module Ldap = struct
+  module Escape = struct
+    (*
+     * Escape characters according to
+     * https://docs.microsoft.com/en-gb/windows/win32/adsi/search-filter-syntax?redirectedfrom=MSDN#special-characters
+     * *)
+
+    let reg_star = {|*|} |> Re.str |> Re.compile
+
+    let reg_left_bracket = {|(|} |> Re.str |> Re.compile
+
+    let reg_right_bracket = {|)|} |> Re.str |> Re.compile
+
+    let reg_backward_slash = {|\|} |> Re.str |> Re.compile
+
+    let reg_null = "\000" |> Re.str |> Re.compile
+
+    let reg_slash = {|/|} |> Re.str |> Re.compile
+
+    let escape_map =
+      [
+        (* backward slash goes first as others will include backward slash*)
+        (reg_backward_slash, {|\5d|})
+      ; (reg_star, {|\2a|})
+      ; (reg_left_bracket, {|\28|})
+      ; (reg_right_bracket, {|\29|})
+      ; (reg_null, {|\00|})
+      ; (reg_slash, {|\2f|})
+      ]
+
+    let escape str =
+      List.fold_left
+        (fun acc element ->
+          let reg = fst element in
+          let value = snd element in
+          Re.replace_string reg ~by:value acc
+          )
+        str escape_map
+  end
+
+  let escape str = Escape.escape str
+
   type user = {
       name: string
     ; display_name: string
@@ -223,7 +263,7 @@ module Ldap = struct
       ; password_expired= logand user_account_control passw_expire_bit <> 0l
       }
 
-  let env_of_lookup domain_netbios =
+  let env_of_krb5 domain_netbios =
     let domain_krb5_cfg =
       Filename.concat domain_krb5_dir
         (Printf.sprintf "krb5.conf.%s" domain_netbios)
@@ -231,7 +271,7 @@ module Ldap = struct
     [|Printf.sprintf "KRB5_CONFIG=%s" domain_krb5_cfg|]
 
   let query_user sid domain_netbios kdc =
-    let env = env_of_lookup domain_netbios in
+    let env = env_of_krb5 domain_netbios in
     let* stdout =
       try
         (* Query KDC instead of use domain here
@@ -259,7 +299,9 @@ module Ldap = struct
 
   let query_sid ~name ~kdc ~domain_netbios =
     let key = "objectSid" in
-    let env = env_of_lookup domain_netbios in
+    let env = env_of_krb5 domain_netbios in
+    let name = escape name in
+    (* Escape name to avoid injection detection *)
     let query = Printf.sprintf "(|(sAMAccountName=%s)(name=%s))" name name in
     let args =
       [
@@ -676,11 +718,9 @@ let from_config ~name ~err_msg ~config_params =
 let all_number_re = Re.Perl.re {|^\d+$|} |> Re.Perl.compile
 
 let get_localhost_name () =
-  (fun __context ->
-    Helpers.get_localhost ~__context |> fun host ->
-    Db.Host.get_hostname ~__context ~self:host
-    )
-  |> Server_helpers.exec_with_new_task "retrieving hostname"
+  Server_helpers.exec_with_new_task "retrieving hostname" @@ fun __context ->
+  Helpers.get_localhost ~__context |> fun host ->
+  Db.Host.get_hostname ~__context ~self:host
 
 let assert_hostname_valid ~hostname =
   let all_numbers = Re.matches all_number_re hostname <> [] in
@@ -716,13 +756,12 @@ let persist_extauth_config ~domain ~user ~ou_conf ~workgroup ~netbios_name =
         ]
         @ ou_conf
   in
-  (fun __context ->
-    Helpers.get_localhost ~__context |> fun self ->
-    Db.Host.set_external_auth_configuration ~__context ~self ~value ;
-    Db.Host.get_name_label ~__context ~self
-    |> debug "update external_auth_configuration for host %s"
-    )
-  |> Server_helpers.exec_with_new_task "update external_auth_configuration"
+  Server_helpers.exec_with_new_task "update external_auth_configuration"
+  @@ fun __context ->
+  Helpers.get_localhost ~__context |> fun self ->
+  Db.Host.set_external_auth_configuration ~__context ~self ~value ;
+  Db.Host.get_name_label ~__context ~self
+  |> debug "update external_auth_configuration for host %s"
 
 let disable_machine_account ~service_name = function
   | Some u, Some p -> (
@@ -884,21 +923,19 @@ module ClosestKdc = struct
         Error e
 
   let update_db ~domain ~kdc =
-    (fun __context ->
-      let self = Helpers.get_localhost ~__context in
-      Db.Host.get_external_auth_configuration ~__context ~self |> fun value ->
-      (domain, kdc) :: List.remove_assoc domain value |> fun value ->
-      Db.Host.set_external_auth_configuration ~__context ~self ~value
-      )
-    |> Server_helpers.exec_with_new_task "update domain closest kdc"
+    Server_helpers.exec_with_new_task "update domain closest kdc"
+    @@ fun __context ->
+    let self = Helpers.get_localhost ~__context in
+    Db.Host.get_external_auth_configuration ~__context ~self |> fun value ->
+    (domain, kdc) :: List.remove_assoc domain value |> fun value ->
+    Db.Host.set_external_auth_configuration ~__context ~self ~value
 
   let from_db domain =
-    (fun __context ->
-      let self = Helpers.get_localhost ~__context in
-      Db.Host.get_external_auth_configuration ~__context ~self
-      |> List.assoc_opt domain
-      )
-    |> Server_helpers.exec_with_new_task "query domain closest kdc"
+    Server_helpers.exec_with_new_task "query domain closest kdc"
+    @@ fun __context ->
+    let self = Helpers.get_localhost ~__context in
+    Db.Host.get_external_auth_configuration ~__context ~self
+    |> List.assoc_opt domain
 
   let lookup domain =
     try
@@ -982,8 +1019,9 @@ let closest_kdc_of_domain domain =
 
 module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   let get_subject_identifier' subject_name =
-    let subject_name =
-      domainify_uname ~domain:(get_service_name ()) subject_name
+    (* Called in the login path with a yet unauthenticated user *)
+    let* domain =
+      try Ok (get_domain_info_from_db ()).service_name with e -> Error e
     in
     let subject_name = domainify_uname ~domain subject_name in
     match Wbinfo.sid_of_name subject_name with
