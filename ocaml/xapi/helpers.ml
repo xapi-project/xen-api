@@ -1826,8 +1826,8 @@ module Stunnel : sig
   val restart : __context:Context.t -> accept:string -> unit
   (** restart stunnel, possibly changing the config file *)
 
-  val reload : unit -> unit
-  (** reload (potentially updated) configuration *)
+  val reload : ?wait:float -> unit -> unit
+  (** reload (potentially updated) configuration and wait 5s *)
 end = struct
   let cert = !Xapi_globs.server_cert_path
 
@@ -1914,7 +1914,10 @@ end = struct
 
   let systemctl_ cmd = systemctl cmd |> ignore
 
-  let reload () = systemctl_ "reload-or-restart"
+  let reload ?(wait = 5.0) () =
+    systemctl_ "reload-or-restart" ;
+    (* We can't be sure that the reload is finished, so wait a moment *)
+    Thread.delay wait
 
   let is_enabled () =
     let is_enabled_stdout =
