@@ -3409,12 +3409,14 @@ let check_update_readiness ~__context ~self ~requires_reboot =
 let enable_client_certificate_auth ~__context ~self ~name =
   (* TODO: actually enable client-certificate auth *)
   Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:true ;
-  Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:name
+  Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:name ;
+  Xapi_mgmt_iface.run __context ()
 
 let disable_client_certificate_auth ~__context ~self =
   (* TODO: actually disable client-certificate auth *)
   Db.Pool.set_client_certificate_auth_enabled ~__context ~self ~value:false ;
-  Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:""
+  Db.Pool.set_client_certificate_auth_name ~__context ~self ~value:"" ;
+  Xapi_mgmt_iface.run __context ()
 
 let get_updates_handler (req : Http.Request.t) s _ =
   debug "Pool.get_updates_handler: received request" ;

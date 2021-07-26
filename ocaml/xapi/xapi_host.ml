@@ -1118,7 +1118,7 @@ let get_management_interface ~__context ~host =
 let change_management_interface ~__context interface primary_address_type =
   debug "Changing management interface" ;
   Xapi_mgmt_iface.change interface primary_address_type ;
-  Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true ;
+  Xapi_mgmt_iface.run ~__context ~mgmt_enabled:true () ;
   (* once the inventory file has been rewritten to specify new interface, sync up db with
      	   state of world.. *)
   Xapi_mgmt_iface.on_dom0_networking_change ~__context
@@ -1186,7 +1186,7 @@ let management_disable ~__context =
       (Api_errors.Server_error (Api_errors.slave_requires_management_iface, [])) ;
   (* Reset the management server *)
   Xapi_mgmt_iface.change "" `IPv4 ;
-  Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false ;
+  Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false () ;
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context
     ~host:(Helpers.get_localhost ~__context)

@@ -32,7 +32,7 @@ val on_dom0_networking_change : __context:Context.t -> unit
 val change : string -> [< `IPv4 | `IPv6] -> unit
 (** Update the inventory file with the given interface (used for management traffic). *)
 
-val run : __context:Context.t -> mgmt_enabled:bool -> unit
+val run : __context:Context.t -> ?mgmt_enabled:bool -> unit -> unit
 (** Ensure the server thread listening on the management interface, or only localhost
  *  and possible the HIMN address, in case management is disabled. *)
 

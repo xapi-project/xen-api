@@ -187,7 +187,8 @@ let next_server_mode ~mgmt_enabled =
 
 let mgmt_is_enabled () = Server.current_mode () = Any
 
-let run ~__context ~mgmt_enabled =
+let run ~__context ?mgmt_enabled () =
+  let mgmt_enabled = Option.value ~default:(mgmt_is_enabled ()) mgmt_enabled in
   Mutex.execute management_m (fun () ->
       Client_certificate_auth_server.update ~__context ~mgmt_enabled ;
       next_server_mode ~mgmt_enabled |> Server.update ~__context ;
