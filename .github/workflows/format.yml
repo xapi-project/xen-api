@@ -1,0 +1,39 @@
+name: Check format
+
+on:
+  pull_request:
+    branches:
+      - master
+      - 'feature/**'
+      - '*-lcm'
+
+jobs:
+  ocaml-format:
+    name: Ocaml files
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Pull configuration from xs-opam
+        run: |
+          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/release/stockholm/lcm/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+
+      - name: Load environment file
+        id: dotenv
+        uses: falti/dotenv-action@v0.2.4
+
+      - name: Use ocaml
+        uses: avsm/setup-ocaml@v1
+        with:
+          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repository: ${{ steps.dotenv.outputs.repository }}
+
+      - name: Install ocamlformat
+        run: |
+          opam update
+          opam install ocamlformat
+
+      - name: Check whether `make format` was run
+        run: opam exec -- dune build @fmt
