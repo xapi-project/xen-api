@@ -22,6 +22,7 @@ let check_domain0_uuid () =
       Inventory.update Inventory._control_domain_uuid uuid ;
       uuid
   in
+  Xenops_server.set_dom0_uuid uuid ;
   Xenctrl.domain_sethandle xc 0 uuid ;
   (* make the minimum entries for dom0 *)
   let kvs =
