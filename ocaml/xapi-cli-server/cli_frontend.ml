@@ -811,8 +811,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; help=
           "Deletes the current TLS server certificate in the host and installs \
            a new, self-signed one."
-      ; implementation=
-          No_fd_local_session Cli_operations.host_reset_server_certificate
+      ; implementation= No_fd Cli_operations.host_reset_server_certificate
       }
     )
   ; ( "host-management-reconfigure"
