@@ -114,7 +114,8 @@ let host ~__context ~type' =
           cert
   in
   (* start using new cert *)
-  Xapi_stunnel_server.reload () ; ref
+  Xapi_stunnel_server.reload () ;
+  ref
 
 (* The stunnel clients trust the old and the new [host] server cert.  On
 the local host, rename the old cert and re-create the cert bundle
