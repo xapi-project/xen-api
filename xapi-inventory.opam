@@ -25,7 +25,3 @@ synopsis: "Library for accessing the xapi toolstack inventory file"
 description: """
 The inventory file provides global host identify information
 needed by multiple services."""
-url {
-  src: "https://github.com/xapi-project/xcp-inventory/archive/v1.2.0.tar.gz"
-  checksum: "md5=88e1c13e43b8028c85f37d130c00dee2"
-}
