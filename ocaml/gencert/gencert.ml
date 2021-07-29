@@ -63,7 +63,10 @@ let main ~dbg ~path ~sni =
         ()
     | SNI.Xapi_pool ->
         let uuid = Inventory.lookup Inventory._installation_uuid in
-        Gencertlib.Selfcert.xapi_pool ~uuid path
+        let (_ : X509.Certificate.t) =
+          Gencertlib.Selfcert.xapi_pool ~uuid path
+        in
+        ()
   in
   generate_cert_or_fail ~generator ~path
 
