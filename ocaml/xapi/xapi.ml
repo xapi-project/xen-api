@@ -1388,9 +1388,9 @@ let server_init () =
             , fun () ->
                 call_extauth_hook_script_before_xapi_initialize ~__context
             )
-          ; ( "Initializing lwsmd service"
+          ; ( "Initializing AD external auth service"
             , [Startup.NoExnRaising]
-            , fun () -> Extauth_plugin_ADpbis.Lwsmd.init_service ~__context
+            , fun () -> Extauth_ad.init_service ~__context
             )
           ; ( "Calling on_xapi_initialize event hook in the external \
                authentication plugin"

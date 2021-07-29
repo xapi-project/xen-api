@@ -44,7 +44,7 @@ let create ~__context ~subject_identifier ~other_config =
   let auth_types =
     List.map (fun self -> Db.Host.get_external_auth_type ~__context ~self) hosts
   in
-  if List.exists (fun x -> x = Xapi_globs.auth_type_AD_Likewise) auth_types then
+  if List.exists (fun x -> x = Xapi_globs.auth_type_AD) auth_types then
     Pool_features.assert_enabled ~__context ~f:Features.AD ;
   (* we need to find if subject is already in the pool *)
   let subjects = Db.Subject.get_all_records ~__context in
@@ -84,8 +84,13 @@ let create ~__context ~subject_identifier ~other_config =
       else (*free edition: one fixed role of pool-admin only*)
         Rbac_static.get_refs [Rbac_static.role_pool_admin]
     in
-    Db.Subject.create ~__context ~ref ~uuid ~subject_identifier ~other_config
-      ~roles:default_roles ;
+    (* subject_info is overrided by subject info queried form DC *)
+    let subject_info =
+      Xapi_auth.get_subject_information_from_identifier ~__context
+        ~subject_identifier
+    in
+    Db.Subject.create ~__context ~ref ~uuid ~subject_identifier
+      ~other_config:subject_info ~roles:default_roles ;
     (* CP-709: call extauth hook-script after subject.add *)
     (* we fork this call in a new thread so that subject.add *)
     (* does not have to wait for the script to finish in all hosts of the pool *)
@@ -226,3 +231,26 @@ let remove_from_roles ~__context ~self ~role =
       (Ref.string_of role) ;
     raise (Api_errors.Server_error (Api_errors.role_not_found, []))
   )
+
+let query_subject_information_from_db ~__context identifier =
+  match
+    Db.Subject.get_records_where ~__context
+      ~expr:
+        (Db_filter_types.Eq
+           ( Db_filter_types.Field "subject_identifier"
+           , Db_filter_types.Literal identifier
+           )
+        )
+  with
+  | [] ->
+      raise Auth_signature.Subject_cannot_be_resolved
+  | x :: _ ->
+      let subject_r = snd x in
+      subject_r.API.subject_other_config
+
+let get_subject_information_from_identifier ~__context ~cache identifier =
+  let open Extauth in
+  if cache then
+    query_subject_information_from_db ~__context identifier
+  else
+    (Ext_auth.d ()).query_subject_information identifier

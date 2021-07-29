@@ -2,6 +2,7 @@ _build/
 *.native
 .merlin
 *.install
+*.swp
 
 # tests
 xapi-db.xml

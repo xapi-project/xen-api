@@ -253,7 +253,6 @@ intel-igb-5.3.5.20-2.xs8.x86_64
 nss-pem-1.0.3-4.el7.x86_64
 gssproxy-0.7.0-17.el7.x86_64
 nss-sysinit-3.36.0-7.el7_5.x86_64
-pbis-open-8.2.3-1.7.8.xs8.x86_64
 mailx-12.5-19.el7.x86_64
 system-config-firewall-base-1.2.29-10.el7.noarch
 libgomp-4.8.5-28.el7_5.1.x86_64
@@ -464,7 +463,6 @@ broadcom-bnxt-en-1.10.0_216.0.119.1-2.xs8.x86_64
 tar-1.26-34.el7.x86_64
 avago-megaraid-sas-07.713.01.00+rc1-2.xs8.x86_64
 nss-softokn-3.36.0-5.el7_5.x86_64
-pbis-open-upgrade-8.2.2-3.xs8.x86_64
 nss-tools-3.36.0-7.el7_5.x86_64
 forkexecd-1.22.0-7.xs8.x86_64
 libunistring-0.9.3-9.el7.x86_64
