@@ -137,13 +137,18 @@ let host ~name ~dns_names ~ips pemfile =
   in
   R.failwith_error_msg res
 
+let serial_stamp () = Unix.gettimeofday () |> string_of_float
+
 let xapi_pool ~uuid pemfile =
   let res =
     let* expiration = expire_in_days (365 * 10) in
     let key_length = 2048 in
     let issuer =
       [
-        X509.Distinguished_name.(Relative_distinguished_name.singleton (CN uuid))
+        X509.Distinguished_name.(
+          Relative_distinguished_name.of_list
+            [CN uuid; Serialnumber (serial_stamp ())]
+        )
       ]
     in
     let extensions = X509.Extension.empty in
