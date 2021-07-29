@@ -3041,6 +3041,17 @@ let resync_resident_on ~__context =
           ()
       )
     xenopsd_vms_in_xapi ;
+  (* Reset Dom0 plugged VBDs *)
+  if !Xapi_globs.on_system_boot then begin
+    (* mark all VBDs that were plugged into Dom0 as disconnected *)
+    Helpers.get_domain_zero ~__context
+    |> fun self -> Db.VM.get_VBDs ~__context ~self
+    |> List.iter (fun vbd ->
+        Db.VBD.set_currently_attached ~__context ~self:vbd ~value:false ;
+        Db.VBD.set_reserved ~__context ~self:vbd ~value:false ;
+        Xapi_vbd_helpers.clear_current_operations ~__context ~self:vbd
+    )
+  end;
   (* Sync VM state in Xapi for VMs not running on this host *)
   List.iter
     (fun (id, vm) ->
